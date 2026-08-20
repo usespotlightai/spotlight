@@ -9,6 +9,7 @@ services:
       target: development
     environment:
       NODE_ENV: development
+      DATABASE_URL: ${DATABASE_URL:-postgres://postgres:postgres@db:5432/postgres}
     depends_on:
       db:
         condition: service_healthy

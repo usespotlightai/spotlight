@@ -12,5 +12,6 @@
     "^@infrastructure/(.*)$": "<rootDir>/../src/infrastructure/$1",
     "^@presentation/(.*)$": "<rootDir>/../src/presentation/$1",
     "^@/(.*)$": "<rootDir>/../src/$1"
-  }
+  },
+  "setupFiles": ["<rootDir>/setup-e2e.ts"]
 }
