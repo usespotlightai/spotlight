@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { useGreeting } from '@/hooks/api/use-greeting';
+import { useGreeting } from '@/hooks/api/useGreeting';
 import { client } from '@/lib/api/client.gen';
 
 beforeAll(() => {

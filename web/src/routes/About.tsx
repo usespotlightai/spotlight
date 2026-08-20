@@ -1,4 +1,4 @@
-import { useGreeting } from '@/hooks/api/use-greeting';
+import { useGreeting } from '@/hooks/api/useGreeting';
 
 export function About() {
   const { data, isPending, isError } = useGreeting();
