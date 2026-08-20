@@ -1,10 +1,11 @@
+import { GetGreetingHandler } from '@application/queries/handlers/get-greeting.handler';
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { CqrsModule } from '@nestjs/cqrs';
+import { GreetingController } from '@presentation/http/controllers/greeting.controller';
 
 @Module({
-  imports: [],
-  controllers: [AppController],
-  providers: [AppService],
+  imports: [CqrsModule],
+  controllers: [GreetingController],
+  providers: [GetGreetingHandler],
 })
 export class AppModule {}
