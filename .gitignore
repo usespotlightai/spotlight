@@ -1,1 +1,3 @@
 .idea/
+# Locally generated TLS material (mkcert). Never commit private keys.
+.docker/traefik/certs/*.pem
