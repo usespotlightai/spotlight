@@ -3,11 +3,7 @@ import { NavLink, Outlet } from 'react-router';
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   isActive ? 'nav-link nav-link--active' : 'nav-link';
 
-/**
- * Layout route: renders on every child route, with <Outlet /> as the slot.
- * NavLink supplies the active state that plain <Link> does not.
- */
-export function Layout() {
+export function AppLayout() {
   return (
     <div className="app">
       <header className="app-header">
