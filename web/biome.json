@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!public", "!dist"]
+    "includes": ["**", "!public", "!dist", "!src/lib/api"]
   },
   "formatter": {
     "enabled": true,

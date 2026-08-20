@@ -1,0 +1,55 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/": {
+      "get": {
+        "operationId": "getGreeting",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GreetingResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Return a greeting",
+        "tags": [
+          "greeting"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Spotlight Control Plane",
+    "description": "HTTP API for the Spotlight Control Plane.",
+    "version": "0.0.1",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [
+    {
+      "url": "/api"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "GreetingResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "Hello World!"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      }
+    }
+  }
+}
