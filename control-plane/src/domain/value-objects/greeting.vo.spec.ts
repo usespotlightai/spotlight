@@ -1,5 +1,6 @@
 import { EmptyRecipientError } from '@domain/exceptions/empty-recipient.error';
 import { Greeting } from '@domain/value-objects/greeting.vo';
+import { describe, expect, it } from 'vitest';
 
 describe('Greeting', () => {
   it('renders a message for its recipient', () => {

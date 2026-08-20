@@ -1,5 +1,9 @@
 import type { INestApplication } from '@nestjs/common';
-import { DocumentBuilder, type OpenAPIObject, SwaggerModule } from '@nestjs/swagger';
+import {
+  DocumentBuilder,
+  type OpenAPIObject,
+  SwaggerModule,
+} from '@nestjs/swagger';
 
 export const openApiConfig = new DocumentBuilder()
   .setTitle('Spotlight Control Plane')

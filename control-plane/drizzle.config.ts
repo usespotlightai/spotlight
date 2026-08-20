@@ -6,6 +6,9 @@ export default defineConfig({
   dialect: 'postgresql',
   schema: './src/infrastructure/persistence/drizzle/schema.ts',
   out: './drizzle',
+  migrations: {
+    prefix: 'timestamp',
+  },
   dbCredentials: {
     url: env.DATABASE_URL,
   },

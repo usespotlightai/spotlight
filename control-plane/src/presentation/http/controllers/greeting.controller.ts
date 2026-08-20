@@ -4,6 +4,7 @@ import { QueryBus } from '@nestjs/cqrs';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { GreetingResponseDto } from '@presentation/http/dto/greeting.response.dto';
 import { GreetingHttpMapper } from '@presentation/http/mappers/greeting.http.mapper';
+import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
 @ApiTags('greeting')
 @Controller()
@@ -11,6 +12,7 @@ export class GreetingController {
   constructor(private readonly queryBus: QueryBus) {}
 
   @Get()
+  @AllowAnonymous()
   @ApiOperation({ operationId: 'getGreeting', summary: 'Return a greeting' })
   @ApiOkResponse({ type: GreetingResponseDto })
   async handle(): Promise<GreetingResponseDto> {

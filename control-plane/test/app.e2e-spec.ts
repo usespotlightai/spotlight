@@ -1,7 +1,9 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import * as request from 'supertest';
-import { AppModule } from './../src/app.module';
+import request from 'supertest';
+import { afterEach, beforeEach, describe, it } from 'vitest';
+import { AppModule } from '@/app.module';
+import { configureApp } from '@/app.setup';
 
 describe('GreetingController (e2e)', () => {
   let app: INestApplication;
@@ -11,7 +13,7 @@ describe('GreetingController (e2e)', () => {
       imports: [AppModule],
     }).compile();
 
-    app = moduleFixture.createNestApplication();
+    app = configureApp(moduleFixture.createNestApplication());
     await app.init();
   });
 
@@ -21,7 +23,7 @@ describe('GreetingController (e2e)', () => {
 
   it('/ (GET)', () => {
     return request(app.getHttpServer())
-      .get('/')
+      .get('/api')
       .expect(200)
       .expect({ message: 'Hello World!' });
   });

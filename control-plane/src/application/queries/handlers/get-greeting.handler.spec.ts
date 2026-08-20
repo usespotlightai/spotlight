@@ -1,4 +1,5 @@
 import { GetGreetingHandler } from '@application/queries/handlers/get-greeting.handler';
+import { describe, expect, it } from 'vitest';
 
 describe('GetGreetingHandler', () => {
   it('returns a greeting for the world', async () => {

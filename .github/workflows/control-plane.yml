@@ -52,6 +52,13 @@ jobs:
           git diff --exit-code -- control-plane/openapi.json \
             || { echo "::error::openapi.json is stale. Run 'docker compose exec -T control-plane npm run openapi:generate'."; exit 1; }
 
+      - name: Auth schema is up to date
+        run: |
+          rm control-plane/src/infrastructure/persistence/drizzle/auth.schema.ts
+          docker compose exec -T control-plane npm run auth:generate
+          git diff --exit-code -- control-plane/src/infrastructure/persistence/drizzle/auth.schema.ts \
+            || { echo "::error::auth.schema.ts is stale. Run 'docker compose exec -T control-plane npm run auth:generate'."; exit 1; }
+
       - name: e2e tests
         run: docker compose exec -T control-plane npm run test:e2e
 
