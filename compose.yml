@@ -25,6 +25,24 @@ services:
       - ./control-plane:/app
       - node-modules-control-plane:/app/node_modules
 
+  web:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: .docker/web/Dockerfile
+      target: development
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://127.0.0.1:5173/ > /dev/null 2>&1 || exit 1" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./web:/app
+      - node-modules-web:/app/node_modules
+
   db:
     restart: unless-stopped
     build:
@@ -45,5 +63,6 @@ services:
       - db-data:/var/lib/postgresql
 
 volumes:
+  node-modules-web:
   node-modules-control-plane:
   db-data:
