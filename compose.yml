@@ -2,7 +2,9 @@ name: spotlight
 
 services:
   traefik:
-    image: traefik:v3.7
+    build:
+      context: .
+      dockerfile: .docker/traefik/Dockerfile
     restart: unless-stopped
     command:
       - --providers.docker=true
@@ -84,6 +86,7 @@ services:
       - traefik.http.services.web.loadbalancer.server.port=5173
     volumes:
       - ./web:/app
+      - ./control-plane/openapi.json:/control-plane/openapi.json:ro
       - node-modules-web:/app/node_modules
 
   db:
