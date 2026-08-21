@@ -5,6 +5,7 @@ x-control-plane-env: &control-plane-env
   DATABASE_URL: ${DATABASE_URL:-postgres://postgres:postgres@db:5432/postgres}
   BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-xj4/EgMfb/oOOX54xSnrKiCToESDSWJIy4mLF5Sxlo/IUzvEd/hJDh9VT2kqsyeo}
   BETTER_AUTH_URL: ${BETTER_AUTH_URL:-https://app.dev.usespotlight.ai}
+  LOG_LEVEL: ${LOG_LEVEL:-debug}
 
 services:
   traefik:
@@ -23,6 +24,12 @@ services:
       - --providers.file.watch=true
       - --ping=true
       - --accesslog=true
+      # TraceId is only emitted in the JSON format, not in CLF.
+      - --accesslog.format=json
+      # Issues a W3C `traceparent` towards the backend and records the
+      # same trace id in the access log, which is what lets a proxy line
+      # and an application line be joined.
+      - --tracing=true
       - --api.dashboard=true
       - --api.insecure=true
     healthcheck:
