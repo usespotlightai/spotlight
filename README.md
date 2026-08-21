@@ -21,15 +21,27 @@ echo "127.0.0.1 app.dev.usespotlight.ai" | sudo tee -a /etc/hosts
 mkcert -install
 (cd .docker/traefik/certs && mkcert "*.dev.usespotlight.ai")
 
-# 3. Start Traefik, web, control-plane and Postgres. The first run builds
-#    images and installs dependencies.
+# 3. Start Traefik, web, control-plane and Postgres. Database migrations run
+#    first, in their own container.
 docker compose up -d
 ```
 
 | URL                                 | Service                                     |
 |-------------------------------------|---------------------------------------------|
 | https://app.dev.usespotlight.ai     | web — Vite dev server                       |
-| https://app.dev.usespotlight.ai/api | control-plane — the `/api` prefix is stripped before it reaches NestJS |
+| https://app.dev.usespotlight.ai/api | control-plane — NestJS serves under the `/api` global prefix |
 
 Source is bind-mounted into both containers, so edits on the host hot-reload
 without a rebuild. Plain HTTP redirects to HTTPS.
+
+## Schema changes
+
+Edit `control-plane/src/infrastructure/persistence/drizzle/schema.ts`, then:
+
+```bash
+docker compose exec -T control-plane npm run db:generate -- --name=describe_the_change
+docker compose up -d          # the migrate container applies it
+```
+
+Auth tables are generated from the better-auth config rather than written by
+hand — run `npm run auth:generate` before generating a migration.

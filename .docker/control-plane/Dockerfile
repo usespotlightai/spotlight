@@ -19,6 +19,13 @@ COPY control-plane/ ./
 EXPOSE 3000 9229
 CMD ["npm", "run", "start:dev"]
 
+FROM node:${NODE_VERSION} AS migrate
+ENV NODE_ENV=development
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY control-plane/ ./
+CMD ["npm", "run", "db:migrate"]
+
 FROM node:${NODE_VERSION} AS prod-deps
 WORKDIR /app
 COPY control-plane/package.json control-plane/package-lock.json ./

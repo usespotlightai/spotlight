@@ -1,5 +1,11 @@
 name: spotlight
 
+x-control-plane-env: &control-plane-env
+  NODE_ENV: development
+  DATABASE_URL: ${DATABASE_URL:-postgres://postgres:postgres@db:5432/postgres}
+  BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-xj4/EgMfb/oOOX54xSnrKiCToESDSWJIy4mLF5Sxlo/IUzvEd/hJDh9VT2kqsyeo}
+  BETTER_AUTH_URL: ${BETTER_AUTH_URL:-https://app.dev.usespotlight.ai}
+
 services:
   traefik:
     build:
@@ -32,20 +38,31 @@ services:
       - ./.docker/traefik/dynamic:/etc/traefik/dynamic:ro
       - ./.docker/traefik/certs:/etc/traefik/certs:ro
 
+  migrate:
+    build:
+      context: .
+      dockerfile: .docker/control-plane/Dockerfile
+      target: migrate
+    environment: *control-plane-env
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./control-plane:/app
+      - node-modules-control-plane:/app/node_modules
+
   control-plane:
     restart: unless-stopped
     build:
       context: .
       dockerfile: .docker/control-plane/Dockerfile
       target: development
-    environment:
-      NODE_ENV: development
-      DATABASE_URL: ${DATABASE_URL:-postgres://postgres:postgres@db:5432/postgres}
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-xj4/EgMfb/oOOX54xSnrKiCToESDSWJIy4mLF5Sxlo/IUzvEd/hJDh9VT2kqsyeo}
-      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-https://app.dev.usespotlight.ai}
+    environment: *control-plane-env
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: [ "CMD-SHELL", "wget -qO- http://localhost:3000/api/health > /dev/null 2>&1 || exit 1" ]
       interval: 10s
