@@ -1,0 +1,106 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/": {
+      "get": {
+        "operationId": "getGreeting",
+        "parameters": [
+          {
+            "name": "name",
+            "required": false,
+            "in": "query",
+            "description": "Who to greet. Defaults to \"World\".",
+            "schema": {
+              "example": "Leon",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GreetingResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          }
+        },
+        "summary": "Return a greeting",
+        "tags": [
+          "greeting"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Liveness probe",
+        "tags": [
+          "health"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Spotlight Control Plane",
+    "description": "HTTP API for the Spotlight Control Plane.",
+    "version": "0.0.1",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [
+    {
+      "url": "/api"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "GreetingResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "Hello World!"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "HealthResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "ok",
+            "enum": [
+              "ok"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      }
+    }
+  }
+}

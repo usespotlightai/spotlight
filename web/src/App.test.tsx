@@ -1,0 +1,65 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useSession } from '@/hooks/api/useSession';
+import App from './App';
+
+vi.mock('@/hooks/api/useSession', () => ({ useSession: vi.fn() }));
+vi.mock('@/hooks/api/useGreeting', () => ({
+  useGreeting: () => ({ data: { message: 'Hello World!' }, isPending: false }),
+}));
+
+const mockSession = vi.mocked(useSession);
+
+const renderAt = (path: string) =>
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={[path]}>
+        <App />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
+const signedIn = () =>
+  mockSession.mockReturnValue({
+    data: { user: { email: 'dev@example.com' } },
+    isPending: false,
+  } as never);
+
+const signedOut = () =>
+  mockSession.mockReturnValue({ data: null, isPending: false } as never);
+
+beforeEach(() => {
+  mockSession.mockReset();
+});
+
+describe('routing', () => {
+  it('sends an unknown path to the index when signed in', async () => {
+    signedIn();
+
+    renderAt('/definitely-not-a-page');
+
+    expect(
+      await screen.findByRole('button', { name: 'Sign out' }),
+    ).toBeInTheDocument();
+  });
+
+  it('sends an unknown path to the login screen when signed out', async () => {
+    signedOut();
+
+    renderAt('/definitely-not-a-page');
+
+    expect(await screen.findByPlaceholderText('Password')).toBeInTheDocument();
+  });
+
+  it('keeps the login screen reachable when signed out', async () => {
+    signedOut();
+
+    renderAt('/login');
+
+    expect(
+      await screen.findByPlaceholderText('Email address'),
+    ).toBeInTheDocument();
+  });
+});
