@@ -23,7 +23,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "openapi:generate": "ts-node -r tsconfig-paths/register scripts/generate-openapi.ts",
-    "auth:generate": "auth generate --config src/infrastructure/auth/auth.ts --output src/infrastructure/persistence/drizzle/auth.schema.ts -y"
+    "auth:generate": "auth generate --config scripts/auth-config.ts --output src/infrastructure/persistence/drizzle/auth.schema.ts -y"
   },
   "dependencies": {
     "@nestjs/common": "^11.2.1",
