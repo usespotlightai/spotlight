@@ -1,6 +1,7 @@
 import { type SubmitEvent, useId } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { LogoLockup } from '@/components/common/brand/LogoLockup';
+import { PasswordField } from '@/components/common/form/PasswordField';
 import { useSignUp } from '@/hooks/api/useSignUp';
 
 export function SignUp() {
@@ -63,20 +64,7 @@ export function SignUp() {
             placeholder="Email address"
             className="h-11 rounded-lg border-[0.5px] border-input bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border focus:border-ring"
           />
-
-          <label htmlFor={passwordId} className="sr-only">
-            Password
-          </label>
-          <input
-            id={passwordId}
-            name="password"
-            type="password"
-            required
-            minLength={8}
-            autoComplete="new-password"
-            placeholder="Password"
-            className="h-11 rounded-lg border-[0.5px] border-input bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border focus:border-ring"
-          />
+          <PasswordField id={passwordId} autoComplete="new-password" />
 
           {signUp.isError && (
             <p role="alert" className="text-center text-destructive text-sm">
