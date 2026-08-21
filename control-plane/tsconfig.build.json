@@ -8,5 +8,9 @@
     "drizzle.config.ts",
     "vitest.config.ts",
     "**/*spec.ts"
-  ]
+  ],
+  "compilerOptions": {
+    "rootDir": "./src",
+    "tsBuildInfoFile": "./dist/tsconfig.build.tsbuildinfo"
+  }
 }
