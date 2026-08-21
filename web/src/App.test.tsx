@@ -40,7 +40,9 @@ describe('routing', () => {
 
     renderAt('/definitely-not-a-page');
 
-    expect(await screen.findByText('dev@example.com')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', { name: 'Sign out' }),
+    ).toBeInTheDocument();
   });
 
   it('sends an unknown path to the login screen when signed out', async () => {

@@ -13,7 +13,7 @@ export function Home() {
 
   return (
     <main className="flex min-h-svh flex-col items-center justify-center gap-6 px-4">
-      <h1 className="font-medium text-title">
+      <h1 className="font-medium text-lg">
         {isPending
           ? 'Loading…'
           : isError
