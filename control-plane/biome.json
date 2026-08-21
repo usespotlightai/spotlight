@@ -156,7 +156,6 @@
                       "!@domain/**",
                       "!./**",
                       "!../**",
-                      "!@nestjs/cqrs",
                       "!vitest"
                     ],
                     "message": "The application layer may only depend on the domain. For anything external, define a port under application/ports and let infrastructure implement it."

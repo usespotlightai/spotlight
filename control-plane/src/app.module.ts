@@ -1,6 +1,8 @@
+import { GetGreetingQuery } from '@application/queries/get-greeting.query';
 import { GetGreetingHandler } from '@application/queries/handlers/get-greeting.handler';
 import { AuthenticationModule } from '@infrastructure/auth/auth.module';
 import { ConfigModule } from '@infrastructure/config/config.module';
+import { bindQueryHandler } from '@infrastructure/cqrs/bind-query-handler';
 import { LoggingModule } from '@infrastructure/logging/logging.module';
 import { DrizzleModule } from '@infrastructure/persistence/drizzle/drizzle.module';
 import { Module } from '@nestjs/common';
@@ -21,7 +23,7 @@ import { AuthenticatedGuard } from '@presentation/http/guards/authenticated.guar
   ],
   controllers: [GreetingController, HealthController],
   providers: [
-    GetGreetingHandler,
+    ...bindQueryHandler(GetGreetingQuery, GetGreetingHandler),
     { provide: APP_GUARD, useClass: AuthenticatedGuard },
     { provide: APP_FILTER, useClass: ServerFaultFilter },
   ],
