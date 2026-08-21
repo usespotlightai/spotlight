@@ -1,6 +1,8 @@
 import 'dotenv/config';
-import { env } from '@infrastructure/config/env';
+import { parseEnv } from '@infrastructure/config/env';
 import { defineConfig } from 'drizzle-kit';
+
+const env = parseEnv();
 
 export default defineConfig({
   dialect: 'postgresql',

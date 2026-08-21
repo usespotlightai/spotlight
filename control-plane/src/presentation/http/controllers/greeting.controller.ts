@@ -1,3 +1,4 @@
+import type { GreetingDto } from '@application/dto/greeting.dto';
 import { GetGreetingQuery } from '@application/queries/get-greeting.query';
 import { Controller, Get, Query } from '@nestjs/common';
 import { QueryBus } from '@nestjs/cqrs';
@@ -30,7 +31,7 @@ export class GreetingController {
   @ApiUnauthorizedResponse({ description: 'No valid session' })
   async handle(@Query('name') name?: string): Promise<GreetingResponseDto> {
     const recipient = name?.trim() ? name : DEFAULT_RECIPIENT;
-    const greeting = await this.queryBus.execute(
+    const greeting = await this.queryBus.execute<GetGreetingQuery, GreetingDto>(
       new GetGreetingQuery(recipient),
     );
     return GreetingHttpMapper.toResponse(greeting);

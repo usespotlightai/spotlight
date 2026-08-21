@@ -1,6 +1,6 @@
 import { type Env, envSchema } from '@infrastructure/config/env.schema';
 
-function parseEnv(): Env {
+export function parseEnv(): Env {
   const result = envSchema.safeParse(process.env);
 
   if (!result.success) {
@@ -12,5 +12,3 @@ function parseEnv(): Env {
 
   return result.data;
 }
-
-export const env = parseEnv();
