@@ -49,7 +49,7 @@ services:
         condition: service_healthy
     volumes:
       - ./control-plane:/app
-      - node-modules-control-plane:/app/node_modules
+      - node-modules-migrate:/app/node_modules
 
   control-plane:
     restart: unless-stopped
@@ -127,5 +127,6 @@ services:
 
 volumes:
   node-modules-web:
+  node-modules-migrate:
   node-modules-control-plane:
   db-data:
