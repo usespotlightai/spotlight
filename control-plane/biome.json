@@ -113,6 +113,112 @@
           }
         }
       }
+    },
+    {
+      "includes": ["src/domain/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**",
+                      "!@domain/**",
+                      "!./**",
+                      "!../**",
+                      "!vitest"
+                    ],
+                    "message": "The domain layer depends on nothing but itself. Anything else belongs in an outer layer."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/application/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**",
+                      "!@application/**",
+                      "!@domain/**",
+                      "!./**",
+                      "!../**",
+                      "!@nestjs/cqrs",
+                      "!vitest"
+                    ],
+                    "message": "The application layer may only depend on the domain. For anything external, define a port under application/ports and let infrastructure implement it."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/presentation/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**",
+                      "!@presentation/**",
+                      "!@application/**",
+                      "!./**",
+                      "!../**",
+                      "!@nestjs/**",
+                      "!vitest"
+                    ],
+                    "message": "The presentation layer may depend on the application layer and the HTTP framework, not on infrastructure or a concrete library. Depend on a port under application/ports instead."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/infrastructure/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@presentation/**",
+                      "@application/**",
+                      "!@application/ports/**"
+                    ],
+                    "message": "Infrastructure implements ports. It may import @application/ports, but must not reach into the rest of the application layer or into presentation."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
     }
   ],
   "assist": {

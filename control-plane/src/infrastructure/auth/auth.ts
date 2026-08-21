@@ -13,3 +13,5 @@ export const createAuth = (env: Env, db: DrizzleDatabase) =>
       enabled: true,
     },
   });
+
+export type AppAuth = ReturnType<typeof createAuth>;
