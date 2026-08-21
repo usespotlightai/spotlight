@@ -1,4 +1,5 @@
-import { env } from '@infrastructure/config/env';
+import { ENV } from '@infrastructure/config/config.constants';
+import type { Env } from '@infrastructure/config/env.schema';
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule } from '@nestjs/swagger';
 import { buildOpenApiDocument } from '@presentation/http/openapi';
@@ -16,6 +17,6 @@ async function bootstrap() {
   app.useLogger(app.get(Logger));
   configureApp(app);
   SwaggerModule.setup('api/docs', app, buildOpenApiDocument(app));
-  await app.listen(env.PORT);
+  await app.listen(app.get<Env>(ENV).PORT);
 }
 bootstrap();

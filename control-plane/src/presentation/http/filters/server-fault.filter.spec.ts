@@ -1,3 +1,4 @@
+import type { LoggerPort } from '@application/ports/logger.port';
 import {
   type ArgumentsHost,
   BadRequestException,
@@ -6,7 +7,6 @@ import {
 } from '@nestjs/common';
 import type { HttpAdapterHost } from '@nestjs/core';
 import { ServerFaultFilter } from '@presentation/http/filters/server-fault.filter';
-import type { PinoLogger } from 'nestjs-pino';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const REQUEST = { method: 'GET', url: '/api/boom' };
@@ -17,7 +17,7 @@ function setup() {
     httpAdapter: { isHeadersSent: () => false, reply, end: vi.fn() },
   } as unknown as HttpAdapterHost;
 
-  const logger = { error: vi.fn() } as unknown as PinoLogger;
+  const logger = { error: vi.fn() } as unknown as LoggerPort;
 
   const host = {
     switchToHttp: () => ({ getRequest: () => REQUEST }),

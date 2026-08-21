@@ -1,6 +1,6 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { buildLoggerConfig } from '@infrastructure/logging/logger.config';
+import { buildLogging } from '@infrastructure/logging/logger.config';
 import pinoHttp, { type Options } from 'pino-http';
 import { describe, expect, it } from 'vitest';
 
@@ -12,21 +12,23 @@ type Captured = { lines: Record<string, unknown>[]; raw: string };
 async function request(
   path: string,
   headers: Record<string, string> = {},
+  through: 'module' | 'auth' = 'module',
 ): Promise<Captured> {
   const chunks: string[] = [];
-  const options = buildLoggerConfig({
-    NODE_ENV: 'test',
-    LOG_LEVEL: 'info',
-  }).pinoHttp as Options;
-
-  const middleware = pinoHttp(options, {
-    write: (chunk: string) => {
-      chunks.push(chunk);
+  const { params, httpLogger } = buildLogging(
+    { NODE_ENV: 'test', LOG_LEVEL: 'info' },
+    {
+      write: (chunk: string) => {
+        chunks.push(chunk);
+      },
     },
-  });
+  );
+
+  const middleware =
+    through === 'auth' ? httpLogger : pinoHttp(params.pinoHttp as Options);
 
   const server: Server = createServer((req, res) => {
-    middleware(req, res);
+    middleware(req, res, () => undefined);
     req.log.info('handling request');
     res.setHeader('set-cookie', `${SESSION_COOKIE}; Path=/; HttpOnly`);
     res.end('ok');
@@ -105,6 +107,16 @@ describe('logger config', () => {
     expect(reqId).toMatch(
       /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/,
     );
+  });
+
+  it('sends the auth wrapper to the same sink as the module logger', async () => {
+    const { lines } = await request('/api/auth/get-session', {}, 'auth');
+
+    expect(lines[lines.length - 1]).toMatchObject({
+      req: { method: 'GET', url: '/api/auth/get-session' },
+      res: { statusCode: 200 },
+    });
+    expect(lines[0].reqId).toBeTypeOf('string');
   });
 
   it('does not log liveness probes', async () => {

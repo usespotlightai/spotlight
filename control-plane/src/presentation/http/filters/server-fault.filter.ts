@@ -1,11 +1,12 @@
+import { LOGGER, type LoggerPort } from '@application/ports/logger.port';
 import {
   type ArgumentsHost,
   Catch,
   HttpException,
   HttpStatus,
+  Inject,
 } from '@nestjs/common';
 import { BaseExceptionFilter, HttpAdapterHost } from '@nestjs/core';
-import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 
 type LoggableRequest = {
   method?: string;
@@ -16,8 +17,7 @@ type LoggableRequest = {
 export class ServerFaultFilter extends BaseExceptionFilter {
   constructor(
     adapterHost: HttpAdapterHost,
-    @InjectPinoLogger(ServerFaultFilter.name)
-    private readonly logger: PinoLogger,
+    @Inject(LOGGER) private readonly logger: LoggerPort,
   ) {
     super(adapterHost.httpAdapter);
   }
@@ -28,7 +28,12 @@ export class ServerFaultFilter extends BaseExceptionFilter {
       const request = host.switchToHttp().getRequest<LoggableRequest>();
 
       this.logger.error(
-        { err: exception, method: request.method, url: request.url },
+        {
+          err: exception,
+          context: ServerFaultFilter.name,
+          method: request.method,
+          url: request.url,
+        },
         'Server fault',
       );
     }
