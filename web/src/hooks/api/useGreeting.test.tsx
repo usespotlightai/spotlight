@@ -65,4 +65,21 @@ describe('useGreeting', () => {
 
     await waitFor(() => expect(result.current.isError).toBe(true));
   });
+  it('sends the name as a query parameter', async () => {
+    mockFetch(200, { message: 'Hello John!' });
+
+    const { result } = renderHook(() => useGreeting('John'), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(requestedUrl().searchParams.get('name')).toBe('John');
+  });
+
+  it('omits the parameter entirely when no name is given', async () => {
+    mockFetch(200, { message: 'Hello World!' });
+
+    const { result } = renderHook(() => useGreeting(), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(requestedUrl().searchParams.has('name')).toBe(false);
+  });
 });

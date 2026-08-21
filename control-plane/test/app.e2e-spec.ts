@@ -21,10 +21,7 @@ describe('GreetingController (e2e)', () => {
     await app.close();
   });
 
-  it('/ (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/api')
-      .expect(200)
-      .expect({ message: 'Hello World!' });
+  it('/ (GET) is rejected without a session', () => {
+    return request(app.getHttpServer()).get('/api').expect(401);
   });
 });

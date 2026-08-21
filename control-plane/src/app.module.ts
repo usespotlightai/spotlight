@@ -4,11 +4,12 @@ import { DrizzleModule } from '@infrastructure/persistence/drizzle/drizzle.modul
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 import { GreetingController } from '@presentation/http/controllers/greeting.controller';
+import { HealthController } from '@presentation/http/controllers/health.controller';
 import { AuthModule } from '@thallesp/nestjs-better-auth';
 
 @Module({
   imports: [CqrsModule, DrizzleModule, AuthModule.forRoot({ auth })],
-  controllers: [GreetingController],
+  controllers: [GreetingController, HealthController],
   providers: [GetGreetingHandler],
 })
 export class AppModule {}

@@ -19,7 +19,7 @@ const renderPage = () =>
         new QueryClient({ defaultOptions: { mutations: { retry: false } } })
       }
     >
-      <MemoryRouter initialEntries={['/sign-up']}>
+      <MemoryRouter initialEntries={['/signup']}>
         <SignUp />
       </MemoryRouter>
     </QueryClientProvider>,

@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { GetGreetingData, GetGreetingResponses } from './types.gen';
+import type { GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -21,4 +21,9 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 /**
  * Return a greeting
  */
-export const getGreeting = <ThrowOnError extends boolean = false>(options?: Options<GetGreetingData, ThrowOnError>): RequestResult<GetGreetingResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetGreetingResponses, unknown, ThrowOnError>({ url: '/', ...options });
+export const getGreeting = <ThrowOnError extends boolean = false>(options?: Options<GetGreetingData, ThrowOnError>): RequestResult<GetGreetingResponses, GetGreetingErrors, ThrowOnError> => (options?.client ?? client).get<GetGreetingResponses, GetGreetingErrors, ThrowOnError>({ url: '/', ...options });
+
+/**
+ * Liveness probe
+ */
+export const getHealth = <ThrowOnError extends boolean = false>(options?: Options<GetHealthData, ThrowOnError>): RequestResult<GetHealthResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetHealthResponses, unknown, ThrowOnError>({ url: '/health', ...options });

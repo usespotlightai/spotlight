@@ -8,7 +8,7 @@ import { type IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 export class GetGreetingHandler
   implements IQueryHandler<GetGreetingQuery, GreetingDto>
 {
-  async execute(): Promise<GreetingDto> {
-    return GreetingMapper.toDto(Greeting.for('World'));
+  async execute(query: GetGreetingQuery): Promise<GreetingDto> {
+    return GreetingMapper.toDto(Greeting.for(query.recipient));
   }
 }

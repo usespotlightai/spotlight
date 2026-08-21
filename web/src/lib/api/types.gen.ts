@@ -8,11 +8,27 @@ export type GreetingResponseDto = {
     message: string;
 };
 
+export type HealthResponseDto = {
+    status: 'ok';
+};
+
 export type GetGreetingData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * Who to greet. Defaults to "World".
+         */
+        name?: string;
+    };
     url: '/';
+};
+
+export type GetGreetingErrors = {
+    /**
+     * No valid session
+     */
+    401: unknown;
 };
 
 export type GetGreetingResponses = {
@@ -20,3 +36,16 @@ export type GetGreetingResponses = {
 };
 
 export type GetGreetingResponse = GetGreetingResponses[keyof GetGreetingResponses];
+
+export type GetHealthData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/health';
+};
+
+export type GetHealthResponses = {
+    200: HealthResponseDto;
+};
+
+export type GetHealthResponse = GetHealthResponses[keyof GetHealthResponses];

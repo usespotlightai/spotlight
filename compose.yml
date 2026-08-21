@@ -47,7 +47,7 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: [ "CMD-SHELL", "wget -qO- http://localhost:3000/api > /dev/null 2>&1 || exit 1" ]
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:3000/api/health > /dev/null 2>&1 || exit 1" ]
       interval: 10s
       timeout: 3s
       retries: 3
