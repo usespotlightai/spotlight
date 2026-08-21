@@ -7,7 +7,15 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!public", "!dist", "!src/lib/api"]
+    "includes": [
+      "**",
+      "!assets",
+      "!public",
+      "!dist",
+      "!src/lib/api",
+      "!src/components/ui",
+      "!src/components/common/icons"
+    ]
   },
   "formatter": {
     "enabled": true,
