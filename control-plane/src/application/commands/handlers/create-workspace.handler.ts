@@ -15,10 +15,14 @@ import { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
 export class CreateWorkspaceHandler
   implements CommandHandlerPort<CreateWorkspaceCommand, WorkspaceDto>
 {
+  private readonly registration: WorkspaceRegistration;
+
   constructor(
     private readonly workspaces: WorkspaceRepository,
     private readonly ids: IdGeneratorPort,
-  ) {}
+  ) {
+    this.registration = new WorkspaceRegistration(workspaces);
+  }
 
   async execute(command: CreateWorkspaceCommand): Promise<WorkspaceDto> {
     try {
@@ -31,16 +35,13 @@ export class CreateWorkspaceHandler
   private async createWorkspace(
     command: CreateWorkspaceCommand,
   ): Promise<WorkspaceDto> {
-    const workspace = await WorkspaceRegistration.register(
-      {
-        id: WorkspaceId.of(this.ids.generate()),
-        name: WorkspaceName.of(command.name),
-        slug: WorkspaceSlug.of(command.slug),
-        owner: UserId.of(command.ownerId),
-        firstTeamId: TeamId.of(this.ids.generate()),
-      },
-      this.workspaces,
-    );
+    const workspace = await this.registration.register({
+      id: WorkspaceId.of(this.ids.generate()),
+      name: WorkspaceName.of(command.name),
+      slug: WorkspaceSlug.of(command.slug),
+      owner: UserId.of(command.ownerId),
+      firstTeamId: TeamId.of(this.ids.generate()),
+    });
 
     await this.workspaces.add(workspace);
 

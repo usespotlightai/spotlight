@@ -7,21 +7,20 @@ import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import type { WorkspaceName } from '@domain/value-objects/workspace-name.vo';
 import type { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
 
-export const WorkspaceRegistration = {
-  async register(
-    input: {
-      id: WorkspaceId;
-      name: WorkspaceName;
-      slug: WorkspaceSlug;
-      owner: UserId;
-      firstTeamId: TeamId;
-    },
-    register: WorkspaceSlugRegistry,
-  ): Promise<Workspace> {
-    if (await register.isTaken(input.slug)) {
+export class WorkspaceRegistration {
+  constructor(private readonly slugs: WorkspaceSlugRegistry) {}
+
+  async register(input: {
+    id: WorkspaceId;
+    name: WorkspaceName;
+    slug: WorkspaceSlug;
+    owner: UserId;
+    firstTeamId: TeamId;
+  }): Promise<Workspace> {
+    if (await this.slugs.isTaken(input.slug)) {
       throw new WorkspaceSlugTakenError(input.slug.value);
     }
 
     return Workspace.create(input);
-  },
-};
+  }
+}
