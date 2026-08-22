@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router';
 import { RequireAuth } from './components/common/auth/RequireAuth.tsx';
 import { RequireGuest } from './components/common/auth/RequireGuest.tsx';
+import { CreateWorkspace } from './routes/CreateWorkspace.tsx';
 import { Home } from './routes/Home.tsx';
 import { Login } from './routes/Login.tsx';
 import { SignUp } from './routes/SignUp.tsx';
@@ -15,6 +16,7 @@ export default function App() {
 
       <Route element={<RequireAuth />}>
         <Route index element={<Home />} />
+        <Route path="/workspaces/new" element={<CreateWorkspace />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -21,7 +21,7 @@ export function Login() {
       },
       {
         onSuccess: () => {
-          void navigate('/');
+          void navigate('/workspaces/new');
         },
       },
     );
