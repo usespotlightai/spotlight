@@ -2,7 +2,6 @@ import { CreateWorkspaceCommand } from '@application/commands/create-workspace.c
 import { CreateWorkspaceHandler } from '@application/commands/handlers/create-workspace.handler';
 import { ID_GENERATOR } from '@application/ports/id-generator.port';
 import { WORKSPACE_READER } from '@application/ports/workspace-reader.port';
-import { WORKSPACE_REPOSITORY } from '@application/ports/workspace-repository.port';
 import { GetGreetingQuery } from '@application/queries/get-greeting.query';
 import { GetWorkspaceQuery } from '@application/queries/get-workspace.query';
 import { GetGreetingHandler } from '@application/queries/handlers/get-greeting.handler';
@@ -38,7 +37,7 @@ import { AuthenticatedGuard } from '@presentation/http/guards/authenticated.guar
   ],
   controllers: [GreetingController, HealthController, WorkspaceController],
   providers: [
-    { provide: WORKSPACE_REPOSITORY, useClass: DrizzleWorkspaceRepository },
+    DrizzleWorkspaceRepository,
     { provide: WORKSPACE_READER, useClass: DrizzleWorkspaceReader },
     { provide: ID_GENERATOR, useClass: CryptoIdGenerator },
 
@@ -50,7 +49,7 @@ import { AuthenticatedGuard } from '@presentation/http/guards/authenticated.guar
       WORKSPACE_READER,
     ]),
     ...bindCommandHandler(CreateWorkspaceCommand, CreateWorkspaceHandler, [
-      WORKSPACE_REPOSITORY,
+      DrizzleWorkspaceRepository,
       ID_GENERATOR,
     ]),
 
