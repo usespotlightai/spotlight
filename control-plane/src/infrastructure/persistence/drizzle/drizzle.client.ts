@@ -1,5 +1,5 @@
 import type { Env } from '@infrastructure/config/env.schema';
-import * as schema from '@infrastructure/persistence/drizzle/schema';
+import * as schema from '@infrastructure/persistence/drizzle/schemas';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 

@@ -11,7 +11,7 @@
       "**",
       "!drizzle",
       "!openapi.json",
-      "!src/infrastructure/persistence/drizzle/auth.schema.ts",
+      "!src/infrastructure/persistence/drizzle/schemas/auth.schema.ts",
       "!dist"
     ]
   },

@@ -6,7 +6,7 @@ const env = parseEnv();
 
 export default defineConfig({
   dialect: 'postgresql',
-  schema: './src/infrastructure/persistence/drizzle/schema.ts',
+  schema: './src/infrastructure/persistence/drizzle/schemas/index.ts',
   out: './drizzle',
   migrations: {
     prefix: 'timestamp',
