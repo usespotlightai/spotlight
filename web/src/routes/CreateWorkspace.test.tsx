@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CreateWorkspace } from '@/routes/CreateWorkspace';
 
 vi.mock('@/hooks/api/useSession', () => ({
@@ -10,6 +10,23 @@ vi.mock('@/hooks/api/useSession', () => ({
     data: { user: { email: 'dev@example.com' } },
     isPending: false,
   }),
+}));
+
+const createWorkspace = vi.fn();
+const createState = {
+  mutate: createWorkspace,
+  isPending: false,
+  isError: false,
+  error: null as Error | null,
+};
+vi.mock('@/hooks/api/useCreateWorkspace', () => ({
+  useCreateWorkspace: () => createState,
+}));
+
+const navigate = vi.fn();
+vi.mock('react-router', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('react-router')>()),
+  useNavigate: () => navigate,
 }));
 
 const signOut = vi.fn();
@@ -29,6 +46,13 @@ const renderPage = () =>
       </MemoryRouter>
     </QueryClientProvider>,
   );
+
+beforeEach(() => {
+  createWorkspace.mockReset();
+  createState.isPending = false;
+  createState.isError = false;
+  createState.error = null;
+});
 
 describe('CreateWorkspace', () => {
   it('shows who is signed in', () => {
@@ -80,5 +104,52 @@ describe('CreateWorkspace', () => {
     await user.type(screen.getByLabelText('Workspace Name'), 'Acme');
 
     expect(submit).toBeEnabled();
+  });
+
+  it('submits the trimmed name and the normalised slug', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(screen.getByLabelText('Workspace Name'), '  Acme Inc.  ');
+    await user.click(screen.getByRole('button', { name: 'Create workspace' }));
+
+    expect(createWorkspace).toHaveBeenCalledWith(
+      { name: 'Acme Inc.', slug: 'acme-inc' },
+      expect.anything(),
+    );
+  });
+
+  it('shows why the control-plane refused', () => {
+    createState.isError = true;
+    createState.error = new Error(
+      'The workspace URL "acme-inc" is already taken',
+    );
+
+    renderPage();
+
+    expect(screen.getByRole('alert')).toHaveTextContent('already taken');
+  });
+
+  it('blocks a second submit while one is in flight', () => {
+    createState.isPending = true;
+
+    renderPage();
+
+    expect(
+      screen.getByRole('button', { name: 'Creating workspace…' }),
+    ).toBeDisabled();
+  });
+
+  it('lands on the workspace it just created', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(screen.getByLabelText('Workspace Name'), 'Acme Inc.');
+    await user.click(screen.getByRole('button', { name: 'Create workspace' }));
+
+    const [, callbacks] = createWorkspace.mock.calls[0];
+    callbacks.onSuccess({ id: 'ws_1', name: 'Acme Inc.', slug: 'acme-inc' });
+
+    expect(navigate).toHaveBeenCalledWith('/w/acme-inc', { replace: true });
   });
 });

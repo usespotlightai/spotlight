@@ -95,9 +95,7 @@ describe('Login', () => {
     await user.click(screen.getByRole('button', { name: 'Log in' }));
 
     await vi.waitFor(() =>
-      expect(navigate).toHaveBeenCalledWith('/workspaces/new', {
-        replace: true,
-      }),
+      expect(navigate).toHaveBeenCalledWith('/', { replace: true }),
     );
   });
 });

@@ -6,8 +6,22 @@ import { useSession } from '@/hooks/api/useSession';
 import App from './App';
 
 vi.mock('@/hooks/api/useSession', () => ({ useSession: vi.fn() }));
-vi.mock('@/hooks/api/useGreeting', () => ({
-  useGreeting: () => ({ data: { message: 'Hello World!' }, isPending: false }),
+vi.mock('@/hooks/api/useWorkspace', () => ({
+  useWorkspace: () => ({
+    data: {
+      id: 'ws_1',
+      name: 'Acme',
+      slug: 'acme',
+      teams: [{ id: 'team_1', name: 'Acme' }],
+    },
+    isPending: false,
+  }),
+}));
+vi.mock('@/hooks/api/useWorkspaces', () => ({
+  useWorkspaces: () => ({
+    data: [{ id: 'ws_1', name: 'Acme', slug: 'acme' }],
+    isPending: false,
+  }),
 }));
 
 const mockSession = vi.mocked(useSession);
@@ -35,13 +49,23 @@ beforeEach(() => {
 });
 
 describe('routing', () => {
-  it('sends an unknown path to the index when signed in', async () => {
+  it('sends an unknown path on to the default workspace when signed in', async () => {
     signedIn();
 
     renderAt('/definitely-not-a-page');
 
     expect(
-      await screen.findByRole('button', { name: 'Sign out' }),
+      await screen.findByRole('heading', { name: 'Acme' }),
+    ).toBeInTheDocument();
+  });
+
+  it('resolves "/" to the workspace rather than a page of its own', async () => {
+    signedIn();
+
+    renderAt('/');
+
+    expect(
+      await screen.findByText('usespotlight.ai/w/acme'),
     ).toBeInTheDocument();
   });
 

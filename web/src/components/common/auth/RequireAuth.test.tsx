@@ -3,10 +3,29 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RequireAuth } from '@/components/common/auth/RequireAuth';
 import { useSession } from '@/hooks/api/useSession';
+import { useWorkspaces } from '@/hooks/api/useWorkspaces';
 
 vi.mock('@/hooks/api/useSession', () => ({ useSession: vi.fn() }));
+vi.mock('@/hooks/api/useWorkspaces', () => ({ useWorkspaces: vi.fn() }));
 
 const mockSession = vi.mocked(useSession);
+const mockWorkspaces = vi.mocked(useWorkspaces);
+
+const signedIn = () =>
+  mockSession.mockReturnValue({
+    data: { user: { email: 'dev@example.com' } },
+    isPending: false,
+  } as never);
+
+const owning = (count: number) =>
+  mockWorkspaces.mockReturnValue({
+    data: Array.from({ length: count }, (_, index) => ({
+      id: `ws_${index}`,
+      name: 'Acme',
+      slug: 'acme',
+    })),
+    isPending: false,
+  } as never);
 
 const renderAt = (path: string) =>
   render(
@@ -15,6 +34,7 @@ const renderAt = (path: string) =>
         <Route path="/login" element={<p>login screen</p>} />
         <Route element={<RequireAuth />}>
           <Route path="/" element={<p>protected page</p>} />
+          <Route path="/workspaces/new" element={<p>workspace setup</p>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -22,14 +42,13 @@ const renderAt = (path: string) =>
 
 beforeEach(() => {
   mockSession.mockReset();
+  mockWorkspaces.mockReset();
+  owning(1);
 });
 
 describe('RequireAuth', () => {
   it('renders the page when a session exists', () => {
-    mockSession.mockReturnValue({
-      data: { user: { email: 'dev@example.com' } },
-      isPending: false,
-    } as never);
+    signedIn();
 
     renderAt('/');
 
@@ -52,5 +71,44 @@ describe('RequireAuth', () => {
 
     expect(screen.queryByText('protected page')).not.toBeInTheDocument();
     expect(screen.queryByText('login screen')).not.toBeInTheDocument();
+  });
+
+  it('waits for the workspace list before deciding where to send anyone', () => {
+    signedIn();
+    mockWorkspaces.mockReturnValue({
+      data: undefined,
+      isPending: true,
+    } as never);
+
+    renderAt('/');
+
+    expect(screen.queryByText('protected page')).not.toBeInTheDocument();
+    expect(screen.queryByText('workspace setup')).not.toBeInTheDocument();
+  });
+
+  it('sends a member of no workspace to create one', () => {
+    signedIn();
+    owning(0);
+
+    renderAt('/');
+
+    expect(screen.getByText('workspace setup')).toBeInTheDocument();
+  });
+
+  it('leaves workspace setup reachable to someone who already has one', () => {
+    signedIn();
+
+    renderAt('/workspaces/new');
+
+    expect(screen.getByText('workspace setup')).toBeInTheDocument();
+  });
+
+  it('does not bounce away from the setup page it just sent them to', () => {
+    signedIn();
+    owning(0);
+
+    renderAt('/workspaces/new');
+
+    expect(screen.getByText('workspace setup')).toBeInTheDocument();
   });
 });

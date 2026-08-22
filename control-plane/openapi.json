@@ -58,6 +58,111 @@
           "health"
         ]
       }
+    },
+    "/workspaces": {
+      "post": {
+        "operationId": "createWorkspace",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWorkspaceRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "409": {
+            "description": "That workspace URL is already taken"
+          },
+          "422": {
+            "description": "Invalid name or URL"
+          }
+        },
+        "summary": "Create a workspace, along with the team it starts with",
+        "tags": [
+          "workspaces"
+        ]
+      },
+      "get": {
+        "operationId": "listWorkspaces",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorkspaceListingResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          }
+        },
+        "summary": "List the workspaces the caller belongs to",
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
+    "/workspaces/{slug}": {
+      "get": {
+        "operationId": "getWorkspace",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme-inc",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          }
+        },
+        "summary": "Read one workspace the caller belongs to",
+        "tags": [
+          "workspaces"
+        ]
+      }
     }
   },
   "info": {
@@ -99,6 +204,104 @@
         },
         "required": [
           "status"
+        ]
+      },
+      "CreateWorkspaceRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Acme Inc.",
+            "maxLength": 100
+          },
+          "slug": {
+            "type": "string",
+            "example": "acme-inc",
+            "maxLength": 48,
+            "description": "Addresses the workspace at /w/{slug}. Lowercase letters, numbers and single dashes."
+          }
+        },
+        "required": [
+          "name",
+          "slug"
+        ]
+      },
+      "TeamResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
+          },
+          "name": {
+            "type": "string",
+            "example": "Acme Inc."
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "WorkspaceResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "5f1c2f0e-6e0a-4a1e-9a4a-0f6d2c1b8e77"
+          },
+          "name": {
+            "type": "string",
+            "example": "Acme Inc."
+          },
+          "slug": {
+            "type": "string",
+            "example": "acme-inc"
+          },
+          "teams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "teams"
+        ]
+      },
+      "WorkspaceListingResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "5f1c2f0e-6e0a-4a1e-9a4a-0f6d2c1b8e77"
+          },
+          "name": {
+            "type": "string",
+            "example": "Acme Inc."
+          },
+          "slug": {
+            "type": "string",
+            "example": "acme-inc"
+          },
+          "role": {
+            "type": "string",
+            "example": "owner",
+            "enum": [
+              "owner",
+              "admin",
+              "member"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "role"
         ]
       }
     }

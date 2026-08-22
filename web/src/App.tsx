@@ -2,9 +2,10 @@ import { Navigate, Route, Routes } from 'react-router';
 import { RequireAuth } from './components/common/auth/RequireAuth.tsx';
 import { RequireGuest } from './components/common/auth/RequireGuest.tsx';
 import { CreateWorkspace } from './routes/CreateWorkspace.tsx';
-import { Home } from './routes/Home.tsx';
+import { DefaultWorkspace } from './routes/DefaultWorkspace.tsx';
 import { Login } from './routes/Login.tsx';
 import { SignUp } from './routes/SignUp.tsx';
+import { Workspace } from './routes/Workspace.tsx';
 
 export default function App() {
   return (
@@ -15,8 +16,9 @@ export default function App() {
       </Route>
 
       <Route element={<RequireAuth />}>
-        <Route index element={<Home />} />
+        <Route index element={<DefaultWorkspace />} />
         <Route path="/workspaces/new" element={<CreateWorkspace />} />
+        <Route path="/w/:slug" element={<Workspace />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,9 +1,10 @@
 import { type ChangeEvent, type SubmitEvent, useId, useState } from 'react';
+import { useNavigate } from 'react-router';
+import { useCreateWorkspace } from '@/hooks/api/useCreateWorkspace';
 import { useSession } from '@/hooks/api/useSession';
 import { useSignOut } from '@/hooks/api/useSignOut';
 import { sanitizeSlug, slugify } from '@/lib/slug';
-
-const URL_PREFIX = 'usespotlight.ai/';
+import { WORKSPACE_URL_PREFIX, workspacePath } from '@/lib/workspace';
 
 export function CreateWorkspace() {
   const nameId = useId();
@@ -11,11 +12,12 @@ export function CreateWorkspace() {
   const prefixId = useId();
   const { data: session } = useSession();
   const signOut = useSignOut();
+  const navigate = useNavigate();
+  const createWorkspace = useCreateWorkspace();
 
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
-  // The URL trails the name until someone takes the field over; emptying it
-  // hands control back.
+  // The URL trails the name until edited by hand; emptying it hands it back.
   const [slugTakenOver, setSlugTakenOver] = useState(false);
 
   const onNameChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -34,10 +36,19 @@ export function CreateWorkspace() {
 
   const onSubmit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
-    // TODO: create the workspace once the control-plane exposes the endpoint.
+
+    createWorkspace.mutate(
+      { name: name.trim(), slug: slugify(slug) },
+      {
+        onSuccess: (workspace) => {
+          void navigate(workspacePath(workspace.slug), { replace: true });
+        },
+      },
+    );
   };
 
-  const canSubmit = name.trim() !== '' && slugify(slug) !== '';
+  const canSubmit =
+    name.trim() !== '' && slugify(slug) !== '' && !createWorkspace.isPending;
 
   return (
     <div className="flex min-h-svh flex-col">
@@ -88,7 +99,7 @@ export function CreateWorkspace() {
             </label>
             <div className="flex h-11 items-center rounded-lg border-[0.5px] border-input bg-background pl-3 text-sm focus-within:border focus-within:border-ring">
               <span id={prefixId} className="text-muted-foreground">
-                {URL_PREFIX}
+                {WORKSPACE_URL_PREFIX}
               </span>
               <input
                 id={slugId}
@@ -103,12 +114,20 @@ export function CreateWorkspace() {
               />
             </div>
 
+            {createWorkspace.isError && (
+              <p role="alert" className="text-center text-destructive text-sm">
+                {createWorkspace.error.message}
+              </p>
+            )}
+
             <button
               type="submit"
               disabled={!canSubmit}
               className="h-11 rounded-full bg-primary font-medium text-primary-foreground text-sm outline-none transition-opacity hover:opacity-90 disabled:opacity-60"
             >
-              Create workspace
+              {createWorkspace.isPending
+                ? 'Creating workspace…'
+                : 'Create workspace'}
             </button>
           </form>
         </div>

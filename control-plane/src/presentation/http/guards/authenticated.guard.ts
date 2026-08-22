@@ -12,6 +12,10 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ALLOW_ANONYMOUS } from '@presentation/http/decorators/allow-anonymous.decorator';
+import {
+  REQUEST_USER,
+  type RequestWithUser,
+} from '@presentation/http/decorators/current-user.decorator';
 
 @Injectable()
 export class AuthenticatedGuard implements CanActivate {
@@ -30,13 +34,16 @@ export class AuthenticatedGuard implements CanActivate {
       return true;
     }
 
-    const { headers } = context
+    const request = context
       .switchToHttp()
-      .getRequest<{ headers: RequestHeaders }>();
+      .getRequest<{ headers: RequestHeaders } & RequestWithUser>();
 
-    if (!(await this.sessions.read(headers))) {
+    const user = await this.sessions.read(request.headers);
+    if (!user) {
       throw new UnauthorizedException();
     }
+
+    request[REQUEST_USER] = user;
 
     return true;
   }
