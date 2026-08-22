@@ -1,0 +1,39 @@
+name: release
+
+on:
+  push:
+    tags: ["**"]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-images:
+    name: start the image build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate an infrastructure repository token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.INFRA_APP_ID }}
+          private-key: ${{ secrets.INFRA_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: infrastructure
+
+      - name: Start Build Images
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh workflow run build-images.yml \
+            --repo "${{ github.repository_owner }}/infrastructure" \
+            --ref main \
+            -f ref="${TAG}"
+
+          {
+            echo "### ${TAG}"
+            echo
+            echo "Requested an image build in ${{ github.repository_owner }}/infrastructure."
+          } >> "${GITHUB_STEP_SUMMARY}"
