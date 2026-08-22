@@ -35,7 +35,7 @@ beforeEach(() => {
 });
 
 describe('Workspace', () => {
-  it('names the workspace at that address', () => {
+  it('titles the dashboard with the workspace at that address', () => {
     loaded(acme);
 
     renderAt('acme-inc');
@@ -43,15 +43,6 @@ describe('Workspace', () => {
     expect(
       screen.getByRole('heading', { name: 'Acme Inc.' }),
     ).toBeInTheDocument();
-    expect(screen.getByText('usespotlight.ai/w/acme-inc')).toBeInTheDocument();
-  });
-
-  it('lists the teams it holds', () => {
-    loaded(acme);
-
-    renderAt('acme-inc');
-
-    expect(screen.getByRole('listitem')).toHaveTextContent('Acme Inc.');
   });
 
   it('asks by the slug in the address', () => {

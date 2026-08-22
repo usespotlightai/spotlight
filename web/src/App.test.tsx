@@ -65,7 +65,7 @@ describe('routing', () => {
     renderAt('/');
 
     expect(
-      await screen.findByText('usespotlight.ai/w/acme'),
+      await screen.findByRole('heading', { name: 'Acme' }),
     ).toBeInTheDocument();
   });
 
