@@ -23,7 +23,7 @@ export function SignUp() {
       },
       {
         onSuccess: () => {
-          void navigate('/workspaces/new');
+          void navigate('/workspaces/new', { replace: true });
         },
       },
     );

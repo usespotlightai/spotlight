@@ -10,6 +10,12 @@ vi.mock('@/lib/authClient', () => ({
   authClient: { signIn: { email: vi.fn() } },
 }));
 
+const navigate = vi.fn();
+vi.mock('react-router', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('react-router')>()),
+  useNavigate: () => navigate,
+}));
+
 const signInEmail = vi.mocked(authClient.signIn.email);
 
 const renderPage = () =>
@@ -27,6 +33,7 @@ const renderPage = () =>
 
 beforeEach(() => {
   signInEmail.mockReset();
+  navigate.mockReset();
 });
 
 describe('Login', () => {
@@ -72,6 +79,25 @@ describe('Login', () => {
     expect(screen.getByLabelText('Password')).toHaveAttribute(
       'type',
       'password',
+    );
+  });
+
+  it('replaces the form in history so Back does not return to it', async () => {
+    signInEmail.mockResolvedValue({
+      data: { token: 't' },
+      error: null,
+    } as never);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(screen.getByLabelText('Email'), 'dev@example.com');
+    await user.type(screen.getByLabelText('Password'), 'correct-horse-battery');
+    await user.click(screen.getByRole('button', { name: 'Log in' }));
+
+    await vi.waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith('/workspaces/new', {
+        replace: true,
+      }),
     );
   });
 });
