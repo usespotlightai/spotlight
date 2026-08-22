@@ -23,7 +23,7 @@ export function SignUp() {
       },
       {
         onSuccess: () => {
-          void navigate('/');
+          void navigate('/', { replace: true });
         },
       },
     );

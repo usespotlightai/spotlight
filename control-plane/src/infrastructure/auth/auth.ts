@@ -1,6 +1,6 @@
 import type { Env } from '@infrastructure/config/env.schema';
 import type { DrizzleDatabase } from '@infrastructure/persistence/drizzle/drizzle.client';
-import * as schema from '@infrastructure/persistence/drizzle/schema';
+import * as schema from '@infrastructure/persistence/drizzle/schemas';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 

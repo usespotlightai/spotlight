@@ -12,6 +12,33 @@ export type HealthResponseDto = {
   status: 'ok';
 };
 
+export type CreateWorkspaceRequestDto = {
+  name: string;
+  /**
+   * Addresses the workspace at /w/{slug}. Lowercase letters, numbers and single dashes.
+   */
+  slug: string;
+};
+
+export type TeamResponseDto = {
+  id: string;
+  name: string;
+};
+
+export type WorkspaceResponseDto = {
+  id: string;
+  name: string;
+  slug: string;
+  teams: Array<TeamResponseDto>;
+};
+
+export type WorkspaceListingResponseDto = {
+  id: string;
+  name: string;
+  slug: string;
+  role: 'owner' | 'admin' | 'member';
+};
+
 export type GetGreetingData = {
   body?: never;
   path?: never;
@@ -49,3 +76,77 @@ export type GetHealthResponses = {
 };
 
 export type GetHealthResponse = GetHealthResponses[keyof GetHealthResponses];
+
+export type ListWorkspacesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/workspaces';
+};
+
+export type ListWorkspacesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+};
+
+export type ListWorkspacesResponses = {
+  200: Array<WorkspaceListingResponseDto>;
+};
+
+export type ListWorkspacesResponse = ListWorkspacesResponses[keyof ListWorkspacesResponses];
+
+export type CreateWorkspaceData = {
+  body: CreateWorkspaceRequestDto;
+  path?: never;
+  query?: never;
+  url: '/workspaces';
+};
+
+export type CreateWorkspaceErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * That workspace URL is already taken
+   */
+  409: unknown;
+  /**
+   * Invalid name or URL
+   */
+  422: unknown;
+};
+
+export type CreateWorkspaceResponses = {
+  201: WorkspaceResponseDto;
+};
+
+export type CreateWorkspaceResponse = CreateWorkspaceResponses[keyof CreateWorkspaceResponses];
+
+export type GetWorkspaceData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}';
+};
+
+export type GetWorkspaceErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type GetWorkspaceResponses = {
+  200: WorkspaceResponseDto;
+};
+
+export type GetWorkspaceResponse = GetWorkspaceResponses[keyof GetWorkspaceResponses];
