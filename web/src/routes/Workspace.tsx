@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { WorkspaceMenu } from '@/components/layout/WorkspaceMenu';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { WORKSPACE_URL_PREFIX } from '@/lib/workspace';
 
@@ -35,12 +36,8 @@ export function Workspace() {
     <DashboardLayout
       title={workspace.name}
       sidebar={
-        <div className="flex h-full flex-col gap-1">
-          <div className="flex h-12 shrink-0 items-center px-2">
-            <p className="truncate font-medium text-foreground text-sm">
-              {workspace.name}
-            </p>
-          </div>
+        <div className="flex h-12 shrink-0 items-center">
+          <WorkspaceMenu name={workspace.name} slug={workspace.slug} />
         </div>
       }
     />

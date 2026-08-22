@@ -8,6 +8,12 @@ vi.mock('@/hooks/api/useWorkspace', () => ({ useWorkspace: vi.fn() }));
 vi.mock('@/hooks/api/useSignOut', () => ({
   useSignOut: () => ({ mutate: vi.fn(), isPending: false }),
 }));
+vi.mock('@/hooks/api/useWorkspaces', () => ({
+  useWorkspaces: () => ({ data: [], isPending: false }),
+}));
+vi.mock('@/hooks/api/useSession', () => ({
+  useSession: () => ({ data: { user: { email: 'dev@example.com' } } }),
+}));
 
 const mockWorkspace = vi.mocked(useWorkspace);
 
