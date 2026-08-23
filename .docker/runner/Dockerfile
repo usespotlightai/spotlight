@@ -4,7 +4,7 @@ FROM golang:${GO_VERSION}-alpine AS deps
 WORKDIR /app
 
 RUN adduser -D -u 2000 agent
-RUN apk add --no-cache git
+RUN apk add --no-cache git jq
 COPY runner/go.mod runner/go.sum ./
 RUN go mod download
 

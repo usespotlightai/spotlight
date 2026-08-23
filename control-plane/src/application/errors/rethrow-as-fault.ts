@@ -3,11 +3,14 @@ import {
   type UseCaseFaultKind,
 } from '@application/errors/use-case.fault';
 
-type RuleViolation = Error & { readonly violation: 'conflict' | 'invalid' };
+type RuleViolation = Error & {
+  readonly violation: 'conflict' | 'invalid' | 'not-found';
+};
 
 const AS_FAULT: Record<RuleViolation['violation'], UseCaseFaultKind> = {
   conflict: 'conflict',
   invalid: 'invalid-input',
+  'not-found': 'not-found',
 };
 
 const isRuleViolation = (error: unknown): error is RuleViolation =>

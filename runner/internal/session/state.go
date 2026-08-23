@@ -18,7 +18,6 @@ const (
 	Failed
 )
 
-// Trigger is something that happened to a run.
 type Trigger int
 
 const (
@@ -55,7 +54,6 @@ func Next(from State, trigger Trigger) (State, error) {
 	return to, nil
 }
 
-// Terminal reports whether a run has finished, either way.
 func (s State) Terminal() bool {
 	return s == Completed || s == Failed
 }

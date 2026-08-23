@@ -3,14 +3,12 @@ package protocol
 
 import "time"
 
-// Registration announces a runner and what it can serve.
 type Registration struct {
 	Pool     string            `json:"pool"`
 	Labels   map[string]string `json:"labels,omitempty"`
 	Capacity int               `json:"capacity"`
 }
 
-// Registered is what the control plane answers with.
 type Registered struct {
 	RunnerID string `json:"runnerId"`
 }
@@ -32,13 +30,20 @@ type Command struct {
 	Env        map[string]string `json:"env,omitempty"`
 }
 
-// Run is a claimed unit of work.
+// Spec is what a run is supposed to do. The control plane stores it whole and
+// never looks inside: what a checkout means is the prepare hook's business,
+// which is why this travels as one opaque object rather than as fields it
+// would have to model.
+type Spec struct {
+	Checkouts []Checkout `json:"checkouts,omitempty"`
+	Cwd       string     `json:"cwd,omitempty"`
+	Command   Command    `json:"command"`
+}
+
 type Run struct {
-	ID             string     `json:"id"`
-	Checkouts      []Checkout `json:"checkouts"`
-	Cwd            string     `json:"cwd"`
-	Command        Command    `json:"command"`
-	LeaseExpiresAt time.Time  `json:"leaseExpiresAt"`
+	ID             string    `json:"id"`
+	Spec           Spec      `json:"spec"`
+	LeaseExpiresAt time.Time `json:"leaseExpiresAt"`
 }
 
 // EventType names what happened. The set is closed on purpose: anything the
@@ -62,12 +67,10 @@ type Event struct {
 	// Data carries terminal bytes for output events, base64 over the wire.
 	Data []byte `json:"data,omitempty"`
 	// Offset is the byte position of Data within the run's recording.
-	Offset int64 `json:"offset,omitempty"`
-	// ExitCode is set on completion.
-	ExitCode *int `json:"exitCode,omitempty"`
+	Offset   int64 `json:"offset,omitempty"`
+	ExitCode *int  `json:"exitCode,omitempty"`
 }
 
-// Completion closes a run out.
 type Completion struct {
 	ExitCode int    `json:"exitCode"`
 	Failed   bool   `json:"failed"`

@@ -6,16 +6,30 @@
 # version control system that is not git — which is exactly why the runner
 # does not do it.
 #
-# The run arrives as JSON on stdin. The working directory is the run's own,
+# The spec arrives as JSON on stdin. The working directory is the run's own,
 # and empty. A non-zero exit fails the run before the agent starts, and
 # anything written here lands in the run's journal.
 set -eu
 
-jq -r '.checkouts[]? | [.remote, .path, .ref // "", .branch // ""] | @tsv' |
-while IFS="$(printf '\t')" read -r remote path ref branch; do
+# One JSON object per checkout, read field by field. A tab-separated line would
+# be shorter and wrong: tab is whitespace to `read`, so an empty ref collapses
+# and every field after it shifts along by one.
+jq -c '.checkouts[]?' | while read -r checkout; do
+  field() { printf '%s' "$checkout" | jq -r "$1"; }
+
+  remote=$(field '.remote')
+  path=$(field '.path')
+  ref=$(field '.ref // ""')
+  branch=$(field '.branch // ""')
+
   echo "cloning $remote into $path"
   git clone --quiet "$remote" "$path"
 
-  [ -n "$ref" ] && git -C "$path" checkout --quiet "$ref"
-  [ -n "$branch" ] && git -C "$path" switch --quiet -c "$branch"
+  if [ -n "$ref" ]; then
+    git -C "$path" checkout --quiet "$ref"
+  fi
+
+  if [ -n "$branch" ]; then
+    git -C "$path" switch --quiet -c "$branch"
+  fi
 done

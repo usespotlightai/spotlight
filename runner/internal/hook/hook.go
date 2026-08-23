@@ -24,8 +24,7 @@ type Spec struct {
 	// Path is the executable to run. Empty means there is no hook, which is
 	// not an error: a run against an already-prepared tree needs neither.
 	Path string
-	// Dir is the working directory, always the run's own.
-	Dir string
+	Dir  string
 	// Payload is written to the hook's stdin as JSON.
 	Payload any
 	// Env is added to the runner's own environment. Hooks run as the runner
@@ -37,7 +36,6 @@ type Spec struct {
 	Timeout time.Duration
 }
 
-// ErrNoHook reports that nothing was configured.
 var ErrNoHook = errors.New("no hook configured")
 
 // Run executes the hook and returns everything it wrote. The output is

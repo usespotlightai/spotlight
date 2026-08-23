@@ -17,7 +17,6 @@ type Workspace struct {
 	Dir string
 }
 
-// Create makes an empty directory for the run.
 func Create(root, runID string) (*Workspace, error) {
 	// The root is traversable but not listable: an agent must be able to reach
 	// its own workspace beneath it without enumerating anyone else's.

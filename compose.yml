@@ -6,10 +6,11 @@ x-control-plane-env: &control-plane-env
   BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-xj4/EgMfb/oOOX54xSnrKiCToESDSWJIy4mLF5Sxlo/IUzvEd/hJDh9VT2kqsyeo}
   BETTER_AUTH_URL: ${BETTER_AUTH_URL:-https://app.dev.usespotlight.ai}
   LOG_LEVEL: ${LOG_LEVEL:-debug}
+  RUNNER_ENROLLMENT_TOKEN: ${RUNNER_ENROLLMENT_TOKEN:-dev-only-runner-enrollment-token-not-a-secret}
 
 x-runner-env: &runner-env
   SPOTLIGHT_URL: ${SPOTLIGHT_URL:-http://control-plane:3000}
-  SPOTLIGHT_TOKEN: ${SPOTLIGHT_TOKEN:-dev-runner-token}
+  SPOTLIGHT_TOKEN: ${RUNNER_ENROLLMENT_TOKEN:-dev-only-runner-enrollment-token-not-a-secret}
   SPOTLIGHT_POOL: ${SPOTLIGHT_POOL:-dev}
   SPOTLIGHT_WORKSPACE: /workspaces
   SPOTLIGHT_AGENT_USER: agent

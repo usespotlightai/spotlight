@@ -15,16 +15,10 @@ import (
 )
 
 type Config struct {
-	// URL is the control plane's base address.
-	URL string
-	// Token authenticates this runner, and only for the runs it claims.
-	Token string
-	// Pool names the queue to claim from.
-	Pool string
-	// Labels advertise what this runner can serve, e.g. arch=arm64.
-	Labels map[string]string
-	// WorkspaceRoot is where checkouts are made. Each run gets a fresh
-	// directory beneath it, removed when the run ends.
+	URL           string
+	Token         string
+	Pool          string
+	Labels        map[string]string
 	WorkspaceRoot string
 	// MaxRuns is how many runs to serve before exiting. Zero is unlimited,
 	// which is what a long-lived runner on someone's laptop wants.
@@ -35,7 +29,6 @@ type Config struct {
 	// PrepareHook fills the workspace before the agent starts. Empty leaves it
 	// empty, which is what a run against an already-checked-out tree wants.
 	PrepareHook string
-	// PublishHook does something with the result once the agent has finished.
 	PublishHook string
 	// HookTimeout bounds each hook. Zero lets one hang, holding the lease.
 	HookTimeout time.Duration

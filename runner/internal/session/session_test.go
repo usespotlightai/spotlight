@@ -73,7 +73,7 @@ func execute(t *testing.T, command protocol.Command) (*journal, string) {
 	root := t.TempDir()
 	written := &journal{}
 
-	run := protocol.Run{ID: "run_1", Cwd: "service", Command: command}
+	run := protocol.Run{ID: "run_1", Spec: protocol.Spec{Cwd: "service", Command: command}}
 
 	err := session.Execute(context.Background(), run, session.Options{
 		WorkspaceRoot: root,
@@ -169,6 +169,12 @@ func TestARunThatCannotStartIsStillReported(t *testing.T) {
 		t.Fatal("expected a failing prepare hook to fail the run")
 	}
 
+	// Reported, not merely journalled: a run left claimed is retried until its
+	// lease lapses, and a checkout that cannot work will not work next time.
+	if written.done == nil || !written.done.Failed {
+		t.Errorf("the failure was not reported: %+v", written.done)
+	}
+
 	if failures := written.typed(protocol.EventFailed); len(failures) != 1 {
 		t.Errorf("expected one failure in the journal, got %d", len(failures))
 	}
@@ -196,11 +202,12 @@ func TestTheAgentIsWalledOffFromTheRunner(t *testing.T) {
 
 	written := &journal{}
 	err = session.Execute(context.Background(), protocol.Run{
-		ID:  "run_walled",
-		Cwd: "service",
-		Command: protocol.Command{
-			Executable: "sh",
-			Args: []string{"-c", `
+		ID: "run_walled",
+		Spec: protocol.Spec{
+			Cwd: "service",
+			Command: protocol.Command{
+				Executable: "sh",
+				Args: []string{"-c", `
 				echo "uid=$(id -u)"
 				cat ../../.recordings/run_walled >/dev/null 2>&1 && echo "READ THE RECORDING"
 				ls .. >/dev/null 2>&1 || echo "CANNOT SEE OWN RUN DIR"
@@ -210,6 +217,7 @@ func TestTheAgentIsWalledOffFromTheRunner(t *testing.T) {
 				cat /proc/1/environ 2>/dev/null | grep -q SPOTLIGHT && echo "READ PID 1"
 				true
 			`},
+			},
 		},
 	}, session.Options{
 		WorkspaceRoot: root,

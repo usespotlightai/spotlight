@@ -43,6 +43,20 @@
       "when": 1787495893788,
       "tag": "20260823143813_backfill_default_assembly_lines",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787518449735,
+      "tag": "20260823205409_add_runner_and_run",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787519100791,
+      "tag": "20260823210500_add_run_attempt",
+      "breakpoints": true
     }
   ]
 }

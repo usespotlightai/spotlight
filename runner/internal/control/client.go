@@ -47,7 +47,6 @@ func New(baseURL, token string) (*Client, error) {
 	}, nil
 }
 
-// RunnerID is empty until Register succeeds.
 func (c *Client) RunnerID() string { return c.runnerID }
 
 func (c *Client) Register(ctx context.Context, in protocol.Registration) error {
@@ -83,7 +82,6 @@ func (c *Client) Claim(ctx context.Context) (*protocol.Run, error) {
 	return &run, nil
 }
 
-// RenewLease tells the control plane the run is still being worked on.
 func (c *Client) RenewLease(ctx context.Context, runID string) error {
 	path := fmt.Sprintf("/api/runs/%s/lease", url.PathEscape(runID))
 	if err := c.do(ctx, http.MethodPost, path, nil, nil); err != nil {
@@ -99,8 +97,14 @@ func (c *Client) AppendEvents(ctx context.Context, runID string, events []protoc
 		return nil
 	}
 
+	// Wrapped rather than a bare array: an object leaves room to say something
+	// about the batch later without breaking every runner in the fleet.
+	batch := struct {
+		Events []protocol.Event `json:"events"`
+	}{Events: events}
+
 	path := fmt.Sprintf("/api/runs/%s/events", url.PathEscape(runID))
-	if err := c.do(ctx, http.MethodPost, path, events, nil); err != nil {
+	if err := c.do(ctx, http.MethodPost, path, batch, nil); err != nil {
 		return fmt.Errorf("append events: %w", err)
 	}
 	return nil
@@ -134,6 +138,12 @@ func (c *Client) request(ctx context.Context, method, path string, in, out any) 
 		return 0, err
 	}
 	request.Header.Set("Authorization", "Bearer "+c.token)
+	// Every runner shares one enrollment token, so this is what says which of
+	// them is calling. A claim, not a credential: the run's own record of who
+	// holds it is what actually decides.
+	if c.runnerID != "" {
+		request.Header.Set("X-Spotlight-Runner", c.runnerID)
+	}
 	if in != nil {
 		request.Header.Set("Content-Type", "application/json")
 	}

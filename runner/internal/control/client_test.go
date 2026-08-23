@@ -92,7 +92,7 @@ func TestClaimReturnsTheRunAndAsksAsThisRunner(t *testing.T) {
 			return
 		}
 		claimPath = r.URL.Path
-		_ = json.NewEncoder(w).Encode(protocol.Run{ID: "run_1", Cwd: "service"})
+		_ = json.NewEncoder(w).Encode(protocol.Run{ID: "run_1", Spec: protocol.Spec{Cwd: "service"}})
 	})
 
 	if err := client.Register(context.Background(), protocol.Registration{}); err != nil {

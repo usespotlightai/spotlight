@@ -17,12 +17,10 @@ const (
 	retryCeiling = 20 * time.Second
 )
 
-// Claimer is the part of the client a loop needs.
 type Claimer interface {
 	Claim(ctx context.Context) (*protocol.Run, error)
 }
 
-// Limits decide when a runner stops asking for work.
 type Limits struct {
 	// MaxRuns is how many runs to serve before exiting. Zero is unlimited.
 	MaxRuns int
@@ -109,7 +107,6 @@ func sleep(ctx context.Context, d time.Duration) bool {
 	}
 }
 
-// Registrar is the part of the client Register needs.
 type Registrar interface {
 	Register(ctx context.Context, in protocol.Registration) error
 }

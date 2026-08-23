@@ -30,7 +30,6 @@ const (
 	flushEvery = 200 * time.Millisecond
 	// renewEvery keeps the lease alive well inside its expiry.
 	renewEvery = 15 * time.Second
-	// readBuffer is large enough that a burst of output is a few reads.
 	readBuffer = 32 * 1024
 )
 
@@ -60,7 +59,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 
 	space, err := workspace.Create(opts.WorkspaceRoot, run.ID)
 	if err != nil {
-		return finish(ctx, journal, lifecycle, log, fmt.Errorf("create workspace: %w", err))
+		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("create workspace: %w", err))
 	}
 	defer func() {
 		if err := space.Remove(); err != nil {
@@ -71,22 +70,22 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	// Before the handover, so whatever the hook authenticates with is gone by
 	// the time the agent can look.
 	if err := opts.runHook(ctx, opts.PrepareHook, space.Dir, run, journal, log, "prepare"); err != nil {
-		return finish(ctx, journal, lifecycle, log, err)
+		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
-	cwd, err := space.Resolve(run.Cwd)
+	cwd, err := space.Resolve(run.Spec.Cwd)
 	if err != nil {
-		return finish(ctx, journal, lifecycle, log, err)
+		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
 	if opts.AgentUser != nil {
 		if err := space.GiveTo(opts.AgentUser.UID, opts.AgentUser.GID); err != nil {
-			return finish(ctx, journal, lifecycle, log, fmt.Errorf("hand over workspace: %w", err))
+			return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("hand over workspace: %w", err))
 		}
 	}
 
 	if err := lifecycle.reach(WorkspaceReady); err != nil {
-		return finish(ctx, journal, lifecycle, log, err)
+		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 	journal.record(ctx, protocol.Event{Type: protocol.EventWorkspaceReady, Message: space.Dir})
 
@@ -102,26 +101,26 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	}()
 
 	agent, err := terminal.Start(ctx, terminal.Spec{
-		Command:   run.Command,
+		Command:   run.Spec.Command,
 		Dir:       cwd,
 		Recording: recording,
 		Size:      terminal.DefaultSize,
 		RunAs:     opts.AgentUser,
 	})
 	if err != nil {
-		return finish(ctx, journal, lifecycle, log, fmt.Errorf("start agent: %w", err))
+		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("start agent: %w", err))
 	}
 	defer agent.Close()
 
 	if err := lifecycle.reach(AgentStarted); err != nil {
-		return finish(ctx, journal, lifecycle, log, err)
+		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
-	log.Info("agent started", "executable", run.Command.Executable, "cwd", cwd)
+	log.Info("agent started", "executable", run.Spec.Command.Executable, "cwd", cwd)
 
 	exitCode := pump(ctx, agent, journal, run.ID, opts.Journal, log)
 
 	if err := lifecycle.reach(AgentExited); err != nil {
-		return finish(ctx, journal, lifecycle, log, err)
+		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
 	// After the agent has exited, so push credentials never overlap with it.
@@ -139,7 +138,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 
 	journal.flush(ctx)
 	if err := lifecycle.reach(Drained); err != nil {
-		return finish(ctx, journal, lifecycle, log, err)
+		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
 	log.Info("run finished", "state", lifecycle.state, "exitCode", exitCode)
@@ -150,8 +149,6 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	})
 }
 
-// pump moves terminal output into the journal and keeps the lease alive until
-// the agent exits.
 func pump(
 	ctx context.Context,
 	agent *terminal.Session,
@@ -226,13 +223,36 @@ func pump(
 	}
 }
 
-func finish(ctx context.Context, journal *journalWriter, lifecycle *progress, log *slog.Logger, cause error) error {
+// finish reports a run that never got as far as an agent. Saying so matters:
+// staying quiet leaves the run claimed until its lease lapses, and a failure
+// that will happen again — a missing repository, an unreachable forge — is
+// then retried forever instead of once.
+func finish(
+	ctx context.Context,
+	runID string,
+	journal *journalWriter,
+	lifecycle *progress,
+	reporter Journal,
+	log *slog.Logger,
+	cause error,
+) error {
 	if err := lifecycle.reach(WentWrong); err != nil {
 		log.Warn("could not mark the run failed", "error", err)
 	}
 
-	journal.append(protocol.Event{Type: protocol.EventFailed, Message: cause.Error()})
+	journal.append(protocol.Event{
+		Type:    protocol.EventFailed,
+		Message: cause.Error(),
+	})
 	journal.flush(ctx)
+
+	if err := reporter.Complete(ctx, runID, protocol.Completion{
+		ExitCode: -1,
+		Failed:   true,
+		Message:  cause.Error(),
+	}); err != nil {
+		log.Warn("could not report the failure", "error", err)
+	}
 
 	return cause
 }
@@ -269,7 +289,7 @@ func (o Options) runHook(
 	output, err := hook.Run(ctx, hook.Spec{
 		Path:    path,
 		Dir:     dir,
-		Payload: run,
+		Payload: run.Spec,
 		Env: map[string]string{
 			"SPOTLIGHT_RUN_ID":        run.ID,
 			"SPOTLIGHT_WORKSPACE_DIR": dir,

@@ -31,17 +31,14 @@ type Size struct {
 // output is not wrapped into nonsense in the recording.
 var DefaultSize = Size{Cols: 120, Rows: 40}
 
-// Chunk is a slice of terminal output and where it sits in the recording.
 type Chunk struct {
 	Data   []byte
 	Offset int64
 }
 
-// Spec is everything needed to start an agent.
 type Spec struct {
 	Command protocol.Command
-	// Dir is where the agent starts, inside the workspace.
-	Dir string
+	Dir     string
 	// Recording is where its output is written. Deliberately outside the
 	// workspace: the agent must not be able to edit the record of what it did.
 	Recording string
@@ -50,7 +47,6 @@ type Spec struct {
 	RunAs *User
 }
 
-// Session is a running agent attached to a pty.
 type Session struct {
 	command   *exec.Cmd
 	pty       *os.File
@@ -58,7 +54,6 @@ type Session struct {
 	offset    int64
 }
 
-// Start spawns the agent under a pty, recording everything it writes.
 func Start(ctx context.Context, spec Spec) (*Session, error) {
 	command := exec.CommandContext(ctx, spec.Command.Executable, spec.Command.Args...)
 	command.Dir = spec.Dir
@@ -110,18 +105,15 @@ func (s *Session) Read(buffer []byte) (Chunk, error) {
 	return Chunk{}, err
 }
 
-// Write sends keystrokes to the agent.
 func (s *Session) Write(data []byte) error {
 	_, err := s.pty.Write(data)
 	return err
 }
 
-// Resize follows a viewer's window.
 func (s *Session) Resize(size Size) error {
 	return pty.Setsize(s.pty, &pty.Winsize{Cols: size.Cols, Rows: size.Rows})
 }
 
-// Wait reaps the agent and reports its exit code.
 func (s *Session) Wait() int {
 	if err := s.command.Wait(); err != nil {
 		var exit *exec.ExitError
@@ -133,7 +125,6 @@ func (s *Session) Wait() int {
 	return 0
 }
 
-// Close releases the pty and the recording. Waiting is the caller's job.
 func (s *Session) Close() error {
 	return errors.Join(s.pty.Close(), s.recording.Close())
 }
@@ -160,8 +151,6 @@ func environment(extra map[string]string) []string {
 	return env
 }
 
-// isClosed reports whether the error means the child is gone rather than that
-// something went wrong.
 func isClosed(err error) bool {
 	return errors.Is(err, io.EOF) || errors.Is(err, os.ErrClosed) || errors.Is(err, syscallEIO)
 }
