@@ -1,5 +1,6 @@
 import { useParams } from 'react-router';
 import { StationLane } from '@/components/board/StationLane';
+import { InitialAvatar } from '@/components/common/avatar/InitialAvatar';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useAssemblyLines } from '@/hooks/api/useAssemblyLines';
@@ -35,7 +36,21 @@ export function AssemblyLineBoard() {
     <>
       <PageHeader
         title={
-          <Breadcrumbs segments={team ? [team.name, line.name] : [line.name]} />
+          <Breadcrumbs
+            segments={[
+              ...(team
+                ? [
+                    {
+                      label: team.name,
+                      icon: (
+                        <InitialAvatar name={team.name} className="bg-card" />
+                      ),
+                    },
+                  ]
+                : []),
+              { label: line.name },
+            ]}
+          />
         }
       />
 

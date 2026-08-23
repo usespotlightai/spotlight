@@ -1,4 +1,5 @@
 import { Navigate, useParams } from 'react-router';
+import { InitialAvatar } from '@/components/common/avatar/InitialAvatar';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
@@ -32,7 +33,21 @@ export function TeamSection() {
   return (
     <PageHeader
       title={
-        <Breadcrumbs segments={team ? [team.name, meta.label] : [meta.label]} />
+        <Breadcrumbs
+          segments={[
+            ...(team
+              ? [
+                  {
+                    label: team.name,
+                    icon: (
+                      <InitialAvatar name={team.name} className="bg-card" />
+                    ),
+                  },
+                ]
+              : []),
+            { label: meta.label },
+          ]}
+        />
       }
     />
   );
