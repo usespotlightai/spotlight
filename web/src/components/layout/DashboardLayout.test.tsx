@@ -10,36 +10,19 @@ beforeEach(() => {
 });
 
 describe('DashboardLayout', () => {
-  it('titles the view', () => {
-    render(<DashboardLayout title="Agent" />);
-
-    expect(screen.getByRole('heading', { name: 'Agent' })).toBeInTheDocument();
-  });
-
-  it('renders the sidebar, actions and content it is given', () => {
+  it('renders the sidebar and content it is given', () => {
     render(
-      <DashboardLayout
-        title="Agent"
-        sidebar={<p>sidebar slot</p>}
-        actions={<button type="button">Filter</button>}
-      >
+      <DashboardLayout sidebar={<p>sidebar slot</p>}>
         <p>content slot</p>
       </DashboardLayout>,
     );
 
     expect(screen.getByText('sidebar slot')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Filter' })).toBeInTheDocument();
     expect(screen.getByText('content slot')).toBeInTheDocument();
   });
 
-  it('leaves out the actions area when there are none', () => {
-    const { container } = render(<DashboardLayout title="Agent" />);
-
-    expect(container.querySelector('header')?.children).toHaveLength(1);
-  });
-
   it('exposes the sidebar width through the resize handle', () => {
-    render(<DashboardLayout title="Agent" />);
+    render(<DashboardLayout />);
 
     expect(handle()).toHaveAttribute('aria-valuenow', '224');
     expect(handle()).toHaveAttribute('aria-valuemin', '192');
@@ -48,7 +31,7 @@ describe('DashboardLayout', () => {
 
   it('resizes from the keyboard', async () => {
     const user = userEvent.setup();
-    render(<DashboardLayout title="Agent" />);
+    render(<DashboardLayout />);
 
     handle().focus();
     await user.keyboard('{ArrowRight}{ArrowRight}');
@@ -62,7 +45,7 @@ describe('DashboardLayout', () => {
 
   it('refuses to go past its bounds', async () => {
     const user = userEvent.setup();
-    render(<DashboardLayout title="Agent" />);
+    render(<DashboardLayout />);
 
     handle().focus();
     await user.keyboard('{ArrowLeft>20/}');
@@ -76,7 +59,7 @@ describe('DashboardLayout', () => {
 
   it('returns to the default width on double click', async () => {
     const user = userEvent.setup();
-    render(<DashboardLayout title="Agent" />);
+    render(<DashboardLayout />);
 
     handle().focus();
     await user.keyboard('{ArrowRight}');
@@ -87,13 +70,13 @@ describe('DashboardLayout', () => {
 
   it('remembers the width across mounts', async () => {
     const user = userEvent.setup();
-    const { unmount } = render(<DashboardLayout title="Agent" />);
+    const { unmount } = render(<DashboardLayout />);
 
     handle().focus();
     await user.keyboard('{ArrowRight}');
     unmount();
 
-    render(<DashboardLayout title="Agent" />);
+    render(<DashboardLayout />);
 
     expect(handle()).toHaveAttribute('aria-valuenow', '240');
   });

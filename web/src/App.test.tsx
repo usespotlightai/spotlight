@@ -55,7 +55,7 @@ describe('routing', () => {
     renderAt('/definitely-not-a-page');
 
     expect(
-      await screen.findByRole('heading', { name: 'Acme' }),
+      await screen.findByRole('heading', { name: /Acme\s*Assembly lines/ }),
     ).toBeInTheDocument();
   });
 
@@ -65,7 +65,7 @@ describe('routing', () => {
     renderAt('/');
 
     expect(
-      await screen.findByRole('heading', { name: 'Acme' }),
+      await screen.findByRole('heading', { name: /Acme\s*Assembly lines/ }),
     ).toBeInTheDocument();
   });
 

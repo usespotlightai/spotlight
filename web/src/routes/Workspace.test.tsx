@@ -24,14 +24,16 @@ const acme = {
   id: 'ws_1',
   name: 'Acme Inc.',
   slug: 'acme-inc',
-  teams: [{ id: 'team_1', name: 'Acme Inc.' }],
+  teams: [{ id: 'team_1', name: 'Platform' }],
 };
 
 const renderAt = (slug: string) =>
   render(
     <MemoryRouter initialEntries={[`/w/${slug}`]}>
       <Routes>
-        <Route path="/w/:slug" element={<Workspace />} />
+        <Route path="/w/:slug" element={<Workspace />}>
+          <Route index element={<p>section slot</p>} />
+        </Route>
       </Routes>
     </MemoryRouter>,
   );
@@ -41,14 +43,25 @@ beforeEach(() => {
 });
 
 describe('Workspace', () => {
-  it('titles the dashboard with the workspace at that address', () => {
+  it('names the workspace at that address in the sidebar', () => {
     loaded(acme);
 
     renderAt('acme-inc');
 
     expect(
-      screen.getByRole('heading', { name: 'Acme Inc.' }),
+      screen.getByRole('button', { name: /Acme Inc\./ }),
     ).toBeInTheDocument();
+  });
+
+  it('frames the section at that address', () => {
+    loaded(acme);
+
+    renderAt('acme-inc');
+
+    expect(screen.getByText('section slot')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Assembly lines' }),
+    ).toHaveAttribute('href', '/w/acme-inc/team/team_1/lines');
   });
 
   it('asks by the slug in the address', () => {

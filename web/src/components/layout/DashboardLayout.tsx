@@ -4,17 +4,10 @@ import { cn } from '@/lib/utils';
 
 type DashboardLayoutProps = {
   sidebar?: ReactNode;
-  title?: ReactNode;
-  actions?: ReactNode;
   children?: ReactNode;
 };
 
-export function DashboardLayout({
-  sidebar,
-  title,
-  actions,
-  children,
-}: DashboardLayoutProps) {
+export function DashboardLayout({ sidebar, children }: DashboardLayoutProps) {
   const { width, resizing, handleProps } = useSidebarWidth();
 
   return (
@@ -42,18 +35,7 @@ export function DashboardLayout({
 
       <div className="min-w-0 flex-1 p-2 md:pl-0">
         <section className="flex h-full flex-col overflow-hidden rounded-lg border-[0.5px] border-border bg-card">
-          <header className="flex h-12 shrink-0 items-center gap-3 border-b-[0.5px] border-border px-4">
-            <h1 className="truncate font-medium text-foreground text-sm">
-              {title}
-            </h1>
-            {actions && (
-              <div className="ml-auto flex shrink-0 items-center gap-2">
-                {actions}
-              </div>
-            )}
-          </header>
-
-          <div className="min-h-0 flex-1 overflow-auto">{children}</div>
+          {children}
         </section>
       </div>
     </div>

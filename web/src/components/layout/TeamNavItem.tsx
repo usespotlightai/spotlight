@@ -1,0 +1,110 @@
+import { ChevronDown } from 'lucide-react';
+import { NavLink, useMatch } from 'react-router';
+import { InitialAvatar } from '@/components/common/avatar/InitialAvatar';
+import { SidebarLink } from '@/components/layout/SidebarLink';
+import {
+  TEAM_SECTIONS,
+  type Team,
+  teamPath,
+  teamSectionPath,
+} from '@/lib/team';
+import { cn } from '@/lib/utils';
+
+type TeamNavItemProps = {
+  slug: string;
+  team: Team;
+  expanded: boolean;
+  onToggle: () => void;
+};
+
+export function TeamNavItem({
+  slug,
+  team,
+  expanded,
+  onToggle,
+}: TeamNavItemProps) {
+  // Any section of this team keeps the team row itself marked as current.
+  const active = Boolean(useMatch(`/w/${slug}/team/${team.id}/*`));
+
+  return (
+    <li>
+      <div
+        data-slot="team-row"
+        data-active={active || undefined}
+        className="group/team flex h-7 items-center rounded-md pr-2 transition-colors hover:bg-accent"
+      >
+        {/* The link fills the row, so the whole row toggles the team rather
+            than the chevron alone. Opening it navigates in; closing it only
+            closes, so you are not sent to a section you just hid. */}
+        <NavLink
+          to={teamPath(slug, team.id)}
+          onClick={(event) => {
+            if (expanded) {
+              event.preventDefault();
+            }
+            onToggle();
+          }}
+          className={cn(
+            'flex h-full min-w-0 flex-1 items-center gap-2 pl-2 text-sm outline-none',
+            active ? 'font-medium text-foreground' : 'text-muted-foreground',
+          )}
+        >
+          <InitialAvatar name={team.name} className="bg-muted" />
+          <span className="truncate">{team.name}</span>
+        </NavLink>
+
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={expanded}
+          aria-label={
+            expanded ? `Collapse ${team.name}` : `Expand ${team.name}`
+          }
+          className={cn(
+            'flex size-4 shrink-0 items-center justify-center rounded text-muted-foreground outline-none transition-opacity hover:text-foreground',
+            'opacity-0 group-hover/team:opacity-100 focus-visible:opacity-100',
+            expanded && 'opacity-100',
+          )}
+        >
+          <ChevronDown
+            className={cn(
+              'size-3 transition-transform',
+              !expanded && '-rotate-90',
+            )}
+            aria-hidden
+          />
+        </button>
+      </div>
+
+      {/* Animating to a content height nobody has measured: the grid row goes
+          0fr → 1fr, which resolves to the sections' own height. */}
+      <div
+        data-slot="team-sections"
+        data-open={expanded || undefined}
+        className={cn(
+          'grid transition-[grid-template-rows] duration-150 ease-out motion-reduce:transition-none',
+          expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+        )}
+      >
+        {/* Rendered while collapsed so it can animate, but inert keeps it out
+            of the tab order and the accessibility tree. */}
+        <ul
+          inert={!expanded}
+          className="flex min-h-0 flex-col gap-0.5 overflow-hidden pt-0.5"
+        >
+          {TEAM_SECTIONS.map((section) => (
+            <li key={section.id}>
+              <SidebarLink
+                to={teamSectionPath(slug, team.id, section.id)}
+                icon={section.icon}
+                className="pl-8"
+              >
+                {section.label}
+              </SidebarLink>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </li>
+  );
+}

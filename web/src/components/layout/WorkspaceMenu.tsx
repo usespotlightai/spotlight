@@ -1,6 +1,6 @@
 import { ChevronsUpDown } from 'lucide-react';
 import { useNavigate } from 'react-router';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { InitialAvatar } from '@/components/common/avatar/InitialAvatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,18 +17,6 @@ import { useSignOut } from '@/hooks/api/useSignOut';
 import { useWorkspaces } from '@/hooks/api/useWorkspaces';
 import { workspacePath } from '@/lib/workspace';
 
-function WorkspaceAvatar({ name }: { name: string }) {
-  const [initial] = [...name.trim()];
-
-  return (
-    <Avatar size="sm" className="rounded after:rounded">
-      <AvatarFallback className="rounded bg-primary text-[0.625rem] text-primary-foreground! uppercase">
-        {initial}
-      </AvatarFallback>
-    </Avatar>
-  );
-}
-
 type WorkspaceMenuProps = {
   name: string;
   slug: string;
@@ -43,7 +31,10 @@ export function WorkspaceMenu({ name, slug }: WorkspaceMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent">
-        <WorkspaceAvatar name={name} />
+        <InitialAvatar
+          name={name}
+          className="bg-primary text-primary-foreground!"
+        />
         <span className="truncate font-medium text-foreground text-sm">
           {name}
         </span>
@@ -69,7 +60,10 @@ export function WorkspaceMenu({ name, slug }: WorkspaceMenuProps) {
           >
             {workspaces?.map((workspace) => (
               <DropdownMenuRadioItem key={workspace.id} value={workspace.slug}>
-                <WorkspaceAvatar name={workspace.name} />
+                <InitialAvatar
+                  name={workspace.name}
+                  className="bg-primary text-primary-foreground!"
+                />
                 <span className="truncate">{workspace.name}</span>
               </DropdownMenuRadioItem>
             ))}
