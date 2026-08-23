@@ -1,4 +1,4 @@
-import { Activity, Gauge, Settings, Workflow } from 'lucide-react';
+import { Activity, Gauge, Settings } from 'lucide-react';
 import type { ComponentType } from 'react';
 
 export type Team = {
@@ -13,7 +13,6 @@ type TeamSectionDefinition = {
 };
 
 export const TEAM_SECTIONS = [
-  { id: 'lines', label: 'Assembly lines', icon: Workflow },
   { id: 'runs', label: 'Runs', icon: Activity },
   { id: 'monitoring', label: 'Monitoring', icon: Gauge },
   { id: 'settings', label: 'Settings', icon: Settings },
@@ -23,16 +22,22 @@ export type TeamSection = (typeof TEAM_SECTIONS)[number];
 
 export type TeamSectionId = TeamSection['id'];
 
-export const DEFAULT_TEAM_SECTION_ID: TeamSectionId = 'lines';
+export const FALLBACK_TEAM_SECTION_ID: TeamSectionId = 'runs';
+
+export const teamPath = (slug: string, teamId: string): string =>
+  `/w/${slug}/team/${teamId}`;
 
 export const teamSectionPath = (
   slug: string,
   teamId: string,
   section: TeamSectionId,
-): string => `/w/${slug}/team/${teamId}/${section}`;
+): string => `${teamPath(slug, teamId)}/${section}`;
 
-export const teamPath = (slug: string, teamId: string): string =>
-  teamSectionPath(slug, teamId, DEFAULT_TEAM_SECTION_ID);
+export const assemblyLinePath = (
+  slug: string,
+  teamId: string,
+  lineId: string,
+): string => `${teamPath(slug, teamId)}/lines/${lineId}`;
 
 export const findTeamSection = (
   id: string | undefined,

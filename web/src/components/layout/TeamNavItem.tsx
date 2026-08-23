@@ -1,14 +1,21 @@
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Workflow } from 'lucide-react';
 import { NavLink, useMatch } from 'react-router';
 import { InitialAvatar } from '@/components/common/avatar/InitialAvatar';
+import { Disclosure } from '@/components/layout/Disclosure';
+import { DisclosureRow } from '@/components/layout/DisclosureRow';
 import { SidebarLink } from '@/components/layout/SidebarLink';
+import { useAssemblyLines } from '@/hooks/api/useAssemblyLines';
+import { useCollapsed } from '@/hooks/useCollapsed';
 import {
+  assemblyLinePath,
   TEAM_SECTIONS,
   type Team,
   teamPath,
   teamSectionPath,
 } from '@/lib/team';
 import { cn } from '@/lib/utils';
+
+const LINE_GROUPS_STORAGE_KEY = 'spotlight.collapsed-line-groups';
 
 type TeamNavItemProps = {
   slug: string;
@@ -24,6 +31,9 @@ export function TeamNavItem({
   onToggle,
 }: TeamNavItemProps) {
   const active = Boolean(useMatch(`/w/${slug}/team/${team.id}/*`));
+  const { data: lines } = useAssemblyLines(team.id, expanded);
+  const groups = useCollapsed(LINE_GROUPS_STORAGE_KEY);
+  const linesOpen = groups.isExpanded(team.id);
 
   return (
     <li>
@@ -72,34 +82,42 @@ export function TeamNavItem({
         </button>
       </div>
 
-      {/* Animates to a height nobody measured: the grid row goes 0fr to 1fr.
-          The sections stay mounted so they can animate, so `inert` is what
-          keeps a closed team out of the tab order. */}
-      <div
-        data-slot="team-sections"
-        data-open={expanded || undefined}
-        className={cn(
-          'grid transition-[grid-template-rows] duration-150 ease-out motion-reduce:transition-none',
-          expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
-        )}
-      >
-        <ul
-          inert={!expanded}
-          className="flex min-h-0 flex-col gap-0.5 overflow-hidden pt-0.5"
-        >
-          {TEAM_SECTIONS.map((section) => (
-            <li key={section.id}>
-              <SidebarLink
-                to={teamSectionPath(slug, team.id, section.id)}
-                icon={section.icon}
-                className="pl-8"
-              >
-                {section.label}
-              </SidebarLink>
-            </li>
-          ))}
-        </ul>
-      </div>
+      <Disclosure open={expanded} slot="team-sections">
+        <li>
+          <DisclosureRow
+            label="Assembly lines"
+            icon={Workflow}
+            open={linesOpen}
+            onToggle={() => groups.toggle(team.id)}
+            className="pl-8"
+          />
+
+          <Disclosure open={linesOpen} slot="assembly-lines">
+            {lines?.map((line) => (
+              <li key={line.id}>
+                <SidebarLink
+                  to={assemblyLinePath(slug, team.id, line.id)}
+                  className="pl-14"
+                >
+                  {line.name}
+                </SidebarLink>
+              </li>
+            ))}
+          </Disclosure>
+        </li>
+
+        {TEAM_SECTIONS.map((section) => (
+          <li key={section.id}>
+            <SidebarLink
+              to={teamSectionPath(slug, team.id, section.id)}
+              icon={section.icon}
+              className="pl-8"
+            >
+              {section.label}
+            </SidebarLink>
+          </li>
+        ))}
+      </Disclosure>
     </li>
   );
 }

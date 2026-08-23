@@ -17,6 +17,13 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
     isPending: false,
   }),
 }));
+vi.mock('@/hooks/api/useAssemblyLines', () => ({
+  useAssemblyLines: () => ({
+    data: [{ id: 'line_1', name: 'Default', stations: [] }],
+    isPending: false,
+  }),
+}));
+
 vi.mock('@/hooks/api/useWorkspaces', () => ({
   useWorkspaces: () => ({
     data: [{ id: 'ws_1', name: 'Acme', slug: 'acme' }],
@@ -55,7 +62,7 @@ describe('routing', () => {
     renderAt('/definitely-not-a-page');
 
     expect(
-      await screen.findByRole('heading', { name: /Acme\s*Assembly lines/ }),
+      await screen.findByRole('heading', { name: /Acme\s*Default/ }),
     ).toBeInTheDocument();
   });
 
@@ -65,7 +72,7 @@ describe('routing', () => {
     renderAt('/');
 
     expect(
-      await screen.findByRole('heading', { name: /Acme\s*Assembly lines/ }),
+      await screen.findByRole('heading', { name: /Acme\s*Default/ }),
     ).toBeInTheDocument();
   });
 

@@ -1,10 +1,12 @@
 import { Navigate, Route, Routes } from 'react-router';
 import { RequireAuth } from './components/common/auth/RequireAuth.tsx';
 import { RequireGuest } from './components/common/auth/RequireGuest.tsx';
+import { AssemblyLineBoard } from './routes/AssemblyLineBoard.tsx';
 import { CreateWorkspace } from './routes/CreateWorkspace.tsx';
 import { DefaultWorkspace } from './routes/DefaultWorkspace.tsx';
 import { Login } from './routes/Login.tsx';
 import { SignUp } from './routes/SignUp.tsx';
+import { TeamIndex } from './routes/TeamIndex.tsx';
 import { TeamSection } from './routes/TeamSection.tsx';
 import { Workspace } from './routes/Workspace.tsx';
 import { WorkspaceIndex } from './routes/WorkspaceIndex.tsx';
@@ -22,7 +24,11 @@ export default function App() {
         <Route path="/workspaces/new" element={<CreateWorkspace />} />
         <Route path="/w/:slug" element={<Workspace />}>
           <Route index element={<WorkspaceIndex />} />
-          <Route path="team/:teamId/:section" element={<TeamSection />} />
+          <Route path="team/:teamId">
+            <Route index element={<TeamIndex />} />
+            <Route path="lines/:lineId" element={<AssemblyLineBoard />} />
+            <Route path=":section" element={<TeamSection />} />
+          </Route>
         </Route>
       </Route>
 

@@ -1,6 +1,8 @@
 import { TeamNavItem } from '@/components/layout/TeamNavItem';
-import { useCollapsedTeams } from '@/hooks/useCollapsedTeams';
+import { useCollapsed } from '@/hooks/useCollapsed';
 import type { Team } from '@/lib/team';
+
+const TEAMS_STORAGE_KEY = 'spotlight.collapsed-teams';
 
 type TeamNavProps = {
   slug: string;
@@ -8,7 +10,7 @@ type TeamNavProps = {
 };
 
 export function TeamNav({ slug, teams }: TeamNavProps) {
-  const { isExpanded, toggle } = useCollapsedTeams();
+  const { isExpanded, toggle } = useCollapsed(TEAMS_STORAGE_KEY);
 
   return (
     <section>

@@ -1,8 +1,15 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TeamNav } from '@/components/layout/TeamNav';
+
+vi.mock('@/hooks/api/useAssemblyLines', () => ({
+  useAssemblyLines: () => ({
+    data: [{ id: 'line_1', name: 'Default', stations: [] }],
+    isPending: false,
+  }),
+}));
 
 const teams = [
   { id: 'team_1', name: 'Platform' },
@@ -21,6 +28,12 @@ const chevron = (team: string) =>
 
 const panels = () =>
   Array.from(document.querySelectorAll('[data-slot="team-sections"]'));
+
+const lineGroups = () =>
+  Array.from(document.querySelectorAll('[data-slot="assembly-lines"]'));
+
+const linesRow = (index: number) =>
+  screen.getAllByRole('button', { name: /Assembly lines/ })[index];
 
 beforeEach(() => {
   localStorage.clear();
@@ -57,12 +70,46 @@ describe('TeamNav', () => {
     expect(panels()[1]?.querySelector('ul')).not.toHaveAttribute('inert');
   });
 
-  it('points a team at its first section', () => {
+  it('groups a team’s assembly lines under a row of their own', () => {
+    renderNav();
+
+    expect(lineGroups()).toHaveLength(teams.length);
+    expect(screen.getAllByRole('link', { name: 'Default' })).toHaveLength(
+      teams.length,
+    );
+    expect(linesRow(0)).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('closes one team’s line group without touching the other', async () => {
+    const user = userEvent.setup();
+    renderNav();
+
+    await user.click(linesRow(0) as HTMLElement);
+
+    expect(linesRow(0)).toHaveAttribute('aria-expanded', 'false');
+    expect(linesRow(1)).toHaveAttribute('aria-expanded', 'true');
+    expect(lineGroups()[0]?.querySelector('ul')).toHaveAttribute('inert');
+    expect(lineGroups()[1]?.querySelector('ul')).not.toHaveAttribute('inert');
+  });
+
+  it('remembers a closed line group across mounts', async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderNav();
+
+    await user.click(linesRow(0) as HTMLElement);
+    unmount();
+
+    renderNav();
+
+    expect(linesRow(0)).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('points a team at its own landing page', () => {
     renderNav();
 
     expect(screen.getByRole('link', { name: 'Platform' })).toHaveAttribute(
       'href',
-      '/w/acme-inc/team/team_1/lines',
+      '/w/acme-inc/team/team_1',
     );
   });
 

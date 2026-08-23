@@ -5,6 +5,13 @@ import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { Workspace } from '@/routes/Workspace';
 
 vi.mock('@/hooks/api/useWorkspace', () => ({ useWorkspace: vi.fn() }));
+
+vi.mock('@/hooks/api/useAssemblyLines', () => ({
+  useAssemblyLines: () => ({
+    data: [{ id: 'line_1', name: 'Default', stations: [] }],
+    isPending: false,
+  }),
+}));
 vi.mock('@/hooks/api/useSignOut', () => ({
   useSignOut: () => ({ mutate: vi.fn(), isPending: false }),
 }));
@@ -59,9 +66,10 @@ describe('Workspace', () => {
     renderAt('acme-inc');
 
     expect(screen.getByText('section slot')).toBeInTheDocument();
-    expect(
-      screen.getByRole('link', { name: 'Assembly lines' }),
-    ).toHaveAttribute('href', '/w/acme-inc/team/team_1/lines');
+    expect(screen.getByRole('link', { name: 'Default' })).toHaveAttribute(
+      'href',
+      '/w/acme-inc/team/team_1/lines/line_1',
+    );
   });
 
   it('asks by the slug in the address', () => {
