@@ -7,6 +7,26 @@ x-control-plane-env: &control-plane-env
   BETTER_AUTH_URL: ${BETTER_AUTH_URL:-https://app.dev.usespotlight.ai}
   LOG_LEVEL: ${LOG_LEVEL:-debug}
 
+x-runner-env: &runner-env
+  SPOTLIGHT_URL: ${SPOTLIGHT_URL:-http://control-plane:3000}
+  SPOTLIGHT_TOKEN: ${SPOTLIGHT_TOKEN:-dev-runner-token}
+  SPOTLIGHT_POOL: ${SPOTLIGHT_POOL:-dev}
+  SPOTLIGHT_WORKSPACE: /workspaces
+  SPOTLIGHT_AGENT_USER: agent
+
+x-runner: &runner
+  # One image for every runner: identical build config under two service names
+  # would otherwise build twice and let them drift apart.
+  image: spotlight-runner
+  build:
+    context: .
+    dockerfile: .docker/runner/Dockerfile
+    target: development
+  restart: unless-stopped
+  depends_on:
+    control-plane:
+      condition: service_healthy
+
 services:
   traefik:
     build:
@@ -109,6 +129,24 @@ services:
       - ./control-plane/openapi.json:/control-plane/openapi.json:ro
       - node-modules-web:/app/node_modules
 
+  runner-1:
+    <<: *runner
+    environment:
+      <<: *runner-env
+      SPOTLIGHT_LABELS: runner=one
+    volumes:
+      - ./runner:/app
+      - runner-1-workspaces:/workspaces
+
+  runner-2:
+    <<: *runner
+    environment:
+      <<: *runner-env
+      SPOTLIGHT_LABELS: runner=two
+    volumes:
+      - ./runner:/app
+      - runner-2-workspaces:/workspaces
+
   db:
     restart: unless-stopped
     build:
@@ -129,6 +167,8 @@ services:
       - db-data:/var/lib/postgresql
 
 volumes:
+  runner-1-workspaces:
+  runner-2-workspaces:
   node-modules-web:
   node-modules-migrate:
   node-modules-control-plane:
