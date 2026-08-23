@@ -50,6 +50,12 @@ describe('CreateWorkspaceHandler', () => {
     expect(added?.teams).toHaveLength(1);
   });
 
+  it('creates a factory for the team it opens with', async () => {
+    await handle();
+
+    expect(added?.teams[0]?.factory.id.value).toBe('id_3');
+  });
+
   it('reports a taken slug as a conflict, without writing', async () => {
     repository.isTaken = vi.fn().mockResolvedValue(true);
 

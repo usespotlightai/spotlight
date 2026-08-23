@@ -15,6 +15,20 @@
       "when": 1787431801760,
       "tag": "20260822205001_create_workspaces_and_teams",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787491603560,
+      "tag": "20260823132643_add_factory",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787491646892,
+      "tag": "20260823132726_backfill_team_factories",
+      "breakpoints": true
     }
   ]
 }

@@ -4,6 +4,7 @@ import type { WorkspaceRepository } from '@domain/repositories/workspace.reposit
 import { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
 import type { DrizzleDatabase } from '@infrastructure/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@infrastructure/persistence/drizzle/drizzle.constants';
+import { factory } from '@infrastructure/persistence/drizzle/schemas/factory.schema';
 import {
   team,
   teamMember,
@@ -67,6 +68,12 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
               role: member.role,
             })),
           );
+
+          await tx.insert(factory).values({
+            id: owned.factory.id.value,
+            workspaceId: added.id.value,
+            teamId: owned.id.value,
+          });
         }
       });
     } catch (error) {

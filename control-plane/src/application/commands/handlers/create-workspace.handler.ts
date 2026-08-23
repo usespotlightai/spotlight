@@ -6,6 +6,7 @@ import type { CommandHandlerPort } from '@application/ports/command-handler.port
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
 import { WorkspaceRegistration } from '@domain/services/workspace-registration';
+import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
@@ -41,6 +42,7 @@ export class CreateWorkspaceHandler
       slug: WorkspaceSlug.of(command.slug),
       owner: UserId.of(command.ownerId),
       firstTeamId: TeamId.of(this.ids.generate()),
+      firstFactoryId: FactoryId.of(this.ids.generate()),
     });
 
     await this.workspaces.add(workspace);

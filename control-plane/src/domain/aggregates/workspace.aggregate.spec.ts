@@ -1,4 +1,5 @@
 import { Workspace } from '@domain/aggregates/workspace.aggregate';
+import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
@@ -13,6 +14,7 @@ const build = (id = 'ws_1') =>
     slug: WorkspaceSlug.of('acme-inc'),
     owner: UserId.of('user_1'),
     firstTeamId: TeamId.of('team_1'),
+    firstFactoryId: FactoryId.of('factory_1'),
   });
 
 describe('Workspace', () => {
@@ -30,6 +32,12 @@ describe('Workspace', () => {
     expect(first.members).toEqual([
       { userId: UserId.of('user_1'), role: 'owner' },
     ]);
+  });
+
+  it('gives the first team a factory to hang its assembly lines on', () => {
+    const [first] = build().teams;
+
+    expect(first?.factory.id).toEqual(FactoryId.of('factory_1'));
   });
 
   it('is the same workspace as another holding its identity', () => {

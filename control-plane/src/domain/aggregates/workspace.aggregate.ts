@@ -1,4 +1,5 @@
 import { Team } from '@domain/entities/team.entity';
+import type { FactoryId } from '@domain/value-objects/factory-id.vo';
 import type { TeamId } from '@domain/value-objects/team-id.vo';
 import { TeamName } from '@domain/value-objects/team-name.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
@@ -27,11 +28,13 @@ export class Workspace {
     slug: WorkspaceSlug;
     owner: UserId;
     firstTeamId: TeamId;
+    firstFactoryId: FactoryId;
   }): Workspace {
     const firstTeam = Team.create({
       id: input.firstTeamId,
       name: TeamName.of(input.name.value),
       owner: input.owner,
+      factoryId: input.firstFactoryId,
     });
 
     return new Workspace(

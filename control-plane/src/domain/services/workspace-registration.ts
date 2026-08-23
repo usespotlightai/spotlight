@@ -1,6 +1,7 @@
 import { Workspace } from '@domain/aggregates/workspace.aggregate';
 import { WorkspaceSlugTakenError } from '@domain/exceptions/workspace-slug-taken.error';
 import type { WorkspaceSlugRegistry } from '@domain/repositories/workspace.repository';
+import type { FactoryId } from '@domain/value-objects/factory-id.vo';
 import type { TeamId } from '@domain/value-objects/team-id.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
@@ -16,6 +17,7 @@ export class WorkspaceRegistration {
     slug: WorkspaceSlug;
     owner: UserId;
     firstTeamId: TeamId;
+    firstFactoryId: FactoryId;
   }): Promise<Workspace> {
     if (await this.slugs.isTaken(input.slug)) {
       throw new WorkspaceSlugTakenError(input.slug.value);
