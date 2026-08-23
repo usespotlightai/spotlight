@@ -1,6 +1,47 @@
 {
   "openapi": "3.0.0",
   "paths": {
+    "/teams/{teamId}/assembly-lines": {
+      "get": {
+        "operationId": "listAssemblyLines",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AssemblyLineResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team for this caller"
+          }
+        },
+        "summary": "List a team’s assembly lines, each with its stations in order",
+        "tags": [
+          "assembly-lines"
+        ]
+      }
+    },
     "/": {
       "get": {
         "operationId": "getGreeting",
@@ -179,6 +220,53 @@
   ],
   "components": {
     "schemas": {
+      "StationResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80"
+          },
+          "name": {
+            "type": "string",
+            "example": "Triage"
+          },
+          "position": {
+            "type": "number",
+            "example": 0,
+            "description": "Left to right across the board"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "position"
+        ]
+      },
+      "AssemblyLineResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "7b2c9e14-3a5d-4c8f-b6e1-9d0a2f7c5b43"
+          },
+          "name": {
+            "type": "string",
+            "example": "Default"
+          },
+          "stations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StationResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "stations"
+        ]
+      },
       "GreetingResponseDto": {
         "type": "object",
         "properties": {

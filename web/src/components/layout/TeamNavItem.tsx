@@ -23,7 +23,6 @@ export function TeamNavItem({
   expanded,
   onToggle,
 }: TeamNavItemProps) {
-  // Any section of this team keeps the team row itself marked as current.
   const active = Boolean(useMatch(`/w/${slug}/team/${team.id}/*`));
 
   return (
@@ -33,9 +32,6 @@ export function TeamNavItem({
         data-active={active || undefined}
         className="group/team flex h-7 items-center rounded-md pr-2 transition-colors hover:bg-accent"
       >
-        {/* The link fills the row, so the whole row toggles the team rather
-            than the chevron alone. Opening it navigates in; closing it only
-            closes, so you are not sent to a section you just hid. */}
         <NavLink
           to={teamPath(slug, team.id)}
           onClick={(event) => {
@@ -76,8 +72,6 @@ export function TeamNavItem({
         </button>
       </div>
 
-      {/* Animating to a content height nobody has measured: the grid row goes
-          0fr → 1fr, which resolves to the sections' own height. */}
       <div
         data-slot="team-sections"
         data-open={expanded || undefined}
@@ -86,8 +80,6 @@ export function TeamNavItem({
           expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
         )}
       >
-        {/* Rendered while collapsed so it can animate, but inert keeps it out
-            of the tab order and the accessibility tree. */}
         <ul
           inert={!expanded}
           className="flex min-h-0 flex-col gap-0.5 overflow-hidden pt-0.5"

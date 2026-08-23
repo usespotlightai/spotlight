@@ -4,6 +4,21 @@ export type ClientOptions = {
   baseUrl: `${string}://${string}/api` | (string & {});
 };
 
+export type StationResponseDto = {
+  id: string;
+  name: string;
+  /**
+   * Left to right across the board
+   */
+  position: number;
+};
+
+export type AssemblyLineResponseDto = {
+  id: string;
+  name: string;
+  stations: Array<StationResponseDto>;
+};
+
 export type GreetingResponseDto = {
   message: string;
 };
@@ -38,6 +53,32 @@ export type WorkspaceListingResponseDto = {
   slug: string;
   role: 'owner' | 'admin' | 'member';
 };
+
+export type ListAssemblyLinesData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/assembly-lines';
+};
+
+export type ListAssemblyLinesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+};
+
+export type ListAssemblyLinesResponses = {
+  200: Array<AssemblyLineResponseDto>;
+};
+
+export type ListAssemblyLinesResponse = ListAssemblyLinesResponses[keyof ListAssemblyLinesResponses];
 
 export type GetGreetingData = {
   body?: never;

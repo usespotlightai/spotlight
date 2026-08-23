@@ -8,7 +8,6 @@ import {
   teamSectionPath,
 } from '@/lib/team';
 
-/** Placeholder for every team section until each grows its own screen. */
 export function TeamSection() {
   const { slug, teamId, section } = useParams();
   const { data: workspace } = useWorkspace(slug);

@@ -3,11 +3,11 @@ import type { WorkspaceDto } from '@application/dto/workspace.dto';
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import { WorkspaceMapper } from '@application/mappers/workspace.mapper';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
+import type { FactoryProvisioningPort } from '@application/ports/factory-provisioning.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
+import type { TransactionPort } from '@application/ports/transaction.port';
 import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
 import { WorkspaceRegistration } from '@domain/services/workspace-registration';
-import { FactoryId } from '@domain/value-objects/factory-id.vo';
-import { TeamId } from '@domain/value-objects/team-id.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { WorkspaceName } from '@domain/value-objects/workspace-name.vo';
@@ -21,6 +21,8 @@ export class CreateWorkspaceHandler
   constructor(
     private readonly workspaces: WorkspaceRepository,
     private readonly ids: IdGeneratorPort,
+    private readonly transaction: TransactionPort,
+    private readonly provisioning: FactoryProvisioningPort,
   ) {
     this.registration = new WorkspaceRegistration(workspaces);
   }
@@ -41,11 +43,16 @@ export class CreateWorkspaceHandler
       name: WorkspaceName.of(command.name),
       slug: WorkspaceSlug.of(command.slug),
       owner: UserId.of(command.ownerId),
-      firstTeamId: TeamId.of(this.ids.generate()),
-      firstFactoryId: FactoryId.of(this.ids.generate()),
+      newId: () => this.ids.generate(),
     });
 
-    await this.workspaces.add(workspace);
+    await this.transaction.run(async () => {
+      await this.workspaces.add(workspace);
+
+      for (const event of workspace.pullEvents()) {
+        await this.provisioning.onTeamCreated(event);
+      }
+    });
 
     return WorkspaceMapper.toDto(workspace);
   }

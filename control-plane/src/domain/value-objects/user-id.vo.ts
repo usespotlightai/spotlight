@@ -1,8 +1,6 @@
 import { InvalidIdentifierError } from '@domain/exceptions/invalid-identifier.error';
 
 export class UserId {
-  // Brands the class: without a private member TypeScript compares ids by
-  // shape, and every kind of id becomes interchangeable.
   private readonly kind = 'user';
 
   private constructor(readonly value: string) {}

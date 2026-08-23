@@ -1,8 +1,6 @@
 import { InvalidIdentifierError } from '@domain/exceptions/invalid-identifier.error';
 
 export class WorkspaceId {
-  // Brands the class: without a private member TypeScript compares ids by
-  // shape, and every kind of id becomes interchangeable.
   private readonly kind = 'workspace';
 
   private constructor(readonly value: string) {}

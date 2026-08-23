@@ -1,0 +1,58 @@
+import { ProvisionFactory } from '@application/events/handlers/provision-factory.handler';
+import type { IdGeneratorPort } from '@application/ports/id-generator.port';
+import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import type { Factory } from '@domain/aggregates/factory.aggregate';
+import { TeamCreated } from '@domain/events/team-created.event';
+import { TeamId } from '@domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const ids = (): IdGeneratorPort => {
+  let next = 0;
+  return { generate: () => `id_${++next}` };
+};
+
+let opened: Factory | undefined;
+let seeded: AssemblyLine | undefined;
+
+const provision = () =>
+  new ProvisionFactory(
+    {
+      add: vi.fn(async (factory: Factory) => {
+        opened = factory;
+      }),
+    },
+    {
+      add: vi.fn(async (line: AssemblyLine) => {
+        seeded = line;
+      }),
+    },
+    ids(),
+  ).onTeamCreated(new TeamCreated(WorkspaceId.of('ws_1'), TeamId.of('team_1')));
+
+beforeEach(() => {
+  opened = undefined;
+  seeded = undefined;
+});
+
+describe('ProvisionFactory', () => {
+  it('opens a factory for the team that was created', async () => {
+    await provision();
+
+    expect(opened?.teamId).toEqual(TeamId.of('team_1'));
+    expect(opened?.workspaceId).toEqual(WorkspaceId.of('ws_1'));
+  });
+
+  it('seeds that factory with the default board', async () => {
+    await provision();
+
+    expect(seeded?.factoryId).toEqual(opened?.id);
+    expect(seeded?.name.value).toBe('Default');
+    expect(seeded?.stations.map((each) => each.name.value)).toEqual([
+      'Triage',
+      'Spec',
+      'Implementation',
+      'Code Review',
+    ]);
+  });
+});

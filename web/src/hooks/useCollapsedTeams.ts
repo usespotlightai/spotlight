@@ -2,8 +2,6 @@ import { useCallback, useState } from 'react';
 
 const STORAGE_KEY = 'spotlight.collapsed-teams';
 
-// Collapsed ids are stored rather than expanded ones, so a team added later
-// shows its sections without the user having to go looking for them.
 const readStored = (): string[] => {
   try {
     const saved: unknown = JSON.parse(
@@ -20,9 +18,7 @@ const readStored = (): string[] => {
 const remember = (ids: readonly string[]) => {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
-  } catch {
-    // a browser that refuses storage still collapses, it just forgets
-  }
+  } catch {}
 };
 
 export function useCollapsedTeams() {

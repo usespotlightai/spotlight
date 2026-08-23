@@ -12,7 +12,6 @@ type TeamSectionDefinition = {
   readonly icon: ComponentType<{ className?: string }>;
 };
 
-/** The sections every team has. Adding one here adds its route and nav entry. */
 export const TEAM_SECTIONS = [
   { id: 'lines', label: 'Assembly lines', icon: Workflow },
   { id: 'runs', label: 'Runs', icon: Activity },
@@ -22,7 +21,6 @@ export const TEAM_SECTIONS = [
 
 export type TeamSection = (typeof TEAM_SECTIONS)[number];
 
-/** The section ids as a union, so a mistyped path fails to compile. */
 export type TeamSectionId = TeamSection['id'];
 
 export const DEFAULT_TEAM_SECTION_ID: TeamSectionId = 'lines';
