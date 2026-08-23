@@ -5,11 +5,11 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"usespotlight.ai/runner/internal/protocol"
 	"usespotlight.ai/runner/internal/session"
@@ -57,32 +57,14 @@ func (j *journal) typed(kind protocol.EventType) []protocol.Event {
 	return found
 }
 
-func origin(t *testing.T) string {
+func prepareHook(t *testing.T, body string) string {
 	t.Helper()
 
-	dir := filepath.Join(t.TempDir(), "service")
-	if err := os.MkdirAll(dir, 0o700); err != nil {
+	path := filepath.Join(t.TempDir(), "prepare")
+	if err := os.WriteFile(path, []byte("#!/bin/sh\n"+body), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("# service"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	for _, args := range [][]string{
-		{"init", "--initial-branch=main"},
-		{"config", "user.email", "runner@spotlight.test"},
-		{"config", "user.name", "Runner"},
-		{"add", "."},
-		{"commit", "-m", "first"},
-	} {
-		command := exec.Command("git", args...)
-		command.Dir = dir
-		if out, err := command.CombinedOutput(); err != nil {
-			t.Fatalf("git %s: %v: %s", strings.Join(args, " "), err, out)
-		}
-	}
-
-	return dir
+	return path
 }
 
 func execute(t *testing.T, command protocol.Command) (*journal, string) {
@@ -91,16 +73,14 @@ func execute(t *testing.T, command protocol.Command) (*journal, string) {
 	root := t.TempDir()
 	written := &journal{}
 
-	run := protocol.Run{
-		ID:        "run_1",
-		Checkouts: []protocol.Checkout{{Remote: origin(t), Path: "service", Branch: "spot/run_1"}},
-		Command:   command,
-	}
+	run := protocol.Run{ID: "run_1", Cwd: "service", Command: command}
 
 	err := session.Execute(context.Background(), run, session.Options{
 		WorkspaceRoot: root,
 		Journal:       written,
 		Log:           slog.New(slog.NewTextHandler(io.Discard, nil)),
+		PrepareHook:   prepareHook(t, "mkdir service && echo '# service' > service/README.md"),
+		HookTimeout:   30 * time.Second,
 	})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
@@ -178,16 +158,15 @@ func TestARunThatCannotStartIsStillReported(t *testing.T) {
 	root := t.TempDir()
 	written := &journal{}
 
-	err := session.Execute(context.Background(), protocol.Run{
-		ID:        "run_2",
-		Checkouts: []protocol.Checkout{{Remote: filepath.Join(root, "nope"), Path: "service"}},
-	}, session.Options{
+	err := session.Execute(context.Background(), protocol.Run{ID: "run_2"}, session.Options{
 		WorkspaceRoot: root,
 		Journal:       written,
 		Log:           slog.New(slog.NewTextHandler(io.Discard, nil)),
+		PrepareHook:   prepareHook(t, "echo 'could not reach the forge' >&2; exit 1"),
+		HookTimeout:   30 * time.Second,
 	})
 	if err == nil {
-		t.Fatal("expected a missing remote to fail the run")
+		t.Fatal("expected a failing prepare hook to fail the run")
 	}
 
 	if failures := written.typed(protocol.EventFailed); len(failures) != 1 {
@@ -217,8 +196,8 @@ func TestTheAgentIsWalledOffFromTheRunner(t *testing.T) {
 
 	written := &journal{}
 	err = session.Execute(context.Background(), protocol.Run{
-		ID:        "run_walled",
-		Checkouts: []protocol.Checkout{{Remote: origin(t), Path: "service"}},
+		ID:  "run_walled",
+		Cwd: "service",
 		Command: protocol.Command{
 			Executable: "sh",
 			Args: []string{"-c", `
@@ -227,6 +206,8 @@ func TestTheAgentIsWalledOffFromTheRunner(t *testing.T) {
 				ls .. >/dev/null 2>&1 || echo "CANNOT SEE OWN RUN DIR"
 				ls ../.. >/dev/null 2>&1 && echo "LISTED THE ROOT"
 				env | grep -q SPOTLIGHT_TOKEN && echo "SAW THE TOKEN"
+				grep -l SPOTLIGHT_TOKEN /proc/*/environ 2>/dev/null | head -1 | grep -q . && echo "READ IT FROM PROC"
+				cat /proc/1/environ 2>/dev/null | grep -q SPOTLIGHT && echo "READ PID 1"
 				true
 			`},
 		},
@@ -235,6 +216,8 @@ func TestTheAgentIsWalledOffFromTheRunner(t *testing.T) {
 		Journal:       written,
 		Log:           slog.New(slog.NewTextHandler(io.Discard, nil)),
 		AgentUser:     as,
+		PrepareHook:   prepareHook(t, "mkdir service"),
+		HookTimeout:   30 * time.Second,
 	})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
@@ -249,7 +232,10 @@ func TestTheAgentIsWalledOffFromTheRunner(t *testing.T) {
 	if !strings.Contains(out, "uid=2000") {
 		t.Errorf("the agent did not run as the agent account:\n%s", out)
 	}
-	for _, breach := range []string{"READ THE RECORDING", "LISTED THE ROOT", "SAW THE TOKEN"} {
+	for _, breach := range []string{
+		"READ THE RECORDING", "LISTED THE ROOT", "SAW THE TOKEN",
+		"READ IT FROM PROC", "READ PID 1",
+	} {
 		if strings.Contains(out, breach) {
 			t.Errorf("the agent %s", strings.ToLower(breach))
 		}

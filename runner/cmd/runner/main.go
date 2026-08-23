@@ -85,6 +85,9 @@ func run() error {
 				Journal:       client,
 				Log:           log,
 				AgentUser:     agentUser,
+				PrepareHook:   cfg.PrepareHook,
+				PublishHook:   cfg.PublishHook,
+				HookTimeout:   cfg.HookTimeout,
 			}); err != nil {
 				log.Error("run failed", "run", claimed.ID, "error", err)
 			}

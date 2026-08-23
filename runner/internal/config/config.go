@@ -32,6 +32,13 @@ type Config struct {
 	// IdleTimeout exits the runner after this long with no work. Zero never
 	// exits.
 	IdleTimeout time.Duration
+	// PrepareHook fills the workspace before the agent starts. Empty leaves it
+	// empty, which is what a run against an already-checked-out tree wants.
+	PrepareHook string
+	// PublishHook does something with the result once the agent has finished.
+	PublishHook string
+	// HookTimeout bounds each hook. Zero lets one hang, holding the lease.
+	HookTimeout time.Duration
 	// AgentUser is the account to run agents as. Empty runs them as the
 	// runner, which is all an unprivileged runner can do.
 	AgentUser string
@@ -39,6 +46,10 @@ type Config struct {
 	// destroyed on a schedule without a signal. Zero means no deadline.
 	RetireAt time.Time
 }
+
+// defaultHookTimeout is generous enough for a large clone and short enough
+// that a wedged hook does not sit on the lease for long.
+const defaultHookTimeout = 10 * time.Minute
 
 const (
 	envURL         = "SPOTLIGHT_URL"
@@ -50,6 +61,9 @@ const (
 	envIdleTimeout = "SPOTLIGHT_IDLE_TIMEOUT"
 	envRetireAt    = "SPOTLIGHT_RETIRE_AT"
 	envAgentUser   = "SPOTLIGHT_AGENT_USER"
+	envPrepareHook = "SPOTLIGHT_PREPARE_HOOK"
+	envPublishHook = "SPOTLIGHT_PUBLISH_HOOK"
+	envHookTimeout = "SPOTLIGHT_HOOK_TIMEOUT"
 )
 
 // Load reads the environment and reports every problem it finds at once,
@@ -68,6 +82,8 @@ func Load() (Config, error) {
 		Pool:          strings.TrimSpace(os.Getenv(envPool)),
 		WorkspaceRoot: strings.TrimSpace(os.Getenv(envWorkspace)),
 		AgentUser:     strings.TrimSpace(os.Getenv(envAgentUser)),
+		PrepareHook:   strings.TrimSpace(os.Getenv(envPrepareHook)),
+		PublishHook:   strings.TrimSpace(os.Getenv(envPublishHook)),
 	}
 
 	for _, required := range []struct {
@@ -98,6 +114,24 @@ func Load() (Config, error) {
 
 	cfg.RetireAt, err = parseEpoch(os.Getenv(envRetireAt))
 	note(err)
+
+	cfg.HookTimeout, err = parseDuration(os.Getenv(envHookTimeout))
+	note(err)
+	if cfg.HookTimeout == 0 {
+		cfg.HookTimeout = defaultHookTimeout
+	}
+
+	for _, hook := range []struct{ name, path string }{
+		{envPrepareHook, cfg.PrepareHook},
+		{envPublishHook, cfg.PublishHook},
+	} {
+		if hook.path == "" {
+			continue
+		}
+		if info, statErr := os.Stat(hook.path); statErr != nil || info.IsDir() {
+			note(fmt.Errorf("%s: %q is not an executable file", hook.name, hook.path))
+		}
+	}
 
 	return cfg, errors.Join(problems...)
 }
@@ -142,12 +176,12 @@ func parseDuration(raw string) (time.Duration, error) {
 		return 0, nil
 	}
 
-	idle, err := time.ParseDuration(strings.TrimSpace(raw))
-	if err != nil || idle < 0 {
-		return 0, fmt.Errorf("%s: %q is not a duration such as 30m", envIdleTimeout, raw)
+	parsed, err := time.ParseDuration(strings.TrimSpace(raw))
+	if err != nil || parsed < 0 {
+		return 0, fmt.Errorf("%q is not a duration such as 30m", raw)
 	}
 
-	return idle, nil
+	return parsed, nil
 }
 
 func parseEpoch(raw string) (time.Time, error) {

@@ -13,10 +13,9 @@ x-runner-env: &runner-env
   SPOTLIGHT_POOL: ${SPOTLIGHT_POOL:-dev}
   SPOTLIGHT_WORKSPACE: /workspaces
   SPOTLIGHT_AGENT_USER: agent
+  SPOTLIGHT_PREPARE_HOOK: /etc/spotlight/hooks/prepare
 
 x-runner: &runner
-  # One image for every runner: identical build config under two service names
-  # would otherwise build twice and let them drift apart.
   image: spotlight-runner
   build:
     context: .

@@ -1,0 +1,21 @@
+#!/bin/sh
+# An example prepare hook: clone each checkout the run asks for.
+#
+# Replace it. Checkout is the part every organisation does differently —
+# sparse checkouts, submodules, LFS, a warm cache, an internal mirror, a
+# version control system that is not git — which is exactly why the runner
+# does not do it.
+#
+# The run arrives as JSON on stdin. The working directory is the run's own,
+# and empty. A non-zero exit fails the run before the agent starts, and
+# anything written here lands in the run's journal.
+set -eu
+
+jq -r '.checkouts[]? | [.remote, .path, .ref // "", .branch // ""] | @tsv' |
+while IFS="$(printf '\t')" read -r remote path ref branch; do
+  echo "cloning $remote into $path"
+  git clone --quiet "$remote" "$path"
+
+  [ -n "$ref" ] && git -C "$path" checkout --quiet "$ref"
+  [ -n "$branch" ] && git -C "$path" switch --quiet -c "$branch"
+done

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"usespotlight.ai/runner/internal/hook"
 	"usespotlight.ai/runner/internal/protocol"
 	"usespotlight.ai/runner/internal/terminal"
 	"usespotlight.ai/runner/internal/workspace"
@@ -37,6 +38,12 @@ type Options struct {
 	WorkspaceRoot string
 	Journal       Journal
 	Log           *slog.Logger
+	// PrepareHook fills the workspace; PublishHook does something with the
+	// result. Both run as the runner, never as the agent, so whatever
+	// credentials they need never coexist with model-directed code.
+	PrepareHook string
+	PublishHook string
+	HookTimeout time.Duration
 	// AgentUser is the account to run the agent as. Nil runs it as the runner,
 	// which is what a laptop does.
 	AgentUser *terminal.User
@@ -51,15 +58,26 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 
 	lifecycle := &progress{state: Preparing}
 
-	space, err := workspace.Prepare(ctx, opts.WorkspaceRoot, run)
+	space, err := workspace.Create(opts.WorkspaceRoot, run.ID)
 	if err != nil {
-		return finish(ctx, journal, lifecycle, log, fmt.Errorf("prepare workspace: %w", err))
+		return finish(ctx, journal, lifecycle, log, fmt.Errorf("create workspace: %w", err))
 	}
 	defer func() {
 		if err := space.Remove(); err != nil {
 			log.Warn("could not remove workspace", "error", err)
 		}
 	}()
+
+	// Before the handover, so whatever the hook authenticates with is gone by
+	// the time the agent can look.
+	if err := opts.runHook(ctx, opts.PrepareHook, space.Dir, run, journal, log, "prepare"); err != nil {
+		return finish(ctx, journal, lifecycle, log, err)
+	}
+
+	cwd, err := space.Resolve(run.Cwd)
+	if err != nil {
+		return finish(ctx, journal, lifecycle, log, err)
+	}
 
 	if opts.AgentUser != nil {
 		if err := space.GiveTo(opts.AgentUser.UID, opts.AgentUser.GID); err != nil {
@@ -85,7 +103,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 
 	agent, err := terminal.Start(ctx, terminal.Spec{
 		Command:   run.Command,
-		Dir:       space.Cwd,
+		Dir:       cwd,
 		Recording: recording,
 		Size:      terminal.DefaultSize,
 		RunAs:     opts.AgentUser,
@@ -98,7 +116,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	if err := lifecycle.reach(AgentStarted); err != nil {
 		return finish(ctx, journal, lifecycle, log, err)
 	}
-	log.Info("agent started", "executable", run.Command.Executable, "cwd", space.Cwd)
+	log.Info("agent started", "executable", run.Command.Executable, "cwd", cwd)
 
 	exitCode := pump(ctx, agent, journal, run.ID, opts.Journal, log)
 
@@ -106,8 +124,17 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		return finish(ctx, journal, lifecycle, log, err)
 	}
 
-	if diff, err := space.Diff(ctx, ""); err == nil && diff != "" {
-		log.Info("workspace changed", "entries", len(diff))
+	// After the agent has exited, so push credentials never overlap with it.
+	if err := opts.runHook(ctx, opts.PublishHook, space.Dir, run, journal, log, "publish"); err != nil {
+		journal.flush(ctx)
+		if completeErr := opts.Journal.Complete(ctx, run.ID, protocol.Completion{
+			ExitCode: exitCode,
+			Failed:   true,
+			Message:  err.Error(),
+		}); completeErr != nil {
+			log.Warn("could not report the failure", "error", completeErr)
+		}
+		return err
 	}
 
 	journal.flush(ctx)
@@ -225,6 +252,48 @@ func (p *progress) reach(trigger Trigger) error {
 		return err
 	}
 	p.state = next
+	return nil
+}
+
+// runHook runs one of the deployment's hooks, journals whatever it wrote, and
+// treats a non-zero exit as the run failing. A checkout that did not happen
+// and a branch that was never pushed are both worse than a run that stops.
+func (o Options) runHook(
+	ctx context.Context,
+	path, dir string,
+	run protocol.Run,
+	journal *journalWriter,
+	log *slog.Logger,
+	name string,
+) error {
+	output, err := hook.Run(ctx, hook.Spec{
+		Path:    path,
+		Dir:     dir,
+		Payload: run,
+		Env: map[string]string{
+			"SPOTLIGHT_RUN_ID":        run.ID,
+			"SPOTLIGHT_WORKSPACE_DIR": dir,
+		},
+		Timeout: o.HookTimeout,
+	})
+
+	if errors.Is(err, hook.ErrNoHook) {
+		return nil
+	}
+
+	if output != "" {
+		journal.append(protocol.Event{
+			Type:    protocol.EventOutput,
+			Message: name,
+			Data:    []byte(output),
+		})
+	}
+
+	if err != nil {
+		return fmt.Errorf("%s hook: %w", name, err)
+	}
+
+	log.Info("hook finished", "hook", name)
 	return nil
 }
 

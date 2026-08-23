@@ -11,6 +11,7 @@ RUN go mod download
 FROM deps AS development
 ENV CGO_ENABLED=0
 RUN go install github.com/air-verse/air@latest
+COPY .docker/runner/hooks/ /etc/spotlight/hooks/
 COPY runner/ ./
 CMD ["air", "-c", ".air.toml"]
 
@@ -20,7 +21,8 @@ COPY runner/ ./
 RUN go build -o /out/runner ./cmd/runner
 
 FROM alpine:3 AS runtime
-RUN apk add --no-cache git ca-certificates && adduser -D -u 2000 agent
+RUN apk add --no-cache git jq ca-certificates && adduser -D -u 2000 agent
+COPY .docker/runner/hooks/ /etc/spotlight/hooks/
 COPY --from=build /out/runner /usr/local/bin/runner
 
 USER root
