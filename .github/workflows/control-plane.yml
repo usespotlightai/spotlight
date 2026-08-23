@@ -54,7 +54,6 @@ jobs:
 
       - name: Auth schema is up to date
         run: |
-          rm control-plane/src/infrastructure/persistence/drizzle/schemas/auth.schema.ts
           docker compose exec -T control-plane npm run auth:generate
           git diff --exit-code -- control-plane/src/infrastructure/persistence/drizzle/schemas/auth.schema.ts \
             || { echo "::error::auth.schema.ts is stale. Run 'docker compose exec -T control-plane npm run auth:generate'."; exit 1; }
