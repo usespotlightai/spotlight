@@ -5,6 +5,13 @@ import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { Workspace } from '@/routes/Workspace';
 
 vi.mock('@/hooks/api/useWorkspace', () => ({ useWorkspace: vi.fn() }));
+
+vi.mock('@/hooks/api/useAssemblyLines', () => ({
+  useAssemblyLines: () => ({
+    data: [{ id: 'line_1', name: 'Default', stations: [] }],
+    isPending: false,
+  }),
+}));
 vi.mock('@/hooks/api/useSignOut', () => ({
   useSignOut: () => ({ mutate: vi.fn(), isPending: false }),
 }));
@@ -24,14 +31,16 @@ const acme = {
   id: 'ws_1',
   name: 'Acme Inc.',
   slug: 'acme-inc',
-  teams: [{ id: 'team_1', name: 'Acme Inc.' }],
+  teams: [{ id: 'team_1', name: 'Platform' }],
 };
 
 const renderAt = (slug: string) =>
   render(
     <MemoryRouter initialEntries={[`/w/${slug}`]}>
       <Routes>
-        <Route path="/w/:slug" element={<Workspace />} />
+        <Route path="/w/:slug" element={<Workspace />}>
+          <Route index element={<p>section slot</p>} />
+        </Route>
       </Routes>
     </MemoryRouter>,
   );
@@ -41,14 +50,26 @@ beforeEach(() => {
 });
 
 describe('Workspace', () => {
-  it('titles the dashboard with the workspace at that address', () => {
+  it('names the workspace at that address in the sidebar', () => {
     loaded(acme);
 
     renderAt('acme-inc');
 
     expect(
-      screen.getByRole('heading', { name: 'Acme Inc.' }),
+      screen.getByRole('button', { name: /Acme Inc\./ }),
     ).toBeInTheDocument();
+  });
+
+  it('frames the section at that address', () => {
+    loaded(acme);
+
+    renderAt('acme-inc');
+
+    expect(screen.getByText('section slot')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Default' })).toHaveAttribute(
+      'href',
+      '/w/acme-inc/team/team_1/lines/line_1',
+    );
   });
 
   it('asks by the slug in the address', () => {

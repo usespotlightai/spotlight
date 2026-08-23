@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses } from './types.gen';
+import type { CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, ListAssemblyLinesData, ListAssemblyLinesErrors, ListAssemblyLinesResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -17,6 +17,11 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
    */
   meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
+
+/**
+ * List a team’s assembly lines, each with its stations in order
+ */
+export const listAssemblyLines = <ThrowOnError extends boolean = false>(options: Options<ListAssemblyLinesData, ThrowOnError>): RequestResult<ListAssemblyLinesResponses, ListAssemblyLinesErrors, ThrowOnError> => (options.client ?? client).get<ListAssemblyLinesResponses, ListAssemblyLinesErrors, ThrowOnError>({ url: '/teams/{teamId}/assembly-lines', ...options });
 
 /**
  * Return a greeting

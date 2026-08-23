@@ -1,6 +1,6 @@
-import { Link, useParams } from 'react-router';
+import { Link, Outlet, useParams } from 'react-router';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { WorkspaceMenu } from '@/components/layout/WorkspaceMenu';
+import { WorkspaceSidebar } from '@/components/layout/WorkspaceSidebar';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { WORKSPACE_URL_PREFIX } from '@/lib/workspace';
 
@@ -33,13 +33,8 @@ export function Workspace() {
   }
 
   return (
-    <DashboardLayout
-      title={workspace.name}
-      sidebar={
-        <div className="flex h-12 shrink-0 items-center">
-          <WorkspaceMenu name={workspace.name} slug={workspace.slug} />
-        </div>
-      }
-    />
+    <DashboardLayout sidebar={<WorkspaceSidebar workspace={workspace} />}>
+      <Outlet />
+    </DashboardLayout>
   );
 }

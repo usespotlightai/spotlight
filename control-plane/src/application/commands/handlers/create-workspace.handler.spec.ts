@@ -1,8 +1,11 @@
 import { CreateWorkspaceCommand } from '@application/commands/create-workspace.command';
 import { CreateWorkspaceHandler } from '@application/commands/handlers/create-workspace.handler';
 import { UseCaseFault } from '@application/errors/use-case.fault';
+import type { FactoryProvisioningPort } from '@application/ports/factory-provisioning.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
+import type { TransactionPort } from '@application/ports/transaction.port';
 import type { Workspace } from '@domain/aggregates/workspace.aggregate';
+import { TeamCreated } from '@domain/events/team-created.event';
 import { WorkspaceSlugTakenError } from '@domain/exceptions/workspace-slug-taken.error';
 import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
 import { UserId } from '@domain/value-objects/user-id.vo';
@@ -14,15 +17,28 @@ const ids = (): IdGeneratorPort => {
 };
 
 let added: Workspace | undefined;
+let provisioned: TeamCreated[];
 let repository: WorkspaceRepository;
 
+const transaction: TransactionPort = { run: (work) => work() };
+
+const provisioning = (): FactoryProvisioningPort => ({
+  onTeamCreated: async (event) => {
+    provisioned.push(event);
+  },
+});
+
 const handle = (name = 'Acme Inc.', slug = 'acme-inc') =>
-  new CreateWorkspaceHandler(repository, ids()).execute(
-    new CreateWorkspaceCommand(name, slug, 'user_1'),
-  );
+  new CreateWorkspaceHandler(
+    repository,
+    ids(),
+    transaction,
+    provisioning(),
+  ).execute(new CreateWorkspaceCommand(name, slug, 'user_1'));
 
 beforeEach(() => {
   added = undefined;
+  provisioned = [];
   repository = {
     isTaken: vi.fn().mockResolvedValue(false),
     add: vi.fn(async (workspace: Workspace) => {
@@ -48,6 +64,21 @@ describe('CreateWorkspaceHandler', () => {
       { userId: UserId.of('user_1'), role: 'owner' },
     ]);
     expect(added?.teams).toHaveLength(1);
+  });
+
+  it('has the factory provisioned for the team it opens with', async () => {
+    await handle();
+
+    expect(provisioned).toHaveLength(1);
+    expect(provisioned[0]).toBeInstanceOf(TeamCreated);
+  });
+
+  it('provisions nothing when the write is refused', async () => {
+    repository.isTaken = vi.fn().mockResolvedValue(true);
+
+    await handle().catch(() => undefined);
+
+    expect(provisioned).toHaveLength(0);
   });
 
   it('reports a taken slug as a conflict, without writing', async () => {

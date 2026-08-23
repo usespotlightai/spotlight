@@ -2,15 +2,14 @@ import type { Workspace } from '@domain/aggregates/workspace.aggregate';
 import { WorkspaceSlugTakenError } from '@domain/exceptions/workspace-slug-taken.error';
 import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
 import { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
-import type { DrizzleDatabase } from '@infrastructure/persistence/drizzle/drizzle.client';
-import { DRIZZLE } from '@infrastructure/persistence/drizzle/drizzle.constants';
+import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
 import {
   team,
   teamMember,
   workspace,
   workspaceMember,
 } from '@infrastructure/persistence/drizzle/schemas/workspace.schema';
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 
 const UNIQUE_VIOLATION = '23505';
@@ -24,10 +23,10 @@ const isSlugCollision = (error: unknown): boolean =>
 
 @Injectable()
 export class DrizzleWorkspaceRepository implements WorkspaceRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
+  constructor(private readonly context: DrizzleContext) {}
 
   async isTaken(slug: WorkspaceSlug): Promise<boolean> {
-    const [found] = await this.db
+    const [found] = await this.context.db
       .select({ id: workspace.id })
       .from(workspace)
       .where(eq(workspace.slug, slug.value))
@@ -38,14 +37,14 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
 
   async add(added: Workspace): Promise<void> {
     try {
-      await this.db.transaction(async (tx) => {
-        await tx.insert(workspace).values({
+      await this.context.run(async () => {
+        await this.context.db.insert(workspace).values({
           id: added.id.value,
           name: added.name.value,
           slug: added.slug.value,
         });
 
-        await tx.insert(workspaceMember).values(
+        await this.context.db.insert(workspaceMember).values(
           added.members.map((member) => ({
             workspaceId: added.id.value,
             userId: member.userId.value,
@@ -54,13 +53,13 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
         );
 
         for (const owned of added.teams) {
-          await tx.insert(team).values({
+          await this.context.db.insert(team).values({
             id: owned.id.value,
             workspaceId: added.id.value,
             name: owned.name.value,
           });
 
-          await tx.insert(teamMember).values(
+          await this.context.db.insert(teamMember).values(
             owned.members.map((member) => ({
               teamId: owned.id.value,
               userId: member.userId.value,

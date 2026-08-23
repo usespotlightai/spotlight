@@ -1,4 +1,4 @@
-import type { TeamId } from '@domain/value-objects/team-id.vo';
+import { TeamId } from '@domain/value-objects/team-id.vo';
 import type { TeamName } from '@domain/value-objects/team-name.vo';
 import type { TeamRole } from '@domain/value-objects/team-role';
 import type { UserId } from '@domain/value-objects/user-id.vo';
@@ -15,8 +15,12 @@ export class Team {
     readonly members: readonly TeamMember[],
   ) {}
 
-  static create(input: { id: TeamId; name: TeamName; owner: UserId }): Team {
-    return new Team(input.id, input.name, [
+  static create(input: {
+    name: TeamName;
+    owner: UserId;
+    newId: () => string;
+  }): Team {
+    return new Team(TeamId.of(input.newId()), input.name, [
       { userId: input.owner, role: 'owner' },
     ]);
   }

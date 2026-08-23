@@ -8,6 +8,13 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     allowedHosts: ['.dev.usespotlight.ai'],
+    watch: {
+      // Docker Desktop's file sharing syncs contents into the container but
+      // stops delivering inotify events after a while, so the watcher goes
+      // deaf and edits stop reloading. Polling is the reliable path.
+      usePolling: true,
+      interval: 300,
+    },
   },
   resolve: {
     alias: {
