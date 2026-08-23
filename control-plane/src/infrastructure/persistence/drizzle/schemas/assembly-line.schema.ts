@@ -25,6 +25,8 @@ export const assemblyLine = pgTable(
   ],
 );
 
+/** No unique constraint on `position`: Postgres checks per row, so swapping
+ *  two in one statement would fail. Reordering arrives before it would pay. */
 export const station = pgTable(
   'station',
   {

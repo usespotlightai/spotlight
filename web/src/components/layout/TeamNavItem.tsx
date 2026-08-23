@@ -72,6 +72,9 @@ export function TeamNavItem({
         </button>
       </div>
 
+      {/* Animates to a height nobody measured: the grid row goes 0fr to 1fr.
+          The sections stay mounted so they can animate, so `inert` is what
+          keeps a closed team out of the tab order. */}
       <div
         data-slot="team-sections"
         data-open={expanded || undefined}

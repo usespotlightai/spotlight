@@ -54,7 +54,7 @@ export class AssemblyLine {
     name: AssemblyLineName;
     stations: readonly Station[];
   }): AssemblyLine {
-    AssemblyLine.guardStations(input.stations);
+    AssemblyLine.guardPositionsAreContiguous(input.stations);
 
     return new AssemblyLine(
       input.id,
@@ -65,7 +65,9 @@ export class AssemblyLine {
     );
   }
 
-  private static guardStations(stations: readonly Station[]): void {
+  private static guardPositionsAreContiguous(
+    stations: readonly Station[],
+  ): void {
     if (stations.length === 0) {
       throw new InvalidStationOrderError('must number at least one');
     }

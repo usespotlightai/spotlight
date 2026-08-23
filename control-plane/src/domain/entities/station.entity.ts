@@ -1,6 +1,8 @@
 import type { StationId } from '@domain/value-objects/station-id.vo';
 import type { StationName } from '@domain/value-objects/station-name.vo';
 
+/** Position orders the board. It does not define the flow: movement becomes
+ *  explicit transitions once runs execute, because review sends work back. */
 export class Station {
   private constructor(
     readonly id: StationId,
