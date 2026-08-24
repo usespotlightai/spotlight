@@ -43,8 +43,8 @@ import {
 const RUNNER_HEADER = 'x-spotlight-runner';
 
 /**
- * Only what setting an empty answer needs. Typed structurally rather than as
- * the framework's own response, which the presentation layer may not import.
+ * Only what setting an empty answer needs. Typed structurally, since the
+ * presentation layer may not import the framework's own response.
  */
 interface Answerable {
   status(code: number): unknown;
@@ -78,7 +78,7 @@ export class RunnerController {
   @Post('runners/:runnerId/claim')
   @ApiOperation({
     operationId: 'claimRun',
-    summary: 'Long-poll for work, answering empty rather than making one up',
+    summary: 'Long-poll for work, answering empty when the queue is',
   })
   @ApiOkResponse({ type: ClaimedRunResponseDto })
   @ApiNoContentResponse({ description: 'Nothing queued for this pool' })
@@ -161,8 +161,8 @@ export class RunnerController {
 
   /**
    * Every runner shares one enrollment token, so the header is what says which
-   * of them is calling. It is a claim, not a credential — the run's own record
-   * of who holds it is what actually decides.
+   * of them is calling. It is a claim, not a credential: the run's record of
+   * who holds it is what authorises.
    */
   private identify(runnerId: string | undefined): string {
     if (!runnerId) {

@@ -6,8 +6,8 @@ import (
 	"log/slog"
 )
 
-// State is where a run has got to. Kept separate from the work itself so the
-// legal transitions can be stated once and tested without spawning anything.
+// State is where a run has got to. Separate from the work itself so the legal
+// transitions can be stated once and tested without spawning anything.
 type State int
 
 const (
@@ -44,8 +44,8 @@ var transitions = map[State]map[Trigger]State{
 	},
 }
 
-// Next reports the state a trigger leads to, and refuses anything that cannot
-// happen: a bug that drains before running should not quietly half-work.
+// Next reports the state a trigger leads to and refuses anything that cannot
+// happen, so a bug that drains before running fails loudly.
 func Next(from State, trigger Trigger) (State, error) {
 	to, ok := transitions[from][trigger]
 	if !ok {
@@ -74,8 +74,8 @@ func (s State) String() string {
 	return "unknown"
 }
 
-// LogValue keeps a state readable in logs: without it slog renders the
-// underlying integer, which tells a reader nothing.
+// LogValue keeps a state readable in logs. Without it slog renders the
+// underlying integer.
 func (s State) LogValue() slog.Value {
 	return slog.StringValue(s.String())
 }

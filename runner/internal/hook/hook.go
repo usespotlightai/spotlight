@@ -1,10 +1,9 @@
 // Package hook runs the commands a deployment supplies at fixed points in a
 // run: preparing the workspace, and publishing what came out of it.
 //
-// The runner owns when they run and what happens if they fail. It knows
-// nothing about what they do, which is what lets one binary serve a monorepo
-// with a sparse checkout, a pre-warmed cache, and a version control system
-// that is not git.
+// The runner owns when they run and what happens if they fail, but knows
+// nothing about what they do. That is what lets one binary serve a sparse
+// checkout, a warm cache, or something other than git.
 package hook
 
 import (
@@ -21,26 +20,25 @@ import (
 )
 
 type Spec struct {
-	// Path is the executable to run. Empty means there is no hook, which is
-	// not an error: a run against an already-prepared tree needs neither.
+	// Path is the executable to run. Empty means no hook, which is not an
+	// error.
 	Path string
 	Dir  string
 	// Payload is written to the hook's stdin as JSON.
 	Payload any
 	// Env is added to the runner's own environment. Hooks run as the runner
-	// and are trusted the same way it is: they are the deployment's code, not
-	// the agent's.
+	// and are trusted like it: they are the deployment's code, not the
+	// agent's.
 	Env map[string]string
-	// Timeout bounds the hook. Without one a wedged clone holds the lease and
-	// the sandbox until the run is requeued from elsewhere.
+	// Timeout bounds the hook. Without one a wedged clone holds the lease
+	// until the run is requeued.
 	Timeout time.Duration
 }
 
 var ErrNoHook = errors.New("no hook configured")
 
-// Run executes the hook and returns everything it wrote. The output is
-// returned on failure too, since a hook's stderr is the only explanation a
-// failed checkout will ever have.
+// Run executes the hook and returns everything it wrote, on failure too: the
+// hook's stderr is the only explanation a failed checkout has.
 func Run(ctx context.Context, spec Spec) (string, error) {
 	if spec.Path == "" {
 		return "", ErrNoHook
@@ -62,15 +60,14 @@ func Run(ctx context.Context, spec Spec) (string, error) {
 	command.Stdin = bytes.NewReader(payload)
 	command.Env = environment(spec.Env)
 
-	// Its own process group, killed as a group. A hook is a shell script, and
-	// killing only the shell leaves whatever it spawned holding the output
-	// pipe — so the timeout would elapse and the run would wait anyway, which
-	// is the exact situation the timeout exists to prevent.
+	// Own process group, killed as a group. A hook is usually a shell script;
+	// killing only the shell leaves its children holding the output pipe, and
+	// the read blocks past the timeout anyway.
 	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	command.Cancel = func() error {
 		return syscall.Kill(-command.Process.Pid, syscall.SIGKILL)
 	}
-	// Belt and braces: if something still holds the pipe, stop reading anyway.
+	// If something still holds the pipe, stop reading anyway.
 	command.WaitDelay = 5 * time.Second
 
 	out, err := command.CombinedOutput()

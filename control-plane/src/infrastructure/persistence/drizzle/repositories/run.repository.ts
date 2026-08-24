@@ -33,13 +33,12 @@ export class DrizzleRunRepository implements RunRepository {
   }
 
   /**
-   * Picking which row is the database's problem: `FOR UPDATE SKIP LOCKED` is
-   * how two runners asking at the same moment cannot both win, and the second
-   * takes the next run rather than queueing behind one it will never get.
+   * Which row to pick is left to the database. `FOR UPDATE SKIP LOCKED` stops
+   * two runners asking at the same moment from both winning, and sends the
+   * second to the next run instead of queueing behind one it will never get.
    *
-   * What being claimed *means* is not decided here. The row is locked, handed
-   * to the aggregate, and whatever it makes of itself is written back inside
-   * the same transaction.
+   * What being claimed means is decided by the aggregate: the row is locked,
+   * handed over, and written back in the same transaction.
    */
   async claimNext(pool: string, by: RunnerId, now: Date): Promise<Run | null> {
     return this.context.run(async () => {
@@ -125,15 +124,15 @@ export class DrizzleRunRepository implements RunRepository {
           offset: event.offset ?? null,
         })),
       )
-      // A runner that retried a batch it had already delivered should not
-      // double the journal; the sequence it assigned says which is which.
+      // A retried batch must not double the journal. The sequence the runner
+      // assigned says which is which.
       .onConflictDoNothing();
   }
 
   /**
    * Finds the runs whose lease has lapsed and lets each one requeue itself.
-   * The query narrows the candidates; `Run.lapsed` decides, so there is one
-   * statement of the rule rather than a second opinion in SQL.
+   * The query narrows the candidates and `Run.lapsed` decides, so the rule is
+   * stated once instead of twice.
    */
   async requeueLapsed(now: Date): Promise<number> {
     return this.context.run(async () => {
@@ -160,9 +159,9 @@ export class DrizzleRunRepository implements RunRepository {
 }
 
 /**
- * A raw statement bypasses the ORM's own conversion, and drizzle's pg type
- * parsers hand back timestamps as strings. The typed query path returns Dates,
- * so this has to cope with both.
+ * A raw statement bypasses the ORM's conversion and drizzle's pg parsers hand
+ * back timestamps as strings, while the typed query path returns Dates. This
+ * copes with both.
  */
 const asDate = (value: Date | string | null): Date | null => {
   if (value === null || value === undefined) {

@@ -1,5 +1,5 @@
-// Command runner claims one run at a time from the control plane, supervises
-// the agent CLI that serves it, and exits.
+// Command runner claims runs from the control plane and supervises the agent
+// CLI that serves each one.
 package main
 
 import (
@@ -44,15 +44,14 @@ func run() error {
 		return err
 	}
 
-	// Resolved before claiming anything: a misconfigured agent user should
-	// stop the runner, not surface once a run is already in flight.
+	// Resolved up front so a bad agent user fails at startup, not mid-run.
 	agentUser, err := terminal.LookupUser(cfg.AgentUser)
 	if err != nil {
 		return err
 	}
 
-	// Waiting rather than exiting: the control plane may not be up yet, and a
-	// runner that dies for that reason just gets restarted into the same wait.
+	// The control plane may not be up yet. Waiting beats exiting into a
+	// restart loop.
 	if err := control.Register(ctx, client, protocol.Registration{
 		Pool:     cfg.Pool,
 		Labels:   cfg.Labels,

@@ -1,9 +1,9 @@
 // Package workspace owns the directory a run works in: making it, handing it
 // to the agent, and disposing of it.
 //
-// What goes inside is a prepare hook's business. Checkout is the most variable
-// part of a run — sparse checkouts, submodules, warm caches, a version control
-// system that is not git — and the least suited to being fixed here.
+// What goes inside is the prepare hook's business. Checkout varies too much
+// (sparse checkouts, submodules, warm caches, something other than git) to be
+// fixed here.
 package workspace
 
 import (
@@ -18,8 +18,8 @@ type Workspace struct {
 }
 
 func Create(root, runID string) (*Workspace, error) {
-	// The root is traversable but not listable: an agent must be able to reach
-	// its own workspace beneath it without enumerating anyone else's.
+	// Traversable but not listable: an agent reaches its own workspace without
+	// enumerating anyone else's.
 	if err := os.MkdirAll(root, 0o711); err != nil {
 		return nil, fmt.Errorf("create workspace root: %w", err)
 	}
@@ -51,13 +51,11 @@ func (w *Workspace) Resolve(cwd string) (string, error) {
 }
 
 // GiveTo hands the workspace to the account the agent runs as. Everything the
-// runner keeps for itself is outside this tree, so the agent owning it grants
-// nothing else.
+// runner keeps is outside this tree, so owning it grants nothing else.
 func (w *Workspace) GiveTo(uid, gid uint32) error {
 	// MkdirAll leaves an existing root's mode alone, and a volume or temp
-	// directory made by someone else is usually 0700. Without o+x here the
-	// agent cannot traverse to the workspace it owns, and exec fails before
-	// the agent ever starts.
+	// directory made elsewhere is usually 0700. Without o+x the agent cannot
+	// traverse to its own workspace and exec fails before it starts.
 	if err := os.Chmod(filepath.Dir(w.Dir), 0o711); err != nil {
 		return fmt.Errorf("make workspace root traversable: %w", err)
 	}
@@ -70,9 +68,8 @@ func (w *Workspace) GiveTo(uid, gid uint32) error {
 	})
 }
 
-// Remove disposes of the directory this package made. A hook that chose to
-// work elsewhere — a warm cache, a bind mount — is left alone: ownership
-// follows creation.
+// Remove disposes of the directory this package made. Anywhere else a hook
+// chose to work, such as a warm cache or a bind mount, is left alone.
 func (w *Workspace) Remove() error {
 	if w == nil || w.Dir == "" {
 		return nil

@@ -101,8 +101,8 @@ export class Run {
 
   /**
    * Hands the run to a runner. Which row gets here is the queue's problem and
-   * has to be settled in the database; what being claimed *means* — the lease,
-   * the claimant, the state — is settled here, once.
+   * is settled in the database. What being claimed means, the lease and the
+   * claimant and the state, is settled here.
    */
   claim(by: RunnerId, now: Date): void {
     if (this.currentState !== 'queued') {

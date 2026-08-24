@@ -52,8 +52,7 @@ export class RegisterRunnerHandler
 
 /**
  * How long a claim is held open before answering empty. The runner polls in a
- * tight loop by design — holding the request here is what stops that becoming
- * a busy wait against the database.
+ * tight loop, so holding the request here is what keeps it off the database.
  */
 const POLL_TIMEOUT_MS = 10_000;
 const POLL_INTERVAL_MS = 500;
@@ -78,12 +77,12 @@ export class ClaimRunHandler
         );
       }
 
-      // The poll doubles as the heartbeat: a runner that stops asking is one
-      // the control plane stops counting on.
+      // The poll doubles as the heartbeat. A runner that stops asking stops
+      // being counted on.
       await this.runners.touch(runnerId, this.clock.now());
 
-      // Once per claim, not once per attempt: a runner whose host died leaves
-      // a run held until its lease lapses, and somebody has to notice.
+      // Once per claim, not per attempt. A runner whose host died leaves a run
+      // held until its lease lapses, and somebody has to notice.
       await this.runs.requeueLapsed(this.clock.now());
 
       const deadline = this.clock.now().getTime() + POLL_TIMEOUT_MS;

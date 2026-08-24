@@ -14,8 +14,9 @@ import (
 	"usespotlight.ai/runner/internal/terminal"
 )
 
-// drain reads until the child is gone, which is the only way to know a pty is
-// finished: a real process is used because the kernel's behaviour is the point.
+// drain reads until the child is gone, the only way to know a pty is finished.
+// These tests use a real process because the kernel's behaviour is what is
+// being checked.
 func drain(t *testing.T, session *terminal.Session) string {
 	t.Helper()
 
@@ -208,7 +209,7 @@ func TestTheAgentRunsAsSomebodyElseWhenAsked(t *testing.T) {
 	}
 
 	// Not t.TempDir(): its parent is 0700 and root-owned, so the agent could
-	// not traverse into it — the same trap the workspace root has to avoid.
+	// not traverse into it. Same trap the workspace root has to avoid.
 	dir, err := os.MkdirTemp("", "agent-cwd")
 	if err != nil {
 		t.Fatal(err)

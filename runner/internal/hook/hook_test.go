@@ -88,7 +88,7 @@ func TestAFailingHookExplainsItself(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error")
 	}
-	// The hook's own words are the only explanation a failed checkout has.
+	// The hook's output is the only explanation a failed checkout has.
 	if !strings.Contains(out, "could not reach the forge") {
 		t.Errorf("output %q", out)
 	}

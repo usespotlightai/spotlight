@@ -26,8 +26,8 @@ export class AuthenticatedGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    // A runner route carries a bearer token, not a session. RunnerGuard is
-    // what checks it; this guard steps aside rather than rejecting first.
+    // A runner route carries a bearer token, not a session. RunnerGuard checks
+    // it, so this guard steps aside instead of rejecting first.
     const skip = [ALLOW_ANONYMOUS, RUNNER_ONLY].some((marker) =>
       this.reflector.getAllAndOverride<boolean>(marker, [
         context.getHandler(),

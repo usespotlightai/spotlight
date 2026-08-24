@@ -17,7 +17,7 @@ export function CreateWorkspace() {
 
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
-  // The URL trails the name until edited by hand; emptying it hands it back.
+  // The URL follows the name until edited by hand. Emptying it hands it back.
   const [slugTakenOver, setSlugTakenOver] = useState(false);
 
   const onNameChange = (event: ChangeEvent<HTMLInputElement>) => {

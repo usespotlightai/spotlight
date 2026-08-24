@@ -169,8 +169,8 @@ func TestARunThatCannotStartIsStillReported(t *testing.T) {
 		t.Fatal("expected a failing prepare hook to fail the run")
 	}
 
-	// Reported, not merely journalled: a run left claimed is retried until its
-	// lease lapses, and a checkout that cannot work will not work next time.
+	// Reported, not just journalled. A run left claimed is retried until its
+	// lease lapses, and a broken checkout will not fix itself.
 	if written.done == nil || !written.done.Failed {
 		t.Errorf("the failure was not reported: %+v", written.done)
 	}
@@ -181,8 +181,8 @@ func TestARunThatCannotStartIsStillReported(t *testing.T) {
 }
 
 // The uid split only means something if the agent genuinely cannot reach what
-// the runner keeps. Needs root and the agent account, so it runs in the
-// container rather than on a laptop.
+// the runner keeps. Needs root and the agent account, so it only runs in the
+// container.
 func TestTheAgentIsWalledOffFromTheRunner(t *testing.T) {
 	if os.Getuid() != 0 {
 		t.Skip("dropping to another user needs root")

@@ -17,8 +17,8 @@ import (
 	"usespotlight.ai/runner/internal/workspace"
 )
 
-// Journal is the part of the control plane a run talks to. Declared here
-// rather than in the client so this package can be exercised without one.
+// Journal is the part of the control plane a run talks to. Declared here, not
+// in the client, so this package can be tested without one.
 type Journal interface {
 	AppendEvents(ctx context.Context, runID string, events []protocol.Event) error
 	RenewLease(ctx context.Context, runID string) error
@@ -30,8 +30,8 @@ type InputSource interface {
 }
 
 const (
-	// flushEvery coalesces terminal output. Per-read events would be a
-	// request per keystroke echoed.
+	// flushEvery coalesces terminal output. Per-read events would mean a
+	// request per echoed keystroke.
 	flushEvery = 200 * time.Millisecond
 	// renewEvery keeps the lease alive well inside its expiry.
 	renewEvery        = 15 * time.Second
@@ -45,20 +45,19 @@ type Options struct {
 	Journal       Journal
 	Log           *slog.Logger
 	// PrepareHook fills the workspace; PublishHook does something with the
-	// result. Both run as the runner, never as the agent, so whatever
-	// credentials they need never coexist with model-directed code.
+	// result. Both run as the runner, never as the agent, so their credentials
+	// never coexist with model-directed code.
 	PrepareHook string
 	PublishHook string
 	HookTimeout time.Duration
-	// AgentUser is the account to run the agent as. Nil runs it as the runner,
-	// which is what a laptop does.
+	// AgentUser is the account to run the agent as. Nil runs it as the
+	// runner.
 	AgentUser *terminal.User
 	Input     InputSource
 }
 
 // Execute takes a claimed run from an empty directory to a reported outcome.
-// It always removes the workspace and always reports something, whether the
-// agent succeeded, failed, or the runner was told to stop.
+// It always removes the workspace and always reports something.
 func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	log := opts.Log.With("run", run.ID)
 	journal := &journalWriter{runID: run.ID, journal: opts.Journal}
@@ -75,8 +74,8 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		}
 	}()
 
-	// Before the handover, so whatever the hook authenticates with is gone by
-	// the time the agent can look.
+	// Before the handover, so the hook's credentials are gone by the time the
+	// agent can look.
 	if err := opts.runHook(ctx, opts.PrepareHook, space.Dir, run, journal, log, "prepare"); err != nil {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
@@ -97,10 +96,9 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	}
 	journal.record(ctx, protocol.Event{Type: protocol.EventWorkspaceReady, Message: space.Dir})
 
-	// Beside the workspace rather than inside it: the agent owns its tree and
-	// must not be able to edit the record of what it did. It is a live replay
-	// buffer, not an archive — the journal holds the same bytes — so it goes
-	// when the run does.
+	// Beside the workspace, not inside it: the agent owns its tree and must
+	// not be able to edit the record of what it did. It is a replay buffer,
+	// not an archive, so it goes when the run does.
 	recording := filepath.Join(opts.WorkspaceRoot, ".recordings", run.ID)
 	defer func() {
 		if err := os.Remove(recording); err != nil && !os.IsNotExist(err) {
@@ -240,8 +238,8 @@ func pump(
 			return exitCode, stopped.Load()
 
 		case <-ctx.Done():
-			// The agent dies with the context; wait for its code rather than
-			// guessing one, so the journal says what actually happened.
+			// The agent dies with the context. Wait for its real exit code so
+			// the journal says what happened.
 			log.Info("stopping the agent")
 			return <-done, stopped.Load()
 		}
@@ -310,10 +308,9 @@ func collect(
 	}
 }
 
-// finish reports a run that never got as far as an agent. Saying so matters:
-// staying quiet leaves the run claimed until its lease lapses, and a failure
-// that will happen again — a missing repository, an unreachable forge — is
-// then retried forever instead of once.
+// finish reports a run that never got as far as an agent. Staying quiet would
+// leave it claimed until the lease lapses, and a failure that will repeat (a
+// missing repository, an unreachable forge) would then retry forever.
 func finish(
 	ctx context.Context,
 	runID string,
@@ -345,10 +342,9 @@ func finish(
 }
 
 // progress is a run's state and the only way to change it. Advancing goes
-// through Next, so an illegal step is refused rather than discarded: if the
-// code gets there, the run's real state is unknown and continuing would be
-// guesswork. Failing instead lets the lease expire and the run be claimed
-// again from a known start.
+// through Next, and an illegal step fails the run instead of being discarded:
+// at that point the real state is unknown, so it is better to let the lease
+// expire and start again.
 type progress struct {
 	state State
 }
@@ -362,9 +358,8 @@ func (p *progress) reach(trigger Trigger) error {
 	return nil
 }
 
-// runHook runs one of the deployment's hooks, journals whatever it wrote, and
-// treats a non-zero exit as the run failing. A checkout that did not happen
-// and a branch that was never pushed are both worse than a run that stops.
+// runHook runs one of the deployment's hooks, journals its output, and treats
+// a non-zero exit as the run failing.
 func (o Options) runHook(
 	ctx context.Context,
 	path, dir string,
@@ -404,8 +399,8 @@ func (o Options) runHook(
 	return nil
 }
 
-// journalWriter numbers events and batches them, so a run's output arrives in
-// order and a reader that reconnects can tell what it missed.
+// journalWriter numbers and batches events, so output arrives in order and a
+// reader that reconnects can tell what it missed.
 type journalWriter struct {
 	runID   string
 	journal Journal
@@ -433,9 +428,8 @@ func (j *journalWriter) flush(ctx context.Context) {
 	batch := j.pending
 	j.pending = nil
 
-	// A journal the control plane rejected is lost, not retried: the run
-	// itself matters more than its narration, and the recording on disk keeps
-	// the full picture either way.
+	// A rejected batch is dropped, not retried. The run matters more than its
+	// narration, and the recording on disk has the same bytes.
 	if err := j.journal.AppendEvents(ctx, j.runID, batch); err != nil {
 		slog.Warn("could not append events", "run", j.runID, "count", len(batch), "error", err)
 	}

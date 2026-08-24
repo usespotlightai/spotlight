@@ -90,7 +90,7 @@ export const registerRunner = <ThrowOnError extends boolean = false>(options: Op
 });
 
 /**
- * Long-poll for work, answering empty rather than making one up
+ * Long-poll for work, answering empty when the queue is
  */
 export const claimRun = <ThrowOnError extends boolean = false>(options: Options<ClaimRunData, ThrowOnError>): RequestResult<ClaimRunResponses, ClaimRunErrors, ThrowOnError> => (options.client ?? client).post<ClaimRunResponses, ClaimRunErrors, ThrowOnError>({ url: '/runners/{runnerId}/claim', ...options });
 

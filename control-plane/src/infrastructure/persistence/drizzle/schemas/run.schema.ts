@@ -27,9 +27,9 @@ export const runner = pgTable(
 );
 
 /**
- * `spec` is the run's instructions, opaque here on purpose: what a checkout
- * means is the prepare hook's business, so the control plane carries it rather
- * than modelling it.
+ * `spec` is the run's instructions, kept opaque: what a checkout means is the
+ * prepare hook's business, so the control plane carries it without modelling
+ * it.
  */
 export const run = pgTable(
   'run',
@@ -60,7 +60,7 @@ export const run = pgTable(
       .notNull(),
   },
   (table) => [
-    // The claim reads exactly this: the oldest queued run in one pool.
+    // Exactly what the claim reads: the oldest queued run in one pool.
     index('run_queue_idx').on(table.pool, table.state, table.createdAt),
     index('run_target_idx').on(table.targetRunnerId),
     index('run_lease_idx').on(table.leaseExpiresAt),
@@ -70,8 +70,8 @@ export const run = pgTable(
 
 /**
  * A run's journal. `seq` is assigned by the runner and rises without gaps, so
- * a reader that reconnects knows exactly what it missed — and a retried batch
- * collides on the primary key instead of being appended twice.
+ * a reader that reconnects knows what it missed, and a retried batch collides
+ * on the primary key instead of being appended twice.
  */
 export const runEvent = pgTable(
   'run_event',

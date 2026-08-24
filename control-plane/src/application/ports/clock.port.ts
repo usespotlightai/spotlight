@@ -1,7 +1,7 @@
 export const CLOCK = Symbol('CLOCK');
 
 /**
- * Time as a dependency: a claim that long-polls and a lease that lapses are
+ * Time as a dependency. A claim that long-polls and a lease that lapses are
  * both untestable against the real clock.
  */
 export interface ClockPort {

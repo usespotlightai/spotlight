@@ -1,6 +1,7 @@
 import { FitAddon } from '@xterm/addon-fit';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useXTerm } from 'react-xtermjs';
+import { useTerminalTheme } from '@/hooks/useTerminalTheme';
 import { sendRunInput } from '@/lib/api';
 import { fromTyped, isRunEvent, toBytes } from '@/lib/terminal';
 
@@ -10,10 +11,11 @@ type RunTerminalProps = {
 
 export function RunTerminal({ runId }: RunTerminalProps) {
   const fit = useMemo(() => new FitAddon(), []);
+  const theme = useTerminalTheme();
+  const born = useRef(theme).current;
 
-  // Both are held still: useXTerm disposes and recreates the terminal
-  // whenever either changes identity, and passing literals spins the
-  // component, opening a connection per render.
+  // Held still because useXTerm disposes and recreates the terminal whenever
+  // either changes identity. Passing literals opens a connection per render.
   const addons = useMemo(() => [fit], [fit]);
 
   const options = useMemo(
@@ -23,14 +25,15 @@ export function RunTerminal({ runId }: RunTerminalProps) {
       fontFamily:
         'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
       scrollback: 10_000,
+      theme: born,
     }),
-    [],
+    [born],
   );
 
   const { ref, instance } = useXTerm({ addons, options });
 
-  // Chained, so keystrokes reach the agent in the order they were typed:
-  // independent requests do not.
+  // Chained so keystrokes reach the agent in the order they were typed.
+  // Independent requests do not.
   const chain = useRef<Promise<unknown>>(Promise.resolve());
   const pending = useRef('');
 
@@ -136,8 +139,20 @@ export function RunTerminal({ runId }: RunTerminalProps) {
   }, [instance, fit, ref, sendSize]);
 
   useEffect(() => {
+    if (instance) {
+      instance.options.theme = theme;
+    }
+  }, [instance, theme]);
+
+  useEffect(() => {
     instance?.focus();
   }, [instance]);
 
-  return <div ref={ref} className="min-h-0 flex-1 overflow-hidden p-2" />;
+  // fit() subtracts a hardcoded 14px for the scrollbar; widening by exactly
+  // that and clipping hands the columns back.
+  return (
+    <div className="min-h-0 flex-1 overflow-hidden bg-background">
+      <div ref={ref} className="h-full w-[calc(100%+14px)]" />
+    </div>
+  );
 }

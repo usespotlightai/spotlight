@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import { useParams } from 'react-router';
+import { SecondaryButton } from '@/components/common/control/SecondaryButton';
 import { RunTerminal } from '@/components/runners/RunTerminal';
 import { useStartSession, useStopSession } from '@/hooks/api/useRunnerSession';
 import { useRunners } from '@/hooks/api/useRunners';
@@ -11,43 +12,61 @@ export function RunnerTerminal() {
   const stop = useStopSession();
 
   const runner = runners?.find((candidate) => candidate.id === runnerId);
+  const session = runner?.currentRun;
+
+  const { reset: forgetStart, isSuccess: started } = start;
+  useEffect(() => {
+    if (session && started) {
+      forgetStart();
+    }
+  }, [session, started, forgetStart]);
+
+  const { reset: forgetStop, isPending: asking, isSuccess: asked } = stop;
+  useEffect(() => {
+    if (!session && asked) {
+      forgetStop();
+    }
+  }, [session, asked, forgetStop]);
+
+  const ending = Boolean(session) && (asking || asked);
 
   if (!runner) {
     return <Empty>No runner is registered under that id.</Empty>;
   }
 
-  if (!runner.currentRun) {
+  if (!session) {
     if (!runner.connected) {
       return (
         <Empty>This runner has stopped answering the control plane.</Empty>
       );
     }
 
-    // Scoped to this runner: the component is reused across :runnerId, so an
+    // Scoped to this runner. The component is reused across :runnerId, so an
     // unscoped mutation state marks every other idle runner as starting.
     const claiming =
       (start.isPending || start.isSuccess) &&
       start.variables?.runnerId === runner.id;
 
     return (
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-8">
-        <p className="text-muted-foreground text-sm">
+      <div className="flex min-h-0 flex-1 animate-in flex-col items-center justify-center gap-3 p-8 duration-200 fade-in ease-out-quad">
+        <p
+          key={claiming ? 'claiming' : 'idle'}
+          className="animate-in text-muted-foreground text-sm duration-200 fade-in ease-out-quad"
+        >
           {claiming
             ? 'Waiting for the runner to pick the session up…'
             : 'This runner is idle.'}
         </p>
 
-        <button
-          type="button"
+        <SecondaryButton
           disabled={claiming || !slug}
           onClick={() =>
             slug &&
             start.mutate({ slug, pool: runner.pool, runnerId: runner.id })
           }
-          className="h-7 rounded-md border-[0.5px] border-border px-3 font-medium text-foreground text-xs outline-none transition-colors hover:bg-accent disabled:opacity-50"
         >
           {claiming ? 'Starting…' : 'Start session'}
-        </button>
+        </SecondaryButton>
 
         {start.isError && (
           <p className="text-destructive text-xs">{start.error.message}</p>
@@ -55,8 +74,6 @@ export function RunnerTerminal() {
       </div>
     );
   }
-
-  const session = runner.currentRun;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -69,24 +86,39 @@ export function RunnerTerminal() {
           {session.id}
         </span>
 
+        {stop.isError && (
+          <span className="shrink-0 text-destructive text-xs">
+            {stop.error.message}
+          </span>
+        )}
+
         <button
           type="button"
-          disabled={stop.isPending}
+          disabled={ending}
           onClick={() => stop.mutate(session.id)}
-          className="ml-auto h-6 shrink-0 rounded-md border-[0.5px] border-border px-2 text-muted-foreground text-xs outline-none transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+          className="ml-auto flex h-6 shrink-0 items-center rounded-full border-[0.5px] border-border bg-card px-2.5 font-medium text-muted-foreground text-sm shadow-[0px_4px_4px_-1px_#0000000a,0px_1px_1px_0px_#00000014] outline-none transition-colors duration-100 ease-out-quad hover:bg-accent hover:text-foreground disabled:opacity-50"
         >
-          {stop.isPending ? 'Stopping…' : 'Stop'}
+          {ending ? 'Stopping…' : 'Stop'}
         </button>
       </div>
 
-      <RunTerminal key={session.id} runId={session.id} />
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <RunTerminal key={session.id} runId={session.id} />
+
+        {ending && (
+          <div
+            data-slot="session-ending"
+            className="absolute inset-0 z-10 flex animate-in items-center justify-center bg-background/60 backdrop-blur-xs duration-200 fade-in ease-out-quad"
+          />
+        )}
+      </div>
     </div>
   );
 }
 
 function Empty({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-0 flex-1 items-center justify-center p-8">
+    <div className="flex min-h-0 flex-1 animate-in items-center justify-center p-8 duration-200 fade-in ease-out-quad">
       <p className="text-muted-foreground text-sm">{children}</p>
     </div>
   );

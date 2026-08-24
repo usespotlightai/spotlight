@@ -202,8 +202,8 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       ID_GENERATOR,
     ]),
 
-    // Order matters: the runner guard must answer before the session guard
-    // rejects a request that was never going to carry a session.
+    // The runner guard must answer before the session guard rejects a request
+    // that was never going to carry a session.
     { provide: APP_GUARD, useClass: RunnerGuard },
     { provide: APP_GUARD, useClass: AuthenticatedGuard },
     { provide: APP_FILTER, useClass: ServerFaultFilter },

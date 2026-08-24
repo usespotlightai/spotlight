@@ -13,8 +13,8 @@ type Registered struct {
 	RunnerID string `json:"runnerId"`
 }
 
-// Checkout is one repository a run works in. A run may have several: an agent
-// that cannot see the consumer cannot tell whether it broke it.
+// Checkout is one repository a run works in. A run may have several, since an
+// agent that cannot see a consumer cannot tell whether it broke it.
 type Checkout struct {
 	Remote string `json:"remote"`
 	Ref    string `json:"ref"`
@@ -22,8 +22,8 @@ type Checkout struct {
 	Branch string `json:"branch"`
 }
 
-// Command is the agent CLI to supervise. Which vendor it is amounts to this
-// much difference, which is why the runner needs no per-vendor code.
+// Command is the agent CLI to supervise. Vendor differences amount to this
+// much, so the runner needs no per-vendor code.
 type Command struct {
 	Executable string            `json:"executable"`
 	Args       []string          `json:"args,omitempty"`
@@ -31,9 +31,8 @@ type Command struct {
 }
 
 // Spec is what a run is supposed to do. The control plane stores it whole and
-// never looks inside: what a checkout means is the prepare hook's business,
-// which is why this travels as one opaque object rather than as fields it
-// would have to model.
+// never looks inside, so it travels as one opaque object: what a checkout
+// means is the prepare hook's business.
 type Spec struct {
 	Checkouts []Checkout `json:"checkouts,omitempty"`
 	Cwd       string     `json:"cwd,omitempty"`
@@ -46,8 +45,8 @@ type Run struct {
 	LeaseExpiresAt time.Time `json:"leaseExpiresAt"`
 }
 
-// EventType names what happened. The set is closed on purpose: anything the
-// control plane cannot interpret is not worth sending.
+// EventType names what happened. The set is closed: the control plane cannot
+// interpret anything else.
 type EventType string
 
 const (

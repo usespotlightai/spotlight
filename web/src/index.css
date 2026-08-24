@@ -72,6 +72,8 @@
 }
 
 @theme inline {
+  --ease-out-quad: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+
   --text-sm: 0.8125rem;
   --text-sm--line-height: 1.25rem;
 

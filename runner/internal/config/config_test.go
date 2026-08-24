@@ -9,9 +9,8 @@ import (
 	"usespotlight.ai/runner/internal/config"
 )
 
-// setRequired starts from a blank slate. Without clearing first, these tests
-// read whatever the environment happens to hold and pass on a laptop while
-// failing in the container that actually sets these.
+// setRequired clears every SPOTLIGHT_ var first, so the tests do not pick up
+// whatever the surrounding environment happens to set.
 func setRequired(t *testing.T) {
 	t.Helper()
 

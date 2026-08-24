@@ -10,10 +10,9 @@ import (
 )
 
 const (
-	// retryFloor is the pause after a lost or timed-out poll. Short, because
-	// the common case is simply that nothing was queued.
+	// retryFloor is the pause after a failed or empty poll.
 	retryFloor = 2 * time.Second
-	// retryCeiling caps the backoff. Past this a runner looks absent.
+	// retryCeiling caps the backoff.
 	retryCeiling = 20 * time.Second
 )
 
@@ -31,8 +30,7 @@ type Limits struct {
 }
 
 // Poll claims runs and hands them to execute, one at a time, until a limit is
-// reached or the context ends. Capacity is deliberately one: parallelism comes
-// from running more runners, which keeps this loop free of concurrency.
+// reached or the context ends. One run at a time; scale by adding runners.
 func Poll(
 	ctx context.Context,
 	claimer Claimer,
@@ -88,8 +86,7 @@ func Poll(
 	}
 }
 
-// jitter spreads retries so a fleet that lost the control plane together does
-// not come back in lockstep.
+// jitter keeps a fleet from retrying in lockstep.
 func jitter(d time.Duration) time.Duration {
 	return d/2 + time.Duration(rand.Int64N(int64(d)))
 }
@@ -112,8 +109,6 @@ type Registrar interface {
 }
 
 // Register keeps trying until the control plane answers or the context ends.
-// A runner that starts before the control plane is reachable should wait for
-// it rather than die and be restarted in a loop.
 func Register(ctx context.Context, registrar Registrar, in protocol.Registration, log *slog.Logger) error {
 	backoff := retryFloor
 

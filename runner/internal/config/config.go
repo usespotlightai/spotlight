@@ -1,7 +1,6 @@
-// Package config reads the runner's entire input surface from the environment.
-//
-// Everything that differs between a laptop, a container and a cloud sandbox is
-// a value here. The runner never asks where it is running.
+// Package config reads the runner's settings from the environment. Everything
+// that differs between a laptop, a container and a cloud sandbox is a value
+// here.
 package config
 
 import (
@@ -20,28 +19,23 @@ type Config struct {
 	Pool          string
 	Labels        map[string]string
 	WorkspaceRoot string
-	// MaxRuns is how many runs to serve before exiting. Zero is unlimited,
-	// which is what a long-lived runner on someone's laptop wants.
+	// MaxRuns is how many runs to serve before exiting. Zero is unlimited.
 	MaxRuns int
 	// IdleTimeout exits the runner after this long with no work. Zero never
 	// exits.
 	IdleTimeout time.Duration
-	// PrepareHook fills the workspace before the agent starts. Empty leaves it
-	// empty, which is what a run against an already-checked-out tree wants.
+	// PrepareHook fills the workspace before the agent starts. Empty skips it.
 	PrepareHook string
 	PublishHook string
-	// HookTimeout bounds each hook. Zero lets one hang, holding the lease.
+	// HookTimeout bounds each hook. Zero means no limit.
 	HookTimeout time.Duration
-	// AgentUser is the account to run agents as. Empty runs them as the
-	// runner, which is all an unprivileged runner can do.
+	// AgentUser is the account to run agents as. Empty runs them as the runner.
 	AgentUser string
-	// RetireAt stops taking new work at this time, for hosts that are
-	// destroyed on a schedule without a signal. Zero means no deadline.
+	// RetireAt stops taking new work at this time. Zero means no deadline.
 	RetireAt time.Time
 }
 
-// defaultHookTimeout is generous enough for a large clone and short enough
-// that a wedged hook does not sit on the lease for long.
+// defaultHookTimeout allows for a large clone without holding the lease long.
 const defaultHookTimeout = 10 * time.Minute
 
 const (
@@ -59,8 +53,7 @@ const (
 	envHookTimeout = "SPOTLIGHT_HOOK_TIMEOUT"
 )
 
-// Load reads the environment and reports every problem it finds at once,
-// rather than one per restart.
+// Load reads the environment, reporting every problem at once.
 func Load() (Config, error) {
 	var problems []error
 	note := func(err error) {

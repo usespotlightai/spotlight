@@ -1,9 +1,8 @@
-// Package control speaks to the control plane, outbound only.
+// Package control speaks to the control plane over HTTP. Outbound only, so it
+// works through an egress proxy and needs no inbound route.
 //
-// Registration, long-polling for work, and lease renewal all live here. The
-// poll doubles as the heartbeat: stop polling and the control plane requeues
-// the run for someone else. Long-polling rather than a persistent socket keeps
-// this working through corporate egress proxies and needs nothing routed back.
+// The claim poll doubles as the heartbeat: stop polling and the run is
+// requeued for someone else.
 package control
 
 import (
@@ -21,7 +20,7 @@ import (
 )
 
 // PollTimeout is how long the control plane may hold a claim open before
-// answering empty. Short enough that a lost connection is noticed.
+// answering empty.
 const PollTimeout = 10 * time.Second
 
 const InputPollTimeout = 25 * time.Second
@@ -43,8 +42,8 @@ func New(baseURL, token string) (*Client, error) {
 	return &Client{
 		base:  base,
 		token: token,
-		// Generous: a claim is long-polled and the server decides when to
-		// answer. Per-request contexts impose the real deadlines.
+		// Claims are long-polled. The real deadlines come from the
+		// per-request contexts.
 		http: &http.Client{Timeout: 2 * time.Minute},
 	}, nil
 }
@@ -64,8 +63,7 @@ func (c *Client) Register(ctx context.Context, in protocol.Registration) error {
 	return nil
 }
 
-// Claim long-polls for work. It returns nil, nil when the queue is empty,
-// which is the ordinary case and not an error.
+// Claim long-polls for work. An empty queue returns nil, nil, not an error.
 func (c *Client) Claim(ctx context.Context) (*protocol.Run, error) {
 	ctx, cancel := context.WithTimeout(ctx, PollTimeout+15*time.Second)
 	defer cancel()
@@ -93,14 +91,14 @@ func (c *Client) RenewLease(ctx context.Context, runID string) error {
 }
 
 // AppendEvents adds to the run's journal. Events carry their own sequence, so
-// a retried batch is recognisable rather than duplicated.
+// a retried batch is not duplicated.
 func (c *Client) AppendEvents(ctx context.Context, runID string, events []protocol.Event) error {
 	if len(events) == 0 {
 		return nil
 	}
 
-	// Wrapped rather than a bare array: an object leaves room to say something
-	// about the batch later without breaking every runner in the fleet.
+	// Wrapped in an object so batch-level fields can be added later without
+	// breaking older runners.
 	batch := struct {
 		Events []protocol.Event `json:"events"`
 	}{Events: events}
@@ -154,9 +152,9 @@ func (c *Client) request(ctx context.Context, method, path string, in, out any) 
 		return 0, err
 	}
 	request.Header.Set("Authorization", "Bearer "+c.token)
-	// Every runner shares one enrollment token, so this is what says which of
-	// them is calling. A claim, not a credential: the run's own record of who
-	// holds it is what actually decides.
+	// The enrollment token is shared across runners, so this header is what
+	// says which one is calling. It is not a credential: the run's record of
+	// who holds it is what authorises.
 	if c.runnerID != "" {
 		request.Header.Set("X-Spotlight-Runner", c.runnerID)
 	}

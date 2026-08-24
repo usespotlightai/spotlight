@@ -1,9 +1,8 @@
 // Package terminal supervises the agent under a pseudo-terminal.
 //
-// Output is teed: to an on-disk recording with byte offsets, which is what
-// lets a viewer replay from where it left off rather than joining midway, and
-// to whoever is reading live. Fan-out to several viewers is the gateway's job,
-// so exactly one consumer leaves here.
+// Output is teed to an on-disk recording with byte offsets, so a viewer can
+// replay from where it left off, and to whoever is reading live. Fan-out to
+// several viewers is the relay's job, so exactly one consumer leaves here.
 package terminal
 
 import (
@@ -21,15 +20,14 @@ import (
 )
 
 // Size is the terminal geometry to start at. A full-screen TUI redraws badly
-// if it starts at one size and is resized after, so the caller states this up
-// front rather than letting it default.
+// when resized after start, so the caller states it up front.
 type Size struct {
 	Cols uint16
 	Rows uint16
 }
 
-// DefaultSize is used when nobody is watching yet. Wide enough that an agent's
-// output is not wrapped into nonsense in the recording.
+// DefaultSize is used when nobody is watching yet. Wide enough to keep the
+// recording from wrapping into nonsense.
 var DefaultSize = Size{Cols: 120, Rows: 40}
 
 type Chunk struct {
@@ -40,8 +38,8 @@ type Chunk struct {
 type Spec struct {
 	Command protocol.Command
 	Dir     string
-	// Recording is where its output is written. Deliberately outside the
-	// workspace: the agent must not be able to edit the record of what it did.
+	// Recording is where its output is written, outside the workspace: the
+	// agent must not be able to edit the record of what it did.
 	Recording string
 	Size      Size
 	// RunAs is the account to drop to. Nil runs as the runner's own user.
@@ -78,9 +76,9 @@ func Start(ctx context.Context, spec Spec) (*Session, error) {
 	return &Session{command: command, pty: attached, recording: recording}, nil
 }
 
-// Read returns the next chunk of output. It reports io.EOF once the agent has
-// finished writing; on macOS the kernel raises EIO rather than EOF when the
-// child exits, which means the same thing here.
+// Read returns the next chunk of output, reporting io.EOF once the agent has
+// finished writing. On macOS the kernel raises EIO when the child exits, which
+// means the same thing here.
 func (s *Session) Read(buffer []byte) (Chunk, error) {
 	read, err := s.pty.Read(buffer)
 
@@ -142,9 +140,9 @@ func (s *Session) Close() error {
 	return errors.Join(s.pty.Close(), s.recording.Close())
 }
 
-// runnerOnly are the variables the agent must never see. The runner's own
-// control plane token is among them: an agent with a shell can read its
-// environment, and that token speaks for the runner.
+// runnerOnly are the variables the agent must never see, including the
+// runner's control plane token: an agent with a shell can read its own
+// environment.
 const runnerOnly = "SPOTLIGHT_"
 
 func environment(extra map[string]string) []string {

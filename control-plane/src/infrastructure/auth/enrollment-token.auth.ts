@@ -16,8 +16,8 @@ export class EnrollmentTokenAuth implements RunnerAuthPort {
     const offered = Buffer.from(token);
     const expected = Buffer.from(this.env.RUNNER_ENROLLMENT_TOKEN);
 
-    // Constant time: how quickly a wrong token is rejected tells an attacker
-    // how much of it was right.
+    // Constant time. How quickly a wrong token is rejected would otherwise
+    // tell an attacker how much of it was right.
     return (
       offered.length === expected.length && timingSafeEqual(offered, expected)
     );

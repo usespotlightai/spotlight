@@ -5,8 +5,8 @@ import type { RunEventView } from '@application/ports/run-stream.port';
 import type { ReadRunEventsQuery } from '@application/queries/read-run-events.query';
 import { RunId } from '@domain/value-objects/run-id.vo';
 
-// Bounded by bytes, not entries: a redrawing agent writes kilobytes per
-// entry, and replaying a whole run costs memory per reconnecting viewer.
+// Bounded by bytes, not entries. A redrawing agent writes kilobytes per entry,
+// and every reconnecting viewer replays the lot.
 const MOST_TO_REPLAY_BYTES = 256 * 1024;
 const MOST_TO_REPLAY_ENTRIES = 400;
 

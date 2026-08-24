@@ -18,6 +18,16 @@ vi.mock('@/hooks/api/useSignOut', () => ({
 vi.mock('@/hooks/api/useWorkspaces', () => ({
   useWorkspaces: () => ({ data: [], isPending: false }),
 }));
+vi.mock('@/hooks/api/useRunners', () => ({
+  runnerKeys: { all: ['runners'] },
+  useRunners: () => ({
+    data: [
+      { id: 'r1', pool: 'dev', connected: true, currentRun: null },
+      { id: 'r2', pool: 'dev', connected: true, currentRun: { id: 'run_1' } },
+      { id: 'r3', pool: 'dev', connected: false, currentRun: null },
+    ],
+  }),
+}));
 vi.mock('@/hooks/api/useSession', () => ({
   useSession: () => ({ data: { user: { email: 'dev@example.com' } } }),
 }));
@@ -99,5 +109,14 @@ describe('Workspace', () => {
     renderAt('acme-inc');
 
     expect(screen.queryByRole('heading')).not.toBeInTheDocument();
+  });
+
+  it('shows how many runners could take work now', () => {
+    loaded(acme);
+
+    renderAt('acme-inc');
+
+    const runners = screen.getByRole('link', { name: /Runners/ });
+    expect(runners).toHaveTextContent('1');
   });
 });

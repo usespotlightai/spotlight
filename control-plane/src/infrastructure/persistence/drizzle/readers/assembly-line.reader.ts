@@ -35,8 +35,8 @@ export class DrizzleAssemblyLineReader implements AssemblyLineReaderPort {
     teamId: TeamId,
     userId: UserId,
   ): Promise<AssemblyLineDetail[] | null> {
-    // Asked separately, and not folded into the join below, so that "no such
-    // team for you" stays distinguishable from "a team whose board is empty".
+    // Asked separately, not folded into the join below, so "no such team for
+    // you" stays distinguishable from "a team with an empty board".
     const [visible] = await this.db
       .select({ id: team.id })
       .from(team)
