@@ -71,6 +71,17 @@ type Event struct {
 	ExitCode *int  `json:"exitCode,omitempty"`
 }
 
+type Input struct {
+	Data []byte `json:"data,omitempty"`
+	Cols uint16 `json:"cols,omitempty"`
+	Rows uint16 `json:"rows,omitempty"`
+	Stop bool   `json:"stop,omitempty"`
+}
+
+type PendingInput struct {
+	Input []Input `json:"input"`
+}
+
 type Completion struct {
 	ExitCode int    `json:"exitCode"`
 	Failed   bool   `json:"failed"`

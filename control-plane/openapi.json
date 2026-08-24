@@ -100,6 +100,474 @@
         ]
       }
     },
+    "/workspaces/{slug}/runs": {
+      "post": {
+        "operationId": "enqueueRun",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme-inc",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnqueueRunRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnqueuedRunResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          }
+        },
+        "summary": "Queue a run for a pool to pick up",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/runs/{runId}/stream": {
+      "get": {
+        "operationId": "streamRun",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "last-event-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Server-sent events, one per journal entry"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such run for this caller"
+          }
+        },
+        "summary": "Watch a run’s terminal, catching up on what was missed first",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/runs/{runId}/input": {
+      "post": {
+        "operationId": "sendRunInput",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendRunInputRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such run for this caller"
+          }
+        },
+        "summary": "Type at the agent, or tell it the terminal resized",
+        "tags": [
+          "runs"
+        ]
+      },
+      "get": {
+        "operationId": "awaitRunInput",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-spotlight-runner",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingRunInputResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong enrollment token"
+          }
+        },
+        "summary": "Long-poll for what was typed, answering empty when nothing was",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/runs/{runId}/stop": {
+      "post": {
+        "operationId": "stopRun",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such run for this caller"
+          }
+        },
+        "summary": "Ask the agent to finish, as closing the terminal would",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/runners": {
+      "post": {
+        "operationId": "registerRunner",
+        "parameters": [
+          {
+            "name": "x-spotlight-runner",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRunnerRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisteredRunnerResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong enrollment token"
+          }
+        },
+        "summary": "Announce a runner and what it can serve",
+        "tags": [
+          "runners"
+        ]
+      },
+      "get": {
+        "operationId": "listRunners",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConnectedRunnerResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          }
+        },
+        "summary": "List every runner and whether it is still answering",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runners/{runnerId}/claim": {
+      "post": {
+        "operationId": "claimRun",
+        "parameters": [
+          {
+            "name": "x-spotlight-runner",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runnerId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimedRunResponseDto"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Nothing queued for this pool"
+          },
+          "401": {
+            "description": "Missing or wrong enrollment token"
+          }
+        },
+        "summary": "Long-poll for work, answering empty rather than making one up",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/lease": {
+      "post": {
+        "operationId": "renewLease",
+        "parameters": [
+          {
+            "name": "x-spotlight-runner",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-spotlight-runner",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing or wrong enrollment token"
+          }
+        },
+        "summary": "Say the run is still being worked on",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/events": {
+      "post": {
+        "operationId": "appendRunEvents",
+        "parameters": [
+          {
+            "name": "x-spotlight-runner",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-spotlight-runner",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppendRunEventsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing or wrong enrollment token"
+          }
+        },
+        "summary": "Add to the run’s journal",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/completion": {
+      "post": {
+        "operationId": "completeRun",
+        "parameters": [
+          {
+            "name": "x-spotlight-runner",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-spotlight-runner",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteRunRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing or wrong enrollment token"
+          }
+        },
+        "summary": "Report what the run produced",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
     "/workspaces": {
       "post": {
         "operationId": "createWorkspace",
@@ -292,6 +760,328 @@
         },
         "required": [
           "status"
+        ]
+      },
+      "EnqueueRunRequestDto": {
+        "type": "object",
+        "properties": {
+          "pool": {
+            "type": "string",
+            "example": "dev"
+          },
+          "spec": {
+            "type": "object",
+            "description": "Handed to the runner untouched: checkouts, cwd, command",
+            "example": {
+              "cwd": "service",
+              "checkouts": [
+                {
+                  "remote": "https://github.com/org/service",
+                  "path": "service"
+                }
+              ],
+              "command": {
+                "executable": "claude",
+                "args": [
+                  "-p",
+                  "fix the build"
+                ]
+              }
+            }
+          },
+          "targetRunnerId": {
+            "type": "string",
+            "description": "Runner this run belongs to. Omitted lets any runner in the pool take it.",
+            "example": "8a1d4e0b-6c72-4f35-9b8a-1e5d3c7f2a49"
+          }
+        },
+        "required": [
+          "pool",
+          "spec"
+        ]
+      },
+      "EnqueuedRunResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
+          },
+          "pool": {
+            "type": "string",
+            "example": "dev"
+          },
+          "state": {
+            "type": "string",
+            "example": "queued"
+          },
+          "targetRunnerId": {
+            "type": "object",
+            "nullable": true,
+            "example": "8a1d4e0b-6c72-4f35-9b8a-1e5d3c7f2a49",
+            "description": "The runner it waits for, or null for whoever is free"
+          }
+        },
+        "required": [
+          "id",
+          "pool",
+          "state",
+          "targetRunnerId"
+        ]
+      },
+      "SendRunInputRequestDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "string",
+            "example": "bHMgLWxhCg==",
+            "description": "Keystrokes as base64, exactly as the terminal produced them"
+          },
+          "cols": {
+            "type": "number",
+            "example": 120,
+            "description": "New terminal width"
+          },
+          "rows": {
+            "type": "number",
+            "example": 40,
+            "description": "New terminal height"
+          }
+        }
+      },
+      "RunInputResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "string",
+            "example": "bHMgLWxhCg=="
+          },
+          "cols": {
+            "type": "number",
+            "example": 120
+          },
+          "rows": {
+            "type": "number",
+            "example": 40
+          },
+          "stop": {
+            "type": "boolean",
+            "example": true,
+            "description": "The agent has been asked to finish"
+          }
+        }
+      },
+      "PendingRunInputResponseDto": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "description": "Empty when the poll timed out with nothing typed",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RunInputResponseDto"
+            }
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "RegisterRunnerRequestDto": {
+        "type": "object",
+        "properties": {
+          "pool": {
+            "type": "string",
+            "example": "dev"
+          },
+          "labels": {
+            "type": "object",
+            "example": {
+              "arch": "arm64"
+            }
+          },
+          "capacity": {
+            "type": "number",
+            "example": 1,
+            "description": "What the runner advertises. The control plane grants work."
+          }
+        },
+        "required": [
+          "pool"
+        ]
+      },
+      "RegisteredRunnerResponseDto": {
+        "type": "object",
+        "properties": {
+          "runnerId": {
+            "type": "string",
+            "example": "3fd46417-95af-4c8b-9a3d-2b7e5f0c1d84"
+          }
+        },
+        "required": [
+          "runnerId"
+        ]
+      },
+      "ClaimedRunResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
+          },
+          "spec": {
+            "type": "object",
+            "description": "Opaque to the control plane, meaningful to the hook"
+          },
+          "leaseExpiresAt": {
+            "type": "string",
+            "example": "2026-08-23T18:01:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "spec",
+          "leaseExpiresAt"
+        ]
+      },
+      "RunEventRequestDto": {
+        "type": "object",
+        "properties": {
+          "seq": {
+            "type": "number",
+            "example": 1,
+            "description": "Assigned by the runner, gapless"
+          },
+          "type": {
+            "type": "string",
+            "example": "output"
+          },
+          "at": {
+            "type": "string",
+            "example": "2026-08-23T18:00:00.000Z"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "string",
+            "description": "Terminal bytes, base64"
+          },
+          "offset": {
+            "type": "number",
+            "example": 0,
+            "description": "Position in the recording"
+          }
+        },
+        "required": [
+          "seq",
+          "type",
+          "at"
+        ]
+      },
+      "AppendRunEventsRequestDto": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RunEventRequestDto"
+            }
+          }
+        },
+        "required": [
+          "events"
+        ]
+      },
+      "CompleteRunRequestDto": {
+        "type": "object",
+        "properties": {
+          "exitCode": {
+            "type": "number",
+            "example": 0
+          },
+          "failed": {
+            "type": "boolean",
+            "example": false
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "exitCode",
+          "failed"
+        ]
+      },
+      "ActiveRunResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "3f9c1b7e-52a4-4d6f-8e1b-0a7c4d2f9b63"
+          },
+          "state": {
+            "type": "string",
+            "example": "claimed"
+          }
+        },
+        "required": [
+          "id",
+          "state"
+        ]
+      },
+      "ConnectedRunnerResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "8a1d4e0b-6c72-4f35-9b8a-1e5d3c7f2a49"
+          },
+          "pool": {
+            "type": "string",
+            "example": "default"
+          },
+          "labels": {
+            "type": "object",
+            "example": {
+              "runner": "one"
+            },
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "What the runner advertises about itself; a hint, not a grant"
+          },
+          "registeredAt": {
+            "type": "string",
+            "example": "2026-08-24T11:00:00.000Z"
+          },
+          "lastSeenAt": {
+            "type": "string",
+            "example": "2026-08-24T12:00:00.000Z"
+          },
+          "connected": {
+            "type": "boolean",
+            "example": true,
+            "description": "Heard from recently enough to be counted on"
+          },
+          "currentRun": {
+            "nullable": true,
+            "description": "The run it is working on, or null when idle",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ActiveRunResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "pool",
+          "labels",
+          "registeredAt",
+          "lastSeenAt",
+          "connected",
+          "currentRun"
         ]
       },
       "CreateWorkspaceRequestDto": {

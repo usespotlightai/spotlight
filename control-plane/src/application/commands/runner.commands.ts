@@ -48,5 +48,7 @@ export class EnqueueRunCommand {
     readonly workspaceId: string,
     readonly pool: string,
     readonly spec: unknown,
+    /** Null lets any runner in the pool take it. */
+    readonly targetRunnerId: string | null = null,
   ) {}
 }

@@ -18,6 +18,15 @@ const queued = () =>
     spec: { command: { executable: 'sh' } },
   });
 
+const openedFor = (target: string) =>
+  Run.enqueue({
+    id: RunId.of('run_1'),
+    workspaceId: WorkspaceId.of('ws_1'),
+    pool: 'dev',
+    spec: { command: { executable: 'claude' } },
+    targetRunner: runner(target),
+  });
+
 const claimed = (by = runner(), when = noon) => {
   const run = queued();
   run.claim(by, when);
@@ -133,5 +142,59 @@ describe('Run', () => {
     expect(() =>
       run.complete(runner(), { exitCode: 0, failed: false }),
     ).toThrow(InvalidRunTransitionError);
+  });
+
+  describe('opened against one runner', () => {
+    it('is claimable by the runner it was opened for', () => {
+      const run = openedFor('runner_2');
+
+      run.claim(runner('runner_2'), noon);
+
+      expect(run.state).toBe('claimed');
+      expect(run.claimedBy?.value).toBe('runner_2');
+    });
+
+    it('refuses a runner it was not opened for', () => {
+      const run = openedFor('runner_2');
+
+      expect(() => run.claim(runner('runner_1'), noon)).toThrow(
+        InvalidRunTransitionError,
+      );
+      expect(run.state).toBe('queued');
+    });
+
+    it('still belongs to that runner after being requeued', () => {
+      const run = openedFor('runner_2');
+      run.claim(runner('runner_2'), noon);
+      run.requeue(at('2026-08-23T12:05:00.000Z'));
+
+      expect(run.targetRunner?.value).toBe('runner_2');
+      expect(() => run.claim(runner('runner_1'), noon)).toThrow(
+        InvalidRunTransitionError,
+      );
+    });
+  });
+
+  it('lets any runner claim a run opened against none', () => {
+    const run = queued();
+
+    run.claim(runner('runner_9'), noon);
+
+    expect(run.claimedBy?.value).toBe('runner_9');
+  });
+
+  it('refuses anyone but its holder to act on it', () => {
+    const run = claimed(runner('runner_1'));
+
+    expect(() => run.assertHeldBy(runner('runner_2'))).toThrow(
+      InvalidRunTransitionError,
+    );
+    expect(() => run.assertHeldBy(runner('runner_1'))).not.toThrow();
+  });
+
+  it('refuses anyone to act on a run nobody holds', () => {
+    expect(() => queued().assertHeldBy(runner())).toThrow(
+      InvalidRunTransitionError,
+    );
   });
 });

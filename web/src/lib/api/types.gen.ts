@@ -27,6 +27,144 @@ export type HealthResponseDto = {
   status: 'ok';
 };
 
+export type EnqueueRunRequestDto = {
+  pool: string;
+  /**
+   * Handed to the runner untouched: checkouts, cwd, command
+   */
+  spec: {
+    [key: string]: unknown;
+  };
+  /**
+   * Runner this run belongs to. Omitted lets any runner in the pool take it.
+   */
+  targetRunnerId?: string;
+};
+
+export type EnqueuedRunResponseDto = {
+  id: string;
+  pool: string;
+  state: string;
+  /**
+   * The runner it waits for, or null for whoever is free
+   */
+  targetRunnerId: {
+    [key: string]: unknown;
+  } | null;
+};
+
+export type SendRunInputRequestDto = {
+  /**
+   * Keystrokes as base64, exactly as the terminal produced them
+   */
+  data?: string;
+  /**
+   * New terminal width
+   */
+  cols?: number;
+  /**
+   * New terminal height
+   */
+  rows?: number;
+};
+
+export type RunInputResponseDto = {
+  data?: string;
+  cols?: number;
+  rows?: number;
+  /**
+   * The agent has been asked to finish
+   */
+  stop?: boolean;
+};
+
+export type PendingRunInputResponseDto = {
+  /**
+   * Empty when the poll timed out with nothing typed
+   */
+  input: Array<RunInputResponseDto>;
+};
+
+export type RegisterRunnerRequestDto = {
+  pool: string;
+  labels?: {
+    [key: string]: unknown;
+  };
+  /**
+   * What the runner advertises. The control plane grants work.
+   */
+  capacity?: number;
+};
+
+export type RegisteredRunnerResponseDto = {
+  runnerId: string;
+};
+
+export type ClaimedRunResponseDto = {
+  id: string;
+  /**
+   * Opaque to the control plane, meaningful to the hook
+   */
+  spec: {
+    [key: string]: unknown;
+  };
+  leaseExpiresAt: string;
+};
+
+export type RunEventRequestDto = {
+  /**
+   * Assigned by the runner, gapless
+   */
+  seq: number;
+  type: string;
+  at: string;
+  message?: string;
+  /**
+   * Terminal bytes, base64
+   */
+  data?: string;
+  /**
+   * Position in the recording
+   */
+  offset?: number;
+};
+
+export type AppendRunEventsRequestDto = {
+  events: Array<RunEventRequestDto>;
+};
+
+export type CompleteRunRequestDto = {
+  exitCode: number;
+  failed: boolean;
+  message?: string;
+};
+
+export type ActiveRunResponseDto = {
+  id: string;
+  state: string;
+};
+
+export type ConnectedRunnerResponseDto = {
+  id: string;
+  pool: string;
+  /**
+   * What the runner advertises about itself; a hint, not a grant
+   */
+  labels: {
+    [key: string]: string;
+  };
+  registeredAt: string;
+  lastSeenAt: string;
+  /**
+   * Heard from recently enough to be counted on
+   */
+  connected: boolean;
+  /**
+   * The run it is working on, or null when idle
+   */
+  currentRun: ActiveRunResponseDto | null;
+};
+
 export type CreateWorkspaceRequestDto = {
   name: string;
   /**
@@ -117,6 +255,288 @@ export type GetHealthResponses = {
 };
 
 export type GetHealthResponse = GetHealthResponses[keyof GetHealthResponses];
+
+export type EnqueueRunData = {
+  body: EnqueueRunRequestDto;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/runs';
+};
+
+export type EnqueueRunErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type EnqueueRunResponses = {
+  201: EnqueuedRunResponseDto;
+};
+
+export type EnqueueRunResponse = EnqueueRunResponses[keyof EnqueueRunResponses];
+
+export type StreamRunData = {
+  body?: never;
+  headers: {
+    'last-event-id': string;
+  };
+  path: {
+    runId: string;
+  };
+  query: {
+    from: string;
+  };
+  url: '/runs/{runId}/stream';
+};
+
+export type StreamRunErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such run for this caller
+   */
+  404: unknown;
+};
+
+export type StreamRunResponses = {
+  /**
+   * Server-sent events, one per journal entry
+   */
+  200: unknown;
+};
+
+export type AwaitRunInputData = {
+  body?: never;
+  headers: {
+    'x-spotlight-runner': string;
+  };
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/input';
+};
+
+export type AwaitRunInputErrors = {
+  /**
+   * Missing or wrong enrollment token
+   */
+  401: unknown;
+};
+
+export type AwaitRunInputResponses = {
+  200: PendingRunInputResponseDto;
+};
+
+export type AwaitRunInputResponse = AwaitRunInputResponses[keyof AwaitRunInputResponses];
+
+export type SendRunInputData = {
+  body: SendRunInputRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/input';
+};
+
+export type SendRunInputErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such run for this caller
+   */
+  404: unknown;
+};
+
+export type SendRunInputResponses = {
+  204: void;
+};
+
+export type SendRunInputResponse = SendRunInputResponses[keyof SendRunInputResponses];
+
+export type StopRunData = {
+  body?: never;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/stop';
+};
+
+export type StopRunErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such run for this caller
+   */
+  404: unknown;
+};
+
+export type StopRunResponses = {
+  204: void;
+};
+
+export type StopRunResponse = StopRunResponses[keyof StopRunResponses];
+
+export type ListRunnersData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/runners';
+};
+
+export type ListRunnersErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+};
+
+export type ListRunnersResponses = {
+  200: Array<ConnectedRunnerResponseDto>;
+};
+
+export type ListRunnersResponse = ListRunnersResponses[keyof ListRunnersResponses];
+
+export type RegisterRunnerData = {
+  body: RegisterRunnerRequestDto;
+  headers?: {
+    'x-spotlight-runner'?: string;
+  };
+  path?: never;
+  query?: never;
+  url: '/runners';
+};
+
+export type RegisterRunnerErrors = {
+  /**
+   * Missing or wrong enrollment token
+   */
+  401: unknown;
+};
+
+export type RegisterRunnerResponses = {
+  200: RegisteredRunnerResponseDto;
+};
+
+export type RegisterRunnerResponse = RegisterRunnerResponses[keyof RegisterRunnerResponses];
+
+export type ClaimRunData = {
+  body?: never;
+  headers?: {
+    'x-spotlight-runner'?: string;
+  };
+  path: {
+    runnerId: string;
+  };
+  query?: never;
+  url: '/runners/{runnerId}/claim';
+};
+
+export type ClaimRunErrors = {
+  /**
+   * Missing or wrong enrollment token
+   */
+  401: unknown;
+};
+
+export type ClaimRunResponses = {
+  200: ClaimedRunResponseDto;
+  /**
+   * Nothing queued for this pool
+   */
+  204: void;
+};
+
+export type ClaimRunResponse = ClaimRunResponses[keyof ClaimRunResponses];
+
+export type RenewLeaseData = {
+  body?: never;
+  headers: {
+    'x-spotlight-runner': string;
+  };
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/lease';
+};
+
+export type RenewLeaseErrors = {
+  /**
+   * Missing or wrong enrollment token
+   */
+  401: unknown;
+};
+
+export type RenewLeaseResponses = {
+  204: void;
+};
+
+export type RenewLeaseResponse = RenewLeaseResponses[keyof RenewLeaseResponses];
+
+export type AppendRunEventsData = {
+  body: AppendRunEventsRequestDto;
+  headers: {
+    'x-spotlight-runner': string;
+  };
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/events';
+};
+
+export type AppendRunEventsErrors = {
+  /**
+   * Missing or wrong enrollment token
+   */
+  401: unknown;
+};
+
+export type AppendRunEventsResponses = {
+  204: void;
+};
+
+export type AppendRunEventsResponse = AppendRunEventsResponses[keyof AppendRunEventsResponses];
+
+export type CompleteRunData = {
+  body: CompleteRunRequestDto;
+  headers: {
+    'x-spotlight-runner': string;
+  };
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/completion';
+};
+
+export type CompleteRunErrors = {
+  /**
+   * Missing or wrong enrollment token
+   */
+  401: unknown;
+};
+
+export type CompleteRunResponses = {
+  204: void;
+};
+
+export type CompleteRunResponse = CompleteRunResponses[keyof CompleteRunResponses];
 
 export type ListWorkspacesData = {
   body?: never;

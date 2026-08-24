@@ -9,6 +9,7 @@ x-control-plane-env: &control-plane-env
   RUNNER_ENROLLMENT_TOKEN: ${RUNNER_ENROLLMENT_TOKEN:-dev-only-runner-enrollment-token-not-a-secret}
 
 x-runner-env: &runner-env
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
   SPOTLIGHT_URL: ${SPOTLIGHT_URL:-http://control-plane:3000}
   SPOTLIGHT_TOKEN: ${RUNNER_ENROLLMENT_TOKEN:-dev-only-runner-enrollment-token-not-a-secret}
   SPOTLIGHT_POOL: ${SPOTLIGHT_POOL:-dev}
@@ -92,8 +93,6 @@ services:
       timeout: 3s
       retries: 3
       start_period: 40s
-    ports:
-      - "3000:3000"
     labels:
       - traefik.enable=true
       - "traefik.http.routers.control-plane.rule=Host(`app.dev.usespotlight.ai`) && PathPrefix(`/api`)"

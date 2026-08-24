@@ -24,6 +24,7 @@ export class Run {
     readonly workspaceId: WorkspaceId,
     readonly pool: string,
     readonly spec: unknown,
+    readonly targetRunner: RunnerId | null,
     private currentState: RunState,
     private claimant: RunnerId | null,
     private leaseUntil: Date | null,
@@ -36,12 +37,14 @@ export class Run {
     workspaceId: WorkspaceId;
     pool: string;
     spec: unknown;
+    targetRunner?: RunnerId | null;
   }): Run {
     return new Run(
       input.id,
       input.workspaceId,
       input.pool,
       input.spec,
+      input.targetRunner ?? null,
       'queued',
       null,
       null,
@@ -55,6 +58,7 @@ export class Run {
     workspaceId: WorkspaceId;
     pool: string;
     spec: unknown;
+    targetRunner: RunnerId | null;
     state: RunState;
     claimedBy: RunnerId | null;
     leaseExpiresAt: Date | null;
@@ -66,6 +70,7 @@ export class Run {
       input.workspaceId,
       input.pool,
       input.spec,
+      input.targetRunner,
       input.state,
       input.claimedBy,
       input.leaseExpiresAt,
@@ -105,6 +110,11 @@ export class Run {
         `cannot be claimed while it is ${this.currentState}`,
       );
     }
+    if (this.targetRunner && !this.targetRunner.equals(by)) {
+      throw new InvalidRunTransitionError(
+        'cannot be claimed by a runner it was not meant for',
+      );
+    }
 
     this.currentState = 'claimed';
     this.claimant = by;
@@ -140,6 +150,10 @@ export class Run {
     this.currentState = outcome.failed ? 'failed' : 'completed';
     this.outcome = outcome;
     this.leaseUntil = null;
+  }
+
+  assertHeldBy(by: RunnerId): void {
+    this.requireHeldBy(by, 'act on');
   }
 
   /** True when nobody has reported on it for longer than a lease. */

@@ -83,6 +83,7 @@ func run() error {
 			if err := session.Execute(ctx, claimed, session.Options{
 				WorkspaceRoot: cfg.WorkspaceRoot,
 				Journal:       client,
+				Input:         client,
 				Log:           log,
 				AgentUser:     agentUser,
 				PrepareHook:   cfg.PrepareHook,

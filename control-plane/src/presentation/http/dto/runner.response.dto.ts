@@ -38,9 +38,22 @@ export class EnqueuedRunResponseDto {
   @ApiProperty({ example: 'queued' })
   readonly state: string;
 
-  constructor(id: string, pool: string, state: string) {
+  @ApiProperty({
+    nullable: true,
+    example: '8a1d4e0b-6c72-4f35-9b8a-1e5d3c7f2a49',
+    description: 'The runner it waits for, or null for whoever is free',
+  })
+  readonly targetRunnerId: string | null;
+
+  constructor(
+    id: string,
+    pool: string,
+    state: string,
+    targetRunnerId: string | null,
+  ) {
     this.id = id;
     this.pool = pool;
     this.state = state;
+    this.targetRunnerId = targetRunnerId;
   }
 }

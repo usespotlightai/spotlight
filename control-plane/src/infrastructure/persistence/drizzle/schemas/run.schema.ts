@@ -44,6 +44,9 @@ export const run = pgTable(
     // Rises each time the run goes back on the queue. Without it a second
     // attempt's journal collides with the first, seq for seq, and is dropped.
     attempt: integer('attempt').notNull().default(1),
+    targetRunnerId: text('target_runner_id').references(() => runner.id, {
+      onDelete: 'cascade',
+    }),
     claimedBy: text('claimed_by').references(() => runner.id, {
       onDelete: 'set null',
     }),
@@ -59,6 +62,7 @@ export const run = pgTable(
   (table) => [
     // The claim reads exactly this: the oldest queued run in one pool.
     index('run_queue_idx').on(table.pool, table.state, table.createdAt),
+    index('run_target_idx').on(table.targetRunnerId),
     index('run_lease_idx').on(table.leaseExpiresAt),
     index('run_workspace_idx').on(table.workspaceId),
   ],

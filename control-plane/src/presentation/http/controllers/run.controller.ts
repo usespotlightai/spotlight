@@ -59,8 +59,20 @@ export class RunController {
     const queued = await this.commandBus.execute<
       EnqueueRunCommand,
       EnqueuedRunDto
-    >(new EnqueueRunCommand(workspace.id, body.pool, body.spec));
+    >(
+      new EnqueueRunCommand(
+        workspace.id,
+        body.pool,
+        body.spec,
+        body.targetRunnerId ?? null,
+      ),
+    );
 
-    return new EnqueuedRunResponseDto(queued.id, queued.pool, queued.state);
+    return new EnqueuedRunResponseDto(
+      queued.id,
+      queued.pool,
+      queued.state,
+      queued.targetRunnerId,
+    );
   }
 }

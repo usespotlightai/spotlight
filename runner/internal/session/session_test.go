@@ -249,3 +249,127 @@ func TestTheAgentIsWalledOffFromTheRunner(t *testing.T) {
 		}
 	}
 }
+
+type typedIn struct {
+	mu      sync.Mutex
+	pending [][]protocol.Input
+}
+
+func (t *typedIn) AwaitInput(ctx context.Context, _ string) ([]protocol.Input, error) {
+	t.mu.Lock()
+	if len(t.pending) > 0 {
+		next := t.pending[0]
+		t.pending = t.pending[1:]
+		t.mu.Unlock()
+		return next, nil
+	}
+	t.mu.Unlock()
+
+	timer := time.NewTimer(50 * time.Millisecond)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-timer.C:
+		return nil, nil
+	}
+}
+
+func TestExecuteDrivesTheAgentFromWhatAViewerTyped(t *testing.T) {
+	written := &journal{}
+
+	run := protocol.Run{
+		ID: "run_1",
+		Spec: protocol.Spec{
+			Command: protocol.Command{
+				Executable: "sh",
+				Args:       []string{"-c", "read line; echo \"you said: $line\""},
+			},
+		},
+	}
+
+	err := session.Execute(context.Background(), run, session.Options{
+		WorkspaceRoot: t.TempDir(),
+		Journal:       written,
+		Input: &typedIn{pending: [][]protocol.Input{
+			{{Cols: 100, Rows: 30, Data: []byte("hello\n")}},
+		}},
+		Log:         slog.New(slog.NewTextHandler(io.Discard, nil)),
+		HookTimeout: 30 * time.Second,
+	})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	var seen strings.Builder
+	for _, event := range written.typed(protocol.EventOutput) {
+		seen.Write(event.Data)
+	}
+
+	if !strings.Contains(seen.String(), "you said: hello") {
+		t.Errorf("the agent did not receive what was typed: %q", seen.String())
+	}
+
+	if written.done == nil || written.done.ExitCode != 0 {
+		t.Errorf("completion %+v", written.done)
+	}
+}
+
+func TestExecuteLeavesTheTerminalReadOnlyWithoutAnInputSource(t *testing.T) {
+	written, _ := execute(t, protocol.Command{
+		Executable: "sh",
+		Args:       []string{"-c", "echo ready"},
+	})
+
+	if written.done == nil || written.done.Failed {
+		t.Errorf("a run without an input source should still finish: %+v", written.done)
+	}
+}
+
+func TestExecuteStopsTheAgentWhenAskedTo(t *testing.T) {
+	written := &journal{}
+
+	run := protocol.Run{
+		ID: "run_1",
+		Spec: protocol.Spec{
+			Command: protocol.Command{
+				Executable: "sh",
+				Args:       []string{"-c", "echo AGENT-READY; sleep 600"},
+			},
+		},
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- session.Execute(context.Background(), run, session.Options{
+			WorkspaceRoot: t.TempDir(),
+			Journal:       written,
+			Input: &typedIn{pending: [][]protocol.Input{
+				{{Stop: true}},
+			}},
+			Log:         slog.New(slog.NewTextHandler(io.Discard, nil)),
+			HookTimeout: 30 * time.Second,
+		})
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+	case <-time.After(30 * time.Second):
+		t.Fatal("the agent was never stopped")
+	}
+
+	if written.done == nil {
+		t.Fatal("expected the run to be reported")
+	}
+
+	if written.done.Failed {
+		t.Errorf("a stopped run should not be reported as failed: %+v", written.done)
+	}
+	if written.done.Message != "stopped from the console" {
+		t.Errorf("message %q", written.done.Message)
+	}
+}

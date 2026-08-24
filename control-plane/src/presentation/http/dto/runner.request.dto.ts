@@ -65,4 +65,11 @@ export class EnqueueRunRequestDto {
     },
   })
   readonly spec!: Record<string, unknown>;
+
+  @ApiPropertyOptional({
+    description:
+      'Runner this run belongs to. Omitted lets any runner in the pool take it.',
+    example: '8a1d4e0b-6c72-4f35-9b8a-1e5d3c7f2a49',
+  })
+  readonly targetRunnerId?: string;
 }

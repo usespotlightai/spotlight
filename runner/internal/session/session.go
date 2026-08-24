@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"time"
 
 	"usespotlight.ai/runner/internal/hook"
@@ -24,13 +25,19 @@ type Journal interface {
 	Complete(ctx context.Context, runID string, done protocol.Completion) error
 }
 
+type InputSource interface {
+	AwaitInput(ctx context.Context, runID string) ([]protocol.Input, error)
+}
+
 const (
 	// flushEvery coalesces terminal output. Per-read events would be a
 	// request per keystroke echoed.
 	flushEvery = 200 * time.Millisecond
 	// renewEvery keeps the lease alive well inside its expiry.
-	renewEvery = 15 * time.Second
-	readBuffer = 32 * 1024
+	renewEvery        = 15 * time.Second
+	readBuffer        = 32 * 1024
+	inputRetryFloor   = 1 * time.Second
+	inputRetryCeiling = 20 * time.Second
 )
 
 type Options struct {
@@ -46,6 +53,7 @@ type Options struct {
 	// AgentUser is the account to run the agent as. Nil runs it as the runner,
 	// which is what a laptop does.
 	AgentUser *terminal.User
+	Input     InputSource
 }
 
 // Execute takes a claimed run from an empty directory to a reported outcome.
@@ -117,7 +125,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	}
 	log.Info("agent started", "executable", run.Spec.Command.Executable, "cwd", cwd)
 
-	exitCode := pump(ctx, agent, journal, run.ID, opts.Journal, log)
+	exitCode, stopped := pump(ctx, agent, journal, run.ID, opts.Journal, log, opts.Input)
 
 	if err := lifecycle.reach(AgentExited); err != nil {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
@@ -141,7 +149,15 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
-	log.Info("run finished", "state", lifecycle.state, "exitCode", exitCode)
+	log.Info("run finished", "state", lifecycle.state, "exitCode", exitCode, "stopped", stopped)
+
+	if stopped {
+		return opts.Journal.Complete(ctx, run.ID, protocol.Completion{
+			ExitCode: exitCode,
+			Failed:   false,
+			Message:  "stopped from the console",
+		})
+	}
 
 	return opts.Journal.Complete(ctx, run.ID, protocol.Completion{
 		ExitCode: exitCode,
@@ -156,9 +172,18 @@ func pump(
 	runID string,
 	lease Journal,
 	log *slog.Logger,
-) int {
+	input InputSource,
+) (int, bool) {
 	chunks := make(chan terminal.Chunk)
 	done := make(chan int, 1)
+
+	var stopped atomic.Bool
+
+	if input != nil {
+		collecting, stop := context.WithCancel(ctx)
+		defer stop()
+		go collect(collecting, input, agent, runID, log, &stopped)
+	}
 
 	go func() {
 		defer close(chunks)
@@ -212,13 +237,75 @@ func pump(
 
 		case exitCode = <-done:
 			journal.flush(ctx)
-			return exitCode
+			return exitCode, stopped.Load()
 
 		case <-ctx.Done():
 			// The agent dies with the context; wait for its code rather than
 			// guessing one, so the journal says what actually happened.
 			log.Info("stopping the agent")
-			return <-done
+			return <-done, stopped.Load()
+		}
+	}
+}
+
+func collect(
+	ctx context.Context,
+	source InputSource,
+	agent *terminal.Session,
+	runID string,
+	log *slog.Logger,
+	stopped *atomic.Bool,
+) {
+	backoff := inputRetryFloor
+
+	for {
+		if ctx.Err() != nil {
+			return
+		}
+
+		pending, err := source.AwaitInput(ctx, runID)
+		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+
+			log.Warn("could not collect input", "error", err, "retryIn", backoff)
+			timer := time.NewTimer(backoff)
+			select {
+			case <-timer.C:
+			case <-ctx.Done():
+				timer.Stop()
+				return
+			}
+			backoff = min(backoff*2, inputRetryCeiling)
+			continue
+		}
+
+		backoff = inputRetryFloor
+
+		for _, typed := range pending {
+			if typed.Stop {
+				stopped.Store(true)
+				log.Info("stopping the agent on request")
+
+				if err := agent.Stop(); err != nil {
+					log.Warn("could not stop the agent", "error", err)
+				}
+				return
+			}
+
+			if typed.Cols > 0 && typed.Rows > 0 {
+				if err := agent.Resize(terminal.Size{Cols: typed.Cols, Rows: typed.Rows}); err != nil {
+					log.Warn("could not resize the terminal", "error", err)
+				}
+			}
+
+			if len(typed.Data) > 0 {
+				if err := agent.Write(typed.Data); err != nil {
+					log.Warn("could not write to the terminal", "error", err)
+					return
+				}
+			}
 		}
 	}
 }

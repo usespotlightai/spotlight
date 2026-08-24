@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/creack/pty"
 	"usespotlight.ai/runner/internal/protocol"
@@ -112,6 +113,18 @@ func (s *Session) Write(data []byte) error {
 
 func (s *Session) Resize(size Size) error {
 	return pty.Setsize(s.pty, &pty.Winsize{Cols: size.Cols, Rows: size.Rows})
+}
+
+func (s *Session) Stop() error {
+	if s.command.Process == nil {
+		return nil
+	}
+
+	if err := signalGroup(s.command.Process.Pid, syscall.SIGTERM); err != nil {
+		return s.command.Process.Signal(syscall.SIGTERM)
+	}
+
+	return nil
 }
 
 func (s *Session) Wait() int {

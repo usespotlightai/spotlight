@@ -24,6 +24,8 @@ import (
 // answering empty. Short enough that a lost connection is noticed.
 const PollTimeout = 10 * time.Second
 
+const InputPollTimeout = 25 * time.Second
+
 type Client struct {
 	base  *url.URL
 	token string
@@ -108,6 +110,20 @@ func (c *Client) AppendEvents(ctx context.Context, runID string, events []protoc
 		return fmt.Errorf("append events: %w", err)
 	}
 	return nil
+}
+
+func (c *Client) AwaitInput(ctx context.Context, runID string) ([]protocol.Input, error) {
+	ctx, cancel := context.WithTimeout(ctx, InputPollTimeout+15*time.Second)
+	defer cancel()
+
+	var pending protocol.PendingInput
+	path := fmt.Sprintf("/api/runs/%s/input", url.PathEscape(runID))
+
+	if _, err := c.request(ctx, http.MethodGet, path, nil, &pending); err != nil {
+		return nil, fmt.Errorf("await input: %w", err)
+	}
+
+	return pending.Input, nil
 }
 
 func (c *Client) Complete(ctx context.Context, runID string, done protocol.Completion) error {

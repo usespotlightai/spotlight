@@ -28,6 +28,7 @@ export class DrizzleRunRepository implements RunRepository {
       pool: added.pool,
       state: added.state,
       spec: added.spec,
+      targetRunnerId: added.targetRunner?.value ?? null,
     });
   }
 
@@ -49,13 +50,16 @@ export class DrizzleRunRepository implements RunRepository {
           pool,
           state,
           spec,
+          target_runner_id  AS "targetRunnerId",
           claimed_by        AS "claimedBy",
           lease_expires_at  AS "leaseExpiresAt",
           exit_code         AS "exitCode",
           message,
           attempt
         FROM ${run}
-        WHERE pool = ${pool} AND state = 'queued'
+        WHERE pool = ${pool}
+          AND state = 'queued'
+          AND (target_runner_id IS NULL OR target_runner_id = ${by.value})
         ORDER BY created_at
         FOR UPDATE SKIP LOCKED
         LIMIT 1
@@ -173,6 +177,7 @@ const toRun = (row: Row): Run =>
     workspaceId: WorkspaceId.of(row.workspaceId),
     pool: row.pool,
     spec: row.spec,
+    targetRunner: row.targetRunnerId ? RunnerId.of(row.targetRunnerId) : null,
     state: row.state as RunState,
     claimedBy: row.claimedBy ? RunnerId.of(row.claimedBy) : null,
     leaseExpiresAt: asDate(row.leaseExpiresAt),

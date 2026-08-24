@@ -15,6 +15,7 @@ import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
+import type { RunStreamPort } from '@application/ports/run-stream.port';
 import { Run } from '@domain/aggregates/run.aggregate';
 import { Runner } from '@domain/aggregates/runner.aggregate';
 import { UnknownRunError } from '@domain/exceptions/unknown-run.error';
@@ -121,14 +122,19 @@ export class RenewLeaseHandler
 {
   constructor(
     private readonly runs: RunRepository,
+    private readonly runners: RunnerRepository,
     private readonly clock: ClockPort,
   ) {}
 
   async execute(command: RenewLeaseCommand): Promise<void> {
     try {
+      const renewing = RunnerId.of(command.runnerId);
+      const at = this.clock.now();
+
       const found = await this.load(command.runId);
-      found.renewLease(RunnerId.of(command.runnerId), this.clock.now());
+      found.renewLease(renewing, at);
       await this.runs.save(found);
+      await this.runners.touch(renewing, at);
     } catch (error) {
       rethrowAsFault(error);
     }
@@ -146,7 +152,10 @@ export class RenewLeaseHandler
 export class AppendRunEventsHandler
   implements CommandHandlerPort<AppendRunEventsCommand, void>
 {
-  constructor(private readonly runs: RunRepository) {}
+  constructor(
+    private readonly runs: RunRepository,
+    private readonly stream: RunStreamPort,
+  ) {}
 
   async execute(command: AppendRunEventsCommand): Promise<void> {
     try {
@@ -164,6 +173,17 @@ export class AppendRunEventsHandler
           seq: event.seq,
           type: event.type,
           at: new Date(event.at),
+          message: event.message,
+          data: event.data,
+          offset: event.offset,
+        })),
+      );
+      this.stream.publish(
+        command.runId,
+        command.events.map((event) => ({
+          seq: event.seq,
+          type: event.type,
+          at: event.at,
           message: event.message,
           data: event.data,
           offset: event.offset,
@@ -215,11 +235,19 @@ export class EnqueueRunHandler
         workspaceId: WorkspaceId.of(command.workspaceId),
         pool: command.pool,
         spec: command.spec,
+        targetRunner: command.targetRunnerId
+          ? RunnerId.of(command.targetRunnerId)
+          : null,
       });
 
       await this.runs.add(queued);
 
-      return { id: queued.id.value, pool: queued.pool, state: queued.state };
+      return {
+        id: queued.id.value,
+        pool: queued.pool,
+        state: queued.state,
+        targetRunnerId: queued.targetRunner?.value ?? null,
+      };
     } catch (error) {
       rethrowAsFault(error);
     }
