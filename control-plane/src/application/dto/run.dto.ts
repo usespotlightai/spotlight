@@ -14,3 +14,10 @@ export interface EnqueuedRunDto {
   readonly state: string;
   readonly targetRunnerId: string | null;
 }
+
+export interface EnrolledRunnerDto {
+  readonly runnerId: string;
+  readonly alias: string;
+  /** Shown once. Nothing can recover it after this response. */
+  readonly token: string;
+}

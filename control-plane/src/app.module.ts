@@ -10,8 +10,10 @@ import {
   ClaimRunHandler,
   CompleteRunHandler,
   EnqueueRunHandler,
+  EnrolRunnerHandler,
   RegisterRunnerHandler,
   RenewLeaseHandler,
+  RevokeRunnerHandler,
 } from '@application/commands/handlers/runner.handlers';
 import {
   AwaitRunInputCommand,
@@ -23,10 +25,13 @@ import {
   ClaimRunCommand,
   CompleteRunCommand,
   EnqueueRunCommand,
+  EnrolRunnerCommand,
   RegisterRunnerCommand,
   RenewLeaseCommand,
+  RevokeRunnerCommand,
 } from '@application/commands/runner.commands';
 import { ProvisionFactory } from '@application/events/handlers/provision-factory.handler';
+import { ReleaseHeldRuns } from '@application/events/handlers/release-held-runs.handler';
 import { ASSEMBLY_LINE_READER } from '@application/ports/assembly-line-reader.port';
 import { CLOCK } from '@application/ports/clock.port';
 import { FACTORY_PROVISIONING } from '@application/ports/factory-provisioning.port';
@@ -36,6 +41,8 @@ import { RUN_INPUT } from '@application/ports/run-input.port';
 import { RUN_STREAM } from '@application/ports/run-stream.port';
 import { RUNNER_AUTH } from '@application/ports/runner-auth.port';
 import { RUNNER_READER } from '@application/ports/runner-reader.port';
+import { RUNNER_REVOCATION } from '@application/ports/runner-revocation.port';
+import { RUNNER_TOKEN } from '@application/ports/runner-token.port';
 import { TRANSACTION } from '@application/ports/transaction.port';
 import { WORKSPACE_READER } from '@application/ports/workspace-reader.port';
 import { GetGreetingQuery } from '@application/queries/get-greeting.query';
@@ -53,7 +60,8 @@ import { ListWorkspacesQuery } from '@application/queries/list-workspaces.query'
 import { ReadRunEventsQuery } from '@application/queries/read-run-events.query';
 import { WatchRunQuery } from '@application/queries/watch-run.query';
 import { AuthenticationModule } from '@infrastructure/auth/auth.module';
-import { EnrollmentTokenAuth } from '@infrastructure/auth/enrollment-token.auth';
+import { RunnerTokenAuth } from '@infrastructure/auth/runner-token.auth';
+import { RunnerTokenService } from '@infrastructure/auth/runner-token.service';
 import { ConfigModule } from '@infrastructure/config/config.module';
 import { bindCommandHandler } from '@infrastructure/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@infrastructure/cqrs/bind-query-handler';
@@ -123,7 +131,14 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     { provide: RUN_INPUT, useClass: InMemoryRunInput },
     { provide: ID_GENERATOR, useClass: CryptoIdGenerator },
     { provide: CLOCK, useClass: SystemClock },
-    { provide: RUNNER_AUTH, useClass: EnrollmentTokenAuth },
+    RunnerTokenService,
+    { provide: RUNNER_TOKEN, useClass: RunnerTokenService },
+    { provide: RUNNER_AUTH, useClass: RunnerTokenAuth },
+    {
+      provide: RUNNER_REVOCATION,
+      inject: [DrizzleRunRepository],
+      useFactory: (runs: DrizzleRunRepository) => new ReleaseHeldRuns(runs),
+    },
 
     {
       provide: FACTORY_PROVISIONING,
@@ -164,9 +179,21 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       FACTORY_PROVISIONING,
     ]),
 
-    ...bindCommandHandler(RegisterRunnerCommand, RegisterRunnerHandler, [
+    ...bindCommandHandler(EnrolRunnerCommand, EnrolRunnerHandler, [
       DrizzleRunnerRepository,
       ID_GENERATOR,
+      RUNNER_TOKEN,
+    ]),
+    ...bindCommandHandler(RegisterRunnerCommand, RegisterRunnerHandler, [
+      DrizzleRunnerRepository,
+      CLOCK,
+      TRANSACTION,
+    ]),
+    ...bindCommandHandler(RevokeRunnerCommand, RevokeRunnerHandler, [
+      DrizzleRunnerRepository,
+      CLOCK,
+      TRANSACTION,
+      RUNNER_REVOCATION,
     ]),
     ...bindCommandHandler(ClaimRunCommand, ClaimRunHandler, [
       DrizzleRunRepository,
@@ -177,6 +204,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       DrizzleRunRepository,
       DrizzleRunnerRepository,
       CLOCK,
+      TRANSACTION,
     ]),
     ...bindCommandHandler(AppendRunEventsCommand, AppendRunEventsHandler, [
       DrizzleRunRepository,

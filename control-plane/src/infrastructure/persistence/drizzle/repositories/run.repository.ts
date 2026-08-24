@@ -101,6 +101,25 @@ export class DrizzleRunRepository implements RunRepository {
       .where(eq(run.id, saved.id.value));
   }
 
+  async releaseClaimedBy(runner: RunnerId): Promise<number> {
+    return this.context.run(async () => {
+      const held = await this.context.db
+        .select()
+        .from(run)
+        .where(and(eq(run.state, 'claimed'), eq(run.claimedBy, runner.value)));
+
+      let released = 0;
+      for (const row of held) {
+        const releasing = toRun(row);
+        releasing.release();
+        await this.save(releasing);
+        released += 1;
+      }
+
+      return released;
+    });
+  }
+
   async appendEvents(
     id: RunId,
     attempt: number,

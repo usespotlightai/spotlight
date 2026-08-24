@@ -81,6 +81,13 @@
 @theme inline {
   --ease-out-quad: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 
+  /* Lifts a control off the surface it sits on. */
+  --shadow-control: 0px 4px 4px -1px #0000000a, 0px 1px 1px 0px #00000014;
+
+  /* For something floating over the whole page rather than sitting on it. */
+  --shadow-overlay:
+    0 9px 48px #00000014, 0 6px 24px #0000001a, 0 1px 1px #0000000a;
+
   --text-sm: 0.8125rem;
   --text-sm--line-height: 1.25rem;
 
@@ -167,6 +174,9 @@
   }
   html {
     @apply font-sans font-normal;
+    /* Lets a width transition run from `auto`, so a control that changes its
+       label grows into the new one instead of jumping. */
+    interpolate-size: allow-keywords;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }

@@ -5,10 +5,11 @@ export const ConnectedRunnerMapper = {
   summaryToDto(summary: RunnerSummary, connected: boolean): ConnectedRunnerDto {
     return {
       id: summary.id,
+      alias: summary.alias,
       pool: summary.pool,
-      labels: { ...summary.labels },
       registeredAt: summary.registeredAt.toISOString(),
-      lastSeenAt: summary.lastSeenAt.toISOString(),
+      lastSeenAt: summary.lastSeenAt?.toISOString() ?? null,
+      revokedAt: summary.revokedAt?.toISOString() ?? null,
       connected,
       currentRun: summary.currentRun
         ? { id: summary.currentRun.id, state: summary.currentRun.state }

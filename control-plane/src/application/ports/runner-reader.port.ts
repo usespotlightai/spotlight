@@ -5,10 +5,11 @@ export interface ActiveRunSummary {
 
 export interface RunnerSummary {
   readonly id: string;
+  readonly alias: string;
   readonly pool: string;
-  readonly labels: Readonly<Record<string, string>>;
   readonly registeredAt: Date;
-  readonly lastSeenAt: Date;
+  readonly lastSeenAt: Date | null;
+  readonly revokedAt: Date | null;
   readonly currentRun: ActiveRunSummary | null;
 }
 

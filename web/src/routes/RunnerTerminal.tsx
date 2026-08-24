@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect } from 'react';
 import { useParams } from 'react-router';
-import { SecondaryButton } from '@/components/common/control/SecondaryButton';
 import { RunTerminal } from '@/components/runners/RunTerminal';
+import { Button } from '@/components/ui/button';
 import { useStartSession, useStopSession } from '@/hooks/api/useRunnerSession';
 import { useRunners } from '@/hooks/api/useRunners';
 
@@ -31,10 +31,27 @@ export function RunnerTerminal() {
   const ending = Boolean(session) && (asking || asked);
 
   if (!runner) {
-    return <Empty>No runner is registered under that id.</Empty>;
+    return <Empty>No runner is enrolled under that id.</Empty>;
   }
 
   if (!session) {
+    if (runner.revokedAt) {
+      return (
+        <Empty>
+          This runner’s token was revoked. Enrol a new runner to replace it.
+        </Empty>
+      );
+    }
+
+    if (!runner.lastSeenAt) {
+      return (
+        <Empty>
+          This runner has not connected yet. Start it with the token it was
+          given.
+        </Empty>
+      );
+    }
+
     if (!runner.connected) {
       return (
         <Empty>This runner has stopped answering the control plane.</Empty>
@@ -58,7 +75,9 @@ export function RunnerTerminal() {
             : 'This runner is idle.'}
         </p>
 
-        <SecondaryButton
+        <Button
+          variant="outline"
+          size="sm"
           disabled={claiming || !slug}
           onClick={() =>
             slug &&
@@ -66,7 +85,7 @@ export function RunnerTerminal() {
           }
         >
           {claiming ? 'Starting…' : 'Start session'}
-        </SecondaryButton>
+        </Button>
 
         {start.isError && (
           <p className="text-destructive text-xs">{start.error.message}</p>
@@ -79,12 +98,6 @@ export function RunnerTerminal() {
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex h-9 shrink-0 items-center gap-2 border-b-[0.5px] border-border px-3">
         <span className="font-medium text-foreground text-xs">Terminal</span>
-        <span
-          title={session.id}
-          className="truncate font-mono text-muted-foreground text-xs"
-        >
-          {session.id}
-        </span>
 
         {stop.isError && (
           <span className="shrink-0 text-destructive text-xs">

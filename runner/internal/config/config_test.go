@@ -15,8 +15,8 @@ func setRequired(t *testing.T) {
 	t.Helper()
 
 	for _, name := range []string{
-		"SPOTLIGHT_URL", "SPOTLIGHT_TOKEN", "SPOTLIGHT_POOL",
-		"SPOTLIGHT_LABELS", "SPOTLIGHT_WORKSPACE", "SPOTLIGHT_MAX_RUNS",
+		"SPOTLIGHT_URL", "SPOTLIGHT_TOKEN", "SPOTLIGHT_WORKSPACE",
+		"SPOTLIGHT_MAX_RUNS",
 		"SPOTLIGHT_IDLE_TIMEOUT", "SPOTLIGHT_RETIRE_AT", "SPOTLIGHT_AGENT_USER",
 	} {
 		t.Setenv(name, "")
@@ -24,12 +24,10 @@ func setRequired(t *testing.T) {
 
 	t.Setenv("SPOTLIGHT_URL", "https://spotlight.test")
 	t.Setenv("SPOTLIGHT_TOKEN", "tok")
-	t.Setenv("SPOTLIGHT_POOL", "pool_1")
 }
 
 func TestLoadReadsTheWholeSurface(t *testing.T) {
 	setRequired(t)
-	t.Setenv("SPOTLIGHT_LABELS", "arch=arm64, repo-access = internal")
 	t.Setenv("SPOTLIGHT_WORKSPACE", "/work")
 	t.Setenv("SPOTLIGHT_MAX_RUNS", "1")
 	t.Setenv("SPOTLIGHT_IDLE_TIMEOUT", "30m")
@@ -49,9 +47,6 @@ func TestLoadReadsTheWholeSurface(t *testing.T) {
 	if got := cfg.RetireAt.Unix(); got != 1700000000 {
 		t.Errorf("retire at %d", got)
 	}
-	if cfg.Labels["arch"] != "arm64" || cfg.Labels["repo-access"] != "internal" {
-		t.Errorf("labels %v", cfg.Labels)
-	}
 }
 
 func TestLoadDefaultsToServingForever(t *testing.T) {
@@ -68,22 +63,18 @@ func TestLoadDefaultsToServingForever(t *testing.T) {
 	if cfg.WorkspaceRoot == "" {
 		t.Error("expected a default workspace root")
 	}
-	if len(cfg.Labels) != 0 {
-		t.Errorf("expected no labels, got %v", cfg.Labels)
-	}
 }
 
 func TestLoadReportsEveryProblemAtOnce(t *testing.T) {
 	t.Setenv("SPOTLIGHT_URL", "")
 	t.Setenv("SPOTLIGHT_TOKEN", "")
-	t.Setenv("SPOTLIGHT_POOL", "")
 
 	_, err := config.Load()
 	if err == nil {
 		t.Fatal("expected an error")
 	}
 
-	for _, want := range []string{"SPOTLIGHT_URL", "SPOTLIGHT_TOKEN", "SPOTLIGHT_POOL"} {
+	for _, want := range []string{"SPOTLIGHT_URL", "SPOTLIGHT_TOKEN"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error does not mention %s: %v", want, err)
 		}
@@ -92,7 +83,6 @@ func TestLoadReportsEveryProblemAtOnce(t *testing.T) {
 
 func TestLoadRejectsMalformedValues(t *testing.T) {
 	for name, env := range map[string]struct{ key, value string }{
-		"labels": {"SPOTLIGHT_LABELS", "arch"},
 		"runs":   {"SPOTLIGHT_MAX_RUNS", "-1"},
 		"idle":   {"SPOTLIGHT_IDLE_TIMEOUT", "soon"},
 		"retire": {"SPOTLIGHT_RETIRE_AT", "tomorrow"},

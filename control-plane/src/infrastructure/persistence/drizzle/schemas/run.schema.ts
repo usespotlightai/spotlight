@@ -10,6 +10,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 export const runState = pgEnum('run_state', RUN_STATES);
@@ -18,12 +19,21 @@ export const runner = pgTable(
   'runner',
   {
     id: text('id').primaryKey(),
+    alias: text('alias').notNull(),
+    // Only the hash: the token itself is shown once, at enrolment, and is not
+    // recoverable afterwards.
+    tokenHash: text('token_hash').notNull(),
+    revokedAt: timestamp('revoked_at'),
+    // Set when the runner is enrolled. What a runner may serve is granted
+    // here, not claimed by the runner.
     pool: text('pool').notNull(),
-    labels: jsonb('labels').$type<Record<string, string>>().notNull(),
     registeredAt: timestamp('registered_at').defaultNow().notNull(),
-    lastSeenAt: timestamp('last_seen_at').defaultNow().notNull(),
+    lastSeenAt: timestamp('last_seen_at'),
   },
-  (table) => [index('runner_pool_idx').on(table.pool)],
+  (table) => [
+    index('runner_pool_idx').on(table.pool),
+    uniqueIndex('runner_token_hash_idx').on(table.tokenHash),
+  ],
 );
 
 /**

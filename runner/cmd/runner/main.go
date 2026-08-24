@@ -53,8 +53,6 @@ func run() error {
 	// The control plane may not be up yet. Waiting beats exiting into a
 	// restart loop.
 	if err := control.Register(ctx, client, protocol.Registration{
-		Pool:     cfg.Pool,
-		Labels:   cfg.Labels,
 		Capacity: 1,
 	}, log); err != nil {
 		log.Info("runner stopped before registering")
@@ -63,10 +61,8 @@ func run() error {
 
 	log = log.With("runner", client.RunnerID())
 	log.Info("registered",
-		"pool", cfg.Pool,
 		"agentUser", cfg.AgentUser,
 		"workspace", cfg.WorkspaceRoot,
-		"labels", cfg.Labels,
 	)
 
 	err = control.Poll(

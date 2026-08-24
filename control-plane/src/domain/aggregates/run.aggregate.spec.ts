@@ -197,4 +197,19 @@ describe('Run', () => {
       InvalidRunTransitionError,
     );
   });
+
+  it('goes back on the queue when its claimant can no longer serve it', () => {
+    const run = claimed();
+
+    run.release();
+
+    expect(run.state).toBe('queued');
+    expect(run.claimedBy).toBeNull();
+    expect(run.leaseExpiresAt).toBeNull();
+    expect(run.attempt).toBe(2);
+  });
+
+  it('refuses to release a run nobody is holding', () => {
+    expect(() => queued().release()).toThrow(InvalidRunTransitionError);
+  });
 });

@@ -85,17 +85,6 @@ export type PendingRunInputResponseDto = {
   input: Array<RunInputResponseDto>;
 };
 
-export type RegisterRunnerRequestDto = {
-  pool: string;
-  labels?: {
-    [key: string]: unknown;
-  };
-  /**
-   * What the runner advertises. The control plane grants work.
-   */
-  capacity?: number;
-};
-
 export type RegisteredRunnerResponseDto = {
   runnerId: string;
 };
@@ -146,15 +135,17 @@ export type ActiveRunResponseDto = {
 
 export type ConnectedRunnerResponseDto = {
   id: string;
+  alias: string;
   pool: string;
-  /**
-   * What the runner advertises about itself; a hint, not a grant
-   */
-  labels: {
-    [key: string]: string;
-  };
   registeredAt: string;
-  lastSeenAt: string;
+  /**
+   * Null when the runner has never connected
+   */
+  lastSeenAt: string | null;
+  /**
+   * When its token was retired, if it has been
+   */
+  revokedAt: string | null;
   /**
    * Heard from recently enough to be counted on
    */
@@ -163,6 +154,26 @@ export type ConnectedRunnerResponseDto = {
    * The run it is working on, or null when idle
    */
   currentRun: ActiveRunResponseDto | null;
+};
+
+export type EnrolRunnerRequestDto = {
+  /**
+   * What to call this runner. Rejected if empty or over 60.
+   */
+  alias: string;
+  /**
+   * Which queue this runner may take work from.
+   */
+  pool: string;
+};
+
+export type EnrolledRunnerResponseDto = {
+  id: string;
+  alias: string;
+  /**
+   * Shown once. Nothing can recover it after this response.
+   */
+  token: string;
 };
 
 export type CreateWorkspaceRequestDto = {
@@ -316,9 +327,6 @@ export type StreamRunResponses = {
 
 export type AwaitRunInputData = {
   body?: never;
-  headers: {
-    'x-spotlight-runner': string;
-  };
   path: {
     runId: string;
   };
@@ -328,7 +336,7 @@ export type AwaitRunInputData = {
 
 export type AwaitRunInputErrors = {
   /**
-   * Missing or wrong enrollment token
+   * Missing or revoked runner token
    */
   401: unknown;
 };
@@ -391,34 +399,11 @@ export type StopRunResponses = {
 
 export type StopRunResponse = StopRunResponses[keyof StopRunResponses];
 
-export type ListRunnersData = {
+export type RegisterRunnerData = {
   body?: never;
   path?: never;
   query?: never;
-  url: '/runners';
-};
-
-export type ListRunnersErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-};
-
-export type ListRunnersResponses = {
-  200: Array<ConnectedRunnerResponseDto>;
-};
-
-export type ListRunnersResponse = ListRunnersResponses[keyof ListRunnersResponses];
-
-export type RegisterRunnerData = {
-  body: RegisterRunnerRequestDto;
-  headers?: {
-    'x-spotlight-runner'?: string;
-  };
-  path?: never;
-  query?: never;
-  url: '/runners';
+  url: '/runners/register';
 };
 
 export type RegisterRunnerErrors = {
@@ -436,14 +421,9 @@ export type RegisterRunnerResponse = RegisterRunnerResponses[keyof RegisterRunne
 
 export type ClaimRunData = {
   body?: never;
-  headers?: {
-    'x-spotlight-runner'?: string;
-  };
-  path: {
-    runnerId: string;
-  };
+  path?: never;
   query?: never;
-  url: '/runners/{runnerId}/claim';
+  url: '/runners/claim';
 };
 
 export type ClaimRunErrors = {
@@ -465,9 +445,6 @@ export type ClaimRunResponse = ClaimRunResponses[keyof ClaimRunResponses];
 
 export type RenewLeaseData = {
   body?: never;
-  headers: {
-    'x-spotlight-runner': string;
-  };
   path: {
     runId: string;
   };
@@ -490,9 +467,6 @@ export type RenewLeaseResponse = RenewLeaseResponses[keyof RenewLeaseResponses];
 
 export type AppendRunEventsData = {
   body: AppendRunEventsRequestDto;
-  headers: {
-    'x-spotlight-runner': string;
-  };
   path: {
     runId: string;
   };
@@ -515,9 +489,6 @@ export type AppendRunEventsResponse = AppendRunEventsResponses[keyof AppendRunEv
 
 export type CompleteRunData = {
   body: CompleteRunRequestDto;
-  headers: {
-    'x-spotlight-runner': string;
-  };
   path: {
     runId: string;
   };
@@ -537,6 +508,75 @@ export type CompleteRunResponses = {
 };
 
 export type CompleteRunResponse = CompleteRunResponses[keyof CompleteRunResponses];
+
+export type ListRunnersData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/runners';
+};
+
+export type ListRunnersErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+};
+
+export type ListRunnersResponses = {
+  200: Array<ConnectedRunnerResponseDto>;
+};
+
+export type ListRunnersResponse = ListRunnersResponses[keyof ListRunnersResponses];
+
+export type EnrolRunnerData = {
+  body: EnrolRunnerRequestDto;
+  path?: never;
+  query?: never;
+  url: '/runners';
+};
+
+export type EnrolRunnerErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+};
+
+export type EnrolRunnerResponses = {
+  201: EnrolledRunnerResponseDto;
+};
+
+export type EnrolRunnerResponse = EnrolRunnerResponses[keyof EnrolRunnerResponses];
+
+export type RevokeRunnerData = {
+  body?: never;
+  path: {
+    runnerId: string;
+  };
+  query?: never;
+  url: '/runners/{runnerId}/revoke';
+};
+
+export type RevokeRunnerErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such runner
+   */
+  404: unknown;
+};
+
+export type RevokeRunnerResponses = {
+  /**
+   * The token no longer works
+   */
+  204: void;
+};
+
+export type RevokeRunnerResponse = RevokeRunnerResponses[keyof RevokeRunnerResponses];
 
 export type ListWorkspacesData = {
   body?: never;

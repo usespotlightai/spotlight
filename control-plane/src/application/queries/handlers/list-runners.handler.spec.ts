@@ -10,10 +10,11 @@ const NOW = new Date('2026-08-24T12:00:00.000Z');
 
 const summary = (overrides: Partial<RunnerSummary> = {}): RunnerSummary => ({
   id: 'runner_1',
+  alias: 'Build server',
   pool: 'default',
-  labels: { runner: 'one' },
   registeredAt: new Date('2026-08-24T11:00:00.000Z'),
   lastSeenAt: NOW,
+  revokedAt: null,
   currentRun: null,
   ...overrides,
 });
@@ -37,7 +38,6 @@ describe('ListRunnersHandler', () => {
     expect(only).toMatchObject({
       id: 'runner_1',
       pool: 'default',
-      labels: { runner: 'one' },
       connected: true,
       currentRun: null,
     });
@@ -73,5 +73,17 @@ describe('ListRunnersHandler', () => {
 
   it('answers an empty fleet with an empty list rather than absence', async () => {
     await expect(handle([])).resolves.toEqual([]);
+  });
+
+  it('does not call a runner that has never checked in connected', async () => {
+    const [never] = await handle([summary({ lastSeenAt: null })]);
+
+    expect(never.connected).toBe(false);
+  });
+
+  it('does not call a revoked runner connected', async () => {
+    const [revoked] = await handle([summary({ revokedAt: NOW })]);
+
+    expect(revoked.connected).toBe(false);
   });
 });

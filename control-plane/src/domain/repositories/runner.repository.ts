@@ -1,11 +1,14 @@
 import type { Runner } from '@domain/aggregates/runner.aggregate';
 import type { RunnerId } from '@domain/value-objects/runner-id.vo';
+import type { TokenHash } from '@domain/value-objects/token-hash.vo';
 
 export interface RunnerRepository {
   add(runner: Runner): Promise<void>;
 
+  save(runner: Runner): Promise<void>;
+
   find(id: RunnerId): Promise<Runner | null>;
 
-  /** Records that a runner is still there; the claim doubles as a heartbeat. */
-  touch(id: RunnerId, at: Date): Promise<void>;
+  /** The runner holding this token hash, live or revoked. */
+  findByTokenHash(hash: TokenHash): Promise<Runner | null>;
 }

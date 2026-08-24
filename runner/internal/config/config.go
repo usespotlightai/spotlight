@@ -16,8 +16,6 @@ import (
 type Config struct {
 	URL           string
 	Token         string
-	Pool          string
-	Labels        map[string]string
 	WorkspaceRoot string
 	// MaxRuns is how many runs to serve before exiting. Zero is unlimited.
 	MaxRuns int
@@ -41,8 +39,6 @@ const defaultHookTimeout = 10 * time.Minute
 const (
 	envURL         = "SPOTLIGHT_URL"
 	envToken       = "SPOTLIGHT_TOKEN"
-	envPool        = "SPOTLIGHT_POOL"
-	envLabels      = "SPOTLIGHT_LABELS"
 	envWorkspace   = "SPOTLIGHT_WORKSPACE"
 	envMaxRuns     = "SPOTLIGHT_MAX_RUNS"
 	envIdleTimeout = "SPOTLIGHT_IDLE_TIMEOUT"
@@ -65,7 +61,6 @@ func Load() (Config, error) {
 	cfg := Config{
 		URL:           strings.TrimSpace(os.Getenv(envURL)),
 		Token:         strings.TrimSpace(os.Getenv(envToken)),
-		Pool:          strings.TrimSpace(os.Getenv(envPool)),
 		WorkspaceRoot: strings.TrimSpace(os.Getenv(envWorkspace)),
 		AgentUser:     strings.TrimSpace(os.Getenv(envAgentUser)),
 		PrepareHook:   strings.TrimSpace(os.Getenv(envPrepareHook)),
@@ -77,20 +72,17 @@ func Load() (Config, error) {
 	}{
 		{envURL, cfg.URL},
 		{envToken, cfg.Token},
-		{envPool, cfg.Pool},
 	} {
 		if required.value == "" {
 			note(fmt.Errorf("%s is required", required.name))
 		}
 	}
 
-	labels, err := parseLabels(os.Getenv(envLabels))
-	note(err)
-	cfg.Labels = labels
-
 	if cfg.WorkspaceRoot == "" {
 		cfg.WorkspaceRoot = defaultWorkspaceRoot()
 	}
+
+	var err error
 
 	cfg.MaxRuns, err = parseCount(os.Getenv(envMaxRuns))
 	note(err)
@@ -124,24 +116,6 @@ func Load() (Config, error) {
 
 func defaultWorkspaceRoot() string {
 	return filepath.Join(os.TempDir(), "spotlight")
-}
-
-func parseLabels(raw string) (map[string]string, error) {
-	labels := map[string]string{}
-	if strings.TrimSpace(raw) == "" {
-		return labels, nil
-	}
-
-	for _, pair := range strings.Split(raw, ",") {
-		key, value, found := strings.Cut(pair, "=")
-		key, value = strings.TrimSpace(key), strings.TrimSpace(value)
-		if !found || key == "" {
-			return nil, fmt.Errorf("%s: %q is not key=value", envLabels, pair)
-		}
-		labels[key] = value
-	}
-
-	return labels, nil
 }
 
 func parseCount(raw string) (int, error) {

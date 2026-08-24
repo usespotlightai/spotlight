@@ -14,7 +14,6 @@ import type { AuthenticatedUser } from '@application/ports/session.port';
 import { ReadRunEventsQuery } from '@application/queries/read-run-events.query';
 import { WatchRunQuery } from '@application/queries/watch-run.query';
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
@@ -40,6 +39,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { CurrentRunner } from '@presentation/http/decorators/current-runner.decorator';
 import { CurrentUser } from '@presentation/http/decorators/current-user.decorator';
 import { RunnerOnly } from '@presentation/http/decorators/runner-only.decorator';
 import { SendRunInputRequestDto } from '@presentation/http/dto/run-input.request.dto';
@@ -48,8 +48,6 @@ import {
   RunInputResponseDto,
 } from '@presentation/http/dto/run-input.response.dto';
 import { interval, map, merge, Observable } from 'rxjs';
-
-const RUNNER_HEADER = 'x-spotlight-runner';
 
 const KEEPALIVE_MS = 20_000;
 
@@ -192,15 +190,11 @@ export class RunStreamController {
   })
   @ApiParam({ name: 'runId' })
   @ApiOkResponse({ type: PendingRunInputResponseDto })
-  @ApiUnauthorizedResponse({ description: 'Missing or wrong enrollment token' })
+  @ApiUnauthorizedResponse({ description: 'Missing or revoked runner token' })
   async collect(
     @Param('runId') runId: string,
-    @Headers(RUNNER_HEADER) runnerId: string,
+    @CurrentRunner() runnerId: string,
   ): Promise<PendingRunInputResponseDto> {
-    if (!runnerId) {
-      throw new BadRequestException(`${RUNNER_HEADER} is required`);
-    }
-
     const pending = await this.commandBus.execute<
       AwaitRunInputCommand,
       RunInput[]

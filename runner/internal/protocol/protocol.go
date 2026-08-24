@@ -3,10 +3,10 @@ package protocol
 
 import "time"
 
+// Registration says a runner is there. What it may serve is granted at
+// enrolment, so there is nothing here for it to claim about itself.
 type Registration struct {
-	Pool     string            `json:"pool"`
-	Labels   map[string]string `json:"labels,omitempty"`
-	Capacity int               `json:"capacity"`
+	Capacity int `json:"capacity"`
 }
 
 type Registered struct {

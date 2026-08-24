@@ -6,13 +6,10 @@ x-control-plane-env: &control-plane-env
   BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-xj4/EgMfb/oOOX54xSnrKiCToESDSWJIy4mLF5Sxlo/IUzvEd/hJDh9VT2kqsyeo}
   BETTER_AUTH_URL: ${BETTER_AUTH_URL:-https://app.dev.usespotlight.ai}
   LOG_LEVEL: ${LOG_LEVEL:-debug}
-  RUNNER_ENROLLMENT_TOKEN: ${RUNNER_ENROLLMENT_TOKEN:-dev-only-runner-enrollment-token-not-a-secret}
 
 x-runner-env: &runner-env
   ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
   SPOTLIGHT_URL: ${SPOTLIGHT_URL:-http://control-plane:3000}
-  SPOTLIGHT_TOKEN: ${RUNNER_ENROLLMENT_TOKEN:-dev-only-runner-enrollment-token-not-a-secret}
-  SPOTLIGHT_POOL: ${SPOTLIGHT_POOL:-dev}
   SPOTLIGHT_WORKSPACE: /workspaces
   SPOTLIGHT_AGENT_USER: agent
   SPOTLIGHT_PREPARE_HOOK: /etc/spotlight/hooks/prepare
@@ -132,7 +129,7 @@ services:
     <<: *runner
     environment:
       <<: *runner-env
-      SPOTLIGHT_LABELS: runner=one
+      SPOTLIGHT_TOKEN: ${RUNNER_ONE_TOKEN:-}
     volumes:
       - ./runner:/app
       - runner-1-workspaces:/workspaces
@@ -141,7 +138,7 @@ services:
     <<: *runner
     environment:
       <<: *runner-env
-      SPOTLIGHT_LABELS: runner=two
+      SPOTLIGHT_TOKEN: ${RUNNER_TWO_TOKEN:-}
     volumes:
       - ./runner:/app
       - runner-2-workspaces:/workspaces

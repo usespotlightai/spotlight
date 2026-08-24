@@ -24,7 +24,11 @@ export class ListRunnersHandler
       return found.map((runner) =>
         ConnectedRunnerMapper.summaryToDto(
           runner,
-          now - runner.lastSeenAt.getTime() <= SILENT_FOR_TOO_LONG_MS,
+          // A runner that has never checked in, or whose token is gone, is
+          // not connected however recently the record was touched.
+          runner.lastSeenAt !== null &&
+            runner.revokedAt === null &&
+            now - runner.lastSeenAt.getTime() <= SILENT_FOR_TOO_LONG_MS,
         ),
       );
     } catch (error) {

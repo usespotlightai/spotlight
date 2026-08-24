@@ -243,14 +243,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "x-spotlight-runner",
-            "required": true,
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "responses": {
@@ -265,7 +257,7 @@
             }
           },
           "401": {
-            "description": "Missing or wrong enrollment token"
+            "description": "Missing or revoked runner token"
           }
         },
         "summary": "Long-poll for what was typed, answering empty when nothing was",
@@ -304,29 +296,10 @@
         ]
       }
     },
-    "/runners": {
+    "/runners/register": {
       "post": {
         "operationId": "registerRunner",
-        "parameters": [
-          {
-            "name": "x-spotlight-runner",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RegisterRunnerRequestDto"
-              }
-            }
-          }
-        },
+        "parameters": [],
         "responses": {
           "200": {
             "description": "",
@@ -342,59 +315,16 @@
             "description": "Missing or wrong enrollment token"
           }
         },
-        "summary": "Announce a runner and what it can serve",
-        "tags": [
-          "runners"
-        ]
-      },
-      "get": {
-        "operationId": "listRunners",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ConnectedRunnerResponseDto"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session"
-          }
-        },
-        "summary": "List every runner and whether it is still answering",
+        "summary": "Check in, so the control plane knows this runner is there",
         "tags": [
           "runners"
         ]
       }
     },
-    "/runners/{runnerId}/claim": {
+    "/runners/claim": {
       "post": {
         "operationId": "claimRun",
-        "parameters": [
-          {
-            "name": "x-spotlight-runner",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "runnerId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+        "parameters": [],
         "responses": {
           "200": {
             "description": "",
@@ -424,25 +354,9 @@
         "operationId": "renewLease",
         "parameters": [
           {
-            "name": "x-spotlight-runner",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "name": "runId",
             "required": true,
             "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "x-spotlight-runner",
-            "required": true,
-            "in": "header",
             "schema": {
               "type": "string"
             }
@@ -467,25 +381,9 @@
         "operationId": "appendRunEvents",
         "parameters": [
           {
-            "name": "x-spotlight-runner",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "name": "runId",
             "required": true,
             "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "x-spotlight-runner",
-            "required": true,
-            "in": "header",
             "schema": {
               "type": "string"
             }
@@ -520,25 +418,9 @@
         "operationId": "completeRun",
         "parameters": [
           {
-            "name": "x-spotlight-runner",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "name": "runId",
             "required": true,
             "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "x-spotlight-runner",
-            "required": true,
-            "in": "header",
             "schema": {
               "type": "string"
             }
@@ -563,6 +445,97 @@
           }
         },
         "summary": "Report what the run produced",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runners": {
+      "get": {
+        "operationId": "listRunners",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConnectedRunnerResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          }
+        },
+        "summary": "List every runner and whether it is still answering",
+        "tags": [
+          "runners"
+        ]
+      },
+      "post": {
+        "operationId": "enrolRunner",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnrolRunnerRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrolledRunnerResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          }
+        },
+        "summary": "Enrol a runner and mint the token it registers with",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runners/{runnerId}/revoke": {
+      "post": {
+        "operationId": "revokeRunner",
+        "parameters": [
+          {
+            "name": "runnerId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The token no longer works"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such runner"
+          }
+        },
+        "summary": "Retire a runner’s token, locking it out from the next call on",
         "tags": [
           "runners"
         ]
@@ -886,29 +859,6 @@
           "input"
         ]
       },
-      "RegisterRunnerRequestDto": {
-        "type": "object",
-        "properties": {
-          "pool": {
-            "type": "string",
-            "example": "dev"
-          },
-          "labels": {
-            "type": "object",
-            "example": {
-              "arch": "arm64"
-            }
-          },
-          "capacity": {
-            "type": "number",
-            "example": 1,
-            "description": "What the runner advertises. The control plane grants work."
-          }
-        },
-        "required": [
-          "pool"
-        ]
-      },
       "RegisteredRunnerResponseDto": {
         "type": "object",
         "properties": {
@@ -1036,19 +986,13 @@
             "type": "string",
             "example": "8a1d4e0b-6c72-4f35-9b8a-1e5d3c7f2a49"
           },
+          "alias": {
+            "type": "string",
+            "example": "Build server"
+          },
           "pool": {
             "type": "string",
-            "example": "default"
-          },
-          "labels": {
-            "type": "object",
-            "example": {
-              "runner": "one"
-            },
-            "additionalProperties": {
-              "type": "string"
-            },
-            "description": "What the runner advertises about itself; a hint, not a grant"
+            "example": "dev"
           },
           "registeredAt": {
             "type": "string",
@@ -1056,7 +1000,14 @@
           },
           "lastSeenAt": {
             "type": "string",
-            "example": "2026-08-24T12:00:00.000Z"
+            "nullable": true,
+            "example": "2026-08-24T12:00:00.000Z",
+            "description": "Null when the runner has never connected"
+          },
+          "revokedAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "When its token was retired, if it has been"
           },
           "connected": {
             "type": "boolean",
@@ -1076,12 +1027,55 @@
         },
         "required": [
           "id",
+          "alias",
           "pool",
-          "labels",
           "registeredAt",
           "lastSeenAt",
+          "revokedAt",
           "connected",
           "currentRun"
+        ]
+      },
+      "EnrolRunnerRequestDto": {
+        "type": "object",
+        "properties": {
+          "alias": {
+            "type": "string",
+            "example": "Build server",
+            "description": "What to call this runner. Rejected if empty or over 60."
+          },
+          "pool": {
+            "type": "string",
+            "example": "dev",
+            "description": "Which queue this runner may take work from."
+          }
+        },
+        "required": [
+          "alias",
+          "pool"
+        ]
+      },
+      "EnrolledRunnerResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "8a1d4e0b-6c72-4f35-9b8a-1e5d3c7f2a49"
+          },
+          "alias": {
+            "type": "string",
+            "example": "Build server"
+          },
+          "token": {
+            "type": "string",
+            "example": "spot_xY3...",
+            "description": "Shown once. Nothing can recover it after this response."
+          }
+        },
+        "required": [
+          "id",
+          "alias",
+          "token"
         ]
       },
       "CreateWorkspaceRequestDto": {

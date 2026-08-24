@@ -19,7 +19,7 @@ export class RunnerGuard implements CanActivate {
     @Inject(RUNNER_AUTH) private readonly runners: RunnerAuthPort,
   ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const runnerOnly = this.reflector.getAllAndOverride<boolean>(RUNNER_ONLY, [
       context.getHandler(),
       context.getClass(),
@@ -29,16 +29,26 @@ export class RunnerGuard implements CanActivate {
       return true;
     }
 
-    const request = context
-      .switchToHttp()
-      .getRequest<{ headers: Record<string, string | undefined> }>();
+    const request = context.switchToHttp().getRequest<RunnerRequest>();
 
-    if (!this.runners.admits(bearer(request.headers.authorization))) {
+    const runner = await this.runners.identify(
+      bearer(request.headers.authorization),
+    );
+    if (!runner) {
       throw new UnauthorizedException();
     }
 
+    // The token said which runner this is. Handlers read it from here rather
+    // than from anything the caller could have chosen.
+    request.runnerId = runner.value;
+
     return true;
   }
+}
+
+export interface RunnerRequest {
+  headers: Record<string, string | undefined>;
+  runnerId?: string;
 }
 
 const bearer = (header: string | undefined): string | undefined =>

@@ -40,7 +40,7 @@ func TestRegisterCarriesTheBearerTokenAndKeepsTheId(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(protocol.Registered{RunnerID: "runner_1"})
 	})
 
-	if err := client.Register(context.Background(), protocol.Registration{Pool: "p"}); err != nil {
+	if err := client.Register(context.Background(), protocol.Registration{}); err != nil {
 		t.Fatalf("register: %v", err)
 	}
 
@@ -64,7 +64,7 @@ func TestRegisterRefusesAnAnswerWithoutAnId(t *testing.T) {
 
 func TestClaimTreatsAnEmptyQueueAsOrdinary(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/runners" {
+		if r.URL.Path == "/api/runners/register" {
 			_ = json.NewEncoder(w).Encode(protocol.Registered{RunnerID: "runner_1"})
 			return
 		}
@@ -84,10 +84,10 @@ func TestClaimTreatsAnEmptyQueueAsOrdinary(t *testing.T) {
 	}
 }
 
-func TestClaimReturnsTheRunAndAsksAsThisRunner(t *testing.T) {
+func TestClaimReturnsTheRun(t *testing.T) {
 	var claimPath string
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/runners" {
+		if r.URL.Path == "/api/runners/register" {
 			_ = json.NewEncoder(w).Encode(protocol.Registered{RunnerID: "runner_1"})
 			return
 		}
@@ -106,7 +106,7 @@ func TestClaimReturnsTheRunAndAsksAsThisRunner(t *testing.T) {
 	if run == nil || run.ID != "run_1" {
 		t.Fatalf("run %+v", run)
 	}
-	if claimPath != "/api/runners/runner_1/claim" {
+	if claimPath != "/api/runners/claim" {
 		t.Errorf("claim path %q", claimPath)
 	}
 }

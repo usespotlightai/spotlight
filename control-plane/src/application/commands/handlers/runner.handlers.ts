@@ -3,12 +3,15 @@ import type {
   ClaimRunCommand,
   CompleteRunCommand,
   EnqueueRunCommand,
+  EnrolRunnerCommand,
   RegisterRunnerCommand,
   RenewLeaseCommand,
+  RevokeRunnerCommand,
 } from '@application/commands/runner.commands';
 import type {
   ClaimedRunDto,
   EnqueuedRunDto,
+  EnrolledRunnerDto,
   RegisteredRunnerDto,
 } from '@application/dto/run.dto';
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
@@ -16,34 +19,117 @@ import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { RunStreamPort } from '@application/ports/run-stream.port';
+import type { RunnerRevocationPort } from '@application/ports/runner-revocation.port';
+import type { RunnerTokenPort } from '@application/ports/runner-token.port';
+import type { TransactionPort } from '@application/ports/transaction.port';
 import { Run } from '@domain/aggregates/run.aggregate';
 import { Runner } from '@domain/aggregates/runner.aggregate';
 import { UnknownRunError } from '@domain/exceptions/unknown-run.error';
 import type { RunRepository } from '@domain/repositories/run.repository';
 import type { RunnerRepository } from '@domain/repositories/runner.repository';
 import { RunId } from '@domain/value-objects/run-id.vo';
+import { RunnerAlias } from '@domain/value-objects/runner-alias.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
+import { RunnerPool } from '@domain/value-objects/runner-pool.vo';
+import { TokenHash } from '@domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 
+export class EnrolRunnerHandler
+  implements CommandHandlerPort<EnrolRunnerCommand, EnrolledRunnerDto>
+{
+  constructor(
+    private readonly runners: RunnerRepository,
+    private readonly ids: IdGeneratorPort,
+    private readonly tokens: RunnerTokenPort,
+  ) {}
+
+  async execute(command: EnrolRunnerCommand): Promise<EnrolledRunnerDto> {
+    try {
+      const minted = this.tokens.mint();
+      const alias = RunnerAlias.of(command.alias);
+
+      const enrolled = Runner.enrol({
+        id: RunnerId.of(this.ids.generate()),
+        alias,
+        pool: RunnerPool.of(command.pool),
+        tokenHash: TokenHash.of(minted.hash),
+      });
+
+      await this.runners.add(enrolled);
+
+      return {
+        runnerId: enrolled.id.value,
+        alias: alias.value,
+        token: minted.token,
+      };
+    } catch (error) {
+      rethrowAsFault(error);
+    }
+  }
+}
+
+/**
+ * A runner checking in. Its identity comes from the token it presented, so a
+ * restart lands on the record it already had instead of making another one.
+ */
 export class RegisterRunnerHandler
   implements CommandHandlerPort<RegisterRunnerCommand, RegisteredRunnerDto>
 {
   constructor(
     private readonly runners: RunnerRepository,
-    private readonly ids: IdGeneratorPort,
+    private readonly clock: ClockPort,
+    private readonly transaction: TransactionPort,
   ) {}
 
   async execute(command: RegisterRunnerCommand): Promise<RegisteredRunnerDto> {
     try {
-      const registered = Runner.register({
-        id: RunnerId.of(this.ids.generate()),
-        pool: command.pool,
-        labels: command.labels,
+      const id = RunnerId.of(command.runnerId);
+
+      const registering = await this.runners.find(id);
+      if (!registering) {
+        throw new UnknownRunError(`runner ${command.runnerId} is not enrolled`);
+      }
+
+      await this.transaction.run(async () => {
+        registering.seen(this.clock.now());
+        await this.runners.save(registering);
       });
 
-      await this.runners.add(registered);
+      return { runnerId: registering.id.value };
+    } catch (error) {
+      rethrowAsFault(error);
+    }
+  }
+}
 
-      return { runnerId: registered.id.value };
+export class RevokeRunnerHandler
+  implements CommandHandlerPort<RevokeRunnerCommand, void>
+{
+  constructor(
+    private readonly runners: RunnerRepository,
+    private readonly clock: ClockPort,
+    private readonly transaction: TransactionPort,
+    private readonly revocation: RunnerRevocationPort,
+  ) {}
+
+  async execute(command: RevokeRunnerCommand): Promise<void> {
+    try {
+      const id = RunnerId.of(command.runnerId);
+
+      const revoking = await this.runners.find(id);
+      if (!revoking) {
+        throw new UnknownRunError(`runner ${command.runnerId} is not enrolled`);
+      }
+
+      revoking.revoke(this.clock.now());
+
+      await this.transaction.run(async () => {
+        await this.runners.save(revoking);
+
+        for (const event of revoking.pullEvents()) {
+          await this.revocation.onRunnerRevoked(event);
+        }
+      });
     } catch (error) {
       rethrowAsFault(error);
     }
@@ -79,7 +165,8 @@ export class ClaimRunHandler
 
       // The poll doubles as the heartbeat. A runner that stops asking stops
       // being counted on.
-      await this.runners.touch(runnerId, this.clock.now());
+      asking.seen(this.clock.now());
+      await this.runners.save(asking);
 
       // Once per claim, not per attempt. A runner whose host died leaves a run
       // held until its lease lapses, and somebody has to notice.
@@ -89,7 +176,7 @@ export class ClaimRunHandler
 
       for (;;) {
         const claimed = await this.runs.claimNext(
-          asking.pool,
+          asking.pool.value,
           runnerId,
           this.clock.now(),
         );
@@ -123,6 +210,7 @@ export class RenewLeaseHandler
     private readonly runs: RunRepository,
     private readonly runners: RunnerRepository,
     private readonly clock: ClockPort,
+    private readonly transaction: TransactionPort,
   ) {}
 
   async execute(command: RenewLeaseCommand): Promise<void> {
@@ -130,10 +218,19 @@ export class RenewLeaseHandler
       const renewing = RunnerId.of(command.runnerId);
       const at = this.clock.now();
 
+      const holder = await this.runners.find(renewing);
+      if (!holder) {
+        throw new UnknownRunError(`runner ${command.runnerId} is not enrolled`);
+      }
+
       const found = await this.load(command.runId);
       found.renewLease(renewing, at);
-      await this.runs.save(found);
-      await this.runners.touch(renewing, at);
+
+      await this.transaction.run(async () => {
+        await this.runs.save(found);
+        holder.seen(at);
+        await this.runners.save(holder);
+      });
     } catch (error) {
       rethrowAsFault(error);
     }

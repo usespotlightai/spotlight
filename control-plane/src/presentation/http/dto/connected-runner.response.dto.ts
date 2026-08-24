@@ -17,21 +17,29 @@ export class ConnectedRunnerResponseDto {
   @ApiProperty({ example: '8a1d4e0b-6c72-4f35-9b8a-1e5d3c7f2a49' })
   readonly id: string;
 
-  @ApiProperty({ example: 'default' })
-  readonly pool: string;
+  @ApiProperty({ example: 'Build server' })
+  readonly alias: string;
 
-  @ApiProperty({
-    example: { runner: 'one' },
-    additionalProperties: { type: 'string' },
-    description: 'What the runner advertises about itself; a hint, not a grant',
-  })
-  readonly labels: Record<string, string>;
+  @ApiProperty({ example: 'dev' })
+  readonly pool: string;
 
   @ApiProperty({ example: '2026-08-24T11:00:00.000Z' })
   readonly registeredAt: string;
 
-  @ApiProperty({ example: '2026-08-24T12:00:00.000Z' })
-  readonly lastSeenAt: string;
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: '2026-08-24T12:00:00.000Z',
+    description: 'Null when the runner has never connected',
+  })
+  readonly lastSeenAt: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'When its token was retired, if it has been',
+  })
+  readonly revokedAt: string | null;
 
   @ApiProperty({
     example: true,
@@ -48,19 +56,41 @@ export class ConnectedRunnerResponseDto {
 
   constructor(
     id: string,
+    alias: string,
     pool: string,
-    labels: Record<string, string>,
     registeredAt: string,
-    lastSeenAt: string,
+    lastSeenAt: string | null,
+    revokedAt: string | null,
     connected: boolean,
     currentRun: ActiveRunResponseDto | null,
   ) {
     this.id = id;
+    this.alias = alias;
     this.pool = pool;
-    this.labels = labels;
     this.registeredAt = registeredAt;
     this.lastSeenAt = lastSeenAt;
+    this.revokedAt = revokedAt;
     this.connected = connected;
     this.currentRun = currentRun;
+  }
+}
+
+export class EnrolledRunnerResponseDto {
+  @ApiProperty({ example: '8a1d4e0b-6c72-4f35-9b8a-1e5d3c7f2a49' })
+  readonly id: string;
+
+  @ApiProperty({ example: 'Build server' })
+  readonly alias: string;
+
+  @ApiProperty({
+    example: 'spot_xY3...',
+    description: 'Shown once. Nothing can recover it after this response.',
+  })
+  readonly token: string;
+
+  constructor(id: string, alias: string, token: string) {
+    this.id = id;
+    this.alias = alias;
+    this.token = token;
   }
 }

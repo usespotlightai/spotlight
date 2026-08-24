@@ -5,10 +5,11 @@ export interface ActiveRunDto {
 
 export interface ConnectedRunnerDto {
   readonly id: string;
+  readonly alias: string;
   readonly pool: string;
-  readonly labels: Readonly<Record<string, string>>;
   readonly registeredAt: string;
-  readonly lastSeenAt: string;
+  readonly lastSeenAt: string | null;
+  readonly revokedAt: string | null;
   readonly connected: boolean;
   readonly currentRun: ActiveRunDto | null;
 }

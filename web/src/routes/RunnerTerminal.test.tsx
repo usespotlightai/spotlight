@@ -34,8 +34,11 @@ vi.mock('@/hooks/api/useRunners', () => ({
     data: [
       {
         id: 'runner_1',
+        alias: 'Build server',
         pool: 'dev',
         connected: true,
+        lastSeenAt: '2026-08-24T12:00:00.000Z',
+        revokedAt: null,
         currentRun: state.session,
       },
     ],

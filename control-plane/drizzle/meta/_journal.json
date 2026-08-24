@@ -5,64 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1787265044809,
-      "tag": "20260820223044_create_auth_tables",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1787431801760,
-      "tag": "20260822205001_create_workspaces_and_teams",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1787491603560,
-      "tag": "20260823132643_add_factory",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1787491646892,
-      "tag": "20260823132726_backfill_team_factories",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1787495877909,
-      "tag": "20260823143757_add_assembly_line_and_station",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1787495893788,
-      "tag": "20260823143813_backfill_default_assembly_lines",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1787518449735,
-      "tag": "20260823205409_add_runner_and_run",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1787519100791,
-      "tag": "20260823210500_add_run_attempt",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1787584889708,
-      "tag": "20260824152129_add_run_target_runner",
+      "when": 1787612370290,
+      "tag": "20260824225930_initial_schema",
       "breakpoints": true
     }
   ]

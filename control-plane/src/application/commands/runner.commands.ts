@@ -1,8 +1,16 @@
-export class RegisterRunnerCommand {
+export class EnrolRunnerCommand {
   constructor(
+    readonly alias: string,
     readonly pool: string,
-    readonly labels: Record<string, string>,
   ) {}
+}
+
+export class RegisterRunnerCommand {
+  constructor(readonly runnerId: string) {}
+}
+
+export class RevokeRunnerCommand {
+  constructor(readonly runnerId: string) {}
 }
 
 export class ClaimRunCommand {

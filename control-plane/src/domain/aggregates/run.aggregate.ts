@@ -139,6 +139,24 @@ export class Run {
     this.attemptNumber += 1;
   }
 
+  /**
+   * Puts a claimed run back on the queue because its claimant can no longer
+   * serve it, whatever its lease says. Waiting for the lease to lapse would
+   * leave the work abandoned for as long as a lease lasts.
+   */
+  release(): void {
+    if (this.currentState !== 'claimed') {
+      throw new InvalidRunTransitionError(
+        `cannot be released while it is ${this.currentState}`,
+      );
+    }
+
+    this.currentState = 'queued';
+    this.claimant = null;
+    this.leaseUntil = null;
+    this.attemptNumber += 1;
+  }
+
   /** Extends the lease. Only the runner holding the claim may do so. */
   renewLease(by: RunnerId, now: Date): void {
     this.requireHeldBy(by, 'renew the lease on');

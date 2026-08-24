@@ -20,9 +20,6 @@ export const envSchema = z
     // Signs session cookies. Generate with: openssl rand -base64 48
     BETTER_AUTH_SECRET: z.string().min(32),
     BETTER_AUTH_URL: z.url(),
-    // Shared by every runner that may join.
-    // Generate with: openssl rand -base64 48
-    RUNNER_ENROLLMENT_TOKEN: z.string().min(32),
     LOG_LEVEL: z.enum(LOG_LEVELS).optional(),
   })
   .transform((env) => ({

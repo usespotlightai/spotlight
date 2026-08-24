@@ -10,10 +10,8 @@ import type {
   RegisteredRunnerDto,
 } from '@application/dto/run.dto';
 import {
-  BadRequestException,
   Body,
   Controller,
-  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -22,25 +20,22 @@ import {
 } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import {
-  ApiHeader,
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { CurrentRunner } from '@presentation/http/decorators/current-runner.decorator';
 import { RunnerOnly } from '@presentation/http/decorators/runner-only.decorator';
 import {
   AppendRunEventsRequestDto,
   CompleteRunRequestDto,
-  RegisterRunnerRequestDto,
 } from '@presentation/http/dto/runner.request.dto';
 import {
   ClaimedRunResponseDto,
   RegisteredRunnerResponseDto,
 } from '@presentation/http/dto/runner.response.dto';
-
-const RUNNER_HEADER = 'x-spotlight-runner';
 
 /**
  * Only what setting an empty answer needs. Typed structurally, since the
@@ -52,30 +47,29 @@ interface Answerable {
 
 @ApiTags('runners')
 @ApiUnauthorizedResponse({ description: 'Missing or wrong enrollment token' })
-@ApiHeader({ name: RUNNER_HEADER, required: false })
 @RunnerOnly()
 @Controller()
 export class RunnerController {
   constructor(private readonly commandBus: CommandBus) {}
 
-  @Post('runners')
+  @Post('runners/register')
   @ApiOperation({
     operationId: 'registerRunner',
-    summary: 'Announce a runner and what it can serve',
+    summary: 'Check in, so the control plane knows this runner is there',
   })
   @ApiOkResponse({ type: RegisteredRunnerResponseDto })
   async register(
-    @Body() body: RegisterRunnerRequestDto,
+    @CurrentRunner() runnerId: string,
   ): Promise<RegisteredRunnerResponseDto> {
     const registered = await this.commandBus.execute<
       RegisterRunnerCommand,
       RegisteredRunnerDto
-    >(new RegisterRunnerCommand(body.pool, body.labels ?? {}));
+    >(new RegisterRunnerCommand(runnerId));
 
     return new RegisteredRunnerResponseDto(registered.runnerId);
   }
 
-  @Post('runners/:runnerId/claim')
+  @Post('runners/claim')
   @ApiOperation({
     operationId: 'claimRun',
     summary: 'Long-poll for work, answering empty when the queue is',
@@ -83,7 +77,7 @@ export class RunnerController {
   @ApiOkResponse({ type: ClaimedRunResponseDto })
   @ApiNoContentResponse({ description: 'Nothing queued for this pool' })
   async claim(
-    @Param('runnerId') runnerId: string,
+    @CurrentRunner() runnerId: string,
     @Res({ passthrough: true }) response: Answerable,
   ): Promise<ClaimedRunResponseDto | undefined> {
     const claimed = await this.commandBus.execute<
@@ -112,11 +106,9 @@ export class RunnerController {
   @ApiNoContentResponse()
   async renewLease(
     @Param('runId') runId: string,
-    @Headers(RUNNER_HEADER) runnerId: string,
+    @CurrentRunner() runnerId: string,
   ): Promise<void> {
-    await this.commandBus.execute(
-      new RenewLeaseCommand(runId, this.identify(runnerId)),
-    );
+    await this.commandBus.execute(new RenewLeaseCommand(runId, runnerId));
   }
 
   @Post('runs/:runId/events')
@@ -128,11 +120,11 @@ export class RunnerController {
   @ApiNoContentResponse()
   async appendEvents(
     @Param('runId') runId: string,
-    @Headers(RUNNER_HEADER) runnerId: string,
+    @CurrentRunner() runnerId: string,
     @Body() body: AppendRunEventsRequestDto,
   ): Promise<void> {
     await this.commandBus.execute(
-      new AppendRunEventsCommand(runId, this.identify(runnerId), body.events),
+      new AppendRunEventsCommand(runId, runnerId, body.events),
     );
   }
 
@@ -145,29 +137,17 @@ export class RunnerController {
   @ApiNoContentResponse()
   async complete(
     @Param('runId') runId: string,
-    @Headers(RUNNER_HEADER) runnerId: string,
+    @CurrentRunner() runnerId: string,
     @Body() body: CompleteRunRequestDto,
   ): Promise<void> {
     await this.commandBus.execute(
       new CompleteRunCommand(
         runId,
-        this.identify(runnerId),
+        runnerId,
         body.exitCode,
         body.failed,
         body.message,
       ),
     );
-  }
-
-  /**
-   * Every runner shares one enrollment token, so the header is what says which
-   * of them is calling. It is a claim, not a credential: the run's record of
-   * who holds it is what authorises.
-   */
-  private identify(runnerId: string | undefined): string {
-    if (!runnerId) {
-      throw new BadRequestException(`${RUNNER_HEADER} is required`);
-    }
-    return runnerId;
   }
 }

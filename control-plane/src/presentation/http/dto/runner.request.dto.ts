@@ -1,12 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class RegisterRunnerRequestDto {
-  @ApiProperty({ example: 'dev' })
-  readonly pool!: string;
-
-  @ApiPropertyOptional({ example: { arch: 'arm64' } })
-  readonly labels?: Record<string, string>;
-
   @ApiPropertyOptional({
     example: 1,
     description: 'What the runner advertises. The control plane grants work.',

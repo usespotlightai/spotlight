@@ -3,11 +3,12 @@ import { Outlet, useParams } from 'react-router';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { Disclosure } from '@/components/layout/Disclosure';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { NewRunnerDialog } from '@/components/runners/NewRunnerDialog';
 import { RunnerRow } from '@/components/runners/RunnerRow';
 import { useRunners } from '@/hooks/api/useRunners';
 import { useCollapsed } from '@/hooks/useCollapsed';
 import { useSidebarWidth } from '@/hooks/useSidebarWidth';
-import { byPool, shortRunnerId } from '@/lib/runner';
+import { byPool } from '@/lib/runner';
 import { cn } from '@/lib/utils';
 
 const POOLS_STORAGE_KEY = 'spotlight.collapsed-pools';
@@ -31,6 +32,7 @@ export function Runners() {
   }
 
   const fleet = runners ?? [];
+  const selected = fleet.find((runner) => runner.id === runnerId);
 
   return (
     <>
@@ -39,10 +41,11 @@ export function Runners() {
           <Breadcrumbs
             segments={[
               { label: 'Runners' },
-              ...(runnerId ? [{ label: shortRunnerId(runnerId) }] : []),
+              ...(selected ? [{ label: selected.alias }] : []),
             ]}
           />
         }
+        actions={<NewRunnerDialog />}
       />
 
       <div
@@ -56,9 +59,17 @@ export function Runners() {
           className="relative flex shrink-0 flex-col gap-4 overflow-y-auto overflow-x-hidden border-r-[0.5px] border-border p-3"
         >
           {fleet.length === 0 ? (
-            <p className="px-2 py-1 text-muted-foreground text-xs">
-              No runner has registered with the control plane.
-            </p>
+            <div className="flex flex-col items-start gap-3 px-2 py-1">
+              <p className="text-muted-foreground text-xs">
+                No runner has registered with the control plane.
+              </p>
+
+              <NewRunnerDialog
+                variant="outline"
+                label="Add a new runner"
+                icon={false}
+              />
+            </div>
           ) : (
             byPool(fleet).map(([pool, inPool]) => {
               const open = pools.isExpanded(pool);

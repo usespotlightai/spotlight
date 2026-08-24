@@ -52,7 +52,7 @@ func (c *Client) RunnerID() string { return c.runnerID }
 
 func (c *Client) Register(ctx context.Context, in protocol.Registration) error {
 	var out protocol.Registered
-	if err := c.do(ctx, http.MethodPost, "/api/runners", in, &out); err != nil {
+	if err := c.do(ctx, http.MethodPost, "/api/runners/register", in, &out); err != nil {
 		return fmt.Errorf("register: %w", err)
 	}
 	if out.RunnerID == "" {
@@ -69,7 +69,7 @@ func (c *Client) Claim(ctx context.Context) (*protocol.Run, error) {
 	defer cancel()
 
 	var run protocol.Run
-	path := fmt.Sprintf("/api/runners/%s/claim", url.PathEscape(c.runnerID))
+	const path = "/api/runners/claim"
 
 	status, err := c.request(ctx, http.MethodPost, path, nil, &run)
 	if err != nil {
@@ -151,13 +151,9 @@ func (c *Client) request(ctx context.Context, method, path string, in, out any) 
 	if err != nil {
 		return 0, err
 	}
+	// The token is the runner's own, so it says which runner is calling. There
+	// is no separate header to claim an identity with.
 	request.Header.Set("Authorization", "Bearer "+c.token)
-	// The enrollment token is shared across runners, so this header is what
-	// says which one is calling. It is not a credential: the run's record of
-	// who holds it is what authorises.
-	if c.runnerID != "" {
-		request.Header.Set("X-Spotlight-Runner", c.runnerID)
-	}
 	if in != nil {
 		request.Header.Set("Content-Type", "application/json")
 	}

@@ -8,10 +8,11 @@ export const ConnectedRunnerHttpMapper = {
   toResponse(dto: ConnectedRunnerDto): ConnectedRunnerResponseDto {
     return new ConnectedRunnerResponseDto(
       dto.id,
+      dto.alias,
       dto.pool,
-      { ...dto.labels },
       dto.registeredAt,
       dto.lastSeenAt,
+      dto.revokedAt,
       dto.connected,
       dto.currentRun
         ? new ActiveRunResponseDto(dto.currentRun.id, dto.currentRun.state)

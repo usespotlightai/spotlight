@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { type Runner, runnerTerminalPath, shortRunnerId } from '@/lib/runner';
+import { type Runner, runnerTerminalPath } from '@/lib/runner';
 import { cn } from '@/lib/utils';
 
 type RunnerRowProps = {
@@ -24,14 +24,14 @@ export function RunnerRow({ slug, runner, selected }: RunnerRowProps) {
         className={cn(
           'size-1.5 shrink-0 rounded-full',
           runner.connected ? 'bg-emerald-500' : 'bg-muted-foreground/40',
+          runner.revokedAt && 'bg-destructive/60',
         )}
       />
 
-      <span
-        title={runner.id}
-        className="min-w-0 truncate font-medium font-mono text-foreground text-xs"
-      >
-        {shortRunnerId(runner.id)}
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate font-medium text-foreground text-xs">
+          {runner.alias}
+        </span>
       </span>
 
       <span className="ml-auto shrink-0 text-muted-foreground text-xs">
@@ -42,6 +42,12 @@ export function RunnerRow({ slug, runner, selected }: RunnerRowProps) {
 }
 
 const describe = (runner: Runner): string => {
+  if (runner.revokedAt) {
+    return 'Revoked';
+  }
+  if (!runner.lastSeenAt) {
+    return 'Never connected';
+  }
   if (!runner.connected) {
     return 'Not answering';
   }
