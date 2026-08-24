@@ -23,8 +23,7 @@ const renderNav = (path = '/w/acme-inc') =>
     </MemoryRouter>,
   );
 
-const chevron = (team: string) =>
-  screen.getByRole('button', { name: new RegExp(`(Collapse|Expand) ${team}`) });
+const row = (team: string) => screen.getByRole('button', { name: team });
 
 const panels = () =>
   Array.from(document.querySelectorAll('[data-slot="team-sections"]'));
@@ -46,8 +45,8 @@ describe('TeamNav', () => {
     expect(
       screen.getByRole('heading', { name: 'Your teams' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Platform' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Örebro Co' })).toBeInTheDocument();
+    expect(row('Platform')).toBeInTheDocument();
+    expect(row('Örebro Co')).toBeInTheDocument();
   });
 
   it('starts expanded so the sections are discoverable', () => {
@@ -57,14 +56,14 @@ describe('TeamNav', () => {
     for (const panel of panels()) {
       expect(panel).toHaveAttribute('data-open', 'true');
     }
-    expect(chevron('Platform')).toHaveAttribute('aria-expanded', 'true');
+    expect(row('Platform')).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('keeps a collapsed team out of the tab order', async () => {
     const user = userEvent.setup();
     renderNav();
 
-    await user.click(chevron('Platform'));
+    await user.click(row('Platform'));
 
     expect(panels()[0]?.querySelector('ul')).toHaveAttribute('inert');
     expect(panels()[1]?.querySelector('ul')).not.toHaveAttribute('inert');
@@ -104,63 +103,39 @@ describe('TeamNav', () => {
     expect(linesRow(0)).toHaveAttribute('aria-expanded', 'false');
   });
 
-  it('points a team at its own landing page', () => {
+  it('only opens and closes, leaving the page where it is', () => {
     renderNav();
 
-    expect(screen.getByRole('link', { name: 'Platform' })).toHaveAttribute(
-      'href',
-      '/w/acme-inc/team/team_1',
-    );
+    expect(row('Platform')).not.toHaveAttribute('href');
+    expect(row('Platform').tagName).toBe('BUTTON');
   });
 
   it('collapses and expands one team without touching the other', async () => {
     const user = userEvent.setup();
     renderNav();
 
-    await user.click(chevron('Platform'));
+    await user.click(row('Platform'));
 
-    expect(chevron('Platform')).toHaveAttribute('aria-expanded', 'false');
-    expect(chevron('Örebro Co')).toHaveAttribute('aria-expanded', 'true');
+    expect(row('Platform')).toHaveAttribute('aria-expanded', 'false');
+    expect(row('Örebro Co')).toHaveAttribute('aria-expanded', 'true');
     expect(panels()[0]).not.toHaveAttribute('data-open');
     expect(panels()[1]).toHaveAttribute('data-open', 'true');
 
-    await user.click(chevron('Platform'));
+    await user.click(row('Platform'));
 
     expect(panels()[0]).toHaveAttribute('data-open', 'true');
-  });
-
-  it('opens a collapsed team when its row is clicked, not just the chevron', async () => {
-    const user = userEvent.setup();
-    renderNav();
-
-    await user.click(chevron('Platform'));
-    expect(chevron('Platform')).toHaveAttribute('aria-expanded', 'false');
-
-    await user.click(screen.getByRole('link', { name: 'Platform' }));
-
-    expect(chevron('Platform')).toHaveAttribute('aria-expanded', 'true');
-  });
-
-  it('closes an open team when its row is clicked', async () => {
-    const user = userEvent.setup();
-    renderNav();
-
-    await user.click(screen.getByRole('link', { name: 'Platform' }));
-
-    expect(chevron('Platform')).toHaveAttribute('aria-expanded', 'false');
-    expect(chevron('Örebro Co')).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('remembers what was collapsed across mounts', async () => {
     const user = userEvent.setup();
     const { unmount } = renderNav();
 
-    await user.click(chevron('Platform'));
+    await user.click(row('Platform'));
     unmount();
 
     renderNav();
 
-    expect(chevron('Platform')).toHaveAttribute('aria-expanded', 'false');
+    expect(row('Platform')).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('marks the team whose section is open, and only that section', () => {

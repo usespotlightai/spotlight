@@ -1,40 +1,52 @@
 import { type KeyboardEvent, type PointerEvent, useRef, useState } from 'react';
 
-const MIN_WIDTH = 192;
-const MAX_WIDTH = 320;
-const DEFAULT_WIDTH = 224;
 const KEYBOARD_STEP = 16;
-const STORAGE_KEY = 'spotlight.sidebar-width';
 
-const clamp = (width: number) =>
-  Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Math.round(width)));
+type Pane = {
+  storageKey: string;
+  min: number;
+  max: number;
+  initial: number;
+  label: string;
+};
 
-const readStoredWidth = (): number => {
+const WORKSPACE_SIDEBAR: Pane = {
+  storageKey: 'spotlight.sidebar-width',
+  min: 192,
+  max: 320,
+  initial: 224,
+  label: 'Resize sidebar',
+};
+
+const readStoredWidth = (pane: Pane): number => {
   try {
-    const saved = Number(localStorage.getItem(STORAGE_KEY));
-    return saved > 0 ? clamp(saved) : DEFAULT_WIDTH;
+    const saved = Number(localStorage.getItem(pane.storageKey));
+    return saved > 0 ? clampTo(pane, saved) : pane.initial;
   } catch {
-    return DEFAULT_WIDTH;
+    return pane.initial;
   }
 };
 
-const remember = (width: number) => {
+const clampTo = (pane: Pane, width: number) =>
+  Math.min(pane.max, Math.max(pane.min, Math.round(width)));
+
+const remember = (pane: Pane, width: number) => {
   try {
-    localStorage.setItem(STORAGE_KEY, String(width));
+    localStorage.setItem(pane.storageKey, String(width));
   } catch {
     // a browser that refuses storage still resizes, it just forgets
   }
 };
 
-export function useSidebarWidth() {
-  const [width, setWidth] = useState(readStoredWidth);
+export function useSidebarWidth(pane: Pane = WORKSPACE_SIDEBAR) {
+  const [width, setWidth] = useState(() => readStoredWidth(pane));
   const [resizing, setResizing] = useState(false);
   const origin = useRef<{ x: number; width: number } | null>(null);
 
   const resize = (next: number) => {
-    const clamped = clamp(next);
+    const clamped = clampTo(pane, next);
     setWidth(clamped);
-    remember(clamped);
+    remember(pane, clamped);
   };
 
   const onPointerDown = (event: PointerEvent<HTMLElement>) => {
@@ -62,7 +74,7 @@ export function useSidebarWidth() {
     } else if (event.key === 'ArrowRight') {
       resize(width + KEYBOARD_STEP);
     } else if (event.key === 'Home') {
-      resize(DEFAULT_WIDTH);
+      resize(pane.initial);
     } else {
       return;
     }
@@ -75,16 +87,16 @@ export function useSidebarWidth() {
     handleProps: {
       role: 'separator' as const,
       'aria-orientation': 'vertical' as const,
-      'aria-label': 'Resize sidebar',
+      'aria-label': pane.label,
       'aria-valuenow': width,
-      'aria-valuemin': MIN_WIDTH,
-      'aria-valuemax': MAX_WIDTH,
+      'aria-valuemin': pane.min,
+      'aria-valuemax': pane.max,
       tabIndex: 0,
       onPointerDown,
       onPointerMove,
       onPointerUp,
       onKeyDown,
-      onDoubleClick: () => resize(DEFAULT_WIDTH),
+      onDoubleClick: () => resize(pane.initial),
     },
   };
 }

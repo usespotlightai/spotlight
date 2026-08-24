@@ -29,7 +29,7 @@ export function RunnerRow({ slug, runner, selected }: RunnerRowProps) {
 
       <span
         title={runner.id}
-        className="shrink-0 font-medium font-mono text-foreground text-xs"
+        className="min-w-0 truncate font-medium font-mono text-foreground text-xs"
       >
         {shortRunnerId(runner.id)}
       </span>

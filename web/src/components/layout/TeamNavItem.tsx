@@ -1,5 +1,5 @@
 import { ChevronDown, Workflow } from 'lucide-react';
-import { NavLink, useMatch } from 'react-router';
+import { useMatch } from 'react-router';
 import { InitialAvatar } from '@/components/common/avatar/InitialAvatar';
 import { Disclosure } from '@/components/layout/Disclosure';
 import { DisclosureRow } from '@/components/layout/DisclosureRow';
@@ -10,7 +10,6 @@ import {
   assemblyLinePath,
   TEAM_SECTIONS,
   type Team,
-  teamPath,
   teamSectionPath,
 } from '@/lib/team';
 import { cn } from '@/lib/utils';
@@ -37,50 +36,30 @@ export function TeamNavItem({
 
   return (
     <li>
-      <div
+      <button
+        type="button"
         data-slot="team-row"
         data-active={active || undefined}
-        className="group/team flex h-7 items-center rounded-md pr-2 transition-colors hover:bg-accent"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        className={cn(
+          'group/team flex h-7 w-full items-center gap-2 rounded-md px-2 text-sm outline-none transition-colors hover:bg-accent',
+          active ? 'font-medium text-foreground' : 'text-muted-foreground',
+        )}
       >
-        <NavLink
-          to={teamPath(slug, team.id)}
-          onClick={(event) => {
-            if (expanded) {
-              event.preventDefault();
-            }
-            onToggle();
-          }}
-          className={cn(
-            'flex h-full min-w-0 flex-1 items-center gap-2 pl-2 text-sm outline-none',
-            active ? 'font-medium text-foreground' : 'text-muted-foreground',
-          )}
-        >
-          <InitialAvatar name={team.name} className="bg-muted" />
-          <span className="truncate">{team.name}</span>
-        </NavLink>
+        <InitialAvatar name={team.name} className="bg-muted" />
+        <span className="truncate">{team.name}</span>
 
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={expanded}
-          aria-label={
-            expanded ? `Collapse ${team.name}` : `Expand ${team.name}`
-          }
+        <ChevronDown
           className={cn(
-            'flex size-4 shrink-0 items-center justify-center rounded text-muted-foreground outline-none transition-opacity hover:text-foreground',
-            'opacity-0 group-hover/team:opacity-100 focus-visible:opacity-100',
-            expanded && 'opacity-100',
+            'ml-auto size-3 shrink-0 transition-all',
+            expanded
+              ? 'opacity-100'
+              : '-rotate-90 opacity-0 group-hover/team:opacity-100 group-focus-visible/team:opacity-100',
           )}
-        >
-          <ChevronDown
-            className={cn(
-              'size-3 transition-transform',
-              !expanded && '-rotate-90',
-            )}
-            aria-hidden
-          />
-        </button>
-      </div>
+          aria-hidden
+        />
+      </button>
 
       <Disclosure open={expanded} slot="team-sections">
         <li>
