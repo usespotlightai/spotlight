@@ -9,8 +9,6 @@ type RunnerRowProps = {
 };
 
 export function RunnerRow({ slug, runner, selected }: RunnerRowProps) {
-  const labels = Object.entries(runner.labels);
-
   return (
     <Link
       to={runnerTerminalPath(slug, runner.id)}
@@ -36,18 +34,7 @@ export function RunnerRow({ slug, runner, selected }: RunnerRowProps) {
         {shortRunnerId(runner.id)}
       </span>
 
-      <span className="flex min-w-0 flex-1 items-center gap-1.5">
-        {labels.map(([key, value]) => (
-          <span
-            key={key}
-            className="truncate rounded border-[0.5px] border-border px-1 text-[0.6875rem] text-muted-foreground"
-          >
-            {key}={value}
-          </span>
-        ))}
-      </span>
-
-      <span className="shrink-0 text-muted-foreground text-xs">
+      <span className="ml-auto shrink-0 text-muted-foreground text-xs">
         {describe(runner)}
       </span>
     </Link>

@@ -9,6 +9,7 @@
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
   --font-heading: var(--font-sans);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-weight-normal: 450;
 }
 
 :root {
@@ -34,7 +35,7 @@
 
   --muted: #f3f3f3;
 
-  --muted-foreground: #6b6b70;
+  --muted-foreground: #5b5b5d;
 
   --accent-foreground: #2f2f31;
 
@@ -135,7 +136,7 @@
   --secondary: #1b1b1c;
   --secondary-foreground: #e2e3e5;
   --muted: #1b1b1c;
-  --muted-foreground: #8a8a90;
+  --muted-foreground: #97979a;
   --accent: #232324;
   --accent-foreground: #e2e3e5;
   --destructive: oklch(0.704 0.191 22.216);
@@ -165,7 +166,7 @@
     @apply bg-background text-foreground;
   }
   html {
-    @apply font-sans;
+    @apply font-sans font-normal;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }

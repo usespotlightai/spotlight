@@ -111,12 +111,12 @@ describe('Workspace', () => {
     expect(screen.queryByRole('heading')).not.toBeInTheDocument();
   });
 
-  it('shows how many runners could take work now', () => {
+  it('counts every runner the control plane can still hear from', () => {
     loaded(acme);
 
     renderAt('acme-inc');
 
     const runners = screen.getByRole('link', { name: /Runners/ });
-    expect(runners).toHaveTextContent('1');
+    expect(runners).toHaveTextContent('2');
   });
 });

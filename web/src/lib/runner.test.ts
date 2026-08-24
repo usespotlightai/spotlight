@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { availableCount, isAvailable, type Runner } from '@/lib/runner';
+import { isReachable, type Runner, reachableCount } from '@/lib/runner';
 
 const runner = (over: Partial<Runner>) =>
   ({
@@ -10,35 +10,34 @@ const runner = (over: Partial<Runner>) =>
     ...over,
   }) as Runner;
 
-describe('isAvailable', () => {
-  it('counts a runner that is answering and holding nothing', () => {
-    expect(isAvailable(runner({}))).toBe(true);
+describe('isReachable', () => {
+  it('counts a runner that is answering', () => {
+    expect(isReachable(runner({}))).toBe(true);
   });
 
-  it('does not count one that is already on a run', () => {
-    expect(isAvailable(runner({ currentRun: { id: 'run_1' } as never }))).toBe(
-      false,
+  it('still counts one that is busy on a run', () => {
+    expect(isReachable(runner({ currentRun: { id: 'run_1' } as never }))).toBe(
+      true,
     );
   });
 
   it('does not count one that has stopped answering', () => {
-    expect(isAvailable(runner({ connected: false }))).toBe(false);
+    expect(isReachable(runner({ connected: false }))).toBe(false);
   });
 });
 
-describe('availableCount', () => {
-  it('counts only the runners that could take work now', () => {
+describe('reachableCount', () => {
+  it('counts every runner the control plane can still hear from', () => {
     expect(
-      availableCount([
+      reachableCount([
         runner({ id: 'a' }),
         runner({ id: 'b', currentRun: { id: 'run_1' } as never }),
         runner({ id: 'c', connected: false }),
-        runner({ id: 'd' }),
       ]),
     ).toBe(2);
   });
 
   it('is zero for an empty roster', () => {
-    expect(availableCount([])).toBe(0);
+    expect(reachableCount([])).toBe(0);
   });
 });

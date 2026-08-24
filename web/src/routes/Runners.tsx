@@ -41,9 +41,6 @@ export function Runners() {
                   <h2 className="font-medium text-muted-foreground text-xs">
                     {pool}
                   </h2>
-                  <span className="text-muted-foreground text-xs tabular-nums">
-                    {inPool.length}
-                  </span>
                 </div>
 
                 <div className="flex flex-col gap-0.5">

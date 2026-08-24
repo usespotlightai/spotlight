@@ -11,11 +11,10 @@ export const runnerTerminalPath = (slug: string, runnerId: string) =>
 
 export const shortRunnerId = (id: string) => id.slice(0, 8);
 
-export const isAvailable = (runner: Runner) =>
-  runner.connected && !runner.currentRun;
+export const isReachable = (runner: Runner) => runner.connected;
 
-export const availableCount = (runners: readonly Runner[]) =>
-  runners.filter(isAvailable).length;
+export const reachableCount = (runners: readonly Runner[]) =>
+  runners.filter(isReachable).length;
 
 export function byPool(runners: readonly Runner[]): [string, Runner[]][] {
   const pools = new Map<string, Runner[]>();

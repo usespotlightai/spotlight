@@ -3,7 +3,7 @@ import { SidebarLink } from '@/components/layout/SidebarLink';
 import { TeamNav } from '@/components/layout/TeamNav';
 import { WorkspaceMenu } from '@/components/layout/WorkspaceMenu';
 import { useRunners } from '@/hooks/api/useRunners';
-import { availableCount, runnersPath } from '@/lib/runner';
+import { reachableCount, runnersPath } from '@/lib/runner';
 import type { Team } from '@/lib/team';
 
 type WorkspaceSidebarProps = {
@@ -30,7 +30,7 @@ export function WorkspaceSidebar({ workspace }: WorkspaceSidebarProps) {
           to={runnersPath(workspace.slug)}
           icon={Server}
           trailing={
-            <p className="text-xs">{runners && availableCount(runners)}</p>
+            <p className="text-xs">{runners && reachableCount(runners)}</p>
           }
         >
           Runners
