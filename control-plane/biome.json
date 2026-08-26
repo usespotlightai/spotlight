@@ -184,9 +184,10 @@
                       "!./**",
                       "!../**",
                       "!@nestjs/**",
+                      "!rxjs",
                       "!vitest"
                     ],
-                    "message": "The presentation layer may depend on the application layer and the HTTP framework, not on infrastructure or a concrete library. Depend on a port under application/ports instead."
+                    "message": "The presentation layer may depend on the application layer and the HTTP framework, not on infrastructure or a concrete library. Depend on a port under application/ports instead. rxjs is allowed as part of the framework's surface: @Sse is typed to return an Observable and there is no other way to express one."
                   }
                 ]
               }

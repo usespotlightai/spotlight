@@ -22,9 +22,9 @@ function traceIdOf(req: IncomingMessage): string | undefined {
 
 /**
  * Anything listed here is replaced by `[redacted]` before it reaches a log
- * sink. Sessions are cookie-based (better-auth), so the default request
- * serializer, which logs every header, would otherwise write valid session
- * tokens to disk on every request.
+ * sink. Sessions are cookie-based, so the default request serializer, which
+ * logs every header, would write valid session tokens to disk on every
+ * request.
  */
 const REDACT_PATHS = [
   'req.headers.cookie',
@@ -84,9 +84,8 @@ function buildOptions(env: LoggerEnv): Options {
         }
       : undefined,
 
-    // Binds `reqId` to the per-request logger, so application logs carry the
-    // id instead of the full serialized request repeated on every line. The
-    // request-completed line inherits that binding and keeps the request.
+    // Binds `reqId` to the per-request logger so application logs carry the id
+    // instead of repeating the whole serialized request on every line.
     quietReqLogger: true,
   };
 }
@@ -108,8 +107,8 @@ export function buildLogging(
   return {
     params: {
       // nestjs-pino defaults to `*`, which the global prefix turns into
-      // `/api/{*path}` — that matches `/api/anything` but not a bare `/api`/.
-      // `/` covers the prefix itself.
+      // `/api/{*path}`. That matches `/api/anything` but not a bare `/api`, so
+      // `/` is listed to cover the prefix itself.
       forRoutes: [
         { path: '/', method: RequestMethod.ALL },
         { path: '{*path}', method: RequestMethod.ALL },

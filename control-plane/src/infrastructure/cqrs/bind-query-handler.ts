@@ -10,7 +10,7 @@ import { QueryHandler } from '@nestjs/cqrs';
 
 /**
  * Binds a plain application handler to Nest's query bus, so the application
- * layer can express CQRS without importing the framework.
+ * layer can do CQRS without importing the framework.
  *
  */
 export function bindQueryHandler<TQuery extends object, TResult>(

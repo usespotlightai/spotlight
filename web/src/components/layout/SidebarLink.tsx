@@ -6,6 +6,7 @@ type SidebarLinkProps = {
   to: string;
   icon?: ComponentType<{ className?: string }>;
   className?: string;
+  trailing?: ReactNode;
   children: ReactNode;
 };
 
@@ -13,6 +14,7 @@ export function SidebarLink({
   to,
   icon: Icon,
   className,
+  trailing,
   children,
 }: SidebarLinkProps) {
   return (
@@ -29,6 +31,9 @@ export function SidebarLink({
     >
       {Icon && <Icon className="size-3.5 shrink-0" />}
       <span className="truncate">{children}</span>
+      {trailing !== undefined && (
+        <span className="ml-auto shrink-0 tabular-nums">{trailing}</span>
+      )}
     </NavLink>
   );
 }

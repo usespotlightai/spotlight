@@ -16,6 +16,7 @@ import {
   REQUEST_USER,
   type RequestWithUser,
 } from '@presentation/http/decorators/current-user.decorator';
+import { RUNNER_ONLY } from '@presentation/http/decorators/runner-only.decorator';
 
 @Injectable()
 export class AuthenticatedGuard implements CanActivate {
@@ -25,12 +26,16 @@ export class AuthenticatedGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const allowAnonymous = this.reflector.getAllAndOverride<boolean>(
-      ALLOW_ANONYMOUS,
-      [context.getHandler(), context.getClass()],
+    // A runner route carries a bearer token, not a session. RunnerGuard checks
+    // it, so this guard steps aside instead of rejecting first.
+    const skip = [ALLOW_ANONYMOUS, RUNNER_ONLY].some((marker) =>
+      this.reflector.getAllAndOverride<boolean>(marker, [
+        context.getHandler(),
+        context.getClass(),
+      ]),
     );
 
-    if (allowAnonymous) {
+    if (skip) {
       return true;
     }
 

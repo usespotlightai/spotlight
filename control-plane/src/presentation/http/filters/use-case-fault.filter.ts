@@ -7,6 +7,7 @@ import {
   Catch,
   ConflictException,
   type HttpException,
+  NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { BaseExceptionFilter } from '@nestjs/core';
@@ -14,6 +15,7 @@ import { BaseExceptionFilter } from '@nestjs/core';
 const AS_HTTP: Record<UseCaseFaultKind, (message: string) => HttpException> = {
   conflict: (message) => new ConflictException(message),
   'invalid-input': (message) => new UnprocessableEntityException(message),
+  'not-found': (message) => new NotFoundException(message),
 };
 
 @Catch(UseCaseFault)
