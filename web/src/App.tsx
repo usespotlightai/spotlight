@@ -5,6 +5,9 @@ import { AssemblyLineBoard } from './routes/AssemblyLineBoard.tsx';
 import { CreateWorkspace } from './routes/CreateWorkspace.tsx';
 import { DefaultWorkspace } from './routes/DefaultWorkspace.tsx';
 import { Login } from './routes/Login.tsx';
+import { RunnerIndex } from './routes/RunnerIndex.tsx';
+import { Runners } from './routes/Runners.tsx';
+import { RunnerTerminal } from './routes/RunnerTerminal.tsx';
 import { SignUp } from './routes/SignUp.tsx';
 import { TeamIndex } from './routes/TeamIndex.tsx';
 import { TeamSection } from './routes/TeamSection.tsx';
@@ -28,6 +31,10 @@ export default function App() {
             <Route index element={<TeamIndex />} />
             <Route path="lines/:lineId" element={<AssemblyLineBoard />} />
             <Route path=":section" element={<TeamSection />} />
+          </Route>
+          <Route path="runners" element={<Runners />}>
+            <Route index element={<RunnerIndex />} />
+            <Route path=":runnerId" element={<RunnerTerminal />} />
           </Route>
         </Route>
       </Route>

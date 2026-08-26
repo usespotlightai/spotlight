@@ -20,8 +20,8 @@ const remember = (storageKey: string, ids: readonly string[]) => {
 };
 
 /**
- * Tracks what is closed rather than what is open, so anything added later
- * shows its contents instead of being silently hidden by a stale record.
+ * Tracks what is closed, not what is open, so anything added later shows its
+ * contents instead of being hidden by a stale record.
  */
 export function useCollapsed(storageKey: string) {
   const [collapsed, setCollapsed] = useState<readonly string[]>(() =>

@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, ListAssemblyLinesData, ListAssemblyLinesErrors, ListAssemblyLinesResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses } from './types.gen';
+import type { AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, AwaitRunInputData, AwaitRunInputErrors, AwaitRunInputResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, EnrolRunnerData, EnrolRunnerErrors, EnrolRunnerResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, ListAssemblyLinesData, ListAssemblyLinesErrors, ListAssemblyLinesResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, RevokeRunnerData, RevokeRunnerErrors, RevokeRunnerResponses, SendRunInputData, SendRunInputErrors, SendRunInputResponses, StopRunData, StopRunErrors, StopRunResponses, StreamRunData, StreamRunErrors, StreamRunResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -32,6 +32,106 @@ export const getGreeting = <ThrowOnError extends boolean = false>(options?: Opti
  * Liveness probe
  */
 export const getHealth = <ThrowOnError extends boolean = false>(options?: Options<GetHealthData, ThrowOnError>): RequestResult<GetHealthResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetHealthResponses, unknown, ThrowOnError>({ url: '/health', ...options });
+
+/**
+ * Queue a run for a pool to pick up
+ */
+export const enqueueRun = <ThrowOnError extends boolean = false>(options: Options<EnqueueRunData, ThrowOnError>): RequestResult<EnqueueRunResponses, EnqueueRunErrors, ThrowOnError> => (options.client ?? client).post<EnqueueRunResponses, EnqueueRunErrors, ThrowOnError>({
+  url: '/workspaces/{slug}/runs',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Watch a run’s terminal, catching up on what was missed first
+ */
+export const streamRun = <ThrowOnError extends boolean = false>(options: Options<StreamRunData, ThrowOnError>): RequestResult<StreamRunResponses, StreamRunErrors, ThrowOnError> => (options.client ?? client).get<StreamRunResponses, StreamRunErrors, ThrowOnError>({ url: '/runs/{runId}/stream', ...options });
+
+/**
+ * Long-poll for what was typed, answering empty when nothing was
+ */
+export const awaitRunInput = <ThrowOnError extends boolean = false>(options: Options<AwaitRunInputData, ThrowOnError>): RequestResult<AwaitRunInputResponses, AwaitRunInputErrors, ThrowOnError> => (options.client ?? client).get<AwaitRunInputResponses, AwaitRunInputErrors, ThrowOnError>({ url: '/runs/{runId}/input', ...options });
+
+/**
+ * Type at the agent, or tell it the terminal resized
+ */
+export const sendRunInput = <ThrowOnError extends boolean = false>(options: Options<SendRunInputData, ThrowOnError>): RequestResult<SendRunInputResponses, SendRunInputErrors, ThrowOnError> => (options.client ?? client).post<SendRunInputResponses, SendRunInputErrors, ThrowOnError>({
+  url: '/runs/{runId}/input',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Ask the agent to finish, as closing the terminal would
+ */
+export const stopRun = <ThrowOnError extends boolean = false>(options: Options<StopRunData, ThrowOnError>): RequestResult<StopRunResponses, StopRunErrors, ThrowOnError> => (options.client ?? client).post<StopRunResponses, StopRunErrors, ThrowOnError>({ url: '/runs/{runId}/stop', ...options });
+
+/**
+ * Check in, so the control plane knows this runner is there
+ */
+export const registerRunner = <ThrowOnError extends boolean = false>(options?: Options<RegisterRunnerData, ThrowOnError>): RequestResult<RegisterRunnerResponses, RegisterRunnerErrors, ThrowOnError> => (options?.client ?? client).post<RegisterRunnerResponses, RegisterRunnerErrors, ThrowOnError>({ url: '/runners/register', ...options });
+
+/**
+ * Long-poll for work, answering empty when the queue is
+ */
+export const claimRun = <ThrowOnError extends boolean = false>(options?: Options<ClaimRunData, ThrowOnError>): RequestResult<ClaimRunResponses, ClaimRunErrors, ThrowOnError> => (options?.client ?? client).post<ClaimRunResponses, ClaimRunErrors, ThrowOnError>({ url: '/runners/claim', ...options });
+
+/**
+ * Say the run is still being worked on
+ */
+export const renewLease = <ThrowOnError extends boolean = false>(options: Options<RenewLeaseData, ThrowOnError>): RequestResult<RenewLeaseResponses, RenewLeaseErrors, ThrowOnError> => (options.client ?? client).post<RenewLeaseResponses, RenewLeaseErrors, ThrowOnError>({ url: '/runs/{runId}/lease', ...options });
+
+/**
+ * Add to the run’s journal
+ */
+export const appendRunEvents = <ThrowOnError extends boolean = false>(options: Options<AppendRunEventsData, ThrowOnError>): RequestResult<AppendRunEventsResponses, AppendRunEventsErrors, ThrowOnError> => (options.client ?? client).post<AppendRunEventsResponses, AppendRunEventsErrors, ThrowOnError>({
+  url: '/runs/{runId}/events',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Report what the run produced
+ */
+export const completeRun = <ThrowOnError extends boolean = false>(options: Options<CompleteRunData, ThrowOnError>): RequestResult<CompleteRunResponses, CompleteRunErrors, ThrowOnError> => (options.client ?? client).post<CompleteRunResponses, CompleteRunErrors, ThrowOnError>({
+  url: '/runs/{runId}/completion',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * List every runner and whether it is still answering
+ */
+export const listRunners = <ThrowOnError extends boolean = false>(options?: Options<ListRunnersData, ThrowOnError>): RequestResult<ListRunnersResponses, ListRunnersErrors, ThrowOnError> => (options?.client ?? client).get<ListRunnersResponses, ListRunnersErrors, ThrowOnError>({ url: '/runners', ...options });
+
+/**
+ * Enrol a runner and mint the token it registers with
+ */
+export const enrolRunner = <ThrowOnError extends boolean = false>(options: Options<EnrolRunnerData, ThrowOnError>): RequestResult<EnrolRunnerResponses, EnrolRunnerErrors, ThrowOnError> => (options.client ?? client).post<EnrolRunnerResponses, EnrolRunnerErrors, ThrowOnError>({
+  url: '/runners',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Retire a runner’s token, locking it out from the next call on
+ */
+export const revokeRunner = <ThrowOnError extends boolean = false>(options: Options<RevokeRunnerData, ThrowOnError>): RequestResult<RevokeRunnerResponses, RevokeRunnerErrors, ThrowOnError> => (options.client ?? client).post<RevokeRunnerResponses, RevokeRunnerErrors, ThrowOnError>({ url: '/runners/{runnerId}/revoke', ...options });
 
 /**
  * List the workspaces the caller belongs to
