@@ -9,6 +9,7 @@ import { RunnerIndex } from './routes/RunnerIndex.tsx';
 import { Runners } from './routes/Runners.tsx';
 import { RunnerTerminal } from './routes/RunnerTerminal.tsx';
 import { SignUp } from './routes/SignUp.tsx';
+import { Station } from './routes/Station.tsx';
 import { TeamIndex } from './routes/TeamIndex.tsx';
 import { TeamSection } from './routes/TeamSection.tsx';
 import { Workspace } from './routes/Workspace.tsx';
@@ -30,6 +31,10 @@ export default function App() {
           <Route path="team/:teamId">
             <Route index element={<TeamIndex />} />
             <Route path="lines/:lineId" element={<AssemblyLineBoard />} />
+            <Route
+              path="lines/:lineId/stations/:stationId"
+              element={<Station />}
+            />
             <Route path=":section" element={<TeamSection />} />
           </Route>
           <Route path="runners" element={<Runners />}>

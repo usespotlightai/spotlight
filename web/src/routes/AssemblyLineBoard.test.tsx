@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 import { AssemblyLineBoard } from '@/routes/AssemblyLineBoard';
@@ -55,6 +56,38 @@ describe('AssemblyLineBoard', () => {
     expect(
       screen.getByRole('heading', { name: /Platform\s*Default/ }),
     ).toBeInTheDocument();
+  });
+
+  it('walks back to the team from the breadcrumbs', () => {
+    renderAt('line_1');
+
+    expect(screen.getByRole('link', { name: /Platform/ })).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1',
+    );
+  });
+
+  it('opens a station for customising from its lane menu', async () => {
+    const user = userEvent.setup();
+    renderAt('line_1');
+
+    await user.click(screen.getByRole('button', { name: 'Triage options' }));
+    await screen.findByRole('menu');
+
+    expect(
+      screen.getByRole('menuitem', { name: 'Customize station' }),
+    ).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/lines/line_1/stations/station_1',
+    );
+  });
+
+  it('leaves the lane title as a label, not a link', () => {
+    renderAt('line_1');
+
+    expect(
+      screen.queryByRole('link', { name: 'Triage' }),
+    ).not.toBeInTheDocument();
   });
 
   it('says each lane is empty rather than leaving it blank', () => {

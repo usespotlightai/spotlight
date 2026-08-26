@@ -5,6 +5,8 @@ import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useAssemblyLines } from '@/hooks/api/useAssemblyLines';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { stationPath } from '@/lib/station';
+import { teamPath } from '@/lib/team';
 
 export function AssemblyLineBoard() {
   const { slug, teamId, lineId } = useParams();
@@ -45,6 +47,7 @@ export function AssemblyLineBoard() {
                       icon: (
                         <InitialAvatar name={team.name} className="bg-card" />
                       ),
+                      to: slug && teamId ? teamPath(slug, teamId) : undefined,
                     },
                   ]
                 : []),
@@ -56,7 +59,16 @@ export function AssemblyLineBoard() {
 
       <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-3">
         {line.stations.map((station) => (
-          <StationLane key={station.id} name={station.name} count={0} />
+          <StationLane
+            key={station.id}
+            name={station.name}
+            count={0}
+            customizeTo={
+              slug && teamId
+                ? stationPath(slug, teamId, line.id, station.id)
+                : undefined
+            }
+          />
         ))}
       </div>
     </>
