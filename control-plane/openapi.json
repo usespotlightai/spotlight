@@ -42,6 +42,75 @@
         ]
       }
     },
+    "/teams/{teamId}/assembly-lines/{lineId}/stations/{stationId}": {
+      "patch": {
+        "operationId": "customiseStation",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "lineId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "7b2c9e14-3a5d-4c8f-b6e1-9d0a2f7c5b43",
+              "type": "string"
+            }
+          },
+          {
+            "name": "stationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomiseStationRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StationResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such station for this caller"
+          },
+          "422": {
+            "description": "Invalid field"
+          }
+        },
+        "summary": "Change what a station is called, says, runs on and tells its agent",
+        "tags": [
+          "assembly-lines"
+        ]
+      }
+    },
     "/": {
       "get": {
         "operationId": "getGreeting",
@@ -676,12 +745,32 @@
             "type": "number",
             "example": 0,
             "description": "Left to right across the board"
+          },
+          "description": {
+            "type": "string",
+            "example": "Where new work lands before anyone looks at it",
+            "nullable": true
+          },
+          "pool": {
+            "type": "string",
+            "example": "dev",
+            "nullable": true,
+            "description": "Which runners work this station. Null until one is chosen."
+          },
+          "agentPrompt": {
+            "type": "string",
+            "example": "## Role\n\nSort the queue.",
+            "nullable": true,
+            "description": "Markdown, handed to the agent that works this station"
           }
         },
         "required": [
           "id",
           "name",
-          "position"
+          "position",
+          "description",
+          "pool",
+          "agentPrompt"
         ]
       },
       "AssemblyLineResponseDto": {
@@ -707,6 +796,36 @@
           "name",
           "stations"
         ]
+      },
+      "CustomiseStationRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Triage",
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "example": "Where new work lands before anyone looks at it",
+            "maxLength": 500,
+            "nullable": true
+          },
+          "pool": {
+            "type": "string",
+            "example": "dev",
+            "maxLength": 60,
+            "nullable": true,
+            "description": "Which runners work this station"
+          },
+          "agentPrompt": {
+            "type": "string",
+            "example": "## Role\n\nSort the queue.",
+            "maxLength": 20000,
+            "nullable": true,
+            "description": "Markdown, handed to the agent that works this station"
+          }
+        }
       },
       "GreetingResponseDto": {
         "type": "object",

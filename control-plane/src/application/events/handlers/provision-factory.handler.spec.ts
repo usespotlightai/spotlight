@@ -27,6 +27,8 @@ const provision = () =>
       add: vi.fn(async (line: AssemblyLine) => {
         seeded = line;
       }),
+      save: vi.fn(),
+      find: vi.fn(async () => null),
     },
     ids(),
   ).onTeamCreated(new TeamCreated(WorkspaceId.of('ws_1'), TeamId.of('team_1')));

@@ -15,6 +15,13 @@
       "when": 1787733007838,
       "tag": "20260826083007_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787761860553,
+      "tag": "20260826163100_customisable_stations",
+      "breakpoints": true
     }
   ]
 }

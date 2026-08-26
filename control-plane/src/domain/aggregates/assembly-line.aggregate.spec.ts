@@ -2,9 +2,11 @@ import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Station } from '@domain/entities/station.entity';
 import { Template } from '@domain/entities/template.entity';
 import { InvalidStationOrderError } from '@domain/exceptions/invalid-station-order.error';
+import { UnknownStationError } from '@domain/exceptions/unknown-station.error';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
+import { RunnerPool } from '@domain/value-objects/runner-pool.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { TemplateId } from '@domain/value-objects/template-id.vo';
@@ -78,6 +80,37 @@ describe('AssemblyLine', () => {
 
     expect(line.workspaceId).toEqual(WorkspaceId.of('ws_1'));
     expect(line.factoryId).toEqual(FactoryId.of('factory_1'));
+  });
+
+  it('customises the one station it was asked about', () => {
+    const line = lineOf([at(0, 'Triage'), at(1, 'Spec')]);
+
+    const customised = line.customiseStation(StationId.of('station_0'), {
+      pool: RunnerPool.of('dev'),
+    });
+
+    expect(customised.stations.map((each) => each.pool?.value ?? null)).toEqual(
+      ['dev', null],
+    );
+  });
+
+  it('refuses to customise a station it does not hold', () => {
+    const line = lineOf([at(0)]);
+
+    expect(() =>
+      line.customiseStation(StationId.of('station_missing'), {
+        pool: RunnerPool.of('dev'),
+      }),
+    ).toThrow(UnknownStationError);
+  });
+
+  it('leaves the line it was customised from untouched', () => {
+    const line = lineOf([at(0)]);
+    line.customiseStation(StationId.of('station_0'), {
+      pool: RunnerPool.of('dev'),
+    });
+
+    expect(line.stations[0]?.pool).toBeNull();
   });
 
   it('holds its stations in board order however they arrive', () => {

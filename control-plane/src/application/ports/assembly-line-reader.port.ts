@@ -5,6 +5,9 @@ export interface StationSummary {
   readonly id: string;
   readonly name: string;
   readonly position: number;
+  readonly description: string | null;
+  readonly pool: string | null;
+  readonly agentPrompt: string | null;
 }
 
 export interface AssemblyLineDetail {

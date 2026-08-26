@@ -1,17 +1,53 @@
-import type { AssemblyLineDto } from '@application/dto/assembly-line.dto';
+import type { CustomiseStationCommand } from '@application/commands/customise-station.command';
+import type {
+  AssemblyLineDto,
+  StationDto,
+} from '@application/dto/assembly-line.dto';
 import {
   AssemblyLineResponseDto,
   StationResponseDto,
 } from '@presentation/http/dto/assembly-line.response.dto';
+import type { CustomiseStationRequestDto } from '@presentation/http/dto/customise-station.request.dto';
+
+/** An emptied box means the caller wants rid of what was in it, which is a
+ *  convention of the form rather than a rule of the domain: past here, only
+ *  null clears. Name is left as sent, having nothing to fall back to. */
+const emptied = (raw: string | null | undefined): string | null | undefined => {
+  if (raw === undefined) {
+    return undefined;
+  }
+
+  return raw !== null && raw.trim().length > 0 ? raw : null;
+};
 
 export const AssemblyLineHttpMapper = {
+  toStationChanges(
+    body: CustomiseStationRequestDto,
+  ): CustomiseStationCommand['changes'] {
+    return {
+      name: body.name,
+      description: emptied(body.description),
+      pool: emptied(body.pool),
+      agentPrompt: emptied(body.agentPrompt),
+    };
+  },
+
+  stationToResponse(dto: StationDto): StationResponseDto {
+    return new StationResponseDto(
+      dto.id,
+      dto.name,
+      dto.position,
+      dto.description,
+      dto.pool,
+      dto.agentPrompt,
+    );
+  },
+
   toResponse(dto: AssemblyLineDto): AssemblyLineResponseDto {
     return new AssemblyLineResponseDto(
       dto.id,
       dto.name,
-      dto.stations.map(
-        (each) => new StationResponseDto(each.id, each.name, each.position),
-      ),
+      dto.stations.map(AssemblyLineHttpMapper.stationToResponse),
     );
   },
 };

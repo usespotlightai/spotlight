@@ -6,12 +6,14 @@ import { ListAssemblyLinesHandler } from '@application/queries/handlers/list-ass
 import { ListAssemblyLinesQuery } from '@application/queries/list-assembly-lines.query';
 import { describe, expect, it, vi } from 'vitest';
 
+const bare = { description: null, pool: null, agentPrompt: null };
+
 const board: AssemblyLineDetail = {
   id: 'line_1',
   name: 'Default',
   stations: [
-    { id: 'station_1', name: 'Triage', position: 0 },
-    { id: 'station_2', name: 'Spec', position: 1 },
+    { id: 'station_1', name: 'Triage', position: 0, ...bare },
+    { id: 'station_2', name: 'Spec', position: 1, ...bare, pool: 'dev' },
   ],
 };
 
@@ -33,8 +35,8 @@ describe('ListAssemblyLinesHandler', () => {
         id: 'line_1',
         name: 'Default',
         stations: [
-          { id: 'station_1', name: 'Triage', position: 0 },
-          { id: 'station_2', name: 'Spec', position: 1 },
+          { id: 'station_1', name: 'Triage', position: 0, ...bare },
+          { id: 'station_2', name: 'Spec', position: 1, ...bare, pool: 'dev' },
         ],
       },
     ]);

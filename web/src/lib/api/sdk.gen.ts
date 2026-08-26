@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, AwaitRunInputData, AwaitRunInputErrors, AwaitRunInputResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, EnrolRunnerData, EnrolRunnerErrors, EnrolRunnerResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, ListAssemblyLinesData, ListAssemblyLinesErrors, ListAssemblyLinesResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, RevokeRunnerData, RevokeRunnerErrors, RevokeRunnerResponses, SendRunInputData, SendRunInputErrors, SendRunInputResponses, StopRunData, StopRunErrors, StopRunResponses, StreamRunData, StreamRunErrors, StreamRunResponses } from './types.gen';
+import type { AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, AwaitRunInputData, AwaitRunInputErrors, AwaitRunInputResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, CustomiseStationData, CustomiseStationErrors, CustomiseStationResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, EnrolRunnerData, EnrolRunnerErrors, EnrolRunnerResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, ListAssemblyLinesData, ListAssemblyLinesErrors, ListAssemblyLinesResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, RevokeRunnerData, RevokeRunnerErrors, RevokeRunnerResponses, SendRunInputData, SendRunInputErrors, SendRunInputResponses, StopRunData, StopRunErrors, StopRunResponses, StreamRunData, StreamRunErrors, StreamRunResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -22,6 +22,18 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
  * List a team’s assembly lines, each with its stations in order
  */
 export const listAssemblyLines = <ThrowOnError extends boolean = false>(options: Options<ListAssemblyLinesData, ThrowOnError>): RequestResult<ListAssemblyLinesResponses, ListAssemblyLinesErrors, ThrowOnError> => (options.client ?? client).get<ListAssemblyLinesResponses, ListAssemblyLinesErrors, ThrowOnError>({ url: '/teams/{teamId}/assembly-lines', ...options });
+
+/**
+ * Change what a station is called, says, runs on and tells its agent
+ */
+export const customiseStation = <ThrowOnError extends boolean = false>(options: Options<CustomiseStationData, ThrowOnError>): RequestResult<CustomiseStationResponses, CustomiseStationErrors, ThrowOnError> => (options.client ?? client).patch<CustomiseStationResponses, CustomiseStationErrors, ThrowOnError>({
+  url: '/teams/{teamId}/assembly-lines/{lineId}/stations/{stationId}',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
 
 /**
  * Return a greeting

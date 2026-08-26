@@ -26,4 +26,11 @@ describe('AssemblyLineController (e2e)', () => {
       .get('/api/teams/team_1/assembly-lines')
       .expect(401);
   });
+
+  it('/teams/../stations/.. (PATCH) is rejected without a session', () => {
+    return request(app.getHttpServer())
+      .patch('/api/teams/team_1/assembly-lines/line_1/stations/station_1')
+      .send({ pool: 'dev' })
+      .expect(401);
+  });
 });

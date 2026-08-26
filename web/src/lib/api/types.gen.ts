@@ -11,12 +11,34 @@ export type StationResponseDto = {
    * Left to right across the board
    */
   position: number;
+  description: string | null;
+  /**
+   * Which runners work this station. Null until one is chosen.
+   */
+  pool: string | null;
+  /**
+   * Markdown, handed to the agent that works this station
+   */
+  agentPrompt: string | null;
 };
 
 export type AssemblyLineResponseDto = {
   id: string;
   name: string;
   stations: Array<StationResponseDto>;
+};
+
+export type CustomiseStationRequestDto = {
+  name?: string;
+  description?: string | null;
+  /**
+   * Which runners work this station
+   */
+  pool?: string | null;
+  /**
+   * Markdown, handed to the agent that works this station
+   */
+  agentPrompt?: string | null;
 };
 
 export type GreetingResponseDto = {
@@ -228,6 +250,38 @@ export type ListAssemblyLinesResponses = {
 };
 
 export type ListAssemblyLinesResponse = ListAssemblyLinesResponses[keyof ListAssemblyLinesResponses];
+
+export type CustomiseStationData = {
+  body: CustomiseStationRequestDto;
+  path: {
+    teamId: string;
+    lineId: string;
+    stationId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/assembly-lines/{lineId}/stations/{stationId}';
+};
+
+export type CustomiseStationErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such station for this caller
+   */
+  404: unknown;
+  /**
+   * Invalid field
+   */
+  422: unknown;
+};
+
+export type CustomiseStationResponses = {
+  200: StationResponseDto;
+};
+
+export type CustomiseStationResponse = CustomiseStationResponses[keyof CustomiseStationResponses];
 
 export type GetGreetingData = {
   body?: never;

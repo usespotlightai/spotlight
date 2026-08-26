@@ -1,5 +1,7 @@
 import { CreateWorkspaceCommand } from '@application/commands/create-workspace.command';
+import { CustomiseStationCommand } from '@application/commands/customise-station.command';
 import { CreateWorkspaceHandler } from '@application/commands/handlers/create-workspace.handler';
+import { CustomiseStationHandler } from '@application/commands/handlers/customise-station.handler';
 import {
   AwaitRunInputHandler,
   SendRunInputHandler,
@@ -177,6 +179,11 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       ID_GENERATOR,
       TRANSACTION,
       FACTORY_PROVISIONING,
+    ]),
+
+    ...bindCommandHandler(CustomiseStationCommand, CustomiseStationHandler, [
+      DrizzleAssemblyLineRepository,
+      TRANSACTION,
     ]),
 
     ...bindCommandHandler(EnrolRunnerCommand, EnrolRunnerHandler, [

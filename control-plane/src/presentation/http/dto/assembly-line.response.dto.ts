@@ -10,10 +10,43 @@ export class StationResponseDto {
   @ApiProperty({ example: 0, description: 'Left to right across the board' })
   readonly position: number;
 
-  constructor(id: string, name: string, position: number) {
+  @ApiProperty({
+    example: 'Where new work lands before anyone looks at it',
+    nullable: true,
+    type: String,
+  })
+  readonly description: string | null;
+
+  @ApiProperty({
+    example: 'dev',
+    nullable: true,
+    type: String,
+    description: 'Which runners work this station. Null until one is chosen.',
+  })
+  readonly pool: string | null;
+
+  @ApiProperty({
+    example: '## Role\n\nSort the queue.',
+    nullable: true,
+    type: String,
+    description: 'Markdown, handed to the agent that works this station',
+  })
+  readonly agentPrompt: string | null;
+
+  constructor(
+    id: string,
+    name: string,
+    position: number,
+    description: string | null,
+    pool: string | null,
+    agentPrompt: string | null,
+  ) {
     this.id = id;
     this.name = name;
     this.position = position;
+    this.description = description;
+    this.pool = pool;
+    this.agentPrompt = agentPrompt;
   }
 }
 

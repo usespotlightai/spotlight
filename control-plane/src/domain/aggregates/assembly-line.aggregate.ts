@@ -1,6 +1,7 @@
-import { Station } from '@domain/entities/station.entity';
+import { Station, type StationChanges } from '@domain/entities/station.entity';
 import type { Template } from '@domain/entities/template.entity';
 import { InvalidStationOrderError } from '@domain/exceptions/invalid-station-order.error';
+import { UnknownStationError } from '@domain/exceptions/unknown-station.error';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import type { FactoryId } from '@domain/value-objects/factory-id.vo';
@@ -53,6 +54,33 @@ export class AssemblyLine {
       input.name,
       [...input.stations].sort((a, b) => a.position - b.position),
     );
+  }
+
+  customiseStation(
+    stationId: StationId,
+    changes: StationChanges,
+  ): AssemblyLine {
+    const target = this.stationAt(stationId);
+
+    return AssemblyLine.of({
+      id: this.id,
+      workspaceId: this.workspaceId,
+      factoryId: this.factoryId,
+      name: this.name,
+      stations: this.stations.map((each) =>
+        each.equals(target) ? each.customise(changes) : each,
+      ),
+    });
+  }
+
+  stationAt(stationId: StationId): Station {
+    const found = this.stations.find((each) => each.id.equals(stationId));
+
+    if (!found) {
+      throw new UnknownStationError(stationId.value);
+    }
+
+    return found;
   }
 
   private static guardPositionsAreContiguous(
