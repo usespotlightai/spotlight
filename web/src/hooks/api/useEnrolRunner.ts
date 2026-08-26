@@ -6,7 +6,7 @@ export function useEnrolRunner() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (runner: { alias: string; pool: string }) => {
+    mutationFn: async (runner: { name: string; pool: string }) => {
       const { data } = await enrolRunner({
         body: runner,
         throwOnError: true,

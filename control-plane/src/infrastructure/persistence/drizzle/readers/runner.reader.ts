@@ -19,7 +19,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
     const rows = await this.db
       .select({
         id: runner.id,
-        alias: runner.alias,
+        name: runner.name,
         pool: runner.pool,
         revokedAt: runner.revokedAt,
         registeredAt: runner.registeredAt,
@@ -36,7 +36,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
 
     return rows.map((row) => ({
       id: row.id,
-      alias: row.alias,
+      name: row.name,
       pool: row.pool,
       revokedAt: row.revokedAt,
       registeredAt: row.registeredAt,

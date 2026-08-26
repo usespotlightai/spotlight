@@ -5,7 +5,7 @@ export class EnrolRunnerRequestDto {
     example: 'Build server',
     description: 'What to call this runner. Rejected if empty or over 60.',
   })
-  readonly alias!: string;
+  readonly name!: string;
 
   @ApiProperty({
     example: 'dev',

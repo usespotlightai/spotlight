@@ -10,7 +10,7 @@ const NOW = new Date('2026-08-24T12:00:00.000Z');
 
 const summary = (overrides: Partial<RunnerSummary> = {}): RunnerSummary => ({
   id: 'runner_1',
-  alias: 'Build server',
+  name: 'Build server',
   pool: 'default',
   registeredAt: new Date('2026-08-24T11:00:00.000Z'),
   lastSeenAt: NOW,

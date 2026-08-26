@@ -17,7 +17,7 @@ export interface EnqueuedRunDto {
 
 export interface EnrolledRunnerDto {
   readonly runnerId: string;
-  readonly alias: string;
+  readonly name: string;
   /** Shown once. Nothing can recover it after this response. */
   readonly token: string;
 }

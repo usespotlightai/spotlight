@@ -18,7 +18,7 @@ export class ConnectedRunnerResponseDto {
   readonly id: string;
 
   @ApiProperty({ example: 'Build server' })
-  readonly alias: string;
+  readonly name: string;
 
   @ApiProperty({ example: 'dev' })
   readonly pool: string;
@@ -56,7 +56,7 @@ export class ConnectedRunnerResponseDto {
 
   constructor(
     id: string,
-    alias: string,
+    name: string,
     pool: string,
     registeredAt: string,
     lastSeenAt: string | null,
@@ -65,7 +65,7 @@ export class ConnectedRunnerResponseDto {
     currentRun: ActiveRunResponseDto | null,
   ) {
     this.id = id;
-    this.alias = alias;
+    this.name = name;
     this.pool = pool;
     this.registeredAt = registeredAt;
     this.lastSeenAt = lastSeenAt;
@@ -80,7 +80,7 @@ export class EnrolledRunnerResponseDto {
   readonly id: string;
 
   @ApiProperty({ example: 'Build server' })
-  readonly alias: string;
+  readonly name: string;
 
   @ApiProperty({
     example: 'spot_xY3...',
@@ -88,9 +88,9 @@ export class EnrolledRunnerResponseDto {
   })
   readonly token: string;
 
-  constructor(id: string, alias: string, token: string) {
+  constructor(id: string, name: string, token: string) {
     this.id = id;
-    this.alias = alias;
+    this.name = name;
     this.token = token;
   }
 }

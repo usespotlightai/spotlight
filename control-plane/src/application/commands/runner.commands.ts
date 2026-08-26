@@ -1,6 +1,6 @@
 export class EnrolRunnerCommand {
   constructor(
-    readonly alias: string,
+    readonly name: string,
     readonly pool: string,
   ) {}
 }

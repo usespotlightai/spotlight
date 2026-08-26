@@ -5,7 +5,7 @@ export interface ActiveRunSummary {
 
 export interface RunnerSummary {
   readonly id: string;
-  readonly alias: string;
+  readonly name: string;
   readonly pool: string;
   readonly registeredAt: Date;
   readonly lastSeenAt: Date | null;

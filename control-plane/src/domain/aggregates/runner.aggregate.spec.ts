@@ -2,8 +2,8 @@ import { Runner } from '@domain/aggregates/runner.aggregate';
 import { RunnerRevoked } from '@domain/events/runner-revoked.event';
 import { InvalidRunnerPoolError } from '@domain/exceptions/invalid-runner-pool.error';
 import { RevokedRunnerError } from '@domain/exceptions/revoked-runner.error';
-import { RunnerAlias } from '@domain/value-objects/runner-alias.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
+import { RunnerName } from '@domain/value-objects/runner-name.vo';
 import { RunnerPool } from '@domain/value-objects/runner-pool.vo';
 import { TokenHash } from '@domain/value-objects/token-hash.vo';
 import { describe, expect, it } from 'vitest';
@@ -16,7 +16,7 @@ const HASH = 'a'.repeat(64);
 const enrolled = () =>
   Runner.enrol({
     id: RunnerId.of('runner_1'),
-    alias: RunnerAlias.of('Laptop'),
+    name: RunnerName.of('Laptop'),
     pool: RunnerPool.of('dev'),
     tokenHash: TokenHash.of(HASH),
   });

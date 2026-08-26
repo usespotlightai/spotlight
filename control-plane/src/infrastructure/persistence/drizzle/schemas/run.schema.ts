@@ -19,7 +19,7 @@ export const runner = pgTable(
   'runner',
   {
     id: text('id').primaryKey(),
-    alias: text('alias').notNull(),
+    name: text('name').notNull(),
     // Only the hash: the token itself is shown once, at enrolment, and is not
     // recoverable afterwards.
     tokenHash: text('token_hash').notNull(),

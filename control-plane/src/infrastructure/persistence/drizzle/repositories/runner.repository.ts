@@ -1,7 +1,7 @@
 import { Runner } from '@domain/aggregates/runner.aggregate';
 import type { RunnerRepository } from '@domain/repositories/runner.repository';
-import { RunnerAlias } from '@domain/value-objects/runner-alias.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
+import { RunnerName } from '@domain/value-objects/runner-name.vo';
 import { RunnerPool } from '@domain/value-objects/runner-pool.vo';
 import { TokenHash } from '@domain/value-objects/token-hash.vo';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
@@ -14,7 +14,7 @@ type Row = typeof runner.$inferSelect;
 const toRunner = (row: Row): Runner =>
   Runner.rehydrate({
     id: RunnerId.of(row.id),
-    alias: RunnerAlias.of(row.alias),
+    name: RunnerName.of(row.name),
     tokenHash: TokenHash.of(row.tokenHash),
     pool: RunnerPool.of(row.pool),
     revokedAt: row.revokedAt,
@@ -28,7 +28,7 @@ export class DrizzleRunnerRepository implements RunnerRepository {
   async add(added: Runner): Promise<void> {
     await this.context.db.insert(runner).values({
       id: added.id.value,
-      alias: added.alias.value,
+      name: added.name.value,
       tokenHash: added.tokenHash.value,
       pool: added.pool.value,
       revokedAt: added.revokedAt,

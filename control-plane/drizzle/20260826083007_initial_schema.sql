@@ -19,55 +19,6 @@ CREATE TABLE "station" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "account" (
-	"id" text PRIMARY KEY NOT NULL,
-	"issuer" text NOT NULL,
-	"account_id" text NOT NULL,
-	"provider_id" text NOT NULL,
-	"user_id" text NOT NULL,
-	"access_token" text,
-	"refresh_token" text,
-	"id_token" text,
-	"access_token_expires_at" timestamp,
-	"refresh_token_expires_at" timestamp,
-	"scope" text,
-	"password" text,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "session" (
-	"id" text PRIMARY KEY NOT NULL,
-	"expires_at" timestamp NOT NULL,
-	"token" text NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp NOT NULL,
-	"ip_address" text,
-	"user_agent" text,
-	"user_id" text NOT NULL,
-	CONSTRAINT "session_token_unique" UNIQUE("token")
-);
---> statement-breakpoint
-CREATE TABLE "user" (
-	"id" text PRIMARY KEY NOT NULL,
-	"name" text NOT NULL,
-	"email" text NOT NULL,
-	"email_verified" boolean DEFAULT false NOT NULL,
-	"image" text,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL,
-	CONSTRAINT "user_email_unique" UNIQUE("email")
-);
---> statement-breakpoint
-CREATE TABLE "verification" (
-	"id" text PRIMARY KEY NOT NULL,
-	"identifier" text NOT NULL,
-	"value" text NOT NULL,
-	"expires_at" timestamp NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE "factory" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
@@ -107,7 +58,7 @@ CREATE TABLE "run_event" (
 --> statement-breakpoint
 CREATE TABLE "runner" (
 	"id" text PRIMARY KEY NOT NULL,
-	"alias" text NOT NULL,
+	"name" text NOT NULL,
 	"token_hash" text NOT NULL,
 	"revoked_at" timestamp,
 	"pool" text NOT NULL,
@@ -151,8 +102,6 @@ CREATE TABLE "workspace_member" (
 ALTER TABLE "assembly_line" ADD CONSTRAINT "assembly_line_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "assembly_line" ADD CONSTRAINT "assembly_line_factory_id_factory_id_fk" FOREIGN KEY ("factory_id") REFERENCES "public"."factory"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "station" ADD CONSTRAINT "station_assembly_line_id_assembly_line_id_fk" FOREIGN KEY ("assembly_line_id") REFERENCES "public"."assembly_line"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "factory" ADD CONSTRAINT "factory_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "factory" ADD CONSTRAINT "factory_team_id_team_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."team"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "run" ADD CONSTRAINT "run_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -167,10 +116,6 @@ ALTER TABLE "workspace_member" ADD CONSTRAINT "workspace_member_user_id_user_id_
 CREATE INDEX "assembly_line_factory_idx" ON "assembly_line" USING btree ("factory_id");--> statement-breakpoint
 CREATE INDEX "assembly_line_workspace_idx" ON "assembly_line" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "station_assembly_line_idx" ON "station" USING btree ("assembly_line_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "account_issuer_accountId_uidx" ON "account" USING btree ("issuer","account_id");--> statement-breakpoint
-CREATE INDEX "account_userId_idx" ON "account" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "session_userId_idx" ON "session" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "verification_identifier_idx" ON "verification" USING btree ("identifier");--> statement-breakpoint
 CREATE INDEX "factory_workspace_idx" ON "factory" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "run_queue_idx" ON "run" USING btree ("pool","state","created_at");--> statement-breakpoint
 CREATE INDEX "run_target_idx" ON "run" USING btree ("target_runner_id");--> statement-breakpoint

@@ -30,7 +30,7 @@ export function RunnerRow({ slug, runner, selected }: RunnerRowProps) {
 
       <span className="flex min-w-0 flex-col">
         <span className="truncate font-medium text-foreground text-xs">
-          {runner.alias}
+          {runner.name}
         </span>
       </span>
 

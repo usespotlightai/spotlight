@@ -28,8 +28,8 @@ import { UnknownRunError } from '@domain/exceptions/unknown-run.error';
 import type { RunRepository } from '@domain/repositories/run.repository';
 import type { RunnerRepository } from '@domain/repositories/runner.repository';
 import { RunId } from '@domain/value-objects/run-id.vo';
-import { RunnerAlias } from '@domain/value-objects/runner-alias.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
+import { RunnerName } from '@domain/value-objects/runner-name.vo';
 import { RunnerPool } from '@domain/value-objects/runner-pool.vo';
 import { TokenHash } from '@domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
@@ -46,11 +46,11 @@ export class EnrolRunnerHandler
   async execute(command: EnrolRunnerCommand): Promise<EnrolledRunnerDto> {
     try {
       const minted = this.tokens.mint();
-      const alias = RunnerAlias.of(command.alias);
+      const name = RunnerName.of(command.name);
 
       const enrolled = Runner.enrol({
         id: RunnerId.of(this.ids.generate()),
-        alias,
+        name,
         pool: RunnerPool.of(command.pool),
         tokenHash: TokenHash.of(minted.hash),
       });
@@ -59,7 +59,7 @@ export class EnrolRunnerHandler
 
       return {
         runnerId: enrolled.id.value,
-        alias: alias.value,
+        name: name.value,
         token: minted.token,
       };
     } catch (error) {

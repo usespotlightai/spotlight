@@ -1,4 +1,4 @@
-import { Check, Copy, Plus } from 'lucide-react';
+import { Check, Copy } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,33 +9,26 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { useEnrolRunner } from '@/hooks/api/useEnrolRunner';
 import { useCopied } from '@/hooks/useCopied';
 
-type Enrolled = { id: string; alias: string; token: string };
+type Enrolled = { id: string; name: string; token: string };
 
 type NewRunnerDialogProps = {
-  /** Quiet in the page header, bordered where it is the only thing to do. */
-  variant?: 'ghost' | 'outline';
-  label?: string;
-  icon?: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 };
 
-export function NewRunnerDialog({
-  variant = 'ghost',
-  label = 'New runner',
-  icon = true,
-}: NewRunnerDialogProps) {
-  const [open, setOpen] = useState(false);
+export function NewRunnerDialog({ open, onOpenChange }: NewRunnerDialogProps) {
   const [name, setName] = useState('');
   const [pool, setPool] = useState('');
   const [enrolled, setEnrolled] = useState<Enrolled | null>(null);
   const enrol = useEnrolRunner();
 
-  const close = () => {
-    setOpen(false);
+  // Cleared once the dialog has finished animating out. Resetting on the way
+  // out instead swaps the token back to the empty form mid-animation.
+  const forget = () => {
     setName('');
     setPool('');
     setEnrolled(null);
@@ -49,7 +42,7 @@ export function NewRunnerDialog({
     }
 
     enrol.mutate(
-      { alias: name.trim(), pool: pool.trim() },
+      { name: name.trim(), pool: pool.trim() },
       { onSuccess: (runner) => runner && setEnrolled(runner) },
     );
   };
@@ -57,30 +50,22 @@ export function NewRunnerDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={(next) => (next ? setOpen(true) : close())}
+      onOpenChange={onOpenChange}
+      onOpenChangeComplete={(settled) => !settled && forget()}
     >
-      <DialogTrigger
-        render={
-          <Button variant={variant} size="sm">
-            {icon && <Plus className="size-3.5" aria-hidden />}
-            {label}
-          </Button>
-        }
-      />
-
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{enrolled ? enrolled.alias : 'New runner'}</DialogTitle>
+          <DialogTitle>{enrolled ? enrolled.name : 'New runner'}</DialogTitle>
 
           <DialogDescription>
             {enrolled
               ? 'The runner needs this token to connect. It is shown once and cannot be recovered afterwards.'
-              : 'A runner keeps this alias across restarts. Its pool decides which work it may take.'}
+              : 'A runner keeps this name across restarts. Its pool decides which work it may take.'}
           </DialogDescription>
         </DialogHeader>
 
         {enrolled ? (
-          <Token token={enrolled.token} onDone={close} />
+          <Token token={enrolled.token} onDone={() => onOpenChange(false)} />
         ) : (
           <Naming
             name={name}
@@ -124,8 +109,8 @@ function Naming({
           autoFocus
           value={name}
           onChange={(event) => onName(event.target.value)}
-          placeholder="Alias"
-          aria-label="Runner alias"
+          placeholder="Name"
+          aria-label="Runner name"
           maxLength={60}
           className="h-8 rounded-md border-[0.5px] border-border bg-background px-2.5 text-foreground text-sm outline-none placeholder:text-muted-foreground focus-visible:border-input"
         />

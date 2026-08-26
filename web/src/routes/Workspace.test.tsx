@@ -24,21 +24,21 @@ vi.mock('@/hooks/api/useRunners', () => ({
     data: [
       {
         id: 'r1',
-        alias: 'one',
+        name: 'one',
         pool: 'dev',
         connected: true,
         currentRun: null,
       },
       {
         id: 'r2',
-        alias: 'two',
+        name: 'two',
         pool: 'dev',
         connected: true,
         currentRun: { id: 'run_1' },
       },
       {
         id: 'r3',
-        alias: 'three',
+        name: 'three',
         pool: 'dev',
         connected: false,
         currentRun: null,

@@ -1,10 +1,12 @@
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Plus } from 'lucide-react';
+import { useState } from 'react';
 import { Outlet, useParams } from 'react-router';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { Disclosure } from '@/components/layout/Disclosure';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { NewRunnerDialog } from '@/components/runners/NewRunnerDialog';
 import { RunnerRow } from '@/components/runners/RunnerRow';
+import { Button } from '@/components/ui/button';
 import { useRunners } from '@/hooks/api/useRunners';
 import { useCollapsed } from '@/hooks/useCollapsed';
 import { useSidebarWidth } from '@/hooks/useSidebarWidth';
@@ -26,6 +28,7 @@ export function Runners() {
   const { data: runners, isPending } = useRunners();
   const pools = useCollapsed(POOLS_STORAGE_KEY);
   const fleetPane = useSidebarWidth(FLEET_PANE);
+  const [enrolling, setEnrolling] = useState(false);
 
   if (isPending || !slug) {
     return null;
@@ -41,12 +44,19 @@ export function Runners() {
           <Breadcrumbs
             segments={[
               { label: 'Runners' },
-              ...(selected ? [{ label: selected.alias }] : []),
+              ...(selected ? [{ label: selected.name }] : []),
             ]}
           />
         }
-        actions={<NewRunnerDialog />}
+        actions={
+          <Button variant="ghost" size="sm" onClick={() => setEnrolling(true)}>
+            <Plus className="size-3.5" aria-hidden />
+            New runner
+          </Button>
+        }
       />
+
+      <NewRunnerDialog open={enrolling} onOpenChange={setEnrolling} />
 
       <div
         className={cn(
@@ -64,11 +74,13 @@ export function Runners() {
                 No runner has registered with the control plane.
               </p>
 
-              <NewRunnerDialog
+              <Button
                 variant="outline"
-                label="Add a new runner"
-                icon={false}
-              />
+                size="sm"
+                onClick={() => setEnrolling(true)}
+              >
+                Add a new runner
+              </Button>
             </div>
           ) : (
             byPool(fleet).map(([pool, inPool]) => {

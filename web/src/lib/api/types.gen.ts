@@ -135,7 +135,7 @@ export type ActiveRunResponseDto = {
 
 export type ConnectedRunnerResponseDto = {
   id: string;
-  alias: string;
+  name: string;
   pool: string;
   registeredAt: string;
   /**
@@ -160,7 +160,7 @@ export type EnrolRunnerRequestDto = {
   /**
    * What to call this runner. Rejected if empty or over 60.
    */
-  alias: string;
+  name: string;
   /**
    * Which queue this runner may take work from.
    */
@@ -169,7 +169,7 @@ export type EnrolRunnerRequestDto = {
 
 export type EnrolledRunnerResponseDto = {
   id: string;
-  alias: string;
+  name: string;
   /**
    * Shown once. Nothing can recover it after this response.
    */

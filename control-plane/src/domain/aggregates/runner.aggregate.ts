@@ -1,12 +1,12 @@
 import { RunnerRevoked } from '@domain/events/runner-revoked.event';
 import { RevokedRunnerError } from '@domain/exceptions/revoked-runner.error';
-import type { RunnerAlias } from '@domain/value-objects/runner-alias.vo';
 import type { RunnerId } from '@domain/value-objects/runner-id.vo';
+import type { RunnerName } from '@domain/value-objects/runner-name.vo';
 import type { RunnerPool } from '@domain/value-objects/runner-pool.vo';
 import type { TokenHash } from '@domain/value-objects/token-hash.vo';
 
 /**
- * A runner someone has enrolled. Its alias, its pool and its token are all
+ * A runner someone has enrolled. Its name, its pool and its token are all
  * decided here, before it has ever connected: what a runner may serve is the
  * control plane's to grant, never the runner's to claim.
  */
@@ -15,7 +15,7 @@ export class Runner {
 
   private constructor(
     readonly id: RunnerId,
-    readonly alias: RunnerAlias,
+    readonly name: RunnerName,
     readonly pool: RunnerPool,
     readonly tokenHash: TokenHash,
     private revokedOn: Date | null,
@@ -25,13 +25,13 @@ export class Runner {
   /** Enrolled from the UI, with a token but no contact yet. */
   static enrol(input: {
     id: RunnerId;
-    alias: RunnerAlias;
+    name: RunnerName;
     pool: RunnerPool;
     tokenHash: TokenHash;
   }): Runner {
     return new Runner(
       input.id,
-      input.alias,
+      input.name,
       input.pool,
       input.tokenHash,
       null,
@@ -41,7 +41,7 @@ export class Runner {
 
   static rehydrate(input: {
     id: RunnerId;
-    alias: RunnerAlias;
+    name: RunnerName;
     pool: RunnerPool;
     tokenHash: TokenHash;
     revokedAt: Date | null;
@@ -49,7 +49,7 @@ export class Runner {
   }): Runner {
     return new Runner(
       input.id,
-      input.alias,
+      input.name,
       input.pool,
       input.tokenHash,
       input.revokedAt,

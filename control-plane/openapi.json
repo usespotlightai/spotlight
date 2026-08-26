@@ -986,7 +986,7 @@
             "type": "string",
             "example": "8a1d4e0b-6c72-4f35-9b8a-1e5d3c7f2a49"
           },
-          "alias": {
+          "name": {
             "type": "string",
             "example": "Build server"
           },
@@ -1027,7 +1027,7 @@
         },
         "required": [
           "id",
-          "alias",
+          "name",
           "pool",
           "registeredAt",
           "lastSeenAt",
@@ -1039,7 +1039,7 @@
       "EnrolRunnerRequestDto": {
         "type": "object",
         "properties": {
-          "alias": {
+          "name": {
             "type": "string",
             "example": "Build server",
             "description": "What to call this runner. Rejected if empty or over 60."
@@ -1051,7 +1051,7 @@
           }
         },
         "required": [
-          "alias",
+          "name",
           "pool"
         ]
       },
@@ -1062,7 +1062,7 @@
             "type": "string",
             "example": "8a1d4e0b-6c72-4f35-9b8a-1e5d3c7f2a49"
           },
-          "alias": {
+          "name": {
             "type": "string",
             "example": "Build server"
           },
@@ -1074,7 +1074,7 @@
         },
         "required": [
           "id",
-          "alias",
+          "name",
           "token"
         ]
       },
