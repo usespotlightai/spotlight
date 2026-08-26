@@ -4,13 +4,19 @@ import { cn } from '@/lib/utils';
 type DisclosureProps = {
   open: boolean;
   slot?: string;
+  className?: string;
   children: ReactNode;
 };
 
 /** Animates to a height nobody measured: the grid row goes 0fr to 1fr. The
  *  contents stay mounted so they can animate, so `inert` is what keeps a
  *  closed list out of the tab order. */
-export function Disclosure({ open, slot, children }: DisclosureProps) {
+export function Disclosure({
+  open,
+  slot,
+  className,
+  children,
+}: DisclosureProps) {
   return (
     <div
       data-slot={slot}
@@ -22,7 +28,10 @@ export function Disclosure({ open, slot, children }: DisclosureProps) {
     >
       <ul
         inert={!open}
-        className="flex min-h-0 flex-col gap-0.5 overflow-hidden pt-0.5"
+        className={cn(
+          'flex min-h-0 flex-col gap-0.5 overflow-hidden pt-0.5',
+          className,
+        )}
       >
         {children}
       </ul>

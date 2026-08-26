@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AssemblyLineBoard } from '@/routes/AssemblyLineBoard';
 
 const line = {
@@ -37,16 +37,18 @@ const renderAt = (lineId: string) =>
     </MemoryRouter>,
   );
 
-const lanes = () =>
-  Array.from(document.querySelectorAll('[data-slot="station-lane"]'));
+const sections = () =>
+  Array.from(document.querySelectorAll('[data-slot="station-section"]'));
 
 describe('AssemblyLineBoard', () => {
-  it('gives every station its own lane, in board order', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('gives every station its own section, in board order', () => {
     renderAt('line_1');
 
-    expect(lanes()).toHaveLength(4);
+    expect(sections()).toHaveLength(4);
     expect(
-      lanes().map((lane) => lane.querySelector('h2')?.textContent),
+      sections().map((section) => section.querySelector('a')?.textContent),
     ).toEqual(['Triage', 'Spec', 'Implementation', 'Code Review']);
   });
 
@@ -58,6 +60,22 @@ describe('AssemblyLineBoard', () => {
     ).toBeInTheDocument();
   });
 
+  it('folds a station away and leaves the others open', async () => {
+    const user = userEvent.setup();
+    renderAt('line_1');
+
+    await user.click(screen.getByRole('button', { name: 'Triage' }));
+
+    expect(screen.getByRole('button', { name: 'Triage' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(screen.getByRole('button', { name: 'Spec' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+  });
+
   it('walks back to the team from the breadcrumbs', () => {
     renderAt('line_1');
 
@@ -67,39 +85,32 @@ describe('AssemblyLineBoard', () => {
     );
   });
 
-  it('opens a station for customising from its lane menu', async () => {
-    const user = userEvent.setup();
+  it('opens a station from its title', () => {
     renderAt('line_1');
 
-    await user.click(screen.getByRole('button', { name: 'Triage options' }));
-    await screen.findByRole('menu');
-
-    expect(
-      screen.getByRole('menuitem', { name: 'Customize station' }),
-    ).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Triage' })).toHaveAttribute(
       'href',
       '/w/acme/team/team_1/lines/line_1/stations/station_1',
     );
   });
 
-  it('leaves the lane title as a label, not a link', () => {
+  it('folds from the chevron rather than the title, which navigates', async () => {
+    const user = userEvent.setup();
     renderAt('line_1');
 
-    expect(
-      screen.queryByRole('link', { name: 'Triage' }),
-    ).not.toBeInTheDocument();
-  });
+    await user.click(screen.getByRole('button', { name: 'Spec' }));
 
-  it('says each lane is empty rather than leaving it blank', () => {
-    renderAt('line_1');
-
-    expect(screen.getAllByText('Nothing here')).toHaveLength(4);
+    expect(screen.getByRole('button', { name: 'Spec' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(screen.getByRole('link', { name: 'Spec' })).toBeInTheDocument();
   });
 
   it('says so when there is no line at that address', () => {
     renderAt('line_missing');
 
-    expect(lanes()).toHaveLength(0);
+    expect(sections()).toHaveLength(0);
     expect(
       screen.getByRole('heading', { name: 'Assembly line not found' }),
     ).toBeInTheDocument();
