@@ -1,20 +1,11 @@
 import { Station } from '@domain/entities/station.entity';
+import type { Template } from '@domain/entities/template.entity';
 import { InvalidStationOrderError } from '@domain/exceptions/invalid-station-order.error';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import type { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
-import { StationName } from '@domain/value-objects/station-name.vo';
 import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
-
-export const DEFAULT_ASSEMBLY_LINE_NAME = 'Default';
-
-export const DEFAULT_STATION_NAMES = [
-  'Triage',
-  'Spec',
-  'Implementation',
-  'Code Review',
-] as const;
 
 export class AssemblyLine {
   private constructor(
@@ -25,22 +16,21 @@ export class AssemblyLine {
     readonly stations: readonly Station[],
   ) {}
 
-  static createDefault(input: {
+  static fromTemplate(input: {
+    template: Template;
     workspaceId: WorkspaceId;
     factoryId: FactoryId;
     newId: () => string;
   }): AssemblyLine {
-    const id = AssemblyLineId.of(input.newId());
-
     return AssemblyLine.of({
-      id,
+      id: AssemblyLineId.of(input.newId()),
       workspaceId: input.workspaceId,
       factoryId: input.factoryId,
-      name: AssemblyLineName.of(DEFAULT_ASSEMBLY_LINE_NAME),
-      stations: DEFAULT_STATION_NAMES.map((name, position) =>
+      name: AssemblyLineName.of(input.template.name.value),
+      stations: input.template.stations.map((name, position) =>
         Station.create({
           id: StationId.of(input.newId()),
-          name: StationName.of(name),
+          name,
           position,
         }),
       ),

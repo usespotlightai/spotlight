@@ -3,6 +3,7 @@ import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Factory } from '@domain/aggregates/factory.aggregate';
 import { TeamCreated } from '@domain/events/team-created.event';
+import { DEFAULT_TEMPLATE } from '@domain/value-objects/built-in-templates';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -43,16 +44,13 @@ describe('ProvisionFactory', () => {
     expect(opened?.workspaceId).toEqual(WorkspaceId.of('ws_1'));
   });
 
-  it('seeds that factory with the default board', async () => {
+  it('seeds that factory with a line off the default template', async () => {
     await provision();
 
     expect(seeded?.factoryId).toEqual(opened?.id);
-    expect(seeded?.name.value).toBe('Default');
-    expect(seeded?.stations.map((each) => each.name.value)).toEqual([
-      'Triage',
-      'Spec',
-      'Implementation',
-      'Code Review',
-    ]);
+    expect(seeded?.name.value).toBe(DEFAULT_TEMPLATE.name.value);
+    expect(seeded?.stations.map((each) => each.name.value)).toEqual(
+      DEFAULT_TEMPLATE.stations.map((each) => each.value),
+    );
   });
 });

@@ -5,6 +5,7 @@ import { Factory } from '@domain/aggregates/factory.aggregate';
 import type { TeamCreated } from '@domain/events/team-created.event';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { FactoryRepository } from '@domain/repositories/factory.repository';
+import { DEFAULT_TEMPLATE } from '@domain/value-objects/built-in-templates';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 
 export class ProvisionFactory implements FactoryProvisioningPort {
@@ -24,7 +25,8 @@ export class ProvisionFactory implements FactoryProvisioningPort {
     await this.factories.add(opened);
 
     await this.lines.add(
-      AssemblyLine.createDefault({
+      AssemblyLine.fromTemplate({
+        template: DEFAULT_TEMPLATE,
         workspaceId: event.workspaceId,
         factoryId: opened.id,
         newId: () => this.ids.generate(),
