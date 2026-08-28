@@ -9,5 +9,7 @@ export interface TaskRepository {
 
   find(id: TaskId): Promise<Task | null>;
 
+  remove(id: TaskId): Promise<void>;
+
   standingAt(stationId: StationId): Promise<Task[]>;
 }

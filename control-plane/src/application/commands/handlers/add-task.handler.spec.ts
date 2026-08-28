@@ -3,14 +3,19 @@ import { AddTaskHandler } from '@application/commands/handlers/add-task.handler'
 import { UseCaseFault } from '@application/errors/use-case.fault';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
+import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Task } from '@domain/aggregates/task.aggregate';
 import { Station } from '@domain/entities/station.entity';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
+import { TaskBriefing } from '@domain/services/task-briefing';
+import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
+import { RunId } from '@domain/value-objects/run-id.vo';
+import { RunnerPool } from '@domain/value-objects/runner-pool.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
@@ -30,13 +35,37 @@ const line = () =>
     name: AssemblyLineName.of('Default'),
     stations: [
       Station.create({
-        id: StationId.of('station_1'),
-        name: StationName.of('Triage'),
+        id: StationId.of('station_0'),
+        name: StationName.of('Backlog'),
         position: 0,
         color: StationColor.of('#a3a8b0'),
       }),
+      Station.create({
+        id: StationId.of('station_1'),
+        name: StationName.of('Triage'),
+        position: 1,
+        color: StationColor.of('#93a1b5'),
+        pool: RunnerPool.of('dev'),
+        agentPrompt: AgentPrompt.of('## Role'),
+      }),
     ],
   });
+
+const dispatched: { pool: string; priority: number; brief: string }[] = [];
+
+const dispatch = (runId: string | null = 'run_1'): TaskDispatchPort => ({
+  dispatch: async ({ task, station }) => {
+    if (!station.pool) {
+      return null;
+    }
+    dispatched.push({
+      pool: station.pool.value,
+      priority: station.position,
+      brief: TaskBriefing.brief(station, task),
+    });
+    return runId === null ? null : RunId.of(runId);
+  },
+});
 
 let added: Task | undefined;
 
@@ -47,6 +76,7 @@ const tasks = () =>
     }),
     save: vi.fn(),
     find: vi.fn(async () => null),
+    remove: vi.fn(),
     standingAt: vi.fn(async () => []),
   }) satisfies TaskRepository;
 
@@ -55,15 +85,18 @@ const lines = (found: AssemblyLine | null = line()) =>
     add: vi.fn(),
     save: vi.fn(),
     find: vi.fn(async () => found),
+    holding: vi.fn(async () => found),
   }) satisfies AssemblyLineRepository;
 
 const addTask = (
   command: AddTaskCommand,
   board: AssemblyLineRepository = lines(),
-) => new AddTaskHandler(tasks(), board, ids, clock).execute(command);
+) =>
+  new AddTaskHandler(tasks(), board, ids, clock, dispatch()).execute(command);
 
 beforeEach(() => {
   added = undefined;
+  dispatched.length = 0;
 });
 
 describe('AddTaskHandler', () => {
@@ -94,6 +127,26 @@ describe('AddTaskHandler', () => {
     );
 
     expect(added?.description?.value).toBe('## Steps\n\nGo.');
+  });
+
+  it('hands the task to a runner as soon as it is raised', async () => {
+    await addTask(
+      new AddTaskCommand('line_1', 'station_1', 'Fix the queue', null),
+    );
+
+    expect(dispatched).toEqual([
+      { pool: 'dev', priority: 1, brief: '## Role\n\n## Fix the queue' },
+    ]);
+    expect(added?.currentRunId?.value).toBe('run_1');
+  });
+
+  it('holds work back at a station no runners answer for', async () => {
+    await addTask(
+      new AddTaskCommand('line_1', 'station_0', 'Think about it', null),
+    );
+
+    expect(dispatched).toEqual([]);
+    expect(added?.currentRunId).toBeNull();
   });
 
   it('refuses a station the line does not hold', async () => {

@@ -1,10 +1,12 @@
-import { useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import { StationSelect } from '@/components/board/StationSelect';
+import { TaskActions } from '@/components/board/TaskActions';
 import { InitialAvatar } from '@/components/common/avatar/InitialAvatar';
 import { MarkdownEditor } from '@/components/common/form/MarkdownEditor';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useAssemblyLines } from '@/hooks/api/useAssemblyLines';
+import { useDeleteTask } from '@/hooks/api/useDeleteTask';
 import { useMoveTask } from '@/hooks/api/useMoveTask';
 import { useTasks } from '@/hooks/api/useTasks';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
@@ -16,6 +18,8 @@ export function Task() {
   const { data: lines } = useAssemblyLines(teamId);
   const { data: tasks, isPending } = useTasks(teamId);
   const moveTask = useMoveTask();
+  const deleteTask = useDeleteTask();
+  const navigate = useNavigate();
 
   if (isPending) {
     return null;
@@ -72,6 +76,28 @@ export function Task() {
                 : []),
               { label: task.title },
             ]}
+          />
+        }
+        trailing={
+          <TaskActions
+            title={task.title}
+            onDelete={() => {
+              if (!teamId) {
+                return;
+              }
+
+              deleteTask.mutate(
+                { teamId, taskId: task.id },
+                {
+                  onSuccess: () =>
+                    void navigate(
+                      slug && line
+                        ? assemblyLinePath(slug, teamId, line.id)
+                        : teamPath(slug ?? '', teamId),
+                    ),
+                },
+              );
+            }}
           />
         }
       />

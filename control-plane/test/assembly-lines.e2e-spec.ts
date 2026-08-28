@@ -40,6 +40,12 @@ describe('AssemblyLineController (e2e)', () => {
       .expect(401);
   });
 
+  it('/teams/:teamId/tasks/:taskId (DELETE) is rejected without a session', () => {
+    return request(app.getHttpServer())
+      .delete('/api/teams/team_1/tasks/task_1')
+      .expect(401);
+  });
+
   it('/tasks/:taskId/move (POST) is rejected without a session', () => {
     return request(app.getHttpServer())
       .post('/api/teams/team_1/assembly-lines/line_1/tasks/task_1/move')

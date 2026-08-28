@@ -5,6 +5,7 @@ import { TaskMapper } from '@application/mappers/task.mapper';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
+import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { UnknownAssemblyLineError } from '@domain/exceptions/unknown-assembly-line.error';
 import { UnknownStationError } from '@domain/exceptions/unknown-station.error';
@@ -24,6 +25,7 @@ export class AddTaskHandler
     private readonly lines: AssemblyLineRepository,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
+    private readonly dispatch: TaskDispatchPort,
   ) {}
 
   async execute(command: AddTaskCommand): Promise<TaskDto> {
@@ -42,7 +44,9 @@ export class AddTaskHandler
     if (!line) {
       throw new UnknownAssemblyLineError(command.lineId);
     }
-    if (!line.stations.some((each) => each.id.equals(stationId))) {
+    const station = line.stations.find((each) => each.id.equals(stationId));
+
+    if (!station) {
       throw new UnknownStationError(command.stationId);
     }
 
@@ -61,8 +65,11 @@ export class AddTaskHandler
       newId: () => this.ids.generate(),
     });
 
-    await this.tasks.add(added);
+    const runId = await this.dispatch.dispatch({ task: added, station });
+    const raised = runId ? added.handedTo(runId) : added;
 
-    return TaskMapper.taskToDto(added);
+    await this.tasks.add(raised);
+
+    return TaskMapper.taskToDto(raised);
   }
 }

@@ -17,6 +17,7 @@ import type {
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
+import type { HandoverPort } from '@application/ports/handover.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { RunStreamPort } from '@application/ports/run-stream.port';
 import type { RunnerRevocationPort } from '@application/ports/runner-revocation.port';
@@ -150,6 +151,7 @@ export class ClaimRunHandler
     private readonly runs: RunRepository,
     private readonly runners: RunnerRepository,
     private readonly clock: ClockPort,
+    private readonly handover: HandoverPort,
   ) {}
 
   async execute(command: ClaimRunCommand): Promise<ClaimedRunDto | null> {
@@ -170,7 +172,9 @@ export class ClaimRunHandler
 
       // Once per claim, not per attempt. A runner whose host died leaves a run
       // held until its lease lapses, and somebody has to notice.
-      await this.runs.requeueLapsed(this.clock.now());
+      for (const abandoned of await this.runs.requeueLapsed(this.clock.now())) {
+        await this.handover.handOver(abandoned);
+      }
 
       const deadline = this.clock.now().getTime() + POLL_TIMEOUT_MS;
 
@@ -294,22 +298,29 @@ export class AppendRunEventsHandler
 export class CompleteRunHandler
   implements CommandHandlerPort<CompleteRunCommand, void>
 {
-  constructor(private readonly runs: RunRepository) {}
+  constructor(
+    private readonly runs: RunRepository,
+    private readonly transaction: TransactionPort,
+    private readonly handover: HandoverPort,
+  ) {}
 
   async execute(command: CompleteRunCommand): Promise<void> {
     try {
-      const found = await this.runs.findById(RunId.of(command.runId));
-      if (!found) {
-        throw new UnknownRunError(`there is no run ${command.runId}`);
-      }
+      await this.transaction.run(async () => {
+        const found = await this.runs.findById(RunId.of(command.runId));
+        if (!found) {
+          throw new UnknownRunError(`there is no run ${command.runId}`);
+        }
 
-      found.complete(RunnerId.of(command.runnerId), {
-        exitCode: command.exitCode,
-        failed: command.failed,
-        message: command.message,
+        found.complete(RunnerId.of(command.runnerId), {
+          exitCode: command.exitCode,
+          failed: command.failed,
+          message: command.message,
+        });
+
+        await this.runs.save(found);
+        await this.handover.handOver(found);
       });
-
-      await this.runs.save(found);
     } catch (error) {
       rethrowAsFault(error);
     }

@@ -46,6 +46,7 @@ const lines = (found: AssemblyLine | null = line()) =>
       saved = updated;
     }),
     find: vi.fn(async () => found),
+    holding: vi.fn(async () => found),
   }) satisfies AssemblyLineRepository;
 
 const reorder = (order: string[], board: AssemblyLineRepository = lines()) =>

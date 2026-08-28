@@ -89,6 +89,16 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
     }
   }
 
+  async holding(stationId: StationId): Promise<AssemblyLine | null> {
+    const [found] = await this.context.db
+      .select({ assemblyLineId: station.assemblyLineId })
+      .from(station)
+      .where(eq(station.id, stationId.value))
+      .limit(1);
+
+    return found ? this.find(AssemblyLineId.of(found.assemblyLineId)) : null;
+  }
+
   async find(id: AssemblyLineId): Promise<AssemblyLine | null> {
     const [found] = await this.context.db
       .select()

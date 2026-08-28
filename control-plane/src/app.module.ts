@@ -1,9 +1,11 @@
 import { AddTaskCommand } from '@application/commands/add-task.command';
 import { CreateWorkspaceCommand } from '@application/commands/create-workspace.command';
 import { CustomiseStationCommand } from '@application/commands/customise-station.command';
+import { DeleteTaskCommand } from '@application/commands/delete-task.command';
 import { AddTaskHandler } from '@application/commands/handlers/add-task.handler';
 import { CreateWorkspaceHandler } from '@application/commands/handlers/create-workspace.handler';
 import { CustomiseStationHandler } from '@application/commands/handlers/customise-station.handler';
+import { DeleteTaskHandler } from '@application/commands/handlers/delete-task.handler';
 import { MoveTaskHandler } from '@application/commands/handlers/move-task.handler';
 import { ReorderStationsHandler } from '@application/commands/handlers/reorder-stations.handler';
 import {
@@ -38,11 +40,14 @@ import {
   RenewLeaseCommand,
   RevokeRunnerCommand,
 } from '@application/commands/runner.commands';
+import { DispatchTask } from '@application/events/handlers/dispatch-task.handler';
+import { HandOver } from '@application/events/handlers/hand-over.handler';
 import { ProvisionFactory } from '@application/events/handlers/provision-factory.handler';
 import { ReleaseHeldRuns } from '@application/events/handlers/release-held-runs.handler';
 import { ASSEMBLY_LINE_READER } from '@application/ports/assembly-line-reader.port';
-import { CLOCK } from '@application/ports/clock.port';
+import { CLOCK, type ClockPort } from '@application/ports/clock.port';
 import { FACTORY_PROVISIONING } from '@application/ports/factory-provisioning.port';
+import { HANDOVER } from '@application/ports/handover.port';
 import { ID_GENERATOR } from '@application/ports/id-generator.port';
 import { RUN_EVENT_READER } from '@application/ports/run-event-reader.port';
 import { RUN_INPUT } from '@application/ports/run-input.port';
@@ -51,6 +56,10 @@ import { RUNNER_AUTH } from '@application/ports/runner-auth.port';
 import { RUNNER_READER } from '@application/ports/runner-reader.port';
 import { RUNNER_REVOCATION } from '@application/ports/runner-revocation.port';
 import { RUNNER_TOKEN } from '@application/ports/runner-token.port';
+import {
+  TASK_DISPATCH,
+  type TaskDispatchPort,
+} from '@application/ports/task-dispatch.port';
 import { TASK_READER } from '@application/ports/task-reader.port';
 import { TRANSACTION } from '@application/ports/transaction.port';
 import { WORKSPACE_READER } from '@application/ports/workspace-reader.port';
@@ -158,6 +167,29 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     },
 
     {
+      provide: TASK_DISPATCH,
+      inject: [DrizzleRunRepository, ID_GENERATOR],
+      useFactory: (runs: DrizzleRunRepository, ids: CryptoIdGenerator) =>
+        new DispatchTask(runs, ids),
+    },
+
+    {
+      provide: HANDOVER,
+      inject: [
+        DrizzleTaskRepository,
+        DrizzleAssemblyLineRepository,
+        TASK_DISPATCH,
+        CLOCK,
+      ],
+      useFactory: (
+        tasks: DrizzleTaskRepository,
+        lines: DrizzleAssemblyLineRepository,
+        dispatch: TaskDispatchPort,
+        clock: ClockPort,
+      ) => new HandOver(tasks, lines, dispatch, clock),
+    },
+
+    {
       provide: FACTORY_PROVISIONING,
       useFactory: (
         factories: DrizzleFactoryRepository,
@@ -202,12 +234,18 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       DrizzleAssemblyLineRepository,
       ID_GENERATOR,
       CLOCK,
+      TASK_DISPATCH,
+    ]),
+
+    ...bindCommandHandler(DeleteTaskCommand, DeleteTaskHandler, [
+      DrizzleTaskRepository,
     ]),
 
     ...bindCommandHandler(MoveTaskCommand, MoveTaskHandler, [
       DrizzleTaskRepository,
       DrizzleAssemblyLineRepository,
       TRANSACTION,
+      TASK_DISPATCH,
     ]),
 
     ...bindCommandHandler(ReorderStationsCommand, ReorderStationsHandler, [
@@ -240,6 +278,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       DrizzleRunRepository,
       DrizzleRunnerRepository,
       CLOCK,
+      HANDOVER,
     ]),
     ...bindCommandHandler(RenewLeaseCommand, RenewLeaseHandler, [
       DrizzleRunRepository,
@@ -265,6 +304,8 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     ]),
     ...bindCommandHandler(CompleteRunCommand, CompleteRunHandler, [
       DrizzleRunRepository,
+      TRANSACTION,
+      HANDOVER,
     ]),
     ...bindCommandHandler(EnqueueRunCommand, EnqueueRunHandler, [
       DrizzleRunRepository,

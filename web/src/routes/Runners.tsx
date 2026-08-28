@@ -83,8 +83,10 @@ export function Runners() {
                 variant="outline"
                 size="sm"
                 onClick={() => setEnrolling(true)}
+                className="rounded-full bg-card shadow-none"
               >
-                Add a new runner
+                <Plus className="size-3.5" aria-hidden />
+                New runner
               </Button>
             </div>
           ) : (

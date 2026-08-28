@@ -1,0 +1,1 @@
+ALTER TABLE "task" ADD COLUMN "current_run_id" text;

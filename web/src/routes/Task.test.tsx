@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Task } from '@/routes/Task';
 
 const task = {
@@ -13,12 +13,16 @@ const task = {
 };
 
 const moved = vi.fn();
+const deleted = vi.fn();
 
 vi.mock('@/hooks/api/useTasks', () => ({
   useTasks: () => ({ data: [task], isPending: false }),
 }));
 vi.mock('@/hooks/api/useMoveTask', () => ({
   useMoveTask: () => ({ mutate: moved }),
+}));
+vi.mock('@/hooks/api/useDeleteTask', () => ({
+  useDeleteTask: () => ({ mutate: deleted }),
 }));
 vi.mock('@/hooks/api/useAssemblyLines', () => ({
   useAssemblyLines: () => ({
@@ -50,6 +54,11 @@ const renderAt = (taskId: string) =>
       </Routes>
     </MemoryRouter>,
   );
+
+beforeEach(() => {
+  moved.mockClear();
+  deleted.mockClear();
+});
 
 describe('Task', () => {
   it('leads with the task title', () => {
@@ -92,6 +101,49 @@ describe('Task', () => {
       stationId: 'station_0',
       afterTaskId: null,
     });
+  });
+
+  it('asks before taking a task away', async () => {
+    const user = userEvent.setup();
+    renderAt('task_1');
+
+    await user.click(screen.getByRole('button', { name: 'Task options' }));
+    await screen.findByRole('menu');
+    await user.click(screen.getByRole('menuitem', { name: /Delete task/ }));
+
+    expect(
+      await screen.findByRole('heading', { name: /Delete/ }),
+    ).toBeInTheDocument();
+    expect(deleted).not.toHaveBeenCalled();
+  });
+
+  it('takes the task away once it is asked to', async () => {
+    const user = userEvent.setup();
+    renderAt('task_1');
+
+    await user.click(screen.getByRole('button', { name: 'Task options' }));
+    await screen.findByRole('menu');
+    await user.click(screen.getByRole('menuitem', { name: /Delete task/ }));
+    await user.click(
+      await screen.findByRole('button', { name: 'Delete task' }),
+    );
+
+    expect(deleted).toHaveBeenCalledWith(
+      { teamId: 'team_1', taskId: 'task_1' },
+      expect.anything(),
+    );
+  });
+
+  it('keeps the task when the asking is declined', async () => {
+    const user = userEvent.setup();
+    renderAt('task_1');
+
+    await user.click(screen.getByRole('button', { name: 'Task options' }));
+    await screen.findByRole('menu');
+    await user.click(screen.getByRole('menuitem', { name: /Delete task/ }));
+    await user.click(await screen.findByRole('button', { name: 'Keep it' }));
+
+    expect(deleted).not.toHaveBeenCalled();
   });
 
   it('says so when there is no task at that address', () => {

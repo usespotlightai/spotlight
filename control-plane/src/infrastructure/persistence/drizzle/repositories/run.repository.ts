@@ -6,6 +6,7 @@ import type {
 import { RunId } from '@domain/value-objects/run-id.vo';
 import type { RunState } from '@domain/value-objects/run-state';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
+import { TaskId } from '@domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
 import {
@@ -26,6 +27,8 @@ export class DrizzleRunRepository implements RunRepository {
       id: added.id.value,
       workspaceId: added.workspaceId.value,
       pool: added.pool,
+      priority: added.priority,
+      taskId: added.taskId?.value ?? null,
       state: added.state,
       spec: added.spec,
       targetRunnerId: added.targetRunner?.value ?? null,
@@ -47,6 +50,8 @@ export class DrizzleRunRepository implements RunRepository {
           id,
           workspace_id      AS "workspaceId",
           pool,
+          priority,
+          task_id           AS "taskId",
           state,
           spec,
           target_runner_id  AS "targetRunnerId",
@@ -59,7 +64,7 @@ export class DrizzleRunRepository implements RunRepository {
         WHERE pool = ${pool}
           AND state = 'queued'
           AND (target_runner_id IS NULL OR target_runner_id = ${by.value})
-        ORDER BY created_at
+        ORDER BY priority DESC, created_at
         FOR UPDATE SKIP LOCKED
         LIMIT 1
       `);
@@ -153,14 +158,15 @@ export class DrizzleRunRepository implements RunRepository {
    * The query narrows the candidates and `Run.lapsed` decides, so the rule is
    * stated once instead of twice.
    */
-  async requeueLapsed(now: Date): Promise<number> {
+  async requeueLapsed(now: Date): Promise<Run[]> {
     return this.context.run(async () => {
       const candidates = await this.context.db
         .select()
         .from(run)
         .where(and(eq(run.state, 'claimed'), lte(run.leaseExpiresAt, now)));
 
-      let requeued = 0;
+      const abandoned: Run[] = [];
+
       for (const row of candidates) {
         const lapsing = toRun(row);
         if (!lapsing.lapsed(now)) {
@@ -169,10 +175,13 @@ export class DrizzleRunRepository implements RunRepository {
 
         lapsing.requeue(now);
         await this.save(lapsing);
-        requeued += 1;
+
+        if (lapsing.abandoned) {
+          abandoned.push(lapsing);
+        }
       }
 
-      return requeued;
+      return abandoned;
     });
   }
 }
@@ -194,6 +203,8 @@ const toRun = (row: Row): Run =>
     id: RunId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
     pool: row.pool,
+    priority: row.priority,
+    taskId: row.taskId ? TaskId.of(row.taskId) : null,
     spec: row.spec,
     targetRunner: row.targetRunnerId ? RunnerId.of(row.targetRunnerId) : null,
     state: row.state as RunState,

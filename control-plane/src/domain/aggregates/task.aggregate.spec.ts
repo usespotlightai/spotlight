@@ -1,6 +1,9 @@
 import { Task } from '@domain/aggregates/task.aggregate';
 import { StationId } from '@domain/value-objects/station-id.vo';
+import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskDescription } from '@domain/value-objects/task-description.vo';
+import { TaskNote } from '@domain/value-objects/task-note.vo';
+import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
@@ -69,6 +72,57 @@ describe('Task', () => {
 
     expect(reordered.rank.value).toBe('m');
     expect(reordered.stationId).toEqual(StationId.of('station_1'));
+  });
+
+  it('keeps a note of what a station left behind', () => {
+    const worked = added().note(
+      TaskNote.of({
+        station: StationName.of('Triage'),
+        body: TaskNoteBody.of('Reproduced on restart.'),
+        at: new Date('2026-08-28T10:00:00.000Z'),
+      }),
+    );
+
+    expect(worked.notes.map((each) => each.body.value)).toEqual([
+      'Reproduced on restart.',
+    ]);
+  });
+
+  it('keeps its notes in the order they were left', () => {
+    const worked = added()
+      .note(
+        TaskNote.of({
+          station: StationName.of('Triage'),
+          body: TaskNoteBody.of('First'),
+          at: new Date('2026-08-28T10:00:00.000Z'),
+        }),
+      )
+      .note(
+        TaskNote.of({
+          station: StationName.of('Spec'),
+          body: TaskNoteBody.of('Second'),
+          at: new Date('2026-08-28T11:00:00.000Z'),
+        }),
+      );
+
+    expect(worked.notes.map((each) => each.station.value)).toEqual([
+      'Triage',
+      'Spec',
+    ]);
+  });
+
+  it('carries its notes across a move', () => {
+    const worked = added()
+      .note(
+        TaskNote.of({
+          station: StationName.of('Triage'),
+          body: TaskNoteBody.of('Reproduced.'),
+          at: new Date('2026-08-28T10:00:00.000Z'),
+        }),
+      )
+      .moveTo(StationId.of('station_2'), TaskRank.of('m'));
+
+    expect(worked.notes).toHaveLength(1);
   });
 
   it('is the same task as another of the same id', () => {

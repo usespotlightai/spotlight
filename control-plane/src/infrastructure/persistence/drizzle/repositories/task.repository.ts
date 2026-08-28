@@ -1,19 +1,34 @@
 import { Task } from '@domain/aggregates/task.aggregate';
 import type { TaskRepository } from '@domain/repositories/task.repository';
+import { RunId } from '@domain/value-objects/run-id.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
+import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskDescription } from '@domain/value-objects/task-description.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';
+import { TaskNote } from '@domain/value-objects/task-note.vo';
+import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
-import { task } from '@infrastructure/persistence/drizzle/schemas/task.schema';
+import {
+  task,
+  taskNote,
+} from '@infrastructure/persistence/drizzle/schemas/task.schema';
 import { Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 
 type Row = typeof task.$inferSelect;
+type NoteRow = typeof taskNote.$inferSelect;
 
-const toTask = (row: Row): Task =>
+const toNote = (row: NoteRow): TaskNote =>
+  TaskNote.of({
+    station: StationName.of(row.station),
+    body: TaskNoteBody.of(row.body),
+    at: row.at,
+  });
+
+const toTask = (row: Row, notes: NoteRow[]): Task =>
   Task.rehydrate({
     id: TaskId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
@@ -21,6 +36,9 @@ const toTask = (row: Row): Task =>
     title: TaskTitle.of(row.title),
     description: row.description ? TaskDescription.of(row.description) : null,
     rank: TaskRank.of(row.rank),
+    currentRunId: row.currentRunId ? RunId.of(row.currentRunId) : null,
+    awaitingReview: row.awaitingReview,
+    notes: notes.map(toNote),
     createdAt: row.createdAt,
   });
 
@@ -36,8 +54,12 @@ export class DrizzleTaskRepository implements TaskRepository {
       title: added.title.value,
       description: added.description?.value ?? null,
       rank: added.rank.value,
+      currentRunId: added.currentRunId?.value ?? null,
+      awaitingReview: added.awaitingReview,
       createdAt: added.createdAt,
     });
+
+    await this.writeNotes(added);
   }
 
   async save(saved: Task): Promise<void> {
@@ -48,8 +70,12 @@ export class DrizzleTaskRepository implements TaskRepository {
         title: saved.title.value,
         description: saved.description?.value ?? null,
         rank: saved.rank.value,
+        currentRunId: saved.currentRunId?.value ?? null,
+        awaitingReview: saved.awaitingReview,
       })
       .where(eq(task.id, saved.id.value));
+
+    await this.writeNotes(saved);
   }
 
   async find(id: TaskId): Promise<Task | null> {
@@ -59,7 +85,17 @@ export class DrizzleTaskRepository implements TaskRepository {
       .where(eq(task.id, id.value))
       .limit(1);
 
-    return found ? toTask(found) : null;
+    if (!found) {
+      return null;
+    }
+
+    const notes = await this.notesFor([found.id]);
+
+    return toTask(found, notes.get(found.id) ?? []);
+  }
+
+  async remove(id: TaskId): Promise<void> {
+    await this.context.db.delete(task).where(eq(task.id, id.value));
   }
 
   async standingAt(stationId: StationId): Promise<Task[]> {
@@ -69,6 +105,45 @@ export class DrizzleTaskRepository implements TaskRepository {
       .where(eq(task.stationId, stationId.value))
       .orderBy(task.rank);
 
-    return found.map(toTask);
+    const notes = await this.notesFor(found.map((each) => each.id));
+
+    return found.map((each) => toTask(each, notes.get(each.id) ?? []));
+  }
+
+  private async notesFor(taskIds: string[]): Promise<Map<string, NoteRow[]>> {
+    if (taskIds.length === 0) {
+      return new Map();
+    }
+
+    const rows = await this.context.db
+      .select()
+      .from(taskNote)
+      .where(inArray(taskNote.taskId, taskIds))
+      .orderBy(taskNote.position);
+
+    return rows.reduce((standing, row) => {
+      standing.set(row.taskId, [...(standing.get(row.taskId) ?? []), row]);
+      return standing;
+    }, new Map<string, NoteRow[]>());
+  }
+
+  private async writeNotes(saved: Task): Promise<void> {
+    await this.context.db
+      .delete(taskNote)
+      .where(eq(taskNote.taskId, saved.id.value));
+
+    if (saved.notes.length === 0) {
+      return;
+    }
+
+    await this.context.db.insert(taskNote).values(
+      saved.notes.map((note, position) => ({
+        taskId: saved.id.value,
+        position,
+        station: note.station.value,
+        body: note.body.value,
+        at: note.at,
+      })),
+    );
   }
 }

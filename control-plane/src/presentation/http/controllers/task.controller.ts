@@ -1,4 +1,5 @@
 import { AddTaskCommand } from '@application/commands/add-task.command';
+import { DeleteTaskCommand } from '@application/commands/delete-task.command';
 import { MoveTaskCommand } from '@application/commands/move-task.command';
 import type { AssemblyLineDto } from '@application/dto/assembly-line.dto';
 import type { TaskDto } from '@application/dto/task.dto';
@@ -8,6 +9,7 @@ import { ListTasksQuery } from '@application/queries/list-tasks.query';
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -18,6 +20,7 @@ import {
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
   ApiCreatedResponse,
+  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -62,6 +65,36 @@ export class TaskController {
     }
 
     return tasks.map(TaskHttpMapper.toResponse);
+  }
+
+  @Delete('tasks/:taskId')
+  @ApiOperation({
+    operationId: 'deleteTask',
+    summary: 'Delete a task',
+  })
+  @ApiParam({
+    name: 'taskId',
+    example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13',
+  })
+  @ApiNoContentResponse({ description: 'The task is gone' })
+  @ApiNotFoundResponse({ description: 'No such task for this caller' })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(
+    @Param('teamId') teamId: string,
+    @Param('taskId') taskId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    const tasks = await this.queryBus.execute<ListTasksQuery, TaskDto[] | null>(
+      new ListTasksQuery(teamId, user.id),
+    );
+
+    if (!tasks?.some((each) => each.id === taskId)) {
+      throw new NotFoundException();
+    }
+
+    await this.commandBus.execute<DeleteTaskCommand, void>(
+      new DeleteTaskCommand(taskId),
+    );
   }
 
   @Post('assembly-lines/:lineId/stations/:stationId/tasks')

@@ -34,6 +34,56 @@ const claimed = (by = runner(), when = noon) => {
 };
 
 describe('Run', () => {
+  it('gives up rather than requeueing for ever', () => {
+    const lapsedAt = new Date('2026-08-28T12:00:00.000Z');
+    const later = new Date(lapsedAt.getTime() + 600_000);
+
+    const run = Run.rehydrate({
+      id: RunId.of('run_1'),
+      workspaceId: WorkspaceId.of('ws_1'),
+      pool: 'dev',
+      priority: 0,
+      taskId: null,
+      spec: {},
+      targetRunner: null,
+      state: 'claimed',
+      claimedBy: RunnerId.of('runner_1'),
+      leaseExpiresAt: lapsedAt,
+      outcome: null,
+      attempt: 3,
+    });
+
+    run.requeue(later);
+
+    expect(run.state).toBe('failed');
+    expect(run.abandoned).toBe(true);
+  });
+
+  it('goes back on the queue while it still has attempts left', () => {
+    const lapsedAt = new Date('2026-08-28T12:00:00.000Z');
+    const later = new Date(lapsedAt.getTime() + 600_000);
+
+    const run = Run.rehydrate({
+      id: RunId.of('run_1'),
+      workspaceId: WorkspaceId.of('ws_1'),
+      pool: 'dev',
+      priority: 0,
+      taskId: null,
+      spec: {},
+      targetRunner: null,
+      state: 'claimed',
+      claimedBy: RunnerId.of('runner_1'),
+      leaseExpiresAt: lapsedAt,
+      outcome: null,
+      attempt: 1,
+    });
+
+    run.requeue(later);
+
+    expect(run.state).toBe('queued');
+    expect(run.abandoned).toBe(false);
+  });
+
   it('starts queued, unclaimed and on its first attempt', () => {
     const run = queued();
 

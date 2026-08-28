@@ -49,6 +49,8 @@ export const run = pgTable(
       .notNull()
       .references(() => workspace.id, { onDelete: 'cascade' }),
     pool: text('pool').notNull(),
+    priority: integer('priority').default(0).notNull(),
+    taskId: text('task_id'),
     state: runState('state').notNull(),
     spec: jsonb('spec').$type<unknown>().notNull(),
     // Rises each time the run goes back on the queue. Without it a second
@@ -70,8 +72,14 @@ export const run = pgTable(
       .notNull(),
   },
   (table) => [
-    // Exactly what the claim reads: the oldest queued run in one pool.
-    index('run_queue_idx').on(table.pool, table.state, table.createdAt),
+    // Exactly what the claim reads: the most downstream queued run in one
+    // pool, oldest first among equals.
+    index('run_queue_idx').on(
+      table.pool,
+      table.state,
+      table.priority,
+      table.createdAt,
+    ),
     index('run_target_idx').on(table.targetRunnerId),
     index('run_lease_idx').on(table.leaseExpiresAt),
     index('run_workspace_idx').on(table.workspaceId),

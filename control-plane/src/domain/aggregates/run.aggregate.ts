@@ -2,10 +2,13 @@ import { InvalidRunTransitionError } from '@domain/exceptions/invalid-run-transi
 import { RunId } from '@domain/value-objects/run-id.vo';
 import type { RunState } from '@domain/value-objects/run-state';
 import type { RunnerId } from '@domain/value-objects/runner-id.vo';
+import type { TaskId } from '@domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 
 /** How long a claim survives without the runner asking again. */
 const LEASE_DURATION_MS = 60_000;
+
+const MAX_ATTEMPTS = 3;
 
 export interface RunOutcome {
   readonly exitCode: number;
@@ -19,10 +22,14 @@ export interface RunOutcome {
  * from one that died, so both put the run back on the queue.
  */
 export class Run {
+  #gaveUp = false;
+
   private constructor(
     readonly id: RunId,
     readonly workspaceId: WorkspaceId,
     readonly pool: string,
+    readonly priority: number,
+    readonly taskId: TaskId | null,
     readonly spec: unknown,
     readonly targetRunner: RunnerId | null,
     private currentState: RunState,
@@ -36,6 +43,8 @@ export class Run {
     id: RunId;
     workspaceId: WorkspaceId;
     pool: string;
+    priority?: number;
+    taskId?: TaskId | null;
     spec: unknown;
     targetRunner?: RunnerId | null;
   }): Run {
@@ -43,6 +52,8 @@ export class Run {
       input.id,
       input.workspaceId,
       input.pool,
+      input.priority ?? 0,
+      input.taskId ?? null,
       input.spec,
       input.targetRunner ?? null,
       'queued',
@@ -57,6 +68,8 @@ export class Run {
     id: RunId;
     workspaceId: WorkspaceId;
     pool: string;
+    priority: number;
+    taskId: TaskId | null;
     spec: unknown;
     targetRunner: RunnerId | null;
     state: RunState;
@@ -69,6 +82,8 @@ export class Run {
       input.id,
       input.workspaceId,
       input.pool,
+      input.priority,
+      input.taskId,
       input.spec,
       input.targetRunner,
       input.state,
@@ -133,10 +148,27 @@ export class Run {
       );
     }
 
+    if (this.attemptNumber >= MAX_ATTEMPTS) {
+      this.giveUp(`no runner finished it in ${MAX_ATTEMPTS} attempts`);
+      return;
+    }
+
     this.currentState = 'queued';
     this.claimant = null;
     this.leaseUntil = null;
     this.attemptNumber += 1;
+  }
+
+  get abandoned(): boolean {
+    return this.#gaveUp;
+  }
+
+  private giveUp(reason: string): void {
+    this.#gaveUp = true;
+    this.currentState = 'failed';
+    this.claimant = null;
+    this.leaseUntil = null;
+    this.outcome = { exitCode: -1, failed: true, message: reason };
   }
 
   /**

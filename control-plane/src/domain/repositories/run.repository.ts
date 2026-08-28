@@ -36,7 +36,7 @@ export interface RunRepository {
   ): Promise<void>;
 
   /** Returns claimed runs whose lease has lapsed to the queue. */
-  requeueLapsed(now: Date): Promise<number>;
+  requeueLapsed(now: Date): Promise<Run[]>;
 
   /**
    * Puts back whatever this runner is holding. The query narrows the
