@@ -25,6 +25,7 @@ type Row = {
   stationId: string | null;
   stationName: string | null;
   stationPosition: number | null;
+  stationColor: string | null;
   stationDescription: string | null;
   stationPool: string | null;
   stationAgentPrompt: string | null;
@@ -64,6 +65,7 @@ export class DrizzleAssemblyLineReader implements AssemblyLineReaderPort {
         stationId: station.id,
         stationName: station.name,
         stationPosition: station.position,
+        stationColor: station.color,
         stationDescription: station.description,
         stationPool: station.pool,
         stationAgentPrompt: station.agentPrompt,
@@ -89,6 +91,7 @@ const group = (rows: Row[]): AssemblyLineDetail[] => {
         id: row.stationId,
         name: row.stationName ?? '',
         position: row.stationPosition,
+        color: row.stationColor ?? '',
         description: row.stationDescription,
         pool: row.stationPool,
         agentPrompt: row.stationAgentPrompt,

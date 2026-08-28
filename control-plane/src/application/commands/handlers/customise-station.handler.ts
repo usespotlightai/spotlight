@@ -4,22 +4,19 @@ import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import { AssemblyLineMapper } from '@application/mappers/assembly-line.mapper';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
-import type { StationChanges } from '@domain/entities/station.entity';
 import { UnknownAssemblyLineError } from '@domain/exceptions/unknown-assembly-line.error';
+import { UnknownStationError } from '@domain/exceptions/unknown-station.error';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { RunnerPool } from '@domain/value-objects/runner-pool.vo';
+import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationDescription } from '@domain/value-objects/station-description.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 
-/** Absent leaves the field alone, null clears it, anything else sets it. */
-const given = <T>(
-  raw: string | null | undefined,
-  make: (value: string) => T,
-): T | null | undefined =>
-  raw === undefined || raw === null ? raw : make(raw);
+const told = <T>(raw: string | null, make: (value: string) => T): T | null =>
+  raw === null ? null : make(raw);
 
 export class CustomiseStationHandler
   implements CommandHandlerPort<CustomiseStationCommand, StationDto>
@@ -41,31 +38,48 @@ export class CustomiseStationHandler
     command: CustomiseStationCommand,
   ): Promise<StationDto> {
     const stationId = StationId.of(command.stationId);
-    const changes = this.read(command);
+    const { name, color, description, pool, agentPrompt } = command.changes;
 
     return await this.transaction.run(async () => {
-      const line = await this.lines.find(AssemblyLineId.of(command.lineId));
+      const found = await this.lines.find(AssemblyLineId.of(command.lineId));
 
-      if (!line) {
+      if (!found) {
         throw new UnknownAssemblyLineError(command.lineId);
       }
 
-      const customised = line.customiseStation(stationId, changes);
+      let line = found;
 
-      await this.lines.save(customised);
+      if (name !== undefined) {
+        line = line.renameStation(stationId, StationName.of(name));
+      }
+      if (color !== undefined) {
+        line = line.repaintStation(stationId, StationColor.of(color));
+      }
+      if (description !== undefined) {
+        line = line.describeStation(
+          stationId,
+          told(description, StationDescription.of),
+        );
+      }
+      if (pool !== undefined) {
+        line = line.assignStationTo(stationId, told(pool, RunnerPool.of));
+      }
+      if (agentPrompt !== undefined) {
+        line = line.instructStation(
+          stationId,
+          told(agentPrompt, AgentPrompt.of),
+        );
+      }
 
-      return AssemblyLineMapper.stationToDto(customised.stationAt(stationId));
+      await this.lines.save(line);
+
+      const station = line.stations.find((each) => each.id.equals(stationId));
+
+      if (!station) {
+        throw new UnknownStationError(command.stationId);
+      }
+
+      return AssemblyLineMapper.stationToDto(station);
     });
-  }
-
-  private read(command: CustomiseStationCommand): StationChanges {
-    const { name, description, pool, agentPrompt } = command.changes;
-
-    return {
-      ...(name === undefined ? {} : { name: StationName.of(name) }),
-      description: given(description, StationDescription.of),
-      pool: given(pool, RunnerPool.of),
-      agentPrompt: given(agentPrompt, AgentPrompt.of),
-    };
   }
 }

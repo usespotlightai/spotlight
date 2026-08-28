@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, AwaitRunInputData, AwaitRunInputErrors, AwaitRunInputResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, CustomiseStationData, CustomiseStationErrors, CustomiseStationResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, EnrolRunnerData, EnrolRunnerErrors, EnrolRunnerResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, ListAssemblyLinesData, ListAssemblyLinesErrors, ListAssemblyLinesResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, RevokeRunnerData, RevokeRunnerErrors, RevokeRunnerResponses, SendRunInputData, SendRunInputErrors, SendRunInputResponses, StopRunData, StopRunErrors, StopRunResponses, StreamRunData, StreamRunErrors, StreamRunResponses } from './types.gen';
+import type { AddTaskData, AddTaskErrors, AddTaskResponses, AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, AwaitRunInputData, AwaitRunInputErrors, AwaitRunInputResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, CustomiseStationData, CustomiseStationErrors, CustomiseStationResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, EnrolRunnerData, EnrolRunnerErrors, EnrolRunnerResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, ListAssemblyLinesData, ListAssemblyLinesErrors, ListAssemblyLinesResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, MoveTaskData, MoveTaskErrors, MoveTaskResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, RevokeRunnerData, RevokeRunnerErrors, RevokeRunnerResponses, SendRunInputData, SendRunInputErrors, SendRunInputResponses, StopRunData, StopRunErrors, StopRunResponses, StreamRunData, StreamRunErrors, StreamRunResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -144,6 +144,35 @@ export const enrolRunner = <ThrowOnError extends boolean = false>(options: Optio
  * Retire a runner’s token, locking it out from the next call on
  */
 export const revokeRunner = <ThrowOnError extends boolean = false>(options: Options<RevokeRunnerData, ThrowOnError>): RequestResult<RevokeRunnerResponses, RevokeRunnerErrors, ThrowOnError> => (options.client ?? client).post<RevokeRunnerResponses, RevokeRunnerErrors, ThrowOnError>({ url: '/runners/{runnerId}/revoke', ...options });
+
+/**
+ * List the tasks standing at a team’s stations, oldest first
+ */
+export const listTasks = <ThrowOnError extends boolean = false>(options: Options<ListTasksData, ThrowOnError>): RequestResult<ListTasksResponses, ListTasksErrors, ThrowOnError> => (options.client ?? client).get<ListTasksResponses, ListTasksErrors, ThrowOnError>({ url: '/teams/{teamId}/tasks', ...options });
+
+/**
+ * Add a task to a station
+ */
+export const addTask = <ThrowOnError extends boolean = false>(options: Options<AddTaskData, ThrowOnError>): RequestResult<AddTaskResponses, AddTaskErrors, ThrowOnError> => (options.client ?? client).post<AddTaskResponses, AddTaskErrors, ThrowOnError>({
+  url: '/teams/{teamId}/assembly-lines/{lineId}/stations/{stationId}/tasks',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Move a task to another station on the same assembly line
+ */
+export const moveTask = <ThrowOnError extends boolean = false>(options: Options<MoveTaskData, ThrowOnError>): RequestResult<MoveTaskResponses, MoveTaskErrors, ThrowOnError> => (options.client ?? client).post<MoveTaskResponses, MoveTaskErrors, ThrowOnError>({
+  url: '/teams/{teamId}/assembly-lines/{lineId}/tasks/{taskId}/move',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
 
 /**
  * List the workspaces the caller belongs to

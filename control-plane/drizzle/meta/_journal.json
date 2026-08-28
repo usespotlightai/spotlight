@@ -22,6 +22,20 @@
       "when": 1787761860553,
       "tag": "20260826163100_customisable_stations",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787847487764,
+      "tag": "20260827161807_tasks_at_stations",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787909158276,
+      "tag": "20260828092558_station_colors",
+      "breakpoints": true
     }
   ]
 }

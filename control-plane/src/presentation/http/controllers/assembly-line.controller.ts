@@ -86,8 +86,6 @@ export class AssemblyLineController {
     @Body() body: CustomiseStationRequestDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<StationResponseDto> {
-    // Asked through the same reader the board uses, so a caller cannot edit a
-    // station on a team they cannot see.
     const lines = await this.queryBus.execute<
       ListAssemblyLinesQuery,
       AssemblyLineDto[] | null

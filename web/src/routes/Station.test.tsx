@@ -8,14 +8,26 @@ const line = {
   id: 'line_1',
   name: 'Default',
   stations: [
-    { id: 'station_1', name: 'Triage', position: 0 },
-    { id: 'station_2', name: 'Spec', position: 1 },
+    { id: 'station_1', name: 'Triage', position: 0, color: '#93a1b5' },
+    {
+      id: 'station_2',
+      name: 'Spec',
+      position: 1,
+      color: '#5c66d9',
+      agentPrompt: '## Role\n\n- Sort the queue\n- Ask when unsure',
+    },
   ],
 };
 
 vi.mock('@/hooks/api/useAssemblyLines', () => ({
   useAssemblyLines: () => ({ data: [line], isPending: false }),
 }));
+const customised = vi.fn();
+
+vi.mock('@/hooks/api/useCustomiseStation', () => ({
+  useCustomiseStation: () => ({ mutate: customised }),
+}));
+
 vi.mock('@/hooks/api/useWorkspace', () => ({
   useWorkspace: () => ({
     data: { teams: [{ id: 'team_1', name: 'Platform' }] },
@@ -48,12 +60,6 @@ const renderAt = (stationId: string) =>
     </MemoryRouter>,
   );
 
-const storeDraft = (stationId: string, draft: Record<string, string>) =>
-  localStorage.setItem(
-    'spotlight.station-drafts',
-    JSON.stringify({ [stationId]: draft }),
-  );
-
 const openPools = async () => {
   const user = userEvent.setup();
   await user.click(screen.getByLabelText('Runner pool'));
@@ -63,6 +69,7 @@ const openPools = async () => {
 
 beforeEach(() => {
   localStorage.clear();
+  customised.mockClear();
 });
 
 describe('Station', () => {
@@ -124,10 +131,7 @@ describe('Station', () => {
   });
 
   it('renders the agent prompt rather than showing its markdown', () => {
-    storeDraft('station_1', {
-      agentPrompt: '## Role\n\n- Sort the queue\n- Ask when unsure',
-    });
-    renderAt('station_1');
+    renderAt('station_2');
 
     expect(screen.getByRole('heading', { name: 'Role' })).toBeInTheDocument();
     expect(
@@ -175,6 +179,105 @@ describe('Station', () => {
 
     expect(screen.getByLabelText('Description')).toHaveValue('');
     expect(screen.getByLabelText('Station name')).toHaveValue('Spec');
+  });
+
+  it('writes a new name back once the field is left', async () => {
+    const user = userEvent.setup();
+    renderAt('station_1');
+
+    await user.type(screen.getByLabelText('Station name'), ' queue');
+    await user.tab();
+
+    expect(customised).toHaveBeenCalledWith({
+      teamId: 'team_1',
+      lineId: 'line_1',
+      stationId: 'station_1',
+      changes: { name: 'Triage queue' },
+    });
+  });
+
+  it('writes a description back once the field is left', async () => {
+    const user = userEvent.setup();
+    renderAt('station_1');
+
+    await user.type(screen.getByLabelText('Description'), 'Where work lands');
+    await user.tab();
+
+    expect(customised).toHaveBeenCalledWith({
+      teamId: 'team_1',
+      lineId: 'line_1',
+      stationId: 'station_1',
+      changes: { description: 'Where work lands' },
+    });
+  });
+
+  it('writes the pool back as soon as one is picked', async () => {
+    renderAt('station_1');
+    const user = await openPools();
+
+    await user.click(screen.getByRole('menuitemradio', { name: /gpu/ }));
+
+    expect(customised).toHaveBeenCalledWith({
+      teamId: 'team_1',
+      lineId: 'line_1',
+      stationId: 'station_1',
+      changes: { pool: 'gpu' },
+    });
+  });
+
+  it('holds back a name emptied to nothing, having nowhere to fall back', async () => {
+    const user = userEvent.setup();
+    renderAt('station_1');
+
+    await user.clear(screen.getByLabelText('Station name'));
+    await user.tab();
+
+    expect(customised).not.toHaveBeenCalled();
+  });
+
+  it('marks how far along the line the station stands', () => {
+    renderAt('station_1');
+
+    expect(
+      document.querySelector('[data-slot="station-icon"]'),
+    ).toBeInTheDocument();
+  });
+
+  it('paints its icon the colour the station carries', () => {
+    renderAt('station_1');
+
+    expect(
+      document.querySelector('[data-slot="station-icon"] circle'),
+    ).toHaveAttribute('stroke', '#93a1b5');
+  });
+
+  it('takes the picked colour straight away, without waiting on the save', async () => {
+    const user = userEvent.setup();
+    renderAt('station_1');
+
+    await user.click(screen.getByRole('button', { name: 'Station colour' }));
+    await screen.findByRole('button', { name: '#db5b52' });
+    await user.click(screen.getByRole('button', { name: '#db5b52' }));
+
+    expect(
+      document.querySelector('[data-slot="station-icon"] circle'),
+    ).toHaveAttribute('stroke', '#db5b52');
+  });
+
+  it('repaints the station from the palette behind its icon', async () => {
+    const user = userEvent.setup();
+    renderAt('station_1');
+
+    await user.click(screen.getByRole('button', { name: 'Station colour' }));
+    await screen.findByRole('button', { name: '#db5b52' });
+    await user.click(screen.getByRole('button', { name: '#db5b52' }));
+
+    expect(customised).toHaveBeenCalledWith({
+      teamId: 'team_1',
+      lineId: 'line_1',
+      stationId: 'station_1',
+      changes: { color: '#db5b52' },
+    });
   });
 
   it('says so when there is no station at that address', () => {

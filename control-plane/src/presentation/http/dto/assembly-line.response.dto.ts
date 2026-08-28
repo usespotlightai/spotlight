@@ -10,6 +10,9 @@ export class StationResponseDto {
   @ApiProperty({ example: 0, description: 'Left to right across the board' })
   readonly position: number;
 
+  @ApiProperty({ example: '#5c66d9', description: 'Six digit hex' })
+  readonly color: string;
+
   @ApiProperty({
     example: 'Where new work lands before anyone looks at it',
     nullable: true,
@@ -37,6 +40,7 @@ export class StationResponseDto {
     id: string,
     name: string,
     position: number,
+    color: string,
     description: string | null,
     pool: string | null,
     agentPrompt: string | null,
@@ -44,6 +48,7 @@ export class StationResponseDto {
     this.id = id;
     this.name = name;
     this.position = position;
+    this.color = color;
     this.description = description;
     this.pool = pool;
     this.agentPrompt = agentPrompt;

@@ -36,6 +36,7 @@ export const station = pgTable(
       .references(() => assemblyLine.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     position: integer('position').notNull(),
+    color: text('color').notNull().default('#a3a8b0'),
     description: text('description'),
     pool: text('pool'),
     agentPrompt: text('agent_prompt'),

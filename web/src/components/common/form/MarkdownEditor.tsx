@@ -55,23 +55,30 @@ const THEME: EditorThemeClasses = {
 
 type MarkdownEditorProps = {
   initialValue: string;
-  onChange: (markdown: string) => void;
+  onChange?: (markdown: string) => void;
+  onBlur?: () => void;
+  readOnly?: boolean;
   placeholder: string;
   ariaLabel: string;
   className?: string;
+  placeholderClassName?: string;
 };
 
 export function MarkdownEditor({
   initialValue,
   onChange,
+  onBlur,
+  readOnly,
   placeholder,
   ariaLabel,
   className,
+  placeholderClassName,
 }: MarkdownEditorProps) {
   return (
     <LexicalComposer
       initialConfig={{
         namespace: 'markdown',
+        editable: !readOnly,
         nodes: NODES,
         theme: THEME,
         editorState: () =>
@@ -86,9 +93,15 @@ export function MarkdownEditor({
           contentEditable={
             <ContentEditable
               aria-label={ariaLabel}
+              onBlur={onBlur}
               aria-placeholder={placeholder}
               placeholder={
-                <p className="pointer-events-none absolute top-3 left-3 text-muted-foreground text-sm">
+                <p
+                  className={cn(
+                    'pointer-events-none absolute top-3 left-3 text-muted-foreground text-sm',
+                    placeholderClassName,
+                  )}
+                >
                   {placeholder}
                 </p>
               }
@@ -106,12 +119,14 @@ export function MarkdownEditor({
         <LinkPlugin />
         <HistoryPlugin />
 
-        <OnChangePlugin
-          ignoreSelectionChange
-          onChange={(state) =>
-            state.read(() => onChange($convertToMarkdownString(TRANSFORMERS)))
-          }
-        />
+        {onChange && (
+          <OnChangePlugin
+            ignoreSelectionChange
+            onChange={(state) =>
+              state.read(() => onChange($convertToMarkdownString(TRANSFORMERS)))
+            }
+          />
+        )}
       </div>
     </LexicalComposer>
   );

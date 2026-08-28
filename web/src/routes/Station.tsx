@@ -1,20 +1,30 @@
 import { useParams } from 'react-router';
+import { StationIcon } from '@/components/board/StationIcon';
 import { InitialAvatar } from '@/components/common/avatar/InitialAvatar';
 import { AutoGrowTextarea } from '@/components/common/form/AutoGrowTextarea';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { AgentPromptField } from '@/components/stations/AgentPromptField';
+import { StationColorPicker } from '@/components/stations/StationColorPicker';
 import { StationProperties } from '@/components/stations/StationProperties';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { useCustomiseStation } from '@/hooks/api/useCustomiseStation';
 import { useStation } from '@/hooks/api/useStation';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
-import { useStationDraft } from '@/hooks/useStationDraft';
+import { useStationEdits } from '@/hooks/useStationEdits';
+import { stationShare } from '@/lib/station';
 import { assemblyLinePath, teamPath } from '@/lib/team';
 
 export function Station() {
   const { slug, teamId, lineId, stationId } = useParams();
   const { data: workspace } = useWorkspace(slug);
   const { line, station, isPending } = useStation(teamId, lineId, stationId);
-  const { draft, update } = useStationDraft(station);
+  const { edits, change } = useStationEdits(station);
+  const customise = useCustomiseStation();
 
   if (isPending) {
     return null;
@@ -34,6 +44,12 @@ export function Station() {
   }
 
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
+
+  const save = (changes: Parameters<typeof customise.mutate>[0]['changes']) => {
+    if (teamId && lineId && station) {
+      customise.mutate({ teamId, lineId, stationId: station.id, changes });
+    }
+  };
 
   return (
     <>
@@ -59,7 +75,7 @@ export function Station() {
                     ? assemblyLinePath(slug, teamId, lineId)
                     : undefined,
               },
-              { label: draft.name || station.name },
+              { label: edits.name || station.name },
             ]}
           />
         }
@@ -69,20 +85,52 @@ export function Station() {
         <div className="mx-auto flex w-full max-w-5xl gap-10 px-8 py-8">
           <main className="flex min-w-0 flex-1 flex-col gap-8">
             <div className="flex flex-col gap-3">
-              <AutoGrowTextarea
-                value={draft.name}
-                onChange={(event) => update({ name: event.target.value })}
-                aria-label="Station name"
-                placeholder="Station name"
-                maxLength={100}
-                className="font-semibold text-2xl text-foreground leading-8 tracking-tight"
-              />
+              <div className="flex items-start gap-2">
+                <Popover>
+                  <PopoverTrigger
+                    aria-label="Station colour"
+                    className="mt-1 rounded-md p-0.5 outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent"
+                  >
+                    <StationIcon
+                      share={stationShare(
+                        line.stations.findIndex(
+                          (each) => each.id === station.id,
+                        ),
+                        line.stations.length,
+                      )}
+                      color={edits.color}
+                      className="size-5"
+                    />
+                  </PopoverTrigger>
+
+                  <PopoverContent align="start" sideOffset={6}>
+                    <StationColorPicker
+                      value={edits.color}
+                      onChange={(color) => {
+                        change({ color });
+                        save({ color });
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
+
+                <AutoGrowTextarea
+                  value={edits.name}
+                  onChange={(event) => change({ name: event.target.value })}
+                  onBlur={() => edits.name.trim() && save({ name: edits.name })}
+                  aria-label="Station name"
+                  placeholder="Station name"
+                  maxLength={100}
+                  className="font-semibold text-2xl text-foreground leading-8 tracking-tight"
+                />
+              </div>
 
               <AutoGrowTextarea
-                value={draft.description}
+                value={edits.description}
                 onChange={(event) =>
-                  update({ description: event.target.value })
+                  change({ description: event.target.value })
                 }
+                onBlur={() => save({ description: edits.description })}
                 aria-label="Description"
                 placeholder="Add description…"
                 className="text-foreground text-sm leading-6"
@@ -91,14 +139,24 @@ export function Station() {
 
             <AgentPromptField
               key={station.id}
-              value={draft.agentPrompt}
-              onChange={(agentPrompt) => update({ agentPrompt })}
+              value={edits.agentPrompt}
+              onChange={(agentPrompt) => change({ agentPrompt })}
+              onBlur={() => save({ agentPrompt: edits.agentPrompt })}
             />
           </main>
 
+          {customise.isError && (
+            <p className="text-destructive text-xs">
+              {customise.error.message}
+            </p>
+          )}
+
           <StationProperties
-            pool={draft.pool}
-            onPool={(pool) => update({ pool })}
+            pool={edits.pool}
+            onPool={(pool) => {
+              change({ pool });
+              save({ pool });
+            }}
           />
         </div>
       </div>

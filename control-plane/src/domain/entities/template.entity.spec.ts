@@ -1,5 +1,6 @@
 import { Template } from '@domain/entities/template.entity';
 import { InvalidTemplateStationsError } from '@domain/exceptions/invalid-template-stations.error';
+import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { TemplateId } from '@domain/value-objects/template-id.vo';
 import { TemplateName } from '@domain/value-objects/template-name.vo';
@@ -9,14 +10,17 @@ const templateOf = (stations: string[]) =>
   Template.of({
     id: TemplateId.of('template_1'),
     name: TemplateName.of('Default'),
-    stations: stations.map((each) => StationName.of(each)),
+    stations: stations.map((each) => ({
+      name: StationName.of(each),
+      color: StationColor.of('#a3a8b0'),
+    })),
   });
 
 describe('Template', () => {
   it('lists its stations in the order they were written', () => {
     const template = templateOf(['Triage', 'Spec', 'Implementation']);
 
-    expect(template.stations.map((each) => each.value)).toEqual([
+    expect(template.stations.map((each) => each.name.value)).toEqual([
       'Triage',
       'Spec',
       'Implementation',
@@ -28,14 +32,19 @@ describe('Template', () => {
   });
 
   it('keeps the stations it was given out of later reach', () => {
-    const stations = [StationName.of('Triage')];
+    const stations = [
+      { name: StationName.of('Triage'), color: StationColor.of('#a3a8b0') },
+    ];
     const template = Template.of({
       id: TemplateId.of('template_1'),
       name: TemplateName.of('Default'),
       stations,
     });
 
-    stations.push(StationName.of('Spec'));
+    stations.push({
+      name: StationName.of('Spec'),
+      color: StationColor.of('#a3a8b0'),
+    });
 
     expect(template.stations).toHaveLength(1);
   });

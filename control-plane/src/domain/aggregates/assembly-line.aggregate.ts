@@ -1,11 +1,16 @@
-import { Station, type StationChanges } from '@domain/entities/station.entity';
+import { Station } from '@domain/entities/station.entity';
 import type { Template } from '@domain/entities/template.entity';
 import { InvalidStationOrderError } from '@domain/exceptions/invalid-station-order.error';
 import { UnknownStationError } from '@domain/exceptions/unknown-station.error';
+import type { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import type { FactoryId } from '@domain/value-objects/factory-id.vo';
+import type { RunnerPool } from '@domain/value-objects/runner-pool.vo';
+import type { StationColor } from '@domain/value-objects/station-color.vo';
+import type { StationDescription } from '@domain/value-objects/station-description.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
+import type { StationName } from '@domain/value-objects/station-name.vo';
 import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 
 export class AssemblyLine {
@@ -28,10 +33,11 @@ export class AssemblyLine {
       workspaceId: input.workspaceId,
       factoryId: input.factoryId,
       name: AssemblyLineName.of(input.template.name.value),
-      stations: input.template.stations.map((name, position) =>
+      stations: input.template.stations.map((each, position) =>
         Station.create({
           id: StationId.of(input.newId()),
-          name,
+          name: each.name,
+          color: each.color,
           position,
         }),
       ),
@@ -56,11 +62,45 @@ export class AssemblyLine {
     );
   }
 
-  customiseStation(
+  renameStation(stationId: StationId, name: StationName): AssemblyLine {
+    return this.withStation(stationId, (station) => station.rename(name));
+  }
+
+  repaintStation(stationId: StationId, color: StationColor): AssemblyLine {
+    return this.withStation(stationId, (station) => station.repaint(color));
+  }
+
+  describeStation(
     stationId: StationId,
-    changes: StationChanges,
+    description: StationDescription | null,
   ): AssemblyLine {
-    const target = this.stationAt(stationId);
+    return this.withStation(stationId, (station) =>
+      station.describe(description),
+    );
+  }
+
+  assignStationTo(stationId: StationId, pool: RunnerPool | null): AssemblyLine {
+    return this.withStation(stationId, (station) => station.assignTo(pool));
+  }
+
+  instructStation(
+    stationId: StationId,
+    agentPrompt: AgentPrompt | null,
+  ): AssemblyLine {
+    return this.withStation(stationId, (station) =>
+      station.instruct(agentPrompt),
+    );
+  }
+
+  private withStation(
+    stationId: StationId,
+    change: (station: Station) => Station,
+  ): AssemblyLine {
+    const target = this.stations.find((each) => each.id.equals(stationId));
+
+    if (!target) {
+      throw new UnknownStationError(stationId.value);
+    }
 
     return AssemblyLine.of({
       id: this.id,
@@ -68,19 +108,9 @@ export class AssemblyLine {
       factoryId: this.factoryId,
       name: this.name,
       stations: this.stations.map((each) =>
-        each.equals(target) ? each.customise(changes) : each,
+        each.equals(target) ? change(each) : each,
       ),
     });
-  }
-
-  stationAt(stationId: StationId): Station {
-    const found = this.stations.find((each) => each.id.equals(stationId));
-
-    if (!found) {
-      throw new UnknownStationError(stationId.value);
-    }
-
-    return found;
   }
 
   private static guardPositionsAreContiguous(

@@ -6,7 +6,12 @@ import { ListAssemblyLinesHandler } from '@application/queries/handlers/list-ass
 import { ListAssemblyLinesQuery } from '@application/queries/list-assembly-lines.query';
 import { describe, expect, it, vi } from 'vitest';
 
-const bare = { description: null, pool: null, agentPrompt: null };
+const bare = {
+  color: '#a3a8b0',
+  description: null,
+  pool: null,
+  agentPrompt: null,
+};
 
 const board: AssemblyLineDetail = {
   id: 'line_1',

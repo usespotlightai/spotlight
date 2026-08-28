@@ -7,6 +7,7 @@ import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { RunnerPool } from '@domain/value-objects/runner-pool.vo';
+import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { TemplateId } from '@domain/value-objects/template-id.vo';
@@ -19,6 +20,7 @@ const at = (position: number, name = `Station ${position}`) =>
     id: StationId.of(`station_${position}`),
     name: StationName.of(name),
     position,
+    color: StationColor.of('#a3a8b0'),
   });
 
 const lineOf = (stations: Station[]) =>
@@ -34,7 +36,10 @@ const templateOf = (name: string, stations: string[]) =>
   Template.of({
     id: TemplateId.of('template_1'),
     name: TemplateName.of(name),
-    stations: stations.map((each) => StationName.of(each)),
+    stations: stations.map((each) => ({
+      name: StationName.of(each),
+      color: StationColor.of('#a3a8b0'),
+    })),
   });
 
 const openedFrom = (template: Template) => {
@@ -82,33 +87,34 @@ describe('AssemblyLine', () => {
     expect(line.factoryId).toEqual(FactoryId.of('factory_1'));
   });
 
-  it('customises the one station it was asked about', () => {
+  it('changes the one station it was asked about', () => {
     const line = lineOf([at(0, 'Triage'), at(1, 'Spec')]);
 
-    const customised = line.customiseStation(StationId.of('station_0'), {
-      pool: RunnerPool.of('dev'),
-    });
-
-    expect(customised.stations.map((each) => each.pool?.value ?? null)).toEqual(
-      ['dev', null],
+    const assigned = line.assignStationTo(
+      StationId.of('station_0'),
+      RunnerPool.of('dev'),
     );
+
+    expect(assigned.stations.map((each) => each.pool?.value ?? null)).toEqual([
+      'dev',
+      null,
+    ]);
   });
 
-  it('refuses to customise a station it does not hold', () => {
+  it('refuses to change a station it does not hold', () => {
     const line = lineOf([at(0)]);
 
     expect(() =>
-      line.customiseStation(StationId.of('station_missing'), {
-        pool: RunnerPool.of('dev'),
-      }),
+      line.assignStationTo(
+        StationId.of('station_missing'),
+        RunnerPool.of('dev'),
+      ),
     ).toThrow(UnknownStationError);
   });
 
-  it('leaves the line it was customised from untouched', () => {
+  it('leaves the line it was changed from untouched', () => {
     const line = lineOf([at(0)]);
-    line.customiseStation(StationId.of('station_0'), {
-      pool: RunnerPool.of('dev'),
-    });
+    line.assignStationTo(StationId.of('station_0'), RunnerPool.of('dev'));
 
     expect(line.stations[0]?.pool).toBeNull();
   });

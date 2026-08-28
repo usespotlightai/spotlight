@@ -8,15 +8,13 @@ import type {
 } from '@application/ports/assembly-line-reader.port';
 import type { Station } from '@domain/entities/station.entity';
 
-/** Two sources reach the same station shape: the reader answers queries
- *  without going through the domain, while a command answers with the
- *  aggregate it just wrote. They are kept side by side so they stay in step. */
 export const AssemblyLineMapper = {
   summaryToDto(summary: StationSummary): StationDto {
     return {
       id: summary.id,
       name: summary.name,
       position: summary.position,
+      color: summary.color,
       description: summary.description,
       pool: summary.pool,
       agentPrompt: summary.agentPrompt,
@@ -28,6 +26,7 @@ export const AssemblyLineMapper = {
       id: station.id.value,
       name: station.name.value,
       position: station.position,
+      color: station.color.value,
       description: station.description?.value ?? null,
       pool: station.pool?.value ?? null,
       agentPrompt: station.agentPrompt?.value ?? null,

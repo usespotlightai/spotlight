@@ -11,6 +11,10 @@ export type StationResponseDto = {
    * Left to right across the board
    */
   position: number;
+  /**
+   * Six digit hex
+   */
+  color: string;
   description: string | null;
   /**
    * Which runners work this station. Null until one is chosen.
@@ -30,6 +34,10 @@ export type AssemblyLineResponseDto = {
 
 export type CustomiseStationRequestDto = {
   name?: string;
+  /**
+   * Six digit hex. The board offers a palette, but any will do.
+   */
+  color?: string;
   description?: string | null;
   /**
    * Which runners work this station
@@ -196,6 +204,32 @@ export type EnrolledRunnerResponseDto = {
    * Shown once. Nothing can recover it after this response.
    */
   token: string;
+};
+
+export type TaskResponseDto = {
+  id: string;
+  stationId: string;
+  title: string;
+  /**
+   * Markdown
+   */
+  description: string | null;
+  createdAt: string;
+};
+
+export type AddTaskRequestDto = {
+  title: string;
+  /**
+   * Markdown. Left out or blank for a task with nothing said.
+   */
+  description?: string | null;
+};
+
+export type MoveTaskRequestDto = {
+  /**
+   * The station to move the task to, on the same assembly line
+   */
+  stationId: string;
 };
 
 export type CreateWorkspaceRequestDto = {
@@ -631,6 +665,92 @@ export type RevokeRunnerResponses = {
 };
 
 export type RevokeRunnerResponse = RevokeRunnerResponses[keyof RevokeRunnerResponses];
+
+export type ListTasksData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks';
+};
+
+export type ListTasksErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+};
+
+export type ListTasksResponses = {
+  200: Array<TaskResponseDto>;
+};
+
+export type ListTasksResponse = ListTasksResponses[keyof ListTasksResponses];
+
+export type AddTaskData = {
+  body: AddTaskRequestDto;
+  path: {
+    teamId: string;
+    lineId: string;
+    stationId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/assembly-lines/{lineId}/stations/{stationId}/tasks';
+};
+
+export type AddTaskErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such station for this caller
+   */
+  404: unknown;
+  /**
+   * Invalid title or description
+   */
+  422: unknown;
+};
+
+export type AddTaskResponses = {
+  201: TaskResponseDto;
+};
+
+export type AddTaskResponse = AddTaskResponses[keyof AddTaskResponses];
+
+export type MoveTaskData = {
+  body: MoveTaskRequestDto;
+  path: {
+    teamId: string;
+    lineId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/assembly-lines/{lineId}/tasks/{taskId}/move';
+};
+
+export type MoveTaskErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task or station for this caller
+   */
+  404: unknown;
+};
+
+export type MoveTaskResponses = {
+  200: TaskResponseDto;
+};
+
+export type MoveTaskResponse = MoveTaskResponses[keyof MoveTaskResponses];
 
 export type ListWorkspacesData = {
   body?: never;

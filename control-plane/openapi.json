@@ -610,6 +610,182 @@
         ]
       }
     },
+    "/teams/{teamId}/tasks": {
+      "get": {
+        "operationId": "listTasks",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TaskResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team for this caller"
+          }
+        },
+        "summary": "List the tasks standing at a team’s stations, oldest first",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/teams/{teamId}/assembly-lines/{lineId}/stations/{stationId}/tasks": {
+      "post": {
+        "operationId": "addTask",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "lineId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "7b2c9e14-3a5d-4c8f-b6e1-9d0a2f7c5b43",
+              "type": "string"
+            }
+          },
+          {
+            "name": "stationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddTaskRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such station for this caller"
+          },
+          "422": {
+            "description": "Invalid title or description"
+          }
+        },
+        "summary": "Add a task to a station",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/teams/{teamId}/assembly-lines/{lineId}/tasks/{taskId}/move": {
+      "post": {
+        "operationId": "moveTask",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "lineId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "7b2c9e14-3a5d-4c8f-b6e1-9d0a2f7c5b43",
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveTaskRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such task or station for this caller"
+          }
+        },
+        "summary": "Move a task to another station on the same assembly line",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
     "/workspaces": {
       "post": {
         "operationId": "createWorkspace",
@@ -746,6 +922,11 @@
             "example": 0,
             "description": "Left to right across the board"
           },
+          "color": {
+            "type": "string",
+            "example": "#5c66d9",
+            "description": "Six digit hex"
+          },
           "description": {
             "type": "string",
             "example": "Where new work lands before anyone looks at it",
@@ -768,6 +949,7 @@
           "id",
           "name",
           "position",
+          "color",
           "description",
           "pool",
           "agentPrompt"
@@ -804,6 +986,11 @@
             "type": "string",
             "example": "Triage",
             "maxLength": 100
+          },
+          "color": {
+            "type": "string",
+            "example": "#5c66d9",
+            "description": "Six digit hex. The board offers a palette, but any will do."
           },
           "description": {
             "type": "string",
@@ -1195,6 +1382,73 @@
           "id",
           "name",
           "token"
+        ]
+      },
+      "TaskResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13"
+          },
+          "stationId": {
+            "type": "string",
+            "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80"
+          },
+          "title": {
+            "type": "string",
+            "example": "Fix the queue"
+          },
+          "description": {
+            "type": "string",
+            "example": "## Steps\n\nReproduce, then fix.",
+            "nullable": true,
+            "description": "Markdown"
+          },
+          "createdAt": {
+            "type": "string",
+            "example": "2026-08-27T09:15:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "stationId",
+          "title",
+          "description",
+          "createdAt"
+        ]
+      },
+      "AddTaskRequestDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Fix the queue",
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "example": "## Steps\n\nReproduce, then fix.",
+            "maxLength": 20000,
+            "nullable": true,
+            "description": "Markdown. Left out or blank for a task with nothing said."
+          }
+        },
+        "required": [
+          "title"
+        ]
+      },
+      "MoveTaskRequestDto": {
+        "type": "object",
+        "properties": {
+          "stationId": {
+            "type": "string",
+            "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80",
+            "description": "The station to move the task to, on the same assembly line"
+          }
+        },
+        "required": [
+          "stationId"
         ]
       },
       "CreateWorkspaceRequestDto": {

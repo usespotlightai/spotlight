@@ -9,9 +9,6 @@ import {
 } from '@presentation/http/dto/assembly-line.response.dto';
 import type { CustomiseStationRequestDto } from '@presentation/http/dto/customise-station.request.dto';
 
-/** An emptied box means the caller wants rid of what was in it, which is a
- *  convention of the form rather than a rule of the domain: past here, only
- *  null clears. Name is left as sent, having nothing to fall back to. */
 const emptied = (raw: string | null | undefined): string | null | undefined => {
   if (raw === undefined) {
     return undefined;
@@ -26,6 +23,7 @@ export const AssemblyLineHttpMapper = {
   ): CustomiseStationCommand['changes'] {
     return {
       name: body.name,
+      color: body.color,
       description: emptied(body.description),
       pool: emptied(body.pool),
       agentPrompt: emptied(body.agentPrompt),
@@ -37,6 +35,7 @@ export const AssemblyLineHttpMapper = {
       dto.id,
       dto.name,
       dto.position,
+      dto.color,
       dto.description,
       dto.pool,
       dto.agentPrompt,

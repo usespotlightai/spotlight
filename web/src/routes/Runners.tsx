@@ -49,7 +49,12 @@ export function Runners() {
           />
         }
         actions={
-          <Button variant="ghost" size="sm" onClick={() => setEnrolling(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setEnrolling(true)}
+            className="rounded-full bg-card shadow-none"
+          >
             <Plus className="size-3.5" aria-hidden />
             New runner
           </Button>

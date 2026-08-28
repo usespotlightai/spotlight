@@ -1,38 +1,40 @@
 import { AssemblyLineHttpMapper } from '@presentation/http/mappers/assembly-line.http.mapper';
 import { describe, expect, it } from 'vitest';
 
-const changesOf = AssemblyLineHttpMapper.toStationChanges;
-
 describe('AssemblyLineHttpMapper.toStationChanges', () => {
-  it('leaves out what the request left out', () => {
-    expect(changesOf({ pool: 'dev' })).toEqual({
-      name: undefined,
-      description: undefined,
+  it('carries every field the request asked to change', () => {
+    expect(
+      AssemblyLineHttpMapper.toStationChanges({
+        name: 'Intake',
+        color: '#db5b52',
+        description: 'Where new work lands',
+        pool: 'dev',
+        agentPrompt: '## Role',
+      }),
+    ).toEqual({
+      name: 'Intake',
+      color: '#db5b52',
+      description: 'Where new work lands',
       pool: 'dev',
+      agentPrompt: '## Role',
+    });
+  });
+
+  it('leaves out what the request never mentioned', () => {
+    expect(
+      AssemblyLineHttpMapper.toStationChanges({ color: '#db5b52' }),
+    ).toEqual({
+      name: undefined,
+      color: '#db5b52',
+      description: undefined,
+      pool: undefined,
       agentPrompt: undefined,
     });
   });
 
-  it('reads an emptied box as a field cleared', () => {
-    expect(changesOf({ description: '', pool: '   ' })).toMatchObject({
-      description: null,
-      pool: null,
-    });
-  });
-
-  it('passes a null through as the clearing it already is', () => {
-    expect(changesOf({ agentPrompt: null })).toMatchObject({
-      agentPrompt: null,
-    });
-  });
-
-  it('hands the name over as sent, having nothing to fall back to', () => {
-    expect(changesOf({ name: '  ' })).toMatchObject({ name: '  ' });
-  });
-
-  it('keeps the whitespace inside a prompt, which is its markdown', () => {
-    expect(changesOf({ agentPrompt: '## Role\n\nSort.' })).toMatchObject({
-      agentPrompt: '## Role\n\nSort.',
-    });
+  it('reads a field emptied to blank as a field cleared', () => {
+    expect(
+      AssemblyLineHttpMapper.toStationChanges({ description: '   ' }),
+    ).toMatchObject({ description: null });
   });
 });

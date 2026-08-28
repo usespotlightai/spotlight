@@ -1,11 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
-/** Every field is optional: what is left out keeps the value it had, and what
- *  arrives blank is cleared. Name is the exception, having nothing to fall
- *  back to, so an empty one is refused. */
 export class CustomiseStationRequestDto {
   @ApiPropertyOptional({ example: 'Triage', maxLength: 100 })
   readonly name?: string;
+
+  @ApiPropertyOptional({
+    example: '#5c66d9',
+    description: 'Six digit hex. The board offers a palette, but any will do.',
+  })
+  readonly color?: string;
 
   @ApiPropertyOptional({
     example: 'Where new work lands before anyone looks at it',

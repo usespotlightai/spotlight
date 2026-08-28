@@ -10,6 +10,7 @@ import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { RunnerPool } from '@domain/value-objects/runner-pool.vo';
+import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationDescription } from '@domain/value-objects/station-description.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
@@ -29,6 +30,7 @@ const line = () =>
         id: StationId.of('station_1'),
         name: StationName.of('Triage'),
         position: 0,
+        color: StationColor.of('#a3a8b0'),
         description: StationDescription.of('Where new work lands'),
         pool: RunnerPool.of('dev'),
         agentPrompt: AgentPrompt.of('## Role'),
@@ -61,6 +63,7 @@ describe('CustomiseStationHandler', () => {
       id: 'station_1',
       name: 'Intake',
       position: 0,
+      color: '#a3a8b0',
       description: 'Where new work lands',
       pool: 'dev',
       agentPrompt: '## Role',
@@ -72,6 +75,16 @@ describe('CustomiseStationHandler', () => {
 
     expect(saved?.stations[0]?.description?.value).toBe('Where new work lands');
     expect(saved?.stations[0]?.pool?.value).toBe('gpu');
+  });
+
+  it('repaints the station when a colour is given', async () => {
+    const station = await customise({ color: '#5C66D9' });
+
+    expect(station.color).toBe('#5c66d9');
+  });
+
+  it('refuses a colour that is not a hex', async () => {
+    await expect(customise({ color: 'blue' })).rejects.toThrow(UseCaseFault);
   });
 
   it('clears a field sent as null', async () => {
@@ -103,6 +116,7 @@ describe('CustomiseStationHandler', () => {
       id: 'station_1',
       name: 'Triage',
       position: 0,
+      color: '#a3a8b0',
       description: 'Where new work lands',
       pool: 'dev',
       agentPrompt: '## Role',

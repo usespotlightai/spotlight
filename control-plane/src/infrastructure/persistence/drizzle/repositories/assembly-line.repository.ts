@@ -6,6 +6,7 @@ import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { RunnerPool } from '@domain/value-objects/runner-pool.vo';
+import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationDescription } from '@domain/value-objects/station-description.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
@@ -26,6 +27,7 @@ const toStation = (row: StationRow): Station =>
     id: StationId.of(row.id),
     name: StationName.of(row.name),
     position: row.position,
+    color: StationColor.of(row.color),
     description: row.description
       ? StationDescription.of(row.description)
       : null,
@@ -45,6 +47,7 @@ const toLine = (line: LineRow, stations: StationRow[]): AssemblyLine =>
 const columnsOf = (each: Station) => ({
   name: each.name.value,
   position: each.position,
+  color: each.color.value,
   description: each.description?.value ?? null,
   pool: each.pool?.value ?? null,
   agentPrompt: each.agentPrompt?.value ?? null,
@@ -78,8 +81,6 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
       .set({ name: saved.name.value })
       .where(eq(assemblyLine.id, saved.id.value));
 
-    // Written one by one rather than as one statement: the aggregate is the
-    // unit that was loaded, so it is the unit that goes back.
     for (const each of saved.stations) {
       await this.context.db
         .update(station)

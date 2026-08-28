@@ -46,13 +46,21 @@ describe('ProvisionFactory', () => {
     expect(opened?.workspaceId).toEqual(WorkspaceId.of('ws_1'));
   });
 
+  it('paints each station the colour its template asked for', async () => {
+    await provision();
+
+    expect(seeded?.stations.map((each) => each.color.value)).toEqual(
+      DEFAULT_TEMPLATE.stations.map((each) => each.color.value),
+    );
+  });
+
   it('seeds that factory with a line off the default template', async () => {
     await provision();
 
     expect(seeded?.factoryId).toEqual(opened?.id);
     expect(seeded?.name.value).toBe(DEFAULT_TEMPLATE.name.value);
     expect(seeded?.stations.map((each) => each.name.value)).toEqual(
-      DEFAULT_TEMPLATE.stations.map((each) => each.value),
+      DEFAULT_TEMPLATE.stations.map((each) => each.name.value),
     );
   });
 });
