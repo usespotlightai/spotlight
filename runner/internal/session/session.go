@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"usespotlight.ai/runner/internal/declare"
 	"usespotlight.ai/runner/internal/hook"
 	"usespotlight.ai/runner/internal/protocol"
 	"usespotlight.ai/runner/internal/terminal"
@@ -34,8 +35,14 @@ const (
 	// request per echoed keystroke.
 	flushEvery = 200 * time.Millisecond
 	// renewEvery keeps the lease alive well inside its expiry.
-	renewEvery        = 15 * time.Second
-	readBuffer        = 32 * 1024
+	renewEvery = 15 * time.Second
+	readBuffer = 32 * 1024
+	// drainFor bounds the wait for output still in flight when the agent
+	// exits. It is generous: the reader is spent the moment the terminal is.
+	drainFor = 2 * time.Second
+	// settleFor is how long an agent is left alone after handing the task
+	// over, so its closing words are its own and not cut off.
+	settleFor         = 5 * time.Second
 	inputRetryFloor   = 1 * time.Second
 	inputRetryCeiling = 20 * time.Second
 )
@@ -106,8 +113,16 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		}
 	}()
 
+	// Raised before the agent so the endpoint is there from its first breath,
+	// and closed after it so nothing can speak for a run that has ended.
+	channel, err := declare.Serve(run.Spec.Handover.Options)
+	if err != nil {
+		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+	}
+	defer channel.Close()
+
 	agent, err := terminal.Start(ctx, terminal.Spec{
-		Command:   run.Spec.Command,
+		Command:   granted(run.Spec.Command, channel),
 		Dir:       cwd,
 		Recording: recording,
 		Size:      terminal.DefaultSize,
@@ -123,10 +138,47 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	}
 	log.Info("agent started", "executable", run.Spec.Command.Executable, "cwd", cwd)
 
+	// An agent at a terminal does not exit when the work is done; it waits for
+	// someone to type. Its declaration is that someone.
+	var handedOver atomic.Bool
+	go func() {
+		select {
+		case <-channel.Spoken():
+		case <-ctx.Done():
+			return
+		}
+
+		// The declaration is the agent's last act, not its last word.
+		settling := time.NewTimer(settleFor)
+		defer settling.Stop()
+
+		select {
+		case <-settling.C:
+		case <-ctx.Done():
+			return
+		}
+
+		handedOver.Store(true)
+		log.Info("stopping the agent, which has handed the task over")
+
+		if err := agent.Stop(); err != nil {
+			log.Warn("could not stop the agent", "error", err)
+		}
+	}()
+
 	exitCode, stopped := pump(ctx, agent, journal, run.ID, opts.Journal, log, opts.Input)
 
 	if err := lifecycle.reach(AgentExited); err != nil {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+	}
+
+	// Read before the publish hook, so a hook that fails still carries what the
+	// agent said should happen to the task. What it said through the endpoint
+	// stands over what it left in the workspace: the file asks nothing of the
+	// agent but a write, so it stays for agents that can manage no more.
+	declared := channel.Declared()
+	if declared == nil {
+		declared = space.Outcome()
 	}
 
 	// After the agent has exited, so push credentials never overlap with it.
@@ -136,6 +188,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 			ExitCode: exitCode,
 			Failed:   true,
 			Message:  err.Error(),
+			Outcome:  declared,
 		}); completeErr != nil {
 			log.Warn("could not report the failure", "error", completeErr)
 		}
@@ -149,18 +202,61 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 
 	log.Info("run finished", "state", lifecycle.state, "exitCode", exitCode, "stopped", stopped)
 
+	// Stopped because it was finished, so the signal says nothing about how it
+	// went.
+	if handedOver.Load() {
+		return opts.Journal.Complete(ctx, run.ID, protocol.Completion{
+			ExitCode: exitCode,
+			Failed:   false,
+			Outcome:  declared,
+		})
+	}
+
 	if stopped {
 		return opts.Journal.Complete(ctx, run.ID, protocol.Completion{
 			ExitCode: exitCode,
 			Failed:   false,
 			Message:  "stopped from the console",
+			Outcome:  declared,
 		})
 	}
 
 	return opts.Journal.Complete(ctx, run.ID, protocol.Completion{
 		ExitCode: exitCode,
 		Failed:   exitCode != 0,
+		Outcome:  declared,
 	})
+}
+
+// drain takes what the reader is still holding once the agent has gone. Its
+// last words are written as it exits, so leaving them in flight loses exactly
+// the part worth reading. The deadline stops a terminal that never ends from
+// holding the run open.
+func drain(chunks <-chan terminal.Chunk, journal *journalWriter) {
+	if chunks == nil {
+		return
+	}
+
+	deadline := time.NewTimer(drainFor)
+	defer deadline.Stop()
+
+	for {
+		select {
+		case chunk, open := <-chunks:
+			if !open {
+				return
+			}
+
+			journal.append(protocol.Event{
+				Type:   protocol.EventOutput,
+				Data:   chunk.Data,
+				Offset: chunk.Offset,
+			})
+
+		case <-deadline.C:
+			return
+		}
+	}
 }
 
 func pump(
@@ -234,6 +330,7 @@ func pump(
 			}
 
 		case exitCode = <-done:
+			drain(chunks, journal)
 			journal.flush(ctx)
 			return exitCode, stopped.Load()
 
@@ -241,7 +338,10 @@ func pump(
 			// The agent dies with the context. Wait for its real exit code so
 			// the journal says what happened.
 			log.Info("stopping the agent")
-			return <-done, stopped.Load()
+			exitCode = <-done
+			drain(chunks, journal)
+			journal.flush(ctx)
+			return exitCode, stopped.Load()
 		}
 	}
 }
@@ -433,4 +533,19 @@ func (j *journalWriter) flush(ctx context.Context) {
 	if err := j.journal.AppendEvents(ctx, j.runID, batch); err != nil {
 		slog.Warn("could not append events", "run", j.runID, "count", len(batch), "error", err)
 	}
+}
+
+// granted hands the agent the endpoint it declares through. Explicit, because
+// the agent inherits none of the runner's own SPOTLIGHT_ variables.
+func granted(command protocol.Command, channel *declare.Server) protocol.Command {
+	env := make(map[string]string, len(command.Env)+2)
+	for key, value := range command.Env {
+		env[key] = value
+	}
+
+	env[declare.URLVar] = channel.URL()
+	env[declare.TokenVar] = channel.Token()
+	command.Env = env
+
+	return command
 }

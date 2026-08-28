@@ -152,10 +152,10 @@ export function Station() {
           )}
 
           <StationProperties
-            pool={edits.pool}
-            onPool={(pool) => {
-              change({ pool });
-              save({ pool });
+            harness={edits.harness}
+            onHarness={(harness) => {
+              change({ harness });
+              save({ harness });
             }}
           />
         </div>

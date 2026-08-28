@@ -25,7 +25,7 @@ export class CustomiseStationRequestDto {
     type: String,
     description: 'Which runners work this station',
   })
-  readonly pool?: string | null;
+  readonly harness?: string | null;
 
   @ApiPropertyOptional({
     example: '## Role\n\nSort the queue.',

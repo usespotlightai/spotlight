@@ -26,7 +26,7 @@ export class StationResponseDto {
     type: String,
     description: 'Which runners work this station. Null until one is chosen.',
   })
-  readonly pool: string | null;
+  readonly harness: string | null;
 
   @ApiProperty({
     example: '## Role\n\nSort the queue.',
@@ -42,7 +42,7 @@ export class StationResponseDto {
     position: number,
     color: string,
     description: string | null,
-    pool: string | null,
+    harness: string | null,
     agentPrompt: string | null,
   ) {
     this.id = id;
@@ -50,7 +50,7 @@ export class StationResponseDto {
     this.position = position;
     this.color = color;
     this.description = description;
-    this.pool = pool;
+    this.harness = harness;
     this.agentPrompt = agentPrompt;
   }
 }

@@ -1,5 +1,6 @@
 import { Run } from '@domain/aggregates/run.aggregate';
 import { InvalidRunTransitionError } from '@domain/exceptions/invalid-run-transition.error';
+import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
@@ -14,7 +15,7 @@ const queued = () =>
   Run.enqueue({
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
-    pool: 'dev',
+    harness: HarnessId.of('dev'),
     spec: { command: { executable: 'sh' } },
   });
 
@@ -22,7 +23,7 @@ const openedFor = (target: string) =>
   Run.enqueue({
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
-    pool: 'dev',
+    harness: HarnessId.of('dev'),
     spec: { command: { executable: 'claude' } },
     targetRunner: runner(target),
   });
@@ -41,7 +42,7 @@ describe('Run', () => {
     const run = Run.rehydrate({
       id: RunId.of('run_1'),
       workspaceId: WorkspaceId.of('ws_1'),
-      pool: 'dev',
+      harness: HarnessId.of('dev'),
       priority: 0,
       taskId: null,
       spec: {},
@@ -66,7 +67,7 @@ describe('Run', () => {
     const run = Run.rehydrate({
       id: RunId.of('run_1'),
       workspaceId: WorkspaceId.of('ws_1'),
-      pool: 'dev',
+      harness: HarnessId.of('dev'),
       priority: 0,
       taskId: null,
       spec: {},

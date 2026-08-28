@@ -21,7 +21,7 @@ export class ConnectedRunnerResponseDto {
   readonly name: string;
 
   @ApiProperty({ example: 'dev' })
-  readonly pool: string;
+  readonly harnesses: readonly string[];
 
   @ApiProperty({ example: '2026-08-24T11:00:00.000Z' })
   readonly registeredAt: string;
@@ -57,7 +57,7 @@ export class ConnectedRunnerResponseDto {
   constructor(
     id: string,
     name: string,
-    pool: string,
+    harnesses: readonly string[],
     registeredAt: string,
     lastSeenAt: string | null,
     revokedAt: string | null,
@@ -66,7 +66,7 @@ export class ConnectedRunnerResponseDto {
   ) {
     this.id = id;
     this.name = name;
-    this.pool = pool;
+    this.harnesses = harnesses;
     this.registeredAt = registeredAt;
     this.lastSeenAt = lastSeenAt;
     this.revokedAt = revokedAt;

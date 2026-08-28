@@ -9,7 +9,7 @@ export const ConnectedRunnerHttpMapper = {
     return new ConnectedRunnerResponseDto(
       dto.id,
       dto.name,
-      dto.pool,
+      dto.harnesses,
       dto.registeredAt,
       dto.lastSeenAt,
       dto.revokedAt,

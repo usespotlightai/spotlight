@@ -22,7 +22,6 @@ type NewRunnerDialogProps = {
 
 export function NewRunnerDialog({ open, onOpenChange }: NewRunnerDialogProps) {
   const [name, setName] = useState('');
-  const [pool, setPool] = useState('');
   const [enrolled, setEnrolled] = useState<Enrolled | null>(null);
   const enrol = useEnrolRunner();
 
@@ -30,19 +29,18 @@ export function NewRunnerDialog({ open, onOpenChange }: NewRunnerDialogProps) {
   // out instead swaps the token back to the empty form mid-animation.
   const forget = () => {
     setName('');
-    setPool('');
     setEnrolled(null);
     enrol.reset();
   };
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (!name.trim() || !pool.trim() || enrol.isPending) {
+    if (!name.trim() || enrol.isPending) {
       return;
     }
 
     enrol.mutate(
-      { name: name.trim(), pool: pool.trim() },
+      { name: name.trim() },
       { onSuccess: (runner) => runner && setEnrolled(runner) },
     );
   };
@@ -60,7 +58,7 @@ export function NewRunnerDialog({ open, onOpenChange }: NewRunnerDialogProps) {
           <DialogDescription>
             {enrolled
               ? 'The runner needs this token to connect. It is shown once and cannot be recovered afterwards.'
-              : 'A runner keeps this name across restarts. Its pool decides which work it may take.'}
+              : 'Create a new runner to execute workloads. Choose a name that makes this runner easy to identify.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -70,8 +68,6 @@ export function NewRunnerDialog({ open, onOpenChange }: NewRunnerDialogProps) {
           <Naming
             name={name}
             onName={setName}
-            pool={pool}
-            onPool={setPool}
             pending={enrol.isPending}
             error={enrol.error?.message}
             onSubmit={submit}
@@ -85,22 +81,12 @@ export function NewRunnerDialog({ open, onOpenChange }: NewRunnerDialogProps) {
 type NamingProps = {
   name: string;
   onName: (name: string) => void;
-  pool: string;
-  onPool: (pool: string) => void;
   pending: boolean;
   error?: string;
   onSubmit: (event: FormEvent) => void;
 };
 
-function Naming({
-  name,
-  onName,
-  pool,
-  onPool,
-  pending,
-  error,
-  onSubmit,
-}: NamingProps) {
+function Naming({ name, onName, pending, error, onSubmit }: NamingProps) {
   return (
     <form onSubmit={onSubmit} className="contents">
       <div className="flex flex-col gap-2">
@@ -114,15 +100,6 @@ function Naming({
           maxLength={60}
           className="h-8 rounded-md border-[0.5px] border-border bg-background px-2.5 text-foreground text-sm outline-none placeholder:text-muted-foreground focus-visible:border-input"
         />
-
-        <input
-          value={pool}
-          onChange={(event) => onPool(event.target.value)}
-          placeholder="Pool"
-          aria-label="Pool"
-          maxLength={60}
-          className="h-8 rounded-md border-[0.5px] border-border bg-background px-2.5 text-foreground text-sm outline-none placeholder:text-muted-foreground focus-visible:border-input"
-        />
       </div>
 
       {error && <p className="text-destructive text-xs">{error}</p>}
@@ -131,11 +108,7 @@ function Naming({
         <DialogClose render={<Button variant="outline" size="sm" />}>
           Cancel
         </DialogClose>
-        <Button
-          type="submit"
-          size="sm"
-          disabled={pending || !name.trim() || !pool.trim()}
-        >
+        <Button type="submit" size="sm" disabled={pending || !name.trim()}>
           {pending ? 'Creating…' : 'Create runner'}
         </Button>
       </DialogFooter>

@@ -15,7 +15,7 @@ import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
-import { RunnerPool } from '@domain/value-objects/runner-pool.vo';
+import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
@@ -45,23 +45,23 @@ const line = () =>
         name: StationName.of('Triage'),
         position: 1,
         color: StationColor.of('#93a1b5'),
-        pool: RunnerPool.of('dev'),
+        harness: HarnessId.of('dev'),
         agentPrompt: AgentPrompt.of('## Role'),
       }),
     ],
   });
 
-const dispatched: { pool: string; priority: number; brief: string }[] = [];
+const dispatched: { harness: string; priority: number; brief: string }[] = [];
 
 const dispatch = (runId: string | null = 'run_1'): TaskDispatchPort => ({
-  dispatch: async ({ task, station }) => {
-    if (!station.pool) {
+  dispatch: async ({ task, station, stations }) => {
+    if (!station.harness) {
       return null;
     }
     dispatched.push({
-      pool: station.pool.value,
+      harness: station.harness.value,
       priority: station.position,
-      brief: TaskBriefing.brief(station, task),
+      brief: TaskBriefing.brief({ station, task, stations }),
     });
     return runId === null ? null : RunId.of(runId);
   },
@@ -134,9 +134,9 @@ describe('AddTaskHandler', () => {
       new AddTaskCommand('line_1', 'station_1', 'Fix the queue', null),
     );
 
-    expect(dispatched).toEqual([
-      { pool: 'dev', priority: 1, brief: '## Role\n\n## Fix the queue' },
-    ]);
+    expect(dispatched).toHaveLength(1);
+    expect(dispatched[0]).toMatchObject({ harness: 'dev', priority: 1 });
+    expect(dispatched[0]?.brief).toContain('## Role\n\n## Fix the queue');
     expect(added?.currentRunId?.value).toBe('run_1');
   });
 

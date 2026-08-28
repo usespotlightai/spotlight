@@ -8,14 +8,14 @@ describe('AssemblyLineHttpMapper.toStationChanges', () => {
         name: 'Intake',
         color: '#db5b52',
         description: 'Where new work lands',
-        pool: 'dev',
+        harness: 'dev',
         agentPrompt: '## Role',
       }),
     ).toEqual({
       name: 'Intake',
       color: '#db5b52',
       description: 'Where new work lands',
-      pool: 'dev',
+      harness: 'dev',
       agentPrompt: '## Role',
     });
   });
@@ -27,7 +27,7 @@ describe('AssemblyLineHttpMapper.toStationChanges', () => {
       name: undefined,
       color: '#db5b52',
       description: undefined,
-      pool: undefined,
+      harness: undefined,
       agentPrompt: undefined,
     });
   });

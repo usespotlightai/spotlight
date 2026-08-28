@@ -9,7 +9,7 @@ import { describe, expect, it, vi } from 'vitest';
 const bare = {
   color: '#a3a8b0',
   description: null,
-  pool: null,
+  harness: null,
   agentPrompt: null,
 };
 
@@ -18,7 +18,7 @@ const board: AssemblyLineDetail = {
   name: 'Default',
   stations: [
     { id: 'station_1', name: 'Triage', position: 0, ...bare },
-    { id: 'station_2', name: 'Spec', position: 1, ...bare, pool: 'dev' },
+    { id: 'station_2', name: 'Spec', position: 1, ...bare, harness: 'dev' },
   ],
 };
 
@@ -41,7 +41,7 @@ describe('ListAssemblyLinesHandler', () => {
         name: 'Default',
         stations: [
           { id: 'station_1', name: 'Triage', position: 0, ...bare },
-          { id: 'station_2', name: 'Spec', position: 1, ...bare, pool: 'dev' },
+          { id: 'station_2', name: 'Spec', position: 1, ...bare, harness: 'dev' },
         ],
       },
     ]);

@@ -65,7 +65,11 @@ export class AddTaskHandler
       newId: () => this.ids.generate(),
     });
 
-    const runId = await this.dispatch.dispatch({ task: added, station });
+    const runId = await this.dispatch.dispatch({
+      task: added,
+      station,
+      stations: line.stations,
+    });
     const raised = runId ? added.handedTo(runId) : added;
 
     await this.tasks.add(raised);

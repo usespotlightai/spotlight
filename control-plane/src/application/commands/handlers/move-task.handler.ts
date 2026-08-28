@@ -81,7 +81,11 @@ export class MoveTaskHandler
       const runId =
         stayed || moved.currentRunId
           ? null
-          : await this.dispatch.dispatch({ task: moved, station });
+          : await this.dispatch.dispatch({
+              task: moved,
+              station,
+              stations: line.stations,
+            });
 
       const placed = runId ? moved.handedTo(runId) : moved;
 

@@ -2,9 +2,11 @@ import { AddTaskCommand } from '@application/commands/add-task.command';
 import { DeleteTaskCommand } from '@application/commands/delete-task.command';
 import { MoveTaskCommand } from '@application/commands/move-task.command';
 import type { AssemblyLineDto } from '@application/dto/assembly-line.dto';
+import type { TaskRunDto } from '@application/dto/task-run.dto';
 import type { TaskDto } from '@application/dto/task.dto';
 import type { AuthenticatedUser } from '@application/ports/session.port';
 import { ListAssemblyLinesQuery } from '@application/queries/list-assembly-lines.query';
+import { ListTaskRunsQuery } from '@application/queries/list-task-runs.query';
 import { ListTasksQuery } from '@application/queries/list-tasks.query';
 import {
   Body,
@@ -32,7 +34,9 @@ import {
 import { CurrentUser } from '@presentation/http/decorators/current-user.decorator';
 import { AddTaskRequestDto } from '@presentation/http/dto/add-task.request.dto';
 import { MoveTaskRequestDto } from '@presentation/http/dto/move-task.request.dto';
+import { TaskRunResponseDto } from '@presentation/http/dto/task-run.response.dto';
 import { TaskResponseDto } from '@presentation/http/dto/task.response.dto';
+import { TaskRunHttpMapper } from '@presentation/http/mappers/task-run.http.mapper';
 import { TaskHttpMapper } from '@presentation/http/mappers/task.http.mapper';
 
 @ApiTags('tasks')
@@ -65,6 +69,24 @@ export class TaskController {
     }
 
     return tasks.map(TaskHttpMapper.toResponse);
+  }
+
+  @Get('tasks/:taskId/runs')
+  @ApiOperation({
+    operationId: 'listTaskRuns',
+    summary: 'List what has been run on a task, most recent first',
+  })
+  @ApiParam({ name: 'taskId' })
+  @ApiOkResponse({ type: TaskRunResponseDto, isArray: true })
+  async runs(
+    @Param('taskId') taskId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<TaskRunResponseDto[]> {
+    const runs = await this.queryBus.execute<ListTaskRunsQuery, TaskRunDto[]>(
+      new ListTaskRunsQuery(taskId, user.id),
+    );
+
+    return runs.map(TaskRunHttpMapper.toResponse);
   }
 
   @Delete('tasks/:taskId')

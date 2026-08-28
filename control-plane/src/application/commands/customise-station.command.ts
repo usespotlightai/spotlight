@@ -6,7 +6,7 @@ export class CustomiseStationCommand {
       readonly name?: string;
       readonly color?: string;
       readonly description?: string | null;
-      readonly pool?: string | null;
+      readonly harness?: string | null;
       readonly agentPrompt?: string | null;
     },
   ) {}

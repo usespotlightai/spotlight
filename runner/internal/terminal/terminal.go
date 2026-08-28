@@ -56,7 +56,7 @@ type Session struct {
 func Start(ctx context.Context, spec Spec) (*Session, error) {
 	command := exec.CommandContext(ctx, spec.Command.Executable, spec.Command.Args...)
 	command.Dir = spec.Dir
-	command.Env = environment(spec.Command.Env)
+	command.Env = environment(spec.Command.Env, spec.RunAs)
 	command.SysProcAttr = spec.RunAs.sysProcAttr()
 
 	if err := os.MkdirAll(filepath.Dir(spec.Recording), 0o700); err != nil {
@@ -140,18 +140,43 @@ func (s *Session) Close() error {
 	return errors.Join(s.pty.Close(), s.recording.Close())
 }
 
-// runnerOnly are the variables the agent must never see, including the
+// runnerOnly are the variables the agent must never inherit, including the
 // runner's control plane token: an agent with a shell can read its own
-// environment.
+// environment. What the agent is meant to have is passed in the spec instead,
+// so every variable it sees under this prefix was granted on purpose.
 const runnerOnly = "SPOTLIGHT_"
 
-func environment(extra map[string]string) []string {
-	env := make([]string, 0, len(os.Environ())+len(extra)+2)
+// theRunners are the variables that describe whoever started the runner. An
+// agent running as its own account must be told about that account instead.
+var theRunners = []string{"HOME=", "USER=", "LOGNAME=", "SHELL="}
+
+func environment(extra map[string]string, as *User) []string {
+	env := make([]string, 0, len(os.Environ())+len(extra)+5)
 
 	for _, entry := range os.Environ() {
-		if !strings.HasPrefix(entry, runnerOnly) {
-			env = append(env, entry)
+		if strings.HasPrefix(entry, runnerOnly) {
+			continue
 		}
+		if as != nil && startsWithAny(entry, theRunners) {
+			continue
+		}
+
+		env = append(env, entry)
+	}
+
+	if as != nil {
+		env = append(env,
+			"HOME="+as.Home,
+			"USER="+as.Name,
+			"LOGNAME="+as.Name,
+			"SHELL="+as.Shell,
+		)
+	}
+
+	// A container carries no SHELL of its own, and an agent CLI that finds
+	// none refuses to run anything at all.
+	if as == nil && os.Getenv("SHELL") == "" {
+		env = append(env, "SHELL="+DefaultShell)
 	}
 
 	env = append(env, "TERM=xterm-256color", "COLORTERM=truecolor")
@@ -164,4 +189,14 @@ func environment(extra map[string]string) []string {
 
 func isClosed(err error) bool {
 	return errors.Is(err, io.EOF) || errors.Is(err, os.ErrClosed) || errors.Is(err, syscallEIO)
+}
+
+func startsWithAny(entry string, prefixes []string) bool {
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(entry, prefix) {
+			return true
+		}
+	}
+
+	return false
 }

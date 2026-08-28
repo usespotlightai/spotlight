@@ -7,7 +7,7 @@ export interface StationSummary {
   readonly position: number;
   readonly color: string;
   readonly description: string | null;
-  readonly pool: string | null;
+  readonly harness: string | null;
   readonly agentPrompt: string | null;
 }
 

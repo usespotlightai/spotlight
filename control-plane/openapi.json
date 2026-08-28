@@ -425,10 +425,48 @@
         ]
       }
     },
+    "/runners/harnesses": {
+      "get": {
+        "operationId": "installableHarnesses",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InstallableHarnessResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong enrollment token"
+          }
+        },
+        "summary": "What to look for on this runner, so it can say what it has",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
     "/runners/register": {
       "post": {
         "operationId": "registerRunner",
         "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRunnerRequestDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "",
@@ -579,6 +617,34 @@
         ]
       }
     },
+    "/harnesses": {
+      "get": {
+        "operationId": "listHarnesses",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HarnessResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          }
+        },
+        "summary": "List the harnesses a station can be worked by",
+        "tags": [
+          "harnesses"
+        ]
+      }
+    },
     "/runners": {
       "get": {
         "operationId": "listRunners",
@@ -706,6 +772,51 @@
           }
         },
         "summary": "List the tasks standing at a team’s stations, oldest first",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/teams/{teamId}/tasks/{taskId}/runs": {
+      "get": {
+        "operationId": "listTaskRuns",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TaskRunResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          }
+        },
+        "summary": "List what has been run on a task, most recent first",
         "tags": [
           "tasks"
         ]
@@ -1032,7 +1143,7 @@
             "example": "Where new work lands before anyone looks at it",
             "nullable": true
           },
-          "pool": {
+          "harness": {
             "type": "string",
             "example": "dev",
             "nullable": true,
@@ -1051,7 +1162,7 @@
           "position",
           "color",
           "description",
-          "pool",
+          "harness",
           "agentPrompt"
         ]
       },
@@ -1117,7 +1228,7 @@
             "maxLength": 500,
             "nullable": true
           },
-          "pool": {
+          "harness": {
             "type": "string",
             "example": "dev",
             "maxLength": 60,
@@ -1163,13 +1274,14 @@
       "EnqueueRunRequestDto": {
         "type": "object",
         "properties": {
-          "pool": {
+          "harness": {
             "type": "string",
-            "example": "dev"
+            "example": "claude-code",
+            "description": "The harness to work this run. Only runners that have it may take it."
           },
           "spec": {
             "type": "object",
-            "description": "Handed to the runner untouched: checkouts, cwd, command",
+            "description": "Handed to the runner untouched: checkouts and cwd. The command is filled in from the harness, so it is not given here.",
             "example": {
               "cwd": "service",
               "checkouts": [
@@ -1177,24 +1289,17 @@
                   "remote": "https://github.com/org/service",
                   "path": "service"
                 }
-              ],
-              "command": {
-                "executable": "claude",
-                "args": [
-                  "-p",
-                  "fix the build"
-                ]
-              }
+              ]
             }
           },
           "targetRunnerId": {
             "type": "string",
-            "description": "Runner this run belongs to. Omitted lets any runner in the pool take it.",
+            "description": "Runner this run belongs to. Omitted lets any runner with the harness take it.",
             "example": "8a1d4e0b-6c72-4f35-9b8a-1e5d3c7f2a49"
           }
         },
         "required": [
-          "pool",
+          "harness",
           "spec"
         ]
       },
@@ -1205,9 +1310,9 @@
             "type": "string",
             "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
           },
-          "pool": {
+          "harness": {
             "type": "string",
-            "example": "dev"
+            "example": "claude-code"
           },
           "state": {
             "type": "string",
@@ -1222,7 +1327,7 @@
         },
         "required": [
           "id",
-          "pool",
+          "harness",
           "state",
           "targetRunnerId"
         ]
@@ -1283,6 +1388,47 @@
         "required": [
           "input"
         ]
+      },
+      "InstallableHarnessResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "claude-code"
+          },
+          "executable": {
+            "type": "string",
+            "example": "claude",
+            "description": "What to look for on the runner’s PATH."
+          }
+        },
+        "required": [
+          "id",
+          "executable"
+        ]
+      },
+      "RegisterRunnerRequestDto": {
+        "type": "object",
+        "properties": {
+          "capacity": {
+            "type": "number",
+            "example": 1,
+            "description": "What the runner advertises. The control plane grants work."
+          },
+          "harnesses": {
+            "example": [
+              "claude-code"
+            ],
+            "description": "The harnesses the runner found installed. What is on a machine is a fact about that machine, so the machine is what says it.",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "type": "array"
+          }
+        }
       },
       "RegisteredRunnerResponseDto": {
         "type": "object",
@@ -1367,6 +1513,24 @@
           "events"
         ]
       },
+      "DeclaredOutcomeDto": {
+        "type": "object",
+        "properties": {
+          "next": {
+            "type": "string",
+            "example": "Spec",
+            "description": "The station to pass the task to, or \"review\" to ask a person. A name this line does not know is treated as a question for a person."
+          },
+          "note": {
+            "type": "string",
+            "example": "Reproduced on restart. Needs a spec for draining the queue.",
+            "description": "What the next station, or the person, should know"
+          }
+        },
+        "required": [
+          "next"
+        ]
+      },
       "CompleteRunRequestDto": {
         "type": "object",
         "properties": {
@@ -1380,11 +1544,31 @@
           },
           "message": {
             "type": "string"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/DeclaredOutcomeDto"
           }
         },
         "required": [
           "exitCode",
           "failed"
+        ]
+      },
+      "HarnessResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "claude-code"
+          },
+          "name": {
+            "type": "string",
+            "example": "Claude Code"
+          }
+        },
+        "required": [
+          "id",
+          "name"
         ]
       },
       "ActiveRunResponseDto": {
@@ -1415,9 +1599,12 @@
             "type": "string",
             "example": "Build server"
           },
-          "pool": {
-            "type": "string",
-            "example": "dev"
+          "harnesses": {
+            "example": "dev",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "registeredAt": {
             "type": "string",
@@ -1453,7 +1640,7 @@
         "required": [
           "id",
           "name",
-          "pool",
+          "harnesses",
           "registeredAt",
           "lastSeenAt",
           "revokedAt",
@@ -1468,16 +1655,10 @@
             "type": "string",
             "example": "Build server",
             "description": "What to call this runner. Rejected if empty or over 60."
-          },
-          "pool": {
-            "type": "string",
-            "example": "dev",
-            "description": "Which queue this runner may take work from."
           }
         },
         "required": [
-          "name",
-          "pool"
+          "name"
         ]
       },
       "EnrolledRunnerResponseDto": {
@@ -1535,6 +1716,44 @@
           "title",
           "description",
           "createdAt"
+        ]
+      },
+      "TaskRunResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "4e1e84a2-0c39-406d-bbbb-559f29e450be"
+          },
+          "state": {
+            "type": "string",
+            "example": "completed"
+          },
+          "attempt": {
+            "type": "number",
+            "example": 1
+          },
+          "exitCode": {
+            "type": "number",
+            "example": 0,
+            "nullable": true
+          },
+          "startedAt": {
+            "type": "string",
+            "example": "2026-08-28T16:32:47.877Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "example": "2026-08-28T16:33:25.712Z"
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "attempt",
+          "exitCode",
+          "startedAt",
+          "updatedAt"
         ]
       },
       "AddTaskRequestDto": {

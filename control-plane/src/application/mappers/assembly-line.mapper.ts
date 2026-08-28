@@ -17,7 +17,7 @@ export const AssemblyLineMapper = {
       position: summary.position,
       color: summary.color,
       description: summary.description,
-      pool: summary.pool,
+      harness: summary.harness,
       agentPrompt: summary.agentPrompt,
     };
   },
@@ -29,7 +29,7 @@ export const AssemblyLineMapper = {
       position: station.position,
       color: station.color.value,
       description: station.description?.value ?? null,
-      pool: station.pool?.value ?? null,
+      harness: station.harness?.value ?? null,
       agentPrompt: station.agentPrompt?.value ?? null,
     };
   },

@@ -2,9 +2,11 @@ package session_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -371,5 +373,245 @@ func TestExecuteStopsTheAgentWhenAskedTo(t *testing.T) {
 	}
 	if written.done.Message != "stopped from the console" {
 		t.Errorf("message %q", written.done.Message)
+	}
+}
+
+// declaring runs an agent that has somewhere to declare to, and answers with
+// what the run finally reported.
+func declaring(t *testing.T, script string) *journal {
+	t.Helper()
+
+	written := &journal{}
+	err := session.Execute(context.Background(), protocol.Run{
+		ID: "run_declaring",
+		Spec: protocol.Spec{
+			Cwd:      "service",
+			Command:  protocol.Command{Executable: "sh", Args: []string{"-c", script}},
+			Handover: protocol.Handover{Options: []string{"Spec", "review"}},
+		},
+	}, session.Options{
+		WorkspaceRoot: t.TempDir(),
+		Journal:       written,
+		Log:           slog.New(slog.NewTextHandler(io.Discard, nil)),
+		PrepareHook:   prepareHook(t, "mkdir service"),
+		HookTimeout:   30 * time.Second,
+	})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	return written
+}
+
+func spoke(t *testing.T, written *journal) *protocol.Outcome {
+	t.Helper()
+
+	if written.done == nil {
+		t.Fatal("the run never completed")
+	}
+
+	return written.done.Outcome
+}
+
+// The runner strips its own SPOTLIGHT_ variables from what the agent inherits,
+// so the ones it is meant to have must be granted on purpose.
+func TestTheAgentIsGivenSomewhereToDeclare(t *testing.T) {
+	written := declaring(t, `echo "at=$SPOTLIGHT_HANDOVER_URL token=${#SPOTLIGHT_HANDOVER_TOKEN}"`)
+
+	var seen strings.Builder
+	for _, event := range written.typed(protocol.EventOutput) {
+		seen.Write(event.Data)
+	}
+
+	if !strings.Contains(seen.String(), "at=http://127.0.0.1:") {
+		t.Errorf("the agent was given no endpoint: %q", seen.String())
+	}
+	if strings.Contains(seen.String(), "token=0") {
+		t.Errorf("the agent was given no token: %q", seen.String())
+	}
+}
+
+var (
+	buildOnce sync.Once
+	built     string
+	buildErr  error
+)
+
+// theCLI is the client the agent is actually shipped, built once so the tests
+// exercise what production runs rather than an impersonation of it.
+func theCLI(t *testing.T) string {
+	t.Helper()
+
+	buildOnce.Do(func() {
+		dir, err := os.MkdirTemp("", "cli")
+		if err != nil {
+			buildErr = err
+			return
+		}
+
+		built = filepath.Join(dir, "spotlight")
+		out, err := exec.Command(
+			"go", "build", "-o", built, "usespotlight.ai/runner/cmd/spotlight",
+		).CombinedOutput()
+		if err != nil {
+			buildErr = fmt.Errorf("build the cli: %v: %s", err, out)
+		}
+	})
+
+	if buildErr != nil {
+		t.Fatal(buildErr)
+	}
+
+	return built
+}
+
+// declare is the agent saying what happens next, the way an agent would. It
+// swallows a refusal so the run itself still ends normally.
+func declare(t *testing.T, next, note string) string {
+	return fmt.Sprintf("%s handover --next %q --note %q || true", theCLI(t), next, note)
+}
+
+func TestWhatTheAgentDeclaresReachesTheCompletion(t *testing.T) {
+	spoken := spoke(t, declaring(t, declare(t, "Spec", "needs a spec")))
+
+	if spoken == nil || spoken.Next != "Spec" || spoken.Note != "needs a spec" {
+		t.Fatalf("got %+v", spoken)
+	}
+}
+
+// A word the control plane never offered is refused outright, so the run ends
+// having said nothing and a person picks it up.
+func TestARefusedWordIsNotCarried(t *testing.T) {
+	if spoken := spoke(t, declaring(t, declare(t, "Deployment", "ship it"))); spoken != nil {
+		t.Fatalf("carried %+v", spoken)
+	}
+}
+
+func TestTheWorkspaceFileStillSpeaksForAnAgentThatRunsNoClient(t *testing.T) {
+	written := declaring(t, `mkdir -p ../.spotlight && `+
+		`echo '{"next":"review","note":"from the file"}' > ../.spotlight/outcome.json`)
+
+	spoken := spoke(t, written)
+	if spoken == nil || spoken.Next != "review" || spoken.Note != "from the file" {
+		t.Fatalf("got %+v", spoken)
+	}
+}
+
+// Both channels used at once: the one the runner answered on is the one the
+// agent got an answer from, so it is the one that counts.
+func TestTheEndpointOutranksTheFile(t *testing.T) {
+	written := declaring(t, `mkdir -p ../.spotlight && `+
+		`echo '{"next":"review","note":"from the file"}' > ../.spotlight/outcome.json && `+
+		declare(t, "Spec", "from the endpoint"))
+
+	spoken := spoke(t, written)
+	if spoken == nil || spoken.Next != "Spec" || spoken.Note != "from the endpoint" {
+		t.Fatalf("got %+v", spoken)
+	}
+}
+
+// The agent runs as its own account, so it must be pointed at its own home.
+// Left at the runner's, an agent CLI reads the runner's configuration, or is
+// refused by it, before it does anything else.
+func TestTheAgentIsGivenItsOwnHome(t *testing.T) {
+	if os.Getuid() != 0 {
+		t.Skip("dropping to another user needs root")
+	}
+	as, err := terminal.LookupUser("agent")
+	if err != nil {
+		t.Skipf("no agent account here: %v", err)
+	}
+
+	root, err := os.MkdirTemp("", "home")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(root) })
+
+	written := &journal{}
+	err = session.Execute(context.Background(), protocol.Run{
+		ID: "run_home",
+		Spec: protocol.Spec{
+			Cwd: "service",
+			Command: protocol.Command{
+				Executable: "sh",
+				Args:       []string{"-c", `echo "home=$HOME user=$USER shell=$SHELL"; test -w "$HOME" && echo WRITABLE`},
+			},
+		},
+	}, session.Options{
+		WorkspaceRoot: root,
+		Journal:       written,
+		Log:           slog.New(slog.NewTextHandler(io.Discard, nil)),
+		AgentUser:     as,
+		PrepareHook:   prepareHook(t, "mkdir service"),
+		HookTimeout:   30 * time.Second,
+	})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	var seen strings.Builder
+	for _, event := range written.typed(protocol.EventOutput) {
+		seen.Write(event.Data)
+	}
+
+	if strings.Contains(seen.String(), "home=/root") {
+		t.Errorf("the agent was left in the runner's home: %q", seen.String())
+	}
+	if !strings.Contains(seen.String(), "user=agent") {
+		t.Errorf("the agent was not told who it is: %q", seen.String())
+	}
+	if !strings.Contains(seen.String(), "WRITABLE") {
+		t.Errorf("the agent cannot write to its own home: %q", seen.String())
+	}
+	// An agent CLI runs what it is asked to run through SHELL, and refuses
+	// outright when it finds none. A container carries none of its own.
+	if strings.Contains(seen.String(), "shell=\r") ||
+		!strings.Contains(seen.String(), "shell=/") {
+		t.Errorf("the agent was given no shell: %q", seen.String())
+	}
+}
+
+// An agent says what it did as it goes, so the last thing it writes is often
+// the only thing worth reading. Reporting the exit without draining what the
+// reader still holds loses exactly that.
+func TestTheAgentsLastWordsAreKept(t *testing.T) {
+	written, _ := execute(t, protocol.Command{
+		Executable: "sh",
+		Args:       []string{"-c", `echo first; echo LAST-WORDS`},
+	})
+
+	var seen strings.Builder
+	for _, event := range written.typed(protocol.EventOutput) {
+		seen.Write(event.Data)
+	}
+
+	if !strings.Contains(seen.String(), "LAST-WORDS") {
+		t.Errorf("the agent's parting line was lost: %q", seen.String())
+	}
+}
+
+// An agent working at a terminal has no reason to exit: it finishes the work
+// and waits for someone to type. Without this a run would never end, and the
+// handover it just made would never be reported.
+func TestAnAgentThatHasHandedOverIsStopped(t *testing.T) {
+	written := declaring(t, declare(t, "Spec", "over to you")+"; sleep 600")
+
+	spoken := spoke(t, written)
+	if spoken == nil || spoken.Next != "Spec" {
+		t.Fatalf("got %+v", spoken)
+	}
+}
+
+// Killed because it was finished, so the signal that ended it says nothing
+// about whether the work went badly.
+func TestHandingOverIsNotAFailure(t *testing.T) {
+	written := declaring(t, declare(t, "review", "a person should look")+"; sleep 600")
+
+	if written.done == nil || written.done.Failed {
+		t.Fatalf("completion %+v", written.done)
+	}
+	if written.done.Message != "" {
+		t.Errorf("said %q of a run that simply finished", written.done.Message)
 	}
 }

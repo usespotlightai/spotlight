@@ -1,6 +1,6 @@
 import { Station } from '@domain/entities/station.entity';
 import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
-import { RunnerPool } from '@domain/value-objects/runner-pool.vo';
+import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationDescription } from '@domain/value-objects/station-description.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
@@ -18,7 +18,7 @@ const station = () =>
 const furnished = () =>
   station()
     .describe(StationDescription.of('Where new work lands'))
-    .assignTo(RunnerPool.of('dev'))
+    .runsOn(HarnessId.of('dev'))
     .instruct(AgentPrompt.of('## Role'));
 
 describe('Station', () => {
@@ -26,7 +26,7 @@ describe('Station', () => {
     const bare = station();
 
     expect(bare.description).toBeNull();
-    expect(bare.pool).toBeNull();
+    expect(bare.harness).toBeNull();
     expect(bare.agentPrompt).toBeNull();
   });
 
@@ -34,7 +34,7 @@ describe('Station', () => {
     const furnishedStation = furnished();
 
     expect(furnishedStation.description?.value).toBe('Where new work lands');
-    expect(furnishedStation.pool?.value).toBe('dev');
+    expect(furnishedStation.harness?.value).toBe('dev');
     expect(furnishedStation.agentPrompt?.value).toBe('## Role');
   });
 
@@ -42,7 +42,7 @@ describe('Station', () => {
     const renamed = furnished().rename(StationName.of('Intake'));
 
     expect(renamed.name.value).toBe('Intake');
-    expect(renamed.pool?.value).toBe('dev');
+    expect(renamed.harness?.value).toBe('dev');
     expect(renamed.agentPrompt?.value).toBe('## Role');
   });
 
@@ -54,9 +54,9 @@ describe('Station', () => {
   });
 
   it('answers to no pool once it is assigned none', () => {
-    const cleared = furnished().assignTo(null);
+    const cleared = furnished().runsOn(null);
 
-    expect(cleared.pool).toBeNull();
+    expect(cleared.harness).toBeNull();
     expect(cleared.description?.value).toBe('Where new work lands');
   });
 
@@ -69,8 +69,8 @@ describe('Station', () => {
 
   it('leaves the station it was made from untouched', () => {
     const bare = station();
-    bare.assignTo(RunnerPool.of('dev'));
+    bare.runsOn(HarnessId.of('dev'));
 
-    expect(bare.pool).toBeNull();
+    expect(bare.harness).toBeNull();
   });
 });

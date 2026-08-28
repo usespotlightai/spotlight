@@ -1,11 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { runnerKeys } from '@/hooks/api/useRunners';
 import { enqueueRun, stopRun } from '@/lib/api';
-import { AGENT_COMMAND } from '@/lib/runner';
 
 type StartSessionInput = {
   slug: string;
-  pool: string;
+  harness: string;
   runnerId: string;
 };
 
@@ -14,12 +13,13 @@ export function useStartSession() {
 
   return useMutation({
     mutationKey: ['runners', 'start-session'],
-    mutationFn: async ({ slug, pool, runnerId }: StartSessionInput) => {
+    mutationFn: async ({ slug, harness, runnerId }: StartSessionInput) => {
       const { data, error } = await enqueueRun({
         path: { slug },
         body: {
-          pool,
-          spec: { command: AGENT_COMMAND },
+          harness,
+          // How to start it is the control plane's to know.
+          spec: {},
           targetRunnerId: runnerId,
         },
       });

@@ -13,14 +13,16 @@ import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const station = (agentPrompt?: AgentPrompt) =>
+const at = (id: string, name: string, position: number, prompt?: AgentPrompt) =>
   Station.create({
-    id: StationId.of('station_1'),
-    name: StationName.of('Triage'),
-    position: 1,
+    id: StationId.of(id),
+    name: StationName.of(name),
+    position,
     color: StationColor.of('#93a1b5'),
-    agentPrompt,
+    agentPrompt: prompt,
   });
+
+const line = [at('station_1', 'Triage', 0), at('station_2', 'Spec', 1)];
 
 const task = (description?: TaskDescription) =>
   Task.add({
@@ -33,54 +35,64 @@ const task = (description?: TaskDescription) =>
     newId: () => 'task_1',
   });
 
+const brief = (station: Station, worked = task()) =>
+  TaskBriefing.brief({ station, task: worked, stations: line });
+
 describe('TaskBriefing', () => {
   it('leads with the station’s standing instructions', () => {
-    const brief = TaskBriefing.brief(
-      station(AgentPrompt.of('## Role\n\nSort the queue.')),
+    const briefing = brief(
+      at('station_1', 'Triage', 0, AgentPrompt.of('## Role\n\nSort it.')),
       task(TaskDescription.of('It hangs on restart.')),
     );
 
-    expect(brief).toBe(
-      '## Role\n\nSort the queue.\n\n## Fix the queue\n\nIt hangs on restart.',
+    expect(briefing).toContain(
+      '## Role\n\nSort it.\n\n## Fix the queue\n\nIt hangs on restart.',
     );
   });
 
   it('lets the task speak for itself at a station with nothing to say', () => {
-    expect(TaskBriefing.brief(station(), task())).toBe('## Fix the queue');
+    expect(brief(line[0] as Station)).toContain('## Fix the queue');
   });
 
   it('carries forward what earlier stations left behind', () => {
-    const worked = task()
-      .note(
-        TaskNote.of({
-          station: StationName.of('Triage'),
-          body: TaskNoteBody.of('Reproduced on restart.'),
-          at: new Date('2026-08-28T10:00:00.000Z'),
-        }),
-      )
-      .note(
-        TaskNote.of({
-          station: StationName.of('Spec'),
-          body: TaskNoteBody.of('Drain the queue on shutdown.'),
-          at: new Date('2026-08-28T11:00:00.000Z'),
-        }),
-      );
+    const worked = task().note(
+      TaskNote.of({
+        station: StationName.of('Triage'),
+        body: TaskNoteBody.of('Reproduced on restart.'),
+        at: new Date('2026-08-28T10:00:00.000Z'),
+      }),
+    );
 
-    expect(TaskBriefing.brief(station(), worked)).toBe(
-      [
-        '## Fix the queue',
-        '## Already done',
-        '### Triage',
-        'Reproduced on restart.',
-        '### Spec',
-        'Drain the queue on shutdown.',
-      ].join('\n\n'),
+    expect(brief(line[0] as Station, worked)).toContain(
+      '## Already done\n\n### Triage\n\nReproduced on restart.',
     );
   });
 
-  it('carries a description even where the station is silent', () => {
-    expect(
-      TaskBriefing.brief(station(), task(TaskDescription.of('Steps here.'))),
-    ).toBe('## Fix the queue\n\nSteps here.');
+  it('says how to declare where the task goes next', () => {
+    const briefing = brief(line[0] as Station);
+
+    expect(briefing).toContain('spotlight handover --next');
+    expect(briefing).toContain('"Spec", "review"');
+  });
+
+  // Handing a task back to where it stands moves nothing and starts the same
+  // work again, so the station it is at is never offered.
+  it('does not offer the station the task is standing at', () => {
+    expect(brief(line[0] as Station)).not.toContain('"Triage"');
+  });
+
+  // An agent at a terminal nobody is watching will wait forever for an answer
+  // that is never coming.
+  it('tells the agent to ask through the handover, not the terminal', () => {
+    const briefing = brief(line[0] as Station);
+
+    expect(briefing).toContain('Nobody is watching this terminal');
+    expect(briefing).toContain('put the question in the note');
+  });
+
+  it('says that saying nothing puts the task in front of a person', () => {
+    expect(brief(line[0] as Station)).toContain(
+      'puts the task in front of a person',
+    );
   });
 });

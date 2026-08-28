@@ -53,6 +53,7 @@ import { RUN_EVENT_READER } from '@application/ports/run-event-reader.port';
 import { RUN_INPUT } from '@application/ports/run-input.port';
 import { RUN_STREAM } from '@application/ports/run-stream.port';
 import { RUNNER_AUTH } from '@application/ports/runner-auth.port';
+import { RUN_READER } from '@application/ports/run-reader.port';
 import { RUNNER_READER } from '@application/ports/runner-reader.port';
 import { RUNNER_REVOCATION } from '@application/ports/runner-revocation.port';
 import { RUNNER_TOKEN } from '@application/ports/runner-token.port';
@@ -69,12 +70,16 @@ import { GetGreetingHandler } from '@application/queries/handlers/get-greeting.h
 import { GetWorkspaceHandler } from '@application/queries/handlers/get-workspace.handler';
 import { ListAssemblyLinesHandler } from '@application/queries/handlers/list-assembly-lines.handler';
 import { ListRunnersHandler } from '@application/queries/handlers/list-runners.handler';
+import { ListHarnessesHandler } from '@application/queries/handlers/list-harnesses.handler';
+import { ListTaskRunsHandler } from '@application/queries/handlers/list-task-runs.handler';
 import { ListTasksHandler } from '@application/queries/handlers/list-tasks.handler';
 import { ListWorkspacesHandler } from '@application/queries/handlers/list-workspaces.handler';
 import { ReadRunEventsHandler } from '@application/queries/handlers/read-run-events.handler';
 import { WatchRunHandler } from '@application/queries/handlers/watch-run.handler';
 import { ListAssemblyLinesQuery } from '@application/queries/list-assembly-lines.query';
 import { ListRunnersQuery } from '@application/queries/list-runners.query';
+import { ListHarnessesQuery } from '@application/queries/list-harnesses.query';
+import { ListTaskRunsQuery } from '@application/queries/list-task-runs.query';
 import { ListTasksQuery } from '@application/queries/list-tasks.query';
 import { ListWorkspacesQuery } from '@application/queries/list-workspaces.query';
 import { ReadRunEventsQuery } from '@application/queries/read-run-events.query';
@@ -91,6 +96,7 @@ import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.cont
 import { DrizzleModule } from '@infrastructure/persistence/drizzle/drizzle.module';
 import { DrizzleAssemblyLineReader } from '@infrastructure/persistence/drizzle/readers/assembly-line.reader';
 import { DrizzleRunEventReader } from '@infrastructure/persistence/drizzle/readers/run-event.reader';
+import { DrizzleRunReader } from '@infrastructure/persistence/drizzle/readers/run.reader';
 import { DrizzleRunnerReader } from '@infrastructure/persistence/drizzle/readers/runner.reader';
 import { DrizzleTaskReader } from '@infrastructure/persistence/drizzle/readers/task.reader';
 import { DrizzleWorkspaceReader } from '@infrastructure/persistence/drizzle/readers/workspace.reader';
@@ -112,6 +118,7 @@ import { HealthController } from '@presentation/http/controllers/health.controll
 import { RunController } from '@presentation/http/controllers/run.controller';
 import { RunStreamController } from '@presentation/http/controllers/run-stream.controller';
 import { RunnerController } from '@presentation/http/controllers/runner.controller';
+import { HarnessController } from '@presentation/http/controllers/harness.controller';
 import { RunnerFleetController } from '@presentation/http/controllers/runner-fleet.controller';
 import { TaskController } from '@presentation/http/controllers/task.controller';
 import { WorkspaceController } from '@presentation/http/controllers/workspace.controller';
@@ -135,6 +142,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     RunController,
     RunStreamController,
     RunnerController,
+    HarnessController,
     RunnerFleetController,
     TaskController,
     WorkspaceController,
@@ -151,6 +159,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     { provide: WORKSPACE_READER, useClass: DrizzleWorkspaceReader },
     { provide: ASSEMBLY_LINE_READER, useClass: DrizzleAssemblyLineReader },
     { provide: TASK_READER, useClass: DrizzleTaskReader },
+    { provide: RUN_READER, useClass: DrizzleRunReader },
     { provide: RUNNER_READER, useClass: DrizzleRunnerReader },
     { provide: RUN_EVENT_READER, useClass: DrizzleRunEventReader },
     { provide: RUN_STREAM, useClass: InMemoryRunStream },
@@ -214,6 +223,8 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       ASSEMBLY_LINE_READER,
     ]),
     ...bindQueryHandler(ListTasksQuery, ListTasksHandler, [TASK_READER]),
+    ...bindQueryHandler(ListTaskRunsQuery, ListTaskRunsHandler, [RUN_READER]),
+    ...bindQueryHandler(ListHarnessesQuery, ListHarnessesHandler),
     ...bindQueryHandler(ListRunnersQuery, ListRunnersHandler, [
       RUNNER_READER,
       CLOCK,
@@ -255,6 +266,8 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
 
     ...bindCommandHandler(CustomiseStationCommand, CustomiseStationHandler, [
       DrizzleAssemblyLineRepository,
+      DrizzleTaskRepository,
+      TASK_DISPATCH,
       TRANSACTION,
     ]),
 

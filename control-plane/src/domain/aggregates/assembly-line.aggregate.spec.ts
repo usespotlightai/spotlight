@@ -6,7 +6,7 @@ import { UnknownStationError } from '@domain/exceptions/unknown-station.error';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
-import { RunnerPool } from '@domain/value-objects/runner-pool.vo';
+import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
@@ -90,12 +90,12 @@ describe('AssemblyLine', () => {
   it('changes the one station it was asked about', () => {
     const line = lineOf([at(0, 'Triage'), at(1, 'Spec')]);
 
-    const assigned = line.assignStationTo(
+    const assigned = line.runStationOn(
       StationId.of('station_0'),
-      RunnerPool.of('dev'),
+      HarnessId.of('dev'),
     );
 
-    expect(assigned.stations.map((each) => each.pool?.value ?? null)).toEqual([
+    expect(assigned.stations.map((each) => each.harness?.value ?? null)).toEqual([
       'dev',
       null,
     ]);
@@ -105,18 +105,18 @@ describe('AssemblyLine', () => {
     const line = lineOf([at(0)]);
 
     expect(() =>
-      line.assignStationTo(
+      line.runStationOn(
         StationId.of('station_missing'),
-        RunnerPool.of('dev'),
+        HarnessId.of('dev'),
       ),
     ).toThrow(UnknownStationError);
   });
 
   it('leaves the line it was changed from untouched', () => {
     const line = lineOf([at(0)]);
-    line.assignStationTo(StationId.of('station_0'), RunnerPool.of('dev'));
+    line.runStationOn(StationId.of('station_0'), HarnessId.of('dev'));
 
-    expect(line.stations[0]?.pool).toBeNull();
+    expect(line.stations[0]?.harness).toBeNull();
   });
 
   it('holds its stations in board order however they arrive', () => {

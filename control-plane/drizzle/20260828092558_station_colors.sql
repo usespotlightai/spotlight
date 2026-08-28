@@ -1,1 +1,0 @@
-ALTER TABLE "station" ADD COLUMN "color" text DEFAULT '#a3a8b0' NOT NULL;

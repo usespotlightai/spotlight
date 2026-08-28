@@ -13,7 +13,7 @@ import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
-import { RunnerPool } from '@domain/value-objects/runner-pool.vo';
+import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
@@ -24,13 +24,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const transaction: TransactionPort = { run: (work) => work() };
 
-const at = (id: string, name: string, position: number, pool?: RunnerPool) =>
+const at = (id: string, name: string, position: number, harness?: HarnessId) =>
   Station.create({
     id: StationId.of(id),
     name: StationName.of(name),
     position,
     color: StationColor.of('#a3a8b0'),
-    pool,
+    harness,
   });
 
 const line = () =>
@@ -41,7 +41,7 @@ const line = () =>
     name: AssemblyLineName.of('Default'),
     stations: [
       at('station_1', 'Backlog', 0),
-      at('station_2', 'Triage', 1, RunnerPool.of('dev')),
+      at('station_2', 'Triage', 1, HarnessId.of('dev')),
     ],
   });
 
@@ -55,17 +55,17 @@ const standing = (stationId = 'station_2') =>
     newId: () => 'task_1',
   });
 
-const dispatched: { pool: string; priority: number; brief: string }[] = [];
+const dispatched: { harness: string; priority: number; brief: string }[] = [];
 
 const dispatch = (runId: string | null = 'run_1'): TaskDispatchPort => ({
-  dispatch: async ({ task, station }) => {
-    if (!station.pool) {
+  dispatch: async ({ task, station, stations }) => {
+    if (!station.harness) {
       return null;
     }
     dispatched.push({
-      pool: station.pool.value,
+      harness: station.harness.value,
       priority: station.position,
-      brief: TaskBriefing.brief(station, task),
+      brief: TaskBriefing.brief({ station, task, stations }),
     });
     return runId === null ? null : RunId.of(runId);
   },
@@ -124,9 +124,9 @@ describe('MoveTaskHandler', () => {
   it('hands the task over when it arrives at a worked station', async () => {
     await move('station_2', lines(), tasks(standing('station_1')));
 
-    expect(dispatched).toEqual([
-      { pool: 'dev', priority: 1, brief: '## Fix the queue' },
-    ]);
+    expect(dispatched).toHaveLength(1);
+    expect(dispatched[0]).toMatchObject({ harness: 'dev', priority: 1 });
+    expect(dispatched[0]?.brief).toContain('## Fix the queue');
     expect(saved?.currentRunId?.value).toBe('run_1');
   });
 

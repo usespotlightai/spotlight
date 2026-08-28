@@ -1,19 +1,14 @@
-import { ChevronDown, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { Outlet, useParams } from 'react-router';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
-import { Disclosure } from '@/components/layout/Disclosure';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { NewRunnerDialog } from '@/components/runners/NewRunnerDialog';
 import { RunnerRow } from '@/components/runners/RunnerRow';
 import { Button } from '@/components/ui/button';
 import { useRunners } from '@/hooks/api/useRunners';
-import { useCollapsed } from '@/hooks/useCollapsed';
 import { useSidebarWidth } from '@/hooks/useSidebarWidth';
-import { byPool } from '@/lib/runner';
 import { cn } from '@/lib/utils';
-
-const POOLS_STORAGE_KEY = 'spotlight.collapsed-pools';
 
 const FLEET_PANE = {
   storageKey: 'spotlight.fleet-width',
@@ -26,7 +21,6 @@ const FLEET_PANE = {
 export function Runners() {
   const { slug, runnerId } = useParams();
   const { data: runners, isPending } = useRunners();
-  const pools = useCollapsed(POOLS_STORAGE_KEY);
   const fleetPane = useSidebarWidth(FLEET_PANE);
   const [enrolling, setEnrolling] = useState(false);
 
@@ -90,46 +84,17 @@ export function Runners() {
               </Button>
             </div>
           ) : (
-            byPool(fleet).map(([pool, inPool]) => {
-              const open = pools.isExpanded(pool);
-
-              return (
-                <section key={pool}>
-                  <h2>
-                    <button
-                      type="button"
-                      onClick={() => pools.toggle(pool)}
-                      aria-expanded={open}
-                      className="group/pool flex h-7 w-full items-center gap-2 rounded-md px-2 font-medium text-muted-foreground text-xs outline-none transition-colors hover:bg-accent hover:text-foreground"
-                    >
-                      <span className="truncate">{pool}</span>
-
-                      <ChevronDown
-                        className={cn(
-                          'ml-auto size-3 shrink-0 transition-all',
-                          open
-                            ? 'opacity-100'
-                            : '-rotate-90 opacity-0 group-hover/pool:opacity-100 group-focus-visible/pool:opacity-100',
-                        )}
-                        aria-hidden
-                      />
-                    </button>
-                  </h2>
-
-                  <Disclosure open={open} slot="pool-runners">
-                    {inPool.map((runner) => (
-                      <li key={runner.id}>
-                        <RunnerRow
-                          slug={slug}
-                          runner={runner}
-                          selected={runner.id === runnerId}
-                        />
-                      </li>
-                    ))}
-                  </Disclosure>
-                </section>
-              );
-            })
+            <ul className="flex flex-col">
+              {fleet.map((runner) => (
+                <li key={runner.id}>
+                  <RunnerRow
+                    slug={slug}
+                    runner={runner}
+                    selected={runner.id === runnerId}
+                  />
+                </li>
+              ))}
+            </ul>
           )}
 
           <div

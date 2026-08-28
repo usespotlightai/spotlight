@@ -10,7 +10,7 @@ type CustomiseStationInput = {
     name?: string;
     color?: string;
     description?: string | null;
-    pool?: string | null;
+    harness?: string | null;
     agentPrompt?: string | null;
   };
 };

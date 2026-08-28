@@ -28,10 +28,13 @@ import { Runner } from '@domain/aggregates/runner.aggregate';
 import { UnknownRunError } from '@domain/exceptions/unknown-run.error';
 import type { RunRepository } from '@domain/repositories/run.repository';
 import type { RunnerRepository } from '@domain/repositories/runner.repository';
+import { Declaration } from '@domain/value-objects/declaration.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { RunnerName } from '@domain/value-objects/runner-name.vo';
-import { RunnerPool } from '@domain/value-objects/runner-pool.vo';
+import { UnknownHarnessError } from '@domain/exceptions/unknown-harness.error';
+import { harnessNamed } from '@domain/value-objects/built-in-harnesses';
+import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { TokenHash } from '@domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 
@@ -52,7 +55,6 @@ export class EnrolRunnerHandler
       const enrolled = Runner.enrol({
         id: RunnerId.of(this.ids.generate()),
         name,
-        pool: RunnerPool.of(command.pool),
         tokenHash: TokenHash.of(minted.hash),
       });
 
@@ -91,7 +93,10 @@ export class RegisterRunnerHandler
         throw new UnknownRunError(`runner ${command.runnerId} is not enrolled`);
       }
 
+      const found = command.harnesses.map(HarnessId.of);
+
       await this.transaction.run(async () => {
+        registering.reports(found);
         registering.seen(this.clock.now());
         await this.runners.save(registering);
       });
@@ -180,7 +185,7 @@ export class ClaimRunHandler
 
       for (;;) {
         const claimed = await this.runs.claimNext(
-          asking.pool.value,
+          asking.harnesses,
           runnerId,
           this.clock.now(),
         );
@@ -319,7 +324,10 @@ export class CompleteRunHandler
         });
 
         await this.runs.save(found);
-        await this.handover.handOver(found);
+        await this.handover.handOver(
+          found,
+          command.declared ? Declaration.of(command.declared) : null,
+        );
       });
     } catch (error) {
       rethrowAsFault(error);
@@ -337,11 +345,20 @@ export class EnqueueRunHandler
 
   async execute(command: EnqueueRunCommand): Promise<EnqueuedRunDto> {
     try {
+      const harness = harnessNamed(HarnessId.of(command.harness));
+      if (!harness) {
+        throw new UnknownHarnessError(command.harness);
+      }
+
       const queued = Run.enqueue({
         id: RunId.of(this.ids.generate()),
         workspaceId: WorkspaceId.of(command.workspaceId),
-        pool: command.pool,
-        spec: command.spec,
+        harness: harness.id,
+        // How to start a harness is not the caller's to know.
+        spec: {
+          ...(command.spec as Record<string, unknown>),
+          command: harness.command.started(),
+        },
         targetRunner: command.targetRunnerId
           ? RunnerId.of(command.targetRunnerId)
           : null,
@@ -351,7 +368,7 @@ export class EnqueueRunHandler
 
       return {
         id: queued.id.value,
-        pool: queued.pool,
+        harness: queued.harness.value,
         state: queued.state,
         targetRunnerId: queued.targetRunner?.value ?? null,
       };

@@ -34,6 +34,14 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
     isPending: false,
   }),
 }));
+vi.mock('@/hooks/api/useHarnesses', () => ({
+  useHarnesses: () => ({
+    data: [
+      { id: 'claude-code', name: 'Claude Code' },
+      { id: 'other', name: 'Other Harness' },
+    ],
+  }),
+}));
 vi.mock('@/hooks/api/useRunners', () => ({
   useRunners: () => ({
     data: [
@@ -60,9 +68,9 @@ const renderAt = (stationId: string) =>
     </MemoryRouter>,
   );
 
-const openPools = async () => {
+const openHarnesses = async () => {
   const user = userEvent.setup();
-  await user.click(screen.getByLabelText('Runner pool'));
+  await user.click(screen.getByLabelText('Harness'));
   await screen.findByRole('menu');
   return user;
 };
@@ -149,25 +157,32 @@ describe('Station', () => {
     );
   });
 
-  it('offers the pools the enrolled runners answer to', async () => {
+  it('offers every harness Spotlight knows, and nobody', async () => {
     renderAt('station_1');
-    await openPools();
+    await openHarnesses();
 
     expect(
-      screen.getByRole('menuitemradio', { name: /default/ }),
+      screen.getByRole('menuitemradio', { name: 'Claude Code' }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('menuitemradio', { name: /gpu/ }),
+      screen.getByRole('menuitemradio', { name: 'Other Harness' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('menuitemradio', { name: 'Nobody' }),
     ).toBeInTheDocument();
   });
 
-  it('shows the pool once one is picked', async () => {
+  it('shows the harness once one is picked', async () => {
     renderAt('station_1');
-    const user = await openPools();
+    const user = await openHarnesses();
 
-    await user.click(screen.getByRole('menuitemradio', { name: /gpu/ }));
+    await user.click(
+      screen.getByRole('menuitemradio', { name: 'Other Harness' }),
+    );
 
-    expect(screen.getByLabelText('Runner pool')).toHaveTextContent('gpu');
+    expect(screen.getByLabelText('Harness')).toHaveTextContent(
+      'Other Harness',
+    );
   });
 
   it('keeps each station’s edits to itself', async () => {
@@ -211,17 +226,35 @@ describe('Station', () => {
     });
   });
 
-  it('writes the pool back as soon as one is picked', async () => {
+  it('writes the harness back as soon as one is picked', async () => {
     renderAt('station_1');
-    const user = await openPools();
+    const user = await openHarnesses();
 
-    await user.click(screen.getByRole('menuitemradio', { name: /gpu/ }));
+    await user.click(
+      screen.getByRole('menuitemradio', { name: 'Other Harness' }),
+    );
 
     expect(customised).toHaveBeenCalledWith({
       teamId: 'team_1',
       lineId: 'line_1',
       stationId: 'station_1',
-      changes: { pool: 'gpu' },
+      changes: { harness: 'other' },
+    });
+  });
+
+  // Set to nobody, a station holds what it is given rather than working it,
+  // which is what a backlog is.
+  it('writes an emptied harness back, so the station holds its work', async () => {
+    renderAt('station_1');
+    const user = await openHarnesses();
+
+    await user.click(screen.getByRole('menuitemradio', { name: 'Nobody' }));
+
+    expect(customised).toHaveBeenCalledWith({
+      teamId: 'team_1',
+      lineId: 'line_1',
+      stationId: 'station_1',
+      changes: { harness: '' },
     });
   });
 
@@ -286,5 +319,13 @@ describe('Station', () => {
     expect(
       screen.getByRole('heading', { name: 'Station not found' }),
     ).toBeInTheDocument();
+  });
+
+  // A station nothing works holds what it is given, which is what a backlog
+  // is, so "nobody" is a real answer rather than a missing one.
+  it('says nobody works the station until a harness is picked', () => {
+    renderAt('station_1');
+
+    expect(screen.getByLabelText('Harness')).toHaveTextContent('Nobody');
   });
 });

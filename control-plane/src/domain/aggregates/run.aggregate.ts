@@ -1,4 +1,5 @@
 import { InvalidRunTransitionError } from '@domain/exceptions/invalid-run-transition.error';
+import type { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import type { RunState } from '@domain/value-objects/run-state';
 import type { RunnerId } from '@domain/value-objects/runner-id.vo';
@@ -27,7 +28,7 @@ export class Run {
   private constructor(
     readonly id: RunId,
     readonly workspaceId: WorkspaceId,
-    readonly pool: string,
+    readonly harness: HarnessId,
     readonly priority: number,
     readonly taskId: TaskId | null,
     readonly spec: unknown,
@@ -42,7 +43,7 @@ export class Run {
   static enqueue(input: {
     id: RunId;
     workspaceId: WorkspaceId;
-    pool: string;
+    harness: HarnessId;
     priority?: number;
     taskId?: TaskId | null;
     spec: unknown;
@@ -51,7 +52,7 @@ export class Run {
     return new Run(
       input.id,
       input.workspaceId,
-      input.pool,
+      input.harness,
       input.priority ?? 0,
       input.taskId ?? null,
       input.spec,
@@ -67,7 +68,7 @@ export class Run {
   static rehydrate(input: {
     id: RunId;
     workspaceId: WorkspaceId;
-    pool: string;
+    harness: HarnessId;
     priority: number;
     taskId: TaskId | null;
     spec: unknown;
@@ -81,7 +82,7 @@ export class Run {
     return new Run(
       input.id,
       input.workspaceId,
-      input.pool,
+      input.harness,
       input.priority,
       input.taskId,
       input.spec,

@@ -150,8 +150,8 @@
   --accent: #232324;
   --accent-foreground: #e2e3e5;
   --destructive: oklch(0.704 0.191 22.216);
-  --border: #232326;
-  --input: #2a2a2c;
+  --border: #3a3a42;
+  --input: #3f3f47;
   --selected: #24252f;
   --ring: #5e69d1;
   --chart-1: oklch(0.87 0 0);

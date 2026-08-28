@@ -52,9 +52,7 @@ func run() error {
 
 	// The control plane may not be up yet. Waiting beats exiting into a
 	// restart loop.
-	if err := control.Register(ctx, client, protocol.Registration{
-		Capacity: 1,
-	}, log); err != nil {
+	if err := control.Register(ctx, client, 1, log); err != nil {
 		log.Info("runner stopped before registering")
 		return nil
 	}

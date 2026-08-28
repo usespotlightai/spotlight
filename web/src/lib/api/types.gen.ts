@@ -19,7 +19,7 @@ export type StationResponseDto = {
   /**
    * Which runners work this station. Null until one is chosen.
    */
-  pool: string | null;
+  harness: string | null;
   /**
    * Markdown, handed to the agent that works this station
    */
@@ -49,7 +49,7 @@ export type CustomiseStationRequestDto = {
   /**
    * Which runners work this station
    */
-  pool?: string | null;
+  harness?: string | null;
   /**
    * Markdown, handed to the agent that works this station
    */
@@ -65,22 +65,25 @@ export type HealthResponseDto = {
 };
 
 export type EnqueueRunRequestDto = {
-  pool: string;
   /**
-   * Handed to the runner untouched: checkouts, cwd, command
+   * The harness to work this run. Only runners that have it may take it.
+   */
+  harness: string;
+  /**
+   * Handed to the runner untouched: checkouts and cwd. The command is filled in from the harness, so it is not given here.
    */
   spec: {
     [key: string]: unknown;
   };
   /**
-   * Runner this run belongs to. Omitted lets any runner in the pool take it.
+   * Runner this run belongs to. Omitted lets any runner with the harness take it.
    */
   targetRunnerId?: string;
 };
 
 export type EnqueuedRunResponseDto = {
   id: string;
-  pool: string;
+  harness: string;
   state: string;
   /**
    * The runner it waits for, or null for whoever is free
@@ -122,6 +125,25 @@ export type PendingRunInputResponseDto = {
   input: Array<RunInputResponseDto>;
 };
 
+export type InstallableHarnessResponseDto = {
+  id: string;
+  /**
+   * What to look for on the runner’s PATH.
+   */
+  executable: string;
+};
+
+export type RegisterRunnerRequestDto = {
+  /**
+   * What the runner advertises. The control plane grants work.
+   */
+  capacity?: number;
+  /**
+   * The harnesses the runner found installed. What is on a machine is a fact about that machine, so the machine is what says it.
+   */
+  harnesses?: Array<Array<string>>;
+};
+
 export type RegisteredRunnerResponseDto = {
   runnerId: string;
 };
@@ -159,10 +181,27 @@ export type AppendRunEventsRequestDto = {
   events: Array<RunEventRequestDto>;
 };
 
+export type DeclaredOutcomeDto = {
+  /**
+   * The station to pass the task to, or "review" to ask a person. A name this line does not know is treated as a question for a person.
+   */
+  next: string;
+  /**
+   * What the next station, or the person, should know
+   */
+  note?: string;
+};
+
 export type CompleteRunRequestDto = {
   exitCode: number;
   failed: boolean;
   message?: string;
+  outcome?: DeclaredOutcomeDto;
+};
+
+export type HarnessResponseDto = {
+  id: string;
+  name: string;
 };
 
 export type ActiveRunResponseDto = {
@@ -173,7 +212,7 @@ export type ActiveRunResponseDto = {
 export type ConnectedRunnerResponseDto = {
   id: string;
   name: string;
-  pool: string;
+  harnesses: Array<string>;
   registeredAt: string;
   /**
    * Null when the runner has never connected
@@ -198,10 +237,6 @@ export type EnrolRunnerRequestDto = {
    * What to call this runner. Rejected if empty or over 60.
    */
   name: string;
-  /**
-   * Which queue this runner may take work from.
-   */
-  pool: string;
 };
 
 export type EnrolledRunnerResponseDto = {
@@ -222,6 +257,15 @@ export type TaskResponseDto = {
    */
   description: string | null;
   createdAt: string;
+};
+
+export type TaskRunResponseDto = {
+  id: string;
+  state: string;
+  attempt: number;
+  exitCode: number | null;
+  startedAt: string;
+  updatedAt: string;
 };
 
 export type AddTaskRequestDto = {
@@ -529,8 +573,28 @@ export type StopRunResponses = {
 
 export type StopRunResponse = StopRunResponses[keyof StopRunResponses];
 
-export type RegisterRunnerData = {
+export type InstallableHarnessesData = {
   body?: never;
+  path?: never;
+  query?: never;
+  url: '/runners/harnesses';
+};
+
+export type InstallableHarnessesErrors = {
+  /**
+   * Missing or wrong enrollment token
+   */
+  401: unknown;
+};
+
+export type InstallableHarnessesResponses = {
+  200: Array<InstallableHarnessResponseDto>;
+};
+
+export type InstallableHarnessesResponse = InstallableHarnessesResponses[keyof InstallableHarnessesResponses];
+
+export type RegisterRunnerData = {
+  body: RegisterRunnerRequestDto;
   path?: never;
   query?: never;
   url: '/runners/register';
@@ -639,6 +703,26 @@ export type CompleteRunResponses = {
 
 export type CompleteRunResponse = CompleteRunResponses[keyof CompleteRunResponses];
 
+export type ListHarnessesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/harnesses';
+};
+
+export type ListHarnessesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+};
+
+export type ListHarnessesResponses = {
+  200: Array<HarnessResponseDto>;
+};
+
+export type ListHarnessesResponse = ListHarnessesResponses[keyof ListHarnessesResponses];
+
 export type ListRunnersData = {
   body?: never;
   path?: never;
@@ -733,6 +817,29 @@ export type ListTasksResponses = {
 };
 
 export type ListTasksResponse = ListTasksResponses[keyof ListTasksResponses];
+
+export type ListTaskRunsData = {
+  body?: never;
+  path: {
+    taskId: string;
+    teamId: unknown;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/runs';
+};
+
+export type ListTaskRunsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+};
+
+export type ListTaskRunsResponses = {
+  200: Array<TaskRunResponseDto>;
+};
+
+export type ListTaskRunsResponse = ListTaskRunsResponses[keyof ListTaskRunsResponses];
 
 export type DeleteTaskData = {
   body?: never;

@@ -5,7 +5,7 @@ import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
-import { RunnerPool } from '@domain/value-objects/runner-pool.vo';
+import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationDescription } from '@domain/value-objects/station-description.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
@@ -31,7 +31,7 @@ const toStation = (row: StationRow): Station =>
     description: row.description
       ? StationDescription.of(row.description)
       : null,
-    pool: row.pool ? RunnerPool.of(row.pool) : null,
+    harness: row.harness ? HarnessId.of(row.harness) : null,
     agentPrompt: row.agentPrompt ? AgentPrompt.of(row.agentPrompt) : null,
   });
 
@@ -49,7 +49,7 @@ const columnsOf = (each: Station) => ({
   position: each.position,
   color: each.color.value,
   description: each.description?.value ?? null,
-  pool: each.pool?.value ?? null,
+  harness: each.harness?.value ?? null,
   agentPrompt: each.agentPrompt?.value ?? null,
 });
 

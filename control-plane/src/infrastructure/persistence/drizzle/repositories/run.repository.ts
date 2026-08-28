@@ -3,6 +3,7 @@ import type {
   RunEventRecord,
   RunRepository,
 } from '@domain/repositories/run.repository';
+import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import type { RunState } from '@domain/value-objects/run-state';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
@@ -14,7 +15,7 @@ import {
   runEvent,
 } from '@infrastructure/persistence/drizzle/schemas/run.schema';
 import { Injectable } from '@nestjs/common';
-import { and, eq, lte, sql } from 'drizzle-orm';
+import { and, eq, inArray, lte, sql } from 'drizzle-orm';
 
 type Row = typeof run.$inferSelect;
 
@@ -26,7 +27,7 @@ export class DrizzleRunRepository implements RunRepository {
     await this.context.db.insert(run).values({
       id: added.id.value,
       workspaceId: added.workspaceId.value,
-      pool: added.pool,
+      harness: added.harness.value,
       priority: added.priority,
       taskId: added.taskId?.value ?? null,
       state: added.state,
@@ -43,13 +44,24 @@ export class DrizzleRunRepository implements RunRepository {
    * What being claimed means is decided by the aggregate: the row is locked,
    * handed over, and written back in the same transaction.
    */
-  async claimNext(pool: string, by: RunnerId, now: Date): Promise<Run | null> {
+  /** A run wanting a harness no runner reported having simply waits. */
+  async claimNext(
+    harnesses: readonly HarnessId[],
+    by: RunnerId,
+    now: Date,
+  ): Promise<Run | null> {
+    if (harnesses.length === 0) {
+      return null;
+    }
+
+    const named = harnesses.map((harness) => harness.value);
+
     return this.context.run(async () => {
       const locked = await this.context.db.execute<Row>(sql`
         SELECT
           id,
           workspace_id      AS "workspaceId",
-          pool,
+          harness,
           priority,
           task_id           AS "taskId",
           state,
@@ -61,7 +73,7 @@ export class DrizzleRunRepository implements RunRepository {
           message,
           attempt
         FROM ${run}
-        WHERE pool = ${pool}
+        WHERE ${inArray(run.harness, named)}
           AND state = 'queued'
           AND (target_runner_id IS NULL OR target_runner_id = ${by.value})
         ORDER BY priority DESC, created_at
@@ -202,7 +214,7 @@ const toRun = (row: Row): Run =>
   Run.rehydrate({
     id: RunId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
-    pool: row.pool,
+    harness: HarnessId.of(row.harness),
     priority: row.priority,
     taskId: row.taskId ? TaskId.of(row.taskId) : null,
     spec: row.spec,

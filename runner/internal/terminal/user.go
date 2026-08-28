@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/user"
 	"strconv"
+	"strings"
 	"syscall"
 )
 
@@ -15,6 +16,11 @@ import (
 type User struct {
 	UID uint32
 	GID uint32
+	// An agent CLI reads its configuration from HOME and runs commands through
+	// SHELL, so an agent given neither is refused by its own tools.
+	Name  string
+	Home  string
+	Shell string
 }
 
 // LookupUser resolves the account the agent should run as. An empty name runs
@@ -46,7 +52,13 @@ func LookupUser(name string) (*User, error) {
 		return nil, fmt.Errorf("agent user %q has a non-numeric gid %q", name, found.Gid)
 	}
 
-	return &User{UID: uint32(uid), GID: uint32(gid)}, nil
+	return &User{
+		UID:   uint32(uid),
+		GID:   uint32(gid),
+		Name:  found.Username,
+		Home:  found.HomeDir,
+		Shell: shellOf(found.Username),
+	}, nil
 }
 
 func (u *User) sysProcAttr() *syscall.SysProcAttr {
@@ -56,4 +68,29 @@ func (u *User) sysProcAttr() *syscall.SysProcAttr {
 	return &syscall.SysProcAttr{
 		Credential: &syscall.Credential{Uid: u.UID, Gid: u.GID},
 	}
+}
+
+// DefaultShell is what an account with none recorded is given. Something has
+// to answer, or every command the agent runs fails before it starts.
+const DefaultShell = "/bin/sh"
+
+// shellOf reads the account's login shell, which os/user does not carry.
+func shellOf(name string) string {
+	passwd, err := os.ReadFile("/etc/passwd")
+	if err != nil {
+		return DefaultShell
+	}
+
+	for _, line := range strings.Split(string(passwd), "\n") {
+		fields := strings.Split(line, ":")
+		if len(fields) < 7 || fields[0] != name {
+			continue
+		}
+
+		if shell := strings.TrimSpace(fields[6]); shell != "" {
+			return shell
+		}
+	}
+
+	return DefaultShell
 }

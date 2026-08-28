@@ -68,7 +68,7 @@ export class RunnerFleetController {
     const enrolled = await this.commandBus.execute<
       EnrolRunnerCommand,
       EnrolledRunnerDto
-    >(new EnrolRunnerCommand(body.name, body.pool));
+    >(new EnrolRunnerCommand(body.name));
 
     return new EnrolledRunnerResponseDto(
       enrolled.runnerId,

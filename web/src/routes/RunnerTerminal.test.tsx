@@ -28,6 +28,9 @@ vi.mock('@/components/runners/RunTerminal', () => ({
   RunTerminal: () => <div>terminal</div>,
 }));
 
+vi.mock('@/hooks/api/useHarnesses', () => ({
+  useHarnesses: () => ({ data: [{ id: 'claude-code', name: 'Claude Code' }] }),
+}));
 vi.mock('@/hooks/api/useRunners', () => ({
   runnerKeys: { all: ['runners'] },
   useRunners: () => ({
@@ -35,7 +38,7 @@ vi.mock('@/hooks/api/useRunners', () => ({
       {
         id: 'runner_1',
         name: 'Build server',
-        pool: 'dev',
+        harnesses: ['claude-code'],
         connected: true,
         lastSeenAt: '2026-08-24T12:00:00.000Z',
         revokedAt: null,
@@ -107,7 +110,7 @@ describe('RunnerTerminal', () => {
 
     expect(screen.getByText('This runner is idle.')).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Start session' }),
+      screen.getByRole('button', { name: 'Start Claude Code' }),
     ).toBeInTheDocument();
     expect(
       screen.queryByText(/Waiting for the runner/),

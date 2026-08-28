@@ -11,6 +11,7 @@ import type {
 } from '@application/dto/run.dto';
 import {
   Body,
+  Get,
   Controller,
   HttpCode,
   HttpStatus,
@@ -18,7 +19,7 @@ import {
   Post,
   Res,
 } from '@nestjs/common';
-import { CommandBus } from '@nestjs/cqrs';
+import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
   ApiNoContentResponse,
   ApiOkResponse,
@@ -26,11 +27,15 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { HarnessDto } from '@application/dto/harness.dto';
+import { ListHarnessesQuery } from '@application/queries/list-harnesses.query';
+import { InstallableHarnessResponseDto } from '@presentation/http/dto/installable-harness.response.dto';
 import { CurrentRunner } from '@presentation/http/decorators/current-runner.decorator';
 import { RunnerOnly } from '@presentation/http/decorators/runner-only.decorator';
 import {
   AppendRunEventsRequestDto,
   CompleteRunRequestDto,
+  RegisterRunnerRequestDto,
 } from '@presentation/http/dto/runner.request.dto';
 import {
   ClaimedRunResponseDto,
@@ -50,7 +55,28 @@ interface Answerable {
 @RunnerOnly()
 @Controller()
 export class RunnerController {
-  constructor(private readonly commandBus: CommandBus) {}
+  constructor(
+    private readonly commandBus: CommandBus,
+    private readonly queryBus: QueryBus,
+  ) {}
+
+  @Get('runners/harnesses')
+  @ApiOperation({
+    operationId: 'installableHarnesses',
+    summary: 'What to look for on this runner, so it can say what it has',
+  })
+  @ApiOkResponse({ type: InstallableHarnessResponseDto, isArray: true })
+  async harnesses(): Promise<InstallableHarnessResponseDto[]> {
+    const harnesses = await this.queryBus.execute<
+      ListHarnessesQuery,
+      HarnessDto[]
+    >(new ListHarnessesQuery());
+
+    return harnesses.map(
+      (harness) =>
+        new InstallableHarnessResponseDto(harness.id, harness.executable),
+    );
+  }
 
   @Post('runners/register')
   @ApiOperation({
@@ -60,11 +86,12 @@ export class RunnerController {
   @ApiOkResponse({ type: RegisteredRunnerResponseDto })
   async register(
     @CurrentRunner() runnerId: string,
+    @Body() body: RegisterRunnerRequestDto,
   ): Promise<RegisteredRunnerResponseDto> {
     const registered = await this.commandBus.execute<
       RegisterRunnerCommand,
       RegisteredRunnerDto
-    >(new RegisterRunnerCommand(runnerId));
+    >(new RegisterRunnerCommand(runnerId, body.harnesses ?? []));
 
     return new RegisteredRunnerResponseDto(registered.runnerId);
   }
@@ -147,6 +174,7 @@ export class RunnerController {
         body.exitCode,
         body.failed,
         body.message,
+        body.outcome ?? null,
       ),
     );
   }

@@ -63,6 +63,17 @@ func (c *Client) Register(ctx context.Context, in protocol.Registration) error {
 	return nil
 }
 
+// Installable asks what to look for. The control plane knows the harnesses;
+// the runner only needs to know whether each one is here.
+func (c *Client) Installable(ctx context.Context) ([]protocol.Installable, error) {
+	var out []protocol.Installable
+	if err := c.do(ctx, http.MethodGet, "/api/runners/harnesses", nil, &out); err != nil {
+		return nil, fmt.Errorf("ask what to look for: %w", err)
+	}
+
+	return out, nil
+}
+
 // Claim long-polls for work. An empty queue returns nil, nil, not an error.
 func (c *Client) Claim(ctx context.Context) (*protocol.Run, error) {
 	ctx, cancel := context.WithTimeout(ctx, PollTimeout+15*time.Second)

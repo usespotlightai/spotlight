@@ -37,7 +37,7 @@ describe('AssemblyLineMapper.lineToDto', () => {
           position: 0,
           color: '#a3a8b0',
           description: null,
-          pool: null,
+          harness: null,
           agentPrompt: null,
         },
       ],

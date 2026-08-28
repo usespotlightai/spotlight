@@ -6,7 +6,7 @@ import type { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import type { FactoryId } from '@domain/value-objects/factory-id.vo';
-import type { RunnerPool } from '@domain/value-objects/runner-pool.vo';
+import type { HarnessId } from '@domain/value-objects/harness-id.vo';
 import type { StationColor } from '@domain/value-objects/station-color.vo';
 import type { StationDescription } from '@domain/value-objects/station-description.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
@@ -79,8 +79,8 @@ export class AssemblyLine {
     );
   }
 
-  assignStationTo(stationId: StationId, pool: RunnerPool | null): AssemblyLine {
-    return this.withStation(stationId, (station) => station.assignTo(pool));
+  runStationOn(stationId: StationId, harness: HarnessId | null): AssemblyLine {
+    return this.withStation(stationId, (station) => station.runsOn(harness));
   }
 
   instructStation(
@@ -112,7 +112,7 @@ export class AssemblyLine {
         position,
         color: standing.color,
         description: standing.description,
-        pool: standing.pool,
+        harness: standing.harness,
         agentPrompt: standing.agentPrompt,
       });
     });

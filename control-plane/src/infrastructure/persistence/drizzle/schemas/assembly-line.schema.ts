@@ -38,7 +38,8 @@ export const station = pgTable(
     position: integer('position').notNull(),
     color: text('color').notNull().default('#a3a8b0'),
     description: text('description'),
-    pool: text('pool'),
+    // None means nothing works this station, so it holds what it is given.
+    harness: text('harness'),
     agentPrompt: text('agent_prompt'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')

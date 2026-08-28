@@ -1,1 +1,0 @@
-ALTER TABLE "task" ADD COLUMN "awaiting_review" boolean DEFAULT false NOT NULL;

@@ -12,7 +12,7 @@ import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
-import { RunnerPool } from '@domain/value-objects/runner-pool.vo';
+import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
@@ -25,13 +25,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const NOW = new Date('2026-08-28T12:00:00.000Z');
 const clock: ClockPort = { now: () => NOW, sleep: async () => {} };
 
-const at = (id: string, name: string, position: number, pool?: RunnerPool) =>
+const at = (id: string, name: string, position: number, harness?: HarnessId) =>
   Station.create({
     id: StationId.of(id),
     name: StationName.of(name),
     position,
     color: StationColor.of('#a3a8b0'),
-    pool,
+    harness,
   });
 
 const line = () =>
@@ -41,8 +41,8 @@ const line = () =>
     factoryId: FactoryId.of('factory_1'),
     name: AssemblyLineName.of('Default'),
     stations: [
-      at('station_1', 'Triage', 0, RunnerPool.of('dev')),
-      at('station_2', 'Spec', 1, RunnerPool.of('dev')),
+      at('station_1', 'Triage', 0, HarnessId.of('dev')),
+      at('station_2', 'Spec', 1, HarnessId.of('dev')),
     ],
   });
 
@@ -60,7 +60,7 @@ const run = (failed: boolean) => {
   const queued = Run.enqueue({
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
-    pool: 'dev',
+    harness: HarnessId.of('dev'),
     taskId: TaskId.of('task_1'),
     spec: {},
   });
@@ -136,7 +136,7 @@ describe('HandOver', () => {
     const loose = Run.enqueue({
       id: RunId.of('run_1'),
       workspaceId: WorkspaceId.of('ws_1'),
-      pool: 'dev',
+      harness: HarnessId.of('dev'),
       spec: {},
     });
 

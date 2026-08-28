@@ -23,15 +23,13 @@ export const runner = pgTable(
     // Only the hash: the token itself is shown once, at enrolment, and is not
     // recoverable afterwards.
     tokenHash: text('token_hash').notNull(),
+    // Reported by the runner: what is installed is the machine's to say.
+    harnesses: jsonb('harnesses').$type<string[]>().notNull().default([]),
     revokedAt: timestamp('revoked_at'),
-    // Set when the runner is enrolled. What a runner may serve is granted
-    // here, not claimed by the runner.
-    pool: text('pool').notNull(),
     registeredAt: timestamp('registered_at').defaultNow().notNull(),
     lastSeenAt: timestamp('last_seen_at'),
   },
   (table) => [
-    index('runner_pool_idx').on(table.pool),
     uniqueIndex('runner_token_hash_idx').on(table.tokenHash),
   ],
 );
@@ -48,7 +46,8 @@ export const run = pgTable(
     workspaceId: text('workspace_id')
       .notNull()
       .references(() => workspace.id, { onDelete: 'cascade' }),
-    pool: text('pool').notNull(),
+    // Kept beside the run so the claim is one indexed read on one table.
+    harness: text('harness').notNull(),
     priority: integer('priority').default(0).notNull(),
     taskId: text('task_id'),
     state: runState('state').notNull(),
@@ -72,10 +71,9 @@ export const run = pgTable(
       .notNull(),
   },
   (table) => [
-    // Exactly what the claim reads: the most downstream queued run in one
-    // pool, oldest first among equals.
+    // Exactly what the claim reads, oldest first among equals.
     index('run_queue_idx').on(
-      table.pool,
+      table.harness,
       table.state,
       table.priority,
       table.createdAt,

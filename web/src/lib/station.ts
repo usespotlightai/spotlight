@@ -6,7 +6,7 @@ export type Station = StationResponseDto;
 export type StationDraft = {
   readonly name: string;
   readonly description: string;
-  readonly pool: string;
+  readonly harness: string;
   readonly agentPrompt: string;
 };
 

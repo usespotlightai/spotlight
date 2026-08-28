@@ -1,5 +1,5 @@
 import type { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
-import type { RunnerPool } from '@domain/value-objects/runner-pool.vo';
+import type { HarnessId } from '@domain/value-objects/harness-id.vo';
 import type { StationColor } from '@domain/value-objects/station-color.vo';
 import type { StationDescription } from '@domain/value-objects/station-description.vo';
 import type { StationId } from '@domain/value-objects/station-id.vo';
@@ -12,7 +12,7 @@ export class Station {
     readonly position: number,
     readonly color: StationColor,
     readonly description: StationDescription | null,
-    readonly pool: RunnerPool | null,
+    readonly harness: HarnessId | null,
     readonly agentPrompt: AgentPrompt | null,
   ) {}
 
@@ -22,7 +22,7 @@ export class Station {
     position: number;
     color: StationColor;
     description?: StationDescription | null;
-    pool?: RunnerPool | null;
+    harness?: HarnessId | null;
     agentPrompt?: AgentPrompt | null;
   }): Station {
     return new Station(
@@ -31,7 +31,7 @@ export class Station {
       input.position,
       input.color,
       input.description ?? null,
-      input.pool ?? null,
+      input.harness ?? null,
       input.agentPrompt ?? null,
     );
   }
@@ -48,8 +48,9 @@ export class Station {
     return this.with({ description });
   }
 
-  assignTo(pool: RunnerPool | null): Station {
-    return this.with({ pool });
+  /** A station naming no harness holds what it is given: that is a backlog. */
+  runsOn(harness: HarnessId | null): Station {
+    return this.with({ harness });
   }
 
   instruct(agentPrompt: AgentPrompt | null): Station {
@@ -64,7 +65,7 @@ export class Station {
     name?: StationName;
     color?: StationColor;
     description?: StationDescription | null;
-    pool?: RunnerPool | null;
+    harness?: HarnessId | null;
     agentPrompt?: AgentPrompt | null;
   }): Station {
     return new Station(
@@ -73,7 +74,7 @@ export class Station {
       this.position,
       part.color ?? this.color,
       part.description !== undefined ? part.description : this.description,
-      part.pool !== undefined ? part.pool : this.pool,
+      part.harness !== undefined ? part.harness : this.harness,
       part.agentPrompt !== undefined ? part.agentPrompt : this.agentPrompt,
     );
   }

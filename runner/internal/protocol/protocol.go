@@ -3,10 +3,19 @@ package protocol
 
 import "time"
 
-// Registration says a runner is there. What it may serve is granted at
-// enrolment, so there is nothing here for it to claim about itself.
+// Registration says a runner is there, and what it found installed. What is on
+// a machine is the one thing a runner says about itself; what it is then given
+// remains the control plane's to decide.
 type Registration struct {
-	Capacity int `json:"capacity"`
+	Capacity  int      `json:"capacity"`
+	Harnesses []string `json:"harnesses"`
+}
+
+// Installable is one harness to look for. The runner reads no meaning into it:
+// it looks for the executable and reports the id back.
+type Installable struct {
+	ID         string `json:"id"`
+	Executable string `json:"executable"`
 }
 
 type Registered struct {
@@ -30,6 +39,14 @@ type Command struct {
 	Env        map[string]string `json:"env,omitempty"`
 }
 
+// Handover is the vocabulary the agent may use to say what happens next. The
+// runner holds the list without knowing what the words mean: it checks
+// membership so a wrong one is refused while the agent can still fix it, and
+// the control plane decides what any of them do.
+type Handover struct {
+	Options []string `json:"options,omitempty"`
+}
+
 // Spec is what a run is supposed to do. The control plane stores it whole and
 // never looks inside, so it travels as one opaque object: what a checkout
 // means is the prepare hook's business.
@@ -37,6 +54,7 @@ type Spec struct {
 	Checkouts []Checkout `json:"checkouts,omitempty"`
 	Cwd       string     `json:"cwd,omitempty"`
 	Command   Command    `json:"command"`
+	Handover  Handover   `json:"handover,omitzero"`
 }
 
 type Run struct {
@@ -81,8 +99,17 @@ type PendingInput struct {
 	Input []Input `json:"input"`
 }
 
+// Outcome is what the agent said should happen to the task next. The runner
+// carries it without reading anything into it: which stations exist, and what
+// an unknown one means, are the control plane's business.
+type Outcome struct {
+	Next string `json:"next"`
+	Note string `json:"note,omitempty"`
+}
+
 type Completion struct {
-	ExitCode int    `json:"exitCode"`
-	Failed   bool   `json:"failed"`
-	Message  string `json:"message,omitempty"`
+	ExitCode int      `json:"exitCode"`
+	Failed   bool     `json:"failed"`
+	Message  string   `json:"message,omitempty"`
+	Outcome  *Outcome `json:"outcome,omitempty"`
 }

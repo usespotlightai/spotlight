@@ -2,13 +2,12 @@ import { RunnerRevoked } from '@domain/events/runner-revoked.event';
 import { RevokedRunnerError } from '@domain/exceptions/revoked-runner.error';
 import type { RunnerId } from '@domain/value-objects/runner-id.vo';
 import type { RunnerName } from '@domain/value-objects/runner-name.vo';
-import type { RunnerPool } from '@domain/value-objects/runner-pool.vo';
+import type { HarnessId } from '@domain/value-objects/harness-id.vo';
 import type { TokenHash } from '@domain/value-objects/token-hash.vo';
 
 /**
- * A runner someone has enrolled. Its name, its pool and its token are all
- * decided here, before it has ever connected: what a runner may serve is the
- * control plane's to grant, never the runner's to claim.
+ * Name and token are decided at enrolment. What harnesses it has is not: what
+ * is installed on a machine is the machine's to say.
  */
 export class Runner {
   #raised: RunnerRevoked[] = [];
@@ -16,8 +15,8 @@ export class Runner {
   private constructor(
     readonly id: RunnerId,
     readonly name: RunnerName,
-    readonly pool: RunnerPool,
     readonly tokenHash: TokenHash,
+    private installed: readonly HarnessId[],
     private revokedOn: Date | null,
     private lastSeen: Date | null,
   ) {}
@@ -26,35 +25,43 @@ export class Runner {
   static enrol(input: {
     id: RunnerId;
     name: RunnerName;
-    pool: RunnerPool;
     tokenHash: TokenHash;
   }): Runner {
-    return new Runner(
-      input.id,
-      input.name,
-      input.pool,
-      input.tokenHash,
-      null,
-      null,
-    );
+    return new Runner(input.id, input.name, input.tokenHash, [], null, null);
   }
 
   static rehydrate(input: {
     id: RunnerId;
     name: RunnerName;
-    pool: RunnerPool;
     tokenHash: TokenHash;
+    harnesses: readonly HarnessId[];
     revokedAt: Date | null;
     lastSeenAt: Date | null;
   }): Runner {
     return new Runner(
       input.id,
       input.name,
-      input.pool,
       input.tokenHash,
+      [...input.harnesses],
       input.revokedAt,
       input.lastSeenAt,
     );
+  }
+
+  get harnesses(): readonly HarnessId[] {
+    return this.installed;
+  }
+
+  /**
+   * Reported on every registration, so a machine that gains or loses a tool
+   * corrects the record by starting up.
+   */
+  reports(harnesses: readonly HarnessId[]): void {
+    if (this.revoked) {
+      throw new RevokedRunnerError();
+    }
+
+    this.installed = [...harnesses];
   }
 
   get revokedAt(): Date | null {

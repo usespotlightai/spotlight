@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect } from 'react';
 import { useParams } from 'react-router';
 import { RunTerminal } from '@/components/runners/RunTerminal';
-import { Button } from '@/components/ui/button';
+import { StartSession } from '@/components/runners/StartSession';
 import { useStartSession, useStopSession } from '@/hooks/api/useRunnerSession';
 import { useRunners } from '@/hooks/api/useRunners';
 
@@ -75,17 +75,13 @@ export function RunnerTerminal() {
             : 'This runner is idle.'}
         </p>
 
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={claiming || !slug}
-          onClick={() =>
-            slug &&
-            start.mutate({ slug, pool: runner.pool, runnerId: runner.id })
+        <StartSession
+          runner={runner}
+          starting={claiming}
+          onStart={(harness) =>
+            slug && start.mutate({ slug, harness, runnerId: runner.id })
           }
-        >
-          {claiming ? 'Starting…' : 'Start session'}
-        </Button>
+        />
 
         {start.isError && (
           <p className="text-destructive text-xs">{start.error.message}</p>
