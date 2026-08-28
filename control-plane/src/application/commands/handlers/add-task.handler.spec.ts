@@ -47,6 +47,7 @@ const tasks = () =>
     }),
     save: vi.fn(),
     find: vi.fn(async () => null),
+    standingAt: vi.fn(async () => []),
   }) satisfies TaskRepository;
 
 const lines = (found: AssemblyLine | null = line()) =>
@@ -75,6 +76,7 @@ describe('AddTaskHandler', () => {
       title: 'Fix the queue',
       description: null,
       createdAt: raised.toISOString(),
+      rank: added?.rank.value,
     });
   });
 

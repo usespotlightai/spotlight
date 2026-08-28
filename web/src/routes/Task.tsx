@@ -113,6 +113,7 @@ export function Task() {
                       lineId: line.id,
                       taskId: task.id,
                       stationId,
+                      afterTaskId: null,
                     })
                   }
                 />

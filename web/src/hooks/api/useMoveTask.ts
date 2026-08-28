@@ -1,12 +1,14 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { taskKeys } from '@/hooks/api/useTasks';
 import { moveTask } from '@/lib/api';
+import { placed, type Task } from '@/lib/task';
 
 type MoveTaskInput = {
   teamId: string;
   lineId: string;
   taskId: string;
   stationId: string;
+  afterTaskId: string | null;
 };
 
 export function useMoveTask() {
@@ -18,15 +20,39 @@ export function useMoveTask() {
       lineId,
       taskId,
       stationId,
+      afterTaskId,
     }: MoveTaskInput) => {
       const { data } = await moveTask({
         path: { teamId, lineId, taskId },
-        body: { stationId },
+        body: { stationId, afterTaskId },
         throwOnError: true,
       });
       return data;
     },
-    onSuccess: (_moved, { teamId }) =>
+
+    onMutate: ({ teamId, taskId, stationId, afterTaskId }) => {
+      const key = taskKeys.forTeam(teamId);
+      const standing = queryClient.getQueryData<Task[]>(key);
+
+      if (standing) {
+        queryClient.setQueryData(
+          key,
+          placed(standing, taskId, stationId, afterTaskId),
+        );
+      }
+
+      void queryClient.cancelQueries({ queryKey: key });
+
+      return { standing };
+    },
+
+    onError: (_error, { teamId }, context) => {
+      if (context?.standing) {
+        queryClient.setQueryData(taskKeys.forTeam(teamId), context.standing);
+      }
+    },
+
+    onSettled: (_moved, _error, { teamId }) =>
       queryClient.invalidateQueries({ queryKey: taskKeys.forTeam(teamId) }),
   });
 }

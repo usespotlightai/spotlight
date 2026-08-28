@@ -6,6 +6,7 @@ import type {
   AssemblyLineDetail,
   StationSummary,
 } from '@application/ports/assembly-line-reader.port';
+import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Station } from '@domain/entities/station.entity';
 
 export const AssemblyLineMapper = {
@@ -30,6 +31,14 @@ export const AssemblyLineMapper = {
       description: station.description?.value ?? null,
       pool: station.pool?.value ?? null,
       agentPrompt: station.agentPrompt?.value ?? null,
+    };
+  },
+
+  lineToDto(line: AssemblyLine): AssemblyLineDto {
+    return {
+      id: line.id.value,
+      name: line.name.value,
+      stations: line.stations.map(AssemblyLineMapper.stationToDto),
     };
   },
 

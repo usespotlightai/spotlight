@@ -57,6 +57,6 @@ export class DrizzleTaskReader implements TaskReaderPort {
       .innerJoin(assemblyLine, eq(assemblyLine.id, station.assemblyLineId))
       .innerJoin(factory, eq(factory.id, assemblyLine.factoryId))
       .where(eq(factory.teamId, teamId.value))
-      .orderBy(task.createdAt);
+      .orderBy(task.rank);
   }
 }

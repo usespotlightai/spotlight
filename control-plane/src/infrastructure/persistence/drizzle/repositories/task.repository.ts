@@ -3,6 +3,7 @@ import type { TaskRepository } from '@domain/repositories/task.repository';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { TaskDescription } from '@domain/value-objects/task-description.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';
+import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
@@ -19,6 +20,7 @@ const toTask = (row: Row): Task =>
     stationId: StationId.of(row.stationId),
     title: TaskTitle.of(row.title),
     description: row.description ? TaskDescription.of(row.description) : null,
+    rank: TaskRank.of(row.rank),
     createdAt: row.createdAt,
   });
 
@@ -33,6 +35,7 @@ export class DrizzleTaskRepository implements TaskRepository {
       stationId: added.stationId.value,
       title: added.title.value,
       description: added.description?.value ?? null,
+      rank: added.rank.value,
       createdAt: added.createdAt,
     });
   }
@@ -44,6 +47,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         stationId: saved.stationId.value,
         title: saved.title.value,
         description: saved.description?.value ?? null,
+        rank: saved.rank.value,
       })
       .where(eq(task.id, saved.id.value));
   }
@@ -56,5 +60,15 @@ export class DrizzleTaskRepository implements TaskRepository {
       .limit(1);
 
     return found ? toTask(found) : null;
+  }
+
+  async standingAt(stationId: StationId): Promise<Task[]> {
+    const found = await this.context.db
+      .select()
+      .from(task)
+      .where(eq(task.stationId, stationId.value))
+      .orderBy(task.rank);
+
+    return found.map(toTask);
   }
 }

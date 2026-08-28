@@ -42,6 +42,66 @@
         ]
       }
     },
+    "/teams/{teamId}/assembly-lines/{lineId}/stations/order": {
+      "post": {
+        "operationId": "reorderStations",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "lineId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "7b2c9e14-3a5d-4c8f-b6e1-9d0a2f7c5b43",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderStationsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssemblyLineResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such line for this caller"
+          },
+          "422": {
+            "description": "Not every station named"
+          }
+        },
+        "summary": "Set the left to right order of a line’s stations",
+        "tags": [
+          "assembly-lines"
+        ]
+      }
+    },
     "/teams/{teamId}/assembly-lines/{lineId}/stations/{stationId}": {
       "patch": {
         "operationId": "customiseStation",
@@ -979,6 +1039,25 @@
           "stations"
         ]
       },
+      "ReorderStationsRequestDto": {
+        "type": "object",
+        "properties": {
+          "stationIds": {
+            "example": [
+              "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80",
+              "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
+            ],
+            "description": "Every station on the line, left to right",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "stationIds"
+        ]
+      },
       "CustomiseStationRequestDto": {
         "type": "object",
         "properties": {
@@ -1445,6 +1524,12 @@
             "type": "string",
             "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80",
             "description": "The station to move the task to, on the same assembly line"
+          },
+          "afterTaskId": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
+            "nullable": true,
+            "description": "The task it was dropped after. Left out for the top of the station."
           }
         },
         "required": [

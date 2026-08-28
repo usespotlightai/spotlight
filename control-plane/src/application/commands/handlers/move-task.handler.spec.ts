@@ -13,6 +13,7 @@ import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
+import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -41,6 +42,7 @@ const standing = (stationId = 'station_2') =>
     workspaceId: WorkspaceId.of('ws_1'),
     stationId: StationId.of(stationId),
     title: TaskTitle.of('Fix the queue'),
+    rank: TaskRank.of('i'),
     now: new Date('2026-08-27T09:15:00.000Z'),
     newId: () => 'task_1',
   });
@@ -54,6 +56,7 @@ const tasks = (found: Task | null = standing()) =>
       saved = task;
     }),
     find: vi.fn(async () => found),
+    standingAt: vi.fn(async () => []),
   }) satisfies TaskRepository;
 
 const lines = (found: AssemblyLine | null = line()) =>
@@ -69,7 +72,7 @@ const move = (
   held: TaskRepository = tasks(),
 ) =>
   new MoveTaskHandler(held, board, transaction).execute(
-    new MoveTaskCommand('line_1', 'task_1', stationId),
+    new MoveTaskCommand('line_1', 'task_1', stationId, null),
   );
 
 beforeEach(() => {

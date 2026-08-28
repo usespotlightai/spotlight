@@ -14,6 +14,7 @@ export const task = pgTable(
       .references(() => station.id, { onDelete: 'cascade' }),
     title: text('title').notNull(),
     description: text('description'),
+    rank: text('rank').notNull().default('i'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
       .defaultNow()
@@ -21,7 +22,7 @@ export const task = pgTable(
       .notNull(),
   },
   (table) => [
-    index('task_station_idx').on(table.stationId, table.createdAt),
+    index('task_station_idx').on(table.stationId, table.rank),
     index('task_workspace_idx').on(table.workspaceId),
   ],
 );

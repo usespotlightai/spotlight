@@ -5,6 +5,7 @@ import { AddTaskHandler } from '@application/commands/handlers/add-task.handler'
 import { CreateWorkspaceHandler } from '@application/commands/handlers/create-workspace.handler';
 import { CustomiseStationHandler } from '@application/commands/handlers/customise-station.handler';
 import { MoveTaskHandler } from '@application/commands/handlers/move-task.handler';
+import { ReorderStationsHandler } from '@application/commands/handlers/reorder-stations.handler';
 import {
   AwaitRunInputHandler,
   SendRunInputHandler,
@@ -21,6 +22,7 @@ import {
   RevokeRunnerHandler,
 } from '@application/commands/handlers/runner.handlers';
 import { MoveTaskCommand } from '@application/commands/move-task.command';
+import { ReorderStationsCommand } from '@application/commands/reorder-stations.command';
 import {
   AwaitRunInputCommand,
   SendRunInputCommand,
@@ -204,6 +206,11 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
 
     ...bindCommandHandler(MoveTaskCommand, MoveTaskHandler, [
       DrizzleTaskRepository,
+      DrizzleAssemblyLineRepository,
+      TRANSACTION,
+    ]),
+
+    ...bindCommandHandler(ReorderStationsCommand, ReorderStationsHandler, [
       DrizzleAssemblyLineRepository,
       TRANSACTION,
     ]),

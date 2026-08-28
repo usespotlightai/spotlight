@@ -58,3 +58,30 @@ export const moveTargetFor = (
     ),
   };
 };
+
+export const placed = (
+  tasks: readonly Task[],
+  taskId: string,
+  stationId: string,
+  afterTaskId: string | null,
+): Task[] => {
+  const moving = tasks.find((each) => each.id === taskId);
+
+  if (!moving) {
+    return [...tasks];
+  }
+
+  const rest = tasks.filter((each) => each.id !== taskId);
+  const landed = { ...moving, stationId };
+
+  if (!afterTaskId) {
+    const first = rest.findIndex((each) => each.stationId === stationId);
+    const at = first === -1 ? rest.length : first;
+    return [...rest.slice(0, at), landed, ...rest.slice(at)];
+  }
+
+  const after = rest.findIndex((each) => each.id === afterTaskId);
+  const at = after === -1 ? rest.length : after + 1;
+
+  return [...rest.slice(0, at), landed, ...rest.slice(at)];
+};

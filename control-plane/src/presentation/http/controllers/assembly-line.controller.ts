@@ -1,4 +1,5 @@
 import { CustomiseStationCommand } from '@application/commands/customise-station.command';
+import { ReorderStationsCommand } from '@application/commands/reorder-stations.command';
 import type {
   AssemblyLineDto,
   StationDto,
@@ -9,9 +10,12 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   NotFoundException,
   Param,
   Patch,
+  Post,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
@@ -29,6 +33,7 @@ import {
   StationResponseDto,
 } from '@presentation/http/dto/assembly-line.response.dto';
 import { CustomiseStationRequestDto } from '@presentation/http/dto/customise-station.request.dto';
+import { ReorderStationsRequestDto } from '@presentation/http/dto/reorder-stations.request.dto';
 import { AssemblyLineHttpMapper } from '@presentation/http/mappers/assembly-line.http.mapper';
 
 @ApiTags('assembly-lines')
@@ -62,6 +67,40 @@ export class AssemblyLineController {
     }
 
     return lines.map(AssemblyLineHttpMapper.toResponse);
+  }
+
+  @Post(':lineId/stations/order')
+  @ApiOperation({
+    operationId: 'reorderStations',
+    summary: 'Set the left to right order of a line’s stations',
+  })
+  @ApiParam({ name: 'teamId', example: '9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84' })
+  @ApiParam({ name: 'lineId', example: '7b2c9e14-3a5d-4c8f-b6e1-9d0a2f7c5b43' })
+  @ApiOkResponse({ type: AssemblyLineResponseDto })
+  @ApiNotFoundResponse({ description: 'No such line for this caller' })
+  @ApiUnprocessableEntityResponse({ description: 'Not every station named' })
+  @HttpCode(HttpStatus.OK)
+  async reorder(
+    @Param('teamId') teamId: string,
+    @Param('lineId') lineId: string,
+    @Body() body: ReorderStationsRequestDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<AssemblyLineResponseDto> {
+    const lines = await this.queryBus.execute<
+      ListAssemblyLinesQuery,
+      AssemblyLineDto[] | null
+    >(new ListAssemblyLinesQuery(teamId, user.id));
+
+    if (!lines?.some((line) => line.id === lineId)) {
+      throw new NotFoundException();
+    }
+
+    const reordered = await this.commandBus.execute<
+      ReorderStationsCommand,
+      AssemblyLineDto
+    >(new ReorderStationsCommand(lineId, body.stationIds));
+
+    return AssemblyLineHttpMapper.toResponse(reordered);
   }
 
   @Patch(':lineId/stations/:stationId')

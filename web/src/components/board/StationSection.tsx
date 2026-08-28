@@ -1,11 +1,15 @@
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { ChevronDown, Plus } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
+import { DropIndicator } from '@/components/board/DropIndicator';
 import { StationIcon } from '@/components/board/StationIcon';
 import { Disclosure } from '@/components/layout/Disclosure';
 import { cn } from '@/lib/utils';
 
 type StationSectionProps = {
+  id: string;
   name: string;
   count: number;
   color: string;
@@ -15,10 +19,13 @@ type StationSectionProps = {
   share: number;
   to?: string;
   onAddTask?: () => void;
+  landing?: boolean;
+  landingEdge?: 'top' | 'bottom';
   children?: ReactNode;
 };
 
 export function StationSection({
+  id,
   name,
   count,
   color,
@@ -28,16 +35,42 @@ export function StationSection({
   share,
   to,
   onAddTask,
+  landing,
+  landingEdge,
   children,
 }: StationSectionProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id,
+    data: { kind: 'station' },
+    animateLayoutChanges: () => false,
+  });
+
   return (
-    <section data-slot="station-section" className="flex flex-col">
+    <section
+      ref={setNodeRef}
+      style={{ transform: CSS.Translate.toString(transform), transition }}
+      data-slot="station-section"
+      className={cn('relative flex flex-col', isDragging && 'opacity-40')}
+    >
+      {landingEdge && <DropIndicator edge={landingEdge} />}
+
       <header
+        {...attributes}
+        {...listeners}
         style={{
           backgroundImage: `linear-gradient(to right, ${color}1f, transparent 60%)`,
         }}
-        className="sticky top-0 z-10 mx-1.5 flex h-9 shrink-0 items-center gap-2 rounded-md bg-accent px-3"
+        className="sticky top-0 z-10 mx-1.5 relative flex h-9 shrink-0 touch-none select-none items-center gap-2 rounded-md bg-accent px-3"
       >
+        {landing && <DropIndicator edge="bottom" />}
+
         <button
           type="button"
           onClick={onToggle}
@@ -55,7 +88,11 @@ export function StationSection({
 
         <h2 className="flex min-w-0 font-medium text-foreground text-sm">
           {to ? (
-            <Link to={to} className="truncate px-1.5 py-0.5 outline-none">
+            <Link
+              to={to}
+              draggable={false}
+              className="truncate px-1.5 py-0.5 outline-none"
+            >
               {name}
             </Link>
           ) : (

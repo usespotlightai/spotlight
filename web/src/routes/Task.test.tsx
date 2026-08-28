@@ -90,6 +90,7 @@ describe('Task', () => {
       lineId: 'line_1',
       taskId: 'task_1',
       stationId: 'station_0',
+      afterTaskId: null,
     });
   });
 

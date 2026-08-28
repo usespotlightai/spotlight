@@ -92,6 +92,40 @@ export class AssemblyLine {
     );
   }
 
+  reorderStations(order: readonly StationId[]): AssemblyLine {
+    if (order.length !== this.stations.length) {
+      throw new InvalidStationOrderError(
+        `must name every station, but named ${order.length} of ${this.stations.length}`,
+      );
+    }
+
+    const moved = order.map((stationId, position) => {
+      const standing = this.stations.find((each) => each.id.equals(stationId));
+
+      if (!standing) {
+        throw new UnknownStationError(stationId.value);
+      }
+
+      return Station.create({
+        id: standing.id,
+        name: standing.name,
+        position,
+        color: standing.color,
+        description: standing.description,
+        pool: standing.pool,
+        agentPrompt: standing.agentPrompt,
+      });
+    });
+
+    return AssemblyLine.of({
+      id: this.id,
+      workspaceId: this.workspaceId,
+      factoryId: this.factoryId,
+      name: this.name,
+      stations: moved,
+    });
+  }
+
   private withStation(
     stationId: StationId,
     change: (station: Station) => Station,

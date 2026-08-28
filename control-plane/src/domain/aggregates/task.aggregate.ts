@@ -1,6 +1,7 @@
 import type { StationId } from '@domain/value-objects/station-id.vo';
 import type { TaskDescription } from '@domain/value-objects/task-description.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';
+import type { TaskRank } from '@domain/value-objects/task-rank.vo';
 import type { TaskTitle } from '@domain/value-objects/task-title.vo';
 import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 
@@ -11,6 +12,7 @@ export class Task {
     readonly stationId: StationId,
     readonly title: TaskTitle,
     readonly description: TaskDescription | null,
+    readonly rank: TaskRank,
     readonly createdAt: Date,
   ) {}
 
@@ -19,6 +21,7 @@ export class Task {
     stationId: StationId;
     title: TaskTitle;
     description?: TaskDescription | null;
+    rank: TaskRank;
     now: Date;
     newId: () => string;
   }): Task {
@@ -28,6 +31,7 @@ export class Task {
       input.stationId,
       input.title,
       input.description ?? null,
+      input.rank,
       input.now,
     );
   }
@@ -38,6 +42,7 @@ export class Task {
     stationId: StationId;
     title: TaskTitle;
     description: TaskDescription | null;
+    rank: TaskRank;
     createdAt: Date;
   }): Task {
     return new Task(
@@ -46,17 +51,27 @@ export class Task {
       input.stationId,
       input.title,
       input.description,
+      input.rank,
       input.createdAt,
     );
   }
 
-  moveTo(stationId: StationId): Task {
+  moveTo(stationId: StationId, rank: TaskRank): Task {
+    return this.placed(stationId, rank);
+  }
+
+  reorderTo(rank: TaskRank): Task {
+    return this.placed(this.stationId, rank);
+  }
+
+  private placed(stationId: StationId, rank: TaskRank): Task {
     return new Task(
       this.id,
       this.workspaceId,
       stationId,
       this.title,
       this.description,
+      rank,
       this.createdAt,
     );
   }

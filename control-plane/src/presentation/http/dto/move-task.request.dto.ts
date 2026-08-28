@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class MoveTaskRequestDto {
   @ApiProperty({
@@ -6,4 +6,13 @@ export class MoveTaskRequestDto {
     description: 'The station to move the task to, on the same assembly line',
   })
   readonly stationId!: string;
+
+  @ApiPropertyOptional({
+    example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13',
+    nullable: true,
+    type: String,
+    description:
+      'The task it was dropped after. Left out for the top of the station.',
+  })
+  readonly afterTaskId?: string | null;
 }

@@ -147,7 +147,12 @@ export class TaskController {
     }
 
     const moved = await this.commandBus.execute<MoveTaskCommand, TaskDto>(
-      new MoveTaskCommand(lineId, taskId, body.stationId),
+      new MoveTaskCommand(
+        lineId,
+        taskId,
+        body.stationId,
+        body.afterTaskId ?? null,
+      ),
     );
 
     return TaskHttpMapper.toResponse(moved);

@@ -32,6 +32,13 @@ export type AssemblyLineResponseDto = {
   stations: Array<StationResponseDto>;
 };
 
+export type ReorderStationsRequestDto = {
+  /**
+   * Every station on the line, left to right
+   */
+  stationIds: Array<string>;
+};
+
 export type CustomiseStationRequestDto = {
   name?: string;
   /**
@@ -230,6 +237,10 @@ export type MoveTaskRequestDto = {
    * The station to move the task to, on the same assembly line
    */
   stationId: string;
+  /**
+   * The task it was dropped after. Left out for the top of the station.
+   */
+  afterTaskId?: string | null;
 };
 
 export type CreateWorkspaceRequestDto = {
@@ -284,6 +295,37 @@ export type ListAssemblyLinesResponses = {
 };
 
 export type ListAssemblyLinesResponse = ListAssemblyLinesResponses[keyof ListAssemblyLinesResponses];
+
+export type ReorderStationsData = {
+  body: ReorderStationsRequestDto;
+  path: {
+    teamId: string;
+    lineId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/assembly-lines/{lineId}/stations/order';
+};
+
+export type ReorderStationsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such line for this caller
+   */
+  404: unknown;
+  /**
+   * Not every station named
+   */
+  422: unknown;
+};
+
+export type ReorderStationsResponses = {
+  200: AssemblyLineResponseDto;
+};
+
+export type ReorderStationsResponse = ReorderStationsResponses[keyof ReorderStationsResponses];
 
 export type CustomiseStationData = {
   body: CustomiseStationRequestDto;

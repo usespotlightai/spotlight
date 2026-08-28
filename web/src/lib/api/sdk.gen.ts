@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddTaskData, AddTaskErrors, AddTaskResponses, AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, AwaitRunInputData, AwaitRunInputErrors, AwaitRunInputResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, CustomiseStationData, CustomiseStationErrors, CustomiseStationResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, EnrolRunnerData, EnrolRunnerErrors, EnrolRunnerResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, ListAssemblyLinesData, ListAssemblyLinesErrors, ListAssemblyLinesResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, MoveTaskData, MoveTaskErrors, MoveTaskResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, RevokeRunnerData, RevokeRunnerErrors, RevokeRunnerResponses, SendRunInputData, SendRunInputErrors, SendRunInputResponses, StopRunData, StopRunErrors, StopRunResponses, StreamRunData, StreamRunErrors, StreamRunResponses } from './types.gen';
+import type { AddTaskData, AddTaskErrors, AddTaskResponses, AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, AwaitRunInputData, AwaitRunInputErrors, AwaitRunInputResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, CustomiseStationData, CustomiseStationErrors, CustomiseStationResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, EnrolRunnerData, EnrolRunnerErrors, EnrolRunnerResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, ListAssemblyLinesData, ListAssemblyLinesErrors, ListAssemblyLinesResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, MoveTaskData, MoveTaskErrors, MoveTaskResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, ReorderStationsData, ReorderStationsErrors, ReorderStationsResponses, RevokeRunnerData, RevokeRunnerErrors, RevokeRunnerResponses, SendRunInputData, SendRunInputErrors, SendRunInputResponses, StopRunData, StopRunErrors, StopRunResponses, StreamRunData, StreamRunErrors, StreamRunResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -22,6 +22,18 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
  * List a team’s assembly lines, each with its stations in order
  */
 export const listAssemblyLines = <ThrowOnError extends boolean = false>(options: Options<ListAssemblyLinesData, ThrowOnError>): RequestResult<ListAssemblyLinesResponses, ListAssemblyLinesErrors, ThrowOnError> => (options.client ?? client).get<ListAssemblyLinesResponses, ListAssemblyLinesErrors, ThrowOnError>({ url: '/teams/{teamId}/assembly-lines', ...options });
+
+/**
+ * Set the left to right order of a line’s stations
+ */
+export const reorderStations = <ThrowOnError extends boolean = false>(options: Options<ReorderStationsData, ThrowOnError>): RequestResult<ReorderStationsResponses, ReorderStationsErrors, ThrowOnError> => (options.client ?? client).post<ReorderStationsResponses, ReorderStationsErrors, ThrowOnError>({
+  url: '/teams/{teamId}/assembly-lines/{lineId}/stations/order',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
 
 /**
  * Change what a station is called, says, runs on and tells its agent

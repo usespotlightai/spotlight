@@ -12,6 +12,7 @@ import type { TaskRepository } from '@domain/repositories/task.repository';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';
+import { TaskRank } from '@domain/value-objects/task-rank.vo';
 
 export class MoveTaskHandler
   implements CommandHandlerPort<MoveTaskCommand, TaskDto>
@@ -56,7 +57,24 @@ export class MoveTaskHandler
         throw new UnknownStationError(task.stationId.value);
       }
 
-      const moved = task.moveTo(stationId);
+      const standing = (await this.tasks.standingAt(stationId)).filter(
+        (each) => !each.equals(task),
+      );
+
+      const after = command.afterTaskId
+        ? standing.find((each) => each.id.value === command.afterTaskId)
+        : null;
+
+      if (command.afterTaskId && !after) {
+        throw new UnknownTaskError(command.afterTaskId);
+      }
+
+      const before = standing[after ? standing.indexOf(after) + 1 : 0] ?? null;
+      const rank = TaskRank.between(after?.rank ?? null, before?.rank ?? null);
+
+      const moved = task.stationId.equals(stationId)
+        ? task.reorderTo(rank)
+        : task.moveTo(stationId, rank);
 
       await this.tasks.save(moved);
 

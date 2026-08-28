@@ -13,6 +13,7 @@ import type { TaskRepository } from '@domain/repositories/task.repository';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { TaskDescription } from '@domain/value-objects/task-description.vo';
+import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
 
 export class AddTaskHandler
@@ -45,6 +46,9 @@ export class AddTaskHandler
       throw new UnknownStationError(command.stationId);
     }
 
+    const standing = await this.tasks.standingAt(stationId);
+    const last = standing[standing.length - 1] ?? null;
+
     const added = Task.add({
       workspaceId: line.workspaceId,
       stationId,
@@ -52,6 +56,7 @@ export class AddTaskHandler
       description: command.description
         ? TaskDescription.of(command.description)
         : null,
+      rank: TaskRank.between(last ? last.rank : null, null),
       now: this.clock.now(),
       newId: () => this.ids.generate(),
     });
