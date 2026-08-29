@@ -110,6 +110,10 @@ describe('AddTaskHandler', () => {
       description: null,
       createdAt: raised.toISOString(),
       rank: added?.rank.value,
+      // Dispatched the moment it was raised, so it is already being worked.
+      running: true,
+      awaitingReview: false,
+      note: null,
     });
   });
 

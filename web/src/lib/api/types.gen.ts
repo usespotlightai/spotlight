@@ -204,6 +204,23 @@ export type HarnessResponseDto = {
   name: string;
 };
 
+export type TaskNoteResponseDto = {
+  position: number;
+  station: string;
+  body: string;
+};
+
+export type InboxItemResponseDto = {
+  taskId: string;
+  teamId: string;
+  title: string;
+  description: string | null;
+  station: string;
+  stationColor: string;
+  askedAt: string;
+  notes: Array<TaskNoteResponseDto>;
+};
+
 export type ActiveRunResponseDto = {
   id: string;
   state: string;
@@ -257,6 +274,18 @@ export type TaskResponseDto = {
    */
   description: string | null;
   createdAt: string;
+  /**
+   * A run is under way
+   */
+  running: boolean;
+  /**
+   * Waiting on a person
+   */
+  awaitingReview: boolean;
+  /**
+   * The last thing said about this task, and where it was said
+   */
+  note: TaskNoteResponseDto | null;
 };
 
 export type TaskRunResponseDto = {
@@ -722,6 +751,32 @@ export type ListHarnessesResponses = {
 };
 
 export type ListHarnessesResponse = ListHarnessesResponses[keyof ListHarnessesResponses];
+
+export type ListInboxData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox';
+};
+
+export type ListInboxErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type ListInboxResponses = {
+  200: Array<InboxItemResponseDto>;
+};
+
+export type ListInboxResponse = ListInboxResponses[keyof ListInboxResponses];
 
 export type ListRunnersData = {
   body?: never;

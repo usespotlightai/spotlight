@@ -645,6 +645,47 @@
         ]
       }
     },
+    "/workspaces/{slug}/inbox": {
+      "get": {
+        "operationId": "listInbox",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InboxItemResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          }
+        },
+        "summary": "The tasks waiting on a person, oldest first",
+        "tags": [
+          "inbox"
+        ]
+      }
+    },
     "/runners": {
       "get": {
         "operationId": "listRunners",
@@ -1571,6 +1612,77 @@
           "name"
         ]
       },
+      "TaskNoteResponseDto": {
+        "type": "object",
+        "properties": {
+          "position": {
+            "type": "number",
+            "example": 0
+          },
+          "station": {
+            "type": "string",
+            "example": "Implementation"
+          },
+          "body": {
+            "type": "string",
+            "example": "The run was given up on after 3 attempts."
+          }
+        },
+        "required": [
+          "position",
+          "station",
+          "body"
+        ]
+      },
+      "InboxItemResponseDto": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13"
+          },
+          "teamId": {
+            "type": "string",
+            "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
+          },
+          "title": {
+            "type": "string",
+            "example": "Fix the queue"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "station": {
+            "type": "string",
+            "example": "Implementation"
+          },
+          "stationColor": {
+            "type": "string",
+            "example": "#edc12b"
+          },
+          "askedAt": {
+            "type": "string",
+            "example": "2026-08-28T21:15:00.000Z"
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskNoteResponseDto"
+            }
+          }
+        },
+        "required": [
+          "taskId",
+          "teamId",
+          "title",
+          "description",
+          "station",
+          "stationColor",
+          "askedAt",
+          "notes"
+        ]
+      },
       "ActiveRunResponseDto": {
         "type": "object",
         "properties": {
@@ -1708,6 +1820,26 @@
           "createdAt": {
             "type": "string",
             "example": "2026-08-27T09:15:00.000Z"
+          },
+          "running": {
+            "type": "boolean",
+            "example": false,
+            "description": "A run is under way"
+          },
+          "awaitingReview": {
+            "type": "boolean",
+            "example": false,
+            "description": "Waiting on a person"
+          },
+          "note": {
+            "nullable": true,
+            "description": "The last thing said about this task, and where it was said",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TaskNoteResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -1715,7 +1847,10 @@
           "stationId",
           "title",
           "description",
-          "createdAt"
+          "createdAt",
+          "running",
+          "awaitingReview",
+          "note"
         ]
       },
       "TaskRunResponseDto": {

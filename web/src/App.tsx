@@ -4,6 +4,9 @@ import { RequireGuest } from './components/common/auth/RequireGuest.tsx';
 import { AssemblyLineBoard } from './routes/AssemblyLineBoard.tsx';
 import { CreateWorkspace } from './routes/CreateWorkspace.tsx';
 import { DefaultWorkspace } from './routes/DefaultWorkspace.tsx';
+import { Inbox } from './routes/Inbox.tsx';
+import { InboxIndex } from './routes/InboxIndex.tsx';
+import { InboxItem } from './routes/InboxItem.tsx';
 import { Login } from './routes/Login.tsx';
 import { RunnerIndex } from './routes/RunnerIndex.tsx';
 import { Runners } from './routes/Runners.tsx';
@@ -39,6 +42,11 @@ export default function App() {
             <Route path="tasks/:taskId" element={<Task />} />
             <Route path=":section" element={<TeamSection />} />
           </Route>
+          <Route path="inbox" element={<Inbox />}>
+            <Route index element={<InboxIndex />} />
+            <Route path=":taskId" element={<InboxItem />} />
+          </Route>
+
           <Route path="runners" element={<Runners />}>
             <Route index element={<RunnerIndex />} />
             <Route path=":runnerId" element={<RunnerTerminal />} />

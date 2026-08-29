@@ -10,16 +10,30 @@ export const TaskMapper = {
       title: summary.title,
       description: summary.description,
       createdAt: summary.createdAt.toISOString(),
+      running: summary.running,
+      awaitingReview: summary.awaitingReview,
+      note: summary.note,
     };
   },
 
   taskToDto(task: Task): TaskDto {
+    const last = task.notes[task.notes.length - 1];
+
     return {
       id: task.id.value,
       stationId: task.stationId.value,
       title: task.title.value,
       description: task.description?.value ?? null,
       createdAt: task.createdAt.toISOString(),
+      running: task.running,
+      awaitingReview: task.awaitingReview,
+      note: last
+        ? {
+            position: task.notes.length - 1,
+            station: last.station.value,
+            body: last.body.value,
+          }
+        : null,
     };
   },
 };

@@ -15,6 +15,9 @@ const standing: TaskSummary[] = [
     title: 'Fix the queue',
     description: null,
     createdAt: raised,
+    running: false,
+    awaitingReview: false,
+    note: null,
   },
   {
     id: 'task_2',
@@ -22,6 +25,9 @@ const standing: TaskSummary[] = [
     title: 'Write the spec',
     description: '## Steps',
     createdAt: raised,
+    running: false,
+    awaitingReview: false,
+    note: null,
   },
 ];
 

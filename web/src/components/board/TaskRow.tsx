@@ -3,6 +3,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Link } from 'react-router';
 import { DropIndicator } from '@/components/board/DropIndicator';
 import { StationIcon } from '@/components/board/StationIcon';
+import { TaskState } from '@/components/board/TaskState';
 import { Checkbox } from '@/components/ui/checkbox';
 import { raisedOn, type Task } from '@/lib/task';
 import { cn } from '@/lib/utils';
@@ -98,9 +99,11 @@ export function TaskRow({
           </Link>
         </span>
 
+        <TaskState task={task} />
+
         <time
           dateTime={task.createdAt}
-          className="shrink-0 text-muted-foreground text-xs tabular-nums"
+          className="ml-2 shrink-0 text-muted-foreground text-xs tabular-nums"
         >
           {raisedOn(task.createdAt)}
         </time>

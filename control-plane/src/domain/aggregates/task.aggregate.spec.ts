@@ -1,6 +1,7 @@
 import { Task } from '@domain/aggregates/task.aggregate';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
+import { RunId } from '@domain/value-objects/run-id.vo';
 import { TaskDescription } from '@domain/value-objects/task-description.vo';
 import { TaskNote } from '@domain/value-objects/task-note.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
@@ -127,5 +128,47 @@ describe('Task', () => {
 
   it('is the same task as another of the same id', () => {
     expect(added().equals(added())).toBe(true);
+  });
+});
+
+describe('Task, what it is doing', () => {
+  const raised = () =>
+    Task.add({
+      workspaceId: WorkspaceId.of('ws_1'),
+      stationId: StationId.of('station_1'),
+      title: TaskTitle.of('Fix the queue'),
+      rank: TaskRank.of('i'),
+      now: new Date('2026-08-28T12:00:00.000Z'),
+      newId: () => 'task_1',
+    });
+
+  const asked = () =>
+    TaskNote.of({
+      station: StationName.of('Triage'),
+      body: TaskNoteBody.of('Which queue did you mean?'),
+      at: new Date('2026-08-28T12:00:00.000Z'),
+    });
+
+  it('is idle when nobody has taken it up', () => {
+    const task = raised();
+
+    expect(task.running).toBe(false);
+    expect(task.idle).toBe(true);
+  });
+
+  it('is not idle while a run holds it', () => {
+    const task = raised().handedTo(RunId.of('run_1'));
+
+    expect(task.running).toBe(true);
+    expect(task.idle).toBe(false);
+  });
+
+  // Waiting on a person is not idle either: taking it up again would talk
+  // over them.
+  it('is not idle while it waits on a person', () => {
+    const task = raised().askedAbout(asked());
+
+    expect(task.running).toBe(false);
+    expect(task.idle).toBe(false);
   });
 });

@@ -78,6 +78,16 @@ export class Task {
     return this.placed(this.stationId, rank);
   }
 
+  /** Being worked right now, which is what holding a run means. */
+  get running(): boolean {
+    return this.currentRunId !== null;
+  }
+
+  /** Neither being worked nor waiting on a person: nobody has taken it up. */
+  get idle(): boolean {
+    return !this.running && !this.awaitingReview;
+  }
+
   handedTo(runId: RunId): Task {
     return this.with({ currentRunId: runId });
   }
