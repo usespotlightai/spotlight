@@ -323,108 +323,6 @@
         ]
       }
     },
-    "/runs/{runId}/input": {
-      "post": {
-        "operationId": "sendRunInput",
-        "parameters": [
-          {
-            "name": "runId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SendRunInputRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "204": {
-            "description": ""
-          },
-          "401": {
-            "description": "No valid session"
-          },
-          "404": {
-            "description": "No such run for this caller"
-          }
-        },
-        "summary": "Type at the agent, or tell it the terminal resized",
-        "tags": [
-          "runs"
-        ]
-      },
-      "get": {
-        "operationId": "awaitRunInput",
-        "parameters": [
-          {
-            "name": "runId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PendingRunInputResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing or revoked runner token"
-          }
-        },
-        "summary": "Long-poll for what was typed, answering empty when nothing was",
-        "tags": [
-          "runs"
-        ]
-      }
-    },
-    "/runs/{runId}/stop": {
-      "post": {
-        "operationId": "stopRun",
-        "parameters": [
-          {
-            "name": "runId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          },
-          "401": {
-            "description": "No valid session"
-          },
-          "404": {
-            "description": "No such run for this caller"
-          }
-        },
-        "summary": "Ask the agent to finish, as closing the terminal would",
-        "tags": [
-          "runs"
-        ]
-      }
-    },
     "/runners/harnesses": {
       "get": {
         "operationId": "installableHarnesses",
@@ -448,6 +346,32 @@
           }
         },
         "summary": "What to look for on this runner, so it can say what it has",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runners/workspaces": {
+      "get": {
+        "description": "A run keeps its directory so the next one at the same station can take up the conversation left in it. Nothing else ever will, so what this does not name may be disposed of.",
+        "operationId": "keptWorkspaces",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeptWorkspacesResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong enrollment token"
+          }
+        },
+        "summary": "Which workspaces this runner should still be holding",
         "tags": [
           "runners"
         ]
@@ -1373,63 +1297,6 @@
           "targetRunnerId"
         ]
       },
-      "SendRunInputRequestDto": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "string",
-            "example": "bHMgLWxhCg==",
-            "description": "Keystrokes as base64, exactly as the terminal produced them"
-          },
-          "cols": {
-            "type": "number",
-            "example": 120,
-            "description": "New terminal width"
-          },
-          "rows": {
-            "type": "number",
-            "example": 40,
-            "description": "New terminal height"
-          }
-        }
-      },
-      "RunInputResponseDto": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "string",
-            "example": "bHMgLWxhCg=="
-          },
-          "cols": {
-            "type": "number",
-            "example": 120
-          },
-          "rows": {
-            "type": "number",
-            "example": 40
-          },
-          "stop": {
-            "type": "boolean",
-            "example": true,
-            "description": "The agent has been asked to finish"
-          }
-        }
-      },
-      "PendingRunInputResponseDto": {
-        "type": "object",
-        "properties": {
-          "input": {
-            "description": "Empty when the poll timed out with nothing typed",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RunInputResponseDto"
-            }
-          }
-        },
-        "required": [
-          "input"
-        ]
-      },
       "InstallableHarnessResponseDto": {
         "type": "object",
         "properties": {
@@ -1446,6 +1313,27 @@
         "required": [
           "id",
           "executable"
+        ]
+      },
+      "KeptWorkspacesResponseDto": {
+        "type": "object",
+        "properties": {
+          "keys": {
+            "example": [
+              "task_1-station_2"
+            ],
+            "description": "The workspace directories this runner should still be holding. Anything else under its workspace root has nothing left to resume and may be disposed of.",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "keys"
         ]
       },
       "RegisterRunnerRequestDto": {
@@ -1588,6 +1476,11 @@
           },
           "outcome": {
             "$ref": "#/components/schemas/DeclaredOutcomeDto"
+          },
+          "sessionId": {
+            "type": "string",
+            "example": "67e5ddad-0fc6-4a33-90df-3c17732132c8",
+            "description": "What the harness called this conversation. Reported rather than remembered by the runner, because the next run may fall to another one."
           }
         },
         "required": [

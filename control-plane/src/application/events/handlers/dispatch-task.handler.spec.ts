@@ -6,6 +6,8 @@ import { Station } from '@domain/entities/station.entity';
 import type { RunRepository } from '@domain/repositories/run.repository';
 import { CLAUDE_CODE } from '@domain/value-objects/built-in-harnesses';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { HarnessSession } from '@domain/value-objects/harness-session.vo';
+import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
@@ -51,9 +53,9 @@ const runs = {
 
 const ids: IdGeneratorPort = { generate: () => 'run_1' };
 
-const dispatch = (station: Station) =>
+const dispatch = (station: Station, standing?: Task) =>
   new DispatchTask(runs, ids).dispatch({
-    task: task(station.id.value),
+    task: standing ?? task(station.id.value),
     station,
     stations,
   });
@@ -115,32 +117,101 @@ describe('DispatchTask', () => {
     expect(spec.handover.options).not.toContain('Triage');
   });
 
-  // Nobody is watching a station run, so a harness that stops to ask hands
-  // nothing over. Which flag buys that differs by harness, and every argument
-  // the harness carries reaches the runner ahead of the briefing.
-  it('runs the harness the way the harness has to be run', async () => {
+  it('runs the harness the way the harness has to be started', async () => {
     await dispatch(stations[1] as Station);
 
-    const spec = queued[0]?.spec as { command: { executable: string; args: string[] } };
+    const spec = queued[0]?.spec as {
+      command: { executable: string; args: string[] };
+    };
 
     expect(spec.command.executable).toBe(CLAUDE_CODE.command.executable);
-    expect(spec.command.args.slice(0, -1)).toEqual([
-      ...CLAUDE_CODE.command.args,
-    ]);
+    expect(spec.command.args).toEqual([...CLAUDE_CODE.command.args]);
   });
 
+  // What to start and what to ask of it are different things: the briefing is
+  // put to the agent as a prompt, not smuggled in on a command line.
   it('briefs the agent in the same words it gives the runner', async () => {
     await dispatch(stations[1] as Station);
 
     const spec = queued[0]?.spec as {
-      command: { args: string[] };
+      briefing: string;
       handover: { options: string[] };
     };
 
-    const brief = spec.command.args[spec.command.args.length - 1] as string;
-
     for (const option of spec.handover.options) {
-      expect(brief).toContain(`"${option}"`);
+      expect(spec.briefing).toContain(`"${option}"`);
     }
+  });
+  describe('carrying on where the last run stopped', () => {
+    interface Continuing {
+      readonly continuity: {
+        readonly key: string;
+        readonly sessionId?: string;
+        readonly keep: boolean;
+      };
+    }
+
+    const continuityOf = (at: number) => {
+      const run = queued[at];
+      if (!run) {
+        throw new Error(`nothing was queued at ${at}`);
+      }
+      return (run.spec as Continuing).continuity;
+    };
+
+    const worked = (station: Station) =>
+      task(station.id.value).workedIn(
+        HarnessSession.of('session_1'),
+        RunnerId.of('runner_1'),
+      );
+
+    it('gives the task the same directory for as long as it stands here', async () => {
+      const station = stations[1] as Station;
+
+      await dispatch(station);
+      await dispatch(station, worked(station));
+
+      expect(continuityOf(0).key).toBe('task_1-station_2');
+      expect(continuityOf(1).key).toBe(continuityOf(0).key);
+    });
+
+    it('gives it a different one at the next station', async () => {
+      await dispatch(stations[1] as Station);
+      await dispatch(stations[2] as Station);
+
+      expect(continuityOf(0).key).toBe('task_1-station_2');
+      expect(continuityOf(1).key).toBe('task_1-station_3');
+    });
+
+    it('keeps the directory, since the conversation lives in it', async () => {
+      await dispatch(stations[1] as Station);
+
+      expect(continuityOf(0).keep).toBe(true);
+    });
+
+    it('asks for the conversation the task was last worked in', async () => {
+      const station = stations[1] as Station;
+
+      await dispatch(station, worked(station));
+
+      expect(continuityOf(0).sessionId).toBe('session_1');
+    });
+
+    it('goes back to the runner holding it', async () => {
+      const station = stations[1] as Station;
+
+      await dispatch(station, worked(station));
+
+      expect(queued[0]?.targetRunner?.value).toBe('runner_1');
+    });
+
+    it('is free to be worked anywhere when there is nothing to resume', async () => {
+      const station = stations[1] as Station;
+
+      await dispatch(station);
+
+      expect(queued[0]?.targetRunner).toBeNull();
+      expect(continuityOf(0).sessionId).toBeUndefined();
+    });
   });
 });

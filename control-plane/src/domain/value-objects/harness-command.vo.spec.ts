@@ -3,49 +3,79 @@ import { HarnessCommand } from '@domain/value-objects/harness-command.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('HarnessCommand', () => {
+  it('starts an agent that needs no arguments', () => {
+    const command = HarnessCommand.of({ executable: 'agent' });
+
+    expect(command.started()).toEqual({ executable: 'agent', args: [] });
+  });
+
+  it('carries every argument the harness has to be started with', () => {
+    const command = HarnessCommand.of({
+      executable: 'agent',
+      args: ['--serve'],
+    });
+
+    expect(command.started()).toEqual({
+      executable: 'agent',
+      args: ['--serve'],
+    });
+  });
+
+  it('tells the harness what it needs telling, and nothing when there is none', () => {
+    expect(
+      HarnessCommand.of({ executable: 'agent' }).started(),
+    ).not.toHaveProperty('env');
+
+    const told = HarnessCommand.of({
+      executable: 'agent',
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: expanded by the runner
+      env: { AGENT_STATE_DIR: '${SPOTLIGHT_STATE_DIR}/agent' },
+    });
+
+    expect(told.started()).toEqual({
+      executable: 'agent',
+      args: [],
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: expanded by the runner
+      env: { AGENT_STATE_DIR: '${SPOTLIGHT_STATE_DIR}/agent' },
+    });
+  });
+
+  it('is a different command when the harness is told something else', () => {
+    const one = HarnessCommand.of({ executable: 'agent', env: { A: '1' } });
+
+    expect(
+      one.equals(HarnessCommand.of({ executable: 'agent', env: { A: '1' } })),
+    ).toBe(true);
+    expect(
+      one.equals(HarnessCommand.of({ executable: 'agent', env: { A: '2' } })),
+    ).toBe(false);
+    expect(one.equals(HarnessCommand.of({ executable: 'agent' }))).toBe(false);
+  });
+
   it('needs something to run', () => {
     expect(() => HarnessCommand.of({ executable: '   ' })).toThrow(
       InvalidHarnessCommandError,
     );
   });
 
-  it('runs an agent that needs no arguments', () => {
-    const command = HarnessCommand.of({ executable: 'agent' });
-
-    expect(command.briefedWith('do the thing')).toEqual({
-      executable: 'agent',
-      args: ['do the thing'],
-    });
-  });
-
-  // The briefing goes last, where an agent CLI takes the prompt it is to work
-  // on, so everything the pool carries is passed ahead of it.
-  it('puts the briefing after everything the pool carries', () => {
-    const command = HarnessCommand.of({
-      executable: 'claude',
-      args: ['--dangerously-skip-permissions'],
-    });
-
-    expect(command.briefedWith('## Fix the queue')).toEqual({
-      executable: 'claude',
-      args: ['--dangerously-skip-permissions', '## Fix the queue'],
-    });
-  });
-
-  it('is not changed by what is done with it', () => {
-    const command = HarnessCommand.of({ executable: 'agent', args: ['--one'] });
-
-    command.briefedWith('first');
-    command.briefedWith('second');
-
-    expect(command.args).toEqual(['--one']);
-  });
-
   it('is the same command as one built the same way', () => {
-    const one = HarnessCommand.of({ executable: 'agent', args: ['--a', '--b'] });
+    const one = HarnessCommand.of({
+      executable: 'agent',
+      args: ['--a', '--b'],
+    });
 
-    expect(one.equals(HarnessCommand.of({ executable: 'agent', args: ['--a', '--b'] }))).toBe(true);
-    expect(one.equals(HarnessCommand.of({ executable: 'agent', args: ['--a'] }))).toBe(false);
-    expect(one.equals(HarnessCommand.of({ executable: 'other', args: ['--a', '--b'] }))).toBe(false);
+    expect(
+      one.equals(
+        HarnessCommand.of({ executable: 'agent', args: ['--a', '--b'] }),
+      ),
+    ).toBe(true);
+    expect(
+      one.equals(HarnessCommand.of({ executable: 'agent', args: ['--a'] })),
+    ).toBe(false);
+    expect(
+      one.equals(
+        HarnessCommand.of({ executable: 'other', args: ['--a', '--b'] }),
+      ),
+    ).toBe(false);
   });
 });

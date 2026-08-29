@@ -122,3 +122,48 @@ func TestRemoveDisposesOfWhatItMade(t *testing.T) {
 		t.Error("the root is not this package's to remove")
 	}
 }
+
+func TestStateMakesADirectoryInsideTheWorkspace(t *testing.T) {
+	space, err := workspace.Create(t.TempDir(), "run_1")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	state, err := space.State()
+	if err != nil {
+		t.Fatalf("state: %v", err)
+	}
+
+	if state != filepath.Join(space.Dir, workspace.StatePath) {
+		t.Errorf("state directory %q", state)
+	}
+	if info, err := os.Stat(state); err != nil || !info.IsDir() {
+		t.Errorf("state directory is not there: %v", err)
+	}
+}
+
+func TestCreateReusesWhatASharedKeyAlreadyHolds(t *testing.T) {
+	root := t.TempDir()
+
+	first, err := workspace.Create(root, "task_1")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	state, err := first.State()
+	if err != nil {
+		t.Fatalf("state: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(state, "history"), []byte("kept"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	second, err := workspace.Create(root, "task_1")
+	if err != nil {
+		t.Fatalf("create again: %v", err)
+	}
+
+	kept, err := os.ReadFile(filepath.Join(second.Dir, workspace.StatePath, "history"))
+	if err != nil || string(kept) != "kept" {
+		t.Errorf("the second run did not find what the first left: %v", err)
+	}
+}

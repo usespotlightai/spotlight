@@ -138,3 +138,42 @@ func TestAFailureCarriesTheServersExplanation(t *testing.T) {
 		}
 	}
 }
+
+func TestKeptAnswersWithWhatToHoldOnTo(t *testing.T) {
+	var asked string
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		asked = r.URL.Path
+		_ = json.NewEncoder(w).Encode(protocol.Kept{
+			Keys: []string{"task_1-station_2"},
+		})
+	})
+
+	keys, err := client.Kept(context.Background())
+	if err != nil {
+		t.Fatalf("kept: %v", err)
+	}
+
+	if asked != "/api/runners/workspaces" {
+		t.Errorf("asked %q", asked)
+	}
+	if len(keys) != 1 || keys[0] != "task_1-station_2" {
+		t.Errorf("kept %v", keys)
+	}
+}
+
+// The difference that matters: a control plane that cannot answer must not
+// read as one saying to keep nothing, or a sweep would take everything.
+func TestKeptFailsRatherThanAnsweringEmpty(t *testing.T) {
+	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+
+	keys, err := client.Kept(context.Background())
+
+	if err == nil {
+		t.Fatalf("a failed request answered with %v", keys)
+	}
+	if keys != nil {
+		t.Errorf("a failed request answered with %v", keys)
+	}
+}

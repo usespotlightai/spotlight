@@ -18,7 +18,7 @@ export function InboxRow({ slug, item }: InboxRowProps) {
       className={({ isActive }) =>
         cn(
           'flex flex-col gap-0.5 rounded-md px-2 py-2 outline-none transition-colors',
-          isActive ? 'bg-selected' : 'hover:bg-accent',
+          isActive ? 'bg-accent' : 'hover:bg-accent',
         )
       }
     >

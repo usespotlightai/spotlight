@@ -1,4 +1,5 @@
 import { station } from '@infrastructure/persistence/drizzle/schemas/assembly-line.schema';
+import { runner } from '@infrastructure/persistence/drizzle/schemas/run.schema';
 import { workspace } from '@infrastructure/persistence/drizzle/schemas/workspace.schema';
 import {
   boolean,
@@ -24,6 +25,14 @@ export const task = pgTable(
     description: text('description'),
     rank: text('rank').notNull().default('i'),
     currentRunId: text('current_run_id'),
+    // What the harness called the conversation this task was last worked in.
+    // Opaque here: it is handed back to a harness, never read.
+    sessionId: text('session_id'),
+    // The runner holding the directory that session lives in. Set null rather
+    // than cascading: losing the runner loses the workspace, not the task.
+    runnerId: text('runner_id').references(() => runner.id, {
+      onDelete: 'set null',
+    }),
     awaitingReview: boolean('awaiting_review').default(false).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')

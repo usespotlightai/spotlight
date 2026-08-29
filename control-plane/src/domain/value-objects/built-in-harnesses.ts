@@ -8,18 +8,31 @@ const harness = (
   name: string,
   executable: string,
   args: string[],
+  env: Record<string, string> = {},
 ) =>
   Harness.of({
     id: HarnessId.of(id),
     name: HarnessName.of(name),
-    command: HarnessCommand.of({ executable, args }),
+    command: HarnessCommand.of({ executable, args, env }),
   });
 
-// A station's work is unattended, so each harness carries whatever it needs
-// to act without stopping to ask.
-export const CLAUDE_CODE = harness('claude-code', 'Claude Code', 'claude', [
-  '--dangerously-skip-permissions',
-]);
+/*
+Spoken to over the Agent Client Protocol, so permission is answered through the
+protocol rather than waived on a command line.
+
+Its config directory goes in the run's state directory, so the session history
+lands with the workspace rather than on whichever machine ran it. It signs in
+with CLAUDE_CODE_OAUTH_TOKEN instead of the credentials file it would keep
+there, so what stays behind carries no secret.
+*/
+export const CLAUDE_CODE = harness(
+  'claude-code',
+  'Claude Code',
+  'claude-agent-acp',
+  [],
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: expanded by the runner
+  { CLAUDE_CONFIG_DIR: '${SPOTLIGHT_STATE_DIR}/claude' },
+);
 
 // Only list a harness once its unattended invocation has actually been run: a
 // flag nobody checked fails at the first task, on the runner, where it is

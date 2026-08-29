@@ -9,11 +9,12 @@ import (
 	"os/signal"
 	"syscall"
 
+	"usespotlight.ai/runner/internal/account"
 	"usespotlight.ai/runner/internal/config"
 	"usespotlight.ai/runner/internal/control"
 	"usespotlight.ai/runner/internal/protocol"
 	"usespotlight.ai/runner/internal/session"
-	"usespotlight.ai/runner/internal/terminal"
+	"usespotlight.ai/runner/internal/workspace"
 )
 
 func main() {
@@ -45,7 +46,7 @@ func run() error {
 	}
 
 	// Resolved up front so a bad agent user fails at startup, not mid-run.
-	agentUser, err := terminal.LookupUser(cfg.AgentUser)
+	agentUser, err := account.LookupUser(cfg.AgentUser)
 	if err != nil {
 		return err
 	}
@@ -63,6 +64,29 @@ func run() error {
 		"workspace", cfg.WorkspaceRoot,
 	)
 
+	// Between runs is the only safe moment to dispose of workspaces, and the
+	// only one needed: this serves one run at a time, so nothing here is
+	// holding a directory. The sweep at startup clears what a crash left.
+	sweep := func(ctx context.Context) {
+		keep, err := client.Kept(ctx)
+		if err != nil {
+			// No answer is not an empty answer. Keeping too much costs disk;
+			// deleting on a failed request would cost a task's work.
+			log.Warn("could not ask what to keep, holding everything", "error", err)
+			return
+		}
+
+		reaped, err := workspace.Reap(cfg.WorkspaceRoot, keep)
+		if err != nil {
+			log.Warn("could not dispose of every workspace", "error", err)
+		}
+		if reaped > 0 {
+			log.Info("disposed of workspaces nothing will return for", "count", reaped)
+		}
+	}
+
+	sweep(ctx)
+
 	err = control.Poll(
 		ctx,
 		client,
@@ -76,7 +100,6 @@ func run() error {
 			if err := session.Execute(ctx, claimed, session.Options{
 				WorkspaceRoot: cfg.WorkspaceRoot,
 				Journal:       client,
-				Input:         client,
 				Log:           log,
 				AgentUser:     agentUser,
 				PrepareHook:   cfg.PrepareHook,
@@ -85,6 +108,8 @@ func run() error {
 			}); err != nil {
 				log.Error("run failed", "run", claimed.ID, "error", err)
 			}
+
+			sweep(ctx)
 		},
 	)
 	if err != nil {

@@ -9,6 +9,7 @@ x-control-plane-env: &control-plane-env
 
 x-runner-env: &runner-env
   ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
   SPOTLIGHT_URL: ${SPOTLIGHT_URL:-http://control-plane:3000}
   SPOTLIGHT_WORKSPACE: /workspaces
   SPOTLIGHT_AGENT_USER: agent

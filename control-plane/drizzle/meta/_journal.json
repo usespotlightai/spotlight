@@ -15,6 +15,20 @@
       "when": 1787949780326,
       "tag": "20260828204300_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788013682620,
+      "tag": "20260829142802_task_harness_session",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788014866139,
+      "tag": "20260829144746_task_pinned_runner",
+      "breakpoints": true
     }
   ]
 }

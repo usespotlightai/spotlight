@@ -1,4 +1,6 @@
 import { Task } from '@domain/aggregates/task.aggregate';
+import { HarnessSession } from '@domain/value-objects/harness-session.vo';
+import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
@@ -170,5 +172,81 @@ describe('Task, what it is doing', () => {
 
     expect(task.running).toBe(false);
     expect(task.idle).toBe(false);
+  });
+  describe('the conversation it was worked in', () => {
+    const session = HarnessSession.of('session_1');
+    const runner = RunnerId.of('runner_1');
+    const note = TaskNote.of({
+      station: StationName.of('Build'),
+      body: TaskNoteBody.of('Needs a decision on the retry window.'),
+      at: new Date('2026-08-27T10:00:00.000Z'),
+    });
+
+    it('is not there until a run has worked it', () => {
+      expect(added().sessionId).toBeNull();
+    });
+
+    it('is remembered once one has, with the runner that holds it', () => {
+      const worked = added().workedIn(session, runner);
+
+      expect(worked.sessionId).toEqual(session);
+      expect(worked.runnerId).toEqual(runner);
+    });
+
+    // The inbox round trip is the whole point: a person answers and the work
+    // picks up mid-thought rather than beginning again.
+    it('survives being put to a person', () => {
+      const asked = added().workedIn(session, runner).askedAbout(note);
+
+      expect(asked.sessionId).toEqual(session);
+      expect(asked.runnerId).toEqual(runner);
+      expect(asked.awaitingReview).toBe(true);
+    });
+
+    // What the next station inherits is the note. Carrying the conversation
+    // would make the note decoration.
+    it('is left behind when the task is passed on', () => {
+      const passed = added()
+        .workedIn(session, runner)
+        .passedTo(StationId.of('station_2'), TaskRank.of('m'), note);
+
+      expect(passed.sessionId).toBeNull();
+      expect(passed.runnerId).toBeNull();
+    });
+
+    it('is left behind when the task is moved by hand', () => {
+      const moved = added()
+        .workedIn(session, runner)
+        .moveTo(StationId.of('station_2'), TaskRank.of('m'));
+
+      expect(moved.sessionId).toBeNull();
+      expect(moved.runnerId).toBeNull();
+    });
+
+    it('names the directory the next run here should work in', () => {
+      expect(added().continuity().key).toBe('task_1-station_1');
+    });
+
+    it('hands the conversation and the runner to the next run', () => {
+      const carried = added().workedIn(session, runner).continuity();
+
+      expect(carried.sessionId).toEqual(session);
+      expect(carried.pinnedTo).toEqual(runner);
+    });
+
+    // Nothing to go back for, so anything may take it and the queue stays even.
+    it('pins nothing when there is no conversation to return to', () => {
+      expect(added().continuity().pinnedTo).toBeNull();
+    });
+
+    it('survives being reordered where it stands', () => {
+      const reordered = added()
+        .workedIn(session, runner)
+        .reorderTo(TaskRank.of('m'));
+
+      expect(reordered.sessionId).toEqual(session);
+      expect(reordered.runnerId).toEqual(runner);
+      expect(reordered.stationId).toEqual(StationId.of('station_1'));
+    });
   });
 });

@@ -1,6 +1,8 @@
 import { Task } from '@domain/aggregates/task.aggregate';
 import type { TaskRepository } from '@domain/repositories/task.repository';
+import { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
+import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskDescription } from '@domain/value-objects/task-description.vo';
@@ -38,6 +40,8 @@ const toTask = (row: Row, notes: NoteRow[]): Task =>
     rank: TaskRank.of(row.rank),
     currentRunId: row.currentRunId ? RunId.of(row.currentRunId) : null,
     awaitingReview: row.awaitingReview,
+    sessionId: row.sessionId ? HarnessSession.of(row.sessionId) : null,
+    runnerId: row.runnerId ? RunnerId.of(row.runnerId) : null,
     notes: notes.map(toNote),
     createdAt: row.createdAt,
   });
@@ -56,6 +60,8 @@ export class DrizzleTaskRepository implements TaskRepository {
       rank: added.rank.value,
       currentRunId: added.currentRunId?.value ?? null,
       awaitingReview: added.awaitingReview,
+      sessionId: added.sessionId?.value ?? null,
+      runnerId: added.runnerId?.value ?? null,
       createdAt: added.createdAt,
     });
 
@@ -72,6 +78,8 @@ export class DrizzleTaskRepository implements TaskRepository {
         rank: saved.rank.value,
         currentRunId: saved.currentRunId?.value ?? null,
         awaitingReview: saved.awaitingReview,
+        sessionId: saved.sessionId?.value ?? null,
+        runnerId: saved.runnerId?.value ?? null,
       })
       .where(eq(task.id, saved.id.value));
 

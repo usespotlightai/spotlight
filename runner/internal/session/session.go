@@ -4,17 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
-	"path/filepath"
-	"sync/atomic"
 	"time"
 
+	"usespotlight.ai/runner/internal/account"
+	"usespotlight.ai/runner/internal/acp"
 	"usespotlight.ai/runner/internal/declare"
 	"usespotlight.ai/runner/internal/hook"
 	"usespotlight.ai/runner/internal/protocol"
-	"usespotlight.ai/runner/internal/terminal"
 	"usespotlight.ai/runner/internal/workspace"
 )
 
@@ -24,10 +22,6 @@ type Journal interface {
 	AppendEvents(ctx context.Context, runID string, events []protocol.Event) error
 	RenewLease(ctx context.Context, runID string) error
 	Complete(ctx context.Context, runID string, done protocol.Completion) error
-}
-
-type InputSource interface {
-	AwaitInput(ctx context.Context, runID string) ([]protocol.Input, error)
 }
 
 const (
@@ -59,8 +53,7 @@ type Options struct {
 	HookTimeout time.Duration
 	// AgentUser is the account to run the agent as. Nil runs it as the
 	// runner.
-	AgentUser *terminal.User
-	Input     InputSource
+	AgentUser *account.User
 }
 
 // Execute takes a claimed run from an empty directory to a reported outcome.
@@ -71,11 +64,22 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 
 	lifecycle := &progress{state: Preparing}
 
-	space, err := workspace.Create(opts.WorkspaceRoot, run.ID)
+	// Sharing a directory is asked for, so a station that wants a clean one
+	// keeps getting it without saying so.
+	key := run.Spec.Continuity.Key
+	if key == "" {
+		key = run.ID
+	}
+
+	space, err := workspace.Create(opts.WorkspaceRoot, key)
 	if err != nil {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("create workspace: %w", err))
 	}
 	defer func() {
+		if run.Spec.Continuity.Keep {
+			log.Info("workspace kept", "dir", space.Dir)
+			return
+		}
 		if err := space.Remove(); err != nil {
 			log.Warn("could not remove workspace", "error", err)
 		}
@@ -92,6 +96,13 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
+	// Before the handover, so the agent owns this along with the rest of the
+	// workspace and the harness can write its own state into it.
+	state, err := space.State()
+	if err != nil {
+		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+	}
+
 	if opts.AgentUser != nil {
 		if err := space.GiveTo(opts.AgentUser.UID, opts.AgentUser.GID); err != nil {
 			return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("hand over workspace: %w", err))
@@ -103,16 +114,6 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	}
 	journal.record(ctx, protocol.Event{Type: protocol.EventWorkspaceReady, Message: space.Dir})
 
-	// Beside the workspace, not inside it: the agent owns its tree and must
-	// not be able to edit the record of what it did. It is a replay buffer,
-	// not an archive, so it goes when the run does.
-	recording := filepath.Join(opts.WorkspaceRoot, ".recordings", run.ID)
-	defer func() {
-		if err := os.Remove(recording); err != nil && !os.IsNotExist(err) {
-			log.Warn("could not remove recording", "error", err)
-		}
-	}()
-
 	// Raised before the agent so the endpoint is there from its first breath,
 	// and closed after it so nothing can speak for a run that has ended.
 	channel, err := declare.Serve(run.Spec.Handover.Options)
@@ -121,52 +122,33 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	}
 	defer channel.Close()
 
-	agent, err := terminal.Start(ctx, terminal.Spec{
-		Command:   granted(run.Spec.Command, channel),
-		Dir:       cwd,
-		Recording: recording,
-		Size:      terminal.DefaultSize,
-		RunAs:     opts.AgentUser,
+	harness, err := acp.Start(ctx, acp.Options{
+		Executable: run.Spec.Command.Executable,
+		Args:       run.Spec.Command.Args,
+		Env:        granted(run.Spec.Command.Env, channel, state),
+		Root:       cwd,
+		RunAs:      opts.AgentUser,
+		// A station is worked with nobody watching, so the runner answers for
+		// itself. What keeps it in bounds is where it runs, not what it is
+		// allowed to do: its own account, its own workspace.
+		Answer: func(string) bool { return true },
 	})
 	if err != nil {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("start agent: %w", err))
 	}
-	defer agent.Close()
+	defer harness.Close()
 
 	if err := lifecycle.reach(AgentStarted); err != nil {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 	log.Info("agent started", "executable", run.Spec.Command.Executable, "cwd", cwd)
 
-	// An agent at a terminal does not exit when the work is done; it waits for
-	// someone to type. Its declaration is that someone.
-	var handedOver atomic.Bool
-	go func() {
-		select {
-		case <-channel.Spoken():
-		case <-ctx.Done():
-			return
-		}
+	sessionID, err := open(ctx, harness, run.Spec.Continuity.SessionID, log)
+	if err != nil {
+		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+	}
 
-		// The declaration is the agent's last act, not its last word.
-		settling := time.NewTimer(settleFor)
-		defer settling.Stop()
-
-		select {
-		case <-settling.C:
-		case <-ctx.Done():
-			return
-		}
-
-		handedOver.Store(true)
-		log.Info("stopping the agent, which has handed the task over")
-
-		if err := agent.Stop(); err != nil {
-			log.Warn("could not stop the agent", "error", err)
-		}
-	}()
-
-	exitCode, stopped := pump(ctx, agent, journal, run.ID, opts.Journal, log, opts.Input)
+	exitCode, stopped := work(ctx, harness, sessionID, run, journal, opts.Journal, log)
 
 	if err := lifecycle.reach(AgentExited); err != nil {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
@@ -185,10 +167,11 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	if err := opts.runHook(ctx, opts.PublishHook, space.Dir, run, journal, log, "publish"); err != nil {
 		journal.flush(ctx)
 		if completeErr := opts.Journal.Complete(ctx, run.ID, protocol.Completion{
-			ExitCode: exitCode,
-			Failed:   true,
-			Message:  err.Error(),
-			Outcome:  declared,
+			ExitCode:  exitCode,
+			Failed:    true,
+			Message:   err.Error(),
+			Outcome:   declared,
+			SessionID: sessionID,
 		}); completeErr != nil {
 			log.Warn("could not report the failure", "error", completeErr)
 		}
@@ -202,215 +185,112 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 
 	log.Info("run finished", "state", lifecycle.state, "exitCode", exitCode, "stopped", stopped)
 
-	// Stopped because it was finished, so the signal says nothing about how it
-	// went.
-	if handedOver.Load() {
-		return opts.Journal.Complete(ctx, run.ID, protocol.Completion{
-			ExitCode: exitCode,
-			Failed:   false,
-			Outcome:  declared,
-		})
-	}
-
 	if stopped {
 		return opts.Journal.Complete(ctx, run.ID, protocol.Completion{
-			ExitCode: exitCode,
-			Failed:   false,
-			Message:  "stopped from the console",
-			Outcome:  declared,
+			ExitCode:  exitCode,
+			Failed:    false,
+			Message:   "stopped from the console",
+			Outcome:   declared,
+			SessionID: sessionID,
 		})
 	}
 
 	return opts.Journal.Complete(ctx, run.ID, protocol.Completion{
-		ExitCode: exitCode,
-		Failed:   exitCode != 0,
-		Outcome:  declared,
+		ExitCode:  exitCode,
+		Failed:    exitCode != 0,
+		Outcome:   declared,
+		SessionID: sessionID,
 	})
+}
+
+// open takes up the conversation an earlier run left, or starts one. A session
+// the harness no longer holds is not a failed run: the briefing still says what
+// the work is, so it is done in a fresh one. Any other refusal is an error.
+func open(ctx context.Context, harness *acp.Client, previous string, log *slog.Logger) (string, error) {
+	if previous != "" {
+		err := harness.Resume(ctx, previous)
+		if err == nil {
+			log.Info("resumed", "session", previous)
+			return previous, nil
+		}
+		if !acp.Forgotten(err) {
+			return "", fmt.Errorf("resume the session: %w", err)
+		}
+		log.Warn("the harness no longer holds that session", "session", previous)
+	}
+
+	sessionID, err := harness.NewSession(ctx)
+	if err != nil {
+		return "", fmt.Errorf("open a session: %w", err)
+	}
+
+	return sessionID, nil
 }
 
 // drain takes what the reader is still holding once the agent has gone. Its
 // last words are written as it exits, so leaving them in flight loses exactly
 // the part worth reading. The deadline stops a terminal that never ends from
-// holding the run open.
-func drain(chunks <-chan terminal.Chunk, journal *journalWriter) {
-	if chunks == nil {
-		return
-	}
+/*
+work sends the briefing and reports what the agent says while it works.
 
-	deadline := time.NewTimer(drainFor)
-	defer deadline.Stop()
-
-	for {
-		select {
-		case chunk, open := <-chunks:
-			if !open {
-				return
-			}
-
-			journal.append(protocol.Event{
-				Type:   protocol.EventOutput,
-				Data:   chunk.Data,
-				Offset: chunk.Offset,
-			})
-
-		case <-deadline.C:
-			return
-		}
-	}
-}
-
-func pump(
+A turn ends when the agent stops, and a station's agent has one turn: it is
+given the task, it works, it hands the task on. Nothing types at it, so there
+is nothing to wait for afterwards.
+*/
+func work(
 	ctx context.Context,
-	agent *terminal.Session,
+	harness *acp.Client,
+	sessionID string,
+	run protocol.Run,
 	journal *journalWriter,
-	runID string,
 	lease Journal,
 	log *slog.Logger,
-	input InputSource,
 ) (int, bool) {
-	chunks := make(chan terminal.Chunk)
-	done := make(chan int, 1)
+	renewing, stopRenewing := context.WithCancel(ctx)
+	defer stopRenewing()
+	go renew(renewing, lease, run.ID, log)
 
-	var stopped atomic.Bool
+	result, err := harness.Prompt(ctx, sessionID, run.Spec.Briefing, func(update acp.Update) {
+		journal.append(protocol.Event{
+			Type: protocol.EventOutput,
+			Data: update.Raw,
+		})
+	})
 
-	if input != nil {
-		collecting, stop := context.WithCancel(ctx)
-		defer stop()
-		go collect(collecting, input, agent, runID, log, &stopped)
+	journal.flush(ctx)
+
+	if err != nil {
+		log.Warn("the agent stopped short", "error", err)
+		return -1, false
 	}
 
-	go func() {
-		defer close(chunks)
-		buffer := make([]byte, readBuffer)
-		for {
-			chunk, err := agent.Read(buffer)
-			if len(chunk.Data) > 0 {
-				// Copied: the buffer is reused on the next read.
-				chunks <- terminal.Chunk{
-					Data:   append([]byte(nil), chunk.Data...),
-					Offset: chunk.Offset,
-				}
-			}
-			if err != nil {
-				if !errors.Is(err, io.EOF) {
-					log.Warn("terminal read failed", "error", err)
-				}
-				return
-			}
-		}
-	}()
+	log.Info("turn finished", "stopReason", result.StopReason)
 
-	go func() { done <- agent.Wait() }()
+	// Refused and cancelled are the agent saying it will not or cannot, which
+	// is a failed run rather than a finished one.
+	if result.StopReason != "end_turn" && result.StopReason != "max_tokens" {
+		return 1, false
+	}
 
-	flush := time.NewTicker(flushEvery)
-	defer flush.Stop()
-	renew := time.NewTicker(renewEvery)
-	defer renew.Stop()
+	return 0, false
+}
 
-	exitCode := -1
+func renew(ctx context.Context, lease Journal, runID string, log *slog.Logger) {
+	ticker := time.NewTicker(renewEvery)
+	defer ticker.Stop()
+
 	for {
 		select {
-		case chunk, open := <-chunks:
-			if !open {
-				chunks = nil
-				continue
-			}
-			journal.append(protocol.Event{
-				Type:   protocol.EventOutput,
-				Data:   chunk.Data,
-				Offset: chunk.Offset,
-			})
-
-		case <-flush.C:
-			journal.flush(ctx)
-
-		case <-renew.C:
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
 			if err := lease.RenewLease(ctx, runID); err != nil {
 				log.Warn("could not renew lease", "error", err)
 			}
-
-		case exitCode = <-done:
-			drain(chunks, journal)
-			journal.flush(ctx)
-			return exitCode, stopped.Load()
-
-		case <-ctx.Done():
-			// The agent dies with the context. Wait for its real exit code so
-			// the journal says what happened.
-			log.Info("stopping the agent")
-			exitCode = <-done
-			drain(chunks, journal)
-			journal.flush(ctx)
-			return exitCode, stopped.Load()
 		}
 	}
 }
 
-func collect(
-	ctx context.Context,
-	source InputSource,
-	agent *terminal.Session,
-	runID string,
-	log *slog.Logger,
-	stopped *atomic.Bool,
-) {
-	backoff := inputRetryFloor
-
-	for {
-		if ctx.Err() != nil {
-			return
-		}
-
-		pending, err := source.AwaitInput(ctx, runID)
-		if err != nil {
-			if ctx.Err() != nil {
-				return
-			}
-
-			log.Warn("could not collect input", "error", err, "retryIn", backoff)
-			timer := time.NewTimer(backoff)
-			select {
-			case <-timer.C:
-			case <-ctx.Done():
-				timer.Stop()
-				return
-			}
-			backoff = min(backoff*2, inputRetryCeiling)
-			continue
-		}
-
-		backoff = inputRetryFloor
-
-		for _, typed := range pending {
-			if typed.Stop {
-				stopped.Store(true)
-				log.Info("stopping the agent on request")
-
-				if err := agent.Stop(); err != nil {
-					log.Warn("could not stop the agent", "error", err)
-				}
-				return
-			}
-
-			if typed.Cols > 0 && typed.Rows > 0 {
-				if err := agent.Resize(terminal.Size{Cols: typed.Cols, Rows: typed.Rows}); err != nil {
-					log.Warn("could not resize the terminal", "error", err)
-				}
-			}
-
-			if len(typed.Data) > 0 {
-				if err := agent.Write(typed.Data); err != nil {
-					log.Warn("could not write to the terminal", "error", err)
-					return
-				}
-			}
-		}
-	}
-}
-
-// finish reports a run that never got as far as an agent. Staying quiet would
-// leave it claimed until the lease lapses, and a failure that will repeat (a
-// missing repository, an unreachable forge) would then retry forever.
 func finish(
 	ctx context.Context,
 	runID string,
@@ -535,17 +415,25 @@ func (j *journalWriter) flush(ctx context.Context) {
 	}
 }
 
-// granted hands the agent the endpoint it declares through. Explicit, because
+// StateVar tells a harness where it may keep what it needs between runs.
+// Where it then puts it, and under what name, is the harness catalogue's to
+// say: the runner offers a directory and reads no meaning into the answer.
+const StateVar = "SPOTLIGHT_STATE_DIR"
+
+// granted hands the agent the endpoint it declares through, and expands the
+// catalogue's own variables against this run's directories. Explicit, because
 // the agent inherits none of the runner's own SPOTLIGHT_ variables.
-func granted(command protocol.Command, channel *declare.Server) protocol.Command {
-	env := make(map[string]string, len(command.Env)+2)
-	for key, value := range command.Env {
-		env[key] = value
+func granted(env map[string]string, channel *declare.Server, state string) map[string]string {
+	places := map[string]string{StateVar: state}
+
+	granted := make(map[string]string, len(env)+3)
+	for key, value := range env {
+		granted[key] = os.Expand(value, func(name string) string { return places[name] })
 	}
 
-	env[declare.URLVar] = channel.URL()
-	env[declare.TokenVar] = channel.Token()
-	command.Env = env
+	granted[declare.URLVar] = channel.URL()
+	granted[declare.TokenVar] = channel.Token()
+	granted[StateVar] = state
 
-	return command
+	return granted
 }

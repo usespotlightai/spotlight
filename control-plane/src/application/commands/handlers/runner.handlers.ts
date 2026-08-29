@@ -25,6 +25,7 @@ import type { RunnerTokenPort } from '@application/ports/runner-token.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import { Run } from '@domain/aggregates/run.aggregate';
 import { Runner } from '@domain/aggregates/runner.aggregate';
+import { RunCompleted } from '@domain/events/run-completed.event';
 import { UnknownRunError } from '@domain/exceptions/unknown-run.error';
 import type { RunRepository } from '@domain/repositories/run.repository';
 import type { RunnerRepository } from '@domain/repositories/runner.repository';
@@ -35,8 +36,19 @@ import { RunnerName } from '@domain/value-objects/runner-name.vo';
 import { UnknownHarnessError } from '@domain/exceptions/unknown-harness.error';
 import { harnessNamed } from '@domain/value-objects/built-in-harnesses';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { TokenHash } from '@domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
+
+const announce = async (ended: Run, to: HandoverPort): Promise<void> => {
+  for (const raised of ended.pullEvents()) {
+    if (raised instanceof RunCompleted) {
+      await to.onRunCompleted(raised);
+    } else {
+      await to.onRunAbandoned(raised);
+    }
+  }
+};
 
 export class EnrolRunnerHandler
   implements CommandHandlerPort<EnrolRunnerCommand, EnrolledRunnerDto>
@@ -178,7 +190,7 @@ export class ClaimRunHandler
       // Once per claim, not per attempt. A runner whose host died leaves a run
       // held until its lease lapses, and somebody has to notice.
       for (const abandoned of await this.runs.requeueLapsed(this.clock.now())) {
-        await this.handover.handOver(abandoned);
+        await announce(abandoned, this.handover);
       }
 
       const deadline = this.clock.now().getTime() + POLL_TIMEOUT_MS;
@@ -317,17 +329,25 @@ export class CompleteRunHandler
           throw new UnknownRunError(`there is no run ${command.runId}`);
         }
 
-        found.complete(RunnerId.of(command.runnerId), {
-          exitCode: command.exitCode,
-          failed: command.failed,
-          message: command.message,
-        });
+        found.complete(
+          RunnerId.of(command.runnerId),
+          {
+            exitCode: command.exitCode,
+            failed: command.failed,
+            message: command.message,
+          },
+          {
+            declared: command.declared
+              ? Declaration.of(command.declared)
+              : null,
+            session: command.sessionId
+              ? HarnessSession.of(command.sessionId)
+              : null,
+          },
+        );
 
         await this.runs.save(found);
-        await this.handover.handOver(
-          found,
-          command.declared ? Declaration.of(command.declared) : null,
-        );
+        await announce(found, this.handover);
       });
     } catch (error) {
       rethrowAsFault(error);

@@ -4,11 +4,16 @@ export class HarnessCommand {
   private constructor(
     readonly executable: string,
     readonly args: readonly string[],
+    readonly env: Readonly<Record<string, string>>,
   ) {}
 
   static of(input: {
     executable: string;
     args?: readonly string[];
+    // What this harness needs telling, such as where it may keep its own state
+    // between runs. A value may name a runner directory as
+    // `${SPOTLIGHT_STATE_DIR}`, which only the runner can expand.
+    env?: Readonly<Record<string, string>>;
   }): HarnessCommand {
     const executable = input.executable.trim();
 
@@ -16,26 +21,32 @@ export class HarnessCommand {
       throw new InvalidHarnessCommandError('must name an executable');
     }
 
-    return new HarnessCommand(executable, [...(input.args ?? [])]);
+    return new HarnessCommand(executable, [...(input.args ?? [])], {
+      ...(input.env ?? {}),
+    });
   }
 
-  started(): { executable: string; args: readonly string[] } {
-    return { executable: this.executable, args: [...this.args] };
-  }
-
-  /** The briefing goes last, where a harness takes the prompt to work on. */
-  briefedWith(briefing: string): {
+  started(): {
     executable: string;
     args: readonly string[];
+    env?: Readonly<Record<string, string>>;
   } {
-    return { executable: this.executable, args: [...this.args, briefing] };
+    const started = { executable: this.executable, args: [...this.args] };
+
+    return Object.keys(this.env).length === 0
+      ? started
+      : { ...started, env: { ...this.env } };
   }
 
   equals(other: HarnessCommand): boolean {
+    const named = Object.keys(this.env);
+
     return (
       this.executable === other.executable &&
       this.args.length === other.args.length &&
-      this.args.every((arg, at) => arg === other.args[at])
+      this.args.every((arg, at) => arg === other.args[at]) &&
+      named.length === Object.keys(other.env).length &&
+      named.every((name) => this.env[name] === other.env[name])
     );
   }
 }

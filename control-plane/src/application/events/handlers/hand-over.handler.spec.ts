@@ -2,7 +2,9 @@ import { HandOver } from '@application/events/handlers/hand-over.handler';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
-import { Run } from '@domain/aggregates/run.aggregate';
+import { Run, type Said } from '@domain/aggregates/run.aggregate';
+import type { RunAbandoned } from '@domain/events/run-abandoned.event';
+import { RunCompleted } from '@domain/events/run-completed.event';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { Station } from '@domain/entities/station.entity';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
@@ -20,6 +22,7 @@ import { TaskId } from '@domain/value-objects/task-id.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
+import { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-08-28T12:00:00.000Z');
@@ -56,18 +59,35 @@ const task = () =>
     newId: () => 'task_1',
   }).handedTo(RunId.of('run_1'));
 
-const run = (failed: boolean) => {
-  const queued = Run.enqueue({
+// Long enough after NOW that a lease has lapsed.
+const LATER = new Date(NOW.getTime() + 120_000);
+
+const queued = (taskId: string | null = 'task_1') =>
+  Run.enqueue({
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
-    taskId: TaskId.of('task_1'),
+    taskId: taskId ? TaskId.of(taskId) : null,
     spec: {},
   });
+
+const run = (failed: boolean, said: Said = {}) => {
+  const ended = queued();
   const runner = RunnerId.of('runner_1');
-  queued.claim(runner, NOW);
-  queued.complete(runner, { exitCode: failed ? 1 : 0, failed });
-  return queued;
+  ended.claim(runner, NOW);
+  ended.complete(runner, { exitCode: failed ? 1 : 0, failed }, said);
+  return ended;
+};
+
+// Claimed and left unreported until there are no attempts left.
+const givenUp = () => {
+  const ended = queued();
+  const runner = RunnerId.of('runner_1');
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    ended.claim(runner, NOW);
+    ended.requeue(LATER);
+  }
+  return ended;
 };
 
 let saved: Task | undefined;
@@ -95,8 +115,18 @@ const dispatch: TaskDispatchPort = {
   dispatch: async () => RunId.of('run_2'),
 };
 
-const handOver = (finished = run(false), held: TaskRepository = tasks()) =>
-  new HandOver(held, lines(), dispatch, clock).handOver(finished);
+const handOver = (ended = run(false), held: TaskRepository = tasks()) => {
+  const handler = new HandOver(held, lines(), dispatch, clock);
+  const [raised] = ended.pullEvents();
+
+  if (!raised) {
+    throw new Error('the run announced nothing');
+  }
+
+  return raised instanceof RunCompleted
+    ? handler.onRunCompleted(raised)
+    : handler.onRunAbandoned(raised as RunAbandoned);
+};
 
 beforeEach(() => {
   saved = undefined;
@@ -133,19 +163,36 @@ describe('HandOver', () => {
   });
 
   it('leaves a run with no task of its own alone', async () => {
-    const loose = Run.enqueue({
-      id: RunId.of('run_1'),
-      workspaceId: WorkspaceId.of('ws_1'),
-      harness: HarnessId.of('dev'),
-      spec: {},
-    });
+    const loose = queued(null);
+    const runner = RunnerId.of('runner_1');
+    loose.claim(runner, NOW);
+    loose.complete(runner, { exitCode: 0, failed: false });
 
     await handOver(loose);
 
     expect(saved).toBeUndefined();
   });
 
+  it('asks a person about a run nobody ever finished', async () => {
+    await handOver(givenUp());
+
+    expect(saved?.awaitingReview).toBe(true);
+    expect(saved?.notes[0]?.body.value).toContain('3 attempts');
+  });
+
   it('hands over even where the task has since gone missing', async () => {
     await expect(handOver(run(false), tasks(null))).resolves.toBeUndefined();
+  });
+  it('remembers the conversation the run worked in', async () => {
+    await handOver(run(false, { session: HarnessSession.of('session_1') }));
+
+    expect(saved?.sessionId?.value).toBe('session_1');
+    expect(saved?.awaitingReview).toBe(true);
+  });
+
+  it('leaves the task without one when the runner reported none', async () => {
+    await handOver();
+
+    expect(saved?.sessionId).toBeNull();
   });
 });

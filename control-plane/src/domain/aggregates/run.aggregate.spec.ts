@@ -1,6 +1,10 @@
 import { Run } from '@domain/aggregates/run.aggregate';
+import { RunAbandoned } from '@domain/events/run-abandoned.event';
+import { RunCompleted } from '@domain/events/run-completed.event';
 import { InvalidRunTransitionError } from '@domain/exceptions/invalid-run-transition.error';
+import { Declaration } from '@domain/value-objects/declaration.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
@@ -262,5 +266,61 @@ describe('Run', () => {
 
   it('refuses to release a run nobody is holding', () => {
     expect(() => queued().release()).toThrow(InvalidRunTransitionError);
+  });
+  describe('announcing how it ended', () => {
+    it('says what the agent reported when it completes', () => {
+      const run = claimed();
+      run.complete(
+        runner(),
+        { exitCode: 0, failed: false },
+        {
+          declared: Declaration.of({ next: 'Spec', note: 'ready' }),
+          session: HarnessSession.of('session_1'),
+        },
+      );
+
+      const [raised] = run.pullEvents();
+
+      expect(raised).toBeInstanceOf(RunCompleted);
+      const completed = raised as RunCompleted;
+      expect(completed.runId).toEqual(RunId.of('run_1'));
+      expect(completed.result.failed).toBe(false);
+      expect(completed.workedBy).toEqual(runner());
+      expect(completed.declared?.next).toBe('Spec');
+      expect(completed.session?.value).toBe('session_1');
+    });
+
+    it('keeps nothing of what it announced', () => {
+      const run = claimed();
+      run.complete(
+        runner(),
+        { exitCode: 0, failed: false },
+        { session: HarnessSession.of('session_1') },
+      );
+
+      expect(run.result).toEqual({ exitCode: 0, failed: false });
+    });
+
+    it('says so when it is given up on', () => {
+      const run = queued();
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        run.claim(runner(), noon);
+        run.requeue(at('2026-08-23T12:05:00.000Z'));
+      }
+
+      const [raised] = run.pullEvents();
+
+      expect(raised).toBeInstanceOf(RunAbandoned);
+      expect((raised as RunAbandoned).attempt).toBe(3);
+      expect(run.abandoned).toBe(true);
+    });
+
+    it('announces an ending only once', () => {
+      const run = claimed();
+      run.complete(runner(), { exitCode: 0, failed: false });
+
+      expect(run.pullEvents()).toHaveLength(1);
+      expect(run.pullEvents()).toHaveLength(0);
+    });
   });
 });

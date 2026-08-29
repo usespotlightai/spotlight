@@ -21,15 +21,6 @@ describe('the harnesses Spotlight knows', () => {
     expect(new Set(named).size).toBe(named.length);
   });
 
-  // A station's work is unattended, so a harness that stops to ask hands
-  // nothing over and holds its runner until someone notices.
-  it('gives every harness what it needs to work unattended', () => {
-    for (const harness of BUILT_IN_HARNESSES) {
-      expect(harness.command.executable).not.toBe('');
-      expect(harness.command.args.length).toBeGreaterThan(0);
-    }
-  });
-
   // The runner is told what to look for on its PATH, so an entry with no
   // executable is a harness nobody can ever be found to have.
   it('says what to look for on a machine', () => {

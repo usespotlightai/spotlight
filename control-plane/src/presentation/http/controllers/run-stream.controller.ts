@@ -1,10 +1,4 @@
-import {
-  AwaitRunInputCommand,
-  SendRunInputCommand,
-  StopRunCommand,
-} from '@application/commands/run-input.commands';
 import type { RunWatchDto } from '@application/dto/run-watch.dto';
-import type { RunInput } from '@application/ports/run-input.port';
 import {
   RUN_STREAM,
   type RunEventView,
@@ -42,14 +36,14 @@ import {
 import { CurrentRunner } from '@presentation/http/decorators/current-runner.decorator';
 import { CurrentUser } from '@presentation/http/decorators/current-user.decorator';
 import { RunnerOnly } from '@presentation/http/decorators/runner-only.decorator';
-import { SendRunInputRequestDto } from '@presentation/http/dto/run-input.request.dto';
-import {
-  PendingRunInputResponseDto,
-  RunInputResponseDto,
-} from '@presentation/http/dto/run-input.response.dto';
 import { interval, map, merge, Observable } from 'rxjs';
 
 const KEEPALIVE_MS = 20_000;
+
+const sequence = (raw: string | undefined): number => {
+  const parsed = Number.parseInt(raw ?? '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+};
 
 @ApiTags('runs')
 @Controller('runs')
@@ -140,76 +134,4 @@ export class RunStreamController {
 
     return merge(journal, keepalive);
   }
-
-  @Post(':runId/input')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({
-    operationId: 'sendRunInput',
-    summary: 'Type at the agent, or tell it the terminal resized',
-  })
-  @ApiParam({ name: 'runId' })
-  @ApiNoContentResponse()
-  @ApiNotFoundResponse({ description: 'No such run for this caller' })
-  @ApiUnauthorizedResponse({ description: 'No valid session' })
-  async send(
-    @Param('runId') runId: string,
-    @Body() body: SendRunInputRequestDto,
-    @CurrentUser() user: AuthenticatedUser,
-  ): Promise<void> {
-    await this.commandBus.execute(
-      new SendRunInputCommand(runId, user.id, {
-        data: body.data,
-        cols: body.cols,
-        rows: body.rows,
-      }),
-    );
-  }
-
-  @Post(':runId/stop')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({
-    operationId: 'stopRun',
-    summary: 'Ask the agent to finish, as closing the terminal would',
-  })
-  @ApiParam({ name: 'runId' })
-  @ApiNoContentResponse()
-  @ApiNotFoundResponse({ description: 'No such run for this caller' })
-  @ApiUnauthorizedResponse({ description: 'No valid session' })
-  async stop(
-    @Param('runId') runId: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ): Promise<void> {
-    await this.commandBus.execute(new StopRunCommand(runId, user.id));
-  }
-
-  @Get(':runId/input')
-  @RunnerOnly()
-  @ApiOperation({
-    operationId: 'awaitRunInput',
-    summary: 'Long-poll for what was typed, answering empty when nothing was',
-  })
-  @ApiParam({ name: 'runId' })
-  @ApiOkResponse({ type: PendingRunInputResponseDto })
-  @ApiUnauthorizedResponse({ description: 'Missing or revoked runner token' })
-  async collect(
-    @Param('runId') runId: string,
-    @CurrentRunner() runnerId: string,
-  ): Promise<PendingRunInputResponseDto> {
-    const pending = await this.commandBus.execute<
-      AwaitRunInputCommand,
-      RunInput[]
-    >(new AwaitRunInputCommand(runId, runnerId));
-
-    return new PendingRunInputResponseDto(
-      pending.map(
-        (each) =>
-          new RunInputResponseDto(each.data, each.cols, each.rows, each.stop),
-      ),
-    );
-  }
 }
-
-const sequence = (raw: string | undefined): number => {
-  const parsed = Number.parseInt(raw ?? '', 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-};

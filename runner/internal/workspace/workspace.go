@@ -17,19 +17,37 @@ type Workspace struct {
 	Dir string
 }
 
-func Create(root, runID string) (*Workspace, error) {
+// Create makes the directory a run works in. Runs told to share a key find
+// what the last one left, which is what carrying a conversation on requires.
+func Create(root, key string) (*Workspace, error) {
 	// Traversable but not listable: an agent reaches its own workspace without
 	// enumerating anyone else's.
 	if err := os.MkdirAll(root, 0o711); err != nil {
 		return nil, fmt.Errorf("create workspace root: %w", err)
 	}
 
-	dir := filepath.Join(root, runID)
+	dir := filepath.Join(root, key)
 	if err := os.Mkdir(dir, 0o700); err != nil && !os.IsExist(err) {
 		return nil, fmt.Errorf("create workspace: %w", err)
 	}
 
 	return &Workspace{Dir: dir}, nil
+}
+
+// StatePath is where a harness keeps what it needs between runs. It sits in
+// the workspace rather than the machine's home directory, so that what
+// survives the run survives with the workspace, and travels with it.
+const StatePath = ".spotlight/state"
+
+// State makes that directory and answers with it. Called before the workspace
+// is handed over, so the agent comes to own it along with everything else.
+func (w *Workspace) State() (string, error) {
+	dir := filepath.Join(w.Dir, StatePath)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", fmt.Errorf("create state directory: %w", err)
+	}
+
+	return dir, nil
 }
 
 // Resolve turns the run's requested working directory into an absolute one,

@@ -29,7 +29,9 @@ import {
 } from '@nestjs/swagger';
 import type { HarnessDto } from '@application/dto/harness.dto';
 import { ListHarnessesQuery } from '@application/queries/list-harnesses.query';
+import { ListKeptWorkspacesQuery } from '@application/queries/list-kept-workspaces.query';
 import { InstallableHarnessResponseDto } from '@presentation/http/dto/installable-harness.response.dto';
+import { KeptWorkspacesResponseDto } from '@presentation/http/dto/kept-workspaces.response.dto';
 import { CurrentRunner } from '@presentation/http/decorators/current-runner.decorator';
 import { RunnerOnly } from '@presentation/http/decorators/runner-only.decorator';
 import {
@@ -76,6 +78,26 @@ export class RunnerController {
       (harness) =>
         new InstallableHarnessResponseDto(harness.id, harness.executable),
     );
+  }
+
+  @Get('runners/workspaces')
+  @ApiOperation({
+    operationId: 'keptWorkspaces',
+    summary: 'Which workspaces this runner should still be holding',
+    description:
+      'A run keeps its directory so the next one at the same station can ' +
+      'take up the conversation left in it. Nothing else ever will, so what ' +
+      'this does not name may be disposed of.',
+  })
+  @ApiOkResponse({ type: KeptWorkspacesResponseDto })
+  async workspaces(
+    @CurrentRunner() runnerId: string,
+  ): Promise<KeptWorkspacesResponseDto> {
+    const keys = await this.queryBus.execute<ListKeptWorkspacesQuery, string[]>(
+      new ListKeptWorkspacesQuery(runnerId),
+    );
+
+    return { keys };
   }
 
   @Post('runners/register')
@@ -175,6 +197,7 @@ export class RunnerController {
         body.failed,
         body.message,
         body.outcome ?? null,
+        body.sessionId ?? null,
       ),
     );
   }

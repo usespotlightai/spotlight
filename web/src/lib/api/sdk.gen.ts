@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddTaskData, AddTaskErrors, AddTaskResponses, AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, AwaitRunInputData, AwaitRunInputErrors, AwaitRunInputResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, CustomiseStationData, CustomiseStationErrors, CustomiseStationResponses, DeleteTaskData, DeleteTaskErrors, DeleteTaskResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, EnrolRunnerData, EnrolRunnerErrors, EnrolRunnerResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, InstallableHarnessesData, InstallableHarnessesErrors, InstallableHarnessesResponses, ListAssemblyLinesData, ListAssemblyLinesErrors, ListAssemblyLinesResponses, ListHarnessesData, ListHarnessesErrors, ListHarnessesResponses, ListInboxData, ListInboxErrors, ListInboxResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListTaskRunsData, ListTaskRunsErrors, ListTaskRunsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, MoveTaskData, MoveTaskErrors, MoveTaskResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, ReorderStationsData, ReorderStationsErrors, ReorderStationsResponses, RevokeRunnerData, RevokeRunnerErrors, RevokeRunnerResponses, SendRunInputData, SendRunInputErrors, SendRunInputResponses, StopRunData, StopRunErrors, StopRunResponses, StreamRunData, StreamRunErrors, StreamRunResponses } from './types.gen';
+import type { AddTaskData, AddTaskErrors, AddTaskResponses, AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, CustomiseStationData, CustomiseStationErrors, CustomiseStationResponses, DeleteTaskData, DeleteTaskErrors, DeleteTaskResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, EnrolRunnerData, EnrolRunnerErrors, EnrolRunnerResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, InstallableHarnessesData, InstallableHarnessesErrors, InstallableHarnessesResponses, ListAssemblyLinesData, ListAssemblyLinesErrors, ListAssemblyLinesResponses, ListHarnessesData, ListHarnessesErrors, ListHarnessesResponses, ListInboxData, ListInboxErrors, ListInboxResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListTaskRunsData, ListTaskRunsErrors, ListTaskRunsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, MoveTaskData, MoveTaskErrors, MoveTaskResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, ReorderStationsData, ReorderStationsErrors, ReorderStationsResponses, RevokeRunnerData, RevokeRunnerErrors, RevokeRunnerResponses, StreamRunData, StreamRunErrors, StreamRunResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -73,28 +73,6 @@ export const enqueueRun = <ThrowOnError extends boolean = false>(options: Option
  * Watch a run’s terminal, catching up on what was missed first
  */
 export const streamRun = <ThrowOnError extends boolean = false>(options: Options<StreamRunData, ThrowOnError>): RequestResult<StreamRunResponses, StreamRunErrors, ThrowOnError> => (options.client ?? client).get<StreamRunResponses, StreamRunErrors, ThrowOnError>({ url: '/runs/{runId}/stream', ...options });
-
-/**
- * Long-poll for what was typed, answering empty when nothing was
- */
-export const awaitRunInput = <ThrowOnError extends boolean = false>(options: Options<AwaitRunInputData, ThrowOnError>): RequestResult<AwaitRunInputResponses, AwaitRunInputErrors, ThrowOnError> => (options.client ?? client).get<AwaitRunInputResponses, AwaitRunInputErrors, ThrowOnError>({ url: '/runs/{runId}/input', ...options });
-
-/**
- * Type at the agent, or tell it the terminal resized
- */
-export const sendRunInput = <ThrowOnError extends boolean = false>(options: Options<SendRunInputData, ThrowOnError>): RequestResult<SendRunInputResponses, SendRunInputErrors, ThrowOnError> => (options.client ?? client).post<SendRunInputResponses, SendRunInputErrors, ThrowOnError>({
-  url: '/runs/{runId}/input',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * Ask the agent to finish, as closing the terminal would
- */
-export const stopRun = <ThrowOnError extends boolean = false>(options: Options<StopRunData, ThrowOnError>): RequestResult<StopRunResponses, StopRunErrors, ThrowOnError> => (options.client ?? client).post<StopRunResponses, StopRunErrors, ThrowOnError>({ url: '/runs/{runId}/stop', ...options });
 
 /**
  * What to look for on this runner, so it can say what it has

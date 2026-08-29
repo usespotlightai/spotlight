@@ -13,31 +13,6 @@ set -eu
 
 spec=$(cat)
 
-# Claude Code asks whether a directory it has not seen is trusted, and waits at
-# the terminal for the answer. Every run is a new directory, so every run would
-# wait forever. This workspace was made for this run, so the answer is given
-# here and the agent is never asked.
-trust() {
-  home=$(awk -F: -v user="${SPOTLIGHT_AGENT_USER:-}" '$1 == user {print $6}' /etc/passwd)
-  [ -n "$home" ] || return 0
-
-  config="$home/.claude.json"
-  [ -f "$config" ] || echo '{}' >"$config"
-
-  merged=$(mktemp)
-  jq --arg dir "$1" '.projects[$dir].hasTrustDialogAccepted = true' \
-    "$config" >"$merged" && mv "$merged" "$config"
-
-  chown "${SPOTLIGHT_AGENT_USER}" "$config"
-}
-
-trust "$PWD"
-
-cwd=$(printf '%s' "$spec" | jq -r '.cwd // ""')
-if [ -n "$cwd" ]; then
-  trust "$PWD/$cwd"
-fi
-
 # One JSON object per checkout, read field by field. A tab-separated line would
 # be shorter and wrong: tab is whitespace to `read`, so an empty ref collapses
 # and every field after it shifts along by one.

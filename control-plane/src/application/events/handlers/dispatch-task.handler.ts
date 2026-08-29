@@ -36,17 +36,20 @@ export class DispatchTask implements TaskDispatchPort {
       return null;
     }
 
+    const continuity = task.continuity();
+
     const queued = Run.enqueue({
       id: RunIdOf.of(this.ids.generate()),
       workspaceId: task.workspaceId,
       harness: harness.id,
       priority: station.position,
       taskId: task.id,
+      targetRunner: continuity.pinnedTo,
       spec: {
-        command: harness.command.briefedWith(
-          TaskBriefing.brief({ station, task, stations }),
-        ),
+        command: harness.command.started(),
+        briefing: TaskBriefing.brief({ station, task, stations }),
         handover: { options: handoverOptions(stations, station.id) },
+        continuity: continuity.told(),
       },
     });
 

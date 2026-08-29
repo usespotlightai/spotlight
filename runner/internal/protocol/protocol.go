@@ -22,6 +22,14 @@ type Registered struct {
 	RunnerID string `json:"runnerId"`
 }
 
+// Kept is which workspaces the control plane still wants this runner holding.
+// Everything else under the workspace root has nothing left to resume, so the
+// runner is free to dispose of it. Answered in full each time: a list of what
+// remains is easier to be right about than a list of what changed.
+type Kept struct {
+	Keys []string `json:"keys"`
+}
+
 // Checkout is one repository a run works in. A run may have several, since an
 // agent that cannot see a consumer cannot tell whether it broke it.
 type Checkout struct {
@@ -54,7 +62,30 @@ type Spec struct {
 	Checkouts []Checkout `json:"checkouts,omitempty"`
 	Cwd       string     `json:"cwd,omitempty"`
 	Command   Command    `json:"command"`
-	Handover  Handover   `json:"handover,omitzero"`
+	// Briefing is the work itself, put to the agent as a prompt. It is not an
+	// argument: how to start a harness and what to ask of it are different
+	// things, and only the second changes per run.
+	Briefing string   `json:"briefing,omitempty"`
+	Handover Handover `json:"handover,omitzero"`
+	// Continuity is how this run carries on from an earlier one. Absent, the
+	// run is its own: a fresh directory and a fresh conversation.
+	Continuity Continuity `json:"continuity,omitzero"`
+}
+
+// Continuity is what a run inherits from the one before it. Both halves are
+// the control plane's to decide: a runner keeps no memory between runs and is
+// told everything it needs, because the next run may fall to another one.
+type Continuity struct {
+	// Key names the directory this run works in, in place of the run id. Runs
+	// that share it share a workspace, which is what a resumed session needs:
+	// a harness finds its history under the directory it was working in.
+	Key string `json:"key,omitempty"`
+	// SessionID is the conversation an earlier run opened. Empty opens a new
+	// one, and so does an id the harness turns out not to hold.
+	SessionID string `json:"sessionId,omitempty"`
+	// Keep leaves the workspace behind when the run ends, for the next run to
+	// find. Disposal is otherwise the runner's habit.
+	Keep bool `json:"keep,omitempty"`
 }
 
 type Run struct {
@@ -81,22 +112,11 @@ type Event struct {
 	Type    EventType `json:"type"`
 	At      time.Time `json:"at"`
 	Message string    `json:"message,omitempty"`
-	// Data carries terminal bytes for output events, base64 over the wire.
-	Data []byte `json:"data,omitempty"`
-	// Offset is the byte position of Data within the run's recording.
-	Offset   int64 `json:"offset,omitempty"`
-	ExitCode *int  `json:"exitCode,omitempty"`
-}
-
-type Input struct {
-	Data []byte `json:"data,omitempty"`
-	Cols uint16 `json:"cols,omitempty"`
-	Rows uint16 `json:"rows,omitempty"`
-	Stop bool   `json:"stop,omitempty"`
-}
-
-type PendingInput struct {
-	Input []Input `json:"input"`
+	// Data carries one session update as the agent reported it, JSON, base64
+	// over the wire. Kept whole: the journal records what was said, not what
+	// the runner understood of it.
+	Data     []byte `json:"data,omitempty"`
+	ExitCode *int   `json:"exitCode,omitempty"`
 }
 
 // Outcome is what the agent said should happen to the task next. The runner
@@ -112,4 +132,8 @@ type Completion struct {
 	Failed   bool     `json:"failed"`
 	Message  string   `json:"message,omitempty"`
 	Outcome  *Outcome `json:"outcome,omitempty"`
+	// SessionID is what the harness called this conversation. It is reported
+	// rather than remembered: the runner that held it may not be the one asked
+	// to carry on.
+	SessionID string `json:"sessionId,omitempty"`
 }

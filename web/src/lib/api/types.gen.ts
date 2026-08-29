@@ -93,38 +93,6 @@ export type EnqueuedRunResponseDto = {
   } | null;
 };
 
-export type SendRunInputRequestDto = {
-  /**
-   * Keystrokes as base64, exactly as the terminal produced them
-   */
-  data?: string;
-  /**
-   * New terminal width
-   */
-  cols?: number;
-  /**
-   * New terminal height
-   */
-  rows?: number;
-};
-
-export type RunInputResponseDto = {
-  data?: string;
-  cols?: number;
-  rows?: number;
-  /**
-   * The agent has been asked to finish
-   */
-  stop?: boolean;
-};
-
-export type PendingRunInputResponseDto = {
-  /**
-   * Empty when the poll timed out with nothing typed
-   */
-  input: Array<RunInputResponseDto>;
-};
-
 export type InstallableHarnessResponseDto = {
   id: string;
   /**
@@ -527,80 +495,6 @@ export type StreamRunResponses = {
    */
   200: unknown;
 };
-
-export type AwaitRunInputData = {
-  body?: never;
-  path: {
-    runId: string;
-  };
-  query?: never;
-  url: '/runs/{runId}/input';
-};
-
-export type AwaitRunInputErrors = {
-  /**
-   * Missing or revoked runner token
-   */
-  401: unknown;
-};
-
-export type AwaitRunInputResponses = {
-  200: PendingRunInputResponseDto;
-};
-
-export type AwaitRunInputResponse = AwaitRunInputResponses[keyof AwaitRunInputResponses];
-
-export type SendRunInputData = {
-  body: SendRunInputRequestDto;
-  path: {
-    runId: string;
-  };
-  query?: never;
-  url: '/runs/{runId}/input';
-};
-
-export type SendRunInputErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such run for this caller
-   */
-  404: unknown;
-};
-
-export type SendRunInputResponses = {
-  204: void;
-};
-
-export type SendRunInputResponse = SendRunInputResponses[keyof SendRunInputResponses];
-
-export type StopRunData = {
-  body?: never;
-  path: {
-    runId: string;
-  };
-  query?: never;
-  url: '/runs/{runId}/stop';
-};
-
-export type StopRunErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such run for this caller
-   */
-  404: unknown;
-};
-
-export type StopRunResponses = {
-  204: void;
-};
-
-export type StopRunResponse = StopRunResponses[keyof StopRunResponses];
 
 export type InstallableHarnessesData = {
   body?: never;

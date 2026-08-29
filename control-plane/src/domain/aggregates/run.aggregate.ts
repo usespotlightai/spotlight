@@ -1,4 +1,8 @@
+import { RunAbandoned } from '@domain/events/run-abandoned.event';
+import { RunCompleted } from '@domain/events/run-completed.event';
 import { InvalidRunTransitionError } from '@domain/exceptions/invalid-run-transition.error';
+import type { Declaration } from '@domain/value-objects/declaration.vo';
+import type { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import type { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import type { RunState } from '@domain/value-objects/run-state';
@@ -17,6 +21,12 @@ export interface RunOutcome {
   readonly message?: string;
 }
 
+/** What the agent said as it finished. The run announces it and keeps none. */
+export interface Said {
+  readonly declared?: Declaration | null;
+  readonly session?: HarnessSession | null;
+}
+
 /**
  * One unit of work a runner claims. The state here is the control plane's own
  * view: a runner reporting nothing for a lease's length is indistinguishable
@@ -24,6 +34,7 @@ export interface RunOutcome {
  */
 export class Run {
   #gaveUp = false;
+  #raised: (RunCompleted | RunAbandoned)[] = [];
 
   private constructor(
     readonly id: RunId,
@@ -170,6 +181,9 @@ export class Run {
     this.claimant = null;
     this.leaseUntil = null;
     this.outcome = { exitCode: -1, failed: true, message: reason };
+    this.#raised.push(
+      new RunAbandoned(this.id, this.taskId, this.attemptNumber),
+    );
   }
 
   /**
@@ -196,11 +210,27 @@ export class Run {
     this.leaseUntil = this.leaseFrom(now);
   }
 
-  complete(by: RunnerId, outcome: RunOutcome): void {
+  complete(by: RunnerId, outcome: RunOutcome, said: Said = {}): void {
     this.requireHeldBy(by, 'complete');
     this.currentState = outcome.failed ? 'failed' : 'completed';
     this.outcome = outcome;
     this.leaseUntil = null;
+    this.#raised.push(
+      new RunCompleted(
+        this.id,
+        this.taskId,
+        outcome,
+        by,
+        said.declared ?? null,
+        said.session ?? null,
+      ),
+    );
+  }
+
+  pullEvents(): readonly (RunCompleted | RunAbandoned)[] {
+    const raised = this.#raised;
+    this.#raised = [];
+    return raised;
   }
 
   assertHeldBy(by: RunnerId): void {

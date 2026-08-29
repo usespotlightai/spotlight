@@ -74,6 +74,17 @@ func (c *Client) Installable(ctx context.Context) ([]protocol.Installable, error
 	return out, nil
 }
 
+// Kept asks which workspaces to hold on to. An error means no answer, not an
+// empty answer: the caller must not read silence as permission to delete.
+func (c *Client) Kept(ctx context.Context) ([]string, error) {
+	var out protocol.Kept
+	if err := c.do(ctx, http.MethodGet, "/api/runners/workspaces", nil, &out); err != nil {
+		return nil, fmt.Errorf("ask what to keep: %w", err)
+	}
+
+	return out.Keys, nil
+}
+
 // Claim long-polls for work. An empty queue returns nil, nil, not an error.
 func (c *Client) Claim(ctx context.Context) (*protocol.Run, error) {
 	ctx, cancel := context.WithTimeout(ctx, PollTimeout+15*time.Second)
@@ -119,20 +130,6 @@ func (c *Client) AppendEvents(ctx context.Context, runID string, events []protoc
 		return fmt.Errorf("append events: %w", err)
 	}
 	return nil
-}
-
-func (c *Client) AwaitInput(ctx context.Context, runID string) ([]protocol.Input, error) {
-	ctx, cancel := context.WithTimeout(ctx, InputPollTimeout+15*time.Second)
-	defer cancel()
-
-	var pending protocol.PendingInput
-	path := fmt.Sprintf("/api/runs/%s/input", url.PathEscape(runID))
-
-	if _, err := c.request(ctx, http.MethodGet, path, nil, &pending); err != nil {
-		return nil, fmt.Errorf("await input: %w", err)
-	}
-
-	return pending.Input, nil
 }
 
 func (c *Client) Complete(ctx context.Context, runID string, done protocol.Completion) error {

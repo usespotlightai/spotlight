@@ -143,7 +143,7 @@ func (s *Server) option(spoken string) (string, bool) {
 	return "", false
 }
 
-// refuse says why in plain text, because the agent reads it in its terminal.
+// refuse says why in plain text, because the agent reads what it is told.
 func refuse(writer http.ResponseWriter, status int, because string) {
 	writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	writer.WriteHeader(status)

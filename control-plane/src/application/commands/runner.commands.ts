@@ -50,6 +50,7 @@ export class CompleteRunCommand {
     readonly failed: boolean,
     readonly message?: string,
     readonly declared?: { next?: string; note?: string } | null,
+    readonly sessionId?: string | null,
   ) {}
 }
 

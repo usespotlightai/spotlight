@@ -1,4 +1,4 @@
-package terminal
+package account
 
 import (
 	"fmt"
@@ -61,11 +61,14 @@ func LookupUser(name string) (*User, error) {
 	}, nil
 }
 
-func (u *User) sysProcAttr() *syscall.SysProcAttr {
+// SysProcAttr drops a process to this account, in its own process group so
+// the whole tree can be signalled at once.
+func (u *User) SysProcAttr() *syscall.SysProcAttr {
 	if u == nil {
 		return nil
 	}
 	return &syscall.SysProcAttr{
+		Setpgid:    true,
 		Credential: &syscall.Credential{Uid: u.UID, Gid: u.GID},
 	}
 }

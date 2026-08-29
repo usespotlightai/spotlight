@@ -70,12 +70,21 @@ export class CompleteRunRequestDto {
 
   @ApiPropertyOptional({ type: DeclaredOutcomeDto })
   readonly outcome?: DeclaredOutcomeDto;
+
+  @ApiPropertyOptional({
+    example: '67e5ddad-0fc6-4a33-90df-3c17732132c8',
+    description:
+      'What the harness called this conversation. Reported rather than ' +
+      'remembered by the runner, because the next run may fall to another one.',
+  })
+  readonly sessionId?: string;
 }
 
 export class EnqueueRunRequestDto {
   @ApiProperty({
     example: 'claude-code',
-    description: 'The harness to work this run. Only runners that have it may take it.',
+    description:
+      'The harness to work this run. Only runners that have it may take it.',
   })
   readonly harness!: string;
 

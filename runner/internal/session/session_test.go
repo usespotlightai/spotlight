@@ -2,20 +2,20 @@ package session_test
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"usespotlight.ai/runner/internal/account"
 	"usespotlight.ai/runner/internal/protocol"
 	"usespotlight.ai/runner/internal/session"
-	"usespotlight.ai/runner/internal/terminal"
+	"usespotlight.ai/runner/internal/workspace"
 )
 
 type journal struct {
@@ -69,330 +69,87 @@ func prepareHook(t *testing.T, body string) string {
 	return path
 }
 
-func execute(t *testing.T, command protocol.Command) (*journal, string) {
+/*
+harness writes a stand-in that speaks ACP and does whatever the test needs
+when it is prompted.
+
+`doing` is JavaScript run at prompt time, with `sessionId` in scope; `stopReason`
+is how the turn ends. It answers session/load for one id and refuses every other
+the way a harness does, so resuming can be tested both ways. Tests are written
+against the protocol rather than against any one agent.
+*/
+func harness(t *testing.T, doing string, stopReason string) string {
 	t.Helper()
 
-	root := t.TempDir()
-	written := &journal{}
+	script := `#!/usr/bin/env node
+const { execSync } = require("node:child_process");
+const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
+let buffered = "";
+process.stdin.on("data", (chunk) => {
+  buffered += chunk.toString();
+  const lines = buffered.split("\n");
+  buffered = lines.pop();
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const msg = JSON.parse(line);
+    if (msg.method === "initialize") send({ jsonrpc: "2.0", id: msg.id, result: { protocolVersion: 1 } });
+    if (msg.method === "session/new") send({ jsonrpc: "2.0", id: msg.id, result: { sessionId: "session_opened" } });
+    if (msg.method === "session/load") {
+      if (msg.params.sessionId === "session_held") send({ jsonrpc: "2.0", id: msg.id, result: {} });
+      else send({ jsonrpc: "2.0", id: msg.id,
+                  error: { code: -32002, message: "Resource not found: " + msg.params.sessionId } });
+    }
+    if (msg.method === "session/prompt") {
+      const sessionId = msg.params.sessionId;
+      let said = "";
+      try { ` + doing + ` } catch (e) { said = String(e.message ?? e); }
+      send({ jsonrpc: "2.0", method: "session/update",
+             params: { update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: said } } } });
+      send({ jsonrpc: "2.0", id: msg.id, result: { stopReason: "` + stopReason + `" } });
+    }
+  }
+});
+`
 
-	run := protocol.Run{ID: "run_1", Spec: protocol.Spec{Cwd: "service", Command: command}}
-
-	err := session.Execute(context.Background(), run, session.Options{
-		WorkspaceRoot: root,
-		Journal:       written,
-		Log:           slog.New(slog.NewTextHandler(io.Discard, nil)),
-		PrepareHook:   prepareHook(t, "mkdir service && echo '# service' > service/README.md"),
-		HookTimeout:   30 * time.Second,
-	})
-	if err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-
-	return written, root
-}
-
-func TestExecuteTakesARunFromNothingToAnOutcome(t *testing.T) {
-	written, root := execute(t, protocol.Command{
-		Executable: "sh",
-		Args:       []string{"-c", "cat README.md"},
-	})
-
-	if ready := written.typed(protocol.EventWorkspaceReady); len(ready) != 1 {
-		t.Errorf("expected the workspace to be reported once, got %d", len(ready))
-	}
-
-	output := written.typed(protocol.EventOutput)
-	if len(output) == 0 {
-		t.Fatal("expected the agent's output")
-	}
-
-	var seen strings.Builder
-	for _, event := range output {
-		seen.Write(event.Data)
-	}
-	if !strings.Contains(seen.String(), "# service") {
-		t.Errorf("the agent did not see the checkout: %q", seen.String())
-	}
-
-	if written.done == nil || written.done.ExitCode != 0 || written.done.Failed {
-		t.Errorf("completion %+v", written.done)
-	}
-
-	if _, err := os.Stat(filepath.Join(root, "run_1")); !os.IsNotExist(err) {
-		t.Error("the workspace should be gone")
-	}
-	if _, err := os.Stat(filepath.Join(root, ".recordings", "run_1")); !os.IsNotExist(err) {
-		t.Error("the recording should be gone with the run")
-	}
-}
-
-func TestEventsAreNumberedWithoutGaps(t *testing.T) {
-	written, _ := execute(t, protocol.Command{
-		Executable: "sh",
-		Args:       []string{"-c", "for i in 1 2 3 4 5; do echo line $i; done"},
-	})
-
-	written.mu.Lock()
-	defer written.mu.Unlock()
-
-	for i, event := range written.events {
-		if event.Seq != i+1 {
-			t.Fatalf("event %d has seq %d", i, event.Seq)
-		}
-		if event.At.IsZero() {
-			t.Errorf("event %d has no timestamp", i)
-		}
-	}
-}
-
-func TestAFailingAgentIsReportedAsFailed(t *testing.T) {
-	written, _ := execute(t, protocol.Command{
-		Executable: "sh",
-		Args:       []string{"-c", "exit 2"},
-	})
-
-	if written.done == nil || written.done.ExitCode != 2 || !written.done.Failed {
-		t.Errorf("completion %+v", written.done)
-	}
-}
-
-func TestARunThatCannotStartIsStillReported(t *testing.T) {
-	root := t.TempDir()
-	written := &journal{}
-
-	err := session.Execute(context.Background(), protocol.Run{ID: "run_2"}, session.Options{
-		WorkspaceRoot: root,
-		Journal:       written,
-		Log:           slog.New(slog.NewTextHandler(io.Discard, nil)),
-		PrepareHook:   prepareHook(t, "echo 'could not reach the forge' >&2; exit 1"),
-		HookTimeout:   30 * time.Second,
-	})
-	if err == nil {
-		t.Fatal("expected a failing prepare hook to fail the run")
-	}
-
-	// Reported, not just journalled. A run left claimed is retried until its
-	// lease lapses, and a broken checkout will not fix itself.
-	if written.done == nil || !written.done.Failed {
-		t.Errorf("the failure was not reported: %+v", written.done)
-	}
-
-	if failures := written.typed(protocol.EventFailed); len(failures) != 1 {
-		t.Errorf("expected one failure in the journal, got %d", len(failures))
-	}
-}
-
-// The uid split only means something if the agent genuinely cannot reach what
-// the runner keeps. Needs root and the agent account, so it only runs in the
-// container.
-func TestTheAgentIsWalledOffFromTheRunner(t *testing.T) {
-	if os.Getuid() != 0 {
-		t.Skip("dropping to another user needs root")
-	}
-	as, err := terminal.LookupUser("agent")
-	if err != nil {
-		t.Skipf("no agent account here: %v", err)
-	}
-
-	t.Setenv("SPOTLIGHT_TOKEN", "the-runners-control-plane-token")
-
-	root, err := os.MkdirTemp("", "walled")
-	if err != nil {
+	path := filepath.Join(t.TempDir(), "harness")
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.RemoveAll(root) })
-
-	written := &journal{}
-	err = session.Execute(context.Background(), protocol.Run{
-		ID: "run_walled",
-		Spec: protocol.Spec{
-			Cwd: "service",
-			Command: protocol.Command{
-				Executable: "sh",
-				Args: []string{"-c", `
-				echo "uid=$(id -u)"
-				cat ../../.recordings/run_walled >/dev/null 2>&1 && echo "READ THE RECORDING"
-				ls .. >/dev/null 2>&1 || echo "CANNOT SEE OWN RUN DIR"
-				ls ../.. >/dev/null 2>&1 && echo "LISTED THE ROOT"
-				env | grep -q SPOTLIGHT_TOKEN && echo "SAW THE TOKEN"
-				grep -l SPOTLIGHT_TOKEN /proc/*/environ 2>/dev/null | head -1 | grep -q . && echo "READ IT FROM PROC"
-				cat /proc/1/environ 2>/dev/null | grep -q SPOTLIGHT && echo "READ PID 1"
-				true
-			`},
-			},
-		},
-	}, session.Options{
-		WorkspaceRoot: root,
-		Journal:       written,
-		Log:           slog.New(slog.NewTextHandler(io.Discard, nil)),
-		AgentUser:     as,
-		PrepareHook:   prepareHook(t, "mkdir service"),
-		HookTimeout:   30 * time.Second,
-	})
-	if err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-
-	var seen strings.Builder
-	for _, event := range written.typed(protocol.EventOutput) {
-		seen.Write(event.Data)
-	}
-	out := seen.String()
-
-	if !strings.Contains(out, "uid=2000") {
-		t.Errorf("the agent did not run as the agent account:\n%s", out)
-	}
-	for _, breach := range []string{
-		"READ THE RECORDING", "LISTED THE ROOT", "SAW THE TOKEN",
-		"READ IT FROM PROC", "READ PID 1",
-	} {
-		if strings.Contains(out, breach) {
-			t.Errorf("the agent %s", strings.ToLower(breach))
-		}
-	}
+	return path
 }
 
-type typedIn struct {
-	mu      sync.Mutex
-	pending [][]protocol.Input
+type runOptions struct {
+	briefing   string
+	handover   []string
+	agentUser  *account.User
+	root       string
+	env        map[string]string
+	continuity protocol.Continuity
 }
 
-func (t *typedIn) AwaitInput(ctx context.Context, _ string) ([]protocol.Input, error) {
-	t.mu.Lock()
-	if len(t.pending) > 0 {
-		next := t.pending[0]
-		t.pending = t.pending[1:]
-		t.mu.Unlock()
-		return next, nil
-	}
-	t.mu.Unlock()
-
-	timer := time.NewTimer(50 * time.Millisecond)
-	defer timer.Stop()
-
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case <-timer.C:
-		return nil, nil
-	}
-}
-
-func TestExecuteDrivesTheAgentFromWhatAViewerTyped(t *testing.T) {
-	written := &journal{}
-
-	run := protocol.Run{
-		ID: "run_1",
-		Spec: protocol.Spec{
-			Command: protocol.Command{
-				Executable: "sh",
-				Args:       []string{"-c", "read line; echo \"you said: $line\""},
-			},
-		},
-	}
-
-	err := session.Execute(context.Background(), run, session.Options{
-		WorkspaceRoot: t.TempDir(),
-		Journal:       written,
-		Input: &typedIn{pending: [][]protocol.Input{
-			{{Cols: 100, Rows: 30, Data: []byte("hello\n")}},
-		}},
-		Log:         slog.New(slog.NewTextHandler(io.Discard, nil)),
-		HookTimeout: 30 * time.Second,
-	})
-	if err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-
-	var seen strings.Builder
-	for _, event := range written.typed(protocol.EventOutput) {
-		seen.Write(event.Data)
-	}
-
-	if !strings.Contains(seen.String(), "you said: hello") {
-		t.Errorf("the agent did not receive what was typed: %q", seen.String())
-	}
-
-	if written.done == nil || written.done.ExitCode != 0 {
-		t.Errorf("completion %+v", written.done)
-	}
-}
-
-func TestExecuteLeavesTheTerminalReadOnlyWithoutAnInputSource(t *testing.T) {
-	written, _ := execute(t, protocol.Command{
-		Executable: "sh",
-		Args:       []string{"-c", "echo ready"},
-	})
-
-	if written.done == nil || written.done.Failed {
-		t.Errorf("a run without an input source should still finish: %+v", written.done)
-	}
-}
-
-func TestExecuteStopsTheAgentWhenAskedTo(t *testing.T) {
-	written := &journal{}
-
-	run := protocol.Run{
-		ID: "run_1",
-		Spec: protocol.Spec{
-			Command: protocol.Command{
-				Executable: "sh",
-				Args:       []string{"-c", "echo AGENT-READY; sleep 600"},
-			},
-		},
-	}
-
-	done := make(chan error, 1)
-	go func() {
-		done <- session.Execute(context.Background(), run, session.Options{
-			WorkspaceRoot: t.TempDir(),
-			Journal:       written,
-			Input: &typedIn{pending: [][]protocol.Input{
-				{{Stop: true}},
-			}},
-			Log:         slog.New(slog.NewTextHandler(io.Discard, nil)),
-			HookTimeout: 30 * time.Second,
-		})
-	}()
-
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatalf("execute: %v", err)
-		}
-	case <-time.After(30 * time.Second):
-		t.Fatal("the agent was never stopped")
-	}
-
-	if written.done == nil {
-		t.Fatal("expected the run to be reported")
-	}
-
-	if written.done.Failed {
-		t.Errorf("a stopped run should not be reported as failed: %+v", written.done)
-	}
-	if written.done.Message != "stopped from the console" {
-		t.Errorf("message %q", written.done.Message)
-	}
-}
-
-// declaring runs an agent that has somewhere to declare to, and answers with
-// what the run finally reported.
-func declaring(t *testing.T, script string) *journal {
+func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 	t.Helper()
+
+	settings := runOptions{root: t.TempDir()}
+	for _, adjust := range over {
+		adjust(&settings)
+	}
 
 	written := &journal{}
 	err := session.Execute(context.Background(), protocol.Run{
-		ID: "run_declaring",
+		ID: "run_1",
 		Spec: protocol.Spec{
-			Cwd:      "service",
-			Command:  protocol.Command{Executable: "sh", Args: []string{"-c", script}},
-			Handover: protocol.Handover{Options: []string{"Spec", "review"}},
+			Cwd:        "service",
+			Command:    protocol.Command{Executable: executable, Env: settings.env},
+			Briefing:   settings.briefing,
+			Handover:   protocol.Handover{Options: settings.handover},
+			Continuity: settings.continuity,
 		},
 	}, session.Options{
-		WorkspaceRoot: t.TempDir(),
+		WorkspaceRoot: settings.root,
 		Journal:       written,
 		Log:           slog.New(slog.NewTextHandler(io.Discard, nil)),
+		AgentUser:     settings.agentUser,
 		PrepareHook:   prepareHook(t, "mkdir service"),
 		HookTimeout:   30 * time.Second,
 	})
@@ -403,215 +160,251 @@ func declaring(t *testing.T, script string) *journal {
 	return written
 }
 
-func spoke(t *testing.T, written *journal) *protocol.Outcome {
+// said gathers the text out of the session updates the journal kept.
+func said(t *testing.T, written *journal) string {
 	t.Helper()
 
-	if written.done == nil {
-		t.Fatal("the run never completed")
-	}
-
-	return written.done.Outcome
-}
-
-// The runner strips its own SPOTLIGHT_ variables from what the agent inherits,
-// so the ones it is meant to have must be granted on purpose.
-func TestTheAgentIsGivenSomewhereToDeclare(t *testing.T) {
-	written := declaring(t, `echo "at=$SPOTLIGHT_HANDOVER_URL token=${#SPOTLIGHT_HANDOVER_TOKEN}"`)
-
-	var seen strings.Builder
+	var heard strings.Builder
 	for _, event := range written.typed(protocol.EventOutput) {
-		seen.Write(event.Data)
+		var update struct {
+			Update struct {
+				Content struct {
+					Text string `json:"text"`
+				} `json:"content"`
+			} `json:"update"`
+		}
+		if err := json.Unmarshal(event.Data, &update); err != nil {
+			t.Fatalf("the journal kept something that is not an update: %v", err)
+		}
+		heard.WriteString(update.Update.Content.Text)
 	}
 
-	if !strings.Contains(seen.String(), "at=http://127.0.0.1:") {
-		t.Errorf("the agent was given no endpoint: %q", seen.String())
+	return heard.String()
+}
+
+func TestTakesARunFromNothingToAnOutcome(t *testing.T) {
+	written := run(t, harness(t, `said = "worked";`, "end_turn"))
+
+	if ready := written.typed(protocol.EventWorkspaceReady); len(ready) != 1 {
+		t.Errorf("expected the workspace to be reported once, got %d", len(ready))
 	}
-	if strings.Contains(seen.String(), "token=0") {
-		t.Errorf("the agent was given no token: %q", seen.String())
+	if heard := said(t, written); heard != "worked" {
+		t.Errorf("heard %q", heard)
+	}
+	if written.done == nil || written.done.Failed {
+		t.Errorf("completion %+v", written.done)
 	}
 }
 
-var (
-	buildOnce sync.Once
-	built     string
-	buildErr  error
-)
+// The journal is a record of what the agent said, kept whole, so a reader can
+// render it rather than replay it.
+func TestKeepsWhatTheAgentSaidAsItSaidIt(t *testing.T) {
+	written := run(t, harness(t, `said = "structured";`, "end_turn"))
 
-// theCLI is the client the agent is actually shipped, built once so the tests
-// exercise what production runs rather than an impersonation of it.
-func theCLI(t *testing.T) string {
-	t.Helper()
+	output := written.typed(protocol.EventOutput)
+	if len(output) == 0 {
+		t.Fatal("nothing was kept")
+	}
 
-	buildOnce.Do(func() {
-		dir, err := os.MkdirTemp("", "cli")
-		if err != nil {
-			buildErr = err
-			return
+	var update map[string]any
+	if err := json.Unmarshal(output[0].Data, &update); err != nil {
+		t.Fatalf("not readable as an update: %v", err)
+	}
+	if _, ok := update["update"]; !ok {
+		t.Errorf("kept %v, which is not a session update", update)
+	}
+}
+
+func TestEventsAreNumberedWithoutGaps(t *testing.T) {
+	written := run(t, harness(t, `said = "one";`, "end_turn"))
+
+	for at, event := range written.events {
+		if event.Seq != at+1 {
+			t.Fatalf("event %d is numbered %d", at, event.Seq)
 		}
+	}
+}
 
-		built = filepath.Join(dir, "spotlight")
-		out, err := exec.Command(
-			"go", "build", "-o", built, "usespotlight.ai/runner/cmd/spotlight",
-		).CombinedOutput()
-		if err != nil {
-			buildErr = fmt.Errorf("build the cli: %v: %s", err, out)
-		}
+// A turn that ends any other way is the agent saying it would not or could
+// not, which is a failed run rather than a finished one.
+func TestATurnThatEndsBadlyIsReportedAsFailed(t *testing.T) {
+	written := run(t, harness(t, `said = "refused";`, "refusal"))
+
+	if written.done == nil || !written.done.Failed {
+		t.Fatalf("completion %+v", written.done)
+	}
+}
+
+func TestARunThatCannotStartIsStillReported(t *testing.T) {
+	written := &journal{}
+	err := session.Execute(context.Background(), protocol.Run{
+		ID:   "run_1",
+		Spec: protocol.Spec{Command: protocol.Command{Executable: "nothing-of-that-name"}},
+	}, session.Options{
+		WorkspaceRoot: t.TempDir(),
+		Journal:       written,
+		Log:           slog.New(slog.NewTextHandler(io.Discard, nil)),
+		PrepareHook:   prepareHook(t, "true"),
+		HookTimeout:   30 * time.Second,
 	})
 
-	if buildErr != nil {
-		t.Fatal(buildErr)
+	if err == nil {
+		t.Fatal("expected the run to fail")
 	}
-
-	return built
-}
-
-// declare is the agent saying what happens next, the way an agent would. It
-// swallows a refusal so the run itself still ends normally.
-func declare(t *testing.T, next, note string) string {
-	return fmt.Sprintf("%s handover --next %q --note %q || true", theCLI(t), next, note)
-}
-
-func TestWhatTheAgentDeclaresReachesTheCompletion(t *testing.T) {
-	spoken := spoke(t, declaring(t, declare(t, "Spec", "needs a spec")))
-
-	if spoken == nil || spoken.Next != "Spec" || spoken.Note != "needs a spec" {
-		t.Fatalf("got %+v", spoken)
+	if written.done == nil || !written.done.Failed {
+		t.Fatalf("completion %+v", written.done)
 	}
 }
 
-// A word the control plane never offered is refused outright, so the run ends
-// having said nothing and a person picks it up.
-func TestARefusedWordIsNotCarried(t *testing.T) {
-	if spoken := spoke(t, declaring(t, declare(t, "Deployment", "ship it"))); spoken != nil {
-		t.Fatalf("carried %+v", spoken)
-	}
-}
-
-func TestTheWorkspaceFileStillSpeaksForAnAgentThatRunsNoClient(t *testing.T) {
-	written := declaring(t, `mkdir -p ../.spotlight && `+
-		`echo '{"next":"review","note":"from the file"}' > ../.spotlight/outcome.json`)
-
-	spoken := spoke(t, written)
-	if spoken == nil || spoken.Next != "review" || spoken.Note != "from the file" {
-		t.Fatalf("got %+v", spoken)
-	}
-}
-
-// Both channels used at once: the one the runner answered on is the one the
-// agent got an answer from, so it is the one that counts.
-func TestTheEndpointOutranksTheFile(t *testing.T) {
-	written := declaring(t, `mkdir -p ../.spotlight && `+
-		`echo '{"next":"review","note":"from the file"}' > ../.spotlight/outcome.json && `+
-		declare(t, "Spec", "from the endpoint"))
-
-	spoken := spoke(t, written)
-	if spoken == nil || spoken.Next != "Spec" || spoken.Note != "from the endpoint" {
-		t.Fatalf("got %+v", spoken)
-	}
-}
-
-// The agent runs as its own account, so it must be pointed at its own home.
-// Left at the runner's, an agent CLI reads the runner's configuration, or is
-// refused by it, before it does anything else.
-func TestTheAgentIsGivenItsOwnHome(t *testing.T) {
+// The agent is given its own account, and an agent CLI reads its
+// configuration from HOME and runs commands through SHELL.
+func TestTheAgentIsGivenItsOwnAccount(t *testing.T) {
 	if os.Getuid() != 0 {
 		t.Skip("dropping to another user needs root")
 	}
-	as, err := terminal.LookupUser("agent")
+	as, err := account.LookupUser("agent")
 	if err != nil {
 		t.Skipf("no agent account here: %v", err)
 	}
 
-	root, err := os.MkdirTemp("", "home")
+	t.Setenv("SPOTLIGHT_TOKEN", "the-runners-control-plane-token")
+
+	root, err := os.MkdirTemp("", "account")
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(root) })
 
-	written := &journal{}
-	err = session.Execute(context.Background(), protocol.Run{
-		ID: "run_home",
-		Spec: protocol.Spec{
-			Cwd: "service",
-			Command: protocol.Command{
-				Executable: "sh",
-				Args:       []string{"-c", `echo "home=$HOME user=$USER shell=$SHELL"; test -w "$HOME" && echo WRITABLE`},
-			},
-		},
-	}, session.Options{
-		WorkspaceRoot: root,
-		Journal:       written,
-		Log:           slog.New(slog.NewTextHandler(io.Discard, nil)),
-		AgentUser:     as,
-		PrepareHook:   prepareHook(t, "mkdir service"),
-		HookTimeout:   30 * time.Second,
-	})
-	if err != nil {
-		t.Fatalf("execute: %v", err)
-	}
+	written := run(t, harness(t,
+		`said = [process.getuid(), process.env.HOME, process.env.USER, process.env.SHELL,
+                 process.env.SPOTLIGHT_TOKEN ?? "no-token"].join(" ");`, "end_turn"),
+		func(o *runOptions) { o.agentUser = as; o.root = root })
 
-	var seen strings.Builder
-	for _, event := range written.typed(protocol.EventOutput) {
-		seen.Write(event.Data)
-	}
-
-	if strings.Contains(seen.String(), "home=/root") {
-		t.Errorf("the agent was left in the runner's home: %q", seen.String())
-	}
-	if !strings.Contains(seen.String(), "user=agent") {
-		t.Errorf("the agent was not told who it is: %q", seen.String())
-	}
-	if !strings.Contains(seen.String(), "WRITABLE") {
-		t.Errorf("the agent cannot write to its own home: %q", seen.String())
-	}
-	// An agent CLI runs what it is asked to run through SHELL, and refuses
-	// outright when it finds none. A container carries none of its own.
-	if strings.Contains(seen.String(), "shell=\r") ||
-		!strings.Contains(seen.String(), "shell=/") {
-		t.Errorf("the agent was given no shell: %q", seen.String())
+	heard := said(t, written)
+	for _, wanted := range []string{"2000", "/home/agent", "agent", "no-token"} {
+		if !strings.Contains(heard, wanted) {
+			t.Errorf("%q missing from %q", wanted, heard)
+		}
 	}
 }
 
-// An agent says what it did as it goes, so the last thing it writes is often
-// the only thing worth reading. Reporting the exit without draining what the
-// reader still holds loses exactly that.
-func TestTheAgentsLastWordsAreKept(t *testing.T) {
-	written, _ := execute(t, protocol.Command{
-		Executable: "sh",
-		Args:       []string{"-c", `echo first; echo LAST-WORDS`},
-	})
+// The declaration channel is not the harness's: any agent that can run a
+// command can hand a task on, whatever protocol it speaks.
+func TestWhatTheAgentDeclaresReachesTheCompletion(t *testing.T) {
+	declaring := `execSync(` + "`" +
+		`${process.env.SPOTLIGHT_HANDOVER_URL ? "" : "no url"} node -e '
+      const body = JSON.stringify({ next: "Spec", note: "needs a spec" });
+      fetch(process.env.SPOTLIGHT_HANDOVER_URL, {
+        method: "POST",
+        headers: { Authorization: "Bearer " + process.env.SPOTLIGHT_HANDOVER_TOKEN },
+        body,
+      }).then(() => process.exit(0));
+    '` + "`" + `); said = "declared";`
 
-	var seen strings.Builder
-	for _, event := range written.typed(protocol.EventOutput) {
-		seen.Write(event.Data)
-	}
+	written := run(t, harness(t, declaring, "end_turn"),
+		func(o *runOptions) { o.handover = []string{"Spec", "review"} })
 
-	if !strings.Contains(seen.String(), "LAST-WORDS") {
-		t.Errorf("the agent's parting line was lost: %q", seen.String())
-	}
-}
-
-// An agent working at a terminal has no reason to exit: it finishes the work
-// and waits for someone to type. Without this a run would never end, and the
-// handover it just made would never be reported.
-func TestAnAgentThatHasHandedOverIsStopped(t *testing.T) {
-	written := declaring(t, declare(t, "Spec", "over to you")+"; sleep 600")
-
-	spoken := spoke(t, written)
-	if spoken == nil || spoken.Next != "Spec" {
+	spoken := written.done.Outcome
+	if spoken == nil || spoken.Next != "Spec" || spoken.Note != "needs a spec" {
 		t.Fatalf("got %+v", spoken)
 	}
 }
 
-// Killed because it was finished, so the signal that ended it says nothing
-// about whether the work went badly.
-func TestHandingOverIsNotAFailure(t *testing.T) {
-	written := declaring(t, declare(t, "review", "a person should look")+"; sleep 600")
+// A briefing is what the agent is asked to work on, and it reaches the agent
+// as a prompt rather than as an argument.
+func TestTheBriefingReachesTheAgent(t *testing.T) {
+	written := run(t, harness(t, `said = msg.params.prompt[0].text;`, "end_turn"),
+		func(o *runOptions) { o.briefing = "## Fix the queue" })
 
-	if written.done == nil || written.done.Failed {
-		t.Fatalf("completion %+v", written.done)
+	if heard := said(t, written); heard != "## Fix the queue" {
+		t.Errorf("the agent was asked %q", heard)
 	}
-	if written.done.Message != "" {
-		t.Errorf("said %q of a run that simply finished", written.done.Message)
+}
+
+func TestTheWorkspaceGoesWithTheRun(t *testing.T) {
+	root := t.TempDir()
+	run(t, harness(t, `said = "done";`, "end_turn"), func(o *runOptions) { o.root = root })
+
+	if _, err := os.Stat(filepath.Join(root, "run_1")); !os.IsNotExist(err) {
+		t.Error("the workspace should be gone")
+	}
+}
+
+func TestTakesUpTheSessionItWasGiven(t *testing.T) {
+	written := run(t, harness(t, `said = sessionId;`, "end_turn"), func(o *runOptions) {
+		o.continuity = protocol.Continuity{SessionID: "session_held"}
+	})
+
+	if got := said(t, written); got != "session_held" {
+		t.Errorf("worked in session %q", got)
+	}
+	if written.done.SessionID != "session_held" {
+		t.Errorf("reported session %q", written.done.SessionID)
+	}
+}
+
+func TestOpensAFreshSessionWhenTheHarnessHasForgotten(t *testing.T) {
+	written := run(t, harness(t, `said = sessionId;`, "end_turn"), func(o *runOptions) {
+		o.continuity = protocol.Continuity{SessionID: "session_long_gone"}
+	})
+
+	if got := said(t, written); got != "session_opened" {
+		t.Errorf("worked in session %q", got)
+	}
+	if written.done.SessionID != "session_opened" {
+		t.Errorf("reported session %q", written.done.SessionID)
+	}
+}
+
+// Reported even when nothing was inherited: it is what the next run needs, and
+// the runner will not remember it.
+func TestReportsTheSessionItOpened(t *testing.T) {
+	written := run(t, harness(t, `said = "worked";`, "end_turn"))
+
+	if written.done.SessionID != "session_opened" {
+		t.Errorf("reported session %q", written.done.SessionID)
+	}
+}
+
+func TestKeepsTheWorkspaceWhenToldTo(t *testing.T) {
+	root := t.TempDir()
+
+	run(t, harness(t, `said = "worked";`, "end_turn"), func(o *runOptions) {
+		o.root = root
+		o.continuity = protocol.Continuity{Key: "task_1", Keep: true}
+	})
+
+	if _, err := os.Stat(filepath.Join(root, "task_1", workspace.StatePath)); err != nil {
+		t.Errorf("the state directory did not survive the run: %v", err)
+	}
+}
+
+func TestStillDisposesOfAWorkspaceNobodyAskedToKeep(t *testing.T) {
+	root := t.TempDir()
+
+	run(t, harness(t, `said = "worked";`, "end_turn"), func(o *runOptions) { o.root = root })
+
+	if _, err := os.Stat(filepath.Join(root, "run_1")); !os.IsNotExist(err) {
+		t.Errorf("the workspace outlived the run: %v", err)
+	}
+}
+
+/*
+The catalogue says where a harness keeps its state; the runner says only where
+the durable directory is. Expanding the one into the other is what keeps every
+harness's own vocabulary out of the runner.
+*/
+func TestExpandsTheStateDirectoryIntoWhatTheHarnessIsTold(t *testing.T) {
+	root := t.TempDir()
+
+	written := run(t, harness(t, `said = process.env.HARNESS_STATE_DIR ?? "unset";`, "end_turn"), func(o *runOptions) {
+		o.root = root
+		o.continuity = protocol.Continuity{Key: "task_1"}
+		o.env = map[string]string{"HARNESS_STATE_DIR": "${" + session.StateVar + "}/somewhere"}
+	})
+
+	want := filepath.Join(root, "task_1", workspace.StatePath, "somewhere")
+	if got := said(t, written); got != want {
+		t.Errorf("the harness was told %q, wanted %q", got, want)
 	}
 }

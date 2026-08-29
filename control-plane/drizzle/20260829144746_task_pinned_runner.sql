@@ -1,0 +1,2 @@
+ALTER TABLE "task" ADD COLUMN "runner_id" text;--> statement-breakpoint
+ALTER TABLE "task" ADD CONSTRAINT "task_runner_id_runner_id_fk" FOREIGN KEY ("runner_id") REFERENCES "public"."runner"("id") ON DELETE set null ON UPDATE no action;
