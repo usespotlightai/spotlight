@@ -56,10 +56,6 @@ export type CustomiseStationRequestDto = {
   agentPrompt?: string | null;
 };
 
-export type GreetingResponseDto = {
-  message: string;
-};
-
 export type HealthResponseDto = {
   status: 'ok';
 };
@@ -532,31 +528,6 @@ export type CustomiseStationResponses = {
 };
 
 export type CustomiseStationResponse = CustomiseStationResponses[keyof CustomiseStationResponses];
-
-export type GetGreetingData = {
-  body?: never;
-  path?: never;
-  query?: {
-    /**
-     * Who to greet. Defaults to "World".
-     */
-    name?: string;
-  };
-  url: '/';
-};
-
-export type GetGreetingErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-};
-
-export type GetGreetingResponses = {
-  200: GreetingResponseDto;
-};
-
-export type GetGreetingResponse = GetGreetingResponses[keyof GetGreetingResponses];
 
 export type GetHealthData = {
   body?: never;

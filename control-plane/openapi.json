@@ -171,42 +171,6 @@
         ]
       }
     },
-    "/": {
-      "get": {
-        "operationId": "getGreeting",
-        "parameters": [
-          {
-            "name": "name",
-            "required": false,
-            "in": "query",
-            "description": "Who to greet. Defaults to \"World\".",
-            "schema": {
-              "example": "Leon",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GreetingResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session"
-          }
-        },
-        "summary": "Return a greeting",
-        "tags": [
-          "greeting"
-        ]
-      }
-    },
     "/health": {
       "get": {
         "operationId": "getHealth",
@@ -1347,18 +1311,6 @@
             "description": "Markdown, handed to the agent that works this station"
           }
         }
-      },
-      "GreetingResponseDto": {
-        "type": "object",
-        "properties": {
-          "message": {
-            "type": "string",
-            "example": "Hello World!"
-          }
-        },
-        "required": [
-          "message"
-        ]
       },
       "HealthResponseDto": {
         "type": "object",

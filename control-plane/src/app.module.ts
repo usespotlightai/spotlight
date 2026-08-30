@@ -63,9 +63,7 @@ import {
 import { TASK_READER } from '@application/ports/task-reader.port';
 import { TRANSACTION } from '@application/ports/transaction.port';
 import { WORKSPACE_READER } from '@application/ports/workspace-reader.port';
-import { GetGreetingQuery } from '@application/queries/get-greeting.query';
 import { GetWorkspaceQuery } from '@application/queries/get-workspace.query';
-import { GetGreetingHandler } from '@application/queries/handlers/get-greeting.handler';
 import { GetWorkspaceHandler } from '@application/queries/handlers/get-workspace.handler';
 import { ListAssemblyLinesHandler } from '@application/queries/handlers/list-assembly-lines.handler';
 import { ListHarnessesHandler } from '@application/queries/handlers/list-harnesses.handler';
@@ -121,7 +119,6 @@ import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { CqrsModule } from '@nestjs/cqrs';
 import { AssemblyLineController } from '@presentation/http/controllers/assembly-line.controller';
-import { GreetingController } from '@presentation/http/controllers/greeting.controller';
 import { HarnessController } from '@presentation/http/controllers/harness.controller';
 import { HealthController } from '@presentation/http/controllers/health.controller';
 import { InboxController } from '@presentation/http/controllers/inbox.controller';
@@ -146,7 +143,6 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
   ],
   controllers: [
     AssemblyLineController,
-    GreetingController,
     HealthController,
     RunController,
     RunStreamController,
@@ -232,7 +228,6 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       ],
     },
 
-    ...bindQueryHandler(GetGreetingQuery, GetGreetingHandler),
     ...bindQueryHandler(ListWorkspacesQuery, ListWorkspacesHandler, [
       WORKSPACE_READER,
     ]),
