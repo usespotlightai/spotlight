@@ -11,6 +11,7 @@ import { anyUnread } from '@domain/services/unread';
 import { Continuity } from '@domain/value-objects/continuity.vo';
 import type { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { NotePosition } from '@domain/value-objects/note-position.vo';
+import type { Repository } from '@domain/value-objects/repository.vo';
 import type { RunId } from '@domain/value-objects/run-id.vo';
 import type { RunnerId } from '@domain/value-objects/runner-id.vo';
 import type { StationId } from '@domain/value-objects/station-id.vo';
@@ -53,6 +54,8 @@ export class Task {
     readonly createdAt: Date,
     readonly raisedAt: StationId | null,
     readonly raisedBy: UserId | null,
+    // Told to the runner as somewhere to reach, never as something to open.
+    readonly repository: Repository | null,
   ) {}
 
   static add(input: {
@@ -62,6 +65,7 @@ export class Task {
     description?: TaskDescription | null;
     rank: TaskRank;
     raisedBy: UserId;
+    repository?: Repository | null;
     now: Date;
     newId: () => string;
   }): Task {
@@ -79,6 +83,7 @@ export class Task {
       input.now,
       input.stationId,
       input.raisedBy,
+      input.repository ?? null,
     );
   }
 
@@ -96,6 +101,7 @@ export class Task {
     createdAt: Date;
     raisedAt: StationId | null;
     raisedBy: UserId | null;
+    repository: Repository | null;
   }): Task {
     return new Task(
       input.id,
@@ -111,6 +117,7 @@ export class Task {
       input.createdAt,
       input.raisedAt,
       input.raisedBy,
+      input.repository,
     );
   }
 
@@ -309,6 +316,7 @@ export class Task {
       this.createdAt,
       this.raisedAt,
       this.raisedBy,
+      this.repository,
     );
   }
 

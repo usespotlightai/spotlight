@@ -13,6 +13,10 @@ set -eu
 
 spec=$(cat)
 
+# The agent account has none of its own, so without this every commit fails.
+author_name=${SPOTLIGHT_GIT_AUTHOR_NAME:-Spotlight}
+author_email=${SPOTLIGHT_GIT_AUTHOR_EMAIL:-noreply@usespotlight.ai}
+
 # One JSON object per checkout, read field by field. A tab-separated line would
 # be shorter and wrong: tab is whitespace to `read`, so an empty ref collapses
 # and every field after it shifts along by one.
@@ -26,6 +30,10 @@ printf '%s' "$spec" | jq -c '.checkouts[]?' | while read -r checkout; do
 
   echo "cloning $remote into $path"
   git clone --quiet "$remote" "$path"
+
+  # On the clone, not the machine: it travels with the workspace.
+  git -C "$path" config user.name "$author_name"
+  git -C "$path" config user.email "$author_email"
 
   if [ -n "$ref" ]; then
     git -C "$path" checkout --quiet "$ref"

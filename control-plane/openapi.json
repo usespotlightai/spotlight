@@ -878,6 +878,34 @@
         ]
       }
     },
+    "/repositories": {
+      "get": {
+        "operationId": "listRepositories",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RepositoryResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          }
+        },
+        "summary": "List the repositories a task can be raised against",
+        "tags": [
+          "repositories"
+        ]
+      }
+    },
     "/teams/{teamId}/tasks": {
       "get": {
         "operationId": "listTasks",
@@ -2316,6 +2344,19 @@
           "token"
         ]
       },
+      "RepositoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "example": "usespotlightai/spotlight",
+            "description": "Named the way GitHub names it, owner and all"
+          }
+        },
+        "required": [
+          "fullName"
+        ]
+      },
       "TaskReviewResponseDto": {
         "type": "object",
         "properties": {
@@ -2743,6 +2784,12 @@
             "maxLength": 20000,
             "nullable": true,
             "description": "Markdown. Left out or blank for a task with nothing said."
+          },
+          "repository": {
+            "type": "string",
+            "example": "usespotlightai/spotlight",
+            "nullable": true,
+            "description": "The codebase the work is done in, as owner/name"
           }
         },
         "required": [

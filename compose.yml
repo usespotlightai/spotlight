@@ -7,6 +7,9 @@ x-control-plane-env: &control-plane-env
   BETTER_AUTH_URL: ${BETTER_AUTH_URL:-https://app.dev.usespotlight.ai}
   GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
   GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+  GITHUB_APP_ID: ${GITHUB_APP_ID:-}
+  GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY:-}
+  GITHUB_APP_INSTALLATION_ID: ${GITHUB_APP_INSTALLATION_ID:-}
   LOG_LEVEL: ${LOG_LEVEL:-debug}
 
 x-runner-env: &runner-env
@@ -16,6 +19,8 @@ x-runner-env: &runner-env
   SPOTLIGHT_WORKSPACE: /workspaces
   SPOTLIGHT_AGENT_USER: agent
   SPOTLIGHT_PREPARE_HOOK: /etc/spotlight/hooks/prepare
+  SPOTLIGHT_GIT_AUTHOR_NAME: ${SPOTLIGHT_GIT_AUTHOR_NAME:-Spotlight}
+  SPOTLIGHT_GIT_AUTHOR_EMAIL: ${SPOTLIGHT_GIT_AUTHOR_EMAIL:-noreply@usespotlight.ai}
 
 x-runner: &runner
   image: spotlight-runner

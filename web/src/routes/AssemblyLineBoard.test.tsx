@@ -16,6 +16,9 @@ const line = {
   ],
 };
 
+vi.mock('@/hooks/api/useRepositories', () => ({
+  useRepositories: () => ({ data: [] }),
+}));
 vi.mock('@/hooks/api/useAssemblyLines', () => ({
   useAssemblyLines: () => ({ data: [line], isPending: false }),
 }));
@@ -164,7 +167,7 @@ describe('AssemblyLineBoard', () => {
       teamId: 'team_1',
       lineId: 'line_1',
       stationId: 'station_2',
-      task: { title: 'Write the spec', description: '' },
+      task: { title: 'Write the spec', description: '', repository: null },
     });
   });
 

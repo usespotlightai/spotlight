@@ -22,6 +22,11 @@ export const envSchema = z
     BETTER_AUTH_URL: z.url(),
     GITHUB_CLIENT_ID: z.string().min(1),
     GITHUB_CLIENT_SECRET: z.string().min(1),
+    // A GitHub App installed on the repositories tasks name. Its key mints
+    // short-lived installation tokens, and never leaves this process.
+    GITHUB_APP_ID: z.string().min(1),
+    GITHUB_APP_PRIVATE_KEY: z.string().min(1),
+    GITHUB_APP_INSTALLATION_ID: z.string().min(1),
     LOG_LEVEL: z.enum(LOG_LEVELS).optional(),
   })
   .transform((env) => ({

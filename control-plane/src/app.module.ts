@@ -44,11 +44,21 @@ import { ReleaseHeldRuns } from '@application/events/handlers/release-held-runs.
 import { ASSEMBLY_LINE_READER } from '@application/ports/assembly-line-reader.port';
 import { CLOCK, type ClockPort } from '@application/ports/clock.port';
 import { FACTORY_PROVISIONING } from '@application/ports/factory-provisioning.port';
+import { GIT_GATEWAY } from '@application/ports/git-gateway.port';
 import { HANDOVER } from '@application/ports/handover.port';
 import { ID_GENERATOR } from '@application/ports/id-generator.port';
 import { INBOX_READER } from '@application/ports/inbox-reader.port';
 import { KEPT_WORKSPACE_READER } from '@application/ports/kept-workspace-reader.port';
 import { PERSON_READER } from '@application/ports/person-reader.port';
+import {
+  REPOSITORY_ACCESS,
+  type RepositoryAccessPort,
+} from '@application/ports/repository-access.port';
+import { REPOSITORY_CATALOG } from '@application/ports/repository-catalog.port';
+import {
+  REPOSITORY_GIT,
+  type RepositoryGitPort,
+} from '@application/ports/repository-git.port';
 import { RUN_EVENT_READER } from '@application/ports/run-event-reader.port';
 import { RUN_JOURNAL_READER } from '@application/ports/run-journal-reader.port';
 import { RUN_READER } from '@application/ports/run-reader.port';
@@ -73,6 +83,7 @@ import { ListAssemblyLinesHandler } from '@application/queries/handlers/list-ass
 import { ListHarnessesHandler } from '@application/queries/handlers/list-harnesses.handler';
 import { ListInboxHandler } from '@application/queries/handlers/list-inbox.handler';
 import { ListKeptWorkspacesHandler } from '@application/queries/handlers/list-kept-workspaces.handler';
+import { ListRepositoriesHandler } from '@application/queries/handlers/list-repositories.handler';
 import { ListRunnersHandler } from '@application/queries/handlers/list-runners.handler';
 import { ListTaskRunsHandler } from '@application/queries/handlers/list-task-runs.handler';
 import { ListTasksHandler } from '@application/queries/handlers/list-tasks.handler';
@@ -87,6 +98,7 @@ import { ListAssemblyLinesQuery } from '@application/queries/list-assembly-lines
 import { ListHarnessesQuery } from '@application/queries/list-harnesses.query';
 import { ListInboxQuery } from '@application/queries/list-inbox.query';
 import { ListKeptWorkspacesQuery } from '@application/queries/list-kept-workspaces.query';
+import { ListRepositoriesQuery } from '@application/queries/list-repositories.query';
 import { ListRunnersQuery } from '@application/queries/list-runners.query';
 import { ListTaskRunsQuery } from '@application/queries/list-task-runs.query';
 import { ListTasksQuery } from '@application/queries/list-tasks.query';
@@ -97,14 +109,20 @@ import { ReadRunConversationQuery } from '@application/queries/read-run-conversa
 import { ReadRunEventsQuery } from '@application/queries/read-run-events.query';
 import { ReadTaskJournalQuery } from '@application/queries/read-task-journal.query';
 import { WatchRunQuery } from '@application/queries/watch-run.query';
+import { CarryGitCall } from '@application/services/carry-git-call.service';
 import { DispatchTask } from '@application/services/dispatch-task.service';
 import { TakeUpStandingWork } from '@application/services/take-up-standing-work.service';
 import { AuthenticationModule } from '@infrastructure/auth/auth.module';
 import { RunnerTokenAuth } from '@infrastructure/auth/runner-token.auth';
 import { RunnerTokenService } from '@infrastructure/auth/runner-token.service';
+import { ENV } from '@infrastructure/config/config.constants';
 import { ConfigModule } from '@infrastructure/config/config.module';
+import type { Env } from '@infrastructure/config/env.schema';
 import { bindCommandHandler } from '@infrastructure/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@infrastructure/cqrs/bind-query-handler';
+import { GitHubAppAccess } from '@infrastructure/github/github-app.access';
+import { GitHubGitTransport } from '@infrastructure/github/github-git.transport';
+import { GitHubRepositoryCatalog } from '@infrastructure/github/github-repository.catalog';
 import { CryptoIdGenerator } from '@infrastructure/identity/crypto-id.generator';
 import { LoggingModule } from '@infrastructure/logging/logging.module';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
@@ -131,9 +149,11 @@ import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { CqrsModule } from '@nestjs/cqrs';
 import { AssemblyLineController } from '@presentation/http/controllers/assembly-line.controller';
+import { GitController } from '@presentation/http/controllers/git.controller';
 import { HarnessController } from '@presentation/http/controllers/harness.controller';
 import { HealthController } from '@presentation/http/controllers/health.controller';
 import { InboxController } from '@presentation/http/controllers/inbox.controller';
+import { RepositoryController } from '@presentation/http/controllers/repository.controller';
 import { RunController } from '@presentation/http/controllers/run.controller';
 import { RunStreamController } from '@presentation/http/controllers/run-stream.controller';
 import { RunnerController } from '@presentation/http/controllers/runner.controller';
@@ -162,6 +182,8 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     HarnessController,
     InboxController,
     RunnerFleetController,
+    GitController,
+    RepositoryController,
     TaskController,
     WorkspaceController,
   ],
@@ -194,6 +216,36 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       provide: RUNNER_REVOCATION,
       inject: [DrizzleRunRepository],
       useFactory: (runs: DrizzleRunRepository) => new ReleaseHeldRuns(runs),
+    },
+
+    {
+      provide: REPOSITORY_ACCESS,
+      inject: [ENV],
+      useFactory: (env: Env) => new GitHubAppAccess(env),
+    },
+
+    {
+      provide: REPOSITORY_CATALOG,
+      inject: [REPOSITORY_ACCESS],
+      useFactory: (access: RepositoryAccessPort) =>
+        new GitHubRepositoryCatalog(access),
+    },
+
+    {
+      provide: REPOSITORY_GIT,
+      inject: [REPOSITORY_ACCESS],
+      useFactory: (access: RepositoryAccessPort) =>
+        new GitHubGitTransport(access),
+    },
+
+    {
+      provide: GIT_GATEWAY,
+      inject: [DrizzleRunRepository, DrizzleTaskRepository, REPOSITORY_GIT],
+      useFactory: (
+        runs: DrizzleRunRepository,
+        tasks: DrizzleTaskRepository,
+        git: RepositoryGitPort,
+      ) => new CarryGitCall(runs, tasks, git),
     },
 
     {
@@ -263,6 +315,9 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       DrizzleTaskRepository,
     ]),
     ...bindQueryHandler(ListHarnessesQuery, ListHarnessesHandler),
+    ...bindQueryHandler(ListRepositoriesQuery, ListRepositoriesHandler, [
+      REPOSITORY_CATALOG,
+    ]),
     ...bindQueryHandler(ListInboxQuery, ListInboxHandler, [INBOX_READER]),
     ...bindQueryHandler(ListRunnersQuery, ListRunnersHandler, [
       RUNNER_READER,

@@ -45,6 +45,7 @@ export const task = pgTable(
       onDelete: 'set null',
     }),
     awaitingReview: boolean('awaiting_review').default(false).notNull(),
+    repository: text('repository'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
       .defaultNow()

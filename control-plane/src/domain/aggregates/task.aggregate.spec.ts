@@ -32,6 +32,7 @@ const withNotes = (task: Task, ...notes: TaskNote[]) =>
     createdAt: task.createdAt,
     raisedAt: task.raisedAt,
     raisedBy: task.raisedBy,
+    repository: task.repository,
   });
 
 const added = (description?: TaskDescription) =>

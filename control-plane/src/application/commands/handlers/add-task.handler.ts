@@ -13,6 +13,7 @@ import { UnknownStationError } from '@domain/exceptions/unknown-station.error';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
+import { Repository } from '@domain/value-objects/repository.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { TaskDescription } from '@domain/value-objects/task-description.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
@@ -68,6 +69,7 @@ export class AddTaskHandler
       raisedBy,
       now: this.clock.now(),
       newId: () => this.ids.generate(),
+      repository: command.repository ? Repository.of(command.repository) : null,
     });
 
     const runId = await this.dispatch.dispatch({ task: added, line });

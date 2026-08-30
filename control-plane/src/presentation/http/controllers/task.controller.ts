@@ -274,6 +274,7 @@ export class TaskController {
         body.title,
         body.description ?? null,
         user.id,
+        body.repository ?? null,
       ),
     );
 

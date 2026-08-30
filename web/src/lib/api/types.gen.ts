@@ -373,6 +373,13 @@ export type EnrolledRunnerResponseDto = {
   token: string;
 };
 
+export type RepositoryResponseDto = {
+  /**
+   * Named the way GitHub names it, owner and all
+   */
+  fullName: string;
+};
+
 export type TaskReviewResponseDto = {
   /**
    * The inbox conversation waiting on a person
@@ -510,6 +517,10 @@ export type AddTaskRequestDto = {
    * Markdown. Left out or blank for a task with nothing said.
    */
   description?: string | null;
+  /**
+   * The codebase the work is done in, as owner/name
+   */
+  repository?: string | null;
 };
 
 export type MoveTaskRequestDto = {
@@ -1105,6 +1116,26 @@ export type RevokeRunnerResponses = {
 };
 
 export type RevokeRunnerResponse = RevokeRunnerResponses[keyof RevokeRunnerResponses];
+
+export type ListRepositoriesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/repositories';
+};
+
+export type ListRepositoriesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+};
+
+export type ListRepositoriesResponses = {
+  200: Array<RepositoryResponseDto>;
+};
+
+export type ListRepositoriesResponse = ListRepositoriesResponses[keyof ListRepositoriesResponses];
 
 export type ListTasksData = {
   body?: never;

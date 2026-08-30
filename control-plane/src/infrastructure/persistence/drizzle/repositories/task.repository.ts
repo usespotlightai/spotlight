@@ -4,6 +4,7 @@ import type {
   TaskRepository,
 } from '@domain/repositories/task.repository';
 import { HarnessSession } from '@domain/value-objects/harness-session.vo';
+import { Repository } from '@domain/value-objects/repository.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
@@ -56,6 +57,7 @@ const toTask = (row: Row, notes: NoteRow[]): Task =>
       ? StationId.of(row.raisedAtStationId)
       : null,
     raisedBy: row.raisedById ? UserId.of(row.raisedById) : null,
+    repository: row.repository ? Repository.of(row.repository) : null,
   });
 
 @Injectable()
@@ -77,6 +79,7 @@ export class DrizzleTaskRepository implements TaskRepository {
       createdAt: added.createdAt,
       raisedAtStationId: added.raisedAt?.value ?? null,
       raisedById: added.raisedBy?.value ?? null,
+      repository: added.repository?.value ?? null,
     });
 
     await this.writeNotes(added);

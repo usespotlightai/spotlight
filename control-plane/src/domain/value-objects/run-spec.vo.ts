@@ -1,7 +1,18 @@
 import { InvalidRunSpecError } from '@domain/exceptions/invalid-run-spec.error';
 
+/** The remote is where Spotlight serves it; the runner resolves it locally. */
+export interface CheckoutShape {
+  readonly remote: string;
+  readonly path?: string;
+  readonly branch?: string;
+}
+
+/** Reached through Spotlight, at whatever address the runner is listening on. */
+export const THROUGH_SPOTLIGHT = 'spotlight:repository';
+
 /** What a runner is handed to carry a run out. */
 export interface RunSpecShape {
+  readonly checkouts?: readonly CheckoutShape[];
   readonly command: {
     readonly executable: string;
     readonly args: readonly string[];

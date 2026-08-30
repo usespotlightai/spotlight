@@ -11,6 +11,7 @@ import { CLAUDE_CODE } from '@domain/value-objects/built-in-harnesses';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { HarnessSession } from '@domain/value-objects/harness-session.vo';
+import { Repository } from '@domain/value-objects/repository.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
@@ -39,7 +40,7 @@ const stations = [
   at('station_3', 'Spec', 2, CLAUDE_CODE.id),
 ];
 
-const task = (stationId: string) =>
+const task = (stationId: string, repository?: string) =>
   Task.add({
     workspaceId: WorkspaceId.of('ws_1'),
     stationId: StationId.of(stationId),
@@ -48,6 +49,7 @@ const task = (stationId: string) =>
     raisedBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
+    repository: repository ? Repository.of(repository) : null,
   });
 
 let queued: Run[] = [];
@@ -78,6 +80,30 @@ const dispatch = (station: Station, standing?: Task) =>
 describe('DispatchTask', () => {
   beforeEach(() => {
     queued = [];
+  });
+
+  describe('the codebase a run works in', () => {
+    // The runner resolves this to an address of its own. A remote that
+    // reached GitHub would need a credential written down beside it.
+    it('names the repository through Spotlight, never GitHub', async () => {
+      const station = stations[1] as Station;
+
+      await dispatch(station, task(station.id.value, 'acme/widgets'));
+
+      expect(queued[0]?.spec.value.checkouts).toEqual([
+        {
+          remote: 'spotlight:repository',
+          path: 'widgets',
+          branch: 'spotlight/task_1',
+        },
+      ]);
+    });
+
+    it('asks for no checkout where the task names no repository', async () => {
+      await dispatch(stations[1] as Station);
+
+      expect(queued[0]?.spec.value.checkouts).toBeUndefined();
+    });
   });
 
   it('queues a run for the harness the station is worked by', async () => {

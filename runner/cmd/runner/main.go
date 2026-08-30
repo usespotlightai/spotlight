@@ -105,6 +105,8 @@ func run() error {
 				PrepareHook:   cfg.PrepareHook,
 				PublishHook:   cfg.PublishHook,
 				HookTimeout:   cfg.HookTimeout,
+				ControlPlane:  cfg.URL,
+				Token:         cfg.Token,
 			}); err != nil {
 				log.Error("run failed", "run", claimed.ID, "error", err)
 			}

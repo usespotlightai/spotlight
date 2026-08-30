@@ -30,6 +30,10 @@ type Kept struct {
 	Keys []string `json:"keys"`
 }
 
+// ThroughSpotlight is the remote a run is given for its own repository. The
+// runner serves it locally, so the workspace holds nothing that opens it.
+const ThroughSpotlight = "spotlight:repository"
+
 // Checkout is one repository a run works in. A run may have several, since an
 // agent that cannot see a consumer cannot tell whether it broke it.
 type Checkout struct {

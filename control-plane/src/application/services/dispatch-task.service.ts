@@ -4,11 +4,12 @@ import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Run } from '@domain/aggregates/run.aggregate';
 import type { Task } from '@domain/aggregates/task.aggregate';
 import type { RunRepository } from '@domain/repositories/run.repository';
+import { TaskBranch } from '@domain/services/task-branch';
 import { TaskBriefing } from '@domain/services/task-briefing';
 import { harnessNamed } from '@domain/value-objects/built-in-harnesses';
 import type { RunId } from '@domain/value-objects/run-id.vo';
 import { RunId as RunIdOf } from '@domain/value-objects/run-id.vo';
-import { RunSpec } from '@domain/value-objects/run-spec.vo';
+import { RunSpec, THROUGH_SPOTLIGHT } from '@domain/value-objects/run-spec.vo';
 
 export class DispatchTask implements TaskDispatchPort {
   constructor(
@@ -47,6 +48,15 @@ export class DispatchTask implements TaskDispatchPort {
       stationId: station.id,
       targetRunner: continuity.pinnedTo,
       spec: RunSpec.of({
+        checkouts: task.repository
+          ? [
+              {
+                remote: THROUGH_SPOTLIGHT,
+                path: task.repository.name,
+                branch: TaskBranch.for(task.id.value),
+              },
+            ]
+          : undefined,
         command: harness.command.started(),
         briefing: TaskBriefing.brief({ task, line }),
         handover: { options: line.optionsFrom(station.id) },
