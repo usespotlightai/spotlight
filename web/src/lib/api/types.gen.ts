@@ -246,6 +246,10 @@ export type InboxItemResponseDto = {
    * True while a run is working it, so an answer is coming
    */
   working: boolean;
+  /**
+   * Something was asked here that they have not seen yet
+   */
+  unread: boolean;
   notes: Array<InboxMessageResponseDto>;
 };
 
@@ -346,6 +350,12 @@ export type EnrolledRunnerResponseDto = {
   token: string;
 };
 
+export type TaskPersonResponseDto = {
+  id: string;
+  name: string;
+  image: string | null;
+};
+
 export type TaskNoteResponseDto = {
   position: number;
   station: string;
@@ -369,6 +379,10 @@ export type TaskResponseDto = {
    * Waiting on a person
    */
   awaitingReview: boolean;
+  /**
+   * Who raised it, and so who it comes back to
+   */
+  raisedBy: TaskPersonResponseDto | null;
   /**
    * The last thing said about this task, and where it was said
    */
@@ -814,11 +828,11 @@ export type ListInboxResponse = ListInboxResponses[keyof ListInboxResponses];
 export type AnswerInboxItemData = {
   body: AnswerInboxItemRequestDto;
   path: {
-    taskId: string;
+    itemId: string;
     slug: string;
   };
   query?: never;
-  url: '/workspaces/{slug}/inbox/{taskId}/answer';
+  url: '/workspaces/{slug}/inbox/{itemId}/answer';
 };
 
 export type AnswerInboxItemErrors = {
@@ -826,6 +840,10 @@ export type AnswerInboxItemErrors = {
    * No valid session
    */
   401: unknown;
+  /**
+   * No such conversation for this caller
+   */
+  404: unknown;
 };
 
 export type AnswerInboxItemResponses = {
@@ -837,6 +855,36 @@ export type AnswerInboxItemResponses = {
 
 export type AnswerInboxItemResponse = AnswerInboxItemResponses[keyof AnswerInboxItemResponses];
 
+export type ReadInboxItemData = {
+  body?: never;
+  path: {
+    itemId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/{itemId}/read';
+};
+
+export type ReadInboxItemErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such conversation for this caller
+   */
+  404: unknown;
+};
+
+export type ReadInboxItemResponses = {
+  /**
+   * It is no longer unread
+   */
+  204: void;
+};
+
+export type ReadInboxItemResponse = ReadInboxItemResponses[keyof ReadInboxItemResponses];
+
 export type ReadTaskJournalData = {
   body?: never;
   path: {
@@ -844,7 +892,7 @@ export type ReadTaskJournalData = {
     slug: string;
   };
   query?: never;
-  url: '/workspaces/{slug}/inbox/{taskId}/journal';
+  url: '/workspaces/{slug}/inbox/tasks/{taskId}/journal';
 };
 
 export type ReadTaskJournalErrors = {

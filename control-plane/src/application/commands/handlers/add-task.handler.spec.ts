@@ -3,6 +3,7 @@ import { AddTaskHandler } from '@application/commands/handlers/add-task.handler'
 import { UseCaseFault } from '@application/errors/use-case.fault';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
+import type { PersonReaderPort } from '@application/ports/person-reader.port';
 import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Task } from '@domain/aggregates/task.aggregate';
@@ -95,17 +96,31 @@ const addTask = (
   command: AddTaskCommand,
   board: AssemblyLineRepository = lines(),
 ) =>
-  new AddTaskHandler(tasks(), board, ids, clock, dispatch()).execute(command);
+  new AddTaskHandler(tasks(), board, ids, clock, dispatch(), people).execute(
+    command,
+  );
 
 beforeEach(() => {
   added = undefined;
   dispatched.length = 0;
 });
 
+const raiser = { id: 'user_1', name: 'Ada', image: null };
+
+const people: PersonReaderPort = { find: async () => raiser };
+
 describe('AddTaskHandler', () => {
   it('hands back the task it added', async () => {
     await expect(
-      addTask(new AddTaskCommand('line_1', 'station_1', 'Fix the queue', null)),
+      addTask(
+        new AddTaskCommand(
+          'line_1',
+          'station_1',
+          'Fix the queue',
+          null,
+          'user_1',
+        ),
+      ),
     ).resolves.toEqual({
       id: 'task_1',
       stationId: 'station_1',
@@ -116,13 +131,20 @@ describe('AddTaskHandler', () => {
       // Dispatched the moment it was raised, so it is already being worked.
       running: true,
       awaitingReview: false,
+      raisedBy: raiser,
       note: null,
     });
   });
 
   it('takes the workspace from the line, not from the caller', async () => {
     await addTask(
-      new AddTaskCommand('line_1', 'station_1', 'Fix the queue', null),
+      new AddTaskCommand(
+        'line_1',
+        'station_1',
+        'Fix the queue',
+        null,
+        'user_1',
+      ),
     );
 
     expect(added?.workspaceId).toEqual(WorkspaceId.of('ws_1'));
@@ -130,7 +152,13 @@ describe('AddTaskHandler', () => {
 
   it('keeps a description written in markdown', async () => {
     await addTask(
-      new AddTaskCommand('line_1', 'station_1', 'Fix it', '## Steps\n\nGo.'),
+      new AddTaskCommand(
+        'line_1',
+        'station_1',
+        'Fix it',
+        '## Steps\n\nGo.',
+        'user_1',
+      ),
     );
 
     expect(added?.description?.value).toBe('## Steps\n\nGo.');
@@ -138,7 +166,13 @@ describe('AddTaskHandler', () => {
 
   it('hands the task to a runner as soon as it is raised', async () => {
     await addTask(
-      new AddTaskCommand('line_1', 'station_1', 'Fix the queue', null),
+      new AddTaskCommand(
+        'line_1',
+        'station_1',
+        'Fix the queue',
+        null,
+        'user_1',
+      ),
     );
 
     expect(dispatched).toHaveLength(1);
@@ -149,7 +183,13 @@ describe('AddTaskHandler', () => {
 
   it('holds work back at a station no runners answer for', async () => {
     await addTask(
-      new AddTaskCommand('line_1', 'station_0', 'Think about it', null),
+      new AddTaskCommand(
+        'line_1',
+        'station_0',
+        'Think about it',
+        null,
+        'user_1',
+      ),
     );
 
     expect(dispatched).toEqual([]);
@@ -158,14 +198,28 @@ describe('AddTaskHandler', () => {
 
   it('refuses a station the line does not hold', async () => {
     await expect(
-      addTask(new AddTaskCommand('line_1', 'station_missing', 'Fix it', null)),
+      addTask(
+        new AddTaskCommand(
+          'line_1',
+          'station_missing',
+          'Fix it',
+          null,
+          'user_1',
+        ),
+      ),
     ).rejects.toThrow(UseCaseFault);
   });
 
   it('refuses a line that does not exist', async () => {
     await expect(
       addTask(
-        new AddTaskCommand('line_missing', 'station_1', 'Fix it', null),
+        new AddTaskCommand(
+          'line_missing',
+          'station_1',
+          'Fix it',
+          null,
+          'user_1',
+        ),
         lines(null),
       ),
     ).rejects.toThrow(UseCaseFault);
@@ -173,7 +227,7 @@ describe('AddTaskHandler', () => {
 
   it('refuses a task with no title', async () => {
     await expect(
-      addTask(new AddTaskCommand('line_1', 'station_1', '   ', null)),
+      addTask(new AddTaskCommand('line_1', 'station_1', '   ', null, 'user_1')),
     ).rejects.toThrow(UseCaseFault);
   });
 });

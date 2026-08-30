@@ -160,6 +160,7 @@ export class TaskController {
         stationId,
         body.title,
         body.description ?? null,
+        user.id,
       ),
     );
 

@@ -1,3 +1,4 @@
+import type { PersonSummary } from '@application/ports/person-reader.port';
 import type { TeamId } from '@domain/value-objects/team-id.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
 
@@ -19,6 +20,7 @@ export interface TaskSummary {
   readonly awaitingReview: boolean;
   // The last thing said about it, which is why it is where it is.
   readonly note: TaskNoteSummary | null;
+  readonly raisedBy: PersonSummary | null;
 }
 
 export const TASK_READER = Symbol('TASK_READER');

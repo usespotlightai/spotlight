@@ -145,6 +145,12 @@ export class InboxItemResponseDto {
   })
   readonly working: boolean;
 
+  @ApiProperty({
+    example: true,
+    description: 'Something was asked here that they have not seen yet',
+  })
+  readonly unread: boolean;
+
   @ApiProperty({ type: InboxMessageResponseDto, isArray: true })
   readonly notes: readonly InboxMessageResponseDto[];
 
@@ -163,6 +169,7 @@ export class InboxItemResponseDto {
     askedAt: string,
     resolved: boolean,
     working: boolean,
+    unread: boolean,
     notes: readonly InboxMessageResponseDto[],
   ) {
     this.id = id;
@@ -179,6 +186,7 @@ export class InboxItemResponseDto {
     this.askedAt = askedAt;
     this.resolved = resolved;
     this.working = working;
+    this.unread = unread;
     this.notes = notes;
   }
 }

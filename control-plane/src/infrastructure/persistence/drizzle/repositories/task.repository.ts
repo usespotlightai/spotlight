@@ -35,6 +35,7 @@ const toNote = (row: NoteRow): TaskNote =>
     author: row.authorId ? UserId.of(row.authorId) : null,
     run: row.runId ? RunId.of(row.runId) : null,
     kind: row.kind ?? 'passed',
+    readAt: row.readAt,
   });
 
 const toTask = (row: Row, notes: NoteRow[]): Task =>
@@ -54,6 +55,7 @@ const toTask = (row: Row, notes: NoteRow[]): Task =>
     raisedAt: row.raisedAtStationId
       ? StationId.of(row.raisedAtStationId)
       : null,
+    raisedBy: row.raisedById ? UserId.of(row.raisedById) : null,
   });
 
 @Injectable()
@@ -74,6 +76,7 @@ export class DrizzleTaskRepository implements TaskRepository {
       runnerId: added.runnerId?.value ?? null,
       createdAt: added.createdAt,
       raisedAtStationId: added.raisedAt?.value ?? null,
+      raisedById: added.raisedBy?.value ?? null,
     });
 
     await this.writeNotes(added);
@@ -178,6 +181,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         authorId: note.author?.value ?? null,
         runId: note.run?.value ?? null,
         kind: note.kind,
+        readAt: note.readAt,
       })),
     );
   }

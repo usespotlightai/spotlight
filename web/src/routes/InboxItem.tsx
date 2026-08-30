@@ -7,6 +7,7 @@ import { InboxWorking } from '@/components/inbox/InboxWorking';
 import { PersonSaid } from '@/components/inbox/PersonSaid';
 import { TimeMarker } from '@/components/inbox/TimeMarker';
 import { useInbox } from '@/hooks/api/useInbox';
+import { useReadInboxItem } from '@/hooks/api/useReadInboxItem';
 import { useSession } from '@/hooks/api/useSession';
 import { useTaskJournal } from '@/hooks/api/useTaskJournal';
 import {
@@ -49,6 +50,7 @@ export function InboxItem() {
   const item = waiting?.find((each) => each.id === itemId);
   const { data: worked } = useTaskJournal(slug, item?.taskId);
   const { data: session } = useSession();
+  const read = useReadInboxItem();
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   // Someone who scrolled up to read should not be dragged back down.
@@ -100,6 +102,21 @@ export function InboxItem() {
 
     return () => grew.disconnect();
   }, [itemId]);
+
+  // Keyed by the conversation's state, not the item: an ask arriving while it
+  // is open makes it unread again.
+  const seen = useRef<string | null>(null);
+
+  useEffect(() => {
+    const at = item && `${item.id}:${item.notes.length}`;
+
+    if (!slug || !item?.unread || !at || seen.current === at) {
+      return;
+    }
+
+    seen.current = at;
+    read.mutate({ slug, itemId: item.id });
+  }, [slug, item, read.mutate]);
 
   // Near enough the foot to count as still there, in pixels.
   const CLOSE = 80;
@@ -215,7 +232,7 @@ export function InboxItem() {
           ) : (
             <InboxComposer
               slug={slug}
-              taskId={item.taskId}
+              itemId={item.id}
               station={item.station}
             />
           )}

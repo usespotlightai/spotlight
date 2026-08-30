@@ -29,9 +29,26 @@ export function InboxRow({ slug, item }: InboxRowProps) {
           color={item.stationColor}
         />
 
-        <span className="truncate font-medium text-foreground text-sm">
+        <span
+          className={cn(
+            'truncate text-sm',
+            item.unread
+              ? 'font-semibold text-foreground'
+              : 'font-medium text-muted-foreground',
+          )}
+        >
           {item.title}
         </span>
+
+        {item.unread && (
+          <>
+            <span className="sr-only">Unread</span>
+            <span
+              aria-hidden
+              className="size-1.5 shrink-0 rounded-full bg-primary"
+            />
+          </>
+        )}
 
         <time
           dateTime={item.askedAt}

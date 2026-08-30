@@ -4,7 +4,7 @@ import { answerInboxItem } from '@/lib/api';
 
 type AnswerInboxItemInput = {
   slug: string;
-  taskId: string;
+  itemId: string;
   body: string;
 };
 
@@ -12,9 +12,9 @@ export function useAnswerInboxItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ slug, taskId, body }: AnswerInboxItemInput) => {
+    mutationFn: async ({ slug, itemId, body }: AnswerInboxItemInput) => {
       await answerInboxItem({
-        path: { slug, taskId },
+        path: { slug, itemId },
         body: { body },
         throwOnError: true,
       });

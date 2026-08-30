@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddTaskData, AddTaskErrors, AddTaskResponses, AnswerInboxItemData, AnswerInboxItemErrors, AnswerInboxItemResponses, AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, CustomiseStationData, CustomiseStationErrors, CustomiseStationResponses, DeleteTaskData, DeleteTaskErrors, DeleteTaskResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, EnrolRunnerData, EnrolRunnerErrors, EnrolRunnerResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, InstallableHarnessesData, InstallableHarnessesErrors, InstallableHarnessesResponses, KeptWorkspacesData, KeptWorkspacesErrors, KeptWorkspacesResponses, ListAssemblyLinesData, ListAssemblyLinesErrors, ListAssemblyLinesResponses, ListHarnessesData, ListHarnessesErrors, ListHarnessesResponses, ListInboxData, ListInboxErrors, ListInboxResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListTaskRunsData, ListTaskRunsErrors, ListTaskRunsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, MoveTaskData, MoveTaskErrors, MoveTaskResponses, ReadTaskJournalData, ReadTaskJournalErrors, ReadTaskJournalResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, ReorderStationsData, ReorderStationsErrors, ReorderStationsResponses, RevokeRunnerData, RevokeRunnerErrors, RevokeRunnerResponses, StreamRunData, StreamRunErrors, StreamRunResponses } from './types.gen';
+import type { AddTaskData, AddTaskErrors, AddTaskResponses, AnswerInboxItemData, AnswerInboxItemErrors, AnswerInboxItemResponses, AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, CustomiseStationData, CustomiseStationErrors, CustomiseStationResponses, DeleteTaskData, DeleteTaskErrors, DeleteTaskResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, EnrolRunnerData, EnrolRunnerErrors, EnrolRunnerResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, InstallableHarnessesData, InstallableHarnessesErrors, InstallableHarnessesResponses, KeptWorkspacesData, KeptWorkspacesErrors, KeptWorkspacesResponses, ListAssemblyLinesData, ListAssemblyLinesErrors, ListAssemblyLinesResponses, ListHarnessesData, ListHarnessesErrors, ListHarnessesResponses, ListInboxData, ListInboxErrors, ListInboxResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListTaskRunsData, ListTaskRunsErrors, ListTaskRunsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, MoveTaskData, MoveTaskErrors, MoveTaskResponses, ReadInboxItemData, ReadInboxItemErrors, ReadInboxItemResponses, ReadTaskJournalData, ReadTaskJournalErrors, ReadTaskJournalResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, ReorderStationsData, ReorderStationsErrors, ReorderStationsResponses, RevokeRunnerData, RevokeRunnerErrors, RevokeRunnerResponses, StreamRunData, StreamRunErrors, StreamRunResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -143,10 +143,10 @@ export const listHarnesses = <ThrowOnError extends boolean = false>(options?: Op
 export const listInbox = <ThrowOnError extends boolean = false>(options: Options<ListInboxData, ThrowOnError>): RequestResult<ListInboxResponses, ListInboxErrors, ThrowOnError> => (options.client ?? client).get<ListInboxResponses, ListInboxErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox', ...options });
 
 /**
- * Answer what a task is waiting on, and let the work carry on
+ * Answer what a conversation is waiting on, and let it carry on
  */
 export const answerInboxItem = <ThrowOnError extends boolean = false>(options: Options<AnswerInboxItemData, ThrowOnError>): RequestResult<AnswerInboxItemResponses, AnswerInboxItemErrors, ThrowOnError> => (options.client ?? client).post<AnswerInboxItemResponses, AnswerInboxItemErrors, ThrowOnError>({
-  url: '/workspaces/{slug}/inbox/{taskId}/answer',
+  url: '/workspaces/{slug}/inbox/{itemId}/answer',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -155,9 +155,14 @@ export const answerInboxItem = <ThrowOnError extends boolean = false>(options: O
 });
 
 /**
+ * Mark what was put to a person as seen
+ */
+export const readInboxItem = <ThrowOnError extends boolean = false>(options: Options<ReadInboxItemData, ThrowOnError>): RequestResult<ReadInboxItemResponses, ReadInboxItemErrors, ThrowOnError> => (options.client ?? client).post<ReadInboxItemResponses, ReadInboxItemErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/{itemId}/read', ...options });
+
+/**
  * What each run did to arrive at what it said
  */
-export const readTaskJournal = <ThrowOnError extends boolean = false>(options: Options<ReadTaskJournalData, ThrowOnError>): RequestResult<ReadTaskJournalResponses, ReadTaskJournalErrors, ThrowOnError> => (options.client ?? client).get<ReadTaskJournalResponses, ReadTaskJournalErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/{taskId}/journal', ...options });
+export const readTaskJournal = <ThrowOnError extends boolean = false>(options: Options<ReadTaskJournalData, ThrowOnError>): RequestResult<ReadTaskJournalResponses, ReadTaskJournalErrors, ThrowOnError> => (options.client ?? client).get<ReadTaskJournalResponses, ReadTaskJournalErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/tasks/{taskId}/journal', ...options });
 
 /**
  * List every runner and whether it is still answering

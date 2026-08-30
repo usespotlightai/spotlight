@@ -1,6 +1,7 @@
 import { InvalidTaskTransitionError } from '@domain/exceptions/invalid-task-transition.error';
 import { ContinuityKey } from '@domain/services/continuity-key';
 import { type Stretch, stretchesOf } from '@domain/services/stretches';
+import { anyUnread } from '@domain/services/unread';
 import { Continuity } from '@domain/value-objects/continuity.vo';
 import type { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import type { RunId } from '@domain/value-objects/run-id.vo';
@@ -51,6 +52,7 @@ export class Task {
     readonly createdAt: Date,
     // Where it was raised, which it keeps as it moves.
     readonly raisedAt: StationId | null,
+    readonly raisedBy: UserId | null,
   ) {}
 
   static add(input: {
@@ -59,6 +61,7 @@ export class Task {
     title: TaskTitle;
     description?: TaskDescription | null;
     rank: TaskRank;
+    raisedBy: UserId;
     now: Date;
     newId: () => string;
   }): Task {
@@ -76,6 +79,7 @@ export class Task {
       [],
       input.now,
       input.stationId,
+      input.raisedBy,
     );
   }
 
@@ -93,6 +97,7 @@ export class Task {
     notes: readonly TaskNote[];
     createdAt: Date;
     raisedAt: StationId | null;
+    raisedBy: UserId | null;
   }): Task {
     return new Task(
       input.id,
@@ -108,6 +113,7 @@ export class Task {
       input.notes,
       input.createdAt,
       input.raisedAt,
+      input.raisedBy,
     );
   }
 
@@ -178,6 +184,40 @@ export class Task {
     return last && last.to === null ? last : null;
   }
 
+  raisedByThem(userId: UserId): boolean {
+    return this.raisedBy?.equals(userId) ?? false;
+  }
+
+  unreadFrom(from: number): boolean {
+    return anyUnread(this.within(from));
+  }
+
+  /** A stretch is read whole: it is one conversation. */
+  read(from: number, at: Date): Task {
+    const read = new Set(this.within(from));
+
+    return this.with({
+      notes: this.notes.map((note) => (read.has(note) ? note.read(at) : note)),
+    });
+  }
+
+  private within(from: number): readonly TaskNote[] {
+    const stretch = stretchesOf(this.notes.map((each) => each.kind)).find(
+      (each) => each.from === from,
+    );
+
+    if (!stretch) {
+      throw new InvalidTaskTransitionError(
+        'was not put to anyone there, so there is nothing to read',
+      );
+    }
+
+    return this.notes.slice(
+      stretch.from,
+      stretch.to === null ? undefined : stretch.to + 1,
+    );
+  }
+
   /** Put to a person, who holds it from here until it moves on. */
   askedAbout(saying: Saying): Task {
     if (this.awaitingReview) {
@@ -194,13 +234,13 @@ export class Task {
   }
 
   /**
-   * Answered, so it can be worked again. It stays where it is, which is what
-   * lets the run that follows take the conversation up.
+   * Answered, so it can be worked again. It stays where it is, which lets the
+   * run that follows take the conversation up.
    */
-  answered(saying: Saying): Task {
-    if (!this.owed) {
+  answered(from: number, saying: Saying): Task {
+    if (this.owed?.from !== from) {
       throw new InvalidTaskTransitionError(
-        'was not put to anyone, so there is nothing to answer',
+        'is not waiting on anyone there, so there is nothing to answer',
       );
     }
 
@@ -262,6 +302,7 @@ export class Task {
       part.notes ?? this.notes,
       this.createdAt,
       this.raisedAt,
+      this.raisedBy,
     );
   }
 

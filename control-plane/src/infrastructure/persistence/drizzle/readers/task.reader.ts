@@ -11,6 +11,7 @@ import {
   assemblyLine,
   station,
 } from '@infrastructure/persistence/drizzle/schemas/assembly-line.schema';
+import { user } from '@infrastructure/persistence/drizzle/schemas/auth.schema';
 import { factory } from '@infrastructure/persistence/drizzle/schemas/factory.schema';
 import {
   task,
@@ -57,21 +58,34 @@ export class DrizzleTaskReader implements TaskReaderPort {
         createdAt: task.createdAt,
         currentRunId: task.currentRunId,
         awaitingReview: task.awaitingReview,
+        raisedById: user.id,
+        raisedByName: user.name,
+        raisedByImage: user.image,
       })
       .from(task)
       .innerJoin(station, eq(station.id, task.stationId))
       .innerJoin(assemblyLine, eq(assemblyLine.id, station.assemblyLineId))
       .innerJoin(factory, eq(factory.id, assemblyLine.factoryId))
+      .leftJoin(user, eq(user.id, task.raisedById))
       .where(eq(factory.teamId, teamId.value))
       .orderBy(task.rank);
 
     const notes = await this.latestNotes(rows.map((row) => row.id));
 
-    return rows.map(({ currentRunId, ...rest }) => ({
-      ...rest,
-      running: currentRunId !== null,
-      note: notes.get(rest.id) ?? null,
-    }));
+    return rows.map(
+      ({ currentRunId, raisedById, raisedByName, raisedByImage, ...rest }) => ({
+        ...rest,
+        running: currentRunId !== null,
+        raisedBy: raisedById
+          ? {
+              id: raisedById,
+              name: raisedByName ?? '',
+              image: raisedByImage,
+            }
+          : null,
+        note: notes.get(rest.id) ?? null,
+      }),
+    );
   }
 
   // Newest first, so the first one seen for a task is the one that stands.

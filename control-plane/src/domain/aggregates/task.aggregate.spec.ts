@@ -10,6 +10,7 @@ import { TaskNote } from '@domain/value-objects/task-note.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
+import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -20,6 +21,7 @@ const added = (description?: TaskDescription) =>
     title: TaskTitle.of('Fix the queue'),
     description,
     rank: TaskRank.of('i'),
+    raisedBy: UserId.of('user_1'),
     now: new Date('2026-08-27T09:15:00.000Z'),
     newId: () => 'task_1',
   });
@@ -158,6 +160,7 @@ describe('Task, what it is doing', () => {
       stationId: StationId.of('station_1'),
       title: TaskTitle.of('Fix the queue'),
       rank: TaskRank.of('i'),
+      raisedBy: UserId.of('user_1'),
       now: new Date('2026-08-28T12:00:00.000Z'),
       newId: () => 'task_1',
     });
@@ -258,7 +261,7 @@ describe('Task, what it is doing', () => {
       const answered = added()
         .workedIn(session, runner)
         .askedAbout(saying)
-        .answered(saying);
+        .answered(0, saying);
 
       expect(answered.awaitingReview).toBe(false);
       expect(answered.sessionId).toEqual(session);
@@ -289,7 +292,7 @@ describe('Task, what it is doing', () => {
     });
 
     it('still owes it after an answer', () => {
-      const asked = added().askedAbout(saying).answered(saying);
+      const asked = added().askedAbout(saying).answered(0, saying);
 
       expect(asked.owed).not.toBeNull();
     });
@@ -303,9 +306,71 @@ describe('Task, what it is doing', () => {
     });
 
     it('refuses an answer to something nobody was asked', () => {
-      expect(() => added().answered(saying)).toThrow(
+      expect(() => added().answered(0, saying)).toThrow(
         InvalidTaskTransitionError,
       );
+    });
+  });
+
+  describe('who it belongs to', () => {
+    it('comes back to whoever raised it', () => {
+      expect(added().raisedByThem(UserId.of('user_1'))).toBe(true);
+    });
+
+    it('belongs to nobody else, however much of the workspace they see', () => {
+      expect(added().raisedByThem(UserId.of('user_2'))).toBe(false);
+    });
+  });
+
+  describe('reading what was put to a person', () => {
+    const READ = new Date('2026-08-29T12:30:00.000Z');
+    const asked = () => added().askedAbout(saying);
+
+    it('leaves an ask unread until the person opens it', () => {
+      expect(asked().notes[0]?.unread).toBe(true);
+    });
+
+    it('marks it read when they do', () => {
+      expect(asked().read(0, READ).notes[0]?.readAt).toEqual(READ);
+    });
+
+    it('says a conversation holds something unseen, until it is read', () => {
+      expect(asked().unreadFrom(0)).toBe(true);
+      expect(asked().read(0, READ).unreadFrom(0)).toBe(false);
+    });
+
+    it('leaves what was already read when it was first read', () => {
+      const read = asked().read(0, READ);
+
+      expect(
+        read.read(0, new Date('2026-08-29T13:00:00.000Z')).notes[0]?.readAt,
+      ).toEqual(READ);
+    });
+
+    it('reads the whole conversation, not only the note it opens with', () => {
+      const carried = asked()
+        .answered(0, { ...saying, author: UserId.of('user_1') })
+        .askedAbout(saying)
+        .read(0, READ);
+
+      expect(carried.notes.map((note) => note.unread)).toEqual([
+        false,
+        false,
+        false,
+      ]);
+    });
+
+    it('is unread again when the station asks something new', () => {
+      const again = asked()
+        .read(0, READ)
+        .answered(0, { ...saying, author: UserId.of('user_1') })
+        .askedAbout(saying);
+
+      expect(again.notes[2]?.unread).toBe(true);
+    });
+
+    it('will not read a conversation that does not begin there', () => {
+      expect(() => asked().read(1, READ)).toThrow(InvalidTaskTransitionError);
     });
   });
 
@@ -329,6 +394,18 @@ describe('Task, what it is doing', () => {
       expect(() =>
         added().passedTo(StationId.of('station_1'), TaskRank.of('m'), saying),
       ).toThrow(InvalidTaskTransitionError);
+    });
+
+    it('will not answer a conversation that has already closed', () => {
+      const carried = added()
+        .askedAbout(saying)
+        .passedTo(StationId.of('station_2'), TaskRank.of('m'), saying)
+        .askedAbout(saying);
+
+      expect(() => carried.answered(0, saying)).toThrow(
+        InvalidTaskTransitionError,
+      );
+      expect(carried.answered(2, saying).notes).toHaveLength(4);
     });
 
     it('will not be moved to the station it already stands at', () => {

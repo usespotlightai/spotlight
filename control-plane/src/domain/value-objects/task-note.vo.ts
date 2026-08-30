@@ -1,3 +1,4 @@
+import { unread } from '@domain/services/unread';
 import type { RunId } from '@domain/value-objects/run-id.vo';
 import type { StationName } from '@domain/value-objects/station-name.vo';
 import type { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
@@ -19,6 +20,7 @@ export class TaskNote {
     readonly run: RunId | null,
     // An 'asked' opens a stretch a person owns; a 'passed' closes it.
     readonly kind: TaskNoteKind,
+    readonly readAt: Date | null,
   ) {}
 
   static of(input: {
@@ -28,6 +30,7 @@ export class TaskNote {
     author?: UserId | null;
     run?: RunId | null;
     kind?: TaskNoteKind;
+    readAt?: Date | null;
   }): TaskNote {
     return new TaskNote(
       input.station,
@@ -36,6 +39,25 @@ export class TaskNote {
       input.author ?? null,
       input.run ?? null,
       input.kind ?? 'passed',
+      input.readAt ?? null,
     );
+  }
+
+  get unread(): boolean {
+    return unread(this);
+  }
+
+  read(at: Date): TaskNote {
+    return this.unread
+      ? new TaskNote(
+          this.station,
+          this.body,
+          this.at,
+          this.author,
+          this.run,
+          this.kind,
+          at,
+        )
+      : this;
   }
 }

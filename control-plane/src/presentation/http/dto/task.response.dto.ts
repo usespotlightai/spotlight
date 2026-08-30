@@ -17,6 +17,27 @@ export class TaskNoteResponseDto {
   }
 }
 
+export class TaskPersonResponseDto {
+  @ApiProperty({ example: 'f2b1c9d4-3e57-4a80-9c62-1d8e5f0a7b34' })
+  readonly id: string;
+
+  @ApiProperty({ example: 'Ada Lovelace' })
+  readonly name: string;
+
+  @ApiProperty({
+    example: 'https://example.com/ada.png',
+    nullable: true,
+    type: String,
+  })
+  readonly image: string | null;
+
+  constructor(id: string, name: string, image: string | null) {
+    this.id = id;
+    this.name = name;
+    this.image = image;
+  }
+}
+
 export class TaskResponseDto {
   @ApiProperty({ example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13' })
   readonly id: string;
@@ -45,6 +66,13 @@ export class TaskResponseDto {
   readonly awaitingReview: boolean;
 
   @ApiProperty({
+    type: TaskPersonResponseDto,
+    nullable: true,
+    description: 'Who raised it, and so who it comes back to',
+  })
+  readonly raisedBy: TaskPersonResponseDto | null;
+
+  @ApiProperty({
     type: TaskNoteResponseDto,
     nullable: true,
     description: 'The last thing said about this task, and where it was said',
@@ -59,6 +87,7 @@ export class TaskResponseDto {
     createdAt: string,
     running: boolean,
     awaitingReview: boolean,
+    raisedBy: TaskPersonResponseDto | null,
     note: TaskNoteResponseDto | null,
   ) {
     this.id = id;
@@ -68,6 +97,7 @@ export class TaskResponseDto {
     this.createdAt = createdAt;
     this.running = running;
     this.awaitingReview = awaitingReview;
+    this.raisedBy = raisedBy;
     this.note = note;
   }
 }

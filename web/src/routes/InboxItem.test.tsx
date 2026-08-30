@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InboxItem } from '@/routes/InboxItem';
 
 const answer = vi.fn();
+const read = vi.fn();
 const waiting = vi.fn();
 const viewer = vi.fn();
 const journal = vi.fn();
@@ -24,6 +25,10 @@ vi.mock('@/hooks/api/useTaskJournal', () => ({
 
 vi.mock('@/hooks/api/useAnswerInboxItem', () => ({
   useAnswerInboxItem: () => ({ mutate: answer, isPending: false }),
+}));
+
+vi.mock('@/hooks/api/useReadInboxItem', () => ({
+  useReadInboxItem: () => ({ mutate: read }),
 }));
 
 const message = (over: Record<string, unknown> = {}) => ({
@@ -59,6 +64,7 @@ const item = (notes: unknown[], description: string | null = null) => [
     askedAt: '2026-08-29T12:00:00.000Z',
     resolved: false,
     working: false,
+    unread: false,
     notes,
   },
 ];
@@ -86,6 +92,7 @@ function Switch({ to }: { to: string }) {
 describe('InboxItem', () => {
   beforeEach(() => {
     answer.mockClear();
+    read.mockClear();
     waiting.mockReturnValue(item([message()]));
     viewer.mockReturnValue({ user: { id: 'user_2' } });
     journal.mockReturnValue([]);
@@ -388,6 +395,41 @@ describe('InboxItem', () => {
     expect(screen.queryByText(/is working/)).not.toBeInTheDocument();
   });
 
+  it('marks what was put to you as read on opening it', () => {
+    waiting.mockReturnValue(
+      item([message()]).map((each) => ({ ...each, unread: true })),
+    );
+
+    renderItem();
+
+    expect(read).toHaveBeenCalledWith({ slug: 'acme', itemId: 'task_1:0' });
+  });
+
+  it('leaves what has already been read alone', () => {
+    renderItem();
+
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it('reads the conversation it opens with, not the task', () => {
+    waiting.mockReturnValue(
+      item([
+        message({ position: 4 }),
+        message({ position: 5, body: 'And this.' }),
+      ]).map((each) => ({ ...each, id: 'task_1:4', unread: true })),
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/w/acme/inbox/task_1:4']}>
+        <Routes>
+          <Route path="/w/:slug/inbox/:itemId" element={<InboxItem />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(read).toHaveBeenCalledWith({ slug: 'acme', itemId: 'task_1:4' });
+  });
+
   it('sends what was typed', async () => {
     const person = userEvent.setup();
     renderItem();
@@ -399,7 +441,7 @@ describe('InboxItem', () => {
     await person.click(screen.getByRole('button', { name: 'Send' }));
 
     expect(answer).toHaveBeenCalledWith(
-      { slug: 'acme', taskId: 'task_1', body: 'The retry queue.' },
+      { slug: 'acme', itemId: 'task_1:0', body: 'The retry queue.' },
       expect.anything(),
     );
   });

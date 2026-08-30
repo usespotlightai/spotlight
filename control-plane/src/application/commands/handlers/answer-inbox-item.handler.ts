@@ -1,4 +1,4 @@
-import type { AnswerTaskCommand } from '@application/commands/answer-task.command';
+import type { AnswerInboxItemCommand } from '@application/commands/answer-inbox-item.command';
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
@@ -8,7 +8,7 @@ import { UnknownTaskError } from '@domain/exceptions/unknown-task.error';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { StationName } from '@domain/value-objects/station-name.vo';
-import { TaskId } from '@domain/value-objects/task-id.vo';
+import { StretchId } from '@domain/value-objects/stretch-id.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 
@@ -16,8 +16,8 @@ import { UserId } from '@domain/value-objects/user-id.vo';
  * A person answers, and the work carries on: the answer joins the trail and a
  * run picks it up at the same station, taking up the same conversation.
  */
-export class AnswerTaskHandler
-  implements CommandHandlerPort<AnswerTaskCommand, void>
+export class AnswerInboxItemHandler
+  implements CommandHandlerPort<AnswerInboxItemCommand, void>
 {
   constructor(
     private readonly tasks: TaskRepository,
@@ -27,19 +27,20 @@ export class AnswerTaskHandler
     private readonly clock: ClockPort,
   ) {}
 
-  async execute(command: AnswerTaskCommand): Promise<void> {
+  async execute(command: AnswerInboxItemCommand): Promise<void> {
     try {
       await this.transaction.run(async () => {
-        const task = await this.tasks.find(TaskId.of(command.taskId));
+        const item = StretchId.parse(command.itemId);
+        const task = await this.tasks.find(item.taskId);
 
-        if (!task) {
-          throw new UnknownTaskError(command.taskId);
+        if (!task?.raisedByThem(UserId.of(command.answeredBy))) {
+          throw new UnknownTaskError(item.taskId.value);
         }
 
         const line = await this.lines.holding(task.stationId);
         const station = line?.stationAt(task.stationId);
 
-        const answered = task.answered({
+        const answered = task.answered(item.from, {
           station: station?.name ?? StationName.of('Unknown'),
           body: TaskNoteBody.of(command.body),
           at: this.clock.now(),

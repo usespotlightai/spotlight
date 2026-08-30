@@ -20,6 +20,7 @@ export interface InboxNote {
   readonly body: string;
   readonly at: Date;
   readonly author: InboxAuthor | null;
+  readonly readAt: Date | null;
 }
 
 export interface InboxRaisedAt {
@@ -45,6 +46,7 @@ export interface InboxItemSummary {
   readonly askedAt: Date;
   readonly resolved: boolean;
   readonly working: boolean;
+  readonly unread: boolean;
   // Oldest first: the story, ending with what it is waiting on.
   readonly notes: readonly InboxNote[];
 }
@@ -52,7 +54,7 @@ export interface InboxItemSummary {
 export const INBOX_READER = Symbol('INBOX_READER');
 
 export interface InboxReaderPort {
-  /** Newest first, including what they have already answered. */
+  /** Theirs alone, newest first, answered ones included. */
   listForWorkspaceMember(
     slug: WorkspaceSlug,
     userId: UserId,

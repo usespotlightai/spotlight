@@ -31,6 +31,10 @@ export const task = pgTable(
       () => station.id,
       { onDelete: 'set null' },
     ),
+    // Set null rather than cascading: the task outlives the person leaving.
+    raisedById: text('raised_by_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
     currentRunId: text('current_run_id'),
     // What the harness called the conversation this task was last worked in.
     // Opaque here: it is handed back to a harness, never read.
@@ -73,6 +77,7 @@ export const taskNote = pgTable(
     // What it did to the task. An 'asked' opens a stretch a person owns; a
     // 'passed' closes it. The inbox is made of those stretches.
     kind: text('kind').$type<'asked' | 'passed' | 'answered'>(),
+    readAt: timestamp('read_at'),
   },
   (table) => [
     primaryKey({ columns: [table.taskId, table.position] }),

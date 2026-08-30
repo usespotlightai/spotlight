@@ -2,6 +2,7 @@ import { MoveTaskHandler } from '@application/commands/handlers/move-task.handle
 import { MoveTaskCommand } from '@application/commands/move-task.command';
 import { UseCaseFault } from '@application/errors/use-case.fault';
 import type { ClockPort } from '@application/ports/clock.port';
+import type { PersonReaderPort } from '@application/ports/person-reader.port';
 import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
@@ -20,6 +21,7 @@ import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
+import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -52,6 +54,7 @@ const standing = (stationId = 'station_2') =>
     stationId: StationId.of(stationId),
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.of('i'),
+    raisedBy: UserId.of('user_1'),
     now: new Date('2026-08-27T09:15:00.000Z'),
     newId: () => 'task_1',
   });
@@ -101,14 +104,23 @@ const clock: ClockPort = {
   sleep: async () => {},
 };
 
+const people: PersonReaderPort = {
+  find: async () => ({ id: 'user_1', name: 'Ada', image: null }),
+};
+
 const move = (
   stationId: string,
   board: AssemblyLineRepository = lines(),
   held: TaskRepository = tasks(),
 ) =>
-  new MoveTaskHandler(held, board, transaction, dispatch(), clock).execute(
-    new MoveTaskCommand('line_1', 'task_1', stationId, null),
-  );
+  new MoveTaskHandler(
+    held,
+    board,
+    transaction,
+    dispatch(),
+    clock,
+    people,
+  ).execute(new MoveTaskCommand('line_1', 'task_1', stationId, null));
 
 beforeEach(() => {
   saved = undefined;
@@ -116,6 +128,12 @@ beforeEach(() => {
 });
 
 describe('MoveTaskHandler', () => {
+  it('answers with the person who raised it, not with nobody', async () => {
+    await expect(move('station_2')).resolves.toMatchObject({
+      raisedBy: { id: 'user_1', name: 'Ada', image: null },
+    });
+  });
+
   it('stands the task at the station it was moved to', async () => {
     await move('station_1');
 

@@ -1,4 +1,4 @@
-import type { TaskDto } from '@application/dto/task.dto';
+import type { TaskDto, TaskPersonDto } from '@application/dto/task.dto';
 import type { TaskSummary } from '@application/ports/task-reader.port';
 import type { Task } from '@domain/aggregates/task.aggregate';
 
@@ -12,6 +12,7 @@ export const TaskMapper = {
       createdAt: summary.createdAt.toISOString(),
       running: summary.running,
       awaitingReview: summary.awaitingReview,
+      raisedBy: summary.raisedBy,
       note: summary.note
         ? {
             position: summary.note.position,
@@ -22,7 +23,8 @@ export const TaskMapper = {
     };
   },
 
-  taskToDto(task: Task): TaskDto {
+  /** The aggregate holds only an identity, so the caller resolves the rest. */
+  taskToDto(task: Task, raisedBy: TaskPersonDto | null): TaskDto {
     const last = task.notes[task.notes.length - 1];
 
     return {
@@ -33,6 +35,7 @@ export const TaskMapper = {
       createdAt: task.createdAt.toISOString(),
       running: task.running,
       awaitingReview: task.awaitingReview,
+      raisedBy,
       note: last
         ? {
             position: task.notes.length - 1,

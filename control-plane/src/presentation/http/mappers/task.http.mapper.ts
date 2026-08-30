@@ -1,6 +1,7 @@
 import type { TaskDto } from '@application/dto/task.dto';
 import {
   TaskNoteResponseDto,
+  TaskPersonResponseDto,
   TaskResponseDto,
 } from '@presentation/http/dto/task.response.dto';
 
@@ -14,6 +15,13 @@ export const TaskHttpMapper = {
       dto.createdAt,
       dto.running,
       dto.awaitingReview,
+      dto.raisedBy
+        ? new TaskPersonResponseDto(
+            dto.raisedBy.id,
+            dto.raisedBy.name,
+            dto.raisedBy.image,
+          )
+        : null,
       dto.note
         ? new TaskNoteResponseDto(
             dto.note.position,

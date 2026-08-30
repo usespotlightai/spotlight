@@ -1,5 +1,5 @@
-import { AnswerTaskCommand } from '@application/commands/answer-task.command';
-import { AnswerTaskHandler } from '@application/commands/handlers/answer-task.handler';
+import { AnswerInboxItemCommand } from '@application/commands/answer-inbox-item.command';
+import { AnswerInboxItemHandler } from '@application/commands/handlers/answer-inbox-item.handler';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
@@ -19,6 +19,7 @@ import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
+import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -50,6 +51,7 @@ const waiting = () =>
     stationId: StationId.of('station_1'),
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.of('i'),
+    raisedBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
   }).askedAbout({
@@ -85,15 +87,15 @@ const dispatch: TaskDispatchPort = {
 };
 
 const answer = (found: Task) =>
-  new AnswerTaskHandler(
+  new AnswerInboxItemHandler(
     tasks(found),
     lines(),
     dispatch,
     transaction,
     clock,
-  ).execute(new AnswerTaskCommand('task_1', 'user_1', 'Cap it at 500.'));
+  ).execute(new AnswerInboxItemCommand('task_1:0', 'user_1', 'Cap it at 500.'));
 
-describe('AnswerTask', () => {
+describe('AnswerInboxItem', () => {
   beforeEach(() => {
     saved = undefined;
   });
@@ -128,6 +130,7 @@ describe('AnswerTask', () => {
       stationId: StationId.of('station_1'),
       title: TaskTitle.of('Fix the queue'),
       rank: TaskRank.of('i'),
+      raisedBy: UserId.of('user_1'),
       now: NOW,
       newId: () => 'task_1',
     });

@@ -5,6 +5,12 @@ export interface TaskNoteDto {
   readonly body: string;
 }
 
+export interface TaskPersonDto {
+  readonly id: string;
+  readonly name: string;
+  readonly image: string | null;
+}
+
 export interface TaskDto {
   readonly id: string;
   readonly stationId: string;
@@ -14,4 +20,5 @@ export interface TaskDto {
   readonly running: boolean;
   readonly awaitingReview: boolean;
   readonly note: TaskNoteDto | null;
+  readonly raisedBy: TaskPersonDto | null;
 }

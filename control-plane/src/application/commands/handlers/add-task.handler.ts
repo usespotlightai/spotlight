@@ -5,6 +5,7 @@ import { TaskMapper } from '@application/mappers/task.mapper';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
+import type { PersonReaderPort } from '@application/ports/person-reader.port';
 import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { UnknownAssemblyLineError } from '@domain/exceptions/unknown-assembly-line.error';
@@ -16,6 +17,7 @@ import { StationId } from '@domain/value-objects/station-id.vo';
 import { TaskDescription } from '@domain/value-objects/task-description.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
+import { UserId } from '@domain/value-objects/user-id.vo';
 
 export class AddTaskHandler
   implements CommandHandlerPort<AddTaskCommand, TaskDto>
@@ -26,6 +28,7 @@ export class AddTaskHandler
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly dispatch: TaskDispatchPort,
+    private readonly people: PersonReaderPort,
   ) {}
 
   async execute(command: AddTaskCommand): Promise<TaskDto> {
@@ -38,6 +41,7 @@ export class AddTaskHandler
 
   private async addTask(command: AddTaskCommand): Promise<TaskDto> {
     const stationId = StationId.of(command.stationId);
+    const raisedBy = UserId.of(command.raisedBy);
 
     const line = await this.lines.find(AssemblyLineId.of(command.lineId));
 
@@ -61,6 +65,7 @@ export class AddTaskHandler
         ? TaskDescription.of(command.description)
         : null,
       rank: TaskRank.between(last ? last.rank : null, null),
+      raisedBy,
       now: this.clock.now(),
       newId: () => this.ids.generate(),
     });
@@ -70,6 +75,6 @@ export class AddTaskHandler
 
     await this.tasks.add(raised);
 
-    return TaskMapper.taskToDto(raised);
+    return TaskMapper.taskToDto(raised, await this.people.find(raisedBy));
   }
 }

@@ -38,5 +38,6 @@ export interface InboxItemDto {
   readonly askedAt: string;
   readonly resolved: boolean;
   readonly working: boolean;
+  readonly unread: boolean;
   readonly notes: readonly InboxMessageDto[];
 }

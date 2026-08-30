@@ -14,6 +14,7 @@ import { TaskNote } from '@domain/value-objects/task-note.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
+import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -46,6 +47,7 @@ const task = (stationId: string, description?: TaskDescription) =>
     title: TaskTitle.of('Fix the queue'),
     description,
     rank: TaskRank.of('i'),
+    raisedBy: UserId.of('user_1'),
     now: new Date('2026-08-28T09:15:00.000Z'),
     newId: () => 'task_1',
   });

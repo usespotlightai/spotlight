@@ -2,6 +2,7 @@ import { useNavigate, useParams } from 'react-router';
 import { StationSelect } from '@/components/board/StationSelect';
 import { TaskActions } from '@/components/board/TaskActions';
 import { InitialAvatar } from '@/components/common/avatar/InitialAvatar';
+import { PersonAvatar } from '@/components/common/avatar/PersonAvatar';
 import { MarkdownEditor } from '@/components/common/form/MarkdownEditor';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -123,8 +124,8 @@ export function Task() {
           </main>
 
           <aside className="sticky top-8 hidden w-56 shrink-0 flex-col gap-4 self-start lg:flex">
-            <section className="flex flex-col gap-1.5">
-              <h2 className="px-2 font-medium text-muted-foreground text-xs">
+            <section className="flex flex-col">
+              <h2 className="px-2 pb-1.5 font-medium text-muted-foreground text-xs">
                 Properties
               </h2>
 
@@ -143,6 +144,19 @@ export function Task() {
                     })
                   }
                 />
+              )}
+
+              {task.raisedBy && (
+                <div className="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-sm">
+                  <PersonAvatar
+                    person={task.raisedBy}
+                    className="size-4 data-[size=sm]:size-4"
+                  />
+
+                  <span className="truncate text-foreground">
+                    {task.raisedBy.name}
+                  </span>
+                </div>
               )}
             </section>
           </aside>

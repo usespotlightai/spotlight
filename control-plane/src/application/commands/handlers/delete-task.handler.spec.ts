@@ -7,6 +7,7 @@ import { StationId } from '@domain/value-objects/station-id.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
+import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -16,6 +17,7 @@ const standing = () =>
     stationId: StationId.of('station_1'),
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.of('i'),
+    raisedBy: UserId.of('user_1'),
     now: new Date('2026-08-28T09:15:00.000Z'),
     newId: () => 'task_1',
   });

@@ -4,6 +4,9 @@ import type {
   InboxReaderPort,
 } from '@application/ports/inbox-reader.port';
 import { stretchesOf } from '@domain/services/stretches';
+import { anyUnread } from '@domain/services/unread';
+import { StretchId } from '@domain/value-objects/stretch-id.vo';
+import { TaskId } from '@domain/value-objects/task-id.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
 import type { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
 import type { DrizzleDatabase } from '@infrastructure/persistence/drizzle/drizzle.client';
@@ -76,7 +79,13 @@ export class DrizzleInboxReader implements InboxReaderPort {
       .innerJoin(assemblyLine, eq(assemblyLine.id, station.assemblyLineId))
       .innerJoin(factory, eq(factory.id, assemblyLine.factoryId))
       .leftJoin(raised, eq(raised.id, task.raisedAtStationId))
-      .where(eq(task.workspaceId, visible.id));
+      // An inbox is one person's, not the workspace's.
+      .where(
+        and(
+          eq(task.workspaceId, visible.id),
+          eq(task.raisedById, userId.value),
+        ),
+      );
 
     if (rows.length === 0) {
       return [];
@@ -105,7 +114,10 @@ export class DrizzleInboxReader implements InboxReaderPort {
         const last = notes[notes.length - 1];
 
         items.push({
-          id: `${row.taskId}:${note.position}`,
+          id: StretchId.of({
+            taskId: TaskId.of(row.taskId),
+            from: note.position,
+          }).value,
           taskId: row.taskId,
           teamId: row.teamId,
           title: row.title,
@@ -124,6 +136,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
           resolved: stretch.to !== null,
           // Only what is still open can be being worked on.
           working: stretch.to === null && row.working !== null,
+          unread: anyUnread(notes),
           notes,
         });
       }
@@ -177,6 +190,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
         stationPosition: spoke.position,
         runId: taskNote.runId,
         kind: taskNote.kind,
+        readAt: taskNote.readAt,
         body: taskNote.body,
         at: taskNote.at,
         authorId: user.id,
@@ -211,6 +225,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
         kind: row.kind ?? 'passed',
         body: row.body,
         at: row.at,
+        readAt: row.readAt,
         author: row.authorId
           ? {
               id: row.authorId,

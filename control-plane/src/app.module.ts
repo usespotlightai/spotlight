@@ -1,14 +1,15 @@
 import { AddTaskCommand } from '@application/commands/add-task.command';
-import { AnswerTaskCommand } from '@application/commands/answer-task.command';
+import { AnswerInboxItemCommand } from '@application/commands/answer-inbox-item.command';
 import { CreateWorkspaceCommand } from '@application/commands/create-workspace.command';
 import { CustomiseStationCommand } from '@application/commands/customise-station.command';
 import { DeleteTaskCommand } from '@application/commands/delete-task.command';
 import { AddTaskHandler } from '@application/commands/handlers/add-task.handler';
-import { AnswerTaskHandler } from '@application/commands/handlers/answer-task.handler';
+import { AnswerInboxItemHandler } from '@application/commands/handlers/answer-inbox-item.handler';
 import { CreateWorkspaceHandler } from '@application/commands/handlers/create-workspace.handler';
 import { CustomiseStationHandler } from '@application/commands/handlers/customise-station.handler';
 import { DeleteTaskHandler } from '@application/commands/handlers/delete-task.handler';
 import { MoveTaskHandler } from '@application/commands/handlers/move-task.handler';
+import { ReadInboxItemHandler } from '@application/commands/handlers/read-inbox-item.handler';
 import { ReorderStationsHandler } from '@application/commands/handlers/reorder-stations.handler';
 import {
   AppendRunEventsHandler,
@@ -21,6 +22,7 @@ import {
   RevokeRunnerHandler,
 } from '@application/commands/handlers/runner.handlers';
 import { MoveTaskCommand } from '@application/commands/move-task.command';
+import { ReadInboxItemCommand } from '@application/commands/read-inbox-item.command';
 import { ReorderStationsCommand } from '@application/commands/reorder-stations.command';
 import {
   AppendRunEventsCommand,
@@ -44,6 +46,7 @@ import { HANDOVER } from '@application/ports/handover.port';
 import { ID_GENERATOR } from '@application/ports/id-generator.port';
 import { INBOX_READER } from '@application/ports/inbox-reader.port';
 import { KEPT_WORKSPACE_READER } from '@application/ports/kept-workspace-reader.port';
+import { PERSON_READER } from '@application/ports/person-reader.port';
 import { RUN_EVENT_READER } from '@application/ports/run-event-reader.port';
 import { RUN_JOURNAL_READER } from '@application/ports/run-journal-reader.port';
 import { RUN_READER } from '@application/ports/run-reader.port';
@@ -99,6 +102,7 @@ import { DrizzleModule } from '@infrastructure/persistence/drizzle/drizzle.modul
 import { DrizzleAssemblyLineReader } from '@infrastructure/persistence/drizzle/readers/assembly-line.reader';
 import { DrizzleInboxReader } from '@infrastructure/persistence/drizzle/readers/inbox.reader';
 import { DrizzleKeptWorkspaceReader } from '@infrastructure/persistence/drizzle/readers/kept-workspace.reader';
+import { DrizzlePersonReader } from '@infrastructure/persistence/drizzle/readers/person.reader';
 import { DrizzleRunReader } from '@infrastructure/persistence/drizzle/readers/run.reader';
 import { DrizzleRunEventReader } from '@infrastructure/persistence/drizzle/readers/run-event.reader';
 import { DrizzleRunJournalReader } from '@infrastructure/persistence/drizzle/readers/run-journal.reader';
@@ -164,6 +168,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     DrizzleTaskRepository,
     { provide: WORKSPACE_READER, useClass: DrizzleWorkspaceReader },
     { provide: ASSEMBLY_LINE_READER, useClass: DrizzleAssemblyLineReader },
+    { provide: PERSON_READER, useClass: DrizzlePersonReader },
     { provide: TASK_READER, useClass: DrizzleTaskReader },
     { provide: INBOX_READER, useClass: DrizzleInboxReader },
     { provide: RUN_READER, useClass: DrizzleRunReader },
@@ -269,17 +274,23 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       ID_GENERATOR,
       CLOCK,
       TASK_DISPATCH,
+      PERSON_READER,
     ]),
 
     ...bindCommandHandler(DeleteTaskCommand, DeleteTaskHandler, [
       DrizzleTaskRepository,
     ]),
 
-    ...bindCommandHandler(AnswerTaskCommand, AnswerTaskHandler, [
+    ...bindCommandHandler(AnswerInboxItemCommand, AnswerInboxItemHandler, [
       DrizzleTaskRepository,
       DrizzleAssemblyLineRepository,
       TASK_DISPATCH,
       TRANSACTION,
+      CLOCK,
+    ]),
+
+    ...bindCommandHandler(ReadInboxItemCommand, ReadInboxItemHandler, [
+      DrizzleTaskRepository,
       CLOCK,
     ]),
 
@@ -289,6 +300,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       TRANSACTION,
       TASK_DISPATCH,
       CLOCK,
+      PERSON_READER,
     ]),
 
     ...bindCommandHandler(ReorderStationsCommand, ReorderStationsHandler, [

@@ -22,6 +22,7 @@ import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
+import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -56,6 +57,7 @@ const task = (held = 'run_1') =>
     stationId: StationId.of('station_1'),
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.of('i'),
+    raisedBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
   }).handedTo(RunId.of(held));

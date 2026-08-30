@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { DropIndicator } from '@/components/board/DropIndicator';
 import { StationIcon } from '@/components/board/StationIcon';
 import { TaskState } from '@/components/board/TaskState';
+import { PersonAvatar } from '@/components/common/avatar/PersonAvatar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { raisedOn, type Task } from '@/lib/task';
 import { cn } from '@/lib/utils';
@@ -100,6 +101,14 @@ export function TaskRow({
         </span>
 
         <TaskState task={task} />
+
+        {task.raisedBy && (
+          <PersonAvatar
+            person={task.raisedBy}
+            className="-ml-1"
+            key={task.raisedBy.id}
+          />
+        )}
 
         <time
           dateTime={task.createdAt}

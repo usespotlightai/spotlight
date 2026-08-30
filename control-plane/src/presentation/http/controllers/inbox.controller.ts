@@ -1,4 +1,5 @@
-import { AnswerTaskCommand } from '@application/commands/answer-task.command';
+import { AnswerInboxItemCommand } from '@application/commands/answer-inbox-item.command';
+import { ReadInboxItemCommand } from '@application/commands/read-inbox-item.command';
 import type { InboxItemDto } from '@application/dto/inbox.dto';
 import type { RunJournal } from '@application/ports/run-journal-reader.port';
 import type { AuthenticatedUser } from '@application/ports/session.port';
@@ -87,6 +88,7 @@ export class InboxController {
           item.askedAt,
           item.resolved,
           item.working,
+          item.unread,
           item.notes.map(
             (note) =>
               new InboxMessageResponseDto(
@@ -111,26 +113,45 @@ export class InboxController {
     );
   }
 
-  @Post(':taskId/answer')
+  @Post(':itemId/answer')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'answerInboxItem',
-    summary: 'Answer what a task is waiting on, and let the work carry on',
+    summary: 'Answer what a conversation is waiting on, and let it carry on',
   })
   @ApiParam({ name: 'slug', type: String, example: 'acme' })
-  @ApiParam({ name: 'taskId' })
+  @ApiParam({ name: 'itemId', type: String, example: 'task_1:0' })
   @ApiNoContentResponse({ description: 'The answer was recorded' })
+  @ApiNotFoundResponse({ description: 'No such conversation for this caller' })
   async answer(
-    @Param('taskId') taskId: string,
+    @Param('itemId') itemId: string,
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: AnswerInboxItemRequestDto,
   ): Promise<void> {
     await this.commandBus.execute(
-      new AnswerTaskCommand(taskId, user.id, body.body),
+      new AnswerInboxItemCommand(itemId, user.id, body.body),
     );
   }
 
-  @Get(':taskId/journal')
+  @Post(':itemId/read')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'readInboxItem',
+    summary: 'Mark what was put to a person as seen',
+  })
+  @ApiParam({ name: 'slug', type: String, example: 'acme' })
+  @ApiParam({ name: 'itemId', type: String, example: 'task_1:0' })
+  @ApiNoContentResponse({ description: 'It is no longer unread' })
+  @ApiNotFoundResponse({ description: 'No such conversation for this caller' })
+  async read(
+    @Param('itemId') itemId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    await this.commandBus.execute(new ReadInboxItemCommand(itemId, user.id));
+  }
+
+  // Every run that worked the task, which is more than any one conversation.
+  @Get('tasks/:taskId/journal')
   @ApiOperation({
     operationId: 'readTaskJournal',
     summary: 'What each run did to arrive at what it said',

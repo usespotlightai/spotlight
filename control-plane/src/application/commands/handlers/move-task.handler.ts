@@ -4,6 +4,7 @@ import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import { TaskMapper } from '@application/mappers/task.mapper';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
+import type { PersonReaderPort } from '@application/ports/person-reader.port';
 import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import { UnknownAssemblyLineError } from '@domain/exceptions/unknown-assembly-line.error';
@@ -26,6 +27,7 @@ export class MoveTaskHandler
     private readonly transaction: TransactionPort,
     private readonly dispatch: TaskDispatchPort,
     private readonly clock: ClockPort,
+    private readonly people: PersonReaderPort,
   ) {}
 
   async execute(command: MoveTaskCommand): Promise<TaskDto> {
@@ -96,7 +98,11 @@ export class MoveTaskHandler
 
       await this.tasks.save(placed);
 
-      return TaskMapper.taskToDto(placed);
+      const raisedBy = placed.raisedBy
+        ? await this.people.find(placed.raisedBy)
+        : null;
+
+      return TaskMapper.taskToDto(placed, raisedBy);
     });
   }
 }

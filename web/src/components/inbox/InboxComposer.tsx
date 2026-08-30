@@ -6,11 +6,11 @@ import { useAnswerInboxItem } from '@/hooks/api/useAnswerInboxItem';
 
 type InboxComposerProps = {
   slug: string;
-  taskId: string;
+  itemId: string;
   station: string;
 };
 
-export function InboxComposer({ slug, taskId, station }: InboxComposerProps) {
+export function InboxComposer({ slug, itemId, station }: InboxComposerProps) {
   const [body, setBody] = useState('');
   const answer = useAnswerInboxItem();
 
@@ -24,7 +24,7 @@ export function InboxComposer({ slug, taskId, station }: InboxComposerProps) {
     }
 
     answer.mutate(
-      { slug, taskId, body: said },
+      { slug, itemId, body: said },
       { onSuccess: () => setBody('') },
     );
   };

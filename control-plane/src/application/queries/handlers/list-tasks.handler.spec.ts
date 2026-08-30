@@ -17,6 +17,7 @@ const standing: TaskSummary[] = [
     createdAt: raised,
     running: false,
     awaitingReview: false,
+    raisedBy: null,
     note: null,
   },
   {
@@ -27,6 +28,7 @@ const standing: TaskSummary[] = [
     createdAt: raised,
     running: false,
     awaitingReview: false,
+    raisedBy: null,
     note: null,
   },
 ];

@@ -4,5 +4,6 @@ export class AddTaskCommand {
     readonly stationId: string,
     readonly title: string,
     readonly description: string | null,
+    readonly raisedBy: string,
   ) {}
 }

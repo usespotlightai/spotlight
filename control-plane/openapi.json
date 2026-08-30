@@ -610,15 +610,16 @@
         ]
       }
     },
-    "/workspaces/{slug}/inbox/{taskId}/answer": {
+    "/workspaces/{slug}/inbox/{itemId}/answer": {
       "post": {
         "operationId": "answerInboxItem",
         "parameters": [
           {
-            "name": "taskId",
+            "name": "itemId",
             "required": true,
             "in": "path",
             "schema": {
+              "example": "task_1:0",
               "type": "string"
             }
           },
@@ -648,15 +649,58 @@
           },
           "401": {
             "description": "No valid session"
+          },
+          "404": {
+            "description": "No such conversation for this caller"
           }
         },
-        "summary": "Answer what a task is waiting on, and let the work carry on",
+        "summary": "Answer what a conversation is waiting on, and let it carry on",
         "tags": [
           "inbox"
         ]
       }
     },
-    "/workspaces/{slug}/inbox/{taskId}/journal": {
+    "/workspaces/{slug}/inbox/{itemId}/read": {
+      "post": {
+        "operationId": "readInboxItem",
+        "parameters": [
+          {
+            "name": "itemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "task_1:0",
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "It is no longer unread"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such conversation for this caller"
+          }
+        },
+        "summary": "Mark what was put to a person as seen",
+        "tags": [
+          "inbox"
+        ]
+      }
+    },
+    "/workspaces/{slug}/inbox/tasks/{taskId}/journal": {
       "get": {
         "operationId": "readTaskJournal",
         "parameters": [
@@ -1772,6 +1816,11 @@
             "example": false,
             "description": "True while a run is working it, so an answer is coming"
           },
+          "unread": {
+            "type": "boolean",
+            "example": true,
+            "description": "Something was asked here that they have not seen yet"
+          },
           "notes": {
             "type": "array",
             "items": {
@@ -1794,6 +1843,7 @@
           "askedAt",
           "resolved",
           "working",
+          "unread",
           "notes"
         ]
       },
@@ -2044,6 +2094,29 @@
           "token"
         ]
       },
+      "TaskPersonResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "f2b1c9d4-3e57-4a80-9c62-1d8e5f0a7b34"
+          },
+          "name": {
+            "type": "string",
+            "example": "Ada Lovelace"
+          },
+          "image": {
+            "type": "string",
+            "example": "https://example.com/ada.png",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "image"
+        ]
+      },
       "TaskNoteResponseDto": {
         "type": "object",
         "properties": {
@@ -2101,6 +2174,16 @@
             "example": false,
             "description": "Waiting on a person"
           },
+          "raisedBy": {
+            "nullable": true,
+            "description": "Who raised it, and so who it comes back to",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TaskPersonResponseDto"
+              }
+            ]
+          },
           "note": {
             "nullable": true,
             "description": "The last thing said about this task, and where it was said",
@@ -2120,6 +2203,7 @@
           "createdAt",
           "running",
           "awaitingReview",
+          "raisedBy",
           "note"
         ]
       },
