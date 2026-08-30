@@ -9,7 +9,7 @@ const dto: TaskDto = {
   description: '## Steps',
   createdAt: '2026-08-28T09:15:00.000Z',
   running: true,
-  awaitingReview: false,
+  awaitingReview: null,
   raisedBy: { id: 'user_1', name: 'Ada', image: null },
   note: {
     position: 0,

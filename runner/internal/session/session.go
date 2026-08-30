@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"time"
 
 	"usespotlight.ai/runner/internal/account"
@@ -22,6 +23,8 @@ type Journal interface {
 	AppendEvents(ctx context.Context, runID string, events []protocol.Event) error
 	RenewLease(ctx context.Context, runID string) error
 	Complete(ctx context.Context, runID string, done protocol.Completion) error
+	Said(ctx context.Context, runID string) ([]protocol.Said, error)
+	Delivered(ctx context.Context, runID string, upTo int) error
 }
 
 const (
@@ -233,9 +236,9 @@ func open(ctx context.Context, harness *acp.Client, previous string, log *slog.L
 /*
 work sends the briefing and reports what the agent says while it works.
 
-A turn ends when the agent stops, and a station's agent has one turn: it is
-given the task, it works, it hands the task on. Nothing types at it, so there
-is nothing to wait for afterwards.
+A turn ends when the agent stops. Anything a person typed at it while it worked
+is given to it then, as another turn in the same session, so the run only ends
+once nobody has anything left to add.
 */
 func work(
 	ctx context.Context,
@@ -250,29 +253,72 @@ func work(
 	defer stopRenewing()
 	go renew(renewing, lease, run.ID, log)
 
-	result, err := harness.Prompt(ctx, sessionID, run.Spec.Briefing, func(update acp.Update) {
-		journal.append(protocol.Event{
-			Type: protocol.EventOutput,
-			Data: update.Raw,
+	prompt := run.Spec.Briefing
+
+	for {
+		result, err := harness.Prompt(ctx, sessionID, prompt, func(update acp.Update) {
+			journal.append(protocol.Event{
+				Type: protocol.EventOutput,
+				Data: update.Raw,
+			})
 		})
-	})
 
-	journal.flush(ctx)
+		journal.flush(ctx)
 
+		if err != nil {
+			log.Warn("the agent stopped short", "error", err)
+			return -1, false
+		}
+
+		log.Info("turn finished", "stopReason", result.StopReason)
+
+		// Refused and cancelled are the agent saying it will not or cannot,
+		// which is a failed run rather than a finished one.
+		if result.StopReason != "end_turn" && result.StopReason != "max_tokens" {
+			return 1, false
+		}
+
+		said, upTo := waiting(ctx, lease, run.ID, log)
+		if said == "" {
+			return 0, false
+		}
+
+		// Marked given before the turn rather than after: an agent that has
+		// already been told something must not be told it twice, and a turn
+		// that fails ends the run anyway.
+		if err := lease.Delivered(ctx, run.ID, upTo); err != nil {
+			log.Warn("could not mark what was said delivered", "error", err)
+			return 0, false
+		}
+
+		log.Info("a person said something", "upTo", upTo)
+		prompt = said
+	}
+}
+
+// waiting reads what a person typed at the agent while it worked. Nothing to
+// say, or an unreachable control plane, both end the run rather than hold it.
+func waiting(
+	ctx context.Context,
+	lease Journal,
+	runID string,
+	log *slog.Logger,
+) (string, int) {
+	said, err := lease.Said(ctx, runID)
 	if err != nil {
-		log.Warn("the agent stopped short", "error", err)
-		return -1, false
+		log.Warn("could not read what was said", "error", err)
+		return "", 0
+	}
+	if len(said) == 0 {
+		return "", 0
 	}
 
-	log.Info("turn finished", "stopReason", result.StopReason)
-
-	// Refused and cancelled are the agent saying it will not or cannot, which
-	// is a failed run rather than a finished one.
-	if result.StopReason != "end_turn" && result.StopReason != "max_tokens" {
-		return 1, false
+	bodies := make([]string, 0, len(said))
+	for _, each := range said {
+		bodies = append(bodies, each.Body)
 	}
 
-	return 0, false
+	return strings.Join(bodies, "\n\n"), said[len(said)-1].Position
 }
 
 func renew(ctx context.Context, lease Journal, runID string, log *slog.Logger) {

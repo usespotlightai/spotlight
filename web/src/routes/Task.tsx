@@ -6,6 +6,7 @@ import { PersonAvatar } from '@/components/common/avatar/PersonAvatar';
 import { MarkdownEditor } from '@/components/common/form/MarkdownEditor';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { TaskActivity } from '@/components/runs/TaskActivity';
 import { useAssemblyLines } from '@/hooks/api/useAssemblyLines';
 import { useDeleteTask } from '@/hooks/api/useDeleteTask';
 import { useMoveTask } from '@/hooks/api/useMoveTask';
@@ -121,6 +122,10 @@ export function Task() {
             ) : (
               <p className="text-muted-foreground text-sm">No description</p>
             )}
+
+            <div className="pt-4">
+              <TaskActivity slug={slug} teamId={teamId} taskId={task.id} />
+            </div>
           </main>
 
           <aside className="sticky top-8 hidden w-56 shrink-0 flex-col gap-4 self-start lg:flex">

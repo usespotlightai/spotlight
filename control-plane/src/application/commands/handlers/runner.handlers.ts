@@ -35,13 +35,14 @@ import { Declaration } from '@domain/value-objects/declaration.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
+import { RunSpec, type RunSpecShape } from '@domain/value-objects/run-spec.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { RunnerName } from '@domain/value-objects/runner-name.vo';
 import { TokenHash } from '@domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 
 const announce = async (ended: Run, to: HandoverPort): Promise<void> => {
-  for (const raised of ended.pullEvents()) {
+  for (const raised of ended.happened) {
     if (raised instanceof RunCompleted) {
       await to.onRunCompleted(raised);
     } else {
@@ -108,9 +109,9 @@ export class RegisterRunnerHandler
       const found = command.harnesses.map(HarnessId.of);
 
       await this.transaction.run(async () => {
-        registering.reports(found);
-        registering.seen(this.clock.now());
-        await this.runners.save(registering);
+        await this.runners.save(
+          registering.reports(found).seen(this.clock.now()),
+        );
       });
 
       return { runnerId: registering.id.value };
@@ -139,12 +140,12 @@ export class RevokeRunnerHandler
         throw new UnknownRunError(`runner ${command.runnerId} is not enrolled`);
       }
 
-      revoking.revoke(this.clock.now());
+      const revoked = revoking.revoke(this.clock.now());
 
       await this.transaction.run(async () => {
-        await this.runners.save(revoking);
+        await this.runners.save(revoked);
 
-        for (const event of revoking.pullEvents()) {
+        for (const event of revoked.happened) {
           await this.revocation.onRunnerRevoked(event);
         }
       });
@@ -184,8 +185,7 @@ export class ClaimRunHandler
 
       // The poll doubles as the heartbeat. A runner that stops asking stops
       // being counted on.
-      asking.seen(this.clock.now());
-      await this.runners.save(asking);
+      await this.runners.save(asking.seen(this.clock.now()));
 
       // Once per claim, not per attempt. A runner whose host died leaves a run
       // held until its lease lapses, and somebody has to notice.
@@ -244,13 +244,11 @@ export class RenewLeaseHandler
         throw new UnknownRunError(`runner ${command.runnerId} is not enrolled`);
       }
 
-      const found = await this.load(command.runId);
-      found.renewLease(renewing, at);
+      const renewed = (await this.load(command.runId)).renewLease(renewing, at);
 
       await this.transaction.run(async () => {
-        await this.runs.save(found);
-        holder.seen(at);
-        await this.runners.save(holder);
+        await this.runs.save(renewed);
+        await this.runners.save(holder.seen(at));
       });
     } catch (error) {
       rethrowAsFault(error);
@@ -329,7 +327,7 @@ export class CompleteRunHandler
           throw new UnknownRunError(`there is no run ${command.runId}`);
         }
 
-        found.complete(
+        const ended = found.complete(
           RunnerId.of(command.runnerId),
           {
             exitCode: command.exitCode,
@@ -346,8 +344,8 @@ export class CompleteRunHandler
           },
         );
 
-        await this.runs.save(found);
-        await announce(found, this.handover);
+        await this.runs.save(ended);
+        await announce(ended, this.handover);
       });
     } catch (error) {
       rethrowAsFault(error);
@@ -375,10 +373,10 @@ export class EnqueueRunHandler
         workspaceId: WorkspaceId.of(command.workspaceId),
         harness: harness.id,
         // How to start a harness is not the caller's to know.
-        spec: {
-          ...(command.spec as Record<string, unknown>),
+        spec: RunSpec.of({
+          ...(command.spec as Omit<RunSpecShape, 'command'>),
           command: harness.command.started(),
-        },
+        }),
         targetRunner: command.targetRunnerId
           ? RunnerId.of(command.targetRunnerId)
           : null,

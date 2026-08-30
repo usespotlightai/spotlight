@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddTaskData, AddTaskErrors, AddTaskResponses, AnswerInboxItemData, AnswerInboxItemErrors, AnswerInboxItemResponses, AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, CustomiseStationData, CustomiseStationErrors, CustomiseStationResponses, DeleteTaskData, DeleteTaskErrors, DeleteTaskResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, EnrolRunnerData, EnrolRunnerErrors, EnrolRunnerResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, InstallableHarnessesData, InstallableHarnessesErrors, InstallableHarnessesResponses, KeptWorkspacesData, KeptWorkspacesErrors, KeptWorkspacesResponses, ListAssemblyLinesData, ListAssemblyLinesErrors, ListAssemblyLinesResponses, ListHarnessesData, ListHarnessesErrors, ListHarnessesResponses, ListInboxData, ListInboxErrors, ListInboxResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListTaskRunsData, ListTaskRunsErrors, ListTaskRunsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, MoveTaskData, MoveTaskErrors, MoveTaskResponses, ReadInboxItemData, ReadInboxItemErrors, ReadInboxItemResponses, ReadTaskJournalData, ReadTaskJournalErrors, ReadTaskJournalResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, ReorderStationsData, ReorderStationsErrors, ReorderStationsResponses, RevokeRunnerData, RevokeRunnerErrors, RevokeRunnerResponses, StreamRunData, StreamRunErrors, StreamRunResponses } from './types.gen';
+import type { AddTaskData, AddTaskErrors, AddTaskResponses, AnswerInboxItemData, AnswerInboxItemErrors, AnswerInboxItemResponses, AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, CustomiseStationData, CustomiseStationErrors, CustomiseStationResponses, DeleteTaskData, DeleteTaskErrors, DeleteTaskResponses, DeliverSaidData, DeliverSaidErrors, DeliverSaidResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, EnrolRunnerData, EnrolRunnerErrors, EnrolRunnerResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, InstallableHarnessesData, InstallableHarnessesErrors, InstallableHarnessesResponses, KeptWorkspacesData, KeptWorkspacesErrors, KeptWorkspacesResponses, ListAssemblyLinesData, ListAssemblyLinesErrors, ListAssemblyLinesResponses, ListHarnessesData, ListHarnessesErrors, ListHarnessesResponses, ListInboxData, ListInboxErrors, ListInboxResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListTaskRunsData, ListTaskRunsErrors, ListTaskRunsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListTeamRunsData, ListTeamRunsErrors, ListTeamRunsResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, MoveTaskData, MoveTaskErrors, MoveTaskResponses, PendingMessagesData, PendingMessagesErrors, PendingMessagesResponses, ReadInboxItemData, ReadInboxItemErrors, ReadInboxItemResponses, ReadRunConversationData, ReadRunConversationErrors, ReadRunConversationResponses, ReadTaskJournalData, ReadTaskJournalErrors, ReadTaskJournalResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, ReorderStationsData, ReorderStationsErrors, ReorderStationsResponses, RevokeRunnerData, RevokeRunnerErrors, RevokeRunnerResponses, SayToRunData, SayToRunErrors, SayToRunResponses, StreamRunData, StreamRunErrors, StreamRunResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -99,6 +99,23 @@ export const registerRunner = <ThrowOnError extends boolean = false>(options: Op
 export const claimRun = <ThrowOnError extends boolean = false>(options?: Options<ClaimRunData, ThrowOnError>): RequestResult<ClaimRunResponses, ClaimRunErrors, ThrowOnError> => (options?.client ?? client).post<ClaimRunResponses, ClaimRunErrors, ThrowOnError>({ url: '/runners/claim', ...options });
 
 /**
+ * What a person has said to the agent working this run
+ */
+export const pendingMessages = <ThrowOnError extends boolean = false>(options: Options<PendingMessagesData, ThrowOnError>): RequestResult<PendingMessagesResponses, PendingMessagesErrors, ThrowOnError> => (options.client ?? client).get<PendingMessagesResponses, PendingMessagesErrors, ThrowOnError>({ url: '/runs/{runId}/messages', ...options });
+
+/**
+ * Say what the agent has been given
+ */
+export const deliverSaid = <ThrowOnError extends boolean = false>(options: Options<DeliverSaidData, ThrowOnError>): RequestResult<DeliverSaidResponses, DeliverSaidErrors, ThrowOnError> => (options.client ?? client).post<DeliverSaidResponses, DeliverSaidErrors, ThrowOnError>({
+  url: '/runs/{runId}/messages/delivered',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
  * Say the run is still being worked on
  */
 export const renewLease = <ThrowOnError extends boolean = false>(options: Options<RenewLeaseData, ThrowOnError>): RequestResult<RenewLeaseResponses, RenewLeaseErrors, ThrowOnError> => (options.client ?? client).post<RenewLeaseResponses, RenewLeaseErrors, ThrowOnError>({ url: '/runs/{runId}/lease', ...options });
@@ -185,6 +202,28 @@ export const revokeRunner = <ThrowOnError extends boolean = false>(options: Opti
  * List the tasks standing at a team’s stations, oldest first
  */
 export const listTasks = <ThrowOnError extends boolean = false>(options: Options<ListTasksData, ThrowOnError>): RequestResult<ListTasksResponses, ListTasksErrors, ThrowOnError> => (options.client ?? client).get<ListTasksResponses, ListTasksErrors, ThrowOnError>({ url: '/teams/{teamId}/tasks', ...options });
+
+/**
+ * Every run the team has worked, across its stations
+ */
+export const listTeamRuns = <ThrowOnError extends boolean = false>(options: Options<ListTeamRunsData, ThrowOnError>): RequestResult<ListTeamRunsResponses, ListTeamRunsErrors, ThrowOnError> => (options.client ?? client).get<ListTeamRunsResponses, ListTeamRunsErrors, ThrowOnError>({ url: '/teams/{teamId}/runs', ...options });
+
+/**
+ * The task and the trail since it reached this run’s station
+ */
+export const readRunConversation = <ThrowOnError extends boolean = false>(options: Options<ReadRunConversationData, ThrowOnError>): RequestResult<ReadRunConversationResponses, ReadRunConversationErrors, ThrowOnError> => (options.client ?? client).get<ReadRunConversationResponses, ReadRunConversationErrors, ThrowOnError>({ url: '/teams/{teamId}/runs/{runId}/conversation', ...options });
+
+/**
+ * Say something to the agent working a run
+ */
+export const sayToRun = <ThrowOnError extends boolean = false>(options: Options<SayToRunData, ThrowOnError>): RequestResult<SayToRunResponses, SayToRunErrors, ThrowOnError> => (options.client ?? client).post<SayToRunResponses, SayToRunErrors, ThrowOnError>({
+  url: '/teams/{teamId}/runs/{runId}/say',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
 
 /**
  * List what has been run on a task, most recent first

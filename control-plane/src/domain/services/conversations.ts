@@ -1,17 +1,13 @@
 import type { TaskNoteKind } from '@domain/value-objects/task-note.vo';
 
-/** Where one begins and ends in a task's trail, by position. */
 export interface Conversation {
   readonly from: number;
-  // Where it was closed, or absent while it is still theirs.
   readonly to: number | null;
 }
 
-/** Still theirs: nothing has closed it, so it is what they are owed. */
 export const stillOpen = (conversation: Conversation): boolean =>
   conversation.to === null;
 
-/** What a conversation covers: the note that opened it, through the one that closed it. */
 export const notesIn = <T>(
   conversation: Conversation,
   trail: readonly T[],
@@ -21,10 +17,6 @@ export const notesIn = <T>(
     conversation.to === null ? undefined : conversation.to + 1,
   );
 
-/**
- * An 'asked' opens one and a 'passed' closes it. Asking again inside an open
- * one is the same conversation carrying on, not a second thing owed.
- */
 export const conversationsOf = (
   kinds: readonly TaskNoteKind[],
 ): Conversation[] => {
@@ -48,4 +40,76 @@ export const conversationsOf = (
   }
 
   return cut;
+};
+
+/** Owed while nobody has answered, settled once someone has or it moved on. */
+export type ReviewState = 'owed' | 'settled';
+
+export interface Review {
+  readonly from: number;
+  readonly state: ReviewState;
+}
+
+const settledAfter = <T extends { kind: TaskNoteKind }>(
+  notes: readonly T[],
+  at: number,
+): boolean =>
+  notes
+    .slice(at + 1)
+    .some((later) => later.kind === 'answered' || later.kind === 'passed');
+
+export const reviewsIn = <
+  T extends { kind: TaskNoteKind; runId: string | null },
+>(
+  notes: readonly T[],
+): Map<string, Review> => {
+  const reviews = new Map<string, Review>();
+
+  notes.forEach((note, from) => {
+    if (note.kind === 'asked' && note.runId) {
+      reviews.set(note.runId, {
+        from,
+        state: settledAfter(notes, from) ? 'settled' : 'owed',
+      });
+    }
+  });
+
+  return reviews;
+};
+
+export const awaitsAPerson = <T extends { kind: TaskNoteKind }>(
+  notes: readonly T[],
+): boolean => {
+  let asked = -1;
+
+  notes.forEach((note, at) => {
+    if (note.kind === 'asked') {
+      asked = at;
+    }
+  });
+
+  return asked !== -1 && !settledAfter(notes, asked);
+};
+
+/** What it was answering is its briefing, which the run itself keeps. */
+export const turnOf = <T extends { runId: string | null }>(
+  notes: readonly T[],
+  runId: string,
+): T[] => {
+  const spoke = notes.findIndex((note) => note.runId === runId);
+  const ends = spoke === -1 ? notes.length - 1 : spoke;
+
+  if (ends < 0) {
+    return [];
+  }
+
+  let opens = 0;
+  for (let at = ends; at >= 0; at--) {
+    if (notes[at]?.runId != null && notes[at]?.runId !== runId) {
+      opens = at + 1;
+      break;
+    }
+  }
+
+  return notes.slice(opens, ends + 1);
 };

@@ -1,4 +1,6 @@
 import { render, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
 import { TaskState } from '@/components/board/TaskState';
 import type { Task } from '@/lib/task';
@@ -11,34 +13,61 @@ const task = (over: Partial<Task> = {}) =>
     description: null,
     createdAt: '2026-08-28T09:15:00.000Z',
     running: false,
-    awaitingReview: false,
+    awaitingReview: null,
     note: null,
     ...over,
   }) as Task;
 
+const renderIn = (ui: ReactElement) =>
+  render(<MemoryRouter>{ui}</MemoryRouter>);
+
 describe('TaskState', () => {
   it('says nothing about a task that is simply waiting its turn', () => {
-    const { container } = render(<TaskState task={task()} />);
+    const { container } = renderIn(<TaskState task={task()} />);
 
     expect(container).toBeEmptyDOMElement();
   });
 
   it('marks a task a runner is working', () => {
-    render(<TaskState task={task({ running: true })} />);
+    renderIn(<TaskState task={task({ running: true })} />);
 
     expect(screen.getByText('In progress')).toBeInTheDocument();
   });
 
   it('marks a task that is waiting on a person', () => {
-    render(<TaskState task={task({ awaitingReview: true })} />);
+    renderIn(
+      <TaskState
+        task={task({ awaitingReview: { conversationId: 'task_1:5' } })}
+      />,
+    );
 
     expect(screen.getByText('Awaiting review')).toBeInTheDocument();
+  });
+
+  it('leads to the conversation waiting on them', () => {
+    renderIn(
+      <TaskState
+        task={task({ awaitingReview: { conversationId: 'task_1:5' } })}
+        reviewTo="/w/acme/inbox/task_1%3A5"
+      />,
+    );
+
+    expect(
+      screen.getByRole('link', { name: /Awaiting review/ }),
+    ).toHaveAttribute('href', '/w/acme/inbox/task_1%3A5');
   });
 
   // A run that ended by asking for a person leaves both true until someone
   // looks, and the one that wants doing is the one to show.
   it('asks for a person ahead of saying it is being worked', () => {
-    render(<TaskState task={task({ running: true, awaitingReview: true })} />);
+    renderIn(
+      <TaskState
+        task={task({
+          running: true,
+          awaitingReview: { conversationId: 'task_1:5' },
+        })}
+      />,
+    );
 
     expect(screen.getByText('Awaiting review')).toBeInTheDocument();
     expect(screen.queryByText('In progress')).not.toBeInTheDocument();

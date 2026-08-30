@@ -1,8 +1,22 @@
 import type { TaskDto, TaskPersonDto } from '@application/dto/task.dto';
 import type { TaskSummary } from '@application/ports/task-reader.port';
 import type { Task } from '@domain/aggregates/task.aggregate';
+import { ConversationId } from '@domain/value-objects/conversation-id.vo';
 
 export const TaskMapper = {
+  awaited(task: Task): { conversationId: string } | null {
+    const open = task.awaitingReview ? task.openConversation : null;
+
+    return open
+      ? {
+          conversationId: ConversationId.of({
+            taskId: task.id,
+            from: open.from,
+          }).value,
+        }
+      : null;
+  },
+
   summaryToDto(summary: TaskSummary): TaskDto {
     return {
       id: summary.id,
@@ -34,7 +48,7 @@ export const TaskMapper = {
       description: task.description?.value ?? null,
       createdAt: task.createdAt.toISOString(),
       running: task.running,
-      awaitingReview: task.awaitingReview,
+      awaitingReview: TaskMapper.awaited(task),
       raisedBy,
       note: last
         ? {

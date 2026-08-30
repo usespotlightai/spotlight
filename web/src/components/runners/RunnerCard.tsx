@@ -23,7 +23,7 @@ export function RunnerCard({ runner, harnesses }: RunnerCardProps) {
             {runner.name}
           </h3>
 
-          <span className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full py-0.5 pr-2 pl-1.5 font-medium text-muted-foreground text-xs">
+          <span className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full font-medium text-muted-foreground text-xs">
             <span
               aria-hidden
               className={cn('size-1.5 shrink-0 rounded-full', dotOf(runner))}

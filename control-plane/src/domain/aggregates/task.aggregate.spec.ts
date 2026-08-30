@@ -1,6 +1,7 @@
 import { Task } from '@domain/aggregates/task.aggregate';
 import { InvalidTaskTransitionError } from '@domain/exceptions/invalid-task-transition.error';
 import { HarnessSession } from '@domain/value-objects/harness-session.vo';
+import { NotePosition } from '@domain/value-objects/note-position.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
@@ -13,6 +14,25 @@ import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
+
+// A task carrying a trail, built the way the repository builds one: the
+// aggregate writes its own notes, so nothing may hand it any.
+const withNotes = (task: Task, ...notes: TaskNote[]) =>
+  Task.rehydrate({
+    id: task.id,
+    workspaceId: task.workspaceId,
+    stationId: task.stationId,
+    title: task.title,
+    description: task.description,
+    rank: task.rank,
+    currentRunId: task.currentRunId,
+    sessionId: task.sessionId,
+    runnerId: task.runnerId,
+    notes: [...task.notes, ...notes],
+    createdAt: task.createdAt,
+    raisedAt: task.raisedAt,
+    raisedBy: task.raisedBy,
+  });
 
 const added = (description?: TaskDescription) =>
   Task.add({
@@ -94,7 +114,8 @@ describe('Task', () => {
   });
 
   it('keeps a note of what a station left behind', () => {
-    const worked = added().note(
+    const worked = withNotes(
+      added(),
       TaskNote.of({
         station: StationName.of('Triage'),
         body: TaskNoteBody.of('Reproduced on restart.'),
@@ -108,21 +129,19 @@ describe('Task', () => {
   });
 
   it('keeps its notes in the order they were left', () => {
-    const worked = added()
-      .note(
-        TaskNote.of({
-          station: StationName.of('Triage'),
-          body: TaskNoteBody.of('First'),
-          at: new Date('2026-08-28T10:00:00.000Z'),
-        }),
-      )
-      .note(
-        TaskNote.of({
-          station: StationName.of('Spec'),
-          body: TaskNoteBody.of('Second'),
-          at: new Date('2026-08-28T11:00:00.000Z'),
-        }),
-      );
+    const worked = withNotes(
+      added(),
+      TaskNote.of({
+        station: StationName.of('Triage'),
+        body: TaskNoteBody.of('First'),
+        at: new Date('2026-08-28T10:00:00.000Z'),
+      }),
+      TaskNote.of({
+        station: StationName.of('Spec'),
+        body: TaskNoteBody.of('Second'),
+        at: new Date('2026-08-28T11:00:00.000Z'),
+      }),
+    );
 
     expect(worked.notes.map((each) => each.station.value)).toEqual([
       'Triage',
@@ -133,15 +152,14 @@ describe('Task', () => {
   // Moving by hand is something that happened to the task, so it is written
   // down — and it is what closes a conversation a person was owed.
   it('carries what was said across a move, and records the move', () => {
-    const worked = added()
-      .note(
-        TaskNote.of({
-          station: StationName.of('Triage'),
-          body: TaskNoteBody.of('Reproduced.'),
-          at: new Date('2026-08-28T10:00:00.000Z'),
-        }),
-      )
-      .moveTo(StationId.of('station_2'), TaskRank.of('m'), saying);
+    const worked = withNotes(
+      added(),
+      TaskNote.of({
+        station: StationName.of('Triage'),
+        body: TaskNoteBody.of('Reproduced.'),
+        at: new Date('2026-08-28T10:00:00.000Z'),
+      }),
+    ).moveTo(StationId.of('station_2'), TaskRank.of('m'), saying);
 
     expect(worked.notes).toHaveLength(2);
     expect(worked.notes[0]?.body.value).toBe('Reproduced.');
@@ -261,7 +279,7 @@ describe('Task, what it is doing', () => {
       const answered = added()
         .workedIn(session, runner)
         .askedAbout(saying)
-        .answered(0, saying);
+        .answered(NotePosition.of(0), saying);
 
       expect(answered.awaitingReview).toBe(false);
       expect(answered.sessionId).toEqual(session);
@@ -280,21 +298,47 @@ describe('Task, what it is doing', () => {
     });
   });
 
+  // Read from the trail, so nothing can say it is waiting on a person when
+  // the trail says they already answered.
+  describe('waiting on a person', () => {
+    it('waits from the asking until they answer', () => {
+      const asked = added().askedAbout(saying);
+
+      expect(asked.awaitingReview).toBe(true);
+      expect(asked.answered(NotePosition.of(0), saying).awaitingReview).toBe(
+        false,
+      );
+    });
+
+    it('stops waiting once the task is moved by hand', () => {
+      const moved = added()
+        .askedAbout(saying)
+        .moveTo(StationId.of('station_2'), TaskRank.of('m'), saying);
+
+      expect(moved.awaitingReview).toBe(false);
+    });
+  });
+
   describe('what a person is owed', () => {
     // The task says what each note did, so nothing outside it can write a
     // note that means something the task never did.
     it('owes nobody until it is put to someone', () => {
-      expect(added().owed).toBeNull();
+      expect(added().openConversation).toBeNull();
     });
 
     it('owes an ending once it has been put to someone', () => {
-      expect(added().askedAbout(saying).owed).toEqual({ from: 0, to: null });
+      expect(added().askedAbout(saying).openConversation).toEqual({
+        from: 0,
+        to: null,
+      });
     });
 
     it('still owes it after an answer', () => {
-      const asked = added().askedAbout(saying).answered(0, saying);
+      const asked = added()
+        .askedAbout(saying)
+        .answered(NotePosition.of(0), saying);
 
-      expect(asked.owed).not.toBeNull();
+      expect(asked.openConversation).not.toBeNull();
     });
 
     it('owes nothing once it has moved on', () => {
@@ -302,11 +346,11 @@ describe('Task, what it is doing', () => {
         .askedAbout(saying)
         .passedTo(StationId.of('station_2'), TaskRank.of('m'), saying);
 
-      expect(passed.owed).toBeNull();
+      expect(passed.openConversation).toBeNull();
     });
 
     it('refuses an answer to something nobody was asked', () => {
-      expect(() => added().answered(0, saying)).toThrow(
+      expect(() => added().answered(NotePosition.of(0), saying)).toThrow(
         InvalidTaskTransitionError,
       );
     });
@@ -331,27 +375,35 @@ describe('Task, what it is doing', () => {
     });
 
     it('marks it read when they do', () => {
-      expect(asked().read(0, READ).notes[0]?.readAt).toEqual(READ);
+      expect(asked().read(NotePosition.of(0), READ).notes[0]?.readAt).toEqual(
+        READ,
+      );
     });
 
     it('says a conversation holds something unseen, until it is read', () => {
-      expect(asked().unreadFrom(0)).toBe(true);
-      expect(asked().read(0, READ).unreadFrom(0)).toBe(false);
+      expect(asked().unreadFrom(NotePosition.of(0))).toBe(true);
+      expect(
+        asked().read(NotePosition.of(0), READ).unreadFrom(NotePosition.of(0)),
+      ).toBe(false);
     });
 
     it('leaves what was already read when it was first read', () => {
-      const read = asked().read(0, READ);
+      const read = asked().read(NotePosition.of(0), READ);
 
       expect(
-        read.read(0, new Date('2026-08-29T13:00:00.000Z')).notes[0]?.readAt,
+        read.read(NotePosition.of(0), new Date('2026-08-29T13:00:00.000Z'))
+          .notes[0]?.readAt,
       ).toEqual(READ);
     });
 
     it('reads the whole conversation, not only the note it opens with', () => {
       const carried = asked()
-        .answered(0, { ...saying, author: UserId.of('user_1') })
+        .answered(NotePosition.of(0), {
+          ...saying,
+          author: UserId.of('user_1'),
+        })
         .askedAbout(saying)
-        .read(0, READ);
+        .read(NotePosition.of(0), READ);
 
       expect(carried.notes.map((note) => note.unread)).toEqual([
         false,
@@ -362,15 +414,60 @@ describe('Task, what it is doing', () => {
 
     it('is unread again when the station asks something new', () => {
       const again = asked()
-        .read(0, READ)
-        .answered(0, { ...saying, author: UserId.of('user_1') })
+        .read(NotePosition.of(0), READ)
+        .answered(NotePosition.of(0), {
+          ...saying,
+          author: UserId.of('user_1'),
+        })
         .askedAbout(saying);
 
       expect(again.notes[2]?.unread).toBe(true);
     });
 
     it('will not read a conversation that does not begin there', () => {
-      expect(() => asked().read(1, READ)).toThrow(InvalidTaskTransitionError);
+      expect(() => asked().read(NotePosition.of(1), READ)).toThrow(
+        InvalidTaskTransitionError,
+      );
+    });
+  });
+
+  describe('saying something to the agent working it', () => {
+    const here = StationId.of('station_1');
+
+    it('joins the trail where the task still stands', () => {
+      const told = added().told(here, saying);
+
+      expect(told.notes[0]?.kind).toBe('said');
+      expect(told.notes[0]?.body.value).toBe('Reproduced on restart.');
+    });
+
+    it('waits to be delivered', () => {
+      expect(added().told(here, saying).undelivered).toHaveLength(1);
+    });
+
+    it('is delivered once the agent has been given it', () => {
+      const told = added()
+        .told(here, saying)
+        .deliveredUpTo(NotePosition.of(0), NOW);
+
+      expect(told.undelivered).toHaveLength(0);
+    });
+
+    it('will not be said to a station the task has left', () => {
+      const moved = added().passedTo(
+        StationId.of('station_2'),
+        TaskRank.of('m'),
+        saying,
+      );
+
+      expect(() => moved.told(here, saying)).toThrow(
+        InvalidTaskTransitionError,
+      );
+    });
+
+    // Only what a person said to an agent ever waits to be handed over.
+    it('leaves what a station said out of what is undelivered', () => {
+      expect(added().askedAbout(saying).undelivered).toHaveLength(0);
     });
   });
 
@@ -402,10 +499,12 @@ describe('Task, what it is doing', () => {
         .passedTo(StationId.of('station_2'), TaskRank.of('m'), saying)
         .askedAbout(saying);
 
-      expect(() => carried.answered(0, saying)).toThrow(
+      expect(() => carried.answered(NotePosition.of(0), saying)).toThrow(
         InvalidTaskTransitionError,
       );
-      expect(carried.answered(2, saying).notes).toHaveLength(4);
+      expect(carried.answered(NotePosition.of(2), saying).notes).toHaveLength(
+        4,
+      );
     });
 
     it('will not be moved to the station it already stands at', () => {

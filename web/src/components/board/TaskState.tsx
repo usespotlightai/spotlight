@@ -1,32 +1,44 @@
+import { Inbox } from 'lucide-react';
+import { Link } from 'react-router';
+import { Pill } from '@/components/common/Pill';
 import type { Task } from '@/lib/task';
-import { cn } from '@/lib/utils';
 
-const PILL =
-  'flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-card py-1 pr-2.5 pl-2 font-medium text-muted-foreground text-xs';
+type TaskStateProps = {
+  task: Task;
+  reviewTo?: string;
+};
 
-/**
- * The two things a task can be doing that a person would want to see without
- * opening it: being worked, and waiting on them. Standing quietly at a station
- * is the ordinary case and says nothing.
- */
-export function TaskState({ task }: { task: Task }) {
-  const state = task.awaitingReview
-    ? { label: 'Awaiting review', dot: 'bg-amber-500' }
-    : task.running
-      ? { label: 'In progress', dot: 'bg-primary' }
-      : null;
+export function TaskState({ task, reviewTo }: TaskStateProps) {
+  if (task.awaitingReview) {
+    const asked = (
+      <Pill lead={<Inbox className="size-3.5 shrink-0" aria-hidden />}>
+        Awaiting review
+      </Pill>
+    );
 
-  if (!state) {
-    return null;
+    return reviewTo ? (
+      <Link to={reviewTo} className="outline-none">
+        {asked}
+      </Link>
+    ) : (
+      asked
+    );
   }
 
-  return (
-    <span className={PILL}>
-      <span
-        className={cn('size-2 shrink-0 rounded-full', state.dot)}
-        aria-hidden
-      />
-      {state.label}
-    </span>
-  );
+  if (task.running) {
+    return (
+      <Pill
+        lead={
+          <span
+            className="size-2 shrink-0 rounded-full bg-primary"
+            aria-hidden
+          />
+        }
+      >
+        In progress
+      </Pill>
+    );
+  }
+
+  return null;
 }

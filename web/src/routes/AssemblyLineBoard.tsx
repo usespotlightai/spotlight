@@ -40,6 +40,7 @@ import { useCollapsed } from '@/hooks/useCollapsed';
 import { useDragGuard } from '@/hooks/useDragGuard';
 import { asBoardView, inView } from '@/lib/board';
 import { landingFor, reordered } from '@/lib/dragging';
+import { inboxItemPath } from '@/lib/inbox';
 import { stationPath, stationShare } from '@/lib/station';
 import { moveTargetFor, type Task, taskPath, tasksAt } from '@/lib/task';
 import { teamPath } from '@/lib/team';
@@ -323,6 +324,14 @@ export function AssemblyLineBoard() {
                                 slug && teamId
                                   ? taskPath(slug, teamId, task.id)
                                   : ''
+                              }
+                              reviewTo={
+                                slug && task.awaitingReview
+                                  ? inboxItemPath(
+                                      slug,
+                                      task.awaitingReview.conversationId,
+                                    )
+                                  : undefined
                               }
                               stationColor={station.color}
                               stationShare={stationShare(

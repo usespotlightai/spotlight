@@ -75,8 +75,11 @@ export const taskNote = pgTable(
     // The run that wrote it, whose journal is what it came from.
     runId: text('run_id'),
     // An 'asked' opens a conversation a person owns; a 'passed' closes it.
-    kind: text('kind').$type<'asked' | 'passed' | 'answered'>(),
+    kind: text('kind').$type<'asked' | 'passed' | 'answered' | 'said'>(),
     readAt: timestamp('read_at'),
+    // When it reached the agent working the task. Only what a person said to
+    // one ever waits to be delivered.
+    deliveredAt: timestamp('delivered_at'),
   },
   (table) => [
     primaryKey({ columns: [table.taskId, table.position] }),

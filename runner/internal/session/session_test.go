@@ -23,6 +23,9 @@ type journal struct {
 	events   []protocol.Event
 	renewals int
 	done     *protocol.Completion
+	// What a person has typed at the agent, handed over one batch per turn.
+	said      [][]protocol.Said
+	delivered []int
 }
 
 func (j *journal) AppendEvents(_ context.Context, _ string, events []protocol.Event) error {
@@ -43,6 +46,28 @@ func (j *journal) Complete(_ context.Context, _ string, done protocol.Completion
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	j.done = &done
+	return nil
+}
+
+// Said hands back one batch per call, so a fake can end the run by running
+// out rather than by saying the same thing for ever.
+func (j *journal) Said(context.Context, string) ([]protocol.Said, error) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+
+	if len(j.said) == 0 {
+		return nil, nil
+	}
+
+	next := j.said[0]
+	j.said = j.said[1:]
+	return next, nil
+}
+
+func (j *journal) Delivered(_ context.Context, _ string, upTo int) error {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	j.delivered = append(j.delivered, upTo)
 	return nil
 }
 
@@ -128,6 +153,7 @@ process.stdin.on("data", (chunk) => {
 }
 
 type runOptions struct {
+	said       [][]protocol.Said
 	briefing   string
 	handover   []string
 	agentUser  *account.User
@@ -144,7 +170,7 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 		adjust(&settings)
 	}
 
-	written := &journal{}
+	written := &journal{said: settings.said}
 	err := session.Execute(context.Background(), protocol.Run{
 		ID: "run_1",
 		Spec: protocol.Spec{
@@ -415,5 +441,34 @@ func TestExpandsTheStateDirectoryIntoWhatTheHarnessIsTold(t *testing.T) {
 	want := filepath.Join(root, "task_1", workspace.StatePath, "somewhere")
 	if got := said(t, written); got != want {
 		t.Errorf("the harness was told %q, wanted %q", got, want)
+	}
+}
+
+// A person typing at an agent mid-work is the point of a run staying open: the
+// words reach it as another turn in the same session, not as a second run.
+func TestWhatAPersonSaysReachesTheAgentAsAnotherTurn(t *testing.T) {
+	written := run(t, harness(t, `said = JSON.stringify(msg.params.prompt);`, "end_turn"),
+		func(o *runOptions) {
+			o.briefing = "the first thing"
+			o.said = [][]protocol.Said{{{Position: 3, Body: "and one more thing"}}}
+		})
+
+	heard := said(t, written)
+
+	if !strings.Contains(heard, "and one more thing") {
+		t.Errorf("what the person said never arrived: %q", heard)
+	}
+	if len(written.delivered) != 1 || written.delivered[0] != 3 {
+		t.Errorf("marked delivered %v, wanted [3]", written.delivered)
+	}
+}
+
+// Nothing said is the ordinary case, and must not cost a second turn.
+func TestARunEndsWhenNobodyHasSaidAnything(t *testing.T) {
+	written := run(t, harness(t, `said = "worked";`, "end_turn"),
+		func(o *runOptions) { o.briefing = "the only thing" })
+
+	if len(written.delivered) != 0 {
+		t.Errorf("marked delivered %v, wanted nothing", written.delivered)
 	}
 }

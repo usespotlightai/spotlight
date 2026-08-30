@@ -131,7 +131,7 @@ describe('AddTaskHandler', () => {
       rank: added?.rank.value,
       // Dispatched the moment it was raised, so it is already being worked.
       running: true,
-      awaitingReview: false,
+      awaitingReview: null,
       raisedBy: raiser,
       note: null,
     });

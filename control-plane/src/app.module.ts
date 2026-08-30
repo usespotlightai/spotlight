@@ -3,11 +3,13 @@ import { AnswerInboxItemCommand } from '@application/commands/answer-inbox-item.
 import { CreateWorkspaceCommand } from '@application/commands/create-workspace.command';
 import { CustomiseStationCommand } from '@application/commands/customise-station.command';
 import { DeleteTaskCommand } from '@application/commands/delete-task.command';
+import { DeliverSaidCommand } from '@application/commands/deliver-said.command';
 import { AddTaskHandler } from '@application/commands/handlers/add-task.handler';
 import { AnswerInboxItemHandler } from '@application/commands/handlers/answer-inbox-item.handler';
 import { CreateWorkspaceHandler } from '@application/commands/handlers/create-workspace.handler';
 import { CustomiseStationHandler } from '@application/commands/handlers/customise-station.handler';
 import { DeleteTaskHandler } from '@application/commands/handlers/delete-task.handler';
+import { DeliverSaidHandler } from '@application/commands/handlers/deliver-said.handler';
 import { MoveTaskHandler } from '@application/commands/handlers/move-task.handler';
 import { ReadInboxItemHandler } from '@application/commands/handlers/read-inbox-item.handler';
 import { ReorderStationsHandler } from '@application/commands/handlers/reorder-stations.handler';
@@ -21,6 +23,7 @@ import {
   RenewLeaseHandler,
   RevokeRunnerHandler,
 } from '@application/commands/handlers/runner.handlers';
+import { SayToRunHandler } from '@application/commands/handlers/say-to-run.handler';
 import { MoveTaskCommand } from '@application/commands/move-task.command';
 import { ReadInboxItemCommand } from '@application/commands/read-inbox-item.command';
 import { ReorderStationsCommand } from '@application/commands/reorder-stations.command';
@@ -34,11 +37,10 @@ import {
   RenewLeaseCommand,
   RevokeRunnerCommand,
 } from '@application/commands/runner.commands';
-import { DispatchTask } from '@application/events/handlers/dispatch-task.handler';
+import { SayToRunCommand } from '@application/commands/say-to-run.command';
 import { HandOver } from '@application/events/handlers/hand-over.handler';
 import { ProvisionFactory } from '@application/events/handlers/provision-factory.handler';
 import { ReleaseHeldRuns } from '@application/events/handlers/release-held-runs.handler';
-import { TakeUpStandingWork } from '@application/events/handlers/take-up-standing-work.handler';
 import { ASSEMBLY_LINE_READER } from '@application/ports/assembly-line-reader.port';
 import { CLOCK, type ClockPort } from '@application/ports/clock.port';
 import { FACTORY_PROVISIONING } from '@application/ports/factory-provisioning.port';
@@ -63,7 +65,9 @@ import {
 import { TASK_READER } from '@application/ports/task-reader.port';
 import { TRANSACTION } from '@application/ports/transaction.port';
 import { WORKSPACE_READER } from '@application/ports/workspace-reader.port';
+import { FindStationQuery } from '@application/queries/find-station.query';
 import { GetWorkspaceQuery } from '@application/queries/get-workspace.query';
+import { FindStationHandler } from '@application/queries/handlers/find-station.handler';
 import { GetWorkspaceHandler } from '@application/queries/handlers/get-workspace.handler';
 import { ListAssemblyLinesHandler } from '@application/queries/handlers/list-assembly-lines.handler';
 import { ListHarnessesHandler } from '@application/queries/handlers/list-harnesses.handler';
@@ -72,7 +76,10 @@ import { ListKeptWorkspacesHandler } from '@application/queries/handlers/list-ke
 import { ListRunnersHandler } from '@application/queries/handlers/list-runners.handler';
 import { ListTaskRunsHandler } from '@application/queries/handlers/list-task-runs.handler';
 import { ListTasksHandler } from '@application/queries/handlers/list-tasks.handler';
+import { ListTeamRunsHandler } from '@application/queries/handlers/list-team-runs.handler';
 import { ListWorkspacesHandler } from '@application/queries/handlers/list-workspaces.handler';
+import { PendingMessagesHandler } from '@application/queries/handlers/pending-messages.handler';
+import { ReadRunConversationHandler } from '@application/queries/handlers/read-run-conversation.handler';
 import { ReadRunEventsHandler } from '@application/queries/handlers/read-run-events.handler';
 import { ReadTaskJournalHandler } from '@application/queries/handlers/read-task-journal.handler';
 import { WatchRunHandler } from '@application/queries/handlers/watch-run.handler';
@@ -83,10 +90,15 @@ import { ListKeptWorkspacesQuery } from '@application/queries/list-kept-workspac
 import { ListRunnersQuery } from '@application/queries/list-runners.query';
 import { ListTaskRunsQuery } from '@application/queries/list-task-runs.query';
 import { ListTasksQuery } from '@application/queries/list-tasks.query';
+import { ListTeamRunsQuery } from '@application/queries/list-team-runs.query';
 import { ListWorkspacesQuery } from '@application/queries/list-workspaces.query';
+import { PendingMessagesQuery } from '@application/queries/pending-messages.query';
+import { ReadRunConversationQuery } from '@application/queries/read-run-conversation.query';
 import { ReadRunEventsQuery } from '@application/queries/read-run-events.query';
 import { ReadTaskJournalQuery } from '@application/queries/read-task-journal.query';
 import { WatchRunQuery } from '@application/queries/watch-run.query';
+import { DispatchTask } from '@application/services/dispatch-task.service';
+import { TakeUpStandingWork } from '@application/services/take-up-standing-work.service';
 import { AuthenticationModule } from '@infrastructure/auth/auth.module';
 import { RunnerTokenAuth } from '@infrastructure/auth/runner-token.auth';
 import { RunnerTokenService } from '@infrastructure/auth/runner-token.service';
@@ -239,6 +251,17 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     ]),
     ...bindQueryHandler(ListTasksQuery, ListTasksHandler, [TASK_READER]),
     ...bindQueryHandler(ListTaskRunsQuery, ListTaskRunsHandler, [RUN_READER]),
+    ...bindQueryHandler(ListTeamRunsQuery, ListTeamRunsHandler, [RUN_READER]),
+    ...bindQueryHandler(FindStationQuery, FindStationHandler, [
+      ASSEMBLY_LINE_READER,
+    ]),
+    ...bindQueryHandler(ReadRunConversationQuery, ReadRunConversationHandler, [
+      RUN_READER,
+    ]),
+    ...bindQueryHandler(PendingMessagesQuery, PendingMessagesHandler, [
+      DrizzleRunRepository,
+      DrizzleTaskRepository,
+    ]),
     ...bindQueryHandler(ListHarnessesQuery, ListHarnessesHandler),
     ...bindQueryHandler(ListInboxQuery, ListInboxHandler, [INBOX_READER]),
     ...bindQueryHandler(ListRunnersQuery, ListRunnersHandler, [
@@ -285,6 +308,19 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     ]),
 
     ...bindCommandHandler(ReadInboxItemCommand, ReadInboxItemHandler, [
+      DrizzleTaskRepository,
+      CLOCK,
+    ]),
+
+    ...bindCommandHandler(SayToRunCommand, SayToRunHandler, [
+      DrizzleRunRepository,
+      DrizzleTaskRepository,
+      DrizzleAssemblyLineRepository,
+      CLOCK,
+    ]),
+
+    ...bindCommandHandler(DeliverSaidCommand, DeliverSaidHandler, [
+      DrizzleRunRepository,
       DrizzleTaskRepository,
       CLOCK,
     ]),

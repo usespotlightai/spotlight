@@ -8,6 +8,7 @@ import { Inbox } from './routes/Inbox.tsx';
 import { InboxIndex } from './routes/InboxIndex.tsx';
 import { InboxItem } from './routes/InboxItem.tsx';
 import { Login } from './routes/Login.tsx';
+import { Run } from './routes/Run.tsx';
 import { Runners } from './routes/Runners.tsx';
 import { SignUp } from './routes/SignUp.tsx';
 import { Station } from './routes/Station.tsx';
@@ -38,6 +39,7 @@ export default function App() {
               element={<Station />}
             />
             <Route path="tasks/:taskId" element={<Task />} />
+            <Route path="runs/:runId" element={<Run />} />
             <Route path=":section" element={<TeamSection />} />
           </Route>
           <Route path="inbox" element={<Inbox />}>

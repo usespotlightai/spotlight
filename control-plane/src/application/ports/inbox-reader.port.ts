@@ -9,7 +9,7 @@ export interface InboxAuthor {
 
 export interface InboxNote {
   readonly position: number;
-  readonly kind: 'asked' | 'passed' | 'answered';
+  readonly kind: 'asked' | 'passed' | 'answered' | 'said';
   readonly station: string;
   readonly stationColor: string;
   readonly stationPosition: number;
@@ -20,10 +20,11 @@ export interface InboxNote {
   readonly readAt: Date | null;
 }
 
+/** One station, named the way every other reader names one. */
 export interface InboxStation {
-  readonly station: string;
-  readonly stationColor: string;
-  readonly stationPosition: number;
+  readonly name: string;
+  readonly color: string;
+  readonly position: number;
 }
 
 export interface InboxItemSummary {
@@ -44,6 +45,9 @@ export interface InboxItemSummary {
   readonly resolved: boolean;
   readonly working: boolean;
   readonly unread: boolean;
+  // What the station that opened it was given. A conversation begins with the
+  // prompt its own station received, not with the one the task started on.
+  readonly briefing: string | null;
   readonly notes: readonly InboxNote[];
 }
 

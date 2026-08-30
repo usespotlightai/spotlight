@@ -11,15 +11,20 @@ type PersonAvatarProps = {
   className?: string;
 };
 
-/** Whoever something belongs to, at the size a row has for them. */
 export function PersonAvatar({ person, className }: PersonAvatarProps) {
   const [initial] = [...person.name.trim()];
 
   return (
-    <Avatar size="sm" className={cn('shrink-0', className)}>
+    <Avatar
+      size="sm"
+      className={cn(
+        'shrink-0 after:mix-blend-normal dark:after:mix-blend-normal',
+        className,
+      )}
+    >
       {person.image && <AvatarImage src={person.image} alt={person.name} />}
 
-      <AvatarFallback className="bg-card text-[0.625rem] uppercase group-data-[size=sm]/avatar:text-[0.625rem]">
+      <AvatarFallback className="bg-card text-[0.625rem] text-muted-foreground uppercase group-data-[size=sm]/avatar:text-[0.625rem]">
         {initial}
       </AvatarFallback>
     </Avatar>

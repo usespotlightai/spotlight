@@ -1,4 +1,5 @@
 import { RUN_STATES } from '@domain/value-objects/run-state';
+import { station } from '@infrastructure/persistence/drizzle/schemas/assembly-line.schema';
 import { workspace } from '@infrastructure/persistence/drizzle/schemas/workspace.schema';
 import {
   bigint,
@@ -48,6 +49,11 @@ export const run = pgTable(
     harness: text('harness').notNull(),
     priority: integer('priority').default(0).notNull(),
     taskId: text('task_id'),
+    // Where the task stood when this was dispatched. Set null rather than
+    // cascading: the run happened, whatever became of the station.
+    stationId: text('station_id').references(() => station.id, {
+      onDelete: 'set null',
+    }),
     state: runState('state').notNull(),
     spec: jsonb('spec').$type<unknown>().notNull(),
     // Rises each time the run goes back on the queue. Without it a second

@@ -78,18 +78,18 @@ export class InboxMessageResponseDto {
 
 export class InboxStationResponseDto {
   @ApiProperty({ example: 'Triage' })
-  readonly station: string;
+  readonly name: string;
 
   @ApiProperty({ example: '#edc12b' })
-  readonly stationColor: string;
+  readonly color: string;
 
   @ApiProperty({ example: 0 })
-  readonly stationPosition: number;
+  readonly position: number;
 
-  constructor(station: string, stationColor: string, stationPosition: number) {
-    this.station = station;
-    this.stationColor = stationColor;
-    this.stationPosition = stationPosition;
+  constructor(name: string, color: string, position: number) {
+    this.name = name;
+    this.color = color;
+    this.position = position;
   }
 }
 
@@ -160,6 +160,13 @@ export class InboxItemResponseDto {
   })
   readonly unread: boolean;
 
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'What the station that opened this conversation was given',
+  })
+  readonly briefing: string | null;
+
   @ApiProperty({ type: InboxMessageResponseDto, isArray: true })
   readonly notes: readonly InboxMessageResponseDto[];
 
@@ -180,6 +187,7 @@ export class InboxItemResponseDto {
     resolved: boolean,
     working: boolean,
     unread: boolean,
+    briefing: string | null,
     notes: readonly InboxMessageResponseDto[],
   ) {
     this.id = id;
@@ -198,6 +206,7 @@ export class InboxItemResponseDto {
     this.resolved = resolved;
     this.working = working;
     this.unread = unread;
+    this.briefing = briefing;
     this.notes = notes;
   }
 }

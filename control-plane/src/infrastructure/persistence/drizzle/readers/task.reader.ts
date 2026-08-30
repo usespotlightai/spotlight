@@ -7,6 +7,7 @@ import type { TeamId } from '@domain/value-objects/team-id.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
 import type { DrizzleDatabase } from '@infrastructure/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@infrastructure/persistence/drizzle/drizzle.constants';
+import { awaitedReviewsFor } from '@infrastructure/persistence/drizzle/readers/task-trail';
 import {
   assemblyLine,
   station,
@@ -57,7 +58,6 @@ export class DrizzleTaskReader implements TaskReaderPort {
         description: task.description,
         createdAt: task.createdAt,
         currentRunId: task.currentRunId,
-        awaitingReview: task.awaitingReview,
         raisedById: user.id,
         raisedByName: user.name,
         raisedByImage: user.image,
@@ -70,12 +70,21 @@ export class DrizzleTaskReader implements TaskReaderPort {
       .where(eq(factory.teamId, teamId.value))
       .orderBy(task.rank);
 
-    const notes = await this.latestNotes(rows.map((row) => row.id));
+    const [notes, awaited] = await Promise.all([
+      this.latestNotes(rows.map((row) => row.id)),
+      awaitedReviewsFor(
+        this.db,
+        rows.map((row) => row.id),
+      ),
+    ]);
 
     return rows.map(
       ({ currentRunId, raisedById, raisedByName, raisedByImage, ...rest }) => ({
         ...rest,
         running: currentRunId !== null,
+        awaitingReview: awaited.has(rest.id)
+          ? { conversationId: awaited.get(rest.id) as string }
+          : null,
         raisedBy: raisedById
           ? {
               id: raisedById,

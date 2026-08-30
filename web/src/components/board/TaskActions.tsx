@@ -44,7 +44,7 @@ export function TaskActions({ title, onDelete }: TaskActionsProps) {
       <Dialog open={asking} onOpenChange={setAsking}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete “{title}”?</DialogTitle>
+            <DialogTitle>Delete "{title}"?</DialogTitle>
           </DialogHeader>
 
           <p className="text-muted-foreground text-sm">

@@ -17,9 +17,9 @@ export interface InboxMessageDto {
 }
 
 export interface InboxStationDto {
-  readonly station: string;
-  readonly stationColor: string;
-  readonly stationPosition: number;
+  readonly name: string;
+  readonly color: string;
+  readonly position: number;
 }
 
 export interface InboxItemDto {
@@ -39,5 +39,6 @@ export interface InboxItemDto {
   readonly resolved: boolean;
   readonly working: boolean;
   readonly unread: boolean;
+  readonly briefing: string | null;
   readonly notes: readonly InboxMessageDto[];
 }

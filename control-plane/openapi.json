@@ -404,6 +404,80 @@
         ]
       }
     },
+    "/runs/{runId}/messages": {
+      "get": {
+        "operationId": "pendingMessages",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PendingMessageResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong enrollment token"
+          }
+        },
+        "summary": "What a person has said to the agent working this run",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/messages/delivered": {
+      "post": {
+        "operationId": "deliverSaid",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeliverSaidRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing or wrong enrollment token"
+          }
+        },
+        "summary": "Say what the agent has been given",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
     "/runs/{runId}/lease": {
       "post": {
         "operationId": "renewLease",
@@ -845,6 +919,142 @@
         ]
       }
     },
+    "/teams/{teamId}/runs": {
+      "get": {
+        "operationId": "listTeamRuns",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TeamRunResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          }
+        },
+        "summary": "Every run the team has worked, across its stations",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/teams/{teamId}/runs/{runId}/conversation": {
+      "get": {
+        "operationId": "readRunConversation",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunConversationResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such run for this caller"
+          }
+        },
+        "summary": "The task and the trail since it reached this run’s station",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/teams/{teamId}/runs/{runId}/say": {
+      "post": {
+        "operationId": "sayToRun",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SayToRunRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "It joined the task’s trail"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such run for this caller"
+          },
+          "422": {
+            "description": "The task has moved on from that station"
+          }
+        },
+        "summary": "Say something to the agent working a run",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
     "/teams/{teamId}/tasks/{taskId}/runs": {
       "get": {
         "operationId": "listTaskRuns",
@@ -862,7 +1072,8 @@
             "required": true,
             "in": "path",
             "schema": {
-              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
             }
           }
         ],
@@ -1493,6 +1704,36 @@
           "leaseExpiresAt"
         ]
       },
+      "PendingMessageResponseDto": {
+        "type": "object",
+        "properties": {
+          "position": {
+            "type": "number",
+            "example": 4
+          },
+          "body": {
+            "type": "string",
+            "example": "Cap the retries at 500 while you are in there."
+          }
+        },
+        "required": [
+          "position",
+          "body"
+        ]
+      },
+      "DeliverSaidRequestDto": {
+        "type": "object",
+        "properties": {
+          "upTo": {
+            "type": "number",
+            "example": 4,
+            "description": "Everything said up to and including this note was given"
+          }
+        },
+        "required": [
+          "upTo"
+        ]
+      },
       "RunEventRequestDto": {
         "type": "object",
         "properties": {
@@ -1608,23 +1849,23 @@
       "InboxStationResponseDto": {
         "type": "object",
         "properties": {
-          "station": {
+          "name": {
             "type": "string",
             "example": "Triage"
           },
-          "stationColor": {
+          "color": {
             "type": "string",
             "example": "#edc12b"
           },
-          "stationPosition": {
+          "position": {
             "type": "number",
             "example": 0
           }
         },
         "required": [
-          "station",
-          "stationColor",
-          "stationPosition"
+          "name",
+          "color",
+          "position"
         ]
       },
       "InboxAuthorResponseDto": {
@@ -1720,7 +1961,7 @@
           "id": {
             "type": "string",
             "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13:2",
-            "description": "One stretch a person was asked to own"
+            "description": "One conversation a person was asked to own"
           },
           "taskId": {
             "type": "string",
@@ -1795,6 +2036,11 @@
             "example": true,
             "description": "Something was asked here that they have not seen yet"
           },
+          "briefing": {
+            "type": "string",
+            "nullable": true,
+            "description": "What the station that opened this conversation was given"
+          },
           "notes": {
             "type": "array",
             "items": {
@@ -1819,6 +2065,7 @@
           "resolved",
           "working",
           "unread",
+          "briefing",
           "notes"
         ]
       },
@@ -2069,6 +2316,19 @@
           "token"
         ]
       },
+      "TaskReviewResponseDto": {
+        "type": "object",
+        "properties": {
+          "conversationId": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13:5",
+            "description": "The inbox conversation waiting on a person"
+          }
+        },
+        "required": [
+          "conversationId"
+        ]
+      },
       "TaskPersonResponseDto": {
         "type": "object",
         "properties": {
@@ -2145,9 +2405,14 @@
             "description": "A run is under way"
           },
           "awaitingReview": {
-            "type": "boolean",
-            "example": false,
-            "description": "Waiting on a person"
+            "nullable": true,
+            "description": "Where a standing question is answered, or null for none",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TaskReviewResponseDto"
+              }
+            ]
           },
           "raisedBy": {
             "nullable": true,
@@ -2182,7 +2447,56 @@
           "note"
         ]
       },
-      "TaskRunResponseDto": {
+      "RunStationResponseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Implementation"
+          },
+          "color": {
+            "type": "string",
+            "example": "#edc12b"
+          },
+          "position": {
+            "type": "number",
+            "example": 3
+          },
+          "count": {
+            "type": "number",
+            "example": 5,
+            "description": "How many stations the line holds"
+          }
+        },
+        "required": [
+          "name",
+          "color",
+          "position",
+          "count"
+        ]
+      },
+      "RunReviewResponseDto": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "owed",
+              "settled"
+            ]
+          },
+          "conversationId": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13:5",
+            "description": "The inbox conversation it opened"
+          }
+        },
+        "required": [
+          "state",
+          "conversationId"
+        ]
+      },
+      "TeamRunResponseDto": {
         "type": "object",
         "properties": {
           "id": {
@@ -2191,7 +2505,13 @@
           },
           "state": {
             "type": "string",
-            "example": "completed"
+            "example": "completed",
+            "enum": [
+              "queued",
+              "claimed",
+              "completed",
+              "failed"
+            ]
           },
           "attempt": {
             "type": "number",
@@ -2209,6 +2529,44 @@
           "updatedAt": {
             "type": "string",
             "example": "2026-08-28T16:33:25.712Z"
+          },
+          "harness": {
+            "type": "string",
+            "example": "claude-code"
+          },
+          "station": {
+            "nullable": true,
+            "description": "Where it ran, which the task may since have left",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunStationResponseDto"
+              }
+            ]
+          },
+          "review": {
+            "nullable": true,
+            "description": "Set where it put the task to a person",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunReviewResponseDto"
+              }
+            ]
+          },
+          "taskId": {
+            "type": "string",
+            "nullable": true
+          },
+          "taskTitle": {
+            "type": "string",
+            "example": "Fix the queue",
+            "nullable": true
+          },
+          "taskDescription": {
+            "type": "string",
+            "nullable": true,
+            "description": "What was asked for, shown before a run has said anything"
           }
         },
         "required": [
@@ -2217,7 +2575,158 @@
           "attempt",
           "exitCode",
           "startedAt",
-          "updatedAt"
+          "updatedAt",
+          "harness",
+          "station",
+          "review",
+          "taskId",
+          "taskTitle",
+          "taskDescription"
+        ]
+      },
+      "RunConversationResponseDto": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "example": "4e1e84a2-0c39-406d-bbbb-559f29e450be"
+          },
+          "taskId": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13"
+          },
+          "title": {
+            "type": "string",
+            "example": "Fix the queue"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "station": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunStationResponseDto"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "example": "2026-08-28T16:32:47.877Z"
+          },
+          "briefing": {
+            "type": "string",
+            "nullable": true,
+            "description": "What the run was given, word for word"
+          },
+          "working": {
+            "type": "boolean",
+            "example": false,
+            "description": "A run is on the task now"
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InboxMessageResponseDto"
+            }
+          }
+        },
+        "required": [
+          "runId",
+          "taskId",
+          "title",
+          "description",
+          "station",
+          "createdAt",
+          "briefing",
+          "working",
+          "notes"
+        ]
+      },
+      "SayToRunRequestDto": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "example": "Cap the retries at 500 while you are in there.",
+            "description": "Reaches the agent when its current turn ends"
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "TaskRunResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "4e1e84a2-0c39-406d-bbbb-559f29e450be"
+          },
+          "state": {
+            "type": "string",
+            "example": "completed",
+            "enum": [
+              "queued",
+              "claimed",
+              "completed",
+              "failed"
+            ]
+          },
+          "attempt": {
+            "type": "number",
+            "example": 1
+          },
+          "exitCode": {
+            "type": "number",
+            "example": 0,
+            "nullable": true
+          },
+          "startedAt": {
+            "type": "string",
+            "example": "2026-08-28T16:32:47.877Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "example": "2026-08-28T16:33:25.712Z"
+          },
+          "harness": {
+            "type": "string",
+            "example": "claude-code"
+          },
+          "station": {
+            "nullable": true,
+            "description": "Where it ran, which the task may since have left",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunStationResponseDto"
+              }
+            ]
+          },
+          "review": {
+            "nullable": true,
+            "description": "Set where it put the task to a person",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunReviewResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "attempt",
+          "exitCode",
+          "startedAt",
+          "updatedAt",
+          "harness",
+          "station",
+          "review"
         ]
       },
       "AddTaskRequestDto": {

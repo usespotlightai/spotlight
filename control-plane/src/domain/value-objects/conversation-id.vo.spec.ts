@@ -22,7 +22,7 @@ describe('ConversationId', () => {
     const id = ConversationId.parse('urn:task:7:2');
 
     expect(id.taskId.value).toBe('urn:task:7');
-    expect(id.from).toBe(2);
+    expect(id.from.value).toBe(2);
   });
 
   it('refuses what does not name a note', () => {

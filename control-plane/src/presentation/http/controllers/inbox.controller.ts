@@ -80,20 +80,21 @@ export class InboxController {
           item.stationPosition,
           item.stationCount,
           new InboxStationResponseDto(
-            item.raisedAt.station,
-            item.raisedAt.stationColor,
-            item.raisedAt.stationPosition,
+            item.raisedAt.name,
+            item.raisedAt.color,
+            item.raisedAt.position,
           ),
           new InboxStationResponseDto(
-            item.standsAt.station,
-            item.standsAt.stationColor,
-            item.standsAt.stationPosition,
+            item.standsAt.name,
+            item.standsAt.color,
+            item.standsAt.position,
           ),
           item.createdAt,
           item.askedAt,
           item.resolved,
           item.working,
           item.unread,
+          item.briefing,
           item.notes.map(
             (note) =>
               new InboxMessageResponseDto(

@@ -108,3 +108,24 @@ export class EnqueueRunRequestDto {
   })
   readonly targetRunnerId?: string;
 }
+
+export class DeliverSaidRequestDto {
+  @ApiProperty({
+    example: 4,
+    description: 'Everything said up to and including this note was given',
+  })
+  readonly upTo!: number;
+}
+
+export class PendingMessageResponseDto {
+  @ApiProperty({ example: 4 })
+  readonly position: number;
+
+  @ApiProperty({ example: 'Cap the retries at 500 while you are in there.' })
+  readonly body: string;
+
+  constructor(position: number, body: string) {
+    this.position = position;
+    this.body = body;
+  }
+}

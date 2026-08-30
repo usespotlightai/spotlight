@@ -13,15 +13,55 @@ const summary = (over: Partial<TaskRunSummary> = {}): TaskRunSummary => ({
   exitCode: 0,
   startedAt: new Date('2026-08-28T16:32:47.877Z'),
   updatedAt: new Date('2026-08-28T16:33:25.712Z'),
+  harness: 'claude-code',
+  station: {
+    name: 'Implementation',
+    color: '#edc12b',
+    position: 3,
+    count: 5,
+  },
+  review: null,
   ...over,
 });
 
 const reading = (found: TaskRunSummary[]) => {
   const listForTask = vi.fn().mockResolvedValue(found);
-  return { runs: { listForTask } as RunReaderPort, listForTask };
+  const runs = {
+    listForTask,
+    listForTeam: vi.fn(),
+    conversationFor: vi.fn(),
+  } satisfies RunReaderPort;
+
+  return { runs, listForTask };
 };
 
 describe('ListTaskRunsHandler', () => {
+  it('carries the station a run worked, not the one its task stands at', async () => {
+    const { runs } = reading([summary()]);
+
+    const [only] = await new ListTaskRunsHandler(runs).execute(
+      new ListTaskRunsQuery('task_1', 'user_1'),
+    );
+
+    expect(only?.station).toEqual({
+      name: 'Implementation',
+      color: '#edc12b',
+      position: 3,
+      count: 5,
+    });
+    expect(only?.harness).toBe('claude-code');
+  });
+
+  it('leaves a run dispatched to no station without one', async () => {
+    const { runs } = reading([summary({ station: null })]);
+
+    const [only] = await new ListTaskRunsHandler(runs).execute(
+      new ListTaskRunsQuery('task_1', 'user_1'),
+    );
+
+    expect(only?.station).toBeNull();
+  });
+
   it('asks only for the runs of the task the viewer named', async () => {
     const { runs, listForTask } = reading([]);
 
@@ -58,6 +98,21 @@ describe('ListTaskRunsHandler', () => {
     );
 
     expect(found?.exitCode).toBeNull();
+  });
+
+  it('carries that a run is still owed an answer, and where it is answered', async () => {
+    const { runs } = reading([
+      summary({ review: { state: 'owed', conversationId: 'task_1:5' } }),
+    ]);
+
+    const [found] = await new ListTaskRunsHandler(runs).execute(
+      new ListTaskRunsQuery('task_1', 'user_1'),
+    );
+
+    expect(found?.review).toEqual({
+      state: 'owed',
+      conversationId: 'task_1:5',
+    });
   });
 
   it('answers with nothing for a task the viewer cannot see', async () => {

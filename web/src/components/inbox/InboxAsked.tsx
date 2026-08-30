@@ -3,10 +3,6 @@ import { SaidCard } from '@/components/inbox/SaidCard';
 import type { InboxItem } from '@/lib/inbox';
 import { stationShare } from '@/lib/station';
 
-/**
- * What the person asked for: the task itself, where it was raised. It opens
- * the conversation because it is the first thing anyone said.
- */
 export function InboxAsked({ item }: { item: InboxItem }) {
   const raised = item.raisedAt;
 
@@ -14,10 +10,10 @@ export function InboxAsked({ item }: { item: InboxItem }) {
     <SaidCard>
       <span className="flex items-center gap-1.5 text-muted-foreground text-xs">
         <StationIcon
-          share={stationShare(raised.stationPosition, item.stationCount)}
-          color={raised.stationColor}
+          share={stationShare(raised.position, item.stationCount)}
+          color={raised.color}
         />
-        {raised.station}
+        {raised.name}
       </span>
 
       <div>

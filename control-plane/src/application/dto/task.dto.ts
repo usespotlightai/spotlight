@@ -11,6 +11,10 @@ export interface TaskPersonDto {
   readonly image: string | null;
 }
 
+export interface TaskReviewDto {
+  readonly conversationId: string;
+}
+
 export interface TaskDto {
   readonly id: string;
   readonly stationId: string;
@@ -18,7 +22,7 @@ export interface TaskDto {
   readonly description: string | null;
   readonly createdAt: string;
   readonly running: boolean;
-  readonly awaitingReview: boolean;
+  readonly awaitingReview: TaskReviewDto | null;
   readonly note: TaskNoteDto | null;
   readonly raisedBy: TaskPersonDto | null;
 }

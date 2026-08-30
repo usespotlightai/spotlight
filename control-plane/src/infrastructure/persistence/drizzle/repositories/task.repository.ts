@@ -36,6 +36,7 @@ const toNote = (row: NoteRow): TaskNote =>
     run: row.runId ? RunId.of(row.runId) : null,
     kind: row.kind ?? 'passed',
     readAt: row.readAt,
+    deliveredAt: row.deliveredAt,
   });
 
 const toTask = (row: Row, notes: NoteRow[]): Task =>
@@ -47,7 +48,6 @@ const toTask = (row: Row, notes: NoteRow[]): Task =>
     description: row.description ? TaskDescription.of(row.description) : null,
     rank: TaskRank.of(row.rank),
     currentRunId: row.currentRunId ? RunId.of(row.currentRunId) : null,
-    awaitingReview: row.awaitingReview,
     sessionId: row.sessionId ? HarnessSession.of(row.sessionId) : null,
     runnerId: row.runnerId ? RunnerId.of(row.runnerId) : null,
     notes: notes.map(toNote),
@@ -182,6 +182,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         runId: note.run?.value ?? null,
         kind: note.kind,
         readAt: note.readAt,
+        deliveredAt: note.deliveredAt,
       })),
     );
   }

@@ -47,5 +47,5 @@ export interface RunRepository {
    * Puts back whatever this runner is holding. The query narrows the
    * candidates; `Run.release` decides, so the rule is stated once.
    */
-  releaseClaimedBy(runner: RunnerId): Promise<number>;
+  releaseClaimedBy(runner: RunnerId): Promise<void>;
 }

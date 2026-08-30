@@ -38,6 +38,18 @@ export class TaskPersonResponseDto {
   }
 }
 
+export class TaskReviewResponseDto {
+  @ApiProperty({
+    example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13:5',
+    description: 'The inbox conversation waiting on a person',
+  })
+  readonly conversationId: string;
+
+  constructor(conversationId: string) {
+    this.conversationId = conversationId;
+  }
+}
+
 export class TaskResponseDto {
   @ApiProperty({ example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13' })
   readonly id: string;
@@ -62,8 +74,12 @@ export class TaskResponseDto {
   @ApiProperty({ example: false, description: 'A run is under way' })
   readonly running: boolean;
 
-  @ApiProperty({ example: false, description: 'Waiting on a person' })
-  readonly awaitingReview: boolean;
+  @ApiProperty({
+    type: TaskReviewResponseDto,
+    nullable: true,
+    description: 'Where a standing question is answered, or null for none',
+  })
+  readonly awaitingReview: TaskReviewResponseDto | null;
 
   @ApiProperty({
     type: TaskPersonResponseDto,
@@ -86,7 +102,7 @@ export class TaskResponseDto {
     description: string | null,
     createdAt: string,
     running: boolean,
-    awaitingReview: boolean,
+    awaitingReview: TaskReviewResponseDto | null,
     raisedBy: TaskPersonResponseDto | null,
     note: TaskNoteResponseDto | null,
   ) {

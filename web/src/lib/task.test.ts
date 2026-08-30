@@ -8,7 +8,7 @@ const task = (id: string, stationId: string): Task => ({
   description: null,
   createdAt: '2026-08-04T09:15:00.000Z',
   running: false,
-  awaitingReview: false,
+  awaitingReview: null,
   raisedBy: null,
   note: null,
 });

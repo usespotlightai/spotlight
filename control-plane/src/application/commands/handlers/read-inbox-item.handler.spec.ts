@@ -4,6 +4,7 @@ import { UseCaseFault } from '@application/errors/use-case.fault';
 import type { ClockPort } from '@application/ports/clock.port';
 import { Task } from '@domain/aggregates/task.aggregate';
 import type { TaskRepository } from '@domain/repositories/task.repository';
+import { NotePosition } from '@domain/value-objects/note-position.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
@@ -67,7 +68,7 @@ describe('ReadInboxItem', () => {
   });
 
   it('does not write when it had already been read', async () => {
-    const { repository, done } = read(waiting().read(0, NOW));
+    const { repository, done } = read(waiting().read(NotePosition.of(0), NOW));
     await done;
 
     expect(repository.save).not.toHaveBeenCalled();

@@ -1,6 +1,7 @@
 import { InvalidTaskTransitionError } from '@domain/exceptions/invalid-task-transition.error';
 import { ContinuityKey } from '@domain/services/continuity-key';
 import {
+  awaitsAPerson,
   type Conversation,
   conversationsOf,
   notesIn,
@@ -9,6 +10,7 @@ import {
 import { anyUnread } from '@domain/services/unread';
 import { Continuity } from '@domain/value-objects/continuity.vo';
 import type { HarnessSession } from '@domain/value-objects/harness-session.vo';
+import { NotePosition } from '@domain/value-objects/note-position.vo';
 import type { RunId } from '@domain/value-objects/run-id.vo';
 import type { RunnerId } from '@domain/value-objects/runner-id.vo';
 import type { StationId } from '@domain/value-objects/station-id.vo';
@@ -25,10 +27,7 @@ import type { TaskTitle } from '@domain/value-objects/task-title.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 
-/**
- * What is being written down. The task itself says what the note did, so no
- * caller can write one that means something the task did not do.
- */
+/** The task says what a note did, so no caller may write one that lies. */
 export interface Saying {
   readonly station: StationName;
   readonly body: TaskNoteBody;
@@ -46,16 +45,12 @@ export class Task {
     readonly description: TaskDescription | null,
     readonly rank: TaskRank,
     readonly currentRunId: RunId | null,
-    readonly awaitingReview: boolean,
     // The conversation it was last worked in. It belongs to one stay at one
     // station: moving on drops it, because the note is what travels.
     readonly sessionId: HarnessSession | null,
-    // The runner holding what the last run left, so it is dropped exactly
-    // when the session is.
     readonly runnerId: RunnerId | null,
     readonly notes: readonly TaskNote[],
     readonly createdAt: Date,
-    // Where it was raised, which it keeps as it moves.
     readonly raisedAt: StationId | null,
     readonly raisedBy: UserId | null,
   ) {}
@@ -78,7 +73,6 @@ export class Task {
       input.description ?? null,
       input.rank,
       null,
-      false,
       null,
       null,
       [],
@@ -96,7 +90,6 @@ export class Task {
     description: TaskDescription | null;
     rank: TaskRank;
     currentRunId: RunId | null;
-    awaitingReview: boolean;
     sessionId: HarnessSession | null;
     runnerId: RunnerId | null;
     notes: readonly TaskNote[];
@@ -112,7 +105,6 @@ export class Task {
       input.description,
       input.rank,
       input.currentRunId,
-      input.awaitingReview,
       input.sessionId,
       input.runnerId,
       input.notes,
@@ -122,10 +114,7 @@ export class Task {
     );
   }
 
-  /**
-   * Moved by hand, which closes anything a person was owed here just as
-   * passing it on would.
-   */
+  /** Moved by hand closes what was asked here, as passing it on would. */
   moveTo(stationId: StationId, rank: TaskRank, saying: Saying): Task {
     this.refuseStandingStill(stationId, 'moved to');
 
@@ -146,7 +135,11 @@ export class Task {
     return this.currentRunId !== null;
   }
 
-  /** Neither being worked nor waiting on a person: nobody has taken it up. */
+  /** Read from the trail, so it cannot drift from what was actually said. */
+  get awaitingReview(): boolean {
+    return awaitsAPerson(this.notes);
+  }
+
   get idle(): boolean {
     return !this.running && !this.awaitingReview;
   }
@@ -177,12 +170,7 @@ export class Task {
     });
   }
 
-  note(note: TaskNote): Task {
-    return this.with({ notes: [...this.notes, note] });
-  }
-
-  /** The conversation a person is still owed the end of, if there is one. */
-  get owed(): Conversation | null {
+  get openConversation(): Conversation | null {
     const cut = conversationsOf(this.notes.map((each) => each.kind));
     const last = cut[cut.length - 1];
 
@@ -193,12 +181,12 @@ export class Task {
     return this.raisedBy?.equals(userId) ?? false;
   }
 
-  unreadFrom(from: number): boolean {
+  unreadFrom(from: NotePosition): boolean {
     return anyUnread(this.within(from));
   }
 
   /** A conversation is read whole: it is one conversation. */
-  read(from: number, at: Date): Task {
+  read(from: NotePosition, at: Date): Task {
     const read = new Set(this.within(from));
 
     return this.with({
@@ -206,10 +194,10 @@ export class Task {
     });
   }
 
-  private within(from: number): readonly TaskNote[] {
+  private within(from: NotePosition): readonly TaskNote[] {
     const conversation = conversationsOf(
       this.notes.map((each) => each.kind),
-    ).find((each) => each.from === from);
+    ).find((each) => each.from === from.value);
 
     if (!conversation) {
       throw new InvalidTaskTransitionError(
@@ -220,7 +208,31 @@ export class Task {
     return notesIn(conversation, this.notes);
   }
 
-  /** Put to a person, who holds it from here until it moves on. */
+  /** Only while the task is still where that agent is. */
+  told(stationId: StationId, saying: Saying): Task {
+    if (!this.stationId.equals(stationId)) {
+      throw new InvalidTaskTransitionError(
+        'has moved on from there, so there is nobody left to tell',
+      );
+    }
+
+    return this.with({ notes: [...this.notes, this.wrote(saying, 'said')] });
+  }
+
+  get undelivered(): readonly TaskNote[] {
+    return this.notes.filter((each) => each.undelivered);
+  }
+
+  deliveredUpTo(position: NotePosition, at: Date): Task {
+    return this.with({
+      notes: this.notes.map((note, place) =>
+        NotePosition.of(place).isAtOrBefore(position)
+          ? note.delivered(at)
+          : note,
+      ),
+    });
+  }
+
   askedAbout(saying: Saying): Task {
     if (this.awaitingReview) {
       throw new InvalidTaskTransitionError(
@@ -230,24 +242,19 @@ export class Task {
 
     return this.with({
       currentRunId: null,
-      awaitingReview: true,
       notes: [...this.notes, this.wrote(saying, 'asked')],
     });
   }
 
-  /**
-   * Answered, so it can be worked again. It stays where it is, which lets the
-   * run that follows take the conversation up.
-   */
-  answered(from: number, saying: Saying): Task {
-    if (this.owed?.from !== from) {
+  /** It stays where it is, so the run that follows takes the conversation up. */
+  answered(from: NotePosition, saying: Saying): Task {
+    if (this.openConversation?.from !== from.value) {
       throw new InvalidTaskTransitionError(
         'is not waiting on anyone there, so there is nothing to answer',
       );
     }
 
     return this.with({
-      awaitingReview: false,
       notes: [...this.notes, this.wrote(saying, 'answered')],
     });
   }
@@ -261,7 +268,6 @@ export class Task {
       stationId,
       rank,
       currentRunId: null,
-      awaitingReview: false,
       sessionId: null,
       runnerId: null,
       notes: [...this.notes, this.wrote(saying, 'passed')],
@@ -285,7 +291,6 @@ export class Task {
     stationId?: StationId;
     rank?: TaskRank;
     currentRunId?: RunId | null;
-    awaitingReview?: boolean;
     sessionId?: HarnessSession | null;
     runnerId?: RunnerId | null;
     notes?: readonly TaskNote[];
@@ -298,7 +303,6 @@ export class Task {
       this.description,
       part.rank ?? this.rank,
       part.currentRunId !== undefined ? part.currentRunId : this.currentRunId,
-      part.awaitingReview ?? this.awaitingReview,
       part.sessionId !== undefined ? part.sessionId : this.sessionId,
       part.runnerId !== undefined ? part.runnerId : this.runnerId,
       part.notes ?? this.notes,

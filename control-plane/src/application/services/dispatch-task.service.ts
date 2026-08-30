@@ -8,6 +8,7 @@ import { TaskBriefing } from '@domain/services/task-briefing';
 import { harnessNamed } from '@domain/value-objects/built-in-harnesses';
 import type { RunId } from '@domain/value-objects/run-id.vo';
 import { RunId as RunIdOf } from '@domain/value-objects/run-id.vo';
+import { RunSpec } from '@domain/value-objects/run-spec.vo';
 
 export class DispatchTask implements TaskDispatchPort {
   constructor(
@@ -43,13 +44,14 @@ export class DispatchTask implements TaskDispatchPort {
       harness: harness.id,
       priority: station.position,
       taskId: task.id,
+      stationId: station.id,
       targetRunner: continuity.pinnedTo,
-      spec: {
+      spec: RunSpec.of({
         command: harness.command.started(),
         briefing: TaskBriefing.brief({ task, line }),
         handover: { options: line.optionsFrom(station.id) },
         continuity: continuity.told(),
-      },
+      }),
     });
 
     await this.runs.add(queued);

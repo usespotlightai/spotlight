@@ -1,5 +1,5 @@
-import { DispatchTask } from '@application/events/handlers/dispatch-task.handler';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
+import { DispatchTask } from '@application/services/dispatch-task.service';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Run } from '@domain/aggregates/run.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
@@ -117,7 +117,7 @@ describe('DispatchTask', () => {
   it('tells the runner what the agent may hand over to', async () => {
     await dispatch(stations[1] as Station);
 
-    expect(queued[0]?.spec).toMatchObject({
+    expect(queued[0]?.spec.value).toMatchObject({
       handover: { options: ['Spec', 'review'] },
     });
   });
@@ -125,7 +125,7 @@ describe('DispatchTask', () => {
   it('does not offer a station nothing runs at', async () => {
     await dispatch(stations[1] as Station);
 
-    expect(queued[0]?.spec).toMatchObject({
+    expect(queued[0]?.spec.value).toMatchObject({
       handover: { options: expect.not.arrayContaining(['Backlog']) },
     });
   });
@@ -135,7 +135,7 @@ describe('DispatchTask', () => {
   it('does not let the agent hand the task to its own station', async () => {
     await dispatch(stations[1] as Station);
 
-    const spec = queued[0]?.spec as { handover: { options: string[] } };
+    const spec = queued[0]?.spec.value;
 
     expect(spec.handover.options).not.toContain('Triage');
   });
@@ -143,9 +143,7 @@ describe('DispatchTask', () => {
   it('runs the harness the way the harness has to be started', async () => {
     await dispatch(stations[1] as Station);
 
-    const spec = queued[0]?.spec as {
-      command: { executable: string; args: string[] };
-    };
+    const spec = queued[0]?.spec.value;
 
     expect(spec.command.executable).toBe(CLAUDE_CODE.command.executable);
     expect(spec.command.args).toEqual([...CLAUDE_CODE.command.args]);
@@ -156,30 +154,20 @@ describe('DispatchTask', () => {
   it('briefs the agent in the same words it gives the runner', async () => {
     await dispatch(stations[1] as Station);
 
-    const spec = queued[0]?.spec as {
-      briefing: string;
-      handover: { options: string[] };
-    };
+    const spec = queued[0]?.spec.value;
 
     for (const option of spec.handover.options) {
       expect(spec.briefing).toContain(`"${option}"`);
     }
   });
-  describe('carrying on where the last run stopped', () => {
-    interface Continuing {
-      readonly continuity: {
-        readonly key: string;
-        readonly sessionId?: string;
-        readonly keep: boolean;
-      };
-    }
 
+  describe('carrying on where the last run stopped', () => {
     const continuityOf = (at: number) => {
       const run = queued[at];
       if (!run) {
         throw new Error(`nothing was queued at ${at}`);
       }
-      return (run.spec as Continuing).continuity;
+      return run.spec.value.continuity;
     };
 
     const worked = (station: Station) =>

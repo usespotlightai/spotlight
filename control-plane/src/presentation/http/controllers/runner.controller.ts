@@ -1,3 +1,4 @@
+import { DeliverSaidCommand } from '@application/commands/deliver-said.command';
 import {
   AppendRunEventsCommand,
   ClaimRunCommand,
@@ -6,12 +7,14 @@ import {
   RenewLeaseCommand,
 } from '@application/commands/runner.commands';
 import type { HarnessDto } from '@application/dto/harness.dto';
+import type { PendingMessageDto } from '@application/dto/pending-message.dto';
 import type {
   ClaimedRunDto,
   RegisteredRunnerDto,
 } from '@application/dto/run.dto';
 import { ListHarnessesQuery } from '@application/queries/list-harnesses.query';
 import { ListKeptWorkspacesQuery } from '@application/queries/list-kept-workspaces.query';
+import { PendingMessagesQuery } from '@application/queries/pending-messages.query';
 import {
   Body,
   Controller,
@@ -37,6 +40,8 @@ import { KeptWorkspacesResponseDto } from '@presentation/http/dto/kept-workspace
 import {
   AppendRunEventsRequestDto,
   CompleteRunRequestDto,
+  DeliverSaidRequestDto,
+  PendingMessageResponseDto,
   RegisterRunnerRequestDto,
 } from '@presentation/http/dto/runner.request.dto';
 import {
@@ -144,6 +149,39 @@ export class RunnerController {
       claimed.spec,
       claimed.leaseExpiresAt,
     );
+  }
+
+  @Get('runs/:runId/messages')
+  @ApiOperation({
+    operationId: 'pendingMessages',
+    summary: 'What a person has said to the agent working this run',
+  })
+  @ApiOkResponse({ type: PendingMessageResponseDto, isArray: true })
+  async messages(
+    @Param('runId') runId: string,
+  ): Promise<PendingMessageResponseDto[]> {
+    const waiting = await this.queryBus.execute<
+      PendingMessagesQuery,
+      PendingMessageDto[]
+    >(new PendingMessagesQuery(runId));
+
+    return waiting.map(
+      (each) => new PendingMessageResponseDto(each.position, each.body),
+    );
+  }
+
+  @Post('runs/:runId/messages/delivered')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'deliverSaid',
+    summary: 'Say what the agent has been given',
+  })
+  @ApiNoContentResponse()
+  async delivered(
+    @Param('runId') runId: string,
+    @Body() body: DeliverSaidRequestDto,
+  ): Promise<void> {
+    await this.commandBus.execute(new DeliverSaidCommand(runId, body.upTo));
   }
 
   @Post('runs/:runId/lease')

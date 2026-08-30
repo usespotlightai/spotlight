@@ -137,3 +137,10 @@ type Completion struct {
 	// to carry on.
 	SessionID string `json:"sessionId,omitempty"`
 }
+
+// Said is something a person typed at the agent while it was working. It is
+// given to the harness when the turn it arrived during ends.
+type Said struct {
+	Position int    `json:"position"`
+	Body     string `json:"body"`
+}

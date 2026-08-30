@@ -1,5 +1,5 @@
-import { TakeUpStandingWork } from '@application/events/handlers/take-up-standing-work.handler';
 import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
+import { TakeUpStandingWork } from '@application/services/take-up-standing-work.service';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { Station } from '@domain/entities/station.entity';

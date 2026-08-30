@@ -31,9 +31,10 @@ describe('Runner', () => {
   });
 
   it('records what the runner says it found', () => {
-    const runner = enrolled();
-
-    runner.reports([HarnessId.of('claude-code'), HarnessId.of('other')]);
+    const runner = enrolled().reports([
+      HarnessId.of('claude-code'),
+      HarnessId.of('other'),
+    ]);
 
     expect(runner.harnesses.map((each) => each.value)).toEqual([
       'claude-code',
@@ -44,17 +45,15 @@ describe('Runner', () => {
   // A machine that loses a tool says so by not mentioning it, so what it
   // reports replaces what it said before rather than adding to it.
   it('takes the latest word as the whole truth', () => {
-    const runner = enrolled();
-
-    runner.reports([HarnessId.of('claude-code'), HarnessId.of('other')]);
-    runner.reports([HarnessId.of('other')]);
+    const runner = enrolled()
+      .reports([HarnessId.of('claude-code'), HarnessId.of('other')])
+      .reports([HarnessId.of('other')]);
 
     expect(runner.harnesses.map((each) => each.value)).toEqual(['other']);
   });
 
   it('will not hear from a runner whose token was retired', () => {
-    const runner = enrolled();
-    runner.revoke(NOW);
+    const runner = enrolled().revoke(NOW);
 
     expect(() => runner.reports([HarnessId.of('claude-code')])).toThrow(
       RevokedRunnerError,
@@ -62,10 +61,7 @@ describe('Runner', () => {
   });
 
   it('keeps its identity across a restart', () => {
-    const runner = enrolled();
-
-    runner.seen(NOW);
-    runner.seen(LATER);
+    const runner = enrolled().seen(NOW).seen(LATER);
 
     expect(runner.id.value).toBe('runner_1');
     expect(runner.hasConnected).toBe(true);
@@ -73,42 +69,30 @@ describe('Runner', () => {
   });
 
   it('refuses to be seen once its token is revoked', () => {
-    const runner = enrolled();
-    runner.revoke(NOW);
+    const runner = enrolled().revoke(NOW);
 
     expect(() => runner.seen(LATER)).toThrow(RevokedRunnerError);
   });
 
   it('keeps the moment it was first revoked', () => {
-    const runner = enrolled();
+    const revoked = enrolled().revoke(NOW).revoke(LATER);
 
-    runner.revoke(NOW);
-    runner.revoke(LATER);
-
-    expect(runner.revokedAt).toEqual(NOW);
-  });
-
-  it('says so once, so the work it held is released once', () => {
-    const runner = enrolled();
-
-    runner.revoke(NOW);
-    runner.revoke(LATER);
-
-    const raised = runner.pullEvents();
-    expect(raised).toHaveLength(1);
-    expect(raised[0]).toBeInstanceOf(RunnerRevoked);
-    expect(raised[0].runnerId.value).toBe('runner_1');
+    expect(revoked.happened).toHaveLength(1);
+    expect(revoked.happened[0]).toBeInstanceOf(RunnerRevoked);
+    expect(revoked.happened[0]?.runnerId.value).toBe('runner_1');
   });
 
   it('raises nothing until it is revoked', () => {
-    expect(enrolled().pullEvents()).toHaveLength(0);
+    expect(enrolled().happened).toHaveLength(0);
   });
 
-  it('hands each event over only once', () => {
+  // What a change raised belongs to the runner that change made, so the one
+  // it was made from still says nothing happened.
+  it('leaves the runner it was revoked from untouched', () => {
     const runner = enrolled();
     runner.revoke(NOW);
 
-    expect(runner.pullEvents()).toHaveLength(1);
-    expect(runner.pullEvents()).toHaveLength(0);
+    expect(runner.happened).toHaveLength(0);
+    expect(runner.revoked).toBe(false);
   });
 });

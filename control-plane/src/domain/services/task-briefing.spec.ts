@@ -19,6 +19,25 @@ import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
+// A task carrying a trail, built the way the repository builds one: the
+// aggregate writes its own notes, so nothing may hand it any.
+const withNotes = (task: Task, ...notes: TaskNote[]) =>
+  Task.rehydrate({
+    id: task.id,
+    workspaceId: task.workspaceId,
+    stationId: task.stationId,
+    title: task.title,
+    description: task.description,
+    rank: task.rank,
+    currentRunId: task.currentRunId,
+    sessionId: task.sessionId,
+    runnerId: task.runnerId,
+    notes: [...task.notes, ...notes],
+    createdAt: task.createdAt,
+    raisedAt: task.raisedAt,
+    raisedBy: task.raisedBy,
+  });
+
 const at = (id: string, name: string, position: number, prompt?: AgentPrompt) =>
   Station.create({
     id: StationId.of(id),
@@ -78,7 +97,9 @@ describe('TaskBriefing', () => {
   });
 
   it('carries forward what earlier stations left behind', () => {
-    const worked = task('station_1').note(
+    const worked = withNotes(
+      task('station_1'),
+
       TaskNote.of({
         station: StationName.of('Triage'),
         body: TaskNoteBody.of('Reproduced on restart.'),

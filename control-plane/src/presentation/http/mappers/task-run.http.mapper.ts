@@ -1,5 +1,10 @@
-import type { TaskRunDto } from '@application/dto/task-run.dto';
-import { TaskRunResponseDto } from '@presentation/http/dto/task-run.response.dto';
+import type { TaskRunDto, TeamRunDto } from '@application/dto/task-run.dto';
+import {
+  RunReviewResponseDto,
+  RunStationResponseDto,
+  TaskRunResponseDto,
+  TeamRunResponseDto,
+} from '@presentation/http/dto/task-run.response.dto';
 
 export const TaskRunHttpMapper = {
   toResponse(dto: TaskRunDto): TaskRunResponseDto {
@@ -10,6 +15,27 @@ export const TaskRunHttpMapper = {
       dto.exitCode,
       dto.startedAt,
       dto.updatedAt,
+      dto.harness,
+      dto.station
+        ? new RunStationResponseDto(
+            dto.station.name,
+            dto.station.color,
+            dto.station.position,
+            dto.station.count,
+          )
+        : null,
+      dto.review
+        ? new RunReviewResponseDto(dto.review.state, dto.review.conversationId)
+        : null,
+    );
+  },
+
+  teamToResponse(dto: TeamRunDto): TeamRunResponseDto {
+    return new TeamRunResponseDto(
+      TaskRunHttpMapper.toResponse(dto),
+      dto.taskId,
+      dto.taskTitle,
+      dto.taskDescription,
     );
   },
 };

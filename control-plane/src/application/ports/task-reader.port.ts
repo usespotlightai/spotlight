@@ -2,12 +2,15 @@ import type { PersonSummary } from '@application/ports/person-reader.port';
 import type { TeamId } from '@domain/value-objects/team-id.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
 
-/** The last thing said about a task, as the board reads it. */
 export interface TaskNoteSummary {
   // What identifies it: notes are appended and never reordered.
   readonly position: number;
   readonly station: string;
   readonly body: string;
+}
+
+export interface TaskReviewSummary {
+  readonly conversationId: string;
 }
 
 export interface TaskSummary {
@@ -17,8 +20,8 @@ export interface TaskSummary {
   readonly description: string | null;
   readonly createdAt: Date;
   readonly running: boolean;
-  readonly awaitingReview: boolean;
-  // The last thing said about it, which is why it is where it is.
+  // Where the question is answered, and null where none is standing.
+  readonly awaitingReview: TaskReviewSummary | null;
   readonly note: TaskNoteSummary | null;
   readonly raisedBy: PersonSummary | null;
 }

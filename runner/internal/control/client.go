@@ -104,6 +104,34 @@ func (c *Client) Claim(ctx context.Context) (*protocol.Run, error) {
 	return &run, nil
 }
 
+// Said reads what a person has typed at the agent working this run and that
+// no turn has been given yet.
+func (c *Client) Said(ctx context.Context, runID string) ([]protocol.Said, error) {
+	path := fmt.Sprintf("/api/runs/%s/messages", url.PathEscape(runID))
+
+	var said []protocol.Said
+	if err := c.do(ctx, http.MethodGet, path, nil, &said); err != nil {
+		return nil, fmt.Errorf("read what was said: %w", err)
+	}
+
+	return said, nil
+}
+
+// Delivered says the agent has been given everything up to this note, so it
+// is not handed the same words twice.
+func (c *Client) Delivered(ctx context.Context, runID string, upTo int) error {
+	path := fmt.Sprintf("/api/runs/%s/messages/delivered", url.PathEscape(runID))
+	body := struct {
+		UpTo int `json:"upTo"`
+	}{UpTo: upTo}
+
+	if err := c.do(ctx, http.MethodPost, path, body, nil); err != nil {
+		return fmt.Errorf("mark what was said delivered: %w", err)
+	}
+
+	return nil
+}
+
 func (c *Client) RenewLease(ctx context.Context, runID string) error {
 	path := fmt.Sprintf("/api/runs/%s/lease", url.PathEscape(runID))
 	if err := c.do(ctx, http.MethodPost, path, nil, nil); err != nil {

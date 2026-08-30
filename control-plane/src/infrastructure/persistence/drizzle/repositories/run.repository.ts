@@ -5,8 +5,10 @@ import type {
 } from '@domain/repositories/run.repository';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
+import { RunSpec, type RunSpecShape } from '@domain/value-objects/run-spec.vo';
 import type { RunState } from '@domain/value-objects/run-state';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
+import { StationId } from '@domain/value-objects/station-id.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
@@ -19,6 +21,13 @@ import { and, eq, inArray, lte, sql } from 'drizzle-orm';
 
 type Row = typeof run.$inferSelect;
 
+const EMPTY_SPEC: RunSpecShape = {
+  command: { executable: 'unknown', args: [] },
+  briefing: 'This run was queued before its spec had a shape.',
+  handover: { options: [] },
+  continuity: { key: '', keep: false },
+};
+
 @Injectable()
 export class DrizzleRunRepository implements RunRepository {
   constructor(private readonly context: DrizzleContext) {}
@@ -30,8 +39,9 @@ export class DrizzleRunRepository implements RunRepository {
       harness: added.harness.value,
       priority: added.priority,
       taskId: added.taskId?.value ?? null,
+      stationId: added.stationId?.value ?? null,
       state: added.state,
-      spec: added.spec,
+      spec: added.spec.value,
       targetRunnerId: added.targetRunner?.value ?? null,
     });
   }
@@ -88,11 +98,10 @@ export class DrizzleRunRepository implements RunRepository {
         return null;
       }
 
-      const claiming = toRun(row);
-      claiming.claim(by, now);
-      await this.save(claiming);
+      const claimed = toRun(row).claim(by, now);
+      await this.save(claimed);
 
-      return claiming;
+      return claimed;
     });
   }
 
@@ -120,22 +129,16 @@ export class DrizzleRunRepository implements RunRepository {
       .where(eq(run.id, saved.id.value));
   }
 
-  async releaseClaimedBy(runner: RunnerId): Promise<number> {
-    return this.context.run(async () => {
+  async releaseClaimedBy(runner: RunnerId): Promise<void> {
+    await this.context.run(async () => {
       const held = await this.context.db
         .select()
         .from(run)
         .where(and(eq(run.state, 'claimed'), eq(run.claimedBy, runner.value)));
 
-      let released = 0;
       for (const row of held) {
-        const releasing = toRun(row);
-        releasing.release();
-        await this.save(releasing);
-        released += 1;
+        await this.save(toRun(row).release());
       }
-
-      return released;
     });
   }
 
@@ -187,11 +190,11 @@ export class DrizzleRunRepository implements RunRepository {
           continue;
         }
 
-        lapsing.requeue(now);
-        await this.save(lapsing);
+        const requeued = lapsing.requeue(now);
+        await this.save(requeued);
 
-        if (lapsing.abandoned) {
-          abandoned.push(lapsing);
+        if (requeued.abandoned) {
+          abandoned.push(requeued);
         }
       }
 
@@ -219,12 +222,15 @@ const toRun = (row: Row): Run =>
     harness: HarnessId.of(row.harness),
     priority: row.priority,
     taskId: row.taskId ? TaskId.of(row.taskId) : null,
-    spec: row.spec,
+    stationId: row.stationId ? StationId.of(row.stationId) : null,
+    // A spec written by an older shape reads back as nothing rather than
+    // crashing the read; the run is still there to be seen.
+    spec: RunSpec.from(row.spec) ?? RunSpec.of(EMPTY_SPEC),
     targetRunner: row.targetRunnerId ? RunnerId.of(row.targetRunnerId) : null,
     state: row.state as RunState,
     claimedBy: row.claimedBy ? RunnerId.of(row.claimedBy) : null,
     leaseExpiresAt: asDate(row.leaseExpiresAt),
-    outcome:
+    result:
       row.exitCode === null
         ? null
         : {

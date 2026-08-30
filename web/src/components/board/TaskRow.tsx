@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 type TaskRowProps = {
   task: Task;
   to: string;
+  reviewTo?: string;
   stationColor: string;
   stationShare: number;
   selected: boolean;
@@ -24,6 +25,7 @@ type TaskRowProps = {
 export function TaskRow({
   task,
   to,
+  reviewTo,
   stationColor,
   stationShare,
   selected,
@@ -100,7 +102,7 @@ export function TaskRow({
           </Link>
         </span>
 
-        <TaskState task={task} />
+        <TaskState task={task} reviewTo={reviewTo} />
 
         {task.raisedBy && (
           <PersonAvatar

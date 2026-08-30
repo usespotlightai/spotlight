@@ -12,6 +12,7 @@ const task = {
   createdAt: '2026-08-04T09:15:00.000Z',
 };
 
+const worked = vi.fn((): unknown[] => []);
 const moved = vi.fn();
 const deleted = vi.fn();
 
@@ -39,6 +40,10 @@ vi.mock('@/hooks/api/useAssemblyLines', () => ({
     isPending: false,
   }),
 }));
+vi.mock('@/hooks/api/useTaskRuns', () => ({
+  useTaskRuns: () => ({ data: worked() }),
+}));
+
 vi.mock('@/hooks/api/useWorkspace', () => ({
   useWorkspace: () => ({
     data: { teams: [{ id: 'team_1', name: 'Platform' }] },
@@ -56,11 +61,103 @@ const renderAt = (taskId: string) =>
   );
 
 beforeEach(() => {
+  localStorage.clear();
   moved.mockClear();
   deleted.mockClear();
+  worked.mockReturnValue([]);
+});
+
+const run = (over: Record<string, unknown> = {}) => ({
+  id: 'run_1',
+  state: 'completed',
+  attempt: 1,
+  exitCode: 0,
+  startedAt: '2026-08-30T09:00:00.000Z',
+  updatedAt: '2026-08-30T09:00:56.000Z',
+  harness: 'claude-code',
+  station: {
+    name: 'Implementation',
+    color: '#edc12b',
+    position: 3,
+    count: 5,
+  },
+  review: null as { state: string; conversationId: string } | null,
+  ...over,
 });
 
 describe('Task', () => {
+  describe('the runs it has been through', () => {
+    it('says nothing while none have been worked', () => {
+      worked.mockReturnValue([]);
+      renderAt('task_1');
+
+      expect(screen.queryByText('Activity')).not.toBeInTheDocument();
+    });
+
+    it('heads the list once there are some', () => {
+      worked.mockReturnValue([run(), run({ id: 'run_2' })]);
+      renderAt('task_1');
+
+      expect(
+        screen.getByRole('heading', { name: 'Activity' }),
+      ).toBeInTheDocument();
+      expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    });
+
+    it('leads to the run’s own page', () => {
+      worked.mockReturnValue([run()]);
+      renderAt('task_1');
+
+      expect(
+        screen.getByRole('link', { name: /Implementation/ }),
+      ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_1');
+    });
+
+    it('names the station each ran at', () => {
+      worked.mockReturnValue([run()]);
+      renderAt('task_1');
+
+      expect(screen.getByText('Implementation')).toBeInTheDocument();
+    });
+
+    it('marks each run that put the task to a person', () => {
+      worked.mockReturnValue([
+        run({ review: { state: 'owed', conversationId: 'task_1:5' } }),
+        run({ id: 'run_2' }),
+        run({
+          id: 'run_3',
+          review: { state: 'settled', conversationId: 'task_1:0' },
+        }),
+      ]);
+      renderAt('task_1');
+
+      expect(screen.getAllByText('Awaiting review')).toHaveLength(2);
+    });
+
+    it('says nothing of a review where none was asked for', () => {
+      worked.mockReturnValue([run()]);
+      renderAt('task_1');
+
+      expect(screen.queryByText('Awaiting review')).not.toBeInTheDocument();
+    });
+
+    // Runs read newest first, so what a run asked of a person comes after it.
+    it('puts the asking above the run that raised it', () => {
+      worked.mockReturnValue([
+        run({ id: 'run_2' }),
+        run({ review: { state: 'owed', conversationId: 'task_1:5' } }),
+      ]);
+      renderAt('task_1');
+
+      const told = screen
+        .getAllByRole('listitem')
+        .map((each) => each.textContent);
+
+      expect(told[1]).toContain('Awaiting review');
+      expect(told[2]).toContain('Implementation');
+    });
+  });
+
   it('leads with the task title', () => {
     renderAt('task_1');
 

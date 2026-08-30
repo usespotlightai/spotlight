@@ -5,6 +5,7 @@ import type {
   StationDto,
 } from '@application/dto/assembly-line.dto';
 import type { AuthenticatedUser } from '@application/ports/session.port';
+import { FindStationQuery } from '@application/queries/find-station.query';
 import { ListAssemblyLinesQuery } from '@application/queries/list-assembly-lines.query';
 import {
   Body,
@@ -125,14 +126,10 @@ export class AssemblyLineController {
     @Body() body: CustomiseStationRequestDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<StationResponseDto> {
-    const lines = await this.queryBus.execute<
-      ListAssemblyLinesQuery,
-      AssemblyLineDto[] | null
-    >(new ListAssemblyLinesQuery(teamId, user.id));
-
-    const visible = lines
-      ?.find((line) => line.id === lineId)
-      ?.stations.some((station) => station.id === stationId);
+    const visible = await this.queryBus.execute<
+      FindStationQuery,
+      StationDto | null
+    >(new FindStationQuery(teamId, lineId, stationId, user.id));
 
     if (!visible) {
       throw new NotFoundException();

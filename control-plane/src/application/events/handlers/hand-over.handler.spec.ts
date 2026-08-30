@@ -15,6 +15,7 @@ import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
+import { RunSpec } from '@domain/value-objects/run-spec.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
@@ -25,6 +26,14 @@ import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const aSpec = (executable = 'sh') =>
+  RunSpec.of({
+    command: { executable, args: [] },
+    briefing: 'do the thing',
+    handover: { options: [] },
+    continuity: { key: 'task:station', keep: true },
+  });
 
 const NOW = new Date('2026-08-28T12:00:00.000Z');
 const clock: ClockPort = { now: () => NOW, sleep: async () => {} };
@@ -73,24 +82,23 @@ const queued = (taskId: string | null = 'task_1') =>
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
     taskId: taskId ? TaskId.of(taskId) : null,
-    spec: {},
+    spec: aSpec(),
   });
 
 const run = (failed: boolean, said: Said = {}) => {
-  const ended = queued();
   const runner = RunnerId.of('runner_1');
-  ended.claim(runner, NOW);
-  ended.complete(runner, { exitCode: failed ? 1 : 0, failed }, said);
-  return ended;
+
+  return queued()
+    .claim(runner, NOW)
+    .complete(runner, { exitCode: failed ? 1 : 0, failed }, said);
 };
 
 // Claimed and left unreported until there are no attempts left.
 const givenUp = () => {
-  const ended = queued();
   const runner = RunnerId.of('runner_1');
+  let ended = queued();
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    ended.claim(runner, NOW);
-    ended.requeue(LATER);
+    ended = ended.claim(runner, NOW).requeue(LATER);
   }
   return ended;
 };
@@ -123,7 +131,7 @@ const dispatch: TaskDispatchPort = {
 
 const handOver = (ended = run(false), held: TaskRepository = tasks()) => {
   const handler = new HandOver(held, lines(), dispatch, clock);
-  const [raised] = ended.pullEvents();
+  const [raised] = ended.happened;
 
   if (!raised) {
     throw new Error('the run announced nothing');
@@ -169,10 +177,10 @@ describe('HandOver', () => {
   });
 
   it('leaves a run with no task of its own alone', async () => {
-    const loose = queued(null);
     const runner = RunnerId.of('runner_1');
-    loose.claim(runner, NOW);
-    loose.complete(runner, { exitCode: 0, failed: false });
+    const loose = queued(null)
+      .claim(runner, NOW)
+      .complete(runner, { exitCode: 0, failed: false });
 
     await handOver(loose);
 

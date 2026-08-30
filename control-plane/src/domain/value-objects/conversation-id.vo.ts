@@ -1,4 +1,5 @@
 import { InvalidConversationIdError } from '@domain/exceptions/invalid-conversation-id.error';
+import { NotePosition } from '@domain/value-objects/note-position.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';
 
 const AT = ':';
@@ -7,17 +8,17 @@ const AT = ':';
 export class ConversationId {
   private constructor(
     readonly taskId: TaskId,
-    readonly from: number,
+    readonly from: NotePosition,
   ) {}
 
   static of(input: { taskId: TaskId; from: number }): ConversationId {
-    if (!Number.isInteger(input.from) || input.from < 0) {
+    try {
+      return new ConversationId(input.taskId, NotePosition.of(input.from));
+    } catch {
       throw new InvalidConversationIdError(
         `${input.taskId.value}${AT}${input.from}`,
       );
     }
-
-    return new ConversationId(input.taskId, input.from);
   }
 
   // A task id is opaque, so the note comes off the end.
@@ -28,20 +29,21 @@ export class ConversationId {
       throw new InvalidConversationIdError(value);
     }
 
-    const from = Number(value.slice(at + 1));
-
-    if (!Number.isInteger(from) || from < 0) {
+    try {
+      return new ConversationId(
+        TaskId.of(value.slice(0, at)),
+        NotePosition.of(Number(value.slice(at + 1))),
+      );
+    } catch {
       throw new InvalidConversationIdError(value);
     }
-
-    return new ConversationId(TaskId.of(value.slice(0, at)), from);
   }
 
   get value(): string {
-    return `${this.taskId.value}${AT}${this.from}`;
+    return `${this.taskId.value}${AT}${this.from.value}`;
   }
 
   equals(other: ConversationId): boolean {
-    return this.taskId.equals(other.taskId) && this.from === other.from;
+    return this.taskId.equals(other.taskId) && this.from.equals(other.from);
   }
 }
