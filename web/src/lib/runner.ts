@@ -25,3 +25,33 @@ export const standing = (runner: Runner): string => {
 
   return runner.currentRun ? 'Running' : 'Idle';
 };
+
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+
+/** How long ago, at the coarseness a person reads at a glance. */
+export const since = (at: string): string => {
+  const ago = Date.now() - new Date(at).getTime();
+
+  if (ago < MINUTE) {
+    return 'just now';
+  }
+  if (ago < HOUR) {
+    return `${Math.floor(ago / MINUTE)}m ago`;
+  }
+  if (ago < DAY) {
+    return `${Math.floor(ago / HOUR)}h ago`;
+  }
+
+  return new Date(at).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  });
+};
+
+/** A runner that has never answered can still say when it was enrolled. */
+export const seenAt = (runner: Runner): string =>
+  runner.lastSeenAt
+    ? `Last seen ${since(runner.lastSeenAt)}`
+    : `Registered ${since(runner.registeredAt)}`;

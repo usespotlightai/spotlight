@@ -29,6 +29,7 @@ const runner = (over: Record<string, unknown> = {}) => ({
   harnesses: ['claude-code'],
   connected: true,
   revokedAt: null,
+  registeredAt: '2026-08-20T09:00:00.000Z',
   lastSeenAt: '2026-08-29T12:00:00.000Z',
   currentRun: null,
   ...over,
@@ -87,6 +88,22 @@ describe('Runners', () => {
 
     expect(screen.getByText('Idle')).toBeInTheDocument();
     expect(screen.getByText('Not answering')).toBeInTheDocument();
+  });
+
+  it('says when it was last heard from', () => {
+    fleet.mockReturnValue([runner()]);
+
+    renderPage();
+
+    expect(screen.getByText(/Last seen/)).toBeInTheDocument();
+  });
+
+  it('falls back to when it was registered, having never answered', () => {
+    fleet.mockReturnValue([runner({ lastSeenAt: null, connected: false })]);
+
+    renderPage();
+
+    expect(screen.getByText(/^Registered /)).toBeInTheDocument();
   });
 
   it('says so when nothing has registered', () => {
