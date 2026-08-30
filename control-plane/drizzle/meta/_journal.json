@@ -12,85 +12,8 @@
     {
       "idx": 1,
       "version": "7",
-      "when": 1787949780326,
-      "tag": "20260828204300_initial_schema",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1788013682620,
-      "tag": "20260829142802_task_harness_session",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1788014866139,
-      "tag": "20260829144746_task_pinned_runner",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1788018651497,
-      "tag": "20260829155051_task_note_author",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1788020204471,
-      "tag": "20260829161644_task_raised_at_station",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1788028044024,
-      "tag": "20260829182724_task_note_run",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1788035288526,
-      "tag": "20260829202808_task_inbox_standing",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1788038325616,
-      "tag": "20260829211845_task_note_kind",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1788078584293,
-      "tag": "20260830082944_task_raised_by_and_note_read",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1788083460177,
-      "tag": "20260830095100_station_kind",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1788088606454,
-      "tag": "20260830111646_run_station",
-      "breakpoints": true
-    },
-    {
-      "idx": 12,
-      "version": "7",
-      "when": 1788092262086,
-      "tag": "20260830121742_task_note_said",
+      "when": 1788108255439,
+      "tag": "20260830164415_initial_schema",
       "breakpoints": true
     }
   ]

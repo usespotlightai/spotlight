@@ -1,1 +1,0 @@
-ALTER TABLE "task_note" ADD COLUMN "delivered_at" timestamp;

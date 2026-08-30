@@ -1,1 +1,0 @@
-ALTER TABLE "task_note" ADD COLUMN "run_id" text;
