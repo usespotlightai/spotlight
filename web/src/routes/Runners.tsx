@@ -52,9 +52,21 @@ export function Runners() {
           </h2>
 
           {fleet.length === 0 ? (
-            <p className="text-muted-foreground text-xs">
-              No runner has registered with the control plane.
-            </p>
+            <div className="flex flex-col items-start gap-4">
+              <p className="text-muted-foreground text-xs">
+                No runner has registered with the control plane.
+              </p>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setEnrolling(true)}
+                className="rounded-full bg-card shadow-none"
+              >
+                <Plus className="size-3.5" aria-hidden />
+                Register a new runner
+              </Button>
+            </div>
           ) : (
             <ul className="grid gap-2 sm:grid-cols-2">
               {fleet.map((runner) => (

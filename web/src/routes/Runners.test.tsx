@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 import { Runners } from '@/routes/Runners';
@@ -112,5 +113,28 @@ describe('Runners', () => {
     renderPage();
 
     expect(screen.getByText(/No runner has registered/)).toBeInTheDocument();
+  });
+
+  it('offers to register one where none has', async () => {
+    const person = userEvent.setup();
+    fleet.mockReturnValue([]);
+
+    renderPage();
+
+    await person.click(
+      screen.getByRole('button', { name: 'Register a new runner' }),
+    );
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('offers nothing to register once one has', () => {
+    fleet.mockReturnValue([runner()]);
+
+    renderPage();
+
+    expect(
+      screen.queryByRole('button', { name: 'Register a new runner' }),
+    ).not.toBeInTheDocument();
   });
 });
