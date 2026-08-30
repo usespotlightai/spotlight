@@ -39,6 +39,7 @@ export const AssemblyLineHttpMapper = {
       dto.description,
       dto.harness,
       dto.agentPrompt,
+      dto.kind,
     );
   },
 

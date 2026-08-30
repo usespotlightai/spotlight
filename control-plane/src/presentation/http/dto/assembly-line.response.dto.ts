@@ -36,6 +36,12 @@ export class StationResponseDto {
   })
   readonly agentPrompt: string | null;
 
+  @ApiProperty({
+    enum: ['backlog', 'work'],
+    description: 'A backlog is where a task waits before anything works it',
+  })
+  readonly kind: string;
+
   constructor(
     id: string,
     name: string,
@@ -44,6 +50,7 @@ export class StationResponseDto {
     description: string | null,
     harness: string | null,
     agentPrompt: string | null,
+    kind: string,
   ) {
     this.id = id;
     this.name = name;
@@ -52,6 +59,7 @@ export class StationResponseDto {
     this.description = description;
     this.harness = harness;
     this.agentPrompt = agentPrompt;
+    this.kind = kind;
   }
 }
 

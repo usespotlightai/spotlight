@@ -22,6 +22,7 @@ const at = (id: string, name: string, position: number) =>
     name: StationName.of(name),
     position,
     color: StationColor.of('#a3a8b0'),
+    kind: position === 0 ? 'backlog' : 'work',
   });
 
 const line = () =>
@@ -60,26 +61,32 @@ beforeEach(() => {
 
 describe('ReorderStationsHandler', () => {
   it('stands the stations in the order it was given', async () => {
-    await reorder(['station_3', 'station_1', 'station_2']);
+    await reorder(['station_1', 'station_3', 'station_2']);
 
     expect(saved?.stations.map((each) => each.name.value)).toEqual([
-      'Spec',
       'Backlog',
+      'Spec',
       'Triage',
     ]);
   });
 
+  it('refuses an order that moves the backlog off the front', async () => {
+    await expect(
+      reorder(['station_3', 'station_1', 'station_2']),
+    ).rejects.toThrow(UseCaseFault);
+  });
+
   it('numbers the places again from the start', async () => {
-    await reorder(['station_3', 'station_1', 'station_2']);
+    await reorder(['station_1', 'station_3', 'station_2']);
 
     expect(saved?.stations.map((each) => each.position)).toEqual([0, 1, 2]);
   });
 
   it('carries everything else about a station across the move', async () => {
-    await reorder(['station_3', 'station_1', 'station_2']);
+    await reorder(['station_1', 'station_3', 'station_2']);
 
-    expect(saved?.stations[0]?.id).toEqual(StationId.of('station_3'));
-    expect(saved?.stations[0]?.color.value).toBe('#a3a8b0');
+    expect(saved?.stations[1]?.id).toEqual(StationId.of('station_3'));
+    expect(saved?.stations[1]?.color.value).toBe('#a3a8b0');
   });
 
   it('refuses an order that leaves a station out', async () => {

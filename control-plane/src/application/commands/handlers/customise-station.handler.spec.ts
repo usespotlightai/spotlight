@@ -28,9 +28,16 @@ const line = () =>
     name: AssemblyLineName.of('Default'),
     stations: [
       Station.create({
+        id: StationId.of('station_0'),
+        name: StationName.of('Backlog'),
+        position: 0,
+        color: StationColor.of('#a3a8b0'),
+        kind: 'backlog',
+      }),
+      Station.create({
         id: StationId.of('station_1'),
         name: StationName.of('Triage'),
-        position: 0,
+        position: 1,
         color: StationColor.of('#a3a8b0'),
         description: StationDescription.of('Where new work lands'),
         harness: HarnessId.of('dev'),
@@ -67,7 +74,8 @@ describe('CustomiseStationHandler', () => {
     await expect(customise({ name: 'Intake' })).resolves.toEqual({
       id: 'station_1',
       name: 'Intake',
-      position: 0,
+      position: 1,
+      kind: 'work',
       color: '#a3a8b0',
       description: 'Where new work lands',
       harness: 'dev',
@@ -78,8 +86,8 @@ describe('CustomiseStationHandler', () => {
   it('leaves alone every field the caller left out', async () => {
     await customise({ harness: 'gpu' });
 
-    expect(saved?.stations[0]?.description?.value).toBe('Where new work lands');
-    expect(saved?.stations[0]?.harness?.value).toBe('gpu');
+    expect(saved?.worked[0]?.description?.value).toBe('Where new work lands');
+    expect(saved?.worked[0]?.harness?.value).toBe('gpu');
   });
 
   it('repaints the station when a colour is given', async () => {
@@ -120,7 +128,8 @@ describe('CustomiseStationHandler', () => {
     expect(station).toEqual({
       id: 'station_1',
       name: 'Triage',
-      position: 0,
+      position: 1,
+      kind: 'work',
       color: '#a3a8b0',
       description: 'Where new work lands',
       harness: 'dev',

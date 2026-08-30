@@ -1,0 +1,1 @@
+ALTER TABLE "station" ADD COLUMN "kind" text DEFAULT 'work' NOT NULL;

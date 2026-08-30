@@ -5,14 +5,19 @@ import {
 import { describe, expect, it } from 'vitest';
 
 describe('built-in templates', () => {
-  it('opens a board on backlog, triage, spec, implementation and review', () => {
+  it('opens a board on triage, spec, implementation and review', () => {
     expect(DEFAULT_TEMPLATE.stations.map((each) => each.name.value)).toEqual([
-      'Backlog',
       'Triage',
       'Spec',
       'Implementation',
       'Code Review',
     ]);
+  });
+
+  it('leaves the backlog to the line', () => {
+    expect(
+      DEFAULT_TEMPLATE.stations.map((each) => each.name.value),
+    ).not.toContain('Backlog');
   });
 
   it('names the line the default template creates', () => {
@@ -22,6 +27,12 @@ describe('built-in templates', () => {
   it('gives every station a colour to open with', () => {
     expect(
       DEFAULT_TEMPLATE.stations.every((each) => each.color.value.length === 7),
+    ).toBe(true);
+  });
+
+  it('tells every station what it is for', () => {
+    expect(
+      DEFAULT_TEMPLATE.stations.every((each) => each.agentPrompt !== null),
     ).toBe(true);
   });
 

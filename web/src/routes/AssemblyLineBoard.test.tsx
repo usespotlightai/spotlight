@@ -8,7 +8,7 @@ const line = {
   id: 'line_1',
   name: 'Default',
   stations: [
-    { id: 'station_0', name: 'Backlog', position: 0 },
+    { id: 'station_0', name: 'Backlog', position: 0, kind: 'backlog' },
     { id: 'station_1', name: 'Triage', position: 1 },
     { id: 'station_2', name: 'Spec', position: 2 },
     { id: 'station_3', name: 'Implementation', position: 3 },
@@ -89,7 +89,19 @@ const renderAt = (lineId: string) =>
 const sections = () =>
   Array.from(document.querySelectorAll('[data-slot="station-section"]'));
 
+const named = () =>
+  sections().map((section) => section.querySelector('h2')?.textContent);
+
 describe('AssemblyLineBoard', () => {
+  it('does not open the backlog', () => {
+    renderAt('line_1');
+
+    expect(
+      screen.queryByRole('link', { name: 'Backlog' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Triage' })).toBeInTheDocument();
+  });
+
   beforeEach(() => {
     localStorage.clear();
     added.mockClear();
@@ -101,9 +113,12 @@ describe('AssemblyLineBoard', () => {
     renderAt('line_1');
 
     expect(sections()).toHaveLength(4);
-    expect(
-      sections().map((section) => section.querySelector('a')?.textContent),
-    ).toEqual(['Triage', 'Spec', 'Implementation', 'Code Review']);
+    expect(named()).toEqual([
+      'Triage',
+      'Spec',
+      'Implementation',
+      'Code Review',
+    ]);
   });
 
   it('names the team and the line it is showing', () => {
@@ -302,9 +317,12 @@ describe('AssemblyLineBoard', () => {
   it('holds back the backlog until it is asked for', () => {
     renderAt('line_1');
 
-    expect(
-      sections().map((section) => section.querySelector('a')?.textContent),
-    ).toEqual(['Triage', 'Spec', 'Implementation', 'Code Review']);
+    expect(named()).toEqual([
+      'Triage',
+      'Spec',
+      'Implementation',
+      'Code Review',
+    ]);
   });
 
   it('shows the backlog on its own when picked', async () => {
@@ -313,9 +331,7 @@ describe('AssemblyLineBoard', () => {
 
     await user.click(screen.getByRole('button', { name: 'Backlog' }));
 
-    expect(
-      sections().map((section) => section.querySelector('a')?.textContent),
-    ).toEqual(['Backlog']);
+    expect(named()).toEqual(['Backlog']);
     expect(screen.getByText('Groom the idea')).toBeInTheDocument();
   });
 

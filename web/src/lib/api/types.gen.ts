@@ -24,6 +24,10 @@ export type StationResponseDto = {
    * Markdown, handed to the agent that works this station
    */
   agentPrompt: string | null;
+  /**
+   * A backlog is where a task waits before anything works it
+   */
+  kind: 'backlog' | 'work';
 };
 
 export type AssemblyLineResponseDto = {

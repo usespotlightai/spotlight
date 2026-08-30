@@ -33,6 +33,7 @@ const toStation = (row: StationRow): Station =>
       : null,
     harness: row.harness ? HarnessId.of(row.harness) : null,
     agentPrompt: row.agentPrompt ? AgentPrompt.of(row.agentPrompt) : null,
+    kind: row.kind,
   });
 
 const toLine = (line: LineRow, stations: StationRow[]): AssemblyLine =>
@@ -51,6 +52,7 @@ const columnsOf = (each: Station) => ({
   description: each.description?.value ?? null,
   harness: each.harness?.value ?? null,
   agentPrompt: each.agentPrompt?.value ?? null,
+  kind: each.kind,
 });
 
 const rowsOf = (line: AssemblyLine) =>

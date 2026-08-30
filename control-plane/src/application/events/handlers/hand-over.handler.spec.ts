@@ -36,6 +36,7 @@ const at = (id: string, name: string, position: number, harness?: HarnessId) =>
     position,
     color: StationColor.of('#a3a8b0'),
     harness,
+    kind: position === 0 ? 'backlog' : 'work',
   });
 
 const line = () =>
@@ -45,8 +46,9 @@ const line = () =>
     factoryId: FactoryId.of('factory_1'),
     name: AssemblyLineName.of('Default'),
     stations: [
-      at('station_1', 'Triage', 0, HarnessId.of('dev')),
-      at('station_2', 'Spec', 1, HarnessId.of('dev')),
+      at('station_0', 'Backlog', 0),
+      at('station_1', 'Triage', 1, HarnessId.of('dev')),
+      at('station_2', 'Spec', 2, HarnessId.of('dev')),
     ],
   });
 

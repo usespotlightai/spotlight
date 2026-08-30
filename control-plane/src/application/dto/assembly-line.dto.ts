@@ -6,6 +6,7 @@ export interface StationDto {
   readonly description: string | null;
   readonly harness: string | null;
   readonly agentPrompt: string | null;
+  readonly kind: 'backlog' | 'work';
 }
 
 export interface AssemblyLineDto {

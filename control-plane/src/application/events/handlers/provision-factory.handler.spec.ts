@@ -50,7 +50,7 @@ describe('ProvisionFactory', () => {
   it('paints each station the colour its template asked for', async () => {
     await provision();
 
-    expect(seeded?.stations.map((each) => each.color.value)).toEqual(
+    expect(seeded?.worked.map((each) => each.color.value)).toEqual(
       DEFAULT_TEMPLATE.stations.map((each) => each.color.value),
     );
   });
@@ -60,7 +60,7 @@ describe('ProvisionFactory', () => {
 
     expect(seeded?.factoryId).toEqual(opened?.id);
     expect(seeded?.name.value).toBe(DEFAULT_TEMPLATE.name.value);
-    expect(seeded?.stations.map((each) => each.name.value)).toEqual(
+    expect(seeded?.worked.map((each) => each.name.value)).toEqual(
       DEFAULT_TEMPLATE.stations.map((each) => each.name.value),
     );
   });

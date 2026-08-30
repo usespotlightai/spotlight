@@ -11,6 +11,7 @@ const bare = {
   description: null,
   harness: null,
   agentPrompt: null,
+  kind: 'work' as const,
 };
 
 const board: AssemblyLineDetail = {

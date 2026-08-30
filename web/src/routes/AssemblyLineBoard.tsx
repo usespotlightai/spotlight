@@ -55,7 +55,9 @@ const dropping: CollisionDetection = (args) => {
   const scoped = {
     ...args,
     droppableContainers: args.droppableContainers.filter((each) =>
-      draggingStation ? each.data.current?.kind === 'station' : true,
+      draggingStation
+        ? each.data.current?.kind === 'station' && !each.data.current?.fixed
+        : true,
     ),
   };
 
@@ -295,8 +297,9 @@ export function AssemblyLineBoard() {
                       landing.afterTaskId === null &&
                       tasksAt(tasks, station.id).length === 0
                     }
+                    fixed={station.kind === 'backlog'}
                     to={
-                      slug && teamId
+                      slug && teamId && station.kind !== 'backlog'
                         ? stationPath(slug, teamId, line.id, station.id)
                         : undefined
                     }

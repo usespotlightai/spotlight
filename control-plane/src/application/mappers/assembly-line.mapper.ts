@@ -19,6 +19,7 @@ export const AssemblyLineMapper = {
       description: summary.description,
       harness: summary.harness,
       agentPrompt: summary.agentPrompt,
+      kind: summary.kind,
     };
   },
 
@@ -31,6 +32,7 @@ export const AssemblyLineMapper = {
       description: station.description?.value ?? null,
       harness: station.harness?.value ?? null,
       agentPrompt: station.agentPrompt?.value ?? null,
+      kind: station.kind,
     };
   },
 

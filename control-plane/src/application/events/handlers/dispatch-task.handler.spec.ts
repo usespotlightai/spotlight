@@ -30,6 +30,7 @@ const at = (id: string, name: string, position: number, harness?: HarnessId) =>
     position,
     color: StationColor.of('#a3a8b0'),
     harness,
+    kind: position === 0 ? 'backlog' : 'work',
   });
 
 const stations = [
@@ -117,7 +118,15 @@ describe('DispatchTask', () => {
     await dispatch(stations[1] as Station);
 
     expect(queued[0]?.spec).toMatchObject({
-      handover: { options: ['Backlog', 'Spec', 'review'] },
+      handover: { options: ['Spec', 'review'] },
+    });
+  });
+
+  it('does not offer a station nothing runs at', async () => {
+    await dispatch(stations[1] as Station);
+
+    expect(queued[0]?.spec).toMatchObject({
+      handover: { options: expect.not.arrayContaining(['Backlog']) },
     });
   });
 

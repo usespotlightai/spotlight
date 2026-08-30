@@ -6,6 +6,7 @@ import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
+import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
@@ -24,6 +25,7 @@ const at = (id: string, name: string, position: number, prompt?: AgentPrompt) =>
     name: StationName.of(name),
     position,
     color: StationColor.of('#93a1b5'),
+    harness: HarnessId.of('dev'),
     agentPrompt: prompt,
   });
 
@@ -32,12 +34,13 @@ const triage = () => at('station_1', 'Triage', 0);
 // The line a briefing is read out of, since where a task stands and what it
 // may be handed on to are both the line's to answer.
 const held = (...stations: Station[]) =>
-  AssemblyLine.of({
+  AssemblyLine.opened({
     id: AssemblyLineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
     name: AssemblyLineName.of('Default'),
-    stations,
+    stations: stations.map((each, place) => each.movedTo(place + 1)),
+    newId: () => 'station_0',
   });
 
 const task = (stationId: string, description?: TaskDescription) =>

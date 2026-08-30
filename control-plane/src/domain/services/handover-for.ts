@@ -41,6 +41,14 @@ export const HandoverFor = {
       );
     }
 
+    if (!named.harness) {
+      return Handover.review(
+        TaskNoteBody.of(
+          `The run asked for "${named.name.value}", where nothing runs to take the task up.`,
+        ),
+      );
+    }
+
     return Handover.pass(
       named.id,
       spoken(declaration, `Passed on to ${named.name.value}.`),

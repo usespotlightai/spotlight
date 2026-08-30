@@ -1,4 +1,5 @@
 import { InvalidTemplateStationsError } from '@domain/exceptions/invalid-template-stations.error';
+import type { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import type { StationColor } from '@domain/value-objects/station-color.vo';
 import type { StationName } from '@domain/value-objects/station-name.vo';
 import type { TemplateId } from '@domain/value-objects/template-id.vo';
@@ -7,6 +8,7 @@ import type { TemplateName } from '@domain/value-objects/template-name.vo';
 export type TemplateStation = {
   readonly name: StationName;
   readonly color: StationColor;
+  readonly agentPrompt: AgentPrompt | null;
 };
 
 export class Template {

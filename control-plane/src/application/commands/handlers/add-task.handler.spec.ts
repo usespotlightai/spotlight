@@ -40,6 +40,7 @@ const line = () =>
         name: StationName.of('Backlog'),
         position: 0,
         color: StationColor.of('#a3a8b0'),
+        kind: 'backlog',
       }),
       Station.create({
         id: StationId.of('station_1'),

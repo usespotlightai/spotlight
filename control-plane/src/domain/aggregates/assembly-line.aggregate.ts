@@ -8,11 +8,14 @@ import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import type { FactoryId } from '@domain/value-objects/factory-id.vo';
 import type { HarnessId } from '@domain/value-objects/harness-id.vo';
-import type { StationColor } from '@domain/value-objects/station-color.vo';
+import { StationColor } from '@domain/value-objects/station-color.vo';
 import type { StationDescription } from '@domain/value-objects/station-description.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
-import type { StationName } from '@domain/value-objects/station-name.vo';
+import { StationName } from '@domain/value-objects/station-name.vo';
 import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
+
+const BACKLOG_NAME = StationName.of('Backlog');
+const BACKLOG_COLOR = StationColor.of('#a3a8b0');
 
 export class AssemblyLine {
   private constructor(
@@ -29,19 +32,44 @@ export class AssemblyLine {
     factoryId: FactoryId;
     newId: () => string;
   }): AssemblyLine {
-    return AssemblyLine.of({
+    return AssemblyLine.opened({
       id: AssemblyLineId.of(input.newId()),
       workspaceId: input.workspaceId,
       factoryId: input.factoryId,
       name: AssemblyLineName.of(input.template.name.value),
+      newId: input.newId,
       stations: input.template.stations.map((each, position) =>
         Station.create({
           id: StationId.of(input.newId()),
           name: each.name,
           color: each.color,
-          position,
+          position: position + 1,
+          agentPrompt: each.agentPrompt,
         }),
       ),
+    });
+  }
+
+  static opened(input: {
+    id: AssemblyLineId;
+    workspaceId: WorkspaceId;
+    factoryId: FactoryId;
+    name: AssemblyLineName;
+    stations: readonly Station[];
+    newId: () => string;
+  }): AssemblyLine {
+    return AssemblyLine.of({
+      ...input,
+      stations: [
+        Station.create({
+          id: StationId.of(input.newId()),
+          name: BACKLOG_NAME,
+          color: BACKLOG_COLOR,
+          position: 0,
+          kind: 'backlog',
+        }),
+        ...input.stations,
+      ],
     });
   }
 
@@ -53,6 +81,7 @@ export class AssemblyLine {
     stations: readonly Station[];
   }): AssemblyLine {
     AssemblyLine.guardPositionsAreContiguous(input.stations);
+    AssemblyLine.guardBacklogStandsFirst(input.stations);
 
     return new AssemblyLine(
       input.id,
@@ -94,6 +123,11 @@ export class AssemblyLine {
   }
 
   reorderStations(order: readonly StationId[]): AssemblyLine {
+    if (order[0] && !this.backlog.id.equals(order[0])) {
+      throw new InvalidStationOrderError(
+        'must leave the backlog standing first',
+      );
+    }
     if (order.length !== this.stations.length) {
       throw new InvalidStationOrderError(
         `must name every station, but named ${order.length} of ${this.stations.length}`,
@@ -107,15 +141,7 @@ export class AssemblyLine {
         throw new UnknownStationError(stationId.value);
       }
 
-      return Station.create({
-        id: standing.id,
-        name: standing.name,
-        position,
-        color: standing.color,
-        description: standing.description,
-        harness: standing.harness,
-        agentPrompt: standing.agentPrompt,
-      });
+      return standing.movedTo(position);
     });
 
     return AssemblyLine.of({
@@ -166,6 +192,35 @@ export class AssemblyLine {
     }
   }
 
+  private static guardBacklogStandsFirst(stations: readonly Station[]): void {
+    const backlogs = stations.filter((each) => each.isBacklog);
+
+    if (backlogs.length !== 1) {
+      throw new InvalidStationOrderError(
+        `must hold one backlog, but hold ${backlogs.length}`,
+      );
+    }
+    if (backlogs[0]?.position !== 0) {
+      throw new InvalidStationOrderError(
+        'must open with their backlog, which is where a task waits to start',
+      );
+    }
+  }
+
+  get backlog(): Station {
+    const standing = this.stations.find((each) => each.isBacklog);
+
+    if (!standing) {
+      throw new InvalidStationOrderError('must hold one backlog, but hold 0');
+    }
+
+    return standing;
+  }
+
+  get worked(): readonly Station[] {
+    return this.stations.filter((each) => !each.isBacklog);
+  }
+
   /**
    * The station standing at this id, asked of the line rather than found in
    * it: a station is the line's to give out, and the line is what knows
@@ -182,7 +237,7 @@ export class AssemblyLine {
 
   /** Where a task standing here may be handed on to, or a person. */
   optionsFrom(stationId: StationId): string[] {
-    return handoverOptions(this.stations, stationId);
+    return handoverOptions(this.worked, stationId);
   }
 
   equals(other: AssemblyLine): boolean {

@@ -8,11 +8,18 @@ const line = {
   id: 'line_1',
   name: 'Default',
   stations: [
-    { id: 'station_1', name: 'Triage', position: 0, color: '#93a1b5' },
+    {
+      id: 'station_0',
+      name: 'Backlog',
+      position: 0,
+      color: '#a3a8b0',
+      kind: 'backlog',
+    },
+    { id: 'station_1', name: 'Triage', position: 1, color: '#93a1b5' },
     {
       id: 'station_2',
       name: 'Spec',
-      position: 1,
+      position: 2,
       color: '#5c66d9',
       agentPrompt: '## Role\n\n- Sort the queue\n- Ask when unsure',
     },
@@ -138,6 +145,19 @@ describe('Station', () => {
     expect(description).toHaveValue('Where new work lands.');
   });
 
+  it('offers the backlog neither a harness nor a prompt', () => {
+    renderAt('station_0');
+
+    expect(screen.queryByLabelText('Harness')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Agent prompt')).not.toBeInTheDocument();
+  });
+
+  it('still offers a station both', () => {
+    renderAt('station_1');
+
+    expect(screen.getByLabelText('Harness')).toBeInTheDocument();
+  });
+
   it('renders the agent prompt rather than showing its markdown', () => {
     renderAt('station_2');
 
@@ -240,8 +260,6 @@ describe('Station', () => {
     });
   });
 
-  // Set to nobody, a station holds what it is given rather than working it,
-  // which is what a backlog is.
   it('writes an emptied harness back, so the station holds its work', async () => {
     renderAt('station_1');
     const user = await openHarnesses();
@@ -319,8 +337,6 @@ describe('Station', () => {
     ).toBeInTheDocument();
   });
 
-  // A station nothing works holds what it is given, which is what a backlog
-  // is, so "nobody" is a real answer rather than a missing one.
   it('says nobody works the station until a harness is picked', () => {
     renderAt('station_1');
 

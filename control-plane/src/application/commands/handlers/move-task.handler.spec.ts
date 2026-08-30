@@ -34,6 +34,7 @@ const at = (id: string, name: string, position: number, harness?: HarnessId) =>
     position,
     color: StationColor.of('#a3a8b0'),
     harness,
+    kind: position === 0 ? 'backlog' : 'work',
   });
 
 const line = () =>

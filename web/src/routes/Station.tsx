@@ -44,6 +44,7 @@ export function Station() {
   }
 
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
+  const isBacklog = station.kind === 'backlog';
 
   const save = (changes: Parameters<typeof customise.mutate>[0]['changes']) => {
     if (teamId && lineId && station) {
@@ -137,12 +138,14 @@ export function Station() {
               />
             </div>
 
-            <AgentPromptField
-              key={station.id}
-              value={edits.agentPrompt}
-              onChange={(agentPrompt) => change({ agentPrompt })}
-              onBlur={() => save({ agentPrompt: edits.agentPrompt })}
-            />
+            {!isBacklog && (
+              <AgentPromptField
+                key={station.id}
+                value={edits.agentPrompt}
+                onChange={(agentPrompt) => change({ agentPrompt })}
+                onBlur={() => save({ agentPrompt: edits.agentPrompt })}
+              />
+            )}
           </main>
 
           {customise.isError && (
@@ -151,13 +154,22 @@ export function Station() {
             </p>
           )}
 
-          <StationProperties
-            harness={edits.harness}
-            onHarness={(harness) => {
-              change({ harness });
-              save({ harness });
-            }}
-          />
+          {isBacklog ? (
+            <aside className="w-56 shrink-0">
+              <p className="px-2 text-muted-foreground text-xs leading-5">
+                Tasks wait here until someone starts them. Nothing runs at a
+                backlog, so it has no harness and nothing to instruct.
+              </p>
+            </aside>
+          ) : (
+            <StationProperties
+              harness={edits.harness}
+              onHarness={(harness) => {
+                change({ harness });
+                save({ harness });
+              }}
+            />
+          )}
         </div>
       </div>
     </>

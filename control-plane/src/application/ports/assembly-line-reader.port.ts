@@ -9,6 +9,7 @@ export interface StationSummary {
   readonly description: string | null;
   readonly harness: string | null;
   readonly agentPrompt: string | null;
+  readonly kind: 'backlog' | 'work';
 }
 
 export interface AssemblyLineDetail {

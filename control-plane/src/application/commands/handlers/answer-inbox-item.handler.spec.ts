@@ -35,9 +35,16 @@ const line = () =>
     name: AssemblyLineName.of('Default'),
     stations: [
       Station.create({
+        id: StationId.of('station_0'),
+        name: StationName.of('Backlog'),
+        position: 0,
+        color: StationColor.of('#a3a8b0'),
+        kind: 'backlog',
+      }),
+      Station.create({
         id: StationId.of('station_1'),
         name: StationName.of('Triage'),
-        position: 0,
+        position: 1,
         color: StationColor.of('#a3a8b0'),
         harness: HarnessId.of('dev'),
       }),

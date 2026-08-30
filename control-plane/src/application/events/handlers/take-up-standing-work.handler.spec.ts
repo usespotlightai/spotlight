@@ -66,14 +66,13 @@ const dispatch = { dispatch: dispatched } as unknown as TaskDispatchPort;
 
 const takeUp = (station: Station) =>
   new TakeUpStandingWork(tasks, dispatch).takeUp({
-    line: AssemblyLine.of({
+    line: AssemblyLine.opened({
       id: AssemblyLineId.of('line_1'),
       workspaceId: WorkspaceId.of('ws_1'),
       factoryId: FactoryId.of('factory_1'),
       name: AssemblyLineName.of('Default'),
-      // A line's stations sit at 0 upwards, so the one under test is given
-      // the company it needs to sit where it does.
-      stations: station.position === 0 ? [station] : [nobody, station],
+      stations: [station.movedTo(1)],
+      newId: () => 'backlog_1',
     }),
     stationId: station.id,
   });

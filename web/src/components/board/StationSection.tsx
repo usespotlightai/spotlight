@@ -21,6 +21,7 @@ type StationSectionProps = {
   onAddTask?: () => void;
   landing?: boolean;
   landingEdge?: 'top' | 'bottom';
+  fixed?: boolean;
   children?: ReactNode;
 };
 
@@ -37,6 +38,7 @@ export function StationSection({
   onAddTask,
   landing,
   landingEdge,
+  fixed,
   children,
 }: StationSectionProps) {
   const {
@@ -48,7 +50,8 @@ export function StationSection({
     isDragging,
   } = useSortable({
     id,
-    data: { kind: 'station' },
+    data: { kind: 'station', fixed },
+    disabled: fixed,
     animateLayoutChanges: () => false,
   });
 
@@ -62,8 +65,8 @@ export function StationSection({
       {landingEdge && <DropIndicator edge={landingEdge} />}
 
       <header
-        {...attributes}
-        {...listeners}
+        {...(fixed ? {} : attributes)}
+        {...(fixed ? {} : listeners)}
         style={{
           backgroundImage: `linear-gradient(to right, ${color}1f, transparent 60%)`,
         }}
@@ -96,7 +99,7 @@ export function StationSection({
               {name}
             </Link>
           ) : (
-            <span className="truncate">{name}</span>
+            <span className="truncate px-1.5 py-0.5">{name}</span>
           )}
         </h2>
 

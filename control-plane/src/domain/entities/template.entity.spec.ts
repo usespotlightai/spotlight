@@ -13,6 +13,7 @@ const templateOf = (stations: string[]) =>
     stations: stations.map((each) => ({
       name: StationName.of(each),
       color: StationColor.of('#a3a8b0'),
+      agentPrompt: null,
     })),
   });
 
@@ -33,7 +34,11 @@ describe('Template', () => {
 
   it('keeps the stations it was given out of later reach', () => {
     const stations = [
-      { name: StationName.of('Triage'), color: StationColor.of('#a3a8b0') },
+      {
+        name: StationName.of('Triage'),
+        color: StationColor.of('#a3a8b0'),
+        agentPrompt: null,
+      },
     ];
     const template = Template.of({
       id: TemplateId.of('template_1'),
@@ -44,6 +49,7 @@ describe('Template', () => {
     stations.push({
       name: StationName.of('Spec'),
       color: StationColor.of('#a3a8b0'),
+      agentPrompt: null,
     });
 
     expect(template.stations).toHaveLength(1);

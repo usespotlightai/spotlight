@@ -1,6 +1,7 @@
 import { Station } from '@domain/entities/station.entity';
 import { HandoverFor } from '@domain/services/handover-for';
 import { Declaration } from '@domain/value-objects/declaration.vo';
+import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
@@ -12,12 +13,14 @@ const stations = [
     name: StationName.of('Triage'),
     position: 0,
     color: StationColor.of('#a3a8b0'),
+    harness: HarnessId.of('dev'),
   }),
   Station.create({
     id: StationId.of('station_2'),
     name: StationName.of('Spec'),
     position: 1,
     color: StationColor.of('#5c66d9'),
+    harness: HarnessId.of('dev'),
   }),
 ];
 
@@ -25,6 +28,22 @@ const declared = (next?: string, note?: string) =>
   HandoverFor.declared(Declaration.of({ next, note }), stations);
 
 describe('HandoverFor.declared', () => {
+  it('will not pass a task to a station nothing runs at', () => {
+    const backlog = Station.create({
+      id: StationId.of('station_0'),
+      name: StationName.of('Backlog'),
+      position: 0,
+      color: StationColor.of('#a3a8b0'),
+    });
+    const handover = HandoverFor.declared(
+      Declaration.of({ next: 'Backlog', note: 'Not ready yet.' }),
+      [backlog, ...stations],
+    );
+
+    expect(handover.kind).toBe('review');
+    expect(handover.body.value).toContain('nothing runs to take the task up');
+  });
+
   it('passes the task to the station the run named', () => {
     const handover = declared('Spec', 'Reproduced on restart.');
 
