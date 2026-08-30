@@ -89,7 +89,9 @@ describe('routing', () => {
 
     renderAt('/definitely-not-a-page');
 
-    expect(await screen.findByPlaceholderText('Password')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', { name: 'Continue with GitHub' }),
+    ).toBeInTheDocument();
   });
 
   it('keeps the login screen reachable when signed out', async () => {
@@ -98,7 +100,7 @@ describe('routing', () => {
     renderAt('/login');
 
     expect(
-      await screen.findByPlaceholderText('Email address'),
+      await screen.findByRole('button', { name: 'Continue with GitHub' }),
     ).toBeInTheDocument();
   });
 });

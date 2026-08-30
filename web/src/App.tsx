@@ -10,7 +10,6 @@ import { InboxItem } from './routes/InboxItem.tsx';
 import { Login } from './routes/Login.tsx';
 import { Run } from './routes/Run.tsx';
 import { Runners } from './routes/Runners.tsx';
-import { SignUp } from './routes/SignUp.tsx';
 import { Station } from './routes/Station.tsx';
 import { Task } from './routes/Task.tsx';
 import { TeamIndex } from './routes/TeamIndex.tsx';
@@ -23,7 +22,6 @@ export default function App() {
     <Routes>
       <Route element={<RequireGuest />}>
         <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<SignUp />} />
       </Route>
 
       <Route element={<RequireAuth />}>

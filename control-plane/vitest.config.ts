@@ -34,6 +34,10 @@ export default defineConfig({
           environment: 'node',
           include: ['test/**/*.e2e-spec.ts'],
           restoreMocks: true,
+          env: {
+            GITHUB_CLIENT_ID: 'test-client-id',
+            GITHUB_CLIENT_SECRET: 'test-client-secret',
+          },
           testTimeout: 30_000,
           hookTimeout: 30_000,
         },
