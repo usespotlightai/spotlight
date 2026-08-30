@@ -111,7 +111,16 @@ process.stdin.on("data", (chunk) => {
 });
 `
 
-	path := filepath.Join(t.TempDir(), "harness")
+	dir, err := os.MkdirTemp("", "harness")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	if err := os.Chmod(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	path := filepath.Join(dir, "harness")
 	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
