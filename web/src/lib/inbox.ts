@@ -77,7 +77,7 @@ export const HELD_AT_TOP = 'sticky top-0 z-10 -mx-3 bg-card pt-2';
 
 export const inboxPath = (slug: string) => `/w/${slug}/inbox`;
 
-/** A stretch is named by its own id, since a task can hold more than one. */
+/** A conversation is named by its own id, since a task can hold more than one. */
 export const inboxItemPath = (slug: string, id: string) =>
   `${inboxPath(slug)}/${encodeURIComponent(id)}`;
 

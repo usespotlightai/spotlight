@@ -76,7 +76,7 @@ export class InboxMessageResponseDto {
   }
 }
 
-export class InboxRaisedAtResponseDto {
+export class InboxStationResponseDto {
   @ApiProperty({ example: 'Triage' })
   readonly station: string;
 
@@ -96,7 +96,7 @@ export class InboxRaisedAtResponseDto {
 export class InboxItemResponseDto {
   @ApiProperty({
     example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13:2',
-    description: 'One stretch a person was asked to own',
+    description: 'One conversation a person was asked to own',
   })
   readonly id: string;
 
@@ -124,8 +124,17 @@ export class InboxItemResponseDto {
   @ApiProperty({ example: 4, description: 'How many stations the line holds' })
   readonly stationCount: number;
 
-  @ApiProperty({ type: InboxRaisedAtResponseDto })
-  readonly raisedAt: InboxRaisedAtResponseDto;
+  @ApiProperty({
+    type: InboxStationResponseDto,
+    description: 'Where it was raised, which it keeps as it moves',
+  })
+  readonly raisedAt: InboxStationResponseDto;
+
+  @ApiProperty({
+    type: InboxStationResponseDto,
+    description: 'Where the task stands now, which is where it ended up',
+  })
+  readonly standsAt: InboxStationResponseDto;
 
   @ApiProperty({ example: '2026-08-28T09:02:00.000Z' })
   readonly createdAt: string;
@@ -164,7 +173,8 @@ export class InboxItemResponseDto {
     stationColor: string,
     stationPosition: number,
     stationCount: number,
-    raisedAt: InboxRaisedAtResponseDto,
+    raisedAt: InboxStationResponseDto,
+    standsAt: InboxStationResponseDto,
     createdAt: string,
     askedAt: string,
     resolved: boolean,
@@ -182,6 +192,7 @@ export class InboxItemResponseDto {
     this.stationPosition = stationPosition;
     this.stationCount = stationCount;
     this.raisedAt = raisedAt;
+    this.standsAt = standsAt;
     this.createdAt = createdAt;
     this.askedAt = askedAt;
     this.resolved = resolved;

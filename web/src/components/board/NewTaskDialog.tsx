@@ -62,7 +62,7 @@ export function NewTaskDialog({
     >
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle className="flex min-w-0 items-center gap-1.5 pr-8 font-medium text-muted-foreground text-xs">
+          <DialogTitle className="flex min-w-0 items-center gap-1.5 font-medium text-muted-foreground text-xs">
             <Breadcrumbs
               segments={[
                 { label: lineName },

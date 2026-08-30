@@ -4,7 +4,6 @@ export interface InboxAuthorDto {
   readonly image: string | null;
 }
 
-/** One thing said about a task, as the inbox reads it: a message. */
 export interface InboxMessageDto {
   readonly position: number;
   readonly kind: string;
@@ -17,7 +16,7 @@ export interface InboxMessageDto {
   readonly author: InboxAuthorDto | null;
 }
 
-export interface InboxRaisedAtDto {
+export interface InboxStationDto {
   readonly station: string;
   readonly stationColor: string;
   readonly stationPosition: number;
@@ -33,7 +32,8 @@ export interface InboxItemDto {
   readonly stationColor: string;
   readonly stationPosition: number;
   readonly stationCount: number;
-  readonly raisedAt: InboxRaisedAtDto;
+  readonly raisedAt: InboxStationDto;
+  readonly standsAt: InboxStationDto;
   readonly createdAt: string;
   readonly askedAt: string;
   readonly resolved: boolean;

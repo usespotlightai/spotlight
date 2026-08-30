@@ -183,7 +183,7 @@ export type HarnessResponseDto = {
   name: string;
 };
 
-export type InboxRaisedAtResponseDto = {
+export type InboxStationResponseDto = {
   station: string;
   stationColor: string;
   stationPosition: number;
@@ -235,7 +235,14 @@ export type InboxItemResponseDto = {
    * How many stations the line holds
    */
   stationCount: number;
-  raisedAt: InboxRaisedAtResponseDto;
+  /**
+   * Where it was raised, which it keeps as it moves
+   */
+  raisedAt: InboxStationResponseDto;
+  /**
+   * Where the task stands now, which is where it ended up
+   */
+  standsAt: InboxStationResponseDto;
   createdAt: string;
   askedAt: string;
   /**

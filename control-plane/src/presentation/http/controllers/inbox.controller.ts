@@ -31,7 +31,7 @@ import {
   InboxAuthorResponseDto,
   InboxItemResponseDto,
   InboxMessageResponseDto,
-  InboxRaisedAtResponseDto,
+  InboxStationResponseDto,
   JournalStepResponseDto,
   RunJournalResponseDto,
   RunSpentResponseDto,
@@ -79,10 +79,15 @@ export class InboxController {
           item.stationColor,
           item.stationPosition,
           item.stationCount,
-          new InboxRaisedAtResponseDto(
+          new InboxStationResponseDto(
             item.raisedAt.station,
             item.raisedAt.stationColor,
             item.raisedAt.stationPosition,
+          ),
+          new InboxStationResponseDto(
+            item.standsAt.station,
+            item.standsAt.stationColor,
+            item.standsAt.stationPosition,
           ),
           item.createdAt,
           item.askedAt,

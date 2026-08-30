@@ -7,8 +7,8 @@ import type { TransactionPort } from '@application/ports/transaction.port';
 import { UnknownTaskError } from '@domain/exceptions/unknown-task.error';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
+import { ConversationId } from '@domain/value-objects/conversation-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
-import { StretchId } from '@domain/value-objects/stretch-id.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 
@@ -30,7 +30,7 @@ export class AnswerInboxItemHandler
   async execute(command: AnswerInboxItemCommand): Promise<void> {
     try {
       await this.transaction.run(async () => {
-        const item = StretchId.parse(command.itemId);
+        const item = ConversationId.parse(command.itemId);
         const task = await this.tasks.find(item.taskId);
 
         if (!task?.raisedByThem(UserId.of(command.answeredBy))) {

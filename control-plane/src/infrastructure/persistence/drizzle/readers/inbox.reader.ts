@@ -3,9 +3,13 @@ import type {
   InboxNote,
   InboxReaderPort,
 } from '@application/ports/inbox-reader.port';
-import { stretchesOf } from '@domain/services/stretches';
+import {
+  conversationsOf,
+  notesIn,
+  stillOpen,
+} from '@domain/services/conversations';
 import { anyUnread } from '@domain/services/unread';
-import { StretchId } from '@domain/value-objects/stretch-id.vo';
+import { ConversationId } from '@domain/value-objects/conversation-id.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
 import type { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
@@ -29,7 +33,6 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, count, eq, inArray } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
-/** What a station whose name no note answers to any more is drawn in. */
 const DEFAULT_STATION_COLOR = '#a3a8b0';
 
 @Injectable()
@@ -57,8 +60,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
       return null;
     }
 
-    // A task raised before this was recorded says nothing about where, so it
-    // falls back to where it stands.
+    // Raised before this was recorded, it falls back to where it stands.
     const raised = alias(station, 'raised');
 
     const rows = await this.db
@@ -71,6 +73,9 @@ export class DrizzleInboxReader implements InboxReaderPort {
         raisedStation: raised.name,
         raisedColor: raised.color,
         raisedPosition: raised.position,
+        standsAtStation: station.name,
+        standsAtColor: station.color,
+        standsAtPosition: station.position,
         createdAt: task.createdAt,
         working: task.currentRunId,
       })
@@ -99,22 +104,21 @@ export class DrizzleInboxReader implements InboxReaderPort {
     for (const row of rows) {
       const told = trail.get(row.taskId) ?? [];
 
-      // Where the stretches are is the domain's to say, not a reader's.
-      for (const stretch of stretchesOf(told.map((each) => each.kind))) {
-        const note = told[stretch.from];
+      // Where the conversations are is the domain's to say, not a reader's.
+      for (const conversation of conversationsOf(
+        told.map((each) => each.kind),
+      )) {
+        const note = told[conversation.from];
 
         if (!note) {
           continue;
         }
 
-        const notes = told.slice(
-          stretch.from,
-          stretch.to === null ? undefined : stretch.to + 1,
-        );
+        const notes = notesIn(conversation, told);
         const last = notes[notes.length - 1];
 
         items.push({
-          id: StretchId.of({
+          id: ConversationId.of({
             taskId: TaskId.of(row.taskId),
             from: note.position,
           }).value,
@@ -131,23 +135,27 @@ export class DrizzleInboxReader implements InboxReaderPort {
             stationColor: row.raisedColor ?? note.stationColor,
             stationPosition: row.raisedPosition ?? note.stationPosition,
           },
+          standsAt: {
+            station: row.standsAtStation,
+            stationColor: row.standsAtColor,
+            stationPosition: row.standsAtPosition,
+          },
           createdAt: row.createdAt,
           askedAt: last?.at ?? note.at,
-          resolved: stretch.to !== null,
-          // Only what is still open can be being worked on.
-          working: stretch.to === null && row.working !== null,
+          resolved: !stillOpen(conversation),
+          // Two facts, not one: the task has a run, and this is the
+          // conversation still waiting for it.
+          working: stillOpen(conversation) && row.working !== null,
           unread: anyUnread(notes),
           notes,
         });
       }
     }
 
-    // Newest first: what arrived while you were away is what you have not
-    // seen, and an inbox that buries it reads as empty.
+    // Newest first: an inbox that buries what arrived reads as empty.
     return items.sort((one, other) => +other.askedAt - +one.askedAt);
   }
 
-  /** How many stations each line holds, which a place is a share of. */
   private async stationsPerLine(
     lineIds: string[],
   ): Promise<Map<string, number>> {
@@ -177,8 +185,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
       return trail;
     }
 
-    // A note keeps the station's name, not its identity, so the station that
-    // said it is found by name within the line the task stands in.
+    // A note keeps the station's name, not its identity.
     const spoke = alias(station, 'spoke');
 
     const rows = await this.db
@@ -217,8 +224,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
       told.push({
         position: row.position,
         station: row.station,
-        // A station that has since been renamed or removed leaves a note
-        // nothing answers to, so it takes the line's own grey.
+        // Renamed or removed since, it answers to nothing and takes the grey.
         stationColor: row.stationColor ?? DEFAULT_STATION_COLOR,
         stationPosition: row.stationPosition ?? 0,
         runId: row.runId,

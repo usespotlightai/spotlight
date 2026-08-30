@@ -9,10 +9,7 @@ export interface InboxAuthor {
 
 export interface InboxNote {
   readonly position: number;
-  // What it did to the task: opened a stretch a person owns, closed one, or
-  // answered within it.
   readonly kind: 'asked' | 'passed' | 'answered';
-  // The station that said it, which is not always where the task stands now.
   readonly station: string;
   readonly stationColor: string;
   readonly stationPosition: number;
@@ -23,15 +20,14 @@ export interface InboxNote {
   readonly readAt: Date | null;
 }
 
-export interface InboxRaisedAt {
+export interface InboxStation {
   readonly station: string;
   readonly stationColor: string;
   readonly stationPosition: number;
 }
 
 export interface InboxItemSummary {
-  // One stretch a person owns, named by the task and the note that opened it:
-  // a task can need someone more than once.
+  // A task can need someone more than once, so the note names it too.
   readonly id: string;
   readonly taskId: string;
   readonly teamId: string;
@@ -41,13 +37,13 @@ export interface InboxItemSummary {
   readonly stationColor: string;
   readonly stationPosition: number;
   readonly stationCount: number;
-  readonly raisedAt: InboxRaisedAt;
+  readonly raisedAt: InboxStation;
+  readonly standsAt: InboxStation;
   readonly createdAt: Date;
   readonly askedAt: Date;
   readonly resolved: boolean;
   readonly working: boolean;
   readonly unread: boolean;
-  // Oldest first: the story, ending with what it is waiting on.
   readonly notes: readonly InboxNote[];
 }
 

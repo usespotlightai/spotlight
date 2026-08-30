@@ -1605,7 +1605,7 @@
           "name"
         ]
       },
-      "InboxRaisedAtResponseDto": {
+      "InboxStationResponseDto": {
         "type": "object",
         "properties": {
           "station": {
@@ -1757,7 +1757,20 @@
             "description": "How many stations the line holds"
           },
           "raisedAt": {
-            "$ref": "#/components/schemas/InboxRaisedAtResponseDto"
+            "description": "Where it was raised, which it keeps as it moves",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InboxStationResponseDto"
+              }
+            ]
+          },
+          "standsAt": {
+            "description": "Where the task stands now, which is where it ended up",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InboxStationResponseDto"
+              }
+            ]
           },
           "createdAt": {
             "type": "string",
@@ -1800,6 +1813,7 @@
           "stationPosition",
           "stationCount",
           "raisedAt",
+          "standsAt",
           "createdAt",
           "askedAt",
           "resolved",

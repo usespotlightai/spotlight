@@ -1,6 +1,11 @@
 import { InvalidTaskTransitionError } from '@domain/exceptions/invalid-task-transition.error';
 import { ContinuityKey } from '@domain/services/continuity-key';
-import { type Stretch, stretchesOf } from '@domain/services/stretches';
+import {
+  type Conversation,
+  conversationsOf,
+  notesIn,
+  stillOpen,
+} from '@domain/services/conversations';
 import { anyUnread } from '@domain/services/unread';
 import { Continuity } from '@domain/value-objects/continuity.vo';
 import type { HarnessSession } from '@domain/value-objects/harness-session.vo';
@@ -176,12 +181,12 @@ export class Task {
     return this.with({ notes: [...this.notes, note] });
   }
 
-  /** The stretch a person is still owed the end of, if there is one. */
-  get owed(): Stretch | null {
-    const cut = stretchesOf(this.notes.map((each) => each.kind));
+  /** The conversation a person is still owed the end of, if there is one. */
+  get owed(): Conversation | null {
+    const cut = conversationsOf(this.notes.map((each) => each.kind));
     const last = cut[cut.length - 1];
 
-    return last && last.to === null ? last : null;
+    return last && stillOpen(last) ? last : null;
   }
 
   raisedByThem(userId: UserId): boolean {
@@ -192,7 +197,7 @@ export class Task {
     return anyUnread(this.within(from));
   }
 
-  /** A stretch is read whole: it is one conversation. */
+  /** A conversation is read whole: it is one conversation. */
   read(from: number, at: Date): Task {
     const read = new Set(this.within(from));
 
@@ -202,20 +207,17 @@ export class Task {
   }
 
   private within(from: number): readonly TaskNote[] {
-    const stretch = stretchesOf(this.notes.map((each) => each.kind)).find(
-      (each) => each.from === from,
-    );
+    const conversation = conversationsOf(
+      this.notes.map((each) => each.kind),
+    ).find((each) => each.from === from);
 
-    if (!stretch) {
+    if (!conversation) {
       throw new InvalidTaskTransitionError(
         'was not put to anyone there, so there is nothing to read',
       );
     }
 
-    return this.notes.slice(
-      stretch.from,
-      stretch.to === null ? undefined : stretch.to + 1,
-    );
+    return notesIn(conversation, this.notes);
   }
 
   /** Put to a person, who holds it from here until it moves on. */

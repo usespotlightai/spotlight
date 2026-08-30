@@ -19,6 +19,12 @@ vi.mock('@/hooks/api/useInbox', () => ({
   useInbox: () => ({ data: waiting(), isPending: false }),
 }));
 
+vi.mock('@/hooks/api/useWorkspace', () => ({
+  useWorkspace: () => ({
+    data: { teams: [{ id: 'team_1', name: 'Platform' }] },
+  }),
+}));
+
 vi.mock('@/hooks/api/useTaskJournal', () => ({
   useTaskJournal: () => ({ data: journal() }),
 }));
@@ -55,6 +61,11 @@ const item = (notes: unknown[], description: string | null = null) => [
     stationColor: '#5c66d9',
     stationPosition: 2,
     stationCount: 4,
+    standsAt: {
+      station: 'Code Review',
+      stationColor: '#56b98d',
+      stationPosition: 3,
+    },
     raisedAt: {
       station: 'Triage',
       stationColor: '#edc12b',
@@ -78,8 +89,7 @@ const renderItem = () =>
     </MemoryRouter>,
   );
 
-// Switching item is a navigation, not a remount: what breaks under it is a
-// message reconciled into place while its editor keeps its first content.
+// Switching item is a navigation, not a remount.
 function Switch({ to }: { to: string }) {
   const navigate = useNavigate();
   return (
@@ -98,7 +108,6 @@ describe('InboxItem', () => {
     journal.mockReturnValue([]);
   });
 
-  // How the work was done is folded away: it is not the answer.
   it('folds the work away behind what the station said', async () => {
     const person = userEvent.setup();
     journal.mockReturnValue([
@@ -136,7 +145,6 @@ describe('InboxItem', () => {
 
     renderItem();
 
-    // How long it took, and how much of the context window it was holding.
     const holding = screen.getByRole('button', { name: /Worked for 56s/ });
     expect(holding).toHaveTextContent('2 steps');
     expect(holding).toHaveTextContent('12.2k/200k');
@@ -147,8 +155,6 @@ describe('InboxItem', () => {
     expect(holding).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByText('The queue looks stuck.')).toBeInTheDocument();
 
-    // The command it ran, said the way a person would say it, and what came
-    // back only once asked for.
     const ran = screen.getByRole('button', { name: /ls -la \/workspaces/ });
     expect(ran).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByText('Ran')).toBeInTheDocument();
@@ -204,7 +210,6 @@ describe('InboxItem', () => {
     expect(screen.getByText('Leon')).toBeInTheDocument();
   });
 
-  // Yours read as yours by where they sit, so a name would only be noise.
   it('leaves your own words unnamed', () => {
     viewer.mockReturnValue({ user: { id: 'user_1' } });
     waiting.mockReturnValue(
@@ -223,8 +228,6 @@ describe('InboxItem', () => {
     expect(screen.getByText('The retry queue.')).toBeInTheDocument();
   });
 
-  // What the person asked for: its title, what it says, and where it was
-  // raised, which is not always where it now stands.
   it('shows the task itself as the person’s own input', () => {
     waiting.mockReturnValue(item([message()], 'Write ACP.md, then hand over.'));
 
@@ -239,7 +242,6 @@ describe('InboxItem', () => {
     expect(screen.getAllByText('Triage').length).toBeGreaterThan(0);
   });
 
-  // A station taking over is a break worth seeing, so it is marked by when.
   it('marks the time where one station takes over from another', () => {
     waiting.mockReturnValue(
       item([
@@ -259,7 +261,6 @@ describe('InboxItem', () => {
 
     const marks = within(screen.getByRole('list')).getAllByRole('time');
 
-    // One where Triage takes the work up, one where Spec takes over.
     expect(marks).toHaveLength(2);
     expect(marks[0]).toHaveAttribute('datetime', '2026-08-29T12:00:00.000Z');
     expect(marks[1]).toHaveAttribute('datetime', '2026-08-29T13:30:00.000Z');
@@ -296,13 +297,7 @@ describe('InboxItem', () => {
     ).not.toBeInTheDocument();
   });
 
-  /*
-  A prompt holds the top only until the next one arrives, and it can travel no
-  further than the stretch it opens. So each person's word starts a stretch of
-  its own, carrying the work that followed it — which is what lets the next one
-  push it out of view rather than sit on top of it.
-  */
-  it('opens a stretch of its own at every person’s word', () => {
+  it('opens a turn of its own at every person’s word', () => {
     waiting.mockReturnValue(
       item([
         message({ body: 'Triage said this.' }),
@@ -317,15 +312,14 @@ describe('InboxItem', () => {
 
     renderItem();
 
-    const stretches = screen.getAllByRole('list');
+    const turns = screen.getAllByRole('list');
 
-    expect(stretches).toHaveLength(2);
-    expect(stretches[0]).toHaveTextContent('Triage said this.');
-    expect(stretches[0]).not.toHaveTextContent('And Triage answered.');
-    expect(stretches[1]).toHaveTextContent('And Triage answered.');
+    expect(turns).toHaveLength(2);
+    expect(turns[0]).toHaveTextContent('Triage said this.');
+    expect(turns[0]).not.toHaveTextContent('And Triage answered.');
+    expect(turns[1]).toHaveTextContent('And Triage answered.');
   });
 
-  // Answering does not end it: the task is still theirs until it moves on.
   it('can still be answered after a reply has been sent', () => {
     waiting.mockReturnValue(
       item([
@@ -354,10 +348,9 @@ describe('InboxItem', () => {
     expect(
       screen.queryByRole('textbox', { name: /Answer/ }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText(/moved on to Implementation/)).toBeInTheDocument();
+    expect(screen.getByText(/moved on to Code Review/)).toBeInTheDocument();
   });
 
-  // A reply says when it was said, the same as everything else.
   it('says when a reply was sent', () => {
     waiting.mockReturnValue(
       item([
@@ -379,7 +372,6 @@ describe('InboxItem', () => {
     expect(said).toContain('2026-08-29T14:35:00.000Z');
   });
 
-  // An answered question should not look like an ignored one.
   it('says the station is working while a run is on it', () => {
     const [only] = item([message()]);
     waiting.mockReturnValue([{ ...only, working: true }]);
@@ -430,6 +422,19 @@ describe('InboxItem', () => {
     expect(read).toHaveBeenCalledWith({ slug: 'acme', itemId: 'task_1:4' });
   });
 
+  it('walks from the team to the task it is about', () => {
+    renderItem();
+
+    expect(screen.getByRole('link', { name: /Platform/ })).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1',
+    );
+    expect(screen.getByRole('link', { name: 'Fix the queue' })).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/tasks/task_1',
+    );
+  });
+
   it('sends what was typed', async () => {
     const person = userEvent.setup();
     renderItem();
@@ -462,7 +467,6 @@ describe('InboxItem', () => {
     );
   });
 
-  // Nothing to say is not an answer, and would put the task back to work on it.
   it('will not send an empty answer', async () => {
     const person = userEvent.setup();
     renderItem();

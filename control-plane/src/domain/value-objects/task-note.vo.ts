@@ -18,7 +18,7 @@ export class TaskNote {
     // The run whose ending wrote it, where one did. What the agent did to
     // arrive at it is that run's journal.
     readonly run: RunId | null,
-    // An 'asked' opens a stretch a person owns; a 'passed' closes it.
+    // An 'asked' opens a conversation a person owns; a 'passed' closes it.
     readonly kind: TaskNoteKind,
     readonly readAt: Date | null,
   ) {}

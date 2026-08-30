@@ -4,16 +4,17 @@ import { cn } from '@/lib/utils';
 
 type DisclosureRowProps = {
   label: string;
+  count?: number;
   open: boolean;
   onToggle: () => void;
   icon?: ComponentType<{ className?: string }>;
   className?: string;
 };
 
-/** A row that only opens and closes: used where the group has no page of its
- *  own, so there is nothing to navigate to. */
+/** For a group with no page of its own, so there is nothing to navigate to. */
 export function DisclosureRow({
   label,
+  count,
   open,
   onToggle,
   icon: Icon,
@@ -31,6 +32,11 @@ export function DisclosureRow({
     >
       {Icon && <Icon className="size-3.5 shrink-0" />}
       <span className="truncate">{label}</span>
+
+      {count !== undefined && (
+        <span className="shrink-0 tabular-nums">{count}</span>
+      )}
+
       <ChevronDown
         className={cn(
           'ml-auto size-3 shrink-0 transition-transform',

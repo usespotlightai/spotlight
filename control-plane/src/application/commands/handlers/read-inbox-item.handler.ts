@@ -4,7 +4,7 @@ import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import { UnknownTaskError } from '@domain/exceptions/unknown-task.error';
 import type { TaskRepository } from '@domain/repositories/task.repository';
-import { StretchId } from '@domain/value-objects/stretch-id.vo';
+import { ConversationId } from '@domain/value-objects/conversation-id.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 
 /** Nobody else hears about the task, so to them it reads as not being there. */
@@ -18,7 +18,7 @@ export class ReadInboxItemHandler
 
   async execute(command: ReadInboxItemCommand): Promise<void> {
     try {
-      const item = StretchId.parse(command.itemId);
+      const item = ConversationId.parse(command.itemId);
       const task = await this.tasks.find(item.taskId);
 
       if (!task?.raisedByThem(UserId.of(command.readBy))) {

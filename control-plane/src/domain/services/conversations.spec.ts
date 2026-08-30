@@ -1,10 +1,14 @@
-import { stretchesOf } from '@domain/services/stretches';
+import {
+  conversationsOf,
+  notesIn,
+  stillOpen,
+} from '@domain/services/conversations';
 import type { TaskNoteKind } from '@domain/value-objects/task-note.vo';
 import { describe, expect, it } from 'vitest';
 
-const trail = (...kinds: TaskNoteKind[]) => stretchesOf(kinds);
+const trail = (...kinds: TaskNoteKind[]) => conversationsOf(kinds);
 
-describe('stretchesOf', () => {
+describe('conversationsOf', () => {
   it('finds nothing in a trail nobody was asked about', () => {
     expect(trail('passed', 'passed')).toEqual([]);
   });
@@ -38,5 +42,27 @@ describe('stretchesOf', () => {
     expect(trail('passed', 'asked', 'passed', 'passed')).toEqual([
       { from: 1, to: 2 },
     ]);
+  });
+});
+
+describe('stillOpen', () => {
+  it('holds while nothing has closed it', () => {
+    expect(stillOpen({ from: 0, to: null })).toBe(true);
+  });
+
+  it('does not once something has', () => {
+    expect(stillOpen({ from: 0, to: 2 })).toBe(false);
+  });
+});
+
+describe('notesIn', () => {
+  const trail = ['a', 'b', 'c', 'd'];
+
+  it('covers the note that opened it through the one that closed it', () => {
+    expect(notesIn({ from: 1, to: 2 }, trail)).toEqual(['b', 'c']);
+  });
+
+  it('runs to the end of the trail while it is still open', () => {
+    expect(notesIn({ from: 1, to: null }, trail)).toEqual(['b', 'c', 'd']);
   });
 });

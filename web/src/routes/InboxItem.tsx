@@ -1,37 +1,40 @@
 import { Fragment, useEffect, useRef } from 'react';
 import { useParams } from 'react-router';
+import { InitialAvatar } from '@/components/common/avatar/InitialAvatar';
 import { InboxAsked } from '@/components/inbox/InboxAsked';
 import { InboxComposer } from '@/components/inbox/InboxComposer';
 import { InboxMessage } from '@/components/inbox/InboxMessage';
 import { InboxWorking } from '@/components/inbox/InboxWorking';
 import { PersonSaid } from '@/components/inbox/PersonSaid';
 import { TimeMarker } from '@/components/inbox/TimeMarker';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { useInbox } from '@/hooks/api/useInbox';
 import { useReadInboxItem } from '@/hooks/api/useReadInboxItem';
 import { useSession } from '@/hooks/api/useSession';
 import { useTaskJournal } from '@/hooks/api/useTaskJournal';
+import { useWorkspace } from '@/hooks/api/useWorkspace';
 import {
   HELD_AT_TOP,
   type InboxItem as Item,
   type InboxMessage as Message,
 } from '@/lib/inbox';
+import { taskPath } from '@/lib/task';
+import { teamPath } from '@/lib/team';
 
 /**
- * A stretch of the conversation: what a person put in, and the work that
- * followed it. The task itself opens the first stretch, so it has no prompt of
- * its own.
+ * One turn within the conversation: a person's word and the work that followed
+ * it. Cut on who spoke, where the domain cuts on what a note did, because this
+ * is how far a held prompt may travel before the next pushes it out of view.
+ * The task opens the first turn, so that one has no prompt of its own.
  */
-interface Stretch {
+interface Turn {
   readonly prompt: Message | null;
   readonly messages: Message[];
 }
 
-/**
- * Cut at every person's word, because each holds the top only until the next
- * one arrives — a stretch is what a held prompt is allowed to travel within.
- */
-const stretches = (item: Item): Stretch[] => {
-  const cut: Stretch[] = [{ prompt: null, messages: [] }];
+const turnsOf = (item: Item): Turn[] => {
+  const cut: Turn[] = [{ prompt: null, messages: [] }];
 
   for (const note of item.notes) {
     if (note.author) {
@@ -50,20 +53,14 @@ export function InboxItem() {
   const item = waiting?.find((each) => each.id === itemId);
   const { data: worked } = useTaskJournal(slug, item?.taskId);
   const { data: session } = useSession();
+  const { data: workspace } = useWorkspace(slug);
   const read = useReadInboxItem();
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
-  // Someone who scrolled up to read should not be dragged back down.
   const following = useRef(true);
 
-  /*
-  Follow the foot of the conversation as it grows.
-
-  Watching the content rather than the message count, because a message is not
-  its final height when it mounts: the markdown it holds lays itself out a beat
-  later, and a scroll measured before that lands short. A count also says
-  nothing when the item changes for one the same length.
-  */
+  // Watching the content rather than the message count: a message is not its
+  // final height when it mounts, and a scroll measured before that lands short.
   // biome-ignore lint/correctness/useExhaustiveDependencies: the task is what starts the conversation over, though the effect reads only the nodes
   useEffect(() => {
     const box = scroller.current;
@@ -83,11 +80,8 @@ export function InboxItem() {
 
       const foot = box.scrollHeight - box.clientHeight;
 
-      /*
-      A message arriving is a short step, and worth watching happen. Anything
-      further than a screenful is the conversation settling into place rather
-      than growing, and gliding through it would only be a long wait.
-      */
+      // Further than a screenful is the conversation settling into place
+      // rather than growing, and gliding through it is only a long wait.
       const far = foot - box.scrollTop > box.clientHeight;
       const stillness = window.matchMedia?.(
         '(prefers-reduced-motion: reduce)',
@@ -118,7 +112,6 @@ export function InboxItem() {
     read.mutate({ slug, itemId: item.id });
   }, [slug, item, read.mutate]);
 
-  // Near enough the foot to count as still there, in pixels.
   const CLOSE = 80;
 
   const watched = () => {
@@ -139,8 +132,36 @@ export function InboxItem() {
     );
   }
 
+  const team = workspace?.teams.find(
+    (candidate) => candidate.id === item.teamId,
+  );
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      <PageHeader
+        title={
+          <Breadcrumbs
+            segments={[
+              ...(team
+                ? [
+                    {
+                      label: team.name,
+                      icon: (
+                        <InitialAvatar name={team.name} className="bg-card" />
+                      ),
+                      to: teamPath(slug, team.id),
+                    },
+                  ]
+                : []),
+              {
+                label: item.title,
+                to: taskPath(slug, item.teamId, item.taskId),
+              },
+            ]}
+          />
+        }
+      />
+
       <div
         ref={scroller}
         onScroll={watched}
@@ -152,28 +173,26 @@ export function InboxItem() {
         >
           <TimeMarker at={item.createdAt} />
 
-          {stretches(item).map((stretch, at, all) => (
+          {turnsOf(item).map((turn, at, all) => (
             <section
-              // biome-ignore lint/suspicious/noArrayIndexKey: stretches are cut in order and never reordered
+              // biome-ignore lint/suspicious/noArrayIndexKey: turns are cut in order and never reordered
               key={at}
               className="flex flex-col"
             >
-              {/* Above the prompt, the same as the one that opens the
-                  conversation and the ones between stations. */}
-              {stretch.prompt && (
+              {turn.prompt && (
                 <div className="mt-6 mb-3">
-                  <TimeMarker at={stretch.prompt.at} />
+                  <TimeMarker at={turn.prompt.at} />
                 </div>
               )}
 
               <div className={HELD_AT_TOP}>
-                {stretch.prompt ? (
+                {turn.prompt ? (
                   <PersonSaid
-                    body={stretch.prompt.body}
+                    body={turn.prompt.body}
                     name={
-                      stretch.prompt.author?.id === session?.user.id
+                      turn.prompt.author?.id === session?.user.id
                         ? null
-                        : stretch.prompt.author?.name
+                        : turn.prompt.author?.name
                     }
                   />
                 ) : (
@@ -182,13 +201,11 @@ export function InboxItem() {
               </div>
 
               <ol className="mt-6 flex flex-col gap-6">
-                {stretch.messages.map((note, place) => {
-                  const before = stretch.messages[place - 1];
+                {turn.messages.map((note, place) => {
+                  const before = turn.messages[place - 1];
 
                   return (
                     <Fragment key={`${item.id}-${note.position}`}>
-                      {/* A station taking up the work is a break in it, the
-                          first one included: it came from somewhere else. */}
                       {(!before || before.station !== note.station) && (
                         <li>
                           <TimeMarker at={note.at} />
@@ -207,8 +224,6 @@ export function InboxItem() {
                   );
                 })}
 
-                {/* Only under the last stretch: what is being worked on is
-                    what was asked most recently. */}
                 {item.working && at === all.length - 1 && (
                   <InboxWorking
                     station={item.station}
@@ -227,7 +242,8 @@ export function InboxItem() {
         <div className="mx-auto w-full max-w-3xl">
           {item.resolved ? (
             <p className="text-center text-muted-foreground text-xs">
-              This moved on to {item.station}. There is nothing left to answer.
+              This moved on to {item.standsAt.station}. There is nothing left to
+              answer.
             </p>
           ) : (
             <InboxComposer

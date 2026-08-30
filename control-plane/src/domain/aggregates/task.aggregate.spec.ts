@@ -131,7 +131,7 @@ describe('Task', () => {
   });
 
   // Moving by hand is something that happened to the task, so it is written
-  // down — and it is what closes a stretch a person was owed.
+  // down — and it is what closes a conversation a person was owed.
   it('carries what was said across a move, and records the move', () => {
     const worked = added()
       .note(

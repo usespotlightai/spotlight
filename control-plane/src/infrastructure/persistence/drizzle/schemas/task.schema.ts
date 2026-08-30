@@ -74,8 +74,7 @@ export const taskNote = pgTable(
     }),
     // The run that wrote it, whose journal is what it came from.
     runId: text('run_id'),
-    // What it did to the task. An 'asked' opens a stretch a person owns; a
-    // 'passed' closes it. The inbox is made of those stretches.
+    // An 'asked' opens a conversation a person owns; a 'passed' closes it.
     kind: text('kind').$type<'asked' | 'passed' | 'answered'>(),
     readAt: timestamp('read_at'),
   },
