@@ -1,3 +1,4 @@
+import { DeliverSaidCommand } from '@application/commands/deliver-said.command';
 import {
   AppendRunEventsCommand,
   ClaimRunCommand,
@@ -5,20 +6,26 @@ import {
   RegisterRunnerCommand,
   RenewLeaseCommand,
 } from '@application/commands/runner.commands';
+import type { HarnessDto } from '@application/dto/harness.dto';
+import type { PendingMessageDto } from '@application/dto/pending-message.dto';
 import type {
   ClaimedRunDto,
   RegisteredRunnerDto,
 } from '@application/dto/run.dto';
+import { ListHarnessesQuery } from '@application/queries/list-harnesses.query';
+import { ListKeptWorkspacesQuery } from '@application/queries/list-kept-workspaces.query';
+import { PendingMessagesQuery } from '@application/queries/pending-messages.query';
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Param,
   Post,
   Res,
 } from '@nestjs/common';
-import { CommandBus } from '@nestjs/cqrs';
+import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
   ApiNoContentResponse,
   ApiOkResponse,
@@ -28,9 +35,14 @@ import {
 } from '@nestjs/swagger';
 import { CurrentRunner } from '@presentation/http/decorators/current-runner.decorator';
 import { RunnerOnly } from '@presentation/http/decorators/runner-only.decorator';
+import { InstallableHarnessResponseDto } from '@presentation/http/dto/installable-harness.response.dto';
+import { KeptWorkspacesResponseDto } from '@presentation/http/dto/kept-workspaces.response.dto';
 import {
   AppendRunEventsRequestDto,
   CompleteRunRequestDto,
+  DeliverSaidRequestDto,
+  PendingMessageResponseDto,
+  RegisterRunnerRequestDto,
 } from '@presentation/http/dto/runner.request.dto';
 import {
   ClaimedRunResponseDto,
@@ -50,7 +62,48 @@ interface Answerable {
 @RunnerOnly()
 @Controller()
 export class RunnerController {
-  constructor(private readonly commandBus: CommandBus) {}
+  constructor(
+    private readonly commandBus: CommandBus,
+    private readonly queryBus: QueryBus,
+  ) {}
+
+  @Get('runners/harnesses')
+  @ApiOperation({
+    operationId: 'installableHarnesses',
+    summary: 'What to look for on this runner, so it can say what it has',
+  })
+  @ApiOkResponse({ type: InstallableHarnessResponseDto, isArray: true })
+  async harnesses(): Promise<InstallableHarnessResponseDto[]> {
+    const harnesses = await this.queryBus.execute<
+      ListHarnessesQuery,
+      HarnessDto[]
+    >(new ListHarnessesQuery());
+
+    return harnesses.map(
+      (harness) =>
+        new InstallableHarnessResponseDto(harness.id, harness.executable),
+    );
+  }
+
+  @Get('runners/workspaces')
+  @ApiOperation({
+    operationId: 'keptWorkspaces',
+    summary: 'Which workspaces this runner should still be holding',
+    description:
+      'A run keeps its directory so the next one at the same station can ' +
+      'take up the conversation left in it. Nothing else ever will, so what ' +
+      'this does not name may be disposed of.',
+  })
+  @ApiOkResponse({ type: KeptWorkspacesResponseDto })
+  async workspaces(
+    @CurrentRunner() runnerId: string,
+  ): Promise<KeptWorkspacesResponseDto> {
+    const keys = await this.queryBus.execute<ListKeptWorkspacesQuery, string[]>(
+      new ListKeptWorkspacesQuery(runnerId),
+    );
+
+    return { keys };
+  }
 
   @Post('runners/register')
   @ApiOperation({
@@ -60,11 +113,12 @@ export class RunnerController {
   @ApiOkResponse({ type: RegisteredRunnerResponseDto })
   async register(
     @CurrentRunner() runnerId: string,
+    @Body() body: RegisterRunnerRequestDto,
   ): Promise<RegisteredRunnerResponseDto> {
     const registered = await this.commandBus.execute<
       RegisterRunnerCommand,
       RegisteredRunnerDto
-    >(new RegisterRunnerCommand(runnerId));
+    >(new RegisterRunnerCommand(runnerId, body.harnesses ?? []));
 
     return new RegisteredRunnerResponseDto(registered.runnerId);
   }
@@ -95,6 +149,39 @@ export class RunnerController {
       claimed.spec,
       claimed.leaseExpiresAt,
     );
+  }
+
+  @Get('runs/:runId/messages')
+  @ApiOperation({
+    operationId: 'pendingMessages',
+    summary: 'What a person has said to the agent working this run',
+  })
+  @ApiOkResponse({ type: PendingMessageResponseDto, isArray: true })
+  async messages(
+    @Param('runId') runId: string,
+  ): Promise<PendingMessageResponseDto[]> {
+    const waiting = await this.queryBus.execute<
+      PendingMessagesQuery,
+      PendingMessageDto[]
+    >(new PendingMessagesQuery(runId));
+
+    return waiting.map(
+      (each) => new PendingMessageResponseDto(each.position, each.body),
+    );
+  }
+
+  @Post('runs/:runId/messages/delivered')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'deliverSaid',
+    summary: 'Say what the agent has been given',
+  })
+  @ApiNoContentResponse()
+  async delivered(
+    @Param('runId') runId: string,
+    @Body() body: DeliverSaidRequestDto,
+  ): Promise<void> {
+    await this.commandBus.execute(new DeliverSaidCommand(runId, body.upTo));
   }
 
   @Post('runs/:runId/lease')
@@ -147,6 +234,8 @@ export class RunnerController {
         body.exitCode,
         body.failed,
         body.message,
+        body.outcome ?? null,
+        body.sessionId ?? null,
       ),
     );
   }

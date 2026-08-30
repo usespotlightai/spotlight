@@ -16,3 +16,13 @@ Element.prototype.hasPointerCapture = () => false;
 Element.prototype.setPointerCapture = () => undefined;
 Element.prototype.releasePointerCapture = () => undefined;
 Element.prototype.scrollIntoView = () => undefined;
+
+// jsdom lays nothing out, so it has no ResizeObserver. Components that watch
+// their own size need one to exist, even if it never reports anything.
+class NoResizeObserver implements ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+globalThis.ResizeObserver ??= NoResizeObserver;

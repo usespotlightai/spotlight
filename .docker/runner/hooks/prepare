@@ -11,10 +11,12 @@
 # anything written here lands in the run's journal.
 set -eu
 
+spec=$(cat)
+
 # One JSON object per checkout, read field by field. A tab-separated line would
 # be shorter and wrong: tab is whitespace to `read`, so an empty ref collapses
 # and every field after it shifts along by one.
-jq -c '.checkouts[]?' | while read -r checkout; do
+printf '%s' "$spec" | jq -c '.checkouts[]?' | while read -r checkout; do
   field() { printf '%s' "$checkout" | jq -r "$1"; }
 
   remote=$(field '.remote')

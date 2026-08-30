@@ -1,9 +1,23 @@
 import { Run } from '@domain/aggregates/run.aggregate';
+import { RunAbandoned } from '@domain/events/run-abandoned.event';
+import { RunCompleted } from '@domain/events/run-completed.event';
 import { InvalidRunTransitionError } from '@domain/exceptions/invalid-run-transition.error';
+import { Declaration } from '@domain/value-objects/declaration.vo';
+import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
+import { RunSpec } from '@domain/value-objects/run-spec.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
+
+const aSpec = (executable = 'sh') =>
+  RunSpec.of({
+    command: { executable, args: [] },
+    briefing: 'do the thing',
+    handover: { options: [] },
+    continuity: { key: 'task:station', keep: true },
+  });
 
 const at = (iso: string) => new Date(iso);
 const noon = at('2026-08-23T12:00:00.000Z');
@@ -14,26 +28,59 @@ const queued = () =>
   Run.enqueue({
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
-    pool: 'dev',
-    spec: { command: { executable: 'sh' } },
+    harness: HarnessId.of('dev'),
+    spec: aSpec('sh'),
   });
 
 const openedFor = (target: string) =>
   Run.enqueue({
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
-    pool: 'dev',
-    spec: { command: { executable: 'claude' } },
+    harness: HarnessId.of('dev'),
+    spec: aSpec('claude'),
     targetRunner: runner(target),
   });
 
-const claimed = (by = runner(), when = noon) => {
-  const run = queued();
-  run.claim(by, when);
-  return run;
-};
+const claimed = (by = runner(), when = noon) => queued().claim(by, when);
+
+const onAttempt = (attempt: number, leaseUntil: Date) =>
+  Run.rehydrate({
+    id: RunId.of('run_1'),
+    workspaceId: WorkspaceId.of('ws_1'),
+    harness: HarnessId.of('dev'),
+    priority: 0,
+    taskId: null,
+    stationId: null,
+    spec: aSpec(),
+    targetRunner: null,
+    state: 'claimed',
+    claimedBy: RunnerId.of('runner_1'),
+    leaseExpiresAt: leaseUntil,
+    result: null,
+    attempt,
+  });
 
 describe('Run', () => {
+  it('gives up rather than requeueing for ever', () => {
+    const lapsedAt = at('2026-08-28T12:00:00.000Z');
+    const spent = onAttempt(3, lapsedAt);
+
+    const given = spent.requeue(new Date(lapsedAt.getTime() + 600_000));
+
+    expect(given.state).toBe('failed');
+    expect(given.abandoned).toBe(true);
+  });
+
+  it('goes back on the queue while it still has attempts left', () => {
+    const lapsedAt = at('2026-08-28T12:00:00.000Z');
+    const first = onAttempt(1, lapsedAt);
+
+    const again = first.requeue(new Date(lapsedAt.getTime() + 600_000));
+
+    expect(again.state).toBe('queued');
+    expect(again.abandoned).toBe(false);
+  });
+
   it('starts queued, unclaimed and on its first attempt', () => {
     const run = queued();
 
@@ -48,6 +95,15 @@ describe('Run', () => {
     expect(run.state).toBe('claimed');
     expect(run.claimedBy).toEqual(runner());
     expect(run.leaseExpiresAt?.getTime()).toBeGreaterThan(noon.getTime());
+  });
+
+  it('leaves the run it was claimed from on the queue', () => {
+    const waiting = queued();
+
+    waiting.claim(runner(), noon);
+
+    expect(waiting.state).toBe('queued');
+    expect(waiting.claimedBy).toBeNull();
   });
 
   it('cannot be claimed twice', () => {
@@ -71,16 +127,15 @@ describe('Run', () => {
   });
 
   it('goes back on the queue for someone else, counting the attempt', () => {
-    const run = claimed();
-    const lease = run.leaseExpiresAt as Date;
+    const held = claimed();
 
-    run.requeue(lease);
+    const again = held.requeue(held.leaseExpiresAt as Date);
 
-    expect(run.state).toBe('queued');
-    expect(run.claimedBy).toBeNull();
-    expect(run.leaseExpiresAt).toBeNull();
+    expect(again.state).toBe('queued');
+    expect(again.claimedBy).toBeNull();
+    expect(again.leaseExpiresAt).toBeNull();
     // The next telling is not a duplicate of the one that was cut short.
-    expect(run.attempt).toBe(2);
+    expect(again.attempt).toBe(2);
   });
 
   it('refuses to be requeued while its lease still holds', () => {
@@ -90,13 +145,12 @@ describe('Run', () => {
   });
 
   it('lets the runner holding it push the lease out', () => {
-    const run = claimed();
-    const first = run.leaseExpiresAt as Date;
+    const held = claimed();
 
-    run.renewLease(runner(), at('2026-08-23T12:00:30.000Z'));
+    const renewed = held.renewLease(runner(), at('2026-08-23T12:00:30.000Z'));
 
-    expect((run.leaseExpiresAt as Date).getTime()).toBeGreaterThan(
-      first.getTime(),
+    expect((renewed.leaseExpiresAt as Date).getTime()).toBeGreaterThan(
+      (held.leaseExpiresAt as Date).getTime(),
     );
   });
 
@@ -117,38 +171,35 @@ describe('Run', () => {
   });
 
   it('records what a finished run produced, and drops the lease', () => {
-    const run = claimed();
+    const ended = claimed().complete(runner(), { exitCode: 0, failed: false });
 
-    run.complete(runner(), { exitCode: 0, failed: false });
-
-    expect(run.state).toBe('completed');
-    expect(run.result).toEqual({ exitCode: 0, failed: false });
-    expect(run.leaseExpiresAt).toBeNull();
+    expect(ended.state).toBe('completed');
+    expect(ended.result).toEqual({ exitCode: 0, failed: false });
+    expect(ended.leaseExpiresAt).toBeNull();
   });
 
   it('calls a failing run failed even though it reported an exit code', () => {
-    const run = claimed();
+    const ended = claimed().complete(runner(), {
+      exitCode: 2,
+      failed: true,
+      message: 'no push',
+    });
 
-    run.complete(runner(), { exitCode: 2, failed: true, message: 'no push' });
-
-    expect(run.state).toBe('failed');
-    expect(run.result?.message).toBe('no push');
+    expect(ended.state).toBe('failed');
+    expect(ended.result?.message).toBe('no push');
   });
 
   it('cannot be completed once it already is', () => {
-    const run = claimed();
-    run.complete(runner(), { exitCode: 0, failed: false });
+    const ended = claimed().complete(runner(), { exitCode: 0, failed: false });
 
     expect(() =>
-      run.complete(runner(), { exitCode: 0, failed: false }),
+      ended.complete(runner(), { exitCode: 0, failed: false }),
     ).toThrow(InvalidRunTransitionError);
   });
 
   describe('opened against one runner', () => {
     it('is claimable by the runner it was opened for', () => {
-      const run = openedFor('runner_2');
-
-      run.claim(runner('runner_2'), noon);
+      const run = openedFor('runner_2').claim(runner('runner_2'), noon);
 
       expect(run.state).toBe('claimed');
       expect(run.claimedBy?.value).toBe('runner_2');
@@ -164,23 +215,21 @@ describe('Run', () => {
     });
 
     it('still belongs to that runner after being requeued', () => {
-      const run = openedFor('runner_2');
-      run.claim(runner('runner_2'), noon);
-      run.requeue(at('2026-08-23T12:05:00.000Z'));
+      const again = openedFor('runner_2')
+        .claim(runner('runner_2'), noon)
+        .requeue(at('2026-08-23T12:05:00.000Z'));
 
-      expect(run.targetRunner?.value).toBe('runner_2');
-      expect(() => run.claim(runner('runner_1'), noon)).toThrow(
+      expect(again.targetRunner?.value).toBe('runner_2');
+      expect(() => again.claim(runner('runner_1'), noon)).toThrow(
         InvalidRunTransitionError,
       );
     });
   });
 
   it('lets any runner claim a run opened against none', () => {
-    const run = queued();
-
-    run.claim(runner('runner_9'), noon);
-
-    expect(run.claimedBy?.value).toBe('runner_9');
+    expect(queued().claim(runner('runner_9'), noon).claimedBy?.value).toBe(
+      'runner_9',
+    );
   });
 
   it('refuses anyone but its holder to act on it', () => {
@@ -199,17 +248,68 @@ describe('Run', () => {
   });
 
   it('goes back on the queue when its claimant can no longer serve it', () => {
-    const run = claimed();
+    const released = claimed().release();
 
-    run.release();
-
-    expect(run.state).toBe('queued');
-    expect(run.claimedBy).toBeNull();
-    expect(run.leaseExpiresAt).toBeNull();
-    expect(run.attempt).toBe(2);
+    expect(released.state).toBe('queued');
+    expect(released.claimedBy).toBeNull();
+    expect(released.leaseExpiresAt).toBeNull();
+    expect(released.attempt).toBe(2);
   });
 
   it('refuses to release a run nobody is holding', () => {
     expect(() => queued().release()).toThrow(InvalidRunTransitionError);
+  });
+
+  describe('announcing how it ended', () => {
+    it('says what the agent reported when it completes', () => {
+      const [raised] = claimed().complete(
+        runner(),
+        { exitCode: 0, failed: false },
+        {
+          declared: Declaration.of({ next: 'Spec', note: 'ready' }),
+          session: HarnessSession.of('session_1'),
+        },
+      ).happened;
+
+      expect(raised).toBeInstanceOf(RunCompleted);
+      const completed = raised as RunCompleted;
+      expect(completed.runId).toEqual(RunId.of('run_1'));
+      expect(completed.result.failed).toBe(false);
+      expect(completed.workedBy).toEqual(runner());
+      expect(completed.declared?.next).toBe('Spec');
+      expect(completed.session?.value).toBe('session_1');
+    });
+
+    it('keeps nothing of what it announced', () => {
+      const ended = claimed().complete(
+        runner(),
+        { exitCode: 0, failed: false },
+        { session: HarnessSession.of('session_1') },
+      );
+
+      expect(ended.result).toEqual({ exitCode: 0, failed: false });
+    });
+
+    it('says so when it is given up on', () => {
+      let run = queued();
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        run = run.claim(runner(), noon).requeue(at('2026-08-23T12:05:00.000Z'));
+      }
+
+      const [raised] = run.happened;
+
+      expect(raised).toBeInstanceOf(RunAbandoned);
+      expect((raised as RunAbandoned).attempt).toBe(3);
+      expect(run.abandoned).toBe(true);
+    });
+
+    it('leaves the run it was completed from with nothing to announce', () => {
+      const held = claimed();
+
+      held.complete(runner(), { exitCode: 0, failed: false });
+
+      expect(held.happened).toHaveLength(0);
+      expect(held.state).toBe('claimed');
+    });
   });
 });

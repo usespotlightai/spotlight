@@ -1,0 +1,91 @@
+import type {
+  InboxItemResponseDto,
+  InboxMessageResponseDto,
+  RunJournalResponseDto,
+} from '@/lib/api';
+
+export type InboxItem = InboxItemResponseDto;
+
+export type InboxMessage = InboxMessageResponseDto;
+
+/** One station's exchange: narrower than an inbox item, which a run is not. */
+export type Conversing = {
+  readonly id: string;
+  readonly createdAt: string;
+  readonly station: {
+    readonly name: string;
+    readonly color: string;
+    readonly position: number;
+    readonly count: number;
+  };
+  readonly working: boolean;
+  readonly notes: readonly InboxMessage[];
+};
+
+export type RunJournal = RunJournalResponseDto;
+
+export const took = (ms: number): string => {
+  if (ms < 1_000) {
+    return `${ms}ms`;
+  }
+  if (ms < 60_000) {
+    return `${Math.round(ms / 1_000)}s`;
+  }
+
+  const minutes = Math.floor(ms / 60_000);
+  const seconds = Math.round((ms % 60_000) / 1_000);
+
+  return seconds ? `${minutes}m ${seconds}s` : `${minutes}m`;
+};
+
+export const counted = (tokens: number): string =>
+  tokens < 1_000 ? `${tokens}` : `${Math.round(tokens / 100) / 10}k`;
+
+export type JournalStep = RunJournalResponseDto['steps'][number];
+
+export const spokenAt = (at: string): string =>
+  new Date(at).toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+
+export const openedAt = (at: string): string => {
+  const opened = new Date(at);
+  const time = opened.toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+
+  const today = new Date();
+  const sameDay = opened.toDateString() === today.toDateString();
+
+  if (sameDay) {
+    return `Today ${time}`;
+  }
+
+  const day = opened.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    ...(opened.getFullYear() === today.getFullYear()
+      ? {}
+      : { year: 'numeric' }),
+  });
+
+  return `${day} ${time}`;
+};
+
+/**
+ * What holds a person's words at the top while the work below them scrolls
+ * past. It has to sit on the element the conversation lays out directly — a
+ * box only travels within its parent's, and a wrapper hugging the card has
+ * nowhere to travel. The inset is what the card's own padding cancels.
+ */
+export const HELD_AT_TOP =
+  'sticky top-0 z-10 -mx-3 bg-card pt-2 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-6 after:bg-gradient-to-b after:from-card after:to-transparent';
+
+export const inboxPath = (slug: string) => `/w/${slug}/inbox`;
+
+export const inboxItemPath = (slug: string, id: string) =>
+  `${inboxPath(slug)}/${encodeURIComponent(id)}`;
+
+export const waitingOn = (item: InboxItem) => item.notes[item.notes.length - 1];

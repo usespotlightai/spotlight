@@ -6,6 +6,7 @@ import (
 	"math/rand/v2"
 	"time"
 
+	"usespotlight.ai/runner/internal/harness"
 	"usespotlight.ai/runner/internal/protocol"
 )
 
@@ -105,15 +106,18 @@ func sleep(ctx context.Context, d time.Duration) bool {
 }
 
 type Registrar interface {
+	Installable(ctx context.Context) ([]protocol.Installable, error)
 	Register(ctx context.Context, in protocol.Registration) error
 }
 
 // Register keeps trying until the control plane answers or the context ends.
-func Register(ctx context.Context, registrar Registrar, in protocol.Registration, log *slog.Logger) error {
+// Checking in means saying what is installed, and what to look for is the
+// control plane's to say, so the two go together.
+func Register(ctx context.Context, registrar Registrar, capacity int, log *slog.Logger) error {
 	backoff := retryFloor
 
 	for {
-		err := registrar.Register(ctx, in)
+		err := checkIn(ctx, registrar, capacity)
 		if err == nil {
 			return nil
 		}
@@ -128,4 +132,16 @@ func Register(ctx context.Context, registrar Registrar, in protocol.Registration
 		}
 		backoff = min(backoff*2, retryCeiling)
 	}
+}
+
+func checkIn(ctx context.Context, registrar Registrar, capacity int) error {
+	candidates, err := registrar.Installable(ctx)
+	if err != nil {
+		return err
+	}
+
+	return registrar.Register(ctx, protocol.Registration{
+		Capacity:  capacity,
+		Harnesses: harness.Installed(candidates),
+	})
 }

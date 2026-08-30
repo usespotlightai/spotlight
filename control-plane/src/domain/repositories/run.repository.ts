@@ -1,4 +1,5 @@
 import type { Run } from '@domain/aggregates/run.aggregate';
+import type { HarnessId } from '@domain/value-objects/harness-id.vo';
 import type { RunId } from '@domain/value-objects/run-id.vo';
 import type { RunnerId } from '@domain/value-objects/runner-id.vo';
 
@@ -18,7 +19,11 @@ export interface RunRepository {
    * Hands the oldest queued run in the pool to one runner, atomically. Two
    * runners asking at the same moment must not both receive it.
    */
-  claimNext(pool: string, by: RunnerId, now: Date): Promise<Run | null>;
+  claimNext(
+    harnesses: readonly HarnessId[],
+    by: RunnerId,
+    now: Date,
+  ): Promise<Run | null>;
 
   findById(id: RunId): Promise<Run | null>;
 
@@ -36,11 +41,11 @@ export interface RunRepository {
   ): Promise<void>;
 
   /** Returns claimed runs whose lease has lapsed to the queue. */
-  requeueLapsed(now: Date): Promise<number>;
+  requeueLapsed(now: Date): Promise<Run[]>;
 
   /**
    * Puts back whatever this runner is holding. The query narrows the
    * candidates; `Run.release` decides, so the rule is stated once.
    */
-  releaseClaimedBy(runner: RunnerId): Promise<number>;
+  releaseClaimedBy(runner: RunnerId): Promise<void>;
 }

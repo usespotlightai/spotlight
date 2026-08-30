@@ -25,6 +25,11 @@ type Row = {
   stationId: string | null;
   stationName: string | null;
   stationPosition: number | null;
+  stationColor: string | null;
+  stationDescription: string | null;
+  stationHarness: string | null;
+  stationAgentPrompt: string | null;
+  stationKind: 'backlog' | 'work' | null;
 };
 
 @Injectable()
@@ -61,6 +66,11 @@ export class DrizzleAssemblyLineReader implements AssemblyLineReaderPort {
         stationId: station.id,
         stationName: station.name,
         stationPosition: station.position,
+        stationColor: station.color,
+        stationDescription: station.description,
+        stationHarness: station.harness,
+        stationAgentPrompt: station.agentPrompt,
+        stationKind: station.kind,
       })
       .from(assemblyLine)
       .innerJoin(factory, eq(factory.id, assemblyLine.factoryId))
@@ -83,6 +93,11 @@ const group = (rows: Row[]): AssemblyLineDetail[] => {
         id: row.stationId,
         name: row.stationName ?? '',
         position: row.stationPosition,
+        color: row.stationColor ?? '',
+        description: row.stationDescription,
+        harness: row.stationHarness,
+        agentPrompt: row.stationAgentPrompt,
+        kind: row.stationKind ?? 'work',
       });
     }
 

@@ -6,10 +6,4 @@ export class EnrolRunnerRequestDto {
     description: 'What to call this runner. Rejected if empty or over 60.',
   })
   readonly name!: string;
-
-  @ApiProperty({
-    example: 'dev',
-    description: 'Which queue this runner may take work from.',
-  })
-  readonly pool!: string;
 }

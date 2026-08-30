@@ -4,11 +4,15 @@ import { RequireGuest } from './components/common/auth/RequireGuest.tsx';
 import { AssemblyLineBoard } from './routes/AssemblyLineBoard.tsx';
 import { CreateWorkspace } from './routes/CreateWorkspace.tsx';
 import { DefaultWorkspace } from './routes/DefaultWorkspace.tsx';
+import { Inbox } from './routes/Inbox.tsx';
+import { InboxIndex } from './routes/InboxIndex.tsx';
+import { InboxItem } from './routes/InboxItem.tsx';
 import { Login } from './routes/Login.tsx';
-import { RunnerIndex } from './routes/RunnerIndex.tsx';
+import { Run } from './routes/Run.tsx';
 import { Runners } from './routes/Runners.tsx';
-import { RunnerTerminal } from './routes/RunnerTerminal.tsx';
 import { SignUp } from './routes/SignUp.tsx';
+import { Station } from './routes/Station.tsx';
+import { Task } from './routes/Task.tsx';
 import { TeamIndex } from './routes/TeamIndex.tsx';
 import { TeamSection } from './routes/TeamSection.tsx';
 import { Workspace } from './routes/Workspace.tsx';
@@ -30,12 +34,20 @@ export default function App() {
           <Route path="team/:teamId">
             <Route index element={<TeamIndex />} />
             <Route path="lines/:lineId" element={<AssemblyLineBoard />} />
+            <Route
+              path="lines/:lineId/stations/:stationId"
+              element={<Station />}
+            />
+            <Route path="tasks/:taskId" element={<Task />} />
+            <Route path="runs/:runId" element={<Run />} />
             <Route path=":section" element={<TeamSection />} />
           </Route>
-          <Route path="runners" element={<Runners />}>
-            <Route index element={<RunnerIndex />} />
-            <Route path=":runnerId" element={<RunnerTerminal />} />
+          <Route path="inbox" element={<Inbox />}>
+            <Route index element={<InboxIndex />} />
+            <Route path=":itemId" element={<InboxItem />} />
           </Route>
+
+          <Route path="runners" element={<Runners />} />
         </Route>
       </Route>
 

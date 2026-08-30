@@ -1,24 +1,157 @@
+import { InvalidStationChangeError } from '@domain/exceptions/invalid-station-change.error';
+import type { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
+import type { HarnessId } from '@domain/value-objects/harness-id.vo';
+import type { StationColor } from '@domain/value-objects/station-color.vo';
+import type { StationDescription } from '@domain/value-objects/station-description.vo';
 import type { StationId } from '@domain/value-objects/station-id.vo';
 import type { StationName } from '@domain/value-objects/station-name.vo';
 
-/** Position orders the board. It does not define the flow: movement becomes
- *  explicit transitions once runs execute, because review sends work back. */
-export class Station {
-  private constructor(
+export type StationKind = 'backlog' | 'work';
+
+type Part = {
+  name?: StationName;
+  position?: number;
+  color?: StationColor;
+  description?: StationDescription | null;
+  harness?: HarnessId | null;
+  agentPrompt?: AgentPrompt | null;
+};
+
+export type StationInput = {
+  id: StationId;
+  name: StationName;
+  position: number;
+  color: StationColor;
+  description?: StationDescription | null;
+  harness?: HarnessId | null;
+  agentPrompt?: AgentPrompt | null;
+  kind?: StationKind;
+};
+
+export abstract class Station {
+  protected constructor(
     readonly id: StationId,
     readonly name: StationName,
     readonly position: number,
+    readonly color: StationColor,
+    readonly description: StationDescription | null,
   ) {}
 
-  static create(input: {
-    id: StationId;
-    name: StationName;
-    position: number;
-  }): Station {
-    return new Station(input.id, input.name, input.position);
+  abstract readonly kind: StationKind;
+  abstract readonly harness: HarnessId | null;
+  abstract readonly agentPrompt: AgentPrompt | null;
+
+  static create(input: StationInput): Station {
+    return input.kind === 'backlog'
+      ? new Backlog(
+          input.id,
+          input.name,
+          input.position,
+          input.color,
+          input.description ?? null,
+        )
+      : new WorkStation(
+          input.id,
+          input.name,
+          input.position,
+          input.color,
+          input.description ?? null,
+          input.harness ?? null,
+          input.agentPrompt ?? null,
+        );
   }
+
+  get isBacklog(): boolean {
+    return this.kind === 'backlog';
+  }
+
+  rename(name: StationName): Station {
+    return this.copiedWith({ name });
+  }
+
+  repaint(color: StationColor): Station {
+    return this.copiedWith({ color });
+  }
+
+  describe(description: StationDescription | null): Station {
+    return this.copiedWith({ description });
+  }
+
+  movedTo(position: number): Station {
+    return this.copiedWith({ position });
+  }
+
+  abstract runsOn(harness: HarnessId | null): Station;
+
+  abstract instruct(agentPrompt: AgentPrompt | null): Station;
 
   equals(other: Station): boolean {
     return this.id.equals(other.id);
+  }
+
+  protected abstract copiedWith(part: Part): Station;
+}
+
+export class WorkStation extends Station {
+  readonly kind = 'work' as const;
+
+  constructor(
+    id: StationId,
+    name: StationName,
+    position: number,
+    color: StationColor,
+    description: StationDescription | null,
+    readonly harness: HarnessId | null,
+    readonly agentPrompt: AgentPrompt | null,
+  ) {
+    super(id, name, position, color, description);
+  }
+
+  runsOn(harness: HarnessId | null): Station {
+    return this.copiedWith({ harness });
+  }
+
+  instruct(agentPrompt: AgentPrompt | null): Station {
+    return this.copiedWith({ agentPrompt });
+  }
+
+  protected copiedWith(part: Part): Station {
+    return new WorkStation(
+      this.id,
+      part.name ?? this.name,
+      part.position ?? this.position,
+      part.color ?? this.color,
+      part.description !== undefined ? part.description : this.description,
+      part.harness !== undefined ? part.harness : this.harness,
+      part.agentPrompt !== undefined ? part.agentPrompt : this.agentPrompt,
+    );
+  }
+}
+
+export class Backlog extends Station {
+  readonly kind = 'backlog' as const;
+  readonly harness = null;
+  readonly agentPrompt = null;
+
+  runsOn(): Station {
+    throw new InvalidStationChangeError(
+      'is a backlog, where tasks wait to be started, so nothing runs there',
+    );
+  }
+
+  instruct(): Station {
+    throw new InvalidStationChangeError(
+      'is a backlog, so there is nothing there to instruct',
+    );
+  }
+
+  protected copiedWith(part: Part): Station {
+    return new Backlog(
+      this.id,
+      part.name ?? this.name,
+      part.position ?? this.position,
+      part.color ?? this.color,
+      part.description !== undefined ? part.description : this.description,
+    );
   }
 }

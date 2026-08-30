@@ -1,9 +1,11 @@
 import { ChevronRight } from 'lucide-react';
 import { Fragment, type ReactNode } from 'react';
+import { Link } from 'react-router';
 
 export type BreadcrumbSegment = {
   label: string;
   icon?: ReactNode;
+  to?: string;
 };
 
 type BreadcrumbsProps = {
@@ -11,23 +13,39 @@ type BreadcrumbsProps = {
 };
 
 export function Breadcrumbs({ segments }: BreadcrumbsProps) {
-  return segments.map(({ label, icon }, index) => (
-    <Fragment
-      key={segments
-        .slice(0, index + 1)
-        .map((each) => each.label)
-        .join('/')}
-    >
-      {index > 0 && (
-        <ChevronRight
-          className="size-3.5 shrink-0 text-muted-foreground"
-          aria-hidden
-        />
-      )}
-      <span className="flex min-w-0 items-center gap-1.5">
+  return segments.map(({ label, icon, to }, index) => {
+    const content = (
+      <>
         {icon}
         <span className="truncate">{label}</span>
-      </span>
-    </Fragment>
-  ));
+      </>
+    );
+
+    return (
+      <Fragment
+        key={segments
+          .slice(0, index + 1)
+          .map((each) => each.label)
+          .join('/')}
+      >
+        {index > 0 && (
+          <ChevronRight
+            className="size-3.5 shrink-0 text-muted-foreground"
+            aria-hidden
+          />
+        )}
+
+        {to ? (
+          <Link
+            to={to}
+            className="-mx-1.5 flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 outline-none transition-colors hover:bg-accent"
+          >
+            {content}
+          </Link>
+        ) : (
+          <span className="flex min-w-0 items-center gap-1.5">{content}</span>
+        )}
+      </Fragment>
+    );
+  });
 }

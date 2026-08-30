@@ -24,6 +24,14 @@ vi.mock('@/hooks/api/useAssemblyLines', () => ({
   }),
 }));
 
+vi.mock('@/hooks/api/useInbox', () => ({
+  inboxKeys: { forWorkspace: () => ['inbox'] },
+  useInbox: () => ({ data: [] }),
+}));
+vi.mock('@/hooks/api/useRunners', () => ({
+  runnerKeys: { all: ['runners'] },
+  useRunners: () => ({ data: [] }),
+}));
 vi.mock('@/hooks/api/useWorkspaces', () => ({
   useWorkspaces: () => ({
     data: [{ id: 'ws_1', name: 'Acme', slug: 'acme' }],

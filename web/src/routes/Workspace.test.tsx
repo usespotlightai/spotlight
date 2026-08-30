@@ -18,6 +18,10 @@ vi.mock('@/hooks/api/useSignOut', () => ({
 vi.mock('@/hooks/api/useWorkspaces', () => ({
   useWorkspaces: () => ({ data: [], isPending: false }),
 }));
+vi.mock('@/hooks/api/useInbox', () => ({
+  inboxKeys: { forWorkspace: () => ['inbox'] },
+  useInbox: () => ({ data: [] }),
+}));
 vi.mock('@/hooks/api/useRunners', () => ({
   runnerKeys: { all: ['runners'] },
   useRunners: () => ({

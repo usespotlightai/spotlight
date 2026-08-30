@@ -17,6 +17,7 @@ import type {
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
+import type { HandoverPort } from '@application/ports/handover.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { RunStreamPort } from '@application/ports/run-stream.port';
 import type { RunnerRevocationPort } from '@application/ports/runner-revocation.port';
@@ -24,15 +25,31 @@ import type { RunnerTokenPort } from '@application/ports/runner-token.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import { Run } from '@domain/aggregates/run.aggregate';
 import { Runner } from '@domain/aggregates/runner.aggregate';
+import { RunCompleted } from '@domain/events/run-completed.event';
+import { UnknownHarnessError } from '@domain/exceptions/unknown-harness.error';
 import { UnknownRunError } from '@domain/exceptions/unknown-run.error';
 import type { RunRepository } from '@domain/repositories/run.repository';
 import type { RunnerRepository } from '@domain/repositories/runner.repository';
+import { harnessNamed } from '@domain/value-objects/built-in-harnesses';
+import { Declaration } from '@domain/value-objects/declaration.vo';
+import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
+import { RunSpec, type RunSpecShape } from '@domain/value-objects/run-spec.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { RunnerName } from '@domain/value-objects/runner-name.vo';
-import { RunnerPool } from '@domain/value-objects/runner-pool.vo';
 import { TokenHash } from '@domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
+
+const announce = async (ended: Run, to: HandoverPort): Promise<void> => {
+  for (const raised of ended.happened) {
+    if (raised instanceof RunCompleted) {
+      await to.onRunCompleted(raised);
+    } else {
+      await to.onRunAbandoned(raised);
+    }
+  }
+};
 
 export class EnrolRunnerHandler
   implements CommandHandlerPort<EnrolRunnerCommand, EnrolledRunnerDto>
@@ -51,7 +68,6 @@ export class EnrolRunnerHandler
       const enrolled = Runner.enrol({
         id: RunnerId.of(this.ids.generate()),
         name,
-        pool: RunnerPool.of(command.pool),
         tokenHash: TokenHash.of(minted.hash),
       });
 
@@ -90,9 +106,12 @@ export class RegisterRunnerHandler
         throw new UnknownRunError(`runner ${command.runnerId} is not enrolled`);
       }
 
+      const found = command.harnesses.map(HarnessId.of);
+
       await this.transaction.run(async () => {
-        registering.seen(this.clock.now());
-        await this.runners.save(registering);
+        await this.runners.save(
+          registering.reports(found).seen(this.clock.now()),
+        );
       });
 
       return { runnerId: registering.id.value };
@@ -121,12 +140,12 @@ export class RevokeRunnerHandler
         throw new UnknownRunError(`runner ${command.runnerId} is not enrolled`);
       }
 
-      revoking.revoke(this.clock.now());
+      const revoked = revoking.revoke(this.clock.now());
 
       await this.transaction.run(async () => {
-        await this.runners.save(revoking);
+        await this.runners.save(revoked);
 
-        for (const event of revoking.pullEvents()) {
+        for (const event of revoked.happened) {
           await this.revocation.onRunnerRevoked(event);
         }
       });
@@ -150,6 +169,7 @@ export class ClaimRunHandler
     private readonly runs: RunRepository,
     private readonly runners: RunnerRepository,
     private readonly clock: ClockPort,
+    private readonly handover: HandoverPort,
   ) {}
 
   async execute(command: ClaimRunCommand): Promise<ClaimedRunDto | null> {
@@ -165,18 +185,19 @@ export class ClaimRunHandler
 
       // The poll doubles as the heartbeat. A runner that stops asking stops
       // being counted on.
-      asking.seen(this.clock.now());
-      await this.runners.save(asking);
+      await this.runners.save(asking.seen(this.clock.now()));
 
       // Once per claim, not per attempt. A runner whose host died leaves a run
       // held until its lease lapses, and somebody has to notice.
-      await this.runs.requeueLapsed(this.clock.now());
+      for (const abandoned of await this.runs.requeueLapsed(this.clock.now())) {
+        await announce(abandoned, this.handover);
+      }
 
       const deadline = this.clock.now().getTime() + POLL_TIMEOUT_MS;
 
       for (;;) {
         const claimed = await this.runs.claimNext(
-          asking.pool.value,
+          asking.harnesses,
           runnerId,
           this.clock.now(),
         );
@@ -223,13 +244,11 @@ export class RenewLeaseHandler
         throw new UnknownRunError(`runner ${command.runnerId} is not enrolled`);
       }
 
-      const found = await this.load(command.runId);
-      found.renewLease(renewing, at);
+      const renewed = (await this.load(command.runId)).renewLease(renewing, at);
 
       await this.transaction.run(async () => {
-        await this.runs.save(found);
-        holder.seen(at);
-        await this.runners.save(holder);
+        await this.runs.save(renewed);
+        await this.runners.save(holder.seen(at));
       });
     } catch (error) {
       rethrowAsFault(error);
@@ -294,22 +313,40 @@ export class AppendRunEventsHandler
 export class CompleteRunHandler
   implements CommandHandlerPort<CompleteRunCommand, void>
 {
-  constructor(private readonly runs: RunRepository) {}
+  constructor(
+    private readonly runs: RunRepository,
+    private readonly transaction: TransactionPort,
+    private readonly handover: HandoverPort,
+  ) {}
 
   async execute(command: CompleteRunCommand): Promise<void> {
     try {
-      const found = await this.runs.findById(RunId.of(command.runId));
-      if (!found) {
-        throw new UnknownRunError(`there is no run ${command.runId}`);
-      }
+      await this.transaction.run(async () => {
+        const found = await this.runs.findById(RunId.of(command.runId));
+        if (!found) {
+          throw new UnknownRunError(`there is no run ${command.runId}`);
+        }
 
-      found.complete(RunnerId.of(command.runnerId), {
-        exitCode: command.exitCode,
-        failed: command.failed,
-        message: command.message,
+        const ended = found.complete(
+          RunnerId.of(command.runnerId),
+          {
+            exitCode: command.exitCode,
+            failed: command.failed,
+            message: command.message,
+          },
+          {
+            declared: command.declared
+              ? Declaration.of(command.declared)
+              : null,
+            session: command.sessionId
+              ? HarnessSession.of(command.sessionId)
+              : null,
+          },
+        );
+
+        await this.runs.save(ended);
+        await announce(ended, this.handover);
       });
-
-      await this.runs.save(found);
     } catch (error) {
       rethrowAsFault(error);
     }
@@ -326,11 +363,20 @@ export class EnqueueRunHandler
 
   async execute(command: EnqueueRunCommand): Promise<EnqueuedRunDto> {
     try {
+      const harness = harnessNamed(HarnessId.of(command.harness));
+      if (!harness) {
+        throw new UnknownHarnessError(command.harness);
+      }
+
       const queued = Run.enqueue({
         id: RunId.of(this.ids.generate()),
         workspaceId: WorkspaceId.of(command.workspaceId),
-        pool: command.pool,
-        spec: command.spec,
+        harness: harness.id,
+        // How to start a harness is not the caller's to know.
+        spec: RunSpec.of({
+          ...(command.spec as Omit<RunSpecShape, 'command'>),
+          command: harness.command.started(),
+        }),
         targetRunner: command.targetRunnerId
           ? RunnerId.of(command.targetRunnerId)
           : null,
@@ -340,7 +386,7 @@ export class EnqueueRunHandler
 
       return {
         id: queued.id.value,
-        pool: queued.pool,
+        harness: queued.harness.value,
         state: queued.state,
         targetRunnerId: queued.targetRunner?.value ?? null,
       };

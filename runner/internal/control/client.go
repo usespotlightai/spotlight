@@ -63,6 +63,28 @@ func (c *Client) Register(ctx context.Context, in protocol.Registration) error {
 	return nil
 }
 
+// Installable asks what to look for. The control plane knows the harnesses;
+// the runner only needs to know whether each one is here.
+func (c *Client) Installable(ctx context.Context) ([]protocol.Installable, error) {
+	var out []protocol.Installable
+	if err := c.do(ctx, http.MethodGet, "/api/runners/harnesses", nil, &out); err != nil {
+		return nil, fmt.Errorf("ask what to look for: %w", err)
+	}
+
+	return out, nil
+}
+
+// Kept asks which workspaces to hold on to. An error means no answer, not an
+// empty answer: the caller must not read silence as permission to delete.
+func (c *Client) Kept(ctx context.Context) ([]string, error) {
+	var out protocol.Kept
+	if err := c.do(ctx, http.MethodGet, "/api/runners/workspaces/retain", nil, &out); err != nil {
+		return nil, fmt.Errorf("ask what to keep: %w", err)
+	}
+
+	return out.Keys, nil
+}
+
 // Claim long-polls for work. An empty queue returns nil, nil, not an error.
 func (c *Client) Claim(ctx context.Context) (*protocol.Run, error) {
 	ctx, cancel := context.WithTimeout(ctx, PollTimeout+15*time.Second)
@@ -80,6 +102,34 @@ func (c *Client) Claim(ctx context.Context) (*protocol.Run, error) {
 	}
 
 	return &run, nil
+}
+
+// Said reads what a person has typed at the agent working this run and that
+// no turn has been given yet.
+func (c *Client) Said(ctx context.Context, runID string) ([]protocol.Said, error) {
+	path := fmt.Sprintf("/api/runs/%s/messages", url.PathEscape(runID))
+
+	var said []protocol.Said
+	if err := c.do(ctx, http.MethodGet, path, nil, &said); err != nil {
+		return nil, fmt.Errorf("read what was said: %w", err)
+	}
+
+	return said, nil
+}
+
+// Delivered says the agent has been given everything up to this note, so it
+// is not handed the same words twice.
+func (c *Client) Delivered(ctx context.Context, runID string, upTo int) error {
+	path := fmt.Sprintf("/api/runs/%s/messages/delivered", url.PathEscape(runID))
+	body := struct {
+		UpTo int `json:"upTo"`
+	}{UpTo: upTo}
+
+	if err := c.do(ctx, http.MethodPost, path, body, nil); err != nil {
+		return fmt.Errorf("mark what was said delivered: %w", err)
+	}
+
+	return nil
 }
 
 func (c *Client) RenewLease(ctx context.Context, runID string) error {
@@ -108,20 +158,6 @@ func (c *Client) AppendEvents(ctx context.Context, runID string, events []protoc
 		return fmt.Errorf("append events: %w", err)
 	}
 	return nil
-}
-
-func (c *Client) AwaitInput(ctx context.Context, runID string) ([]protocol.Input, error) {
-	ctx, cancel := context.WithTimeout(ctx, InputPollTimeout+15*time.Second)
-	defer cancel()
-
-	var pending protocol.PendingInput
-	path := fmt.Sprintf("/api/runs/%s/input", url.PathEscape(runID))
-
-	if _, err := c.request(ctx, http.MethodGet, path, nil, &pending); err != nil {
-		return nil, fmt.Errorf("await input: %w", err)
-	}
-
-	return pending.Input, nil
 }
 
 func (c *Client) Complete(ctx context.Context, runID string, done protocol.Completion) error {

@@ -6,7 +6,7 @@ export interface ActiveRunDto {
 export interface ConnectedRunnerDto {
   readonly id: string;
   readonly name: string;
-  readonly pool: string;
+  readonly harnesses: readonly string[];
   readonly registeredAt: string;
   readonly lastSeenAt: string | null;
   readonly revokedAt: string | null;

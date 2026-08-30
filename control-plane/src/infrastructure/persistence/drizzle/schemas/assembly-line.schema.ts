@@ -36,6 +36,12 @@ export const station = pgTable(
       .references(() => assemblyLine.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     position: integer('position').notNull(),
+    color: text('color').notNull().default('#a3a8b0'),
+    description: text('description'),
+    kind: text('kind').$type<'backlog' | 'work'>().notNull().default('work'),
+    // None means nothing works this station, so it holds what it is given.
+    harness: text('harness'),
+    agentPrompt: text('agent_prompt'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
       .defaultNow()

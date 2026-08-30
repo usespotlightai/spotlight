@@ -3,9 +3,13 @@ import type {
   RunEventRecord,
   RunRepository,
 } from '@domain/repositories/run.repository';
+import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
+import { RunSpec, type RunSpecShape } from '@domain/value-objects/run-spec.vo';
 import type { RunState } from '@domain/value-objects/run-state';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
+import { StationId } from '@domain/value-objects/station-id.vo';
+import { TaskId } from '@domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
 import {
@@ -13,9 +17,16 @@ import {
   runEvent,
 } from '@infrastructure/persistence/drizzle/schemas/run.schema';
 import { Injectable } from '@nestjs/common';
-import { and, eq, lte, sql } from 'drizzle-orm';
+import { and, eq, inArray, lte, sql } from 'drizzle-orm';
 
 type Row = typeof run.$inferSelect;
+
+const EMPTY_SPEC: RunSpecShape = {
+  command: { executable: 'unknown', args: [] },
+  briefing: 'This run was queued before its spec had a shape.',
+  handover: { options: [] },
+  continuity: { key: '', keep: false },
+};
 
 @Injectable()
 export class DrizzleRunRepository implements RunRepository {
@@ -25,9 +36,12 @@ export class DrizzleRunRepository implements RunRepository {
     await this.context.db.insert(run).values({
       id: added.id.value,
       workspaceId: added.workspaceId.value,
-      pool: added.pool,
+      harness: added.harness.value,
+      priority: added.priority,
+      taskId: added.taskId?.value ?? null,
+      stationId: added.stationId?.value ?? null,
       state: added.state,
-      spec: added.spec,
+      spec: added.spec.value,
       targetRunnerId: added.targetRunner?.value ?? null,
     });
   }
@@ -40,13 +54,26 @@ export class DrizzleRunRepository implements RunRepository {
    * What being claimed means is decided by the aggregate: the row is locked,
    * handed over, and written back in the same transaction.
    */
-  async claimNext(pool: string, by: RunnerId, now: Date): Promise<Run | null> {
+  /** A run wanting a harness no runner reported having simply waits. */
+  async claimNext(
+    harnesses: readonly HarnessId[],
+    by: RunnerId,
+    now: Date,
+  ): Promise<Run | null> {
+    if (harnesses.length === 0) {
+      return null;
+    }
+
+    const named = harnesses.map((harness) => harness.value);
+
     return this.context.run(async () => {
       const locked = await this.context.db.execute<Row>(sql`
         SELECT
           id,
           workspace_id      AS "workspaceId",
-          pool,
+          harness,
+          priority,
+          task_id           AS "taskId",
           state,
           spec,
           target_runner_id  AS "targetRunnerId",
@@ -56,10 +83,12 @@ export class DrizzleRunRepository implements RunRepository {
           message,
           attempt
         FROM ${run}
-        WHERE pool = ${pool}
+        WHERE ${inArray(run.harness, named)}
           AND state = 'queued'
           AND (target_runner_id IS NULL OR target_runner_id = ${by.value})
-        ORDER BY created_at
+        -- The order RunQueue.before states: priority first, longest wait
+        -- among equals. Said in SQL because the claim must be one statement.
+        ORDER BY priority DESC, created_at
         FOR UPDATE SKIP LOCKED
         LIMIT 1
       `);
@@ -69,11 +98,10 @@ export class DrizzleRunRepository implements RunRepository {
         return null;
       }
 
-      const claiming = toRun(row);
-      claiming.claim(by, now);
-      await this.save(claiming);
+      const claimed = toRun(row).claim(by, now);
+      await this.save(claimed);
 
-      return claiming;
+      return claimed;
     });
   }
 
@@ -101,22 +129,16 @@ export class DrizzleRunRepository implements RunRepository {
       .where(eq(run.id, saved.id.value));
   }
 
-  async releaseClaimedBy(runner: RunnerId): Promise<number> {
-    return this.context.run(async () => {
+  async releaseClaimedBy(runner: RunnerId): Promise<void> {
+    await this.context.run(async () => {
       const held = await this.context.db
         .select()
         .from(run)
         .where(and(eq(run.state, 'claimed'), eq(run.claimedBy, runner.value)));
 
-      let released = 0;
       for (const row of held) {
-        const releasing = toRun(row);
-        releasing.release();
-        await this.save(releasing);
-        released += 1;
+        await this.save(toRun(row).release());
       }
-
-      return released;
     });
   }
 
@@ -153,26 +175,30 @@ export class DrizzleRunRepository implements RunRepository {
    * The query narrows the candidates and `Run.lapsed` decides, so the rule is
    * stated once instead of twice.
    */
-  async requeueLapsed(now: Date): Promise<number> {
+  async requeueLapsed(now: Date): Promise<Run[]> {
     return this.context.run(async () => {
       const candidates = await this.context.db
         .select()
         .from(run)
         .where(and(eq(run.state, 'claimed'), lte(run.leaseExpiresAt, now)));
 
-      let requeued = 0;
+      const abandoned: Run[] = [];
+
       for (const row of candidates) {
         const lapsing = toRun(row);
         if (!lapsing.lapsed(now)) {
           continue;
         }
 
-        lapsing.requeue(now);
-        await this.save(lapsing);
-        requeued += 1;
+        const requeued = lapsing.requeue(now);
+        await this.save(requeued);
+
+        if (requeued.abandoned) {
+          abandoned.push(requeued);
+        }
       }
 
-      return requeued;
+      return abandoned;
     });
   }
 }
@@ -193,13 +219,18 @@ const toRun = (row: Row): Run =>
   Run.rehydrate({
     id: RunId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
-    pool: row.pool,
-    spec: row.spec,
+    harness: HarnessId.of(row.harness),
+    priority: row.priority,
+    taskId: row.taskId ? TaskId.of(row.taskId) : null,
+    stationId: row.stationId ? StationId.of(row.stationId) : null,
+    // A spec written by an older shape reads back as nothing rather than
+    // crashing the read; the run is still there to be seen.
+    spec: RunSpec.from(row.spec) ?? RunSpec.of(EMPTY_SPEC),
     targetRunner: row.targetRunnerId ? RunnerId.of(row.targetRunnerId) : null,
     state: row.state as RunState,
     claimedBy: row.claimedBy ? RunnerId.of(row.claimedBy) : null,
     leaseExpiresAt: asDate(row.leaseExpiresAt),
-    outcome:
+    result:
       row.exitCode === null
         ? null
         : {

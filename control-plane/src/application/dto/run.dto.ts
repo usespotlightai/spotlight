@@ -10,7 +10,7 @@ export interface ClaimedRunDto {
 
 export interface EnqueuedRunDto {
   readonly id: string;
-  readonly pool: string;
+  readonly harness: string;
   readonly state: string;
   readonly targetRunnerId: string | null;
 }

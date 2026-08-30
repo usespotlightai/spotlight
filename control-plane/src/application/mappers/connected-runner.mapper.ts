@@ -6,7 +6,7 @@ export const ConnectedRunnerMapper = {
     return {
       id: summary.id,
       name: summary.name,
-      pool: summary.pool,
+      harnesses: summary.harnesses,
       registeredAt: summary.registeredAt.toISOString(),
       lastSeenAt: summary.lastSeenAt?.toISOString() ?? null,
       revokedAt: summary.revokedAt?.toISOString() ?? null,

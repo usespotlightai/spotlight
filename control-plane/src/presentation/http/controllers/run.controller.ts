@@ -62,7 +62,7 @@ export class RunController {
     >(
       new EnqueueRunCommand(
         workspace.id,
-        body.pool,
+        body.harness,
         body.spec,
         body.targetRunnerId ?? null,
       ),
@@ -70,7 +70,7 @@ export class RunController {
 
     return new EnqueuedRunResponseDto(
       queued.id,
-      queued.pool,
+      queued.harness,
       queued.state,
       queued.targetRunnerId,
     );

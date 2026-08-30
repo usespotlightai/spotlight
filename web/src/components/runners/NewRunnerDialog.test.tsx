@@ -23,21 +23,20 @@ beforeEach(() => {
 const openDialog = () =>
   render(<NewRunnerDialog open onOpenChange={vi.fn()} />);
 
-const fill = async (name: string, pool: string) => {
+const fill = async (name: string) => {
   const user = userEvent.setup();
   await user.type(screen.getByRole('textbox', { name: 'Runner name' }), name);
-  await user.type(screen.getByRole('textbox', { name: 'Pool' }), pool);
   return user;
 };
 
 describe('NewRunnerDialog', () => {
-  it('will not enrol until both the name and the pool are given', async () => {
+  it('will not enrol until a name is given', async () => {
     openDialog();
     const create = screen.getByRole('button', { name: /Create runner/ });
 
     expect(create).toBeDisabled();
 
-    await fill('Laptop', 'dev');
+    await fill('Laptop');
 
     expect(create).toBeEnabled();
   });
@@ -45,12 +44,11 @@ describe('NewRunnerDialog', () => {
   it('sends what was typed, trimmed', async () => {
     openDialog();
 
-    const user = await fill('  Laptop  ', '  dev  ');
+    const user = await fill('  Laptop  ');
     await user.click(screen.getByRole('button', { name: /Create runner/ }));
 
     expect(enrol.mutate.mock.calls[0][0]).toEqual({
       name: 'Laptop',
-      pool: 'dev',
     });
   });
 
@@ -62,7 +60,7 @@ describe('NewRunnerDialog', () => {
     );
 
     openDialog();
-    const user = await fill('Laptop', 'dev');
+    const user = await fill('Laptop');
     await user.click(screen.getByRole('button', { name: /Create runner/ }));
 
     await waitFor(() =>
@@ -82,7 +80,7 @@ describe('NewRunnerDialog', () => {
     const { rerender } = render(
       <NewRunnerDialog open onOpenChange={vi.fn()} />,
     );
-    const user = await fill('Laptop', 'dev');
+    const user = await fill('Laptop');
     await user.click(screen.getByRole('button', { name: /Create runner/ }));
     await waitFor(() =>
       expect(screen.getByText('spot_secret')).toBeInTheDocument(),

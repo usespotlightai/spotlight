@@ -20,7 +20,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
       .select({
         id: runner.id,
         name: runner.name,
-        pool: runner.pool,
+        harnesses: runner.harnesses,
         revokedAt: runner.revokedAt,
         registeredAt: runner.registeredAt,
         lastSeenAt: runner.lastSeenAt,
@@ -32,12 +32,12 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
         run,
         and(eq(run.claimedBy, runner.id), eq(run.state, 'claimed')),
       )
-      .orderBy(runner.pool, runner.registeredAt);
+      .orderBy(runner.registeredAt);
 
     return rows.map((row) => ({
       id: row.id,
       name: row.name,
-      pool: row.pool,
+      harnesses: row.harnesses,
       revokedAt: row.revokedAt,
       registeredAt: row.registeredAt,
       lastSeenAt: row.lastSeenAt,

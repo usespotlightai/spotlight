@@ -11,7 +11,7 @@ const NOW = new Date('2026-08-24T12:00:00.000Z');
 const summary = (overrides: Partial<RunnerSummary> = {}): RunnerSummary => ({
   id: 'runner_1',
   name: 'Build server',
-  pool: 'default',
+  harnesses: ['claude-code'],
   registeredAt: new Date('2026-08-24T11:00:00.000Z'),
   lastSeenAt: NOW,
   revokedAt: null,
@@ -37,7 +37,7 @@ describe('ListRunnersHandler', () => {
 
     expect(only).toMatchObject({
       id: 'runner_1',
-      pool: 'default',
+      harnesses: ['claude-code'],
       connected: true,
       currentRun: null,
     });

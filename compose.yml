@@ -9,6 +9,7 @@ x-control-plane-env: &control-plane-env
 
 x-runner-env: &runner-env
   ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
   SPOTLIGHT_URL: ${SPOTLIGHT_URL:-http://control-plane:3000}
   SPOTLIGHT_WORKSPACE: /workspaces
   SPOTLIGHT_AGENT_USER: agent
@@ -133,6 +134,7 @@ services:
     volumes:
       - ./runner:/app
       - runner-1-workspaces:/workspaces
+      - runner-1-agent:/home/agent
 
   runner-2:
     <<: *runner
@@ -142,6 +144,7 @@ services:
     volumes:
       - ./runner:/app
       - runner-2-workspaces:/workspaces
+      - runner-2-agent:/home/agent
 
   db:
     restart: unless-stopped
@@ -165,6 +168,8 @@ services:
 volumes:
   runner-1-workspaces:
   runner-2-workspaces:
+  runner-1-agent:
+  runner-2-agent:
   node-modules-web:
   node-modules-migrate:
   node-modules-control-plane:

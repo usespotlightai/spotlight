@@ -1,4 +1,4 @@
-import { ChevronDown, Workflow } from 'lucide-react';
+import { ChevronDown, Package } from 'lucide-react';
 import { useMatch } from 'react-router';
 import { InitialAvatar } from '@/components/common/avatar/InitialAvatar';
 import { Disclosure } from '@/components/layout/Disclosure';
@@ -65,7 +65,7 @@ export function TeamNavItem({
         <li>
           <DisclosureRow
             label="Assembly lines"
-            icon={Workflow}
+            icon={Package}
             open={linesOpen}
             onToggle={() => groups.toggle(team.id)}
             className="pl-8"

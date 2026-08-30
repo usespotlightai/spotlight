@@ -44,14 +44,14 @@ beforeAll(async () => {
   });
 
   enrolled = await commands.execute<EnrolRunnerCommand, EnrolledRunnerDto>(
-    new EnrolRunnerCommand(`Doomed ${Date.now()}`, 'dev'),
+    new EnrolRunnerCommand(`Doomed ${Date.now()}`),
   );
 
   runId = `run_${Date.now()}`;
   await db.insert(run).values({
     id: runId,
     workspaceId,
-    pool: 'dev',
+    harness: 'dev',
     state: 'claimed',
     spec: {},
     claimedBy: enrolled.runnerId,

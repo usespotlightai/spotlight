@@ -11,6 +11,23 @@ export type StationResponseDto = {
    * Left to right across the board
    */
   position: number;
+  /**
+   * Six digit hex
+   */
+  color: string;
+  description: string | null;
+  /**
+   * Which runners work this station. Null until one is chosen.
+   */
+  harness: string | null;
+  /**
+   * Markdown, handed to the agent that works this station
+   */
+  agentPrompt: string | null;
+  /**
+   * A backlog is where a task waits before anything works it
+   */
+  kind: 'backlog' | 'work';
 };
 
 export type AssemblyLineResponseDto = {
@@ -19,8 +36,28 @@ export type AssemblyLineResponseDto = {
   stations: Array<StationResponseDto>;
 };
 
-export type GreetingResponseDto = {
-  message: string;
+export type ReorderStationsRequestDto = {
+  /**
+   * Every station on the line, left to right
+   */
+  stationIds: Array<string>;
+};
+
+export type CustomiseStationRequestDto = {
+  name?: string;
+  /**
+   * Six digit hex. The board offers a palette, but any will do.
+   */
+  color?: string;
+  description?: string | null;
+  /**
+   * Which runners work this station
+   */
+  harness?: string | null;
+  /**
+   * Markdown, handed to the agent that works this station
+   */
+  agentPrompt?: string | null;
 };
 
 export type HealthResponseDto = {
@@ -28,22 +65,25 @@ export type HealthResponseDto = {
 };
 
 export type EnqueueRunRequestDto = {
-  pool: string;
   /**
-   * Handed to the runner untouched: checkouts, cwd, command
+   * The harness to work this run. Only runners that have it may take it.
+   */
+  harness: string;
+  /**
+   * Handed to the runner untouched: checkouts and cwd. The command is filled in from the harness, so it is not given here.
    */
   spec: {
     [key: string]: unknown;
   };
   /**
-   * Runner this run belongs to. Omitted lets any runner in the pool take it.
+   * Runner this run belongs to. Omitted lets any runner with the harness take it.
    */
   targetRunnerId?: string;
 };
 
 export type EnqueuedRunResponseDto = {
   id: string;
-  pool: string;
+  harness: string;
   state: string;
   /**
    * The runner it waits for, or null for whoever is free
@@ -53,36 +93,30 @@ export type EnqueuedRunResponseDto = {
   } | null;
 };
 
-export type SendRunInputRequestDto = {
+export type InstallableHarnessResponseDto = {
+  id: string;
   /**
-   * Keystrokes as base64, exactly as the terminal produced them
+   * What to look for on the runner’s PATH.
    */
-  data?: string;
-  /**
-   * New terminal width
-   */
-  cols?: number;
-  /**
-   * New terminal height
-   */
-  rows?: number;
+  executable: string;
 };
 
-export type RunInputResponseDto = {
-  data?: string;
-  cols?: number;
-  rows?: number;
+export type KeptWorkspacesResponseDto = {
   /**
-   * The agent has been asked to finish
+   * The workspace directories this runner should still be holding. Anything else under its workspace root has nothing left to resume and may be disposed of.
    */
-  stop?: boolean;
+  keys: Array<Array<string>>;
 };
 
-export type PendingRunInputResponseDto = {
+export type RegisterRunnerRequestDto = {
   /**
-   * Empty when the poll timed out with nothing typed
+   * What the runner advertises. The control plane grants work.
    */
-  input: Array<RunInputResponseDto>;
+  capacity?: number;
+  /**
+   * The harnesses the runner found installed. What is on a machine is a fact about that machine, so the machine is what says it.
+   */
+  harnesses?: Array<Array<string>>;
 };
 
 export type RegisteredRunnerResponseDto = {
@@ -98,6 +132,18 @@ export type ClaimedRunResponseDto = {
     [key: string]: unknown;
   };
   leaseExpiresAt: string;
+};
+
+export type PendingMessageResponseDto = {
+  position: number;
+  body: string;
+};
+
+export type DeliverSaidRequestDto = {
+  /**
+   * Everything said up to and including this note was given
+   */
+  upTo: number;
 };
 
 export type RunEventRequestDto = {
@@ -122,10 +168,165 @@ export type AppendRunEventsRequestDto = {
   events: Array<RunEventRequestDto>;
 };
 
+export type DeclaredOutcomeDto = {
+  /**
+   * The station to pass the task to, or "review" to ask a person. A name this line does not know is treated as a question for a person.
+   */
+  next: string;
+  /**
+   * What the next station, or the person, should know
+   */
+  note?: string;
+};
+
 export type CompleteRunRequestDto = {
   exitCode: number;
   failed: boolean;
   message?: string;
+  outcome?: DeclaredOutcomeDto;
+  /**
+   * What the harness called this conversation. Reported rather than remembered by the runner, because the next run may fall to another one.
+   */
+  sessionId?: string;
+};
+
+export type HarnessResponseDto = {
+  id: string;
+  name: string;
+};
+
+export type InboxStationResponseDto = {
+  name: string;
+  color: string;
+  position: number;
+};
+
+export type InboxAuthorResponseDto = {
+  id: string;
+  name: string;
+  image: string | null;
+};
+
+export type InboxMessageResponseDto = {
+  position: number;
+  kind: 'asked' | 'passed' | 'answered';
+  station: string;
+  stationColor: string;
+  /**
+   * Its place in the line, from zero
+   */
+  stationPosition: number;
+  /**
+   * The run that wrote it, whose journal it came from
+   */
+  runId: string | null;
+  body: string;
+  at: string;
+  /**
+   * Absent where the station said it rather than a person
+   */
+  author: InboxAuthorResponseDto | null;
+};
+
+export type InboxItemResponseDto = {
+  /**
+   * One conversation a person was asked to own
+   */
+  id: string;
+  taskId: string;
+  teamId: string;
+  title: string;
+  description: string | null;
+  station: string;
+  stationColor: string;
+  /**
+   * Its place in the line, from zero
+   */
+  stationPosition: number;
+  /**
+   * How many stations the line holds
+   */
+  stationCount: number;
+  /**
+   * Where it was raised, which it keeps as it moves
+   */
+  raisedAt: InboxStationResponseDto;
+  /**
+   * Where the task stands now, which is where it ended up
+   */
+  standsAt: InboxStationResponseDto;
+  createdAt: string;
+  askedAt: string;
+  /**
+   * True once it has moved on, and is no longer yours to answer
+   */
+  resolved: boolean;
+  /**
+   * True while a run is working it, so an answer is coming
+   */
+  working: boolean;
+  /**
+   * Something was asked here that they have not seen yet
+   */
+  unread: boolean;
+  /**
+   * What the station that opened this conversation was given
+   */
+  briefing: string | null;
+  notes: Array<InboxMessageResponseDto>;
+};
+
+export type AnswerInboxItemRequestDto = {
+  /**
+   * What the person says back. It joins the task’s trail.
+   */
+  body: string;
+};
+
+export type JournalStepResponseDto = {
+  kind: 'said' | 'thought' | 'tool';
+  text: string;
+  status: string | null;
+  /**
+   * What sort of tool it was: execute, read, edit, …
+   */
+  tool: string | null;
+  /**
+   * What the tool answered with, as much of it as is worth reading
+   */
+  detail: string | null;
+  /**
+   * How long it took, in ms
+   */
+  ms: number;
+};
+
+export type RunSpentResponseDto = {
+  /**
+   * Tokens held in context
+   */
+  used: number;
+  /**
+   * How large the context is
+   */
+  size: number;
+  cost?: number | null;
+  currency?: string | null;
+};
+
+export type RunJournalResponseDto = {
+  runId: string;
+  attempt: number;
+  steps: Array<JournalStepResponseDto>;
+  /**
+   * How long the run spoke for, in ms
+   */
+  ms?: number | null;
+  spent?: RunSpentResponseDto | null;
+  /**
+   * False for a run from before the agents spoke a protocol
+   */
+  readable: boolean;
 };
 
 export type ActiveRunResponseDto = {
@@ -136,7 +337,7 @@ export type ActiveRunResponseDto = {
 export type ConnectedRunnerResponseDto = {
   id: string;
   name: string;
-  pool: string;
+  harnesses: Array<string>;
   registeredAt: string;
   /**
    * Null when the runner has never connected
@@ -161,10 +362,6 @@ export type EnrolRunnerRequestDto = {
    * What to call this runner. Rejected if empty or over 60.
    */
   name: string;
-  /**
-   * Which queue this runner may take work from.
-   */
-  pool: string;
 };
 
 export type EnrolledRunnerResponseDto = {
@@ -174,6 +371,156 @@ export type EnrolledRunnerResponseDto = {
    * Shown once. Nothing can recover it after this response.
    */
   token: string;
+};
+
+export type TaskReviewResponseDto = {
+  /**
+   * The inbox conversation waiting on a person
+   */
+  conversationId: string;
+};
+
+export type TaskPersonResponseDto = {
+  id: string;
+  name: string;
+  image: string | null;
+};
+
+export type TaskNoteResponseDto = {
+  position: number;
+  station: string;
+  body: string;
+};
+
+export type TaskResponseDto = {
+  id: string;
+  stationId: string;
+  title: string;
+  /**
+   * Markdown
+   */
+  description: string | null;
+  createdAt: string;
+  /**
+   * A run is under way
+   */
+  running: boolean;
+  /**
+   * Where a standing question is answered, or null for none
+   */
+  awaitingReview: TaskReviewResponseDto | null;
+  /**
+   * Who raised it, and so who it comes back to
+   */
+  raisedBy: TaskPersonResponseDto | null;
+  /**
+   * The last thing said about this task, and where it was said
+   */
+  note: TaskNoteResponseDto | null;
+};
+
+export type RunStationResponseDto = {
+  name: string;
+  color: string;
+  position: number;
+  /**
+   * How many stations the line holds
+   */
+  count: number;
+};
+
+export type RunReviewResponseDto = {
+  state: 'owed' | 'settled';
+  /**
+   * The inbox conversation it opened
+   */
+  conversationId: string;
+};
+
+export type TeamRunResponseDto = {
+  id: string;
+  state: 'queued' | 'claimed' | 'completed' | 'failed';
+  attempt: number;
+  exitCode: number | null;
+  startedAt: string;
+  updatedAt: string;
+  harness: string;
+  /**
+   * Where it ran, which the task may since have left
+   */
+  station: RunStationResponseDto | null;
+  /**
+   * Set where it put the task to a person
+   */
+  review: RunReviewResponseDto | null;
+  taskId: string | null;
+  taskTitle: string | null;
+  /**
+   * What was asked for, shown before a run has said anything
+   */
+  taskDescription: string | null;
+};
+
+export type RunConversationResponseDto = {
+  runId: string;
+  taskId: string;
+  title: string;
+  description: string | null;
+  station: RunStationResponseDto | null;
+  createdAt: string;
+  /**
+   * What the run was given, word for word
+   */
+  briefing: string | null;
+  /**
+   * A run is on the task now
+   */
+  working: boolean;
+  notes: Array<InboxMessageResponseDto>;
+};
+
+export type SayToRunRequestDto = {
+  /**
+   * Reaches the agent when its current turn ends
+   */
+  body: string;
+};
+
+export type TaskRunResponseDto = {
+  id: string;
+  state: 'queued' | 'claimed' | 'completed' | 'failed';
+  attempt: number;
+  exitCode: number | null;
+  startedAt: string;
+  updatedAt: string;
+  harness: string;
+  /**
+   * Where it ran, which the task may since have left
+   */
+  station: RunStationResponseDto | null;
+  /**
+   * Set where it put the task to a person
+   */
+  review: RunReviewResponseDto | null;
+};
+
+export type AddTaskRequestDto = {
+  title: string;
+  /**
+   * Markdown. Left out or blank for a task with nothing said.
+   */
+  description?: string | null;
+};
+
+export type MoveTaskRequestDto = {
+  /**
+   * The station to move the task to, on the same assembly line
+   */
+  stationId: string;
+  /**
+   * The task it was dropped after. Left out for the top of the station.
+   */
+  afterTaskId?: string | null;
 };
 
 export type CreateWorkspaceRequestDto = {
@@ -229,30 +576,68 @@ export type ListAssemblyLinesResponses = {
 
 export type ListAssemblyLinesResponse = ListAssemblyLinesResponses[keyof ListAssemblyLinesResponses];
 
-export type GetGreetingData = {
-  body?: never;
-  path?: never;
-  query?: {
-    /**
-     * Who to greet. Defaults to "World".
-     */
-    name?: string;
+export type ReorderStationsData = {
+  body: ReorderStationsRequestDto;
+  path: {
+    teamId: string;
+    lineId: string;
   };
-  url: '/';
+  query?: never;
+  url: '/teams/{teamId}/assembly-lines/{lineId}/stations/order';
 };
 
-export type GetGreetingErrors = {
+export type ReorderStationsErrors = {
   /**
    * No valid session
    */
   401: unknown;
+  /**
+   * No such line for this caller
+   */
+  404: unknown;
+  /**
+   * Not every station named
+   */
+  422: unknown;
 };
 
-export type GetGreetingResponses = {
-  200: GreetingResponseDto;
+export type ReorderStationsResponses = {
+  200: AssemblyLineResponseDto;
 };
 
-export type GetGreetingResponse = GetGreetingResponses[keyof GetGreetingResponses];
+export type ReorderStationsResponse = ReorderStationsResponses[keyof ReorderStationsResponses];
+
+export type CustomiseStationData = {
+  body: CustomiseStationRequestDto;
+  path: {
+    teamId: string;
+    lineId: string;
+    stationId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/assembly-lines/{lineId}/stations/{stationId}';
+};
+
+export type CustomiseStationErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such station for this caller
+   */
+  404: unknown;
+  /**
+   * Invalid field
+   */
+  422: unknown;
+};
+
+export type CustomiseStationResponses = {
+  200: StationResponseDto;
+};
+
+export type CustomiseStationResponse = CustomiseStationResponses[keyof CustomiseStationResponses];
 
 export type GetHealthData = {
   body?: never;
@@ -325,82 +710,48 @@ export type StreamRunResponses = {
   200: unknown;
 };
 
-export type AwaitRunInputData = {
+export type InstallableHarnessesData = {
   body?: never;
-  path: {
-    runId: string;
-  };
+  path?: never;
   query?: never;
-  url: '/runs/{runId}/input';
+  url: '/runners/harnesses';
 };
 
-export type AwaitRunInputErrors = {
+export type InstallableHarnessesErrors = {
   /**
-   * Missing or revoked runner token
+   * Missing or wrong enrollment token
    */
   401: unknown;
 };
 
-export type AwaitRunInputResponses = {
-  200: PendingRunInputResponseDto;
+export type InstallableHarnessesResponses = {
+  200: Array<InstallableHarnessResponseDto>;
 };
 
-export type AwaitRunInputResponse = AwaitRunInputResponses[keyof AwaitRunInputResponses];
+export type InstallableHarnessesResponse = InstallableHarnessesResponses[keyof InstallableHarnessesResponses];
 
-export type SendRunInputData = {
-  body: SendRunInputRequestDto;
-  path: {
-    runId: string;
-  };
-  query?: never;
-  url: '/runs/{runId}/input';
-};
-
-export type SendRunInputErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such run for this caller
-   */
-  404: unknown;
-};
-
-export type SendRunInputResponses = {
-  204: void;
-};
-
-export type SendRunInputResponse = SendRunInputResponses[keyof SendRunInputResponses];
-
-export type StopRunData = {
+export type KeptWorkspacesData = {
   body?: never;
-  path: {
-    runId: string;
-  };
+  path?: never;
   query?: never;
-  url: '/runs/{runId}/stop';
+  url: '/runners/workspaces';
 };
 
-export type StopRunErrors = {
+export type KeptWorkspacesErrors = {
   /**
-   * No valid session
+   * Missing or wrong enrollment token
    */
   401: unknown;
-  /**
-   * No such run for this caller
-   */
-  404: unknown;
 };
 
-export type StopRunResponses = {
-  204: void;
+export type KeptWorkspacesResponses = {
+  200: KeptWorkspacesResponseDto;
 };
 
-export type StopRunResponse = StopRunResponses[keyof StopRunResponses];
+export type KeptWorkspacesResponse = KeptWorkspacesResponses[keyof KeptWorkspacesResponses];
 
 export type RegisterRunnerData = {
-  body?: never;
+  body: RegisterRunnerRequestDto;
   path?: never;
   query?: never;
   url: '/runners/register';
@@ -442,6 +793,50 @@ export type ClaimRunResponses = {
 };
 
 export type ClaimRunResponse = ClaimRunResponses[keyof ClaimRunResponses];
+
+export type PendingMessagesData = {
+  body?: never;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/messages';
+};
+
+export type PendingMessagesErrors = {
+  /**
+   * Missing or wrong enrollment token
+   */
+  401: unknown;
+};
+
+export type PendingMessagesResponses = {
+  200: Array<PendingMessageResponseDto>;
+};
+
+export type PendingMessagesResponse = PendingMessagesResponses[keyof PendingMessagesResponses];
+
+export type DeliverSaidData = {
+  body: DeliverSaidRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/messages/delivered';
+};
+
+export type DeliverSaidErrors = {
+  /**
+   * Missing or wrong enrollment token
+   */
+  401: unknown;
+};
+
+export type DeliverSaidResponses = {
+  204: void;
+};
+
+export type DeliverSaidResponse = DeliverSaidResponses[keyof DeliverSaidResponses];
 
 export type RenewLeaseData = {
   body?: never;
@@ -508,6 +903,139 @@ export type CompleteRunResponses = {
 };
 
 export type CompleteRunResponse = CompleteRunResponses[keyof CompleteRunResponses];
+
+export type ListHarnessesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/harnesses';
+};
+
+export type ListHarnessesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+};
+
+export type ListHarnessesResponses = {
+  200: Array<HarnessResponseDto>;
+};
+
+export type ListHarnessesResponse = ListHarnessesResponses[keyof ListHarnessesResponses];
+
+export type ListInboxData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox';
+};
+
+export type ListInboxErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type ListInboxResponses = {
+  200: Array<InboxItemResponseDto>;
+};
+
+export type ListInboxResponse = ListInboxResponses[keyof ListInboxResponses];
+
+export type AnswerInboxItemData = {
+  body: AnswerInboxItemRequestDto;
+  path: {
+    itemId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/{itemId}/answer';
+};
+
+export type AnswerInboxItemErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such conversation for this caller
+   */
+  404: unknown;
+};
+
+export type AnswerInboxItemResponses = {
+  /**
+   * The answer was recorded
+   */
+  204: void;
+};
+
+export type AnswerInboxItemResponse = AnswerInboxItemResponses[keyof AnswerInboxItemResponses];
+
+export type ReadInboxItemData = {
+  body?: never;
+  path: {
+    itemId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/{itemId}/read';
+};
+
+export type ReadInboxItemErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such conversation for this caller
+   */
+  404: unknown;
+};
+
+export type ReadInboxItemResponses = {
+  /**
+   * It is no longer unread
+   */
+  204: void;
+};
+
+export type ReadInboxItemResponse = ReadInboxItemResponses[keyof ReadInboxItemResponses];
+
+export type ReadTaskJournalData = {
+  body?: never;
+  path: {
+    taskId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/tasks/{taskId}/journal';
+};
+
+export type ReadTaskJournalErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+};
+
+export type ReadTaskJournalResponses = {
+  200: Array<RunJournalResponseDto>;
+};
+
+export type ReadTaskJournalResponse = ReadTaskJournalResponses[keyof ReadTaskJournalResponses];
 
 export type ListRunnersData = {
   body?: never;
@@ -577,6 +1105,228 @@ export type RevokeRunnerResponses = {
 };
 
 export type RevokeRunnerResponse = RevokeRunnerResponses[keyof RevokeRunnerResponses];
+
+export type ListTasksData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks';
+};
+
+export type ListTasksErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+};
+
+export type ListTasksResponses = {
+  200: Array<TaskResponseDto>;
+};
+
+export type ListTasksResponse = ListTasksResponses[keyof ListTasksResponses];
+
+export type ListTeamRunsData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/runs';
+};
+
+export type ListTeamRunsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+};
+
+export type ListTeamRunsResponses = {
+  200: Array<TeamRunResponseDto>;
+};
+
+export type ListTeamRunsResponse = ListTeamRunsResponses[keyof ListTeamRunsResponses];
+
+export type ReadRunConversationData = {
+  body?: never;
+  path: {
+    runId: string;
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/runs/{runId}/conversation';
+};
+
+export type ReadRunConversationErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such run for this caller
+   */
+  404: unknown;
+};
+
+export type ReadRunConversationResponses = {
+  200: RunConversationResponseDto;
+};
+
+export type ReadRunConversationResponse = ReadRunConversationResponses[keyof ReadRunConversationResponses];
+
+export type SayToRunData = {
+  body: SayToRunRequestDto;
+  path: {
+    runId: string;
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/runs/{runId}/say';
+};
+
+export type SayToRunErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such run for this caller
+   */
+  404: unknown;
+  /**
+   * The task has moved on from that station
+   */
+  422: unknown;
+};
+
+export type SayToRunResponses = {
+  /**
+   * It joined the task’s trail
+   */
+  204: void;
+};
+
+export type SayToRunResponse = SayToRunResponses[keyof SayToRunResponses];
+
+export type ListTaskRunsData = {
+  body?: never;
+  path: {
+    taskId: string;
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/runs';
+};
+
+export type ListTaskRunsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+};
+
+export type ListTaskRunsResponses = {
+  200: Array<TaskRunResponseDto>;
+};
+
+export type ListTaskRunsResponse = ListTaskRunsResponses[keyof ListTaskRunsResponses];
+
+export type DeleteTaskData = {
+  body?: never;
+  path: {
+    teamId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}';
+};
+
+export type DeleteTaskErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+};
+
+export type DeleteTaskResponses = {
+  /**
+   * The task is gone
+   */
+  204: void;
+};
+
+export type DeleteTaskResponse = DeleteTaskResponses[keyof DeleteTaskResponses];
+
+export type AddTaskData = {
+  body: AddTaskRequestDto;
+  path: {
+    teamId: string;
+    lineId: string;
+    stationId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/assembly-lines/{lineId}/stations/{stationId}/tasks';
+};
+
+export type AddTaskErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such station for this caller
+   */
+  404: unknown;
+  /**
+   * Invalid title or description
+   */
+  422: unknown;
+};
+
+export type AddTaskResponses = {
+  201: TaskResponseDto;
+};
+
+export type AddTaskResponse = AddTaskResponses[keyof AddTaskResponses];
+
+export type MoveTaskData = {
+  body: MoveTaskRequestDto;
+  path: {
+    teamId: string;
+    lineId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/assembly-lines/{lineId}/tasks/{taskId}/move';
+};
+
+export type MoveTaskErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task or station for this caller
+   */
+  404: unknown;
+};
+
+export type MoveTaskResponses = {
+  200: TaskResponseDto;
+};
+
+export type MoveTaskResponse = MoveTaskResponses[keyof MoveTaskResponses];
 
 export type ListWorkspacesData = {
   body?: never;

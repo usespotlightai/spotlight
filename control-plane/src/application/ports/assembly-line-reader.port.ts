@@ -5,6 +5,11 @@ export interface StationSummary {
   readonly id: string;
   readonly name: string;
   readonly position: number;
+  readonly color: string;
+  readonly description: string | null;
+  readonly harness: string | null;
+  readonly agentPrompt: string | null;
+  readonly kind: 'backlog' | 'work';
 }
 
 export interface AssemblyLineDetail {

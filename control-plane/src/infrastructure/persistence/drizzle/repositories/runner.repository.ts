@@ -1,8 +1,8 @@
 import { Runner } from '@domain/aggregates/runner.aggregate';
 import type { RunnerRepository } from '@domain/repositories/runner.repository';
+import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { RunnerName } from '@domain/value-objects/runner-name.vo';
-import { RunnerPool } from '@domain/value-objects/runner-pool.vo';
 import { TokenHash } from '@domain/value-objects/token-hash.vo';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
 import { runner } from '@infrastructure/persistence/drizzle/schemas/run.schema';
@@ -16,7 +16,7 @@ const toRunner = (row: Row): Runner =>
     id: RunnerId.of(row.id),
     name: RunnerName.of(row.name),
     tokenHash: TokenHash.of(row.tokenHash),
-    pool: RunnerPool.of(row.pool),
+    harnesses: row.harnesses.map(HarnessId.of),
     revokedAt: row.revokedAt,
     lastSeenAt: row.lastSeenAt,
   });
@@ -30,7 +30,7 @@ export class DrizzleRunnerRepository implements RunnerRepository {
       id: added.id.value,
       name: added.name.value,
       tokenHash: added.tokenHash.value,
-      pool: added.pool.value,
+      harnesses: added.harnesses.map((each) => each.value),
       revokedAt: added.revokedAt,
       lastSeenAt: added.lastSeenAt,
     });
@@ -42,6 +42,7 @@ export class DrizzleRunnerRepository implements RunnerRepository {
       .set({
         revokedAt: saved.revokedAt,
         lastSeenAt: saved.lastSeenAt,
+        harnesses: saved.harnesses.map((each) => each.value),
       })
       .where(eq(runner.id, saved.id.value));
   }

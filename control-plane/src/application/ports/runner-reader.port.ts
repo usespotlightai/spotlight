@@ -6,7 +6,7 @@ export interface ActiveRunSummary {
 export interface RunnerSummary {
   readonly id: string;
   readonly name: string;
-  readonly pool: string;
+  readonly harnesses: readonly string[];
   readonly registeredAt: Date;
   readonly lastSeenAt: Date | null;
   readonly revokedAt: Date | null;

@@ -32,8 +32,8 @@ export class EnqueuedRunResponseDto {
   @ApiProperty({ example: '9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84' })
   readonly id: string;
 
-  @ApiProperty({ example: 'dev' })
-  readonly pool: string;
+  @ApiProperty({ example: 'claude-code' })
+  readonly harness: string;
 
   @ApiProperty({ example: 'queued' })
   readonly state: string;
@@ -47,12 +47,12 @@ export class EnqueuedRunResponseDto {
 
   constructor(
     id: string,
-    pool: string,
+    harness: string,
     state: string,
     targetRunnerId: string | null,
   ) {
     this.id = id;
-    this.pool = pool;
+    this.harness = harness;
     this.state = state;
     this.targetRunnerId = targetRunnerId;
   }

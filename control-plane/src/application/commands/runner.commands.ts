@@ -1,12 +1,13 @@
 export class EnrolRunnerCommand {
-  constructor(
-    readonly name: string,
-    readonly pool: string,
-  ) {}
+  constructor(readonly name: string) {}
 }
 
 export class RegisterRunnerCommand {
-  constructor(readonly runnerId: string) {}
+  constructor(
+    readonly runnerId: string,
+    /** What the runner found installed, by harness id. */
+    readonly harnesses: readonly string[],
+  ) {}
 }
 
 export class RevokeRunnerCommand {
@@ -48,15 +49,17 @@ export class CompleteRunCommand {
     readonly exitCode: number,
     readonly failed: boolean,
     readonly message?: string,
+    readonly declared?: { next?: string; note?: string } | null,
+    readonly sessionId?: string | null,
   ) {}
 }
 
 export class EnqueueRunCommand {
   constructor(
     readonly workspaceId: string,
-    readonly pool: string,
+    readonly harness: string,
     readonly spec: unknown,
-    /** Null lets any runner in the pool take it. */
+    /** Null lets any runner that has the harness take it. */
     readonly targetRunnerId: string | null = null,
   ) {}
 }
