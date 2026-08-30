@@ -99,3 +99,25 @@ func TestUnknownCommandShowsUsage(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+func TestPuttingItToAPersonDoesNotSoundLikeAStation(t *testing.T) {
+	inARun(t)
+	out := new(bytes.Buffer)
+
+	if err := run(
+		[]string{"handover", "--next", "review", "--note", "needs a decision"},
+		strings.NewReader(""),
+		out,
+	); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	said := out.String()
+
+	if !strings.Contains(said, "person") {
+		t.Errorf("did not say who it went to: %q", said)
+	}
+	if strings.Contains(said, "Handed over") {
+		t.Errorf("read as a station handover: %q", said)
+	}
+}

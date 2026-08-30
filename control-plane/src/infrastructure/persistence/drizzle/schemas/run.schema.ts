@@ -29,9 +29,7 @@ export const runner = pgTable(
     registeredAt: timestamp('registered_at').defaultNow().notNull(),
     lastSeenAt: timestamp('last_seen_at'),
   },
-  (table) => [
-    uniqueIndex('runner_token_hash_idx').on(table.tokenHash),
-  ],
+  (table) => [uniqueIndex('runner_token_hash_idx').on(table.tokenHash)],
 );
 
 /**

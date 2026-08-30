@@ -1,10 +1,14 @@
 import { DispatchTask } from '@application/events/handlers/dispatch-task.handler';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
+import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Run } from '@domain/aggregates/run.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { Station } from '@domain/entities/station.entity';
 import type { RunRepository } from '@domain/repositories/run.repository';
+import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
+import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { CLAUDE_CODE } from '@domain/value-objects/built-in-harnesses';
+import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
@@ -53,11 +57,19 @@ const runs = {
 
 const ids: IdGeneratorPort = { generate: () => 'run_1' };
 
+const held = () =>
+  AssemblyLine.of({
+    id: AssemblyLineId.of('line_1'),
+    workspaceId: WorkspaceId.of('ws_1'),
+    factoryId: FactoryId.of('factory_1'),
+    name: AssemblyLineName.of('Default'),
+    stations,
+  });
+
 const dispatch = (station: Station, standing?: Task) =>
   new DispatchTask(runs, ids).dispatch({
     task: standing ?? task(station.id.value),
-    station,
-    stations,
+    line: held(),
   });
 
 describe('DispatchTask', () => {

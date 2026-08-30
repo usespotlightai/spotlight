@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddTaskData, AddTaskErrors, AddTaskResponses, AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, CustomiseStationData, CustomiseStationErrors, CustomiseStationResponses, DeleteTaskData, DeleteTaskErrors, DeleteTaskResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, EnrolRunnerData, EnrolRunnerErrors, EnrolRunnerResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, InstallableHarnessesData, InstallableHarnessesErrors, InstallableHarnessesResponses, ListAssemblyLinesData, ListAssemblyLinesErrors, ListAssemblyLinesResponses, ListHarnessesData, ListHarnessesErrors, ListHarnessesResponses, ListInboxData, ListInboxErrors, ListInboxResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListTaskRunsData, ListTaskRunsErrors, ListTaskRunsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, MoveTaskData, MoveTaskErrors, MoveTaskResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, ReorderStationsData, ReorderStationsErrors, ReorderStationsResponses, RevokeRunnerData, RevokeRunnerErrors, RevokeRunnerResponses, StreamRunData, StreamRunErrors, StreamRunResponses } from './types.gen';
+import type { AddTaskData, AddTaskErrors, AddTaskResponses, AnswerInboxItemData, AnswerInboxItemErrors, AnswerInboxItemResponses, AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, CustomiseStationData, CustomiseStationErrors, CustomiseStationResponses, DeleteTaskData, DeleteTaskErrors, DeleteTaskResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, EnrolRunnerData, EnrolRunnerErrors, EnrolRunnerResponses, GetGreetingData, GetGreetingErrors, GetGreetingResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, InstallableHarnessesData, InstallableHarnessesErrors, InstallableHarnessesResponses, KeptWorkspacesData, KeptWorkspacesErrors, KeptWorkspacesResponses, ListAssemblyLinesData, ListAssemblyLinesErrors, ListAssemblyLinesResponses, ListHarnessesData, ListHarnessesErrors, ListHarnessesResponses, ListInboxData, ListInboxErrors, ListInboxResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListTaskRunsData, ListTaskRunsErrors, ListTaskRunsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, MoveTaskData, MoveTaskErrors, MoveTaskResponses, ReadTaskJournalData, ReadTaskJournalErrors, ReadTaskJournalResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, ReorderStationsData, ReorderStationsErrors, ReorderStationsResponses, RevokeRunnerData, RevokeRunnerErrors, RevokeRunnerResponses, StreamRunData, StreamRunErrors, StreamRunResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -80,6 +80,13 @@ export const streamRun = <ThrowOnError extends boolean = false>(options: Options
 export const installableHarnesses = <ThrowOnError extends boolean = false>(options?: Options<InstallableHarnessesData, ThrowOnError>): RequestResult<InstallableHarnessesResponses, InstallableHarnessesErrors, ThrowOnError> => (options?.client ?? client).get<InstallableHarnessesResponses, InstallableHarnessesErrors, ThrowOnError>({ url: '/runners/harnesses', ...options });
 
 /**
+ * Which workspaces this runner should still be holding
+ *
+ * A run keeps its directory so the next one at the same station can take up the conversation left in it. Nothing else ever will, so what this does not name may be disposed of.
+ */
+export const keptWorkspaces = <ThrowOnError extends boolean = false>(options?: Options<KeptWorkspacesData, ThrowOnError>): RequestResult<KeptWorkspacesResponses, KeptWorkspacesErrors, ThrowOnError> => (options?.client ?? client).get<KeptWorkspacesResponses, KeptWorkspacesErrors, ThrowOnError>({ url: '/runners/workspaces', ...options });
+
+/**
  * Check in, so the control plane knows this runner is there
  */
 export const registerRunner = <ThrowOnError extends boolean = false>(options: Options<RegisterRunnerData, ThrowOnError>): RequestResult<RegisterRunnerResponses, RegisterRunnerErrors, ThrowOnError> => (options.client ?? client).post<RegisterRunnerResponses, RegisterRunnerErrors, ThrowOnError>({
@@ -131,9 +138,26 @@ export const completeRun = <ThrowOnError extends boolean = false>(options: Optio
 export const listHarnesses = <ThrowOnError extends boolean = false>(options?: Options<ListHarnessesData, ThrowOnError>): RequestResult<ListHarnessesResponses, ListHarnessesErrors, ThrowOnError> => (options?.client ?? client).get<ListHarnessesResponses, ListHarnessesErrors, ThrowOnError>({ url: '/harnesses', ...options });
 
 /**
- * The tasks waiting on a person, oldest first
+ * The tasks waiting on a person, newest first
  */
 export const listInbox = <ThrowOnError extends boolean = false>(options: Options<ListInboxData, ThrowOnError>): RequestResult<ListInboxResponses, ListInboxErrors, ThrowOnError> => (options.client ?? client).get<ListInboxResponses, ListInboxErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox', ...options });
+
+/**
+ * Answer what a task is waiting on, and let the work carry on
+ */
+export const answerInboxItem = <ThrowOnError extends boolean = false>(options: Options<AnswerInboxItemData, ThrowOnError>): RequestResult<AnswerInboxItemResponses, AnswerInboxItemErrors, ThrowOnError> => (options.client ?? client).post<AnswerInboxItemResponses, AnswerInboxItemErrors, ThrowOnError>({
+  url: '/workspaces/{slug}/inbox/{taskId}/answer',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * What each run did to arrive at what it said
+ */
+export const readTaskJournal = <ThrowOnError extends boolean = false>(options: Options<ReadTaskJournalData, ThrowOnError>): RequestResult<ReadTaskJournalResponses, ReadTaskJournalErrors, ThrowOnError> => (options.client ?? client).get<ReadTaskJournalResponses, ReadTaskJournalErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/{taskId}/journal', ...options });
 
 /**
  * List every runner and whether it is still answering

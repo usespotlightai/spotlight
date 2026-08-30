@@ -2,6 +2,7 @@ import type { MoveTaskCommand } from '@application/commands/move-task.command';
 import type { TaskDto } from '@application/dto/task.dto';
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import { TaskMapper } from '@application/mappers/task.mapper';
+import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
@@ -13,6 +14,7 @@ import type { TaskRepository } from '@domain/repositories/task.repository';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';
+import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 
 export class MoveTaskHandler
@@ -23,6 +25,7 @@ export class MoveTaskHandler
     private readonly lines: AssemblyLineRepository,
     private readonly transaction: TransactionPort,
     private readonly dispatch: TaskDispatchPort,
+    private readonly clock: ClockPort,
   ) {}
 
   async execute(command: MoveTaskCommand): Promise<TaskDto> {
@@ -49,17 +52,17 @@ export class MoveTaskHandler
         throw new UnknownTaskError(command.taskId);
       }
 
-      const station = line.stations.find((each) => each.id.equals(stationId));
+      const station = line.stationAt(stationId);
 
       if (!station) {
         throw new UnknownStationError(command.stationId);
       }
-      if (!line.stations.some((each) => each.id.equals(task.stationId))) {
+      if (!line.holds(task.stationId)) {
         throw new UnknownStationError(task.stationId.value);
       }
 
-      const standing = (await this.tasks.standingAt(stationId)).filter(
-        (each) => !each.equals(task),
+      const standing = (await this.tasks.placementsAt(stationId)).filter(
+        (each) => !each.id.equals(task.id),
       );
 
       const after = command.afterTaskId
@@ -76,16 +79,18 @@ export class MoveTaskHandler
       const stayed = task.stationId.equals(stationId);
       const moved = stayed
         ? task.reorderTo(rank)
-        : task.moveTo(stationId, rank);
+        : // Moved by hand is still a move, and what a person was owed where
+          // it stood, they are owed no longer.
+          task.moveTo(stationId, rank, {
+            station: line.stationAt(task.stationId)?.name ?? station.name,
+            body: TaskNoteBody.of(`Moved to ${station.name.value}.`),
+            at: this.clock.now(),
+          });
 
       const runId =
         stayed || moved.currentRunId
           ? null
-          : await this.dispatch.dispatch({
-              task: moved,
-              station,
-              stations: line.stations,
-            });
+          : await this.dispatch.dispatch({ task: moved, line });
 
       const placed = runId ? moved.handedTo(runId) : moved;
 

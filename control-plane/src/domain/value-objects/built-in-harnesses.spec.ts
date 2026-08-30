@@ -1,7 +1,7 @@
 import {
-  harnessNamed,
   BUILT_IN_HARNESSES,
   CLAUDE_CODE,
+  harnessNamed,
 } from '@domain/value-objects/built-in-harnesses';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { describe, expect, it } from 'vitest';

@@ -1,9 +1,9 @@
 import { Runner } from '@domain/aggregates/runner.aggregate';
 import { RunnerRevoked } from '@domain/events/runner-revoked.event';
 import { RevokedRunnerError } from '@domain/exceptions/revoked-runner.error';
+import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { RunnerName } from '@domain/value-objects/runner-name.vo';
-import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { TokenHash } from '@domain/value-objects/token-hash.vo';
 import { describe, expect, it } from 'vitest';
 

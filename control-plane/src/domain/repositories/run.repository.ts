@@ -1,6 +1,6 @@
 import type { Run } from '@domain/aggregates/run.aggregate';
-import type { RunId } from '@domain/value-objects/run-id.vo';
 import type { HarnessId } from '@domain/value-objects/harness-id.vo';
+import type { RunId } from '@domain/value-objects/run-id.vo';
 import type { RunnerId } from '@domain/value-objects/runner-id.vo';
 
 export interface RunEventRecord {

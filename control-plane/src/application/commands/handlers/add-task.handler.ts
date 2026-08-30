@@ -44,7 +44,7 @@ export class AddTaskHandler
     if (!line) {
       throw new UnknownAssemblyLineError(command.lineId);
     }
-    const station = line.stations.find((each) => each.id.equals(stationId));
+    const station = line.stationAt(stationId);
 
     if (!station) {
       throw new UnknownStationError(command.stationId);
@@ -65,11 +65,7 @@ export class AddTaskHandler
       newId: () => this.ids.generate(),
     });
 
-    const runId = await this.dispatch.dispatch({
-      task: added,
-      station,
-      stations: line.stations,
-    });
+    const runId = await this.dispatch.dispatch({ task: added, line });
     const raised = runId ? added.handedTo(runId) : added;
 
     await this.tasks.add(raised);

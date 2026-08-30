@@ -1,4 +1,5 @@
 import { station } from '@infrastructure/persistence/drizzle/schemas/assembly-line.schema';
+import { user } from '@infrastructure/persistence/drizzle/schemas/auth.schema';
 import { runner } from '@infrastructure/persistence/drizzle/schemas/run.schema';
 import { workspace } from '@infrastructure/persistence/drizzle/schemas/workspace.schema';
 import {
@@ -24,6 +25,12 @@ export const task = pgTable(
     title: text('title').notNull(),
     description: text('description'),
     rank: text('rank').notNull().default('i'),
+    // Where the task was raised. It keeps this as it moves down the line, so
+    // what was asked for still says where it was asked.
+    raisedAtStationId: text('raised_at_station_id').references(
+      () => station.id,
+      { onDelete: 'set null' },
+    ),
     currentRunId: text('current_run_id'),
     // What the harness called the conversation this task was last worked in.
     // Opaque here: it is handed back to a harness, never read.
@@ -56,6 +63,16 @@ export const taskNote = pgTable(
     station: text('station').notNull(),
     body: text('body').notNull(),
     at: timestamp('at').notNull(),
+    // Null is the station speaking. Set null on deletion rather than cascading:
+    // what was said stays, only who said it is lost.
+    authorId: text('author_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    // The run that wrote it, whose journal is what it came from.
+    runId: text('run_id'),
+    // What it did to the task. An 'asked' opens a stretch a person owns; a
+    // 'passed' closes it. The inbox is made of those stretches.
+    kind: text('kind').$type<'asked' | 'passed' | 'answered'>(),
   },
   (table) => [
     primaryKey({ columns: [table.taskId, table.position] }),

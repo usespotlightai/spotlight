@@ -1,6 +1,7 @@
 import { MoveTaskHandler } from '@application/commands/handlers/move-task.handler';
 import { MoveTaskCommand } from '@application/commands/move-task.command';
 import { UseCaseFault } from '@application/errors/use-case.fault';
+import type { ClockPort } from '@application/ports/clock.port';
 import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
@@ -12,8 +13,8 @@ import { TaskBriefing } from '@domain/services/task-briefing';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
-import { RunId } from '@domain/value-objects/run-id.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { RunId } from '@domain/value-objects/run-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
@@ -58,14 +59,16 @@ const standing = (stationId = 'station_2') =>
 const dispatched: { harness: string; priority: number; brief: string }[] = [];
 
 const dispatch = (runId: string | null = 'run_1'): TaskDispatchPort => ({
-  dispatch: async ({ task, station, stations }) => {
-    if (!station.harness) {
+  dispatch: async ({ task, line }) => {
+    const station = line.stationAt(task.stationId);
+
+    if (!station?.harness) {
       return null;
     }
     dispatched.push({
       harness: station.harness.value,
       priority: station.position,
-      brief: TaskBriefing.brief({ station, task, stations }),
+      brief: TaskBriefing.brief({ task, line }),
     });
     return runId === null ? null : RunId.of(runId);
   },
@@ -82,6 +85,7 @@ const tasks = (found: Task | null = standing()) =>
     find: vi.fn(async () => found),
     remove: vi.fn(),
     standingAt: vi.fn(async () => []),
+    placementsAt: vi.fn(async () => []),
   }) satisfies TaskRepository;
 
 const lines = (found: AssemblyLine | null = line()) =>
@@ -92,12 +96,17 @@ const lines = (found: AssemblyLine | null = line()) =>
     holding: vi.fn(async () => found),
   }) satisfies AssemblyLineRepository;
 
+const clock: ClockPort = {
+  now: () => new Date('2026-08-29T12:00:00.000Z'),
+  sleep: async () => {},
+};
+
 const move = (
   stationId: string,
   board: AssemblyLineRepository = lines(),
   held: TaskRepository = tasks(),
 ) =>
-  new MoveTaskHandler(held, board, transaction, dispatch()).execute(
+  new MoveTaskHandler(held, board, transaction, dispatch(), clock).execute(
     new MoveTaskCommand('line_1', 'task_1', stationId, null),
   );
 

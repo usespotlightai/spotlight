@@ -1,6 +1,13 @@
-import type { TaskNoteDto } from '@application/dto/task.dto';
 import type { TeamId } from '@domain/value-objects/team-id.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
+
+/** The last thing said about a task, as the board reads it. */
+export interface TaskNoteSummary {
+  // What identifies it: notes are appended and never reordered.
+  readonly position: number;
+  readonly station: string;
+  readonly body: string;
+}
 
 export interface TaskSummary {
   readonly id: string;
@@ -11,7 +18,7 @@ export interface TaskSummary {
   readonly running: boolean;
   readonly awaitingReview: boolean;
   // The last thing said about it, which is why it is where it is.
-  readonly note: TaskNoteDto | null;
+  readonly note: TaskNoteSummary | null;
 }
 
 export const TASK_READER = Symbol('TASK_READER');

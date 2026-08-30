@@ -78,7 +78,7 @@ func (c *Client) Installable(ctx context.Context) ([]protocol.Installable, error
 // empty answer: the caller must not read silence as permission to delete.
 func (c *Client) Kept(ctx context.Context) ([]string, error) {
 	var out protocol.Kept
-	if err := c.do(ctx, http.MethodGet, "/api/runners/workspaces", nil, &out); err != nil {
+	if err := c.do(ctx, http.MethodGet, "/api/runners/workspaces/retain", nil, &out); err != nil {
 		return nil, fmt.Errorf("ask what to keep: %w", err)
 	}
 

@@ -29,6 +29,41 @@
       "when": 1788014866139,
       "tag": "20260829144746_task_pinned_runner",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788018651497,
+      "tag": "20260829155051_task_note_author",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788020204471,
+      "tag": "20260829161644_task_raised_at_station",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788028044024,
+      "tag": "20260829182724_task_note_run",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788035288526,
+      "tag": "20260829202808_task_inbox_standing",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788038325616,
+      "tag": "20260829211845_task_note_kind",
+      "breakpoints": true
     }
   ]
 }

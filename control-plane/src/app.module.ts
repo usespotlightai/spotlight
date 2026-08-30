@@ -1,8 +1,10 @@
 import { AddTaskCommand } from '@application/commands/add-task.command';
+import { AnswerTaskCommand } from '@application/commands/answer-task.command';
 import { CreateWorkspaceCommand } from '@application/commands/create-workspace.command';
 import { CustomiseStationCommand } from '@application/commands/customise-station.command';
 import { DeleteTaskCommand } from '@application/commands/delete-task.command';
 import { AddTaskHandler } from '@application/commands/handlers/add-task.handler';
+import { AnswerTaskHandler } from '@application/commands/handlers/answer-task.handler';
 import { CreateWorkspaceHandler } from '@application/commands/handlers/create-workspace.handler';
 import { CustomiseStationHandler } from '@application/commands/handlers/customise-station.handler';
 import { DeleteTaskHandler } from '@application/commands/handlers/delete-task.handler';
@@ -31,25 +33,26 @@ import {
   RevokeRunnerCommand,
 } from '@application/commands/runner.commands';
 import { DispatchTask } from '@application/events/handlers/dispatch-task.handler';
-import { TakeUpStandingWork } from '@application/events/handlers/take-up-standing-work.handler';
 import { HandOver } from '@application/events/handlers/hand-over.handler';
 import { ProvisionFactory } from '@application/events/handlers/provision-factory.handler';
 import { ReleaseHeldRuns } from '@application/events/handlers/release-held-runs.handler';
+import { TakeUpStandingWork } from '@application/events/handlers/take-up-standing-work.handler';
 import { ASSEMBLY_LINE_READER } from '@application/ports/assembly-line-reader.port';
 import { CLOCK, type ClockPort } from '@application/ports/clock.port';
 import { FACTORY_PROVISIONING } from '@application/ports/factory-provisioning.port';
 import { HANDOVER } from '@application/ports/handover.port';
 import { ID_GENERATOR } from '@application/ports/id-generator.port';
+import { INBOX_READER } from '@application/ports/inbox-reader.port';
+import { KEPT_WORKSPACE_READER } from '@application/ports/kept-workspace-reader.port';
 import { RUN_EVENT_READER } from '@application/ports/run-event-reader.port';
+import { RUN_JOURNAL_READER } from '@application/ports/run-journal-reader.port';
+import { RUN_READER } from '@application/ports/run-reader.port';
 import { RUN_STREAM } from '@application/ports/run-stream.port';
 import { RUNNER_AUTH } from '@application/ports/runner-auth.port';
-import { INBOX_READER } from '@application/ports/inbox-reader.port';
-import { RUN_READER } from '@application/ports/run-reader.port';
-import { STANDING_WORK } from '@application/ports/standing-work.port';
-import { KEPT_WORKSPACE_READER } from '@application/ports/kept-workspace-reader.port';
 import { RUNNER_READER } from '@application/ports/runner-reader.port';
 import { RUNNER_REVOCATION } from '@application/ports/runner-revocation.port';
 import { RUNNER_TOKEN } from '@application/ports/runner-token.port';
+import { STANDING_WORK } from '@application/ports/standing-work.port';
 import {
   TASK_DISPATCH,
   type TaskDispatchPort,
@@ -62,24 +65,26 @@ import { GetWorkspaceQuery } from '@application/queries/get-workspace.query';
 import { GetGreetingHandler } from '@application/queries/handlers/get-greeting.handler';
 import { GetWorkspaceHandler } from '@application/queries/handlers/get-workspace.handler';
 import { ListAssemblyLinesHandler } from '@application/queries/handlers/list-assembly-lines.handler';
-import { ListKeptWorkspacesHandler } from '@application/queries/handlers/list-kept-workspaces.handler';
-import { ListRunnersHandler } from '@application/queries/handlers/list-runners.handler';
 import { ListHarnessesHandler } from '@application/queries/handlers/list-harnesses.handler';
 import { ListInboxHandler } from '@application/queries/handlers/list-inbox.handler';
+import { ListKeptWorkspacesHandler } from '@application/queries/handlers/list-kept-workspaces.handler';
+import { ListRunnersHandler } from '@application/queries/handlers/list-runners.handler';
 import { ListTaskRunsHandler } from '@application/queries/handlers/list-task-runs.handler';
 import { ListTasksHandler } from '@application/queries/handlers/list-tasks.handler';
 import { ListWorkspacesHandler } from '@application/queries/handlers/list-workspaces.handler';
 import { ReadRunEventsHandler } from '@application/queries/handlers/read-run-events.handler';
+import { ReadTaskJournalHandler } from '@application/queries/handlers/read-task-journal.handler';
 import { WatchRunHandler } from '@application/queries/handlers/watch-run.handler';
 import { ListAssemblyLinesQuery } from '@application/queries/list-assembly-lines.query';
-import { ListKeptWorkspacesQuery } from '@application/queries/list-kept-workspaces.query';
-import { ListRunnersQuery } from '@application/queries/list-runners.query';
 import { ListHarnessesQuery } from '@application/queries/list-harnesses.query';
 import { ListInboxQuery } from '@application/queries/list-inbox.query';
+import { ListKeptWorkspacesQuery } from '@application/queries/list-kept-workspaces.query';
+import { ListRunnersQuery } from '@application/queries/list-runners.query';
 import { ListTaskRunsQuery } from '@application/queries/list-task-runs.query';
 import { ListTasksQuery } from '@application/queries/list-tasks.query';
 import { ListWorkspacesQuery } from '@application/queries/list-workspaces.query';
 import { ReadRunEventsQuery } from '@application/queries/read-run-events.query';
+import { ReadTaskJournalQuery } from '@application/queries/read-task-journal.query';
 import { WatchRunQuery } from '@application/queries/watch-run.query';
 import { AuthenticationModule } from '@infrastructure/auth/auth.module';
 import { RunnerTokenAuth } from '@infrastructure/auth/runner-token.auth';
@@ -92,10 +97,11 @@ import { LoggingModule } from '@infrastructure/logging/logging.module';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
 import { DrizzleModule } from '@infrastructure/persistence/drizzle/drizzle.module';
 import { DrizzleAssemblyLineReader } from '@infrastructure/persistence/drizzle/readers/assembly-line.reader';
-import { DrizzleRunEventReader } from '@infrastructure/persistence/drizzle/readers/run-event.reader';
 import { DrizzleInboxReader } from '@infrastructure/persistence/drizzle/readers/inbox.reader';
-import { DrizzleRunReader } from '@infrastructure/persistence/drizzle/readers/run.reader';
 import { DrizzleKeptWorkspaceReader } from '@infrastructure/persistence/drizzle/readers/kept-workspace.reader';
+import { DrizzleRunReader } from '@infrastructure/persistence/drizzle/readers/run.reader';
+import { DrizzleRunEventReader } from '@infrastructure/persistence/drizzle/readers/run-event.reader';
+import { DrizzleRunJournalReader } from '@infrastructure/persistence/drizzle/readers/run-journal.reader';
 import { DrizzleRunnerReader } from '@infrastructure/persistence/drizzle/readers/runner.reader';
 import { DrizzleTaskReader } from '@infrastructure/persistence/drizzle/readers/task.reader';
 import { DrizzleWorkspaceReader } from '@infrastructure/persistence/drizzle/readers/workspace.reader';
@@ -112,12 +118,12 @@ import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { CqrsModule } from '@nestjs/cqrs';
 import { AssemblyLineController } from '@presentation/http/controllers/assembly-line.controller';
 import { GreetingController } from '@presentation/http/controllers/greeting.controller';
+import { HarnessController } from '@presentation/http/controllers/harness.controller';
 import { HealthController } from '@presentation/http/controllers/health.controller';
+import { InboxController } from '@presentation/http/controllers/inbox.controller';
 import { RunController } from '@presentation/http/controllers/run.controller';
 import { RunStreamController } from '@presentation/http/controllers/run-stream.controller';
 import { RunnerController } from '@presentation/http/controllers/runner.controller';
-import { HarnessController } from '@presentation/http/controllers/harness.controller';
-import { InboxController } from '@presentation/http/controllers/inbox.controller';
 import { RunnerFleetController } from '@presentation/http/controllers/runner-fleet.controller';
 import { TaskController } from '@presentation/http/controllers/task.controller';
 import { WorkspaceController } from '@presentation/http/controllers/workspace.controller';
@@ -163,6 +169,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     { provide: RUN_READER, useClass: DrizzleRunReader },
     { provide: RUNNER_READER, useClass: DrizzleRunnerReader },
     { provide: KEPT_WORKSPACE_READER, useClass: DrizzleKeptWorkspaceReader },
+    { provide: RUN_JOURNAL_READER, useClass: DrizzleRunJournalReader },
     { provide: RUN_EVENT_READER, useClass: DrizzleRunEventReader },
     { provide: RUN_STREAM, useClass: InMemoryRunStream },
     { provide: ID_GENERATOR, useClass: CryptoIdGenerator },
@@ -238,6 +245,10 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       RUNNER_READER,
       CLOCK,
     ]),
+    ...bindQueryHandler(ReadTaskJournalQuery, ReadTaskJournalHandler, [
+      RUN_JOURNAL_READER,
+    ]),
+
     ...bindQueryHandler(ListKeptWorkspacesQuery, ListKeptWorkspacesHandler, [
       KEPT_WORKSPACE_READER,
     ]),
@@ -264,11 +275,20 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       DrizzleTaskRepository,
     ]),
 
+    ...bindCommandHandler(AnswerTaskCommand, AnswerTaskHandler, [
+      DrizzleTaskRepository,
+      DrizzleAssemblyLineRepository,
+      TASK_DISPATCH,
+      TRANSACTION,
+      CLOCK,
+    ]),
+
     ...bindCommandHandler(MoveTaskCommand, MoveTaskHandler, [
       DrizzleTaskRepository,
       DrizzleAssemblyLineRepository,
       TRANSACTION,
       TASK_DISPATCH,
+      CLOCK,
     ]),
 
     ...bindCommandHandler(ReorderStationsCommand, ReorderStationsHandler, [

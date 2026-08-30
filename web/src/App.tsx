@@ -42,7 +42,7 @@ export default function App() {
           </Route>
           <Route path="inbox" element={<Inbox />}>
             <Route index element={<InboxIndex />} />
-            <Route path=":taskId" element={<InboxItem />} />
+            <Route path=":itemId" element={<InboxItem />} />
           </Route>
 
           <Route path="runners" element={<Runners />} />

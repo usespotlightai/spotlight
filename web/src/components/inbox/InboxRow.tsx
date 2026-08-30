@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router';
 import { StationIcon } from '@/components/board/StationIcon';
 import { type InboxItem, inboxItemPath, waitingOn } from '@/lib/inbox';
+import { stationShare } from '@/lib/station';
 import { raisedOn } from '@/lib/task';
 import { cn } from '@/lib/utils';
 
@@ -14,7 +15,7 @@ export function InboxRow({ slug, item }: InboxRowProps) {
 
   return (
     <NavLink
-      to={inboxItemPath(slug, item.taskId)}
+      to={inboxItemPath(slug, item.id)}
       className={({ isActive }) =>
         cn(
           'flex flex-col gap-0.5 rounded-md px-2 py-2 outline-none transition-colors',
@@ -23,7 +24,10 @@ export function InboxRow({ slug, item }: InboxRowProps) {
       }
     >
       <span className="flex min-w-0 items-center gap-2">
-        <StationIcon share={1} color={item.stationColor} />
+        <StationIcon
+          share={stationShare(item.stationPosition, item.stationCount)}
+          color={item.stationColor}
+        />
 
         <span className="truncate font-medium text-foreground text-sm">
           {item.title}

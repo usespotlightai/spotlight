@@ -21,7 +21,12 @@ export class ListInboxHandler
       return (
         waiting?.map((item) => ({
           ...item,
+          createdAt: item.createdAt.toISOString(),
           askedAt: item.askedAt.toISOString(),
+          notes: item.notes.map((note) => ({
+            ...note,
+            at: note.at.toISOString(),
+          })),
         })) ?? null
       );
     } catch (error) {

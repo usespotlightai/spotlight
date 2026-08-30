@@ -19,6 +19,7 @@ type WorkspaceSidebarProps = {
 export function WorkspaceSidebar({ workspace }: WorkspaceSidebarProps) {
   const { data: runners } = useRunners();
   const { data: waiting } = useInbox(workspace.slug);
+  const owed = waiting?.filter((each) => !each.resolved) ?? [];
 
   return (
     <>
@@ -31,9 +32,7 @@ export function WorkspaceSidebar({ workspace }: WorkspaceSidebarProps) {
           to={inboxPath(workspace.slug)}
           icon={Inbox}
           trailing={
-            waiting && waiting.length > 0 ? (
-              <p className="text-xs">{waiting.length}</p>
-            ) : null
+            owed.length > 0 ? <p className="text-xs">{owed.length}</p> : null
           }
         >
           Inbox

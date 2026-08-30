@@ -1,8 +1,8 @@
 import { RunnerRevoked } from '@domain/events/runner-revoked.event';
 import { RevokedRunnerError } from '@domain/exceptions/revoked-runner.error';
+import type { HarnessId } from '@domain/value-objects/harness-id.vo';
 import type { RunnerId } from '@domain/value-objects/runner-id.vo';
 import type { RunnerName } from '@domain/value-objects/runner-name.vo';
-import type { HarnessId } from '@domain/value-objects/harness-id.vo';
 import type { TokenHash } from '@domain/value-objects/token-hash.vo';
 
 /**

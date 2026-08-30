@@ -24,6 +24,8 @@ export function Inbox() {
   }
 
   const items = waiting ?? [];
+  const owed = items.filter((each) => !each.resolved);
+  const done = items.filter((each) => each.resolved);
 
   return (
     <>
@@ -39,14 +41,28 @@ export function Inbox() {
           style={{ width: listPane.width }}
           className="relative flex shrink-0 flex-col gap-0.5 overflow-y-auto overflow-x-hidden border-r-[0.5px] border-border p-2"
         >
-          {items.length === 0 ? (
+          {items.length === 0 && (
             <p className="px-2 py-1 text-muted-foreground text-xs">
               Nothing is waiting on you.
             </p>
-          ) : (
-            items.map((item) => (
-              <InboxRow key={item.taskId} slug={slug} item={item} />
-            ))
+          )}
+
+          {owed.map((item) => (
+            <InboxRow key={item.taskId} slug={slug} item={item} />
+          ))}
+
+          {done.length > 0 && (
+            <>
+              {/* Answered and moved on. Kept because what was decided here is
+                  worth going back to. */}
+              <p className="px-2 pt-4 pb-1 font-medium text-muted-foreground text-xs">
+                Resolved
+              </p>
+
+              {done.map((item) => (
+                <InboxRow key={item.taskId} slug={slug} item={item} />
+              ))}
+            </>
           )}
 
           <div

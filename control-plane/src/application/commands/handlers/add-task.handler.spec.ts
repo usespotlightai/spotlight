@@ -14,8 +14,8 @@ import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
-import { RunId } from '@domain/value-objects/run-id.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { RunId } from '@domain/value-objects/run-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
@@ -54,14 +54,16 @@ const line = () =>
 const dispatched: { harness: string; priority: number; brief: string }[] = [];
 
 const dispatch = (runId: string | null = 'run_1'): TaskDispatchPort => ({
-  dispatch: async ({ task, station, stations }) => {
-    if (!station.harness) {
+  dispatch: async ({ task, line }) => {
+    const station = line.stationAt(task.stationId);
+
+    if (!station?.harness) {
       return null;
     }
     dispatched.push({
       harness: station.harness.value,
       priority: station.position,
-      brief: TaskBriefing.brief({ station, task, stations }),
+      brief: TaskBriefing.brief({ task, line }),
     });
     return runId === null ? null : RunId.of(runId);
   },
@@ -78,6 +80,7 @@ const tasks = () =>
     find: vi.fn(async () => null),
     remove: vi.fn(),
     standingAt: vi.fn(async () => []),
+    placementsAt: vi.fn(async () => []),
   }) satisfies TaskRepository;
 
 const lines = (found: AssemblyLine | null = line()) =>

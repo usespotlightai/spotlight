@@ -1,8 +1,8 @@
 import { Runner } from '@domain/aggregates/runner.aggregate';
 import type { RunnerRepository } from '@domain/repositories/runner.repository';
+import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { RunnerName } from '@domain/value-objects/runner-name.vo';
-import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { TokenHash } from '@domain/value-objects/token-hash.vo';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
 import { runner } from '@infrastructure/persistence/drizzle/schemas/run.schema';

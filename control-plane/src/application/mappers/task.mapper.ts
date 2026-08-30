@@ -12,7 +12,13 @@ export const TaskMapper = {
       createdAt: summary.createdAt.toISOString(),
       running: summary.running,
       awaitingReview: summary.awaitingReview,
-      note: summary.note,
+      note: summary.note
+        ? {
+            position: summary.note.position,
+            station: summary.note.station,
+            body: summary.note.body,
+          }
+        : null,
     };
   },
 

@@ -14,11 +14,13 @@ export const TaskHttpMapper = {
       dto.createdAt,
       dto.running,
       dto.awaitingReview,
-      dto.note ? new TaskNoteResponseDto(
+      dto.note
+        ? new TaskNoteResponseDto(
             dto.note.position,
             dto.note.station,
             dto.note.body,
-          ) : null,
+          )
+        : null,
     );
   },
 };

@@ -8,23 +8,17 @@ import type { AuthenticatedUser } from '@application/ports/session.port';
 import { ReadRunEventsQuery } from '@application/queries/read-run-events.query';
 import { WatchRunQuery } from '@application/queries/watch-run.query';
 import {
-  Body,
   Controller,
-  Get,
   Headers,
-  HttpCode,
-  HttpStatus,
   Inject,
   type MessageEvent,
   NotFoundException,
   Param,
-  Post,
   Query,
   Sse,
 } from '@nestjs/common';
-import { CommandBus, QueryBus } from '@nestjs/cqrs';
+import { QueryBus } from '@nestjs/cqrs';
 import {
-  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -33,9 +27,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { CurrentRunner } from '@presentation/http/decorators/current-runner.decorator';
 import { CurrentUser } from '@presentation/http/decorators/current-user.decorator';
-import { RunnerOnly } from '@presentation/http/decorators/runner-only.decorator';
 import { interval, map, merge, Observable } from 'rxjs';
 
 const KEEPALIVE_MS = 20_000;
@@ -50,7 +42,6 @@ const sequence = (raw: string | undefined): number => {
 export class RunStreamController {
   constructor(
     private readonly queryBus: QueryBus,
-    private readonly commandBus: CommandBus,
     @Inject(RUN_STREAM) private readonly stream: RunStreamPort,
   ) {}
 

@@ -2,8 +2,8 @@ import { AddTaskCommand } from '@application/commands/add-task.command';
 import { DeleteTaskCommand } from '@application/commands/delete-task.command';
 import { MoveTaskCommand } from '@application/commands/move-task.command';
 import type { AssemblyLineDto } from '@application/dto/assembly-line.dto';
-import type { TaskRunDto } from '@application/dto/task-run.dto';
 import type { TaskDto } from '@application/dto/task.dto';
+import type { TaskRunDto } from '@application/dto/task-run.dto';
 import type { AuthenticatedUser } from '@application/ports/session.port';
 import { ListAssemblyLinesQuery } from '@application/queries/list-assembly-lines.query';
 import { ListTaskRunsQuery } from '@application/queries/list-task-runs.query';
@@ -34,10 +34,10 @@ import {
 import { CurrentUser } from '@presentation/http/decorators/current-user.decorator';
 import { AddTaskRequestDto } from '@presentation/http/dto/add-task.request.dto';
 import { MoveTaskRequestDto } from '@presentation/http/dto/move-task.request.dto';
-import { TaskRunResponseDto } from '@presentation/http/dto/task-run.response.dto';
 import { TaskResponseDto } from '@presentation/http/dto/task.response.dto';
-import { TaskRunHttpMapper } from '@presentation/http/mappers/task-run.http.mapper';
+import { TaskRunResponseDto } from '@presentation/http/dto/task-run.response.dto';
 import { TaskHttpMapper } from '@presentation/http/mappers/task.http.mapper';
+import { TaskRunHttpMapper } from '@presentation/http/mappers/task-run.http.mapper';
 
 @ApiTags('tasks')
 @ApiUnauthorizedResponse({ description: 'No valid session' })

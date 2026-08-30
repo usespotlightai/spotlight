@@ -1,9 +1,9 @@
-import { ListTaskRunsHandler } from '@application/queries/handlers/list-task-runs.handler';
-import { ListTaskRunsQuery } from '@application/queries/list-task-runs.query';
 import type {
   RunReaderPort,
   TaskRunSummary,
 } from '@application/ports/run-reader.port';
+import { ListTaskRunsHandler } from '@application/queries/handlers/list-task-runs.handler';
+import { ListTaskRunsQuery } from '@application/queries/list-task-runs.query';
 import { describe, expect, it, vi } from 'vitest';
 
 const summary = (over: Partial<TaskRunSummary> = {}): TaskRunSummary => ({

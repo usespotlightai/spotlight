@@ -20,6 +20,10 @@ import (
 
 // Granted to the agent explicitly, unlike the runner's own SPOTLIGHT_
 // variables, which are stripped from what it inherits.
+// Review is the control plane's word for a person. It arrives among the
+// options like any other, but it does not name a station.
+const Review = "review"
+
 const (
 	URLVar   = "SPOTLIGHT_HANDOVER_URL"
 	TokenVar = "SPOTLIGHT_HANDOVER_TOKEN"

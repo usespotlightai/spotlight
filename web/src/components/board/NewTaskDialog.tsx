@@ -76,7 +76,6 @@ export function NewTaskDialog({
         <form onSubmit={submit} className="contents">
           <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto">
             <AutoGrowTextarea
-              // biome-ignore lint/a11y/noAutofocus: the dialog exists to type in this
               autoFocus
               value={title}
               onChange={(event) => setTitle(event.target.value)}
@@ -98,8 +97,15 @@ export function NewTaskDialog({
           </div>
 
           <DialogFooter className="items-center sm:justify-between">
-            <label className="flex select-none items-center gap-2 text-muted-foreground text-xs">
-              <Switch checked={more} onCheckedChange={setMore} />
+            <label
+              htmlFor="create-more"
+              className="flex select-none items-center gap-2 text-muted-foreground text-xs"
+            >
+              <Switch
+                id="create-more"
+                checked={more}
+                onCheckedChange={setMore}
+              />
               Create more
             </label>
 

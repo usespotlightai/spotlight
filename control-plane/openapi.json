@@ -604,7 +604,102 @@
             "description": "No such workspace for this caller"
           }
         },
-        "summary": "The tasks waiting on a person, oldest first",
+        "summary": "The tasks waiting on a person, newest first",
+        "tags": [
+          "inbox"
+        ]
+      }
+    },
+    "/workspaces/{slug}/inbox/{taskId}/answer": {
+      "post": {
+        "operationId": "answerInboxItem",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerInboxItemRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "The answer was recorded"
+          },
+          "401": {
+            "description": "No valid session"
+          }
+        },
+        "summary": "Answer what a task is waiting on, and let the work carry on",
+        "tags": [
+          "inbox"
+        ]
+      }
+    },
+    "/workspaces/{slug}/inbox/{taskId}/journal": {
+      "get": {
+        "operationId": "readTaskJournal",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RunJournalResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such task for this caller"
+          }
+        },
+        "summary": "What each run did to arrive at what it said",
         "tags": [
           "inbox"
         ]
@@ -1505,31 +1600,123 @@
           "name"
         ]
       },
-      "TaskNoteResponseDto": {
+      "InboxRaisedAtResponseDto": {
+        "type": "object",
+        "properties": {
+          "station": {
+            "type": "string",
+            "example": "Triage"
+          },
+          "stationColor": {
+            "type": "string",
+            "example": "#edc12b"
+          },
+          "stationPosition": {
+            "type": "number",
+            "example": 0
+          }
+        },
+        "required": [
+          "station",
+          "stationColor",
+          "stationPosition"
+        ]
+      },
+      "InboxAuthorResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "b7f3c1d9-2a48-4e6b-9c05-7d1e3f8a2b64"
+          },
+          "name": {
+            "type": "string",
+            "example": "Leon"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "image"
+        ]
+      },
+      "InboxMessageResponseDto": {
         "type": "object",
         "properties": {
           "position": {
             "type": "number",
             "example": 0
           },
+          "kind": {
+            "type": "string",
+            "example": "asked",
+            "enum": [
+              "asked",
+              "passed",
+              "answered"
+            ]
+          },
           "station": {
             "type": "string",
             "example": "Implementation"
           },
+          "stationColor": {
+            "type": "string",
+            "example": "#edc12b"
+          },
+          "stationPosition": {
+            "type": "number",
+            "example": 2,
+            "description": "Its place in the line, from zero"
+          },
+          "runId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The run that wrote it, whose journal it came from"
+          },
           "body": {
             "type": "string",
-            "example": "The run was given up on after 3 attempts."
+            "example": "Reproduced on restart. Needs a spec."
+          },
+          "at": {
+            "type": "string",
+            "example": "2026-08-28T21:15:00.000Z"
+          },
+          "author": {
+            "nullable": true,
+            "description": "Absent where the station said it rather than a person",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InboxAuthorResponseDto"
+              }
+            ]
           }
         },
         "required": [
           "position",
+          "kind",
           "station",
-          "body"
+          "stationColor",
+          "stationPosition",
+          "runId",
+          "body",
+          "at",
+          "author"
         ]
       },
       "InboxItemResponseDto": {
         "type": "object",
         "properties": {
+          "id": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13:2",
+            "description": "One stretch a person was asked to own"
+          },
           "taskId": {
             "type": "string",
             "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13"
@@ -1554,26 +1741,194 @@
             "type": "string",
             "example": "#edc12b"
           },
+          "stationPosition": {
+            "type": "number",
+            "example": 2,
+            "description": "Its place in the line, from zero"
+          },
+          "stationCount": {
+            "type": "number",
+            "example": 4,
+            "description": "How many stations the line holds"
+          },
+          "raisedAt": {
+            "$ref": "#/components/schemas/InboxRaisedAtResponseDto"
+          },
+          "createdAt": {
+            "type": "string",
+            "example": "2026-08-28T09:02:00.000Z"
+          },
           "askedAt": {
             "type": "string",
             "example": "2026-08-28T21:15:00.000Z"
           },
+          "resolved": {
+            "type": "boolean",
+            "example": false,
+            "description": "True once it has moved on, and is no longer yours to answer"
+          },
+          "working": {
+            "type": "boolean",
+            "example": false,
+            "description": "True while a run is working it, so an answer is coming"
+          },
           "notes": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/TaskNoteResponseDto"
+              "$ref": "#/components/schemas/InboxMessageResponseDto"
             }
           }
         },
         "required": [
+          "id",
           "taskId",
           "teamId",
           "title",
           "description",
           "station",
           "stationColor",
+          "stationPosition",
+          "stationCount",
+          "raisedAt",
+          "createdAt",
           "askedAt",
+          "resolved",
+          "working",
           "notes"
+        ]
+      },
+      "AnswerInboxItemRequestDto": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "example": "Drain the queue before retrying, and cap it at 500.",
+            "description": "What the person says back. It joins the task’s trail."
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "JournalStepResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "example": "tool",
+            "enum": [
+              "said",
+              "thought",
+              "tool"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "example": "ToolSearch"
+          },
+          "status": {
+            "type": "string",
+            "nullable": true,
+            "example": "completed"
+          },
+          "tool": {
+            "type": "string",
+            "nullable": true,
+            "example": "execute",
+            "description": "What sort of tool it was: execute, read, edit, …"
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true,
+            "description": "What the tool answered with, as much of it as is worth reading"
+          },
+          "ms": {
+            "type": "number",
+            "example": 1200,
+            "description": "How long it took, in ms"
+          }
+        },
+        "required": [
+          "kind",
+          "text",
+          "status",
+          "tool",
+          "detail",
+          "ms"
+        ]
+      },
+      "RunSpentResponseDto": {
+        "type": "object",
+        "properties": {
+          "used": {
+            "type": "number",
+            "example": 12173,
+            "description": "Tokens held in context"
+          },
+          "size": {
+            "type": "number",
+            "example": 200000,
+            "description": "How large the context is"
+          },
+          "cost": {
+            "type": "number",
+            "example": 0.0664917,
+            "nullable": true
+          },
+          "currency": {
+            "type": "string",
+            "example": "USD",
+            "nullable": true
+          }
+        },
+        "required": [
+          "used",
+          "size"
+        ]
+      },
+      "RunJournalResponseDto": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "example": "d71ef228-a533-49ab-9e92-7c0d0af80e25"
+          },
+          "attempt": {
+            "type": "number",
+            "example": 1
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JournalStepResponseDto"
+            }
+          },
+          "ms": {
+            "type": "number",
+            "example": 56000,
+            "nullable": true,
+            "description": "How long the run spoke for, in ms"
+          },
+          "spent": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunSpentResponseDto"
+              }
+            ]
+          },
+          "readable": {
+            "type": "boolean",
+            "example": true,
+            "description": "False for a run from before the agents spoke a protocol"
+          }
+        },
+        "required": [
+          "runId",
+          "attempt",
+          "steps",
+          "readable"
         ]
       },
       "ActiveRunResponseDto": {
@@ -1687,6 +2042,28 @@
           "id",
           "name",
           "token"
+        ]
+      },
+      "TaskNoteResponseDto": {
+        "type": "object",
+        "properties": {
+          "position": {
+            "type": "number",
+            "example": 0
+          },
+          "station": {
+            "type": "string",
+            "example": "Implementation"
+          },
+          "body": {
+            "type": "string",
+            "example": "The run was given up on after 3 attempts."
+          }
+        },
+        "required": [
+          "position",
+          "station",
+          "body"
         ]
       },
       "TaskResponseDto": {

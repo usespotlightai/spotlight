@@ -1,7 +1,8 @@
 import type { StandingWorkPort } from '@application/ports/standing-work.port';
 import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
-import type { Station } from '@domain/entities/station.entity';
+import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { TaskRepository } from '@domain/repositories/task.repository';
+import type { StationId } from '@domain/value-objects/station-id.vo';
 
 export class TakeUpStandingWork implements StandingWorkPort {
   constructor(
@@ -10,26 +11,22 @@ export class TakeUpStandingWork implements StandingWorkPort {
   ) {}
 
   async takeUp({
-    station,
-    stations,
+    line,
+    stationId,
   }: {
-    station: Station;
-    stations: readonly Station[];
+    line: AssemblyLine;
+    stationId: StationId;
   }): Promise<void> {
-    if (!station.harness) {
+    if (!line.stationAt(stationId)?.harness) {
       return;
     }
 
-    for (const standing of await this.tasks.standingAt(station.id)) {
+    for (const standing of await this.tasks.standingAt(stationId)) {
       if (!standing.idle) {
         continue;
       }
 
-      const runId = await this.dispatch.dispatch({
-        task: standing,
-        station,
-        stations,
-      });
+      const runId = await this.dispatch.dispatch({ task: standing, line });
 
       if (runId) {
         await this.tasks.save(standing.handedTo(runId));

@@ -95,20 +95,16 @@ describe('AssemblyLine', () => {
       HarnessId.of('dev'),
     );
 
-    expect(assigned.stations.map((each) => each.harness?.value ?? null)).toEqual([
-      'dev',
-      null,
-    ]);
+    expect(
+      assigned.stations.map((each) => each.harness?.value ?? null),
+    ).toEqual(['dev', null]);
   });
 
   it('refuses to change a station it does not hold', () => {
     const line = lineOf([at(0)]);
 
     expect(() =>
-      line.runStationOn(
-        StationId.of('station_missing'),
-        HarnessId.of('dev'),
-      ),
+      line.runStationOn(StationId.of('station_missing'), HarnessId.of('dev')),
     ).toThrow(UnknownStationError);
   });
 

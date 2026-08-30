@@ -1,9 +1,10 @@
 import { Task } from '@domain/aggregates/task.aggregate';
+import { InvalidTaskTransitionError } from '@domain/exceptions/invalid-task-transition.error';
 import { HarnessSession } from '@domain/value-objects/harness-session.vo';
+import { RunId } from '@domain/value-objects/run-id.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
-import { RunId } from '@domain/value-objects/run-id.vo';
 import { TaskDescription } from '@domain/value-objects/task-description.vo';
 import { TaskNote } from '@domain/value-objects/task-note.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
@@ -22,6 +23,14 @@ const added = (description?: TaskDescription) =>
     now: new Date('2026-08-27T09:15:00.000Z'),
     newId: () => 'task_1',
   });
+
+const NOW = new Date('2026-08-29T12:00:00.000Z');
+
+const saying = {
+  station: StationName.of('Triage'),
+  body: TaskNoteBody.of('Reproduced on restart.'),
+  at: NOW,
+};
 
 describe('Task', () => {
   it('stands at the station it was added to', () => {
@@ -47,7 +56,11 @@ describe('Task', () => {
   });
 
   it('stands at the station it was moved to', () => {
-    const moved = added().moveTo(StationId.of('station_2'), TaskRank.of('m'));
+    const moved = added().moveTo(
+      StationId.of('station_2'),
+      TaskRank.of('m'),
+      saying,
+    );
 
     expect(moved.stationId).toEqual(StationId.of('station_2'));
   });
@@ -56,6 +69,7 @@ describe('Task', () => {
     const moved = added(TaskDescription.of('## Steps')).moveTo(
       StationId.of('station_2'),
       TaskRank.of('m'),
+      saying,
     );
 
     expect(moved.id.value).toBe('task_1');
@@ -65,7 +79,7 @@ describe('Task', () => {
 
   it('leaves the task it was moved from where it stood', () => {
     const task = added();
-    task.moveTo(StationId.of('station_2'), TaskRank.of('m'));
+    task.moveTo(StationId.of('station_2'), TaskRank.of('m'), saying);
 
     expect(task.stationId).toEqual(StationId.of('station_1'));
   });
@@ -114,7 +128,9 @@ describe('Task', () => {
     ]);
   });
 
-  it('carries its notes across a move', () => {
+  // Moving by hand is something that happened to the task, so it is written
+  // down — and it is what closes a stretch a person was owed.
+  it('carries what was said across a move, and records the move', () => {
     const worked = added()
       .note(
         TaskNote.of({
@@ -123,9 +139,11 @@ describe('Task', () => {
           at: new Date('2026-08-28T10:00:00.000Z'),
         }),
       )
-      .moveTo(StationId.of('station_2'), TaskRank.of('m'));
+      .moveTo(StationId.of('station_2'), TaskRank.of('m'), saying);
 
-    expect(worked.notes).toHaveLength(1);
+    expect(worked.notes).toHaveLength(2);
+    expect(worked.notes[0]?.body.value).toBe('Reproduced.');
+    expect(worked.notes[1]?.kind).toBe('passed');
   });
 
   it('is the same task as another of the same id', () => {
@@ -176,11 +194,6 @@ describe('Task, what it is doing', () => {
   describe('the conversation it was worked in', () => {
     const session = HarnessSession.of('session_1');
     const runner = RunnerId.of('runner_1');
-    const note = TaskNote.of({
-      station: StationName.of('Build'),
-      body: TaskNoteBody.of('Needs a decision on the retry window.'),
-      at: new Date('2026-08-27T10:00:00.000Z'),
-    });
 
     it('is not there until a run has worked it', () => {
       expect(added().sessionId).toBeNull();
@@ -196,7 +209,7 @@ describe('Task, what it is doing', () => {
     // The inbox round trip is the whole point: a person answers and the work
     // picks up mid-thought rather than beginning again.
     it('survives being put to a person', () => {
-      const asked = added().workedIn(session, runner).askedAbout(note);
+      const asked = added().workedIn(session, runner).askedAbout(saying);
 
       expect(asked.sessionId).toEqual(session);
       expect(asked.runnerId).toEqual(runner);
@@ -208,7 +221,7 @@ describe('Task, what it is doing', () => {
     it('is left behind when the task is passed on', () => {
       const passed = added()
         .workedIn(session, runner)
-        .passedTo(StationId.of('station_2'), TaskRank.of('m'), note);
+        .passedTo(StationId.of('station_2'), TaskRank.of('m'), saying);
 
       expect(passed.sessionId).toBeNull();
       expect(passed.runnerId).toBeNull();
@@ -217,7 +230,7 @@ describe('Task, what it is doing', () => {
     it('is left behind when the task is moved by hand', () => {
       const moved = added()
         .workedIn(session, runner)
-        .moveTo(StationId.of('station_2'), TaskRank.of('m'));
+        .moveTo(StationId.of('station_2'), TaskRank.of('m'), saying);
 
       expect(moved.sessionId).toBeNull();
       expect(moved.runnerId).toBeNull();
@@ -239,6 +252,20 @@ describe('Task, what it is doing', () => {
       expect(added().continuity().pinnedTo).toBeNull();
     });
 
+    // What makes the inbox round trip work: the answer leaves the task where
+    // it is, so the run that follows takes up the same conversation.
+    it('survives a person answering what it was waiting on', () => {
+      const answered = added()
+        .workedIn(session, runner)
+        .askedAbout(saying)
+        .answered(saying);
+
+      expect(answered.awaitingReview).toBe(false);
+      expect(answered.sessionId).toEqual(session);
+      expect(answered.runnerId).toEqual(runner);
+      expect(answered.stationId).toEqual(StationId.of('station_1'));
+    });
+
     it('survives being reordered where it stands', () => {
       const reordered = added()
         .workedIn(session, runner)
@@ -247,6 +274,67 @@ describe('Task, what it is doing', () => {
       expect(reordered.sessionId).toEqual(session);
       expect(reordered.runnerId).toEqual(runner);
       expect(reordered.stationId).toEqual(StationId.of('station_1'));
+    });
+  });
+
+  describe('what a person is owed', () => {
+    // The task says what each note did, so nothing outside it can write a
+    // note that means something the task never did.
+    it('owes nobody until it is put to someone', () => {
+      expect(added().owed).toBeNull();
+    });
+
+    it('owes an ending once it has been put to someone', () => {
+      expect(added().askedAbout(saying).owed).toEqual({ from: 0, to: null });
+    });
+
+    it('still owes it after an answer', () => {
+      const asked = added().askedAbout(saying).answered(saying);
+
+      expect(asked.owed).not.toBeNull();
+    });
+
+    it('owes nothing once it has moved on', () => {
+      const passed = added()
+        .askedAbout(saying)
+        .passedTo(StationId.of('station_2'), TaskRank.of('m'), saying);
+
+      expect(passed.owed).toBeNull();
+    });
+
+    it('refuses an answer to something nobody was asked', () => {
+      expect(() => added().answered(saying)).toThrow(
+        InvalidTaskTransitionError,
+      );
+    });
+  });
+
+  describe('what it refuses', () => {
+    // Every one of these was a rule living in a handler, or nowhere.
+    it('will not be put to a person twice over', () => {
+      expect(() => added().askedAbout(saying).askedAbout(saying)).toThrow(
+        InvalidTaskTransitionError,
+      );
+    });
+
+    it('will not be taken up by a second run while one holds it', () => {
+      expect(() =>
+        added().handedTo(RunId.of('run_1')).handedTo(RunId.of('run_2')),
+      ).toThrow(InvalidTaskTransitionError);
+    });
+
+    // Handing it back where it stands moves nothing and starts the same work
+    // again, which is a loop rather than progress.
+    it('will not be passed to the station it already stands at', () => {
+      expect(() =>
+        added().passedTo(StationId.of('station_1'), TaskRank.of('m'), saying),
+      ).toThrow(InvalidTaskTransitionError);
+    });
+
+    it('will not be moved to the station it already stands at', () => {
+      expect(() =>
+        added().moveTo(StationId.of('station_1'), TaskRank.of('m'), saying),
+      ).toThrow(InvalidTaskTransitionError);
     });
   });
 });

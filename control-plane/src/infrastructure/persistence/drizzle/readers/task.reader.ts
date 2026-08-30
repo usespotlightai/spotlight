@@ -1,8 +1,8 @@
 import type {
+  TaskNoteSummary,
   TaskReaderPort,
   TaskSummary,
 } from '@application/ports/task-reader.port';
-import type { TaskNoteDto } from '@application/dto/task.dto';
 import type { TeamId } from '@domain/value-objects/team-id.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
 import type { DrizzleDatabase } from '@infrastructure/persistence/drizzle/drizzle.client';
@@ -75,8 +75,10 @@ export class DrizzleTaskReader implements TaskReaderPort {
   }
 
   // Newest first, so the first one seen for a task is the one that stands.
-  private async latestNotes(taskIds: string[]): Promise<Map<string, TaskNoteDto>> {
-    const latest = new Map<string, TaskNoteDto>();
+  private async latestNotes(
+    taskIds: string[],
+  ): Promise<Map<string, TaskNoteSummary>> {
+    const latest = new Map<string, TaskNoteSummary>();
 
     if (taskIds.length === 0) {
       return latest;

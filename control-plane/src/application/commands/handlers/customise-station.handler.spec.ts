@@ -1,6 +1,7 @@
 import { CustomiseStationCommand } from '@application/commands/customise-station.command';
 import { CustomiseStationHandler } from '@application/commands/handlers/customise-station.handler';
 import { UseCaseFault } from '@application/errors/use-case.fault';
+import type { StandingWorkPort } from '@application/ports/standing-work.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Station } from '@domain/entities/station.entity';
@@ -15,7 +16,6 @@ import { StationDescription } from '@domain/value-objects/station-description.vo
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
-import type { StandingWorkPort } from '@application/ports/standing-work.port';
 import { describe, expect, it, vi } from 'vitest';
 
 const transaction: TransactionPort = { run: (work) => work() };
@@ -109,9 +109,9 @@ describe('CustomiseStationHandler', () => {
   });
 
   it('refuses a line that does not exist', async () => {
-    await expect(customise({ harness: 'dev' }, repository(null))).rejects.toThrow(
-      UseCaseFault,
-    );
+    await expect(
+      customise({ harness: 'dev' }, repository(null)),
+    ).rejects.toThrow(UseCaseFault);
   });
 
   it('answers with the station untouched when the change asks nothing', async () => {

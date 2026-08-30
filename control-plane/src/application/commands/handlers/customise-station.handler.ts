@@ -40,8 +40,7 @@ export class CustomiseStationHandler
     command: CustomiseStationCommand,
   ): Promise<StationDto> {
     const stationId = StationId.of(command.stationId);
-    const { name, color, description, harness, agentPrompt } =
-      command.changes;
+    const { name, color, description, harness, agentPrompt } = command.changes;
 
     return await this.transaction.run(async () => {
       const found = await this.lines.find(AssemblyLineId.of(command.lineId));
@@ -76,13 +75,13 @@ export class CustomiseStationHandler
 
       await this.lines.save(line);
 
-      const station = line.stations.find((each) => each.id.equals(stationId));
+      const station = line.stationAt(stationId);
 
       if (!station) {
         throw new UnknownStationError(command.stationId);
       }
 
-      await this.work.takeUp({ station, stations: line.stations });
+      await this.work.takeUp({ line, stationId: station.id });
 
       return AssemblyLineMapper.stationToDto(station);
     });

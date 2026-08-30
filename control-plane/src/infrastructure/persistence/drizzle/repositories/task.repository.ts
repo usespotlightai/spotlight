@@ -1,5 +1,8 @@
 import { Task } from '@domain/aggregates/task.aggregate';
-import type { TaskRepository } from '@domain/repositories/task.repository';
+import type {
+  TaskPlacement,
+  TaskRepository,
+} from '@domain/repositories/task.repository';
 import { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
@@ -11,6 +14,7 @@ import { TaskNote } from '@domain/value-objects/task-note.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
+import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
 import {
@@ -18,7 +22,7 @@ import {
   taskNote,
 } from '@infrastructure/persistence/drizzle/schemas/task.schema';
 import { Injectable } from '@nestjs/common';
-import { eq, inArray } from 'drizzle-orm';
+import { asc, eq, inArray } from 'drizzle-orm';
 
 type Row = typeof task.$inferSelect;
 type NoteRow = typeof taskNote.$inferSelect;
@@ -28,6 +32,9 @@ const toNote = (row: NoteRow): TaskNote =>
     station: StationName.of(row.station),
     body: TaskNoteBody.of(row.body),
     at: row.at,
+    author: row.authorId ? UserId.of(row.authorId) : null,
+    run: row.runId ? RunId.of(row.runId) : null,
+    kind: row.kind ?? 'passed',
   });
 
 const toTask = (row: Row, notes: NoteRow[]): Task =>
@@ -44,6 +51,9 @@ const toTask = (row: Row, notes: NoteRow[]): Task =>
     runnerId: row.runnerId ? RunnerId.of(row.runnerId) : null,
     notes: notes.map(toNote),
     createdAt: row.createdAt,
+    raisedAt: row.raisedAtStationId
+      ? StationId.of(row.raisedAtStationId)
+      : null,
   });
 
 @Injectable()
@@ -63,6 +73,7 @@ export class DrizzleTaskRepository implements TaskRepository {
       sessionId: added.sessionId?.value ?? null,
       runnerId: added.runnerId?.value ?? null,
       createdAt: added.createdAt,
+      raisedAtStationId: added.raisedAt?.value ?? null,
     });
 
     await this.writeNotes(added);
@@ -84,6 +95,19 @@ export class DrizzleTaskRepository implements TaskRepository {
       .where(eq(task.id, saved.id.value));
 
     await this.writeNotes(saved);
+  }
+
+  async placementsAt(stationId: StationId): Promise<TaskPlacement[]> {
+    const rows = await this.context.db
+      .select({ id: task.id, rank: task.rank })
+      .from(task)
+      .where(eq(task.stationId, stationId.value))
+      .orderBy(asc(task.rank));
+
+    return rows.map((row) => ({
+      id: TaskId.of(row.id),
+      rank: TaskRank.of(row.rank),
+    }));
   }
 
   async find(id: TaskId): Promise<Task | null> {
@@ -151,6 +175,9 @@ export class DrizzleTaskRepository implements TaskRepository {
         station: note.station.value,
         body: note.body.value,
         at: note.at,
+        authorId: note.author?.value ?? null,
+        runId: note.run?.value ?? null,
+        kind: note.kind,
       })),
     );
   }

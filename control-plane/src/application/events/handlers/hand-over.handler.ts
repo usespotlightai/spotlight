@@ -12,7 +12,6 @@ import type { Handover } from '@domain/value-objects/handover.vo';
 import type { RunId } from '@domain/value-objects/run-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import type { TaskId } from '@domain/value-objects/task-id.vo';
-import { TaskNote } from '@domain/value-objects/task-note.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 
 interface Standing {
@@ -49,7 +48,9 @@ export class HandOver implements HandoverPort {
       ? task.workedIn(event.session, event.workedBy)
       : task;
 
-    await this.tasks.save(await this.applied(handover, worked, line));
+    await this.tasks.save(
+      await this.applied(handover, worked, line, event.runId),
+    );
   }
 
   async onRunAbandoned(event: RunAbandoned): Promise<void> {
@@ -63,6 +64,7 @@ export class HandOver implements HandoverPort {
         HandoverFor.exhausted(event.attempt),
         standing.task,
         standing.line,
+        event.runId,
       ),
     );
   }
@@ -88,38 +90,34 @@ export class HandOver implements HandoverPort {
     handover: Handover,
     task: Task,
     line: AssemblyLine | null,
+    run: RunId,
   ): Promise<Task> {
-    const standing = line?.stations.find((each) =>
-      each.id.equals(task.stationId),
-    );
+    const standing = line?.stationAt(task.stationId);
 
-    const note = TaskNote.of({
+    const saying = {
       station: standing?.name ?? StationName.of('Unknown'),
       body: handover.body,
       at: this.clock.now(),
-    });
+      run,
+    };
 
     if (handover.kind === 'review' || !handover.stationId || !line) {
-      return task.askedAbout(note);
+      return task.askedAbout(saying);
     }
 
     const arriving = handover.stationId;
-    const behind = await this.tasks.standingAt(arriving);
+    const behind = await this.tasks.placementsAt(arriving);
     const last = behind[behind.length - 1] ?? null;
 
     const passed = task.passedTo(
       arriving,
       TaskRank.between(last ? last.rank : null, null),
-      note,
+      saying,
     );
 
-    const station = line.stations.find((each) => each.id.equals(arriving));
+    const station = line.stationAt(arriving);
     const runId = station
-      ? await this.dispatch.dispatch({
-          task: passed,
-          station,
-          stations: line.stations,
-        })
+      ? await this.dispatch.dispatch({ task: passed, line })
       : null;
 
     return runId ? passed.handedTo(runId) : passed;

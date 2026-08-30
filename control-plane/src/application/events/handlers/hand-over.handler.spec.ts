@@ -3,18 +3,19 @@ import type { ClockPort } from '@application/ports/clock.port';
 import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Run, type Said } from '@domain/aggregates/run.aggregate';
-import type { RunAbandoned } from '@domain/events/run-abandoned.event';
-import { RunCompleted } from '@domain/events/run-completed.event';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { Station } from '@domain/entities/station.entity';
+import type { RunAbandoned } from '@domain/events/run-abandoned.event';
+import { RunCompleted } from '@domain/events/run-completed.event';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
+import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
-import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
@@ -22,7 +23,6 @@ import { TaskId } from '@domain/value-objects/task-id.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
-import { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-08-28T12:00:00.000Z');
@@ -49,7 +49,8 @@ const line = () =>
     ],
   });
 
-const task = () =>
+// Held by a run from the start: a task cannot be handed to a second one.
+const task = (held = 'run_1') =>
   Task.add({
     workspaceId: WorkspaceId.of('ws_1'),
     stationId: StationId.of('station_1'),
@@ -57,7 +58,7 @@ const task = () =>
     rank: TaskRank.of('i'),
     now: NOW,
     newId: () => 'task_1',
-  }).handedTo(RunId.of('run_1'));
+  }).handedTo(RunId.of(held));
 
 // Long enough after NOW that a lease has lapsed.
 const LATER = new Date(NOW.getTime() + 120_000);
@@ -101,6 +102,7 @@ const tasks = (found: Task | null = task()) =>
     find: vi.fn(async () => found),
     remove: vi.fn(),
     standingAt: vi.fn(async () => []),
+    placementsAt: vi.fn(async () => []),
   }) satisfies TaskRepository;
 
 const lines = () =>
@@ -157,7 +159,7 @@ describe('HandOver', () => {
   });
 
   it('leaves a task alone once another run has taken it', async () => {
-    await handOver(run(false), tasks(task().handedTo(RunId.of('run_9'))));
+    await handOver(run(false), tasks(task('run_9')));
 
     expect(saved).toBeUndefined();
   });

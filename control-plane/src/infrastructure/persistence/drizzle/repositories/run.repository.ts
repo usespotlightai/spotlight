@@ -76,6 +76,8 @@ export class DrizzleRunRepository implements RunRepository {
         WHERE ${inArray(run.harness, named)}
           AND state = 'queued'
           AND (target_runner_id IS NULL OR target_runner_id = ${by.value})
+        -- The order RunQueue.before states: priority first, longest wait
+        -- among equals. Said in SQL because the claim must be one statement.
         ORDER BY priority DESC, created_at
         FOR UPDATE SKIP LOCKED
         LIMIT 1

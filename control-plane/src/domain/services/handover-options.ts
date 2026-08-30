@@ -1,6 +1,6 @@
 import type { Station } from '@domain/entities/station.entity';
-import type { StationId } from '@domain/value-objects/station-id.vo';
 import { REVIEW } from '@domain/value-objects/declaration.vo';
+import type { StationId } from '@domain/value-objects/station-id.vo';
 
 /**
  * Any station but its own, or a person. The runner is handed the same list, so

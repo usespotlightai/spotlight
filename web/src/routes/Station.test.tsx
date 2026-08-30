@@ -180,9 +180,7 @@ describe('Station', () => {
       screen.getByRole('menuitemradio', { name: 'Other Harness' }),
     );
 
-    expect(screen.getByLabelText('Harness')).toHaveTextContent(
-      'Other Harness',
-    );
+    expect(screen.getByLabelText('Harness')).toHaveTextContent('Other Harness');
   });
 
   it('keeps each station’s edits to itself', async () => {

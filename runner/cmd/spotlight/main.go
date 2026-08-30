@@ -74,7 +74,12 @@ func handover(args []string, in io.Reader, out io.Writer) error {
 		return err
 	}
 
-	fmt.Fprintf(out, "Handed over to %s.\n", said)
+	// "Handed over to review" reads as a station on a line that has one.
+	if strings.EqualFold(said, declare.Review) {
+		fmt.Fprintln(out, "Put to a person. The task waits here until someone answers.")
+	} else {
+		fmt.Fprintf(out, "Handed over to %s.\n", said)
+	}
 
 	return nil
 }

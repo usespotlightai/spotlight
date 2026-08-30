@@ -1,14 +1,9 @@
-import type { Station } from '@domain/entities/station.entity';
+import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import type { StationId } from '@domain/value-objects/station-id.vo';
 
 export const STANDING_WORK = Symbol('STANDING_WORK');
 
-/**
- * A task standing at a station that can work it should be running. Every way a
- * task or a station changes ends here, so the rule is stated once.
- */
+/** A task standing at a station that can work it should be running. */
 export interface StandingWorkPort {
-  takeUp(input: {
-    station: Station;
-    stations: readonly Station[];
-  }): Promise<void>;
+  takeUp(input: { line: AssemblyLine; stationId: StationId }): Promise<void>;
 }

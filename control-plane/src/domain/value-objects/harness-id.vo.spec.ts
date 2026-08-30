@@ -12,9 +12,9 @@ describe('HarnessId', () => {
   });
 
   it('is the same harness as one named the same way', () => {
-    expect(HarnessId.of('claude-code').equals(HarnessId.of('claude-code'))).toBe(
-      true,
-    );
+    expect(
+      HarnessId.of('claude-code').equals(HarnessId.of('claude-code')),
+    ).toBe(true);
     expect(HarnessId.of('claude-code').equals(HarnessId.of('other'))).toBe(
       false,
     );

@@ -2,6 +2,7 @@ import { Station } from '@domain/entities/station.entity';
 import type { Template } from '@domain/entities/template.entity';
 import { InvalidStationOrderError } from '@domain/exceptions/invalid-station-order.error';
 import { UnknownStationError } from '@domain/exceptions/unknown-station.error';
+import { handoverOptions } from '@domain/services/handover-options';
 import type { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
@@ -163,6 +164,25 @@ export class AssemblyLine {
         `must sit at positions 0 to ${stations.length - 1}, but sit at ${positions.join(', ')}`,
       );
     }
+  }
+
+  /**
+   * The station standing at this id, asked of the line rather than found in
+   * it: a station is the line's to give out, and the line is what knows
+   * whether it has one.
+   */
+  stationAt(stationId: StationId): Station | null {
+    return this.stations.find((each) => each.id.equals(stationId)) ?? null;
+  }
+
+  /** True where this line is the one holding that station. */
+  holds(stationId: StationId): boolean {
+    return this.stationAt(stationId) !== null;
+  }
+
+  /** Where a task standing here may be handed on to, or a person. */
+  optionsFrom(stationId: StationId): string[] {
+    return handoverOptions(this.stations, stationId);
   }
 
   equals(other: AssemblyLine): boolean {

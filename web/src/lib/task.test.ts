@@ -7,6 +7,9 @@ const task = (id: string, stationId: string): Task => ({
   title: id,
   description: null,
   createdAt: '2026-08-04T09:15:00.000Z',
+  running: false,
+  awaitingReview: false,
+  note: null,
 });
 
 const board = [task('a', 'triage'), task('b', 'triage'), task('c', 'spec')];

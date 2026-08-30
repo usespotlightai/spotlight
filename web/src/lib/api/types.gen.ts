@@ -101,6 +101,13 @@ export type InstallableHarnessResponseDto = {
   executable: string;
 };
 
+export type KeptWorkspacesResponseDto = {
+  /**
+   * The workspace directories this runner should still be holding. Anything else under its workspace root has nothing left to resume and may be disposed of.
+   */
+  keys: Array<Array<string>>;
+};
+
 export type RegisterRunnerRequestDto = {
   /**
    * What the runner advertises. The control plane grants work.
@@ -165,6 +172,10 @@ export type CompleteRunRequestDto = {
   failed: boolean;
   message?: string;
   outcome?: DeclaredOutcomeDto;
+  /**
+   * What the harness called this conversation. Reported rather than remembered by the runner, because the next run may fall to another one.
+   */
+  sessionId?: string;
 };
 
 export type HarnessResponseDto = {
@@ -172,21 +183,123 @@ export type HarnessResponseDto = {
   name: string;
 };
 
-export type TaskNoteResponseDto = {
-  position: number;
+export type InboxRaisedAtResponseDto = {
   station: string;
+  stationColor: string;
+  stationPosition: number;
+};
+
+export type InboxAuthorResponseDto = {
+  id: string;
+  name: string;
+  image: string | null;
+};
+
+export type InboxMessageResponseDto = {
+  position: number;
+  kind: 'asked' | 'passed' | 'answered';
+  station: string;
+  stationColor: string;
+  /**
+   * Its place in the line, from zero
+   */
+  stationPosition: number;
+  /**
+   * The run that wrote it, whose journal it came from
+   */
+  runId: string | null;
   body: string;
+  at: string;
+  /**
+   * Absent where the station said it rather than a person
+   */
+  author: InboxAuthorResponseDto | null;
 };
 
 export type InboxItemResponseDto = {
+  /**
+   * One stretch a person was asked to own
+   */
+  id: string;
   taskId: string;
   teamId: string;
   title: string;
   description: string | null;
   station: string;
   stationColor: string;
+  /**
+   * Its place in the line, from zero
+   */
+  stationPosition: number;
+  /**
+   * How many stations the line holds
+   */
+  stationCount: number;
+  raisedAt: InboxRaisedAtResponseDto;
+  createdAt: string;
   askedAt: string;
-  notes: Array<TaskNoteResponseDto>;
+  /**
+   * True once it has moved on, and is no longer yours to answer
+   */
+  resolved: boolean;
+  /**
+   * True while a run is working it, so an answer is coming
+   */
+  working: boolean;
+  notes: Array<InboxMessageResponseDto>;
+};
+
+export type AnswerInboxItemRequestDto = {
+  /**
+   * What the person says back. It joins the task’s trail.
+   */
+  body: string;
+};
+
+export type JournalStepResponseDto = {
+  kind: 'said' | 'thought' | 'tool';
+  text: string;
+  status: string | null;
+  /**
+   * What sort of tool it was: execute, read, edit, …
+   */
+  tool: string | null;
+  /**
+   * What the tool answered with, as much of it as is worth reading
+   */
+  detail: string | null;
+  /**
+   * How long it took, in ms
+   */
+  ms: number;
+};
+
+export type RunSpentResponseDto = {
+  /**
+   * Tokens held in context
+   */
+  used: number;
+  /**
+   * How large the context is
+   */
+  size: number;
+  cost?: number | null;
+  currency?: string | null;
+};
+
+export type RunJournalResponseDto = {
+  runId: string;
+  attempt: number;
+  steps: Array<JournalStepResponseDto>;
+  /**
+   * How long the run spoke for, in ms
+   */
+  ms?: number | null;
+  spent?: RunSpentResponseDto | null;
+  /**
+   * False for a run from before the agents spoke a protocol
+   */
+  readable: boolean;
 };
 
 export type ActiveRunResponseDto = {
@@ -231,6 +344,12 @@ export type EnrolledRunnerResponseDto = {
    * Shown once. Nothing can recover it after this response.
    */
   token: string;
+};
+
+export type TaskNoteResponseDto = {
+  position: number;
+  station: string;
+  body: string;
 };
 
 export type TaskResponseDto = {
@@ -516,6 +635,26 @@ export type InstallableHarnessesResponses = {
 
 export type InstallableHarnessesResponse = InstallableHarnessesResponses[keyof InstallableHarnessesResponses];
 
+export type KeptWorkspacesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/runners/workspaces';
+};
+
+export type KeptWorkspacesErrors = {
+  /**
+   * Missing or wrong enrollment token
+   */
+  401: unknown;
+};
+
+export type KeptWorkspacesResponses = {
+  200: KeptWorkspacesResponseDto;
+};
+
+export type KeptWorkspacesResponse = KeptWorkspacesResponses[keyof KeptWorkspacesResponses];
+
 export type RegisterRunnerData = {
   body: RegisterRunnerRequestDto;
   path?: never;
@@ -671,6 +810,59 @@ export type ListInboxResponses = {
 };
 
 export type ListInboxResponse = ListInboxResponses[keyof ListInboxResponses];
+
+export type AnswerInboxItemData = {
+  body: AnswerInboxItemRequestDto;
+  path: {
+    taskId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/{taskId}/answer';
+};
+
+export type AnswerInboxItemErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+};
+
+export type AnswerInboxItemResponses = {
+  /**
+   * The answer was recorded
+   */
+  204: void;
+};
+
+export type AnswerInboxItemResponse = AnswerInboxItemResponses[keyof AnswerInboxItemResponses];
+
+export type ReadTaskJournalData = {
+  body?: never;
+  path: {
+    taskId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/{taskId}/journal';
+};
+
+export type ReadTaskJournalErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+};
+
+export type ReadTaskJournalResponses = {
+  200: Array<RunJournalResponseDto>;
+};
+
+export type ReadTaskJournalResponse = ReadTaskJournalResponses[keyof ReadTaskJournalResponses];
 
 export type ListRunnersData = {
   body?: never;

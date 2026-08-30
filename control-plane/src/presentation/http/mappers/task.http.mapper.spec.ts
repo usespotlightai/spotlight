@@ -10,7 +10,11 @@ const dto: TaskDto = {
   createdAt: '2026-08-28T09:15:00.000Z',
   running: true,
   awaitingReview: false,
-  note: { position: 0, station: 'Implementation', body: 'Given up on after 3 attempts.' },
+  note: {
+    position: 0,
+    station: 'Implementation',
+    body: 'Given up on after 3 attempts.',
+  },
 };
 
 describe('TaskHttpMapper', () => {
@@ -21,8 +25,10 @@ describe('TaskHttpMapper', () => {
 
     expect(Object.keys(response).sort()).toEqual(Object.keys(dto).sort());
     for (const key of Object.keys(dto) as (keyof TaskDto)[]) {
-      expect(response[key], `${key} was dropped crossing to the response`).not.
-        toBeUndefined();
+      expect(
+        response[key],
+        `${key} was dropped crossing to the response`,
+      ).not.toBeUndefined();
     }
   });
 

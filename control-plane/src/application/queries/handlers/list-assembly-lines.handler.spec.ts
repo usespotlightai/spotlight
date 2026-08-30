@@ -41,7 +41,13 @@ describe('ListAssemblyLinesHandler', () => {
         name: 'Default',
         stations: [
           { id: 'station_1', name: 'Triage', position: 0, ...bare },
-          { id: 'station_2', name: 'Spec', position: 1, ...bare, harness: 'dev' },
+          {
+            id: 'station_2',
+            name: 'Spec',
+            position: 1,
+            ...bare,
+            harness: 'dev',
+          },
         ],
       },
     ]);

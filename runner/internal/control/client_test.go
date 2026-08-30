@@ -153,7 +153,7 @@ func TestKeptAnswersWithWhatToHoldOnTo(t *testing.T) {
 		t.Fatalf("kept: %v", err)
 	}
 
-	if asked != "/api/runners/workspaces" {
+	if asked != "/api/runners/workspaces/retain" {
 		t.Errorf("asked %q", asked)
 	}
 	if len(keys) != 1 || keys[0] != "task_1-station_2" {
