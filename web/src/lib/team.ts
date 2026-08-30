@@ -1,4 +1,4 @@
-import { Gauge, Play, Settings } from 'lucide-react';
+import { Binoculars, Play, Settings } from 'lucide-react';
 import type { ComponentType } from 'react';
 
 export type Team = {
@@ -14,7 +14,7 @@ type TeamSectionDefinition = {
 
 export const TEAM_SECTIONS = [
   { id: 'runs', label: 'Runs', icon: Play },
-  { id: 'monitoring', label: 'Monitoring', icon: Gauge },
+  { id: 'observability', label: 'Observability', icon: Binoculars },
   { id: 'settings', label: 'Settings', icon: Settings },
 ] as const satisfies readonly TeamSectionDefinition[];
 
