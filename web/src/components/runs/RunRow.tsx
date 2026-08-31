@@ -41,12 +41,6 @@ export function RunRow({ run, to, taskTitle, reviewTo, inTrail }: RunRowProps) {
         </span>
       )}
 
-      {run.attempt > 1 && (
-        <span className="shrink-0 text-muted-foreground text-xs">
-          attempt {run.attempt}
-        </span>
-      )}
-
       <span className="ml-auto flex shrink-0 items-center gap-2">
         {run.review && !inTrail && (
           <Link to={reviewTo ?? ''} className="relative z-10 outline-none">
@@ -59,7 +53,9 @@ export function RunRow({ run, to, taskTitle, reviewTo, inTrail }: RunRowProps) {
           </Link>
         )}
 
-        <span className="text-muted-foreground text-xs">{standing(run)}</span>
+        {standing(run) && (
+          <span className="text-muted-foreground text-xs">{standing(run)}</span>
+        )}
 
         <span className="text-muted-foreground text-xs tabular-nums">
           {since(run.startedAt)}

@@ -1,4 +1,4 @@
-import { Inbox } from 'lucide-react';
+import { CircleDashed, Inbox } from 'lucide-react';
 import { Link } from 'react-router';
 import { Pill } from '@/components/common/Pill';
 import type { Task } from '@/lib/task';
@@ -27,14 +27,7 @@ export function TaskState({ task, reviewTo }: TaskStateProps) {
 
   if (task.running) {
     return (
-      <Pill
-        lead={
-          <span
-            className="size-2 shrink-0 rounded-full bg-primary"
-            aria-hidden
-          />
-        }
-      >
+      <Pill lead={<CircleDashed className="size-3.5 shrink-0" aria-hidden />}>
         In progress
       </Pill>
     );

@@ -18,8 +18,8 @@ import { ApiExcludeEndpoint, ApiTags } from '@nestjs/swagger';
 import { AllowAnonymous } from '@presentation/http/decorators/allow-anonymous.decorator';
 import { GitHubWebhookGuard } from '@presentation/http/guards/github-webhook.guard';
 
-@ApiTags('github')
-@Controller('github')
+@ApiTags('webhooks')
+@Controller('webhooks')
 export class GitHubWebhookController {
   constructor(
     private readonly commandBus: CommandBus,
@@ -27,7 +27,7 @@ export class GitHubWebhookController {
     private readonly events: RepositoryEventsPort,
   ) {}
 
-  @Post('webhook')
+  @Post('github')
   @AllowAnonymous()
   @UseGuards(GitHubWebhookGuard)
   @ApiExcludeEndpoint()

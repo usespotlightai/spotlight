@@ -68,6 +68,19 @@ services:
       - ./.docker/traefik/dynamic:/etc/traefik/dynamic:ro
       - ./.docker/traefik/certs:/etc/traefik/certs:ro
 
+  # Publishes app-dev.usespotlight.ai/api/webhooks so GitHub can reach a
+  # control plane that is otherwise only on this machine.
+  tunnel:
+    build:
+      context: .
+      dockerfile: .docker/tunnel/Dockerfile
+    restart: unless-stopped
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      control-plane:
+        condition: service_healthy
+
   migrate:
     build:
       context: .

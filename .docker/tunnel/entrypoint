@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+
+if [ -z "$TUNNEL_TOKEN" ]; then
+  echo "CLOUDFLARE_TUNNEL_TOKEN is unset, so GitHub cannot reach this machine."
+  echo "Webhooks are off until it is set. See .env.example."
+  exec sleep infinity
+fi
+
+exec cloudflared tunnel --no-autoupdate run

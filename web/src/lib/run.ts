@@ -15,9 +15,6 @@ export const working = (run: Run): boolean =>
 
 /** Finishing is the ordinary case and says nothing. */
 export const standing = (run: Run): string | null => {
-  if (run.state === 'completed') {
-    return run.exitCode === 0 ? null : `Failed (${run.exitCode})`;
-  }
   if (run.state === 'claimed') {
     return 'Running';
   }
@@ -25,7 +22,7 @@ export const standing = (run: Run): string | null => {
     return 'Queued';
   }
 
-  return run.state.charAt(0).toUpperCase() + run.state.slice(1);
+  return null;
 };
 
 export const runPath = (slug: string, teamId: string, runId: string): string =>

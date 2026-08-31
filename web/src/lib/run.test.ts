@@ -103,8 +103,13 @@ describe('standing', () => {
     expect(standing(run('claimed'))).toBe('Running');
   });
 
-  it('says how a completed run ended, where it did not simply finish', () => {
+  it('reads a queued run as queued', () => {
+    expect(standing(run('queued'))).toBe('Queued');
+  });
+
+  it('says nothing of a run that has ended, however it ended', () => {
     expect(standing(run('completed', 0))).toBeNull();
-    expect(standing(run('completed', 1))).toBe('Failed (1)');
+    expect(standing(run('completed', 1))).toBeNull();
+    expect(standing(run('failed', -1))).toBeNull();
   });
 });
