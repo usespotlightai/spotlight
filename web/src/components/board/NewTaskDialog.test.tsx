@@ -36,9 +36,29 @@ const renderDialog = () =>
 const title = () => screen.getByRole('textbox', { name: 'Task title' });
 const create = () => screen.getByRole('button', { name: 'Create task' });
 
-beforeEach(() => created.mockClear());
+beforeEach(() => {
+  localStorage.clear();
+  created.mockClear();
+});
 
 describe('NewTaskDialog', () => {
+  it('starts on the repository the last task was raised against', () => {
+    localStorage.setItem('spotlight.last-repository', 'acme/widgets');
+    renderDialog();
+
+    expect(screen.getByLabelText('Repository')).toHaveTextContent(
+      'acme/widgets',
+    );
+  });
+
+  it('starts on none where nothing has been raised yet', () => {
+    renderDialog();
+
+    expect(screen.getByLabelText('Repository')).toHaveTextContent(
+      'No repository',
+    );
+  });
+
   it('says which line and station the task is going to', () => {
     renderDialog();
 

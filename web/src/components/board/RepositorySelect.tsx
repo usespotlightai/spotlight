@@ -16,7 +16,6 @@ type RepositorySelectProps = {
   onChange: (repository: string) => void;
 };
 
-/** A task with no repository is worked in an empty workspace. */
 export function RepositorySelect({ value, onChange }: RepositorySelectProps) {
   const { data: repositories } = useRepositories();
 

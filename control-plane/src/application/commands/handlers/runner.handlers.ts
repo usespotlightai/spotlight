@@ -205,7 +205,7 @@ export class ClaimRunHandler
         if (claimed) {
           return {
             id: claimed.id.value,
-            spec: claimed.spec,
+            spec: claimed.spec.value,
             leaseExpiresAt: (
               claimed.leaseExpiresAt ?? this.clock.now()
             ).toISOString(),

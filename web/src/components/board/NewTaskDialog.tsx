@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
+import { useLastRepository } from '@/hooks/useLastRepository';
 import type { NewTask } from '@/lib/task';
 
 type NewTaskDialogProps = {
@@ -31,14 +32,15 @@ export function NewTaskDialog({
 }: NewTaskDialogProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [repository, setRepository] = useState('');
+  const [lastRepository, rememberRepository] = useLastRepository();
+  const [repository, setRepository] = useState(lastRepository);
   const [more, setMore] = useState(false);
   const [round, setRound] = useState(0);
 
   const forget = () => {
     setTitle('');
     setDescription('');
-    setRepository('');
+    setRepository(lastRepository);
     setRound((each) => each + 1);
   };
 
@@ -47,6 +49,8 @@ export function NewTaskDialog({
     if (!title.trim()) {
       return;
     }
+
+    rememberRepository(repository);
 
     onCreate({
       title: title.trim(),
