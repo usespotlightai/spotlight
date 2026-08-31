@@ -1,22 +1,36 @@
-import { Template } from '@domain/entities/template.entity';
+import type { StationKind } from '@domain/entities/station.entity';
 import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
+import type { Happening } from '@domain/value-objects/happening.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
-import { TemplateId } from '@domain/value-objects/template-id.vo';
-import { TemplateName } from '@domain/value-objects/template-name.vo';
 
-type Opening = [name: string, color: string, prompt: string | null];
+export interface StationOpening {
+  readonly name: StationName;
+  readonly color: StationColor;
+  readonly kind: StationKind;
+  readonly agentPrompt: AgentPrompt | null;
+  readonly passesTo: readonly string[];
+  readonly reactsTo: readonly Happening[];
+  readonly ends: boolean;
+}
 
-const template = (id: string, name: string, stations: Opening[]): Template =>
-  Template.of({
-    id: TemplateId.of(id),
-    name: TemplateName.of(name),
-    stations: stations.map(([each, color, prompt]) => ({
-      name: StationName.of(each),
-      color: StationColor.of(color),
-      agentPrompt: prompt ? AgentPrompt.of(prompt) : null,
-    })),
-  });
+const opening = (input: {
+  name: string;
+  color: string;
+  prompt?: string;
+  kind?: StationKind;
+  passesTo?: readonly string[];
+  reactsTo?: readonly Happening[];
+  ends?: boolean;
+}): StationOpening => ({
+  name: StationName.of(input.name),
+  color: StationColor.of(input.color),
+  kind: input.kind ?? 'work',
+  agentPrompt: input.prompt ? AgentPrompt.of(input.prompt) : null,
+  passesTo: input.passesTo ?? [],
+  reactsTo: input.reactsTo ?? [],
+  ends: input.ends ?? false,
+});
 
 const TRIAGE = `## Triage
 
@@ -96,11 +110,45 @@ GitHub yourself, and do not need to.
 With the pull request open, the task is finished: hand on to \`done\` rather
 than to a person, so nothing is left waiting on an answer nobody owes.`;
 
-export const DEFAULT_TEMPLATE = template('default', 'Default', [
-  ['Triage', '#93a1b5', TRIAGE],
-  ['Spec', '#5c66d9', SPEC],
-  ['Implementation', '#edc12b', IMPLEMENTATION],
-  ['Code Review', '#56b98d', CODE_REVIEW],
-]);
-
-export const BUILT_IN_TEMPLATES: readonly Template[] = [DEFAULT_TEMPLATE];
+/** What a line is made of. Stations are not added or taken away. */
+export const BUILT_IN_STATIONS: readonly StationOpening[] = [
+  opening({
+    name: 'Backlog',
+    color: '#a3a8b0',
+    kind: 'backlog',
+    passesTo: ['Triage'],
+  }),
+  opening({
+    name: 'Triage',
+    color: '#93a1b5',
+    prompt: TRIAGE,
+    passesTo: ['Spec', 'Implementation'],
+  }),
+  opening({
+    name: 'Spec',
+    color: '#5c66d9',
+    prompt: SPEC,
+    passesTo: ['Implementation'],
+  }),
+  opening({
+    name: 'Implementation',
+    color: '#edc12b',
+    prompt: IMPLEMENTATION,
+    passesTo: ['Code Review'],
+    reactsTo: ['checks-failed'],
+  }),
+  opening({
+    name: 'Code Review',
+    color: '#56b98d',
+    prompt: CODE_REVIEW,
+    passesTo: ['Implementation'],
+    ends: true,
+    reactsTo: ['commented', 'changes-requested'],
+  }),
+  opening({
+    name: 'Completed',
+    color: '#a3a8b0',
+    kind: 'completed',
+    reactsTo: ['merged'],
+  }),
+];

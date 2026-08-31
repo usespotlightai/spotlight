@@ -1,8 +1,8 @@
-import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import {
   RunSpecContract,
   type RunSpecShape,
-} from '@application/ports/run-spec.contract';
+} from '@application/contracts/run-spec.contract';
+import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import { DispatchTask } from '@application/services/dispatch-task.service';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Run } from '@domain/aggregates/run.aggregate';
@@ -26,6 +26,7 @@ import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
+import { WayOut } from '@domain/value-objects/way-out.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -45,20 +46,27 @@ const harnesses: HarnessRepository = {
   named: (id: HarnessId) => (id.equals(DEV.id) ? DEV : null),
 };
 
-const at = (id: string, name: string, position: number, harness?: HarnessId) =>
+const at = (
+  id: string,
+  name: string,
+  position: number,
+  harness?: HarnessId,
+  passesTo: string[] = [],
+) =>
   Station.create({
     id: StationId.of(id),
     name: StationName.of(name),
     position,
     color: StationColor.of('#a3a8b0'),
     harness,
+    wayOut: WayOut.of({ stations: passesTo.map(StationId.of) }),
     kind:
       position === 0 ? 'backlog' : name === 'Completed' ? 'completed' : 'work',
   });
 
 const stations = [
   at('station_1', 'Backlog', 0),
-  at('station_2', 'Triage', 1, DEV.id),
+  at('station_2', 'Triage', 1, DEV.id, ['station_3']),
   at('station_3', 'Spec', 2, DEV.id),
   at('station_4', 'Completed', 3),
 ];
@@ -167,7 +175,7 @@ describe('DispatchTask', () => {
     await dispatch(stations[1] as Station);
 
     expect(written(queued[0])).toMatchObject({
-      handover: { options: ['Spec', 'review', 'done'] },
+      handover: { options: ['Spec', 'review'] },
     });
   });
 

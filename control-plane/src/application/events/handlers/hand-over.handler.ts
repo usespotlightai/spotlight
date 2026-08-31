@@ -1,6 +1,6 @@
 import type { ClockPort } from '@application/ports/clock.port';
-import type { HandoverPort } from '@application/ports/handover.port';
-import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
+import type { RunOutcomes } from '@application/services/run-outcomes';
+import type { TaskDispatching } from '@application/services/task-dispatch';
 import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Task } from '@domain/aggregates/task.aggregate';
 import type { RunAbandoned } from '@domain/events/run-abandoned.event';
@@ -19,11 +19,11 @@ interface Standing {
   readonly line: AssemblyLine | null;
 }
 
-export class HandOver implements HandoverPort {
+export class HandOver implements RunOutcomes {
   constructor(
     private readonly tasks: TaskRepository,
     private readonly lines: AssemblyLineRepository,
-    private readonly dispatch: TaskDispatchPort,
+    private readonly dispatch: TaskDispatching,
     private readonly clock: ClockPort,
   ) {}
 
@@ -109,17 +109,19 @@ export class HandOver implements HandoverPort {
       return task.askedAbout(saying);
     }
 
-    const arriving = handover.stationId;
-    const passed = task.passedTo(
+    const arriving = line.stationAt(handover.stationId);
+
+    if (!arriving) {
+      return task.askedAbout(saying);
+    }
+
+    const passed = task.moveTo(
       arriving,
-      Placement.atTheBack(await this.tasks.placementsAt(arriving)),
+      Placement.atTheBack(await this.tasks.placementsAt(arriving.id)),
       saying,
     );
 
-    const station = line.stationAt(arriving);
-    const runId = station
-      ? await this.dispatch.dispatch({ task: passed, line })
-      : null;
+    const runId = await this.dispatch.dispatch({ task: passed, line });
 
     return runId ? passed.handedTo(runId) : passed;
   }

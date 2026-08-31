@@ -52,6 +52,15 @@ const added = (description?: TaskDescription) =>
 
 const NOW = new Date('2026-08-29T12:00:00.000Z');
 
+const at = (id: string, name = 'Spec', kind: 'work' | 'completed' = 'work') =>
+  Station.create({
+    id: StationId.of(id),
+    name: StationName.of(name),
+    position: kind === 'completed' ? 9 : 2,
+    color: StationColor.of('#a3a8b0'),
+    kind,
+  });
+
 const saying = {
   station: StationName.of('Triage'),
   body: TaskNoteBody.of('Reproduced on restart.'),
@@ -82,18 +91,14 @@ describe('Task', () => {
   });
 
   it('stands at the station it was moved to', () => {
-    const moved = added().moveTo(
-      StationId.of('station_2'),
-      TaskRank.of('m'),
-      saying,
-    );
+    const moved = added().moveTo(at('station_2'), TaskRank.of('m'), saying);
 
     expect(moved.stationId).toEqual(StationId.of('station_2'));
   });
 
   it('keeps everything else across a move', () => {
     const moved = added(TaskDescription.of('## Steps')).moveTo(
-      StationId.of('station_2'),
+      at('station_2'),
       TaskRank.of('m'),
       saying,
     );
@@ -105,7 +110,7 @@ describe('Task', () => {
 
   it('leaves the task it was moved from where it stood', () => {
     const task = added();
-    task.moveTo(StationId.of('station_2'), TaskRank.of('m'), saying);
+    task.moveTo(at('station_2'), TaskRank.of('m'), saying);
 
     expect(task.stationId).toEqual(StationId.of('station_1'));
   });
@@ -167,7 +172,7 @@ describe('Task', () => {
         at: new Date('2026-08-28T10:00:00.000Z'),
         kind: 'passed',
       }),
-    ).moveTo(StationId.of('station_2'), TaskRank.of('m'), saying);
+    ).moveTo(at('station_2'), TaskRank.of('m'), saying);
 
     expect(worked.notes).toHaveLength(2);
     expect(worked.notes[0]?.body.value).toBe('Reproduced.');
@@ -251,7 +256,7 @@ describe('Task, what it is doing', () => {
     it('is left behind when the task is passed on', () => {
       const passed = added()
         .workedIn(session, runner)
-        .passedTo(StationId.of('station_2'), TaskRank.of('m'), saying);
+        .moveTo(at('station_2'), TaskRank.of('m'), saying);
 
       expect(passed.sessionId).toBeNull();
       expect(passed.runnerId).toBeNull();
@@ -260,7 +265,7 @@ describe('Task, what it is doing', () => {
     it('is left behind when the task is moved by hand', () => {
       const moved = added()
         .workedIn(session, runner)
-        .moveTo(StationId.of('station_2'), TaskRank.of('m'), saying);
+        .moveTo(at('station_2'), TaskRank.of('m'), saying);
 
       expect(moved.sessionId).toBeNull();
       expect(moved.runnerId).toBeNull();
@@ -322,7 +327,7 @@ describe('Task, what it is doing', () => {
     it('stops waiting once the task is moved by hand', () => {
       const moved = added()
         .askedAbout(saying)
-        .moveTo(StationId.of('station_2'), TaskRank.of('m'), saying);
+        .moveTo(at('station_2'), TaskRank.of('m'), saying);
 
       expect(moved.awaitingReview).toBe(false);
     });
@@ -353,7 +358,7 @@ describe('Task, what it is doing', () => {
     it('owes nothing once it has moved on', () => {
       const passed = added()
         .askedAbout(saying)
-        .passedTo(StationId.of('station_2'), TaskRank.of('m'), saying);
+        .moveTo(at('station_2'), TaskRank.of('m'), saying);
 
       expect(passed.openConversation).toBeNull();
     });
@@ -463,11 +468,7 @@ describe('Task, what it is doing', () => {
     });
 
     it('will not be said to a station the task has left', () => {
-      const moved = added().passedTo(
-        StationId.of('station_2'),
-        TaskRank.of('m'),
-        saying,
-      );
+      const moved = added().moveTo(at('station_2'), TaskRank.of('m'), saying);
 
       expect(() => moved.told(here, saying)).toThrow(
         InvalidTaskTransitionError,
@@ -498,14 +499,14 @@ describe('Task, what it is doing', () => {
     // again, which is a loop rather than progress.
     it('will not be passed to the station it already stands at', () => {
       expect(() =>
-        added().passedTo(StationId.of('station_1'), TaskRank.of('m'), saying),
+        added().moveTo(at('station_1'), TaskRank.of('m'), saying),
       ).toThrow(InvalidTaskTransitionError);
     });
 
     it('will not answer a conversation that has already closed', () => {
       const carried = added()
         .askedAbout(saying)
-        .passedTo(StationId.of('station_2'), TaskRank.of('m'), saying)
+        .moveTo(at('station_2'), TaskRank.of('m'), saying)
         .askedAbout(saying);
 
       expect(() => carried.answered(NotePosition.of(0), saying)).toThrow(
@@ -518,21 +519,19 @@ describe('Task, what it is doing', () => {
 
     it('will not be moved to the station it already stands at', () => {
       expect(() =>
-        added().moveTo(StationId.of('station_1'), TaskRank.of('m'), saying),
+        added().moveTo(at('station_1'), TaskRank.of('m'), saying),
       ).toThrow(InvalidTaskTransitionError);
     });
 
-    it('will not be completed at a station it is worked at', () => {
-      const worked = Station.create({
-        id: StationId.of('station_9'),
-        name: StationName.of('Code Review'),
-        position: 1,
-        color: StationColor.of('#a3a8b0'),
-      });
-
-      expect(() => added().merged(worked, TaskRank.of('m'), saying)).toThrow(
-        InvalidTaskTransitionError,
+    it('closes the task when it is moved to the end of the line', () => {
+      const landed = added().moveTo(
+        at('completed_1', 'Completed', 'completed'),
+        TaskRank.of('m'),
+        saying,
       );
+
+      expect(landed.finished).toBe(true);
+      expect(landed.currentRunId).toBeNull();
     });
   });
 });

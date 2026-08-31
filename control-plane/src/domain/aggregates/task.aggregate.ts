@@ -1,17 +1,9 @@
 import type { Station } from '@domain/entities/station.entity';
 import { InvalidTaskTransitionError } from '@domain/exceptions/invalid-task-transition.error';
 import { ContinuityKey } from '@domain/services/continuity-key';
-import {
-  awaitsAPerson,
-  type Conversation,
-  conversationsOf,
-  notesIn,
-  owedIn,
-  stillOpen,
-  stopsHere,
-} from '@domain/services/conversations';
-import { TaskBranch } from '@domain/services/task-branch';
+import type { Conversation } from '@domain/services/conversations';
 import { anyUnread } from '@domain/services/unread';
+import { Branch } from '@domain/value-objects/branch.vo';
 import { Continuity } from '@domain/value-objects/continuity.vo';
 import type { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { NotePosition } from '@domain/value-objects/note-position.vo';
@@ -30,6 +22,7 @@ import {
 import type { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import type { TaskRank } from '@domain/value-objects/task-rank.vo';
 import type { TaskTitle } from '@domain/value-objects/task-title.vo';
+import { Trail } from '@domain/value-objects/trail.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 
@@ -130,16 +123,20 @@ export class Task {
     );
   }
 
-  /** Moved by hand closes what was asked here, as passing it on would. */
-  moveTo(stationId: StationId, rank: TaskRank, saying: Saying): Task {
-    this.refuseStandingStill(stationId, 'moved to');
+  /** Landing at the end of the line closes the task, not the conversation. */
+  moveTo(into: Station, rank: TaskRank, saying: Saying): Task {
+    this.refuseStandingStill(into.id, 'moved to');
 
     return this.with({
-      stationId,
+      stationId: into.id,
       rank,
+      currentRunId: null,
       sessionId: null,
       runnerId: null,
-      notes: [...this.notes, this.wrote(saying, 'passed')],
+      notes: [
+        ...this.notes,
+        this.wrote(saying, into.isCompleted ? 'closed' : 'passed'),
+      ],
     });
   }
 
@@ -147,8 +144,8 @@ export class Task {
     return this.with({ rank });
   }
 
-  get branch(): string {
-    return TaskBranch.for(this.id.value);
+  get branch(): Branch {
+    return Branch.for(this.id);
   }
 
   /** Opened once: asking again keeps the one already open. */
@@ -162,7 +159,7 @@ export class Task {
 
   /** Read from the trail, so it cannot drift from what was actually said. */
   get awaitingReview(): boolean {
-    return awaitsAPerson(this.notes);
+    return this.trail.awaitsAPerson;
   }
 
   get idle(): boolean {
@@ -170,29 +167,11 @@ export class Task {
   }
 
   get finished(): boolean {
-    return stopsHere(this.notes);
+    return this.trail.stopped;
   }
 
-  /** Idempotent: GitHub delivers a webhook more than once. */
-  merged(into: Station, rank: TaskRank, saying: Saying): Task {
-    if (!into.isCompleted) {
-      throw new InvalidTaskTransitionError(
-        'is only completed where the line ends, not at a station it is worked at',
-      );
-    }
-
-    if (this.stationId.equals(into.id)) {
-      return this;
-    }
-
-    return this.with({
-      stationId: into.id,
-      rank,
-      currentRunId: null,
-      sessionId: null,
-      runnerId: null,
-      notes: [...this.notes, this.wrote(saying, 'closed')],
-    });
+  heard(saying: Saying): Task {
+    return this.with({ notes: [...this.notes, this.wrote(saying, 'heard')] });
   }
 
   /** Closes whatever conversation was open, as passing it on would. */
@@ -230,15 +209,16 @@ export class Task {
   }
 
   /** Their inbox item. */
+  private get trail(): Trail {
+    return Trail.of(this.notes);
+  }
+
   get owedConversation(): Conversation | null {
-    return owedIn(this.notes);
+    return this.trail.owed;
   }
 
   get openConversation(): Conversation | null {
-    const cut = conversationsOf(this.notes.map((each) => each.kind));
-    const last = cut[cut.length - 1];
-
-    return last && stillOpen(last) ? last : null;
+    return this.trail.open;
   }
 
   raisedByThem(userId: UserId): boolean {
@@ -246,22 +226,22 @@ export class Task {
   }
 
   unreadFrom(from: NotePosition): boolean {
-    return anyUnread(this.within(from));
+    return anyUnread(this.conversationAt(from));
   }
 
   /** A conversation is read whole: it is one conversation. */
   read(from: NotePosition, at: Date): Task {
-    const read = new Set(this.within(from));
+    const read = new Set(this.conversationAt(from));
 
     return this.with({
-      notes: this.notes.map((note) => (read.has(note) ? note.read(at) : note)),
+      notes: this.trail.marked((note) =>
+        read.has(note) ? note.read(at) : note,
+      ).notes,
     });
   }
 
-  private within(from: NotePosition): readonly TaskNote[] {
-    const conversation = conversationsOf(
-      this.notes.map((each) => each.kind),
-    ).find((each) => each.from === from.value);
+  private conversationAt(from: NotePosition): readonly TaskNote[] {
+    const conversation = this.trail.within(from);
 
     if (!conversation) {
       throw new InvalidTaskTransitionError(
@@ -269,7 +249,7 @@ export class Task {
       );
     }
 
-    return notesIn(conversation, this.notes);
+    return conversation;
   }
 
   /** Only while the task is still where that agent is. */
@@ -284,16 +264,20 @@ export class Task {
   }
 
   get undelivered(): readonly TaskNote[] {
-    return this.notes.filter((each) => each.undelivered);
+    return this.trail.undelivered;
   }
 
   deliveredUpTo(position: NotePosition, at: Date): Task {
+    let place = -1;
+
     return this.with({
-      notes: this.notes.map((note, place) =>
-        NotePosition.of(place).isAtOrBefore(position)
+      notes: this.trail.marked((note) => {
+        place += 1;
+
+        return NotePosition.of(place).isAtOrBefore(position)
           ? note.delivered(at)
-          : note,
-      ),
+          : note;
+      }).notes,
     });
   }
 
@@ -320,21 +304,6 @@ export class Task {
 
     return this.with({
       notes: [...this.notes, this.wrote(saying, 'answered')],
-    });
-  }
-
-  passedTo(stationId: StationId, rank: TaskRank, saying: Saying): Task {
-    // Passing a task to where it already stands moves nothing and starts the
-    // same work again.
-    this.refuseStandingStill(stationId, 'passed to');
-
-    return this.with({
-      stationId,
-      rank,
-      currentRunId: null,
-      sessionId: null,
-      runnerId: null,
-      notes: [...this.notes, this.wrote(saying, 'passed')],
     });
   }
 

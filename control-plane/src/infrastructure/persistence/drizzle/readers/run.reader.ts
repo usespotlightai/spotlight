@@ -1,3 +1,4 @@
+import { RunSpecContract } from '@application/contracts/run-spec.contract';
 import type {
   RunConversationSummary,
   RunReaderPort,
@@ -5,7 +6,6 @@ import type {
   TaskRunSummary,
   TeamRunSummary,
 } from '@application/ports/run-reader.port';
-import { RunSpecContract } from '@application/ports/run-spec.contract';
 import { turnOf } from '@domain/services/conversations';
 import type { RunId } from '@domain/value-objects/run-id.vo';
 import type { TaskId } from '@domain/value-objects/task-id.vo';

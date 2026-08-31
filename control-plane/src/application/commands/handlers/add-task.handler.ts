@@ -6,8 +6,8 @@ import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { PersonReaderPort } from '@application/ports/person-reader.port';
-import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
+import type { TaskDispatching } from '@application/services/task-dispatch';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { UnknownAssemblyLineError } from '@domain/exceptions/unknown-assembly-line.error';
 import { UnknownStationError } from '@domain/exceptions/unknown-station.error';
@@ -29,7 +29,7 @@ export class AddTaskHandler
     private readonly lines: AssemblyLineRepository,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
-    private readonly dispatch: TaskDispatchPort,
+    private readonly dispatch: TaskDispatching,
     private readonly people: PersonReaderPort,
     private readonly transaction: TransactionPort,
   ) {}

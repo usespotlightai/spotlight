@@ -12,22 +12,8 @@
     {
       "idx": 1,
       "version": "7",
-      "when": 1788108255439,
-      "tag": "20260830164415_initial_schema",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1788123212357,
-      "tag": "20260830205332_task_repository",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1788185950606,
-      "tag": "20260831141910_task_pull_request",
+      "when": 1788209075519,
+      "tag": "20260831204435_initial_schema",
       "breakpoints": true
     }
   ]

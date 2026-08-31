@@ -1,10 +1,10 @@
-import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import {
   RunSpecContract,
   type RunSpecShape,
   THROUGH_SPOTLIGHT,
-} from '@application/ports/run-spec.contract';
-import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
+} from '@application/contracts/run-spec.contract';
+import type { IdGeneratorPort } from '@application/ports/id-generator.port';
+import type { TaskDispatching } from '@application/services/task-dispatch';
 import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Run } from '@domain/aggregates/run.aggregate';
 import type { Task } from '@domain/aggregates/task.aggregate';
@@ -33,7 +33,7 @@ const written = (order: RunOrder): RunSpecShape =>
     continuity: order.continuity.told(),
   });
 
-export class DispatchTask implements TaskDispatchPort {
+export class DispatchTask implements TaskDispatching {
   constructor(
     private readonly runs: RunRepository,
     private readonly ids: IdGeneratorPort,

@@ -16,6 +16,7 @@ import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
+import { WayOut } from '@domain/value-objects/way-out.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -40,7 +41,14 @@ const withNotes = (task: Task, ...notes: TaskNote[]) =>
     pullRequest: task.pullRequest,
   });
 
-const at = (id: string, name: string, position: number, prompt?: AgentPrompt) =>
+const at = (
+  id: string,
+  name: string,
+  position: number,
+  prompt?: AgentPrompt,
+  passesTo: string[] = [],
+  finishes = false,
+) =>
   Station.create({
     id: StationId.of(id),
     name: StationName.of(name),
@@ -48,20 +56,33 @@ const at = (id: string, name: string, position: number, prompt?: AgentPrompt) =>
     color: StationColor.of('#93a1b5'),
     harness: HarnessId.of('dev'),
     agentPrompt: prompt,
+    wayOut: WayOut.of({ stations: passesTo.map(StationId.of), ends: finishes }),
   });
 
-const triage = () => at('station_1', 'Triage', 0);
+const triage = () => at('station_1', 'Triage', 0, undefined, ['station_2']);
 
 // The line a briefing is read out of, since where a task stands and what it
 // may be handed on to are both the line's to answer.
+const ends = (id: string, name: string, position: number) =>
+  Station.create({
+    id: StationId.of(id),
+    name: StationName.of(name),
+    position,
+    color: StationColor.of('#a3a8b0'),
+    kind: position === 0 ? 'backlog' : 'completed',
+  });
+
 const held = (...stations: Station[]) =>
-  AssemblyLine.opened({
+  AssemblyLine.of({
     id: AssemblyLineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
     name: AssemblyLineName.of('Default'),
-    stations: stations.map((each, place) => each.movedTo(place + 1)),
-    newId: () => 'station_0',
+    stations: [
+      ends('station_0', 'Backlog', 0),
+      ...stations.map((each, place) => each.movedTo(place + 1)),
+      ends('station_end', 'Completed', stations.length + 1),
+    ],
   });
 
 const task = (stationId: string, description?: TaskDescription) =>
@@ -95,7 +116,7 @@ describe('TaskBriefing', () => {
   });
 
   it('lets the task speak for itself at a station with nothing to say', () => {
-    expect(brief(at('station_1', 'Triage', 0))).toContain('## Fix the queue');
+    expect(brief(triage())).toContain('## Fix the queue');
   });
 
   it('carries forward what earlier stations left behind', () => {
@@ -122,11 +143,18 @@ describe('TaskBriefing', () => {
     expect(briefing).toContain('names a station to pass the task to: "Spec"');
   });
 
-  it('says how to close work that nothing follows', () => {
-    const briefing = brief(triage());
+  it('says how to close work only where the station may close it', () => {
+    const finishing = at(
+      'station_1',
+      'Triage',
+      0,
+      undefined,
+      ['station_2'],
+      true,
+    );
 
-    expect(briefing).toContain('--next "done"');
-    expect(briefing).toContain('closes the task where it stands');
+    expect(brief(triage())).not.toContain('--next "done"');
+    expect(brief(finishing)).toContain('--next "done"');
   });
 
   it('does not offer an ending among the stations', () => {

@@ -1,13 +1,17 @@
+import type { Concerns } from '@domain/value-objects/concerns.vo';
+import type { Happening } from '@domain/value-objects/happening.vo';
+
 export const REPOSITORY_EVENTS = Symbol('REPOSITORY_EVENTS');
 
-export interface MergedPullRequest {
-  readonly url: string;
+export interface Happened {
+  readonly happening: Happening;
+  readonly concerns: Concerns;
+  /** What was said, where anything was: the note the station works from. */
+  readonly said: string | null;
+  readonly ourOwn: boolean;
 }
 
-/**
- * The host speaks its own language: this is where it is read into Spotlight's.
- * A delivery that says nothing Spotlight acts on reads as nothing at all.
- */
+/** Where the host's language is read into Spotlight's. */
 export interface RepositoryEventsPort {
-  merged(event: string | undefined, payload: unknown): MergedPullRequest | null;
+  read(event: string | undefined, payload: unknown): Happened | null;
 }

@@ -1,10 +1,9 @@
 import type { RunAbandoned } from '@domain/events/run-abandoned.event';
 import type { RunCompleted } from '@domain/events/run-completed.event';
 
-export const HANDOVER = Symbol('HANDOVER');
+export const RUN_OUTCOMES = Symbol('RUN_OUTCOMES');
 
-/** Moves a task on once the run working it has ended. */
-export interface HandoverPort {
+export interface RunOutcomes {
   onRunCompleted(event: RunCompleted): Promise<void>;
   onRunAbandoned(event: RunAbandoned): Promise<void>;
 }

@@ -2,9 +2,9 @@ import type { AnswerInboxItemCommand } from '@application/commands/answer-inbox-
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
-import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import type { ConversationAtHand } from '@application/services/conversation-at-hand.service';
+import type { TaskDispatching } from '@application/services/task-dispatch';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
@@ -19,7 +19,7 @@ export class AnswerInboxItemHandler
   constructor(
     private readonly conversations: ConversationAtHand,
     private readonly tasks: TaskRepository,
-    private readonly dispatch: TaskDispatchPort,
+    private readonly dispatch: TaskDispatching,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
   ) {}

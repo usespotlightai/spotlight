@@ -1,7 +1,7 @@
-import { ClaimRunHandler } from '@application/commands/handlers/runner.handlers';
+import { ClaimRunHandler } from '@application/commands/handlers/claim-run.handler';
 import { ClaimRunCommand } from '@application/commands/runner.commands';
 import type { ClockPort } from '@application/ports/clock.port';
-import type { HandoverPort } from '@application/ports/handover.port';
+import type { RunOutcomes } from '@application/services/run-outcomes';
 import { Run } from '@domain/aggregates/run.aggregate';
 import { Runner } from '@domain/aggregates/runner.aggregate';
 import type { RunRepository } from '@domain/repositories/run.repository';
@@ -55,7 +55,7 @@ const claiming = () =>
     {
       onRunCompleted: vi.fn(),
       onRunAbandoned: vi.fn(),
-    } as unknown as HandoverPort,
+    } as unknown as RunOutcomes,
   );
 
 describe('ClaimRunHandler', () => {

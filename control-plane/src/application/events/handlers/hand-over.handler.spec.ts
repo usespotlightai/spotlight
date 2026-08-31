@@ -1,6 +1,6 @@
 import { HandOver } from '@application/events/handlers/hand-over.handler';
 import type { ClockPort } from '@application/ports/clock.port';
-import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
+import type { TaskDispatching } from '@application/services/task-dispatch';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Run, type Said } from '@domain/aggregates/run.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
@@ -129,7 +129,7 @@ const lines = () =>
     holding: vi.fn(async () => line()),
   }) satisfies AssemblyLineRepository;
 
-const dispatch: TaskDispatchPort = {
+const dispatch: TaskDispatching = {
   dispatch: async () => RunId.of('run_2'),
 };
 

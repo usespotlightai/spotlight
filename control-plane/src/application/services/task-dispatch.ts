@@ -4,6 +4,6 @@ import type { RunId } from '@domain/value-objects/run-id.vo';
 
 export const TASK_DISPATCH = Symbol('TASK_DISPATCH');
 
-export interface TaskDispatchPort {
+export interface TaskDispatching {
   dispatch(input: { task: Task; line: AssemblyLine }): Promise<RunId | null>;
 }

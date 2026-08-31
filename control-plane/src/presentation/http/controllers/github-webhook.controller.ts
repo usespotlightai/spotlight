@@ -1,15 +1,11 @@
-import { CompleteMergedTaskCommand } from '@application/commands/complete-merged-task.command';
+import { ReactToHappeningCommand } from '@application/commands/react-to-happening.command';
 import {
-  REPOSITORY_EVENTS,
-  type RepositoryEventsPort,
-} from '@application/ports/repository-events.port';
-import {
+  BadRequestException,
   Body,
   Controller,
   Headers,
   HttpCode,
   HttpStatus,
-  Inject,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -21,12 +17,9 @@ import { GitHubWebhookGuard } from '@presentation/http/guards/github-webhook.gua
 @ApiTags('webhooks')
 @Controller('webhooks')
 export class GitHubWebhookController {
-  constructor(
-    private readonly commandBus: CommandBus,
-    @Inject(REPOSITORY_EVENTS)
-    private readonly events: RepositoryEventsPort,
-  ) {}
+  constructor(private readonly commandBus: CommandBus) {}
 
+  // No session: GitHub has none. The signature is what stands in for one.
   @Post('github')
   @AllowAnonymous()
   @UseGuards(GitHubWebhookGuard)
@@ -34,14 +27,16 @@ export class GitHubWebhookController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async delivered(
     @Headers('x-github-event') event: string | undefined,
+    @Headers('x-github-delivery') delivery: string | undefined,
     @Body() body: unknown,
   ): Promise<void> {
-    const merged = this.events.merged(event, body);
-
-    if (!merged) {
-      return;
+    // Every delivery is named by the host, so one that is not is malformed.
+    if (!delivery) {
+      throw new BadRequestException('x-github-delivery is missing');
     }
 
-    await this.commandBus.execute(new CompleteMergedTaskCommand(merged.url));
+    await this.commandBus.execute(
+      new ReactToHappeningCommand(delivery, event, body),
+    );
   }
 }

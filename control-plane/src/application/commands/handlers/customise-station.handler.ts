@@ -3,8 +3,8 @@ import type { StationDto } from '@application/dto/assembly-line.dto';
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import { AssemblyLineMapper } from '@application/mappers/assembly-line.mapper';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
-import type { StandingWorkPort } from '@application/ports/standing-work.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
+import type { StandingWork } from '@application/services/standing-work';
 import { UnknownAssemblyLineError } from '@domain/exceptions/unknown-assembly-line.error';
 import { UnknownStationError } from '@domain/exceptions/unknown-station.error';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
@@ -24,7 +24,7 @@ export class CustomiseStationHandler
 {
   constructor(
     private readonly lines: AssemblyLineRepository,
-    private readonly work: StandingWorkPort,
+    private readonly work: StandingWork,
     private readonly transaction: TransactionPort,
   ) {}
 

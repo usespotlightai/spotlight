@@ -1,4 +1,4 @@
-import type { RunSpecShape } from '@application/ports/run-spec.contract';
+import type { RunSpecShape } from '@application/contracts/run-spec.contract';
 import { Run } from '@domain/aggregates/run.aggregate';
 import type {
   RunEventRecord,

@@ -1,9 +1,9 @@
+import type { TaskNoteKind } from '@domain/value-objects/task-note.vo';
 import { station } from '@infrastructure/persistence/drizzle/schemas/assembly-line.schema';
 import { user } from '@infrastructure/persistence/drizzle/schemas/auth.schema';
 import { runner } from '@infrastructure/persistence/drizzle/schemas/run.schema';
 import { workspace } from '@infrastructure/persistence/drizzle/schemas/workspace.schema';
 import {
-  boolean,
   index,
   integer,
   pgTable,
@@ -44,7 +44,6 @@ export const task = pgTable(
     runnerId: text('runner_id').references(() => runner.id, {
       onDelete: 'set null',
     }),
-    awaitingReview: boolean('awaiting_review').default(false).notNull(),
     repository: text('repository'),
     pullRequest: text('pull_request'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -77,12 +76,9 @@ export const taskNote = pgTable(
     // The run that wrote it, whose journal is what it came from.
     runId: text('run_id'),
     // An 'asked' opens a conversation a person owns; a 'passed' closes it.
-    kind: text('kind').$type<
-      'asked' | 'passed' | 'answered' | 'said' | 'closed'
-    >(),
+    kind: text('kind').$type<TaskNoteKind>(),
     readAt: timestamp('read_at'),
-    // When it reached the agent working the task. Only what a person said to
-    // one ever waits to be delivered.
+    // When it reached the agent working the task.
     deliveredAt: timestamp('delivered_at'),
   },
   (table) => [

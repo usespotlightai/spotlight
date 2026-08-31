@@ -54,10 +54,10 @@ export const orderFor = ({
     priority: station.position,
     pinnedTo: continuity.pinnedTo,
     briefing: TaskBriefing.brief({ task, line }),
-    options: line.optionsFrom(station.id),
+    options: line.optionsFrom(station.id).map((each) => each.value),
     noteLimit: TASK_NOTE_MAX_LENGTH,
     continuity,
     repository: task.repository,
-    branch: task.branch,
+    branch: task.branch.value,
   };
 };

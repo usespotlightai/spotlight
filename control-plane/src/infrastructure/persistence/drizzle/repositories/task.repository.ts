@@ -24,7 +24,7 @@ import {
   taskNote,
 } from '@infrastructure/persistence/drizzle/schemas/task.schema';
 import { Injectable } from '@nestjs/common';
-import { asc, eq, inArray } from 'drizzle-orm';
+import { asc, eq, inArray, sql } from 'drizzle-orm';
 
 type Row = typeof task.$inferSelect;
 type NoteRow = typeof taskNote.$inferSelect;
@@ -75,7 +75,6 @@ export class DrizzleTaskRepository implements TaskRepository {
       description: added.description?.value ?? null,
       rank: added.rank.value,
       currentRunId: added.currentRunId?.value ?? null,
-      awaitingReview: added.awaitingReview,
       sessionId: added.sessionId?.value ?? null,
       runnerId: added.runnerId?.value ?? null,
       createdAt: added.createdAt,
@@ -97,7 +96,6 @@ export class DrizzleTaskRepository implements TaskRepository {
         description: saved.description?.value ?? null,
         rank: saved.rank.value,
         currentRunId: saved.currentRunId?.value ?? null,
-        awaitingReview: saved.awaitingReview,
         sessionId: saved.sessionId?.value ?? null,
         runnerId: saved.runnerId?.value ?? null,
         pullRequest: saved.pullRequest?.value ?? null,
@@ -185,28 +183,34 @@ export class DrizzleTaskRepository implements TaskRepository {
     }, new Map<string, NoteRow[]>());
   }
 
+  /** A trail is added to and marked, never cut. */
   private async writeNotes(saved: Task): Promise<void> {
-    await this.context.db
-      .delete(taskNote)
-      .where(eq(taskNote.taskId, saved.id.value));
-
     if (saved.notes.length === 0) {
       return;
     }
 
-    await this.context.db.insert(taskNote).values(
-      saved.notes.map((note, position) => ({
-        taskId: saved.id.value,
-        position,
-        station: note.station.value,
-        body: note.body.value,
-        at: note.at,
-        authorId: note.author?.value ?? null,
-        runId: note.run?.value ?? null,
-        kind: note.kind,
-        readAt: note.readAt,
-        deliveredAt: note.deliveredAt,
-      })),
-    );
+    await this.context.db
+      .insert(taskNote)
+      .values(
+        saved.notes.map((note, position) => ({
+          taskId: saved.id.value,
+          position,
+          station: note.station.value,
+          body: note.body.value,
+          at: note.at,
+          authorId: note.author?.value ?? null,
+          runId: note.run?.value ?? null,
+          kind: note.kind,
+          readAt: note.readAt,
+          deliveredAt: note.deliveredAt,
+        })),
+      )
+      .onConflictDoUpdate({
+        target: [taskNote.taskId, taskNote.position],
+        set: {
+          readAt: sql`excluded.read_at`,
+          deliveredAt: sql`excluded.delivered_at`,
+        },
+      });
   }
 }

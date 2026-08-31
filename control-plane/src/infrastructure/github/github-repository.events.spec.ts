@@ -1,48 +1,128 @@
+import { UpstreamRefusedError } from '@domain/exceptions/upstream-refused.error';
+import { PullRequestUrl } from '@domain/value-objects/pull-request-url.vo';
+import { TaskId } from '@domain/value-objects/task-id.vo';
 import { GitHubRepositoryEvents } from '@infrastructure/github/github-repository.events';
 import { describe, expect, it } from 'vitest';
 
 const reading = new GitHubRepositoryEvents();
 
-const closed = (over: Record<string, unknown> = {}) => ({
-  action: 'closed',
-  pull_request: {
-    merged: true,
-    html_url: 'https://github.com/acme/api/pull/7',
-    ...over,
-  },
+const pull = (over: Record<string, unknown> = {}) => ({
+  merged: true,
+  html_url: 'https://github.com/acme/api/pull/7',
+  head: { ref: 'spotlight/task_1' },
+  ...over,
 });
 
 describe('GitHubRepositoryEvents', () => {
-  it('reads a merged pull request as the address it was opened at', () => {
-    expect(reading.merged('pull_request', closed())).toEqual({
-      url: 'https://github.com/acme/api/pull/7',
+  it('reads a merged pull request', () => {
+    expect(
+      reading.read('pull_request', { action: 'closed', pull_request: pull() }),
+    ).toMatchObject({
+      happening: 'merged',
+      concerns: {
+        taskId: TaskId.of('task_1'),
+        pullRequest: PullRequestUrl.of('https://github.com/acme/api/pull/7'),
+      },
     });
   });
 
-  it('says nothing of a pull request closed without a merge', () => {
+  it('tells a pull request closed without a merge from one merged', () => {
     expect(
-      reading.merged('pull_request', closed({ merged: false })),
+      reading.read('pull_request', {
+        action: 'closed',
+        pull_request: pull({ merged: false }),
+      }),
+    ).toMatchObject({ happening: 'closed-unmerged' });
+  });
+
+  it('reads a comment, and carries what was said', () => {
+    expect(
+      reading.read('pull_request_review_comment', {
+        action: 'created',
+        pull_request: pull(),
+        comment: { body: 'This retries forever.' },
+      }),
+    ).toMatchObject({ happening: 'commented', said: 'This retries forever.' });
+  });
+
+  it('reads a comment left on the pull request itself', () => {
+    expect(
+      reading.read('issue_comment', {
+        action: 'created',
+        issue: {
+          pull_request: { html_url: 'https://github.com/acme/api/pull/7' },
+        },
+        comment: { body: 'Ship it once the tests pass.' },
+      }),
+    ).toMatchObject({
+      happening: 'commented',
+      concerns: {
+        taskId: null,
+        pullRequest: PullRequestUrl.of('https://github.com/acme/api/pull/7'),
+      },
+    });
+  });
+
+  it('tells a review asking for changes from one merely saying something', () => {
+    const asked = reading.read('pull_request_review', {
+      action: 'submitted',
+      pull_request: pull(),
+      review: { state: 'changes_requested', body: 'Handle the empty case.' },
+    });
+    const said = reading.read('pull_request_review', {
+      action: 'submitted',
+      pull_request: pull(),
+      review: { state: 'commented', body: 'Reads well.' },
+    });
+
+    expect(asked).toMatchObject({ happening: 'changes-requested' });
+    expect(said).toMatchObject({ happening: 'commented' });
+  });
+
+  it('reads a failing check suite by the branch it ran on', () => {
+    expect(
+      reading.read('check_suite', {
+        action: 'completed',
+        check_suite: { conclusion: 'failure', head_branch: 'spotlight/task_1' },
+      }),
+    ).toMatchObject({
+      happening: 'checks-failed',
+      concerns: { taskId: TaskId.of('task_1'), pullRequest: null },
+    });
+  });
+
+  it('says nothing of a check suite that passed', () => {
+    expect(
+      reading.read('check_suite', {
+        action: 'completed',
+        check_suite: { conclusion: 'success', head_branch: 'spotlight/task_1' },
+      }),
     ).toBeNull();
   });
 
-  it('says nothing while a pull request is still open', () => {
+  it('marks what Spotlight itself did, so it does not answer itself', () => {
     expect(
-      reading.merged('pull_request', { ...closed(), action: 'opened' }),
-    ).toBeNull();
+      reading.read('issue_comment', {
+        action: 'created',
+        issue: {
+          pull_request: { html_url: 'https://github.com/acme/api/pull/7' },
+        },
+        comment: { body: 'Opened by the agent.', user: { type: 'Bot' } },
+      }),
+    ).toMatchObject({ ourOwn: true });
   });
 
   it('says nothing of an event it was not asked to read', () => {
-    expect(reading.merged('push', closed())).toBeNull();
+    expect(reading.read('push', { pull_request: pull() })).toBeNull();
+    expect(reading.read(undefined, undefined)).toBeNull();
   });
 
-  it('says nothing where the delivery names no address', () => {
-    expect(
-      reading.merged('pull_request', closed({ html_url: undefined })),
-    ).toBeNull();
-  });
-
-  it('says nothing of a delivery that is not shaped like one at all', () => {
-    expect(reading.merged('pull_request', null)).toBeNull();
-    expect(reading.merged(undefined, undefined)).toBeNull();
+  it('refuses a delivery it should have understood and could not', () => {
+    expect(() =>
+      reading.read('pull_request', {
+        action: 'closed',
+        pull_request: { merged: true },
+      }),
+    ).toThrow(UpstreamRefusedError);
   });
 });

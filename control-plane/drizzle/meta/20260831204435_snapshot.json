@@ -1,6 +1,6 @@
 {
-  "id": "71d5f18e-c1ac-4fbd-9898-6036d1af4436",
-  "prevId": "828f8470-ccc7-4649-9c45-d013a0b0e270",
+  "id": "6491da90-4e7e-4ac4-bc47-a1028c907ec0",
+  "prevId": "f82a7813-9df1-4185-b3c0-1f102ed8b1f3",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -161,6 +161,13 @@
           "notNull": true,
           "default": "'work'"
         },
+        "finishes": {
+          "name": "finishes",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "harness": {
           "name": "harness",
           "type": "text",
@@ -221,6 +228,145 @@
         }
       },
       "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.station_reaction": {
+      "name": "station_reaction",
+      "schema": "",
+      "columns": {
+        "station_id": {
+          "name": "station_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "happening": {
+          "name": "happening",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "station_reaction_station_idx": {
+          "name": "station_reaction_station_idx",
+          "columns": [
+            {
+              "expression": "station_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "station_reaction_station_id_station_id_fk": {
+          "name": "station_reaction_station_id_station_id_fk",
+          "tableFrom": "station_reaction",
+          "tableTo": "station",
+          "columnsFrom": [
+            "station_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "station_reaction_station_id_happening_pk": {
+          "name": "station_reaction_station_id_happening_pk",
+          "columns": [
+            "station_id",
+            "happening"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.station_route": {
+      "name": "station_route",
+      "schema": "",
+      "columns": {
+        "station_id": {
+          "name": "station_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "to_station_id": {
+          "name": "to_station_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "station_route_station_idx": {
+          "name": "station_route_station_idx",
+          "columns": [
+            {
+              "expression": "station_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "station_route_station_id_station_id_fk": {
+          "name": "station_route_station_id_station_id_fk",
+          "tableFrom": "station_route",
+          "tableTo": "station",
+          "columnsFrom": [
+            "station_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "station_route_to_station_id_station_id_fk": {
+          "name": "station_route_to_station_id_station_id_fk",
+          "tableFrom": "station_route",
+          "tableTo": "station",
+          "columnsFrom": [
+            "to_station_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "station_route_station_id_to_station_id_pk": {
+          "name": "station_route_station_id_to_station_id_pk",
+          "columns": [
+            "station_id",
+            "to_station_id"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -601,6 +747,32 @@
           "with": {}
         }
       },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.handled_delivery": {
+      "name": "handled_delivery",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "handled_at": {
+          "name": "handled_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -1177,15 +1349,14 @@
           "primaryKey": false,
           "notNull": false
         },
-        "awaiting_review": {
-          "name": "awaiting_review",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
         "repository": {
           "name": "repository",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pull_request": {
+          "name": "pull_request",
           "type": "text",
           "primaryKey": false,
           "notNull": false

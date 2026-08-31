@@ -1,7 +1,16 @@
 import type { StationKind } from '@domain/entities/station.entity';
+import type { Happening } from '@domain/value-objects/happening.vo';
 import { factory } from '@infrastructure/persistence/drizzle/schemas/factory.schema';
 import { workspace } from '@infrastructure/persistence/drizzle/schemas/workspace.schema';
-import { index, integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  index,
+  integer,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+} from 'drizzle-orm/pg-core';
 
 export const assemblyLine = pgTable(
   'assembly_line',
@@ -40,6 +49,7 @@ export const station = pgTable(
     color: text('color').notNull().default('#a3a8b0'),
     description: text('description'),
     kind: text('kind').$type<StationKind>().notNull().default('work'),
+    finishes: boolean('finishes').notNull().default(false),
     // None means nothing works this station, so it holds what it is given.
     harness: text('harness'),
     agentPrompt: text('agent_prompt'),
@@ -50,4 +60,34 @@ export const station = pgTable(
       .notNull(),
   },
   (table) => [index('station_assembly_line_idx').on(table.assemblyLineId)],
+);
+
+export const stationRoute = pgTable(
+  'station_route',
+  {
+    stationId: text('station_id')
+      .notNull()
+      .references(() => station.id, { onDelete: 'cascade' }),
+    toStationId: text('to_station_id')
+      .notNull()
+      .references(() => station.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.stationId, table.toStationId] }),
+    index('station_route_station_idx').on(table.stationId),
+  ],
+);
+
+export const stationReaction = pgTable(
+  'station_reaction',
+  {
+    stationId: text('station_id')
+      .notNull()
+      .references(() => station.id, { onDelete: 'cascade' }),
+    happening: text('happening').$type<Happening>().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.stationId, table.happening] }),
+    index('station_reaction_station_idx').on(table.stationId),
+  ],
 );

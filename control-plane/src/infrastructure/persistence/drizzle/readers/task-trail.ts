@@ -1,6 +1,6 @@
+import { RunSpecContract } from '@application/contracts/run-spec.contract';
 import type { InboxNote } from '@application/ports/inbox-reader.port';
 import type { RunReview } from '@application/ports/run-reader.port';
-import { RunSpecContract } from '@application/ports/run-spec.contract';
 import { owedIn, reviewsIn } from '@domain/services/conversations';
 import { ConversationId } from '@domain/value-objects/conversation-id.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';

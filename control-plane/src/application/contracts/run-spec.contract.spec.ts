@@ -1,4 +1,4 @@
-import { RunSpecContract } from '@application/ports/run-spec.contract';
+import { RunSpecContract } from '@application/contracts/run-spec.contract';
 import { InvalidRunSpecError } from '@domain/exceptions/invalid-run-spec.error';
 import { describe, expect, it } from 'vitest';
 

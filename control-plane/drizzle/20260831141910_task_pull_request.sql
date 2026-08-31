@@ -1,1 +1,0 @@
-ALTER TABLE "task" ADD COLUMN "pull_request" text;

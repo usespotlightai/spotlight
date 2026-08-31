@@ -5,24 +5,33 @@ import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
+import type { Happening } from '@domain/value-objects/happening.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationDescription } from '@domain/value-objects/station-description.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
+import { WayOut } from '@domain/value-objects/way-out.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
 import {
   assemblyLine,
   station,
+  stationReaction,
+  stationRoute,
 } from '@infrastructure/persistence/drizzle/schemas/assembly-line.schema';
 import { Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 
 type LineRow = typeof assemblyLine.$inferSelect;
 type StationRow = typeof station.$inferSelect;
 
-const toStation = (row: StationRow): Station =>
+type Ways = {
+  routes: Map<string, StationId[]>;
+  reactions: Map<string, Happening[]>;
+};
+
+const toStation = (row: StationRow, ways: Ways): Station =>
   Station.create({
     id: StationId.of(row.id),
     name: StationName.of(row.name),
@@ -34,16 +43,41 @@ const toStation = (row: StationRow): Station =>
     harness: row.harness ? HarnessId.of(row.harness) : null,
     agentPrompt: row.agentPrompt ? AgentPrompt.of(row.agentPrompt) : null,
     kind: row.kind,
+    wayOut: WayOut.of({
+      stations: ways.routes.get(row.id) ?? [],
+      ends: row.finishes,
+    }),
+    reactsTo: ways.reactions.get(row.id) ?? [],
   });
 
-const toLine = (line: LineRow, stations: StationRow[]): AssemblyLine =>
+const toLine = (
+  line: LineRow,
+  stations: StationRow[],
+  ways: Ways,
+): AssemblyLine =>
   AssemblyLine.of({
     id: AssemblyLineId.of(line.id),
     workspaceId: WorkspaceId.of(line.workspaceId),
     factoryId: FactoryId.of(line.factoryId),
     name: AssemblyLineName.of(line.name),
-    stations: stations.map(toStation),
+    stations: stations.map((row) => toStation(row, ways)),
   });
+
+const routeRowsOf = (line: AssemblyLine) =>
+  line.stations.flatMap((each) =>
+    each.wayOut.stations.map((to) => ({
+      stationId: each.id.value,
+      toStationId: to.value,
+    })),
+  );
+
+const reactionRowsOf = (line: AssemblyLine) =>
+  line.stations.flatMap((each) =>
+    each.reactsTo.map((happening) => ({
+      stationId: each.id.value,
+      happening,
+    })),
+  );
 
 const columnsOf = (each: Station) => ({
   name: each.name.value,
@@ -53,6 +87,7 @@ const columnsOf = (each: Station) => ({
   harness: each.harness?.value ?? null,
   agentPrompt: each.agentPrompt?.value ?? null,
   kind: each.kind,
+  finishes: each.wayOut.ends,
 });
 
 const rowsOf = (line: AssemblyLine) =>
@@ -75,6 +110,7 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
     });
 
     await this.context.db.insert(station).values(rowsOf(added));
+    await this.writeWays(added);
   }
 
   async save(saved: AssemblyLine): Promise<void> {
@@ -89,6 +125,62 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
         .set(columnsOf(each))
         .where(eq(station.id, each.id.value));
     }
+
+    // Written whole rather than diffed: a station's ways out are few.
+    const held = saved.stations.map((each) => each.id.value);
+
+    await this.context.db
+      .delete(stationRoute)
+      .where(inArray(stationRoute.stationId, held));
+    await this.context.db
+      .delete(stationReaction)
+      .where(inArray(stationReaction.stationId, held));
+    await this.writeWays(saved);
+  }
+
+  private async writeWays(line: AssemblyLine): Promise<void> {
+    const routes = routeRowsOf(line);
+    const reactions = reactionRowsOf(line);
+
+    if (routes.length > 0) {
+      await this.context.db.insert(stationRoute).values(routes);
+    }
+    if (reactions.length > 0) {
+      await this.context.db.insert(stationReaction).values(reactions);
+    }
+  }
+
+  private async waysOf(stations: StationRow[]): Promise<Ways> {
+    const held = stations.map((each) => each.id);
+    const ways: Ways = { routes: new Map(), reactions: new Map() };
+
+    if (held.length === 0) {
+      return ways;
+    }
+
+    const routes = await this.context.db
+      .select()
+      .from(stationRoute)
+      .where(inArray(stationRoute.stationId, held));
+
+    for (const row of routes) {
+      const found = ways.routes.get(row.stationId) ?? [];
+      found.push(StationId.of(row.toStationId));
+      ways.routes.set(row.stationId, found);
+    }
+
+    const reactions = await this.context.db
+      .select()
+      .from(stationReaction)
+      .where(inArray(stationReaction.stationId, held));
+
+    for (const row of reactions) {
+      const found = ways.reactions.get(row.stationId) ?? [];
+      found.push(row.happening);
+      ways.reactions.set(row.stationId, found);
+    }
+
+    return ways;
   }
 
   async holding(stationId: StationId): Promise<AssemblyLine | null> {
@@ -118,6 +210,6 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
       .where(eq(station.assemblyLineId, id.value))
       .orderBy(station.position);
 
-    return toLine(found, stations);
+    return toLine(found, stations, await this.waysOf(stations));
   }
 }

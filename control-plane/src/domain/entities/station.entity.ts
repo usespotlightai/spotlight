@@ -1,10 +1,12 @@
 import { InvalidStationChangeError } from '@domain/exceptions/invalid-station-change.error';
 import type { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
+import type { Happening } from '@domain/value-objects/happening.vo';
 import type { HarnessId } from '@domain/value-objects/harness-id.vo';
 import type { StationColor } from '@domain/value-objects/station-color.vo';
 import type { StationDescription } from '@domain/value-objects/station-description.vo';
 import type { StationId } from '@domain/value-objects/station-id.vo';
 import type { StationName } from '@domain/value-objects/station-name.vo';
+import { WayOut } from '@domain/value-objects/way-out.vo';
 
 export type StationKind = 'backlog' | 'work' | 'completed';
 
@@ -15,6 +17,8 @@ type Part = {
   description?: StationDescription | null;
   harness?: HarnessId | null;
   agentPrompt?: AgentPrompt | null;
+  wayOut?: WayOut;
+  reactsTo?: readonly Happening[];
 };
 
 export type StationInput = {
@@ -26,6 +30,8 @@ export type StationInput = {
   harness?: HarnessId | null;
   agentPrompt?: AgentPrompt | null;
   kind?: StationKind;
+  wayOut?: WayOut;
+  reactsTo?: readonly Happening[];
 };
 
 export abstract class Station {
@@ -35,6 +41,8 @@ export abstract class Station {
     readonly position: number,
     readonly color: StationColor,
     readonly description: StationDescription | null,
+    readonly wayOut: WayOut,
+    readonly reactsTo: readonly Happening[],
   ) {}
 
   abstract readonly kind: StationKind;
@@ -48,6 +56,8 @@ export abstract class Station {
       input.position,
       input.color,
       input.description ?? null,
+      input.wayOut ?? WayOut.nowhere(),
+      input.reactsTo ?? [],
     ] as const;
 
     switch (input.kind) {
@@ -96,6 +106,10 @@ export abstract class Station {
 
   abstract instruct(agentPrompt: AgentPrompt | null): Station;
 
+  awaits(happening: Happening): boolean {
+    return this.reactsTo.includes(happening);
+  }
+
   equals(other: Station): boolean {
     return this.id.equals(other.id);
   }
@@ -112,10 +126,12 @@ export class WorkStation extends Station {
     position: number,
     color: StationColor,
     description: StationDescription | null,
+    wayOut: WayOut,
+    reactsTo: readonly Happening[],
     readonly harness: HarnessId | null,
     readonly agentPrompt: AgentPrompt | null,
   ) {
-    super(id, name, position, color, description);
+    super(id, name, position, color, description, wayOut, reactsTo);
   }
 
   runsOn(harness: HarnessId | null): Station {
@@ -133,6 +149,8 @@ export class WorkStation extends Station {
       part.position ?? this.position,
       part.color ?? this.color,
       part.description !== undefined ? part.description : this.description,
+      part.wayOut ?? this.wayOut,
+      part.reactsTo ?? this.reactsTo,
       part.harness !== undefined ? part.harness : this.harness,
       part.agentPrompt !== undefined ? part.agentPrompt : this.agentPrompt,
     );
@@ -163,6 +181,8 @@ export class Backlog extends Station {
       part.position ?? this.position,
       part.color ?? this.color,
       part.description !== undefined ? part.description : this.description,
+      part.wayOut ?? this.wayOut,
+      part.reactsTo ?? this.reactsTo,
     );
   }
 }
@@ -192,6 +212,8 @@ export class Completed extends Station {
       part.position ?? this.position,
       part.color ?? this.color,
       part.description !== undefined ? part.description : this.description,
+      part.wayOut ?? this.wayOut,
+      part.reactsTo ?? this.reactsTo,
     );
   }
 }

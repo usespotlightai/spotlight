@@ -1,9 +1,9 @@
 import { AnswerInboxItemCommand } from '@application/commands/answer-inbox-item.command';
 import { AnswerInboxItemHandler } from '@application/commands/handlers/answer-inbox-item.handler';
 import type { ClockPort } from '@application/ports/clock.port';
-import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import { ConversationAtHand } from '@application/services/conversation-at-hand.service';
+import type { TaskDispatching } from '@application/services/task-dispatch';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { Station } from '@domain/entities/station.entity';
@@ -98,7 +98,7 @@ const lines = () =>
     holding: vi.fn(async () => line()),
   }) satisfies AssemblyLineRepository;
 
-const dispatch: TaskDispatchPort = {
+const dispatch: TaskDispatching = {
   dispatch: async () => RunId.of('run_2'),
 };
 

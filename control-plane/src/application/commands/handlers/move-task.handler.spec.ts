@@ -3,8 +3,8 @@ import { MoveTaskCommand } from '@application/commands/move-task.command';
 import { UseCaseFault } from '@application/errors/use-case.fault';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { PersonReaderPort } from '@application/ports/person-reader.port';
-import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
+import type { TaskDispatching } from '@application/services/task-dispatch';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { Station } from '@domain/entities/station.entity';
@@ -64,7 +64,7 @@ const standing = (stationId = 'station_2') =>
 
 const dispatched: { harness: string; priority: number; brief: string }[] = [];
 
-const dispatch = (runId: string | null = 'run_1'): TaskDispatchPort => ({
+const dispatch = (runId: string | null = 'run_1'): TaskDispatching => ({
   dispatch: async ({ task, line }) => {
     const station = line.stationAt(task.stationId);
 

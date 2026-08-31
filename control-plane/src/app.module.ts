@@ -1,34 +1,32 @@
 import { AddTaskCommand } from '@application/commands/add-task.command';
 import { AnswerInboxItemCommand } from '@application/commands/answer-inbox-item.command';
-import { CompleteMergedTaskCommand } from '@application/commands/complete-merged-task.command';
 import { CreateWorkspaceCommand } from '@application/commands/create-workspace.command';
 import { CustomiseStationCommand } from '@application/commands/customise-station.command';
 import { DeleteTaskCommand } from '@application/commands/delete-task.command';
 import { DeliverSaidCommand } from '@application/commands/deliver-said.command';
 import { AddTaskHandler } from '@application/commands/handlers/add-task.handler';
 import { AnswerInboxItemHandler } from '@application/commands/handlers/answer-inbox-item.handler';
-import { CompleteMergedTaskHandler } from '@application/commands/handlers/complete-merged-task.handler';
+import { AppendRunEventsHandler } from '@application/commands/handlers/append-run-events.handler';
+import { ClaimRunHandler } from '@application/commands/handlers/claim-run.handler';
+import { CompleteRunHandler } from '@application/commands/handlers/complete-run.handler';
 import { CreateWorkspaceHandler } from '@application/commands/handlers/create-workspace.handler';
 import { CustomiseStationHandler } from '@application/commands/handlers/customise-station.handler';
 import { DeleteTaskHandler } from '@application/commands/handlers/delete-task.handler';
 import { DeliverSaidHandler } from '@application/commands/handlers/deliver-said.handler';
+import { EnqueueRunHandler } from '@application/commands/handlers/enqueue-run.handler';
+import { EnrolRunnerHandler } from '@application/commands/handlers/enrol-runner.handler';
 import { MoveTaskHandler } from '@application/commands/handlers/move-task.handler';
 import { OpenPullRequestHandler } from '@application/commands/handlers/open-pull-request.handler';
+import { ReactToHappeningHandler } from '@application/commands/handlers/react-to-happening.handler';
 import { ReadInboxItemHandler } from '@application/commands/handlers/read-inbox-item.handler';
+import { RegisterRunnerHandler } from '@application/commands/handlers/register-runner.handler';
+import { RenewLeaseHandler } from '@application/commands/handlers/renew-lease.handler';
 import { ReorderStationsHandler } from '@application/commands/handlers/reorder-stations.handler';
-import {
-  AppendRunEventsHandler,
-  ClaimRunHandler,
-  CompleteRunHandler,
-  EnqueueRunHandler,
-  EnrolRunnerHandler,
-  RegisterRunnerHandler,
-  RenewLeaseHandler,
-  RevokeRunnerHandler,
-} from '@application/commands/handlers/runner.handlers';
+import { RevokeRunnerHandler } from '@application/commands/handlers/revoke-runner.handler';
 import { SayToRunHandler } from '@application/commands/handlers/say-to-run.handler';
 import { MoveTaskCommand } from '@application/commands/move-task.command';
 import { OpenPullRequestCommand } from '@application/commands/open-pull-request.command';
+import { ReactToHappeningCommand } from '@application/commands/react-to-happening.command';
 import { ReadInboxItemCommand } from '@application/commands/read-inbox-item.command';
 import { ReorderStationsCommand } from '@application/commands/reorder-stations.command';
 import {
@@ -47,9 +45,9 @@ import { ProvisionFactory } from '@application/events/handlers/provision-factory
 import { ReleaseHeldRuns } from '@application/events/handlers/release-held-runs.handler';
 import { ASSEMBLY_LINE_READER } from '@application/ports/assembly-line-reader.port';
 import { CLOCK, type ClockPort } from '@application/ports/clock.port';
+import { DELIVERY_LOG } from '@application/ports/delivery-log.port';
 import { FACTORY_PROVISIONING } from '@application/ports/factory-provisioning.port';
 import { GIT_GATEWAY } from '@application/ports/git-gateway.port';
-import { HANDOVER } from '@application/ports/handover.port';
 import { ID_GENERATOR } from '@application/ports/id-generator.port';
 import { INBOX_READER } from '@application/ports/inbox-reader.port';
 import { KEPT_WORKSPACE_READER } from '@application/ports/kept-workspace-reader.port';
@@ -73,11 +71,6 @@ import { RUNNER_AUTH } from '@application/ports/runner-auth.port';
 import { RUNNER_READER } from '@application/ports/runner-reader.port';
 import { RUNNER_REVOCATION } from '@application/ports/runner-revocation.port';
 import { RUNNER_TOKEN } from '@application/ports/runner-token.port';
-import { STANDING_WORK } from '@application/ports/standing-work.port';
-import {
-  TASK_DISPATCH,
-  type TaskDispatchPort,
-} from '@application/ports/task-dispatch.port';
 import { TASK_READER } from '@application/ports/task-reader.port';
 import { TRANSACTION } from '@application/ports/transaction.port';
 import { WEBHOOK_SIGNATURE } from '@application/ports/webhook-signature.port';
@@ -120,7 +113,13 @@ import { CarryGitCall } from '@application/services/carry-git-call.service';
 import { ConversationAtHand } from '@application/services/conversation-at-hand.service';
 import { DispatchTask } from '@application/services/dispatch-task.service';
 import { RunAtHand } from '@application/services/run-at-hand.service';
+import { RUN_OUTCOMES } from '@application/services/run-outcomes';
+import { STANDING_WORK } from '@application/services/standing-work';
 import { TakeUpStandingWork } from '@application/services/take-up-standing-work.service';
+import {
+  TASK_DISPATCH,
+  type TaskDispatching,
+} from '@application/services/task-dispatch';
 import { AuthenticationModule } from '@infrastructure/auth/auth.module';
 import { RunnerTokenAuth } from '@infrastructure/auth/runner-token.auth';
 import { RunnerTokenService } from '@infrastructure/auth/runner-token.service';
@@ -151,6 +150,7 @@ import { DrizzleRunnerReader } from '@infrastructure/persistence/drizzle/readers
 import { DrizzleTaskReader } from '@infrastructure/persistence/drizzle/readers/task.reader';
 import { DrizzleWorkspaceReader } from '@infrastructure/persistence/drizzle/readers/workspace.reader';
 import { DrizzleAssemblyLineRepository } from '@infrastructure/persistence/drizzle/repositories/assembly-line.repository';
+import { DrizzleDeliveryLog } from '@infrastructure/persistence/drizzle/repositories/delivery-log.repository';
 import { DrizzleFactoryRepository } from '@infrastructure/persistence/drizzle/repositories/factory.repository';
 import { DrizzleRunRepository } from '@infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleRunnerRepository } from '@infrastructure/persistence/drizzle/repositories/runner.repository';
@@ -240,6 +240,11 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     },
 
     {
+      provide: DELIVERY_LOG,
+      useClass: DrizzleDeliveryLog,
+    },
+
+    {
       provide: REPOSITORY_EVENTS,
       useClass: GitHubRepositoryEvents,
     },
@@ -314,7 +319,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     },
 
     {
-      provide: HANDOVER,
+      provide: RUN_OUTCOMES,
       inject: [
         DrizzleTaskRepository,
         DrizzleAssemblyLineRepository,
@@ -324,7 +329,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       useFactory: (
         tasks: DrizzleTaskRepository,
         lines: DrizzleAssemblyLineRepository,
-        dispatch: TaskDispatchPort,
+        dispatch: TaskDispatching,
         clock: ClockPort,
       ) => new HandOver(tasks, lines, dispatch, clock),
     },
@@ -416,16 +421,15 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       CLOCK,
     ]),
 
-    ...bindCommandHandler(
-      CompleteMergedTaskCommand,
-      CompleteMergedTaskHandler,
-      [
-        DrizzleTaskRepository,
-        DrizzleAssemblyLineRepository,
-        TRANSACTION,
-        CLOCK,
-      ],
-    ),
+    ...bindCommandHandler(ReactToHappeningCommand, ReactToHappeningHandler, [
+      REPOSITORY_EVENTS,
+      DELIVERY_LOG,
+      DrizzleTaskRepository,
+      DrizzleAssemblyLineRepository,
+      TASK_DISPATCH,
+      TRANSACTION,
+      CLOCK,
+    ]),
 
     ...bindCommandHandler(ReadInboxItemCommand, ReadInboxItemHandler, [
       ConversationAtHand,
@@ -491,7 +495,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       DrizzleRunRepository,
       DrizzleRunnerRepository,
       CLOCK,
-      HANDOVER,
+      RUN_OUTCOMES,
     ]),
     ...bindCommandHandler(RenewLeaseCommand, RenewLeaseHandler, [
       DrizzleRunRepository,
@@ -506,7 +510,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     ...bindCommandHandler(CompleteRunCommand, CompleteRunHandler, [
       DrizzleRunRepository,
       TRANSACTION,
-      HANDOVER,
+      RUN_OUTCOMES,
     ]),
     ...bindCommandHandler(EnqueueRunCommand, EnqueueRunHandler, [
       DrizzleRunRepository,

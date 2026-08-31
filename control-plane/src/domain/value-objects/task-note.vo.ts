@@ -6,7 +6,13 @@ import type { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
 
 /** What a note did: put the task to a person, moved it on, or answered. */
-export type TaskNoteKind = 'asked' | 'passed' | 'answered' | 'said' | 'closed';
+export type TaskNoteKind =
+  | 'asked'
+  | 'passed'
+  | 'answered'
+  | 'said'
+  | 'closed'
+  | 'heard';
 
 export class TaskNote {
   private constructor(
@@ -60,9 +66,12 @@ export class TaskNote {
     return unread(this);
   }
 
-  /** Said to an agent and not yet handed to one. */
+  /** A person speaking and the world happening both interrupt a run. */
   get undelivered(): boolean {
-    return this.kind === 'said' && this.deliveredAt === null;
+    return (
+      (this.kind === 'said' || this.kind === 'heard') &&
+      this.deliveredAt === null
+    );
   }
 
   delivered(at: Date): TaskNote {

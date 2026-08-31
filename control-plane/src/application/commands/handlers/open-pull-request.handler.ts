@@ -34,7 +34,7 @@ export class OpenPullRequestHandler
 
       const opened = await this.pullRequests.open({
         repository: task.repository,
-        branch: task.branch,
+        branch: task.branch.value,
         title: command.title,
         body: command.body,
       });

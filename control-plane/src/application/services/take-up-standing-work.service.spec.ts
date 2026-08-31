@@ -1,5 +1,5 @@
-import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
 import { TakeUpStandingWork } from '@application/services/take-up-standing-work.service';
+import type { TaskDispatching } from '@application/services/task-dispatch';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { Station } from '@domain/entities/station.entity';
@@ -63,17 +63,29 @@ const tasks = {
 } as unknown as TaskRepository;
 
 const dispatched = vi.fn(async () => RunId.of('run_1'));
-const dispatch = { dispatch: dispatched } as unknown as TaskDispatchPort;
+const dispatch = { dispatch: dispatched } as unknown as TaskDispatching;
+
+const ends = (id: string, name: string, position: number) =>
+  Station.create({
+    id: StationId.of(id),
+    name: StationName.of(name),
+    position,
+    color: StationColor.of('#a3a8b0'),
+    kind: position === 0 ? 'backlog' : 'completed',
+  });
 
 const takeUp = (station: Station) =>
   new TakeUpStandingWork(tasks, dispatch).takeUp({
-    line: AssemblyLine.opened({
+    line: AssemblyLine.of({
       id: AssemblyLineId.of('line_1'),
       workspaceId: WorkspaceId.of('ws_1'),
       factoryId: FactoryId.of('factory_1'),
       name: AssemblyLineName.of('Default'),
-      stations: [station.movedTo(1)],
-      newId: () => 'backlog_1',
+      stations: [
+        ends('backlog_1', 'Backlog', 0),
+        station.movedTo(1),
+        ends('completed_1', 'Completed', 2),
+      ],
     }),
     stationId: station.id,
   });

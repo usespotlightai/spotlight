@@ -1,3 +1,4 @@
+import type { TaskNoteKind } from '@domain/value-objects/task-note.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
 import type { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
 
@@ -9,7 +10,7 @@ export interface InboxAuthor {
 
 export interface InboxNote {
   readonly position: number;
-  readonly kind: 'asked' | 'passed' | 'answered' | 'said' | 'closed';
+  readonly kind: TaskNoteKind;
   readonly station: string;
   readonly stationColor: string;
   readonly stationPosition: number;

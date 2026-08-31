@@ -5,8 +5,8 @@ import { TaskMapper } from '@application/mappers/task.mapper';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { PersonReaderPort } from '@application/ports/person-reader.port';
-import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
+import type { TaskDispatching } from '@application/services/task-dispatch';
 import { UnknownAssemblyLineError } from '@domain/exceptions/unknown-assembly-line.error';
 import { UnknownStationError } from '@domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@domain/exceptions/unknown-task.error';
@@ -25,7 +25,7 @@ export class MoveTaskHandler
     private readonly tasks: TaskRepository,
     private readonly lines: AssemblyLineRepository,
     private readonly transaction: TransactionPort,
-    private readonly dispatch: TaskDispatchPort,
+    private readonly dispatch: TaskDispatching,
     private readonly clock: ClockPort,
     private readonly people: PersonReaderPort,
   ) {}
@@ -82,7 +82,7 @@ export class MoveTaskHandler
         ? task.reorderTo(rank)
         : // Moved by hand is still a move, and what a person was owed where
           // it stood, they are owed no longer.
-          task.moveTo(stationId, rank, {
+          task.moveTo(station, rank, {
             station: line.stationAt(task.stationId)?.name ?? station.name,
             body: TaskNoteBody.movedTo(station.name),
             at: this.clock.now(),
