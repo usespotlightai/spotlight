@@ -4,7 +4,6 @@ import { InitialAvatar } from '@/components/common/avatar/InitialAvatar';
 import { Conversation } from '@/components/inbox/Conversation';
 import { InboxAsked } from '@/components/inbox/InboxAsked';
 import { InboxComposer } from '@/components/inbox/InboxComposer';
-import { InboxResolve } from '@/components/inbox/InboxResolve';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { RunBriefing } from '@/components/runs/RunBriefing';
@@ -79,9 +78,6 @@ export function InboxItem() {
               },
             ]}
           />
-        }
-        actions={
-          item.resolved ? null : <InboxResolve slug={slug} itemId={item.id} />
         }
       />
 

@@ -743,46 +743,6 @@
         ]
       }
     },
-    "/workspaces/{slug}/inbox/{itemId}/resolve": {
-      "post": {
-        "operationId": "resolveInboxItem",
-        "parameters": [
-          {
-            "name": "itemId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "task_1:0",
-              "type": "string"
-            }
-          },
-          {
-            "name": "slug",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "acme",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "The conversation was closed"
-          },
-          "401": {
-            "description": "No valid session"
-          },
-          "404": {
-            "description": "No such conversation for this caller"
-          }
-        },
-        "summary": "Close a conversation, saying the task stops here",
-        "tags": [
-          "inbox"
-        ]
-      }
-    },
     "/workspaces/{slug}/inbox/{itemId}/read": {
       "post": {
         "operationId": "readInboxItem",

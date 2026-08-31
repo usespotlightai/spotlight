@@ -24,10 +24,6 @@ export class TaskNoteBody {
     return new TaskNoteBody(trimmed);
   }
 
-  static resolved(): TaskNoteBody {
-    return new TaskNoteBody('Resolved.');
-  }
-
   static merged(): TaskNoteBody {
     return new TaskNoteBody('The pull request was merged.');
   }

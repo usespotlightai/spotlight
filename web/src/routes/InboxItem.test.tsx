@@ -6,7 +6,6 @@ import { InboxItem } from '@/routes/InboxItem';
 
 const answer = vi.fn();
 const read = vi.fn();
-const resolve = vi.fn();
 const waiting = vi.fn();
 const viewer = vi.fn();
 const journal = vi.fn();
@@ -32,10 +31,6 @@ vi.mock('@/hooks/api/useTaskJournal', () => ({
 
 vi.mock('@/hooks/api/useAnswerInboxItem', () => ({
   useAnswerInboxItem: () => ({ mutate: answer, isPending: false }),
-}));
-
-vi.mock('@/hooks/api/useResolveInboxItem', () => ({
-  useResolveInboxItem: () => ({ mutate: resolve, isPending: false }),
 }));
 
 vi.mock('@/hooks/api/useReadInboxItem', () => ({
@@ -376,25 +371,6 @@ describe('InboxItem', () => {
 
     expect(screen.getByText(/settled/)).toBeInTheDocument();
     expect(screen.queryByText(/moved on/)).not.toBeInTheDocument();
-  });
-
-  it('closes the conversation where a person says it stops here', async () => {
-    renderItem();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Resolve' }));
-
-    expect(resolve).toHaveBeenCalledWith({ slug: 'acme', itemId: 'task_1:0' });
-  });
-
-  it('offers nothing to resolve once it is settled', () => {
-    const [only] = item([message()]);
-    waiting.mockReturnValue([{ ...only, resolved: true }]);
-
-    renderItem();
-
-    expect(
-      screen.queryByRole('button', { name: 'Resolve' }),
-    ).not.toBeInTheDocument();
   });
 
   it('says when a reply was sent', () => {

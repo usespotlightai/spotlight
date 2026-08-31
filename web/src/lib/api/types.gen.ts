@@ -1033,36 +1033,6 @@ export type AnswerInboxItemResponses = {
 
 export type AnswerInboxItemResponse = AnswerInboxItemResponses[keyof AnswerInboxItemResponses];
 
-export type ResolveInboxItemData = {
-  body?: never;
-  path: {
-    itemId: string;
-    slug: string;
-  };
-  query?: never;
-  url: '/workspaces/{slug}/inbox/{itemId}/resolve';
-};
-
-export type ResolveInboxItemErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such conversation for this caller
-   */
-  404: unknown;
-};
-
-export type ResolveInboxItemResponses = {
-  /**
-   * The conversation was closed
-   */
-  204: void;
-};
-
-export type ResolveInboxItemResponse = ResolveInboxItemResponses[keyof ResolveInboxItemResponses];
-
 export type ReadInboxItemData = {
   body?: never;
   path: {

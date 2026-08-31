@@ -16,7 +16,6 @@ import { MoveTaskHandler } from '@application/commands/handlers/move-task.handle
 import { OpenPullRequestHandler } from '@application/commands/handlers/open-pull-request.handler';
 import { ReadInboxItemHandler } from '@application/commands/handlers/read-inbox-item.handler';
 import { ReorderStationsHandler } from '@application/commands/handlers/reorder-stations.handler';
-import { ResolveInboxItemHandler } from '@application/commands/handlers/resolve-inbox-item.handler';
 import {
   AppendRunEventsHandler,
   ClaimRunHandler,
@@ -32,7 +31,6 @@ import { MoveTaskCommand } from '@application/commands/move-task.command';
 import { OpenPullRequestCommand } from '@application/commands/open-pull-request.command';
 import { ReadInboxItemCommand } from '@application/commands/read-inbox-item.command';
 import { ReorderStationsCommand } from '@application/commands/reorder-stations.command';
-import { ResolveInboxItemCommand } from '@application/commands/resolve-inbox-item.command';
 import {
   AppendRunEventsCommand,
   ClaimRunCommand,
@@ -428,13 +426,6 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         CLOCK,
       ],
     ),
-
-    ...bindCommandHandler(ResolveInboxItemCommand, ResolveInboxItemHandler, [
-      ConversationAtHand,
-      DrizzleTaskRepository,
-      TRANSACTION,
-      CLOCK,
-    ]),
 
     ...bindCommandHandler(ReadInboxItemCommand, ReadInboxItemHandler, [
       ConversationAtHand,

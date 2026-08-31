@@ -195,16 +195,6 @@ export class Task {
     });
   }
 
-  resolved(from: NotePosition, saying: Saying): Task {
-    if (this.openConversation?.from !== from.value) {
-      throw new InvalidTaskTransitionError(
-        'is not waiting on anyone there, so there is nothing to resolve',
-      );
-    }
-
-    return this.closed(saying);
-  }
-
   /** Closes whatever conversation was open, as passing it on would. */
   closed(saying: Saying): Task {
     return this.with({
