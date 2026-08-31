@@ -105,7 +105,7 @@ export function NewTaskDialog({
               className="min-h-24 border-none bg-transparent p-0"
               placeholderClassName="top-0 left-0"
             />
-            <div className="-ml-2 flex">
+            <div className="flex">
               <RepositorySelect value={repository} onChange={setRepository} />
             </div>
           </div>

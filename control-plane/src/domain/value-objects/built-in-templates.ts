@@ -23,10 +23,16 @@ const TRIAGE = `## Triage
 Work out what is actually being asked for, and whether it is clear enough to
 build. Read the code it would touch before deciding.
 
+Read only. Make no edits and run nothing that changes a file, however small
+the change and however certain you are of it.
+
 Say in your note: what the change is, which parts of the codebase it lands in,
-and anything the request leaves open. Do not write production code here.
+and anything the request leaves open.
 
 Hand on when you can state the change in a sentence and name where it goes.
+A small change still goes along the line rather than skipping ahead to the end 
+of it.
+
 If what was asked for is ambiguous, contradictory, or already done, that is a
 question for a person, not a guess for you to make.`;
 
@@ -52,6 +58,11 @@ Match the surrounding code: its naming, its structure, its idioms. Write tests
 that would fail without your change. Run the tests and the linter, and leave
 them passing — a change that does not build is not done.
 
+Commit your work and push it. The workspace is already on the branch this
+task belongs to, so push that branch and nothing else:
+
+    git push -u origin HEAD
+
 Say in your note: what you changed, what you tested, and anything you found
 that the spec did not anticipate. If the spec turns out to be wrong or cannot
 be followed as written, stop and put that to a person rather than improvising
@@ -67,8 +78,20 @@ swallowed or left unhandled, and anything that will be hard to change later.
 Read the tests as carefully as the code. Run them.
 
 Say in your note what you found, most serious first, and be specific — the
-file, the line, and what goes wrong. If it is sound, say so plainly and say
-what you checked. Anything you are unsure about is worth a person's eyes.`;
+file, the line, and what goes wrong. Anything you are unsure about is worth a
+person's eyes.
+
+If anything needs changing, hand the task back to implementation. Your note is
+what that run works from, so it has to be enough to act on without reading the
+diff again.
+
+If it is sound, say so plainly and say what you checked, then open a pull
+request and give its address in your note:
+
+    spotlight pull-request --title "<what it does>" --body "<the detail>"
+
+Spotlight opens it for the branch this task was worked on. You cannot reach
+GitHub yourself, and do not need to.`;
 
 export const DEFAULT_TEMPLATE = template('default', 'Default', [
   ['Triage', '#93a1b5', TRIAGE],

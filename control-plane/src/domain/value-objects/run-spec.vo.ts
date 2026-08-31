@@ -19,7 +19,10 @@ export interface RunSpecShape {
     readonly env?: Readonly<Record<string, string>>;
   };
   readonly briefing: string;
-  readonly handover: { readonly options: readonly string[] };
+  readonly handover: {
+    readonly options: readonly string[];
+    readonly noteLimit: number;
+  };
   readonly continuity: {
     readonly key: string;
     readonly sessionId?: string;
@@ -41,8 +44,55 @@ export class RunSpec {
     if (parts.command.executable.trim().length === 0) {
       throw new InvalidRunSpecError('must name something to run');
     }
+    if (!Array.isArray(parts.handover?.options)) {
+      throw new InvalidRunSpecError('must say what may be handed over to');
+    }
+    if (
+      !Number.isInteger(parts.handover.noteLimit) ||
+      parts.handover.noteLimit < 0
+    ) {
+      throw new InvalidRunSpecError('must say how long a note may be');
+    }
+
+    for (const checkout of parts.checkouts ?? []) {
+      if (checkout.remote.trim().length === 0) {
+        throw new InvalidRunSpecError('must say where a checkout comes from');
+      }
+      // A path reaching outside the workspace is one the runner would have to
+      // refuse, so it is refused here instead.
+      if (checkout.path?.startsWith('/') || checkout.path?.includes('..')) {
+        throw new InvalidRunSpecError('must keep a checkout in the workspace');
+      }
+    }
 
     return new RunSpec(parts);
+  }
+
+  /**
+   * A spec a caller handed in, where nothing about it is guaranteed. The
+   * command is not theirs to give: how to start a harness is Spotlight's.
+   */
+  static ordered(raw: unknown, command: RunSpecShape['command']): RunSpec {
+    const given = raw as Partial<RunSpecShape> | null;
+
+    if (!given || typeof given !== 'object') {
+      throw new InvalidRunSpecError('must be described');
+    }
+
+    return RunSpec.of({
+      checkouts: given.checkouts,
+      command,
+      briefing: typeof given.briefing === 'string' ? given.briefing : '',
+      handover: {
+        options: given.handover?.options ?? [],
+        noteLimit: given.handover?.noteLimit ?? 0,
+      },
+      continuity: {
+        key: given.continuity?.key ?? '',
+        sessionId: given.continuity?.sessionId,
+        keep: given.continuity?.keep ?? false,
+      },
+    });
   }
 
   /** A spec read back from storage, where nothing guarantees its shape. */

@@ -4,6 +4,7 @@ import type {
   TaskRepository,
 } from '@domain/repositories/task.repository';
 import { HarnessSession } from '@domain/value-objects/harness-session.vo';
+import { PullRequestUrl } from '@domain/value-objects/pull-request-url.vo';
 import { Repository } from '@domain/value-objects/repository.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
@@ -58,6 +59,7 @@ const toTask = (row: Row, notes: NoteRow[]): Task =>
       : null,
     raisedBy: row.raisedById ? UserId.of(row.raisedById) : null,
     repository: row.repository ? Repository.of(row.repository) : null,
+    pullRequest: row.pullRequest ? PullRequestUrl.of(row.pullRequest) : null,
   });
 
 @Injectable()
@@ -80,6 +82,7 @@ export class DrizzleTaskRepository implements TaskRepository {
       raisedAtStationId: added.raisedAt?.value ?? null,
       raisedById: added.raisedBy?.value ?? null,
       repository: added.repository?.value ?? null,
+      pullRequest: added.pullRequest?.value ?? null,
     });
 
     await this.writeNotes(added);
@@ -97,6 +100,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         awaitingReview: saved.awaitingReview,
         sessionId: saved.sessionId?.value ?? null,
         runnerId: saved.runnerId?.value ?? null,
+        pullRequest: saved.pullRequest?.value ?? null,
       })
       .where(eq(task.id, saved.id.value));
 

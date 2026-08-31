@@ -46,6 +46,7 @@ export const task = pgTable(
     }),
     awaitingReview: boolean('awaiting_review').default(false).notNull(),
     repository: text('repository'),
+    pullRequest: text('pull_request'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
       .defaultNow()

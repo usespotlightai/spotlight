@@ -169,7 +169,7 @@ export class DrizzleRunReader implements RunReaderPort {
         taskId: task.id,
         title: task.title,
         description: task.description,
-        working: task.currentRunId,
+        workingRunId: task.currentRunId,
         createdAt: task.createdAt,
         spec: run.spec,
         stationName: ranAt.name,
@@ -208,7 +208,7 @@ export class DrizzleRunReader implements RunReaderPort {
       station: worked({ ...found }, held),
       createdAt: found.createdAt,
       briefing: spec?.briefing ?? null,
-      working: found.working !== null,
+      working: found.workingRunId === found.runId,
       notes: said,
     };
   }

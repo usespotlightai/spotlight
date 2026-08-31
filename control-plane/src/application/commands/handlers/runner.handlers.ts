@@ -35,7 +35,7 @@ import { Declaration } from '@domain/value-objects/declaration.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
-import { RunSpec, type RunSpecShape } from '@domain/value-objects/run-spec.vo';
+import { RunSpec } from '@domain/value-objects/run-spec.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { RunnerName } from '@domain/value-objects/runner-name.vo';
 import { TokenHash } from '@domain/value-objects/token-hash.vo';
@@ -372,11 +372,7 @@ export class EnqueueRunHandler
         id: RunId.of(this.ids.generate()),
         workspaceId: WorkspaceId.of(command.workspaceId),
         harness: harness.id,
-        // How to start a harness is not the caller's to know.
-        spec: RunSpec.of({
-          ...(command.spec as Omit<RunSpecShape, 'command'>),
-          command: harness.command.started(),
-        }),
+        spec: RunSpec.ordered(command.spec, harness.command.started()),
         targetRunner: command.targetRunnerId
           ? RunnerId.of(command.targetRunnerId)
           : null,

@@ -37,6 +37,7 @@ const withNotes = (task: Task, ...notes: TaskNote[]) =>
     raisedAt: task.raisedAt,
     raisedBy: task.raisedBy,
     repository: task.repository,
+    pullRequest: task.pullRequest,
   });
 
 const at = (id: string, name: string, position: number, prompt?: AgentPrompt) =>

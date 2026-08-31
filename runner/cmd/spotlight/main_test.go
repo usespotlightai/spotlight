@@ -11,7 +11,7 @@ import (
 func inARun(t *testing.T) *declare.Server {
 	t.Helper()
 
-	server, err := declare.Serve([]string{"Spec", "review"})
+	server, err := declare.Serve([]string{"Spec", "review"}, 0, nil)
 	if err != nil {
 		t.Fatalf("serve: %v", err)
 	}

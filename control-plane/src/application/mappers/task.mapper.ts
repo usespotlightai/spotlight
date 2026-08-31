@@ -26,6 +26,8 @@ export const TaskMapper = {
       createdAt: summary.createdAt.toISOString(),
       running: summary.running,
       awaitingReview: summary.awaitingReview,
+      repository: summary.repository,
+      pullRequest: summary.pullRequest,
       raisedBy: summary.raisedBy,
       note: summary.note
         ? {
@@ -49,6 +51,8 @@ export const TaskMapper = {
       createdAt: task.createdAt.toISOString(),
       running: task.running,
       awaitingReview: TaskMapper.awaited(task),
+      repository: task.repository?.value ?? null,
+      pullRequest: task.pullRequest?.value ?? null,
       raisedBy,
       note: last
         ? {

@@ -24,7 +24,7 @@ type Row = typeof run.$inferSelect;
 const EMPTY_SPEC: RunSpecShape = {
   command: { executable: 'unknown', args: [] },
   briefing: 'This run was queued before its spec had a shape.',
-  handover: { options: [] },
+  handover: { options: [], noteLimit: 4_000 },
   continuity: { key: '', keep: false },
 };
 

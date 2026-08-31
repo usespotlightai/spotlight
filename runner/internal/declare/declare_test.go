@@ -2,17 +2,19 @@ package declare_test
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"strings"
 	"testing"
 
 	"usespotlight.ai/runner/internal/declare"
+	"usespotlight.ai/runner/internal/protocol"
 )
 
 func serve(t *testing.T) *declare.Server {
 	t.Helper()
 
-	server, err := declare.Serve([]string{"Spec", "Code Review", "review"})
+	server, err := declare.Serve([]string{"Spec", "Code Review", "review"}, 0, nil)
 	if err != nil {
 		t.Fatalf("serve: %v", err)
 	}
@@ -127,4 +129,140 @@ func TestUnreadableBodyIsRefused(t *testing.T) {
 	if status, _ := post(t, server, server.Token(), `{`); status != http.StatusBadRequest {
 		t.Fatalf("status %d", status)
 	}
+}
+
+func serveLimited(t *testing.T, limit int) *declare.Server {
+	t.Helper()
+
+	server, err := declare.Serve([]string{"Spec"}, limit, nil)
+	if err != nil {
+		t.Fatalf("serve: %v", err)
+	}
+	t.Cleanup(func() { _ = server.Close() })
+
+	return server
+}
+
+func TestRefusesANoteLongerThanTheControlPlaneWillTake(t *testing.T) {
+	server := serveLimited(t, 20)
+
+	status, said := post(t, server, server.Token(),
+		`{"next":"Spec","note":"`+strings.Repeat("x", 40)+`"}`)
+
+	if status != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422", status)
+	}
+	for _, want := range []string{"40 characters", "limit is 20", "say it shorter"} {
+		if !strings.Contains(said, want) {
+			t.Errorf("said %q, want it to mention %q", said, want)
+		}
+	}
+}
+
+func TestTakesANoteInsideTheLimit(t *testing.T) {
+	server := serveLimited(t, 20)
+
+	status, _ := post(t, server, server.Token(),
+		`{"next":"Spec","note":"short enough"}`)
+
+	if status != http.StatusNoContent {
+		t.Fatalf("status = %d, want 204", status)
+	}
+}
+
+// Nothing said about a limit is not a limit of nothing.
+func TestRefusesNothingForLengthWhenNoLimitWasGiven(t *testing.T) {
+	server := serveLimited(t, 0)
+
+	status, _ := post(t, server, server.Token(),
+		`{"next":"Spec","note":"`+strings.Repeat("x", 9000)+`"}`)
+
+	if status != http.StatusNoContent {
+		t.Fatalf("status = %d, want 204", status)
+	}
+}
+
+func TestOpensAPullRequestThroughSpotlight(t *testing.T) {
+	var asked protocol.PullRequest
+	server, err := declare.Serve([]string{"Spec"}, 0,
+		func(_ context.Context, wanted protocol.PullRequest) (string, error) {
+			asked = wanted
+			return "https://github.com/acme/widgets/pull/7", nil
+		})
+	if err != nil {
+		t.Fatalf("serve: %v", err)
+	}
+	t.Cleanup(func() { _ = server.Close() })
+
+	status, said := postTo(t, server, declare.PullRequestPath, server.Token(),
+		`{"title":"Fix the queue","body":"what it does"}`)
+
+	if status != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", status, said)
+	}
+	if asked.Title != "Fix the queue" || asked.Body != "what it does" {
+		t.Errorf("asked = %+v, want what the agent said", asked)
+	}
+	if !strings.Contains(said, "/pull/7") {
+		t.Errorf("said %q, want where it landed", said)
+	}
+}
+
+func TestRefusesAPullRequestWithNothingToCallIt(t *testing.T) {
+	server, err := declare.Serve([]string{"Spec"}, 0,
+		func(_ context.Context, _ protocol.PullRequest) (string, error) {
+			t.Error("asked Spotlight for one anyway")
+			return "", nil
+		})
+	if err != nil {
+		t.Fatalf("serve: %v", err)
+	}
+	t.Cleanup(func() { _ = server.Close() })
+
+	status, _ := postTo(t, server, declare.PullRequestPath, server.Token(), `{"body":"x"}`)
+
+	if status != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422", status)
+	}
+}
+
+// The agent may not reach GitHub itself, so a run with no way to open one
+// says so rather than failing somewhere the agent cannot read.
+func TestSaysWhenTheRunCannotOpenOne(t *testing.T) {
+	server, err := declare.Serve([]string{"Spec"}, 0, nil)
+	if err != nil {
+		t.Fatalf("serve: %v", err)
+	}
+	t.Cleanup(func() { _ = server.Close() })
+
+	status, _ := postTo(t, server, declare.PullRequestPath, server.Token(), `{"title":"x"}`)
+
+	if status != http.StatusNotImplemented {
+		t.Fatalf("status = %d, want 501", status)
+	}
+}
+
+func postTo(t *testing.T, server *declare.Server, path, token, body string) (int, string) {
+	t.Helper()
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		strings.TrimSuffix(server.URL(), "/")+path,
+		strings.NewReader(body),
+	)
+	if err != nil {
+		t.Fatalf("request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post: %v", err)
+	}
+	defer response.Body.Close()
+
+	said := new(bytes.Buffer)
+	_, _ = said.ReadFrom(response.Body)
+
+	return response.StatusCode, strings.TrimSpace(said.String())
 }

@@ -57,6 +57,9 @@ type Command struct {
 // the control plane decides what any of them do.
 type Handover struct {
 	Options []string `json:"options,omitempty"`
+	// NoteLimit is how long a note may be, counted the way the control plane
+	// counts it. Zero means it did not say, so nothing is refused for length.
+	NoteLimit int `json:"noteLimit,omitempty"`
 }
 
 // Spec is what a run is supposed to do. The control plane stores it whole and
@@ -90,6 +93,18 @@ type Continuity struct {
 	// Keep leaves the workspace behind when the run ends, for the next run to
 	// find. Disposal is otherwise the runner's habit.
 	Keep bool `json:"keep,omitempty"`
+}
+
+// PullRequest is what an agent asks Spotlight to open for it. Spotlight holds
+// what it takes to reach GitHub, so the agent only says what to call it.
+type PullRequest struct {
+	Title string `json:"title"`
+	Body  string `json:"body,omitempty"`
+}
+
+// Opened is where the pull request landed.
+type Opened struct {
+	URL string `json:"url"`
 }
 
 type Run struct {

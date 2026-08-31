@@ -85,6 +85,22 @@ func (c *Client) Kept(ctx context.Context) ([]string, error) {
 	return out.Keys, nil
 }
 
+// OpenPullRequest asks the control plane to open one for this run's branch.
+// What reaches GitHub is Spotlight's, so nothing here carries a credential of
+// its own beyond the runner's own token.
+func (c *Client) OpenPullRequest(
+	ctx context.Context, runID string, asked protocol.PullRequest,
+) (string, error) {
+	var out protocol.Opened
+	path := "/api/runs/" + runID + "/pull-request"
+
+	if err := c.do(ctx, http.MethodPost, path, asked, &out); err != nil {
+		return "", fmt.Errorf("open a pull request: %w", err)
+	}
+
+	return out.URL, nil
+}
+
 // Claim long-polls for work. An empty queue returns nil, nil, not an error.
 func (c *Client) Claim(ctx context.Context) (*protocol.Run, error) {
 	ctx, cancel := context.WithTimeout(ctx, PollTimeout+15*time.Second)

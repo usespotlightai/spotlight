@@ -7,10 +7,12 @@ import {
   notesIn,
   stillOpen,
 } from '@domain/services/conversations';
+import { TaskBranch } from '@domain/services/task-branch';
 import { anyUnread } from '@domain/services/unread';
 import { Continuity } from '@domain/value-objects/continuity.vo';
 import type { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { NotePosition } from '@domain/value-objects/note-position.vo';
+import type { PullRequestUrl } from '@domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@domain/value-objects/repository.vo';
 import type { RunId } from '@domain/value-objects/run-id.vo';
 import type { RunnerId } from '@domain/value-objects/runner-id.vo';
@@ -56,6 +58,7 @@ export class Task {
     readonly raisedBy: UserId | null,
     // Told to the runner as somewhere to reach, never as something to open.
     readonly repository: Repository | null,
+    readonly pullRequest: PullRequestUrl | null,
   ) {}
 
   static add(input: {
@@ -84,6 +87,7 @@ export class Task {
       input.stationId,
       input.raisedBy,
       input.repository ?? null,
+      null,
     );
   }
 
@@ -102,6 +106,7 @@ export class Task {
     raisedAt: StationId | null;
     raisedBy: UserId | null;
     repository: Repository | null;
+    pullRequest: PullRequestUrl | null;
   }): Task {
     return new Task(
       input.id,
@@ -118,6 +123,7 @@ export class Task {
       input.raisedAt,
       input.raisedBy,
       input.repository,
+      input.pullRequest,
     );
   }
 
@@ -136,6 +142,15 @@ export class Task {
 
   reorderTo(rank: TaskRank): Task {
     return this.with({ rank });
+  }
+
+  get branch(): string {
+    return TaskBranch.for(this.id.value);
+  }
+
+  /** Opened once: asking again keeps the one already open. */
+  openedAt(url: PullRequestUrl): Task {
+    return this.pullRequest ? this : this.with({ pullRequest: url });
   }
 
   get running(): boolean {
@@ -301,6 +316,7 @@ export class Task {
     sessionId?: HarnessSession | null;
     runnerId?: RunnerId | null;
     notes?: readonly TaskNote[];
+    pullRequest?: PullRequestUrl | null;
   }): Task {
     return new Task(
       this.id,
@@ -317,6 +333,7 @@ export class Task {
       this.raisedAt,
       this.raisedBy,
       this.repository,
+      part.pullRequest !== undefined ? part.pullRequest : this.pullRequest,
     );
   }
 

@@ -1,4 +1,4 @@
-import { ChevronsUpDown } from 'lucide-react';
+import { ChevronsUpDown, GitBranch } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,8 +24,12 @@ export function RepositorySelect({ value, onChange }: RepositorySelectProps) {
       <DropdownMenuTrigger
         type="button"
         aria-label="Repository"
-        className="flex h-7 items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent"
+        className="flex h-6 items-center gap-1.5 rounded-full border border-border bg-card px-2 text-left text-xs shadow-control outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent"
       >
+        <GitBranch
+          className="size-3 shrink-0 text-muted-foreground"
+          aria-hidden
+        />
         <span
           className={cn(
             'truncate',
@@ -35,7 +39,7 @@ export function RepositorySelect({ value, onChange }: RepositorySelectProps) {
           {value || 'No repository'}
         </span>
         <ChevronsUpDown
-          className="size-3 shrink-0 text-muted-foreground"
+          className="size-2.5 shrink-0 text-muted-foreground"
           aria-hidden
         />
       </DropdownMenuTrigger>

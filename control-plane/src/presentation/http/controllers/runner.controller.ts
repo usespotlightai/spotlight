@@ -1,4 +1,5 @@
 import { DeliverSaidCommand } from '@application/commands/deliver-said.command';
+import { OpenPullRequestCommand } from '@application/commands/open-pull-request.command';
 import {
   AppendRunEventsCommand,
   ClaimRunCommand,
@@ -8,6 +9,7 @@ import {
 } from '@application/commands/runner.commands';
 import type { HarnessDto } from '@application/dto/harness.dto';
 import type { PendingMessageDto } from '@application/dto/pending-message.dto';
+import type { OpenedPullRequestDto } from '@application/dto/pull-request.dto';
 import type {
   ClaimedRunDto,
   RegisteredRunnerDto,
@@ -41,11 +43,13 @@ import {
   AppendRunEventsRequestDto,
   CompleteRunRequestDto,
   DeliverSaidRequestDto,
+  OpenPullRequestRequestDto,
   PendingMessageResponseDto,
   RegisterRunnerRequestDto,
 } from '@presentation/http/dto/runner.request.dto';
 import {
   ClaimedRunResponseDto,
+  OpenedPullRequestResponseDto,
   RegisteredRunnerResponseDto,
 } from '@presentation/http/dto/runner.response.dto';
 
@@ -213,6 +217,28 @@ export class RunnerController {
     await this.commandBus.execute(
       new AppendRunEventsCommand(runId, runnerId, body.events),
     );
+  }
+
+  @Post('runs/:runId/pull-request')
+  @ApiOperation({
+    operationId: 'openPullRequest',
+    summary: 'Open a pull request for the branch this task was worked on',
+    description:
+      'Opened under Spotlight\u2019s own credential. Nothing that reaches ' +
+      'GitHub is ever sent to a runner.',
+  })
+  @ApiOkResponse({ type: OpenedPullRequestResponseDto })
+  async openPullRequest(
+    @Param('runId') runId: string,
+    @CurrentRunner() runnerId: string,
+    @Body() body: OpenPullRequestRequestDto,
+  ): Promise<OpenedPullRequestResponseDto> {
+    const opened = await this.commandBus.execute<
+      OpenPullRequestCommand,
+      OpenedPullRequestDto
+    >(new OpenPullRequestCommand(runId, runnerId, body.title, body.body ?? ''));
+
+    return new OpenedPullRequestResponseDto(opened.url);
   }
 
   @Post('runs/:runId/completion')

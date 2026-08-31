@@ -22,6 +22,8 @@ export interface TaskSummary {
   readonly running: boolean;
   // Where the question is answered, and null where none is standing.
   readonly awaitingReview: TaskReviewSummary | null;
+  readonly repository: string | null;
+  readonly pullRequest: string | null;
   readonly note: TaskNoteSummary | null;
   readonly raisedBy: PersonSummary | null;
 }

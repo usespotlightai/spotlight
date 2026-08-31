@@ -11,6 +11,7 @@ import { CustomiseStationHandler } from '@application/commands/handlers/customis
 import { DeleteTaskHandler } from '@application/commands/handlers/delete-task.handler';
 import { DeliverSaidHandler } from '@application/commands/handlers/deliver-said.handler';
 import { MoveTaskHandler } from '@application/commands/handlers/move-task.handler';
+import { OpenPullRequestHandler } from '@application/commands/handlers/open-pull-request.handler';
 import { ReadInboxItemHandler } from '@application/commands/handlers/read-inbox-item.handler';
 import { ReorderStationsHandler } from '@application/commands/handlers/reorder-stations.handler';
 import {
@@ -25,6 +26,7 @@ import {
 } from '@application/commands/handlers/runner.handlers';
 import { SayToRunHandler } from '@application/commands/handlers/say-to-run.handler';
 import { MoveTaskCommand } from '@application/commands/move-task.command';
+import { OpenPullRequestCommand } from '@application/commands/open-pull-request.command';
 import { ReadInboxItemCommand } from '@application/commands/read-inbox-item.command';
 import { ReorderStationsCommand } from '@application/commands/reorder-stations.command';
 import {
@@ -50,6 +52,7 @@ import { ID_GENERATOR } from '@application/ports/id-generator.port';
 import { INBOX_READER } from '@application/ports/inbox-reader.port';
 import { KEPT_WORKSPACE_READER } from '@application/ports/kept-workspace-reader.port';
 import { PERSON_READER } from '@application/ports/person-reader.port';
+import { PULL_REQUESTS } from '@application/ports/pull-request.port';
 import {
   REPOSITORY_ACCESS,
   type RepositoryAccessPort,
@@ -111,6 +114,7 @@ import { ReadTaskJournalQuery } from '@application/queries/read-task-journal.que
 import { WatchRunQuery } from '@application/queries/watch-run.query';
 import { CarryGitCall } from '@application/services/carry-git-call.service';
 import { DispatchTask } from '@application/services/dispatch-task.service';
+import { RunAtHand } from '@application/services/run-at-hand.service';
 import { TakeUpStandingWork } from '@application/services/take-up-standing-work.service';
 import { AuthenticationModule } from '@infrastructure/auth/auth.module';
 import { RunnerTokenAuth } from '@infrastructure/auth/runner-token.auth';
@@ -122,6 +126,7 @@ import { bindCommandHandler } from '@infrastructure/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@infrastructure/cqrs/bind-query-handler';
 import { GitHubAppAccess } from '@infrastructure/github/github-app.access';
 import { GitHubGitTransport } from '@infrastructure/github/github-git.transport';
+import { GitHubPullRequests } from '@infrastructure/github/github-pull-requests';
 import { GitHubRepositoryCatalog } from '@infrastructure/github/github-repository.catalog';
 import { CryptoIdGenerator } from '@infrastructure/identity/crypto-id.generator';
 import { LoggingModule } from '@infrastructure/logging/logging.module';
@@ -225,6 +230,13 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     },
 
     {
+      provide: PULL_REQUESTS,
+      inject: [REPOSITORY_ACCESS],
+      useFactory: (access: RepositoryAccessPort) =>
+        new GitHubPullRequests(access),
+    },
+
+    {
       provide: REPOSITORY_CATALOG,
       inject: [REPOSITORY_ACCESS],
       useFactory: (access: RepositoryAccessPort) =>
@@ -239,13 +251,17 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     },
 
     {
+      provide: RunAtHand,
+      inject: [DrizzleRunRepository, DrizzleTaskRepository],
+      useFactory: (runs: DrizzleRunRepository, tasks: DrizzleTaskRepository) =>
+        new RunAtHand(runs, tasks),
+    },
+
+    {
       provide: GIT_GATEWAY,
-      inject: [DrizzleRunRepository, DrizzleTaskRepository, REPOSITORY_GIT],
-      useFactory: (
-        runs: DrizzleRunRepository,
-        tasks: DrizzleTaskRepository,
-        git: RepositoryGitPort,
-      ) => new CarryGitCall(runs, tasks, git),
+      inject: [RunAtHand, REPOSITORY_GIT],
+      useFactory: (held: RunAtHand, git: RepositoryGitPort) =>
+        new CarryGitCall(held, git),
     },
 
     {
@@ -367,6 +383,11 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       CLOCK,
     ]),
 
+    ...bindCommandHandler(OpenPullRequestCommand, OpenPullRequestHandler, [
+      RunAtHand,
+      DrizzleTaskRepository,
+      PULL_REQUESTS,
+    ]),
     ...bindCommandHandler(SayToRunCommand, SayToRunHandler, [
       DrizzleRunRepository,
       DrizzleTaskRepository,

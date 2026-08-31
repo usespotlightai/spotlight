@@ -133,6 +133,8 @@ describe('AddTaskHandler', () => {
       // Dispatched the moment it was raised, so it is already being worked.
       running: true,
       awaitingReview: null,
+      repository: null,
+      pullRequest: null,
       raisedBy: raiser,
       note: null,
     });

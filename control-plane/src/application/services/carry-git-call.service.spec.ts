@@ -3,6 +3,7 @@ import type {
   RepositoryGitPort,
 } from '@application/ports/repository-git.port';
 import { CarryGitCall } from '@application/services/carry-git-call.service';
+import { RunAtHand } from '@application/services/run-at-hand.service';
 import { Run } from '@domain/aggregates/run.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { InvalidRunTransitionError } from '@domain/exceptions/invalid-run-transition.error';
@@ -53,7 +54,7 @@ const claimedBy = (runner: string) =>
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
-      handover: { options: [] },
+      handover: { options: [], noteLimit: 4_000 },
       continuity: { key: 'task:station', keep: true },
     }),
   }).claim(RunnerId.of(runner), NOW);
@@ -64,8 +65,10 @@ const carrying = (run: Run | null, held: Task | null) => {
   };
 
   const service = new CarryGitCall(
-    { findById: vi.fn(async () => run) } as unknown as RunRepository,
-    { find: vi.fn(async () => held) } as unknown as TaskRepository,
+    new RunAtHand(
+      { findById: vi.fn(async () => run) } as unknown as RunRepository,
+      { find: vi.fn(async () => held) } as unknown as TaskRepository,
+    ),
     git as unknown as RepositoryGitPort,
   );
 
@@ -107,7 +110,7 @@ describe('CarryGitCall', () => {
       spec: RunSpec.of({
         command: { executable: 'sh', args: [] },
         briefing: 'do the thing',
-        handover: { options: [] },
+        handover: { options: [], noteLimit: 4_000 },
         continuity: { key: 'task:station', keep: true },
       }),
     });

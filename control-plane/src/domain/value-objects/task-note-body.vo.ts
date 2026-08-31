@@ -1,6 +1,9 @@
 import { InvalidTaskNoteError } from '@domain/exceptions/invalid-task-note.error';
 
-const MAX_LENGTH = 4_000;
+/** How long a note may be. Told to the runner, so an agent hears it early. */
+export const TASK_NOTE_MAX_LENGTH = 4_000;
+
+const MAX_LENGTH = TASK_NOTE_MAX_LENGTH;
 
 export class TaskNoteBody {
   private constructor(readonly value: string) {}

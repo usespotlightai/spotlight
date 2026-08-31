@@ -542,6 +542,51 @@
         ]
       }
     },
+    "/runs/{runId}/pull-request": {
+      "post": {
+        "description": "Opened under Spotlight’s own credential. Nothing that reaches GitHub is ever sent to a runner.",
+        "operationId": "openPullRequest",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenPullRequestRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenedPullRequestResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong enrollment token"
+          }
+        },
+        "summary": "Open a pull request for the branch this task was worked on",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
     "/runs/{runId}/completion": {
       "post": {
         "operationId": "completeRun",
@@ -1811,6 +1856,35 @@
           "events"
         ]
       },
+      "OpenPullRequestRequestDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Fix the queue"
+          },
+          "body": {
+            "type": "string",
+            "nullable": true,
+            "description": "Markdown, shown as the pull request description"
+          }
+        },
+        "required": [
+          "title"
+        ]
+      },
+      "OpenedPullRequestResponseDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "example": "https://github.com/acme/widgets/pull/7"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
       "DeclaredOutcomeDto": {
         "type": "object",
         "properties": {
@@ -2455,6 +2529,18 @@
               }
             ]
           },
+          "repository": {
+            "type": "string",
+            "example": "usespotlightai/spotlight",
+            "nullable": true,
+            "description": "The codebase the work is done in"
+          },
+          "pullRequest": {
+            "type": "string",
+            "example": "https://github.com/acme/widgets/pull/7",
+            "nullable": true,
+            "description": "The pull request this task ended in, once one is open"
+          },
           "raisedBy": {
             "nullable": true,
             "description": "Who raised it, and so who it comes back to",
@@ -2484,6 +2570,8 @@
           "createdAt",
           "running",
           "awaitingReview",
+          "repository",
+          "pullRequest",
           "raisedBy",
           "note"
         ]

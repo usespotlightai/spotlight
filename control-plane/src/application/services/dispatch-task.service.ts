@@ -4,12 +4,10 @@ import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Run } from '@domain/aggregates/run.aggregate';
 import type { Task } from '@domain/aggregates/task.aggregate';
 import type { RunRepository } from '@domain/repositories/run.repository';
-import { TaskBranch } from '@domain/services/task-branch';
-import { TaskBriefing } from '@domain/services/task-briefing';
-import { harnessNamed } from '@domain/value-objects/built-in-harnesses';
+import { orderFor } from '@domain/services/run-order';
 import type { RunId } from '@domain/value-objects/run-id.vo';
 import { RunId as RunIdOf } from '@domain/value-objects/run-id.vo';
-import { RunSpec, THROUGH_SPOTLIGHT } from '@domain/value-objects/run-spec.vo';
+import { RunSpec } from '@domain/value-objects/run-spec.vo';
 
 export class DispatchTask implements TaskDispatchPort {
   constructor(
@@ -24,44 +22,21 @@ export class DispatchTask implements TaskDispatchPort {
     task: Task;
     line: AssemblyLine;
   }): Promise<RunId | null> {
-    const station = line.stationAt(task.stationId);
+    const order = orderFor({ task, line });
 
-    if (!station?.harness) {
+    if (!order) {
       return null;
     }
-
-    // Queueing for a harness nothing can start would strand the task on the
-    // queue rather than at the station, where a person can see it.
-    const harness = harnessNamed(station.harness);
-    if (!harness) {
-      return null;
-    }
-
-    const continuity = task.continuity();
 
     const queued = Run.enqueue({
       id: RunIdOf.of(this.ids.generate()),
       workspaceId: task.workspaceId,
-      harness: harness.id,
-      priority: station.position,
+      harness: order.harness,
+      priority: order.priority,
       taskId: task.id,
-      stationId: station.id,
-      targetRunner: continuity.pinnedTo,
-      spec: RunSpec.of({
-        checkouts: task.repository
-          ? [
-              {
-                remote: THROUGH_SPOTLIGHT,
-                path: task.repository.name,
-                branch: TaskBranch.for(task.id.value),
-              },
-            ]
-          : undefined,
-        command: harness.command.started(),
-        briefing: TaskBriefing.brief({ task, line }),
-        handover: { options: line.optionsFrom(station.id) },
-        continuity: continuity.told(),
-      }),
+      stationId: order.stationId,
+      targetRunner: order.pinnedTo,
+      spec: RunSpec.of(order.spec),
     });
 
     await this.runs.add(queued);

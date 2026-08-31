@@ -24,6 +24,7 @@ type Journal interface {
 	AppendEvents(ctx context.Context, runID string, events []protocol.Event) error
 	RenewLease(ctx context.Context, runID string) error
 	Complete(ctx context.Context, runID string, done protocol.Completion) error
+	OpenPullRequest(ctx context.Context, runID string, asked protocol.PullRequest) (string, error)
 	Said(ctx context.Context, runID string) ([]protocol.Said, error)
 	Delivered(ctx context.Context, runID string, upTo int) error
 }
@@ -139,7 +140,13 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 
 	// Raised before the agent so the endpoint is there from its first breath,
 	// and closed after it so nothing can speak for a run that has ended.
-	channel, err := declare.Serve(run.Spec.Handover.Options)
+	channel, err := declare.Serve(
+		run.Spec.Handover.Options,
+		run.Spec.Handover.NoteLimit,
+		func(ctx context.Context, asked protocol.PullRequest) (string, error) {
+			return opts.Journal.OpenPullRequest(ctx, run.ID, asked)
+		},
+	)
 	if err != nil {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}

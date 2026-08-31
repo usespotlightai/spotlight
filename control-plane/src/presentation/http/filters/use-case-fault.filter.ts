@@ -4,6 +4,7 @@ import {
 } from '@application/errors/use-case.fault';
 import {
   type ArgumentsHost,
+  BadGatewayException,
   Catch,
   ConflictException,
   type HttpException,
@@ -16,6 +17,7 @@ const AS_HTTP: Record<UseCaseFaultKind, (message: string) => HttpException> = {
   conflict: (message) => new ConflictException(message),
   'invalid-input': (message) => new UnprocessableEntityException(message),
   'not-found': (message) => new NotFoundException(message),
+  'refused-upstream': (message) => new BadGatewayException(message),
 };
 
 @Catch(UseCaseFault)

@@ -129,3 +129,15 @@ export class PendingMessageResponseDto {
     this.body = body;
   }
 }
+
+export class OpenPullRequestRequestDto {
+  @ApiProperty({ example: 'Fix the queue' })
+  readonly title!: string;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: String,
+    description: 'Markdown, shown as the pull request description',
+  })
+  readonly body?: string | null;
+}

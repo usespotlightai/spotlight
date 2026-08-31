@@ -1,4 +1,5 @@
 import { createSign } from 'node:crypto';
+import { UpstreamRefusedError } from '@application/errors/upstream-refused.error';
 import type {
   RepositoryAccessPort,
   RepositoryCredential,
@@ -57,8 +58,9 @@ export class GitHubAppAccess implements RepositoryAccessPort {
     );
 
     if (!response.ok) {
-      throw new Error(
-        `GitHub refused an installation token: ${response.status}`,
+      throw new UpstreamRefusedError(
+        'GitHub would not mint an installation token',
+        `${response.status}`,
       );
     }
 
@@ -68,7 +70,10 @@ export class GitHubAppAccess implements RepositoryAccessPort {
     };
 
     if (!minted.token || !minted.expires_at) {
-      throw new Error('GitHub answered without an installation token');
+      throw new UpstreamRefusedError(
+        'GitHub would not mint an installation token',
+        'it answered without one',
+      );
     }
 
     return {

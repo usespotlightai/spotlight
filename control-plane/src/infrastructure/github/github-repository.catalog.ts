@@ -1,3 +1,4 @@
+import { UpstreamRefusedError } from '@application/errors/upstream-refused.error';
 import {
   REPOSITORY_ACCESS,
   type RepositoryAccessPort,
@@ -62,8 +63,9 @@ export class GitHubRepositoryCatalog implements RepositoryCatalogPort {
     );
 
     if (!response.ok) {
-      throw new Error(
-        `GitHub refused to list repositories: ${response.status}`,
+      throw new UpstreamRefusedError(
+        'GitHub would not list the repositories',
+        `${response.status}`,
       );
     }
 
