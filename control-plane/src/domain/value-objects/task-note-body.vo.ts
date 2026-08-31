@@ -1,5 +1,6 @@
 import { InvalidTaskNoteError } from '@domain/exceptions/invalid-task-note.error';
 import type { Happening } from '@domain/value-objects/happening.vo';
+import type { Said } from '@domain/value-objects/said.vo';
 import type { StationName } from '@domain/value-objects/station-name.vo';
 
 const AS_TOLD: Record<Happening, string> = {
@@ -33,10 +34,10 @@ export class TaskNoteBody {
     return new TaskNoteBody(trimmed);
   }
 
-  static heard(happening: Happening, said: string | null): TaskNoteBody {
+  static heard(happening: Happening, said: Said | null): TaskNoteBody {
     const told = AS_TOLD[happening];
 
-    return TaskNoteBody.of(said ? `${told}\n\n${said}` : told);
+    return TaskNoteBody.of(said ? `${told}\n\n${said.value}` : told);
   }
 
   static movedTo(station: StationName): TaskNoteBody {

@@ -57,6 +57,7 @@ const tasks = {
   standingAt: vi.fn(async () => standing),
   placementsAt: vi.fn(async () => []),
   withPullRequest: vi.fn(async () => null),
+  holding: vi.fn(async () => null),
   save: vi.fn(async (task: Task) => {
     saved.push(task);
   }),

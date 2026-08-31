@@ -5,6 +5,7 @@ import type {
 import { UpstreamRefusedError } from '@domain/exceptions/upstream-refused.error';
 import { Concerns } from '@domain/value-objects/concerns.vo';
 import type { Happening } from '@domain/value-objects/happening.vo';
+import { Said } from '@domain/value-objects/said.vo';
 import { Injectable } from '@nestjs/common';
 
 /** The little of GitHub's delivery that Spotlight reads. */
@@ -12,8 +13,8 @@ interface Delivery {
   readonly action?: unknown;
   readonly pull_request?: Pull;
   readonly issue?: { readonly pull_request?: { readonly html_url?: unknown } };
-  readonly comment?: Said;
-  readonly review?: Said & { readonly state?: unknown };
+  readonly comment?: Remark;
+  readonly review?: Remark & { readonly state?: unknown };
   readonly check_suite?: {
     readonly conclusion?: unknown;
     readonly head_branch?: unknown;
@@ -28,15 +29,37 @@ interface Pull {
   readonly head?: { readonly ref?: unknown };
 }
 
-interface Said {
+interface Remark {
   readonly body?: unknown;
   readonly user?: { readonly type?: unknown };
+  readonly path?: unknown;
+  readonly line?: unknown;
+  readonly original_line?: unknown;
+  readonly start_line?: unknown;
+  readonly original_start_line?: unknown;
 }
 
 const text = (value: unknown): string | null =>
   typeof value === 'string' && value.trim().length > 0 ? value : null;
 
 /** A run's own comment is not news: acting on it would start another run. */
+const at = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isInteger(value) ? value : null;
+
+const spoken = (remark: Remark | undefined): Said | null =>
+  remark
+    ? Said.of({
+        body: text(remark.body),
+        path: text(remark.path),
+        from:
+          at(remark.start_line) ?? at(remark.line) ?? at(remark.original_line),
+        to:
+          at(remark.start_line) !== null
+            ? (at(remark.line) ?? at(remark.original_line))
+            : null,
+      })
+    : null;
+
 const byUs = (delivered: Delivery): boolean =>
   delivered.sender?.type === 'Bot' ||
   delivered.comment?.user?.type === 'Bot' ||
@@ -73,7 +96,7 @@ export class GitHubRepositoryEvents implements RepositoryEventsPort {
     return {
       happening,
       concerns,
-      said: text(delivered.comment?.body) ?? text(delivered.review?.body),
+      said: spoken(delivered.comment) ?? spoken(delivered.review),
       ourOwn: byUs(delivered),
     };
   }

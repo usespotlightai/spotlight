@@ -20,6 +20,7 @@ import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import type { Happening } from '@domain/value-objects/happening.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
+import { Said } from '@domain/value-objects/said.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
@@ -90,6 +91,7 @@ const tasks = (found: Task | null) =>
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
     withPullRequest: vi.fn(async () => found),
+    holding: vi.fn(async () => found),
   }) satisfies TaskRepository;
 
 const lines = () =>
@@ -124,7 +126,7 @@ const reading = (happened: Happened | null): RepositoryEventsPort => ({
 const news = (happening: Happening, said: string | null, ourOwn = false) => ({
   happening,
   concerns: Concerns.of({ branch: 'spotlight/task_1' }) as Concerns,
-  said,
+  said: Said.of({ body: said }),
   ourOwn,
 });
 
@@ -188,16 +190,23 @@ describe('ReactToHappening', () => {
     expect(dispatched).toHaveLength(0);
   });
 
-  it('leaves a finished task alone', async () => {
+  it('leaves a task that has landed at the end of the line alone', async () => {
+    await heard('merged', standing('station_3'));
+
+    expect(saved).toBeUndefined();
+  });
+
+  it('still hears about work a run closed where it stands', async () => {
     const ended = standing().closed({
       station: StationName.of('Code Review'),
-      body: TaskNoteBody.of('Done.'),
+      body: TaskNoteBody.of('The work is done.'),
       at: NOW,
     });
 
-    await heard('commented', ended);
+    await heard('commented', ended, 'One more thing.');
 
-    expect(saved).toBeUndefined();
+    expect(saved?.notes.map((each) => each.kind)).toEqual(['closed', 'heard']);
+    expect(dispatched).toHaveLength(1);
   });
 
   // A host retries, and a person can ask it to send the same word again.

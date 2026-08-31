@@ -11,7 +11,6 @@ import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { Placement } from '@domain/services/placement';
 import { type Reaction, ReactionFor } from '@domain/services/reaction-for';
-import type { Concerns } from '@domain/value-objects/concerns.vo';
 
 /**
  * Word came in about a task, and the line said what to do with it. A word
@@ -46,7 +45,7 @@ export class ReactToHappeningHandler
           return;
         }
 
-        const task = await this.concerned(happened.concerns);
+        const task = await this.tasks.holding(happened.concerns);
         const line = task && (await this.lines.holding(task.stationId));
 
         if (!task || !line) {
@@ -99,13 +98,5 @@ export class ReactToHappeningHandler
       Placement.atTheTop(await this.tasks.placementsAt(reaction.to.id)),
       saying,
     );
-  }
-
-  private async concerned(concerns: Concerns): Promise<Task | null> {
-    return concerns.taskId
-      ? this.tasks.find(concerns.taskId)
-      : concerns.pullRequest
-        ? this.tasks.withPullRequest(concerns.pullRequest)
-        : null;
   }
 }

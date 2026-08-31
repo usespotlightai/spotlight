@@ -41,8 +41,49 @@ describe('GitHubRepositoryEvents', () => {
         action: 'created',
         pull_request: pull(),
         comment: { body: 'This retries forever.' },
-      }),
-    ).toMatchObject({ happening: 'commented', said: 'This retries forever.' });
+      })?.said?.value,
+    ).toBe('This retries forever.');
+  });
+
+  it('carries the file and line a review comment points at', () => {
+    const read = reading.read('pull_request_review_comment', {
+      action: 'created',
+      pull_request: pull(),
+      comment: {
+        body: 'This retries forever.',
+        path: 'runner/internal/session/session.go',
+        line: 42,
+      },
+    });
+
+    expect(read?.said?.value).toBe(
+      'runner/internal/session/session.go:42\n\nThis retries forever.',
+    );
+  });
+
+  it('carries the whole span where a comment covers several lines', () => {
+    const read = reading.read('pull_request_review_comment', {
+      action: 'created',
+      pull_request: pull(),
+      comment: {
+        body: 'Extract this.',
+        path: 'compose.yml',
+        start_line: 10,
+        line: 14,
+      },
+    });
+
+    expect(read?.said?.value).toBe('compose.yml:10-14\n\nExtract this.');
+  });
+
+  it('falls back to the line a comment was first left on', () => {
+    const read = reading.read('pull_request_review_comment', {
+      action: 'created',
+      pull_request: pull(),
+      comment: { body: 'Still here?', path: 'compose.yml', original_line: 7 },
+    });
+
+    expect(read?.said?.value).toBe('compose.yml:7\n\nStill here?');
   });
 
   it('reads a comment left on the pull request itself', () => {

@@ -2,6 +2,7 @@ import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Task } from '@domain/aggregates/task.aggregate';
 import type { Station } from '@domain/entities/station.entity';
 import type { Happening } from '@domain/value-objects/happening.vo';
+import type { Said } from '@domain/value-objects/said.vo';
 import type { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 
@@ -21,10 +22,11 @@ export const ReactionFor = {
     task: Task;
     line: AssemblyLine;
     happening: Happening;
-    said: string | null;
+    said: Said | null;
   }): Reaction {
-    // Nothing out there brings a finished task back.
-    if (input.task.finished) {
+    // The end of the line, not merely closed: a closed task's pull request
+    // is still out there being read.
+    if (input.line.completed.id.equals(input.task.stationId)) {
       return { kind: 'nothing' };
     }
 

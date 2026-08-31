@@ -3,6 +3,7 @@ import type {
   TaskPlacement,
   TaskRepository,
 } from '@domain/repositories/task.repository';
+import type { Concerns } from '@domain/value-objects/concerns.vo';
 import { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { PullRequestUrl } from '@domain/value-objects/pull-request-url.vo';
 import { Repository } from '@domain/value-objects/repository.vo';
@@ -140,6 +141,28 @@ export class DrizzleTaskRepository implements TaskRepository {
       .from(task)
       .where(eq(task.pullRequest, url.value))
       .limit(1);
+
+    if (!found) {
+      return null;
+    }
+
+    const notes = await this.notesFor([found.id]);
+
+    return toTask(found, notes.get(found.id) ?? []);
+  }
+
+  async holding(concerns: Concerns): Promise<Task | null> {
+    const [found] = await this.context.db
+      .select()
+      .from(task)
+      .where(
+        concerns.taskId
+          ? eq(task.id, concerns.taskId.value)
+          : eq(task.pullRequest, concerns.pullRequest?.value ?? ''),
+      )
+      .limit(1)
+      // A burst about one task is written one at a time.
+      .for('update');
 
     if (!found) {
       return null;

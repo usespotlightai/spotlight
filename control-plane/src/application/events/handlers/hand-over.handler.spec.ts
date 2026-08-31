@@ -119,6 +119,7 @@ const tasks = (found: Task | null = task()) =>
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
     withPullRequest: vi.fn(async () => null),
+    holding: vi.fn(async () => null),
   }) satisfies TaskRepository;
 
 const lines = () =>
