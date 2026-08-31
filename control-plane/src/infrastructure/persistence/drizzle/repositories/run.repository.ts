@@ -1,3 +1,4 @@
+import type { RunSpecShape } from '@application/ports/run-spec.contract';
 import { Run } from '@domain/aggregates/run.aggregate';
 import type {
   RunEventRecord,
@@ -5,7 +6,7 @@ import type {
 } from '@domain/repositories/run.repository';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
-import { RunSpec, type RunSpecShape } from '@domain/value-objects/run-spec.vo';
+import { RunSpec } from '@domain/value-objects/run-spec.vo';
 import type { RunState } from '@domain/value-objects/run-state';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';

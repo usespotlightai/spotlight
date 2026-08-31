@@ -15,13 +15,27 @@ const line = {
       color: '#a3a8b0',
       kind: 'backlog',
     },
-    { id: 'station_1', name: 'Triage', position: 1, color: '#93a1b5' },
+    {
+      id: 'station_1',
+      name: 'Triage',
+      position: 1,
+      color: '#93a1b5',
+      kind: 'work',
+    },
     {
       id: 'station_2',
       name: 'Spec',
       position: 2,
       color: '#5c66d9',
       agentPrompt: '## Role\n\n- Sort the queue\n- Ask when unsure',
+      kind: 'work',
+    },
+    {
+      id: 'station_3',
+      name: 'Completed',
+      position: 3,
+      color: '#a3a8b0',
+      kind: 'completed',
     },
   ],
 };
@@ -150,6 +164,14 @@ describe('Station', () => {
 
     expect(screen.queryByLabelText('Harness')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Agent prompt')).not.toBeInTheDocument();
+  });
+
+  it('offers what is completed neither a harness nor a prompt', () => {
+    renderAt('station_3');
+
+    expect(screen.queryByLabelText('Harness')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Agent prompt')).not.toBeInTheDocument();
+    expect(screen.getByText(/pull request is merged/)).toBeInTheDocument();
   });
 
   it('still offers a station both', () => {

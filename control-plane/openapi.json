@@ -743,6 +743,46 @@
         ]
       }
     },
+    "/workspaces/{slug}/inbox/{itemId}/resolve": {
+      "post": {
+        "operationId": "resolveInboxItem",
+        "parameters": [
+          {
+            "name": "itemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "task_1:0",
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The conversation was closed"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such conversation for this caller"
+          }
+        },
+        "summary": "Close a conversation, saying the task stops here",
+        "tags": [
+          "inbox"
+        ]
+      }
+    },
     "/workspaces/{slug}/inbox/{itemId}/read": {
       "post": {
         "operationId": "readInboxItem",
@@ -1511,9 +1551,10 @@
             "type": "string",
             "enum": [
               "backlog",
-              "work"
+              "work",
+              "completed"
             ],
-            "description": "A backlog is where a task waits before anything works it"
+            "description": "The ends of the line: a backlog is where a task waits before anything works it, and completed is where it lands once its pull request is merged"
           }
         },
         "required": [
@@ -2126,7 +2167,7 @@
           "resolved": {
             "type": "boolean",
             "example": false,
-            "description": "True once it has moved on, and is no longer yours to answer"
+            "description": "True once it is settled, and is no longer yours to answer"
           },
           "working": {
             "type": "boolean",

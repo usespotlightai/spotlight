@@ -34,7 +34,8 @@ const at = (id: string, name: string, position: number, harness?: HarnessId) =>
     position,
     color: StationColor.of('#a3a8b0'),
     harness,
-    kind: position === 0 ? 'backlog' : 'work',
+    kind:
+      position === 0 ? 'backlog' : name === 'Completed' ? 'completed' : 'work',
   });
 
 const line = () =>
@@ -46,6 +47,7 @@ const line = () =>
     stations: [
       at('station_1', 'Backlog', 0),
       at('station_2', 'Triage', 1, HarnessId.of('dev')),
+      at('station_3', 'Completed', 2),
     ],
   });
 
@@ -90,6 +92,7 @@ const tasks = (found: Task | null = standing()) =>
     remove: vi.fn(),
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
+    withPullRequest: vi.fn(async () => null),
   }) satisfies TaskRepository;
 
 const lines = (found: AssemblyLine | null = line()) =>

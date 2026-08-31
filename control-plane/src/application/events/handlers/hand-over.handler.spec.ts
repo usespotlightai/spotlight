@@ -11,6 +11,7 @@ import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
+import { Declaration } from '@domain/value-objects/declaration.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { HarnessSession } from '@domain/value-objects/harness-session.vo';
@@ -45,7 +46,8 @@ const at = (id: string, name: string, position: number, harness?: HarnessId) =>
     position,
     color: StationColor.of('#a3a8b0'),
     harness,
-    kind: position === 0 ? 'backlog' : 'work',
+    kind:
+      position === 0 ? 'backlog' : name === 'Completed' ? 'completed' : 'work',
   });
 
 const line = () =>
@@ -58,6 +60,7 @@ const line = () =>
       at('station_0', 'Backlog', 0),
       at('station_1', 'Triage', 1, HarnessId.of('dev')),
       at('station_2', 'Spec', 2, HarnessId.of('dev')),
+      at('station_3', 'Completed', 3),
     ],
   });
 
@@ -115,6 +118,7 @@ const tasks = (found: Task | null = task()) =>
     remove: vi.fn(),
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
+    withPullRequest: vi.fn(async () => null),
   }) satisfies TaskRepository;
 
 const lines = () =>
@@ -162,6 +166,22 @@ describe('HandOver', () => {
 
     expect(saved?.awaitingReview).toBe(true);
     expect(saved?.notes[0]?.body.value).toContain('The run failed');
+  });
+
+  it('closes a task the run said was done', async () => {
+    await handOver(
+      run(false, {
+        declared: Declaration.of({
+          next: 'done',
+          note: 'Pull request opened.',
+        }),
+      }),
+    );
+
+    expect(saved?.finished).toBe(true);
+    expect(saved?.awaitingReview).toBe(false);
+    expect(saved?.currentRunId).toBeNull();
+    expect(saved?.notes[0]?.body.value).toBe('Pull request opened.');
   });
 
   it('names the station the note came from', async () => {

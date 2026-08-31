@@ -5,6 +5,7 @@ import type { ClockPort } from '@application/ports/clock.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { PersonReaderPort } from '@application/ports/person-reader.port';
 import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
+import type { TransactionPort } from '@application/ports/transaction.port';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Task } from '@domain/aggregates/task.aggregate';
 import { Station } from '@domain/entities/station.entity';
@@ -50,6 +51,13 @@ const line = () =>
         harness: HarnessId.of('dev'),
         agentPrompt: AgentPrompt.of('## Role'),
       }),
+      Station.create({
+        id: StationId.of('station_2'),
+        name: StationName.of('Completed'),
+        position: 2,
+        color: StationColor.of('#a3a8b0'),
+        kind: 'completed',
+      }),
     ],
   });
 
@@ -83,7 +91,10 @@ const tasks = () =>
     remove: vi.fn(),
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
+    withPullRequest: vi.fn(async () => null),
   }) satisfies TaskRepository;
+
+const transaction: TransactionPort = { run: (work) => work() };
 
 const lines = (found: AssemblyLine | null = line()) =>
   ({
@@ -97,9 +108,15 @@ const addTask = (
   command: AddTaskCommand,
   board: AssemblyLineRepository = lines(),
 ) =>
-  new AddTaskHandler(tasks(), board, ids, clock, dispatch(), people).execute(
-    command,
-  );
+  new AddTaskHandler(
+    tasks(),
+    board,
+    ids,
+    clock,
+    dispatch(),
+    people,
+    transaction,
+  ).execute(command);
 
 beforeEach(() => {
   added = undefined;

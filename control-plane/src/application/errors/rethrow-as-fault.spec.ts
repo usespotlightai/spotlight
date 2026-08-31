@@ -1,7 +1,7 @@
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
-import { UpstreamRefusedError } from '@application/errors/upstream-refused.error';
 import { UseCaseFault } from '@application/errors/use-case.fault';
 import { InvalidRepositoryError } from '@domain/exceptions/invalid-repository.error';
+import { UpstreamRefusedError } from '@domain/exceptions/upstream-refused.error';
 import { describe, expect, it } from 'vitest';
 
 const thrown = (error: unknown): UseCaseFault => {

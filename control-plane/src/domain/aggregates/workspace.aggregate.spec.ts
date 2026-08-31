@@ -36,19 +36,18 @@ describe('Workspace', () => {
 
   it('asks for a factory rather than building one itself', () => {
     const workspace = build();
-    const [raised, ...rest] = workspace.pullEvents();
+    const [raised, ...rest] = workspace.happened;
 
     expect(rest).toHaveLength(0);
     expect(raised).toBeInstanceOf(TeamCreated);
     expect((raised as TeamCreated).teamId).toEqual(workspace.teams[0]?.id);
   });
 
-  it('forgets its events once they have been taken', () => {
+  it('holds what it raised however often it is read', () => {
     const workspace = build();
 
-    workspace.pullEvents();
-
-    expect(workspace.pullEvents()).toHaveLength(0);
+    expect(workspace.happened).toHaveLength(1);
+    expect(workspace.happened).toHaveLength(1);
   });
 
   it('is the same workspace as another holding its identity', () => {

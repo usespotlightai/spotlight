@@ -136,6 +136,22 @@ export class DrizzleTaskRepository implements TaskRepository {
     return toTask(found, notes.get(found.id) ?? []);
   }
 
+  async withPullRequest(url: PullRequestUrl): Promise<Task | null> {
+    const [found] = await this.context.db
+      .select()
+      .from(task)
+      .where(eq(task.pullRequest, url.value))
+      .limit(1);
+
+    if (!found) {
+      return null;
+    }
+
+    const notes = await this.notesFor([found.id]);
+
+    return toTask(found, notes.get(found.id) ?? []);
+  }
+
   async remove(id: TaskId): Promise<void> {
     await this.context.db.delete(task).where(eq(task.id, id.value));
   }

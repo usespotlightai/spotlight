@@ -1,3 +1,1 @@
-export interface OpenedPullRequestDto {
-  readonly url: string;
-}
+export type { OpenedPullRequestDto } from '@application/ports/pull-request.port';

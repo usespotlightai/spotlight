@@ -7,16 +7,17 @@ import type { CommandHandlerPort } from '@application/ports/command-handler.port
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { PersonReaderPort } from '@application/ports/person-reader.port';
 import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
+import type { TransactionPort } from '@application/ports/transaction.port';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { UnknownAssemblyLineError } from '@domain/exceptions/unknown-assembly-line.error';
 import { UnknownStationError } from '@domain/exceptions/unknown-station.error';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
+import { Placement } from '@domain/services/placement';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { Repository } from '@domain/value-objects/repository.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { TaskDescription } from '@domain/value-objects/task-description.vo';
-import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 
@@ -30,6 +31,7 @@ export class AddTaskHandler
     private readonly clock: ClockPort,
     private readonly dispatch: TaskDispatchPort,
     private readonly people: PersonReaderPort,
+    private readonly transaction: TransactionPort,
   ) {}
 
   async execute(command: AddTaskCommand): Promise<TaskDto> {
@@ -55,8 +57,7 @@ export class AddTaskHandler
       throw new UnknownStationError(command.stationId);
     }
 
-    const standing = await this.tasks.standingAt(stationId);
-    const last = standing[standing.length - 1] ?? null;
+    const standing = await this.tasks.placementsAt(stationId);
 
     const added = Task.add({
       workspaceId: line.workspaceId,
@@ -65,17 +66,22 @@ export class AddTaskHandler
       description: command.description
         ? TaskDescription.of(command.description)
         : null,
-      rank: TaskRank.between(last ? last.rank : null, null),
+      rank: Placement.atTheBack(standing),
       raisedBy,
       now: this.clock.now(),
       newId: () => this.ids.generate(),
       repository: command.repository ? Repository.of(command.repository) : null,
     });
 
-    const runId = await this.dispatch.dispatch({ task: added, line });
-    const raised = runId ? added.handedTo(runId) : added;
+    // A task that failed to save would leave a run queued against nothing.
+    const raised = await this.transaction.run(async () => {
+      const runId = await this.dispatch.dispatch({ task: added, line });
+      const handed = runId ? added.handedTo(runId) : added;
 
-    await this.tasks.add(raised);
+      await this.tasks.add(handed);
+
+      return handed;
+    });
 
     return TaskMapper.taskToDto(raised, await this.people.find(raisedBy));
   }

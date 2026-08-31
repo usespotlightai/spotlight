@@ -1,4 +1,5 @@
 import { InvalidTaskNoteError } from '@domain/exceptions/invalid-task-note.error';
+import type { StationName } from '@domain/value-objects/station-name.vo';
 
 /** How long a note may be. Told to the runner, so an agent hears it early. */
 export const TASK_NOTE_MAX_LENGTH = 4_000;
@@ -21,6 +22,18 @@ export class TaskNoteBody {
     }
 
     return new TaskNoteBody(trimmed);
+  }
+
+  static resolved(): TaskNoteBody {
+    return new TaskNoteBody('Resolved.');
+  }
+
+  static merged(): TaskNoteBody {
+    return new TaskNoteBody('The pull request was merged.');
+  }
+
+  static movedTo(station: StationName): TaskNoteBody {
+    return TaskNoteBody.of(`Moved to ${station.value}.`);
   }
 
   equals(other: TaskNoteBody): boolean {

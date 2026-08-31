@@ -35,6 +35,15 @@ const backlog = (position = 0) =>
     kind: 'backlog',
   });
 
+const completed = (position: number) =>
+  Station.create({
+    id: StationId.of('completed_1'),
+    name: StationName.of('Completed'),
+    position,
+    color: StationColor.of('#a3a8b0'),
+    kind: 'completed',
+  });
+
 const of = (stations: Station[]) =>
   AssemblyLine.of({
     id: AssemblyLineId.of('line_1'),
@@ -44,7 +53,8 @@ const of = (stations: Station[]) =>
     stations,
   });
 
-const lineOf = (stations: Station[]) => of([backlog(), ...stations]);
+const lineOf = (stations: Station[]) =>
+  of([backlog(), ...stations, completed(stations.length + 1)]);
 
 const templateOf = (name: string, stations: string[]) =>
   Template.of({
@@ -84,7 +94,7 @@ describe('AssemblyLine', () => {
       'Spec',
       'Implementation',
     ]);
-    expect(line.stations.map((each) => each.position)).toEqual([0, 1, 2, 3]);
+    expect(line.stations.map((each) => each.position)).toEqual([0, 1, 2, 3, 4]);
   });
 
   it('opens each station with what the template says it is for', () => {
@@ -178,6 +188,71 @@ describe('AssemblyLine', () => {
     });
   });
 
+  describe('the completed it always has', () => {
+    it('opens with one no template asked for', () => {
+      const line = openedFrom(templateOf('Default', ['Triage']));
+
+      expect(line.completed.name.value).toBe('Completed');
+      expect(line.completed.isCompleted).toBe(true);
+    });
+
+    it('stands it last, where a merged task lands', () => {
+      const line = openedFrom(templateOf('Default', ['Triage', 'Spec']));
+
+      expect(line.completed.position).toBe(line.stations.length - 1);
+    });
+
+    it('leaves it out of the stations work moves through', () => {
+      const line = openedFrom(templateOf('Default', ['Triage']));
+
+      expect(line.worked.map((each) => each.name.value)).toEqual(['Triage']);
+    });
+
+    it('refuses to run anything at it', () => {
+      const line = openedFrom(templateOf('Default', ['Triage']));
+
+      expect(() =>
+        line.runStationOn(line.completed.id, HarnessId.of('dev')),
+      ).toThrow(InvalidStationChangeError);
+    });
+
+    it('refuses to be told anything, having nothing there to tell', () => {
+      const line = openedFrom(templateOf('Default', ['Triage']));
+
+      expect(() =>
+        line.instructStation(line.completed.id, AgentPrompt.of('## Sort it')),
+      ).toThrow(InvalidStationChangeError);
+    });
+
+    it('will not let it be moved off the end', () => {
+      const line = lineOf([at(1, 'Triage')]);
+
+      expect(() =>
+        line.reorderStations([
+          line.backlog.id,
+          line.completed.id,
+          StationId.of('station_1'),
+        ]),
+      ).toThrow(InvalidStationOrderError);
+    });
+
+    it('refuses a line without one', () => {
+      expect(() => of([backlog(), at(1)])).toThrow(InvalidStationOrderError);
+    });
+
+    it('refuses a line with more than one', () => {
+      expect(() => of([backlog(), completed(1), completed(2)])).toThrow(
+        InvalidStationOrderError,
+      );
+    });
+
+    it('refuses one that does not stand last', () => {
+      expect(() => of([backlog(), completed(1), at(2)])).toThrow(
+        InvalidStationOrderError,
+      );
+    });
+  });
+
   it('changes the one station it was asked about', () => {
     const line = lineOf([at(1, 'Triage'), at(2, 'Spec')]);
 
@@ -211,7 +286,7 @@ describe('AssemblyLine', () => {
   it('holds its stations in board order however they arrive', () => {
     expect(
       lineOf([at(3), at(1), at(2)]).stations.map((e) => e.position),
-    ).toEqual([0, 1, 2, 3]);
+    ).toEqual([0, 1, 2, 3, 4]);
   });
 
   it('refuses a board with no stations at all', () => {

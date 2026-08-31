@@ -4,11 +4,8 @@ import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
-import { UnknownTaskError } from '@domain/exceptions/unknown-task.error';
-import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
+import type { ConversationAtHand } from '@application/services/conversation-at-hand.service';
 import type { TaskRepository } from '@domain/repositories/task.repository';
-import { ConversationId } from '@domain/value-objects/conversation-id.vo';
-import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 
@@ -20,8 +17,8 @@ export class AnswerInboxItemHandler
   implements CommandHandlerPort<AnswerInboxItemCommand, void>
 {
   constructor(
+    private readonly conversations: ConversationAtHand,
     private readonly tasks: TaskRepository,
-    private readonly lines: AssemblyLineRepository,
     private readonly dispatch: TaskDispatchPort,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
@@ -30,18 +27,13 @@ export class AnswerInboxItemHandler
   async execute(command: AnswerInboxItemCommand): Promise<void> {
     try {
       await this.transaction.run(async () => {
-        const item = ConversationId.parse(command.itemId);
-        const task = await this.tasks.find(item.taskId);
-
-        if (!task?.raisedByThem(UserId.of(command.answeredBy))) {
-          throw new UnknownTaskError(item.taskId.value);
-        }
-
-        const line = await this.lines.holding(task.stationId);
-        const station = line?.stationAt(task.stationId);
+        const { item, task, line, station } = await this.conversations.putTo(
+          command.itemId,
+          command.answeredBy,
+        );
 
         const answered = task.answered(item.from, {
-          station: station?.name ?? StationName.of('Unknown'),
+          station,
           body: TaskNoteBody.of(command.body),
           at: this.clock.now(),
           author: UserId.of(command.answeredBy),
@@ -50,7 +42,7 @@ export class AnswerInboxItemHandler
         // Nothing to start where one is already running, or where the station
         // has nothing to work it.
         const runId =
-          line && station && !answered.currentRunId
+          line?.stationAt(task.stationId) && !answered.currentRunId
             ? await this.dispatch.dispatch({ task: answered, line })
             : null;
 

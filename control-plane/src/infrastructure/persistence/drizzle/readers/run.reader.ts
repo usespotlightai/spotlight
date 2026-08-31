@@ -5,9 +5,9 @@ import type {
   TaskRunSummary,
   TeamRunSummary,
 } from '@application/ports/run-reader.port';
+import { RunSpecContract } from '@application/ports/run-spec.contract';
 import { turnOf } from '@domain/services/conversations';
 import type { RunId } from '@domain/value-objects/run-id.vo';
-import { RunSpec } from '@domain/value-objects/run-spec.vo';
 import type { TaskId } from '@domain/value-objects/task-id.vo';
 import type { TeamId } from '@domain/value-objects/team-id.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
@@ -198,7 +198,7 @@ export class DrizzleRunReader implements RunReaderPort {
     const held = await stationsPerLine(this.db, [found.stationLineId ?? '']);
     const told = trail ?? [];
     const said = turnOf(told, runId.value);
-    const spec = RunSpec.from(found.spec);
+    const spec = RunSpecContract.from(found.spec);
 
     return {
       runId: found.runId,

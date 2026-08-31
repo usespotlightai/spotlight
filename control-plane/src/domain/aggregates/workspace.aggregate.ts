@@ -13,14 +13,13 @@ export interface WorkspaceMember {
 }
 
 export class Workspace {
-  #raised: TeamCreated[] = [];
-
   private constructor(
     readonly id: WorkspaceId,
     readonly name: WorkspaceName,
     readonly slug: WorkspaceSlug,
     readonly members: readonly WorkspaceMember[],
     readonly teams: readonly Team[],
+    readonly happened: readonly TeamCreated[],
   ) {}
 
   static create(input: {
@@ -36,23 +35,14 @@ export class Workspace {
       newId: input.newId,
     });
 
-    const workspace = new Workspace(
+    return new Workspace(
       input.id,
       input.name,
       input.slug,
       [{ userId: input.owner, role: 'owner' }],
       [firstTeam],
+      [new TeamCreated(input.id, firstTeam.id)],
     );
-
-    workspace.#raised.push(new TeamCreated(input.id, firstTeam.id));
-
-    return workspace;
-  }
-
-  pullEvents(): readonly TeamCreated[] {
-    const raised = this.#raised;
-    this.#raised = [];
-    return raised;
   }
 
   equals(other: Workspace): boolean {

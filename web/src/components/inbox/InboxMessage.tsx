@@ -32,7 +32,7 @@ export function InboxMessage({
 
   if (person) {
     return (
-      <li className={HELD_AT_TOP}>
+      <li data-note={message.position} className={HELD_AT_TOP}>
         <PersonSaid
           body={message.body}
           // Your own words need no name on them.
@@ -43,7 +43,7 @@ export function InboxMessage({
   }
 
   return (
-    <li className="flex flex-col gap-1.5">
+    <li data-note={message.position} className="flex flex-col gap-1.5">
       <span className="flex items-center gap-1.5 text-muted-foreground text-xs">
         <StationIcon
           share={stationShare(message.stationPosition, stationCount)}

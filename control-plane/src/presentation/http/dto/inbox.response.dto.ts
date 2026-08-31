@@ -144,7 +144,7 @@ export class InboxItemResponseDto {
 
   @ApiProperty({
     example: false,
-    description: 'True once it has moved on, and is no longer yours to answer',
+    description: 'True once it is settled, and is no longer yours to answer',
   })
   readonly resolved: boolean;
 

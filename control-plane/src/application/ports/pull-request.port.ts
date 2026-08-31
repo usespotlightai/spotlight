@@ -1,5 +1,8 @@
-import type { OpenedPullRequestDto } from '@application/dto/pull-request.dto';
 import type { Repository } from '@domain/value-objects/repository.vo';
+
+export interface OpenedPullRequestDto {
+  readonly url: string;
+}
 
 export interface PullRequestOpening {
   readonly repository: Repository;

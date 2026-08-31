@@ -1,6 +1,6 @@
 import { Station } from '@domain/entities/station.entity';
 import { handoverOptions } from '@domain/services/handover-options';
-import { REVIEW } from '@domain/value-objects/declaration.vo';
+import { DONE, REVIEW } from '@domain/value-objects/declaration.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
@@ -48,10 +48,15 @@ describe('handoverOptions', () => {
       'Triage',
       'Code Review',
       REVIEW,
+      DONE,
     ]);
   });
 
   it('offers a person even on a line with no stations', () => {
-    expect(handoverOptions([])).toEqual([REVIEW]);
+    expect(handoverOptions([])).toEqual([REVIEW, DONE]);
+  });
+
+  it('always offers an end, so finished work is not put to a person', () => {
+    expect(handoverOptions(stations)).toContain(DONE);
   });
 });

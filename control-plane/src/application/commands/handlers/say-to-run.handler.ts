@@ -40,7 +40,7 @@ export class SayToRunHandler
 
       await this.tasks.save(
         task.told(run.stationId, {
-          station: station?.name ?? StationName.of('Unknown'),
+          station: station?.name ?? StationName.unknown(),
           body: TaskNoteBody.of(command.body),
           at: this.clock.now(),
           author: UserId.of(command.saidBy),

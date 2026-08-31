@@ -14,6 +14,10 @@ export const HandoverFor = {
     stations: readonly Station[],
     standingAt?: StationId,
   ): Handover {
+    if (declaration.saysItIsDone()) {
+      return Handover.done(spoken(declaration, 'The work is done.'));
+    }
+
     if (declaration.asksForReview()) {
       return Handover.review(
         spoken(declaration, 'The run asked for someone to look at this.'),

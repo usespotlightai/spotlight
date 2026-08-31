@@ -9,7 +9,7 @@ export interface InboxAuthor {
 
 export interface InboxNote {
   readonly position: number;
-  readonly kind: 'asked' | 'passed' | 'answered' | 'said';
+  readonly kind: 'asked' | 'passed' | 'answered' | 'said' | 'closed';
   readonly station: string;
   readonly stationColor: string;
   readonly stationPosition: number;

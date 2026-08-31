@@ -6,8 +6,8 @@ import { Station } from '@domain/entities/station.entity';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
-import { CLAUDE_CODE } from '@domain/value-objects/built-in-harnesses';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
+import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
@@ -20,7 +20,7 @@ import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const at = (name: string, harness = CLAUDE_CODE.id) =>
+const at = (name: string, harness = HarnessId.of('dev')) =>
   Station.create({
     id: StationId.of('station_1'),
     name: StationName.of(name),
@@ -56,6 +56,7 @@ let saved: Task[] = [];
 const tasks = {
   standingAt: vi.fn(async () => standing),
   placementsAt: vi.fn(async () => []),
+  withPullRequest: vi.fn(async () => null),
   save: vi.fn(async (task: Task) => {
     saved.push(task);
   }),
@@ -114,6 +115,7 @@ describe('TakeUpStandingWork', () => {
           station: StationName.of('Triage'),
           body: TaskNoteBody.of('Which queue did you mean?'),
           at: new Date('2026-08-28T12:00:00.000Z'),
+          kind: 'passed',
         }),
       ),
     ];

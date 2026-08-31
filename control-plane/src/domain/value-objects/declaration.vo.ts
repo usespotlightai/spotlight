@@ -2,6 +2,8 @@ import type { StationName } from '@domain/value-objects/station-name.vo';
 
 export const REVIEW = 'review';
 
+export const DONE = 'done';
+
 export class Declaration {
   private constructor(
     readonly next: string,
@@ -13,6 +15,10 @@ export class Declaration {
       (input.next ?? '').trim(),
       (input.note ?? '').trim(),
     );
+  }
+
+  saysItIsDone(): boolean {
+    return this.next.toLowerCase() === DONE;
   }
 
   asksForReview(): boolean {

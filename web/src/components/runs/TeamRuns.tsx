@@ -50,7 +50,7 @@ export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
                 taskTitle={run.taskTitle}
                 reviewTo={
                   run.review
-                    ? inboxItemPath(slug, run.review.conversationId)
+                    ? inboxItemPath(slug, run.review.conversationId, run.id)
                     : undefined
                 }
               />

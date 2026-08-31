@@ -25,9 +25,9 @@ export type StationResponseDto = {
    */
   agentPrompt: string | null;
   /**
-   * A backlog is where a task waits before anything works it
+   * The ends of the line: a backlog is where a task waits before anything works it, and completed is where it lands once its pull request is merged
    */
-  kind: 'backlog' | 'work';
+  kind: 'backlog' | 'work' | 'completed';
 };
 
 export type AssemblyLineResponseDto = {
@@ -270,7 +270,7 @@ export type InboxItemResponseDto = {
   createdAt: string;
   askedAt: string;
   /**
-   * True once it has moved on, and is no longer yours to answer
+   * True once it is settled, and is no longer yours to answer
    */
   resolved: boolean;
   /**
@@ -1032,6 +1032,36 @@ export type AnswerInboxItemResponses = {
 };
 
 export type AnswerInboxItemResponse = AnswerInboxItemResponses[keyof AnswerInboxItemResponses];
+
+export type ResolveInboxItemData = {
+  body?: never;
+  path: {
+    itemId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/{itemId}/resolve';
+};
+
+export type ResolveInboxItemErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such conversation for this caller
+   */
+  404: unknown;
+};
+
+export type ResolveInboxItemResponses = {
+  /**
+   * The conversation was closed
+   */
+  204: void;
+};
+
+export type ResolveInboxItemResponse = ResolveInboxItemResponses[keyof ResolveInboxItemResponses];
 
 export type ReadInboxItemData = {
   body?: never;

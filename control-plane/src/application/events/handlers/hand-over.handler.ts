@@ -8,11 +8,11 @@ import type { RunCompleted } from '@domain/events/run-completed.event';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { HandoverFor } from '@domain/services/handover-for';
+import { Placement } from '@domain/services/placement';
 import type { Handover } from '@domain/value-objects/handover.vo';
 import type { RunId } from '@domain/value-objects/run-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import type { TaskId } from '@domain/value-objects/task-id.vo';
-import { TaskRank } from '@domain/value-objects/task-rank.vo';
 
 interface Standing {
   readonly task: Task;
@@ -95,23 +95,24 @@ export class HandOver implements HandoverPort {
     const standing = line?.stationAt(task.stationId);
 
     const saying = {
-      station: standing?.name ?? StationName.of('Unknown'),
+      station: standing?.name ?? StationName.unknown(),
       body: handover.body,
       at: this.clock.now(),
       run,
     };
+
+    if (handover.kind === 'done') {
+      return task.closed(saying);
+    }
 
     if (handover.kind === 'review' || !handover.stationId || !line) {
       return task.askedAbout(saying);
     }
 
     const arriving = handover.stationId;
-    const behind = await this.tasks.placementsAt(arriving);
-    const last = behind[behind.length - 1] ?? null;
-
     const passed = task.passedTo(
       arriving,
-      TaskRank.between(last ? last.rank : null, null),
+      Placement.atTheBack(await this.tasks.placementsAt(arriving)),
       saying,
     );
 

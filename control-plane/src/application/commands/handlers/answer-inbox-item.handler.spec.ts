@@ -3,6 +3,7 @@ import { AnswerInboxItemHandler } from '@application/commands/handlers/answer-in
 import type { ClockPort } from '@application/ports/clock.port';
 import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
+import { ConversationAtHand } from '@application/services/conversation-at-hand.service';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { Station } from '@domain/entities/station.entity';
@@ -48,6 +49,13 @@ const line = () =>
         color: StationColor.of('#a3a8b0'),
         harness: HarnessId.of('dev'),
       }),
+      Station.create({
+        id: StationId.of('station_2'),
+        name: StationName.of('Completed'),
+        position: 2,
+        color: StationColor.of('#a3a8b0'),
+        kind: 'completed',
+      }),
     ],
   });
 
@@ -79,6 +87,7 @@ const tasks = (found: Task) =>
     remove: vi.fn(),
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
+    withPullRequest: vi.fn(async () => null),
   }) satisfies TaskRepository;
 
 const lines = () =>
@@ -95,8 +104,8 @@ const dispatch: TaskDispatchPort = {
 
 const answer = (found: Task) =>
   new AnswerInboxItemHandler(
+    new ConversationAtHand(tasks(found), lines()),
     tasks(found),
-    lines(),
     dispatch,
     transaction,
     clock,

@@ -2,7 +2,9 @@ import { ReadInboxItemHandler } from '@application/commands/handlers/read-inbox-
 import { ReadInboxItemCommand } from '@application/commands/read-inbox-item.command';
 import { UseCaseFault } from '@application/errors/use-case.fault';
 import type { ClockPort } from '@application/ports/clock.port';
+import { ConversationAtHand } from '@application/services/conversation-at-hand.service';
 import { Task } from '@domain/aggregates/task.aggregate';
+import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { NotePosition } from '@domain/value-objects/note-position.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
@@ -44,11 +46,24 @@ const tasks = (found: Task | null) =>
     remove: vi.fn(),
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
+    withPullRequest: vi.fn(async () => null),
   }) satisfies TaskRepository;
+
+const lines = () =>
+  ({
+    add: vi.fn(),
+    save: vi.fn(),
+    find: vi.fn(async () => null),
+    holding: vi.fn(async () => null),
+  }) satisfies AssemblyLineRepository;
 
 const read = (found: Task | null, by = 'user_1') => {
   const repository = tasks(found);
-  const handler = new ReadInboxItemHandler(repository, clock);
+  const handler = new ReadInboxItemHandler(
+    new ConversationAtHand(repository, lines()),
+    repository,
+    clock,
+  );
 
   return {
     repository,

@@ -37,10 +37,30 @@ const turnsOf = (item: Conversing): Turn[] => {
 
 const CLOSE = 80;
 
+/** The note asked for goes to the top: what follows it is the answer. */
+const put = (
+  box: HTMLDivElement,
+  inside: HTMLDivElement,
+  at: number | null,
+): boolean => {
+  const note = at === null ? null : inside.querySelector(`[data-note="${at}"]`);
+  const was = box.scrollTop;
+
+  box.scrollTop = note
+    ? note.getBoundingClientRect().top -
+      box.getBoundingClientRect().top +
+      box.scrollTop
+    : box.scrollHeight;
+
+  // A move that never happened raises no scroll to catch.
+  return box.scrollTop !== was;
+};
+
 type ConversationProps = {
   item: Conversing;
   worked: readonly RunJournal[];
   viewerId?: string;
+  openAt?: number | null;
   opening?: ReactNode;
   footer: ReactNode;
 };
@@ -49,12 +69,15 @@ export function Conversation({
   item,
   worked,
   viewerId,
+  openAt,
   opening,
   footer,
 }: ConversationProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const following = useRef(true);
+  const held = useRef<number | null>(null);
+  const ours = useRef(false);
 
   // Watching the content rather than the message count: a message is not its
   // final height when it mounts, and a scroll measured before that lands short.
@@ -67,10 +90,17 @@ export function Conversation({
       return;
     }
 
-    following.current = true;
-    box.scrollTop = box.scrollHeight;
+    held.current = openAt ?? null;
+    following.current = held.current === null;
+    ours.current = put(box, inside, held.current);
 
     const grew = new ResizeObserver(() => {
+      // The markdown above it mounts late, so it is put back.
+      if (held.current !== null) {
+        ours.current = put(box, inside, held.current) || ours.current;
+        return;
+      }
+
       if (!following.current) {
         return;
       }
@@ -92,14 +122,24 @@ export function Conversation({
     grew.observe(inside);
 
     return () => grew.disconnect();
-  }, [item.id]);
+  }, [item.id, openAt]);
 
   const watched = () => {
     const box = scroller.current;
-    if (box) {
-      following.current =
-        box.scrollHeight - box.scrollTop - box.clientHeight < CLOSE;
+
+    if (!box) {
+      return;
     }
+
+    // Only the reader's own scroll gives up the note.
+    if (ours.current) {
+      ours.current = false;
+      return;
+    }
+
+    held.current = null;
+    following.current =
+      box.scrollHeight - box.scrollTop - box.clientHeight < CLOSE;
   };
 
   return (

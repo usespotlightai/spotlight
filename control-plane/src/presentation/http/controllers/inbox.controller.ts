@@ -1,5 +1,6 @@
 import { AnswerInboxItemCommand } from '@application/commands/answer-inbox-item.command';
 import { ReadInboxItemCommand } from '@application/commands/read-inbox-item.command';
+import { ResolveInboxItemCommand } from '@application/commands/resolve-inbox-item.command';
 import type { InboxItemDto } from '@application/dto/inbox.dto';
 import type { RunJournal } from '@application/ports/run-journal-reader.port';
 import type { AuthenticatedUser } from '@application/ports/session.port';
@@ -137,6 +138,23 @@ export class InboxController {
     await this.commandBus.execute(
       new AnswerInboxItemCommand(itemId, user.id, body.body),
     );
+  }
+
+  @Post(':itemId/resolve')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'resolveInboxItem',
+    summary: 'Close a conversation, saying the task stops here',
+  })
+  @ApiParam({ name: 'slug', type: String, example: 'acme' })
+  @ApiParam({ name: 'itemId', type: String, example: 'task_1:0' })
+  @ApiNoContentResponse({ description: 'The conversation was closed' })
+  @ApiNotFoundResponse({ description: 'No such conversation for this caller' })
+  async resolve(
+    @Param('itemId') itemId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    await this.commandBus.execute(new ResolveInboxItemCommand(itemId, user.id));
   }
 
   @Post(':itemId/read')

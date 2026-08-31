@@ -1,3 +1,4 @@
+import type { StationKind } from '@domain/entities/station.entity';
 import type { TeamId } from '@domain/value-objects/team-id.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
 
@@ -9,7 +10,7 @@ export interface StationSummary {
   readonly description: string | null;
   readonly harness: string | null;
   readonly agentPrompt: string | null;
-  readonly kind: 'backlog' | 'work';
+  readonly kind: StationKind;
 }
 
 export interface AssemblyLineDetail {

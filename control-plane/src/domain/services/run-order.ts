@@ -1,22 +1,26 @@
 import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Task } from '@domain/aggregates/task.aggregate';
+import type { Harness } from '@domain/entities/harness.entity';
+import type { HarnessRepository } from '@domain/repositories/harness.repository';
 import { TaskBriefing } from '@domain/services/task-briefing';
-import { harnessNamed } from '@domain/value-objects/built-in-harnesses';
-import type { HarnessId } from '@domain/value-objects/harness-id.vo';
-import {
-  type RunSpecShape,
-  THROUGH_SPOTLIGHT,
-} from '@domain/value-objects/run-spec.vo';
+import type { Continuity } from '@domain/value-objects/continuity.vo';
+import type { Repository } from '@domain/value-objects/repository.vo';
 import type { RunnerId } from '@domain/value-objects/runner-id.vo';
 import type { StationId } from '@domain/value-objects/station-id.vo';
 import { TASK_NOTE_MAX_LENGTH } from '@domain/value-objects/task-note-body.vo';
 
+/** What a run is for. How it is written down for a runner is not this. */
 export interface RunOrder {
-  readonly harness: HarnessId;
+  readonly harness: Harness;
   readonly stationId: StationId;
   readonly priority: number;
   readonly pinnedTo: RunnerId | null;
-  readonly spec: RunSpecShape;
+  readonly briefing: string;
+  readonly options: readonly string[];
+  readonly noteLimit: number;
+  readonly continuity: Continuity;
+  readonly repository: Repository | null;
+  readonly branch: string;
 }
 
 /** Queueing what nothing can start strands the task on the queue, where
@@ -24,9 +28,11 @@ export interface RunOrder {
 export const orderFor = ({
   task,
   line,
+  harnesses,
 }: {
   task: Task;
   line: AssemblyLine;
+  harnesses: HarnessRepository;
 }): RunOrder | null => {
   const station = line.stationAt(task.stationId);
 
@@ -34,7 +40,7 @@ export const orderFor = ({
     return null;
   }
 
-  const harness = harnessNamed(station.harness);
+  const harness = harnesses.named(station.harness);
 
   if (!harness) {
     return null;
@@ -43,27 +49,15 @@ export const orderFor = ({
   const continuity = task.continuity();
 
   return {
-    harness: harness.id,
+    harness,
     stationId: station.id,
     priority: station.position,
     pinnedTo: continuity.pinnedTo,
-    spec: {
-      checkouts: task.repository
-        ? [
-            {
-              remote: THROUGH_SPOTLIGHT,
-              path: task.repository.name,
-              branch: task.branch,
-            },
-          ]
-        : undefined,
-      command: harness.command.started(),
-      briefing: TaskBriefing.brief({ task, line }),
-      handover: {
-        options: line.optionsFrom(station.id),
-        noteLimit: TASK_NOTE_MAX_LENGTH,
-      },
-      continuity: continuity.told(),
-    },
+    briefing: TaskBriefing.brief({ task, line }),
+    options: line.optionsFrom(station.id),
+    noteLimit: TASK_NOTE_MAX_LENGTH,
+    continuity,
+    repository: task.repository,
+    branch: task.branch,
   };
 };

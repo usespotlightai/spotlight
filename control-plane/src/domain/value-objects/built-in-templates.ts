@@ -91,7 +91,10 @@ request and give its address in your note:
     spotlight pull-request --title "<what it does>" --body "<the detail>"
 
 Spotlight opens it for the branch this task was worked on. You cannot reach
-GitHub yourself, and do not need to.`;
+GitHub yourself, and do not need to.
+
+With the pull request open, the task is finished: hand on to \`done\` rather
+than to a person, so nothing is left waiting on an answer nobody owes.`;
 
 export const DEFAULT_TEMPLATE = template('default', 'Default', [
   ['Triage', '#93a1b5', TRIAGE],

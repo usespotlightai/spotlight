@@ -1,3 +1,4 @@
+import type { StationKind } from '@domain/entities/station.entity';
 import { factory } from '@infrastructure/persistence/drizzle/schemas/factory.schema';
 import { workspace } from '@infrastructure/persistence/drizzle/schemas/workspace.schema';
 import { index, integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
@@ -38,7 +39,7 @@ export const station = pgTable(
     position: integer('position').notNull(),
     color: text('color').notNull().default('#a3a8b0'),
     description: text('description'),
-    kind: text('kind').$type<'backlog' | 'work'>().notNull().default('work'),
+    kind: text('kind').$type<StationKind>().notNull().default('work'),
     // None means nothing works this station, so it holds what it is given.
     harness: text('harness'),
     agentPrompt: text('agent_prompt'),

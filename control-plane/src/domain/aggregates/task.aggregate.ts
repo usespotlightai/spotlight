@@ -1,3 +1,4 @@
+import type { Station } from '@domain/entities/station.entity';
 import { InvalidTaskTransitionError } from '@domain/exceptions/invalid-task-transition.error';
 import { ContinuityKey } from '@domain/services/continuity-key';
 import {
@@ -5,7 +6,9 @@ import {
   type Conversation,
   conversationsOf,
   notesIn,
+  owedIn,
   stillOpen,
+  stopsHere,
 } from '@domain/services/conversations';
 import { TaskBranch } from '@domain/services/task-branch';
 import { anyUnread } from '@domain/services/unread';
@@ -163,7 +166,51 @@ export class Task {
   }
 
   get idle(): boolean {
-    return !this.running && !this.awaitingReview;
+    return !this.running && !this.awaitingReview && !this.finished;
+  }
+
+  get finished(): boolean {
+    return stopsHere(this.notes);
+  }
+
+  /** Idempotent: GitHub delivers a webhook more than once. */
+  merged(into: Station, rank: TaskRank, saying: Saying): Task {
+    if (!into.isCompleted) {
+      throw new InvalidTaskTransitionError(
+        'is only completed where the line ends, not at a station it is worked at',
+      );
+    }
+
+    if (this.stationId.equals(into.id)) {
+      return this;
+    }
+
+    return this.with({
+      stationId: into.id,
+      rank,
+      currentRunId: null,
+      sessionId: null,
+      runnerId: null,
+      notes: [...this.notes, this.wrote(saying, 'closed')],
+    });
+  }
+
+  resolved(from: NotePosition, saying: Saying): Task {
+    if (this.openConversation?.from !== from.value) {
+      throw new InvalidTaskTransitionError(
+        'is not waiting on anyone there, so there is nothing to resolve',
+      );
+    }
+
+    return this.closed(saying);
+  }
+
+  /** Closes whatever conversation was open, as passing it on would. */
+  closed(saying: Saying): Task {
+    return this.with({
+      currentRunId: null,
+      notes: [...this.notes, this.wrote(saying, 'closed')],
+    });
   }
 
   handedTo(runId: RunId): Task {
@@ -190,6 +237,11 @@ export class Task {
       sessionId: this.sessionId,
       pinnedTo: this.sessionId ? this.runnerId : null,
     });
+  }
+
+  /** Their inbox item. */
+  get owedConversation(): Conversation | null {
+    return owedIn(this.notes);
   }
 
   get openConversation(): Conversation | null {

@@ -1,6 +1,5 @@
-import type { OpenedPullRequestDto } from '@application/dto/pull-request.dto';
-import { UpstreamRefusedError } from '@application/errors/upstream-refused.error';
 import type {
+  OpenedPullRequestDto,
   PullRequestOpening,
   PullRequestPort,
 } from '@application/ports/pull-request.port';
@@ -8,6 +7,7 @@ import {
   REPOSITORY_ACCESS,
   type RepositoryAccessPort,
 } from '@application/ports/repository-access.port';
+import { UpstreamRefusedError } from '@domain/exceptions/upstream-refused.error';
 import type { Repository } from '@domain/value-objects/repository.vo';
 import { Inject, Injectable } from '@nestjs/common';
 

@@ -1,9 +1,9 @@
 import { createSign } from 'node:crypto';
-import { UpstreamRefusedError } from '@application/errors/upstream-refused.error';
 import type {
   RepositoryAccessPort,
   RepositoryCredential,
 } from '@application/ports/repository-access.port';
+import { UpstreamRefusedError } from '@domain/exceptions/upstream-refused.error';
 import { ENV } from '@infrastructure/config/config.constants';
 import type { Env } from '@infrastructure/config/env.schema';
 import { Inject, Injectable } from '@nestjs/common';

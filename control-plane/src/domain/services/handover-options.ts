@@ -1,5 +1,5 @@
 import type { Station } from '@domain/entities/station.entity';
-import { REVIEW } from '@domain/value-objects/declaration.vo';
+import { DONE, REVIEW } from '@domain/value-objects/declaration.vo';
 import type { StationId } from '@domain/value-objects/station-id.vo';
 
 /** The runner is handed the same list, and refuses any word not on it. */
@@ -12,4 +12,5 @@ export const handoverOptions = (
     .filter((station) => !standingAt || !station.id.equals(standingAt))
     .map((station) => station.name.value),
   REVIEW,
+  DONE,
 ];

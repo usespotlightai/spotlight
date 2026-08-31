@@ -43,6 +43,13 @@ const line = () =>
         harness: HarnessId.of('dev'),
         agentPrompt: AgentPrompt.of('## Role'),
       }),
+      Station.create({
+        id: StationId.of('station_2'),
+        name: StationName.of('Completed'),
+        position: 2,
+        color: StationColor.of('#a3a8b0'),
+        kind: 'completed',
+      }),
     ],
   });
 

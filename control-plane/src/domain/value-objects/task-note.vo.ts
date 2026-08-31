@@ -1,3 +1,4 @@
+import { InvalidTaskNoteError } from '@domain/exceptions/invalid-task-note.error';
 import { unread } from '@domain/services/unread';
 import type { RunId } from '@domain/value-objects/run-id.vo';
 import type { StationName } from '@domain/value-objects/station-name.vo';
@@ -5,7 +6,7 @@ import type { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
 
 /** What a note did: put the task to a person, moved it on, or answered. */
-export type TaskNoteKind = 'asked' | 'passed' | 'answered' | 'said';
+export type TaskNoteKind = 'asked' | 'passed' | 'answered' | 'said' | 'closed';
 
 export class TaskNote {
   private constructor(
@@ -32,17 +33,24 @@ export class TaskNote {
     at: Date;
     author?: UserId | null;
     run?: RunId | null;
-    kind?: TaskNoteKind;
+    kind: TaskNoteKind;
     readAt?: Date | null;
     deliveredAt?: Date | null;
   }): TaskNote {
+    // Neither is the board moving a task, which is nobody speaking.
+    if (input.author && input.run) {
+      throw new InvalidTaskNoteError(
+        'is said by a person or by a run, never by both',
+      );
+    }
+
     return new TaskNote(
       input.station,
       input.body,
       input.at,
       input.author ?? null,
       input.run ?? null,
-      input.kind ?? 'passed',
+      input.kind,
       input.readAt ?? null,
       input.deliveredAt ?? null,
     );

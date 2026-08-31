@@ -1,9 +1,11 @@
 import { Task } from '@domain/aggregates/task.aggregate';
+import { Station } from '@domain/entities/station.entity';
 import { InvalidTaskTransitionError } from '@domain/exceptions/invalid-task-transition.error';
 import { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { NotePosition } from '@domain/value-objects/note-position.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
+import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskDescription } from '@domain/value-objects/task-description.vo';
@@ -122,6 +124,7 @@ describe('Task', () => {
         station: StationName.of('Triage'),
         body: TaskNoteBody.of('Reproduced on restart.'),
         at: new Date('2026-08-28T10:00:00.000Z'),
+        kind: 'passed',
       }),
     );
 
@@ -137,11 +140,13 @@ describe('Task', () => {
         station: StationName.of('Triage'),
         body: TaskNoteBody.of('First'),
         at: new Date('2026-08-28T10:00:00.000Z'),
+        kind: 'passed',
       }),
       TaskNote.of({
         station: StationName.of('Spec'),
         body: TaskNoteBody.of('Second'),
         at: new Date('2026-08-28T11:00:00.000Z'),
+        kind: 'passed',
       }),
     );
 
@@ -160,6 +165,7 @@ describe('Task', () => {
         station: StationName.of('Triage'),
         body: TaskNoteBody.of('Reproduced.'),
         at: new Date('2026-08-28T10:00:00.000Z'),
+        kind: 'passed',
       }),
     ).moveTo(StationId.of('station_2'), TaskRank.of('m'), saying);
 
@@ -190,6 +196,7 @@ describe('Task, what it is doing', () => {
       station: StationName.of('Triage'),
       body: TaskNoteBody.of('Which queue did you mean?'),
       at: new Date('2026-08-28T12:00:00.000Z'),
+      kind: 'passed',
     });
 
   it('is idle when nobody has taken it up', () => {
@@ -513,6 +520,19 @@ describe('Task, what it is doing', () => {
       expect(() =>
         added().moveTo(StationId.of('station_1'), TaskRank.of('m'), saying),
       ).toThrow(InvalidTaskTransitionError);
+    });
+
+    it('will not be completed at a station it is worked at', () => {
+      const worked = Station.create({
+        id: StationId.of('station_9'),
+        name: StationName.of('Code Review'),
+        position: 1,
+        color: StationColor.of('#a3a8b0'),
+      });
+
+      expect(() => added().merged(worked, TaskRank.of('m'), saying)).toThrow(
+        InvalidTaskTransitionError,
+      );
     });
   });
 });

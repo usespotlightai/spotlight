@@ -1,4 +1,3 @@
-import { UpstreamRefusedError } from '@application/errors/upstream-refused.error';
 import {
   REPOSITORY_ACCESS,
   type RepositoryAccessPort,
@@ -7,6 +6,7 @@ import type {
   RepositoryCatalogPort,
   RepositorySummary,
 } from '@application/ports/repository-catalog.port';
+import { UpstreamRefusedError } from '@domain/exceptions/upstream-refused.error';
 import { Inject, Injectable } from '@nestjs/common';
 
 const API = 'https://api.github.com';

@@ -27,6 +27,8 @@ export const envSchema = z
     GITHUB_APP_ID: z.string().min(1),
     GITHUB_APP_PRIVATE_KEY: z.string().min(1),
     GITHUB_APP_INSTALLATION_ID: z.string().min(1),
+    // Shared with the App's webhook. Left unset, deliveries are refused.
+    GITHUB_WEBHOOK_SECRET: z.string().default(''),
     LOG_LEVEL: z.enum(LOG_LEVELS).optional(),
   })
   .transform((env) => ({

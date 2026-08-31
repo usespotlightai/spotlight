@@ -6,6 +6,7 @@ import { InboxItem } from '@/routes/InboxItem';
 
 const answer = vi.fn();
 const read = vi.fn();
+const resolve = vi.fn();
 const waiting = vi.fn();
 const viewer = vi.fn();
 const journal = vi.fn();
@@ -31,6 +32,10 @@ vi.mock('@/hooks/api/useTaskJournal', () => ({
 
 vi.mock('@/hooks/api/useAnswerInboxItem', () => ({
   useAnswerInboxItem: () => ({ mutate: answer, isPending: false }),
+}));
+
+vi.mock('@/hooks/api/useResolveInboxItem', () => ({
+  useResolveInboxItem: () => ({ mutate: resolve, isPending: false }),
 }));
 
 vi.mock('@/hooks/api/useReadInboxItem', () => ({
@@ -355,6 +360,41 @@ describe('InboxItem', () => {
       screen.queryByRole('textbox', { name: /Answer/ }),
     ).not.toBeInTheDocument();
     expect(screen.getByText(/moved on to Code Review/)).toBeInTheDocument();
+  });
+
+  it('says only that it is settled where it was closed in place', () => {
+    const [only] = item([message()]);
+    waiting.mockReturnValue([
+      {
+        ...only,
+        resolved: true,
+        standsAt: { name: only.station, color: '#56b98d', position: 3 },
+      },
+    ]);
+
+    renderItem();
+
+    expect(screen.getByText(/settled/)).toBeInTheDocument();
+    expect(screen.queryByText(/moved on/)).not.toBeInTheDocument();
+  });
+
+  it('closes the conversation where a person says it stops here', async () => {
+    renderItem();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Resolve' }));
+
+    expect(resolve).toHaveBeenCalledWith({ slug: 'acme', itemId: 'task_1:0' });
+  });
+
+  it('offers nothing to resolve once it is settled', () => {
+    const [only] = item([message()]);
+    waiting.mockReturnValue([{ ...only, resolved: true }]);
+
+    renderItem();
+
+    expect(
+      screen.queryByRole('button', { name: 'Resolve' }),
+    ).not.toBeInTheDocument();
   });
 
   it('says when a reply was sent', () => {

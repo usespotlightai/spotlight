@@ -1,13 +1,8 @@
 import type { InboxNote } from '@application/ports/inbox-reader.port';
 import type { RunReview } from '@application/ports/run-reader.port';
-import {
-  awaitsAPerson,
-  conversationsOf,
-  reviewsIn,
-  stillOpen,
-} from '@domain/services/conversations';
+import { RunSpecContract } from '@application/ports/run-spec.contract';
+import { owedIn, reviewsIn } from '@domain/services/conversations';
 import { ConversationId } from '@domain/value-objects/conversation-id.vo';
-import { RunSpec } from '@domain/value-objects/run-spec.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';
 import type { TaskNoteKind } from '@domain/value-objects/task-note.vo';
 import type { DrizzleDatabase } from '@infrastructure/persistence/drizzle/drizzle.client';
@@ -145,17 +140,12 @@ export const awaitedReviewsFor = async (
   }
 
   for (const [taskId, trail] of trails) {
-    if (!awaitsAPerson(trail)) {
-      continue;
-    }
+    const owed = owedIn(trail);
 
-    const cut = conversationsOf(trail.map((note) => note.kind));
-    const open = cut[cut.length - 1];
-
-    if (open && stillOpen(open)) {
+    if (owed) {
       awaited.set(
         taskId,
-        ConversationId.of({ taskId: TaskId.of(taskId), from: open.from }).value,
+        ConversationId.of({ taskId: TaskId.of(taskId), from: owed.from }).value,
       );
     }
   }
@@ -237,7 +227,7 @@ export const briefingsFor = async (
     .where(inArray(run.id, named));
 
   for (const row of rows) {
-    const spec = RunSpec.from(row.spec);
+    const spec = RunSpecContract.from(row.spec);
 
     if (spec) {
       given.set(row.id, spec.briefing);

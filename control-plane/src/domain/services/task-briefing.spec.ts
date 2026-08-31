@@ -106,6 +106,7 @@ describe('TaskBriefing', () => {
         station: StationName.of('Triage'),
         body: TaskNoteBody.of('Reproduced on restart.'),
         at: new Date('2026-08-28T10:00:00.000Z'),
+        kind: 'passed',
       }),
     );
 
@@ -119,6 +120,17 @@ describe('TaskBriefing', () => {
 
     expect(briefing).toContain('spotlight handover --next');
     expect(briefing).toContain('names a station to pass the task to: "Spec"');
+  });
+
+  it('says how to close work that nothing follows', () => {
+    const briefing = brief(triage());
+
+    expect(briefing).toContain('--next "done"');
+    expect(briefing).toContain('closes the task where it stands');
+  });
+
+  it('does not offer an ending among the stations', () => {
+    expect(brief(triage())).not.toContain('"Spec", "done"');
   });
 
   it('does not offer a person among the stations', () => {

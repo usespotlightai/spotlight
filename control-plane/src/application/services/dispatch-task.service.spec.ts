@@ -1,15 +1,22 @@
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
+import {
+  RunSpecContract,
+  type RunSpecShape,
+} from '@application/ports/run-spec.contract';
 import { DispatchTask } from '@application/services/dispatch-task.service';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Run } from '@domain/aggregates/run.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
+import { Harness } from '@domain/entities/harness.entity';
 import { Station } from '@domain/entities/station.entity';
+import type { HarnessRepository } from '@domain/repositories/harness.repository';
 import type { RunRepository } from '@domain/repositories/run.repository';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
-import { CLAUDE_CODE } from '@domain/value-objects/built-in-harnesses';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
+import { HarnessCommand } from '@domain/value-objects/harness-command.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { HarnessName } from '@domain/value-objects/harness-name.vo';
 import { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { Repository } from '@domain/value-objects/repository.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
@@ -24,6 +31,20 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-08-28T12:00:00.000Z');
 
+const written = (run?: Run): RunSpecShape =>
+  RunSpecContract.from(run?.spec.value) as RunSpecShape;
+
+const DEV = Harness.of({
+  id: HarnessId.of('dev'),
+  name: HarnessName.of('Dev'),
+  command: HarnessCommand.of({ executable: 'dev-agent', args: ['--acp'] }),
+});
+
+const harnesses: HarnessRepository = {
+  all: () => [DEV],
+  named: (id: HarnessId) => (id.equals(DEV.id) ? DEV : null),
+};
+
 const at = (id: string, name: string, position: number, harness?: HarnessId) =>
   Station.create({
     id: StationId.of(id),
@@ -31,13 +52,15 @@ const at = (id: string, name: string, position: number, harness?: HarnessId) =>
     position,
     color: StationColor.of('#a3a8b0'),
     harness,
-    kind: position === 0 ? 'backlog' : 'work',
+    kind:
+      position === 0 ? 'backlog' : name === 'Completed' ? 'completed' : 'work',
   });
 
 const stations = [
   at('station_1', 'Backlog', 0),
-  at('station_2', 'Triage', 1, CLAUDE_CODE.id),
-  at('station_3', 'Spec', 2, CLAUDE_CODE.id),
+  at('station_2', 'Triage', 1, DEV.id),
+  at('station_3', 'Spec', 2, DEV.id),
+  at('station_4', 'Completed', 3),
 ];
 
 const task = (stationId: string, repository?: string) =>
@@ -72,7 +95,7 @@ const held = () =>
   });
 
 const dispatch = (station: Station, standing?: Task) =>
-  new DispatchTask(runs, ids).dispatch({
+  new DispatchTask(runs, ids, harnesses).dispatch({
     task: standing ?? task(station.id.value),
     line: held(),
   });
@@ -90,7 +113,7 @@ describe('DispatchTask', () => {
 
       await dispatch(station, task(station.id.value, 'acme/widgets'));
 
-      expect(queued[0]?.spec.value.checkouts).toEqual([
+      expect(written(queued[0]).checkouts).toEqual([
         {
           remote: 'spotlight:repository',
           path: 'widgets',
@@ -102,7 +125,7 @@ describe('DispatchTask', () => {
     it('asks for no checkout where the task names no repository', async () => {
       await dispatch(stations[1] as Station);
 
-      expect(queued[0]?.spec.value.checkouts).toBeUndefined();
+      expect(written(queued[0]).checkouts).toBeUndefined();
     });
   });
 
@@ -111,7 +134,7 @@ describe('DispatchTask', () => {
 
     expect(id?.value).toBe('run_1');
     expect(queued).toHaveLength(1);
-    expect(queued[0]?.harness.value).toBe(CLAUDE_CODE.id.value);
+    expect(queued[0]?.harness.value).toBe(DEV.id.value);
   });
 
   // A station naming no harness is how work is held back: the Backlog keeps
@@ -143,15 +166,15 @@ describe('DispatchTask', () => {
   it('tells the runner what the agent may hand over to', async () => {
     await dispatch(stations[1] as Station);
 
-    expect(queued[0]?.spec.value).toMatchObject({
-      handover: { options: ['Spec', 'review'] },
+    expect(written(queued[0])).toMatchObject({
+      handover: { options: ['Spec', 'review', 'done'] },
     });
   });
 
   it('does not offer a station nothing runs at', async () => {
     await dispatch(stations[1] as Station);
 
-    expect(queued[0]?.spec.value).toMatchObject({
+    expect(written(queued[0])).toMatchObject({
       handover: { options: expect.not.arrayContaining(['Backlog']) },
     });
   });
@@ -161,7 +184,7 @@ describe('DispatchTask', () => {
   it('does not let the agent hand the task to its own station', async () => {
     await dispatch(stations[1] as Station);
 
-    const spec = queued[0]?.spec.value;
+    const spec = written(queued[0]);
 
     expect(spec.handover.options).not.toContain('Triage');
   });
@@ -169,10 +192,10 @@ describe('DispatchTask', () => {
   it('runs the harness the way the harness has to be started', async () => {
     await dispatch(stations[1] as Station);
 
-    const spec = queued[0]?.spec.value;
+    const spec = written(queued[0]);
 
-    expect(spec.command.executable).toBe(CLAUDE_CODE.command.executable);
-    expect(spec.command.args).toEqual([...CLAUDE_CODE.command.args]);
+    expect(spec.command.executable).toBe(DEV.command.executable);
+    expect(spec.command.args).toEqual([...DEV.command.args]);
   });
 
   // What to start and what to ask of it are different things: the briefing is
@@ -180,7 +203,7 @@ describe('DispatchTask', () => {
   it('briefs the agent in the same words it gives the runner', async () => {
     await dispatch(stations[1] as Station);
 
-    const spec = queued[0]?.spec.value;
+    const spec = written(queued[0]);
 
     for (const option of spec.handover.options) {
       expect(spec.briefing).toContain(`"${option}"`);
@@ -193,7 +216,7 @@ describe('DispatchTask', () => {
       if (!run) {
         throw new Error(`nothing was queued at ${at}`);
       }
-      return run.spec.value.continuity;
+      return written(run).continuity;
     };
 
     const worked = (station: Station) =>

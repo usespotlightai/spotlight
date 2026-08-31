@@ -9,10 +9,11 @@ const line = {
   name: 'Default',
   stations: [
     { id: 'station_0', name: 'Backlog', position: 0, kind: 'backlog' },
-    { id: 'station_1', name: 'Triage', position: 1 },
-    { id: 'station_2', name: 'Spec', position: 2 },
-    { id: 'station_3', name: 'Implementation', position: 3 },
-    { id: 'station_4', name: 'Code Review', position: 4 },
+    { id: 'station_1', name: 'Triage', position: 1, kind: 'work' },
+    { id: 'station_2', name: 'Spec', position: 2, kind: 'work' },
+    { id: 'station_3', name: 'Implementation', position: 3, kind: 'work' },
+    { id: 'station_4', name: 'Code Review', position: 4, kind: 'work' },
+    { id: 'station_5', name: 'Completed', position: 5, kind: 'completed' },
   ],
 };
 
@@ -194,7 +195,7 @@ describe('AssemblyLineBoard', () => {
         (section) =>
           section.querySelector('[data-slot="station-icon"] path') !== null,
       ),
-    ).toEqual([true, true, true, false]);
+    ).toEqual([true, true, true, true]);
   });
 
   it('shows nothing to act on until a task is picked', () => {
@@ -336,6 +337,21 @@ describe('AssemblyLineBoard', () => {
 
     expect(named()).toEqual(['Backlog']);
     expect(screen.getByText('Groom the idea')).toBeInTheDocument();
+  });
+
+  it('holds back what is completed until it is asked for', () => {
+    renderAt('line_1');
+
+    expect(named()).not.toContain('Completed');
+  });
+
+  it('shows what is completed on its own when picked', async () => {
+    const user = userEvent.setup();
+    renderAt('line_1');
+
+    await user.click(screen.getByRole('button', { name: 'Completed' }));
+
+    expect(named()).toEqual(['Completed']);
   });
 
   it('drops the selection when the view changes under it', async () => {

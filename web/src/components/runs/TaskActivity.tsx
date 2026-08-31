@@ -29,6 +29,7 @@ export function TaskActivity({ slug, teamId, taskId }: TaskActivityProps) {
               key={`${run.id}-review`}
               slug={slug}
               conversationId={run.review.conversationId}
+              runId={run.id}
               at={run.updatedAt}
             />
           ),

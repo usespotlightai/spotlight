@@ -16,6 +16,8 @@ import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 
 const BACKLOG_NAME = StationName.of('Backlog');
 const BACKLOG_COLOR = StationColor.of('#a3a8b0');
+const COMPLETED_NAME = StationName.of('Completed');
+const COMPLETED_COLOR = StationColor.of('#a3a8b0');
 
 export class AssemblyLine {
   private constructor(
@@ -69,6 +71,13 @@ export class AssemblyLine {
           kind: 'backlog',
         }),
         ...input.stations,
+        Station.create({
+          id: StationId.of(input.newId()),
+          name: COMPLETED_NAME,
+          color: COMPLETED_COLOR,
+          position: input.stations.length + 1,
+          kind: 'completed',
+        }),
       ],
     });
   }
@@ -82,6 +91,7 @@ export class AssemblyLine {
   }): AssemblyLine {
     AssemblyLine.guardPositionsAreContiguous(input.stations);
     AssemblyLine.guardBacklogStandsFirst(input.stations);
+    AssemblyLine.guardCompletedStandsLast(input.stations);
 
     return new AssemblyLine(
       input.id,
@@ -127,6 +137,12 @@ export class AssemblyLine {
       throw new InvalidStationOrderError(
         'must leave the backlog standing first',
       );
+    }
+    if (
+      order.length > 0 &&
+      !this.completed.id.equals(order[order.length - 1] as StationId)
+    ) {
+      throw new InvalidStationOrderError('must leave completed standing last');
     }
     if (order.length !== this.stations.length) {
       throw new InvalidStationOrderError(
@@ -207,6 +223,31 @@ export class AssemblyLine {
     }
   }
 
+  private static guardCompletedStandsLast(stations: readonly Station[]): void {
+    const ends = stations.filter((each) => each.isCompleted);
+
+    if (ends.length !== 1) {
+      throw new InvalidStationOrderError(
+        `must hold one completed, but hold ${ends.length}`,
+      );
+    }
+    if (ends[0]?.position !== stations.length - 1) {
+      throw new InvalidStationOrderError(
+        'must close with completed, which is where a merged task lands',
+      );
+    }
+  }
+
+  get completed(): Station {
+    const standing = this.stations.find((each) => each.isCompleted);
+
+    if (!standing) {
+      throw new InvalidStationOrderError('must hold one completed, but hold 0');
+    }
+
+    return standing;
+  }
+
   get backlog(): Station {
     const standing = this.stations.find((each) => each.isBacklog);
 
@@ -218,7 +259,7 @@ export class AssemblyLine {
   }
 
   get worked(): readonly Station[] {
-    return this.stations.filter((each) => !each.isBacklog);
+    return this.stations.filter((each) => each.isWorked);
   }
 
   /**

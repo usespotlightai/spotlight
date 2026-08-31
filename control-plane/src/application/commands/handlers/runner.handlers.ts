@@ -19,6 +19,7 @@ import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { HandoverPort } from '@application/ports/handover.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
+import { RunSpecContract } from '@application/ports/run-spec.contract';
 import type { RunStreamPort } from '@application/ports/run-stream.port';
 import type { RunnerRevocationPort } from '@application/ports/runner-revocation.port';
 import type { RunnerTokenPort } from '@application/ports/runner-token.port';
@@ -28,9 +29,9 @@ import { Runner } from '@domain/aggregates/runner.aggregate';
 import { RunCompleted } from '@domain/events/run-completed.event';
 import { UnknownHarnessError } from '@domain/exceptions/unknown-harness.error';
 import { UnknownRunError } from '@domain/exceptions/unknown-run.error';
+import type { HarnessRepository } from '@domain/repositories/harness.repository';
 import type { RunRepository } from '@domain/repositories/run.repository';
 import type { RunnerRepository } from '@domain/repositories/runner.repository';
-import { harnessNamed } from '@domain/value-objects/built-in-harnesses';
 import { Declaration } from '@domain/value-objects/declaration.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { HarnessSession } from '@domain/value-objects/harness-session.vo';
@@ -359,11 +360,12 @@ export class EnqueueRunHandler
   constructor(
     private readonly runs: RunRepository,
     private readonly ids: IdGeneratorPort,
+    private readonly harnesses: HarnessRepository,
   ) {}
 
   async execute(command: EnqueueRunCommand): Promise<EnqueuedRunDto> {
     try {
-      const harness = harnessNamed(HarnessId.of(command.harness));
+      const harness = this.harnesses.named(HarnessId.of(command.harness));
       if (!harness) {
         throw new UnknownHarnessError(command.harness);
       }
@@ -372,7 +374,9 @@ export class EnqueueRunHandler
         id: RunId.of(this.ids.generate()),
         workspaceId: WorkspaceId.of(command.workspaceId),
         harness: harness.id,
-        spec: RunSpec.ordered(command.spec, harness.command.started()),
+        spec: RunSpec.of(
+          RunSpecContract.ordered(command.spec, harness.command.started()),
+        ),
         targetRunner: command.targetRunnerId
           ? RunnerId.of(command.targetRunnerId)
           : null,

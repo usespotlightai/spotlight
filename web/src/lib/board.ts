@@ -1,6 +1,9 @@
+import type { StationResponseDto } from '@/lib/api';
+
 export const BOARD_VIEWS = [
-  { id: 'active', label: 'Active' },
   { id: 'backlog', label: 'Backlog' },
+  { id: 'active', label: 'Active' },
+  { id: 'completed', label: 'Completed' },
 ] as const;
 
 export type BoardView = (typeof BOARD_VIEWS)[number]['id'];
@@ -12,5 +15,6 @@ export const asBoardView = (raw: string | null): BoardView =>
     ? (raw as BoardView)
     : FALLBACK_BOARD_VIEW;
 
-export const inView = (view: BoardView, place: number): boolean =>
-  view === 'backlog' ? place === 0 : place > 0;
+/** Each end of the line is a view of its own. */
+export const inView = (view: BoardView, kind: StationResponseDto['kind']) =>
+  view === 'active' ? kind === 'work' : kind === view;

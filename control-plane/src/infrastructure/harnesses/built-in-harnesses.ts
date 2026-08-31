@@ -1,7 +1,9 @@
 import { Harness } from '@domain/entities/harness.entity';
+import type { HarnessRepository } from '@domain/repositories/harness.repository';
 import { HarnessCommand } from '@domain/value-objects/harness-command.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { HarnessName } from '@domain/value-objects/harness-name.vo';
+import { Injectable } from '@nestjs/common';
 
 const harness = (
   id: string,
@@ -37,7 +39,16 @@ export const CLAUDE_CODE = harness(
 // Only list a harness once its unattended invocation has actually been run: a
 // flag nobody checked fails at the first task, on the runner, where it is
 // hardest to see.
-export const BUILT_IN_HARNESSES: readonly Harness[] = [CLAUDE_CODE];
+const BUILT_IN: readonly Harness[] = [CLAUDE_CODE];
 
-export const harnessNamed = (id: HarnessId): Harness | null =>
-  BUILT_IN_HARNESSES.find((each) => each.id.equals(id)) ?? null;
+/** Compiled in rather than stored: nothing here changes without a release. */
+@Injectable()
+export class BuiltInHarnesses implements HarnessRepository {
+  all(): readonly Harness[] {
+    return BUILT_IN;
+  }
+
+  named(id: HarnessId): Harness | null {
+    return BUILT_IN.find((each) => each.id.equals(id)) ?? null;
+  }
+}

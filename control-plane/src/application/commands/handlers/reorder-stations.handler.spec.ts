@@ -22,7 +22,8 @@ const at = (id: string, name: string, position: number) =>
     name: StationName.of(name),
     position,
     color: StationColor.of('#a3a8b0'),
-    kind: position === 0 ? 'backlog' : 'work',
+    kind:
+      position === 0 ? 'backlog' : name === 'Completed' ? 'completed' : 'work',
   });
 
 const line = () =>
@@ -35,6 +36,7 @@ const line = () =>
       at('station_1', 'Backlog', 0),
       at('station_2', 'Triage', 1),
       at('station_3', 'Spec', 2),
+      at('station_4', 'Completed', 3),
     ],
   });
 
@@ -61,49 +63,53 @@ beforeEach(() => {
 
 describe('ReorderStationsHandler', () => {
   it('stands the stations in the order it was given', async () => {
-    await reorder(['station_1', 'station_3', 'station_2']);
+    await reorder(['station_1', 'station_3', 'station_2', 'station_4']);
 
     expect(saved?.stations.map((each) => each.name.value)).toEqual([
       'Backlog',
       'Spec',
       'Triage',
+      'Completed',
     ]);
   });
 
   it('refuses an order that moves the backlog off the front', async () => {
     await expect(
-      reorder(['station_3', 'station_1', 'station_2']),
+      reorder(['station_3', 'station_1', 'station_2', 'station_4']),
     ).rejects.toThrow(UseCaseFault);
   });
 
   it('numbers the places again from the start', async () => {
-    await reorder(['station_1', 'station_3', 'station_2']);
+    await reorder(['station_1', 'station_3', 'station_2', 'station_4']);
 
-    expect(saved?.stations.map((each) => each.position)).toEqual([0, 1, 2]);
+    expect(saved?.stations.map((each) => each.position)).toEqual([0, 1, 2, 3]);
   });
 
   it('carries everything else about a station across the move', async () => {
-    await reorder(['station_1', 'station_3', 'station_2']);
+    await reorder(['station_1', 'station_3', 'station_2', 'station_4']);
 
     expect(saved?.stations[1]?.id).toEqual(StationId.of('station_3'));
     expect(saved?.stations[1]?.color.value).toBe('#a3a8b0');
   });
 
   it('refuses an order that leaves a station out', async () => {
-    await expect(reorder(['station_1', 'station_2'])).rejects.toThrow(
-      UseCaseFault,
-    );
+    await expect(
+      reorder(['station_1', 'station_2', 'station_4']),
+    ).rejects.toThrow(UseCaseFault);
   });
 
   it('refuses an order naming a station the line does not hold', async () => {
     await expect(
-      reorder(['station_1', 'station_2', 'station_elsewhere']),
+      reorder(['station_1', 'station_2', 'station_elsewhere', 'station_4']),
     ).rejects.toThrow(UseCaseFault);
   });
 
   it('refuses a line that does not exist', async () => {
     await expect(
-      reorder(['station_1', 'station_2', 'station_3'], lines(null)),
+      reorder(
+        ['station_1', 'station_2', 'station_3', 'station_4'],
+        lines(null),
+      ),
     ).rejects.toThrow(UseCaseFault);
   });
 });

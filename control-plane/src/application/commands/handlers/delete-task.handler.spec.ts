@@ -30,6 +30,7 @@ const tasks = (found: Task | null = standing()) =>
     remove: vi.fn(),
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
+    withPullRequest: vi.fn(async () => null),
   }) satisfies TaskRepository;
 
 describe('DeleteTaskHandler', () => {

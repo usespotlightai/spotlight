@@ -6,7 +6,7 @@ import type { StationDescription } from '@domain/value-objects/station-descripti
 import type { StationId } from '@domain/value-objects/station-id.vo';
 import type { StationName } from '@domain/value-objects/station-name.vo';
 
-export type StationKind = 'backlog' | 'work';
+export type StationKind = 'backlog' | 'work' | 'completed';
 
 type Part = {
   name?: StationName;
@@ -42,27 +42,38 @@ export abstract class Station {
   abstract readonly agentPrompt: AgentPrompt | null;
 
   static create(input: StationInput): Station {
-    return input.kind === 'backlog'
-      ? new Backlog(
-          input.id,
-          input.name,
-          input.position,
-          input.color,
-          input.description ?? null,
-        )
-      : new WorkStation(
-          input.id,
-          input.name,
-          input.position,
-          input.color,
-          input.description ?? null,
+    const ends = [
+      input.id,
+      input.name,
+      input.position,
+      input.color,
+      input.description ?? null,
+    ] as const;
+
+    switch (input.kind) {
+      case 'backlog':
+        return new Backlog(...ends);
+      case 'completed':
+        return new Completed(...ends);
+      default:
+        return new WorkStation(
+          ...ends,
           input.harness ?? null,
           input.agentPrompt ?? null,
         );
+    }
   }
 
   get isBacklog(): boolean {
     return this.kind === 'backlog';
+  }
+
+  get isCompleted(): boolean {
+    return this.kind === 'completed';
+  }
+
+  get isWorked(): boolean {
+    return this.kind === 'work';
   }
 
   rename(name: StationName): Station {
@@ -147,6 +158,35 @@ export class Backlog extends Station {
 
   protected copiedWith(part: Part): Station {
     return new Backlog(
+      this.id,
+      part.name ?? this.name,
+      part.position ?? this.position,
+      part.color ?? this.color,
+      part.description !== undefined ? part.description : this.description,
+    );
+  }
+}
+
+/** Where a task lands once its pull request is merged. */
+export class Completed extends Station {
+  readonly kind = 'completed' as const;
+  readonly harness = null;
+  readonly agentPrompt = null;
+
+  runsOn(): Station {
+    throw new InvalidStationChangeError(
+      'is where the line ends, so nothing runs there',
+    );
+  }
+
+  instruct(): Station {
+    throw new InvalidStationChangeError(
+      'is where the line ends, so there is nothing there to instruct',
+    );
+  }
+
+  protected copiedWith(part: Part): Station {
+    return new Completed(
       this.id,
       part.name ?? this.name,
       part.position ?? this.position,

@@ -5,13 +5,13 @@ import { ConversationId } from '@domain/value-objects/conversation-id.vo';
 
 export const TaskMapper = {
   awaited(task: Task): { conversationId: string } | null {
-    const open = task.awaitingReview ? task.openConversation : null;
+    const owed = task.owedConversation;
 
-    return open
+    return owed
       ? {
           conversationId: ConversationId.of({
             taskId: task.id,
-            from: open.from,
+            from: owed.from,
           }).value,
         }
       : null;
