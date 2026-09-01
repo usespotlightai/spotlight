@@ -2258,6 +2258,46 @@
           "body"
         ]
       },
+      "StepLocationResponseDto": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "example": "control-plane/src/app.module.ts"
+          },
+          "line": {
+            "type": "number",
+            "example": 126,
+            "nullable": true
+          }
+        },
+        "required": [
+          "path",
+          "line"
+        ]
+      },
+      "StepChangeResponseDto": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "nullable": true
+          },
+          "before": {
+            "type": "string",
+            "description": "The file as it stood"
+          },
+          "after": {
+            "type": "string",
+            "description": "The file as the agent left it"
+          }
+        },
+        "required": [
+          "path",
+          "before",
+          "after"
+        ]
+      },
       "JournalStepResponseDto": {
         "type": "object",
         "properties": {
@@ -2267,7 +2307,9 @@
             "enum": [
               "said",
               "thought",
-              "tool"
+              "tool",
+              "planned",
+              "hook"
             ]
           },
           "text": {
@@ -2294,6 +2336,36 @@
             "type": "number",
             "example": 1200,
             "description": "How long it took, in ms"
+          },
+          "startedAt": {
+            "type": "string",
+            "example": "2026-08-29T12:00:03.000Z",
+            "description": "When it began, for laying the run out against a clock"
+          },
+          "locations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StepLocationResponseDto"
+            }
+          },
+          "given": {
+            "type": "string",
+            "nullable": true,
+            "description": "What the tool was asked for, as it was asked"
+          },
+          "returned": {
+            "type": "string",
+            "nullable": true,
+            "description": "What it handed back, unread"
+          },
+          "change": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StepChangeResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -2302,7 +2374,106 @@
           "status",
           "tool",
           "detail",
-          "ms"
+          "ms",
+          "startedAt",
+          "locations",
+          "given",
+          "returned",
+          "change"
+        ]
+      },
+      "SpanAttributeResponseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "gen_ai.request.model"
+          },
+          "value": {
+            "type": "string",
+            "example": "claude-opus-5"
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ]
+      },
+      "RunSpanResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "8889c15027e46e76"
+          },
+          "parentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "example": "claude_code.llm_request"
+          },
+          "startedAt": {
+            "type": "string",
+            "example": "2026-08-29T12:00:03.000Z"
+          },
+          "ms": {
+            "type": "number",
+            "example": 4350
+          },
+          "failed": {
+            "type": "boolean",
+            "example": false
+          },
+          "attributes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SpanAttributeResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "parentId",
+          "name",
+          "startedAt",
+          "ms",
+          "failed",
+          "attributes"
+        ]
+      },
+      "RunMarksResponseDto": {
+        "type": "object",
+        "properties": {
+          "startedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "readyAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "When the workspace was handed to the agent"
+          },
+          "spokeFrom": {
+            "type": "string",
+            "nullable": true
+          },
+          "spokeTo": {
+            "type": "string",
+            "nullable": true
+          },
+          "endedAt": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "startedAt",
+          "readyAt",
+          "spokeFrom",
+          "spokeTo",
+          "endedAt"
         ]
       },
       "RunSpentResponseDto": {
@@ -2351,11 +2522,21 @@
               "$ref": "#/components/schemas/JournalStepResponseDto"
             }
           },
+          "spans": {
+            "description": "Empty for a harness that reports nothing of itself",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RunSpanResponseDto"
+            }
+          },
           "ms": {
             "type": "number",
             "example": 56000,
             "nullable": true,
             "description": "How long the run spoke for, in ms"
+          },
+          "marks": {
+            "$ref": "#/components/schemas/RunMarksResponseDto"
           },
           "spent": {
             "nullable": true,
@@ -2376,6 +2557,8 @@
           "runId",
           "attempt",
           "steps",
+          "spans",
+          "marks",
           "readable"
         ]
       },

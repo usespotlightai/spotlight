@@ -34,7 +34,12 @@ import {
   InboxStationResponseDto,
   JournalStepResponseDto,
   RunJournalResponseDto,
+  RunMarksResponseDto,
+  RunSpanResponseDto,
   RunSpentResponseDto,
+  SpanAttributeResponseDto,
+  StepChangeResponseDto,
+  StepLocationResponseDto,
 } from '@presentation/http/dto/inbox.response.dto';
 
 @ApiTags('inbox')
@@ -194,9 +199,45 @@ export class InboxController {
                 step.tool,
                 step.detail,
                 step.ms,
+                step.startedAt,
+                step.locations.map(
+                  (where) =>
+                    new StepLocationResponseDto(where.path, where.line),
+                ),
+                step.given,
+                step.returned,
+                step.change
+                  ? new StepChangeResponseDto(
+                      step.change.path,
+                      step.change.before,
+                      step.change.after,
+                    )
+                  : null,
+              ),
+          ),
+          each.spans.map(
+            (span) =>
+              new RunSpanResponseDto(
+                span.id,
+                span.parentId,
+                span.name,
+                span.startedAt,
+                span.ms,
+                span.failed,
+                span.attributes.map(
+                  (held) =>
+                    new SpanAttributeResponseDto(held.name, held.value),
+                ),
               ),
           ),
           each.ms,
+          new RunMarksResponseDto(
+            each.marks.startedAt,
+            each.marks.readyAt,
+            each.marks.spokeFrom,
+            each.marks.spokeTo,
+            each.marks.endedAt,
+          ),
           each.spent
             ? new RunSpentResponseDto(
                 each.spent.used,

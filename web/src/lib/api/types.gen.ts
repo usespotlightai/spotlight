@@ -311,8 +311,25 @@ export type AnswerInboxItemRequestDto = {
   body: string;
 };
 
+export type StepLocationResponseDto = {
+  path: string;
+  line: number | null;
+};
+
+export type StepChangeResponseDto = {
+  path: string | null;
+  /**
+   * The file as it stood
+   */
+  before: string;
+  /**
+   * The file as the agent left it
+   */
+  after: string;
+};
+
 export type JournalStepResponseDto = {
-  kind: 'said' | 'thought' | 'tool';
+  kind: 'said' | 'thought' | 'tool' | 'planned' | 'hook';
   text: string;
   status: string | null;
   /**
@@ -327,6 +344,46 @@ export type JournalStepResponseDto = {
    * How long it took, in ms
    */
   ms: number;
+  /**
+   * When it began, for laying the run out against a clock
+   */
+  startedAt: string;
+  locations: Array<StepLocationResponseDto>;
+  /**
+   * What the tool was asked for, as it was asked
+   */
+  given: string | null;
+  /**
+   * What it handed back, unread
+   */
+  returned: string | null;
+  change: StepChangeResponseDto | null;
+};
+
+export type SpanAttributeResponseDto = {
+  name: string;
+  value: string;
+};
+
+export type RunSpanResponseDto = {
+  id: string;
+  parentId: string | null;
+  name: string;
+  startedAt: string;
+  ms: number;
+  failed: boolean;
+  attributes: Array<SpanAttributeResponseDto>;
+};
+
+export type RunMarksResponseDto = {
+  startedAt: string | null;
+  /**
+   * When the workspace was handed to the agent
+   */
+  readyAt: string | null;
+  spokeFrom: string | null;
+  spokeTo: string | null;
+  endedAt: string | null;
 };
 
 export type RunSpentResponseDto = {
@@ -347,9 +404,14 @@ export type RunJournalResponseDto = {
   attempt: number;
   steps: Array<JournalStepResponseDto>;
   /**
+   * Empty for a harness that reports nothing of itself
+   */
+  spans: Array<RunSpanResponseDto>;
+  /**
    * How long the run spoke for, in ms
    */
   ms?: number | null;
+  marks: RunMarksResponseDto;
   spent?: RunSpentResponseDto | null;
   /**
    * False for a run from before the agents spoke a protocol

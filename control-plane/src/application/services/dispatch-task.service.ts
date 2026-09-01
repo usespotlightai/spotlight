@@ -3,6 +3,7 @@ import {
   type RunSpecShape,
   THROUGH_SPOTLIGHT,
 } from '@application/contracts/run-spec.contract';
+import { traceParentFor } from '@application/contracts/trace-parent';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { TaskDispatching } from '@application/services/task-dispatch';
 import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
@@ -16,8 +17,10 @@ import { RunId as RunIdOf } from '@domain/value-objects/run-id.vo';
 import { RunSpec } from '@domain/value-objects/run-spec.vo';
 
 /** Named as Spotlight serves it: no host address ever reaches a runner. */
-const written = (order: RunOrder): RunSpecShape =>
-  RunSpecContract.of({
+const written = (order: RunOrder, naming: string): RunSpecShape => {
+  const command = order.harness.command.started();
+
+  return RunSpecContract.of({
     checkouts: order.repository
       ? [
           {
@@ -27,11 +30,14 @@ const written = (order: RunOrder): RunSpecShape =>
           },
         ]
       : undefined,
-    command: order.harness.command.started(),
+    // The catalogue says how to start a harness; which run it is starting for
+    // is only known here.
+    command: { ...command, env: { ...command.env, TRACEPARENT: naming } },
     briefing: order.briefing,
     handover: { options: order.options, noteLimit: order.noteLimit },
     continuity: order.continuity.told(),
   });
+};
 
 export class DispatchTask implements TaskDispatching {
   constructor(
@@ -53,15 +59,20 @@ export class DispatchTask implements TaskDispatching {
       return null;
     }
 
+    // Named before it is written down: the spec has to say which run it is for.
+    const id = RunIdOf.of(this.ids.generate());
+
     const queued = Run.enqueue({
-      id: RunIdOf.of(this.ids.generate()),
+      id,
       workspaceId: task.workspaceId,
       harness: order.harness.id,
       priority: order.priority,
       taskId: task.id,
       stationId: order.stationId,
       targetRunner: order.pinnedTo,
-      spec: RunSpec.of(written(order)),
+      spec: RunSpec.of(
+        written(order, traceParentFor(task.id.value, id.value)),
+      ),
     });
 
     await this.runs.add(queued);

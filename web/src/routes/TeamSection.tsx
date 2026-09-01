@@ -3,6 +3,7 @@ import { InitialAvatar } from '@/components/common/avatar/InitialAvatar';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { TeamRuns } from '@/components/runs/TeamRuns';
+import { TraceList } from '@/components/trace/TraceList';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import {
   FALLBACK_TEAM_SECTION_ID,
@@ -54,6 +55,8 @@ export function TeamSection() {
       />
 
       {meta.id === 'runs' && <TeamRuns slug={slug} teamId={teamId} />}
+
+      {meta.id === 'observability' && <TraceList slug={slug} teamId={teamId} />}
     </>
   );
 }
