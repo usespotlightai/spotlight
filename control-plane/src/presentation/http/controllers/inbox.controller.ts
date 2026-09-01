@@ -1,7 +1,7 @@
 import { AnswerInboxItemCommand } from '@application/commands/answer-inbox-item.command';
 import { ReadInboxItemCommand } from '@application/commands/read-inbox-item.command';
 import type { InboxItemDto } from '@application/dto/inbox.dto';
-import type { RunJournal } from '@application/ports/run-journal-reader.port';
+import type { RunJournalDto } from '@application/dto/run-journal.dto';
 import type { AuthenticatedUser } from '@application/ports/session.port';
 import { ListInboxQuery } from '@application/queries/list-inbox.query';
 import { ReadTaskJournalQuery } from '@application/queries/read-task-journal.query';
@@ -32,15 +32,9 @@ import {
   InboxItemResponseDto,
   InboxMessageResponseDto,
   InboxStationResponseDto,
-  JournalStepResponseDto,
-  RunJournalResponseDto,
-  RunMarksResponseDto,
-  RunSpanResponseDto,
-  RunSpentResponseDto,
-  SpanAttributeResponseDto,
-  StepChangeResponseDto,
-  StepLocationResponseDto,
 } from '@presentation/http/dto/inbox.response.dto';
+import { RunJournalResponseDto } from '@presentation/http/dto/run-journal.response.dto';
+import { RunJournalHttpMapper } from '@presentation/http/mappers/run-journal.http.mapper';
 
 @ApiTags('inbox')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
@@ -178,76 +172,13 @@ export class InboxController {
   ): Promise<RunJournalResponseDto[]> {
     const worked = await this.queryBus.execute<
       ReadTaskJournalQuery,
-      RunJournal[] | null
+      RunJournalDto[] | null
     >(new ReadTaskJournalQuery(taskId, user.id));
 
     if (!worked) {
       throw new NotFoundException();
     }
 
-    return worked.map(
-      (each) =>
-        new RunJournalResponseDto(
-          each.runId,
-          each.attempt,
-          each.steps.map(
-            (step) =>
-              new JournalStepResponseDto(
-                step.kind,
-                step.text,
-                step.status,
-                step.tool,
-                step.detail,
-                step.ms,
-                step.startedAt,
-                step.locations.map(
-                  (where) =>
-                    new StepLocationResponseDto(where.path, where.line),
-                ),
-                step.given,
-                step.returned,
-                step.change
-                  ? new StepChangeResponseDto(
-                      step.change.path,
-                      step.change.before,
-                      step.change.after,
-                    )
-                  : null,
-              ),
-          ),
-          each.spans.map(
-            (span) =>
-              new RunSpanResponseDto(
-                span.id,
-                span.parentId,
-                span.name,
-                span.startedAt,
-                span.ms,
-                span.failed,
-                span.attributes.map(
-                  (held) =>
-                    new SpanAttributeResponseDto(held.name, held.value),
-                ),
-              ),
-          ),
-          each.ms,
-          new RunMarksResponseDto(
-            each.marks.startedAt,
-            each.marks.readyAt,
-            each.marks.spokeFrom,
-            each.marks.spokeTo,
-            each.marks.endedAt,
-          ),
-          each.spent
-            ? new RunSpentResponseDto(
-                each.spent.used,
-                each.spent.size,
-                each.spent.cost,
-                each.spent.currency,
-              )
-            : null,
-          each.readable,
-        ),
-    );
+    return worked.map(RunJournalHttpMapper.toResponse);
   }
 }

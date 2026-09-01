@@ -5,7 +5,7 @@ import type {
 import type { TaskId } from '@domain/value-objects/task-id.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
 import { Told } from '@infrastructure/acp/told';
-import { Reported } from '@infrastructure/otel/spans';
+import { Reported } from '@infrastructure/otel/reported';
 import type { DrizzleDatabase } from '@infrastructure/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@infrastructure/persistence/drizzle/drizzle.constants';
 import {

@@ -75,6 +75,10 @@ import { RUNNER_READER } from '@application/ports/runner-reader.port';
 import { RUNNER_REVOCATION } from '@application/ports/runner-revocation.port';
 import { RUNNER_TOKEN } from '@application/ports/runner-token.port';
 import { TASK_READER } from '@application/ports/task-reader.port';
+import {
+  TRACE_PARENT,
+  type TraceParentPort,
+} from '@application/ports/trace-parent.port';
 import { TRANSACTION } from '@application/ports/transaction.port';
 import { WEBHOOK_SIGNATURE } from '@application/ports/webhook-signature.port';
 import { WORKSPACE_READER } from '@application/ports/workspace-reader.port';
@@ -162,6 +166,7 @@ import { DrizzleTaskRepository } from '@infrastructure/persistence/drizzle/repos
 import { DrizzleWorkspaceRepository } from '@infrastructure/persistence/drizzle/repositories/workspace.repository';
 import { InMemoryRunStream } from '@infrastructure/streaming/in-memory-run-stream';
 import { SystemClock } from '@infrastructure/time/system-clock';
+import { HashedTraceParent } from '@infrastructure/tracing/hashed-trace-parent';
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { CqrsModule } from '@nestjs/cqrs';
@@ -311,14 +316,22 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
 
     BuiltInHarnesses,
 
+    { provide: TRACE_PARENT, useClass: HashedTraceParent },
+
     {
       provide: TASK_DISPATCH,
-      inject: [DrizzleRunRepository, ID_GENERATOR, BuiltInHarnesses],
+      inject: [
+        DrizzleRunRepository,
+        ID_GENERATOR,
+        BuiltInHarnesses,
+        TRACE_PARENT,
+      ],
       useFactory: (
         runs: DrizzleRunRepository,
         ids: CryptoIdGenerator,
         harnesses: BuiltInHarnesses,
-      ) => new DispatchTask(runs, ids, harnesses),
+        tracing: TraceParentPort,
+      ) => new DispatchTask(runs, ids, harnesses, tracing),
     },
 
     {

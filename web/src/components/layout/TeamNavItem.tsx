@@ -5,6 +5,7 @@ import { Disclosure } from '@/components/layout/Disclosure';
 import { DisclosureRow } from '@/components/layout/DisclosureRow';
 import { SidebarLink } from '@/components/layout/SidebarLink';
 import { useAssemblyLines } from '@/hooks/api/useAssemblyLines';
+import { useTasks } from '@/hooks/api/useTasks';
 import { useCollapsed } from '@/hooks/useCollapsed';
 import {
   assemblyLinePath,
@@ -33,6 +34,20 @@ export function TeamNavItem({
   const { data: lines } = useAssemblyLines(team.id, expanded);
   const groups = useCollapsed(LINE_GROUPS_STORAGE_KEY);
   const linesOpen = groups.isExpanded(team.id);
+
+  // A task is addressed under its team, not under the line it stands in, and
+  // its trace under the task rather than under observability. Neither is on
+  // the way to the thing it belongs to, so neither lights it up on its own.
+  const atTask = useMatch(`/w/${slug}/team/${team.id}/tasks/:taskId`);
+  const atTrace = useMatch(`/w/${slug}/team/${team.id}/tasks/:taskId/trace`);
+  // Only while a task is being read: the page reading it asks for the same
+  // tasks, so this costs nothing there and nothing anywhere else.
+  const { data: tasks } = useTasks(atTask ? team.id : undefined);
+
+  const standing = tasks?.find((each) => each.id === atTask?.params.taskId);
+  const shownLine = lines?.find((line) =>
+    line.stations.some((station) => station.id === standing?.stationId),
+  );
 
   return (
     <li>
@@ -77,6 +92,7 @@ export function TeamNavItem({
                 <SidebarLink
                   to={assemblyLinePath(slug, team.id, line.id)}
                   className="pl-14"
+                  active={line.id === shownLine?.id}
                 >
                   {line.name}
                 </SidebarLink>
@@ -91,6 +107,9 @@ export function TeamNavItem({
               to={teamSectionPath(slug, team.id, section.id)}
               icon={section.icon}
               className="pl-8"
+              // A trace is what observability leads to, so it is where a
+              // reader is while they are reading one.
+              active={section.id === 'observability' && Boolean(atTrace)}
             >
               {section.label}
             </SidebarLink>

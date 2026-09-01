@@ -1,5 +1,5 @@
-import type { Journalled } from '@infrastructure/acp/told';
-import { Reported } from '@infrastructure/otel/spans';
+import type { Journalled } from '@infrastructure/journal/journalled';
+import { Reported } from '@infrastructure/otel/reported';
 import { describe, expect, it } from 'vitest';
 
 const AT = Date.UTC(2026, 7, 29, 12, 0, 0);
@@ -16,7 +16,9 @@ const exported = (span: Record<string, unknown>): Journalled => ({
 
 const read = (...spans: Record<string, unknown>[]) => {
   const reported = new Reported();
-  spans.forEach((span) => reported.take(exported(span)));
+  for (const span of spans) {
+    reported.take(exported(span));
+  }
   return reported;
 };
 
@@ -36,7 +38,7 @@ describe('Reported', () => {
       id: 'a1',
       parentId: 'root',
       name: 'claude_code.llm_request',
-      startedAt: new Date(AT).toISOString(),
+      startedAt: new Date(AT),
       ms: 4_350,
       failed: false,
       attributes: [],
@@ -48,7 +50,10 @@ describe('Reported', () => {
     const [span] = read({
       ...call,
       attributes: [
-        { key: 'gen_ai.request.model', value: { stringValue: 'claude-opus-5' } },
+        {
+          key: 'gen_ai.request.model',
+          value: { stringValue: 'claude-opus-5' },
+        },
         { key: 'gen_ai.usage.input_tokens', value: { intValue: 1_204 } },
         { key: 'gen_ai.response.streaming', value: { boolValue: true } },
       ],

@@ -7,6 +7,12 @@ type SidebarLinkProps = {
   icon?: ComponentType<{ className?: string }>;
   className?: string;
   trailing?: ReactNode;
+  /**
+   * Held open for somewhere this link owns without being on the way to it: a
+   * task lives under its team rather than under the line it stands in, and a
+   * trace under its task rather than under observability.
+   */
+  active?: boolean;
   children: ReactNode;
 };
 
@@ -15,6 +21,7 @@ export function SidebarLink({
   icon: Icon,
   className,
   trailing,
+  active,
   children,
 }: SidebarLinkProps) {
   return (
@@ -24,7 +31,7 @@ export function SidebarLink({
         cn(
           'flex h-7 items-center gap-2 rounded-md px-2 text-muted-foreground text-sm outline-none transition-colors',
           'hover:bg-accent hover:text-foreground',
-          isActive && 'bg-accent font-medium text-foreground',
+          (isActive || active) && 'bg-accent font-medium text-foreground',
           className,
         )
       }

@@ -16,6 +16,12 @@ export const taskPath = (
   taskId: string,
 ): string => `${teamPath(slug, teamId)}/tasks/${taskId}`;
 
+export const taskTracePath = (
+  slug: string,
+  teamId: string,
+  taskId: string,
+): string => `${taskPath(slug, teamId, taskId)}/trace`;
+
 export const tasksAt = (
   tasks: readonly Task[] | undefined,
   stationId: string,

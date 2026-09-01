@@ -10,6 +10,9 @@ vi.mock('@/hooks/api/useAssemblyLines', () => ({
     isPending: false,
   }),
 }));
+vi.mock('@/hooks/api/useTasks', () => ({
+  useTasks: () => ({ data: [], isPending: false }),
+}));
 
 const teams = [
   { id: 'team_1', name: 'Platform' },

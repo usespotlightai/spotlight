@@ -75,8 +75,8 @@ describe('Told', () => {
     );
 
     expect(told.steps().map((step) => step.startedAt)).toEqual([
-      clock(0).toISOString(),
-      clock(1).toISOString(),
+      clock(0),
+      clock(1),
     ]);
   });
 
@@ -288,7 +288,9 @@ describe('Told', () => {
     const step = told.steps()[0];
     expect(step?.kind).toBe('planned');
     expect(step?.text).toBe('Planned 2 steps');
-    expect(step?.detail).toBe('[completed] Reproduce it\n[pending] Cap the retries');
+    expect(step?.detail).toBe(
+      '[completed] Reproduce it\n[pending] Cap the retries',
+    );
   });
 
   // Nothing else in the system has ever been able to say what a run cost.
@@ -381,11 +383,11 @@ describe('Told', () => {
       });
 
       expect(told.marks()).toEqual({
-        startedAt: clock(0).toISOString(),
-        readyAt: clock(4).toISOString(),
-        spokeFrom: clock(6).toISOString(),
-        spokeTo: clock(6).toISOString(),
-        endedAt: clock(9).toISOString(),
+        startedAt: clock(0),
+        readyAt: clock(4),
+        spokeFrom: clock(6),
+        spokeTo: clock(6),
+        endedAt: clock(9),
       });
     });
 

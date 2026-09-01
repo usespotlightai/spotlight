@@ -4,7 +4,7 @@ import { useTeamRuns } from '@/hooks/api/useTeamRuns';
 import { took } from '@/lib/inbox';
 import { aged, type TeamRun } from '@/lib/run';
 import { stationShare } from '@/lib/station';
-import { taskPath } from '@/lib/task';
+import { taskTracePath } from '@/lib/task';
 
 interface Traced {
   readonly taskId: string;
@@ -90,7 +90,7 @@ export function TraceList({ slug, teamId }: { slug: string; teamId: string }) {
             )}
 
             <Link
-              to={`${taskPath(slug, teamId, trace.taskId)}?view=trace`}
+              to={taskTracePath(slug, teamId, trace.taskId)}
               className="min-w-0 flex-1 truncate text-foreground outline-none after:absolute after:inset-0 after:rounded-md"
             >
               {trace.title}

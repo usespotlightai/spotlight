@@ -21,9 +21,8 @@ const Block = ({ title, body }: { title: string; body: string }) => (
 );
 
 /**
- * What one row was. Where the protocol and the harness both described the same
- * call, this is where that pays: the model and what it cost come from the
- * harness, and the file, the arguments and the rewrite come from the protocol.
+ * Where a step and a span describe the same call, both are read: the model and
+ * its cost from the harness, the file and the rewrite from the protocol.
  */
 export function SpanDetail({ node }: { node: TraceNode }) {
   const { step, span } = node;

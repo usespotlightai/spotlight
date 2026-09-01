@@ -2,7 +2,7 @@ import type {
   RunSpan,
   SpanAttribute,
 } from '@application/ports/run-journal-reader.port';
-import type { Journalled } from '@infrastructure/acp/told';
+import { decoded, type Journalled } from '@infrastructure/journal/journalled';
 
 /**
  * One span as the harness exported it. Nothing outside this file knows what
@@ -60,9 +60,7 @@ const plainly = (value: Record<string, unknown> | undefined): string | null => {
 const said = (span: Exported): SpanAttribute[] =>
   (span.attributes ?? []).flatMap((each) => {
     const value = plainly(each?.value);
-    return each?.key && value !== null
-      ? [{ name: each.key, value }]
-      : [];
+    return each?.key && value !== null ? [{ name: each.key, value }] : [];
   });
 
 /**
@@ -88,9 +86,7 @@ export class Reported {
 
     let sent: Exported;
     try {
-      sent = JSON.parse(
-        Buffer.from(event.data, 'base64').toString('utf8'),
-      ) as Exported;
+      sent = JSON.parse(decoded(event.data)) as Exported;
     } catch {
       return;
     }
@@ -108,7 +104,7 @@ export class Reported {
       id: sent.spanId,
       parentId: sent.parentSpanId || null,
       name: sent.name ?? 'a span',
-      startedAt: new Date(Number(from / NS_PER_MS)).toISOString(),
+      startedAt: new Date(Number(from / NS_PER_MS)),
       ms: to === null ? 0 : Number((to - from) / NS_PER_MS),
       failed: wentWrong(sent),
       attributes: said(sent),

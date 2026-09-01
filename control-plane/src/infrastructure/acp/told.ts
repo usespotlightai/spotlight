@@ -1,10 +1,12 @@
 import type {
   JournalStep,
   RunMarks,
+  RunSpent,
   StepChange,
-  StepKind,
   StepLocation,
 } from '@application/ports/run-journal-reader.port';
+import type { StepKind } from '@domain/value-objects/step-kind';
+import { decoded, type Journalled } from '@infrastructure/journal/journalled';
 
 /** A chunk carries one of these; a tool answers with a list of them. */
 type Content =
@@ -41,24 +43,6 @@ interface Spoken {
     entries?: { content?: string; priority?: string; status?: string }[];
     content?: Content;
   };
-}
-
-/** One entry in a run's journal, as the runner wrote it down. */
-export interface Journalled {
-  readonly type: string;
-  readonly at: Date;
-  // A hook's name. Set only for the deployment's own output, which is what
-  // tells it apart from anything the agent said.
-  readonly message: string | null;
-  readonly data: string | null;
-}
-
-/** What a run cost, as the agent last reported it. */
-export interface Spent {
-  readonly used: number;
-  readonly size: number;
-  readonly cost: number | null;
-  readonly currency: string | null;
 }
 
 /**
@@ -162,11 +146,7 @@ interface Building {
   endedAt: Date;
 }
 
-const bare = (
-  kind: StepKind,
-  text: string,
-  at: Date,
-): Building => ({
+const bare = (kind: StepKind, text: string, at: Date): Building => ({
   kind,
   text,
   status: null,
@@ -192,7 +172,7 @@ export class Told {
   #steps: Building[] = [];
   #tools = new Map<string, number>();
   #saying: Building | null = null;
-  #spent: Spent | null = null;
+  #spent: RunSpent | null = null;
   #first: Date | null = null;
   #last: Date | null = null;
   #opened: Date | null = null;
@@ -245,7 +225,7 @@ export class Told {
   private spoke(data: string, at: Date): void {
     let sent: Spoken;
     try {
-      sent = JSON.parse(Buffer.from(data, 'base64').toString('utf8')) as Spoken;
+      sent = JSON.parse(decoded(data)) as Spoken;
     } catch {
       // Terminal bytes from before the protocol: nothing to read here.
       this.readable = false;
@@ -292,10 +272,14 @@ export class Told {
   private ranHook(event: Journalled): void {
     this.settle();
 
-    const step = bare('hook', event.message ?? 'a hook', this.#seen ?? event.at);
+    const step = bare(
+      'hook',
+      event.message ?? 'a hook',
+      this.#seen ?? event.at,
+    );
     step.endedAt = event.at;
     step.detail = event.data
-      ? Buffer.from(event.data, 'base64').toString('utf8').slice(0, DETAIL_LIMIT)
+      ? decoded(event.data).slice(0, DETAIL_LIMIT)
       : null;
 
     this.#steps.push(step);
@@ -307,7 +291,7 @@ export class Told {
     return this.#steps.map(({ startedAt, endedAt, ...step }) => ({
       ...step,
       ms: endedAt.getTime() - startedAt.getTime(),
-      startedAt: startedAt.toISOString(),
+      startedAt,
     }));
   }
 
@@ -322,15 +306,15 @@ export class Told {
   /** Where the run turned from being prepared, to worked, to finished. */
   marks(): RunMarks {
     return {
-      startedAt: this.#opened?.toISOString() ?? null,
-      readyAt: this.#ready?.toISOString() ?? null,
-      spokeFrom: this.#first?.toISOString() ?? null,
-      spokeTo: this.#last?.toISOString() ?? null,
-      endedAt: this.#closed?.toISOString() ?? null,
+      startedAt: this.#opened,
+      readyAt: this.#ready,
+      spokeFrom: this.#first,
+      spokeTo: this.#last,
+      endedAt: this.#closed,
     };
   }
 
-  spent(): Spent | null {
+  spent(): RunSpent | null {
     return this.#spent;
   }
 

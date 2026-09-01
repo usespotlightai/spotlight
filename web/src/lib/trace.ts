@@ -12,7 +12,6 @@ import type {
  */
 export type NodeKind = 'run' | 'phase' | 'step' | 'span';
 
-/** How a row reads: the agent's own work, the overhead around it, or a fault. */
 export type Tone = 'agent' | 'overhead' | 'failed';
 
 export interface TraceNode {
@@ -89,10 +88,7 @@ const nodeOfStep = (step: JournalStepResponseDto, id: string): TraceNode => {
   };
 };
 
-/**
- * A span keeps the harness's own name for itself, of the last part of it:
- * `claude_code.llm_request` reads as `llm_request`, which is what it is.
- */
+/** `claude_code.llm_request` reads as `llm_request`. */
 const plainly = (name: string): string => name.split('.').slice(-1)[0] ?? name;
 
 const nodeOfSpan = (
@@ -117,7 +113,6 @@ const nodeOfSpan = (
   };
 };
 
-/** Whether two stretches of time touch at all. */
 const overlaps = (
   one: { from: number; to: number },
   other: { from: number; to: number },
@@ -172,7 +167,6 @@ export const paired = (
   return pairs;
 };
 
-/** The spans of one run, hung off each other by the ids they carry. */
 const nested = (
   spans: readonly RunSpanResponseDto[],
   pairs: Map<string, JournalStepResponseDto>,

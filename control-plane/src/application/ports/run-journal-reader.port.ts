@@ -1,3 +1,4 @@
+import type { StepKind } from '@domain/value-objects/step-kind';
 import type { TaskId } from '@domain/value-objects/task-id.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
 
@@ -14,13 +15,6 @@ export interface StepChange {
   readonly after: string;
 }
 
-/**
- * A hook is the deployment's own code rather than the agent's, and a plan is
- * the agent saying what it means to do before it does any of it. Both are worth
- * telling apart from the rest.
- */
-export type StepKind = 'said' | 'thought' | 'tool' | 'planned' | 'hook';
-
 /** One thing the agent did, as the journal reads it. */
 export interface JournalStep {
   readonly kind: StepKind;
@@ -33,7 +27,7 @@ export interface JournalStep {
   readonly ms: number;
   // When it began. Without this a run can be listed but not laid against a
   // clock, and where the time went is the whole question.
-  readonly startedAt: string;
+  readonly startedAt: Date;
   readonly locations: readonly StepLocation[];
   // What the tool was given and what came back, unread by anything here.
   readonly given: string | null;
@@ -50,17 +44,17 @@ export interface RunSpent {
 }
 
 /**
- * The turns a run took, in the order the journal has them. A run is not one
- * stretch of talking: it is prepared, worked, and published, and which of those
- * took the time is the first thing worth knowing.
+ * Where a run turned from being prepared, to worked, to finished. A run is not
+ * one stretch of talking, and which part of it took the time is the first
+ * thing worth knowing.
  */
 export interface RunMarks {
-  readonly startedAt: string | null;
+  readonly startedAt: Date | null;
   // When the workspace was handed over, so what came before it was preparation.
-  readonly readyAt: string | null;
-  readonly spokeFrom: string | null;
-  readonly spokeTo: string | null;
-  readonly endedAt: string | null;
+  readonly readyAt: Date | null;
+  readonly spokeFrom: Date | null;
+  readonly spokeTo: Date | null;
+  readonly endedAt: Date | null;
 }
 
 /** One thing a span said about itself, as the harness named it. */
@@ -78,7 +72,7 @@ export interface RunSpan {
   readonly id: string;
   readonly parentId: string | null;
   readonly name: string;
-  readonly startedAt: string;
+  readonly startedAt: Date;
   readonly ms: number;
   readonly failed: boolean;
   // Kept whole and unread: what a harness reports about itself is its own

@@ -18,7 +18,6 @@ const Stat = ({
   </div>
 );
 
-/** The first thing worth knowing about a trace, before reading any of it. */
 export function TraceHeader({
   trace,
   journals,
