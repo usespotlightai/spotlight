@@ -13,11 +13,8 @@ export const reviewInk = (review: Review): string =>
 export const working = (run: Run): boolean =>
   run.state === 'claimed' || run.state === 'queued';
 
-/** Finishing is the ordinary case and says nothing. */
+/** A run being worked wears a pill instead, and a finished one says nothing. */
 export const standing = (run: Run): string | null => {
-  if (run.state === 'claimed') {
-    return 'Running';
-  }
   if (run.state === 'queued') {
     return 'Queued';
   }

@@ -116,8 +116,8 @@ describe('standing', () => {
   const run = (state: Run['state'], exitCode: number | null = null) =>
     ({ state, exitCode }) as Run;
 
-  it('reads a claimed run as running', () => {
-    expect(standing(run('claimed'))).toBe('Running');
+  it('says nothing of a claimed run', () => {
+    expect(standing(run('claimed'))).toBeNull();
   });
 
   it('reads a queued run as queued', () => {

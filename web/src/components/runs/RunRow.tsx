@@ -1,6 +1,7 @@
 import { Inbox } from 'lucide-react';
 import { Link } from 'react-router';
 import { StationIcon } from '@/components/board/StationIcon';
+import { InProgress } from '@/components/common/InProgress';
 import { Pill } from '@/components/common/Pill';
 import { type Run, reviewInk, standing } from '@/lib/run';
 import { since } from '@/lib/runner';
@@ -52,6 +53,8 @@ export function RunRow({ run, to, taskTitle, reviewTo, inTrail }: RunRowProps) {
             </Pill>
           </Link>
         )}
+
+        {run.state === 'claimed' && <InProgress />}
 
         {standing(run) && (
           <span className="text-muted-foreground text-xs">{standing(run)}</span>
