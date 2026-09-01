@@ -2,6 +2,7 @@ import { StationIcon } from '@/components/board/StationIcon';
 import { MarkdownEditor } from '@/components/common/form/MarkdownEditor';
 import { InboxWork } from '@/components/inbox/InboxWork';
 import { PersonSaid } from '@/components/inbox/PersonSaid';
+import { SaidCard } from '@/components/inbox/SaidCard';
 import { useSession } from '@/hooks/api/useSession';
 import {
   HELD_AT_TOP,
@@ -17,33 +18,46 @@ type InboxMessageProps = {
   worked: readonly RunJournal[];
 };
 
-/**
- * A station speaks in the page's own voice, plainly and full width, in the
- * colour of the station that said it rather than the one the task stands at
- * now. Notes are written as markdown, so they are read as markdown.
- */
+/** A station speaks in the page's own voice. What came in is framed as such. */
 export function InboxMessage({
   message,
   stationCount,
   worked,
 }: InboxMessageProps) {
   const { data: session } = useSession();
-  const person = message.author;
 
-  if (person) {
+  if (message.voice === 'world') {
     return (
-      <li className={HELD_AT_TOP}>
+      // The same inset the held cards carry, so every card is one width and
+      // the words inside them all line up with the plain text.
+      <li data-note={message.position} className="-mx-3">
+        <SaidCard>
+          <p className="whitespace-pre-wrap text-foreground text-sm leading-6">
+            {message.body}
+          </p>
+        </SaidCard>
+      </li>
+    );
+  }
+
+  if (message.voice === 'person') {
+    return (
+      <li data-note={message.position} className={HELD_AT_TOP}>
         <PersonSaid
           body={message.body}
           // Your own words need no name on them.
-          name={person.id === session?.user.id ? null : person.name}
+          name={
+            message.author && message.author.id !== session?.user.id
+              ? message.author.name
+              : null
+          }
         />
       </li>
     );
   }
 
   return (
-    <li className="flex flex-col gap-1.5">
+    <li data-note={message.position} className="flex flex-col gap-1.5">
       <span className="flex items-center gap-1.5 text-muted-foreground text-xs">
         <StationIcon
           share={stationShare(message.stationPosition, stationCount)}

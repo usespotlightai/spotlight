@@ -14,4 +14,7 @@ async function main(): Promise<void> {
   console.log(`wrote ${target}`);
 }
 
-main();
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

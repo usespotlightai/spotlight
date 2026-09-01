@@ -134,6 +134,20 @@ describe('Task', () => {
       expect(screen.getAllByText('Awaiting review')).toHaveLength(2);
     });
 
+    it('opens the conversation where that run asked', () => {
+      worked.mockReturnValue([
+        run({
+          id: 'run_7',
+          review: { state: 'owed', conversationId: 'task_1:5' },
+        }),
+      ]);
+      renderAt('task_1');
+
+      expect(
+        screen.getByRole('link', { name: /Awaiting review/ }),
+      ).toHaveAttribute('href', '/w/acme/inbox/task_1%3A5?run=run_7');
+    });
+
     it('says nothing of a review where none was asked for', () => {
       worked.mockReturnValue([run()]);
       renderAt('task_1');

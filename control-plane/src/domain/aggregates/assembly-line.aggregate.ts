@@ -1,21 +1,24 @@
 import { Station } from '@domain/entities/station.entity';
-import type { Template } from '@domain/entities/template.entity';
-import { InvalidStationOrderError } from '@domain/exceptions/invalid-station-order.error';
+import { InvalidStationLayoutError } from '@domain/exceptions/invalid-station-layout.error';
 import { UnknownStationError } from '@domain/exceptions/unknown-station.error';
+import {
+  BUILT_IN_STATIONS,
+  type StationOpening,
+} from '@domain/services/built-in-stations';
 import { handoverOptions } from '@domain/services/handover-options';
 import type { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
-import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
+import type { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import type { FactoryId } from '@domain/value-objects/factory-id.vo';
+import { HandoverOption } from '@domain/value-objects/handover-option.vo';
+import type { Happening } from '@domain/value-objects/happening.vo';
 import type { HarnessId } from '@domain/value-objects/harness-id.vo';
-import { StationColor } from '@domain/value-objects/station-color.vo';
+import type { StationColor } from '@domain/value-objects/station-color.vo';
 import type { StationDescription } from '@domain/value-objects/station-description.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
-import { StationName } from '@domain/value-objects/station-name.vo';
+import type { StationName } from '@domain/value-objects/station-name.vo';
+import { WayOut } from '@domain/value-objects/way-out.vo';
 import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
-
-const BACKLOG_NAME = StationName.of('Backlog');
-const BACKLOG_COLOR = StationColor.of('#a3a8b0');
 
 export class AssemblyLine {
   private constructor(
@@ -26,50 +29,48 @@ export class AssemblyLine {
     readonly stations: readonly Station[],
   ) {}
 
-  static fromTemplate(input: {
-    template: Template;
-    workspaceId: WorkspaceId;
-    factoryId: FactoryId;
-    newId: () => string;
-  }): AssemblyLine {
-    return AssemblyLine.opened({
-      id: AssemblyLineId.of(input.newId()),
-      workspaceId: input.workspaceId,
-      factoryId: input.factoryId,
-      name: AssemblyLineName.of(input.template.name.value),
-      newId: input.newId,
-      stations: input.template.stations.map((each, position) =>
-        Station.create({
-          id: StationId.of(input.newId()),
-          name: each.name,
-          color: each.color,
-          position: position + 1,
-          agentPrompt: each.agentPrompt,
-        }),
-      ),
-    });
-  }
-
-  static opened(input: {
-    id: AssemblyLineId;
+  static open(input: {
     workspaceId: WorkspaceId;
     factoryId: FactoryId;
     name: AssemblyLineName;
-    stations: readonly Station[];
     newId: () => string;
   }): AssemblyLine {
+    const named = BUILT_IN_STATIONS;
+    const ids = named.map(() => StationId.of(input.newId()));
+
+    // The openings name each other, so the ids exist before any station does.
+    const at = (name: string): StationId => {
+      const found = named.filter((each) => each.name.value === name);
+
+      if (found.length !== 1) {
+        throw new InvalidStationLayoutError(
+          `must name one station "${name}", but name ${found.length}`,
+        );
+      }
+
+      return ids[named.indexOf(found[0] as StationOpening)] as StationId;
+    };
+
     return AssemblyLine.of({
-      ...input,
-      stations: [
+      id: AssemblyLineId.of(input.newId()),
+      workspaceId: input.workspaceId,
+      factoryId: input.factoryId,
+      name: input.name,
+      stations: named.map((each, position) =>
         Station.create({
-          id: StationId.of(input.newId()),
-          name: BACKLOG_NAME,
-          color: BACKLOG_COLOR,
-          position: 0,
-          kind: 'backlog',
+          id: ids[position] as StationId,
+          name: each.name,
+          color: each.color,
+          position,
+          kind: each.kind,
+          agentPrompt: each.agentPrompt,
+          wayOut: WayOut.of({
+            stations: each.passesTo.map((to) => at(to)),
+            ends: each.ends,
+          }),
+          reactsTo: each.reactsTo,
         }),
-        ...input.stations,
-      ],
+      ),
     });
   }
 
@@ -82,6 +83,9 @@ export class AssemblyLine {
   }): AssemblyLine {
     AssemblyLine.guardPositionsAreContiguous(input.stations);
     AssemblyLine.guardBacklogStandsFirst(input.stations);
+    AssemblyLine.guardCompletedStandsLast(input.stations);
+    AssemblyLine.guardEveryPassLandsOnTheLine(input.stations);
+    AssemblyLine.guardNoHappeningIsClaimedTwice(input.stations);
 
     return new AssemblyLine(
       input.id,
@@ -122,14 +126,24 @@ export class AssemblyLine {
     );
   }
 
+  reactionTo(happening: Happening): Station | null {
+    return this.stations.find((each) => each.awaits(happening)) ?? null;
+  }
+
   reorderStations(order: readonly StationId[]): AssemblyLine {
     if (order[0] && !this.backlog.id.equals(order[0])) {
-      throw new InvalidStationOrderError(
+      throw new InvalidStationLayoutError(
         'must leave the backlog standing first',
       );
     }
+    if (
+      order.length > 0 &&
+      !this.completed.id.equals(order[order.length - 1] as StationId)
+    ) {
+      throw new InvalidStationLayoutError('must leave completed standing last');
+    }
     if (order.length !== this.stations.length) {
-      throw new InvalidStationOrderError(
+      throw new InvalidStationLayoutError(
         `must name every station, but named ${order.length} of ${this.stations.length}`,
       );
     }
@@ -178,7 +192,7 @@ export class AssemblyLine {
     stations: readonly Station[],
   ): void {
     if (stations.length === 0) {
-      throw new InvalidStationOrderError('must number at least one');
+      throw new InvalidStationLayoutError('must number at least one');
     }
 
     const positions = stations
@@ -186,7 +200,7 @@ export class AssemblyLine {
       .sort((a, b) => a - b);
 
     if (positions.some((position, index) => position !== index)) {
-      throw new InvalidStationOrderError(
+      throw new InvalidStationLayoutError(
         `must sit at positions 0 to ${stations.length - 1}, but sit at ${positions.join(', ')}`,
       );
     }
@@ -196,29 +210,103 @@ export class AssemblyLine {
     const backlogs = stations.filter((each) => each.isBacklog);
 
     if (backlogs.length !== 1) {
-      throw new InvalidStationOrderError(
+      throw new InvalidStationLayoutError(
         `must hold one backlog, but hold ${backlogs.length}`,
       );
     }
     if (backlogs[0]?.position !== 0) {
-      throw new InvalidStationOrderError(
+      throw new InvalidStationLayoutError(
         'must open with their backlog, which is where a task waits to start',
       );
     }
+  }
+
+  private static guardEveryPassLandsOnTheLine(
+    stations: readonly Station[],
+  ): void {
+    const worked = new Set(
+      stations.filter((each) => each.isWorked).map((each) => each.id.value),
+    );
+
+    for (const station of stations) {
+      if (station.isCompleted && station.wayOut.stations.length > 0) {
+        throw new InvalidStationLayoutError(
+          'must end where they end, but completed hands on somewhere',
+        );
+      }
+
+      for (const to of station.wayOut.stations) {
+        if (to.equals(station.id)) {
+          throw new InvalidStationLayoutError(
+            `must not hand on to themselves, but ${station.name.value} does`,
+          );
+        }
+        // Handing a task somewhere nobody works it would strand it.
+        if (!worked.has(to.value)) {
+          throw new InvalidStationLayoutError(
+            `must hand on to a station work is done at, but ${station.name.value} does not`,
+          );
+        }
+      }
+    }
+  }
+
+  private static guardNoHappeningIsClaimedTwice(
+    stations: readonly Station[],
+  ): void {
+    const claimed = new Set<string>();
+
+    for (const station of stations) {
+      for (const happening of station.reactsTo) {
+        if (claimed.has(happening)) {
+          throw new InvalidStationLayoutError(
+            `must send a happening to one station, but two wait for "${happening}"`,
+          );
+        }
+        claimed.add(happening);
+      }
+    }
+  }
+
+  private static guardCompletedStandsLast(stations: readonly Station[]): void {
+    const ends = stations.filter((each) => each.isCompleted);
+
+    if (ends.length !== 1) {
+      throw new InvalidStationLayoutError(
+        `must hold one completed, but hold ${ends.length}`,
+      );
+    }
+    if (ends[0]?.position !== stations.length - 1) {
+      throw new InvalidStationLayoutError(
+        'must close with completed, which is where a merged task lands',
+      );
+    }
+  }
+
+  get completed(): Station {
+    const standing = this.stations.find((each) => each.isCompleted);
+
+    if (!standing) {
+      throw new InvalidStationLayoutError(
+        'must hold one completed, but hold 0',
+      );
+    }
+
+    return standing;
   }
 
   get backlog(): Station {
     const standing = this.stations.find((each) => each.isBacklog);
 
     if (!standing) {
-      throw new InvalidStationOrderError('must hold one backlog, but hold 0');
+      throw new InvalidStationLayoutError('must hold one backlog, but hold 0');
     }
 
     return standing;
   }
 
   get worked(): readonly Station[] {
-    return this.stations.filter((each) => !each.isBacklog);
+    return this.stations.filter((each) => each.isWorked);
   }
 
   /**
@@ -236,8 +324,8 @@ export class AssemblyLine {
   }
 
   /** Where a task standing here may be handed on to, or a person. */
-  optionsFrom(stationId: StationId): string[] {
-    return handoverOptions(this.worked, stationId);
+  optionsFrom(stationId: StationId): HandoverOption[] {
+    return handoverOptions(this.stationAt(stationId), this.stations);
   }
 
   equals(other: AssemblyLine): boolean {

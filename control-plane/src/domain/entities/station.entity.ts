@@ -1,12 +1,14 @@
 import { InvalidStationChangeError } from '@domain/exceptions/invalid-station-change.error';
 import type { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
+import type { Happening } from '@domain/value-objects/happening.vo';
 import type { HarnessId } from '@domain/value-objects/harness-id.vo';
 import type { StationColor } from '@domain/value-objects/station-color.vo';
 import type { StationDescription } from '@domain/value-objects/station-description.vo';
 import type { StationId } from '@domain/value-objects/station-id.vo';
 import type { StationName } from '@domain/value-objects/station-name.vo';
+import { WayOut } from '@domain/value-objects/way-out.vo';
 
-export type StationKind = 'backlog' | 'work';
+export type StationKind = 'backlog' | 'work' | 'completed';
 
 type Part = {
   name?: StationName;
@@ -15,6 +17,8 @@ type Part = {
   description?: StationDescription | null;
   harness?: HarnessId | null;
   agentPrompt?: AgentPrompt | null;
+  wayOut?: WayOut;
+  reactsTo?: readonly Happening[];
 };
 
 export type StationInput = {
@@ -26,6 +30,8 @@ export type StationInput = {
   harness?: HarnessId | null;
   agentPrompt?: AgentPrompt | null;
   kind?: StationKind;
+  wayOut?: WayOut;
+  reactsTo?: readonly Happening[];
 };
 
 export abstract class Station {
@@ -35,6 +41,8 @@ export abstract class Station {
     readonly position: number,
     readonly color: StationColor,
     readonly description: StationDescription | null,
+    readonly wayOut: WayOut,
+    readonly reactsTo: readonly Happening[],
   ) {}
 
   abstract readonly kind: StationKind;
@@ -42,27 +50,40 @@ export abstract class Station {
   abstract readonly agentPrompt: AgentPrompt | null;
 
   static create(input: StationInput): Station {
-    return input.kind === 'backlog'
-      ? new Backlog(
-          input.id,
-          input.name,
-          input.position,
-          input.color,
-          input.description ?? null,
-        )
-      : new WorkStation(
-          input.id,
-          input.name,
-          input.position,
-          input.color,
-          input.description ?? null,
+    const ends = [
+      input.id,
+      input.name,
+      input.position,
+      input.color,
+      input.description ?? null,
+      input.wayOut ?? WayOut.nowhere(),
+      input.reactsTo ?? [],
+    ] as const;
+
+    switch (input.kind) {
+      case 'backlog':
+        return new Backlog(...ends);
+      case 'completed':
+        return new Completed(...ends);
+      default:
+        return new WorkStation(
+          ...ends,
           input.harness ?? null,
           input.agentPrompt ?? null,
         );
+    }
   }
 
   get isBacklog(): boolean {
     return this.kind === 'backlog';
+  }
+
+  get isCompleted(): boolean {
+    return this.kind === 'completed';
+  }
+
+  get isWorked(): boolean {
+    return this.kind === 'work';
   }
 
   rename(name: StationName): Station {
@@ -85,6 +106,10 @@ export abstract class Station {
 
   abstract instruct(agentPrompt: AgentPrompt | null): Station;
 
+  awaits(happening: Happening): boolean {
+    return this.reactsTo.includes(happening);
+  }
+
   equals(other: Station): boolean {
     return this.id.equals(other.id);
   }
@@ -101,10 +126,12 @@ export class WorkStation extends Station {
     position: number,
     color: StationColor,
     description: StationDescription | null,
+    wayOut: WayOut,
+    reactsTo: readonly Happening[],
     readonly harness: HarnessId | null,
     readonly agentPrompt: AgentPrompt | null,
   ) {
-    super(id, name, position, color, description);
+    super(id, name, position, color, description, wayOut, reactsTo);
   }
 
   runsOn(harness: HarnessId | null): Station {
@@ -122,6 +149,8 @@ export class WorkStation extends Station {
       part.position ?? this.position,
       part.color ?? this.color,
       part.description !== undefined ? part.description : this.description,
+      part.wayOut ?? this.wayOut,
+      part.reactsTo ?? this.reactsTo,
       part.harness !== undefined ? part.harness : this.harness,
       part.agentPrompt !== undefined ? part.agentPrompt : this.agentPrompt,
     );
@@ -152,6 +181,39 @@ export class Backlog extends Station {
       part.position ?? this.position,
       part.color ?? this.color,
       part.description !== undefined ? part.description : this.description,
+      part.wayOut ?? this.wayOut,
+      part.reactsTo ?? this.reactsTo,
+    );
+  }
+}
+
+/** Where a task lands once its pull request is merged. */
+export class Completed extends Station {
+  readonly kind = 'completed' as const;
+  readonly harness = null;
+  readonly agentPrompt = null;
+
+  runsOn(): Station {
+    throw new InvalidStationChangeError(
+      'is where the line ends, so nothing runs there',
+    );
+  }
+
+  instruct(): Station {
+    throw new InvalidStationChangeError(
+      'is where the line ends, so there is nothing there to instruct',
+    );
+  }
+
+  protected copiedWith(part: Part): Station {
+    return new Completed(
+      this.id,
+      part.name ?? this.name,
+      part.position ?? this.position,
+      part.color ?? this.color,
+      part.description !== undefined ? part.description : this.description,
+      part.wayOut ?? this.wayOut,
+      part.reactsTo ?? this.reactsTo,
     );
   }
 }

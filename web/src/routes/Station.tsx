@@ -44,7 +44,7 @@ export function Station() {
   }
 
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
-  const isBacklog = station.kind === 'backlog';
+  const ends = station.kind !== 'work';
 
   const save = (changes: Parameters<typeof customise.mutate>[0]['changes']) => {
     if (teamId && lineId && station) {
@@ -138,7 +138,7 @@ export function Station() {
               />
             </div>
 
-            {!isBacklog && (
+            {!ends && (
               <AgentPromptField
                 key={station.id}
                 value={edits.agentPrompt}
@@ -154,11 +154,12 @@ export function Station() {
             </p>
           )}
 
-          {isBacklog ? (
+          {ends ? (
             <aside className="w-56 shrink-0">
               <p className="px-2 text-muted-foreground text-xs leading-5">
-                Tasks wait here until someone starts them. Nothing runs at a
-                backlog, so it has no harness and nothing to instruct.
+                {station.kind === 'backlog'
+                  ? 'Tasks wait here until someone starts them. Nothing runs at a backlog, so it has no harness and nothing to instruct.'
+                  : 'Tasks land here once their pull request is merged. The line ends here, so nothing runs at it.'}
               </p>
             </aside>
           ) : (

@@ -1,8 +1,8 @@
 import { CustomiseStationCommand } from '@application/commands/customise-station.command';
 import { CustomiseStationHandler } from '@application/commands/handlers/customise-station.handler';
 import { UseCaseFault } from '@application/errors/use-case.fault';
-import type { StandingWorkPort } from '@application/ports/standing-work.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
+import type { StandingWork } from '@application/services/standing-work';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Station } from '@domain/entities/station.entity';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
@@ -43,6 +43,13 @@ const line = () =>
         harness: HarnessId.of('dev'),
         agentPrompt: AgentPrompt.of('## Role'),
       }),
+      Station.create({
+        id: StationId.of('station_2'),
+        name: StationName.of('Completed'),
+        position: 2,
+        color: StationColor.of('#a3a8b0'),
+        kind: 'completed',
+      }),
     ],
   });
 
@@ -59,7 +66,7 @@ const repository = (found: AssemblyLine | null = line()) =>
   }) satisfies AssemblyLineRepository;
 
 const tookUp = vi.fn(async () => {});
-const work = { takeUp: tookUp } as StandingWorkPort;
+const work = { takeUp: tookUp } as StandingWork;
 
 const customise = (
   changes: CustomiseStationCommand['changes'],

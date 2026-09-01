@@ -1,8 +1,9 @@
 import { AnswerInboxItemCommand } from '@application/commands/answer-inbox-item.command';
 import { AnswerInboxItemHandler } from '@application/commands/handlers/answer-inbox-item.handler';
 import type { ClockPort } from '@application/ports/clock.port';
-import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
+import { ConversationAtHand } from '@application/services/conversation-at-hand.service';
+import type { TaskDispatching } from '@application/services/task-dispatch';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { Station } from '@domain/entities/station.entity';
@@ -20,6 +21,7 @@ import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
+import { Voice } from '@domain/value-objects/voice.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -48,6 +50,13 @@ const line = () =>
         color: StationColor.of('#a3a8b0'),
         harness: HarnessId.of('dev'),
       }),
+      Station.create({
+        id: StationId.of('station_2'),
+        name: StationName.of('Completed'),
+        position: 2,
+        color: StationColor.of('#a3a8b0'),
+        kind: 'completed',
+      }),
     ],
   });
 
@@ -62,6 +71,7 @@ const waiting = () =>
     now: NOW,
     newId: () => 'task_1',
   }).askedAbout({
+    voice: Voice.station(),
     station: StationName.of('Triage'),
     body: TaskNoteBody.of('Which queue should I drain?'),
     at: NOW,
@@ -79,6 +89,8 @@ const tasks = (found: Task) =>
     remove: vi.fn(),
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
+    withPullRequest: vi.fn(async () => null),
+    holding: vi.fn(async () => found),
   }) satisfies TaskRepository;
 
 const lines = () =>
@@ -89,14 +101,14 @@ const lines = () =>
     holding: vi.fn(async () => line()),
   }) satisfies AssemblyLineRepository;
 
-const dispatch: TaskDispatchPort = {
+const dispatch: TaskDispatching = {
   dispatch: async () => RunId.of('run_2'),
 };
 
 const answer = (found: Task) =>
   new AnswerInboxItemHandler(
+    new ConversationAtHand(tasks(found), lines()),
     tasks(found),
-    lines(),
     dispatch,
     transaction,
     clock,
@@ -112,7 +124,7 @@ describe('AnswerInboxItem', () => {
 
     const last = saved?.notes[saved.notes.length - 1];
     expect(last?.body.value).toBe('Cap it at 500.');
-    expect(last?.author?.value).toBe('user_1');
+    expect(last?.voice.author?.value).toBe('user_1');
     expect(last?.station.value).toBe('Triage');
   });
 

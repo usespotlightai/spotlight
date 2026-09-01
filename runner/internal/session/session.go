@@ -12,6 +12,7 @@ import (
 	"usespotlight.ai/runner/internal/account"
 	"usespotlight.ai/runner/internal/acp"
 	"usespotlight.ai/runner/internal/declare"
+	"usespotlight.ai/runner/internal/gitproxy"
 	"usespotlight.ai/runner/internal/hook"
 	"usespotlight.ai/runner/internal/protocol"
 	"usespotlight.ai/runner/internal/workspace"
@@ -23,6 +24,8 @@ type Journal interface {
 	AppendEvents(ctx context.Context, runID string, events []protocol.Event) error
 	RenewLease(ctx context.Context, runID string) error
 	Complete(ctx context.Context, runID string, done protocol.Completion) error
+	OpenPullRequest(ctx context.Context, runID string, asked protocol.PullRequest) (string, error)
+	AnswerRemark(ctx context.Context, runID string, said protocol.Remark) error
 	Said(ctx context.Context, runID string) ([]protocol.Said, error)
 	Delivered(ctx context.Context, runID string, upTo int) error
 }
@@ -57,6 +60,10 @@ type Options struct {
 	// AgentUser is the account to run the agent as. Nil runs it as the
 	// runner.
 	AgentUser *account.User
+	// ControlPlane and Token serve the run's git remote. The remote carries
+	// neither, so the workspace holds nothing that opens the codebase.
+	ControlPlane string
+	Token        string
 }
 
 // Execute takes a claimed run from an empty directory to a reported outcome.
@@ -87,6 +94,21 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 			log.Warn("could not remove workspace", "error", err)
 		}
 	}()
+
+	// Reachable for exactly as long as the run is worked.
+	if len(run.Spec.Checkouts) > 0 {
+		serving, err := gitproxy.Serve(opts.ControlPlane, opts.Token, run.ID)
+		if err != nil {
+			return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+		}
+		defer func() {
+			if err := serving.Close(); err != nil {
+				log.Warn("could not stop serving git", "error", err)
+			}
+		}()
+
+		run.Spec.Checkouts = reached(run.Spec.Checkouts, serving.Remote)
+	}
 
 	// Before the handover, so the hook's credentials are gone by the time the
 	// agent can look.
@@ -119,7 +141,16 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 
 	// Raised before the agent so the endpoint is there from its first breath,
 	// and closed after it so nothing can speak for a run that has ended.
-	channel, err := declare.Serve(run.Spec.Handover.Options)
+	channel, err := declare.Serve(
+		run.Spec.Handover.Options,
+		run.Spec.Handover.NoteLimit,
+		func(ctx context.Context, asked protocol.PullRequest) (string, error) {
+			return opts.Journal.OpenPullRequest(ctx, run.ID, asked)
+		},
+		func(ctx context.Context, said protocol.Remark) error {
+			return opts.Journal.AnswerRemark(ctx, run.ID, said)
+		},
+	)
 	if err != nil {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
@@ -482,4 +513,20 @@ func granted(env map[string]string, channel *declare.Server, state string) map[s
 	granted[StateVar] = state
 
 	return granted
+}
+
+// reached turns the control plane's stand-in remote into the address this
+// runner is serving the repository on. A checkout naming anywhere else is
+// left alone: what a remote means is otherwise the hook's business.
+func reached(checkouts []protocol.Checkout, remote string) []protocol.Checkout {
+	resolved := make([]protocol.Checkout, len(checkouts))
+
+	for at, checkout := range checkouts {
+		resolved[at] = checkout
+		if checkout.Remote == protocol.ThroughSpotlight {
+			resolved[at].Remote = remote
+		}
+	}
+
+	return resolved
 }

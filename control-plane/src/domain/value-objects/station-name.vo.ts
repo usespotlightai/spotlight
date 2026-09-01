@@ -20,6 +20,11 @@ export class StationName {
     return new StationName(trimmed);
   }
 
+  /** For a note whose station the line no longer holds. */
+  static unknown(): StationName {
+    return StationName.of('Unknown');
+  }
+
   equals(other: StationName): boolean {
     return this.value === other.value;
   }

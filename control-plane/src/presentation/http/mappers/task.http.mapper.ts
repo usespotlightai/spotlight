@@ -18,6 +18,8 @@ export const TaskHttpMapper = {
       dto.awaitingReview
         ? new TaskReviewResponseDto(dto.awaitingReview.conversationId)
         : null,
+      dto.repository,
+      dto.pullRequest,
       dto.raisedBy
         ? new TaskPersonResponseDto(
             dto.raisedBy.id,

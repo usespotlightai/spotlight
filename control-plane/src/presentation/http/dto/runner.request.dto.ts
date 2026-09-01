@@ -129,3 +129,29 @@ export class PendingMessageResponseDto {
     this.body = body;
   }
 }
+
+export class AnswerRemarkRequestDto {
+  @ApiProperty({ example: 'c3', description: 'Which remark, as briefed' })
+  readonly handle!: string;
+
+  @ApiProperty({ example: 'Split out in 4a1c2b0.' })
+  readonly body!: string;
+
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Resolve the thread as well as answering it',
+  })
+  readonly resolve?: boolean;
+}
+
+export class OpenPullRequestRequestDto {
+  @ApiProperty({ example: 'Fix the queue' })
+  readonly title!: string;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: String,
+    description: 'Markdown, shown as the pull request description',
+  })
+  readonly body?: string | null;
+}

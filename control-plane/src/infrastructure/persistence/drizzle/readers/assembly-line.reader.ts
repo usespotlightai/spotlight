@@ -3,6 +3,7 @@ import type {
   AssemblyLineReaderPort,
   StationSummary,
 } from '@application/ports/assembly-line-reader.port';
+import type { StationKind } from '@domain/entities/station.entity';
 import type { TeamId } from '@domain/value-objects/team-id.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
 import type { DrizzleDatabase } from '@infrastructure/persistence/drizzle/drizzle.client';
@@ -29,7 +30,7 @@ type Row = {
   stationDescription: string | null;
   stationHarness: string | null;
   stationAgentPrompt: string | null;
-  stationKind: 'backlog' | 'work' | null;
+  stationKind: StationKind | null;
 };
 
 @Injectable()

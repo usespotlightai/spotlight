@@ -3,8 +3,8 @@ import { MoveTaskCommand } from '@application/commands/move-task.command';
 import { UseCaseFault } from '@application/errors/use-case.fault';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { PersonReaderPort } from '@application/ports/person-reader.port';
-import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
+import type { TaskDispatching } from '@application/services/task-dispatch';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { Station } from '@domain/entities/station.entity';
@@ -34,7 +34,8 @@ const at = (id: string, name: string, position: number, harness?: HarnessId) =>
     position,
     color: StationColor.of('#a3a8b0'),
     harness,
-    kind: position === 0 ? 'backlog' : 'work',
+    kind:
+      position === 0 ? 'backlog' : name === 'Completed' ? 'completed' : 'work',
   });
 
 const line = () =>
@@ -46,6 +47,7 @@ const line = () =>
     stations: [
       at('station_1', 'Backlog', 0),
       at('station_2', 'Triage', 1, HarnessId.of('dev')),
+      at('station_3', 'Completed', 2),
     ],
   });
 
@@ -62,7 +64,7 @@ const standing = (stationId = 'station_2') =>
 
 const dispatched: { harness: string; priority: number; brief: string }[] = [];
 
-const dispatch = (runId: string | null = 'run_1'): TaskDispatchPort => ({
+const dispatch = (runId: string | null = 'run_1'): TaskDispatching => ({
   dispatch: async ({ task, line }) => {
     const station = line.stationAt(task.stationId);
 
@@ -90,6 +92,8 @@ const tasks = (found: Task | null = standing()) =>
     remove: vi.fn(),
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
+    withPullRequest: vi.fn(async () => null),
+    holding: vi.fn(async () => null),
   }) satisfies TaskRepository;
 
 const lines = (found: AssemblyLine | null = line()) =>

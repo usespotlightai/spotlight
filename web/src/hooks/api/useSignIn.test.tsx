@@ -6,10 +6,10 @@ import { useSignIn } from '@/hooks/api/useSignIn';
 import { authClient } from '@/lib/authClient';
 
 vi.mock('@/lib/authClient', () => ({
-  authClient: { signIn: { email: vi.fn() } },
+  authClient: { signIn: { social: vi.fn() } },
 }));
 
-const signInEmail = vi.mocked(authClient.signIn.email);
+const signInSocial = vi.mocked(authClient.signIn.social);
 
 const wrapper = ({ children }: { children: ReactNode }) => {
   const queryClient = new QueryClient({
@@ -21,37 +21,36 @@ const wrapper = ({ children }: { children: ReactNode }) => {
 };
 
 beforeEach(() => {
-  signInEmail.mockReset();
+  signInSocial.mockReset();
 });
 
 describe('useSignIn', () => {
-  it('returns the session on success', async () => {
-    signInEmail.mockResolvedValue({
-      data: { token: 'tok', user: { email: 'dev@example.com' } },
+  it('hands the browser to GitHub, and back to where the app starts', async () => {
+    signInSocial.mockResolvedValue({
+      data: { url: 'https://github.com/login/oauth/authorize', redirect: true },
       error: null,
     } as never);
 
     const { result } = renderHook(() => useSignIn(), { wrapper });
-    result.current.mutate({ email: 'dev@example.com', password: 'pw' });
+    result.current.mutate();
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data).toMatchObject({ token: 'tok' });
-    expect(signInEmail).toHaveBeenCalledWith({
-      email: 'dev@example.com',
-      password: 'pw',
+    expect(signInSocial).toHaveBeenCalledWith({
+      provider: 'github',
+      callbackURL: '/',
     });
   });
 
   it('turns an auth error into a rejected mutation', async () => {
-    signInEmail.mockResolvedValue({
+    signInSocial.mockResolvedValue({
       data: null,
-      error: { message: 'Invalid email or password', status: 401 },
+      error: { message: 'GitHub is not reachable', status: 502 },
     } as never);
 
     const { result } = renderHook(() => useSignIn(), { wrapper });
-    result.current.mutate({ email: 'dev@example.com', password: 'nope' });
+    result.current.mutate();
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(result.current.error?.message).toBe('Invalid email or password');
+    expect(result.current.error?.message).toBe('GitHub is not reachable');
   });
 });

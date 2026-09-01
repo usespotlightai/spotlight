@@ -85,7 +85,15 @@ export const HELD_AT_TOP =
 
 export const inboxPath = (slug: string) => `/w/${slug}/inbox`;
 
-export const inboxItemPath = (slug: string, id: string) =>
-  `${inboxPath(slug)}/${encodeURIComponent(id)}`;
+export const inboxItemPath = (slug: string, id: string, runId?: string) =>
+  `${inboxPath(slug)}/${encodeURIComponent(id)}${
+    runId ? `?run=${encodeURIComponent(runId)}` : ''
+  }`;
+
+export const shownAt = (
+  notes: readonly InboxMessage[],
+  runId: string | null,
+): number | null =>
+  notes.find((note) => runId && note.runId === runId)?.position ?? null;
 
 export const waitingOn = (item: InboxItem) => item.notes[item.notes.length - 1];

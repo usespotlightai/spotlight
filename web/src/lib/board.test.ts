@@ -1,20 +1,31 @@
 import { describe, expect, it } from 'vitest';
+import type { StationResponseDto } from '@/lib/api';
 import { asBoardView, inView } from '@/lib/board';
 
+const kinds: StationResponseDto['kind'][] = ['backlog', 'work', 'completed'];
+
 describe('board views', () => {
-  it('keeps the backlog out of the active board', () => {
-    expect([0, 1, 2].map((place) => inView('active', place))).toEqual([
+  it('keeps both ends of the line off the active board', () => {
+    expect(kinds.map((kind) => inView('active', kind))).toEqual([
       false,
       true,
-      true,
+      false,
     ]);
   });
 
   it('shows nothing but the backlog in the backlog view', () => {
-    expect([0, 1, 2].map((place) => inView('backlog', place))).toEqual([
+    expect(kinds.map((kind) => inView('backlog', kind))).toEqual([
       true,
       false,
       false,
+    ]);
+  });
+
+  it('shows nothing but what is finished in the completed view', () => {
+    expect(kinds.map((kind) => inView('completed', kind))).toEqual([
+      false,
+      false,
+      true,
     ]);
   });
 
@@ -25,5 +36,6 @@ describe('board views', () => {
 
   it('takes a view the address does name', () => {
     expect(asBoardView('backlog')).toBe('backlog');
+    expect(asBoardView('completed')).toBe('completed');
   });
 });

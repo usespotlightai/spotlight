@@ -3,9 +3,13 @@ import type {
   TaskPlacement,
   TaskRepository,
 } from '@domain/repositories/task.repository';
+import type { Concerns } from '@domain/value-objects/concerns.vo';
 import { HarnessSession } from '@domain/value-objects/harness-session.vo';
+import { PullRequestUrl } from '@domain/value-objects/pull-request-url.vo';
+import { Repository } from '@domain/value-objects/repository.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
+import { Said } from '@domain/value-objects/said.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskDescription } from '@domain/value-objects/task-description.vo';
@@ -15,6 +19,7 @@ import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
+import { Voice } from '@domain/value-objects/voice.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
 import {
@@ -22,7 +27,7 @@ import {
   taskNote,
 } from '@infrastructure/persistence/drizzle/schemas/task.schema';
 import { Injectable } from '@nestjs/common';
-import { asc, eq, inArray } from 'drizzle-orm';
+import { asc, eq, inArray, sql } from 'drizzle-orm';
 
 type Row = typeof task.$inferSelect;
 type NoteRow = typeof taskNote.$inferSelect;
@@ -32,9 +37,10 @@ const toNote = (row: NoteRow): TaskNote =>
     station: StationName.of(row.station),
     body: TaskNoteBody.of(row.body),
     at: row.at,
-    author: row.authorId ? UserId.of(row.authorId) : null,
-    run: row.runId ? RunId.of(row.runId) : null,
-    kind: row.kind ?? 'passed',
+    voice: Voice.of({ by: row.voice, author: row.authorId, run: row.runId }),
+    said: row.said ? Said.of(row.said) : null,
+    answeredAt: row.answeredAt,
+    kind: row.kind,
     readAt: row.readAt,
     deliveredAt: row.deliveredAt,
   });
@@ -56,6 +62,9 @@ const toTask = (row: Row, notes: NoteRow[]): Task =>
       ? StationId.of(row.raisedAtStationId)
       : null,
     raisedBy: row.raisedById ? UserId.of(row.raisedById) : null,
+    repository: row.repository ? Repository.of(row.repository) : null,
+    finishedAt: row.finishedAt,
+    pullRequest: row.pullRequest ? PullRequestUrl.of(row.pullRequest) : null,
   });
 
 @Injectable()
@@ -71,12 +80,14 @@ export class DrizzleTaskRepository implements TaskRepository {
       description: added.description?.value ?? null,
       rank: added.rank.value,
       currentRunId: added.currentRunId?.value ?? null,
-      awaitingReview: added.awaitingReview,
       sessionId: added.sessionId?.value ?? null,
       runnerId: added.runnerId?.value ?? null,
       createdAt: added.createdAt,
       raisedAtStationId: added.raisedAt?.value ?? null,
       raisedById: added.raisedBy?.value ?? null,
+      repository: added.repository?.value ?? null,
+      pullRequest: added.pullRequest?.value ?? null,
+      finishedAt: added.finishedAt,
     });
 
     await this.writeNotes(added);
@@ -91,9 +102,10 @@ export class DrizzleTaskRepository implements TaskRepository {
         description: saved.description?.value ?? null,
         rank: saved.rank.value,
         currentRunId: saved.currentRunId?.value ?? null,
-        awaitingReview: saved.awaitingReview,
         sessionId: saved.sessionId?.value ?? null,
         runnerId: saved.runnerId?.value ?? null,
+        pullRequest: saved.pullRequest?.value ?? null,
+        finishedAt: saved.finishedAt,
       })
       .where(eq(task.id, saved.id.value));
 
@@ -119,6 +131,44 @@ export class DrizzleTaskRepository implements TaskRepository {
       .from(task)
       .where(eq(task.id, id.value))
       .limit(1);
+
+    if (!found) {
+      return null;
+    }
+
+    const notes = await this.notesFor([found.id]);
+
+    return toTask(found, notes.get(found.id) ?? []);
+  }
+
+  async withPullRequest(url: PullRequestUrl): Promise<Task | null> {
+    const [found] = await this.context.db
+      .select()
+      .from(task)
+      .where(eq(task.pullRequest, url.value))
+      .limit(1);
+
+    if (!found) {
+      return null;
+    }
+
+    const notes = await this.notesFor([found.id]);
+
+    return toTask(found, notes.get(found.id) ?? []);
+  }
+
+  async holding(concerns: Concerns): Promise<Task | null> {
+    const [found] = await this.context.db
+      .select()
+      .from(task)
+      .where(
+        concerns.taskId
+          ? eq(task.id, concerns.taskId.value)
+          : eq(task.pullRequest, concerns.pullRequest?.value ?? ''),
+      )
+      .limit(1)
+      // A burst about one task is written one at a time.
+      .for('update');
 
     if (!found) {
       return null;
@@ -162,28 +212,38 @@ export class DrizzleTaskRepository implements TaskRepository {
     }, new Map<string, NoteRow[]>());
   }
 
+  /** A trail is added to and marked, never cut. */
   private async writeNotes(saved: Task): Promise<void> {
-    await this.context.db
-      .delete(taskNote)
-      .where(eq(taskNote.taskId, saved.id.value));
-
     if (saved.notes.length === 0) {
       return;
     }
 
-    await this.context.db.insert(taskNote).values(
-      saved.notes.map((note, position) => ({
-        taskId: saved.id.value,
-        position,
-        station: note.station.value,
-        body: note.body.value,
-        at: note.at,
-        authorId: note.author?.value ?? null,
-        runId: note.run?.value ?? null,
-        kind: note.kind,
-        readAt: note.readAt,
-        deliveredAt: note.deliveredAt,
-      })),
-    );
+    await this.context.db
+      .insert(taskNote)
+      .values(
+        saved.notes.map((note, position) => ({
+          taskId: saved.id.value,
+          position,
+          station: note.station.value,
+          body: note.body.value,
+          at: note.at,
+          said: note.said?.parts ?? null,
+          answeredAt: note.answeredAt,
+          voice: note.voice.by,
+          authorId: note.voice.author?.value ?? null,
+          runId: note.voice.run?.value ?? null,
+          kind: note.kind,
+          readAt: note.readAt,
+          deliveredAt: note.deliveredAt,
+        })),
+      )
+      .onConflictDoUpdate({
+        target: [taskNote.taskId, taskNote.position],
+        set: {
+          readAt: sql`excluded.read_at`,
+          deliveredAt: sql`excluded.delivered_at`,
+          answeredAt: sql`excluded.answered_at`,
+        },
+      });
   }
 }

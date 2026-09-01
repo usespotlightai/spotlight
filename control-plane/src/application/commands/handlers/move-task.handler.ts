@@ -5,18 +5,19 @@ import { TaskMapper } from '@application/mappers/task.mapper';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { PersonReaderPort } from '@application/ports/person-reader.port';
-import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
+import type { TaskDispatching } from '@application/services/task-dispatch';
 import { UnknownAssemblyLineError } from '@domain/exceptions/unknown-assembly-line.error';
 import { UnknownStationError } from '@domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@domain/exceptions/unknown-task.error';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
+import { Placement } from '@domain/services/placement';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
-import { TaskRank } from '@domain/value-objects/task-rank.vo';
+import { Voice } from '@domain/value-objects/voice.vo';
 
 export class MoveTaskHandler
   implements CommandHandlerPort<MoveTaskCommand, TaskDto>
@@ -25,7 +26,7 @@ export class MoveTaskHandler
     private readonly tasks: TaskRepository,
     private readonly lines: AssemblyLineRepository,
     private readonly transaction: TransactionPort,
-    private readonly dispatch: TaskDispatchPort,
+    private readonly dispatch: TaskDispatching,
     private readonly clock: ClockPort,
     private readonly people: PersonReaderPort,
   ) {}
@@ -75,18 +76,18 @@ export class MoveTaskHandler
         throw new UnknownTaskError(command.afterTaskId);
       }
 
-      const before = standing[after ? standing.indexOf(after) + 1 : 0] ?? null;
-      const rank = TaskRank.between(after?.rank ?? null, before?.rank ?? null);
+      const rank = Placement.below(standing, after ?? null);
 
       const stayed = task.stationId.equals(stationId);
       const moved = stayed
         ? task.reorderTo(rank)
         : // Moved by hand is still a move, and what a person was owed where
           // it stood, they are owed no longer.
-          task.moveTo(stationId, rank, {
+          task.moveTo(station, rank, {
             station: line.stationAt(task.stationId)?.name ?? station.name,
-            body: TaskNoteBody.of(`Moved to ${station.name.value}.`),
+            body: TaskNoteBody.movedTo(station.name),
             at: this.clock.now(),
+            voice: Voice.station(),
           });
 
       const runId =

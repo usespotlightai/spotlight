@@ -37,8 +37,9 @@ export class StationResponseDto {
   readonly agentPrompt: string | null;
 
   @ApiProperty({
-    enum: ['backlog', 'work'],
-    description: 'A backlog is where a task waits before anything works it',
+    enum: ['backlog', 'work', 'completed'],
+    description:
+      'The ends of the line: a backlog is where a task waits before anything works it, and completed is where it lands once its pull request is merged',
   })
   readonly kind: string;
 

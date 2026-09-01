@@ -6,14 +6,20 @@ import { since } from '@/lib/runner';
 type ReviewMarkerProps = {
   slug: string | undefined;
   conversationId: string;
+  runId: string;
   at: string;
 };
 
-export function ReviewMarker({ slug, conversationId, at }: ReviewMarkerProps) {
+export function ReviewMarker({
+  slug,
+  conversationId,
+  runId,
+  at,
+}: ReviewMarkerProps) {
   return (
     <li>
       <Link
-        to={slug ? inboxItemPath(slug, conversationId) : ''}
+        to={slug ? inboxItemPath(slug, conversationId, runId) : ''}
         className="flex h-9 min-w-0 items-center gap-2 rounded-md px-2 text-muted-foreground text-sm outline-none transition-colors hover:bg-accent"
       >
         <Inbox className="size-4 shrink-0" aria-hidden />

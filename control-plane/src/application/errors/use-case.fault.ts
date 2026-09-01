@@ -1,4 +1,8 @@
-export type UseCaseFaultKind = 'conflict' | 'invalid-input' | 'not-found';
+export type UseCaseFaultKind =
+  | 'conflict'
+  | 'invalid-input'
+  | 'not-found'
+  | 'refused-upstream';
 
 export class UseCaseFault extends Error {
   constructor(

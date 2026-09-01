@@ -1,3 +1,4 @@
+import { GitBranch, GitPullRequest } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
 import { StationSelect } from '@/components/board/StationSelect';
 import { TaskActions } from '@/components/board/TaskActions';
@@ -129,8 +130,8 @@ export function Task() {
           </main>
 
           <aside className="sticky top-8 hidden w-56 shrink-0 flex-col gap-4 self-start lg:flex">
-            <section className="flex flex-col">
-              <h2 className="px-2 pb-1.5 font-medium text-muted-foreground text-xs">
+            <section className="flex flex-col gap-1.5">
+              <h2 className="px-2 font-medium text-muted-foreground text-xs">
                 Properties
               </h2>
 
@@ -149,6 +150,35 @@ export function Task() {
                     })
                   }
                 />
+              )}
+
+              {task.repository && (
+                <div className="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-sm">
+                  <GitBranch
+                    className="size-4 shrink-0 text-muted-foreground"
+                    aria-hidden
+                  />
+
+                  <span className="truncate text-foreground">
+                    {task.repository}
+                  </span>
+                </div>
+              )}
+
+              {task.pullRequest && (
+                <a
+                  href={task.pullRequest}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors hover:bg-accent"
+                >
+                  <GitPullRequest
+                    className="size-4 shrink-0 text-muted-foreground"
+                    aria-hidden
+                  />
+
+                  <span className="truncate text-foreground">Pull request</span>
+                </a>
               )}
 
               {task.raisedBy && (

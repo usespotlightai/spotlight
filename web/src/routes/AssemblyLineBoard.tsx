@@ -271,7 +271,7 @@ export function AssemblyLineBoard() {
             >
               {line.stations
                 .map((station, place) => ({ station, place }))
-                .filter(({ place }) => inView(view, place))
+                .filter(({ station }) => inView(view, station.kind))
                 .map(({ station, place }) => (
                   <StationSection
                     key={station.id}
@@ -298,9 +298,9 @@ export function AssemblyLineBoard() {
                       landing.afterTaskId === null &&
                       tasksAt(tasks, station.id).length === 0
                     }
-                    fixed={station.kind === 'backlog'}
+                    fixed={station.kind !== 'work'}
                     to={
-                      slug && teamId && station.kind !== 'backlog'
+                      slug && teamId && station.kind === 'work'
                         ? stationPath(slug, teamId, line.id, station.id)
                         : undefined
                     }

@@ -1,6 +1,7 @@
 import { Station } from '@domain/entities/station.entity';
 import { HandoverFor } from '@domain/services/handover-for';
 import { Declaration } from '@domain/value-objects/declaration.vo';
+import type { Handover } from '@domain/value-objects/handover.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
@@ -27,6 +28,9 @@ const stations = [
 const declared = (next?: string, note?: string) =>
   HandoverFor.declared(Declaration.of({ next, note }), stations);
 
+const passedTo = (handover: Handover): StationId | null =>
+  handover.kind === 'pass' ? handover.stationId : null;
+
 describe('HandoverFor.declared', () => {
   it('will not pass a task to a station nothing runs at', () => {
     const backlog = Station.create({
@@ -48,12 +52,12 @@ describe('HandoverFor.declared', () => {
     const handover = declared('Spec', 'Reproduced on restart.');
 
     expect(handover.kind).toBe('pass');
-    expect(handover.stationId).toEqual(StationId.of('station_2'));
+    expect(passedTo(handover)).toEqual(StationId.of('station_2'));
     expect(handover.body.value).toBe('Reproduced on restart.');
   });
 
   it('does not mind how the run cased the name', () => {
-    expect(declared('spec', 'Done.').stationId).toEqual(
+    expect(passedTo(declared('spec', 'Done.'))).toEqual(
       StationId.of('station_2'),
     );
   });
@@ -63,6 +67,14 @@ describe('HandoverFor.declared', () => {
 
     expect(handover.kind).toBe('review');
     expect(handover.body.value).toBe('Needs a decision on the retry cap.');
+  });
+
+  it('ends the line when the run says the work is done', () => {
+    const handover = declared('done', 'Pull request opened.');
+
+    expect(handover.kind).toBe('done');
+    expect(passedTo(handover)).toBeNull();
+    expect(handover.body.value).toBe('Pull request opened.');
   });
 
   it('asks a person when the run names nowhere at all', () => {
@@ -79,6 +91,7 @@ describe('HandoverFor.declared', () => {
   it('stands in a body of its own where the run left the note empty', () => {
     expect(declared('Spec').body.value).toBe('Passed on to Spec.');
     expect(declared('review').body.value).toContain('someone to look');
+    expect(declared('done').body.value).toBe('The work is done.');
   });
 });
 
@@ -92,7 +105,7 @@ describe('HandoverFor.declared, at the station it stands at', () => {
       StationId.of('station_1'),
     );
 
-    expect(handover.stationId).toBeNull();
+    expect(passedTo(handover)).toBeNull();
     expect(handover.body.value).toContain('already stands');
   });
 
@@ -103,6 +116,6 @@ describe('HandoverFor.declared, at the station it stands at', () => {
       StationId.of('station_1'),
     );
 
-    expect(handover.stationId?.value).toBe('station_2');
+    expect(passedTo(handover)?.value).toBe('station_2');
   });
 });

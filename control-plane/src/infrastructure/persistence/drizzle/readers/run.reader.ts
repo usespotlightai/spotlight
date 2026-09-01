@@ -1,3 +1,4 @@
+import { RunSpecContract } from '@application/contracts/run-spec.contract';
 import type {
   RunConversationSummary,
   RunReaderPort,
@@ -7,7 +8,6 @@ import type {
 } from '@application/ports/run-reader.port';
 import { turnOf } from '@domain/services/conversations';
 import type { RunId } from '@domain/value-objects/run-id.vo';
-import { RunSpec } from '@domain/value-objects/run-spec.vo';
 import type { TaskId } from '@domain/value-objects/task-id.vo';
 import type { TeamId } from '@domain/value-objects/team-id.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
@@ -169,7 +169,7 @@ export class DrizzleRunReader implements RunReaderPort {
         taskId: task.id,
         title: task.title,
         description: task.description,
-        working: task.currentRunId,
+        workingRunId: task.currentRunId,
         createdAt: task.createdAt,
         spec: run.spec,
         stationName: ranAt.name,
@@ -198,7 +198,7 @@ export class DrizzleRunReader implements RunReaderPort {
     const held = await stationsPerLine(this.db, [found.stationLineId ?? '']);
     const told = trail ?? [];
     const said = turnOf(told, runId.value);
-    const spec = RunSpec.from(found.spec);
+    const spec = RunSpecContract.from(found.spec);
 
     return {
       runId: found.runId,
@@ -208,7 +208,7 @@ export class DrizzleRunReader implements RunReaderPort {
       station: worked({ ...found }, held),
       createdAt: found.createdAt,
       briefing: spec?.briefing ?? null,
-      working: found.working !== null,
+      working: found.workingRunId === found.runId,
       notes: said,
     };
   }

@@ -30,6 +30,10 @@ type Kept struct {
 	Keys []string `json:"keys"`
 }
 
+// ThroughSpotlight is the remote a run is given for its own repository. The
+// runner serves it locally, so the workspace holds nothing that opens it.
+const ThroughSpotlight = "spotlight:repository"
+
 // Checkout is one repository a run works in. A run may have several, since an
 // agent that cannot see a consumer cannot tell whether it broke it.
 type Checkout struct {
@@ -53,6 +57,9 @@ type Command struct {
 // the control plane decides what any of them do.
 type Handover struct {
 	Options []string `json:"options,omitempty"`
+	// NoteLimit is how long a note may be, counted the way the control plane
+	// counts it. Zero means it did not say, so nothing is refused for length.
+	NoteLimit int `json:"noteLimit,omitempty"`
 }
 
 // Spec is what a run is supposed to do. The control plane stores it whole and
@@ -88,6 +95,18 @@ type Continuity struct {
 	Keep bool `json:"keep,omitempty"`
 }
 
+// PullRequest is what an agent asks Spotlight to open for it. Spotlight holds
+// what it takes to reach GitHub, so the agent only says what to call it.
+type PullRequest struct {
+	Title string `json:"title"`
+	Body  string `json:"body,omitempty"`
+}
+
+// Opened is where the pull request landed.
+type Opened struct {
+	URL string `json:"url"`
+}
+
 type Run struct {
 	ID             string    `json:"id"`
 	Spec           Spec      `json:"spec"`
@@ -117,6 +136,15 @@ type Event struct {
 	// the runner understood of it.
 	Data     []byte `json:"data,omitempty"`
 	ExitCode *int   `json:"exitCode,omitempty"`
+}
+
+// Remark is what the agent says back to something said on the pull request.
+// Handle names which one, as the briefing named it; Spotlight holds what the
+// host calls it, so nothing that reaches GitHub is in the agent's hands.
+type Remark struct {
+	Handle  string `json:"handle"`
+	Body    string `json:"body"`
+	Resolve bool   `json:"resolve,omitempty"`
 }
 
 // Outcome is what the agent said should happen to the task next. The runner

@@ -57,3 +57,12 @@ export class EnqueuedRunResponseDto {
     this.targetRunnerId = targetRunnerId;
   }
 }
+
+export class OpenedPullRequestResponseDto {
+  @ApiProperty({ example: 'https://github.com/acme/widgets/pull/7' })
+  readonly url: string;
+
+  constructor(url: string) {
+    this.url = url;
+  }
+}

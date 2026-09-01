@@ -1,6 +1,6 @@
 import type { ClockPort } from '@application/ports/clock.port';
-import type { HandoverPort } from '@application/ports/handover.port';
-import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
+import type { RunOutcomes } from '@application/services/run-outcomes';
+import type { TaskDispatching } from '@application/services/task-dispatch';
 import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Task } from '@domain/aggregates/task.aggregate';
 import type { RunAbandoned } from '@domain/events/run-abandoned.event';
@@ -8,22 +8,23 @@ import type { RunCompleted } from '@domain/events/run-completed.event';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { HandoverFor } from '@domain/services/handover-for';
+import { Placement } from '@domain/services/placement';
 import type { Handover } from '@domain/value-objects/handover.vo';
 import type { RunId } from '@domain/value-objects/run-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import type { TaskId } from '@domain/value-objects/task-id.vo';
-import { TaskRank } from '@domain/value-objects/task-rank.vo';
+import { Voice } from '@domain/value-objects/voice.vo';
 
 interface Standing {
   readonly task: Task;
   readonly line: AssemblyLine | null;
 }
 
-export class HandOver implements HandoverPort {
+export class HandOver implements RunOutcomes {
   constructor(
     private readonly tasks: TaskRepository,
     private readonly lines: AssemblyLineRepository,
-    private readonly dispatch: TaskDispatchPort,
+    private readonly dispatch: TaskDispatching,
     private readonly clock: ClockPort,
   ) {}
 
@@ -95,30 +96,33 @@ export class HandOver implements HandoverPort {
     const standing = line?.stationAt(task.stationId);
 
     const saying = {
-      station: standing?.name ?? StationName.of('Unknown'),
+      station: standing?.name ?? StationName.unknown(),
       body: handover.body,
       at: this.clock.now(),
-      run,
+      voice: Voice.station(run),
     };
+
+    if (handover.kind === 'done') {
+      return task.finishedHere(saying);
+    }
 
     if (handover.kind === 'review' || !handover.stationId || !line) {
       return task.askedAbout(saying);
     }
 
-    const arriving = handover.stationId;
-    const behind = await this.tasks.placementsAt(arriving);
-    const last = behind[behind.length - 1] ?? null;
+    const arriving = line.stationAt(handover.stationId);
 
-    const passed = task.passedTo(
+    if (!arriving) {
+      return task.askedAbout(saying);
+    }
+
+    const passed = task.moveTo(
       arriving,
-      TaskRank.between(last ? last.rank : null, null),
+      Placement.atTheBack(await this.tasks.placementsAt(arriving.id)),
       saying,
     );
 
-    const station = line.stationAt(arriving);
-    const runId = station
-      ? await this.dispatch.dispatch({ task: passed, line })
-      : null;
+    const runId = await this.dispatch.dispatch({ task: passed, line });
 
     return runId ? passed.handedTo(runId) : passed;
   }

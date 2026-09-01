@@ -17,7 +17,11 @@ export function useAddTask() {
     mutationFn: async ({ teamId, lineId, stationId, task }: AddTaskInput) => {
       const { data } = await addTask({
         path: { teamId, lineId, stationId },
-        body: { title: task.title, description: task.description || null },
+        body: {
+          title: task.title,
+          description: task.description || null,
+          repository: task.repository,
+        },
         throwOnError: true,
       });
       return data;

@@ -1,5 +1,6 @@
 import { Inbox } from 'lucide-react';
 import { Link } from 'react-router';
+import { InProgress } from '@/components/common/InProgress';
 import { Pill } from '@/components/common/Pill';
 import type { Task } from '@/lib/task';
 
@@ -26,18 +27,7 @@ export function TaskState({ task, reviewTo }: TaskStateProps) {
   }
 
   if (task.running) {
-    return (
-      <Pill
-        lead={
-          <span
-            className="size-2 shrink-0 rounded-full bg-primary"
-            aria-hidden
-          />
-        }
-      >
-        In progress
-      </Pill>
-    );
+    return <InProgress />;
   }
 
   return null;

@@ -3,7 +3,7 @@ import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Factory } from '@domain/aggregates/factory.aggregate';
 import { TeamCreated } from '@domain/events/team-created.event';
-import { DEFAULT_TEMPLATE } from '@domain/value-objects/built-in-templates';
+import { BUILT_IN_STATIONS } from '@domain/services/built-in-stations';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -47,21 +47,15 @@ describe('ProvisionFactory', () => {
     expect(opened?.workspaceId).toEqual(WorkspaceId.of('ws_1'));
   });
 
-  it('paints each station the colour its template asked for', async () => {
-    await provision();
-
-    expect(seeded?.worked.map((each) => each.color.value)).toEqual(
-      DEFAULT_TEMPLATE.stations.map((each) => each.color.value),
-    );
-  });
-
-  it('seeds that factory with a line off the default template', async () => {
+  it('opens the line every line opens with', async () => {
     await provision();
 
     expect(seeded?.factoryId).toEqual(opened?.id);
-    expect(seeded?.name.value).toBe(DEFAULT_TEMPLATE.name.value);
-    expect(seeded?.worked.map((each) => each.name.value)).toEqual(
-      DEFAULT_TEMPLATE.stations.map((each) => each.name.value),
+    expect(seeded?.stations.map((each) => each.name.value)).toEqual(
+      BUILT_IN_STATIONS.map((each) => each.name.value),
+    );
+    expect(seeded?.stations.map((each) => each.color.value)).toEqual(
+      BUILT_IN_STATIONS.map((each) => each.color.value),
     );
   });
 });

@@ -78,11 +78,41 @@ func (c *Client) Installable(ctx context.Context) ([]protocol.Installable, error
 // empty answer: the caller must not read silence as permission to delete.
 func (c *Client) Kept(ctx context.Context) ([]string, error) {
 	var out protocol.Kept
-	if err := c.do(ctx, http.MethodGet, "/api/runners/workspaces/retain", nil, &out); err != nil {
+	if err := c.do(ctx, http.MethodGet, "/api/runners/workspaces", nil, &out); err != nil {
 		return nil, fmt.Errorf("ask what to keep: %w", err)
 	}
 
 	return out.Keys, nil
+}
+
+// OpenPullRequest asks the control plane to open one for this run's branch.
+// What reaches GitHub is Spotlight's, so nothing here carries a credential of
+// its own beyond the runner's own token.
+func (c *Client) OpenPullRequest(
+	ctx context.Context, runID string, asked protocol.PullRequest,
+) (string, error) {
+	var out protocol.Opened
+	path := "/api/runs/" + runID + "/pull-request"
+
+	if err := c.do(ctx, http.MethodPost, path, asked, &out); err != nil {
+		return "", fmt.Errorf("open a pull request: %w", err)
+	}
+
+	return out.URL, nil
+}
+
+// AnswerRemark says something back on the pull request, and resolves the
+// thread where the agent asked for that.
+func (c *Client) AnswerRemark(
+	ctx context.Context, runID string, said protocol.Remark,
+) error {
+	path := "/api/runs/" + runID + "/remark"
+
+	if err := c.do(ctx, http.MethodPost, path, said, nil); err != nil {
+		return fmt.Errorf("answer a remark: %w", err)
+	}
+
+	return nil
 }
 
 // Claim long-polls for work. An empty queue returns nil, nil, not an error.

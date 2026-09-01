@@ -23,6 +23,13 @@ const line = AssemblyLine.of({
       color: StationColor.of('#a3a8b0'),
       kind: 'backlog',
     }),
+    Station.create({
+      id: StationId.of('station_2'),
+      name: StationName.of('Completed'),
+      position: 1,
+      color: StationColor.of('#a3a8b0'),
+      kind: 'completed',
+    }),
   ],
 });
 
@@ -41,6 +48,16 @@ describe('AssemblyLineMapper.lineToDto', () => {
           harness: null,
           agentPrompt: null,
           kind: 'backlog',
+        },
+        {
+          id: 'station_2',
+          name: 'Completed',
+          position: 1,
+          color: '#a3a8b0',
+          description: null,
+          harness: null,
+          agentPrompt: null,
+          kind: 'completed',
         },
       ],
     });

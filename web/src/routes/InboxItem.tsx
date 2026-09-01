@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useParams } from 'react-router';
+import { useParams, useSearchParams } from 'react-router';
 import { InitialAvatar } from '@/components/common/avatar/InitialAvatar';
 import { Conversation } from '@/components/inbox/Conversation';
 import { InboxAsked } from '@/components/inbox/InboxAsked';
@@ -12,11 +12,13 @@ import { useReadInboxItem } from '@/hooks/api/useReadInboxItem';
 import { useSession } from '@/hooks/api/useSession';
 import { useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { shownAt } from '@/lib/inbox';
 import { taskPath } from '@/lib/task';
 import { teamPath } from '@/lib/team';
 
 export function InboxItem() {
   const { slug, itemId } = useParams();
+  const [params] = useSearchParams();
   const { data: waiting } = useInbox(slug);
   const item = waiting?.find((each) => each.id === itemId);
   const { data: worked } = useTaskJournal(slug, item?.taskId);
@@ -94,6 +96,7 @@ export function InboxItem() {
         }}
         worked={worked ?? []}
         viewerId={session?.user.id}
+        openAt={shownAt(item.notes, params.get('run'))}
         opening={
           item.briefing ? (
             <RunBriefing briefing={item.briefing} />
@@ -104,8 +107,9 @@ export function InboxItem() {
         footer={
           item.resolved ? (
             <p className="text-center text-muted-foreground text-xs">
-              This moved on to {item.standsAt.name}. There is nothing left to
-              answer.
+              {item.standsAt.name === item.station
+                ? 'This is settled. There is nothing left to answer.'
+                : `This moved on to ${item.standsAt.name}. There is nothing left to answer.`}
             </p>
           ) : (
             <InboxComposer

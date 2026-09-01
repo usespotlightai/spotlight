@@ -2,7 +2,9 @@ import { ReadInboxItemHandler } from '@application/commands/handlers/read-inbox-
 import { ReadInboxItemCommand } from '@application/commands/read-inbox-item.command';
 import { UseCaseFault } from '@application/errors/use-case.fault';
 import type { ClockPort } from '@application/ports/clock.port';
+import { ConversationAtHand } from '@application/services/conversation-at-hand.service';
 import { Task } from '@domain/aggregates/task.aggregate';
+import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { NotePosition } from '@domain/value-objects/note-position.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
@@ -11,6 +13,7 @@ import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
+import { Voice } from '@domain/value-objects/voice.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -27,6 +30,7 @@ const waiting = () =>
     now: new Date('2026-08-30T08:00:00.000Z'),
     newId: () => 'task_1',
   }).askedAbout({
+    voice: Voice.station(),
     station: StationName.of('Triage'),
     body: TaskNoteBody.of('Which queue should I drain?'),
     at: new Date('2026-08-30T08:30:00.000Z'),
@@ -44,11 +48,25 @@ const tasks = (found: Task | null) =>
     remove: vi.fn(),
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
+    withPullRequest: vi.fn(async () => null),
+    holding: vi.fn(async () => null),
   }) satisfies TaskRepository;
+
+const lines = () =>
+  ({
+    add: vi.fn(),
+    save: vi.fn(),
+    find: vi.fn(async () => null),
+    holding: vi.fn(async () => null),
+  }) satisfies AssemblyLineRepository;
 
 const read = (found: Task | null, by = 'user_1') => {
   const repository = tasks(found);
-  const handler = new ReadInboxItemHandler(repository, clock);
+  const handler = new ReadInboxItemHandler(
+    new ConversationAtHand(repository, lines()),
+    repository,
+    clock,
+  );
 
   return {
     repository,

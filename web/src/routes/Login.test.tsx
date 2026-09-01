@@ -7,16 +7,10 @@ import { authClient } from '@/lib/authClient';
 import { Login } from '@/routes/Login';
 
 vi.mock('@/lib/authClient', () => ({
-  authClient: { signIn: { email: vi.fn() } },
+  authClient: { signIn: { social: vi.fn() } },
 }));
 
-const navigate = vi.fn();
-vi.mock('react-router', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('react-router')>()),
-  useNavigate: () => navigate,
-}));
-
-const signInEmail = vi.mocked(authClient.signIn.email);
+const signInSocial = vi.mocked(authClient.signIn.social);
 
 const renderPage = () =>
   render(
@@ -32,70 +26,50 @@ const renderPage = () =>
   );
 
 beforeEach(() => {
-  signInEmail.mockReset();
-  navigate.mockReset();
+  signInSocial.mockReset();
 });
 
 describe('Login', () => {
-  it('submits the credentials the user typed', async () => {
-    signInEmail.mockResolvedValue({
-      data: { token: 't' },
+  it('sends the person to GitHub', async () => {
+    signInSocial.mockResolvedValue({
+      data: { redirect: true },
       error: null,
     } as never);
     const user = userEvent.setup();
     renderPage();
 
-    await user.type(screen.getByLabelText('Email'), 'dev@example.com');
-    await user.type(screen.getByLabelText('Password'), 'correct-horse-battery');
-    await user.click(screen.getByRole('button', { name: 'Log in' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Continue with GitHub' }),
+    );
 
-    expect(signInEmail).toHaveBeenCalledWith({
-      email: 'dev@example.com',
-      password: 'correct-horse-battery',
+    expect(signInSocial).toHaveBeenCalledWith({
+      provider: 'github',
+      callbackURL: '/',
     });
   });
 
   it('renders the server error', async () => {
-    signInEmail.mockResolvedValue({
+    signInSocial.mockResolvedValue({
       data: null,
-      error: { message: 'Invalid email or password', status: 401 },
+      error: { message: 'GitHub is not reachable', status: 502 },
     } as never);
     const user = userEvent.setup();
     renderPage();
 
-    await user.type(screen.getByLabelText('Email'), 'dev@example.com');
-    await user.type(screen.getByLabelText('Password'), 'wrong-password');
-    await user.click(screen.getByRole('button', { name: 'Log in' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Continue with GitHub' }),
+    );
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Invalid email or password',
+      'GitHub is not reachable',
     );
   });
 
-  it('labels both fields for assistive tech despite showing only placeholders', () => {
+  it('offers no other way in', () => {
     renderPage();
 
-    expect(screen.getByLabelText('Email')).toHaveAttribute('type', 'email');
-    expect(screen.getByLabelText('Password')).toHaveAttribute(
-      'type',
-      'password',
-    );
-  });
-
-  it('replaces the form in history so Back does not return to it', async () => {
-    signInEmail.mockResolvedValue({
-      data: { token: 't' },
-      error: null,
-    } as never);
-    const user = userEvent.setup();
-    renderPage();
-
-    await user.type(screen.getByLabelText('Email'), 'dev@example.com');
-    await user.type(screen.getByLabelText('Password'), 'correct-horse-battery');
-    await user.click(screen.getByRole('button', { name: 'Log in' }));
-
-    await vi.waitFor(() =>
-      expect(navigate).toHaveBeenCalledWith('/', { replace: true }),
-    );
+    expect(screen.queryByLabelText('Email')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Password')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button')).toHaveLength(1);
   });
 });

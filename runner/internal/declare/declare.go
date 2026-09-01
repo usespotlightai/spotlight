@@ -5,6 +5,7 @@
 package declare
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -12,8 +13,10 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"path"
 	"strings"
 	"sync"
+	"unicode/utf16"
 
 	"usespotlight.ai/runner/internal/protocol"
 )
@@ -29,11 +32,26 @@ const (
 	TokenVar = "SPOTLIGHT_HANDOVER_TOKEN"
 )
 
+// PullRequestPath is where the agent asks for one, behind the same token.
+const PullRequestPath = "/pull-request"
+
+// RemarkPath is where the agent answers something said on the pull request.
+const RemarkPath = "/remark"
+
+// Opener is the runner's, so nothing that reaches GitHub is in the agent's.
+type Opener func(ctx context.Context, asked protocol.PullRequest) (string, error)
+
+// Answerer is likewise the runner's, for answering what was said on one.
+type Answerer func(ctx context.Context, said protocol.Remark) error
+
 type Server struct {
-	listener net.Listener
-	http     *http.Server
-	token    string
-	options  []string
+	listener  net.Listener
+	http      *http.Server
+	token     string
+	options   []string
+	noteLimit int
+	open      Opener
+	answer    Answerer
 
 	mu       sync.Mutex
 	declared *protocol.Outcome
@@ -43,7 +61,9 @@ type Server struct {
 
 // Serve listens on a loopback port of the operating system's choosing. The
 // token it mints is no secret from the agent, and good for nothing else.
-func Serve(options []string) (*Server, error) {
+func Serve(
+	options []string, noteLimit int, open Opener, answer Answerer,
+) (*Server, error) {
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
 		return nil, fmt.Errorf("mint a handover token: %w", err)
@@ -55,10 +75,13 @@ func Serve(options []string) (*Server, error) {
 	}
 
 	server := &Server{
-		listener: listener,
-		token:    hex.EncodeToString(raw),
-		options:  options,
-		spoken:   make(chan struct{}),
+		listener:  listener,
+		token:     hex.EncodeToString(raw),
+		options:   options,
+		noteLimit: noteLimit,
+		open:      open,
+		answer:    answer,
+		spoken:    make(chan struct{}),
 	}
 	server.http = &http.Server{Handler: server}
 
@@ -110,6 +133,16 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
+	if path.Clean(request.URL.Path) == PullRequestPath {
+		s.pullRequest(writer, request)
+		return
+	}
+
+	if path.Clean(request.URL.Path) == RemarkPath {
+		s.remark(writer, request)
+		return
+	}
+
 	var spoken protocol.Outcome
 	if err := json.NewDecoder(request.Body).Decode(&spoken); err != nil {
 		refuse(writer, http.StatusBadRequest, "unreadable handover")
@@ -126,6 +159,17 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
+	// Said here, while the agent is still working and can shorten it. The
+	// control plane refuses the same note, and by then the run is over.
+	if written := noteLength(spoken.Note); s.noteLimit > 0 && written > s.noteLimit {
+		refuse(writer, http.StatusUnprocessableEntity, fmt.Sprintf(
+			"your note is %d characters and the limit is %d: say it shorter and hand over again",
+			written, s.noteLimit,
+		))
+
+		return
+	}
+
 	s.mu.Lock()
 	s.declared = &protocol.Outcome{Next: next, Note: spoken.Note}
 	s.mu.Unlock()
@@ -133,6 +177,63 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	s.once.Do(func() { close(s.spoken) })
 
 	writer.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) remark(writer http.ResponseWriter, request *http.Request) {
+	if s.answer == nil {
+		refuse(writer, http.StatusNotImplemented, "this run cannot answer one")
+		return
+	}
+
+	var said protocol.Remark
+	if err := json.NewDecoder(request.Body).Decode(&said); err != nil {
+		refuse(writer, http.StatusBadRequest, "unreadable answer")
+		return
+	}
+
+	if strings.TrimSpace(said.Handle) == "" {
+		refuse(writer, http.StatusUnprocessableEntity, "say which remark")
+		return
+	}
+
+	if strings.TrimSpace(said.Body) == "" {
+		refuse(writer, http.StatusUnprocessableEntity, "say something back")
+		return
+	}
+
+	if err := s.answer(request.Context(), said); err != nil {
+		refuse(writer, http.StatusBadGateway, err.Error())
+		return
+	}
+
+	writer.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) pullRequest(writer http.ResponseWriter, request *http.Request) {
+	if s.open == nil {
+		refuse(writer, http.StatusNotImplemented, "this run cannot open one")
+		return
+	}
+
+	var asked protocol.PullRequest
+	if err := json.NewDecoder(request.Body).Decode(&asked); err != nil {
+		refuse(writer, http.StatusBadRequest, "unreadable request")
+		return
+	}
+
+	if strings.TrimSpace(asked.Title) == "" {
+		refuse(writer, http.StatusUnprocessableEntity, "say what to call it")
+		return
+	}
+
+	where, err := s.open(request.Context(), asked)
+	if err != nil {
+		refuse(writer, http.StatusBadGateway, err.Error())
+		return
+	}
+
+	writer.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(writer).Encode(protocol.Opened{URL: where})
 }
 
 // option matches however the agent cased it and answers with the control
@@ -145,6 +246,12 @@ func (s *Server) option(spoken string) (string, bool) {
 	}
 
 	return "", false
+}
+
+// noteLength counts the way the control plane counts, so a note that passes
+// here is not refused there: JavaScript measures a string in UTF-16 units.
+func noteLength(note string) int {
+	return len(utf16.Encode([]rune(strings.TrimSpace(note))))
 }
 
 // refuse says why in plain text, because the agent reads what it is told.

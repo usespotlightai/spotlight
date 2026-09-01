@@ -1,13 +1,13 @@
-import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
 import { TakeUpStandingWork } from '@application/services/take-up-standing-work.service';
+import type { TaskDispatching } from '@application/services/task-dispatch';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { Station } from '@domain/entities/station.entity';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
-import { CLAUDE_CODE } from '@domain/value-objects/built-in-harnesses';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
+import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
@@ -17,10 +17,11 @@ import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
+import { Voice } from '@domain/value-objects/voice.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const at = (name: string, harness = CLAUDE_CODE.id) =>
+const at = (name: string, harness = HarnessId.of('dev')) =>
   Station.create({
     id: StationId.of('station_1'),
     name: StationName.of(name),
@@ -56,23 +57,37 @@ let saved: Task[] = [];
 const tasks = {
   standingAt: vi.fn(async () => standing),
   placementsAt: vi.fn(async () => []),
+  withPullRequest: vi.fn(async () => null),
+  holding: vi.fn(async () => null),
   save: vi.fn(async (task: Task) => {
     saved.push(task);
   }),
 } as unknown as TaskRepository;
 
 const dispatched = vi.fn(async () => RunId.of('run_1'));
-const dispatch = { dispatch: dispatched } as unknown as TaskDispatchPort;
+const dispatch = { dispatch: dispatched } as unknown as TaskDispatching;
+
+const ends = (id: string, name: string, position: number) =>
+  Station.create({
+    id: StationId.of(id),
+    name: StationName.of(name),
+    position,
+    color: StationColor.of('#a3a8b0'),
+    kind: position === 0 ? 'backlog' : 'completed',
+  });
 
 const takeUp = (station: Station) =>
   new TakeUpStandingWork(tasks, dispatch).takeUp({
-    line: AssemblyLine.opened({
+    line: AssemblyLine.of({
       id: AssemblyLineId.of('line_1'),
       workspaceId: WorkspaceId.of('ws_1'),
       factoryId: FactoryId.of('factory_1'),
       name: AssemblyLineName.of('Default'),
-      stations: [station.movedTo(1)],
-      newId: () => 'backlog_1',
+      stations: [
+        ends('backlog_1', 'Backlog', 0),
+        station.movedTo(1),
+        ends('completed_1', 'Completed', 2),
+      ],
     }),
     stationId: station.id,
   });
@@ -111,9 +126,11 @@ describe('TakeUpStandingWork', () => {
     standing = [
       waiting().askedAbout(
         TaskNote.of({
+          voice: Voice.station(),
           station: StationName.of('Triage'),
           body: TaskNoteBody.of('Which queue did you mean?'),
           at: new Date('2026-08-28T12:00:00.000Z'),
+          kind: 'passed',
         }),
       ),
     ];

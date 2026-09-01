@@ -40,6 +40,12 @@ jobs:
   e2e:
     name: e2e
     runs-on: ubuntu-latest
+    env:
+      GITHUB_CLIENT_ID: ci
+      GITHUB_CLIENT_SECRET: ci
+      GITHUB_APP_ID: ci
+      GITHUB_APP_PRIVATE_KEY: ci
+      GITHUB_APP_INSTALLATION_ID: ci
     steps:
       - uses: actions/checkout@v7
 

@@ -1,9 +1,12 @@
 import { Task } from '@domain/aggregates/task.aggregate';
+import { Station } from '@domain/entities/station.entity';
 import { InvalidTaskTransitionError } from '@domain/exceptions/invalid-task-transition.error';
 import { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { NotePosition } from '@domain/value-objects/note-position.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
+import { Said } from '@domain/value-objects/said.vo';
+import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskDescription } from '@domain/value-objects/task-description.vo';
@@ -12,6 +15,7 @@ import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
+import { Voice } from '@domain/value-objects/voice.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -32,6 +36,9 @@ const withNotes = (task: Task, ...notes: TaskNote[]) =>
     createdAt: task.createdAt,
     raisedAt: task.raisedAt,
     raisedBy: task.raisedBy,
+    repository: task.repository,
+    pullRequest: task.pullRequest,
+    finishedAt: task.finishedAt,
   });
 
 const added = (description?: TaskDescription) =>
@@ -48,10 +55,20 @@ const added = (description?: TaskDescription) =>
 
 const NOW = new Date('2026-08-29T12:00:00.000Z');
 
+const at = (id: string, name = 'Spec', kind: 'work' | 'completed' = 'work') =>
+  Station.create({
+    id: StationId.of(id),
+    name: StationName.of(name),
+    position: kind === 'completed' ? 9 : 2,
+    color: StationColor.of('#a3a8b0'),
+    kind,
+  });
+
 const saying = {
   station: StationName.of('Triage'),
   body: TaskNoteBody.of('Reproduced on restart.'),
   at: NOW,
+  voice: Voice.station(),
 };
 
 describe('Task', () => {
@@ -78,18 +95,14 @@ describe('Task', () => {
   });
 
   it('stands at the station it was moved to', () => {
-    const moved = added().moveTo(
-      StationId.of('station_2'),
-      TaskRank.of('m'),
-      saying,
-    );
+    const moved = added().moveTo(at('station_2'), TaskRank.of('m'), saying);
 
     expect(moved.stationId).toEqual(StationId.of('station_2'));
   });
 
   it('keeps everything else across a move', () => {
     const moved = added(TaskDescription.of('## Steps')).moveTo(
-      StationId.of('station_2'),
+      at('station_2'),
       TaskRank.of('m'),
       saying,
     );
@@ -101,7 +114,7 @@ describe('Task', () => {
 
   it('leaves the task it was moved from where it stood', () => {
     const task = added();
-    task.moveTo(StationId.of('station_2'), TaskRank.of('m'), saying);
+    task.moveTo(at('station_2'), TaskRank.of('m'), saying);
 
     expect(task.stationId).toEqual(StationId.of('station_1'));
   });
@@ -117,9 +130,11 @@ describe('Task', () => {
     const worked = withNotes(
       added(),
       TaskNote.of({
+        voice: Voice.station(),
         station: StationName.of('Triage'),
         body: TaskNoteBody.of('Reproduced on restart.'),
         at: new Date('2026-08-28T10:00:00.000Z'),
+        kind: 'passed',
       }),
     );
 
@@ -132,14 +147,18 @@ describe('Task', () => {
     const worked = withNotes(
       added(),
       TaskNote.of({
+        voice: Voice.station(),
         station: StationName.of('Triage'),
         body: TaskNoteBody.of('First'),
         at: new Date('2026-08-28T10:00:00.000Z'),
+        kind: 'passed',
       }),
       TaskNote.of({
+        voice: Voice.station(),
         station: StationName.of('Spec'),
         body: TaskNoteBody.of('Second'),
         at: new Date('2026-08-28T11:00:00.000Z'),
+        kind: 'passed',
       }),
     );
 
@@ -155,11 +174,13 @@ describe('Task', () => {
     const worked = withNotes(
       added(),
       TaskNote.of({
+        voice: Voice.station(),
         station: StationName.of('Triage'),
         body: TaskNoteBody.of('Reproduced.'),
         at: new Date('2026-08-28T10:00:00.000Z'),
+        kind: 'passed',
       }),
-    ).moveTo(StationId.of('station_2'), TaskRank.of('m'), saying);
+    ).moveTo(at('station_2'), TaskRank.of('m'), saying);
 
     expect(worked.notes).toHaveLength(2);
     expect(worked.notes[0]?.body.value).toBe('Reproduced.');
@@ -185,9 +206,11 @@ describe('Task, what it is doing', () => {
 
   const asked = () =>
     TaskNote.of({
+      voice: Voice.station(),
       station: StationName.of('Triage'),
       body: TaskNoteBody.of('Which queue did you mean?'),
       at: new Date('2026-08-28T12:00:00.000Z'),
+      kind: 'passed',
     });
 
   it('is idle when nobody has taken it up', () => {
@@ -242,7 +265,7 @@ describe('Task, what it is doing', () => {
     it('is left behind when the task is passed on', () => {
       const passed = added()
         .workedIn(session, runner)
-        .passedTo(StationId.of('station_2'), TaskRank.of('m'), saying);
+        .moveTo(at('station_2'), TaskRank.of('m'), saying);
 
       expect(passed.sessionId).toBeNull();
       expect(passed.runnerId).toBeNull();
@@ -251,7 +274,7 @@ describe('Task, what it is doing', () => {
     it('is left behind when the task is moved by hand', () => {
       const moved = added()
         .workedIn(session, runner)
-        .moveTo(StationId.of('station_2'), TaskRank.of('m'), saying);
+        .moveTo(at('station_2'), TaskRank.of('m'), saying);
 
       expect(moved.sessionId).toBeNull();
       expect(moved.runnerId).toBeNull();
@@ -313,7 +336,7 @@ describe('Task, what it is doing', () => {
     it('stops waiting once the task is moved by hand', () => {
       const moved = added()
         .askedAbout(saying)
-        .moveTo(StationId.of('station_2'), TaskRank.of('m'), saying);
+        .moveTo(at('station_2'), TaskRank.of('m'), saying);
 
       expect(moved.awaitingReview).toBe(false);
     });
@@ -344,7 +367,7 @@ describe('Task, what it is doing', () => {
     it('owes nothing once it has moved on', () => {
       const passed = added()
         .askedAbout(saying)
-        .passedTo(StationId.of('station_2'), TaskRank.of('m'), saying);
+        .moveTo(at('station_2'), TaskRank.of('m'), saying);
 
       expect(passed.openConversation).toBeNull();
     });
@@ -400,7 +423,7 @@ describe('Task, what it is doing', () => {
       const carried = asked()
         .answered(NotePosition.of(0), {
           ...saying,
-          author: UserId.of('user_1'),
+          voice: Voice.person(UserId.of('user_1')),
         })
         .askedAbout(saying)
         .read(NotePosition.of(0), READ);
@@ -417,7 +440,7 @@ describe('Task, what it is doing', () => {
         .read(NotePosition.of(0), READ)
         .answered(NotePosition.of(0), {
           ...saying,
-          author: UserId.of('user_1'),
+          voice: Voice.person(UserId.of('user_1')),
         })
         .askedAbout(saying);
 
@@ -433,34 +456,32 @@ describe('Task, what it is doing', () => {
 
   describe('saying something to the agent working it', () => {
     const here = StationId.of('station_1');
+    // A person's, because a station's own words never wait on itself.
+    const aloud = { ...saying, voice: Voice.person(UserId.of('user_1')) };
 
     it('joins the trail where the task still stands', () => {
-      const told = added().told(here, saying);
+      const told = added().heard(aloud, here);
 
       expect(told.notes[0]?.kind).toBe('said');
       expect(told.notes[0]?.body.value).toBe('Reproduced on restart.');
     });
 
     it('waits to be delivered', () => {
-      expect(added().told(here, saying).undelivered).toHaveLength(1);
+      expect(added().heard(aloud, here).undelivered).toHaveLength(1);
     });
 
     it('is delivered once the agent has been given it', () => {
       const told = added()
-        .told(here, saying)
+        .heard(aloud, here)
         .deliveredUpTo(NotePosition.of(0), NOW);
 
       expect(told.undelivered).toHaveLength(0);
     });
 
     it('will not be said to a station the task has left', () => {
-      const moved = added().passedTo(
-        StationId.of('station_2'),
-        TaskRank.of('m'),
-        saying,
-      );
+      const moved = added().moveTo(at('station_2'), TaskRank.of('m'), saying);
 
-      expect(() => moved.told(here, saying)).toThrow(
+      expect(() => moved.heard(aloud, here)).toThrow(
         InvalidTaskTransitionError,
       );
     });
@@ -468,6 +489,60 @@ describe('Task, what it is doing', () => {
     // Only what a person said to an agent ever waits to be handed over.
     it('leaves what a station said out of what is undelivered', () => {
       expect(added().askedAbout(saying).undelivered).toHaveLength(0);
+    });
+  });
+
+  describe('answering what was said on the pull request', () => {
+    const spoken = {
+      ...saying,
+      voice: Voice.world(),
+      said: Said.of({
+        body: 'pin this.',
+        path: 'compose.yml',
+        from: 22,
+        remark: 'PRRC_kwDO',
+      }),
+    };
+
+    it('offers what nobody has answered, and nothing else', () => {
+      const heard = added().heard(spoken);
+
+      expect(heard.openRemarks.map((each) => each.at.value)).toEqual([0]);
+      expect(added().askedAbout(saying).openRemarks).toEqual([]);
+    });
+
+    it('says what it said back, and marks the remark answered', () => {
+      const replied = added()
+        .heard(spoken)
+        .repliedTo(NotePosition.of(0), saying);
+
+      expect(replied.notes[0]?.answeredAt).toEqual(NOW);
+      expect(replied.openRemarks).toEqual([]);
+      expect(replied.notes[1]?.kind).toBe('said');
+      expect(replied.notes[1]?.voice.isStation).toBe(true);
+    });
+
+    // Its own answer is not work to hand itself.
+    it('leaves what it said back out of what is undelivered', () => {
+      const replied = added()
+        .heard(spoken)
+        .deliveredUpTo(NotePosition.of(0), NOW)
+        .repliedTo(NotePosition.of(0), saying);
+
+      expect(replied.undelivered).toEqual([]);
+    });
+
+    it('will not answer a remark twice, or one that was never made', () => {
+      const replied = added()
+        .heard(spoken)
+        .repliedTo(NotePosition.of(0), saying);
+
+      expect(() => replied.repliedTo(NotePosition.of(0), saying)).toThrow(
+        InvalidTaskTransitionError,
+      );
+      expect(() => added().repliedTo(NotePosition.of(0), saying)).toThrow(
+        InvalidTaskTransitionError,
+      );
     });
   });
 
@@ -489,14 +564,14 @@ describe('Task, what it is doing', () => {
     // again, which is a loop rather than progress.
     it('will not be passed to the station it already stands at', () => {
       expect(() =>
-        added().passedTo(StationId.of('station_1'), TaskRank.of('m'), saying),
+        added().moveTo(at('station_1'), TaskRank.of('m'), saying),
       ).toThrow(InvalidTaskTransitionError);
     });
 
     it('will not answer a conversation that has already closed', () => {
       const carried = added()
         .askedAbout(saying)
-        .passedTo(StationId.of('station_2'), TaskRank.of('m'), saying)
+        .moveTo(at('station_2'), TaskRank.of('m'), saying)
         .askedAbout(saying);
 
       expect(() => carried.answered(NotePosition.of(0), saying)).toThrow(
@@ -509,8 +584,41 @@ describe('Task, what it is doing', () => {
 
     it('will not be moved to the station it already stands at', () => {
       expect(() =>
-        added().moveTo(StationId.of('station_1'), TaskRank.of('m'), saying),
+        added().moveTo(at('station_1'), TaskRank.of('m'), saying),
       ).toThrow(InvalidTaskTransitionError);
+    });
+
+    // What the line is done with, the world can hand back to it.
+    it('is finished once a run has nothing further to do with it', () => {
+      const ended = added().finishedHere(saying);
+
+      expect(ended.finished).toBe(true);
+      expect(ended.currentRunId).toBeNull();
+      expect(ended.heard({ ...saying, voice: Voice.world() }).finished).toBe(
+        false,
+      );
+    });
+
+    it('finishes the task when it is moved to the end of the line', () => {
+      const landed = added().moveTo(
+        at('completed_1', 'Completed', 'completed'),
+        TaskRank.of('m'),
+        saying,
+      );
+
+      expect(landed.finished).toBe(true);
+      expect(landed.currentRunId).toBeNull();
+    });
+
+    it('is unfinished again once a person answers what was put to them', () => {
+      const asked = added().finishedHere(saying).askedAbout(saying);
+
+      expect(
+        asked.answered(NotePosition.of(1), {
+          ...saying,
+          voice: Voice.person(UserId.of('user_1')),
+        }).finished,
+      ).toBe(false);
     });
   });
 });

@@ -1,28 +1,29 @@
 import { unread } from '@domain/services/unread';
-import type { RunId } from '@domain/value-objects/run-id.vo';
+import type { Remark } from '@domain/value-objects/remark.vo';
+import type { Said } from '@domain/value-objects/said.vo';
 import type { StationName } from '@domain/value-objects/station-name.vo';
 import type { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
-import type { UserId } from '@domain/value-objects/user-id.vo';
+import type { Voice } from '@domain/value-objects/voice.vo';
 
-/** What a note did: put the task to a person, moved it on, or answered. */
-export type TaskNoteKind = 'asked' | 'passed' | 'answered' | 'said';
+export const TASK_NOTE_KINDS = ['asked', 'passed', 'answered', 'said'] as const;
+
+/** What a note did: put the task to a person, settled it, or said a thing. */
+export type TaskNoteKind = (typeof TASK_NOTE_KINDS)[number];
 
 export class TaskNote {
   private constructor(
     readonly station: StationName,
     readonly body: TaskNoteBody,
     readonly at: Date,
-    // Who said it. Absent is the station speaking, which is what every note
-    // was until a person could answer one.
-    readonly author: UserId | null,
-    // The run whose ending wrote it, where one did. What the agent did to
-    // arrive at it is that run's journal.
-    readonly run: RunId | null,
+    readonly voice: Voice,
+    // What the world said, kept as it was said rather than only as it reads.
+    readonly said: Said | null,
+    // When the line answered that remark, so it is not answered twice.
+    readonly answeredAt: Date | null,
     // An 'asked' opens a conversation a person owns; a 'passed' closes it.
     readonly kind: TaskNoteKind,
     readonly readAt: Date | null,
-    // When it was handed to the agent working the task. Only what a person
-    // said to one is ever waiting to be delivered.
+    // When it was handed to the agent working the task.
     readonly deliveredAt: Date | null,
   ) {}
 
@@ -30,9 +31,10 @@ export class TaskNote {
     station: StationName;
     body: TaskNoteBody;
     at: Date;
-    author?: UserId | null;
-    run?: RunId | null;
-    kind?: TaskNoteKind;
+    voice: Voice;
+    said?: Said | null;
+    answeredAt?: Date | null;
+    kind: TaskNoteKind;
     readAt?: Date | null;
     deliveredAt?: Date | null;
   }): TaskNote {
@@ -40,9 +42,10 @@ export class TaskNote {
       input.station,
       input.body,
       input.at,
-      input.author ?? null,
-      input.run ?? null,
-      input.kind ?? 'passed',
+      input.voice,
+      input.said ?? null,
+      input.answeredAt ?? null,
+      input.kind,
       input.readAt ?? null,
       input.deliveredAt ?? null,
     );
@@ -52,9 +55,24 @@ export class TaskNote {
     return unread(this);
   }
 
-  /** Said to an agent and not yet handed to one. */
+  /** A person speaking and the world happening both interrupt a run. */
   get undelivered(): boolean {
-    return this.kind === 'said' && this.deliveredAt === null;
+    return (
+      this.kind === 'said' && !this.voice.isStation && this.deliveredAt === null
+    );
+  }
+
+  get remark(): Remark | null {
+    return this.said?.remark ?? null;
+  }
+
+  /** Answerable while the world said it somewhere and nobody has answered. */
+  get open(): boolean {
+    return this.remark !== null && this.answeredAt === null;
+  }
+
+  answered(at: Date): TaskNote {
+    return this.open ? this.with({ answeredAt: at }) : this;
   }
 
   delivered(at: Date): TaskNote {
@@ -65,13 +83,18 @@ export class TaskNote {
     return this.unread ? this.with({ readAt: at }) : this;
   }
 
-  private with(part: { readAt?: Date; deliveredAt?: Date }): TaskNote {
+  private with(part: {
+    readAt?: Date;
+    deliveredAt?: Date;
+    answeredAt?: Date;
+  }): TaskNote {
     return new TaskNote(
       this.station,
       this.body,
       this.at,
-      this.author,
-      this.run,
+      this.voice,
+      this.said,
+      part.answeredAt ?? this.answeredAt,
       this.kind,
       part.readAt ?? this.readAt,
       part.deliveredAt ?? this.deliveredAt,

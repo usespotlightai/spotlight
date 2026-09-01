@@ -4,7 +4,8 @@ import { UseCaseFault } from '@application/errors/use-case.fault';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { PersonReaderPort } from '@application/ports/person-reader.port';
-import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
+import type { TransactionPort } from '@application/ports/transaction.port';
+import type { TaskDispatching } from '@application/services/task-dispatch';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Task } from '@domain/aggregates/task.aggregate';
 import { Station } from '@domain/entities/station.entity';
@@ -50,12 +51,19 @@ const line = () =>
         harness: HarnessId.of('dev'),
         agentPrompt: AgentPrompt.of('## Role'),
       }),
+      Station.create({
+        id: StationId.of('station_2'),
+        name: StationName.of('Completed'),
+        position: 2,
+        color: StationColor.of('#a3a8b0'),
+        kind: 'completed',
+      }),
     ],
   });
 
 const dispatched: { harness: string; priority: number; brief: string }[] = [];
 
-const dispatch = (runId: string | null = 'run_1'): TaskDispatchPort => ({
+const dispatch = (runId: string | null = 'run_1'): TaskDispatching => ({
   dispatch: async ({ task, line }) => {
     const station = line.stationAt(task.stationId);
 
@@ -83,7 +91,11 @@ const tasks = () =>
     remove: vi.fn(),
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
+    withPullRequest: vi.fn(async () => null),
+    holding: vi.fn(async () => null),
   }) satisfies TaskRepository;
+
+const transaction: TransactionPort = { run: (work) => work() };
 
 const lines = (found: AssemblyLine | null = line()) =>
   ({
@@ -97,9 +109,15 @@ const addTask = (
   command: AddTaskCommand,
   board: AssemblyLineRepository = lines(),
 ) =>
-  new AddTaskHandler(tasks(), board, ids, clock, dispatch(), people).execute(
-    command,
-  );
+  new AddTaskHandler(
+    tasks(),
+    board,
+    ids,
+    clock,
+    dispatch(),
+    people,
+    transaction,
+  ).execute(command);
 
 beforeEach(() => {
   added = undefined;
@@ -120,6 +138,7 @@ describe('AddTaskHandler', () => {
           'Fix the queue',
           null,
           'user_1',
+          null,
         ),
       ),
     ).resolves.toEqual({
@@ -132,6 +151,8 @@ describe('AddTaskHandler', () => {
       // Dispatched the moment it was raised, so it is already being worked.
       running: true,
       awaitingReview: null,
+      repository: null,
+      pullRequest: null,
       raisedBy: raiser,
       note: null,
     });
@@ -145,6 +166,7 @@ describe('AddTaskHandler', () => {
         'Fix the queue',
         null,
         'user_1',
+        null,
       ),
     );
 
@@ -159,6 +181,7 @@ describe('AddTaskHandler', () => {
         'Fix it',
         '## Steps\n\nGo.',
         'user_1',
+        null,
       ),
     );
 
@@ -173,6 +196,7 @@ describe('AddTaskHandler', () => {
         'Fix the queue',
         null,
         'user_1',
+        null,
       ),
     );
 
@@ -190,6 +214,7 @@ describe('AddTaskHandler', () => {
         'Think about it',
         null,
         'user_1',
+        null,
       ),
     );
 
@@ -206,6 +231,7 @@ describe('AddTaskHandler', () => {
           'Fix it',
           null,
           'user_1',
+          null,
         ),
       ),
     ).rejects.toThrow(UseCaseFault);
@@ -220,6 +246,7 @@ describe('AddTaskHandler', () => {
           'Fix it',
           null,
           'user_1',
+          null,
         ),
         lines(null),
       ),
@@ -228,7 +255,9 @@ describe('AddTaskHandler', () => {
 
   it('refuses a task with no title', async () => {
     await expect(
-      addTask(new AddTaskCommand('line_1', 'station_1', '   ', null, 'user_1')),
+      addTask(
+        new AddTaskCommand('line_1', 'station_1', '   ', null, 'user_1', null),
+      ),
     ).rejects.toThrow(UseCaseFault);
   });
 });

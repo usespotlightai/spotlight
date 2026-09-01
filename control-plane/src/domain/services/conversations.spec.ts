@@ -2,6 +2,7 @@ import {
   awaitsAPerson,
   conversationsOf,
   notesIn,
+  owedIn,
   reviewsIn,
   stillOpen,
   turnOf,
@@ -70,6 +71,37 @@ describe('notesIn', () => {
   });
 });
 
+describe('owedIn', () => {
+  const said = (kind: TaskNoteKind) => ({ kind });
+
+  it('finds the one a person has not answered yet', () => {
+    expect(
+      owedIn(
+        ['passed', 'asked', 'said'].map((kind) => said(kind as TaskNoteKind)),
+      ),
+    ).toEqual({
+      from: 1,
+      to: null,
+    });
+  });
+
+  it('owes nothing where the person already answered', () => {
+    expect(
+      owedIn(['asked', 'answered'].map((kind) => said(kind as TaskNoteKind))),
+    ).toBeNull();
+  });
+
+  it('owes nothing where the task has moved on since', () => {
+    expect(
+      owedIn(['asked', 'passed'].map((kind) => said(kind as TaskNoteKind))),
+    ).toBeNull();
+  });
+
+  it('owes nothing where nobody was ever asked', () => {
+    expect(owedIn([said('passed')])).toBeNull();
+  });
+});
+
 describe('reviewsIn', () => {
   const said = (kind: TaskNoteKind, runId: string | null = null) => ({
     kind,
@@ -79,6 +111,32 @@ describe('reviewsIn', () => {
   it('owes an answer where nobody has given one', () => {
     expect([...reviewsIn([said('asked', 'run_1')])]).toEqual([
       ['run_1', { from: 0, state: 'owed' }],
+    ]);
+  });
+
+  it('points a later ask at the conversation it joined', () => {
+    expect([
+      ...reviewsIn([
+        said('asked', 'run_1'),
+        said('answered'),
+        said('asked', 'run_2'),
+      ]),
+    ]).toEqual([
+      ['run_1', { from: 0, state: 'settled' }],
+      ['run_2', { from: 0, state: 'owed' }],
+    ]);
+  });
+
+  it('opens a new one where the task moved on in between', () => {
+    expect([
+      ...reviewsIn([
+        said('asked', 'run_1'),
+        said('passed'),
+        said('asked', 'run_2'),
+      ]),
+    ]).toEqual([
+      ['run_1', { from: 0, state: 'settled' }],
+      ['run_2', { from: 2, state: 'owed' }],
     ]);
   });
 

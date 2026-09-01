@@ -15,7 +15,7 @@ const aSpec = (executable = 'sh') =>
   RunSpec.of({
     command: { executable, args: [] },
     briefing: 'do the thing',
-    handover: { options: [] },
+    handover: { options: [], noteLimit: 4_000 },
     continuity: { key: 'task:station', keep: true },
   });
 

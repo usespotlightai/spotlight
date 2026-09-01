@@ -49,7 +49,7 @@ export class CreateWorkspaceHandler
     await this.transaction.run(async () => {
       await this.workspaces.add(workspace);
 
-      for (const event of workspace.pullEvents()) {
+      for (const event of workspace.happened) {
         await this.provisioning.onTeamCreated(event);
       }
     });

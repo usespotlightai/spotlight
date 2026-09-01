@@ -25,9 +25,9 @@ export type StationResponseDto = {
    */
   agentPrompt: string | null;
   /**
-   * A backlog is where a task waits before anything works it
+   * The ends of the line: a backlog is where a task waits before anything works it, and completed is where it lands once its pull request is merged
    */
-  kind: 'backlog' | 'work';
+  kind: 'backlog' | 'work' | 'completed';
 };
 
 export type AssemblyLineResponseDto = {
@@ -168,6 +168,30 @@ export type AppendRunEventsRequestDto = {
   events: Array<RunEventRequestDto>;
 };
 
+export type OpenPullRequestRequestDto = {
+  title: string;
+  /**
+   * Markdown, shown as the pull request description
+   */
+  body?: string | null;
+};
+
+export type OpenedPullRequestResponseDto = {
+  url: string;
+};
+
+export type AnswerRemarkRequestDto = {
+  /**
+   * Which remark, as briefed
+   */
+  handle: string;
+  body: string;
+  /**
+   * Resolve the thread as well as answering it
+   */
+  resolve?: boolean;
+};
+
 export type DeclaredOutcomeDto = {
   /**
    * The station to pass the task to, or "review" to ask a person. A name this line does not know is treated as a question for a person.
@@ -209,7 +233,11 @@ export type InboxAuthorResponseDto = {
 
 export type InboxMessageResponseDto = {
   position: number;
-  kind: 'asked' | 'passed' | 'answered';
+  kind: 'asked' | 'passed' | 'answered' | 'said';
+  /**
+   * Who spoke: the station, a person, or the world outside it
+   */
+  voice: 'station' | 'person' | 'world';
   station: string;
   stationColor: string;
   /**
@@ -258,7 +286,7 @@ export type InboxItemResponseDto = {
   createdAt: string;
   askedAt: string;
   /**
-   * True once it has moved on, and is no longer yours to answer
+   * True once it is settled, and is no longer yours to answer
    */
   resolved: boolean;
   /**
@@ -373,6 +401,13 @@ export type EnrolledRunnerResponseDto = {
   token: string;
 };
 
+export type RepositoryResponseDto = {
+  /**
+   * Named the way GitHub names it, owner and all
+   */
+  fullName: string;
+};
+
 export type TaskReviewResponseDto = {
   /**
    * The inbox conversation waiting on a person
@@ -409,6 +444,14 @@ export type TaskResponseDto = {
    * Where a standing question is answered, or null for none
    */
   awaitingReview: TaskReviewResponseDto | null;
+  /**
+   * The codebase the work is done in
+   */
+  repository: string | null;
+  /**
+   * The pull request this task ended in, once one is open
+   */
+  pullRequest: string | null;
   /**
    * Who raised it, and so who it comes back to
    */
@@ -510,6 +553,10 @@ export type AddTaskRequestDto = {
    * Markdown. Left out or blank for a task with nothing said.
    */
   description?: string | null;
+  /**
+   * The codebase the work is done in, as owner/name
+   */
+  repository?: string | null;
 };
 
 export type MoveTaskRequestDto = {
@@ -882,6 +929,50 @@ export type AppendRunEventsResponses = {
 
 export type AppendRunEventsResponse = AppendRunEventsResponses[keyof AppendRunEventsResponses];
 
+export type OpenPullRequestData = {
+  body: OpenPullRequestRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/pull-request';
+};
+
+export type OpenPullRequestErrors = {
+  /**
+   * Missing or wrong enrollment token
+   */
+  401: unknown;
+};
+
+export type OpenPullRequestResponses = {
+  200: OpenedPullRequestResponseDto;
+};
+
+export type OpenPullRequestResponse = OpenPullRequestResponses[keyof OpenPullRequestResponses];
+
+export type AnswerRemarkData = {
+  body: AnswerRemarkRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/remark';
+};
+
+export type AnswerRemarkErrors = {
+  /**
+   * Missing or wrong enrollment token
+   */
+  401: unknown;
+};
+
+export type AnswerRemarkResponses = {
+  204: void;
+};
+
+export type AnswerRemarkResponse = AnswerRemarkResponses[keyof AnswerRemarkResponses];
+
 export type CompleteRunData = {
   body: CompleteRunRequestDto;
   path: {
@@ -1105,6 +1196,26 @@ export type RevokeRunnerResponses = {
 };
 
 export type RevokeRunnerResponse = RevokeRunnerResponses[keyof RevokeRunnerResponses];
+
+export type ListRepositoriesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/repositories';
+};
+
+export type ListRepositoriesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+};
+
+export type ListRepositoriesResponses = {
+  200: Array<RepositoryResponseDto>;
+};
+
+export type ListRepositoriesResponse = ListRepositoriesResponses[keyof ListRepositoriesResponses];
 
 export type ListTasksData = {
   body?: never;

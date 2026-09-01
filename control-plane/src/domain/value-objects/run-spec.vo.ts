@@ -1,57 +1,27 @@
 import { InvalidRunSpecError } from '@domain/exceptions/invalid-run-spec.error';
 
-/** What a runner is handed to carry a run out. */
-export interface RunSpecShape {
-  readonly command: {
-    readonly executable: string;
-    readonly args: readonly string[];
-    readonly env?: Readonly<Record<string, string>>;
-  };
-  readonly briefing: string;
-  readonly handover: { readonly options: readonly string[] };
-  readonly continuity: {
-    readonly key: string;
-    readonly sessionId?: string;
-    readonly keep: boolean;
-  };
-}
+export type RunSpecParts = object;
 
-/**
- * Everything a run needs to be carried out, kept whole. It crosses to the
- * runner as it is, so it is read back through this rather than cast into.
- */
+/** Carried whole and unread: what is in them is the runner's business. */
 export class RunSpec {
-  private constructor(private readonly parts: RunSpecShape) {}
+  private constructor(private readonly parts: RunSpecParts) {}
 
-  static of(parts: RunSpecShape): RunSpec {
-    if (parts.briefing.trim().length === 0) {
-      throw new InvalidRunSpecError('must say what the work is');
-    }
-    if (parts.command.executable.trim().length === 0) {
-      throw new InvalidRunSpecError('must name something to run');
+  static of(parts: RunSpecParts): RunSpec {
+    if (Object.keys(parts).length === 0) {
+      throw new InvalidRunSpecError('must be described');
     }
 
     return new RunSpec(parts);
   }
 
-  /** A spec read back from storage, where nothing guarantees its shape. */
   static from(raw: unknown): RunSpec | null {
-    const parts = raw as Partial<RunSpecShape> | null;
-
-    return parts?.briefing &&
-      parts.command &&
-      parts.handover &&
-      parts.continuity
-      ? new RunSpec(parts as RunSpecShape)
+    return raw && typeof raw === 'object' && !Array.isArray(raw)
+      ? new RunSpec(raw as RunSpecParts)
       : null;
   }
 
-  get briefing(): string {
-    return this.parts.briefing;
-  }
-
   /** The whole of it, for whoever has to write it down or send it on. */
-  get value(): RunSpecShape {
+  get value(): RunSpecParts {
     return this.parts;
   }
 }

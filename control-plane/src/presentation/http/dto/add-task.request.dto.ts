@@ -12,4 +12,12 @@ export class AddTaskRequestDto {
     description: 'Markdown. Left out or blank for a task with nothing said.',
   })
   readonly description?: string | null;
+
+  @ApiPropertyOptional({
+    example: 'usespotlightai/spotlight',
+    nullable: true,
+    type: String,
+    description: 'The codebase the work is done in, as owner/name',
+  })
+  readonly repository?: string | null;
 }

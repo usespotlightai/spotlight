@@ -82,6 +82,22 @@ export class TaskResponseDto {
   readonly awaitingReview: TaskReviewResponseDto | null;
 
   @ApiProperty({
+    example: 'usespotlightai/spotlight',
+    nullable: true,
+    type: String,
+    description: 'The codebase the work is done in',
+  })
+  readonly repository: string | null;
+
+  @ApiProperty({
+    example: 'https://github.com/acme/widgets/pull/7',
+    nullable: true,
+    type: String,
+    description: 'The pull request this task ended in, once one is open',
+  })
+  readonly pullRequest: string | null;
+
+  @ApiProperty({
     type: TaskPersonResponseDto,
     nullable: true,
     description: 'Who raised it, and so who it comes back to',
@@ -103,6 +119,8 @@ export class TaskResponseDto {
     createdAt: string,
     running: boolean,
     awaitingReview: TaskReviewResponseDto | null,
+    repository: string | null,
+    pullRequest: string | null,
     raisedBy: TaskPersonResponseDto | null,
     note: TaskNoteResponseDto | null,
   ) {
@@ -113,6 +131,8 @@ export class TaskResponseDto {
     this.createdAt = createdAt;
     this.running = running;
     this.awaitingReview = awaitingReview;
+    this.repository = repository;
+    this.pullRequest = pullRequest;
     this.raisedBy = raisedBy;
     this.note = note;
   }

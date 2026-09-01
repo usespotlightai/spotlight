@@ -6,7 +6,9 @@ tmp_dir = "tmp"
   # directory entry, so the exiting process keeps its own inode and the new
   # binary is never the file someone still has open. Overwriting in place
   # races the old process and fails with "text file busy".
-  cmd = "go build -o /tmp/runner.next ./cmd/runner && mv /tmp/runner.next /tmp/runner"
+  # The agent's own CLI is rebuilt alongside the runner: it is baked into the
+  # image, so without this a change to it never reaches the agent.
+  cmd = "go build -o /tmp/runner.next ./cmd/runner && mv /tmp/runner.next /tmp/runner && go build -o /usr/local/bin/.spotlight.next ./cmd/spotlight && mv /usr/local/bin/.spotlight.next /usr/local/bin/spotlight"
   entrypoint = "/tmp/runner"
   include_ext = ["go"]
   exclude_dir = ["tmp", "workspaces"]

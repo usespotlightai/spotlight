@@ -5,13 +5,13 @@ import { ConversationId } from '@domain/value-objects/conversation-id.vo';
 
 export const TaskMapper = {
   awaited(task: Task): { conversationId: string } | null {
-    const open = task.awaitingReview ? task.openConversation : null;
+    const owed = task.owedConversation;
 
-    return open
+    return owed
       ? {
           conversationId: ConversationId.of({
             taskId: task.id,
-            from: open.from,
+            from: owed.from,
           }).value,
         }
       : null;
@@ -26,6 +26,8 @@ export const TaskMapper = {
       createdAt: summary.createdAt.toISOString(),
       running: summary.running,
       awaitingReview: summary.awaitingReview,
+      repository: summary.repository,
+      pullRequest: summary.pullRequest,
       raisedBy: summary.raisedBy,
       note: summary.note
         ? {
@@ -49,6 +51,8 @@ export const TaskMapper = {
       createdAt: task.createdAt.toISOString(),
       running: task.running,
       awaitingReview: TaskMapper.awaited(task),
+      repository: task.repository?.value ?? null,
+      pullRequest: task.pullRequest?.value ?? null,
       raisedBy,
       note: last
         ? {

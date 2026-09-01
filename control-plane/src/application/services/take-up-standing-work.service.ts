@@ -1,13 +1,13 @@
-import type { StandingWorkPort } from '@application/ports/standing-work.port';
-import type { TaskDispatchPort } from '@application/ports/task-dispatch.port';
+import type { StandingWork } from '@application/services/standing-work';
+import type { TaskDispatching } from '@application/services/task-dispatch';
 import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import type { StationId } from '@domain/value-objects/station-id.vo';
 
-export class TakeUpStandingWork implements StandingWorkPort {
+export class TakeUpStandingWork implements StandingWork {
   constructor(
     private readonly tasks: TaskRepository,
-    private readonly dispatch: TaskDispatchPort,
+    private readonly dispatch: TaskDispatching,
   ) {}
 
   async takeUp({
