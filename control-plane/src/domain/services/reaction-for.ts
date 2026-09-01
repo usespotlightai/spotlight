@@ -1,7 +1,11 @@
 import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Task } from '@domain/aggregates/task.aggregate';
 import type { Station } from '@domain/entities/station.entity';
-import type { Happening } from '@domain/value-objects/happening.vo';
+import {
+  type Happening,
+  spokenByAPerson,
+} from '@domain/value-objects/happening.vo';
+import { NotePosition } from '@domain/value-objects/note-position.vo';
 import type { Said } from '@domain/value-objects/said.vo';
 import type { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
@@ -15,6 +19,7 @@ interface Told {
 export type Reaction =
   | { readonly kind: 'nothing' }
   | (Told & { readonly kind: 'stays' })
+  | (Told & { readonly kind: 'answers'; readonly to: NotePosition })
   | (Told & { readonly kind: 'moves'; readonly to: Station });
 
 export const ReactionFor = {
@@ -24,15 +29,17 @@ export const ReactionFor = {
     happening: Happening;
     said: Said | null;
   }): Reaction {
-    // The end of the line, not merely closed: a closed task's pull request
-    // is still out there being read.
+    // The end of the line, not merely finished: a finished task's pull
+    // request is still out there being read.
     if (input.line.completed.id.equals(input.task.stationId)) {
       return { kind: 'nothing' };
     }
 
     const waiting = input.line.reactionTo(input.happening);
 
-    if (!waiting) {
+    // A review with nothing written on it says nothing: its comments arrive
+    // on their own, carrying what was actually said.
+    if (!waiting || (spokenByAPerson(input.happening) && !input.said)) {
       return { kind: 'nothing' };
     }
 
@@ -41,8 +48,16 @@ export const ReactionFor = {
       body: TaskNoteBody.heard(input.happening, input.said),
     };
 
-    return waiting.id.equals(input.task.stationId)
-      ? { kind: 'stays', ...told }
-      : { kind: 'moves', to: waiting, ...told };
+    if (!waiting.id.equals(input.task.stationId)) {
+      return { kind: 'moves', to: waiting, ...told };
+    }
+
+    // Replied on the pull request rather than in the inbox, but it is still
+    // the answer the station was waiting for.
+    const owed = input.task.owedConversation;
+
+    return owed && spokenByAPerson(input.happening)
+      ? { kind: 'answers', to: NotePosition.of(owed.from), ...told }
+      : { kind: 'stays', ...told };
   },
 };

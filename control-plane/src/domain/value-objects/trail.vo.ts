@@ -5,7 +5,6 @@ import {
   notesIn,
   owedIn,
   stillOpen,
-  stopsHere,
 } from '@domain/services/conversations';
 import type { NotePosition } from '@domain/value-objects/note-position.vo';
 import type { TaskNote } from '@domain/value-objects/task-note.vo';
@@ -28,10 +27,6 @@ export class Trail {
 
   get last(): TaskNote | null {
     return this.notes[this.notes.length - 1] ?? null;
-  }
-
-  get stopped(): boolean {
-    return stopsHere(this.notes);
   }
 
   get awaitsAPerson(): boolean {

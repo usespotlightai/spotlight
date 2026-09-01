@@ -1,5 +1,6 @@
 import type { TaskNoteKind } from '@domain/value-objects/task-note.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
+import type { SpokenBy } from '@domain/value-objects/voice.vo';
 import type { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
 
 export interface InboxAuthor {
@@ -11,6 +12,7 @@ export interface InboxAuthor {
 export interface InboxNote {
   readonly position: number;
   readonly kind: TaskNoteKind;
+  readonly voice: SpokenBy;
   readonly station: string;
   readonly stationColor: string;
   readonly stationPosition: number;

@@ -11,6 +11,7 @@ import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { Placement } from '@domain/services/placement';
 import { type Reaction, ReactionFor } from '@domain/services/reaction-for';
+import { Voice } from '@domain/value-objects/voice.vo';
 
 /**
  * Word came in about a task, and the line said what to do with it. A word
@@ -87,10 +88,15 @@ export class ReactToHappeningHandler
       station: reaction.station,
       body: reaction.body,
       at: this.clock.now(),
+      voice: Voice.world(),
     };
 
     if (reaction.kind === 'stays') {
       return task.heard(saying);
+    }
+
+    if (reaction.kind === 'answers') {
+      return task.answered(reaction.to, saying);
     }
 
     return task.moveTo(

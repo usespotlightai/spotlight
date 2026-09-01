@@ -8,6 +8,7 @@ import type { TaskDispatching } from '@application/services/task-dispatch';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
+import { Voice } from '@domain/value-objects/voice.vo';
 
 /**
  * A person answers, and the work carries on: the answer joins the trail and a
@@ -36,7 +37,7 @@ export class AnswerInboxItemHandler
           station,
           body: TaskNoteBody.of(command.body),
           at: this.clock.now(),
-          author: UserId.of(command.answeredBy),
+          voice: Voice.person(UserId.of(command.answeredBy)),
         });
 
         // Nothing to start where one is already running, or where the station

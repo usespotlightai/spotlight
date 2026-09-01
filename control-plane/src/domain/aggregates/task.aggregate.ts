@@ -24,6 +24,7 @@ import type { TaskRank } from '@domain/value-objects/task-rank.vo';
 import type { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { Trail } from '@domain/value-objects/trail.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
+import type { Voice } from '@domain/value-objects/voice.vo';
 import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 
 /** The task says what a note did, so no caller may write one that lies. */
@@ -31,8 +32,7 @@ export interface Saying {
   readonly station: StationName;
   readonly body: TaskNoteBody;
   readonly at: Date;
-  readonly run?: RunId | null;
-  readonly author?: UserId | null;
+  readonly voice: Voice;
 }
 
 export class Task {
@@ -55,6 +55,8 @@ export class Task {
     // Told to the runner as somewhere to reach, never as something to open.
     readonly repository: Repository | null,
     readonly pullRequest: PullRequestUrl | null,
+    // When the line last had nothing further to do with it.
+    readonly finishedAt: Date | null,
   ) {}
 
   static add(input: {
@@ -84,6 +86,7 @@ export class Task {
       input.raisedBy,
       input.repository ?? null,
       null,
+      null,
     );
   }
 
@@ -103,6 +106,7 @@ export class Task {
     raisedBy: UserId | null;
     repository: Repository | null;
     pullRequest: PullRequestUrl | null;
+    finishedAt: Date | null;
   }): Task {
     return new Task(
       input.id,
@@ -120,10 +124,11 @@ export class Task {
       input.raisedBy,
       input.repository,
       input.pullRequest,
+      input.finishedAt,
     );
   }
 
-  /** Landing at the end of the line closes the task, not the conversation. */
+  /** Landing at the end of the line is what finishes a task. */
   moveTo(into: Station, rank: TaskRank, saying: Saying): Task {
     this.refuseStandingStill(into.id, 'moved to');
 
@@ -133,10 +138,8 @@ export class Task {
       currentRunId: null,
       sessionId: null,
       runnerId: null,
-      notes: [
-        ...this.notes,
-        this.wrote(saying, into.isCompleted ? 'closed' : 'passed'),
-      ],
+      ...this.spoke(saying, 'passed'),
+      finishedAt: into.isCompleted ? saying.at : null,
     });
   }
 
@@ -157,7 +160,7 @@ export class Task {
     return this.currentRunId !== null;
   }
 
-  /** Read from the trail, so it cannot drift from what was actually said. */
+  /** Read from the trail, because a conversation is only what was said. */
   get awaitingReview(): boolean {
     return this.trail.awaitsAPerson;
   }
@@ -167,18 +170,26 @@ export class Task {
   }
 
   get finished(): boolean {
-    return this.trail.stopped;
+    return this.finishedAt !== null;
   }
 
-  heard(saying: Saying): Task {
-    return this.with({ notes: [...this.notes, this.wrote(saying, 'heard')] });
+  /** Only a person's word is aimed at one station, so only that one names it. */
+  heard(saying: Saying, at: StationId | null = null): Task {
+    if (at && !this.stationId.equals(at)) {
+      throw new InvalidTaskTransitionError(
+        'has moved on from there, so there is nobody left to tell',
+      );
+    }
+
+    return this.with(this.spoke(saying, 'said'));
   }
 
-  /** Closes whatever conversation was open, as passing it on would. */
-  closed(saying: Saying): Task {
+  /** Nothing further to do here: it settles what was open and stands still. */
+  finishedHere(saying: Saying): Task {
     return this.with({
       currentRunId: null,
-      notes: [...this.notes, this.wrote(saying, 'closed')],
+      ...this.spoke(saying, 'passed'),
+      finishedAt: saying.at,
     });
   }
 
@@ -252,17 +263,6 @@ export class Task {
     return conversation;
   }
 
-  /** Only while the task is still where that agent is. */
-  told(stationId: StationId, saying: Saying): Task {
-    if (!this.stationId.equals(stationId)) {
-      throw new InvalidTaskTransitionError(
-        'has moved on from there, so there is nobody left to tell',
-      );
-    }
-
-    return this.with({ notes: [...this.notes, this.wrote(saying, 'said')] });
-  }
-
   get undelivered(): readonly TaskNote[] {
     return this.trail.undelivered;
   }
@@ -290,7 +290,7 @@ export class Task {
 
     return this.with({
       currentRunId: null,
-      notes: [...this.notes, this.wrote(saying, 'asked')],
+      ...this.spoke(saying, 'asked'),
     });
   }
 
@@ -302,9 +302,7 @@ export class Task {
       );
     }
 
-    return this.with({
-      notes: [...this.notes, this.wrote(saying, 'answered')],
-    });
+    return this.with(this.spoke(saying, 'answered'));
   }
 
   private refuseStandingStill(stationId: StationId, doing: string): void {
@@ -315,9 +313,15 @@ export class Task {
     }
   }
 
-  /** A note only the task may write, because only it knows what it did. */
-  private wrote(saying: Saying, kind: TaskNoteKind): TaskNote {
-    return TaskNote.of({ ...saying, kind });
+  /** A word the station did not speak is work, so it unfinishes the task. */
+  private spoke(
+    saying: Saying,
+    kind: TaskNoteKind,
+  ): { notes: readonly TaskNote[]; finishedAt?: null } {
+    return {
+      notes: [...this.notes, TaskNote.of({ ...saying, kind })],
+      ...(saying.voice.isStation ? {} : { finishedAt: null }),
+    };
   }
 
   private with(part: {
@@ -328,6 +332,7 @@ export class Task {
     runnerId?: RunnerId | null;
     notes?: readonly TaskNote[];
     pullRequest?: PullRequestUrl | null;
+    finishedAt?: Date | null;
   }): Task {
     return new Task(
       this.id,
@@ -345,6 +350,7 @@ export class Task {
       this.raisedBy,
       this.repository,
       part.pullRequest !== undefined ? part.pullRequest : this.pullRequest,
+      part.finishedAt !== undefined ? part.finishedAt : this.finishedAt,
     );
   }
 

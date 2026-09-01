@@ -17,6 +17,7 @@ import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
+import { Voice } from '@domain/value-objects/voice.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -125,6 +126,7 @@ describe('TakeUpStandingWork', () => {
     standing = [
       waiting().askedAbout(
         TaskNote.of({
+          voice: Voice.station(),
           station: StationName.of('Triage'),
           body: TaskNoteBody.of('Which queue did you mean?'),
           at: new Date('2026-08-28T12:00:00.000Z'),

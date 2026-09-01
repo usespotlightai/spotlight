@@ -18,6 +18,7 @@ import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
+import { Voice } from '@domain/value-objects/voice.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
 import {
@@ -35,9 +36,8 @@ const toNote = (row: NoteRow): TaskNote =>
     station: StationName.of(row.station),
     body: TaskNoteBody.of(row.body),
     at: row.at,
-    author: row.authorId ? UserId.of(row.authorId) : null,
-    run: row.runId ? RunId.of(row.runId) : null,
-    kind: row.kind ?? 'passed',
+    voice: Voice.of({ by: row.voice, author: row.authorId, run: row.runId }),
+    kind: row.kind,
     readAt: row.readAt,
     deliveredAt: row.deliveredAt,
   });
@@ -60,6 +60,7 @@ const toTask = (row: Row, notes: NoteRow[]): Task =>
       : null,
     raisedBy: row.raisedById ? UserId.of(row.raisedById) : null,
     repository: row.repository ? Repository.of(row.repository) : null,
+    finishedAt: row.finishedAt,
     pullRequest: row.pullRequest ? PullRequestUrl.of(row.pullRequest) : null,
   });
 
@@ -83,6 +84,7 @@ export class DrizzleTaskRepository implements TaskRepository {
       raisedById: added.raisedBy?.value ?? null,
       repository: added.repository?.value ?? null,
       pullRequest: added.pullRequest?.value ?? null,
+      finishedAt: added.finishedAt,
     });
 
     await this.writeNotes(added);
@@ -100,6 +102,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         sessionId: saved.sessionId?.value ?? null,
         runnerId: saved.runnerId?.value ?? null,
         pullRequest: saved.pullRequest?.value ?? null,
+        finishedAt: saved.finishedAt,
       })
       .where(eq(task.id, saved.id.value));
 
@@ -221,8 +224,9 @@ export class DrizzleTaskRepository implements TaskRepository {
           station: note.station.value,
           body: note.body.value,
           at: note.at,
-          authorId: note.author?.value ?? null,
-          runId: note.run?.value ?? null,
+          voice: note.voice.by,
+          authorId: note.voice.author?.value ?? null,
+          runId: note.voice.run?.value ?? null,
           kind: note.kind,
           readAt: note.readAt,
           deliveredAt: note.deliveredAt,

@@ -16,6 +16,7 @@ import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
+import { Voice } from '@domain/value-objects/voice.vo';
 import { WayOut } from '@domain/value-objects/way-out.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -39,6 +40,7 @@ const withNotes = (task: Task, ...notes: TaskNote[]) =>
     raisedBy: task.raisedBy,
     repository: task.repository,
     pullRequest: task.pullRequest,
+    finishedAt: task.finishedAt,
   });
 
 const at = (
@@ -124,6 +126,7 @@ describe('TaskBriefing', () => {
       task('station_1'),
 
       TaskNote.of({
+        voice: Voice.station(),
         station: StationName.of('Triage'),
         body: TaskNoteBody.of('Reproduced on restart.'),
         at: new Date('2026-08-28T10:00:00.000Z'),

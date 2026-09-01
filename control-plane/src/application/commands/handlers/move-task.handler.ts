@@ -17,6 +17,7 @@ import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
+import { Voice } from '@domain/value-objects/voice.vo';
 
 export class MoveTaskHandler
   implements CommandHandlerPort<MoveTaskCommand, TaskDto>
@@ -86,6 +87,7 @@ export class MoveTaskHandler
             station: line.stationAt(task.stationId)?.name ?? station.name,
             body: TaskNoteBody.movedTo(station.name),
             at: this.clock.now(),
+            voice: Voice.station(),
           });
 
       const runId =

@@ -14,6 +14,7 @@ import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
+import { Voice } from '@domain/value-objects/voice.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -36,6 +37,7 @@ const withNotes = (task: Task, ...notes: TaskNote[]) =>
     raisedBy: task.raisedBy,
     repository: task.repository,
     pullRequest: task.pullRequest,
+    finishedAt: task.finishedAt,
   });
 
 const added = (description?: TaskDescription) =>
@@ -65,6 +67,7 @@ const saying = {
   station: StationName.of('Triage'),
   body: TaskNoteBody.of('Reproduced on restart.'),
   at: NOW,
+  voice: Voice.station(),
 };
 
 describe('Task', () => {
@@ -126,6 +129,7 @@ describe('Task', () => {
     const worked = withNotes(
       added(),
       TaskNote.of({
+        voice: Voice.station(),
         station: StationName.of('Triage'),
         body: TaskNoteBody.of('Reproduced on restart.'),
         at: new Date('2026-08-28T10:00:00.000Z'),
@@ -142,12 +146,14 @@ describe('Task', () => {
     const worked = withNotes(
       added(),
       TaskNote.of({
+        voice: Voice.station(),
         station: StationName.of('Triage'),
         body: TaskNoteBody.of('First'),
         at: new Date('2026-08-28T10:00:00.000Z'),
         kind: 'passed',
       }),
       TaskNote.of({
+        voice: Voice.station(),
         station: StationName.of('Spec'),
         body: TaskNoteBody.of('Second'),
         at: new Date('2026-08-28T11:00:00.000Z'),
@@ -167,6 +173,7 @@ describe('Task', () => {
     const worked = withNotes(
       added(),
       TaskNote.of({
+        voice: Voice.station(),
         station: StationName.of('Triage'),
         body: TaskNoteBody.of('Reproduced.'),
         at: new Date('2026-08-28T10:00:00.000Z'),
@@ -198,6 +205,7 @@ describe('Task, what it is doing', () => {
 
   const asked = () =>
     TaskNote.of({
+      voice: Voice.station(),
       station: StationName.of('Triage'),
       body: TaskNoteBody.of('Which queue did you mean?'),
       at: new Date('2026-08-28T12:00:00.000Z'),
@@ -414,7 +422,7 @@ describe('Task, what it is doing', () => {
       const carried = asked()
         .answered(NotePosition.of(0), {
           ...saying,
-          author: UserId.of('user_1'),
+          voice: Voice.person(UserId.of('user_1')),
         })
         .askedAbout(saying)
         .read(NotePosition.of(0), READ);
@@ -431,7 +439,7 @@ describe('Task, what it is doing', () => {
         .read(NotePosition.of(0), READ)
         .answered(NotePosition.of(0), {
           ...saying,
-          author: UserId.of('user_1'),
+          voice: Voice.person(UserId.of('user_1')),
         })
         .askedAbout(saying);
 
@@ -449,19 +457,19 @@ describe('Task, what it is doing', () => {
     const here = StationId.of('station_1');
 
     it('joins the trail where the task still stands', () => {
-      const told = added().told(here, saying);
+      const told = added().heard(saying, here);
 
       expect(told.notes[0]?.kind).toBe('said');
       expect(told.notes[0]?.body.value).toBe('Reproduced on restart.');
     });
 
     it('waits to be delivered', () => {
-      expect(added().told(here, saying).undelivered).toHaveLength(1);
+      expect(added().heard(saying, here).undelivered).toHaveLength(1);
     });
 
     it('is delivered once the agent has been given it', () => {
       const told = added()
-        .told(here, saying)
+        .heard(saying, here)
         .deliveredUpTo(NotePosition.of(0), NOW);
 
       expect(told.undelivered).toHaveLength(0);
@@ -470,7 +478,7 @@ describe('Task, what it is doing', () => {
     it('will not be said to a station the task has left', () => {
       const moved = added().moveTo(at('station_2'), TaskRank.of('m'), saying);
 
-      expect(() => moved.told(here, saying)).toThrow(
+      expect(() => moved.heard(saying, here)).toThrow(
         InvalidTaskTransitionError,
       );
     });
@@ -523,7 +531,18 @@ describe('Task, what it is doing', () => {
       ).toThrow(InvalidTaskTransitionError);
     });
 
-    it('closes the task when it is moved to the end of the line', () => {
+    // What the line is done with, the world can hand back to it.
+    it('is finished once a run has nothing further to do with it', () => {
+      const ended = added().finishedHere(saying);
+
+      expect(ended.finished).toBe(true);
+      expect(ended.currentRunId).toBeNull();
+      expect(ended.heard({ ...saying, voice: Voice.world() }).finished).toBe(
+        false,
+      );
+    });
+
+    it('finishes the task when it is moved to the end of the line', () => {
       const landed = added().moveTo(
         at('completed_1', 'Completed', 'completed'),
         TaskRank.of('m'),
@@ -532,6 +551,17 @@ describe('Task, what it is doing', () => {
 
       expect(landed.finished).toBe(true);
       expect(landed.currentRunId).toBeNull();
+    });
+
+    it('is unfinished again once a person answers what was put to them', () => {
+      const asked = added().finishedHere(saying).askedAbout(saying);
+
+      expect(
+        asked.answered(NotePosition.of(1), {
+          ...saying,
+          voice: Voice.person(UserId.of('user_1')),
+        }).finished,
+      ).toBe(false);
     });
   });
 });

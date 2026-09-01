@@ -2,6 +2,7 @@ import { StationIcon } from '@/components/board/StationIcon';
 import { MarkdownEditor } from '@/components/common/form/MarkdownEditor';
 import { InboxWork } from '@/components/inbox/InboxWork';
 import { PersonSaid } from '@/components/inbox/PersonSaid';
+import { SaidCard } from '@/components/inbox/SaidCard';
 import { useSession } from '@/hooks/api/useSession';
 import {
   HELD_AT_TOP,
@@ -17,26 +18,37 @@ type InboxMessageProps = {
   worked: readonly RunJournal[];
 };
 
-/**
- * A station speaks in the page's own voice, plainly and full width, in the
- * colour of the station that said it rather than the one the task stands at
- * now. Notes are written as markdown, so they are read as markdown.
- */
+/** A station speaks in the page's own voice. What came in is framed as such. */
 export function InboxMessage({
   message,
   stationCount,
   worked,
 }: InboxMessageProps) {
   const { data: session } = useSession();
-  const person = message.author;
 
-  if (person) {
+  if (message.voice === 'world') {
+    return (
+      <li data-note={message.position}>
+        <SaidCard>
+          <p className="whitespace-pre-wrap text-foreground text-sm leading-6">
+            {message.body}
+          </p>
+        </SaidCard>
+      </li>
+    );
+  }
+
+  if (message.voice === 'person') {
     return (
       <li data-note={message.position} className={HELD_AT_TOP}>
         <PersonSaid
           body={message.body}
           // Your own words need no name on them.
-          name={person.id === session?.user.id ? null : person.name}
+          name={
+            message.author && message.author.id !== session?.user.id
+              ? message.author.name
+              : null
+          }
         />
       </li>
     );

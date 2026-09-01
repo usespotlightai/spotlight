@@ -221,7 +221,11 @@ export type InboxAuthorResponseDto = {
 
 export type InboxMessageResponseDto = {
   position: number;
-  kind: 'asked' | 'passed' | 'answered';
+  kind: 'asked' | 'passed' | 'answered' | 'said';
+  /**
+   * Who spoke: the station, a person, or the world outside it
+   */
+  voice: 'station' | 'person' | 'world';
   station: string;
   stationColor: string;
   /**

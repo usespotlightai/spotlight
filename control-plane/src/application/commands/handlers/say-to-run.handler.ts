@@ -10,6 +10,7 @@ import { RunId } from '@domain/value-objects/run-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
+import { Voice } from '@domain/value-objects/voice.vo';
 
 /**
  * A person says something to the agent working a run. The run names the
@@ -39,12 +40,15 @@ export class SayToRunHandler
       const station = line?.stationAt(task.stationId);
 
       await this.tasks.save(
-        task.told(run.stationId, {
-          station: station?.name ?? StationName.unknown(),
-          body: TaskNoteBody.of(command.body),
-          at: this.clock.now(),
-          author: UserId.of(command.saidBy),
-        }),
+        task.heard(
+          {
+            station: station?.name ?? StationName.unknown(),
+            body: TaskNoteBody.of(command.body),
+            at: this.clock.now(),
+            voice: Voice.person(UserId.of(command.saidBy)),
+          },
+          run.stationId,
+        ),
       );
     } catch (error) {
       rethrowAsFault(error);

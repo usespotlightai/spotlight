@@ -9,3 +9,7 @@ export const HAPPENINGS = [
 ] as const;
 
 export type Happening = (typeof HAPPENINGS)[number];
+
+/** A merge or a broken build tells itself. Only words answer what was asked. */
+export const spokenByAPerson = (happening: Happening): boolean =>
+  happening === 'commented' || happening === 'changes-requested';

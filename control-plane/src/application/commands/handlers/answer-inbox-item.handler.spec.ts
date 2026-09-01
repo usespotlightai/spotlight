@@ -21,6 +21,7 @@ import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
+import { Voice } from '@domain/value-objects/voice.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -70,6 +71,7 @@ const waiting = () =>
     now: NOW,
     newId: () => 'task_1',
   }).askedAbout({
+    voice: Voice.station(),
     station: StationName.of('Triage'),
     body: TaskNoteBody.of('Which queue should I drain?'),
     at: NOW,
@@ -122,7 +124,7 @@ describe('AnswerInboxItem', () => {
 
     const last = saved?.notes[saved.notes.length - 1];
     expect(last?.body.value).toBe('Cap it at 500.');
-    expect(last?.author?.value).toBe('user_1');
+    expect(last?.voice.author?.value).toBe('user_1');
     expect(last?.station.value).toBe('Triage');
   });
 

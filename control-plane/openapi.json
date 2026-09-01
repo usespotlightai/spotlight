@@ -2006,8 +2006,19 @@
             "enum": [
               "asked",
               "passed",
-              "answered"
+              "answered",
+              "said"
             ]
+          },
+          "voice": {
+            "type": "string",
+            "example": "station",
+            "enum": [
+              "station",
+              "person",
+              "world"
+            ],
+            "description": "Who spoke: the station, a person, or the world outside it"
           },
           "station": {
             "type": "string",
@@ -2049,6 +2060,7 @@
         "required": [
           "position",
           "kind",
+          "voice",
           "station",
           "stationColor",
           "stationPosition",

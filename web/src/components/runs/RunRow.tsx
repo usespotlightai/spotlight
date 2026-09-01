@@ -57,7 +57,9 @@ export function RunRow({ run, to, taskTitle, reviewTo, inTrail }: RunRowProps) {
           <span className="text-muted-foreground text-xs">{standing(run)}</span>
         )}
 
-        <span className="text-muted-foreground text-xs tabular-nums">
+        {/* Held to a width, or a shorter age pulls the pill beside it out of
+            line with the rows above. */}
+        <span className="w-16 shrink-0 text-right text-muted-foreground text-xs tabular-nums">
           {since(run.startedAt)}
         </span>
       </span>

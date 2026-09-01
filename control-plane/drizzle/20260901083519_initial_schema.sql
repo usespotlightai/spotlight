@@ -106,6 +106,7 @@ CREATE TABLE "task" (
 	"runner_id" text,
 	"repository" text,
 	"pull_request" text,
+	"finished_at" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
@@ -116,9 +117,10 @@ CREATE TABLE "task_note" (
 	"station" text NOT NULL,
 	"body" text NOT NULL,
 	"at" timestamp NOT NULL,
+	"voice" text DEFAULT 'station' NOT NULL,
 	"author_id" text,
 	"run_id" text,
-	"kind" text,
+	"kind" text NOT NULL,
 	"read_at" timestamp,
 	"delivered_at" timestamp,
 	CONSTRAINT "task_note_task_id_position_pk" PRIMARY KEY("task_id","position")

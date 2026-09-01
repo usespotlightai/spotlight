@@ -40,6 +40,7 @@ export const trailsFor = async (
       stationPosition: spoke.position,
       runId: taskNote.runId,
       kind: taskNote.kind,
+      voice: taskNote.voice,
       readAt: taskNote.readAt,
       body: taskNote.body,
       at: taskNote.at,
@@ -71,7 +72,8 @@ export const trailsFor = async (
       stationColor: row.stationColor ?? DEFAULT_STATION_COLOR,
       stationPosition: row.stationPosition ?? 0,
       runId: row.runId,
-      kind: row.kind ?? 'passed',
+      kind: row.kind,
+      voice: row.voice,
       body: row.body,
       at: row.at,
       readAt: row.readAt,
@@ -135,7 +137,7 @@ export const awaitedReviewsFor = async (
 
   for (const row of rows) {
     const told = trails.get(row.taskId) ?? [];
-    told.push({ kind: row.kind ?? 'passed' });
+    told.push({ kind: row.kind });
     trails.set(row.taskId, told);
   }
 
@@ -189,7 +191,7 @@ export const reviewsBy = async (
     told.push({
       taskId: row.taskId,
       position: row.position,
-      kind: row.kind ?? 'passed',
+      kind: row.kind,
       runId: row.runId,
     });
     trails.set(row.taskId, told);

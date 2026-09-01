@@ -35,9 +35,12 @@ export class TaskNoteBody {
   }
 
   static heard(happening: Happening, said: Said | null): TaskNoteBody {
-    const told = AS_TOLD[happening];
+    // The place labels what was said, so the two stay together.
+    const remark = [said?.place, said?.body].filter(Boolean).join('\n');
 
-    return TaskNoteBody.of(said ? `${told}\n\n${said.value}` : told);
+    return TaskNoteBody.of(
+      [AS_TOLD[happening], remark].filter(Boolean).join('\n\n'),
+    );
   }
 
   static movedTo(station: StationName): TaskNoteBody {

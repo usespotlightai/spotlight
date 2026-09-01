@@ -28,6 +28,7 @@ import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
+import { Voice } from '@domain/value-objects/voice.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -61,7 +62,7 @@ const line = () =>
     stations: [
       at('station_0', 'Backlog', 0, [], 'backlog'),
       at('station_1', 'Implementation', 1, ['changes-requested']),
-      at('station_2', 'Code Review', 2, ['commented']),
+      at('station_2', 'Code Review', 2, ['commented', 'checks-failed']),
       at('station_3', 'Completed', 3, ['merged'], 'completed'),
     ],
   });
@@ -160,7 +161,7 @@ describe('ReactToHappening', () => {
   });
 
   it('starts the work at the station it was taken to', async () => {
-    await heard('changes-requested', standing());
+    await heard('changes-requested', standing(), 'Handle the empty case.');
 
     expect(dispatched).toHaveLength(1);
     expect(saved?.currentRunId).toEqual(RunId.of('run_2'));
@@ -171,7 +172,8 @@ describe('ReactToHappening', () => {
     await heard('commented', standing(), 'This retries forever.');
 
     expect(saved?.stationId).toEqual(StationId.of('station_2'));
-    expect(saved?.notes.map((each) => each.kind)).toEqual(['heard']);
+    expect(saved?.notes.map((each) => each.kind)).toEqual(['said']);
+    expect(saved?.notes.map((each) => each.voice.by)).toEqual(['world']);
     expect(dispatched).toHaveLength(1);
   });
 
@@ -180,11 +182,55 @@ describe('ReactToHappening', () => {
   it('waits to be handed to the agent already working the task', async () => {
     await heard('commented', standing().handedTo(RunId.of('run_1')), 'Look.');
 
-    expect(saved?.undelivered.map((each) => each.kind)).toEqual(['heard']);
+    expect(saved?.undelivered.map((each) => each.kind)).toEqual(['said']);
+  });
+
+  // A reviewer replying on the pull request is the answer the station was
+  // waiting for, so the work carries on rather than sitting in an inbox.
+  it('takes a reviewer’s word as the answer a person was owed', async () => {
+    const asked = standing().askedAbout({
+      voice: Voice.station(),
+      station: StationName.of('Code Review'),
+      body: TaskNoteBody.of('Addressed all three comments. Look again?'),
+      at: NOW,
+    });
+
+    await heard('commented', asked, 'The Dockerfile still copies all.');
+
+    expect(saved?.notes.map((each) => each.kind)).toEqual([
+      'asked',
+      'answered',
+    ]);
+    expect(saved?.awaitingReview).toBe(false);
+    expect(dispatched).toHaveLength(1);
+  });
+
+  // A build breaking answers nothing a station asked a person.
+  it('leaves a person owed where the world merely reports itself', async () => {
+    const asked = standing().askedAbout({
+      voice: Voice.station(),
+      station: StationName.of('Code Review'),
+      body: TaskNoteBody.of('Which queue should I drain?'),
+      at: NOW,
+    });
+
+    await heard('checks-failed', asked);
+
+    expect(saved?.notes.map((each) => each.kind)).toEqual(['asked', 'said']);
+    expect(saved?.awaitingReview).toBe(true);
+    expect(dispatched).toHaveLength(0);
+  });
+
+  // Its comments arrive on their own, carrying what was actually said.
+  it('says nothing of a review submitted with nothing written on it', async () => {
+    await heard('commented', standing(), null);
+
+    expect(saved).toBeUndefined();
+    expect(dispatched).toHaveLength(0);
   });
 
   it('says nothing to a station nobody set to wait for it', async () => {
-    await heard('checks-failed', standing());
+    await heard('closed-unmerged', standing());
 
     expect(saved).toBeUndefined();
     expect(dispatched).toHaveLength(0);
@@ -196,24 +242,28 @@ describe('ReactToHappening', () => {
     expect(saved).toBeUndefined();
   });
 
-  it('still hears about work a run closed where it stands', async () => {
-    const ended = standing().closed({
+  it('takes work back up where the world speaks after a run finished it', async () => {
+    const ended = standing().finishedHere({
+      voice: Voice.station(),
       station: StationName.of('Code Review'),
       body: TaskNoteBody.of('The work is done.'),
       at: NOW,
     });
 
+    expect(ended.finished).toBe(true);
+
     await heard('commented', ended, 'One more thing.');
 
-    expect(saved?.notes.map((each) => each.kind)).toEqual(['closed', 'heard']);
+    expect(saved?.notes.map((each) => each.kind)).toEqual(['passed', 'said']);
+    expect(saved?.finished).toBe(false);
     expect(dispatched).toHaveLength(1);
   });
 
   // A host retries, and a person can ask it to send the same word again.
   it('acts on a delivery once, however often it arrives', async () => {
-    await heard('changes-requested', standing());
+    await heard('changes-requested', standing(), 'Again, please.');
     saved = undefined;
-    await heard('changes-requested', standing());
+    await heard('changes-requested', standing(), 'Again, please.');
 
     expect(saved).toBeUndefined();
     expect(dispatched).toHaveLength(1);
@@ -236,20 +286,6 @@ describe('ReactToHappening', () => {
     expect(dispatched).toHaveLength(0);
   });
 
-  // A person is owed an answer, and the world knocking does not settle it.
-  it('starts nothing while a person is still owed an answer', async () => {
-    const asked = standing().askedAbout({
-      station: StationName.of('Code Review'),
-      body: TaskNoteBody.of('Which queue should I drain?'),
-      at: NOW,
-    });
-
-    await heard('commented', asked, 'Still broken.');
-
-    expect(saved?.notes.map((each) => each.kind)).toEqual(['asked', 'heard']);
-    expect(dispatched).toHaveLength(0);
-  });
-
   it('lets a pull request nobody here opened pass', async () => {
     await heard('merged', null);
 
@@ -257,7 +293,11 @@ describe('ReactToHappening', () => {
   });
 
   it('starts nothing where a run already holds the task', async () => {
-    await heard('commented', standing().handedTo(RunId.of('run_1')));
+    await heard(
+      'commented',
+      standing().handedTo(RunId.of('run_1')),
+      'One more thing.',
+    );
 
     expect(dispatched).toHaveLength(0);
     expect(saved?.currentRunId).toEqual(RunId.of('run_1'));

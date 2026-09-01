@@ -7,12 +7,14 @@ import {
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { Trail } from '@domain/value-objects/trail.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
+import { Voice } from '@domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-08-31T12:00:00.000Z');
 
 const said = (kind: TaskNoteKind, over: Record<string, unknown> = {}) =>
   TaskNote.of({
+    voice: Voice.station(),
     station: StationName.of('Triage'),
     body: TaskNoteBody.of(`a ${kind} note`),
     at: NOW,
@@ -23,11 +25,6 @@ const said = (kind: TaskNoteKind, over: Record<string, unknown> = {}) =>
 const trail = (...notes: TaskNote[]) => Trail.of(notes);
 
 describe('Trail', () => {
-  it('is stopped once the last thing said closed it', () => {
-    expect(trail(said('asked'), said('closed')).stopped).toBe(true);
-    expect(trail(said('closed'), said('asked')).stopped).toBe(false);
-  });
-
   it('owes an answer while nobody has given one', () => {
     expect(trail(said('passed'), said('asked')).owed).toEqual({
       from: 1,
@@ -45,14 +42,14 @@ describe('Trail', () => {
 
   it('waits to hand a person’s word and the world’s to an agent', () => {
     const waiting = trail(
-      said('said', { author: UserId.of('user_1') }),
-      said('heard'),
+      said('said', { voice: 'person', author: UserId.of('user_1') }),
+      said('said', { voice: 'world' }),
       said('passed', { run: RunId.of('run_1') }),
     );
 
-    expect(waiting.undelivered.map((each) => each.kind)).toEqual([
-      'said',
-      'heard',
+    expect(waiting.undelivered.map((each) => each.voice)).toEqual([
+      'person',
+      'world',
     ]);
   });
 

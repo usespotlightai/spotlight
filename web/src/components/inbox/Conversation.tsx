@@ -25,7 +25,7 @@ const turnsOf = (item: Conversing): Turn[] => {
   const cut: Turn[] = [{ prompt: null, messages: [] }];
 
   for (const note of item.notes) {
-    if (note.author) {
+    if (note.voice === 'person') {
       cut.push({ prompt: note, messages: [] });
     } else {
       cut[cut.length - 1]?.messages.push(note);

@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { aged, byAge, type Run, standing, working } from '@/lib/run';
 
-const NOW = new Date('2026-08-30T12:00:00.000Z');
+// Local, because a calendar day is read off the reader's own clock.
+const NOW = new Date(2026, 7, 30, 12, 0, 0);
 
-const ago = (days: number) =>
-  new Date(NOW.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
+/** Days back off the calendar, at an hour of the day the caller picks. */
+const on = (days: number, hour = 12) =>
+  new Date(2026, 7, 30 - days, hour, 0, 0).toISOString();
 
 describe('aged', () => {
   beforeEach(() => {
@@ -14,24 +16,39 @@ describe('aged', () => {
 
   afterEach(() => vi.useRealTimers());
 
-  it('reads as today within the day', () => {
-    expect(aged(ago(0.5))).toBe('Today');
+  it('reads as today within the calendar day', () => {
+    expect(aged(on(0))).toBe('Today');
   });
 
-  it('reads as yesterday the day after', () => {
-    expect(aged(ago(1.5))).toBe('Yesterday');
+  // The point of counting calendar days: this morning is still today.
+  it('reads the small hours of this morning as today', () => {
+    expect(aged(on(0, 0))).toBe('Today');
+  });
+
+  it('reads as yesterday the calendar day before', () => {
+    expect(aged(on(1))).toBe('Yesterday');
+  });
+
+  // Under 24 hours, yet the date on the calendar has turned.
+  it('reads last night as yesterday', () => {
+    expect(aged(on(1, 23))).toBe('Yesterday');
+  });
+
+  // Over 24 hours, yet the calendar has turned only once.
+  it('reads early yesterday as yesterday', () => {
+    expect(aged(on(1, 1))).toBe('Yesterday');
   });
 
   it('counts days up to a fortnight', () => {
-    expect(aged(ago(8))).toBe('8 days ago');
+    expect(aged(on(8))).toBe('8 days ago');
   });
 
   it('counts weeks beyond that', () => {
-    expect(aged(ago(21))).toBe('3 weeks ago');
+    expect(aged(on(21))).toBe('3 weeks ago');
   });
 
   it('counts months beyond two', () => {
-    expect(aged(ago(90))).toBe('3 months ago');
+    expect(aged(on(90))).toBe('3 months ago');
   });
 });
 
@@ -45,9 +62,9 @@ describe('byAge', () => {
 
   it('gathers neighbours sharing an age, newest first', () => {
     const grouped = byAge([
-      { startedAt: ago(0.2) },
-      { startedAt: ago(0.4) },
-      { startedAt: ago(8) },
+      { startedAt: on(0, 11) },
+      { startedAt: on(0, 9) },
+      { startedAt: on(8) },
     ]);
 
     expect(grouped.map(([age, held]) => [age, held.length])).toEqual([
@@ -59,9 +76,9 @@ describe('byAge', () => {
   // The reader hands them back in order; grouping must not reorder them.
   it('keeps the order it was given', () => {
     const grouped = byAge([
-      { startedAt: ago(0.2) },
-      { startedAt: ago(8) },
-      { startedAt: ago(0.4) },
+      { startedAt: on(0, 11) },
+      { startedAt: on(8) },
+      { startedAt: on(0, 9) },
     ]);
 
     expect(grouped.map(([age]) => age)).toEqual([

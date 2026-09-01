@@ -1,35 +1,23 @@
-import { InvalidTaskNoteError } from '@domain/exceptions/invalid-task-note.error';
 import { unread } from '@domain/services/unread';
-import type { RunId } from '@domain/value-objects/run-id.vo';
 import type { StationName } from '@domain/value-objects/station-name.vo';
 import type { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
-import type { UserId } from '@domain/value-objects/user-id.vo';
+import type { Voice } from '@domain/value-objects/voice.vo';
 
-/** What a note did: put the task to a person, moved it on, or answered. */
-export type TaskNoteKind =
-  | 'asked'
-  | 'passed'
-  | 'answered'
-  | 'said'
-  | 'closed'
-  | 'heard';
+export const TASK_NOTE_KINDS = ['asked', 'passed', 'answered', 'said'] as const;
+
+/** What a note did: put the task to a person, settled it, or said a thing. */
+export type TaskNoteKind = (typeof TASK_NOTE_KINDS)[number];
 
 export class TaskNote {
   private constructor(
     readonly station: StationName,
     readonly body: TaskNoteBody,
     readonly at: Date,
-    // Who said it. Absent is the station speaking, which is what every note
-    // was until a person could answer one.
-    readonly author: UserId | null,
-    // The run whose ending wrote it, where one did. What the agent did to
-    // arrive at it is that run's journal.
-    readonly run: RunId | null,
+    readonly voice: Voice,
     // An 'asked' opens a conversation a person owns; a 'passed' closes it.
     readonly kind: TaskNoteKind,
     readonly readAt: Date | null,
-    // When it was handed to the agent working the task. Only what a person
-    // said to one is ever waiting to be delivered.
+    // When it was handed to the agent working the task.
     readonly deliveredAt: Date | null,
   ) {}
 
@@ -37,25 +25,16 @@ export class TaskNote {
     station: StationName;
     body: TaskNoteBody;
     at: Date;
-    author?: UserId | null;
-    run?: RunId | null;
+    voice: Voice;
     kind: TaskNoteKind;
     readAt?: Date | null;
     deliveredAt?: Date | null;
   }): TaskNote {
-    // Neither is the board moving a task, which is nobody speaking.
-    if (input.author && input.run) {
-      throw new InvalidTaskNoteError(
-        'is said by a person or by a run, never by both',
-      );
-    }
-
     return new TaskNote(
       input.station,
       input.body,
       input.at,
-      input.author ?? null,
-      input.run ?? null,
+      input.voice,
       input.kind,
       input.readAt ?? null,
       input.deliveredAt ?? null,
@@ -68,10 +47,7 @@ export class TaskNote {
 
   /** A person speaking and the world happening both interrupt a run. */
   get undelivered(): boolean {
-    return (
-      (this.kind === 'said' || this.kind === 'heard') &&
-      this.deliveredAt === null
-    );
+    return this.kind === 'said' && this.deliveredAt === null;
   }
 
   delivered(at: Date): TaskNote {
@@ -87,8 +63,7 @@ export class TaskNote {
       this.station,
       this.body,
       this.at,
-      this.author,
-      this.run,
+      this.voice,
       this.kind,
       part.readAt ?? this.readAt,
       part.deliveredAt ?? this.deliveredAt,

@@ -21,14 +21,10 @@ export class Said {
       : null;
   }
 
-  /** The place first, so a station reads where before it reads what. */
-  get value(): string {
-    return [this.at, this.body].filter(Boolean).join('\n\n');
-  }
-
-  private get at(): string {
+  /** Where it was said about, if anywhere: a file, and the line in it. */
+  get place(): string | null {
     if (!this.path) {
-      return '';
+      return null;
     }
 
     const lines =

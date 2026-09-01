@@ -29,25 +29,31 @@ export const runPath = (slug: string, teamId: string, runId: string): string =>
   `/w/${slug}/team/${teamId}/runs/${encodeURIComponent(runId)}`;
 
 const DAY = 24 * 60 * 60 * 1000;
-const WEEK = 7 * DAY;
+
+/** Local midnight, so an age counts the days a person reads off a calendar. */
+const midnight = (at: Date): number =>
+  new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime();
 
 export const aged = (at: string): string => {
-  const ago = Date.now() - new Date(at).getTime();
+  // Rounded because a day either side of a clock change is not 24 hours long.
+  const days = Math.round(
+    (midnight(new Date()) - midnight(new Date(at))) / DAY,
+  );
 
-  if (ago < DAY) {
+  if (days <= 0) {
     return 'Today';
   }
-  if (ago < 2 * DAY) {
+  if (days === 1) {
     return 'Yesterday';
   }
-  if (ago < 2 * WEEK) {
-    return `${Math.floor(ago / DAY)} days ago`;
+  if (days < 14) {
+    return `${days} days ago`;
   }
-  if (ago < 8 * WEEK) {
-    return `${Math.floor(ago / WEEK)} weeks ago`;
+  if (days < 56) {
+    return `${Math.floor(days / 7)} weeks ago`;
   }
 
-  const months = Math.floor(ago / (30 * DAY));
+  const months = Math.floor(days / 30);
   return months <= 1 ? 'A month ago' : `${months} months ago`;
 };
 

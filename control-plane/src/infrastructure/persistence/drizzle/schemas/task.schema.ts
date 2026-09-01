@@ -1,4 +1,5 @@
 import type { TaskNoteKind } from '@domain/value-objects/task-note.vo';
+import type { SpokenBy } from '@domain/value-objects/voice.vo';
 import { station } from '@infrastructure/persistence/drizzle/schemas/assembly-line.schema';
 import { user } from '@infrastructure/persistence/drizzle/schemas/auth.schema';
 import { runner } from '@infrastructure/persistence/drizzle/schemas/run.schema';
@@ -46,6 +47,7 @@ export const task = pgTable(
     }),
     repository: text('repository'),
     pullRequest: text('pull_request'),
+    finishedAt: timestamp('finished_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
       .defaultNow()
@@ -68,15 +70,16 @@ export const taskNote = pgTable(
     station: text('station').notNull(),
     body: text('body').notNull(),
     at: timestamp('at').notNull(),
-    // Null is the station speaking. Set null on deletion rather than cascading:
-    // what was said stays, only who said it is lost.
+    voice: text('voice').$type<SpokenBy>().notNull().default('station'),
+    // Set null on deletion rather than cascading: what was said stays, only
+    // who said it is lost.
     authorId: text('author_id').references(() => user.id, {
       onDelete: 'set null',
     }),
     // The run that wrote it, whose journal is what it came from.
     runId: text('run_id'),
     // An 'asked' opens a conversation a person owns; a 'passed' closes it.
-    kind: text('kind').$type<TaskNoteKind>(),
+    kind: text('kind').$type<TaskNoteKind>().notNull(),
     readAt: timestamp('read_at'),
     // When it reached the agent working the task.
     deliveredAt: timestamp('delivered_at'),

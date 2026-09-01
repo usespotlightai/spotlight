@@ -148,6 +148,7 @@ export class TaskController {
           new InboxMessageResponseDto(
             note.position,
             note.kind,
+            note.voice,
             note.station,
             note.stationColor,
             note.stationPosition,

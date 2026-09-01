@@ -41,7 +41,7 @@ describe('GitHubRepositoryEvents', () => {
         action: 'created',
         pull_request: pull(),
         comment: { body: 'This retries forever.' },
-      })?.said?.value,
+      })?.said?.body,
     ).toBe('This retries forever.');
   });
 
@@ -56,9 +56,7 @@ describe('GitHubRepositoryEvents', () => {
       },
     });
 
-    expect(read?.said?.value).toBe(
-      'runner/internal/session/session.go:42\n\nThis retries forever.',
-    );
+    expect(read?.said?.place).toBe('runner/internal/session/session.go:42');
   });
 
   it('carries the whole span where a comment covers several lines', () => {
@@ -73,7 +71,7 @@ describe('GitHubRepositoryEvents', () => {
       },
     });
 
-    expect(read?.said?.value).toBe('compose.yml:10-14\n\nExtract this.');
+    expect(read?.said?.place).toBe('compose.yml:10-14');
   });
 
   it('falls back to the line a comment was first left on', () => {
@@ -83,7 +81,7 @@ describe('GitHubRepositoryEvents', () => {
       comment: { body: 'Still here?', path: 'compose.yml', original_line: 7 },
     });
 
-    expect(read?.said?.value).toBe('compose.yml:7\n\nStill here?');
+    expect(read?.said?.place).toBe('compose.yml:7');
   });
 
   it('reads a comment left on the pull request itself', () => {

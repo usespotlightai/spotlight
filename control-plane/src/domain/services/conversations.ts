@@ -29,7 +29,7 @@ export const conversationsOf = (
       return;
     }
 
-    if ((kind === 'passed' || kind === 'closed') && open !== null) {
+    if (kind === 'passed' && open !== null) {
       cut.push({ from: open, to: at });
       open = null;
     }
@@ -56,12 +56,7 @@ const settledAfter = <T extends { kind: TaskNoteKind }>(
 ): boolean =>
   notes
     .slice(at + 1)
-    .some(
-      (later) =>
-        later.kind === 'answered' ||
-        later.kind === 'passed' ||
-        later.kind === 'closed',
-    );
+    .some((later) => later.kind === 'answered' || later.kind === 'passed');
 
 const holding = (cut: readonly Conversation[], at: number) =>
   cut.find((each) => each.from <= at && (each.to === null || at <= each.to));
@@ -93,10 +88,6 @@ export const reviewsIn = <
 
   return reviews;
 };
-
-export const stopsHere = <T extends { kind: TaskNoteKind }>(
-  notes: readonly T[],
-): boolean => notes[notes.length - 1]?.kind === 'closed';
 
 export const awaitsAPerson = <T extends { kind: TaskNoteKind }>(
   notes: readonly T[],

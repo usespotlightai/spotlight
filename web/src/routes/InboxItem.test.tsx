@@ -40,6 +40,7 @@ vi.mock('@/hooks/api/useReadInboxItem', () => ({
 const message = (over: Record<string, unknown> = {}) => ({
   position: 0,
   kind: 'asked',
+  voice: 'station',
   station: 'Triage',
   stationColor: '#edc12b',
   stationPosition: 0,
@@ -186,6 +187,24 @@ describe('InboxItem', () => {
     expect(conversation.getByText('Triage')).toBeInTheDocument();
   });
 
+  it('frames what came from outside as what came in, not as a station', () => {
+    waiting.mockReturnValue(
+      item([
+        message({
+          position: 1,
+          kind: 'said',
+          voice: 'world',
+          body: 'The pull request was commented on.',
+        }),
+      ]),
+    );
+
+    renderItem();
+
+    const said = screen.getByText('The pull request was commented on.');
+    expect(said.closest('li')).not.toHaveTextContent('Triage');
+  });
+
   it('shows a person by name rather than by station', () => {
     waiting.mockReturnValue(
       item([
@@ -193,6 +212,7 @@ describe('InboxItem', () => {
         message({
           position: 1,
           body: 'The retry queue.',
+          voice: 'person',
           author: { id: 'user_1', name: 'Leon', image: null },
         }),
       ]),
@@ -210,6 +230,7 @@ describe('InboxItem', () => {
         message({
           position: 1,
           body: 'The retry queue.',
+          voice: 'person',
           author: { id: 'user_1', name: 'Leon', image: null },
         }),
       ]),
@@ -310,6 +331,7 @@ describe('InboxItem', () => {
         message({
           position: 1,
           body: 'A person asked this.',
+          voice: 'person',
           author: { id: 'user_2', name: 'Leon', image: null },
         }),
         message({ position: 2, body: 'And Triage answered.' }),
@@ -333,6 +355,7 @@ describe('InboxItem', () => {
         message({
           position: 1,
           body: 'The retry queue.',
+          voice: 'person',
           author: { id: 'user_2', name: 'Leon', image: null },
         }),
       ]),
@@ -380,6 +403,7 @@ describe('InboxItem', () => {
           position: 1,
           body: 'The retry queue.',
           at: '2026-08-29T14:35:00.000Z',
+          voice: 'person',
           author: { id: 'user_2', name: 'Leon', image: null },
         }),
       ]),

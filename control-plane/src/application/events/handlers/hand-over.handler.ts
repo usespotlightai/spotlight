@@ -13,6 +13,7 @@ import type { Handover } from '@domain/value-objects/handover.vo';
 import type { RunId } from '@domain/value-objects/run-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import type { TaskId } from '@domain/value-objects/task-id.vo';
+import { Voice } from '@domain/value-objects/voice.vo';
 
 interface Standing {
   readonly task: Task;
@@ -98,11 +99,11 @@ export class HandOver implements RunOutcomes {
       station: standing?.name ?? StationName.unknown(),
       body: handover.body,
       at: this.clock.now(),
-      run,
+      voice: Voice.station(run),
     };
 
     if (handover.kind === 'done') {
-      return task.closed(saying);
+      return task.finishedHere(saying);
     }
 
     if (handover.kind === 'review' || !handover.stationId || !line) {
