@@ -18,7 +18,7 @@ const open = async () => {
 
 describe('RepositorySelect', () => {
   it('says nothing is picked until something is', () => {
-    render(<RepositorySelect value="" onChange={vi.fn()} />);
+    render(<RepositorySelect slug="acme" value="" onChange={vi.fn()} />);
 
     expect(screen.getByLabelText('Repository')).toHaveTextContent(
       'No repository',
@@ -26,7 +26,9 @@ describe('RepositorySelect', () => {
   });
 
   it('shows what is picked', () => {
-    render(<RepositorySelect value="acme/widgets" onChange={vi.fn()} />);
+    render(
+      <RepositorySelect slug="acme" value="acme/widgets" onChange={vi.fn()} />,
+    );
 
     expect(screen.getByLabelText('Repository')).toHaveTextContent(
       'acme/widgets',
@@ -34,7 +36,7 @@ describe('RepositorySelect', () => {
   });
 
   it('offers every repository Spotlight can reach, and none', async () => {
-    render(<RepositorySelect value="" onChange={vi.fn()} />);
+    render(<RepositorySelect slug="acme" value="" onChange={vi.fn()} />);
     await open();
 
     expect(
@@ -50,7 +52,7 @@ describe('RepositorySelect', () => {
 
   it('hands back the one that was picked', async () => {
     const picked = vi.fn();
-    render(<RepositorySelect value="" onChange={picked} />);
+    render(<RepositorySelect slug="acme" value="" onChange={picked} />);
     const user = await open();
 
     await user.click(
@@ -62,7 +64,9 @@ describe('RepositorySelect', () => {
 
   it('hands back nothing when the choice is cleared', async () => {
     const picked = vi.fn();
-    render(<RepositorySelect value="acme/widgets" onChange={picked} />);
+    render(
+      <RepositorySelect slug="acme" value="acme/widgets" onChange={picked} />,
+    );
     const user = await open();
 
     await user.click(

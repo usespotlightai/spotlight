@@ -4,12 +4,18 @@ import {
 } from '@application/errors/use-case.fault';
 
 type RuleViolation = Error & {
-  readonly violation: 'conflict' | 'invalid' | 'not-found' | 'refused';
+  readonly violation:
+    | 'conflict'
+    | 'invalid'
+    | 'not-allowed'
+    | 'not-found'
+    | 'refused';
 };
 
 const AS_FAULT: Record<RuleViolation['violation'], UseCaseFaultKind> = {
   conflict: 'conflict',
   invalid: 'invalid-input',
+  'not-allowed': 'not-allowed',
   'not-found': 'not-found',
   refused: 'refused-upstream',
 };

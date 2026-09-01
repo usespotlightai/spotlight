@@ -16,6 +16,7 @@ import { TaskNote } from '@domain/value-objects/task-note.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
+import { Tool } from '@domain/value-objects/tool.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { Voice } from '@domain/value-objects/voice.vo';
 import { WayOut } from '@domain/value-objects/way-out.vo';
@@ -189,6 +190,46 @@ describe('TaskBriefing', () => {
 
   it('says that saying nothing puts the task in front of a person', () => {
     expect(brief(triage())).toContain('puts the task in front of a person');
+  });
+
+  describe('what the station can reach for', () => {
+    const reaching = (...tools: string[]) =>
+      at('station_1', 'Triage', 0, undefined, ['station_2']).reaches(
+        tools.map(Tool.of),
+      );
+
+    it('says how to use a tool the station has', () => {
+      expect(brief(reaching('pull-request'))).toContain(
+        'spotlight pull-request --title',
+      );
+    });
+
+    // What it is not told about, it cannot reach for: the runner raises only
+    // what the run was given.
+    it('says nothing of a tool the station does not have', () => {
+      expect(brief(triage())).not.toContain('spotlight pull-request');
+    });
+
+    it('says nothing of a tool nobody here provides', () => {
+      expect(() => brief(reaching('teleport'))).not.toThrow();
+      expect(brief(reaching('teleport'))).not.toContain('teleport');
+    });
+
+    it('keeps the station’s own instructions above what it can reach for', () => {
+      const briefing = brief(
+        at(
+          'station_1',
+          'Triage',
+          0,
+          AgentPrompt.of('## Role\n\nSort the queue.'),
+          ['station_2'],
+        ).reaches([Tool.of('pull-request')]),
+      );
+
+      expect(briefing.indexOf('Sort the queue.')).toBeLessThan(
+        briefing.indexOf('spotlight pull-request'),
+      );
+    });
   });
 
   describe('what the pull request is waiting to hear back on', () => {

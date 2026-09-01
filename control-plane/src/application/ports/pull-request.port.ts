@@ -1,3 +1,4 @@
+import type { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import type { Repository } from '@domain/value-objects/repository.vo';
 
 export interface OpenedPullRequestDto {
@@ -5,6 +6,7 @@ export interface OpenedPullRequestDto {
 }
 
 export interface PullRequestOpening {
+  readonly installation: GitHubInstallation;
   readonly repository: Repository;
   readonly branch: string;
   readonly title: string;

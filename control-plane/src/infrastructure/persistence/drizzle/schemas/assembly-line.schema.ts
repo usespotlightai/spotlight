@@ -1,5 +1,4 @@
 import type { StationKind } from '@domain/entities/station.entity';
-import type { Happening } from '@domain/value-objects/happening.vo';
 import { factory } from '@infrastructure/persistence/drizzle/schemas/factory.schema';
 import { workspace } from '@infrastructure/persistence/drizzle/schemas/workspace.schema';
 import {
@@ -78,16 +77,41 @@ export const stationRoute = pgTable(
   ],
 );
 
-export const stationReaction = pgTable(
-  'station_reaction',
+/** What a run at this station may reach for, one row per tool. */
+export const stationTool = pgTable(
+  'station_tool',
   {
     stationId: text('station_id')
       .notNull()
       .references(() => station.id, { onDelete: 'cascade' }),
-    happening: text('happening').$type<Happening>().notNull(),
+    tool: text('tool').notNull(),
   },
   (table) => [
-    primaryKey({ columns: [table.stationId, table.happening] }),
-    index('station_reaction_station_idx').on(table.stationId),
+    primaryKey({ columns: [table.stationId, table.tool] }),
+    index('station_tool_station_idx').on(table.stationId),
+  ],
+);
+
+/**
+ * What a word from outside does on this line: where the task has to be
+ * standing for it to count, and where it goes. A null from is wherever it
+ * stands.
+ */
+export const assemblyLineReaction = pgTable(
+  'assembly_line_reaction',
+  {
+    assemblyLineId: text('assembly_line_id')
+      .notNull()
+      .references(() => assemblyLine.id, { onDelete: 'cascade' }),
+    happening: text('happening').notNull(),
+    fromStationId: text('from_station_id').references(() => station.id, {
+      onDelete: 'cascade',
+    }),
+    toStationId: text('to_station_id')
+      .notNull()
+      .references(() => station.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    index('assembly_line_reaction_line_idx').on(table.assemblyLineId),
   ],
 );

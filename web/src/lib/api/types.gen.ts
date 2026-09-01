@@ -30,10 +30,20 @@ export type StationResponseDto = {
   kind: 'backlog' | 'work' | 'completed';
 };
 
+export type ReactionResponseDto = {
+  happening: string;
+  /**
+   * Where the task must stand for this to count. Null is wherever it is.
+   */
+  from: string | null;
+  to: string;
+};
+
 export type AssemblyLineResponseDto = {
   id: string;
   name: string;
   stations: Array<StationResponseDto>;
+  reactions: Array<ReactionResponseDto>;
 };
 
 export type ReorderStationsRequestDto = {
@@ -41,6 +51,28 @@ export type ReorderStationsRequestDto = {
    * Every station on the line, left to right
    */
   stationIds: Array<string>;
+};
+
+export type ReactionRequestDto = {
+  /**
+   * One of the words a connected source raises
+   */
+  happening: string;
+  /**
+   * Where the task must stand for this to count. Leave out for wherever it is.
+   */
+  from?: string | null;
+  /**
+   * Where the word takes the task
+   */
+  to: string;
+};
+
+export type SetLineReactionsRequestDto = {
+  /**
+   * The whole set. Anything left out stops applying.
+   */
+  reactions: Array<ReactionRequestDto>;
 };
 
 export type CustomiseStationRequestDto = {
@@ -408,6 +440,20 @@ export type RepositoryResponseDto = {
   fullName: string;
 };
 
+export type ConnectGitHubRequestDto = {
+  /**
+   * The installation GitHub named when it sent you back
+   */
+  installationId: string;
+};
+
+export type HappeningResponseDto = {
+  happening: string;
+  source: string;
+  label: string;
+  told: string;
+};
+
 export type TaskReviewResponseDto = {
   /**
    * The inbox conversation waiting on a person
@@ -653,6 +699,37 @@ export type ReorderStationsResponses = {
 };
 
 export type ReorderStationsResponse = ReorderStationsResponses[keyof ReorderStationsResponses];
+
+export type SetLineReactionsData = {
+  body: SetLineReactionsRequestDto;
+  path: {
+    teamId: string;
+    lineId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/assembly-lines/{lineId}/reactions';
+};
+
+export type SetLineReactionsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such line for this caller
+   */
+  404: unknown;
+  /**
+   * A word nobody raises, or two rules that collide
+   */
+  422: unknown;
+};
+
+export type SetLineReactionsResponses = {
+  200: AssemblyLineResponseDto;
+};
+
+export type SetLineReactionsResponse = SetLineReactionsResponses[keyof SetLineReactionsResponses];
 
 export type CustomiseStationData = {
   body: CustomiseStationRequestDto;
@@ -1199,9 +1276,11 @@ export type RevokeRunnerResponse = RevokeRunnerResponses[keyof RevokeRunnerRespo
 
 export type ListRepositoriesData = {
   body?: never;
-  path?: never;
+  path: {
+    slug: string;
+  };
   query?: never;
-  url: '/repositories';
+  url: '/workspaces/{slug}/repositories';
 };
 
 export type ListRepositoriesErrors = {
@@ -1209,6 +1288,10 @@ export type ListRepositoriesErrors = {
    * No valid session
    */
   401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
 };
 
 export type ListRepositoriesResponses = {
@@ -1216,6 +1299,65 @@ export type ListRepositoriesResponses = {
 };
 
 export type ListRepositoriesResponse = ListRepositoriesResponses[keyof ListRepositoriesResponses];
+
+export type ConnectGitHubData = {
+  body: ConnectGitHubRequestDto;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/github';
+};
+
+export type ConnectGitHubErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * Not an owner or admin, or not your installation
+   */
+  403: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type ConnectGitHubResponses = {
+  /**
+   * Connected
+   */
+  204: void;
+};
+
+export type ConnectGitHubResponse = ConnectGitHubResponses[keyof ConnectGitHubResponses];
+
+export type ListHappeningsData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/happenings';
+};
+
+export type ListHappeningsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type ListHappeningsResponses = {
+  200: Array<HappeningResponseDto>;
+};
+
+export type ListHappeningsResponse = ListHappeningsResponses[keyof ListHappeningsResponses];
 
 export type ListTasksData = {
   body?: never;

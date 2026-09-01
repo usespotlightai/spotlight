@@ -13,6 +13,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { useCustomiseStation } from '@/hooks/api/useCustomiseStation';
+import { useSetLineReactions } from '@/hooks/api/useSetLineReactions';
 import { useStation } from '@/hooks/api/useStation';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useStationEdits } from '@/hooks/useStationEdits';
@@ -25,6 +26,7 @@ export function Station() {
   const { line, station, isPending } = useStation(teamId, lineId, stationId);
   const { edits, change } = useStationEdits(station);
   const customise = useCustomiseStation();
+  const setReactions = useSetLineReactions();
 
   if (isPending) {
     return null;
@@ -154,23 +156,37 @@ export function Station() {
             </p>
           )}
 
-          {ends ? (
-            <aside className="w-56 shrink-0">
-              <p className="px-2 text-muted-foreground text-xs leading-5">
-                {station.kind === 'backlog'
-                  ? 'Tasks wait here until someone starts them. Nothing runs at a backlog, so it has no harness and nothing to instruct.'
-                  : 'Tasks land here once their pull request is merged. The line ends here, so nothing runs at it.'}
-              </p>
-            </aside>
-          ) : (
-            <StationProperties
-              harness={edits.harness}
-              onHarness={(harness) => {
-                change({ harness });
-                save({ harness });
-              }}
-            />
+          {setReactions.isError && (
+            <p className="text-destructive text-xs">
+              {setReactions.error.message}
+            </p>
           )}
+
+          <StationProperties
+            slug={slug}
+            stationId={station.id}
+            stations={line.stations}
+            reactions={line.reactions}
+            onReactions={(reactions) =>
+              teamId &&
+              lineId &&
+              setReactions.mutate({ teamId, lineId, reactions })
+            }
+            {...(ends
+              ? {
+                  note:
+                    station.kind === 'backlog'
+                      ? 'Tasks wait here until someone starts them. Nothing runs at a backlog, so it has no harness and nothing to instruct.'
+                      : 'Tasks land here once the line is done with them. Nothing runs at it.',
+                }
+              : {
+                  harness: edits.harness,
+                  onHarness: (harness: string) => {
+                    change({ harness });
+                    save({ harness });
+                  },
+                })}
+          />
         </div>
       </div>
     </>

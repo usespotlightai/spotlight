@@ -8,8 +8,9 @@ import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
-import type { Happening } from '@domain/value-objects/happening.vo';
+import { Happening } from '@domain/value-objects/happening.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { Reaction } from '@domain/value-objects/reaction.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
@@ -20,7 +21,7 @@ import { describe, expect, it } from 'vitest';
 const at = (
   position: number,
   name = `Station ${position}`,
-  ways: { passesTo?: string[]; reactsTo?: Happening[] } = {},
+  ways: { passesTo?: string[] } = {},
 ) =>
   Station.create({
     id: StationId.of(`station_${position}`),
@@ -28,7 +29,6 @@ const at = (
     position,
     color: StationColor.of('#a3a8b0'),
     wayOut: WayOut.of({ stations: (ways.passesTo ?? []).map(StationId.of) }),
-    reactsTo: ways.reactsTo ?? [],
   });
 
 const backlog = (position = 0) =>
@@ -49,17 +49,27 @@ const completed = (position: number) =>
     kind: 'completed',
   });
 
-const of = (stations: Station[]) =>
+const of = (stations: Station[], reactions: Reaction[] = []) =>
   AssemblyLine.of({
     id: AssemblyLineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
     name: AssemblyLineName.of('Default'),
     stations,
+    reactions,
   });
 
-const lineOf = (stations: Station[]) =>
-  of([backlog(), ...stations, completed(stations.length + 1)]);
+const lineOf = (stations: Station[], reactions: Reaction[] = []) =>
+  of([backlog(), ...stations, completed(stations.length + 1)], reactions);
+
+const COMMENTED = Happening.of('github.pull_request.commented');
+
+const sends = (to: string, from?: string) =>
+  Reaction.of({
+    happening: COMMENTED,
+    from: from ? StationId.of(from) : null,
+    to: StationId.of(to),
+  });
 
 const opened = (name = 'Default') => {
   let next = 0;
@@ -303,22 +313,81 @@ describe('AssemblyLine', () => {
   });
 
   describe('what it waits for from outside', () => {
+    const somewhere = () => opened().stations[1]?.id as StationId;
+
+    const named = (line: AssemblyLine, reaction: { to: StationId } | null) =>
+      reaction ? line.stationAt(reaction.to)?.name.value : null;
+
     it('sends a happening to the station set to wait for it', () => {
-      expect(opened().reactionTo('merged')?.name.value).toBe('Completed');
-      expect(opened().reactionTo('commented')?.name.value).toBe('Code Review');
+      const line = opened();
+
+      expect(
+        named(
+          line,
+          line.reactionTo(
+            Happening.of('github.pull_request.merged'),
+            somewhere(),
+          ),
+        ),
+      ).toBe('Completed');
+      expect(
+        named(
+          line,
+          line.reactionTo(
+            Happening.of('github.pull_request.commented'),
+            somewhere(),
+          ),
+        ),
+      ).toBe('Code Review');
     });
 
     it('sends a happening nobody waits for nowhere', () => {
-      expect(opened().reactionTo('closed-unmerged')).toBeNull();
+      expect(
+        opened().reactionTo(
+          Happening.of('github.pull_request.closed-unmerged'),
+          somewhere(),
+        ),
+      ).toBeNull();
     });
 
     it('refuses two stations waiting for the same word', () => {
       expect(() =>
-        lineOf([
-          at(1, 'Triage', { reactsTo: ['commented'] }),
-          at(2, 'Spec', { reactsTo: ['commented'] }),
-        ]),
+        lineOf(
+          [at(1, 'Triage'), at(2, 'Spec')],
+          [sends('station_1'), sends('station_2')],
+        ),
       ).toThrow(InvalidStationLayoutError);
+    });
+
+    it('refuses a rule sending a word off the line', () => {
+      expect(() =>
+        lineOf([at(1, 'Triage')], [sends('station_nowhere')]),
+      ).toThrow(InvalidStationLayoutError);
+    });
+
+    // A comment at review is an answer; the same comment at spec is a
+    // question to go back to.
+    it('lets a rule name where the task stands, and prefers it', () => {
+      const line = lineOf(
+        [at(1, 'Triage'), at(2, 'Spec')],
+        [sends('station_1'), sends('station_2', 'station_1')],
+      );
+
+      expect(line.reactionTo(COMMENTED, StationId.of('station_1'))?.to).toEqual(
+        StationId.of('station_2'),
+      );
+      expect(line.reactionTo(COMMENTED, StationId.of('station_2'))?.to).toEqual(
+        StationId.of('station_1'),
+      );
+    });
+
+    it('lets two stations wait for the same word from different places', () => {
+      expect(() =>
+        lineOf(
+          [at(1, 'Triage'), at(2, 'Spec')],
+          [sends('station_1', 'station_2'), sends('station_2', 'station_1')],
+        ),
+      ).not.toThrow();
     });
   });
 

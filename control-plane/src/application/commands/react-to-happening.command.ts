@@ -1,9 +1,6 @@
+import type { StoredDelivery } from '@application/ports/delivery-inbox.port';
+
 export class ReactToHappeningCommand {
-  constructor(
-    /** What the host called this delivery, so a second one changes nothing. */
-    readonly delivery: string,
-    /** The host's own words, which only its adapter reads. */
-    readonly event: string | undefined,
-    readonly payload: unknown,
-  ) {}
+  /** A delivery already taken in, being worked now that the host has gone. */
+  constructor(readonly delivered: StoredDelivery) {}
 }

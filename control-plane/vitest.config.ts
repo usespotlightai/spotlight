@@ -39,7 +39,6 @@ export default defineConfig({
             GITHUB_CLIENT_SECRET: 'test-client-secret',
             GITHUB_APP_ID: 'test-app-id',
             GITHUB_APP_PRIVATE_KEY: 'test-private-key',
-            GITHUB_APP_INSTALLATION_ID: 'test-installation-id',
           },
           testTimeout: 30_000,
           hookTimeout: 30_000,

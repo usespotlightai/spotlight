@@ -21,7 +21,9 @@ export class GitHubPullRequests implements PullRequestPort {
   ) {}
 
   async open(opening: PullRequestOpening): Promise<OpenedPullRequestDto> {
-    const { password: token } = await this.access.credential();
+    const { password: token } = await this.access.credential(
+      opening.installation,
+    );
     const into = await this.defaultBranch(opening.repository, token);
 
     const response = await this.ask(

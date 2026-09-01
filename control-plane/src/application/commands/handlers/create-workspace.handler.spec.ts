@@ -44,6 +44,10 @@ beforeEach(() => {
     add: vi.fn(async (workspace: Workspace) => {
       added = workspace;
     }),
+    withInstallation: vi.fn().mockResolvedValue(null),
+    installationOf: vi.fn().mockResolvedValue(null),
+    findBySlug: vi.fn().mockResolvedValue(null),
+    save: vi.fn().mockResolvedValue(undefined),
   };
 });
 

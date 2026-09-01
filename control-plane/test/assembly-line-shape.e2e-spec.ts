@@ -70,14 +70,26 @@ describe('a line, written and read back (e2e)', () => {
         name: station.name.value,
         kind: station.kind,
         ends: station.wayOut.ends,
-        reactsTo: [...station.reactsTo].sort(),
         passesTo: station.wayOut.stations
           .map((id) => line.stationAt(id)?.name.value)
           .sort(),
       }));
 
+    // Named by station rather than by id, so a line read back is compared
+    // with the one that was opened rather than with its own identifiers.
+    const reactionsOf = (line: AssemblyLine) =>
+      line.reactions
+        .map((each) => ({
+          happening: each.happening.value,
+          from: each.from ? line.stationAt(each.from)?.name.value : null,
+          to: line.stationAt(each.to)?.name.value,
+        }))
+        .sort((a, b) => a.happening.localeCompare(b.happening));
+
     expect(read).not.toBeNull();
     expect(shapeOf(read as AssemblyLine)).toEqual(shapeOf(opened));
+    expect(reactionsOf(read as AssemblyLine)).toEqual(reactionsOf(opened));
+    expect(reactionsOf(opened)).not.toHaveLength(0);
     expect(read?.stations.map((each) => each.name.value)).toEqual(
       BUILT_IN_STATIONS.map((each) => each.name.value),
     );

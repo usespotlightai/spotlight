@@ -2,28 +2,29 @@ import type { ReactToHappeningCommand } from '@application/commands/react-to-hap
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
-import type { DeliveryLogPort } from '@application/ports/delivery-log.port';
-import type { RepositoryEventsPort } from '@application/ports/repository-events.port';
+import type { StoredDelivery } from '@application/ports/delivery-inbox.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
+import type { Happened } from '@application/ports/webhook-source.port';
 import type { TaskDispatching } from '@application/services/task-dispatch';
+import type { WebhookSources } from '@application/services/webhook-sources.service';
 import type { Task } from '@domain/aggregates/task.aggregate';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { Placement } from '@domain/services/placement';
-import { type Reaction, ReactionFor } from '@domain/services/reaction-for';
+import { type Outcome, ReactionFor } from '@domain/services/reaction-for';
 import { Voice } from '@domain/value-objects/voice.vo';
+import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 
 /**
  * Word came in about a task, and the line said what to do with it. A word
  * about a task nobody here has, or one nowhere waits for, is not an error:
- * the host tells us about the whole repository.
+ * the host tells us about everything it knows of.
  */
 export class ReactToHappeningHandler
   implements CommandHandlerPort<ReactToHappeningCommand, void>
 {
   constructor(
-    private readonly events: RepositoryEventsPort,
-    private readonly deliveries: DeliveryLogPort,
+    private readonly sources: WebhookSources,
     private readonly tasks: TaskRepository,
     private readonly lines: AssemblyLineRepository,
     private readonly dispatch: TaskDispatching,
@@ -31,55 +32,83 @@ export class ReactToHappeningHandler
     private readonly clock: ClockPort,
   ) {}
 
+  /**
+   * Worked after the host has been answered, so nothing here is racing a
+   * timeout. Taking the delivery in is what made it ours, and only once.
+   */
   async execute(command: ReactToHappeningCommand): Promise<void> {
     try {
-      await this.transaction.run(async () => {
-        const happened = this.events.read(command.event, command.payload);
+      const stored: StoredDelivery = command.delivered;
+      const source = this.sources.find(stored.source);
 
-        // What Spotlight itself did is not news to Spotlight, and a word we
-        // have already acted on is not news either.
-        if (
-          !happened ||
-          happened.ourOwn ||
-          !(await this.deliveries.claim(command.delivery))
-        ) {
-          return;
-        }
+      if (!source) {
+        return;
+      }
 
-        const task = await this.tasks.holding(happened.concerns);
-        const line = task && (await this.lines.holding(task.stationId));
+      const delivered = {
+        headers: stored.headers,
+        body: stored.body,
+        raw: null,
+      };
 
-        if (!task || !line) {
-          return;
-        }
+      // What Spotlight itself did is not news to Spotlight.
+      const news = source.read(delivered).filter((each) => !each.ourOwn);
 
-        const reaction = ReactionFor.happened({
-          task,
-          line,
-          happening: happened.happening,
-          said: happened.said,
-        });
+      if (news.length === 0) {
+        return;
+      }
 
-        const heard = await this.applied(reaction, task);
+      // Whose word this is, before anything is looked up on it. A host
+      // speaking for nobody here reaches no task.
+      const workspaceId = await source.routes(delivered);
 
-        if (!heard) {
-          return;
-        }
+      if (!workspaceId) {
+        return;
+      }
 
-        // Asked of the task rather than assumed: work owed to a person is
-        // not work to start, however loudly the world knocks.
-        const runId = heard.idle
-          ? await this.dispatch.dispatch({ task: heard, line })
-          : null;
-
-        await this.tasks.save(runId ? heard.handedTo(runId) : heard);
-      });
+      for (const happened of news) {
+        await this.transaction.run(() => this.reactTo(workspaceId, happened));
+      }
     } catch (error) {
       rethrowAsFault(error);
     }
   }
 
-  private async applied(reaction: Reaction, task: Task): Promise<Task | null> {
+  private async reactTo(
+    workspaceId: WorkspaceId,
+    happened: Happened,
+  ): Promise<void> {
+    const task = await this.tasks.holding(workspaceId, happened.concerns);
+    const line = task && (await this.lines.holding(task.stationId));
+
+    if (!task || !line) {
+      return;
+    }
+
+    const heard = await this.applied(
+      ReactionFor.happened({
+        task,
+        line,
+        word: happened,
+        said: happened.said,
+      }),
+      task,
+    );
+
+    if (!heard) {
+      return;
+    }
+
+    // Asked of the task rather than assumed: work owed to a person is not
+    // work to start, however loudly the world knocks.
+    const runId = heard.idle
+      ? await this.dispatch.dispatch({ task: heard, line })
+      : null;
+
+    await this.tasks.save(runId ? heard.handedTo(runId) : heard);
+  }
+
+  private async applied(reaction: Outcome, task: Task): Promise<Task | null> {
     if (reaction.kind === 'nothing') {
       return null;
     }

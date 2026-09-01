@@ -25,6 +25,14 @@ export class Team {
     ]);
   }
 
+  static rehydrate(input: {
+    id: TeamId;
+    name: TeamName;
+    members: readonly TeamMember[];
+  }): Team {
+    return new Team(input.id, input.name, input.members);
+  }
+
   equals(other: Team): boolean {
     return this.id.equals(other.id);
   }

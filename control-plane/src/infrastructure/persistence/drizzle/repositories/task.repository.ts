@@ -27,7 +27,7 @@ import {
   taskNote,
 } from '@infrastructure/persistence/drizzle/schemas/task.schema';
 import { Injectable } from '@nestjs/common';
-import { asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 
 type Row = typeof task.$inferSelect;
 type NoteRow = typeof taskNote.$inferSelect;
@@ -141,30 +141,20 @@ export class DrizzleTaskRepository implements TaskRepository {
     return toTask(found, notes.get(found.id) ?? []);
   }
 
-  async withPullRequest(url: PullRequestUrl): Promise<Task | null> {
-    const [found] = await this.context.db
-      .select()
-      .from(task)
-      .where(eq(task.pullRequest, url.value))
-      .limit(1);
-
-    if (!found) {
-      return null;
-    }
-
-    const notes = await this.notesFor([found.id]);
-
-    return toTask(found, notes.get(found.id) ?? []);
-  }
-
-  async holding(concerns: Concerns): Promise<Task | null> {
+  async holding(
+    workspaceId: WorkspaceId,
+    concerns: Concerns,
+  ): Promise<Task | null> {
     const [found] = await this.context.db
       .select()
       .from(task)
       .where(
-        concerns.taskId
-          ? eq(task.id, concerns.taskId.value)
-          : eq(task.pullRequest, concerns.pullRequest?.value ?? ''),
+        and(
+          eq(task.workspaceId, workspaceId.value),
+          concerns.taskId
+            ? eq(task.id, concerns.taskId.value)
+            : eq(task.pullRequest, concerns.pullRequest?.value ?? ''),
+        ),
       )
       .limit(1)
       // A burst about one task is written one at a time.

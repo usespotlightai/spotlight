@@ -1,10 +1,39 @@
 import { UpstreamRefusedError } from '@domain/exceptions/upstream-refused.error';
+import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
+import { Happening } from '@domain/value-objects/happening.vo';
 import { PullRequestUrl } from '@domain/value-objects/pull-request-url.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';
-import { GitHubRepositoryEvents } from '@infrastructure/github/github-repository.events';
-import { describe, expect, it } from 'vitest';
+import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
+import { GitHubSource } from '@infrastructure/github/github.source';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const reading = new GitHubRepositoryEvents();
+const signs = { signs: () => true };
+
+const workspaces = {
+  withInstallation: vi.fn(async () => WorkspaceId.of('ws_1')),
+  installationOf: vi.fn(async () => null),
+  connect: vi.fn(async () => {}),
+};
+
+const events = new GitHubSource(signs, workspaces);
+
+const delivered = (
+  event: string | undefined,
+  body: Record<string, unknown>,
+  headers: Record<string, string> = {},
+) => ({
+  headers: { ...(event ? { 'x-github-event': event } : {}), ...headers },
+  body,
+  raw: null,
+});
+
+/** Every App delivery names its installation, so every fixture does too. */
+const reading = {
+  read: (event: string | undefined, payload: Record<string, unknown>) =>
+    events.read(
+      delivered(event, { installation: { id: 42 }, ...payload }),
+    )[0] ?? null,
+};
 
 const pull = (over: Record<string, unknown> = {}) => ({
   merged: true,
@@ -13,12 +42,14 @@ const pull = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-describe('GitHubRepositoryEvents', () => {
+describe('GitHubSource', () => {
+  beforeEach(() => vi.clearAllMocks());
+
   it('reads a merged pull request', () => {
     expect(
       reading.read('pull_request', { action: 'closed', pull_request: pull() }),
     ).toMatchObject({
-      happening: 'merged',
+      happening: Happening.of('github.pull_request.merged'),
       concerns: {
         taskId: TaskId.of('task_1'),
         pullRequest: PullRequestUrl.of('https://github.com/acme/api/pull/7'),
@@ -32,7 +63,9 @@ describe('GitHubRepositoryEvents', () => {
         action: 'closed',
         pull_request: pull({ merged: false }),
       }),
-    ).toMatchObject({ happening: 'closed-unmerged' });
+    ).toMatchObject({
+      happening: Happening.of('github.pull_request.closed-unmerged'),
+    });
   });
 
   it('reads a comment, and carries what was said', () => {
@@ -94,7 +127,7 @@ describe('GitHubRepositoryEvents', () => {
         comment: { body: 'Ship it once the tests pass.' },
       }),
     ).toMatchObject({
-      happening: 'commented',
+      happening: Happening.of('github.pull_request.commented'),
       concerns: {
         taskId: null,
         pullRequest: PullRequestUrl.of('https://github.com/acme/api/pull/7'),
@@ -114,8 +147,12 @@ describe('GitHubRepositoryEvents', () => {
       review: { state: 'commented', body: 'Reads well.' },
     });
 
-    expect(asked).toMatchObject({ happening: 'changes-requested' });
-    expect(said).toMatchObject({ happening: 'commented' });
+    expect(asked).toMatchObject({
+      happening: Happening.of('github.pull_request.changes-requested'),
+    });
+    expect(said).toMatchObject({
+      happening: Happening.of('github.pull_request.commented'),
+    });
   });
 
   it('reads a failing check suite by the branch it ran on', () => {
@@ -125,7 +162,7 @@ describe('GitHubRepositoryEvents', () => {
         check_suite: { conclusion: 'failure', head_branch: 'spotlight/task_1' },
       }),
     ).toMatchObject({
-      happening: 'checks-failed',
+      happening: Happening.of('github.checks.failed'),
       concerns: { taskId: TaskId.of('task_1'), pullRequest: null },
     });
   });
@@ -153,7 +190,7 @@ describe('GitHubRepositoryEvents', () => {
 
   it('says nothing of an event it was not asked to read', () => {
     expect(reading.read('push', { pull_request: pull() })).toBeNull();
-    expect(reading.read(undefined, undefined)).toBeNull();
+    expect(events.read(delivered(undefined, {}))).toEqual([]);
   });
 
   it('refuses a delivery it should have understood and could not', () => {
@@ -163,5 +200,46 @@ describe('GitHubRepositoryEvents', () => {
         pull_request: { merged: true },
       }),
     ).toThrow(UpstreamRefusedError);
+  });
+
+  describe('naming the delivery', () => {
+    it('calls it what GitHub called it', () => {
+      expect(
+        events.delivery(
+          delivered('pull_request', {}, { 'x-github-delivery': 'd_1' }),
+        ),
+      ).toBe('d_1');
+    });
+
+    // Without one, the same word twice would be worked twice.
+    it('falls back to the body, so an unnamed one is still the same one', () => {
+      const body = Buffer.from('{"action":"closed"}');
+      const once = events.delivery({ headers: {}, body: {}, raw: body });
+      const again = events.delivery({ headers: {}, body: {}, raw: body });
+
+      expect(once).toBe(again);
+      expect(once).toHaveLength(64);
+    });
+  });
+
+  describe('routing to a workspace', () => {
+    it('asks whose the installation the delivery names is', async () => {
+      const found = await events.routes(
+        delivered('pull_request', { installation: { id: 42 } }),
+      );
+
+      expect(workspaces.withInstallation).toHaveBeenCalledWith(
+        GitHubInstallation.of('42'),
+      );
+      expect(found).toEqual(WorkspaceId.of('ws_1'));
+    });
+
+    // Not an App delivery, so there is nobody here it could be speaking for.
+    it('routes a delivery that names no installation nowhere', async () => {
+      expect(
+        await events.routes(delivered('pull_request', { action: 'closed' })),
+      ).toBeNull();
+      expect(workspaces.withInstallation).not.toHaveBeenCalled();
+    });
   });
 });

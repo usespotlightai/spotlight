@@ -102,6 +102,66 @@
         ]
       }
     },
+    "/teams/{teamId}/assembly-lines/{lineId}/reactions": {
+      "put": {
+        "operationId": "setLineReactions",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "lineId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "7b2c9e14-3a5d-4c8f-b6e1-9d0a2f7c5b43",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetLineReactionsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssemblyLineResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such line for this caller"
+          },
+          "422": {
+            "description": "A word nobody raises, or two rules that collide"
+          }
+        },
+        "summary": "Set what this line does when a word comes in from outside",
+        "tags": [
+          "assembly-lines"
+        ]
+      }
+    },
     "/teams/{teamId}/assembly-lines/{lineId}/stations/{stationId}": {
       "patch": {
         "operationId": "customiseStation",
@@ -961,10 +1021,20 @@
         ]
       }
     },
-    "/repositories": {
+    "/workspaces/{slug}/repositories": {
       "get": {
         "operationId": "listRepositories",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -981,11 +1051,99 @@
           },
           "401": {
             "description": "No valid session"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
           }
         },
         "summary": "List the repositories a task can be raised against",
         "tags": [
           "repositories"
+        ]
+      }
+    },
+    "/workspaces/{slug}/github": {
+      "post": {
+        "operationId": "connectGitHub",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectGitHubRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Connected"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "Not an owner or admin, or not your installation"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          }
+        },
+        "summary": "Point this workspace at a GitHub App installation",
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
+    "/workspaces/{slug}/happenings": {
+      "get": {
+        "operationId": "listHappenings",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HappeningResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          }
+        },
+        "summary": "The words a station here can be set to wait for",
+        "tags": [
+          "happenings"
         ]
       }
     },
@@ -1566,6 +1724,30 @@
           "kind"
         ]
       },
+      "ReactionResponseDto": {
+        "type": "object",
+        "properties": {
+          "happening": {
+            "type": "string",
+            "example": "github.pull_request.commented"
+          },
+          "from": {
+            "type": "string",
+            "example": null,
+            "nullable": true,
+            "description": "Where the task must stand for this to count. Null is wherever it is."
+          },
+          "to": {
+            "type": "string",
+            "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80"
+          }
+        },
+        "required": [
+          "happening",
+          "from",
+          "to"
+        ]
+      },
       "AssemblyLineResponseDto": {
         "type": "object",
         "properties": {
@@ -1582,12 +1764,19 @@
             "items": {
               "$ref": "#/components/schemas/StationResponseDto"
             }
+          },
+          "reactions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReactionResponseDto"
+            }
           }
         },
         "required": [
           "id",
           "name",
-          "stations"
+          "stations",
+          "reactions"
         ]
       },
       "ReorderStationsRequestDto": {
@@ -1607,6 +1796,46 @@
         },
         "required": [
           "stationIds"
+        ]
+      },
+      "ReactionRequestDto": {
+        "type": "object",
+        "properties": {
+          "happening": {
+            "type": "string",
+            "example": "github.pull_request.commented",
+            "description": "One of the words a connected source raises"
+          },
+          "from": {
+            "type": "string",
+            "example": null,
+            "nullable": true,
+            "description": "Where the task must stand for this to count. Leave out for wherever it is."
+          },
+          "to": {
+            "type": "string",
+            "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80",
+            "description": "Where the word takes the task"
+          }
+        },
+        "required": [
+          "happening",
+          "to"
+        ]
+      },
+      "SetLineReactionsRequestDto": {
+        "type": "object",
+        "properties": {
+          "reactions": {
+            "description": "The whole set. Anything left out stops applying.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReactionRequestDto"
+            }
+          }
+        },
+        "required": [
+          "reactions"
         ]
       },
       "CustomiseStationRequestDto": {
@@ -2503,6 +2732,46 @@
         },
         "required": [
           "fullName"
+        ]
+      },
+      "ConnectGitHubRequestDto": {
+        "type": "object",
+        "properties": {
+          "installationId": {
+            "type": "string",
+            "example": "81234567",
+            "description": "The installation GitHub named when it sent you back"
+          }
+        },
+        "required": [
+          "installationId"
+        ]
+      },
+      "HappeningResponseDto": {
+        "type": "object",
+        "properties": {
+          "happening": {
+            "type": "string",
+            "example": "github.pull_request.commented"
+          },
+          "source": {
+            "type": "string",
+            "example": "github"
+          },
+          "label": {
+            "type": "string",
+            "example": "Pull request commented on"
+          },
+          "told": {
+            "type": "string",
+            "example": "The pull request was commented on."
+          }
+        },
+        "required": [
+          "happening",
+          "source",
+          "label",
+          "told"
         ]
       },
       "TaskReviewResponseDto": {

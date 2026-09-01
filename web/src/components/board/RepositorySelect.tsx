@@ -12,12 +12,17 @@ import { cn } from '@/lib/utils';
 const NONE = 'none';
 
 type RepositorySelectProps = {
+  slug: string | undefined;
   value: string;
   onChange: (repository: string) => void;
 };
 
-export function RepositorySelect({ value, onChange }: RepositorySelectProps) {
-  const { data: repositories } = useRepositories();
+export function RepositorySelect({
+  slug,
+  value,
+  onChange,
+}: RepositorySelectProps) {
+  const { data: repositories } = useRepositories(slug);
 
   return (
     <DropdownMenu>

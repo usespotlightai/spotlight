@@ -17,6 +17,9 @@ export const workspace = pgTable('workspace', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
+  // Unique because a delivery names an installation and nothing else: two
+  // workspaces on one would leave nowhere to send it.
+  githubInstallationId: text('github_installation_id').unique(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at')
     .defaultNow()

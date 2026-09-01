@@ -1,5 +1,7 @@
 import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { OpenRemark, Task } from '@domain/aggregates/task.aggregate';
+import type { Station } from '@domain/entities/station.entity';
+import { toolNamed } from '@domain/services/built-in-tools';
 import { DONE, REVIEW } from '@domain/value-objects/declaration.vo';
 import { RemarkHandle } from '@domain/value-objects/remark-handle.vo';
 import type { StationId } from '@domain/value-objects/station-id.vo';
@@ -70,6 +72,19 @@ const answering = (task: Task): string | null => {
   ].join('\n\n');
 };
 
+/**
+ * How to use what this station has. Told about here and nowhere else: a
+ * station without the tool is not told about it, and what it does not know
+ * about it cannot reach for.
+ */
+const reaching = (station: Station | null): string | null => {
+  const told = (station?.tools ?? [])
+    .map((each) => toolNamed(each)?.instructions)
+    .filter((each): each is string => Boolean(each));
+
+  return told.length > 0 ? told.join('\n\n') : null;
+};
+
 export const TaskBriefing = {
   brief(input: { task: Task; line: AssemblyLine }): string {
     const station = input.line.stationAt(input.task.stationId);
@@ -82,6 +97,7 @@ export const TaskBriefing = {
       `## ${input.task.title.value}`,
       input.task.description?.value,
       notes.length > 0 ? ['## Already done', ...notes].join('\n\n') : null,
+      reaching(station),
       answering(input.task),
       closing(input.line, input.task.stationId),
     ]

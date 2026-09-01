@@ -1,10 +1,7 @@
 import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Task } from '@domain/aggregates/task.aggregate';
 import type { Station } from '@domain/entities/station.entity';
-import {
-  type Happening,
-  spokenByAPerson,
-} from '@domain/value-objects/happening.vo';
+import type { Word } from '@domain/value-objects/happening.vo';
 import { NotePosition } from '@domain/value-objects/note-position.vo';
 import type { Said } from '@domain/value-objects/said.vo';
 import type { StationName } from '@domain/value-objects/station-name.vo';
@@ -17,7 +14,7 @@ interface Told {
 }
 
 /** What word from outside does to a task. Nothing is the ordinary answer. */
-export type Reaction =
+export type Outcome =
   | { readonly kind: 'nothing' }
   | (Told & { readonly kind: 'stays' })
   | (Told & { readonly kind: 'answers'; readonly to: NotePosition })
@@ -27,26 +24,38 @@ export const ReactionFor = {
   happened(input: {
     task: Task;
     line: AssemblyLine;
-    happening: Happening;
+    /** What the source says happened, in its own words. */
+    word: Word;
     said: Said | null;
-  }): Reaction {
+  }): Outcome {
     // The end of the line, not merely finished: a finished task's pull
     // request is still out there being read.
     if (input.line.completed.id.equals(input.task.stationId)) {
       return { kind: 'nothing' };
     }
 
-    const waiting = input.line.reactionTo(input.happening);
+    const rule = input.line.reactionTo(
+      input.word.happening,
+      input.task.stationId,
+    );
 
     // A review with nothing written on it says nothing: its comments arrive
     // on their own, carrying what was actually said.
-    if (!waiting || (spokenByAPerson(input.happening) && !input.said)) {
+    if (!rule || (input.word.spoken && !input.said)) {
+      return { kind: 'nothing' };
+    }
+
+    const waiting = input.line.stationAt(rule.to);
+
+    // The line guards that a rule lands on it, so this is only ever a line
+    // read in pieces. Nothing here guesses where the task should go instead.
+    if (!waiting) {
       return { kind: 'nothing' };
     }
 
     const told = {
       station: input.line.stationAt(input.task.stationId)?.name ?? waiting.name,
-      body: TaskNoteBody.heard(input.happening, input.said),
+      body: TaskNoteBody.heard(input.word.told, input.said),
       said: input.said,
     };
 
@@ -58,7 +67,7 @@ export const ReactionFor = {
     // the answer the station was waiting for.
     const owed = input.task.owedConversation;
 
-    return owed && spokenByAPerson(input.happening)
+    return owed && input.word.spoken
       ? { kind: 'answers', to: NotePosition.of(owed.from), ...told }
       : { kind: 'stays', ...told };
   },

@@ -21,6 +21,8 @@ export interface RunOrder {
   readonly continuity: Continuity;
   readonly repository: Repository | null;
   readonly branch: string;
+  /** What this run may reach for, named so the runner knows what to raise. */
+  readonly tools: readonly string[];
 }
 
 /** Queueing what nothing can start strands the task on the queue, where
@@ -59,5 +61,6 @@ export const orderFor = ({
     continuity,
     repository: task.repository,
     branch: task.branch.value,
+    tools: station.tools.map((each) => each.value),
   };
 };

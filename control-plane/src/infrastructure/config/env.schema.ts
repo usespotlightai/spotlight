@@ -29,10 +29,10 @@ export const envSchema = databaseSchema
     GITHUB_CLIENT_ID: z.string().min(1),
     GITHUB_CLIENT_SECRET: z.string().min(1),
     // A GitHub App installed on the repositories tasks name. Its key mints
-    // short-lived installation tokens, and never leaves this process.
+    // short-lived installation tokens, and never leaves this process. Which
+    // installation is a workspace's own, so it is held there and not here.
     GITHUB_APP_ID: z.string().min(1),
     GITHUB_APP_PRIVATE_KEY: z.string().min(1),
-    GITHUB_APP_INSTALLATION_ID: z.string().min(1),
     // Shared with the App's webhook. Left unset, deliveries are refused.
     GITHUB_WEBHOOK_SECRET: z.string().default(''),
     LOG_LEVEL: z.enum(LOG_LEVELS).optional(),

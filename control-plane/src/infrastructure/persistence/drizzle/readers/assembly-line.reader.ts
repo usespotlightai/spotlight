@@ -10,6 +10,7 @@ import type { DrizzleDatabase } from '@infrastructure/persistence/drizzle/drizzl
 import { DRIZZLE } from '@infrastructure/persistence/drizzle/drizzle.constants';
 import {
   assemblyLine,
+  assemblyLineReaction,
   station,
 } from '@infrastructure/persistence/drizzle/schemas/assembly-line.schema';
 import { factory } from '@infrastructure/persistence/drizzle/schemas/factory.schema';
@@ -31,6 +32,13 @@ type Row = {
   stationHarness: string | null;
   stationAgentPrompt: string | null;
   stationKind: StationKind | null;
+};
+
+type ReactionRow = {
+  lineId: string;
+  happening: string;
+  from: string | null;
+  to: string;
 };
 
 @Injectable()
@@ -79,11 +87,30 @@ export class DrizzleAssemblyLineReader implements AssemblyLineReaderPort {
       .where(eq(factory.teamId, teamId.value))
       .orderBy(assemblyLine.createdAt, station.position);
 
-    return group(rows);
+    const reactions = await this.db
+      .select({
+        lineId: assemblyLineReaction.assemblyLineId,
+        happening: assemblyLineReaction.happening,
+        from: assemblyLineReaction.fromStationId,
+        to: assemblyLineReaction.toStationId,
+      })
+      .from(assemblyLineReaction)
+      .innerJoin(
+        assemblyLine,
+        eq(assemblyLine.id, assemblyLineReaction.assemblyLineId),
+      )
+      .innerJoin(factory, eq(factory.id, assemblyLine.factoryId))
+      .where(eq(factory.teamId, teamId.value))
+      .orderBy(assemblyLineReaction.happening);
+
+    return group(rows, reactions);
   }
 }
 
-const group = (rows: Row[]): AssemblyLineDetail[] => {
+const group = (
+  rows: Row[],
+  reacting: readonly ReactionRow[],
+): AssemblyLineDetail[] => {
   const lines = new Map<string, { name: string; stations: StationSummary[] }>();
 
   for (const row of rows) {
@@ -109,5 +136,8 @@ const group = (rows: Row[]): AssemblyLineDetail[] => {
     id,
     name: line.name,
     stations: line.stations,
+    reactions: reacting
+      .filter((each) => each.lineId === id)
+      .map(({ happening, from, to }) => ({ happening, from, to })),
   }));
 };

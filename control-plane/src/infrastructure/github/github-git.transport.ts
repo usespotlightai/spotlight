@@ -8,6 +8,7 @@ import type {
   GitCall,
   RepositoryGitPort,
 } from '@application/ports/repository-git.port';
+import type { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import type { Repository } from '@domain/value-objects/repository.vo';
 import { Inject, Injectable } from '@nestjs/common';
 
@@ -48,8 +49,12 @@ export class GitHubGitTransport implements RepositoryGitPort {
     private readonly access: RepositoryAccessPort,
   ) {}
 
-  async call(repository: Repository, call: GitCall): Promise<GitAnswer> {
-    const credential = await this.access.credential();
+  async call(
+    installation: GitHubInstallation,
+    repository: Repository,
+    call: GitCall,
+  ): Promise<GitAnswer> {
+    const credential = await this.access.credential(installation);
     const upstream = `${GITHUB}/${repository.owner}/${repository.name}.git${call.path}${call.search}`;
 
     const response = await fetch(upstream, {

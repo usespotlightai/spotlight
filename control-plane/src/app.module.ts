@@ -1,16 +1,20 @@
+import { AcceptDeliveryCommand } from '@application/commands/accept-delivery.command';
 import { AddTaskCommand } from '@application/commands/add-task.command';
 import { AnswerInboxItemCommand } from '@application/commands/answer-inbox-item.command';
 import { AnswerRemarkCommand } from '@application/commands/answer-remark.command';
+import { ConnectGitHubCommand } from '@application/commands/connect-github.command';
 import { CreateWorkspaceCommand } from '@application/commands/create-workspace.command';
 import { CustomiseStationCommand } from '@application/commands/customise-station.command';
 import { DeleteTaskCommand } from '@application/commands/delete-task.command';
 import { DeliverSaidCommand } from '@application/commands/deliver-said.command';
+import { AcceptDeliveryHandler } from '@application/commands/handlers/accept-delivery.handler';
 import { AddTaskHandler } from '@application/commands/handlers/add-task.handler';
 import { AnswerInboxItemHandler } from '@application/commands/handlers/answer-inbox-item.handler';
 import { AnswerRemarkHandler } from '@application/commands/handlers/answer-remark.handler';
 import { AppendRunEventsHandler } from '@application/commands/handlers/append-run-events.handler';
 import { ClaimRunHandler } from '@application/commands/handlers/claim-run.handler';
 import { CompleteRunHandler } from '@application/commands/handlers/complete-run.handler';
+import { ConnectGitHubHandler } from '@application/commands/handlers/connect-github.handler';
 import { CreateWorkspaceHandler } from '@application/commands/handlers/create-workspace.handler';
 import { CustomiseStationHandler } from '@application/commands/handlers/customise-station.handler';
 import { DeleteTaskHandler } from '@application/commands/handlers/delete-task.handler';
@@ -26,6 +30,7 @@ import { RenewLeaseHandler } from '@application/commands/handlers/renew-lease.ha
 import { ReorderStationsHandler } from '@application/commands/handlers/reorder-stations.handler';
 import { RevokeRunnerHandler } from '@application/commands/handlers/revoke-runner.handler';
 import { SayToRunHandler } from '@application/commands/handlers/say-to-run.handler';
+import { SetLineReactionsHandler } from '@application/commands/handlers/set-line-reactions.handler';
 import { MoveTaskCommand } from '@application/commands/move-task.command';
 import { OpenPullRequestCommand } from '@application/commands/open-pull-request.command';
 import { ReactToHappeningCommand } from '@application/commands/react-to-happening.command';
@@ -42,17 +47,27 @@ import {
   RevokeRunnerCommand,
 } from '@application/commands/runner.commands';
 import { SayToRunCommand } from '@application/commands/say-to-run.command';
+import { SetLineReactionsCommand } from '@application/commands/set-line-reactions.command';
 import { HandOver } from '@application/events/handlers/hand-over.handler';
 import { ProvisionFactory } from '@application/events/handlers/provision-factory.handler';
 import { ReleaseHeldRuns } from '@application/events/handlers/release-held-runs.handler';
 import { ASSEMBLY_LINE_READER } from '@application/ports/assembly-line-reader.port';
 import { CLOCK, type ClockPort } from '@application/ports/clock.port';
-import { DELIVERY_LOG } from '@application/ports/delivery-log.port';
+import {
+  DELIVERY_INBOX,
+  type DeliveryInboxPort,
+} from '@application/ports/delivery-inbox.port';
+import {
+  DELIVERY_WORK,
+  type DeliveryWorkPort,
+} from '@application/ports/delivery-work.port';
 import { FACTORY_PROVISIONING } from '@application/ports/factory-provisioning.port';
 import { GIT_GATEWAY } from '@application/ports/git-gateway.port';
+import { GITHUB_IDENTITY } from '@application/ports/github-identity.port';
 import { ID_GENERATOR } from '@application/ports/id-generator.port';
 import { INBOX_READER } from '@application/ports/inbox-reader.port';
 import { KEPT_WORKSPACE_READER } from '@application/ports/kept-workspace-reader.port';
+import { LOGGER, type LoggerPort } from '@application/ports/logger.port';
 import { PERSON_READER } from '@application/ports/person-reader.port';
 import { PULL_REQUESTS } from '@application/ports/pull-request.port';
 import { REMARKS } from '@application/ports/remarks.port';
@@ -61,7 +76,6 @@ import {
   type RepositoryAccessPort,
 } from '@application/ports/repository-access.port';
 import { REPOSITORY_CATALOG } from '@application/ports/repository-catalog.port';
-import { REPOSITORY_EVENTS } from '@application/ports/repository-events.port';
 import {
   REPOSITORY_GIT,
   type RepositoryGitPort,
@@ -75,14 +89,25 @@ import { RUNNER_READER } from '@application/ports/runner-reader.port';
 import { RUNNER_REVOCATION } from '@application/ports/runner-revocation.port';
 import { RUNNER_TOKEN } from '@application/ports/runner-token.port';
 import { TASK_READER } from '@application/ports/task-reader.port';
-import { TRANSACTION } from '@application/ports/transaction.port';
-import { WEBHOOK_SIGNATURE } from '@application/ports/webhook-signature.port';
+import {
+  TRANSACTION,
+  type TransactionPort,
+} from '@application/ports/transaction.port';
+import {
+  WEBHOOK_SIGNATURE,
+  type WebhookSignaturePort,
+} from '@application/ports/webhook-signature.port';
+import {
+  WEBHOOK_SOURCES,
+  type WebhookSourcePort,
+} from '@application/ports/webhook-source.port';
 import { WORKSPACE_READER } from '@application/ports/workspace-reader.port';
 import { FindStationQuery } from '@application/queries/find-station.query';
 import { GetWorkspaceQuery } from '@application/queries/get-workspace.query';
 import { FindStationHandler } from '@application/queries/handlers/find-station.handler';
 import { GetWorkspaceHandler } from '@application/queries/handlers/get-workspace.handler';
 import { ListAssemblyLinesHandler } from '@application/queries/handlers/list-assembly-lines.handler';
+import { ListHappeningsHandler } from '@application/queries/handlers/list-happenings.handler';
 import { ListHarnessesHandler } from '@application/queries/handlers/list-harnesses.handler';
 import { ListInboxHandler } from '@application/queries/handlers/list-inbox.handler';
 import { ListKeptWorkspacesHandler } from '@application/queries/handlers/list-kept-workspaces.handler';
@@ -98,6 +123,7 @@ import { ReadRunEventsHandler } from '@application/queries/handlers/read-run-eve
 import { ReadTaskJournalHandler } from '@application/queries/handlers/read-task-journal.handler';
 import { WatchRunHandler } from '@application/queries/handlers/watch-run.handler';
 import { ListAssemblyLinesQuery } from '@application/queries/list-assembly-lines.query';
+import { ListHappeningsQuery } from '@application/queries/list-happenings.query';
 import { ListHarnessesQuery } from '@application/queries/list-harnesses.query';
 import { ListInboxQuery } from '@application/queries/list-inbox.query';
 import { ListKeptWorkspacesQuery } from '@application/queries/list-kept-workspaces.query';
@@ -123,6 +149,8 @@ import {
   TASK_DISPATCH,
   type TaskDispatching,
 } from '@application/services/task-dispatch';
+import { WebhookSources } from '@application/services/webhook-sources.service';
+import { WorkOffDeliveries } from '@application/services/work-off-deliveries.service';
 import { AuthenticationModule } from '@infrastructure/auth/auth.module';
 import { RunnerTokenAuth } from '@infrastructure/auth/runner-token.auth';
 import { RunnerTokenService } from '@infrastructure/auth/runner-token.service';
@@ -131,15 +159,18 @@ import { ConfigModule } from '@infrastructure/config/config.module';
 import type { Env } from '@infrastructure/config/env.schema';
 import { bindCommandHandler } from '@infrastructure/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@infrastructure/cqrs/bind-query-handler';
+import { DeliveryWorker } from '@infrastructure/delivery/delivery-worker';
+import { GitHubSource } from '@infrastructure/github/github.source';
 import { GitHubAppAccess } from '@infrastructure/github/github-app.access';
 import { GitHubGitTransport } from '@infrastructure/github/github-git.transport';
+import { GitHubIdentity } from '@infrastructure/github/github-identity';
 import { GitHubPullRequests } from '@infrastructure/github/github-pull-requests';
 import { GitHubRemarks } from '@infrastructure/github/github-remarks';
 import { GitHubRepositoryCatalog } from '@infrastructure/github/github-repository.catalog';
-import { GitHubRepositoryEvents } from '@infrastructure/github/github-repository.events';
 import { GitHubWebhookSignature } from '@infrastructure/github/github-webhook.signature';
 import { BuiltInHarnesses } from '@infrastructure/harnesses/built-in-harnesses';
 import { CryptoIdGenerator } from '@infrastructure/identity/crypto-id.generator';
+import { GracefulShutdown } from '@infrastructure/lifecycle/graceful-shutdown';
 import { LoggingModule } from '@infrastructure/logging/logging.module';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
 import { DrizzleModule } from '@infrastructure/persistence/drizzle/drizzle.module';
@@ -154,7 +185,7 @@ import { DrizzleRunnerReader } from '@infrastructure/persistence/drizzle/readers
 import { DrizzleTaskReader } from '@infrastructure/persistence/drizzle/readers/task.reader';
 import { DrizzleWorkspaceReader } from '@infrastructure/persistence/drizzle/readers/workspace.reader';
 import { DrizzleAssemblyLineRepository } from '@infrastructure/persistence/drizzle/repositories/assembly-line.repository';
-import { DrizzleDeliveryLog } from '@infrastructure/persistence/drizzle/repositories/delivery-log.repository';
+import { DrizzleDeliveryInbox } from '@infrastructure/persistence/drizzle/repositories/delivery-inbox.repository';
 import { DrizzleFactoryRepository } from '@infrastructure/persistence/drizzle/repositories/factory.repository';
 import { DrizzleRunRepository } from '@infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleRunnerRepository } from '@infrastructure/persistence/drizzle/repositories/runner.repository';
@@ -163,11 +194,13 @@ import { DrizzleWorkspaceRepository } from '@infrastructure/persistence/drizzle/
 import { InMemoryRunStream } from '@infrastructure/streaming/in-memory-run-stream';
 import { SystemClock } from '@infrastructure/time/system-clock';
 import { Module } from '@nestjs/common';
-import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, HttpAdapterHost } from '@nestjs/core';
 import { CqrsModule } from '@nestjs/cqrs';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AssemblyLineController } from '@presentation/http/controllers/assembly-line.controller';
 import { GitController } from '@presentation/http/controllers/git.controller';
-import { GitHubWebhookController } from '@presentation/http/controllers/github-webhook.controller';
+import { GitHubConnectionController } from '@presentation/http/controllers/github-connection.controller';
+import { HappeningController } from '@presentation/http/controllers/happening.controller';
 import { HarnessController } from '@presentation/http/controllers/harness.controller';
 import { HealthController } from '@presentation/http/controllers/health.controller';
 import { InboxController } from '@presentation/http/controllers/inbox.controller';
@@ -177,6 +210,7 @@ import { RunStreamController } from '@presentation/http/controllers/run-stream.c
 import { RunnerController } from '@presentation/http/controllers/runner.controller';
 import { RunnerFleetController } from '@presentation/http/controllers/runner-fleet.controller';
 import { TaskController } from '@presentation/http/controllers/task.controller';
+import { WebhookController } from '@presentation/http/controllers/webhook.controller';
 import { WorkspaceController } from '@presentation/http/controllers/workspace.controller';
 import { ServerFaultFilter } from '@presentation/http/filters/server-fault.filter';
 import { UseCaseFaultFilter } from '@presentation/http/filters/use-case-fault.filter';
@@ -188,6 +222,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     ConfigModule,
     LoggingModule,
     CqrsModule,
+    ScheduleModule.forRoot(),
     DrizzleModule,
     AuthenticationModule,
   ],
@@ -202,7 +237,9 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     RunnerFleetController,
     GitController,
     RepositoryController,
-    GitHubWebhookController,
+    GitHubConnectionController,
+    HappeningController,
+    WebhookController,
     TaskController,
     WorkspaceController,
   ],
@@ -244,13 +281,54 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     },
 
     {
-      provide: DELIVERY_LOG,
-      useClass: DrizzleDeliveryLog,
+      provide: DELIVERY_INBOX,
+      useClass: DrizzleDeliveryInbox,
     },
 
     {
-      provide: REPOSITORY_EVENTS,
-      useClass: GitHubRepositoryEvents,
+      provide: WorkOffDeliveries,
+      inject: [DELIVERY_INBOX, ReactToHappeningHandler, TRANSACTION],
+      useFactory: (
+        inbox: DeliveryInboxPort,
+        reacting: ReactToHappeningHandler,
+        transaction: TransactionPort,
+      ) => new WorkOffDeliveries(inbox, reacting, transaction),
+    },
+
+    { provide: DELIVERY_WORK, useExisting: WorkOffDeliveries },
+
+    {
+      provide: GracefulShutdown,
+      inject: [HttpAdapterHost, LOGGER],
+      useFactory: (adapters: HttpAdapterHost, logger: LoggerPort) =>
+        new GracefulShutdown(adapters, logger),
+    },
+
+    {
+      provide: DeliveryWorker,
+      inject: [DELIVERY_WORK, LOGGER],
+      useFactory: (work: DeliveryWorkPort, logger: LoggerPort) =>
+        new DeliveryWorker(work, logger),
+    },
+
+    {
+      provide: WEBHOOK_SOURCES,
+      inject: [WEBHOOK_SIGNATURE, DrizzleWorkspaceRepository],
+      useFactory: (
+        signature: WebhookSignaturePort,
+        workspaces: DrizzleWorkspaceRepository,
+      ): WebhookSourcePort[] => [new GitHubSource(signature, workspaces)],
+    },
+
+    {
+      provide: WebhookSources,
+      inject: [WEBHOOK_SOURCES],
+      useFactory: (sources: WebhookSourcePort[]) => new WebhookSources(sources),
+    },
+
+    {
+      provide: GITHUB_IDENTITY,
+      useClass: GitHubIdentity,
     },
 
     {
@@ -304,9 +382,12 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
 
     {
       provide: GIT_GATEWAY,
-      inject: [RunAtHand, REPOSITORY_GIT],
-      useFactory: (held: RunAtHand, git: RepositoryGitPort) =>
-        new CarryGitCall(held, git),
+      inject: [RunAtHand, DrizzleWorkspaceRepository, REPOSITORY_GIT],
+      useFactory: (
+        held: RunAtHand,
+        workspaces: DrizzleWorkspaceRepository,
+        git: RepositoryGitPort,
+      ) => new CarryGitCall(held, workspaces, git),
     },
 
     BuiltInHarnesses,
@@ -383,7 +464,13 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     ...bindQueryHandler(ListHarnessesQuery, ListHarnessesHandler, [
       BuiltInHarnesses,
     ]),
+    ...bindQueryHandler(ListHappeningsQuery, ListHappeningsHandler, [
+      WORKSPACE_READER,
+      WebhookSources,
+    ]),
     ...bindQueryHandler(ListRepositoriesQuery, ListRepositoriesHandler, [
+      WORKSPACE_READER,
+      DrizzleWorkspaceRepository,
       REPOSITORY_CATALOG,
     ]),
     ...bindQueryHandler(ListInboxQuery, ListInboxHandler, [INBOX_READER]),
@@ -431,9 +518,12 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       CLOCK,
     ]),
 
+    ...bindCommandHandler(AcceptDeliveryCommand, AcceptDeliveryHandler, [
+      WebhookSources,
+      DELIVERY_INBOX,
+    ]),
     ...bindCommandHandler(ReactToHappeningCommand, ReactToHappeningHandler, [
-      REPOSITORY_EVENTS,
-      DELIVERY_LOG,
+      WebhookSources,
       DrizzleTaskRepository,
       DrizzleAssemblyLineRepository,
       TASK_DISPATCH,
@@ -447,15 +537,27 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       CLOCK,
     ]),
 
+    ...bindCommandHandler(SetLineReactionsCommand, SetLineReactionsHandler, [
+      DrizzleAssemblyLineRepository,
+      WebhookSources,
+      TRANSACTION,
+    ]),
+    ...bindCommandHandler(ConnectGitHubCommand, ConnectGitHubHandler, [
+      DrizzleWorkspaceRepository,
+      GITHUB_IDENTITY,
+      TRANSACTION,
+    ]),
     ...bindCommandHandler(OpenPullRequestCommand, OpenPullRequestHandler, [
       RunAtHand,
       DrizzleTaskRepository,
+      DrizzleWorkspaceRepository,
       PULL_REQUESTS,
     ]),
     ...bindCommandHandler(AnswerRemarkCommand, AnswerRemarkHandler, [
       RunAtHand,
       DrizzleTaskRepository,
       DrizzleAssemblyLineRepository,
+      DrizzleWorkspaceRepository,
       REMARKS,
       CLOCK,
     ]),

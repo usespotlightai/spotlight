@@ -91,7 +91,6 @@ const tasks = () =>
     remove: vi.fn(),
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
-    withPullRequest: vi.fn(async () => null),
     holding: vi.fn(async () => null),
   }) satisfies TaskRepository;
 

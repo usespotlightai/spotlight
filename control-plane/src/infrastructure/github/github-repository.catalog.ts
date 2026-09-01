@@ -7,6 +7,7 @@ import type {
   RepositorySummary,
 } from '@application/ports/repository-catalog.port';
 import { UpstreamRefusedError } from '@domain/exceptions/upstream-refused.error';
+import type { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import { Inject, Injectable } from '@nestjs/common';
 
 const API = 'https://api.github.com';
@@ -26,8 +27,8 @@ export class GitHubRepositoryCatalog implements RepositoryCatalogPort {
     private readonly access: RepositoryAccessPort,
   ) {}
 
-  async list(): Promise<RepositorySummary[]> {
-    const { password: token } = await this.access.credential();
+  async list(installation: GitHubInstallation): Promise<RepositorySummary[]> {
+    const { password: token } = await this.access.credential(installation);
     const found: RepositorySummary[] = [];
 
     for (let page = 1; page <= MAX_PAGES; page += 1) {

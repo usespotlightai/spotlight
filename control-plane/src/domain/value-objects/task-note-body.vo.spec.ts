@@ -10,7 +10,9 @@ describe('TaskNoteBody.heard', () => {
       from: 9,
     });
 
-    expect(TaskNoteBody.heard('commented', said).value).toBe(
+    expect(
+      TaskNoteBody.heard('The pull request was commented on.', said).value,
+    ).toBe(
       [
         'The pull request was commented on.',
         '',
@@ -21,7 +23,7 @@ describe('TaskNoteBody.heard', () => {
   });
 
   it('says only what happened where nothing was said about it', () => {
-    expect(TaskNoteBody.heard('merged', null).value).toBe(
+    expect(TaskNoteBody.heard('The pull request was merged.', null).value).toBe(
       'The pull request was merged.',
     );
   });
@@ -29,8 +31,8 @@ describe('TaskNoteBody.heard', () => {
   it('leaves out a place nobody pointed at', () => {
     const said = Said.of({ body: 'Ship it.' });
 
-    expect(TaskNoteBody.heard('commented', said).value).toBe(
-      'The pull request was commented on.\n\nShip it.',
-    );
+    expect(
+      TaskNoteBody.heard('The pull request was commented on.', said).value,
+    ).toBe('The pull request was commented on.\n\nShip it.');
   });
 });

@@ -5,9 +5,11 @@ import type { CommandHandlerPort } from '@application/ports/command-handler.port
 import type { RemarksPort } from '@application/ports/remarks.port';
 import type { RunAtHand } from '@application/services/run-at-hand.service';
 import { InvalidTaskTransitionError } from '@domain/exceptions/invalid-task-transition.error';
+import { NoGitHubInstallationError } from '@domain/exceptions/no-github-installation.error';
 import { NoRepositoryError } from '@domain/exceptions/no-repository.error';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
+import type { GitHubInstallations } from '@domain/repositories/workspace.repository';
 import { RemarkHandle } from '@domain/value-objects/remark-handle.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
@@ -20,6 +22,7 @@ export class AnswerRemarkHandler
     private readonly held: RunAtHand,
     private readonly tasks: TaskRepository,
     private readonly lines: AssemblyLineRepository,
+    private readonly workspaces: GitHubInstallations,
     private readonly remarks: RemarksPort,
     private readonly clock: ClockPort,
   ) {}
@@ -45,11 +48,19 @@ export class AnswerRemarkHandler
 
       const at = RemarkHandle.of(command.handle);
       const line = await this.lines.holding(task.stationId);
+      const installation = await this.workspaces.installationOf(
+        task.workspaceId,
+      );
+
+      if (!installation) {
+        throw new NoGitHubInstallationError();
+      }
 
       // Sent before it is written down: a remark answered in the trail but
       // never on the pull request would be answered nowhere that matters.
       // Answering twice says the same thing, which the host is told to skip.
       await this.remarks.answer({
+        installation,
         repository: task.repository,
         pullRequest: task.pullRequest,
         remark: task.remarkAt(at),

@@ -31,6 +31,7 @@ const written = (order: RunOrder): RunSpecShape =>
     briefing: order.briefing,
     handover: { options: order.options, noteLimit: order.noteLimit },
     continuity: order.continuity.told(),
+    tools: order.tools,
   });
 
 export class DispatchTask implements TaskDispatching {

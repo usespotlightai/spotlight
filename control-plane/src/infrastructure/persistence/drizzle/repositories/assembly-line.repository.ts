@@ -5,20 +5,23 @@ import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
-import type { Happening } from '@domain/value-objects/happening.vo';
+import { Happening } from '@domain/value-objects/happening.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { Reaction } from '@domain/value-objects/reaction.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationDescription } from '@domain/value-objects/station-description.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
+import { Tool } from '@domain/value-objects/tool.vo';
 import { WayOut } from '@domain/value-objects/way-out.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
 import {
   assemblyLine,
+  assemblyLineReaction,
   station,
-  stationReaction,
   stationRoute,
+  stationTool,
 } from '@infrastructure/persistence/drizzle/schemas/assembly-line.schema';
 import { Injectable } from '@nestjs/common';
 import { eq, inArray } from 'drizzle-orm';
@@ -28,7 +31,7 @@ type StationRow = typeof station.$inferSelect;
 
 type Ways = {
   routes: Map<string, StationId[]>;
-  reactions: Map<string, Happening[]>;
+  tools: Map<string, Tool[]>;
 };
 
 const toStation = (row: StationRow, ways: Ways): Station =>
@@ -47,13 +50,14 @@ const toStation = (row: StationRow, ways: Ways): Station =>
       stations: ways.routes.get(row.id) ?? [],
       ends: row.finishes,
     }),
-    reactsTo: ways.reactions.get(row.id) ?? [],
+    tools: ways.tools.get(row.id) ?? [],
   });
 
 const toLine = (
   line: LineRow,
   stations: StationRow[],
   ways: Ways,
+  reactions: readonly Reaction[],
 ): AssemblyLine =>
   AssemblyLine.of({
     id: AssemblyLineId.of(line.id),
@@ -61,6 +65,7 @@ const toLine = (
     factoryId: FactoryId.of(line.factoryId),
     name: AssemblyLineName.of(line.name),
     stations: stations.map((row) => toStation(row, ways)),
+    reactions,
   });
 
 const routeRowsOf = (line: AssemblyLine) =>
@@ -71,13 +76,21 @@ const routeRowsOf = (line: AssemblyLine) =>
     })),
   );
 
-const reactionRowsOf = (line: AssemblyLine) =>
+const toolRowsOf = (line: AssemblyLine) =>
   line.stations.flatMap((each) =>
-    each.reactsTo.map((happening) => ({
+    each.tools.map((tool) => ({
       stationId: each.id.value,
-      happening,
+      tool: tool.value,
     })),
   );
+
+const reactionRowsOf = (line: AssemblyLine) =>
+  line.reactions.map((each) => ({
+    assemblyLineId: line.id.value,
+    happening: each.happening.value,
+    fromStationId: each.from?.value ?? null,
+    toStationId: each.to.value,
+  }));
 
 const columnsOf = (each: Station) => ({
   name: each.name.value,
@@ -133,26 +146,33 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
       .delete(stationRoute)
       .where(inArray(stationRoute.stationId, held));
     await this.context.db
-      .delete(stationReaction)
-      .where(inArray(stationReaction.stationId, held));
+      .delete(stationTool)
+      .where(inArray(stationTool.stationId, held));
+    await this.context.db
+      .delete(assemblyLineReaction)
+      .where(eq(assemblyLineReaction.assemblyLineId, saved.id.value));
     await this.writeWays(saved);
   }
 
   private async writeWays(line: AssemblyLine): Promise<void> {
     const routes = routeRowsOf(line);
     const reactions = reactionRowsOf(line);
+    const tools = toolRowsOf(line);
 
     if (routes.length > 0) {
       await this.context.db.insert(stationRoute).values(routes);
     }
+    if (tools.length > 0) {
+      await this.context.db.insert(stationTool).values(tools);
+    }
     if (reactions.length > 0) {
-      await this.context.db.insert(stationReaction).values(reactions);
+      await this.context.db.insert(assemblyLineReaction).values(reactions);
     }
   }
 
   private async waysOf(stations: StationRow[]): Promise<Ways> {
     const held = stations.map((each) => each.id);
-    const ways: Ways = { routes: new Map(), reactions: new Map() };
+    const ways: Ways = { routes: new Map(), tools: new Map() };
 
     if (held.length === 0) {
       return ways;
@@ -169,18 +189,33 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
       ways.routes.set(row.stationId, found);
     }
 
-    const reactions = await this.context.db
+    const tools = await this.context.db
       .select()
-      .from(stationReaction)
-      .where(inArray(stationReaction.stationId, held));
+      .from(stationTool)
+      .where(inArray(stationTool.stationId, held));
 
-    for (const row of reactions) {
-      const found = ways.reactions.get(row.stationId) ?? [];
-      found.push(row.happening);
-      ways.reactions.set(row.stationId, found);
+    for (const row of tools) {
+      const found = ways.tools.get(row.stationId) ?? [];
+      found.push(Tool.of(row.tool));
+      ways.tools.set(row.stationId, found);
     }
 
     return ways;
+  }
+
+  private async reactionsOf(lineId: string): Promise<Reaction[]> {
+    const held = await this.context.db
+      .select()
+      .from(assemblyLineReaction)
+      .where(eq(assemblyLineReaction.assemblyLineId, lineId));
+
+    return held.map((row) =>
+      Reaction.of({
+        happening: Happening.of(row.happening),
+        from: row.fromStationId ? StationId.of(row.fromStationId) : null,
+        to: StationId.of(row.toStationId),
+      }),
+    );
   }
 
   async holding(stationId: StationId): Promise<AssemblyLine | null> {
@@ -210,6 +245,11 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
       .where(eq(station.assemblyLineId, id.value))
       .orderBy(station.position);
 
-    return toLine(found, stations, await this.waysOf(stations));
+    const [ways, reactions] = await Promise.all([
+      this.waysOf(stations),
+      this.reactionsOf(id.value),
+    ]);
+
+    return toLine(found, stations, ways, reactions);
   }
 }

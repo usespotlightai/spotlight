@@ -2,6 +2,7 @@ import { Station } from '@domain/entities/station.entity';
 import { InvalidStationLayoutError } from '@domain/exceptions/invalid-station-layout.error';
 import { UnknownStationError } from '@domain/exceptions/unknown-station.error';
 import {
+  BUILT_IN_REACTIONS,
   BUILT_IN_STATIONS,
   type StationOpening,
 } from '@domain/services/built-in-stations';
@@ -13,6 +14,7 @@ import type { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { HandoverOption } from '@domain/value-objects/handover-option.vo';
 import type { Happening } from '@domain/value-objects/happening.vo';
 import type { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { Reaction } from '@domain/value-objects/reaction.vo';
 import type { StationColor } from '@domain/value-objects/station-color.vo';
 import type { StationDescription } from '@domain/value-objects/station-description.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
@@ -27,6 +29,8 @@ export class AssemblyLine {
     readonly factoryId: FactoryId,
     readonly name: AssemblyLineName,
     readonly stations: readonly Station[],
+    /** What a word from outside does here, wherever it finds the task. */
+    readonly reactions: readonly Reaction[],
   ) {}
 
   static open(input: {
@@ -68,8 +72,11 @@ export class AssemblyLine {
             stations: each.passesTo.map((to) => at(to)),
             ends: each.ends,
           }),
-          reactsTo: each.reactsTo,
+          tools: each.tools,
         }),
+      ),
+      reactions: BUILT_IN_REACTIONS.map((each) =>
+        Reaction.of({ happening: each.happening, to: at(each.to) }),
       ),
     });
   }
@@ -80,12 +87,16 @@ export class AssemblyLine {
     factoryId: FactoryId;
     name: AssemblyLineName;
     stations: readonly Station[];
+    reactions?: readonly Reaction[];
   }): AssemblyLine {
+    const reactions = input.reactions ?? [];
+
     AssemblyLine.guardPositionsAreContiguous(input.stations);
     AssemblyLine.guardBacklogStandsFirst(input.stations);
     AssemblyLine.guardCompletedStandsLast(input.stations);
     AssemblyLine.guardEveryPassLandsOnTheLine(input.stations);
-    AssemblyLine.guardNoHappeningIsClaimedTwice(input.stations);
+    AssemblyLine.guardEveryReactionLandsOnTheLine(input.stations, reactions);
+    AssemblyLine.guardNoWordReachesTwoStations(reactions);
 
     return new AssemblyLine(
       input.id,
@@ -93,6 +104,7 @@ export class AssemblyLine {
       input.factoryId,
       input.name,
       [...input.stations].sort((a, b) => a.position - b.position),
+      reactions,
     );
   }
 
@@ -126,8 +138,32 @@ export class AssemblyLine {
     );
   }
 
-  reactionTo(happening: Happening): Station | null {
-    return this.stations.find((each) => each.awaits(happening)) ?? null;
+  /**
+   * What this line does with that word for a task standing there. A rule
+   * naming the station beats one that applies wherever it stands, so a line
+   * can say "comments go to review, but from spec they go back to triage".
+   */
+  reactionTo(happening: Happening, standingAt: StationId): Reaction | null {
+    const applies = this.reactions.filter(
+      (each) => each.happening.equals(happening) && each.appliesAt(standingAt),
+    );
+
+    return applies.find((each) => !each.isEverywhere) ?? applies[0] ?? null;
+  }
+
+  /**
+   * Written whole rather than changed one at a time: the rules only make
+   * sense together, and are few enough to say again.
+   */
+  reactsWith(reactions: readonly Reaction[]): AssemblyLine {
+    return AssemblyLine.of({
+      id: this.id,
+      workspaceId: this.workspaceId,
+      factoryId: this.factoryId,
+      name: this.name,
+      stations: this.stations,
+      reactions,
+    });
   }
 
   reorderStations(order: readonly StationId[]): AssemblyLine {
@@ -163,6 +199,7 @@ export class AssemblyLine {
       workspaceId: this.workspaceId,
       factoryId: this.factoryId,
       name: this.name,
+      reactions: this.reactions,
       stations: moved,
     });
   }
@@ -182,6 +219,7 @@ export class AssemblyLine {
       workspaceId: this.workspaceId,
       factoryId: this.factoryId,
       name: this.name,
+      reactions: this.reactions,
       stations: this.stations.map((each) =>
         each.equals(target) ? change(each) : each,
       ),
@@ -251,20 +289,43 @@ export class AssemblyLine {
     }
   }
 
-  private static guardNoHappeningIsClaimedTwice(
+  private static guardEveryReactionLandsOnTheLine(
     stations: readonly Station[],
+    reactions: readonly Reaction[],
+  ): void {
+    const standing = new Set(stations.map((each) => each.id.value));
+
+    for (const reaction of reactions) {
+      if (!standing.has(reaction.to.value)) {
+        throw new InvalidStationLayoutError(
+          `must send "${reaction.happening.value}" to a station on the line`,
+        );
+      }
+      if (reaction.from && !standing.has(reaction.from.value)) {
+        throw new InvalidStationLayoutError(
+          `must wait for "${reaction.happening.value}" at a station on the line`,
+        );
+      }
+    }
+  }
+
+  /** A word landing in two places at once is a fork nobody can settle. */
+  private static guardNoWordReachesTwoStations(
+    reactions: readonly Reaction[],
   ): void {
     const claimed = new Set<string>();
 
-    for (const station of stations) {
-      for (const happening of station.reactsTo) {
-        if (claimed.has(happening)) {
-          throw new InvalidStationLayoutError(
-            `must send a happening to one station, but two wait for "${happening}"`,
-          );
-        }
-        claimed.add(happening);
+    for (const reaction of reactions) {
+      // One rule per word for a given standing place, and one for wherever it
+      // stands: the named place wins, so the two never collide.
+      const at = `${reaction.happening.value}@${reaction.from?.value ?? '*'}`;
+
+      if (claimed.has(at)) {
+        throw new InvalidStationLayoutError(
+          `must send a happening to one station, but two wait for "${reaction.happening.value}"`,
+        );
       }
+      claimed.add(at);
     }
   }
 

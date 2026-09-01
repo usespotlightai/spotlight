@@ -1,11 +1,11 @@
 import { InvalidStationChangeError } from '@domain/exceptions/invalid-station-change.error';
 import type { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
-import type { Happening } from '@domain/value-objects/happening.vo';
 import type { HarnessId } from '@domain/value-objects/harness-id.vo';
 import type { StationColor } from '@domain/value-objects/station-color.vo';
 import type { StationDescription } from '@domain/value-objects/station-description.vo';
 import type { StationId } from '@domain/value-objects/station-id.vo';
 import type { StationName } from '@domain/value-objects/station-name.vo';
+import type { Tool } from '@domain/value-objects/tool.vo';
 import { WayOut } from '@domain/value-objects/way-out.vo';
 
 export type StationKind = 'backlog' | 'work' | 'completed';
@@ -18,7 +18,7 @@ type Part = {
   harness?: HarnessId | null;
   agentPrompt?: AgentPrompt | null;
   wayOut?: WayOut;
-  reactsTo?: readonly Happening[];
+  tools?: readonly Tool[];
 };
 
 export type StationInput = {
@@ -31,7 +31,7 @@ export type StationInput = {
   agentPrompt?: AgentPrompt | null;
   kind?: StationKind;
   wayOut?: WayOut;
-  reactsTo?: readonly Happening[];
+  tools?: readonly Tool[];
 };
 
 export abstract class Station {
@@ -42,7 +42,8 @@ export abstract class Station {
     readonly color: StationColor,
     readonly description: StationDescription | null,
     readonly wayOut: WayOut,
-    readonly reactsTo: readonly Happening[],
+    /** What a run here may reach for, and so what it is told about. */
+    readonly tools: readonly Tool[],
   ) {}
 
   abstract readonly kind: StationKind;
@@ -57,7 +58,7 @@ export abstract class Station {
       input.color,
       input.description ?? null,
       input.wayOut ?? WayOut.nowhere(),
-      input.reactsTo ?? [],
+      input.tools ?? [],
     ] as const;
 
     switch (input.kind) {
@@ -102,13 +103,18 @@ export abstract class Station {
     return this.copiedWith({ position });
   }
 
+  /** True where a run here was told about it, and so may reach for it. */
+  has(tool: Tool): boolean {
+    return this.tools.some((each) => each.equals(tool));
+  }
+
+  reaches(tools: readonly Tool[]): Station {
+    return this.copiedWith({ tools });
+  }
+
   abstract runsOn(harness: HarnessId | null): Station;
 
   abstract instruct(agentPrompt: AgentPrompt | null): Station;
-
-  awaits(happening: Happening): boolean {
-    return this.reactsTo.includes(happening);
-  }
 
   equals(other: Station): boolean {
     return this.id.equals(other.id);
@@ -127,11 +133,11 @@ export class WorkStation extends Station {
     color: StationColor,
     description: StationDescription | null,
     wayOut: WayOut,
-    reactsTo: readonly Happening[],
+    tools: readonly Tool[],
     readonly harness: HarnessId | null,
     readonly agentPrompt: AgentPrompt | null,
   ) {
-    super(id, name, position, color, description, wayOut, reactsTo);
+    super(id, name, position, color, description, wayOut, tools);
   }
 
   runsOn(harness: HarnessId | null): Station {
@@ -150,7 +156,7 @@ export class WorkStation extends Station {
       part.color ?? this.color,
       part.description !== undefined ? part.description : this.description,
       part.wayOut ?? this.wayOut,
-      part.reactsTo ?? this.reactsTo,
+      part.tools ?? this.tools,
       part.harness !== undefined ? part.harness : this.harness,
       part.agentPrompt !== undefined ? part.agentPrompt : this.agentPrompt,
     );
@@ -182,7 +188,7 @@ export class Backlog extends Station {
       part.color ?? this.color,
       part.description !== undefined ? part.description : this.description,
       part.wayOut ?? this.wayOut,
-      part.reactsTo ?? this.reactsTo,
+      part.tools ?? this.tools,
     );
   }
 }
@@ -213,7 +219,7 @@ export class Completed extends Station {
       part.color ?? this.color,
       part.description !== undefined ? part.description : this.description,
       part.wayOut ?? this.wayOut,
-      part.reactsTo ?? this.reactsTo,
+      part.tools ?? this.tools,
     );
   }
 }
