@@ -26,7 +26,9 @@ describe('RunRow, what a run is doing', () => {
   it('wears the same thing a task being worked wears on the board', () => {
     const inRuns = shown(<RunRow run={run('claimed')} to="/runs/run_1" />);
     const onBoard = shown(
-      <TaskState task={{ running: true, awaitingReview: false } as Task} />,
+      <TaskState
+        task={{ running: true, awaitingReview: false } as unknown as Task}
+      />,
     );
 
     const pill = (container: HTMLElement) =>
