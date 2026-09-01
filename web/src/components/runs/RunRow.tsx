@@ -61,8 +61,9 @@ export function RunRow({ run, to, taskTitle, reviewTo, inTrail }: RunRowProps) {
         )}
 
         {/* Held to a width, or a shorter age pulls the pill beside it out of
-            line with the rows above. */}
-        <span className="w-16 shrink-0 text-right text-muted-foreground text-xs tabular-nums">
+            line with the rows above. The same width the board holds, so the
+            two lists share one right-hand edge. */}
+        <span className="w-20 shrink-0 text-right text-muted-foreground text-xs tabular-nums">
           {since(run.startedAt)}
         </span>
       </span>

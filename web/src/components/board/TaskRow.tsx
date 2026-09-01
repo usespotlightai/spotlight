@@ -114,7 +114,7 @@ export function TaskRow({
 
         <time
           dateTime={task.createdAt}
-          className="ml-2 shrink-0 text-muted-foreground text-xs tabular-nums"
+          className="ml-2 w-20 shrink-0 text-right text-muted-foreground text-xs tabular-nums"
         >
           {raisedOn(task.createdAt)}
         </time>
