@@ -17,7 +17,10 @@ export function Breadcrumbs({ segments }: BreadcrumbsProps) {
     const content = (
       <>
         {icon}
-        <span className="truncate">{label}</span>
+        {/* Capped so one long title cannot crowd out the trail it sits in. */}
+        <span className="max-w-64 truncate" title={label}>
+          {label}
+        </span>
       </>
     );
 
