@@ -8,9 +8,11 @@ import { Continuity } from '@domain/value-objects/continuity.vo';
 import type { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { NotePosition } from '@domain/value-objects/note-position.vo';
 import type { PullRequestUrl } from '@domain/value-objects/pull-request-url.vo';
+import type { Remark } from '@domain/value-objects/remark.vo';
 import type { Repository } from '@domain/value-objects/repository.vo';
 import type { RunId } from '@domain/value-objects/run-id.vo';
 import type { RunnerId } from '@domain/value-objects/runner-id.vo';
+import type { Said } from '@domain/value-objects/said.vo';
 import type { StationId } from '@domain/value-objects/station-id.vo';
 import type { StationName } from '@domain/value-objects/station-name.vo';
 import type { TaskDescription } from '@domain/value-objects/task-description.vo';
@@ -27,12 +29,19 @@ import type { UserId } from '@domain/value-objects/user-id.vo';
 import type { Voice } from '@domain/value-objects/voice.vo';
 import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 
+/** One thing the world said that nobody has answered, and where it sits. */
+export interface OpenRemark {
+  readonly at: NotePosition;
+  readonly said: Said;
+}
+
 /** The task says what a note did, so no caller may write one that lies. */
 export interface Saying {
   readonly station: StationName;
   readonly body: TaskNoteBody;
   readonly at: Date;
   readonly voice: Voice;
+  readonly said?: Said | null;
 }
 
 export class Task {
@@ -261,6 +270,43 @@ export class Task {
     }
 
     return conversation;
+  }
+
+  /** What the world said that the line has not answered, oldest first. */
+  get openRemarks(): readonly OpenRemark[] {
+    return this.notes.flatMap((note, at) =>
+      note.open && note.said
+        ? [{ at: NotePosition.of(at), said: note.said }]
+        : [],
+    );
+  }
+
+  /** The one rule for what may be answered, so nothing outside re-states it. */
+  remarkAt(at: NotePosition): Remark {
+    const remark = this.notes[at.value]?.open
+      ? this.notes[at.value]?.remark
+      : null;
+
+    if (!remark) {
+      throw new InvalidTaskTransitionError(
+        'was not said anywhere answerable there, so there is nothing to answer',
+      );
+    }
+
+    return remark;
+  }
+
+  /** The station answers the world where the world spoke, not in the trail. */
+  repliedTo(at: NotePosition, saying: Saying): Task {
+    this.remarkAt(at);
+
+    const said = this.with(this.spoke(saying, 'said'));
+
+    return said.with({
+      notes: said.notes.map((note, place) =>
+        place === at.value ? note.answered(saying.at) : note,
+      ),
+    });
   }
 
   get undelivered(): readonly TaskNote[] {

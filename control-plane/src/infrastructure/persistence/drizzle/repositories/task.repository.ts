@@ -9,6 +9,7 @@ import { PullRequestUrl } from '@domain/value-objects/pull-request-url.vo';
 import { Repository } from '@domain/value-objects/repository.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
+import { Said } from '@domain/value-objects/said.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskDescription } from '@domain/value-objects/task-description.vo';
@@ -37,6 +38,8 @@ const toNote = (row: NoteRow): TaskNote =>
     body: TaskNoteBody.of(row.body),
     at: row.at,
     voice: Voice.of({ by: row.voice, author: row.authorId, run: row.runId }),
+    said: row.said ? Said.of(row.said) : null,
+    answeredAt: row.answeredAt,
     kind: row.kind,
     readAt: row.readAt,
     deliveredAt: row.deliveredAt,
@@ -224,6 +227,8 @@ export class DrizzleTaskRepository implements TaskRepository {
           station: note.station.value,
           body: note.body.value,
           at: note.at,
+          said: note.said?.parts ?? null,
+          answeredAt: note.answeredAt,
           voice: note.voice.by,
           authorId: note.voice.author?.value ?? null,
           runId: note.voice.run?.value ?? null,
@@ -237,6 +242,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         set: {
           readAt: sql`excluded.read_at`,
           deliveredAt: sql`excluded.delivered_at`,
+          answeredAt: sql`excluded.answered_at`,
         },
       });
   }

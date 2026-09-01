@@ -1,5 +1,6 @@
 import type { TaskNoteKind } from '@domain/value-objects/task-note.vo';
 import type { SpokenBy } from '@domain/value-objects/voice.vo';
+
 import { station } from '@infrastructure/persistence/drizzle/schemas/assembly-line.schema';
 import { user } from '@infrastructure/persistence/drizzle/schemas/auth.schema';
 import { runner } from '@infrastructure/persistence/drizzle/schemas/run.schema';
@@ -7,11 +8,20 @@ import { workspace } from '@infrastructure/persistence/drizzle/schemas/workspace
 import {
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   text,
   timestamp,
 } from 'drizzle-orm/pg-core';
+
+export interface SaidRow {
+  readonly body: string;
+  readonly path: string | null;
+  readonly from: number | null;
+  readonly to: number | null;
+  readonly remark: string | null;
+}
 
 export const task = pgTable(
   'task',
@@ -80,6 +90,9 @@ export const taskNote = pgTable(
     runId: text('run_id'),
     // An 'asked' opens a conversation a person owns; a 'passed' closes it.
     kind: text('kind').$type<TaskNoteKind>().notNull(),
+    // What the world said, kept whole: the host's name for it, and where.
+    said: jsonb('said').$type<SaidRow>(),
+    answeredAt: timestamp('answered_at'),
     readAt: timestamp('read_at'),
     // When it reached the agent working the task.
     deliveredAt: timestamp('delivered_at'),

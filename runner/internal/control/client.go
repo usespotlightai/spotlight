@@ -101,6 +101,20 @@ func (c *Client) OpenPullRequest(
 	return out.URL, nil
 }
 
+// AnswerRemark says something back on the pull request, and resolves the
+// thread where the agent asked for that.
+func (c *Client) AnswerRemark(
+	ctx context.Context, runID string, said protocol.Remark,
+) error {
+	path := "/api/runs/" + runID + "/remark"
+
+	if err := c.do(ctx, http.MethodPost, path, said, nil); err != nil {
+		return fmt.Errorf("answer a remark: %w", err)
+	}
+
+	return nil
+}
+
 // Claim long-polls for work. An empty queue returns nil, nil, not an error.
 func (c *Client) Claim(ctx context.Context) (*protocol.Run, error) {
 	ctx, cancel := context.WithTimeout(ctx, PollTimeout+15*time.Second)

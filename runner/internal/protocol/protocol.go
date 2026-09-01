@@ -138,6 +138,15 @@ type Event struct {
 	ExitCode *int   `json:"exitCode,omitempty"`
 }
 
+// Remark is what the agent says back to something said on the pull request.
+// Handle names which one, as the briefing named it; Spotlight holds what the
+// host calls it, so nothing that reaches GitHub is in the agent's hands.
+type Remark struct {
+	Handle  string `json:"handle"`
+	Body    string `json:"body"`
+	Resolve bool   `json:"resolve,omitempty"`
+}
+
 // Outcome is what the agent said should happen to the task next. The runner
 // carries it without reading anything into it: which stations exist, and what
 // an unknown one means, are the control plane's business.

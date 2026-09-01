@@ -89,6 +89,7 @@ export class ReactToHappeningHandler
       body: reaction.body,
       at: this.clock.now(),
       voice: Voice.world(),
+      said: reaction.said,
     };
 
     if (reaction.kind === 'stays') {

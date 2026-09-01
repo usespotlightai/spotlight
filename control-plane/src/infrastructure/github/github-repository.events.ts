@@ -30,6 +30,7 @@ interface Pull {
 }
 
 interface Remark {
+  readonly node_id?: unknown;
   readonly body?: unknown;
   readonly user?: { readonly type?: unknown };
   readonly path?: unknown;
@@ -57,6 +58,7 @@ const spoken = (remark: Remark | undefined): Said | null =>
           at(remark.start_line) !== null
             ? (at(remark.line) ?? at(remark.original_line))
             : null,
+        remark: text(remark.node_id),
       })
     : null;
 

@@ -127,7 +127,12 @@ const reading = (happened: Happened | null): RepositoryEventsPort => ({
 const news = (happening: Happening, said: string | null, ourOwn = false) => ({
   happening,
   concerns: Concerns.of({ branch: 'spotlight/task_1' }) as Concerns,
-  said: Said.of({ body: said }),
+  said: Said.of({
+    body: said,
+    path: said ? 'compose.yml' : null,
+    from: said ? 22 : null,
+    remark: said ? 'PRRC_kwDO' : null,
+  }),
   ourOwn,
 });
 
@@ -175,6 +180,19 @@ describe('ReactToHappening', () => {
     expect(saved?.notes.map((each) => each.kind)).toEqual(['said']);
     expect(saved?.notes.map((each) => each.voice.by)).toEqual(['world']);
     expect(dispatched).toHaveLength(1);
+  });
+
+  // Written down as it was said, not only as it reads: what the agent is
+  // told to answer, and what it answers with, both come from this.
+  it('keeps what the world said on the note, whole', async () => {
+    await heard('commented', standing(), 'pin this to a version.');
+
+    const note = saved?.notes[0];
+
+    expect(note?.said?.body).toBe('pin this to a version.');
+    expect(note?.said?.place).toBe('compose.yml:22');
+    expect(note?.remark?.value).toBe('PRRC_kwDO');
+    expect(note?.open).toBe(true);
   });
 
   // The machinery for telling a live agent something already exists: what a

@@ -10,13 +10,19 @@ const LOG_LEVELS = [
   'silent',
 ] as const;
 
-export const envSchema = z
-  .object({
+/** All a migration needs, so applying one asks for nothing it cannot use. */
+export const databaseSchema = z.object({
+  DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
+});
+
+export type DatabaseEnv = z.infer<typeof databaseSchema>;
+
+export const envSchema = databaseSchema
+  .extend({
     NODE_ENV: z
       .enum(['development', 'test', 'production'])
       .default('development'),
     PORT: z.coerce.number().int().positive().default(3000),
-    DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
     // Signs session cookies. Generate with: openssl rand -base64 48
     BETTER_AUTH_SECRET: z.string().min(32),
     BETTER_AUTH_URL: z.url(),

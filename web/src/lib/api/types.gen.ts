@@ -180,6 +180,18 @@ export type OpenedPullRequestResponseDto = {
   url: string;
 };
 
+export type AnswerRemarkRequestDto = {
+  /**
+   * Which remark, as briefed
+   */
+  handle: string;
+  body: string;
+  /**
+   * Resolve the thread as well as answering it
+   */
+  resolve?: boolean;
+};
+
 export type DeclaredOutcomeDto = {
   /**
    * The station to pass the task to, or "review" to ask a person. A name this line does not know is treated as a question for a person.
@@ -938,6 +950,28 @@ export type OpenPullRequestResponses = {
 };
 
 export type OpenPullRequestResponse = OpenPullRequestResponses[keyof OpenPullRequestResponses];
+
+export type AnswerRemarkData = {
+  body: AnswerRemarkRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/remark';
+};
+
+export type AnswerRemarkErrors = {
+  /**
+   * Missing or wrong enrollment token
+   */
+  401: unknown;
+};
+
+export type AnswerRemarkResponses = {
+  204: void;
+};
+
+export type AnswerRemarkResponse = AnswerRemarkResponses[keyof AnswerRemarkResponses];
 
 export type CompleteRunData = {
   body: CompleteRunRequestDto;

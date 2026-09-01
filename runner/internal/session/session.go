@@ -25,6 +25,7 @@ type Journal interface {
 	RenewLease(ctx context.Context, runID string) error
 	Complete(ctx context.Context, runID string, done protocol.Completion) error
 	OpenPullRequest(ctx context.Context, runID string, asked protocol.PullRequest) (string, error)
+	AnswerRemark(ctx context.Context, runID string, said protocol.Remark) error
 	Said(ctx context.Context, runID string) ([]protocol.Said, error)
 	Delivered(ctx context.Context, runID string, upTo int) error
 }
@@ -145,6 +146,9 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		run.Spec.Handover.NoteLimit,
 		func(ctx context.Context, asked protocol.PullRequest) (string, error) {
 			return opts.Journal.OpenPullRequest(ctx, run.ID, asked)
+		},
+		func(ctx context.Context, said protocol.Remark) error {
+			return opts.Journal.AnswerRemark(ctx, run.ID, said)
 		},
 	)
 	if err != nil {

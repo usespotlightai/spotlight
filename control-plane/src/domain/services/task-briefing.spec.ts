@@ -7,6 +7,7 @@ import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { Said } from '@domain/value-objects/said.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
@@ -188,5 +189,64 @@ describe('TaskBriefing', () => {
 
   it('says that saying nothing puts the task in front of a person', () => {
     expect(brief(triage())).toContain('puts the task in front of a person');
+  });
+
+  describe('what the pull request is waiting to hear back on', () => {
+    const heard = (body: string, named: string | null) =>
+      TaskNote.of({
+        station: StationName.of('Code Review'),
+        body: TaskNoteBody.of(body),
+        at: new Date('2026-08-31T12:00:00.000Z'),
+        voice: Voice.world(),
+        said: named
+          ? Said.of({
+              body: 'pin this.',
+              path: 'compose.yml',
+              from: 22,
+              remark: named,
+            })
+          : null,
+        kind: 'said',
+      });
+
+    const reviewed = () =>
+      withNotes(
+        task('station_1'),
+        heard('The pull request was merged.', null),
+        heard(
+          'The pull request was commented on.\n\ncompose.yml:22\npin this.',
+          'PRRC_kwDO',
+        ),
+      );
+
+    it('names each one the way the agent must name it back', () => {
+      const briefing = brief(triage(), reviewed());
+
+      expect(briefing).toContain('## Answering the pull request');
+      expect(briefing).toContain('- `c1` — compose.yml:22 — pin this.');
+    });
+
+    // Read from what was said, not sliced back out of how it reads: the
+    // sentence a note opens with has been reworded more than once.
+    it('lists where and what without reading the note back', () => {
+      const briefing = brief(triage(), reviewed());
+
+      expect(briefing).not.toContain('The pull request was commented on. —');
+    });
+
+    // An example naming a remark that is not open is an example that fails.
+    it('shows the command with a handle that is actually open', () => {
+      expect(brief(triage(), reviewed())).toContain('spotlight reply --to c1');
+      expect(brief(triage(), reviewed())).not.toContain('--to c0');
+    });
+
+    // A merge names nothing to answer, so it is not offered as though it did.
+    it('leaves out what was said nowhere answerable', () => {
+      expect(brief(triage(), reviewed())).not.toContain('`c0`');
+    });
+
+    it('says nothing about answering where there is nothing to answer', () => {
+      expect(brief(triage())).not.toContain('## Answering the pull request');
+    });
   });
 });

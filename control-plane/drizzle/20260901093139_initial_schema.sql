@@ -121,6 +121,8 @@ CREATE TABLE "task_note" (
 	"author_id" text,
 	"run_id" text,
 	"kind" text NOT NULL,
+	"said" jsonb,
+	"answered_at" timestamp,
 	"read_at" timestamp,
 	"delivered_at" timestamp,
 	CONSTRAINT "task_note_task_id_position_pk" PRIMARY KEY("task_id","position")

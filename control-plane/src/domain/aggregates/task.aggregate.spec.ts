@@ -5,6 +5,7 @@ import { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { NotePosition } from '@domain/value-objects/note-position.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
+import { Said } from '@domain/value-objects/said.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
@@ -455,21 +456,23 @@ describe('Task, what it is doing', () => {
 
   describe('saying something to the agent working it', () => {
     const here = StationId.of('station_1');
+    // A person's, because a station's own words never wait on itself.
+    const aloud = { ...saying, voice: Voice.person(UserId.of('user_1')) };
 
     it('joins the trail where the task still stands', () => {
-      const told = added().heard(saying, here);
+      const told = added().heard(aloud, here);
 
       expect(told.notes[0]?.kind).toBe('said');
       expect(told.notes[0]?.body.value).toBe('Reproduced on restart.');
     });
 
     it('waits to be delivered', () => {
-      expect(added().heard(saying, here).undelivered).toHaveLength(1);
+      expect(added().heard(aloud, here).undelivered).toHaveLength(1);
     });
 
     it('is delivered once the agent has been given it', () => {
       const told = added()
-        .heard(saying, here)
+        .heard(aloud, here)
         .deliveredUpTo(NotePosition.of(0), NOW);
 
       expect(told.undelivered).toHaveLength(0);
@@ -478,7 +481,7 @@ describe('Task, what it is doing', () => {
     it('will not be said to a station the task has left', () => {
       const moved = added().moveTo(at('station_2'), TaskRank.of('m'), saying);
 
-      expect(() => moved.heard(saying, here)).toThrow(
+      expect(() => moved.heard(aloud, here)).toThrow(
         InvalidTaskTransitionError,
       );
     });
@@ -486,6 +489,60 @@ describe('Task, what it is doing', () => {
     // Only what a person said to an agent ever waits to be handed over.
     it('leaves what a station said out of what is undelivered', () => {
       expect(added().askedAbout(saying).undelivered).toHaveLength(0);
+    });
+  });
+
+  describe('answering what was said on the pull request', () => {
+    const spoken = {
+      ...saying,
+      voice: Voice.world(),
+      said: Said.of({
+        body: 'pin this.',
+        path: 'compose.yml',
+        from: 22,
+        remark: 'PRRC_kwDO',
+      }),
+    };
+
+    it('offers what nobody has answered, and nothing else', () => {
+      const heard = added().heard(spoken);
+
+      expect(heard.openRemarks.map((each) => each.at.value)).toEqual([0]);
+      expect(added().askedAbout(saying).openRemarks).toEqual([]);
+    });
+
+    it('says what it said back, and marks the remark answered', () => {
+      const replied = added()
+        .heard(spoken)
+        .repliedTo(NotePosition.of(0), saying);
+
+      expect(replied.notes[0]?.answeredAt).toEqual(NOW);
+      expect(replied.openRemarks).toEqual([]);
+      expect(replied.notes[1]?.kind).toBe('said');
+      expect(replied.notes[1]?.voice.isStation).toBe(true);
+    });
+
+    // Its own answer is not work to hand itself.
+    it('leaves what it said back out of what is undelivered', () => {
+      const replied = added()
+        .heard(spoken)
+        .deliveredUpTo(NotePosition.of(0), NOW)
+        .repliedTo(NotePosition.of(0), saying);
+
+      expect(replied.undelivered).toEqual([]);
+    });
+
+    it('will not answer a remark twice, or one that was never made', () => {
+      const replied = added()
+        .heard(spoken)
+        .repliedTo(NotePosition.of(0), saying);
+
+      expect(() => replied.repliedTo(NotePosition.of(0), saying)).toThrow(
+        InvalidTaskTransitionError,
+      );
+      expect(() => added().repliedTo(NotePosition.of(0), saying)).toThrow(
+        InvalidTaskTransitionError,
+      );
     });
   });
 

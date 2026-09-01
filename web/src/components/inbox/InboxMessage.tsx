@@ -28,7 +28,9 @@ export function InboxMessage({
 
   if (message.voice === 'world') {
     return (
-      <li data-note={message.position}>
+      // The same inset the held cards carry, so every card is one width and
+      // the words inside them all line up with the plain text.
+      <li data-note={message.position} className="-mx-3">
         <SaidCard>
           <p className="whitespace-pre-wrap text-foreground text-sm leading-6">
             {message.body}

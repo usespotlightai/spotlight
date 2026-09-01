@@ -13,6 +13,7 @@ import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 interface Told {
   readonly station: StationName;
   readonly body: TaskNoteBody;
+  readonly said: Said | null;
 }
 
 /** What word from outside does to a task. Nothing is the ordinary answer. */
@@ -46,6 +47,7 @@ export const ReactionFor = {
     const told = {
       station: input.line.stationAt(input.task.stationId)?.name ?? waiting.name,
       body: TaskNoteBody.heard(input.happening, input.said),
+      said: input.said,
     };
 
     if (!waiting.id.equals(input.task.stationId)) {

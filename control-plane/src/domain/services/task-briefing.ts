@@ -1,6 +1,7 @@
 import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
-import type { Task } from '@domain/aggregates/task.aggregate';
+import type { OpenRemark, Task } from '@domain/aggregates/task.aggregate';
 import { DONE, REVIEW } from '@domain/value-objects/declaration.vo';
+import { RemarkHandle } from '@domain/value-objects/remark-handle.vo';
 import type { StationId } from '@domain/value-objects/station-id.vo';
 
 const closing = (line: AssemblyLine, stationId: StationId): string => {
@@ -32,6 +33,43 @@ const closing = (line: AssemblyLine, stationId: StationId): string => {
     .join('\n\n');
 };
 
+/**
+ * What the pull request is still waiting to hear back on. Named here rather
+ * than in the note, so a person reading the trail is not shown a handle only
+ * an agent has any use for.
+ */
+const answering = (task: Task): string | null => {
+  const open = task.openRemarks;
+
+  if (open.length === 0) {
+    return null;
+  }
+
+  const listed = open.map((each) =>
+    [
+      `- \`${RemarkHandle.for(each.at)}\``,
+      each.said.place,
+      each.said.body || null,
+    ]
+      .filter(Boolean)
+      .join(' — '),
+  );
+
+  // Named from what is actually open, so the example is a command that works.
+  const one = RemarkHandle.for((open[0] as OpenRemark).at);
+
+  return [
+    '## Answering the pull request',
+    'These were said on the pull request and nobody has answered them:',
+    ...listed,
+    'Run this to answer one, from anywhere in the workspace:',
+    `\`\`\`\nspotlight reply --to ${one} --body "…"\n\`\`\``,
+    'Add `--resolve` to resolve the thread as well, where you have addressed what it asked. Leave it off where you are disagreeing or asking something back.',
+    `A long answer is easier piped in, as \`spotlight reply --to ${one} < answer.md\`.`,
+    'Answer only what you have something to say about. What you leave alone stays open for whoever picks the task up next.',
+  ].join('\n\n');
+};
+
 export const TaskBriefing = {
   brief(input: { task: Task; line: AssemblyLine }): string {
     const station = input.line.stationAt(input.task.stationId);
@@ -44,6 +82,7 @@ export const TaskBriefing = {
       `## ${input.task.title.value}`,
       input.task.description?.value,
       notes.length > 0 ? ['## Already done', ...notes].join('\n\n') : null,
+      answering(input.task),
       closing(input.line, input.task.stationId),
     ]
       .filter(Boolean)

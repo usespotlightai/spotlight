@@ -55,6 +55,12 @@ func (j *journal) OpenPullRequest(
 	return "https://github.com/acme/widgets/pull/1", nil
 }
 
+func (j *journal) AnswerRemark(
+	_ context.Context, _ string, _ protocol.Remark,
+) error {
+	return nil
+}
+
 // Said hands back one batch per call, so a fake can end the run by running
 // out rather than by saying the same thing for ever.
 func (j *journal) Said(context.Context, string) ([]protocol.Said, error) {

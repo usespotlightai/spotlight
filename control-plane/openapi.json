@@ -587,6 +587,44 @@
         ]
       }
     },
+    "/runs/{runId}/remark": {
+      "post": {
+        "description": "Answered under Spotlight’s own credential. Nothing that reaches GitHub is ever sent to a runner.",
+        "operationId": "answerRemark",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerRemarkRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing or wrong enrollment token"
+          }
+        },
+        "summary": "Answer something said on the pull request, and resolve it",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
     "/runs/{runId}/completion": {
       "post": {
         "operationId": "completeRun",
@@ -1884,6 +1922,29 @@
         },
         "required": [
           "url"
+        ]
+      },
+      "AnswerRemarkRequestDto": {
+        "type": "object",
+        "properties": {
+          "handle": {
+            "type": "string",
+            "example": "c3",
+            "description": "Which remark, as briefed"
+          },
+          "body": {
+            "type": "string",
+            "example": "Split out in 4a1c2b0."
+          },
+          "resolve": {
+            "type": "boolean",
+            "example": true,
+            "description": "Resolve the thread as well as answering it"
+          }
+        },
+        "required": [
+          "handle",
+          "body"
         ]
       },
       "DeclaredOutcomeDto": {

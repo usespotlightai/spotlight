@@ -35,8 +35,14 @@ const (
 // PullRequestPath is where the agent asks for one, behind the same token.
 const PullRequestPath = "/pull-request"
 
+// RemarkPath is where the agent answers something said on the pull request.
+const RemarkPath = "/remark"
+
 // Opener is the runner's, so nothing that reaches GitHub is in the agent's.
 type Opener func(ctx context.Context, asked protocol.PullRequest) (string, error)
+
+// Answerer is likewise the runner's, for answering what was said on one.
+type Answerer func(ctx context.Context, said protocol.Remark) error
 
 type Server struct {
 	listener  net.Listener
@@ -45,6 +51,7 @@ type Server struct {
 	options   []string
 	noteLimit int
 	open      Opener
+	answer    Answerer
 
 	mu       sync.Mutex
 	declared *protocol.Outcome
@@ -54,7 +61,9 @@ type Server struct {
 
 // Serve listens on a loopback port of the operating system's choosing. The
 // token it mints is no secret from the agent, and good for nothing else.
-func Serve(options []string, noteLimit int, open Opener) (*Server, error) {
+func Serve(
+	options []string, noteLimit int, open Opener, answer Answerer,
+) (*Server, error) {
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
 		return nil, fmt.Errorf("mint a handover token: %w", err)
@@ -71,6 +80,7 @@ func Serve(options []string, noteLimit int, open Opener) (*Server, error) {
 		options:   options,
 		noteLimit: noteLimit,
 		open:      open,
+		answer:    answer,
 		spoken:    make(chan struct{}),
 	}
 	server.http = &http.Server{Handler: server}
@@ -128,6 +138,11 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
+	if path.Clean(request.URL.Path) == RemarkPath {
+		s.remark(writer, request)
+		return
+	}
+
 	var spoken protocol.Outcome
 	if err := json.NewDecoder(request.Body).Decode(&spoken); err != nil {
 		refuse(writer, http.StatusBadRequest, "unreadable handover")
@@ -160,6 +175,36 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	s.mu.Unlock()
 
 	s.once.Do(func() { close(s.spoken) })
+
+	writer.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) remark(writer http.ResponseWriter, request *http.Request) {
+	if s.answer == nil {
+		refuse(writer, http.StatusNotImplemented, "this run cannot answer one")
+		return
+	}
+
+	var said protocol.Remark
+	if err := json.NewDecoder(request.Body).Decode(&said); err != nil {
+		refuse(writer, http.StatusBadRequest, "unreadable answer")
+		return
+	}
+
+	if strings.TrimSpace(said.Handle) == "" {
+		refuse(writer, http.StatusUnprocessableEntity, "say which remark")
+		return
+	}
+
+	if strings.TrimSpace(said.Body) == "" {
+		refuse(writer, http.StatusUnprocessableEntity, "say something back")
+		return
+	}
+
+	if err := s.answer(request.Context(), said); err != nil {
+		refuse(writer, http.StatusBadGateway, err.Error())
+		return
+	}
 
 	writer.WriteHeader(http.StatusNoContent)
 }

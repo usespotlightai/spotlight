@@ -1,4 +1,6 @@
 import { unread } from '@domain/services/unread';
+import type { Remark } from '@domain/value-objects/remark.vo';
+import type { Said } from '@domain/value-objects/said.vo';
 import type { StationName } from '@domain/value-objects/station-name.vo';
 import type { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import type { Voice } from '@domain/value-objects/voice.vo';
@@ -14,6 +16,10 @@ export class TaskNote {
     readonly body: TaskNoteBody,
     readonly at: Date,
     readonly voice: Voice,
+    // What the world said, kept as it was said rather than only as it reads.
+    readonly said: Said | null,
+    // When the line answered that remark, so it is not answered twice.
+    readonly answeredAt: Date | null,
     // An 'asked' opens a conversation a person owns; a 'passed' closes it.
     readonly kind: TaskNoteKind,
     readonly readAt: Date | null,
@@ -26,6 +32,8 @@ export class TaskNote {
     body: TaskNoteBody;
     at: Date;
     voice: Voice;
+    said?: Said | null;
+    answeredAt?: Date | null;
     kind: TaskNoteKind;
     readAt?: Date | null;
     deliveredAt?: Date | null;
@@ -35,6 +43,8 @@ export class TaskNote {
       input.body,
       input.at,
       input.voice,
+      input.said ?? null,
+      input.answeredAt ?? null,
       input.kind,
       input.readAt ?? null,
       input.deliveredAt ?? null,
@@ -47,7 +57,22 @@ export class TaskNote {
 
   /** A person speaking and the world happening both interrupt a run. */
   get undelivered(): boolean {
-    return this.kind === 'said' && this.deliveredAt === null;
+    return (
+      this.kind === 'said' && !this.voice.isStation && this.deliveredAt === null
+    );
+  }
+
+  get remark(): Remark | null {
+    return this.said?.remark ?? null;
+  }
+
+  /** Answerable while the world said it somewhere and nobody has answered. */
+  get open(): boolean {
+    return this.remark !== null && this.answeredAt === null;
+  }
+
+  answered(at: Date): TaskNote {
+    return this.open ? this.with({ answeredAt: at }) : this;
   }
 
   delivered(at: Date): TaskNote {
@@ -58,12 +83,18 @@ export class TaskNote {
     return this.unread ? this.with({ readAt: at }) : this;
   }
 
-  private with(part: { readAt?: Date; deliveredAt?: Date }): TaskNote {
+  private with(part: {
+    readAt?: Date;
+    deliveredAt?: Date;
+    answeredAt?: Date;
+  }): TaskNote {
     return new TaskNote(
       this.station,
       this.body,
       this.at,
       this.voice,
+      this.said,
+      part.answeredAt ?? this.answeredAt,
       this.kind,
       part.readAt ?? this.readAt,
       part.deliveredAt ?? this.deliveredAt,

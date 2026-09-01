@@ -26,7 +26,8 @@ func main() {
 
 const usage = `usage:
   spotlight handover --next <where> [--note <text>]
-  spotlight pull-request --title <text> [--body <text>]`
+  spotlight pull-request --title <text> [--body <text>]
+  spotlight reply --to <handle> [--body <text>] [--resolve]`
 
 func run(args []string, in io.Reader, out io.Writer) error {
 	if len(args) == 0 {
@@ -38,6 +39,8 @@ func run(args []string, in io.Reader, out io.Writer) error {
 		return handover(args[1:], in, out)
 	case "pull-request":
 		return pullRequest(args[1:], in, out)
+	case "reply":
+		return reply(args[1:], in, out)
 	default:
 		return fmt.Errorf("no such command %q\n%s", args[0], usage)
 	}
@@ -83,6 +86,62 @@ func handover(args []string, in io.Reader, out io.Writer) error {
 		fmt.Fprintln(out, "Put to a person. The task waits here until someone answers.")
 	} else {
 		fmt.Fprintf(out, "Handed over to %s.\n", said)
+	}
+
+	return nil
+}
+
+func reply(args []string, in io.Reader, out io.Writer) error {
+	flags := flag.NewFlagSet("reply", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+
+	to := flags.String("to", "", "which remark, as the briefing named it")
+	body := flags.String("body", "", "what to say back")
+	resolve := flags.Bool("resolve", false, "resolve the thread as well")
+
+	if err := flags.Parse(args); err != nil {
+		return fmt.Errorf("%s", usage)
+	}
+
+	if strings.TrimSpace(*to) == "" {
+		return fmt.Errorf("--to is required\n%s", usage)
+	}
+
+	// As with a note, an answer is prose and may be piped in.
+	if *body == "" {
+		piped, err := io.ReadAll(in)
+		if err != nil {
+			return fmt.Errorf("read the answer: %w", err)
+		}
+		*body = strings.TrimSpace(string(piped))
+	}
+
+	if *body == "" {
+		return fmt.Errorf("--body is required\n%s", usage)
+	}
+
+	endpoint, token := os.Getenv(declare.URLVar), os.Getenv(declare.TokenVar)
+	if endpoint == "" || token == "" {
+		return fmt.Errorf("no run to answer for: spotlight runs inside a Spotlight workspace")
+	}
+
+	said, err := json.Marshal(protocol.Remark{
+		Handle: *to, Body: *body, Resolve: *resolve,
+	})
+	if err != nil {
+		return fmt.Errorf("say it: %w", err)
+	}
+
+	if _, err := post(
+		strings.TrimSuffix(endpoint, "/")+declare.RemarkPath, token, said,
+	); err != nil {
+		return err
+	}
+
+	if *resolve {
+		fmt.Fprintf(out, "Answered %s, and resolved it.\n", *to)
+	} else {
+		fmt.Fprintf(out, "Answered %s.\n", *to)
 	}
 
 	return nil

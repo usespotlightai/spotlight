@@ -1,3 +1,4 @@
+import { AnswerRemarkCommand } from '@application/commands/answer-remark.command';
 import { DeliverSaidCommand } from '@application/commands/deliver-said.command';
 import { OpenPullRequestCommand } from '@application/commands/open-pull-request.command';
 import {
@@ -40,6 +41,7 @@ import { RunnerOnly } from '@presentation/http/decorators/runner-only.decorator'
 import { InstallableHarnessResponseDto } from '@presentation/http/dto/installable-harness.response.dto';
 import { KeptWorkspacesResponseDto } from '@presentation/http/dto/kept-workspaces.response.dto';
 import {
+  AnswerRemarkRequestDto,
   AppendRunEventsRequestDto,
   CompleteRunRequestDto,
   DeliverSaidRequestDto,
@@ -239,6 +241,32 @@ export class RunnerController {
     >(new OpenPullRequestCommand(runId, runnerId, body.title, body.body ?? ''));
 
     return new OpenedPullRequestResponseDto(opened.url);
+  }
+
+  @Post('runs/:runId/remark')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'answerRemark',
+    summary: 'Answer something said on the pull request, and resolve it',
+    description:
+      'Answered under Spotlight\u2019s own credential. Nothing that reaches ' +
+      'GitHub is ever sent to a runner.',
+  })
+  @ApiNoContentResponse()
+  async answerRemark(
+    @Param('runId') runId: string,
+    @CurrentRunner() runnerId: string,
+    @Body() body: AnswerRemarkRequestDto,
+  ): Promise<void> {
+    await this.commandBus.execute(
+      new AnswerRemarkCommand(
+        runId,
+        runnerId,
+        body.handle,
+        body.body,
+        body.resolve ?? false,
+      ),
+    );
   }
 
   @Post('runs/:runId/completion')

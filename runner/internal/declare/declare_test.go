@@ -14,7 +14,7 @@ import (
 func serve(t *testing.T) *declare.Server {
 	t.Helper()
 
-	server, err := declare.Serve([]string{"Spec", "Code Review", "review"}, 0, nil)
+	server, err := declare.Serve([]string{"Spec", "Code Review", "review"}, 0, nil, nil)
 	if err != nil {
 		t.Fatalf("serve: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestUnreadableBodyIsRefused(t *testing.T) {
 func serveLimited(t *testing.T, limit int) *declare.Server {
 	t.Helper()
 
-	server, err := declare.Serve([]string{"Spec"}, limit, nil)
+	server, err := declare.Serve([]string{"Spec"}, limit, nil, nil)
 	if err != nil {
 		t.Fatalf("serve: %v", err)
 	}
@@ -188,7 +188,7 @@ func TestOpensAPullRequestThroughSpotlight(t *testing.T) {
 		func(_ context.Context, wanted protocol.PullRequest) (string, error) {
 			asked = wanted
 			return "https://github.com/acme/widgets/pull/7", nil
-		})
+		}, nil)
 	if err != nil {
 		t.Fatalf("serve: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestRefusesAPullRequestWithNothingToCallIt(t *testing.T) {
 		func(_ context.Context, _ protocol.PullRequest) (string, error) {
 			t.Error("asked Spotlight for one anyway")
 			return "", nil
-		})
+		}, nil)
 	if err != nil {
 		t.Fatalf("serve: %v", err)
 	}
@@ -229,7 +229,7 @@ func TestRefusesAPullRequestWithNothingToCallIt(t *testing.T) {
 // The agent may not reach GitHub itself, so a run with no way to open one
 // says so rather than failing somewhere the agent cannot read.
 func TestSaysWhenTheRunCannotOpenOne(t *testing.T) {
-	server, err := declare.Serve([]string{"Spec"}, 0, nil)
+	server, err := declare.Serve([]string{"Spec"}, 0, nil, nil)
 	if err != nil {
 		t.Fatalf("serve: %v", err)
 	}
@@ -265,4 +265,63 @@ func postTo(t *testing.T, server *declare.Server, path, token, body string) (int
 	_, _ = said.ReadFrom(response.Body)
 
 	return response.StatusCode, strings.TrimSpace(said.String())
+}
+
+func TestAnswersARemarkThroughSpotlight(t *testing.T) {
+	var said protocol.Remark
+	server, err := declare.Serve([]string{"Spec"}, 0, nil,
+		func(_ context.Context, spoken protocol.Remark) error {
+			said = spoken
+			return nil
+		})
+	if err != nil {
+		t.Fatalf("serve: %v", err)
+	}
+	t.Cleanup(func() { _ = server.Close() })
+
+	status, body := postTo(t, server, declare.RemarkPath, server.Token(),
+		`{"handle":"c3","body":"Split out in 4a1c2b0.","resolve":true}`)
+
+	if status != http.StatusNoContent {
+		t.Fatalf("status = %d, want 204: %s", status, body)
+	}
+	if said.Handle != "c3" || !said.Resolve {
+		t.Errorf("said = %+v, want the remark the agent named", said)
+	}
+}
+
+// Nothing to answer, or nothing to say: both are the agent's to fix, so both
+// are refused where it can read them rather than sent on.
+func TestRefusesAnAnswerWithNothingToGoOn(t *testing.T) {
+	server, err := declare.Serve([]string{"Spec"}, 0, nil,
+		func(context.Context, protocol.Remark) error {
+			t.Error("answered anyway")
+			return nil
+		})
+	if err != nil {
+		t.Fatalf("serve: %v", err)
+	}
+	t.Cleanup(func() { _ = server.Close() })
+
+	for _, body := range []string{`{"body":"x"}`, `{"handle":"c1"}`} {
+		status, _ := postTo(t, server, declare.RemarkPath, server.Token(), body)
+		if status != http.StatusUnprocessableEntity {
+			t.Errorf("status = %d for %s, want 422", status, body)
+		}
+	}
+}
+
+func TestSaysWhenTheRunCannotAnswerOne(t *testing.T) {
+	server, err := declare.Serve([]string{"Spec"}, 0, nil, nil)
+	if err != nil {
+		t.Fatalf("serve: %v", err)
+	}
+	t.Cleanup(func() { _ = server.Close() })
+
+	status, _ := postTo(t, server, declare.RemarkPath, server.Token(),
+		`{"handle":"c1","body":"x"}`)
+
+	if status != http.StatusNotImplemented {
+		t.Fatalf("status = %d, want 501", status)
+	}
 }

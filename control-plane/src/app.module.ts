@@ -1,11 +1,13 @@
 import { AddTaskCommand } from '@application/commands/add-task.command';
 import { AnswerInboxItemCommand } from '@application/commands/answer-inbox-item.command';
+import { AnswerRemarkCommand } from '@application/commands/answer-remark.command';
 import { CreateWorkspaceCommand } from '@application/commands/create-workspace.command';
 import { CustomiseStationCommand } from '@application/commands/customise-station.command';
 import { DeleteTaskCommand } from '@application/commands/delete-task.command';
 import { DeliverSaidCommand } from '@application/commands/deliver-said.command';
 import { AddTaskHandler } from '@application/commands/handlers/add-task.handler';
 import { AnswerInboxItemHandler } from '@application/commands/handlers/answer-inbox-item.handler';
+import { AnswerRemarkHandler } from '@application/commands/handlers/answer-remark.handler';
 import { AppendRunEventsHandler } from '@application/commands/handlers/append-run-events.handler';
 import { ClaimRunHandler } from '@application/commands/handlers/claim-run.handler';
 import { CompleteRunHandler } from '@application/commands/handlers/complete-run.handler';
@@ -53,6 +55,7 @@ import { INBOX_READER } from '@application/ports/inbox-reader.port';
 import { KEPT_WORKSPACE_READER } from '@application/ports/kept-workspace-reader.port';
 import { PERSON_READER } from '@application/ports/person-reader.port';
 import { PULL_REQUESTS } from '@application/ports/pull-request.port';
+import { REMARKS } from '@application/ports/remarks.port';
 import {
   REPOSITORY_ACCESS,
   type RepositoryAccessPort,
@@ -131,6 +134,7 @@ import { bindQueryHandler } from '@infrastructure/cqrs/bind-query-handler';
 import { GitHubAppAccess } from '@infrastructure/github/github-app.access';
 import { GitHubGitTransport } from '@infrastructure/github/github-git.transport';
 import { GitHubPullRequests } from '@infrastructure/github/github-pull-requests';
+import { GitHubRemarks } from '@infrastructure/github/github-remarks';
 import { GitHubRepositoryCatalog } from '@infrastructure/github/github-repository.catalog';
 import { GitHubRepositoryEvents } from '@infrastructure/github/github-repository.events';
 import { GitHubWebhookSignature } from '@infrastructure/github/github-webhook.signature';
@@ -260,6 +264,12 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       inject: [REPOSITORY_ACCESS],
       useFactory: (access: RepositoryAccessPort) =>
         new GitHubPullRequests(access),
+    },
+
+    {
+      provide: REMARKS,
+      inject: [REPOSITORY_ACCESS],
+      useFactory: (access: RepositoryAccessPort) => new GitHubRemarks(access),
     },
 
     {
@@ -441,6 +451,13 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       RunAtHand,
       DrizzleTaskRepository,
       PULL_REQUESTS,
+    ]),
+    ...bindCommandHandler(AnswerRemarkCommand, AnswerRemarkHandler, [
+      RunAtHand,
+      DrizzleTaskRepository,
+      DrizzleAssemblyLineRepository,
+      REMARKS,
+      CLOCK,
     ]),
     ...bindCommandHandler(SayToRunCommand, SayToRunHandler, [
       DrizzleRunRepository,
