@@ -3,6 +3,8 @@ import { station } from '@infrastructure/persistence/drizzle/schemas/assembly-li
 import { workspace } from '@infrastructure/persistence/drizzle/schemas/workspace.schema';
 import {
   bigint,
+  boolean,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -108,4 +110,35 @@ export const runEvent = pgTable(
     offset: bigint('offset', { mode: 'number' }),
   },
   (table) => [primaryKey({ columns: [table.runId, table.seq] })],
+);
+
+/**
+ * What a finished run came to, worked out once from its journal and kept.
+ *
+ * The journal holds hundreds of entries per run, which is affordable to read
+ * for one task and not for a team's worth. A run is immutable once it is over,
+ * so this is only ever written once and never has to be invalidated.
+ *
+ * `cost` is what the harness reported, an estimate rather than an accounting
+ * figure, which is why it is held as a float and not as money.
+ */
+export const runDigest = pgTable(
+  'run_digest',
+  {
+    runId: text('run_id')
+      .notNull()
+      .references(() => run.id, { onDelete: 'cascade' }),
+    attempt: integer('attempt').notNull(),
+    ms: integer('ms'),
+    steps: integer('steps').notNull().default(0),
+    // Steps the agent was told had failed, which is what a reader looks for.
+    faults: integer('faults').notNull().default(0),
+    used: integer('used'),
+    size: integer('size'),
+    cost: doublePrecision('cost'),
+    currency: text('currency'),
+    readable: boolean('readable').notNull().default(true),
+    digestedAt: timestamp('digested_at').defaultNow().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.runId, table.attempt] })],
 );

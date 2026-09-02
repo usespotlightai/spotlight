@@ -12,6 +12,9 @@ vi.mock('@/hooks/api/useAssemblyLines', () => ({
     isPending: false,
   }),
 }));
+vi.mock('@/hooks/api/useTasks', () => ({
+  useTasks: () => ({ data: [], isPending: false }),
+}));
 vi.mock('@/hooks/api/useSignOut', () => ({
   useSignOut: () => ({ mutate: vi.fn(), isPending: false }),
 }));

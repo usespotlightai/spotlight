@@ -5,14 +5,6 @@ import { InboxStep } from '@/components/inbox/InboxStep';
 import { counted, type RunJournal, took } from '@/lib/inbox';
 import { cn } from '@/lib/utils';
 
-/**
- * What a station did to arrive at what it said. Folded away by default: it is
- * how the work was done, not the answer, and there is a great deal of it.
- *
- * Not a <details>, which browsers hide outright when closed and so give
- * nothing to animate. Held open by a row that says so instead, and taken out
- * of reach while it is closed.
- */
 export function InboxWork({ journals }: { journals: readonly RunJournal[] }) {
   const [open, setOpen] = useState(false);
 

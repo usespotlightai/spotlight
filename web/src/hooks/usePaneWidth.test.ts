@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { useSidebarWidth } from '@/hooks/useSidebarWidth';
+import { usePaneWidth } from '@/hooks/usePaneWidth';
 
 const PANE = {
   storageKey: 'test.pane',
@@ -11,7 +11,7 @@ const PANE = {
 };
 
 const press = (
-  handle: ReturnType<typeof useSidebarWidth>['handleProps'],
+  handle: ReturnType<typeof usePaneWidth>['handleProps'],
   key: string,
 ) =>
   act(() => {
@@ -23,15 +23,15 @@ const press = (
 
 beforeEach(() => window.localStorage.clear());
 
-describe('useSidebarWidth', () => {
+describe('usePaneWidth', () => {
   it('starts at the width the pane asked for', () => {
-    const { result } = renderHook(() => useSidebarWidth(PANE));
+    const { result } = renderHook(() => usePaneWidth(PANE));
 
     expect(result.current.width).toBe(320);
   });
 
   it('widens and narrows a step at a time from the keyboard', () => {
-    const { result } = renderHook(() => useSidebarWidth(PANE));
+    const { result } = renderHook(() => usePaneWidth(PANE));
 
     press(result.current.handleProps, 'ArrowRight');
     expect(result.current.width).toBe(336);
@@ -41,7 +41,7 @@ describe('useSidebarWidth', () => {
   });
 
   it('stays within the bounds the pane set', () => {
-    const { result } = renderHook(() => useSidebarWidth(PANE));
+    const { result } = renderHook(() => usePaneWidth(PANE));
 
     for (let i = 0; i < 40; i += 1) {
       press(result.current.handleProps, 'ArrowRight');
@@ -55,29 +55,41 @@ describe('useSidebarWidth', () => {
   });
 
   it('remembers the width under the key the pane gave', () => {
-    const first = renderHook(() => useSidebarWidth(PANE));
+    const first = renderHook(() => usePaneWidth(PANE));
     press(first.result.current.handleProps, 'ArrowRight');
     first.unmount();
 
     expect(window.localStorage.getItem(PANE.storageKey)).toBe('336');
-    expect(renderHook(() => useSidebarWidth(PANE)).result.current.width).toBe(
-      336,
-    );
+    expect(renderHook(() => usePaneWidth(PANE)).result.current.width).toBe(336);
   });
 
   it('keeps two panes from sharing a width', () => {
     const other = { ...PANE, storageKey: 'test.other', initial: 224 };
 
-    const fleet = renderHook(() => useSidebarWidth(PANE));
+    const fleet = renderHook(() => usePaneWidth(PANE));
     press(fleet.result.current.handleProps, 'ArrowRight');
 
-    expect(renderHook(() => useSidebarWidth(other)).result.current.width).toBe(
+    expect(renderHook(() => usePaneWidth(other)).result.current.width).toBe(
       224,
     );
   });
 
+  // A pane whose handle is on its left grows as the handle moves left, so the
+  // arrow keys have to mean the direction the handle goes, not the width.
+  it('widens a left-handled pane in the other direction', () => {
+    const { result } = renderHook(() =>
+      usePaneWidth({ ...PANE, edge: 'left' }),
+    );
+
+    press(result.current.handleProps, 'ArrowLeft');
+    expect(result.current.width).toBe(336);
+
+    press(result.current.handleProps, 'ArrowRight');
+    expect(result.current.width).toBe(320);
+  });
+
   it('describes itself with the label the pane gave', () => {
-    const { result } = renderHook(() => useSidebarWidth(PANE));
+    const { result } = renderHook(() => usePaneWidth(PANE));
 
     expect(result.current.handleProps['aria-label']).toBe(PANE.label);
     expect(result.current.handleProps['aria-valuemax']).toBe(PANE.max);

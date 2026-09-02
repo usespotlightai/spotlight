@@ -10,6 +10,9 @@ export interface CheckoutShape {
 /** Reached through Spotlight, at whatever address the runner is listening on. */
 export const THROUGH_SPOTLIGHT = 'spotlight:repository';
 
+/** What a harness reads to know which trace its reporting belongs to. */
+export const TRACE_PARENT_VAR = 'TRACEPARENT';
+
 /** What a runner is handed to carry a run out. */
 export interface RunSpecShape {
   readonly checkouts?: readonly CheckoutShape[];

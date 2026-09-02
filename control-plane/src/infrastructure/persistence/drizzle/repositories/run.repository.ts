@@ -7,7 +7,6 @@ import type {
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { RunSpec } from '@domain/value-objects/run-spec.vo';
-import type { RunState } from '@domain/value-objects/run-state';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';
@@ -228,7 +227,7 @@ const toRun = (row: Row): Run =>
     // crashing the read; the run is still there to be seen.
     spec: RunSpec.from(row.spec) ?? RunSpec.of(EMPTY_SPEC),
     targetRunner: row.targetRunnerId ? RunnerId.of(row.targetRunnerId) : null,
-    state: row.state as RunState,
+    state: row.state,
     claimedBy: row.claimedBy ? RunnerId.of(row.claimedBy) : null,
     leaseExpiresAt: asDate(row.leaseExpiresAt),
     result:

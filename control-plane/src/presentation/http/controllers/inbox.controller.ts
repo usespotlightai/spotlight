@@ -1,7 +1,7 @@
 import { AnswerInboxItemCommand } from '@application/commands/answer-inbox-item.command';
 import { ReadInboxItemCommand } from '@application/commands/read-inbox-item.command';
 import type { InboxItemDto } from '@application/dto/inbox.dto';
-import type { RunJournal } from '@application/ports/run-journal-reader.port';
+import type { RunJournalDto } from '@application/dto/run-journal.dto';
 import type { AuthenticatedUser } from '@application/ports/session.port';
 import { ListInboxQuery } from '@application/queries/list-inbox.query';
 import { ReadTaskJournalQuery } from '@application/queries/read-task-journal.query';
@@ -32,10 +32,9 @@ import {
   InboxItemResponseDto,
   InboxMessageResponseDto,
   InboxStationResponseDto,
-  JournalStepResponseDto,
-  RunJournalResponseDto,
-  RunSpentResponseDto,
 } from '@presentation/http/dto/inbox.response.dto';
+import { RunJournalResponseDto } from '@presentation/http/dto/run-journal.response.dto';
+import { RunJournalHttpMapper } from '@presentation/http/mappers/run-journal.http.mapper';
 
 @ApiTags('inbox')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
@@ -173,40 +172,13 @@ export class InboxController {
   ): Promise<RunJournalResponseDto[]> {
     const worked = await this.queryBus.execute<
       ReadTaskJournalQuery,
-      RunJournal[] | null
+      RunJournalDto[] | null
     >(new ReadTaskJournalQuery(taskId, user.id));
 
     if (!worked) {
       throw new NotFoundException();
     }
 
-    return worked.map(
-      (each) =>
-        new RunJournalResponseDto(
-          each.runId,
-          each.attempt,
-          each.steps.map(
-            (step) =>
-              new JournalStepResponseDto(
-                step.kind,
-                step.text,
-                step.status,
-                step.tool,
-                step.detail,
-                step.ms,
-              ),
-          ),
-          each.ms,
-          each.spent
-            ? new RunSpentResponseDto(
-                each.spent.used,
-                each.spent.size,
-                each.spent.cost,
-                each.spent.currency,
-              )
-            : null,
-          each.readable,
-        ),
-    );
+    return worked.map(RunJournalHttpMapper.toResponse);
   }
 }

@@ -16,7 +16,6 @@ type HarnessSelectProps = {
   onChange: (harness: string) => void;
 };
 
-/** Set to nobody, a station holds what it is given: that is a backlog. */
 export function HarnessSelect({ value, onChange }: HarnessSelectProps) {
   const { data: harnesses } = useHarnesses();
 

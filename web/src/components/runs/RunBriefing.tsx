@@ -3,7 +3,6 @@ import { useRef, useState } from 'react';
 import { SaidCard } from '@/components/inbox/SaidCard';
 import { cn } from '@/lib/utils';
 
-/** What the run was given, word for word. It names its own station. */
 export function RunBriefing({ briefing }: { briefing: string }) {
   const [open, setOpen] = useState(false);
   const text = useRef<HTMLParagraphElement>(null);

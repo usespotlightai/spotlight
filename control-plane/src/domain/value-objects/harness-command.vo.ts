@@ -26,16 +26,20 @@ export class HarnessCommand {
     });
   }
 
-  started(): {
+  /**
+   * `also` is what only the caller knows, such as which run this is for.
+   * Merged here rather than onto the result, so what a harness is told stays
+   * this object's to say.
+   */
+  started(also: Readonly<Record<string, string>> = {}): {
     executable: string;
     args: readonly string[];
     env?: Readonly<Record<string, string>>;
   } {
     const started = { executable: this.executable, args: [...this.args] };
+    const env = { ...this.env, ...also };
 
-    return Object.keys(this.env).length === 0
-      ? started
-      : { ...started, env: { ...this.env } };
+    return Object.keys(env).length === 0 ? started : { ...started, env };
   }
 
   equals(other: HarnessCommand): boolean {

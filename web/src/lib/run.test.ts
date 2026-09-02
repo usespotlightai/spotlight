@@ -4,7 +4,6 @@ import { aged, byAge, type Run, standing, working } from '@/lib/run';
 // Local, because a calendar day is read off the reader's own clock.
 const NOW = new Date(2026, 7, 30, 12, 0, 0);
 
-/** Days back off the calendar, at an hour of the day the caller picks. */
 const on = (days: number, hour = 12) =>
   new Date(2026, 7, 30 - days, hour, 0, 0).toISOString();
 
@@ -73,7 +72,6 @@ describe('byAge', () => {
     ]);
   });
 
-  // The reader hands them back in order; grouping must not reorder them.
   it('keeps the order it was given', () => {
     const grouped = byAge([
       { startedAt: on(0, 11) },

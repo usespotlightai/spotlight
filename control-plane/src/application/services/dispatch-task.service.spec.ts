@@ -102,8 +102,13 @@ const held = () =>
     stations,
   });
 
+const tracing = {
+  for: (taskId: { value: string }, runId: { value: string }) =>
+    `trace:${taskId.value}:${runId.value}`,
+};
+
 const dispatch = (station: Station, standing?: Task) =>
-  new DispatchTask(runs, ids, harnesses).dispatch({
+  new DispatchTask(runs, ids, harnesses, tracing).dispatch({
     task: standing ?? task(station.id.value),
     line: held(),
   });

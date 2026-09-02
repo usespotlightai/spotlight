@@ -4,10 +4,6 @@ import { MarkdownEditor } from '@/components/common/form/MarkdownEditor';
 import { type JournalStep, took } from '@/lib/inbox';
 import { cn } from '@/lib/utils';
 
-/**
- * One thing the agent did. A command shows what was run and what came back,
- * folded away; anything else is a line saying what it touched.
- */
 export function InboxStep({ step }: { step: JournalStep }) {
   const [open, setOpen] = useState(false);
 

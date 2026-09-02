@@ -42,6 +42,7 @@ import {
   RevokeRunnerCommand,
 } from '@application/commands/runner.commands';
 import { SayToRunCommand } from '@application/commands/say-to-run.command';
+import { DigestRun } from '@application/events/handlers/digest-run.handler';
 import { HandOver } from '@application/events/handlers/hand-over.handler';
 import { ProvisionFactory } from '@application/events/handlers/provision-factory.handler';
 import { ReleaseHeldRuns } from '@application/events/handlers/release-held-runs.handler';
@@ -66,6 +67,11 @@ import {
   REPOSITORY_GIT,
   type RepositoryGitPort,
 } from '@application/ports/repository-git.port';
+import { RUN_DIGESTS } from '@application/ports/run-digest-reader.port';
+import {
+  RUN_DIGEST_WRITER,
+  type RunDigestWriterPort,
+} from '@application/ports/run-digest-writer.port';
 import { RUN_EVENT_READER } from '@application/ports/run-event-reader.port';
 import { RUN_JOURNAL_READER } from '@application/ports/run-journal-reader.port';
 import { RUN_READER } from '@application/ports/run-reader.port';
@@ -75,6 +81,11 @@ import { RUNNER_READER } from '@application/ports/runner-reader.port';
 import { RUNNER_REVOCATION } from '@application/ports/runner-revocation.port';
 import { RUNNER_TOKEN } from '@application/ports/runner-token.port';
 import { TASK_READER } from '@application/ports/task-reader.port';
+import { TEAM_TRACE_READER } from '@application/ports/team-trace-reader.port';
+import {
+  TRACE_PARENT,
+  type TraceParentPort,
+} from '@application/ports/trace-parent.port';
 import { TRANSACTION } from '@application/ports/transaction.port';
 import { WEBHOOK_SIGNATURE } from '@application/ports/webhook-signature.port';
 import { WORKSPACE_READER } from '@application/ports/workspace-reader.port';
@@ -91,11 +102,13 @@ import { ListRunnersHandler } from '@application/queries/handlers/list-runners.h
 import { ListTaskRunsHandler } from '@application/queries/handlers/list-task-runs.handler';
 import { ListTasksHandler } from '@application/queries/handlers/list-tasks.handler';
 import { ListTeamRunsHandler } from '@application/queries/handlers/list-team-runs.handler';
+import { ListTeamTracesHandler } from '@application/queries/handlers/list-team-traces.handler';
 import { ListWorkspacesHandler } from '@application/queries/handlers/list-workspaces.handler';
 import { PendingMessagesHandler } from '@application/queries/handlers/pending-messages.handler';
 import { ReadRunConversationHandler } from '@application/queries/handlers/read-run-conversation.handler';
 import { ReadRunEventsHandler } from '@application/queries/handlers/read-run-events.handler';
 import { ReadTaskJournalHandler } from '@application/queries/handlers/read-task-journal.handler';
+import { ReadTaskTraceHandler } from '@application/queries/handlers/read-task-trace.handler';
 import { WatchRunHandler } from '@application/queries/handlers/watch-run.handler';
 import { ListAssemblyLinesQuery } from '@application/queries/list-assembly-lines.query';
 import { ListHarnessesQuery } from '@application/queries/list-harnesses.query';
@@ -106,17 +119,20 @@ import { ListRunnersQuery } from '@application/queries/list-runners.query';
 import { ListTaskRunsQuery } from '@application/queries/list-task-runs.query';
 import { ListTasksQuery } from '@application/queries/list-tasks.query';
 import { ListTeamRunsQuery } from '@application/queries/list-team-runs.query';
+import { ListTeamTracesQuery } from '@application/queries/list-team-traces.query';
 import { ListWorkspacesQuery } from '@application/queries/list-workspaces.query';
 import { PendingMessagesQuery } from '@application/queries/pending-messages.query';
 import { ReadRunConversationQuery } from '@application/queries/read-run-conversation.query';
 import { ReadRunEventsQuery } from '@application/queries/read-run-events.query';
 import { ReadTaskJournalQuery } from '@application/queries/read-task-journal.query';
+import { ReadTaskTraceQuery } from '@application/queries/read-task-trace.query';
 import { WatchRunQuery } from '@application/queries/watch-run.query';
 import { CarryGitCall } from '@application/services/carry-git-call.service';
 import { ConversationAtHand } from '@application/services/conversation-at-hand.service';
 import { DispatchTask } from '@application/services/dispatch-task.service';
 import { RunAtHand } from '@application/services/run-at-hand.service';
 import { RUN_OUTCOMES } from '@application/services/run-outcomes';
+import { RunOutcomesFanOut } from '@application/services/run-outcomes.fan-out';
 import { STANDING_WORK } from '@application/services/standing-work';
 import { TakeUpStandingWork } from '@application/services/take-up-standing-work.service';
 import {
@@ -152,16 +168,19 @@ import { DrizzleRunEventReader } from '@infrastructure/persistence/drizzle/reade
 import { DrizzleRunJournalReader } from '@infrastructure/persistence/drizzle/readers/run-journal.reader';
 import { DrizzleRunnerReader } from '@infrastructure/persistence/drizzle/readers/runner.reader';
 import { DrizzleTaskReader } from '@infrastructure/persistence/drizzle/readers/task.reader';
+import { DrizzleTeamTraceReader } from '@infrastructure/persistence/drizzle/readers/team-trace.reader';
 import { DrizzleWorkspaceReader } from '@infrastructure/persistence/drizzle/readers/workspace.reader';
 import { DrizzleAssemblyLineRepository } from '@infrastructure/persistence/drizzle/repositories/assembly-line.repository';
 import { DrizzleDeliveryLog } from '@infrastructure/persistence/drizzle/repositories/delivery-log.repository';
 import { DrizzleFactoryRepository } from '@infrastructure/persistence/drizzle/repositories/factory.repository';
 import { DrizzleRunRepository } from '@infrastructure/persistence/drizzle/repositories/run.repository';
+import { DrizzleRunDigests } from '@infrastructure/persistence/drizzle/repositories/run-digest.repository';
 import { DrizzleRunnerRepository } from '@infrastructure/persistence/drizzle/repositories/runner.repository';
 import { DrizzleTaskRepository } from '@infrastructure/persistence/drizzle/repositories/task.repository';
 import { DrizzleWorkspaceRepository } from '@infrastructure/persistence/drizzle/repositories/workspace.repository';
 import { InMemoryRunStream } from '@infrastructure/streaming/in-memory-run-stream';
 import { SystemClock } from '@infrastructure/time/system-clock';
+import { HashedTraceParent } from '@infrastructure/tracing/hashed-trace-parent';
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { CqrsModule } from '@nestjs/cqrs';
@@ -224,6 +243,12 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     { provide: RUNNER_READER, useClass: DrizzleRunnerReader },
     { provide: KEPT_WORKSPACE_READER, useClass: DrizzleKeptWorkspaceReader },
     { provide: RUN_JOURNAL_READER, useClass: DrizzleRunJournalReader },
+    { provide: TEAM_TRACE_READER, useClass: DrizzleTeamTraceReader },
+    DrizzleRunDigests,
+    // One adapter, asked for by whichever half of the record is wanted: the
+    // read side must not be handed something that can write.
+    { provide: RUN_DIGESTS, useExisting: DrizzleRunDigests },
+    { provide: RUN_DIGEST_WRITER, useExisting: DrizzleRunDigests },
     { provide: RUN_EVENT_READER, useClass: DrizzleRunEventReader },
     { provide: RUN_STREAM, useClass: InMemoryRunStream },
     { provide: ID_GENERATOR, useClass: CryptoIdGenerator },
@@ -311,14 +336,22 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
 
     BuiltInHarnesses,
 
+    { provide: TRACE_PARENT, useClass: HashedTraceParent },
+
     {
       provide: TASK_DISPATCH,
-      inject: [DrizzleRunRepository, ID_GENERATOR, BuiltInHarnesses],
+      inject: [
+        DrizzleRunRepository,
+        ID_GENERATOR,
+        BuiltInHarnesses,
+        TRACE_PARENT,
+      ],
       useFactory: (
         runs: DrizzleRunRepository,
         ids: CryptoIdGenerator,
         harnesses: BuiltInHarnesses,
-      ) => new DispatchTask(runs, ids, harnesses),
+        tracing: TraceParentPort,
+      ) => new DispatchTask(runs, ids, harnesses, tracing),
     },
 
     {
@@ -335,13 +368,19 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         DrizzleAssemblyLineRepository,
         TASK_DISPATCH,
         CLOCK,
+        RUN_DIGEST_WRITER,
       ],
       useFactory: (
         tasks: DrizzleTaskRepository,
         lines: DrizzleAssemblyLineRepository,
         dispatch: TaskDispatching,
         clock: ClockPort,
-      ) => new HandOver(tasks, lines, dispatch, clock),
+        digests: RunDigestWriterPort,
+      ) =>
+        new RunOutcomesFanOut(
+          new HandOver(tasks, lines, dispatch, clock),
+          new DigestRun(digests),
+        ),
     },
 
     {
@@ -391,6 +430,16 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       RUNNER_READER,
       CLOCK,
     ]),
+    ...bindQueryHandler(ListTeamTracesQuery, ListTeamTracesHandler, [
+      TEAM_TRACE_READER,
+      RUN_DIGESTS,
+    ]),
+
+    ...bindQueryHandler(ReadTaskTraceQuery, ReadTaskTraceHandler, [
+      RUN_READER,
+      RUN_JOURNAL_READER,
+    ]),
+
     ...bindQueryHandler(ReadTaskJournalQuery, ReadTaskJournalHandler, [
       RUN_JOURNAL_READER,
     ]),

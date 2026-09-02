@@ -8,9 +8,6 @@ type DisclosureProps = {
   children: ReactNode;
 };
 
-/** Animates to a height nobody measured: the grid row goes 0fr to 1fr. The
- *  contents stay mounted so they can animate, so `inert` is what keeps a
- *  closed list out of the tab order. */
 export function Disclosure({
   open,
   slot,

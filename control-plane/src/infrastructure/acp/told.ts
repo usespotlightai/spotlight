@@ -1,6 +1,24 @@
-import type { JournalStep } from '@application/ports/run-journal-reader.port';
+import type {
+  JournalStep,
+  RunMarks,
+  RunSpent,
+  StepChange,
+  StepLocation,
+} from '@domain/model/journal';
+import { Money } from '@domain/value-objects/money.vo';
+import type { StepKind } from '@domain/value-objects/step-kind';
+import { decoded, type Journalled } from '@infrastructure/journal/journalled';
 
-type Content = { text?: string } | { content?: { text?: string } }[];
+/** A chunk carries one of these; a tool answers with a list of them. */
+type Content =
+  | { text?: string }
+  | {
+      type?: string;
+      path?: string;
+      oldText?: string;
+      newText?: string;
+      content?: { text?: string };
+    }[];
 
 /** How much of a tool's answer is worth carrying to a reader. */
 const DETAIL_LIMIT = 4_000;
@@ -19,17 +37,13 @@ interface Spoken {
     used?: number;
     size?: number;
     cost?: { amount?: number; currency?: string };
-    // A chunk carries one; a tool answers with a list of them.
+    locations?: { path?: string; line?: number }[];
+    // Unread here: what the agent asked of the tool, and what it got back.
+    rawInput?: unknown;
+    rawOutput?: unknown;
+    entries?: { content?: string; priority?: string; status?: string }[];
     content?: Content;
   };
-}
-
-/** What a run cost, as the agent last reported it. */
-export interface Spent {
-  readonly used: number;
-  readonly size: number;
-  readonly cost: number | null;
-  readonly currency: string | null;
 }
 
 /**
@@ -66,19 +80,89 @@ const spoken = (content: Content | undefined): string => {
   return content.text ?? '';
 };
 
+/** The first file a tool rewrote, of everything it answered with. */
+const changed = (content: Content | undefined): StepChange | null => {
+  if (!Array.isArray(content)) {
+    return null;
+  }
+
+  for (const each of content) {
+    if (each?.type === 'diff') {
+      return {
+        path: each.path ?? null,
+        before: (each.oldText ?? '').slice(0, DETAIL_LIMIT),
+        after: (each.newText ?? '').slice(0, DETAIL_LIMIT),
+      };
+    }
+  }
+
+  return null;
+};
+
+const reached = (
+  locations: { path?: string; line?: number }[] | undefined,
+): StepLocation[] =>
+  (locations ?? []).flatMap((each) =>
+    each?.path ? [{ path: each.path, line: each.line ?? null }] : [],
+  );
+
+/** What the tool was handed, or handed back, as text a person can read. */
+const written = (raw: unknown): string | null => {
+  if (raw === undefined || raw === null) {
+    return null;
+  }
+  if (typeof raw === 'string') {
+    return raw.slice(0, DETAIL_LIMIT) || null;
+  }
+
+  try {
+    return JSON.stringify(raw, null, 2).slice(0, DETAIL_LIMIT);
+  } catch {
+    return null;
+  }
+};
+
+/** A plan reads as its steps, each with where it had got to. */
+const planned = (entries: NonNullable<Spoken['update']>['entries']): string =>
+  (entries ?? [])
+    .map((each) => {
+      const status = each?.status ? `[${each.status}] ` : '';
+      return `${status}${each?.content ?? ''}`.trim();
+    })
+    .filter(Boolean)
+    .join('\n');
+
 /** A step as it is being built, before it knows how long it took. */
 interface Building {
-  kind: 'said' | 'thought' | 'tool';
+  kind: StepKind;
   text: string;
   status: string | null;
   tool: string | null;
   detail: string | null;
+  locations: StepLocation[];
+  given: string | null;
+  returned: string | null;
+  change: StepChange | null;
   startedAt: Date;
   endedAt: Date;
 }
 
+const bare = (kind: StepKind, text: string, at: Date): Building => ({
+  kind,
+  text,
+  status: null,
+  tool: null,
+  detail: null,
+  locations: [],
+  given: null,
+  returned: null,
+  change: null,
+  startedAt: at,
+  endedAt: at,
+});
+
 /**
- * Reads one run's updates into steps, merging the chunks an agent speaks in
+ * Reads one run's journal into steps, merging the chunks an agent speaks in
  * back into whole things said, and keeping how long each took: an agent that
  * thought for a minute did something different from one that thought for a
  * second.
@@ -89,18 +173,60 @@ export class Told {
   #steps: Building[] = [];
   #tools = new Map<string, number>();
   #saying: Building | null = null;
-  #spent: Spent | null = null;
+  #spent: RunSpent | null = null;
   #first: Date | null = null;
   #last: Date | null = null;
+  #opened: Date | null = null;
+  #ready: Date | null = null;
+  #closed: Date | null = null;
+  #seen: Date | null = null;
 
-  take(data: string | null, at: Date): void {
-    if (!data) {
+  /**
+   * `began` is when the run was picked up, which the journal cannot say: its
+   * first entry is written once there is something to write down. Without it a
+   * prepare hook appears to have taken no time at all.
+   */
+  constructor(began: Date | null = null) {
+    this.#opened = began;
+    this.#seen = began;
+  }
+
+  take(event: Journalled): void {
+    this.#opened = this.#opened ?? event.at;
+    this.#closed = event.at;
+
+    switch (event.type) {
+      case 'workspace.ready':
+        this.#ready = event.at;
+        break;
+      case 'output':
+        this.output(event);
+        break;
+      default:
+        break;
+    }
+
+    this.#seen = event.at;
+  }
+
+  private output(event: Journalled): void {
+    // A hook's output is the deployment's own, and is not a protocol at all.
+    // It is named, which is the only thing that tells the two apart.
+    if (event.message) {
+      this.ranHook(event);
+      return;
+    }
+    if (!event.data) {
       return;
     }
 
+    this.spoke(event.data, event.at);
+  }
+
+  private spoke(data: string, at: Date): void {
     let sent: Spoken;
     try {
-      sent = JSON.parse(Buffer.from(data, 'base64').toString('utf8')) as Spoken;
+      sent = JSON.parse(decoded(data)) as Spoken;
     } catch {
       // Terminal bytes from before the protocol: nothing to read here.
       this.readable = false;
@@ -128,6 +254,9 @@ export class Told {
       case 'tool_call_update':
         this.went(update, at);
         break;
+      case 'plan':
+        this.means(update, at);
+        break;
       case 'usage_update':
         this.cost(update);
         break;
@@ -136,12 +265,34 @@ export class Told {
     }
   }
 
+  /**
+   * A hook is journalled once it has finished, so what it says is when it
+   * ended. It began whenever the last thing did, which is the closest the
+   * journal comes to saying.
+   */
+  private ranHook(event: Journalled): void {
+    this.settle();
+
+    const step = bare(
+      'hook',
+      event.message ?? 'a hook',
+      this.#seen ?? event.at,
+    );
+    step.endedAt = event.at;
+    step.detail = event.data
+      ? decoded(event.data).slice(0, DETAIL_LIMIT)
+      : null;
+
+    this.#steps.push(step);
+  }
+
   steps(): JournalStep[] {
     this.settle();
 
     return this.#steps.map(({ startedAt, endedAt, ...step }) => ({
       ...step,
       ms: endedAt.getTime() - startedAt.getTime(),
+      startedAt,
     }));
   }
 
@@ -153,7 +304,18 @@ export class Told {
     return this.#last.getTime() - this.#first.getTime();
   }
 
-  spent(): Spent | null {
+  /** Where the run turned from being prepared, to worked, to finished. */
+  marks(): RunMarks {
+    return {
+      startedAt: this.#opened,
+      readyAt: this.#ready,
+      spokeFrom: this.#first,
+      spokeTo: this.#last,
+      endedAt: this.#closed,
+    };
+  }
+
+  spent(): RunSpent | null {
     return this.#spent;
   }
 
@@ -165,9 +327,31 @@ export class Told {
     this.#spent = {
       used: update.used,
       size: update.size,
-      cost: update.cost?.amount ?? null,
-      currency: update.cost?.currency ?? null,
+      cost: Money.maybe(update.cost?.amount, update.cost?.currency),
     };
+  }
+
+  /**
+   * The plan replaces whatever the agent last said it meant to do. Kept as its
+   * own step each time rather than overwritten: a plan that keeps changing is
+   * worth seeing change.
+   */
+  private means(update: NonNullable<Spoken['update']>, at: Date): void {
+    const entries = update.entries ?? [];
+    if (entries.length === 0) {
+      return;
+    }
+
+    this.settle();
+
+    const step = bare(
+      'planned',
+      `Planned ${entries.length} ${entries.length === 1 ? 'step' : 'steps'}`,
+      at,
+    );
+    step.detail = planned(entries);
+
+    this.#steps.push(step);
   }
 
   private say(kind: 'said' | 'thought', text: string, at: Date): void {
@@ -182,29 +366,19 @@ export class Told {
     }
 
     this.settle();
-    this.#saying = {
-      kind,
-      text,
-      status: null,
-      tool: null,
-      detail: null,
-      startedAt: at,
-      endedAt: at,
-    };
+    this.#saying = bare(kind, text, at);
   }
 
   private reachFor(update: NonNullable<Spoken['update']>, at: Date): void {
     this.settle();
 
-    this.#steps.push({
-      kind: 'tool',
-      text: update.title ?? 'a tool',
-      status: update.status ?? null,
-      tool: update.kind ?? null,
-      detail: null,
-      startedAt: at,
-      endedAt: at,
-    });
+    const step = bare('tool', update.title ?? 'a tool', at);
+    step.status = update.status ?? null;
+    step.tool = update.kind ?? null;
+    step.locations = reached(update.locations);
+    step.given = written(update.rawInput);
+
+    this.#steps.push(step);
 
     if (update.toolCallId) {
       this.#tools.set(update.toolCallId, this.#steps.length - 1);
@@ -225,6 +399,7 @@ export class Told {
     }
 
     const came = spoken(update.content);
+    const locations = reached(update.locations);
 
     this.#steps[found] = {
       ...step,
@@ -232,6 +407,10 @@ export class Told {
       status: update.status ?? step.status,
       tool: update.kind ?? step.tool,
       detail: came ? unfenced(came).slice(0, DETAIL_LIMIT) : step.detail,
+      locations: locations.length > 0 ? locations : step.locations,
+      given: written(update.rawInput) ?? step.given,
+      returned: written(update.rawOutput) ?? step.returned,
+      change: changed(update.content) ?? step.change,
       endedAt: at,
     };
   }
