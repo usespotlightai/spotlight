@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode, useEffect, useRef } from 'react';
+import { Fragment, type ReactNode, useLayoutEffect, useRef } from 'react';
 import { InboxMessage } from '@/components/inbox/InboxMessage';
 import { InboxWorking } from '@/components/inbox/InboxWorking';
 import { PersonSaid } from '@/components/inbox/PersonSaid';
@@ -36,6 +36,14 @@ const turnsOf = (item: Conversing): Turn[] => {
 };
 
 const CLOSE = 80;
+
+/**
+ * How long the conversation has to stop growing before a move through it is
+ * worth watching. Everything above this is the page assembling itself — the
+ * bodies filling in, the journal landing — and animating that only draws the
+ * eye to a position the reader never held.
+ */
+const SETTLING_MS = 250;
 
 /** The note asked for goes to the top: what follows it is the answer. */
 const put = (
@@ -81,8 +89,10 @@ export function Conversation({
 
   // Watching the content rather than the message count: a message is not its
   // final height when it mounts, and a scroll measured before that lands short.
+  // Laid out rather than merely effected, so the first painted frame is already
+  // in place instead of showing the top and then leaving it.
   // biome-ignore lint/correctness/useExhaustiveDependencies: the item is what starts the conversation over, though the effect reads only the nodes
-  useEffect(() => {
+  useLayoutEffect(() => {
     const box = scroller.current;
     const inside = content.current;
 
@@ -94,7 +104,23 @@ export function Conversation({
     following.current = held.current === null;
     ours.current = put(box, inside, held.current);
 
+    let settled = false;
+    let quiet: ReturnType<typeof setTimeout>;
+
+    // Each growth pushes the moment of stillness back, so the conversation is
+    // settled only once it has actually stopped moving.
+    const stirred = () => {
+      settled = false;
+      clearTimeout(quiet);
+      quiet = setTimeout(() => {
+        settled = true;
+      }, SETTLING_MS);
+    };
+    stirred();
+
     const grew = new ResizeObserver(() => {
+      stirred();
+
       // The markdown above it mounts late, so it is put back.
       if (held.current !== null) {
         ours.current = put(box, inside, held.current) || ours.current;
@@ -113,15 +139,24 @@ export function Conversation({
       const stillness = window.matchMedia?.(
         '(prefers-reduced-motion: reduce)',
       )?.matches;
+      const cut = !settled || far || stillness;
 
-      box.scrollTo({
-        top: foot,
-        behavior: far || stillness ? 'auto' : 'smooth',
-      });
+      const was = box.scrollTop;
+      box.scrollTo({ top: foot, behavior: cut ? 'auto' : 'smooth' });
+
+      // A cut lands at once and raises the one scroll it has to answer for.
+      // A glide raises them the whole way down and cannot be spoken for by a
+      // single flag, so it is left to be read as the reader's own.
+      if (cut) {
+        ours.current = box.scrollTop !== was || ours.current;
+      }
     });
     grew.observe(inside);
 
-    return () => grew.disconnect();
+    return () => {
+      clearTimeout(quiet);
+      grew.disconnect();
+    };
   }, [item.id, openAt]);
 
   const watched = () => {

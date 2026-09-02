@@ -1,26 +1,59 @@
 import { Search } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { PaneHandle } from '@/components/layout/PaneHandle';
 import { SpanDetail } from '@/components/trace/SpanDetail';
-import { TraceHeader } from '@/components/trace/TraceHeader';
-import { NAME_WIDTH, TraceRow } from '@/components/trace/TraceRow';
-import type { RunJournalResponseDto, TaskRunResponseDto } from '@/lib/api';
+import { LABEL_ROOM } from '@/components/trace/TraceBar';
+import { TraceRow } from '@/components/trace/TraceRow';
+import { usePaneWidth } from '@/hooks/usePaneWidth';
 import { took } from '@/lib/inbox';
-import { only, rowsOf, traceOf } from '@/lib/trace';
+import { only, rowsOf, type Trace, type TraceNode } from '@/lib/trace';
+import { cn } from '@/lib/utils';
+
+/** How long the panel is kept after it is put down, so it can be seen going. */
+const LEAVING = 150;
+
+/** How much of a row its name takes, before the bars begin. */
+const NAMES_PANE = {
+  storageKey: 'spotlight.trace-names-width',
+  min: 200,
+  max: 640,
+  initial: 320,
+  label: 'Resize the names',
+};
 
 /** Enough marks to read a length off, few enough to stay out of the way. */
 const TICKS = [0, 0.25, 0.5, 0.75, 1];
 
 type TraceViewProps = {
-  runs: readonly TaskRunResponseDto[];
-  journals: readonly RunJournalResponseDto[];
+  trace: Trace;
 };
 
 /** A list says what an agent did; only this says where the time went. */
-export function TraceView({ runs, journals }: TraceViewProps) {
-  const trace = useMemo(() => traceOf(runs, journals), [runs, journals]);
+export function TraceView({ trace }: TraceViewProps) {
   const [query, setQuery] = useState('');
   const [closed, setClosed] = useState<ReadonlySet<string>>(new Set());
   const [picked, setPicked] = useState<string | null>(null);
+  const names = usePaneWidth(NAMES_PANE);
+  const listed = useRef<HTMLUListElement>(null);
+  const panel = useRef<HTMLElement>(null);
+
+  // Clicking away from both the rows and the panel puts the picked row down.
+  useEffect(() => {
+    if (picked === null) {
+      return;
+    }
+
+    const away = (event: PointerEvent) => {
+      const on = event.target as Node;
+
+      if (!listed.current?.contains(on) && !panel.current?.contains(on)) {
+        setPicked(null);
+      }
+    };
+
+    document.addEventListener('pointerdown', away);
+    return () => document.removeEventListener('pointerdown', away);
+  }, [picked]);
 
   const rows = useMemo(
     () => rowsOf(only(trace.roots, query), closed),
@@ -28,7 +61,26 @@ export function TraceView({ runs, journals }: TraceViewProps) {
   );
 
   const chosen = rows.find((row) => row.node.id === picked)?.node ?? null;
-  const whole = Math.max(trace.to - trace.from, 0);
+
+  // What the panel is drawing, which outlives the picking by as long as it
+  // takes to leave.
+  const [held, setHeld] = useState<TraceNode | null>(null);
+
+  useEffect(() => {
+    if (chosen) {
+      setHeld(chosen);
+      return;
+    }
+
+    if (held === null) {
+      return;
+    }
+
+    const timer = setTimeout(() => setHeld(null), LEAVING);
+    return () => clearTimeout(timer);
+  }, [chosen, held]);
+
+  const whole = Math.max(trace.ms, 0);
 
   const toggle = (id: string) =>
     setClosed((held) => {
@@ -39,7 +91,7 @@ export function TraceView({ runs, journals }: TraceViewProps) {
       return next;
     });
 
-  if (runs.length === 0) {
+  if (trace.roots.length === 0) {
     return (
       <div className="flex min-h-0 flex-1 items-center justify-center p-8">
         <p className="text-muted-foreground text-sm">
@@ -51,11 +103,9 @@ export function TraceView({ runs, journals }: TraceViewProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <TraceHeader trace={trace} journals={journals} />
-
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex shrink-0 items-center gap-2 border-border border-b px-4 py-2">
+          <div className="flex shrink-0 items-center gap-2 border-border border-b-[0.5px] px-4 py-2">
             <Search
               className="size-3.5 shrink-0 text-muted-foreground"
               aria-hidden
@@ -70,76 +120,99 @@ export function TraceView({ runs, journals }: TraceViewProps) {
             />
           </div>
 
-          <div className="min-h-0 flex-1 overflow-auto">
-            {/* The scale every bar is drawn against, said once at the top. */}
-            <div className="sticky top-0 z-20 flex h-6 items-end bg-background">
-              <span className="shrink-0" style={{ width: NAME_WIDTH }} />
-              <div className="relative min-w-0 flex-1">
-                {TICKS.map((tick) => (
-                  <span
-                    key={tick}
-                    className="absolute bottom-0 whitespace-nowrap text-faint text-[10px] tabular-nums"
-                    style={{
-                      left: `${tick * 100}%`,
-                      transform:
-                        tick === 1
-                          ? 'translateX(-100%)'
-                          : tick === 0
-                            ? undefined
-                            : 'translateX(-50%)',
-                    }}
-                  >
-                    {took(Math.round(whole * tick))}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {rows.length === 0 ? (
-              <p className="p-8 text-center text-muted-foreground text-sm">
-                Nothing in this trace says that.
-              </p>
-            ) : (
-              <div className="relative">
-                {/* What the bars are read against. Behind them, and one shade
-                    off the surface, so it never competes with a mark. */}
+          <div className="relative min-h-0 flex-1">
+            <div
+              className={cn(
+                'flex h-full flex-col overflow-auto',
+                names.resizing && 'select-none',
+              )}
+            >
+              <div className="sticky top-0 z-20 flex h-6 shrink-0 items-end border-border border-b-[0.5px] bg-card">
+                <span className="shrink-0" style={{ width: names.width }} />
                 <div
-                  aria-hidden
-                  className="pointer-events-none absolute inset-y-0 right-0"
-                  style={{ left: NAME_WIDTH }}
+                  className="relative min-w-0 flex-1"
+                  style={{ marginRight: LABEL_ROOM }}
                 >
                   {TICKS.map((tick) => (
                     <span
                       key={tick}
-                      className="absolute inset-y-0 w-px bg-border"
-                      // The last one hangs off the right edge if it is placed
-                      // from the left, so it is placed from the right.
-                      style={
-                        tick === 1 ? { right: 0 } : { left: `${tick * 100}%` }
-                      }
-                    />
+                      className="absolute bottom-0 whitespace-nowrap text-faint text-[10px] tabular-nums"
+                      style={{
+                        left: `${tick * 100}%`,
+                        transform:
+                          tick === 1
+                            ? 'translateX(-100%)'
+                            : tick === 0
+                              ? undefined
+                              : 'translateX(-50%)',
+                      }}
+                    >
+                      {took(Math.round(whole * tick))}
+                    </span>
                   ))}
                 </div>
-
-                <ul className="relative flex flex-col pt-2 pb-6">
-                  {rows.map((row) => (
-                    <TraceRow
-                      key={row.node.id}
-                      row={row}
-                      trace={trace}
-                      picked={row.node.id === picked}
-                      open={!closed.has(row.node.id)}
-                      onPick={() => setPicked(row.node.id)}
-                      onToggle={() => toggle(row.node.id)}
-                    />
-                  ))}
-                </ul>
               </div>
-            )}
+
+              {rows.length === 0 ? (
+                <p className="p-8 text-center text-muted-foreground text-sm">
+                  Nothing in this trace says that.
+                </p>
+              ) : (
+                <div className="relative flex-1">
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-y-0"
+                    style={{ left: names.width, right: LABEL_ROOM }}
+                  >
+                    {TICKS.map((tick) => (
+                      <span
+                        key={tick}
+                        className="absolute inset-y-0 w-[0.5px] bg-border"
+                        // The last one hangs off the right edge if it is placed
+                        // from the left, so it is placed from the right.
+                        style={
+                          tick === 1 ? { right: 0 } : { left: `${tick * 100}%` }
+                        }
+                      />
+                    ))}
+                  </div>
+
+                  <ul ref={listed} className="relative flex flex-col pt-2 pb-6">
+                    {rows.map((row) => (
+                      <TraceRow
+                        key={row.node.id}
+                        row={row}
+                        trace={trace}
+                        names={names.width}
+                        picked={row.node.id === picked}
+                        open={!closed.has(row.node.id)}
+                        onPick={() => setPicked(row.node.id)}
+                        onToggle={() => toggle(row.node.id)}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            {/* The names have no element of their own — every row draws its
+                own — so the grip is given one to hang from, outside the
+                scroll so it fades against the height that is actually seen. */}
+            <div
+              className="pointer-events-none absolute inset-y-0 left-0"
+              style={{ width: names.width }}
+            >
+              <PaneHandle
+                {...names.handleProps}
+                edge="right"
+                resizing={names.resizing}
+                className="pointer-events-auto"
+              />
+            </div>
           </div>
         </div>
 
-        {chosen && <SpanDetail node={chosen} />}
+        {held && <SpanDetail node={held} open={chosen !== null} ref={panel} />}
       </div>
     </div>
   );

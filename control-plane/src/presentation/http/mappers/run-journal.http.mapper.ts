@@ -14,7 +14,7 @@ import {
   StepLocationResponseDto,
 } from '@presentation/http/dto/run-journal.response.dto';
 
-const stepToResponse = (step: JournalStepDto): JournalStepResponseDto =>
+export const stepToResponse = (step: JournalStepDto): JournalStepResponseDto =>
   new JournalStepResponseDto(
     step.kind,
     step.text,
@@ -37,7 +37,7 @@ const stepToResponse = (step: JournalStepDto): JournalStepResponseDto =>
       : null,
   );
 
-const spanToResponse = (span: RunSpanDto): RunSpanResponseDto =>
+export const spanToResponse = (span: RunSpanDto): RunSpanResponseDto =>
   new RunSpanResponseDto(
     span.id,
     span.parentId,

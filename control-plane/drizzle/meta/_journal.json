@@ -15,6 +15,13 @@
       "when": 1788255099712,
       "tag": "20260901093139_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788287433245,
+      "tag": "20260901183033_run_digest",
+      "breakpoints": true
     }
   ]
 }

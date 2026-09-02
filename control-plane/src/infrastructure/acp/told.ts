@@ -4,7 +4,8 @@ import type {
   RunSpent,
   StepChange,
   StepLocation,
-} from '@application/ports/run-journal-reader.port';
+} from '@domain/model/journal';
+import { Money } from '@domain/value-objects/money.vo';
 import type { StepKind } from '@domain/value-objects/step-kind';
 import { decoded, type Journalled } from '@infrastructure/journal/journalled';
 
@@ -326,8 +327,7 @@ export class Told {
     this.#spent = {
       used: update.used,
       size: update.size,
-      cost: update.cost?.amount ?? null,
-      currency: update.cost?.currency ?? null,
+      cost: Money.maybe(update.cost?.amount, update.cost?.currency),
     };
   }
 

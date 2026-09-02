@@ -35,11 +35,13 @@ export function TeamNavItem({
   const groups = useCollapsed(LINE_GROUPS_STORAGE_KEY);
   const linesOpen = groups.isExpanded(team.id);
 
-  // A task is addressed under its team, not under the line it stands in, and
-  // its trace under the task rather than under observability. Neither is on
-  // the way to the thing it belongs to, so neither lights it up on its own.
+  // A task is addressed under its team, not under the line it stands in, so
+  // the line it is in does not light up on its own. Its trace is addressed
+  // under observability, which is what leads to it.
   const atTask = useMatch(`/w/${slug}/team/${team.id}/tasks/:taskId`);
-  const atTrace = useMatch(`/w/${slug}/team/${team.id}/tasks/:taskId/trace`);
+  const atTrace = useMatch(
+    `/w/${slug}/team/${team.id}/observability/tasks/:taskId`,
+  );
   // Only while a task is being read: the page reading it asks for the same
   // tasks, so this costs nothing there and nothing anywhere else.
   const { data: tasks } = useTasks(atTask ? team.id : undefined);

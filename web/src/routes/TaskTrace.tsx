@@ -3,23 +3,17 @@ import { InitialAvatar } from '@/components/common/avatar/InitialAvatar';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { TraceView } from '@/components/trace/TraceView';
-import { useTaskJournal } from '@/hooks/api/useTaskJournal';
-import { useTaskRuns } from '@/hooks/api/useTaskRuns';
 import { useTasks } from '@/hooks/api/useTasks';
+import { useTaskTrace } from '@/hooks/api/useTaskTrace';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
-import { taskPath } from '@/lib/task';
-import { teamPath } from '@/lib/team';
+import { teamPath, teamSectionPath } from '@/lib/team';
 
-/**
- * One task's trace, given the whole page. The breadcrumb back to the task is
- * the way out, so nothing here needs a control of its own for it.
- */
+/** One task's trace, given the whole page, read from observability. */
 export function TaskTrace() {
   const { slug, teamId, taskId } = useParams();
   const { data: workspace } = useWorkspace(slug);
   const { data: tasks, isPending } = useTasks(teamId);
-  const { data: runs } = useTaskRuns(teamId, taskId);
-  const { data: journals } = useTaskJournal(slug, taskId);
+  const { data: trace } = useTaskTrace(teamId, taskId);
 
   if (isPending || !slug || !teamId || !taskId) {
     return null;
@@ -46,16 +40,16 @@ export function TaskTrace() {
                   ]
                 : []),
               {
-                label: task?.title ?? 'Task',
-                to: taskPath(slug, teamId, taskId),
+                label: 'Observability',
+                to: teamSectionPath(slug, teamId, 'observability'),
               },
-              { label: 'Trace' },
+              { label: task?.title ?? 'Task' },
             ]}
           />
         }
       />
 
-      <TraceView runs={runs ?? []} journals={journals ?? []} />
+      {trace && <TraceView trace={trace} />}
     </>
   );
 }

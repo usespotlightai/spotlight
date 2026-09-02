@@ -3,15 +3,11 @@ import type {
   RunJournalDto,
   RunSpanDto,
 } from '@application/dto/run-journal.dto';
-import type {
-  JournalStep,
-  RunJournal,
-  RunSpan,
-} from '@application/ports/run-journal-reader.port';
+import type { JournalStep, RunJournal, RunSpan } from '@domain/model/journal';
 
 const spoken = (at: Date | null): string | null => at?.toISOString() ?? null;
 
-const stepToDto = (step: JournalStep): JournalStepDto => ({
+export const stepToDto = (step: JournalStep): JournalStepDto => ({
   kind: step.kind,
   text: step.text,
   status: step.status,
@@ -32,7 +28,7 @@ const stepToDto = (step: JournalStep): JournalStepDto => ({
   },
 });
 
-const spanToDto = (span: RunSpan): RunSpanDto => ({
+export const spanToDto = (span: RunSpan): RunSpanDto => ({
   id: span.id,
   parentId: span.parentId,
   name: span.name,
@@ -63,8 +59,8 @@ export const RunJournalMapper = {
       spent: journal.spent && {
         used: journal.spent.used,
         size: journal.spent.size,
-        cost: journal.spent.cost,
-        currency: journal.spent.currency,
+        cost: journal.spent.cost?.amount ?? null,
+        currency: journal.spent.cost?.currency ?? null,
       },
       readable: journal.readable,
     };

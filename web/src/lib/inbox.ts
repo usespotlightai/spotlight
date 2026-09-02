@@ -41,6 +41,10 @@ export const took = (ms: number): string => {
 export const counted = (tokens: number): string =>
   tokens < 1_000 ? `${tokens}` : `${Math.round(tokens / 100) / 10}k`;
 
+/** What a run cost, to the cent, or to four places where a cent is too coarse. */
+export const spentOn = (cost: number | null): string =>
+  cost === null ? '–' : `$${cost < 0.01 ? cost.toFixed(4) : cost.toFixed(2)}`;
+
 export type JournalStep = RunJournalResponseDto['steps'][number];
 
 export const spokenAt = (at: string): string =>

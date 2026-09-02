@@ -1,3 +1,4 @@
+import { Money } from '@domain/value-objects/money.vo';
 import { Told } from '@infrastructure/acp/told';
 import { describe, expect, it } from 'vitest';
 
@@ -307,8 +308,7 @@ describe('Told', () => {
     expect(told.spent()).toEqual({
       used: 12_173,
       size: 200_000,
-      cost: 0.0664917,
-      currency: 'USD',
+      cost: Money.of(0.0664917, 'USD'),
     });
     expect(told.steps()).toEqual([]);
   });

@@ -1,6 +1,6 @@
 import type { TaskResponseDto } from '@/lib/api';
 import { stationShare } from '@/lib/station';
-import { teamPath } from '@/lib/team';
+import { teamPath, teamSectionPath } from '@/lib/team';
 
 export type Task = TaskResponseDto;
 
@@ -20,7 +20,8 @@ export const taskTracePath = (
   slug: string,
   teamId: string,
   taskId: string,
-): string => `${taskPath(slug, teamId, taskId)}/trace`;
+): string =>
+  `${teamSectionPath(slug, teamId, 'observability')}/tasks/${taskId}`;
 
 export const tasksAt = (
   tasks: readonly Task[] | undefined,

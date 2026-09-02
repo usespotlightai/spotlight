@@ -1,9 +1,17 @@
-import { took } from '@/lib/inbox';
+import { spentOn, took } from '@/lib/inbox';
 import { laidOut, type Trace, type TraceNode } from '@/lib/trace';
 import { cn } from '@/lib/utils';
 
 /** Bars any thinner than this cannot be read, and cannot be hit either. */
 const LEAST_WIDTH = 0.4;
+
+/**
+ * Room kept clear to the right of every lane, wide enough for the longest a
+ * length and a cost read together. Bars stop at the edge of it, so a bar that
+ * runs the whole trace still has somewhere to print what it took. Shared with
+ * the scale above them: two numbers that have to agree are one number.
+ */
+export const LABEL_ROOM = 128;
 
 const fills: Record<string, string> = {
   agent: 'bg-primary',
@@ -12,45 +20,42 @@ const fills: Record<string, string> = {
 };
 
 /** Length carries how long it took, which leaves colour free to say what sort. */
-export function TraceBar({
-  node,
-  trace,
-  labelled = true,
-}: {
-  node: TraceNode;
-  trace: Trace;
-  /** A glance has no room for a number beside every bar. */
-  labelled?: boolean;
-}) {
+export function TraceBar({ node, trace }: { node: TraceNode; trace: Trace }) {
   const { left, width } = laidOut(node, trace);
 
+  // What is drawn, not what was measured: a bar held open to stay hittable
+  // would otherwise have its length printed on top of it.
+  const drawn = Math.max(width, LEAST_WIDTH);
+
   return (
-    <div className="relative min-w-0 flex-1 pr-3">
+    // Stretched to the row's height, so both are centred against one line.
+    <div
+      className="relative min-w-0 flex-1 self-stretch"
+      style={{ marginRight: LABEL_ROOM }}
+    >
       <div
-        className={cn(
-          'absolute h-2 rounded-[4px]',
-          fills[node.tone] ?? 'bg-faint',
-        )}
+        className={cn('absolute h-2', fills[node.tone] ?? 'bg-faint')}
         style={{
           left: `${left}%`,
-          width: `${Math.max(width, LEAST_WIDTH)}%`,
-          top: -4,
+          width: `${drawn}%`,
+          top: '50%',
+          transform: 'translateY(-50%)',
         }}
       />
 
-      {labelled && (
-        <span
-          className="absolute whitespace-nowrap pl-1.5 text-muted-foreground text-xs tabular-nums"
-          style={{
-            // Held clear of the right edge by as much as the longest a
-            // duration reads: "23m 58s" wraps in anything narrower.
-            left: `min(${left + width}%, calc(100% - 4.5rem))`,
-            top: -9,
-          }}
-        >
-          {took(node.to - node.from)}
-        </span>
-      )}
+      <span
+        className="absolute whitespace-nowrap pl-1.5 text-muted-foreground text-xs tabular-nums"
+        style={{
+          left: `${left + drawn}%`,
+          top: '50%',
+          transform: 'translateY(-50%)',
+        }}
+      >
+        {took(node.ms)}
+        {node.cost !== null && (
+          <span className="pl-3">∑{spentOn(node.cost)}</span>
+        )}
+      </span>
     </div>
   );
 }

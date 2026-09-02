@@ -4,9 +4,10 @@ import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { Disclosure } from '@/components/layout/Disclosure';
 import { DisclosureRow } from '@/components/layout/DisclosureRow';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { PaneHandle } from '@/components/layout/PaneHandle';
 import { useInbox } from '@/hooks/api/useInbox';
 import { useCollapsed } from '@/hooks/useCollapsed';
-import { useSidebarWidth } from '@/hooks/useSidebarWidth';
+import { usePaneWidth } from '@/hooks/usePaneWidth';
 import { cn } from '@/lib/utils';
 
 const SECTIONS_STORAGE_KEY = 'spotlight.collapsed-inbox-sections';
@@ -24,7 +25,7 @@ const LIST_PANE = {
 export function Inbox() {
   const { slug } = useParams();
   const { data: waiting, isPending } = useInbox(slug);
-  const listPane = useSidebarWidth(LIST_PANE);
+  const listPane = usePaneWidth(LIST_PANE);
   const sections = useCollapsed(SECTIONS_STORAGE_KEY);
 
   if (isPending || !slug) {
@@ -96,13 +97,10 @@ export function Inbox() {
           )}
         </div>
 
-        <div
+        <PaneHandle
           {...listPane.handleProps}
-          className={cn(
-            'absolute inset-y-0 -right-1 z-10 w-2 cursor-col-resize outline-none',
-            'after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:opacity-0 after:transition-opacity',
-            listPane.resizing && 'after:opacity-100',
-          )}
+          edge="right"
+          resizing={listPane.resizing}
         />
       </div>
 

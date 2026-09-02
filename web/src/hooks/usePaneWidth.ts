@@ -8,6 +8,11 @@ type Pane = {
   max: number;
   initial: number;
   label: string;
+  /**
+   * Which side of the pane the handle sits on. Dragging it away from the pane
+   * widens it, whichever side that is.
+   */
+  edge?: 'left' | 'right';
 };
 
 const WORKSPACE_SIDEBAR: Pane = {
@@ -38,7 +43,8 @@ const remember = (pane: Pane, width: number) => {
   }
 };
 
-export function useSidebarWidth(pane: Pane = WORKSPACE_SIDEBAR) {
+export function usePaneWidth(pane: Pane = WORKSPACE_SIDEBAR) {
+  const towards = pane.edge === 'left' ? -1 : 1;
   const [width, setWidth] = useState(() => readStoredWidth(pane));
   const [resizing, setResizing] = useState(false);
   const origin = useRef<{ x: number; width: number } | null>(null);
@@ -59,7 +65,7 @@ export function useSidebarWidth(pane: Pane = WORKSPACE_SIDEBAR) {
     if (!origin.current) {
       return;
     }
-    resize(origin.current.width + event.clientX - origin.current.x);
+    resize(origin.current.width + towards * (event.clientX - origin.current.x));
   };
 
   const onPointerUp = (event: PointerEvent<HTMLElement>) => {
@@ -70,9 +76,9 @@ export function useSidebarWidth(pane: Pane = WORKSPACE_SIDEBAR) {
 
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === 'ArrowLeft') {
-      resize(width - KEYBOARD_STEP);
+      resize(width - towards * KEYBOARD_STEP);
     } else if (event.key === 'ArrowRight') {
-      resize(width + KEYBOARD_STEP);
+      resize(width + towards * KEYBOARD_STEP);
     } else if (event.key === 'Home') {
       resize(pane.initial);
     } else {

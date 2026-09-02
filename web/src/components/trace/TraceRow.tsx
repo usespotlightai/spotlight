@@ -6,15 +6,11 @@ import { cn } from '@/lib/utils';
 
 const INDENT = 14;
 
-/**
- * How much of a row its name takes, before the bars begin. Shared with the
- * scale above them: two numbers that have to agree are one number.
- */
-export const NAME_WIDTH = 320;
-
 type TraceRowProps = {
   row: Row;
   trace: Trace;
+  /** How much of the row its name takes, before the bars begin. */
+  names: number;
   picked: boolean;
   open: boolean;
   onPick: () => void;
@@ -24,6 +20,7 @@ type TraceRowProps = {
 export function TraceRow({
   row,
   trace,
+  names,
   picked,
   open,
   onPick,
@@ -40,7 +37,7 @@ export function TraceRow({
     >
       <div
         className="flex min-w-0 shrink-0 items-center gap-1 pr-3"
-        style={{ width: NAME_WIDTH, paddingLeft: depth * INDENT + 8 }}
+        style={{ width: names, paddingLeft: depth * INDENT + 8 }}
       >
         {children > 0 ? (
           <button
@@ -48,7 +45,7 @@ export function TraceRow({
             onClick={onToggle}
             aria-expanded={open}
             aria-label={open ? `Fold ${node.name}` : `Unfold ${node.name}`}
-            className="relative z-10 flex shrink-0 items-center gap-0.5 rounded text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="relative z-10 flex shrink-0 items-center rounded text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
           >
             <ChevronRight
               className={cn(
@@ -56,9 +53,6 @@ export function TraceRow({
                 open && 'rotate-90',
               )}
             />
-            {!open && (
-              <span className="text-[10px] tabular-nums">{children}</span>
-            )}
           </button>
         ) : (
           <span className="size-3 shrink-0" aria-hidden />

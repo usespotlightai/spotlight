@@ -1,6 +1,10 @@
 import { ChevronRight } from 'lucide-react';
 import { Fragment, type ReactNode } from 'react';
 import { Link } from 'react-router';
+import { Shortened } from '@/components/layout/Shortened';
+
+/** How wide one segment's label may be before it is cut. */
+const LABEL_WIDTH = 256;
 
 export type BreadcrumbSegment = {
   label: string;
@@ -18,9 +22,11 @@ export function Breadcrumbs({ segments }: BreadcrumbsProps) {
       <>
         {icon}
         {/* Capped so one long title cannot crowd out the trail it sits in. */}
-        <span className="max-w-64 truncate" title={label}>
-          {label}
-        </span>
+        <Shortened
+          text={label}
+          most={LABEL_WIDTH}
+          className="whitespace-nowrap"
+        />
       </>
     );
 

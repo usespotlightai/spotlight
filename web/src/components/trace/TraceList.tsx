@@ -1,122 +1,134 @@
 import { Link } from 'react-router';
 import { StationIcon } from '@/components/board/StationIcon';
-import { useTeamRuns } from '@/hooks/api/useTeamRuns';
-import { took } from '@/lib/inbox';
-import { aged, type TeamRun } from '@/lib/run';
+import { TraceVolume } from '@/components/trace/TraceVolume';
+import { useTeamTraces } from '@/hooks/api/useTeamTraces';
+import { spentOn, took } from '@/lib/inbox';
 import { stationShare } from '@/lib/station';
 import { taskTracePath } from '@/lib/task';
+import { startedOn, type Traced } from '@/lib/trace-list';
+import { cn } from '@/lib/utils';
 
-interface Traced {
-  readonly taskId: string;
-  readonly title: string;
-  readonly runs: readonly TeamRun[];
-  readonly from: number;
-  readonly to: number;
-  readonly failed: number;
+const COLUMNS =
+  'grid-cols-[6.25rem_6rem_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_4rem_5rem_4.5rem]';
+
+const Head = ({ children }: { children: React.ReactNode }) => (
+  <span className="truncate">{children}</span>
+);
+
+function Row({ trace, to }: { trace: Traced; to: string }) {
+  return (
+    <li
+      className={cn(
+        'relative grid h-9 items-center gap-3 rounded-md px-3 text-sm transition-colors hover:bg-accent',
+        COLUMNS,
+      )}
+    >
+      <span className="truncate text-muted-foreground text-xs tabular-nums">
+        {startedOn(trace.startedAt)}
+      </span>
+
+      {/* Every station it has been through, in the line's order, ending
+          where it stands. The marks say it; naming the last one as well only
+          says it twice. */}
+      <span
+        className="flex min-w-0 items-center gap-0.5"
+        title={trace.stations.map((station) => station.name).join(' → ')}
+      >
+        {trace.stations.map((station) => (
+          <StationIcon
+            key={station.name}
+            share={stationShare(station.position, station.count)}
+            color={station.color}
+          />
+        ))}
+      </span>
+
+      <Link
+        to={to}
+        className="min-w-0 truncate text-foreground outline-none after:absolute after:inset-0 after:rounded-md"
+      >
+        {trace.title}
+      </Link>
+
+      {/* What was asked, and what came back: the pair that makes a row worth
+          reading without opening it. */}
+      <span className="min-w-0 truncate text-muted-foreground text-xs">
+        {trace.input ?? '–'}
+      </span>
+
+      <span className="min-w-0 truncate text-muted-foreground text-xs">
+        {trace.output ?? '–'}
+      </span>
+
+      <span
+        className={cn(
+          'truncate text-right text-xs tabular-nums',
+          trace.faults > 0 ? 'text-destructive' : 'text-muted-foreground',
+        )}
+      >
+        {trace.faults > 0 ? trace.faults : '–'}
+      </span>
+
+      <span className="truncate text-right text-muted-foreground text-xs tabular-nums">
+        {trace.ms === null ? '–' : took(trace.ms)}
+      </span>
+
+      <span className="truncate text-right text-muted-foreground text-xs tabular-nums">
+        {spentOn(trace.cost)}
+      </span>
+    </li>
+  );
 }
 
-const at = (iso: string): number => new Date(iso).getTime();
-
-/**
- * One trace per task, since that is what a trace is here: every run that
- * worked it, however many stations it passed through on the way.
- */
-const traced = (runs: readonly TeamRun[]): Traced[] => {
-  const held = new Map<string, TeamRun[]>();
-
-  for (const run of runs) {
-    if (run.taskId) {
-      held.set(run.taskId, [...(held.get(run.taskId) ?? []), run]);
-    }
-  }
-
-  return [...held.entries()]
-    .map(([taskId, worked]) => ({
-      taskId,
-      title: worked[0]?.taskTitle ?? 'Untitled',
-      runs: worked,
-      from: Math.min(...worked.map((run) => at(run.startedAt))),
-      to: Math.max(...worked.map((run) => at(run.updatedAt))),
-      failed: worked.filter((run) => run.state === 'failed').length,
-    }))
-    .sort((one, other) => other.to - one.to);
-};
-
-export function TraceList({ slug, teamId }: { slug: string; teamId: string }) {
-  const { data: runs, isPending } = useTeamRuns(teamId);
-
+export function TraceList({
+  slug,
+  teamId,
+  range,
+}: {
+  slug: string;
+  teamId: string;
+  range: string;
+}) {
+  const { data: traces, isPending } = useTeamTraces(teamId, range);
   if (isPending) {
     return null;
   }
 
-  const traces = traced(runs ?? []);
-
-  if (traces.length === 0) {
-    return (
-      <div className="flex min-h-0 flex-1 items-center justify-center p-8">
-        <p className="text-muted-foreground text-sm">
-          Nothing has been run for this team yet.
-        </p>
-      </div>
-    );
-  }
+  // A stretch with nothing in it is still worth drawing: the chart says the
+  // stretch was empty, and the columns say what would have filled it.
+  const worked = traces ?? [];
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-1.5">
-      <div className="flex h-8 items-center gap-3 px-3 text-muted-foreground text-xs">
-        <span className="min-w-0 flex-1">Task</span>
-        <span className="w-16 text-right">Runs</span>
-        <span className="w-20 text-right">Took</span>
-        <span className="w-16 text-right">Faults</span>
-        <span className="w-24 text-right">Last worked</span>
-      </div>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <TraceVolume traces={worked} range={range} />
 
-      <ul className="flex flex-col">
-        {traces.map((trace) => (
-          <li
-            key={trace.taskId}
-            className="relative flex h-9 items-center gap-3 rounded-md px-3 text-sm transition-colors hover:bg-accent"
-          >
-            {trace.runs[0]?.station ? (
-              <StationIcon
-                share={stationShare(
-                  trace.runs[0].station.position,
-                  trace.runs[0].station.count,
-                )}
-                color={trace.runs[0].station.color}
-              />
-            ) : (
-              <span className="size-4 shrink-0" aria-hidden />
-            )}
+      <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-1.5">
+        <div
+          className={cn(
+            'grid h-8 items-center gap-3 px-3 text-muted-foreground text-xs',
+            COLUMNS,
+          )}
+        >
+          <Head>Started</Head>
+          <Head>Stations</Head>
+          <Head>Task</Head>
+          <Head>Asked</Head>
+          <Head>Answered</Head>
+          <span className="truncate text-right">Faults</span>
+          <span className="truncate text-right">Took</span>
+          <span className="truncate text-right">Cost</span>
+        </div>
 
-            <Link
+        <ul className="flex flex-col">
+          {worked.map((trace) => (
+            <Row
+              key={trace.taskId}
+              trace={trace}
               to={taskTracePath(slug, teamId, trace.taskId)}
-              className="min-w-0 flex-1 truncate text-foreground outline-none after:absolute after:inset-0 after:rounded-md"
-            >
-              {trace.title}
-            </Link>
-
-            <span className="w-16 text-right text-muted-foreground tabular-nums">
-              {trace.runs.length}
-            </span>
-            <span className="w-20 text-right text-muted-foreground tabular-nums">
-              {took(Math.max(trace.to - trace.from, 0))}
-            </span>
-            <span
-              className={
-                trace.failed > 0
-                  ? 'w-16 text-right text-destructive tabular-nums'
-                  : 'w-16 text-right text-muted-foreground tabular-nums'
-              }
-            >
-              {trace.failed}
-            </span>
-            <span className="w-24 truncate text-right text-muted-foreground">
-              {aged(new Date(trace.to).toISOString())}
-            </span>
-          </li>
-        ))}
-      </ul>
+            />
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
