@@ -18,7 +18,6 @@ type InboxMessageProps = {
   worked: readonly RunJournal[];
 };
 
-/** A station speaks in the page's own voice. What came in is framed as such. */
 export function InboxMessage({
   message,
   stationCount,

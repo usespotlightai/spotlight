@@ -55,8 +55,6 @@ describe('Runners', () => {
     expect(screen.getByText('Claude Code')).toBeInTheDocument();
   });
 
-  // A runner that has connected and found nothing is worth telling apart from
-  // one that has never spoken.
   it('says when a runner reported nothing it can run', () => {
     fleet.mockReturnValue([runner({ harnesses: [] })]);
 

@@ -8,7 +8,6 @@ import { useTaskTrace } from '@/hooks/api/useTaskTrace';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { teamPath, teamSectionPath } from '@/lib/team';
 
-/** One task's trace, given the whole page, read from observability. */
 export function TaskTrace() {
   const { slug, teamId, taskId } = useParams();
   const { data: workspace } = useWorkspace(slug);

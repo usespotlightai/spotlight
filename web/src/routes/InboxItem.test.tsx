@@ -242,8 +242,6 @@ describe('InboxItem', () => {
     expect(screen.getByText('The retry queue.')).toBeInTheDocument();
   });
 
-  // A conversation opens with what its own station was given, not with the
-  // task, which is the prompt the first station received.
   it('opens on the prompt the station was given', () => {
     const [only] = item([message()]);
     waiting.mockReturnValue([

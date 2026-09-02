@@ -14,7 +14,6 @@ const Field = ({ name, value }: { name: string; value: string }) => (
   </div>
 );
 
-/** What the agent said in its own words, which is prose and not output. */
 const Spoke = ({ title, body }: { title: string; body: string }) => (
   <section className="flex flex-col gap-1">
     <h3 className="font-medium text-foreground text-xs">{title}</h3>
@@ -33,7 +32,6 @@ const Block = ({ title, body }: { title: string; body: string }) => (
   </section>
 );
 
-/** A diff or a stack trace wants room; the waterfall beside it wants more. */
 const DETAIL_PANE = {
   storageKey: 'spotlight.trace-detail-width',
   min: 288,
@@ -53,7 +51,6 @@ export function SpanDetail({
   ref,
 }: {
   node: TraceNode;
-  /** Kept a moment after it is put down, so it can be seen leaving. */
   open: boolean;
   ref?: Ref<HTMLElement>;
 }) {

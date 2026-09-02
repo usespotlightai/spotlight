@@ -24,21 +24,17 @@ const trace = (over: Partial<Traced> = {}): Traced =>
     ...over,
   }) as Traced;
 
-/** An hour ending at the fixture's moment, cut into half hours. */
 const HOUR = { from: AT - 3_600_000, to: AT };
 const HALF_HOUR = 30 * 60_000;
 const IN_AN_HOUR = 3_600_000 / HALF_HOUR;
 
 describe('bucketed', () => {
-  // The window is what was asked for, so it is what gets drawn, whether or
-  // not anything happened in it.
   it('draws the whole stretch even where nothing ran', () => {
     const buckets = bucketed([], HOUR, HALF_HOUR);
 
     expect(buckets).toHaveLength(IN_AN_HOUR);
     expect(buckets.every((each) => each.count === 0)).toBe(true);
     expect(buckets[0]?.from).toBe(HOUR.from);
-    // A bar is worth what the range says it is worth.
     expect(buckets[0]?.to).toBe(HOUR.from + HALF_HOUR);
   });
 
@@ -58,15 +54,12 @@ describe('bucketed', () => {
     expect(buckets[IN_AN_HOUR - 1]?.count).toBe(1);
   });
 
-  // A quiet night is part of what the shape says.
   it('keeps the buckets nothing happened in', () => {
     expect(
       bucketed([trace()], HOUR, HALF_HOUR).some((each) => each.count === 0),
     ).toBe(true);
   });
 
-  // The height is what went wrong, so a bucket adds the faults up rather than
-  // counting the traces that had any.
   it('adds up every fault in the stretch', () => {
     const held = bucketed([trace({ faults: 2 })], HOUR, HALF_HOUR).at(-1);
 
@@ -81,7 +74,6 @@ describe('bucketed', () => {
     expect(held?.count).toBe(1);
   });
 
-  // Anything older than the window still belongs to its nearest edge.
   it('holds a trace from before the window at the near end', () => {
     const buckets = bucketed(
       [trace({ startedAt: new Date(0).toISOString() })],
@@ -92,8 +84,6 @@ describe('bucketed', () => {
     expect(buckets[0]?.count).toBe(1);
   });
 
-  // The bar is worth what it was told to be worth, so a month does not come
-  // out as a thousand bars too thin to see.
   it('cuts the stretch into bars of the size it was given', () => {
     const day = bucketed([], { from: AT - 24 * 3_600_000, to: AT }, HALF_HOUR);
 
@@ -103,7 +93,6 @@ describe('bucketed', () => {
 });
 
 describe('spanned', () => {
-  // A bar is a stretch of time, not a moment.
   it('says both ends, and the day only once where it is the same', () => {
     const said = spanned(AT, AT + 3_600_000);
 

@@ -43,7 +43,6 @@ const node = (
   ...part,
 });
 
-/** One run, as the control plane assembles it: phases holding what happened. */
 const trace = (): Trace => ({
   startedAt: iso(0),
   ms: 60_000,
@@ -167,15 +166,12 @@ describe('TraceView', () => {
     ]);
   });
 
-  // The protocol accounts per run, so the run's own row is where it belongs.
   it('says what a run cost on the row that ran it', () => {
     view();
 
     expect(rows()[0]).toHaveTextContent('$0.07');
   });
 
-  // A failed command is the thing a reader is looking for, so it is the thing
-  // that should not need looking for.
   it('marks what failed', () => {
     view();
 
@@ -196,7 +192,6 @@ describe('TraceView', () => {
     ).toBeInTheDocument();
   });
 
-  // The one thing the protocol could never say.
   it('shows which model answered, where the harness said so', async () => {
     const user = userEvent.setup();
     view();
@@ -207,7 +202,6 @@ describe('TraceView', () => {
     expect(screen.getByText('claude-opus-5')).toBeInTheDocument();
   });
 
-  // A row named for its kind has its words nowhere but the panel.
   it('shows what was said, where the row only says that it spoke', async () => {
     const user = userEvent.setup();
     view();

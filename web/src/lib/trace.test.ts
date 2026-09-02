@@ -20,7 +20,6 @@ const node = (
   ...part,
 });
 
-/** A run holding a turn, which holds a command and an edit. */
 const trace = (): Trace => ({
   startedAt: iso(0),
   ms: 60_000,
@@ -123,7 +122,6 @@ describe('only', () => {
     ]);
   });
 
-  // Where a step reached is as much a part of it as what it was called.
   it('finds a step by the file it touched', () => {
     const names = rowsOf(only(trace().roots, 'queue.ts'), new Set()).map(
       (row) => row.node.name,

@@ -8,10 +8,6 @@ type InboxWorkingProps = {
   stationCount: number;
 };
 
-/**
- * A run is on it. Shown while the answer is still being written, so an
- * answered question does not look like an ignored one.
- */
 export function InboxWorking({
   station,
   stationColor,

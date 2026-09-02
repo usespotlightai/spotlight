@@ -159,7 +159,6 @@ describe('Task', () => {
       expect(screen.queryByText('Awaiting review')).not.toBeInTheDocument();
     });
 
-    // Runs read newest first, so what a run asked of a person comes after it.
     it('puts the asking above the run that raised it', () => {
       worked.mockReturnValue([
         run({ id: 'run_2' }),

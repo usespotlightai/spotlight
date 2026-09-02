@@ -18,7 +18,6 @@ const measured = (font: string) => {
   return (text: string) => pen.measureText(text).width;
 };
 
-/** The longest of a text that fits, with the ellipsis it will end in. */
 const fitted = (
   text: string,
   width: (of: string) => number,
@@ -57,7 +56,6 @@ export function Shortened({
   className,
 }: {
   text: string;
-  /** How wide the text may be, in pixels. */
   most: number;
   className?: string;
 }) {

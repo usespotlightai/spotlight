@@ -38,7 +38,6 @@ export default function App() {
               element={<Station />}
             />
             <Route path="tasks/:taskId" element={<Task />} />
-            {/* A trace is what observability leads to, so it is read there. */}
             <Route path="observability/tasks/:taskId" element={<TaskTrace />} />
             <Route path="runs/:runId" element={<Run />} />
             <Route path=":section" element={<TeamSection />} />

@@ -2,15 +2,10 @@ import type { ComponentProps } from 'react';
 import { cn } from '@/lib/utils';
 
 type PaneHandleProps = ComponentProps<'div'> & {
-  /** Which side of the pane it sits on. */
   edge: 'left' | 'right';
   resizing: boolean;
 };
 
-/**
- * The grip along a pane's edge. Wider than the rule it draws, so it can be
- * caught without aiming, and only drawn while it is being reached for or used.
- */
 export function PaneHandle({
   edge,
   resizing,

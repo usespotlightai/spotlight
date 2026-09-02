@@ -7,10 +7,6 @@ type ContextDonutProps = {
   size: number;
 };
 
-/**
- * How much of the context window the run was holding when it finished. A ring
- * rather than a number, because what matters is how near full it came.
- */
 export function ContextDonut({ used, size }: ContextDonutProps) {
   const share = size > 0 ? Math.min(used / size, 1) : 0;
 

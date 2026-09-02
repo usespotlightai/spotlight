@@ -1,33 +1,38 @@
 import { ChevronRight } from 'lucide-react';
+import { memo } from 'react';
 import { TraceBar } from '@/components/trace/TraceBar';
 import { TraceIcon } from '@/components/trace/TraceIcon';
-import type { Row, Trace } from '@/lib/trace';
+import type { Trace, TraceNode } from '@/lib/trace';
 import { cn } from '@/lib/utils';
 
 const INDENT = 14;
 
 type TraceRowProps = {
-  row: Row;
+  node: TraceNode;
+  depth: number;
+  holding: number;
   trace: Trace;
-  /** How much of the row its name takes, before the bars begin. */
-  names: number;
   picked: boolean;
   open: boolean;
-  onPick: () => void;
-  onToggle: () => void;
+  onPick: (id: string) => void;
+  onToggle: (id: string) => void;
 };
 
-export function TraceRow({
-  row,
+/**
+ * Held against re-rendering, because a trace is hundreds of rows and most of
+ * what happens to one of them concerns only itself. The row is told what to
+ * call rather than given a new closure each time, so the guard holds.
+ */
+export const TraceRow = memo(function TraceRow({
+  node,
+  depth,
+  holding,
   trace,
-  names,
   picked,
   open,
   onPick,
   onToggle,
 }: TraceRowProps) {
-  const { node, depth, children } = row;
-
   return (
     <li
       className={cn(
@@ -37,12 +42,14 @@ export function TraceRow({
     >
       <div
         className="flex min-w-0 shrink-0 items-center gap-1 pr-3"
-        style={{ width: names, paddingLeft: depth * INDENT + 8 }}
+        // The width is read from the lane rather than passed in, so dragging
+        // the names wider is a repaint and not four hundred re-renders.
+        style={{ width: 'var(--names)', paddingLeft: depth * INDENT + 8 }}
       >
-        {children > 0 ? (
+        {holding > 0 ? (
           <button
             type="button"
-            onClick={onToggle}
+            onClick={() => onToggle(node.id)}
             aria-expanded={open}
             aria-label={open ? `Fold ${node.name}` : `Unfold ${node.name}`}
             className="relative z-10 flex shrink-0 items-center rounded text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
@@ -62,7 +69,7 @@ export function TraceRow({
 
         <button
           type="button"
-          onClick={onPick}
+          onClick={() => onPick(node.id)}
           className={cn(
             'min-w-0 truncate text-left outline-none after:absolute after:inset-0',
             node.tone === 'failed' ? 'text-destructive' : 'text-foreground',
@@ -75,4 +82,4 @@ export function TraceRow({
       <TraceBar node={node} trace={trace} />
     </li>
   );
-}
+});

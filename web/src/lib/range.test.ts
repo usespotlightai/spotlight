@@ -7,7 +7,6 @@ import {
   windowOf,
 } from '@/lib/range';
 
-/** The bar sizes each range was asked for, minute for minute. */
 const ASKED = {
   '30m': 2,
   '1h': 2,
@@ -53,7 +52,6 @@ describe('RANGES', () => {
     expect(bucketMsOf('30d')).toBe(8 * 60 * 60_000);
   });
 
-  // An unknown id is not worth failing a page over.
   it('falls back to the default where the range is not one it knows', () => {
     expect(rangeOf('nonsense').id).toBe(DEFAULT_RANGE);
   });

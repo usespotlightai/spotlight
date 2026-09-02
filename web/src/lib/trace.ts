@@ -1,10 +1,5 @@
 import type { TaskTraceResponseDto, TraceNodeResponseDto } from '@/lib/api';
 
-/**
- * The trace as the control plane assembled it. What a phase is, and when a
- * span and a step are the same call, is settled there; what is left here is
- * what it takes to draw one: searching, folding, and where a bar sits.
- */
 export type Trace = TaskTraceResponseDto;
 
 export type TraceNode = TraceNodeResponseDto;
@@ -20,7 +15,6 @@ const at = (iso: string): number => {
   return Number.isNaN(ms) ? 0 : ms;
 };
 
-/** Whether a row says anything about what was searched for. */
 export const says = (node: TraceNode, query: string): boolean => {
   const looking = query.trim().toLowerCase();
   if (!looking) {
@@ -42,7 +36,11 @@ export const says = (node: TraceNode, query: string): boolean => {
   return held.some((each) => each?.toLowerCase().includes(looking));
 };
 
-/** A row matching, or holding anything that matches, stays. */
+/**
+ * A row matching, or holding anything that matches, stays. A row that came
+ * through untouched is handed back as itself rather than as a copy: identity
+ * is what lets the list skip redrawing what the search did not change.
+ */
 const kept = (node: TraceNode, query: string): TraceNode | null => {
   const children = node.children.flatMap((child) => {
     const held = kept(child, query);
@@ -53,7 +51,11 @@ const kept = (node: TraceNode, query: string): TraceNode | null => {
     return null;
   }
 
-  return { ...node, children };
+  const same =
+    children.length === node.children.length &&
+    children.every((child, at) => child === node.children[at]);
+
+  return same ? node : { ...node, children };
 };
 
 export const only = (roots: readonly TraceNode[], query: string): TraceNode[] =>
@@ -62,10 +64,6 @@ export const only = (roots: readonly TraceNode[], query: string): TraceNode[] =>
     return held ? [held] : [];
   });
 
-/**
- * The tree as rows to draw, deepest last. Anything held closed keeps its
- * children out of the list, and says how many it is holding.
- */
 export const rowsOf = (
   roots: readonly TraceNode[],
   closed: ReadonlySet<string>,
@@ -79,7 +77,6 @@ export const rowsOf = (
       : [row, ...rowsOf(node.children, closed, depth + 1)];
   });
 
-/** Where a row's bar sits, as a share of the whole trace. */
 export const laidOut = (
   node: TraceNode,
   trace: Trace,

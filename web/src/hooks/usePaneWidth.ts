@@ -48,11 +48,21 @@ export function usePaneWidth(pane: Pane = WORKSPACE_SIDEBAR) {
   const [width, setWidth] = useState(() => readStoredWidth(pane));
   const [resizing, setResizing] = useState(false);
   const origin = useRef<{ x: number; width: number } | null>(null);
+  const last = useRef(width);
 
-  const resize = (next: number) => {
+  /**
+   * Storage is written when the handle is let go, not on every pixel it
+   * passes through: a drag is hundreds of moves, and each one was a
+   * synchronous write.
+   */
+  const resize = (next: number, keep = true) => {
     const clamped = clampTo(pane, next);
+    last.current = clamped;
     setWidth(clamped);
-    remember(pane, clamped);
+
+    if (keep) {
+      remember(pane, clamped);
+    }
   };
 
   const onPointerDown = (event: PointerEvent<HTMLElement>) => {
@@ -65,12 +75,16 @@ export function usePaneWidth(pane: Pane = WORKSPACE_SIDEBAR) {
     if (!origin.current) {
       return;
     }
-    resize(origin.current.width + towards * (event.clientX - origin.current.x));
+    resize(
+      origin.current.width + towards * (event.clientX - origin.current.x),
+      false,
+    );
   };
 
   const onPointerUp = (event: PointerEvent<HTMLElement>) => {
     origin.current = null;
     setResizing(false);
+    remember(pane, last.current);
     event.currentTarget.releasePointerCapture?.(event.pointerId);
   };
 

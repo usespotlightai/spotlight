@@ -1,5 +1,6 @@
 import { Search } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PaneHandle } from '@/components/layout/PaneHandle';
 import { SpanDetail } from '@/components/trace/SpanDetail';
 import { LABEL_ROOM } from '@/components/trace/TraceBar';
@@ -9,10 +10,8 @@ import { took } from '@/lib/inbox';
 import { only, rowsOf, type Trace, type TraceNode } from '@/lib/trace';
 import { cn } from '@/lib/utils';
 
-/** How long the panel is kept after it is put down, so it can be seen going. */
 const LEAVING = 150;
 
-/** How much of a row its name takes, before the bars begin. */
 const NAMES_PANE = {
   storageKey: 'spotlight.trace-names-width',
   min: 200,
@@ -21,14 +20,12 @@ const NAMES_PANE = {
   label: 'Resize the names',
 };
 
-/** Enough marks to read a length off, few enough to stay out of the way. */
 const TICKS = [0, 0.25, 0.5, 0.75, 1];
 
 type TraceViewProps = {
   trace: Trace;
 };
 
-/** A list says what an agent did; only this says where the time went. */
 export function TraceView({ trace }: TraceViewProps) {
   const [query, setQuery] = useState('');
   const [closed, setClosed] = useState<ReadonlySet<string>>(new Set());
@@ -37,7 +34,6 @@ export function TraceView({ trace }: TraceViewProps) {
   const listed = useRef<HTMLUListElement>(null);
   const panel = useRef<HTMLElement>(null);
 
-  // Clicking away from both the rows and the panel puts the picked row down.
   useEffect(() => {
     if (picked === null) {
       return;
@@ -82,7 +78,7 @@ export function TraceView({ trace }: TraceViewProps) {
 
   const whole = Math.max(trace.ms, 0);
 
-  const toggle = (id: string) =>
+  const toggle = useCallback((id: string) => {
     setClosed((held) => {
       const next = new Set(held);
       if (!next.delete(id)) {
@@ -90,6 +86,9 @@ export function TraceView({ trace }: TraceViewProps) {
       }
       return next;
     });
+  }, []);
+
+  const pick = useCallback((id: string) => setPicked(id), []);
 
   if (trace.roots.length === 0) {
     return (
@@ -120,7 +119,10 @@ export function TraceView({ trace }: TraceViewProps) {
             />
           </div>
 
-          <div className="relative min-h-0 flex-1">
+          <div
+            className="relative min-h-0 flex-1"
+            style={{ '--names': `${names.width}px` } as CSSProperties}
+          >
             <div
               className={cn(
                 'flex h-full flex-col overflow-auto',
@@ -128,7 +130,7 @@ export function TraceView({ trace }: TraceViewProps) {
               )}
             >
               <div className="sticky top-0 z-20 flex h-6 shrink-0 items-end border-border border-b-[0.5px] bg-card">
-                <span className="shrink-0" style={{ width: names.width }} />
+                <span className="shrink-0" style={{ width: 'var(--names)' }} />
                 <div
                   className="relative min-w-0 flex-1"
                   style={{ marginRight: LABEL_ROOM }}
@@ -162,7 +164,7 @@ export function TraceView({ trace }: TraceViewProps) {
                   <div
                     aria-hidden
                     className="pointer-events-none absolute inset-y-0"
-                    style={{ left: names.width, right: LABEL_ROOM }}
+                    style={{ left: 'var(--names)', right: LABEL_ROOM }}
                   >
                     {TICKS.map((tick) => (
                       <span
@@ -181,13 +183,14 @@ export function TraceView({ trace }: TraceViewProps) {
                     {rows.map((row) => (
                       <TraceRow
                         key={row.node.id}
-                        row={row}
+                        node={row.node}
+                        depth={row.depth}
+                        holding={row.children}
                         trace={trace}
-                        names={names.width}
                         picked={row.node.id === picked}
                         open={!closed.has(row.node.id)}
-                        onPick={() => setPicked(row.node.id)}
-                        onToggle={() => toggle(row.node.id)}
+                        onPick={pick}
+                        onToggle={toggle}
                       />
                     ))}
                   </ul>
@@ -200,7 +203,7 @@ export function TraceView({ trace }: TraceViewProps) {
                 scroll so it fades against the height that is actually seen. */}
             <div
               className="pointer-events-none absolute inset-y-0 left-0"
-              style={{ width: names.width }}
+              style={{ width: 'var(--names)' }}
             >
               <PaneHandle
                 {...names.handleProps}

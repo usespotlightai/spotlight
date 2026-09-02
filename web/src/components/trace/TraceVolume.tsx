@@ -15,7 +15,6 @@ import { cn } from '@/lib/utils';
 
 const HEIGHT = 132;
 
-/** Held off the cursor so the pointer never sits on top of what it is reading. */
 const NUDGE = { x: 14, y: 12 };
 
 /**
@@ -29,19 +28,15 @@ const NUDGE = { x: 14, y: 12 };
  */
 const TOOLTIP_WIDTH = 208;
 
-/** Up to this many, every whole number gets its own line. */
 const TICKS_AT_MOST = 5;
 
-/** Half a tick label, so the highest one can sit on its line. */
 const TOP_ROOM = 8;
 
-/** Named in the order they are drawn, left to right. */
 const LEGEND = [
   { name: 'Traces', swatch: 'bg-primary' },
   { name: 'Faults', swatch: 'bg-destructive/55' },
 ] as const;
 
-/** Axes are chrome; they recede a shade off the surface. */
 const AXIS = {
   stroke: 'var(--border)',
   tick: { fill: 'var(--faint)', fontSize: 10 },
@@ -120,7 +115,6 @@ export function TraceVolume({
 
   return (
     <div className="border-border border-b-[0.5px] px-2 pt-2 pb-1">
-      {/* Two series, so what each colour means is said rather than guessed. */}
       <div className="flex items-center justify-end gap-3 pr-2 pb-1">
         {LEGEND.map((each) => (
           <span
@@ -147,8 +141,6 @@ export function TraceVolume({
         <ResponsiveContainer width="100%" height={HEIGHT}>
           <BarChart
             data={buckets}
-            // The pair reads as one reading of one stretch, so nothing sits
-            // between them; the space that matters is between the buckets.
             barGap={0}
             // Room above the topmost line: with none, its label would be
             // clipped by the edge, so it is nudged down off its own line.
@@ -211,9 +203,6 @@ export function TraceVolume({
               wrapperStyle={{ pointerEvents: 'none' }}
             />
 
-            {/* Traces lead as what was worked, with the faults that came out
-                of them beside. The red is softened because at this size a
-                saturated block shouts. */}
             <Bar
               dataKey="count"
               name="Traces"

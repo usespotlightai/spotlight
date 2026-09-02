@@ -3,7 +3,6 @@ import { Fragment, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Shortened } from '@/components/layout/Shortened';
 
-/** How wide one segment's label may be before it is cut. */
 const LABEL_WIDTH = 256;
 
 export type BreadcrumbSegment = {

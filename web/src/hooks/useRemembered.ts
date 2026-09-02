@@ -8,7 +8,6 @@ const readStored = (storageKey: string, fallback: string): string => {
   }
 };
 
-/** One value a browser keeps for the next visit, and forgets if it must. */
 export function useRemembered(
   storageKey: string,
   fallback: string,

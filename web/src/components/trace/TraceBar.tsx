@@ -2,7 +2,6 @@ import { spentOn, took } from '@/lib/inbox';
 import { laidOut, type Trace, type TraceNode } from '@/lib/trace';
 import { cn } from '@/lib/utils';
 
-/** Bars any thinner than this cannot be read, and cannot be hit either. */
 const LEAST_WIDTH = 0.4;
 
 /**
@@ -19,7 +18,6 @@ const fills: Record<string, string> = {
   failed: 'bg-destructive',
 };
 
-/** Length carries how long it took, which leaves colour free to say what sort. */
 export function TraceBar({ node, trace }: { node: TraceNode; trace: Trace }) {
   const { left, width } = laidOut(node, trace);
 

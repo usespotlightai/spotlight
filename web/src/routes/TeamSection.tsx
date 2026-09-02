@@ -14,7 +14,6 @@ import {
   teamSectionPath,
 } from '@/lib/team';
 
-/** How far back this page was last asked to look. */
 const RANGE_KEY = 'spotlight.trace-range';
 
 export function TeamSection() {

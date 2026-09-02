@@ -10,12 +10,6 @@ import {
   type RunJournal,
 } from '@/lib/inbox';
 
-/**
- * One turn within the conversation: a person's word and the work that followed
- * it. Cut on who spoke, where the domain cuts on what a note did, because this
- * is how far a held prompt may travel before the next pushes it out of view.
- * The task opens the first turn, so that one has no prompt of its own.
- */
 interface Turn {
   readonly prompt: Message | null;
   readonly messages: Message[];
@@ -45,7 +39,6 @@ const CLOSE = 80;
  */
 const SETTLING_MS = 250;
 
-/** The note asked for goes to the top: what follows it is the answer. */
 const put = (
   box: HTMLDivElement,
   inside: HTMLDivElement,

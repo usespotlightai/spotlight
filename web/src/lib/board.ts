@@ -15,6 +15,5 @@ export const asBoardView = (raw: string | null): BoardView =>
     ? (raw as BoardView)
     : FALLBACK_BOARD_VIEW;
 
-/** Each end of the line is a view of its own. */
 export const inView = (view: BoardView, kind: StationResponseDto['kind']) =>
   view === 'active' ? kind === 'work' : kind === view;

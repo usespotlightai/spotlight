@@ -32,8 +32,6 @@ export const startedOn = (at: string): string =>
 export interface Bucket {
   readonly from: number;
   readonly to: number;
-  // Every fault the traces in this stretch ran into, added up. Traces are
-  // kept alongside it so a bad hour can be told from a busy one.
   readonly faults: number;
   readonly count: number;
 }

@@ -27,9 +27,6 @@ function Row({ trace, to }: { trace: Traced; to: string }) {
         {startedOn(trace.startedAt)}
       </span>
 
-      {/* Every station it has been through, in the line's order, ending
-          where it stands. The marks say it; naming the last one as well only
-          says it twice. */}
       <span
         className="flex min-w-0 items-center gap-0.5"
         title={trace.stations.map((station) => station.name).join(' → ')}
@@ -50,8 +47,6 @@ function Row({ trace, to }: { trace: Traced; to: string }) {
         {trace.title}
       </Link>
 
-      {/* What was asked, and what came back: the pair that makes a row worth
-          reading without opening it. */}
       <span className="min-w-0 truncate text-muted-foreground text-xs">
         {trace.input ?? '–'}
       </span>

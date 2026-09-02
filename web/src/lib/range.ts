@@ -1,8 +1,3 @@
-/**
- * How far back a page is looking. Kept as a span rather than a pair of dates:
- * "the past hour" means something different an hour from now, and that is what
- * a reader watching a factory work actually wants.
- */
 export interface Range {
   readonly id: string;
   readonly short: string;
@@ -96,16 +91,13 @@ export interface Window {
   readonly to: number;
 }
 
-/** The stretch being looked at, ending now. */
 export const windowOf = (id: string, now = Date.now()): Window => ({
   from: now - rangeOf(id).minutes * 60_000,
   to: now,
 });
 
-/** How long one bar of this range stands for. */
 export const bucketMsOf = (id: string): number =>
   rangeOf(id).bucketMinutes * 60_000;
 
-/** When the stretch began, as the control plane wants it told. */
 export const since = (id: string): string =>
   new Date(windowOf(id).from).toISOString();
