@@ -9,7 +9,7 @@ type DashboardLayoutProps = {
 };
 
 export function DashboardLayout({ sidebar, children }: DashboardLayoutProps) {
-  const { width, resizing, handleProps } = usePaneWidth();
+  const { width, resizing, handleProps, paneRef } = usePaneWidth<HTMLElement>();
 
   return (
     <div
@@ -19,6 +19,7 @@ export function DashboardLayout({ sidebar, children }: DashboardLayoutProps) {
       )}
     >
       <aside
+        ref={paneRef}
         style={{ width }}
         className="relative hidden shrink-0 flex-col px-3 py-2 md:flex"
       >

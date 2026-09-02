@@ -1,4 +1,3 @@
-import { Search } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PaneHandle } from '@/components/layout/PaneHandle';
@@ -7,12 +6,13 @@ import { LABEL_ROOM } from '@/components/trace/TraceBar';
 import { TraceRow } from '@/components/trace/TraceRow';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
 import { took } from '@/lib/inbox';
-import { only, rowsOf, type Trace, type TraceNode } from '@/lib/trace';
+import { rowsOf, type Trace, type TraceNode } from '@/lib/trace';
 import { cn } from '@/lib/utils';
 
 const LEAVING = 150;
 
 const NAMES_PANE = {
+  property: '--names',
   storageKey: 'spotlight.trace-names-width',
   min: 200,
   max: 640,
@@ -27,10 +27,9 @@ type TraceViewProps = {
 };
 
 export function TraceView({ trace }: TraceViewProps) {
-  const [query, setQuery] = useState('');
   const [closed, setClosed] = useState<ReadonlySet<string>>(new Set());
   const [picked, setPicked] = useState<string | null>(null);
-  const names = usePaneWidth(NAMES_PANE);
+  const names = usePaneWidth<HTMLDivElement>(NAMES_PANE);
   const listed = useRef<HTMLUListElement>(null);
   const panel = useRef<HTMLElement>(null);
 
@@ -51,15 +50,10 @@ export function TraceView({ trace }: TraceViewProps) {
     return () => document.removeEventListener('pointerdown', away);
   }, [picked]);
 
-  const rows = useMemo(
-    () => rowsOf(only(trace.roots, query), closed),
-    [trace, query, closed],
-  );
+  const rows = useMemo(() => rowsOf(trace.roots, closed), [trace, closed]);
 
   const chosen = rows.find((row) => row.node.id === picked)?.node ?? null;
 
-  // What the panel is drawing, which outlives the picking by as long as it
-  // takes to leave.
   const [held, setHeld] = useState<TraceNode | null>(null);
 
   useEffect(() => {
@@ -93,9 +87,7 @@ export function TraceView({ trace }: TraceViewProps) {
   if (trace.roots.length === 0) {
     return (
       <div className="flex min-h-0 flex-1 items-center justify-center p-8">
-        <p className="text-muted-foreground text-sm">
-          Nothing has worked this task yet.
-        </p>
+        <p className="text-muted-foreground text-sm">No runs yet.</p>
       </div>
     );
   }
@@ -104,23 +96,11 @@ export function TraceView({ trace }: TraceViewProps) {
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex shrink-0 items-center gap-2 border-border border-b-[0.5px] px-4 py-2">
-            <Search
-              className="size-3.5 shrink-0 text-muted-foreground"
-              aria-hidden
-            />
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search this trace"
-              aria-label="Search this trace"
-              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-faint"
-            />
-          </div>
-
           <div
-            className="relative min-h-0 flex-1"
+            ref={names.paneRef}
+            // Nothing here sets a floor on how narrow it may go, so the panel
+            // beside it can take the width it is dragged to.
+            className="relative min-h-0 min-w-0 flex-1"
             style={{ '--names': `${names.width}px` } as CSSProperties}
           >
             <div
@@ -129,7 +109,7 @@ export function TraceView({ trace }: TraceViewProps) {
                 names.resizing && 'select-none',
               )}
             >
-              <div className="sticky top-0 z-20 flex h-6 shrink-0 items-end border-border border-b-[0.5px] bg-card">
+              <div className="sticky top-0 z-20 flex h-6 min-w-0 shrink-0 items-end border-border border-b-[0.5px] bg-card px-1.5">
                 <span className="shrink-0" style={{ width: 'var(--names)' }} />
                 <div
                   className="relative min-w-0 flex-1"
@@ -157,10 +137,10 @@ export function TraceView({ trace }: TraceViewProps) {
 
               {rows.length === 0 ? (
                 <p className="p-8 text-center text-muted-foreground text-sm">
-                  Nothing in this trace says that.
+                  No matches.
                 </p>
               ) : (
-                <div className="relative flex-1">
+                <div className="relative flex-1 px-1.5">
                   <div
                     aria-hidden
                     className="pointer-events-none absolute inset-y-0"

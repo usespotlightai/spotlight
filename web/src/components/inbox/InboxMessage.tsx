@@ -44,7 +44,6 @@ export function InboxMessage({
       <li data-note={message.position} className={HELD_AT_TOP}>
         <PersonSaid
           body={message.body}
-          // Your own words need no name on them.
           name={
             message.author && message.author.id !== session?.user.id
               ? message.author.name

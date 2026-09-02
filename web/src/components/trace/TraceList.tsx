@@ -89,8 +89,6 @@ export function TraceList({
     return null;
   }
 
-  // A stretch with nothing in it is still worth drawing: the chart says the
-  // stretch was empty, and the columns say what would have filled it.
   const worked = traces ?? [];
 
   return (

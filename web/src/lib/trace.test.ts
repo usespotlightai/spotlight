@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TraceNodeResponseDto } from '@/lib/api';
-import { laidOut, only, rowsOf, says, type Trace } from '@/lib/trace';
+import { laidOut, rowsOf, type Trace } from '@/lib/trace';
 
 const AT = Date.UTC(2026, 7, 29, 12, 0, 0);
 const iso = (ms: number) => new Date(AT + ms).toISOString();
@@ -108,53 +108,6 @@ describe('rowsOf', () => {
       'Implementation',
       'Turn · claude-code',
     ]);
-  });
-});
-
-describe('only', () => {
-  it('keeps a row that matches, and whatever it hangs from', () => {
-    const rows = rowsOf(only(trace().roots, 'npm'), new Set());
-
-    expect(rows.map((row) => row.node.name)).toEqual([
-      'Implementation',
-      'Turn · claude-code',
-      'npm test',
-    ]);
-  });
-
-  it('finds a step by the file it touched', () => {
-    const names = rowsOf(only(trace().roots, 'queue.ts'), new Set()).map(
-      (row) => row.node.name,
-    );
-
-    expect(names).toContain('Edit');
-    expect(names).not.toContain('npm test');
-  });
-
-  it('keeps everything when nothing was asked for', () => {
-    expect(only(trace().roots, '  ')).toHaveLength(1);
-  });
-});
-
-describe('says', () => {
-  it('finds a span by what it reported about itself', () => {
-    const held = node({
-      id: 'span:s1',
-      name: 'llm_request',
-      kind: 'span',
-      span: {
-        id: 's1',
-        parentId: null,
-        name: 'claude_code.llm_request',
-        startedAt: iso(20_000),
-        ms: 1_000,
-        failed: false,
-        attributes: [{ name: 'gen_ai.request.model', value: 'claude-opus-5' }],
-      },
-    });
-
-    expect(says(held, 'opus')).toBe(true);
-    expect(says(held, 'sonnet')).toBe(false);
   });
 });
 

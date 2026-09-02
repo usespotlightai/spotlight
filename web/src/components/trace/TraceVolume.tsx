@@ -32,6 +32,8 @@ const TICKS_AT_MOST = 5;
 
 const TOP_ROOM = 8;
 
+const CORNER: [number, number, number, number] = [4, 4, 0, 0];
+
 const LEGEND = [
   { name: 'Traces', swatch: 'bg-primary' },
   { name: 'Faults', swatch: 'bg-destructive/55' },
@@ -73,10 +75,6 @@ const Said = ({
   );
 };
 
-/**
- * What went wrong, over the stretch the list covers. Drawn rather than listed
- * because a bad afternoon is a shape before it is a number.
- */
 export function TraceVolume({
   traces,
   range,
@@ -207,9 +205,11 @@ export function TraceVolume({
               dataKey="count"
               name="Traces"
               fill="var(--primary)"
+              radius={CORNER}
               isAnimationActive={false}
             />
             <Bar
+              radius={CORNER}
               dataKey="faults"
               name="Faults"
               fill="var(--destructive)"

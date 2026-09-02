@@ -19,9 +19,8 @@ type TraceRowProps = {
 };
 
 /**
- * Held against re-rendering, because a trace is hundreds of rows and most of
- * what happens to one of them concerns only itself. The row is told what to
- * call rather than given a new closure each time, so the guard holds.
+ * Held against re-rendering: a trace is hundreds of rows, and it is told what
+ * to call rather than given a new closure each time, so the guard holds.
  */
 export const TraceRow = memo(function TraceRow({
   node,
@@ -36,7 +35,7 @@ export const TraceRow = memo(function TraceRow({
   return (
     <li
       className={cn(
-        'group relative flex h-7 items-center text-sm',
+        'group relative flex h-7 items-center rounded-md text-sm transition-colors',
         picked ? 'bg-selected' : 'hover:bg-accent',
       )}
     >
@@ -72,7 +71,9 @@ export const TraceRow = memo(function TraceRow({
           onClick={() => onPick(node.id)}
           className={cn(
             'min-w-0 truncate text-left outline-none after:absolute after:inset-0',
-            node.tone === 'failed' ? 'text-destructive' : 'text-foreground',
+            node.tone === 'failed'
+              ? 'text-destructive'
+              : 'text-muted-foreground',
           )}
         >
           {node.name}

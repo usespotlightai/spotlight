@@ -26,13 +26,17 @@ export function TraceBar({ node, trace }: { node: TraceNode; trace: Trace }) {
   const drawn = Math.max(width, LEAST_WIDTH);
 
   return (
-    // Stretched to the row's height, so both are centred against one line.
     <div
-      className="relative min-w-0 flex-1 self-stretch"
+      // Drawn, not touched: the lane lets a click through to the row beneath,
+      // so picking a row does not depend on hitting its name.
+      className="pointer-events-none relative min-w-0 flex-1 self-stretch"
       style={{ marginRight: LABEL_ROOM }}
     >
       <div
-        className={cn('absolute h-2', fills[node.tone] ?? 'bg-faint')}
+        className={cn(
+          'absolute h-2 rounded-[2px]',
+          fills[node.tone] ?? 'bg-faint',
+        )}
         style={{
           left: `${left}%`,
           width: `${drawn}%`,

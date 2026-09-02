@@ -116,6 +116,7 @@ const trace = (): Trace => ({
                 failed: false,
                 attributes: [
                   { name: 'gen_ai.request.model', value: 'claude-opus-5' },
+                  { name: 'gen_ai.request.temperature', value: '0.7' },
                 ],
               },
             }),
@@ -186,7 +187,6 @@ describe('TraceView', () => {
 
     await user.click(screen.getByRole('button', { name: 'npm test' }));
 
-    expect(screen.getByText('src/queue.ts:12')).toBeInTheDocument();
     expect(
       screen.getByText('sh: vitest: command not found'),
     ).toBeInTheDocument();
@@ -198,8 +198,21 @@ describe('TraceView', () => {
 
     await user.click(screen.getByRole('button', { name: 'llm_request' }));
 
-    expect(screen.getByText('gen_ai.request.model')).toBeInTheDocument();
+    expect(screen.getByText('Model')).toBeInTheDocument();
     expect(screen.getByText('claude-opus-5')).toBeInTheDocument();
+    // Said once: what the header promotes, the table below leaves out.
+    expect(screen.queryByText('gen_ai.request.model')).not.toBeInTheDocument();
+  });
+
+  it('lists the rest of what a harness reported about itself', async () => {
+    const user = userEvent.setup();
+    view();
+
+    await user.click(screen.getByRole('button', { name: 'llm_request' }));
+
+    expect(screen.getByText('gen_ai.request.temperature')).toBeInTheDocument();
+    // Values are shown as what they are: a reported attribute is a string.
+    expect(screen.getByText('"0.7"')).toBeInTheDocument();
   });
 
   it('shows what was said, where the row only says that it spoke', async () => {
@@ -218,13 +231,15 @@ describe('TraceView', () => {
     view();
 
     await user.click(screen.getByRole('button', { name: 'npm test' }));
-    expect(screen.getByText('src/queue.ts:12')).toBeInTheDocument();
+    expect(
+      screen.getByText('sh: vitest: command not found'),
+    ).toBeInTheDocument();
 
-    await user.click(screen.getByRole('searchbox'));
+    await user.click(document.body);
 
     // It is kept for as long as it takes to be seen leaving.
     await waitForElementToBeRemoved(() =>
-      screen.queryByText('src/queue.ts:12'),
+      screen.queryByText('sh: vitest: command not found'),
     );
   });
 
@@ -245,19 +260,6 @@ describe('TraceView', () => {
     ]);
   });
 
-  it('keeps only what was searched for, and what it hangs from', async () => {
-    const user = userEvent.setup();
-    view();
-
-    await user.type(screen.getByRole('searchbox'), 'npm');
-
-    expect(rows().map((row) => row.textContent)).toEqual([
-      expect.stringContaining('Implementation'),
-      expect.stringContaining('Turn · claude-code'),
-      expect.stringContaining('npm test'),
-    ]);
-  });
-
   it('says so when a task has had nothing run against it', () => {
     render(
       <TraceView
@@ -265,8 +267,6 @@ describe('TraceView', () => {
       />,
     );
 
-    expect(
-      screen.getByText('Nothing has worked this task yet.'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('No runs yet.')).toBeInTheDocument();
   });
 });

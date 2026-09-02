@@ -1,11 +1,11 @@
 import {
   Activity,
-  FileText,
+  FileCodeCorner,
   ListTodo,
   MessageSquare,
   Package,
   Play,
-  Sparkles,
+  Sparkle,
   Terminal,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
@@ -14,8 +14,8 @@ import { cn } from '@/lib/utils';
 
 const icons: Record<string, ComponentType<{ className?: string }>> = {
   execute: Terminal,
-  read: FileText,
-  edit: FileText,
+  read: FileCodeCorner,
+  edit: FileCodeCorner,
 };
 
 const iconFor = (node: TraceNode): ComponentType<{ className?: string }> => {
@@ -33,7 +33,7 @@ const iconFor = (node: TraceNode): ComponentType<{ className?: string }> => {
     case 'said':
       return MessageSquare;
     case 'thought':
-      return Sparkles;
+      return Sparkle;
     case 'planned':
       return ListTodo;
     case 'hook':

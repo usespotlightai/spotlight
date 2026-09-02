@@ -109,8 +109,6 @@ export function TeamNavItem({
               to={teamSectionPath(slug, team.id, section.id)}
               icon={section.icon}
               className="pl-8"
-              // A trace is what observability leads to, so it is where a
-              // reader is while they are reading one.
               active={section.id === 'observability' && Boolean(atTrace)}
             >
               {section.label}

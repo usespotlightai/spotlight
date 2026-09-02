@@ -25,7 +25,7 @@ const LIST_PANE = {
 export function Inbox() {
   const { slug } = useParams();
   const { data: waiting, isPending } = useInbox(slug);
-  const listPane = usePaneWidth(LIST_PANE);
+  const listPane = usePaneWidth<HTMLDivElement>(LIST_PANE);
   const sections = useCollapsed(SECTIONS_STORAGE_KEY);
 
   if (isPending || !slug) {
@@ -44,6 +44,7 @@ export function Inbox() {
       )}
     >
       <div
+        ref={listPane.paneRef}
         style={{ width: listPane.width }}
         className="relative flex shrink-0 flex-col border-r-[0.5px] border-border"
       >

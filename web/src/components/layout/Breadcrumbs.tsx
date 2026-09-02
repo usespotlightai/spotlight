@@ -20,7 +20,6 @@ export function Breadcrumbs({ segments }: BreadcrumbsProps) {
     const content = (
       <>
         {icon}
-        {/* Capped so one long title cannot crowd out the trail it sits in. */}
         <Shortened
           text={label}
           most={LABEL_WIDTH}

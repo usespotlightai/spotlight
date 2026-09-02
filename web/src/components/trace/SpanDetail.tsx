@@ -1,50 +1,31 @@
 import type { Ref } from 'react';
 import { PaneHandle } from '@/components/layout/PaneHandle';
+import { DetailDiff } from '@/components/trace/detail/DetailDiff';
+import { DetailFields } from '@/components/trace/detail/DetailFields';
+import { DetailHeader } from '@/components/trace/detail/DetailHeader';
+import { DetailSection } from '@/components/trace/detail/DetailSection';
+import { DetailTold } from '@/components/trace/detail/DetailTold';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
-import { took } from '@/lib/inbox';
+import {
+  answeredBy,
+  askedOf,
+  type Field,
+  holdings,
+  restOf,
+} from '@/lib/detail';
 import type { TraceNode } from '@/lib/trace';
 import { cn } from '@/lib/utils';
-
-const Field = ({ name, value }: { name: string; value: string }) => (
-  <div className="flex gap-3 py-1 text-xs">
-    <dt className="w-32 shrink-0 truncate text-muted-foreground">{name}</dt>
-    <dd className="min-w-0 flex-1 break-words font-mono text-foreground">
-      {value}
-    </dd>
-  </div>
-);
-
-const Spoke = ({ title, body }: { title: string; body: string }) => (
-  <section className="flex flex-col gap-1">
-    <h3 className="font-medium text-foreground text-xs">{title}</h3>
-    <p className="whitespace-pre-wrap break-words text-muted-foreground text-xs leading-5">
-      {body}
-    </p>
-  </section>
-);
-
-const Block = ({ title, body }: { title: string; body: string }) => (
-  <section className="flex flex-col gap-1">
-    <h3 className="font-medium text-foreground text-xs">{title}</h3>
-    <pre className="overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-muted-foreground text-xs leading-5">
-      {body}
-    </pre>
-  </section>
-);
 
 const DETAIL_PANE = {
   storageKey: 'spotlight.trace-detail-width',
   min: 288,
-  max: 720,
-  initial: 384,
+  max: 960,
+  initial: 520,
   label: 'Resize the details',
   edge: 'left' as const,
 };
 
-/**
- * Where a step and a span describe the same call, both are read: the model and
- * its cost from the harness, the file and the rewrite from the protocol.
- */
+/** The same panel whatever was picked: a row answers what it can, in order. */
 export function SpanDetail({
   node,
   open,
@@ -54,17 +35,46 @@ export function SpanDetail({
   open: boolean;
   ref?: Ref<HTMLElement>;
 }) {
-  const { step, span } = node;
-  const { width, resizing, handleProps } = usePaneWidth(DETAIL_PANE);
+  const { step } = node;
+  const { width, resizing, handleProps, paneRef } =
+    usePaneWidth<HTMLElement>(DETAIL_PANE);
+
+  const asked = askedOf(node);
+  const answered = answeredBy(node);
+  const held = holdings(node);
+  const rest = restOf(node);
+
+  const holding: Field[] = [...held.kinds].map(([path, count]) => ({
+    path,
+    value: String(count),
+    kind: 'number',
+  }));
+
+  const reported: Field[] = rest.map((each) => ({
+    path: each.name,
+    value: `"${each.value}"`,
+    kind: 'string',
+  }));
 
   return (
     <aside
-      ref={ref}
+      ref={(node) => {
+        paneRef.current = node;
+
+        if (typeof ref === 'function') {
+          ref(node);
+        } else if (ref) {
+          ref.current = node;
+        }
+      }}
       style={{ width }}
       data-closed={open ? undefined : ''}
       data-open={open ? '' : undefined}
       className={cn(
-        'relative shrink-0 border-border border-l-[0.5px] duration-150',
+        // The duration is for the animations below. Transitions are off, or
+        // every width the drag writes would be animated to over 150ms and the
+        // panel would trail the pointer.
+        'relative shrink-0 border-border border-l-[0.5px] transition-none duration-150',
         'data-open:animate-in data-open:fade-in data-open:slide-in-from-right-4',
         // Held at where it left off until it is taken away: without this the
         // animation ends, the panel snaps back to full, and it flickers.
@@ -74,96 +84,48 @@ export function SpanDetail({
     >
       <PaneHandle {...handleProps} edge="left" resizing={resizing} />
 
-      <div className="flex h-full flex-col gap-4 overflow-y-auto p-4">
-        <header className="flex flex-col gap-1">
-          <h2
-            className={cn(
-              'break-words font-medium text-sm',
-              node.tone === 'failed' ? 'text-destructive' : 'text-foreground',
-            )}
-          >
-            {node.name}
-          </h2>
-          <p className="text-muted-foreground text-xs">
-            {took(node.ms)}
-            {step?.status && ` · ${step.status}`}
-            {span && ` · ${span.name}`}
-          </p>
-        </header>
+      <div className="flex h-full flex-col gap-5 overflow-y-auto px-4 py-4">
+        <DetailHeader node={node} />
 
-        {/* A row named for its kind rather than its words leaves the words
-            with nowhere else to be read. */}
-        {step && step.text !== node.name && (
-          <Spoke
-            title={
-              step.kind === 'thought' ? 'What it was thinking' : 'What it said'
-            }
-            body={step.text}
-          />
-        )}
-
-        {step?.locations.length ? (
-          <section className="flex flex-col gap-1">
-            <h3 className="font-medium text-foreground text-xs">
-              Where it went
-            </h3>
-            <ul className="flex flex-col">
-              {step.locations.map((where) => (
-                <li
-                  key={`${where.path}:${where.line}`}
-                  className="truncate font-mono text-muted-foreground text-xs"
-                  title={where.path}
-                >
-                  {where.path}
-                  {where.line !== null && `:${where.line}`}
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
+        {asked && <DetailTold told={asked} />}
+        {answered && <DetailTold told={answered} />}
 
         {step?.change && (
-          <section className="flex flex-col gap-1">
-            <h3 className="font-medium text-foreground text-xs">
-              {step.change.path ?? 'What changed'}
-            </h3>
-            <pre className="overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-xs leading-5">
-              <span className="text-destructive">
-                {step.change.before || '(nothing)'}
-              </span>
-              {'\n'}
-              <span className="text-foreground">
-                {step.change.after || '(nothing)'}
-              </span>
-            </pre>
-          </section>
+          <DetailSection title="Diff" copy={step.change.after}>
+            <p className="flex gap-2 font-mono text-muted-foreground text-xs">
+              {step.change.path && (
+                <span className="truncate">{step.change.path}</span>
+              )}
+              {/* The lines it touched: the only thing locations say that the
+                  input and the row's own name do not. */}
+              {step.locations.length > 0 && (
+                <span className="shrink-0">
+                  {step.locations
+                    .flatMap((where) =>
+                      where.line === null ? [] : [where.line],
+                    )
+                    .join(', ')}
+                </span>
+              )}
+            </p>
+            <DetailDiff
+              path={step.change.path}
+              before={step.change.before}
+              after={step.change.after}
+            />
+          </DetailSection>
         )}
 
-        {step?.given && (
-          <Block title="What it was asked for" body={step.given} />
-        )}
-        {step?.detail && <Block title="What came back" body={step.detail} />}
-        {step?.returned && !step.detail && (
-          <Block title="What came back" body={step.returned} />
+        {holding.length > 0 && (
+          <DetailSection title="Contents">
+            <DetailFields fields={holding} />
+          </DetailSection>
         )}
 
-        {span && span.attributes.length > 0 && (
-          <section className="flex flex-col">
-            <h3 className="pb-1 font-medium text-foreground text-xs">
-              What the harness reported
-            </h3>
-            <dl className="divide-y divide-border">
-              {span.attributes.map((each) => (
-                <Field key={each.name} name={each.name} value={each.value} />
-              ))}
-            </dl>
-          </section>
-        )}
-
-        {!step && !span && (
-          <p className="text-muted-foreground text-xs">
-            Nothing was recorded about this beyond how long it took.
-          </p>
+        {reported.length > 0 && (
+          <DetailSection title="Attributes">
+            <DetailFields fields={reported} />
+          </DetailSection>
         )}
       </div>
     </aside>
