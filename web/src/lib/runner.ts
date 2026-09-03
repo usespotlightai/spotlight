@@ -11,7 +11,6 @@ export const isReachable = (runner: Runner) => runner.connected;
 export const reachableCount = (runners: readonly Runner[]) =>
   runners.filter(isReachable).length;
 
-/** What a runner is doing, in the words a person would use for it. */
 export const standing = (runner: Runner): string => {
   if (runner.revokedAt) {
     return 'Revoked';
@@ -30,7 +29,6 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
-/** How long ago, at the coarseness a person reads at a glance. */
 export const since = (at: string): string => {
   const ago = Date.now() - new Date(at).getTime();
 
@@ -50,7 +48,6 @@ export const since = (at: string): string => {
   });
 };
 
-/** A runner that has never answered can still say when it was enrolled. */
 export const seenAt = (runner: Runner): string =>
   runner.lastSeenAt
     ? `Last seen ${since(runner.lastSeenAt)}`

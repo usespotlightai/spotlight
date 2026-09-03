@@ -8,6 +8,7 @@ import type {
   Delivered,
   WebhookSourcePort,
 } from '@application/ports/webhook-source.port';
+import { SourceForDelivery } from '@application/services/source-for-delivery.service';
 import { WebhookSources } from '@application/services/webhook-sources.service';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -37,7 +38,13 @@ const accepting = () => {
   } as unknown as DeliveryInboxPort;
 
   return {
-    handler: new AcceptDeliveryHandler(new WebhookSources([github]), inbox),
+    handler: new AcceptDeliveryHandler(
+      new SourceForDelivery(WebhookSources.of([github]), {
+        find: async () => null,
+        all: async () => [],
+      }),
+      inbox,
+    ),
     inbox,
     taken,
   };
@@ -53,11 +60,16 @@ describe('AcceptDeliveryHandler', () => {
   it('keeps the delivery as it arrived, under the name its host gave it', async () => {
     const { handler, taken } = accepting();
 
-    await handler.execute(new AcceptDeliveryCommand('github', delivered()));
+    await handler.execute(
+      new AcceptDeliveryCommand('github', '', '', '', delivered()),
+    );
 
     expect(taken).toEqual([
       {
         source: 'github',
+        workspaceId: '',
+        teamId: '',
+        teamKey: '',
         id: 'd_1',
         headers: { 'x-delivery': 'd_1' },
         body: { action: 'closed' },
@@ -71,8 +83,12 @@ describe('AcceptDeliveryHandler', () => {
   it('offers the same delivery to the inbox under one name', async () => {
     const { handler, inbox } = accepting();
 
-    await handler.execute(new AcceptDeliveryCommand('github', delivered()));
-    await handler.execute(new AcceptDeliveryCommand('github', delivered()));
+    await handler.execute(
+      new AcceptDeliveryCommand('github', '', '', '', delivered()),
+    );
+    await handler.execute(
+      new AcceptDeliveryCommand('github', '', '', '', delivered()),
+    );
 
     expect(inbox.accept).toHaveBeenCalledTimes(2);
     expect(
@@ -90,7 +106,13 @@ describe('AcceptDeliveryHandler', () => {
     const unreadable = { not: 'anything a source would recognise' };
 
     await handler.execute(
-      new AcceptDeliveryCommand('github', delivered('d_2', unreadable)),
+      new AcceptDeliveryCommand(
+        'github',
+        '',
+        '',
+        '',
+        delivered('d_2', unreadable),
+      ),
     );
 
     expect(taken[0]?.body).toEqual(unreadable);
@@ -99,7 +121,9 @@ describe('AcceptDeliveryHandler', () => {
   it('takes in nothing for a source nobody registered', async () => {
     const { handler, taken } = accepting();
 
-    await handler.execute(new AcceptDeliveryCommand('sentry', delivered()));
+    await handler.execute(
+      new AcceptDeliveryCommand('sentry', '', '', '', delivered()),
+    );
 
     expect(taken).toHaveLength(0);
   });

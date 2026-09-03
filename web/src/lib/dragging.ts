@@ -1,6 +1,6 @@
 import type { Task } from '@/lib/task';
 
-type Landing = { stationId: string; afterTaskId: string | null };
+export type Landing = { stationId: string; afterTaskId: string | null };
 
 type Over = {
   kind: 'task' | 'station';

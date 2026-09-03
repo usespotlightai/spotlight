@@ -34,7 +34,7 @@ const declares = (...keys: string[]): HappeningDeclaration[] =>
     spoken: false,
   }));
 
-const sources = new WebhookSources([
+const sources = WebhookSources.of([
   {
     key: 'github',
     happenings: declares(COMMENTED, MERGED),

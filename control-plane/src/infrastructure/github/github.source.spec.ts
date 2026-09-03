@@ -1,6 +1,6 @@
 import { UpstreamRefusedError } from '@domain/exceptions/upstream-refused.error';
-import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
+import { Mark } from '@domain/value-objects/mark.vo';
 import { PullRequestUrl } from '@domain/value-objects/pull-request-url.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
@@ -10,9 +10,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const signs = { signs: () => true };
 
 const workspaces = {
-  withInstallation: vi.fn(async () => WorkspaceId.of('ws_1')),
-  installationOf: vi.fn(async () => null),
-  connect: vi.fn(async () => {}),
+  withConnection: vi.fn(async () => WorkspaceId.of('ws_1')),
+  connectionTo: vi.fn(async () => null),
 };
 
 const events = new GitHubSource(signs, workspaces);
@@ -52,7 +51,11 @@ describe('GitHubSource', () => {
       happening: Happening.of('github.pull_request.merged'),
       concerns: {
         taskId: TaskId.of('task_1'),
-        pullRequest: PullRequestUrl.of('https://github.com/acme/api/pull/7'),
+        marks: [
+          Mark.pullRequest(
+            PullRequestUrl.of('https://github.com/acme/api/pull/7'),
+          ),
+        ],
       },
     });
   });
@@ -130,7 +133,11 @@ describe('GitHubSource', () => {
       happening: Happening.of('github.pull_request.commented'),
       concerns: {
         taskId: null,
-        pullRequest: PullRequestUrl.of('https://github.com/acme/api/pull/7'),
+        marks: [
+          Mark.pullRequest(
+            PullRequestUrl.of('https://github.com/acme/api/pull/7'),
+          ),
+        ],
       },
     });
   });
@@ -163,7 +170,7 @@ describe('GitHubSource', () => {
       }),
     ).toMatchObject({
       happening: Happening.of('github.checks.failed'),
-      concerns: { taskId: TaskId.of('task_1'), pullRequest: null },
+      concerns: { taskId: TaskId.of('task_1'), marks: [] },
     });
   });
 
@@ -222,15 +229,68 @@ describe('GitHubSource', () => {
     });
   });
 
+  describe('noticing that configuration moved', () => {
+    const pushed = (over: Record<string, unknown> = {}) =>
+      delivered('push', {
+        ref: 'refs/heads/main',
+        repository: { full_name: 'acme/api', default_branch: 'main' },
+        commits: [
+          { added: [], removed: [], modified: ['.spotlight/config.yml'] },
+        ],
+        ...over,
+      });
+
+    it('notices a push that touched the configuration directory', () => {
+      expect(events.noticed(pushed())).toEqual([
+        { kind: 'configuration-touched', repository: 'acme/api' },
+      ]);
+    });
+
+    it('notices one that added or removed a file there', () => {
+      expect(
+        events.noticed(
+          pushed({
+            commits: [{ added: ['.spotlight/integrations/linear.yml'] }],
+          }),
+        ),
+      ).toHaveLength(1);
+      expect(
+        events.noticed({
+          ...pushed({ commits: [{ removed: ['.spotlight/config.yml'] }] }),
+        }),
+      ).toHaveLength(1);
+    });
+
+    // Somebody's ordinary work, which this has no opinion about.
+    it('notices nothing where the push touched nothing of ours', () => {
+      expect(
+        events.noticed(pushed({ commits: [{ modified: ['src/main.ts'] }] })),
+      ).toEqual([]);
+    });
+
+    // What is on the default branch is what the workspace has agreed to.
+    it('notices nothing on a branch it does not read from', () => {
+      expect(events.noticed(pushed({ ref: 'refs/heads/topic' }))).toEqual([]);
+    });
+
+    it('notices nothing of any other event', () => {
+      expect(
+        events.noticed(delivered('pull_request', { action: 'closed' })),
+      ).toEqual([]);
+    });
+
+    it('notices nothing where the push names no repository', () => {
+      expect(events.noticed(pushed({ repository: {} }))).toEqual([]);
+    });
+  });
+
   describe('routing to a workspace', () => {
     it('asks whose the installation the delivery names is', async () => {
       const found = await events.routes(
         delivered('pull_request', { installation: { id: 42 } }),
       );
 
-      expect(workspaces.withInstallation).toHaveBeenCalledWith(
-        GitHubInstallation.of('42'),
-      );
+      expect(workspaces.withConnection).toHaveBeenCalledWith('github', '42');
       expect(found).toEqual(WorkspaceId.of('ws_1'));
     });
 
@@ -239,7 +299,7 @@ describe('GitHubSource', () => {
       expect(
         await events.routes(delivered('pull_request', { action: 'closed' })),
       ).toBeNull();
-      expect(workspaces.withInstallation).not.toHaveBeenCalled();
+      expect(workspaces.withConnection).not.toHaveBeenCalled();
     });
   });
 });

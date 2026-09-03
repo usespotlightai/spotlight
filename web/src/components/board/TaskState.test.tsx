@@ -57,8 +57,6 @@ describe('TaskState', () => {
     ).toHaveAttribute('href', '/w/acme/inbox/task_1%3A5');
   });
 
-  // A run that ended by asking for a person leaves both true until someone
-  // looks, and the one that wants doing is the one to show.
   it('asks for a person ahead of saying it is being worked', () => {
     renderIn(
       <TaskState

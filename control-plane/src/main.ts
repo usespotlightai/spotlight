@@ -5,7 +5,7 @@ import { SwaggerModule } from '@nestjs/swagger';
 import { buildOpenApiDocument } from '@presentation/http/openapi';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
-import { configureApp } from './app.setup';
+import { configureApp, startBackgroundWork } from './app.setup';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -18,5 +18,6 @@ async function bootstrap() {
   configureApp(app);
   SwaggerModule.setup('api/docs', app, buildOpenApiDocument(app));
   await app.listen(app.get<Env>(ENV).PORT);
+  startBackgroundWork(app);
 }
 bootstrap();

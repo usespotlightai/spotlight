@@ -1,2 +1,0 @@
-ALTER TABLE "workspace" ADD COLUMN "github_installation_id" text;--> statement-breakpoint
-ALTER TABLE "workspace" ADD CONSTRAINT "workspace_github_installation_id_unique" UNIQUE("github_installation_id");

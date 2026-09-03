@@ -1,17 +1,7 @@
 import {
-  type Collision,
-  type CollisionDetection,
   DndContext,
-  type DragEndEvent,
-  type DragOverEvent,
   DragOverlay,
-  type DragStartEvent,
   defaultDropAnimationSideEffects,
-  PointerSensor,
-  pointerWithin,
-  rectIntersection,
-  useSensor,
-  useSensors,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -28,51 +18,23 @@ import { StationSection } from '@/components/board/StationSection';
 import { TaskPreview } from '@/components/board/TaskPreview';
 import { TaskRow } from '@/components/board/TaskRow';
 import { InitialAvatar } from '@/components/common/avatar/InitialAvatar';
+import { ProposeLine } from '@/components/integrations/ProposeLine';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useAddTask } from '@/hooks/api/useAddTask';
 import { useAssemblyLines } from '@/hooks/api/useAssemblyLines';
 import { useMoveTask } from '@/hooks/api/useMoveTask';
-import { useReorderStations } from '@/hooks/api/useReorderStations';
 import { useTasks } from '@/hooks/api/useTasks';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { useBoardDrag } from '@/hooks/useBoardDrag';
 import { useCollapsed } from '@/hooks/useCollapsed';
-import { useDragGuard } from '@/hooks/useDragGuard';
 import { asBoardView, inView } from '@/lib/board';
-import { landingFor, reordered } from '@/lib/dragging';
 import { inboxItemPath } from '@/lib/inbox';
 import { stationPath, stationShare } from '@/lib/station';
 import { moveTargetFor, type Task, taskPath, tasksAt } from '@/lib/task';
 import { teamPath } from '@/lib/team';
 
 const STATIONS_STORAGE_KEY = 'spotlight.collapsed-stations';
-
-const kindOf = (collision: Collision) =>
-  collision.data?.droppableContainer?.data?.current?.kind;
-
-const dropping: CollisionDetection = (args) => {
-  const draggingStation = args.active.data.current?.kind === 'station';
-
-  const scoped = {
-    ...args,
-    droppableContainers: args.droppableContainers.filter((each) =>
-      draggingStation
-        ? each.data.current?.kind === 'station' && !each.data.current?.fixed
-        : true,
-    ),
-  };
-
-  const under = pointerWithin(scoped);
-  const collisions = under.length > 0 ? under : rectIntersection(scoped);
-
-  if (draggingStation) {
-    return collisions;
-  }
-
-  const onTasks = collisions.filter((each) => kindOf(each) === 'task');
-
-  return onTasks.length > 0 ? onTasks : collisions;
-};
 
 export function AssemblyLineBoard() {
   const { slug, teamId, lineId } = useParams();
@@ -81,31 +43,25 @@ export function AssemblyLineBoard() {
   const stations = useCollapsed(STATIONS_STORAGE_KEY);
   const { data: tasks } = useTasks(teamId);
   const addTask = useAddTask();
+  // Dragging moves one task; the selection bar moves however many are picked.
   const moveTask = useMoveTask();
-  const reorderStations = useReorderStations();
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-  );
   const [selected, setSelected] = useState<readonly string[]>([]);
-  const swallowNextClick = useDragGuard();
-  const [lifted, setLifted] = useState<string | null>(null);
-  const [landing, setLanding] = useState<{
-    stationId: string;
-    afterTaskId: string | null;
-  } | null>(null);
-  const [stationLanding, setStationLanding] = useState<{
-    stationId: string;
-    edge: 'top' | 'bottom';
-  } | null>(null);
   const [params, setParams] = useSearchParams();
   const view = asBoardView(params.get('view'));
   const [adding, setAdding] = useState<string | null>(null);
 
+  const line = lines?.find((candidate) => candidate.id === lineId);
+
+  const drag = useBoardDrag({
+    teamId,
+    lineId: line?.id ?? '',
+    stationIds: line?.stations.map((each) => each.id) ?? [],
+    tasks: tasks ?? [],
+  });
+
   if (isPending) {
     return null;
   }
-
-  const line = lines?.find((candidate) => candidate.id === lineId);
 
   if (!line) {
     return (
@@ -122,53 +78,13 @@ export function AssemblyLineBoard() {
 
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
   const target = moveTargetFor(line.stations, tasks ?? [], selected);
-  const liftedTask = (tasks ?? []).find((each) => each.id === lifted) ?? null;
+  const liftedTask =
+    (tasks ?? []).find((each) => each.id === drag.lifted) ?? null;
   const liftedTaskStation = liftedTask
     ? line.stations.find((each) => each.id === liftedTask.stationId)
     : undefined;
   const liftedStation =
-    line.stations.find((each) => each.id === lifted) ?? null;
-
-  const onDragEnd = ({ active, over }: DragEndEvent) => {
-    if (!over || !teamId || active.id === over.id) {
-      return;
-    }
-
-    const kind = active.data.current?.kind;
-
-    if (kind === 'station') {
-      reorderStations.mutate({
-        teamId,
-        lineId: line.id,
-        stationIds: reordered(
-          line.stations.map((each) => each.id),
-          String(active.id),
-          String(over.id),
-        ),
-      });
-      return;
-    }
-
-    if (kind !== 'task') {
-      return;
-    }
-
-    const overData = over.data.current;
-    const landing = landingFor(tasks ?? [], String(active.id), {
-      kind: overData?.kind === 'task' ? 'task' : 'station',
-      id: String(over.id),
-      stationId: String(overData?.stationId ?? over.id),
-    });
-
-    if (landing) {
-      moveTask.mutate({
-        teamId,
-        lineId: line.id,
-        taskId: String(active.id),
-        ...landing,
-      });
-    }
-  };
+    line.stations.find((each) => each.id === drag.lifted) ?? null;
 
   return (
     <>
@@ -191,6 +107,9 @@ export function AssemblyLineBoard() {
             ]}
           />
         }
+        actions={
+          <ProposeLine teamId={teamId} lineId={line.id} name={line.name} />
+        }
       />
 
       <BoardViews
@@ -203,66 +122,9 @@ export function AssemblyLineBoard() {
 
       <div className="relative flex min-h-0 flex-1 flex-col">
         <DndContext
-          sensors={sensors}
-          collisionDetection={dropping}
-          onDragStart={({ active }: DragStartEvent) =>
-            setLifted(String(active.id))
-          }
-          onDragOver={({ active, over }: DragOverEvent) => {
-            if (!over) {
-              setLanding(null);
-              setStationLanding(null);
-              return;
-            }
-
-            if (active.data.current?.kind === 'station') {
-              const order = line.stations.map((each) => each.id);
-              const from = order.indexOf(String(active.id));
-              const to = order.indexOf(String(over.id));
-
-              setLanding(null);
-              setStationLanding(
-                from === to
-                  ? null
-                  : {
-                      stationId: String(over.id),
-                      edge: from < to ? 'bottom' : 'top',
-                    },
-              );
-              return;
-            }
-
-            if (active.data.current?.kind !== 'task') {
-              setLanding(null);
-              setStationLanding(null);
-              return;
-            }
-
-            setStationLanding(null);
-
-            const overData = over.data.current;
-
-            setLanding(
-              landingFor(tasks ?? [], String(active.id), {
-                kind: overData?.kind === 'task' ? 'task' : 'station',
-                id: String(over.id),
-                stationId: String(overData?.stationId ?? over.id),
-              }),
-            );
-          }}
-          onDragCancel={() => {
-            setLifted(null);
-            setLanding(null);
-            setStationLanding(null);
-            swallowNextClick();
-          }}
-          onDragEnd={(event) => {
-            setLifted(null);
-            setLanding(null);
-            setStationLanding(null);
-            swallowNextClick();
-            onDragEnd(event);
-          }}
+          sensors={drag.sensors}
+          collisionDetection={drag.collisionDetection}
+          {...drag.handlers}
         >
           <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto py-1.5">
             <SortableContext
@@ -289,13 +151,13 @@ export function AssemblyLineBoard() {
                     onToggle={() => stations.toggle(station.id)}
                     onAddTask={() => setAdding(station.id)}
                     landingEdge={
-                      stationLanding?.stationId === station.id
-                        ? stationLanding.edge
+                      drag.stationLanding?.stationId === station.id
+                        ? drag.stationLanding.edge
                         : undefined
                     }
                     landing={
-                      landing?.stationId === station.id &&
-                      landing.afterTaskId === null &&
+                      drag.landing?.stationId === station.id &&
+                      drag.landing.afterTaskId === null &&
                       tasksAt(tasks, station.id).length === 0
                     }
                     fixed={station.kind !== 'work'}
@@ -339,10 +201,11 @@ export function AssemblyLineBoard() {
                                 line.stations.length,
                               )}
                               landing={
-                                landing?.stationId === station.id
-                                  ? landing.afterTaskId === task.id
+                                drag.landing?.stationId === station.id
+                                  ? drag.landing.afterTaskId === task.id
                                     ? 'below'
-                                    : landing.afterTaskId === null && spot === 0
+                                    : drag.landing.afterTaskId === null &&
+                                        spot === 0
                                       ? 'above'
                                       : undefined
                                   : undefined

@@ -1,6 +1,9 @@
 import { ChevronRight } from 'lucide-react';
 import { Fragment, type ReactNode } from 'react';
 import { Link } from 'react-router';
+import { Shortened } from '@/components/layout/Shortened';
+
+const LABEL_WIDTH = 256;
 
 export type BreadcrumbSegment = {
   label: string;
@@ -17,7 +20,11 @@ export function Breadcrumbs({ segments }: BreadcrumbsProps) {
     const content = (
       <>
         {icon}
-        <span className="truncate">{label}</span>
+        <Shortened
+          text={label}
+          most={LABEL_WIDTH}
+          className="whitespace-nowrap"
+        />
       </>
     );
 

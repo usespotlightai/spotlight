@@ -33,12 +33,12 @@ export class WorkOffDeliveries implements DeliveryWorkPort {
 
       try {
         await this.reacting.execute(new ReactToHappeningCommand(waiting));
-        await this.inbox.worked(waiting.source, waiting.id);
+        await this.inbox.worked(waiting);
       } catch (error) {
         // Kept rather than lost, and left alone rather than tried again: a
         // delivery that cannot be worked is a row to look at, and what is
         // worth retrying is not something to guess at here.
-        await this.inbox.failed(waiting.source, waiting.id, because(error));
+        await this.inbox.failed(waiting, because(error));
       }
 
       return true;

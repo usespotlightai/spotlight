@@ -6,14 +6,12 @@ export type TeamRun = TeamRunResponseDto;
 
 export type Review = NonNullable<Run['review']>;
 
-/** One a person has answered is done with, and recedes further than the rest. */
 export const reviewInk = (review: Review): string =>
   review.state === 'owed' ? 'text-muted-foreground' : 'text-faint';
 
 export const working = (run: Run): boolean =>
   run.state === 'claimed' || run.state === 'queued';
 
-/** A run being worked wears a pill instead, and a finished one says nothing. */
 export const standing = (run: Run): string | null => {
   if (run.state === 'queued') {
     return 'Queued';
@@ -27,7 +25,6 @@ export const runPath = (slug: string, teamId: string, runId: string): string =>
 
 const DAY = 24 * 60 * 60 * 1000;
 
-/** Local midnight, so an age counts the days a person reads off a calendar. */
 const midnight = (at: Date): number =>
   new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime();
 
@@ -54,7 +51,6 @@ export const aged = (at: string): string => {
   return months <= 1 ? 'A month ago' : `${months} months ago`;
 };
 
-/** Grouped by neighbour, so the order the reader gave them is kept. */
 export const byAge = <T extends { startedAt: string }>(
   runs: readonly T[],
 ): [string, T[]][] => {

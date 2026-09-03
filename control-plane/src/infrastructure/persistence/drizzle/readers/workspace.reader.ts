@@ -18,6 +18,55 @@ import { and, eq } from 'drizzle-orm';
 export class DrizzleWorkspaceReader implements WorkspaceReaderPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
+  async identify(slug: string): Promise<string | null> {
+    const [found] = await this.db
+      .select({ id: workspace.id })
+      .from(workspace)
+      .where(eq(workspace.slug, slug))
+      .limit(1);
+
+    return found?.id ?? null;
+  }
+
+  async identifyTeam(
+    slug: string,
+    teamKey: string,
+  ): Promise<{ workspaceId: string; teamId: string } | null> {
+    const [found] = await this.db
+      .select({ workspaceId: workspace.id, teamId: team.id })
+      .from(team)
+      .innerJoin(workspace, eq(workspace.id, team.workspaceId))
+      .where(and(eq(workspace.slug, slug), eq(team.key, teamKey)))
+      .limit(1);
+
+    return found ?? null;
+  }
+
+  async findTeamForMember(
+    teamId: string,
+    userId: UserId,
+  ): Promise<{
+    workspaceId: string;
+    teamId: string;
+    teamKey: string;
+    slug: string;
+  } | null> {
+    const [found] = await this.db
+      .select({
+        workspaceId: workspace.id,
+        teamId: team.id,
+        teamKey: team.key,
+        slug: workspace.slug,
+      })
+      .from(team)
+      .innerJoin(workspace, eq(workspace.id, team.workspaceId))
+      .innerJoin(workspaceMember, eq(workspaceMember.workspaceId, workspace.id))
+      .where(and(eq(team.id, teamId), eq(workspaceMember.userId, userId.value)))
+      .limit(1);
+
+    return found ?? null;
+  }
+
   async listForMember(userId: UserId): Promise<WorkspaceListing[]> {
     return this.db
       .select({

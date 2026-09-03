@@ -1,6 +1,7 @@
 import type { InboxNote } from '@application/ports/inbox-reader.port';
 import type { ReviewState } from '@domain/services/conversations';
 import type { RunId } from '@domain/value-objects/run-id.vo';
+import type { RunState } from '@domain/value-objects/run-state';
 import type { TaskId } from '@domain/value-objects/task-id.vo';
 import type { TeamId } from '@domain/value-objects/team-id.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
@@ -20,7 +21,7 @@ export interface RunStationSummary {
 
 export interface TaskRunSummary {
   readonly id: string;
-  readonly state: string;
+  readonly state: RunState;
   readonly attempt: number;
   readonly exitCode: number | null;
   readonly startedAt: Date;

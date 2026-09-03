@@ -4,6 +4,7 @@ import type { HarnessId } from '@domain/value-objects/harness-id.vo';
 import type { StationColor } from '@domain/value-objects/station-color.vo';
 import type { StationDescription } from '@domain/value-objects/station-description.vo';
 import type { StationId } from '@domain/value-objects/station-id.vo';
+import { StationKey } from '@domain/value-objects/station-key.vo';
 import type { StationName } from '@domain/value-objects/station-name.vo';
 import type { Tool } from '@domain/value-objects/tool.vo';
 import { WayOut } from '@domain/value-objects/way-out.vo';
@@ -23,6 +24,8 @@ type Part = {
 
 export type StationInput = {
   id: StationId;
+  /** What it is called in the file. Taken from its name where none is given. */
+  key?: StationKey;
   name: StationName;
   position: number;
   color: StationColor;
@@ -37,6 +40,12 @@ export type StationInput = {
 export abstract class Station {
   protected constructor(
     readonly id: StationId,
+    /**
+     * What it is called in the file that describes it, and what it stays
+     * called however it is renamed. Tasks stand here by the identifier
+     * above; configuration finds it again by this.
+     */
+    readonly key: StationKey,
     readonly name: StationName,
     readonly position: number,
     readonly color: StationColor,
@@ -53,6 +62,7 @@ export abstract class Station {
   static create(input: StationInput): Station {
     const ends = [
       input.id,
+      input.key ?? StationKey.from(input.name.value),
       input.name,
       input.position,
       input.color,
@@ -128,6 +138,7 @@ export class WorkStation extends Station {
 
   constructor(
     id: StationId,
+    key: StationKey,
     name: StationName,
     position: number,
     color: StationColor,
@@ -137,7 +148,7 @@ export class WorkStation extends Station {
     readonly harness: HarnessId | null,
     readonly agentPrompt: AgentPrompt | null,
   ) {
-    super(id, name, position, color, description, wayOut, tools);
+    super(id, key, name, position, color, description, wayOut, tools);
   }
 
   runsOn(harness: HarnessId | null): Station {
@@ -151,6 +162,7 @@ export class WorkStation extends Station {
   protected copiedWith(part: Part): Station {
     return new WorkStation(
       this.id,
+      this.key,
       part.name ?? this.name,
       part.position ?? this.position,
       part.color ?? this.color,
@@ -183,6 +195,7 @@ export class Backlog extends Station {
   protected copiedWith(part: Part): Station {
     return new Backlog(
       this.id,
+      this.key,
       part.name ?? this.name,
       part.position ?? this.position,
       part.color ?? this.color,
@@ -214,6 +227,7 @@ export class Completed extends Station {
   protected copiedWith(part: Part): Station {
     return new Completed(
       this.id,
+      this.key,
       part.name ?? this.name,
       part.position ?? this.position,
       part.color ?? this.color,

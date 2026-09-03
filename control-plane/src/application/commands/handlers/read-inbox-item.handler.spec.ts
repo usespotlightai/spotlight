@@ -57,6 +57,8 @@ const lines = () =>
     save: vi.fn(),
     find: vi.fn(async () => null),
     holding: vi.fn(async () => null),
+    ofWorkspace: vi.fn(async () => []),
+    ofTeam: vi.fn(async () => []),
   }) satisfies AssemblyLineRepository;
 
 const read = (found: Task | null, by = 'user_1') => {

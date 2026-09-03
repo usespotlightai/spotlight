@@ -5,6 +5,7 @@ import type {
 } from '@domain/repositories/task.repository';
 import type { Concerns } from '@domain/value-objects/concerns.vo';
 import { HarnessSession } from '@domain/value-objects/harness-session.vo';
+import { Mark } from '@domain/value-objects/mark.vo';
 import { PullRequestUrl } from '@domain/value-objects/pull-request-url.vo';
 import { Repository } from '@domain/value-objects/repository.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
@@ -24,10 +25,11 @@ import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
 import {
   task,
+  taskMark,
   taskNote,
 } from '@infrastructure/persistence/drizzle/schemas/task.schema';
 import { Injectable } from '@nestjs/common';
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, or, sql } from 'drizzle-orm';
 
 type Row = typeof task.$inferSelect;
 type NoteRow = typeof taskNote.$inferSelect;
@@ -45,7 +47,7 @@ const toNote = (row: NoteRow): TaskNote =>
     deliveredAt: row.deliveredAt,
   });
 
-const toTask = (row: Row, notes: NoteRow[]): Task =>
+const toTask = (row: Row, notes: NoteRow[], marks: MarkRow[] = []): Task =>
   Task.rehydrate({
     id: TaskId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
@@ -65,7 +67,13 @@ const toTask = (row: Row, notes: NoteRow[]): Task =>
     repository: row.repository ? Repository.of(row.repository) : null,
     finishedAt: row.finishedAt,
     pullRequest: row.pullRequest ? PullRequestUrl.of(row.pullRequest) : null,
+    marks: marks.map((each) => Mark.of(each.kind, each.value)),
   });
+
+interface MarkRow {
+  readonly kind: string;
+  readonly value: string;
+}
 
 @Injectable()
 export class DrizzleTaskRepository implements TaskRepository {
@@ -91,6 +99,7 @@ export class DrizzleTaskRepository implements TaskRepository {
     });
 
     await this.writeNotes(added);
+    await this.writeMarks(added);
   }
 
   async save(saved: Task): Promise<void> {
@@ -110,6 +119,36 @@ export class DrizzleTaskRepository implements TaskRepository {
       .where(eq(task.id, saved.id.value));
 
     await this.writeNotes(saved);
+    await this.writeMarks(saved);
+  }
+
+  /**
+   * Added and never taken away here: a handle the world has used once may be
+   * used again, and a task that stopped wearing one would simply go missing
+   * the next time its host mentioned it. Taken from whoever wore it before,
+   * because a handle names one task.
+   */
+  private async writeMarks(written: Task): Promise<void> {
+    for (const mark of written.marks) {
+      await this.context.db
+        .insert(taskMark)
+        .values({
+          taskId: written.id.value,
+          kind: mark.kind,
+          value: mark.value,
+        })
+        .onConflictDoUpdate({
+          target: [taskMark.kind, taskMark.value],
+          set: { taskId: written.id.value },
+        });
+    }
+  }
+
+  private async marksFor(taskId: string): Promise<MarkRow[]> {
+    return this.context.db
+      .select({ kind: taskMark.kind, value: taskMark.value })
+      .from(taskMark)
+      .where(eq(taskMark.taskId, taskId));
   }
 
   async placementsAt(stationId: StationId): Promise<TaskPlacement[]> {
@@ -136,24 +175,55 @@ export class DrizzleTaskRepository implements TaskRepository {
       return null;
     }
 
-    const notes = await this.notesFor([found.id]);
+    const [notes, marks] = await Promise.all([
+      this.notesFor([found.id]),
+      this.marksFor(found.id),
+    ]);
 
-    return toTask(found, notes.get(found.id) ?? []);
+    return toTask(found, notes.get(found.id) ?? [], marks);
   }
 
   async holding(
     workspaceId: WorkspaceId,
     concerns: Concerns,
   ): Promise<Task | null> {
+    // A branch names the task outright. Anything else is a handle somebody
+    // out there uses, and the same question whichever host used it: which
+    // task here wears this. Nothing below knows which host asked.
+    const named = concerns.taskId
+      ? eq(task.id, concerns.taskId.value)
+      : undefined;
+
+    const worn = concerns.marks.length
+      ? inArray(
+          task.id,
+          this.context.db
+            .select({ id: taskMark.taskId })
+            .from(taskMark)
+            .where(
+              or(
+                ...concerns.marks.map((mark) =>
+                  and(
+                    eq(taskMark.kind, mark.kind),
+                    eq(taskMark.value, mark.value),
+                  ),
+                ),
+              ),
+            ),
+        )
+      : undefined;
+
+    if (!named && !worn) {
+      return null;
+    }
+
     const [found] = await this.context.db
       .select()
       .from(task)
       .where(
         and(
           eq(task.workspaceId, workspaceId.value),
-          concerns.taskId
-            ? eq(task.id, concerns.taskId.value)
-            : eq(task.pullRequest, concerns.pullRequest?.value ?? ''),
+          named && worn ? or(named, worn) : (named ?? worn),
         ),
       )
       .limit(1)
@@ -164,9 +234,12 @@ export class DrizzleTaskRepository implements TaskRepository {
       return null;
     }
 
-    const notes = await this.notesFor([found.id]);
+    const [notes, marks] = await Promise.all([
+      this.notesFor([found.id]),
+      this.marksFor(found.id),
+    ]);
 
-    return toTask(found, notes.get(found.id) ?? []);
+    return toTask(found, notes.get(found.id) ?? [], marks);
   }
 
   async remove(id: TaskId): Promise<void> {

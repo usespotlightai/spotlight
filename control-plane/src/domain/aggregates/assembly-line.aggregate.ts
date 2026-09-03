@@ -14,6 +14,7 @@ import type { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { HandoverOption } from '@domain/value-objects/handover-option.vo';
 import type { Happening } from '@domain/value-objects/happening.vo';
 import type { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { LineKey } from '@domain/value-objects/line-key.vo';
 import { Reaction } from '@domain/value-objects/reaction.vo';
 import type { StationColor } from '@domain/value-objects/station-color.vo';
 import type { StationDescription } from '@domain/value-objects/station-description.vo';
@@ -27,6 +28,8 @@ export class AssemblyLine {
     readonly id: AssemblyLineId,
     readonly workspaceId: WorkspaceId,
     readonly factoryId: FactoryId,
+    /** What it is called in the file that describes it. */
+    readonly key: LineKey,
     readonly name: AssemblyLineName,
     readonly stations: readonly Station[],
     /** What a word from outside does here, wherever it finds the task. */
@@ -85,6 +88,7 @@ export class AssemblyLine {
     id: AssemblyLineId;
     workspaceId: WorkspaceId;
     factoryId: FactoryId;
+    key?: LineKey;
     name: AssemblyLineName;
     stations: readonly Station[];
     reactions?: readonly Reaction[];
@@ -102,6 +106,7 @@ export class AssemblyLine {
       input.id,
       input.workspaceId,
       input.factoryId,
+      input.key ?? LineKey.from(input.name.value),
       input.name,
       [...input.stations].sort((a, b) => a.position - b.position),
       reactions,

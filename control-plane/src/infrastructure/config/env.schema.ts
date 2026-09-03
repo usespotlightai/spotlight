@@ -35,6 +35,9 @@ export const envSchema = databaseSchema
     GITHUB_APP_PRIVATE_KEY: z.string().min(1),
     // Shared with the App's webhook. Left unset, deliveries are refused.
     GITHUB_WEBHOOK_SECRET: z.string().default(''),
+    // Seals what a workspace's configuration may name but must not hold.
+    // 32 bytes, base64. Generate with: openssl rand -base64 32
+    SPOTLIGHT_SECRETS_KEY: z.string().min(1),
     LOG_LEVEL: z.enum(LOG_LEVELS).optional(),
   })
   .transform((env) => ({

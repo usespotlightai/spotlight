@@ -2,6 +2,7 @@ import type {
   Delivered,
   WebhookSourcePort,
 } from '@application/ports/webhook-source.port';
+import { SourceForDelivery } from '@application/services/source-for-delivery.service';
 import { WebhookSources } from '@application/services/webhook-sources.service';
 import type { ExecutionContext } from '@nestjs/common';
 import { UnauthorizedException } from '@nestjs/common';
@@ -23,13 +24,35 @@ const source = (verifies: (delivered: Delivered) => boolean) =>
 const asking = (
   request: Record<string, unknown>,
   sources: WebhookSourcePort[],
+  declared: WebhookSourcePort[] = [],
 ) => {
   const context = {
     switchToHttp: () => ({ getRequest: () => request }),
   } as unknown as ExecutionContext;
 
   return {
-    guard: new WebhookGuard(new WebhookSources(sources)),
+    guard: new WebhookGuard(
+      new SourceForDelivery(WebhookSources.of(sources), {
+        find: async (_team, key) =>
+          declared.find((each) => each.key === key) ?? null,
+        all: async () => declared,
+      }),
+      {
+        identify: async () => 'ws_1',
+        identifyTeam: async (_slug: string, teamKey: string) =>
+          teamKey === 'platform'
+            ? { workspaceId: 'ws_1', teamId: 'team_1' }
+            : null,
+        findTeamForMember: async () => ({
+          workspaceId: 'ws_1',
+          teamId: 'team_1',
+          teamKey: 'platform',
+          slug: 'acme',
+        }),
+        listForMember: async () => [],
+        findForMember: async () => null,
+      },
+    ),
     context,
   };
 };
@@ -43,18 +66,18 @@ const delivered = (over: Record<string, unknown> = {}) => ({
 });
 
 describe('WebhookGuard', () => {
-  it('lets through what the source says its host signed', () => {
+  it('lets through what the source says its host signed', async () => {
     const github = source(() => true);
     const { guard, context } = asking(delivered(), [github]);
 
-    expect(guard.canActivate(context)).toBe(true);
+    await expect(guard.canActivate(context)).resolves.toBe(true);
   });
 
-  it('hands the source the body as it arrived, byte for byte', () => {
+  it('hands the source the body as it arrived, byte for byte', async () => {
     const github = source(() => true);
     const { guard, context } = asking(delivered(), [github]);
 
-    guard.canActivate(context);
+    await guard.canActivate(context);
 
     expect(github.verifies).toHaveBeenCalledWith({
       headers: { 'x-hub-signature-256': 'sha256=whatever' },
@@ -63,29 +86,35 @@ describe('WebhookGuard', () => {
     });
   });
 
-  it('turns away what the source will not vouch for', () => {
+  it('turns away what the source will not vouch for', async () => {
     const { guard, context } = asking(delivered(), [source(() => false)]);
 
-    expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
+    await expect(guard.canActivate(context)).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 
   // Told apart from a bad signature nowhere the caller can see, so posting at
   // the door says nothing about what is behind it.
-  it('turns away a source nobody registered, the same way', () => {
+  it('turns away a source nobody registered, the same way', async () => {
     const { guard, context } = asking(
       delivered({ params: { source: 'sentry' } }),
       [source(() => true)],
     );
 
-    expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
+    await expect(guard.canActivate(context)).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 
-  it('turns away a delivery whose body was never kept', () => {
+  it('turns away a delivery whose body was never kept', async () => {
     const github = source((each) => each.raw !== null);
     const { guard, context } = asking(delivered({ rawBody: undefined }), [
       github,
     ]);
 
-    expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
+    await expect(guard.canActivate(context)).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 });

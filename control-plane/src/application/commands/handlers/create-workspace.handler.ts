@@ -6,6 +6,7 @@ import type { CommandHandlerPort } from '@application/ports/command-handler.port
 import type { FactoryProvisioningPort } from '@application/ports/factory-provisioning.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
+import type { TeamRepository } from '@domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
 import { WorkspaceRegistration } from '@domain/services/workspace-registration';
 import { UserId } from '@domain/value-objects/user-id.vo';
@@ -20,6 +21,7 @@ export class CreateWorkspaceHandler
 
   constructor(
     private readonly workspaces: WorkspaceRepository,
+    private readonly teams: TeamRepository,
     private readonly ids: IdGeneratorPort,
     private readonly transaction: TransactionPort,
     private readonly provisioning: FactoryProvisioningPort,
@@ -38,7 +40,7 @@ export class CreateWorkspaceHandler
   private async createWorkspace(
     command: CreateWorkspaceCommand,
   ): Promise<WorkspaceDto> {
-    const workspace = await this.registration.register({
+    const { workspace, firstTeam } = await this.registration.register({
       id: WorkspaceId.of(this.ids.generate()),
       name: WorkspaceName.of(command.name),
       slug: WorkspaceSlug.of(command.slug),
@@ -48,12 +50,15 @@ export class CreateWorkspaceHandler
 
     await this.transaction.run(async () => {
       await this.workspaces.add(workspace);
+      await this.teams.add(firstTeam);
 
-      for (const event of workspace.happened) {
+      // A team opened is the team's own news, and what follows from it is
+      // somebody else's business.
+      for (const event of firstTeam.happened) {
         await this.provisioning.onTeamCreated(event);
       }
     });
 
-    return WorkspaceMapper.toDto(workspace);
+    return WorkspaceMapper.toDto(workspace, [firstTeam]);
   }
 }

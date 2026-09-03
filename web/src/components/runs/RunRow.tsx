@@ -10,10 +10,8 @@ import { stationShare } from '@/lib/station';
 type RunRowProps = {
   run: Run;
   to: string;
-  /** Shown where a run is read away from the task it worked. */
   taskTitle?: string | null;
   reviewTo?: string;
-  /** A trail shows the asking as a step of its own, so the row does not. */
   inTrail?: boolean;
 };
 

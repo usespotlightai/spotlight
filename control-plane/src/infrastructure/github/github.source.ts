@@ -4,17 +4,20 @@ import type {
   Delivered,
   Happened,
   HappeningDeclaration,
+  Noticed,
   WebhookHeaders,
   WebhookSourcePort,
 } from '@application/ports/webhook-source.port';
 import { UpstreamRefusedError } from '@domain/exceptions/upstream-refused.error';
-import type { GitHubInstallations } from '@domain/repositories/workspace.repository';
+import type { WorkspaceConnections } from '@domain/repositories/workspace.repository';
 import { Concerns } from '@domain/value-objects/concerns.vo';
 import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
+import { Mark } from '@domain/value-objects/mark.vo';
+import { PullRequestUrl } from '@domain/value-objects/pull-request-url.vo';
 import { Said } from '@domain/value-objects/said.vo';
 import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
-import { Injectable } from '@nestjs/common';
+import { WebhookSource } from '@infrastructure/webhooks/webhook-source.decorator';
 
 /** The little of GitHub's delivery that Spotlight reads. */
 interface Delivery {
@@ -30,6 +33,16 @@ interface Delivery {
     readonly pull_requests?: readonly { readonly html_url?: unknown }[];
   };
   readonly sender?: { readonly type?: unknown };
+  readonly ref?: unknown;
+  readonly repository?: {
+    readonly full_name?: unknown;
+    readonly default_branch?: unknown;
+  };
+  readonly commits?: readonly {
+    readonly added?: readonly unknown[];
+    readonly removed?: readonly unknown[];
+    readonly modified?: readonly unknown[];
+  }[];
 }
 
 interface Pull {
@@ -100,6 +113,9 @@ const raised = (input: {
   spoken: input.spoken ?? false,
 });
 
+/** Where a workspace keeps what it tells Spotlight about itself. */
+const UNDER = '.spotlight/';
+
 /** Everything the reading below can raise, and nothing it cannot. */
 const MERGED = raised({
   key: 'github.pull_request.merged',
@@ -133,7 +149,7 @@ const CLOSED_UNMERGED = raised({
   told: 'The pull request was closed without being merged.',
 });
 
-@Injectable()
+@WebhookSource()
 export class GitHubSource implements WebhookSourcePort {
   readonly key = 'github';
 
@@ -147,7 +163,7 @@ export class GitHubSource implements WebhookSourcePort {
 
   constructor(
     private readonly signature: WebhookSignaturePort,
-    private readonly workspaces: GitHubInstallations,
+    private readonly workspaces: WorkspaceConnections,
   ) {}
 
   verifies(delivered: Delivered): boolean {
@@ -176,7 +192,40 @@ export class GitHubSource implements WebhookSourcePort {
       ((delivered.body ?? {}) as Delivery).installation?.id,
     );
 
-    return installation ? this.workspaces.withInstallation(installation) : null;
+    return installation
+      ? this.workspaces.withConnection(this.key, installation.value)
+      : null;
+  }
+
+  /**
+   * A push to the branch a repository is read from, where it touched anything
+   * under the configuration directory. Anything else is somebody's ordinary
+   * work, which this has no opinion about.
+   */
+  noticed(delivered: Delivered): readonly Noticed[] {
+    const event = headed(delivered.headers, 'x-github-event');
+    const body = (delivered.body ?? {}) as Delivery;
+    const repository = text(body.repository?.full_name);
+    const branch = text(body.repository?.default_branch);
+
+    if (
+      event !== 'push' ||
+      !repository ||
+      !branch ||
+      body.ref !== `refs/heads/${branch}`
+    ) {
+      return [];
+    }
+
+    const touched = (body.commits ?? []).some((commit) =>
+      [
+        ...(commit.added ?? []),
+        ...(commit.removed ?? []),
+        ...(commit.modified ?? []),
+      ].some((path) => typeof path === 'string' && path.startsWith(UNDER)),
+    );
+
+    return touched ? [{ kind: 'configuration-touched', repository }] : [];
   }
 
   read(delivered: Delivered): readonly Happened[] {
@@ -196,14 +245,16 @@ export class GitHubSource implements WebhookSourcePort {
     raising: HappeningDeclaration,
     delivered: Delivery,
   ): Happened {
+    const opened =
+      text(delivered.pull_request?.html_url) ??
+      text(delivered.issue?.pull_request?.html_url) ??
+      text(delivered.check_suite?.pull_requests?.[0]?.html_url);
+
     const concerns = Concerns.of({
       branch:
         text(delivered.pull_request?.head?.ref) ??
         text(delivered.check_suite?.head_branch),
-      pullRequest:
-        text(delivered.pull_request?.html_url) ??
-        text(delivered.issue?.pull_request?.html_url) ??
-        text(delivered.check_suite?.pull_requests?.[0]?.html_url),
+      marks: opened ? [Mark.pullRequest(PullRequestUrl.of(opened))] : [],
     });
 
     // Refused rather than dropped, so the host sends it again.

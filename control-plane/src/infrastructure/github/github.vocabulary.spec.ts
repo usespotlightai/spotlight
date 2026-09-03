@@ -1,4 +1,4 @@
-import type { GitHubInstallations } from '@domain/repositories/workspace.repository';
+import type { WorkspaceConnections } from '@domain/repositories/workspace.repository';
 import {
   BUILT_IN_REACTIONS,
   BUILT_IN_STATIONS,
@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 
 const source = new GitHubSource(
   { signs: () => true },
-  {} as unknown as GitHubInstallations,
+  {} as unknown as WorkspaceConnections,
 );
 
 const raised = source.happenings.map((each) => each.happening.value);

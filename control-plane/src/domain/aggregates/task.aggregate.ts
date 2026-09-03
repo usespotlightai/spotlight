@@ -6,6 +6,7 @@ import { anyUnread } from '@domain/services/unread';
 import { Branch } from '@domain/value-objects/branch.vo';
 import { Continuity } from '@domain/value-objects/continuity.vo';
 import type { HarnessSession } from '@domain/value-objects/harness-session.vo';
+import { Mark } from '@domain/value-objects/mark.vo';
 import { NotePosition } from '@domain/value-objects/note-position.vo';
 import type { PullRequestUrl } from '@domain/value-objects/pull-request-url.vo';
 import type { Remark } from '@domain/value-objects/remark.vo';
@@ -64,6 +65,9 @@ export class Task {
     // Told to the runner as somewhere to reach, never as something to open.
     readonly repository: Repository | null,
     readonly pullRequest: PullRequestUrl | null,
+    // Every handle the world outside knows it by, so a delivery naming one
+    // of them finds it without anybody adding a way to look it up.
+    readonly marks: readonly Mark[],
     // When the line last had nothing further to do with it.
     readonly finishedAt: Date | null,
   ) {}
@@ -95,6 +99,7 @@ export class Task {
       input.raisedBy,
       input.repository ?? null,
       null,
+      [],
       null,
     );
   }
@@ -115,6 +120,7 @@ export class Task {
     raisedBy: UserId | null;
     repository: Repository | null;
     pullRequest: PullRequestUrl | null;
+    marks?: readonly Mark[];
     finishedAt: Date | null;
   }): Task {
     return new Task(
@@ -133,6 +139,7 @@ export class Task {
       input.raisedBy,
       input.repository,
       input.pullRequest,
+      input.marks ?? [],
       input.finishedAt,
     );
   }
@@ -162,7 +169,19 @@ export class Task {
 
   /** Opened once: asking again keeps the one already open. */
   openedAt(url: PullRequestUrl): Task {
-    return this.pullRequest ? this : this.with({ pullRequest: url });
+    return this.pullRequest
+      ? this
+      : this.markedBy(Mark.pullRequest(url)).with({ pullRequest: url });
+  }
+
+  /**
+   * Known by one more handle. Worn once however often it is given, so a host
+   * repeating itself leaves the task exactly as it found it.
+   */
+  markedBy(mark: Mark): Task {
+    return this.marks.some((each) => each.equals(mark))
+      ? this
+      : this.with({ marks: [...this.marks, mark] });
   }
 
   get running(): boolean {
@@ -378,6 +397,7 @@ export class Task {
     runnerId?: RunnerId | null;
     notes?: readonly TaskNote[];
     pullRequest?: PullRequestUrl | null;
+    marks?: readonly Mark[];
     finishedAt?: Date | null;
   }): Task {
     return new Task(
@@ -396,6 +416,7 @@ export class Task {
       this.raisedBy,
       this.repository,
       part.pullRequest !== undefined ? part.pullRequest : this.pullRequest,
+      part.marks ?? this.marks,
       part.finishedAt !== undefined ? part.finishedAt : this.finishedAt,
     );
   }

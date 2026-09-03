@@ -26,6 +26,17 @@ export interface HappeningDeclaration {
   readonly spoken: boolean;
 }
 
+/**
+ * What a delivery says about the workspace itself rather than about a task.
+ * A host telling us its repository moved is not news about anybody's work; it
+ * is news about what Spotlight should be reading.
+ */
+export interface Noticed {
+  readonly kind: 'configuration-touched';
+  /** Which repository moved, named the way a workspace names one. */
+  readonly repository: string;
+}
+
 export interface Happened extends Word {
   readonly concerns: Concerns;
   /** What was said, where anything was: the note the station works from. */
@@ -60,4 +71,11 @@ export interface WebhookSourcePort {
 
   /** One delivery may carry several words, or none Spotlight acts on. */
   read(delivered: Delivered): readonly Happened[];
+
+  /**
+   * What the delivery says about the workspace rather than about a task.
+   * Most hosts say nothing of the sort, so most sources answer nothing, and
+   * a source that does not answer at all is read as saying nothing.
+   */
+  noticed?(delivered: Delivered): readonly Noticed[];
 }

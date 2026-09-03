@@ -5,8 +5,9 @@ import type { CommandHandlerPort } from '@application/ports/command-handler.port
 import type { StoredDelivery } from '@application/ports/delivery-inbox.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import type { Happened } from '@application/ports/webhook-source.port';
+import type { AttendToNotices } from '@application/services/attend-to-notices.service';
+import type { SourceForDelivery } from '@application/services/source-for-delivery.service';
 import type { TaskDispatching } from '@application/services/task-dispatch';
-import type { WebhookSources } from '@application/services/webhook-sources.service';
 import type { Task } from '@domain/aggregates/task.aggregate';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
@@ -24,12 +25,14 @@ export class ReactToHappeningHandler
   implements CommandHandlerPort<ReactToHappeningCommand, void>
 {
   constructor(
-    private readonly sources: WebhookSources,
+    private readonly sources: SourceForDelivery,
     private readonly tasks: TaskRepository,
     private readonly lines: AssemblyLineRepository,
     private readonly dispatch: TaskDispatching,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
+    /** What the delivery said about the workspace, rather than about a task. */
+    private readonly notices: AttendToNotices,
   ) {}
 
   /**
@@ -39,7 +42,12 @@ export class ReactToHappeningHandler
   async execute(command: ReactToHappeningCommand): Promise<void> {
     try {
       const stored: StoredDelivery = command.delivered;
-      const source = this.sources.find(stored.source);
+      const source = await this.sources.find({
+        source: stored.source,
+        workspaceId: stored.workspaceId,
+        teamId: stored.teamId,
+        teamKey: stored.teamKey,
+      });
 
       if (!source) {
         return;
@@ -50,6 +58,10 @@ export class ReactToHappeningHandler
         body: stored.body,
         raw: null,
       };
+
+      // Attended to before anything else: a delivery may be saying that what
+      // Spotlight reads a workspace's words by has just changed.
+      await this.notices.attend(source.noticed?.(delivered) ?? []);
 
       // What Spotlight itself did is not news to Spotlight.
       const news = source.read(delivered).filter((each) => !each.ourOwn);

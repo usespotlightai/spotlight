@@ -102,3 +102,24 @@ export const taskNote = pgTable(
     index('task_note_task_idx').on(table.taskId, table.position),
   ],
 );
+
+/**
+ * Every handle the world outside knows a task by. Keyed by the handle rather
+ * than by the task, because that is the direction a delivery asks in: it
+ * carries a pull request address or an issue key and nothing else.
+ */
+export const taskMark = pgTable(
+  'task_mark',
+  {
+    taskId: text('task_id')
+      .notNull()
+      .references(() => task.id, { onDelete: 'cascade' }),
+    /** The kind of handle, as in git.pull-request. */
+    kind: text('kind').notNull(),
+    value: text('value').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.kind, table.value] }),
+    index('task_mark_task_idx').on(table.taskId),
+  ],
+);

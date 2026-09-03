@@ -4,6 +4,12 @@ export const DELIVERY_INBOX = Symbol('DELIVERY_INBOX');
 
 export interface StoredDelivery {
   readonly source: string;
+  /** Whose repository the team's files are read from. */
+  readonly workspaceId: string;
+  /** Whose door it arrived at, or empty where it arrived at the shared one. */
+  readonly teamId: string;
+  /** The same team as the address wrote it, for finding its files again. */
+  readonly teamKey: string;
   readonly id: string;
   readonly headers: WebhookHeaders;
   readonly body: unknown;
@@ -28,8 +34,8 @@ export interface DeliveryInboxPort {
    */
   nextPending(): Promise<StoredDelivery | null>;
 
-  worked(source: string, id: string): Promise<void>;
+  worked(delivered: StoredDelivery): Promise<void>;
 
   /** Left as it is, with why, for whoever comes to look. */
-  failed(source: string, id: string, because: string): Promise<void>;
+  failed(delivered: StoredDelivery, because: string): Promise<void>;
 }

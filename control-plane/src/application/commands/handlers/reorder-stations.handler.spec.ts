@@ -50,6 +50,8 @@ const lines = (found: AssemblyLine | null = line()) =>
     }),
     find: vi.fn(async () => found),
     holding: vi.fn(async () => found),
+    ofWorkspace: vi.fn(async () => []),
+    ofTeam: vi.fn(async () => []),
   }) satisfies AssemblyLineRepository;
 
 const reorder = (order: string[], board: AssemblyLineRepository = lines()) =>

@@ -22,6 +22,9 @@ export class DrizzleDeliveryInbox implements DeliveryInboxPort {
       .insert(inboundDelivery)
       .values({
         source: delivered.source,
+        workspaceId: delivered.workspaceId,
+        teamId: delivered.teamId,
+        teamKey: delivered.teamKey,
         id: delivered.id,
         headers: delivered.headers,
         body: delivered.body ?? {},
@@ -49,6 +52,9 @@ export class DrizzleDeliveryInbox implements DeliveryInboxPort {
 
     return {
       source: found.source,
+      workspaceId: found.workspaceId,
+      teamId: found.teamId,
+      teamKey: found.teamKey,
       id: found.id,
       headers: (found.headers ?? {}) as WebhookHeaders,
       body: found.body,
@@ -56,7 +62,7 @@ export class DrizzleDeliveryInbox implements DeliveryInboxPort {
     };
   }
 
-  async worked(source: string, id: string): Promise<void> {
+  async worked(delivered: StoredDelivery): Promise<void> {
     await this.context.db
       .update(inboundDelivery)
       .set({
@@ -64,12 +70,10 @@ export class DrizzleDeliveryInbox implements DeliveryInboxPort {
         handledAt: new Date(),
         attempts: sql`${inboundDelivery.attempts} + 1`,
       })
-      .where(
-        and(eq(inboundDelivery.source, source), eq(inboundDelivery.id, id)),
-      );
+      .where(this.theOne(delivered));
   }
 
-  async failed(source: string, id: string, because: string): Promise<void> {
+  async failed(delivered: StoredDelivery, because: string): Promise<void> {
     await this.context.db
       .update(inboundDelivery)
       .set({
@@ -78,8 +82,15 @@ export class DrizzleDeliveryInbox implements DeliveryInboxPort {
         attempts: sql`${inboundDelivery.attempts} + 1`,
         failed: because.slice(0, REASON_LIMIT),
       })
-      .where(
-        and(eq(inboundDelivery.source, source), eq(inboundDelivery.id, id)),
-      );
+      .where(this.theOne(delivered));
+  }
+
+  /** One delivery, named the whole way: a host, a door, and what it called it. */
+  private theOne(delivered: StoredDelivery) {
+    return and(
+      eq(inboundDelivery.source, delivered.source),
+      eq(inboundDelivery.teamId, delivered.teamId),
+      eq(inboundDelivery.id, delivered.id),
+    );
   }
 }

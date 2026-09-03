@@ -1106,6 +1106,299 @@
         ]
       }
     },
+    "/teams/{teamId}/configuration": {
+      "get": {
+        "operationId": "readConfiguration",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "team_1",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team for this caller"
+          }
+        },
+        "summary": "What this team listens to, and what is wrong with it",
+        "tags": [
+          "configuration"
+        ]
+      }
+    },
+    "/teams/{teamId}/configuration/reread": {
+      "post": {
+        "operationId": "rereadConfiguration",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "team_1",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team, or nowhere to read it from"
+          }
+        },
+        "summary": "Read this team’s configuration from its repository again",
+        "tags": [
+          "configuration"
+        ]
+      }
+    },
+    "/teams/{teamId}/configuration/lines/{lineId}/propose": {
+      "post": {
+        "operationId": "proposeLine",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "team_1",
+              "type": "string"
+            }
+          },
+          {
+            "name": "lineId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "line_1",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposedResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team or line"
+          },
+          "409": {
+            "description": "The repository moved while this was being edited"
+          }
+        },
+        "summary": "Write this line back to the repository, as a pull request",
+        "tags": [
+          "configuration"
+        ]
+      }
+    },
+    "/teams/{teamId}/configuration/onboarding": {
+      "get": {
+        "operationId": "readOnboarding",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "team_1",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team for this caller"
+          }
+        },
+        "summary": "What this team still needs, and the tools it may choose",
+        "tags": [
+          "configuration"
+        ]
+      }
+    },
+    "/teams/{teamId}/configuration/tools": {
+      "post": {
+        "operationId": "chooseTools",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "team_1",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChooseToolsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposedResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team, or nowhere to write it yet"
+          }
+        },
+        "summary": "Write configuration for the tools this team uses",
+        "tags": [
+          "configuration"
+        ]
+      }
+    },
+    "/teams/{teamId}/configuration/secrets": {
+      "post": {
+        "operationId": "setSecret",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "team_1",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetSecretRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Set"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team, or not yours to set one on"
+          }
+        },
+        "summary": "Set a secret this team’s integrations verify with",
+        "tags": [
+          "configuration"
+        ]
+      }
+    },
+    "/teams/{teamId}/configuration/secrets/{name}": {
+      "delete": {
+        "operationId": "forgetSecret",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "team_1",
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "LINEAR_WEBHOOK_SECRET",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Forgotten"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team, or not yours to change"
+          }
+        },
+        "summary": "Forget a secret, so nothing verifies with it again",
+        "tags": [
+          "configuration"
+        ]
+      }
+    },
     "/workspaces/{slug}/happenings": {
       "get": {
         "operationId": "listHappenings",
@@ -1221,6 +1514,53 @@
           }
         },
         "summary": "Every run the team has worked, across its stations",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/teams/{teamId}/traces": {
+      "get": {
+        "operationId": "listTeamTraces",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "since",
+            "required": false,
+            "in": "query",
+            "description": "Only runs started at or after this. Defaults to 30 days.",
+            "schema": {
+              "example": "2026-08-02T12:00:00.000Z"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TeamTraceResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          }
+        },
+        "summary": "Every task the team has worked, as one trace each",
         "tags": [
           "tasks"
         ]
@@ -1365,6 +1705,52 @@
           }
         },
         "summary": "List what has been run on a task, most recent first",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/teams/{teamId}/tasks/{taskId}/trace": {
+      "get": {
+        "operationId": "readTaskTrace",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskTraceResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such task, or not the viewer's"
+          }
+        },
+        "summary": "Every run that worked a task, as one trace",
         "tags": [
           "tasks"
         ]
@@ -2487,6 +2873,46 @@
           "body"
         ]
       },
+      "StepLocationResponseDto": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "example": "control-plane/src/app.module.ts"
+          },
+          "line": {
+            "type": "number",
+            "example": 126,
+            "nullable": true
+          }
+        },
+        "required": [
+          "path",
+          "line"
+        ]
+      },
+      "StepChangeResponseDto": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "nullable": true
+          },
+          "before": {
+            "type": "string",
+            "description": "The file as it stood"
+          },
+          "after": {
+            "type": "string",
+            "description": "The file as the agent left it"
+          }
+        },
+        "required": [
+          "path",
+          "before",
+          "after"
+        ]
+      },
       "JournalStepResponseDto": {
         "type": "object",
         "properties": {
@@ -2496,7 +2922,9 @@
             "enum": [
               "said",
               "thought",
-              "tool"
+              "tool",
+              "planned",
+              "hook"
             ]
           },
           "text": {
@@ -2523,6 +2951,36 @@
             "type": "number",
             "example": 1200,
             "description": "How long it took, in ms"
+          },
+          "startedAt": {
+            "type": "string",
+            "example": "2026-08-29T12:00:03.000Z",
+            "description": "When it began, for laying the run out against a clock"
+          },
+          "locations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StepLocationResponseDto"
+            }
+          },
+          "given": {
+            "type": "string",
+            "nullable": true,
+            "description": "What the tool was asked for, as it was asked"
+          },
+          "returned": {
+            "type": "string",
+            "nullable": true,
+            "description": "What it handed back, unread"
+          },
+          "change": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StepChangeResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -2531,7 +2989,106 @@
           "status",
           "tool",
           "detail",
-          "ms"
+          "ms",
+          "startedAt",
+          "locations",
+          "given",
+          "returned",
+          "change"
+        ]
+      },
+      "SpanAttributeResponseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "gen_ai.request.model"
+          },
+          "value": {
+            "type": "string",
+            "example": "claude-opus-5"
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ]
+      },
+      "RunSpanResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "8889c15027e46e76"
+          },
+          "parentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "example": "claude_code.llm_request"
+          },
+          "startedAt": {
+            "type": "string",
+            "example": "2026-08-29T12:00:03.000Z"
+          },
+          "ms": {
+            "type": "number",
+            "example": 4350
+          },
+          "failed": {
+            "type": "boolean",
+            "example": false
+          },
+          "attributes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SpanAttributeResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "parentId",
+          "name",
+          "startedAt",
+          "ms",
+          "failed",
+          "attributes"
+        ]
+      },
+      "RunMarksResponseDto": {
+        "type": "object",
+        "properties": {
+          "startedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "readyAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "When the workspace was handed to the agent"
+          },
+          "spokeFrom": {
+            "type": "string",
+            "nullable": true
+          },
+          "spokeTo": {
+            "type": "string",
+            "nullable": true
+          },
+          "endedAt": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "startedAt",
+          "readyAt",
+          "spokeFrom",
+          "spokeTo",
+          "endedAt"
         ]
       },
       "RunSpentResponseDto": {
@@ -2580,11 +3137,21 @@
               "$ref": "#/components/schemas/JournalStepResponseDto"
             }
           },
+          "spans": {
+            "description": "Empty for a harness that reports nothing of itself",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RunSpanResponseDto"
+            }
+          },
           "ms": {
             "type": "number",
             "example": 56000,
             "nullable": true,
             "description": "How long the run spoke for, in ms"
+          },
+          "marks": {
+            "$ref": "#/components/schemas/RunMarksResponseDto"
           },
           "spent": {
             "nullable": true,
@@ -2605,6 +3172,8 @@
           "runId",
           "attempt",
           "steps",
+          "spans",
+          "marks",
           "readable"
         ]
       },
@@ -2745,6 +3314,235 @@
         },
         "required": [
           "installationId"
+        ]
+      },
+      "ConfiguredHappeningResponseDto": {
+        "type": "object",
+        "properties": {
+          "happening": {
+            "type": "string",
+            "example": "linear.issue.completed"
+          },
+          "label": {
+            "type": "string",
+            "example": "Issue completed"
+          }
+        },
+        "required": [
+          "happening",
+          "label"
+        ]
+      },
+      "ConfiguredIntegrationResponseDto": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "example": "linear"
+          },
+          "name": {
+            "type": "string",
+            "example": "Linear"
+          },
+          "deliverTo": {
+            "type": "string",
+            "description": "Where this host should be told to send its deliveries",
+            "example": "/api/webhooks/w/acme/linear"
+          },
+          "secret": {
+            "type": "string",
+            "example": "LINEAR_WEBHOOK_SECRET"
+          },
+          "secretSet": {
+            "type": "boolean",
+            "description": "Whether the workspace has set it. Never its value.",
+            "example": true
+          },
+          "happenings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfiguredHappeningResponseDto"
+            }
+          }
+        },
+        "required": [
+          "source",
+          "name",
+          "deliverTo",
+          "secret",
+          "secretSet",
+          "happenings"
+        ]
+      },
+      "ConfigProblemResponseDto": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "example": ".spotlight/integrations/linear.yml"
+          },
+          "at": {
+            "type": "string",
+            "example": "happenings.0.when"
+          },
+          "reason": {
+            "type": "string",
+            "example": "must be an expression"
+          }
+        },
+        "required": [
+          "path",
+          "at",
+          "reason"
+        ]
+      },
+      "ConfigurationResponseDto": {
+        "type": "object",
+        "properties": {
+          "repository": {
+            "type": "string",
+            "nullable": true,
+            "example": "acme/api"
+          },
+          "sha": {
+            "type": "string",
+            "nullable": true,
+            "example": "a1b2c3d"
+          },
+          "readAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "integrations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfiguredIntegrationResponseDto"
+            }
+          },
+          "problems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfigProblemResponseDto"
+            }
+          }
+        },
+        "required": [
+          "repository",
+          "sha",
+          "readAt",
+          "integrations",
+          "problems"
+        ]
+      },
+      "ProposedResponseDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "example": "https://github.com/acme/api/pull/4"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "KnownToolResponseDto": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "example": "linear"
+          },
+          "name": {
+            "type": "string",
+            "example": "Linear"
+          },
+          "summary": {
+            "type": "string",
+            "example": "Move a task on when its issue is done."
+          },
+          "secretCalled": {
+            "type": "string",
+            "example": "the signing secret on the webhook you create"
+          },
+          "chosen": {
+            "type": "boolean",
+            "description": "Whether this team already listens to it"
+          }
+        },
+        "required": [
+          "source",
+          "name",
+          "summary",
+          "secretCalled",
+          "chosen"
+        ]
+      },
+      "OnboardingResponseDto": {
+        "type": "object",
+        "properties": {
+          "hasRunner": {
+            "type": "boolean",
+            "description": "A runner has to be reachable, or nothing runs"
+          },
+          "connectedToGitHub": {
+            "type": "boolean",
+            "description": "The App has to be installed to read or write"
+          },
+          "hasConfiguration": {
+            "type": "boolean",
+            "description": "Configuration has been read at least once"
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnownToolResponseDto"
+            }
+          }
+        },
+        "required": [
+          "hasRunner",
+          "connectedToGitHub",
+          "hasConfiguration",
+          "tools"
+        ]
+      },
+      "ChooseToolsRequestDto": {
+        "type": "object",
+        "properties": {
+          "sources": {
+            "description": "The hosts this team uses, by the name each is known by",
+            "example": [
+              "linear",
+              "sentry"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "sources"
+        ]
+      },
+      "SetSecretRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "What the configuration calls it. Never its value.",
+            "example": "LINEAR_WEBHOOK_SECRET"
+          },
+          "value": {
+            "type": "string",
+            "description": "Written once and never read back out of Spotlight.",
+            "example": "whsec_..."
+          }
+        },
+        "required": [
+          "name",
+          "value"
         ]
       },
       "HappeningResponseDto": {
@@ -3056,6 +3854,136 @@
           "taskDescription"
         ]
       },
+      "TraceStationResponseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Implementation"
+          },
+          "color": {
+            "type": "string",
+            "example": "#edc12b"
+          },
+          "position": {
+            "type": "number",
+            "example": 1
+          },
+          "count": {
+            "type": "number",
+            "example": 3,
+            "description": "How many the line holds"
+          }
+        },
+        "required": [
+          "name",
+          "color",
+          "position",
+          "count"
+        ]
+      },
+      "TeamTraceResponseDto": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13"
+          },
+          "title": {
+            "type": "string",
+            "example": "Fix the queue"
+          },
+          "station": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TraceStationResponseDto"
+              }
+            ]
+          },
+          "stations": {
+            "description": "Every station that has worked it, in the line’s own order",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceStationResponseDto"
+            }
+          },
+          "harness": {
+            "type": "string",
+            "example": "claude-code"
+          },
+          "state": {
+            "type": "string",
+            "example": "completed",
+            "enum": [
+              "queued",
+              "claimed",
+              "completed",
+              "failed"
+            ]
+          },
+          "startedAt": {
+            "type": "string",
+            "example": "2026-08-29T12:00:00.000Z"
+          },
+          "runs": {
+            "type": "number",
+            "example": 3,
+            "description": "How many runs worked the task"
+          },
+          "input": {
+            "type": "string",
+            "nullable": true,
+            "description": "What the last run was put to"
+          },
+          "output": {
+            "type": "string",
+            "nullable": true,
+            "description": "What it said when it handed the task on"
+          },
+          "ms": {
+            "type": "number",
+            "nullable": true,
+            "example": 143000
+          },
+          "steps": {
+            "type": "number",
+            "example": 128
+          },
+          "faults": {
+            "type": "number",
+            "example": 2
+          },
+          "cost": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.4213
+          },
+          "currency": {
+            "type": "string",
+            "nullable": true,
+            "example": "USD"
+          }
+        },
+        "required": [
+          "taskId",
+          "title",
+          "station",
+          "stations",
+          "harness",
+          "state",
+          "startedAt",
+          "runs",
+          "input",
+          "output",
+          "ms",
+          "steps",
+          "faults",
+          "cost",
+          "currency"
+        ]
+      },
       "RunConversationResponseDto": {
         "type": "object",
         "properties": {
@@ -3199,6 +4127,131 @@
           "harness",
           "station",
           "review"
+        ]
+      },
+      "TraceNodeResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "run:run_1"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "run",
+              "phase",
+              "step",
+              "span"
+            ],
+            "example": "run"
+          },
+          "name": {
+            "type": "string",
+            "example": "Implementation"
+          },
+          "startedAt": {
+            "type": "string",
+            "example": "2026-09-01T13:25:04.000Z"
+          },
+          "ms": {
+            "type": "number",
+            "example": 143000,
+            "description": "How long it took, in ms"
+          },
+          "tone": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "overhead",
+              "failed"
+            ],
+            "example": "agent",
+            "description": "The agent working, the overhead around it, or a fault"
+          },
+          "cost": {
+            "type": "number",
+            "nullable": true,
+            "example": 4.97
+          },
+          "currency": {
+            "type": "string",
+            "nullable": true,
+            "example": "USD"
+          },
+          "step": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/JournalStepResponseDto"
+              }
+            ]
+          },
+          "span": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunSpanResponseDto"
+              }
+            ]
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceNodeResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "startedAt",
+          "ms",
+          "tone",
+          "cost",
+          "currency",
+          "step",
+          "span",
+          "children"
+        ]
+      },
+      "TaskTraceResponseDto": {
+        "type": "object",
+        "properties": {
+          "startedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "ms": {
+            "type": "number",
+            "example": 2423000,
+            "description": "First run to last, in ms"
+          },
+          "rows": {
+            "type": "number",
+            "example": 454,
+            "description": "How many rows it draws"
+          },
+          "faults": {
+            "type": "number",
+            "example": 21
+          },
+          "roots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceNodeResponseDto"
+            }
+          }
+        },
+        "required": [
+          "startedAt",
+          "ms",
+          "rows",
+          "faults",
+          "roots"
         ]
       },
       "AddTaskRequestDto": {

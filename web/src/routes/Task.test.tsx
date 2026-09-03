@@ -13,6 +13,7 @@ const task = {
 };
 
 const worked = vi.fn((): unknown[] => []);
+const journalled = vi.fn((): unknown[] => []);
 const moved = vi.fn();
 const deleted = vi.fn();
 
@@ -42,6 +43,9 @@ vi.mock('@/hooks/api/useAssemblyLines', () => ({
 }));
 vi.mock('@/hooks/api/useTaskRuns', () => ({
   useTaskRuns: () => ({ data: worked() }),
+}));
+vi.mock('@/hooks/api/useTaskJournal', () => ({
+  useTaskJournal: () => ({ data: journalled() }),
 }));
 
 vi.mock('@/hooks/api/useWorkspace', () => ({
@@ -155,7 +159,6 @@ describe('Task', () => {
       expect(screen.queryByText('Awaiting review')).not.toBeInTheDocument();
     });
 
-    // Runs read newest first, so what a run asked of a person comes after it.
     it('puts the asking above the run that raised it', () => {
       worked.mockReturnValue([
         run({ id: 'run_2' }),

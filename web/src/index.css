@@ -13,6 +13,10 @@
 }
 
 :root {
+  /* Native scrollbars, form controls and the like follow this. Without it a
+     dark page keeps painting the light scrollbar over its own ground. */
+  color-scheme: light;
+
   --background: #f8f8f9;
 
   --foreground: #2f2f31;
@@ -37,7 +41,7 @@
 
   --muted-foreground: #5b5b5d;
 
-  --faint: #a4a4a8;
+  --faint: #757578;
 
   --accent-foreground: #2f2f31;
 
@@ -138,6 +142,8 @@
 }
 
 .dark {
+  color-scheme: dark;
+
   --background: #0d0d0e;
   --foreground: #e2e3e5;
   --card: #1b1b1c;
@@ -148,9 +154,9 @@
   --primary-foreground: #fefeff;
   --secondary: #1b1b1c;
   --secondary-foreground: #e2e3e5;
-  --muted: #1b1b1c;
+  --muted: #262628;
   --muted-foreground: #97979a;
-  --faint: #656569;
+  --faint: #838385;
   --accent: #232324;
   --accent-foreground: #e2e3e5;
   --destructive: oklch(0.704 0.191 22.216);
@@ -188,4 +194,9 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+}
+
+body.resizing {
+  cursor: col-resize;
+  user-select: none;
 }

@@ -1,5 +1,5 @@
 import type { Workspace } from '@domain/aggregates/workspace.aggregate';
-import type { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
+import type { Connection } from '@domain/value-objects/connection.vo';
 import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import type { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
 
@@ -8,22 +8,36 @@ export interface WorkspaceSlugRegistry {
 }
 
 /**
- * Where a workspace reaches GitHub, asked without loading the workspace
+ * Where a workspace reaches its hosts, asked without loading the workspace
  * itself. Both are answers to questions a delivery or a run asks in passing:
- * whose installation this is, and what opens that workspace's repositories.
+ * whose connection this is, and what opens that workspace's side of a host.
  * Changing the answer is the workspace's own to do.
+ *
+ * One question for every source rather than one per source, so a host added
+ * later brings its own row and needs nothing added here.
  */
-export interface GitHubInstallations {
-  withInstallation(
-    installation: GitHubInstallation,
+export interface WorkspaceConnections {
+  /** Whose word this is, asked of the identifier the host sent with it. */
+  withConnection(
+    source: string,
+    externalId: string,
   ): Promise<WorkspaceId | null>;
 
-  installationOf(workspaceId: WorkspaceId): Promise<GitHubInstallation | null>;
+  connectionTo(
+    workspaceId: WorkspaceId,
+    source: string,
+  ): Promise<Connection | null>;
+}
+
+/** One workspace, by identity: what a team needs to reach its host. */
+export interface WorkspaceFinding {
+  find(workspaceId: WorkspaceId): Promise<Workspace | null>;
 }
 
 export interface WorkspaceRepository
   extends WorkspaceSlugRegistry,
-    GitHubInstallations {
+    WorkspaceConnections,
+    WorkspaceFinding {
   /** Throws WorkspaceSlugTakenError if the slug was claimed since isTaken. */
   add(workspace: Workspace): Promise<void>;
 

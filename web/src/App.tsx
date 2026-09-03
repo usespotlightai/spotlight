@@ -12,7 +12,9 @@ import { Run } from './routes/Run.tsx';
 import { Runners } from './routes/Runners.tsx';
 import { Station } from './routes/Station.tsx';
 import { Task } from './routes/Task.tsx';
+import { TaskTrace } from './routes/TaskTrace.tsx';
 import { TeamIndex } from './routes/TeamIndex.tsx';
+import { TeamIntegrations } from './routes/TeamIntegrations.tsx';
 import { TeamSection } from './routes/TeamSection.tsx';
 import { Workspace } from './routes/Workspace.tsx';
 import { WorkspaceIndex } from './routes/WorkspaceIndex.tsx';
@@ -37,7 +39,9 @@ export default function App() {
               element={<Station />}
             />
             <Route path="tasks/:taskId" element={<Task />} />
+            <Route path="observability/tasks/:taskId" element={<TaskTrace />} />
             <Route path="runs/:runId" element={<Run />} />
+            <Route path="integrations" element={<TeamIntegrations />} />
             <Route path=":section" element={<TeamSection />} />
           </Route>
           <Route path="inbox" element={<Inbox />}>

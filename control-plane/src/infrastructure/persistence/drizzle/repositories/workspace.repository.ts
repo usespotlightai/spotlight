@@ -1,10 +1,8 @@
 import { Workspace } from '@domain/aggregates/workspace.aggregate';
-import { Team } from '@domain/entities/team.entity';
 import { WorkspaceSlugTakenError } from '@domain/exceptions/workspace-slug-taken.error';
 import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
-import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
+import { Connection } from '@domain/value-objects/connection.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
-import { TeamName } from '@domain/value-objects/team-name.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { WorkspaceName } from '@domain/value-objects/workspace-name.vo';
@@ -12,12 +10,12 @@ import { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
 import {
   team,
-  teamMember,
   workspace,
+  workspaceConnection,
   workspaceMember,
 } from '@infrastructure/persistence/drizzle/schemas/workspace.schema';
 import { Injectable } from '@nestjs/common';
-import { and, eq, inArray, ne } from 'drizzle-orm';
+import { and, eq, ne, notInArray } from 'drizzle-orm';
 
 const UNIQUE_VIOLATION = '23505';
 
@@ -42,30 +40,50 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
     return found !== undefined;
   }
 
-  async withInstallation(
-    installation: GitHubInstallation,
+  async withConnection(
+    source: string,
+    externalId: string,
   ): Promise<WorkspaceId | null> {
     const [found] = await this.context.db
-      .select({ id: workspace.id })
-      .from(workspace)
-      .where(eq(workspace.githubInstallationId, installation.value))
+      .select({ id: workspaceConnection.workspaceId })
+      .from(workspaceConnection)
+      .where(
+        and(
+          eq(workspaceConnection.source, source),
+          eq(workspaceConnection.externalId, externalId),
+        ),
+      )
       .limit(1);
 
     return found ? WorkspaceId.of(found.id) : null;
   }
 
-  async installationOf(
+  async connectionTo(
     workspaceId: WorkspaceId,
-  ): Promise<GitHubInstallation | null> {
+    source: string,
+  ): Promise<Connection | null> {
     const [found] = await this.context.db
-      .select({ installation: workspace.githubInstallationId })
+      .select({ externalId: workspaceConnection.externalId })
+      .from(workspaceConnection)
+      .where(
+        and(
+          eq(workspaceConnection.workspaceId, workspaceId.value),
+          eq(workspaceConnection.source, source),
+        ),
+      )
+      .limit(1);
+
+    return found ? Connection.of(source, found.externalId) : null;
+  }
+
+  async find(workspaceId: WorkspaceId): Promise<Workspace | null> {
+    const [found] = await this.context.db
+      .select({ slug: workspace.slug })
       .from(workspace)
       .where(eq(workspace.id, workspaceId.value))
       .limit(1);
 
-    return found?.installation
-      ? GitHubInstallation.of(found.installation)
-      : null;
+    return found ? this.findBySlug(WorkspaceSlug.of(found.slug)) : null;
   }
 
   async findBySlug(slug: WorkspaceSlug): Promise<Workspace | null> {
@@ -79,12 +97,19 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
       return null;
     }
 
-    const [members, teams] = await Promise.all([
+    const [members, teams, connections] = await Promise.all([
       this.context.db
         .select()
         .from(workspaceMember)
         .where(eq(workspaceMember.workspaceId, found.id)),
-      this.teamsOf(found.id),
+      this.context.db
+        .select({ id: team.id })
+        .from(team)
+        .where(eq(team.workspaceId, found.id)),
+      this.context.db
+        .select()
+        .from(workspaceConnection)
+        .where(eq(workspaceConnection.workspaceId, found.id)),
     ]);
 
     return Workspace.rehydrate({
@@ -95,10 +120,10 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
         userId: UserId.of(each.userId),
         role: each.role,
       })),
-      teams,
-      githubInstallation: found.githubInstallationId
-        ? GitHubInstallation.of(found.githubInstallationId)
-        : null,
+      teams: teams.map((each) => TeamId.of(each.id)),
+      connections: connections.map((each) =>
+        Connection.of(each.source, each.externalId),
+      ),
     });
   }
 
@@ -108,67 +133,56 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
    */
   async save(saved: Workspace): Promise<void> {
     await this.context.run(async () => {
-      // Taken from whoever held it rather than refused: the column is unique,
-      // and moving an installation to another workspace is something people
-      // do on purpose.
-      if (saved.githubInstallation) {
+      await this.context.db
+        .update(workspace)
+        .set({ name: saved.name.value, slug: saved.slug.value })
+        .where(eq(workspace.id, saved.id.value));
+
+      // Taken from whoever held it rather than refused: an identifier names
+      // one workspace, and moving a connection to another is something
+      // people do on purpose.
+      for (const connection of saved.connections) {
         await this.context.db
-          .update(workspace)
-          .set({ githubInstallationId: null })
+          .delete(workspaceConnection)
           .where(
             and(
-              eq(
-                workspace.githubInstallationId,
-                saved.githubInstallation.value,
-              ),
-              ne(workspace.id, saved.id.value),
+              eq(workspaceConnection.source, connection.source),
+              eq(workspaceConnection.externalId, connection.externalId),
+              ne(workspaceConnection.workspaceId, saved.id.value),
             ),
           );
       }
 
-      await this.context.db
-        .update(workspace)
-        .set({
-          name: saved.name.value,
-          slug: saved.slug.value,
-          githubInstallationId: saved.githubInstallation?.value ?? null,
-        })
-        .where(eq(workspace.id, saved.id.value));
-    });
-  }
-
-  private async teamsOf(workspaceId: string): Promise<Team[]> {
-    const held = await this.context.db
-      .select()
-      .from(team)
-      .where(eq(team.workspaceId, workspaceId));
-
-    if (held.length === 0) {
-      return [];
-    }
-
-    const members = await this.context.db
-      .select()
-      .from(teamMember)
-      .where(
-        inArray(
-          teamMember.teamId,
-          held.map((each) => each.id),
+      // What the workspace no longer says it reaches, it no longer reaches.
+      await this.context.db.delete(workspaceConnection).where(
+        and(
+          eq(workspaceConnection.workspaceId, saved.id.value),
+          saved.connections.length > 0
+            ? notInArray(
+                workspaceConnection.source,
+                saved.connections.map((each) => each.source),
+              )
+            : undefined,
         ),
       );
 
-    return held.map((each) =>
-      Team.rehydrate({
-        id: TeamId.of(each.id),
-        name: TeamName.of(each.name),
-        members: members
-          .filter((member) => member.teamId === each.id)
-          .map((member) => ({
-            userId: UserId.of(member.userId),
-            role: member.role,
-          })),
-      }),
-    );
+      for (const connection of saved.connections) {
+        await this.context.db
+          .insert(workspaceConnection)
+          .values({
+            workspaceId: saved.id.value,
+            source: connection.source,
+            externalId: connection.externalId,
+          })
+          .onConflictDoUpdate({
+            target: [
+              workspaceConnection.source,
+              workspaceConnection.externalId,
+            ],
+            set: { workspaceId: saved.id.value },
+          });
+      }
+    });
   }
 
   async add(added: Workspace): Promise<void> {
@@ -187,22 +201,6 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
             role: member.role,
           })),
         );
-
-        for (const owned of added.teams) {
-          await this.context.db.insert(team).values({
-            id: owned.id.value,
-            workspaceId: added.id.value,
-            name: owned.name.value,
-          });
-
-          await this.context.db.insert(teamMember).values(
-            owned.members.map((member) => ({
-              teamId: owned.id.value,
-              userId: member.userId.value,
-              role: member.role,
-            })),
-          );
-        }
       });
     } catch (error) {
       if (isSlugCollision(error)) {

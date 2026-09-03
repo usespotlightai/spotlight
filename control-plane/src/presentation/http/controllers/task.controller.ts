@@ -6,12 +6,16 @@ import type { StationDto } from '@application/dto/assembly-line.dto';
 import type { RunConversationDto } from '@application/dto/run-conversation.dto';
 import type { TaskDto } from '@application/dto/task.dto';
 import type { TaskRunDto, TeamRunDto } from '@application/dto/task-run.dto';
+import type { TaskTraceDto } from '@application/dto/task-trace.dto';
+import type { TeamTraceDto } from '@application/dto/team-trace.dto';
 import type { AuthenticatedUser } from '@application/ports/session.port';
 import { FindStationQuery } from '@application/queries/find-station.query';
 import { ListTaskRunsQuery } from '@application/queries/list-task-runs.query';
 import { ListTasksQuery } from '@application/queries/list-tasks.query';
 import { ListTeamRunsQuery } from '@application/queries/list-team-runs.query';
+import { ListTeamTracesQuery } from '@application/queries/list-team-traces.query';
 import { ReadRunConversationQuery } from '@application/queries/read-run-conversation.query';
+import { ReadTaskTraceQuery } from '@application/queries/read-task-trace.query';
 import {
   Body,
   Controller,
@@ -22,6 +26,7 @@ import {
   NotFoundException,
   Param,
   Post,
+  Query,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
@@ -31,6 +36,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiTags,
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
@@ -50,8 +56,24 @@ import {
   TaskRunResponseDto,
   TeamRunResponseDto,
 } from '@presentation/http/dto/task-run.response.dto';
+import { TaskTraceResponseDto } from '@presentation/http/dto/task-trace.response.dto';
+import { TeamTraceResponseDto } from '@presentation/http/dto/team-trace.response.dto';
 import { TaskHttpMapper } from '@presentation/http/mappers/task.http.mapper';
 import { TaskRunHttpMapper } from '@presentation/http/mappers/task-run.http.mapper';
+import { TaskTraceHttpMapper } from '@presentation/http/mappers/task-trace.http.mapper';
+import { TeamTraceHttpMapper } from '@presentation/http/mappers/team-trace.http.mapper';
+
+/** A month, where the caller did not say. Long enough to have something. */
+const A_MONTH = 30 * 24 * 60 * 60 * 1000;
+
+/** A moment that cannot be read is no instruction at all, so it is ignored. */
+const asked = (since: string | undefined): Date => {
+  const at = since ? new Date(since) : null;
+
+  return at && !Number.isNaN(at.getTime())
+    ? at
+    : new Date(Date.now() - A_MONTH);
+};
 
 @ApiTags('tasks')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
@@ -104,6 +126,31 @@ export class TaskController {
     );
 
     return runs.map(TaskRunHttpMapper.teamToResponse);
+  }
+
+  @Get('traces')
+  @ApiOperation({
+    operationId: 'listTeamTraces',
+    summary: 'Every task the team has worked, as one trace each',
+  })
+  @ApiQuery({
+    name: 'since',
+    required: false,
+    example: '2026-08-02T12:00:00.000Z',
+    description: 'Only runs started at or after this. Defaults to 30 days.',
+  })
+  @ApiOkResponse({ type: TeamTraceResponseDto, isArray: true })
+  async teamTraces(
+    @Param('teamId') teamId: string,
+    @Query('since') since: string | undefined,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<TeamTraceResponseDto[]> {
+    const traces = await this.queryBus.execute<
+      ListTeamTracesQuery,
+      TeamTraceDto[]
+    >(new ListTeamTracesQuery(teamId, user.id, asked(since)));
+
+    return traces.map(TeamTraceHttpMapper.toResponse);
   }
 
   @Get('runs/:runId/conversation')
@@ -205,6 +252,30 @@ export class TaskController {
     );
 
     return runs.map(TaskRunHttpMapper.toResponse);
+  }
+
+  @Get('tasks/:taskId/trace')
+  @ApiOperation({
+    operationId: 'readTaskTrace',
+    summary: 'Every run that worked a task, as one trace',
+  })
+  @ApiParam({ name: 'taskId' })
+  @ApiOkResponse({ type: TaskTraceResponseDto })
+  @ApiNotFoundResponse({ description: "No such task, or not the viewer's" })
+  async trace(
+    @Param('taskId') taskId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<TaskTraceResponseDto> {
+    const trace = await this.queryBus.execute<
+      ReadTaskTraceQuery,
+      TaskTraceDto | null
+    >(new ReadTaskTraceQuery(taskId, user.id));
+
+    if (!trace) {
+      throw new NotFoundException('No such task');
+    }
+
+    return TaskTraceHttpMapper.toResponse(trace);
   }
 
   @Delete('tasks/:taskId')

@@ -131,6 +131,10 @@ const (
 	EventOutput         EventType = "output"
 	EventFailed         EventType = "failed"
 	EventCompleted      EventType = "completed"
+	// EventSpan is one span a harness reported about its own workings, as it
+	// reported it. Only some harnesses say anything at all, so a run's journal
+	// holding none of these means nothing was offered.
+	EventSpan EventType = "span"
 )
 
 // Event is one entry in a run's journal. Seq is assigned by the runner and

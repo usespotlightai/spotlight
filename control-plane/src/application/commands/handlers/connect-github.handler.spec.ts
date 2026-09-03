@@ -5,7 +5,7 @@ import type { GitHubIdentityPort } from '@application/ports/github-identity.port
 import type { TransactionPort } from '@application/ports/transaction.port';
 import { Workspace } from '@domain/aggregates/workspace.aggregate';
 import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
-import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
+import { Connection } from '@domain/value-objects/connection.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { WorkspaceName } from '@domain/value-objects/workspace-name.vo';
@@ -45,10 +45,16 @@ const connecting = (
       administers: vi.fn(async () => over.administers ?? true),
     } as unknown as GitHubIdentityPort,
     transaction,
+    { list: vi.fn(async () => [{ fullName: 'acme/api' }]) },
+    { ofWorkspace: vi.fn(async () => []) } as never,
+    { trySeed: seed, seed } as never,
   );
 
   return { handler, save };
 };
+
+/** Writing the configuration down is its own thing, and has its own test. */
+const seed = vi.fn(async () => ({ url: 'https://github.com/acme/api/pull/1' }));
 
 const command = (installationId = '81234567') =>
   new ConnectGitHubCommand('acme', 'user_1', installationId);
@@ -60,7 +66,9 @@ describe('ConnectGitHubHandler', () => {
     expect(await handler.execute(command())).toBe('ws_1');
 
     const [saved] = save.mock.calls[0] as never as [Workspace];
-    expect(saved.githubInstallation).toEqual(GitHubInstallation.of('81234567'));
+    expect(saved.connectionTo('github')).toEqual(
+      Connection.of('github', '81234567'),
+    );
   });
 
   it('answers with nothing where there is no such workspace', async () => {

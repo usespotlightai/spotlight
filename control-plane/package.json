@@ -26,6 +26,7 @@
     "auth:generate": "auth generate --config scripts/auth-config.ts --output src/infrastructure/persistence/drizzle/schemas/auth.schema.ts -y"
   },
   "dependencies": {
+    "@marcbachmann/cel-js": "^8.0.0",
     "@nestjs/common": "^11.2.1",
     "@nestjs/core": "^11.2.1",
     "@nestjs/cqrs": "^11.0.3",
@@ -41,6 +42,7 @@
     "pino-http": "^11.0.0",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
+    "yaml": "^2.9.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

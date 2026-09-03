@@ -7,6 +7,7 @@ import type { TransactionPort } from '@application/ports/transaction.port';
 import type { Workspace } from '@domain/aggregates/workspace.aggregate';
 import { TeamCreated } from '@domain/events/team-created.event';
 import { WorkspaceSlugTakenError } from '@domain/exceptions/workspace-slug-taken.error';
+import type { TeamRepository } from '@domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -31,21 +32,33 @@ const provisioning = (): FactoryProvisioningPort => ({
 const handle = (name = 'Acme Inc.', slug = 'acme-inc') =>
   new CreateWorkspaceHandler(
     repository,
+    teams as unknown as TeamRepository,
     ids(),
     transaction,
     provisioning(),
   ).execute(new CreateWorkspaceCommand(name, slug, 'user_1'));
 
+let teams: Record<string, unknown>;
+
 beforeEach(() => {
   added = undefined;
   provisioned = [];
+  teams = {
+    add: vi.fn(),
+    save: vi.fn(),
+    find: vi.fn(),
+    named: vi.fn(),
+    ofWorkspace: vi.fn(),
+    readingFrom: vi.fn(),
+  };
   repository = {
     isTaken: vi.fn().mockResolvedValue(false),
     add: vi.fn(async (workspace: Workspace) => {
       added = workspace;
     }),
-    withInstallation: vi.fn().mockResolvedValue(null),
-    installationOf: vi.fn().mockResolvedValue(null),
+    withConnection: vi.fn().mockResolvedValue(null),
+    connectionTo: vi.fn().mockResolvedValue(null),
+    find: vi.fn().mockResolvedValue(null),
     findBySlug: vi.fn().mockResolvedValue(null),
     save: vi.fn().mockResolvedValue(undefined),
   };

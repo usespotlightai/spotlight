@@ -1,1 +1,0 @@
-DROP TABLE "handled_delivery" CASCADE;

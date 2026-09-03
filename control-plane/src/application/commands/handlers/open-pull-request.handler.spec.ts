@@ -6,7 +6,8 @@ import { Run } from '@domain/aggregates/run.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import type { RunRepository } from '@domain/repositories/run.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
-import type { GitHubInstallations } from '@domain/repositories/workspace.repository';
+import type { WorkspaceConnections } from '@domain/repositories/workspace.repository';
+import { Connection } from '@domain/value-objects/connection.vo';
 import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { PullRequestUrl } from '@domain/value-objects/pull-request-url.vo';
@@ -71,8 +72,8 @@ const opening = (held: Task) => {
     ),
     tasks,
     {
-      installationOf: vi.fn(async () => GitHubInstallation.of('42')),
-    } as unknown as GitHubInstallations,
+      connectionTo: vi.fn(async () => Connection.of('github', '42')),
+    } as unknown as WorkspaceConnections,
     pullRequests as unknown as PullRequestPort,
   );
 

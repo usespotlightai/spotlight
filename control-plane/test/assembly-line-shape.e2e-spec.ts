@@ -42,7 +42,9 @@ describe('a line, written and read back (e2e)', () => {
     // A line stands in a factory, in a team, in a workspace. Only the line is
     // under test, so the rest is the shortest thing that satisfies it.
     await db.insert(workspace).values({ id: held, name: held, slug: held });
-    await db.insert(team).values({ id: held, workspaceId: held, name: held });
+    await db
+      .insert(team)
+      .values({ id: held, workspaceId: held, key: 'team', name: held });
     await db
       .insert(factory)
       .values({ id: held, workspaceId: held, teamId: held });

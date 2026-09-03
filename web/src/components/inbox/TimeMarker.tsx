@@ -1,6 +1,5 @@
 import { openedAt } from '@/lib/inbox';
 
-/** When something happened, set between what came before it and after. */
 export function TimeMarker({ at }: { at: string }) {
   return (
     <time

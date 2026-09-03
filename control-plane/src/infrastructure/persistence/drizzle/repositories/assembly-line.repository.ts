@@ -7,11 +7,14 @@ import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { LineKey } from '@domain/value-objects/line-key.vo';
 import { Reaction } from '@domain/value-objects/reaction.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationDescription } from '@domain/value-objects/station-description.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
+import { StationKey } from '@domain/value-objects/station-key.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
+import { TeamId } from '@domain/value-objects/team-id.vo';
 import { Tool } from '@domain/value-objects/tool.vo';
 import { WayOut } from '@domain/value-objects/way-out.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
@@ -23,6 +26,7 @@ import {
   stationRoute,
   stationTool,
 } from '@infrastructure/persistence/drizzle/schemas/assembly-line.schema';
+import { factory } from '@infrastructure/persistence/drizzle/schemas/factory.schema';
 import { Injectable } from '@nestjs/common';
 import { eq, inArray } from 'drizzle-orm';
 
@@ -36,6 +40,7 @@ type Ways = {
 
 const toStation = (row: StationRow, ways: Ways): Station =>
   Station.create({
+    key: row.key ? StationKey.of(row.key) : StationKey.from(row.name),
     id: StationId.of(row.id),
     name: StationName.of(row.name),
     position: row.position,
@@ -63,6 +68,7 @@ const toLine = (
     id: AssemblyLineId.of(line.id),
     workspaceId: WorkspaceId.of(line.workspaceId),
     factoryId: FactoryId.of(line.factoryId),
+    key: LineKey.of(line.key || 'default'),
     name: AssemblyLineName.of(line.name),
     stations: stations.map((row) => toStation(row, ways)),
     reactions,
@@ -93,6 +99,7 @@ const reactionRowsOf = (line: AssemblyLine) =>
   }));
 
 const columnsOf = (each: Station) => ({
+  key: each.key.value,
   name: each.name.value,
   position: each.position,
   color: each.color.value,
@@ -119,6 +126,7 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
       id: added.id.value,
       workspaceId: added.workspaceId.value,
       factoryId: added.factoryId.value,
+      key: added.key.value,
       name: added.name.value,
     });
 
@@ -129,7 +137,7 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
   async save(saved: AssemblyLine): Promise<void> {
     await this.context.db
       .update(assemblyLine)
-      .set({ name: saved.name.value })
+      .set({ key: saved.key.value, name: saved.name.value })
       .where(eq(assemblyLine.id, saved.id.value));
 
     for (const each of saved.stations) {
@@ -251,5 +259,44 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
     ]);
 
     return toLine(found, stations, ways, reactions);
+  }
+
+  async ofTeam(teamId: TeamId): Promise<readonly AssemblyLine[]> {
+    const found = await this.context.db
+      .select({ id: assemblyLine.id })
+      .from(assemblyLine)
+      .innerJoin(factory, eq(factory.id, assemblyLine.factoryId))
+      .where(eq(factory.teamId, teamId.value))
+      .orderBy(assemblyLine.id);
+
+    return this.allOf(found.map((each) => each.id));
+  }
+
+  async ofWorkspace(
+    workspaceId: WorkspaceId,
+  ): Promise<readonly AssemblyLine[]> {
+    const found = await this.context.db
+      .select({ id: assemblyLine.id })
+      .from(assemblyLine)
+      .where(eq(assemblyLine.workspaceId, workspaceId.value))
+      .orderBy(assemblyLine.id);
+
+    return this.allOf(found.map((each) => each.id));
+  }
+
+  private async allOf(
+    ids: readonly string[],
+  ): Promise<readonly AssemblyLine[]> {
+    const held: AssemblyLine[] = [];
+
+    for (const id of ids) {
+      const line = await this.find(AssemblyLineId.of(id));
+
+      if (line) {
+        held.push(line);
+      }
+    }
+
+    return held;
   }
 }

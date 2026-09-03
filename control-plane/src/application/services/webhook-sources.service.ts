@@ -7,12 +7,21 @@ import type {
  * Every host Spotlight listens to, by the name the world addresses it with.
  * A source nobody registered is not a source: a delivery to one is refused
  * rather than guessed at.
+ *
+ * Asked for its sources the first time somebody wants one, and not before:
+ * what is registered is settled by then, and nothing here needs to know in
+ * what order it was put together.
  */
 export class WebhookSources {
-  private readonly byKey: ReadonlyMap<string, WebhookSourcePort>;
+  #byKey: ReadonlyMap<string, WebhookSourcePort> | null = null;
 
-  constructor(sources: readonly WebhookSourcePort[]) {
-    this.byKey = new Map(sources.map((each) => [each.key, each]));
+  constructor(
+    private readonly registered: () => readonly WebhookSourcePort[],
+  ) {}
+
+  /** The sources themselves, where somebody already has them all in hand. */
+  static of(sources: readonly WebhookSourcePort[]): WebhookSources {
+    return new WebhookSources(() => sources);
   }
 
   find(key: string): WebhookSourcePort | null {
@@ -29,5 +38,11 @@ export class WebhookSources {
    */
   get happenings(): readonly HappeningDeclaration[] {
     return this.all.flatMap((each) => [...each.happenings]);
+  }
+
+  private get byKey(): ReadonlyMap<string, WebhookSourcePort> {
+    this.#byKey ??= new Map(this.registered().map((each) => [each.key, each]));
+
+    return this.#byKey;
   }
 }

@@ -98,6 +98,8 @@ const lines = () =>
     save: vi.fn(),
     find: vi.fn(async () => line()),
     holding: vi.fn(async () => line()),
+    ofWorkspace: vi.fn(async () => []),
+    ofTeam: vi.fn(async () => []),
   }) satisfies AssemblyLineRepository;
 
 const dispatch: TaskDispatching = {

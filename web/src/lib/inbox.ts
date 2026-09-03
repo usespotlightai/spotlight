@@ -8,7 +8,6 @@ export type InboxItem = InboxItemResponseDto;
 
 export type InboxMessage = InboxMessageResponseDto;
 
-/** One station's exchange: narrower than an inbox item, which a run is not. */
 export type Conversing = {
   readonly id: string;
   readonly createdAt: string;
@@ -40,6 +39,9 @@ export const took = (ms: number): string => {
 
 export const counted = (tokens: number): string =>
   tokens < 1_000 ? `${tokens}` : `${Math.round(tokens / 100) / 10}k`;
+
+export const spentOn = (cost: number | null): string =>
+  cost === null ? '–' : `$${cost < 0.01 ? cost.toFixed(4) : cost.toFixed(2)}`;
 
 export type JournalStep = RunJournalResponseDto['steps'][number];
 

@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddTaskData, AddTaskErrors, AddTaskResponses, AnswerInboxItemData, AnswerInboxItemErrors, AnswerInboxItemResponses, AnswerRemarkData, AnswerRemarkErrors, AnswerRemarkResponses, AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, ConnectGitHubData, ConnectGitHubErrors, ConnectGitHubResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, CustomiseStationData, CustomiseStationErrors, CustomiseStationResponses, DeleteTaskData, DeleteTaskErrors, DeleteTaskResponses, DeliverSaidData, DeliverSaidErrors, DeliverSaidResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, EnrolRunnerData, EnrolRunnerErrors, EnrolRunnerResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, InstallableHarnessesData, InstallableHarnessesErrors, InstallableHarnessesResponses, KeptWorkspacesData, KeptWorkspacesErrors, KeptWorkspacesResponses, ListAssemblyLinesData, ListAssemblyLinesErrors, ListAssemblyLinesResponses, ListHappeningsData, ListHappeningsErrors, ListHappeningsResponses, ListHarnessesData, ListHarnessesErrors, ListHarnessesResponses, ListInboxData, ListInboxErrors, ListInboxResponses, ListRepositoriesData, ListRepositoriesErrors, ListRepositoriesResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListTaskRunsData, ListTaskRunsErrors, ListTaskRunsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListTeamRunsData, ListTeamRunsErrors, ListTeamRunsResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, MoveTaskData, MoveTaskErrors, MoveTaskResponses, OpenPullRequestData, OpenPullRequestErrors, OpenPullRequestResponses, PendingMessagesData, PendingMessagesErrors, PendingMessagesResponses, ReadInboxItemData, ReadInboxItemErrors, ReadInboxItemResponses, ReadRunConversationData, ReadRunConversationErrors, ReadRunConversationResponses, ReadTaskJournalData, ReadTaskJournalErrors, ReadTaskJournalResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, ReorderStationsData, ReorderStationsErrors, ReorderStationsResponses, RevokeRunnerData, RevokeRunnerErrors, RevokeRunnerResponses, SayToRunData, SayToRunErrors, SayToRunResponses, SetLineReactionsData, SetLineReactionsErrors, SetLineReactionsResponses, StreamRunData, StreamRunErrors, StreamRunResponses } from './types.gen';
+import type { AddTaskData, AddTaskErrors, AddTaskResponses, AnswerInboxItemData, AnswerInboxItemErrors, AnswerInboxItemResponses, AnswerRemarkData, AnswerRemarkErrors, AnswerRemarkResponses, AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, ChooseToolsData, ChooseToolsErrors, ChooseToolsResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, ConnectGitHubData, ConnectGitHubErrors, ConnectGitHubResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, CustomiseStationData, CustomiseStationErrors, CustomiseStationResponses, DeleteTaskData, DeleteTaskErrors, DeleteTaskResponses, DeliverSaidData, DeliverSaidErrors, DeliverSaidResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, EnrolRunnerData, EnrolRunnerErrors, EnrolRunnerResponses, ForgetSecretData, ForgetSecretErrors, ForgetSecretResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, InstallableHarnessesData, InstallableHarnessesErrors, InstallableHarnessesResponses, KeptWorkspacesData, KeptWorkspacesErrors, KeptWorkspacesResponses, ListAssemblyLinesData, ListAssemblyLinesErrors, ListAssemblyLinesResponses, ListHappeningsData, ListHappeningsErrors, ListHappeningsResponses, ListHarnessesData, ListHarnessesErrors, ListHarnessesResponses, ListInboxData, ListInboxErrors, ListInboxResponses, ListRepositoriesData, ListRepositoriesErrors, ListRepositoriesResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListTaskRunsData, ListTaskRunsErrors, ListTaskRunsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListTeamRunsData, ListTeamRunsErrors, ListTeamRunsResponses, ListTeamTracesData, ListTeamTracesErrors, ListTeamTracesResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, MoveTaskData, MoveTaskErrors, MoveTaskResponses, OpenPullRequestData, OpenPullRequestErrors, OpenPullRequestResponses, PendingMessagesData, PendingMessagesErrors, PendingMessagesResponses, ProposeLineData, ProposeLineErrors, ProposeLineResponses, ReadConfigurationData, ReadConfigurationErrors, ReadConfigurationResponses, ReadInboxItemData, ReadInboxItemErrors, ReadInboxItemResponses, ReadOnboardingData, ReadOnboardingErrors, ReadOnboardingResponses, ReadRunConversationData, ReadRunConversationErrors, ReadRunConversationResponses, ReadTaskJournalData, ReadTaskJournalErrors, ReadTaskJournalResponses, ReadTaskTraceData, ReadTaskTraceErrors, ReadTaskTraceResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, ReorderStationsData, ReorderStationsErrors, ReorderStationsResponses, RereadConfigurationData, RereadConfigurationErrors, RereadConfigurationResponses, RevokeRunnerData, RevokeRunnerErrors, RevokeRunnerResponses, SayToRunData, SayToRunErrors, SayToRunResponses, SetLineReactionsData, SetLineReactionsErrors, SetLineReactionsResponses, SetSecretData, SetSecretErrors, SetSecretResponses, StreamRunData, StreamRunErrors, StreamRunResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -256,6 +256,55 @@ export const connectGitHub = <ThrowOnError extends boolean = false>(options: Opt
 });
 
 /**
+ * What this team listens to, and what is wrong with it
+ */
+export const readConfiguration = <ThrowOnError extends boolean = false>(options: Options<ReadConfigurationData, ThrowOnError>): RequestResult<ReadConfigurationResponses, ReadConfigurationErrors, ThrowOnError> => (options.client ?? client).get<ReadConfigurationResponses, ReadConfigurationErrors, ThrowOnError>({ url: '/teams/{teamId}/configuration', ...options });
+
+/**
+ * Read this team’s configuration from its repository again
+ */
+export const rereadConfiguration = <ThrowOnError extends boolean = false>(options: Options<RereadConfigurationData, ThrowOnError>): RequestResult<RereadConfigurationResponses, RereadConfigurationErrors, ThrowOnError> => (options.client ?? client).post<RereadConfigurationResponses, RereadConfigurationErrors, ThrowOnError>({ url: '/teams/{teamId}/configuration/reread', ...options });
+
+/**
+ * Write this line back to the repository, as a pull request
+ */
+export const proposeLine = <ThrowOnError extends boolean = false>(options: Options<ProposeLineData, ThrowOnError>): RequestResult<ProposeLineResponses, ProposeLineErrors, ThrowOnError> => (options.client ?? client).post<ProposeLineResponses, ProposeLineErrors, ThrowOnError>({ url: '/teams/{teamId}/configuration/lines/{lineId}/propose', ...options });
+
+/**
+ * What this team still needs, and the tools it may choose
+ */
+export const readOnboarding = <ThrowOnError extends boolean = false>(options: Options<ReadOnboardingData, ThrowOnError>): RequestResult<ReadOnboardingResponses, ReadOnboardingErrors, ThrowOnError> => (options.client ?? client).get<ReadOnboardingResponses, ReadOnboardingErrors, ThrowOnError>({ url: '/teams/{teamId}/configuration/onboarding', ...options });
+
+/**
+ * Write configuration for the tools this team uses
+ */
+export const chooseTools = <ThrowOnError extends boolean = false>(options: Options<ChooseToolsData, ThrowOnError>): RequestResult<ChooseToolsResponses, ChooseToolsErrors, ThrowOnError> => (options.client ?? client).post<ChooseToolsResponses, ChooseToolsErrors, ThrowOnError>({
+  url: '/teams/{teamId}/configuration/tools',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Set a secret this team’s integrations verify with
+ */
+export const setSecret = <ThrowOnError extends boolean = false>(options: Options<SetSecretData, ThrowOnError>): RequestResult<SetSecretResponses, SetSecretErrors, ThrowOnError> => (options.client ?? client).post<SetSecretResponses, SetSecretErrors, ThrowOnError>({
+  url: '/teams/{teamId}/configuration/secrets',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Forget a secret, so nothing verifies with it again
+ */
+export const forgetSecret = <ThrowOnError extends boolean = false>(options: Options<ForgetSecretData, ThrowOnError>): RequestResult<ForgetSecretResponses, ForgetSecretErrors, ThrowOnError> => (options.client ?? client).delete<ForgetSecretResponses, ForgetSecretErrors, ThrowOnError>({ url: '/teams/{teamId}/configuration/secrets/{name}', ...options });
+
+/**
  * The words a station here can be set to wait for
  */
 export const listHappenings = <ThrowOnError extends boolean = false>(options: Options<ListHappeningsData, ThrowOnError>): RequestResult<ListHappeningsResponses, ListHappeningsErrors, ThrowOnError> => (options.client ?? client).get<ListHappeningsResponses, ListHappeningsErrors, ThrowOnError>({ url: '/workspaces/{slug}/happenings', ...options });
@@ -269,6 +318,11 @@ export const listTasks = <ThrowOnError extends boolean = false>(options: Options
  * Every run the team has worked, across its stations
  */
 export const listTeamRuns = <ThrowOnError extends boolean = false>(options: Options<ListTeamRunsData, ThrowOnError>): RequestResult<ListTeamRunsResponses, ListTeamRunsErrors, ThrowOnError> => (options.client ?? client).get<ListTeamRunsResponses, ListTeamRunsErrors, ThrowOnError>({ url: '/teams/{teamId}/runs', ...options });
+
+/**
+ * Every task the team has worked, as one trace each
+ */
+export const listTeamTraces = <ThrowOnError extends boolean = false>(options: Options<ListTeamTracesData, ThrowOnError>): RequestResult<ListTeamTracesResponses, ListTeamTracesErrors, ThrowOnError> => (options.client ?? client).get<ListTeamTracesResponses, ListTeamTracesErrors, ThrowOnError>({ url: '/teams/{teamId}/traces', ...options });
 
 /**
  * The task and the trail since it reached this run’s station
@@ -291,6 +345,11 @@ export const sayToRun = <ThrowOnError extends boolean = false>(options: Options<
  * List what has been run on a task, most recent first
  */
 export const listTaskRuns = <ThrowOnError extends boolean = false>(options: Options<ListTaskRunsData, ThrowOnError>): RequestResult<ListTaskRunsResponses, ListTaskRunsErrors, ThrowOnError> => (options.client ?? client).get<ListTaskRunsResponses, ListTaskRunsErrors, ThrowOnError>({ url: '/teams/{teamId}/tasks/{taskId}/runs', ...options });
+
+/**
+ * Every run that worked a task, as one trace
+ */
+export const readTaskTrace = <ThrowOnError extends boolean = false>(options: Options<ReadTaskTraceData, ThrowOnError>): RequestResult<ReadTaskTraceResponses, ReadTaskTraceErrors, ThrowOnError> => (options.client ?? client).get<ReadTaskTraceResponses, ReadTaskTraceErrors, ThrowOnError>({ url: '/teams/{teamId}/tasks/{taskId}/trace', ...options });
 
 /**
  * Delete a task

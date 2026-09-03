@@ -12,6 +12,9 @@ const transaction: TransactionPort = { run: (work) => work() };
 
 const waiting = (id: string): StoredDelivery => ({
   source: 'github',
+  workspaceId: '',
+  teamId: '',
+  teamKey: '',
   id,
   headers: {},
   body: {},
@@ -28,11 +31,11 @@ const working = (
 
   const inbox = {
     nextPending: vi.fn(async () => pending.shift() ?? null),
-    worked: vi.fn(async (_source: string, id: string) => {
-      worked.push(id);
+    worked: vi.fn(async (delivered: StoredDelivery) => {
+      worked.push(delivered.id);
     }),
-    failed: vi.fn(async (_source: string, id: string, because: string) => {
-      failed.push({ id, because });
+    failed: vi.fn(async (delivered: StoredDelivery, because: string) => {
+      failed.push({ id: delivered.id, because });
     }),
   } as unknown as DeliveryInboxPort;
 

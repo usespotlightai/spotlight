@@ -25,6 +25,18 @@ export class StationName {
     return StationName.of('Unknown');
   }
 
+  /**
+   * What was already written, read back. A page that shows history must not
+   * fall over on a row that predates the rule it would be held to now.
+   */
+  static maybe(raw: string | null | undefined): StationName | null {
+    try {
+      return raw ? StationName.of(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
   equals(other: StationName): boolean {
     return this.value === other.value;
   }

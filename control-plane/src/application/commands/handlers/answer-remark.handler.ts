@@ -9,7 +9,8 @@ import { NoGitHubInstallationError } from '@domain/exceptions/no-github-installa
 import { NoRepositoryError } from '@domain/exceptions/no-repository.error';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
-import type { GitHubInstallations } from '@domain/repositories/workspace.repository';
+import type { WorkspaceConnections } from '@domain/repositories/workspace.repository';
+import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import { RemarkHandle } from '@domain/value-objects/remark-handle.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
@@ -22,7 +23,7 @@ export class AnswerRemarkHandler
     private readonly held: RunAtHand,
     private readonly tasks: TaskRepository,
     private readonly lines: AssemblyLineRepository,
-    private readonly workspaces: GitHubInstallations,
+    private readonly workspaces: WorkspaceConnections,
     private readonly remarks: RemarksPort,
     private readonly clock: ClockPort,
   ) {}
@@ -48,8 +49,11 @@ export class AnswerRemarkHandler
 
       const at = RemarkHandle.of(command.handle);
       const line = await this.lines.holding(task.stationId);
-      const installation = await this.workspaces.installationOf(
-        task.workspaceId,
+      const installation = GitHubInstallation.from(
+        await this.workspaces.connectionTo(
+          task.workspaceId,
+          GitHubInstallation.SOURCE,
+        ),
       );
 
       if (!installation) {

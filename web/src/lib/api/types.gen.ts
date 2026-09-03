@@ -343,8 +343,25 @@ export type AnswerInboxItemRequestDto = {
   body: string;
 };
 
+export type StepLocationResponseDto = {
+  path: string;
+  line: number | null;
+};
+
+export type StepChangeResponseDto = {
+  path: string | null;
+  /**
+   * The file as it stood
+   */
+  before: string;
+  /**
+   * The file as the agent left it
+   */
+  after: string;
+};
+
 export type JournalStepResponseDto = {
-  kind: 'said' | 'thought' | 'tool';
+  kind: 'said' | 'thought' | 'tool' | 'planned' | 'hook';
   text: string;
   status: string | null;
   /**
@@ -359,6 +376,46 @@ export type JournalStepResponseDto = {
    * How long it took, in ms
    */
   ms: number;
+  /**
+   * When it began, for laying the run out against a clock
+   */
+  startedAt: string;
+  locations: Array<StepLocationResponseDto>;
+  /**
+   * What the tool was asked for, as it was asked
+   */
+  given: string | null;
+  /**
+   * What it handed back, unread
+   */
+  returned: string | null;
+  change: StepChangeResponseDto | null;
+};
+
+export type SpanAttributeResponseDto = {
+  name: string;
+  value: string;
+};
+
+export type RunSpanResponseDto = {
+  id: string;
+  parentId: string | null;
+  name: string;
+  startedAt: string;
+  ms: number;
+  failed: boolean;
+  attributes: Array<SpanAttributeResponseDto>;
+};
+
+export type RunMarksResponseDto = {
+  startedAt: string | null;
+  /**
+   * When the workspace was handed to the agent
+   */
+  readyAt: string | null;
+  spokeFrom: string | null;
+  spokeTo: string | null;
+  endedAt: string | null;
 };
 
 export type RunSpentResponseDto = {
@@ -379,9 +436,14 @@ export type RunJournalResponseDto = {
   attempt: number;
   steps: Array<JournalStepResponseDto>;
   /**
+   * Empty for a harness that reports nothing of itself
+   */
+  spans: Array<RunSpanResponseDto>;
+  /**
    * How long the run spoke for, in ms
    */
   ms?: number | null;
+  marks: RunMarksResponseDto;
   spent?: RunSpentResponseDto | null;
   /**
    * False for a run from before the agents spoke a protocol
@@ -445,6 +507,89 @@ export type ConnectGitHubRequestDto = {
    * The installation GitHub named when it sent you back
    */
   installationId: string;
+};
+
+export type ConfiguredHappeningResponseDto = {
+  happening: string;
+  label: string;
+};
+
+export type ConfiguredIntegrationResponseDto = {
+  source: string;
+  name: string;
+  /**
+   * Where this host should be told to send its deliveries
+   */
+  deliverTo: string;
+  secret: string;
+  /**
+   * Whether the workspace has set it. Never its value.
+   */
+  secretSet: boolean;
+  happenings: Array<ConfiguredHappeningResponseDto>;
+};
+
+export type ConfigProblemResponseDto = {
+  path: string;
+  at: string;
+  reason: string;
+};
+
+export type ConfigurationResponseDto = {
+  repository: string | null;
+  sha: string | null;
+  readAt: string | null;
+  integrations: Array<ConfiguredIntegrationResponseDto>;
+  problems: Array<ConfigProblemResponseDto>;
+};
+
+export type ProposedResponseDto = {
+  url: string;
+};
+
+export type KnownToolResponseDto = {
+  source: string;
+  name: string;
+  summary: string;
+  secretCalled: string;
+  /**
+   * Whether this team already listens to it
+   */
+  chosen: boolean;
+};
+
+export type OnboardingResponseDto = {
+  /**
+   * A runner has to be reachable, or nothing runs
+   */
+  hasRunner: boolean;
+  /**
+   * The App has to be installed to read or write
+   */
+  connectedToGitHub: boolean;
+  /**
+   * Configuration has been read at least once
+   */
+  hasConfiguration: boolean;
+  tools: Array<KnownToolResponseDto>;
+};
+
+export type ChooseToolsRequestDto = {
+  /**
+   * The hosts this team uses, by the name each is known by
+   */
+  sources: Array<string>;
+};
+
+export type SetSecretRequestDto = {
+  /**
+   * What the configuration calls it. Never its value.
+   */
+  name: string;
+  /**
+   * Written once and never read back out of Spotlight.
+   */
+  value: string;
 };
 
 export type HappeningResponseDto = {
@@ -550,6 +695,46 @@ export type TeamRunResponseDto = {
   taskDescription: string | null;
 };
 
+export type TraceStationResponseDto = {
+  name: string;
+  color: string;
+  position: number;
+  /**
+   * How many the line holds
+   */
+  count: number;
+};
+
+export type TeamTraceResponseDto = {
+  taskId: string;
+  title: string;
+  station: TraceStationResponseDto | null;
+  /**
+   * Every station that has worked it, in the line’s own order
+   */
+  stations: Array<TraceStationResponseDto>;
+  harness: string;
+  state: 'queued' | 'claimed' | 'completed' | 'failed';
+  startedAt: string;
+  /**
+   * How many runs worked the task
+   */
+  runs: number;
+  /**
+   * What the last run was put to
+   */
+  input: string | null;
+  /**
+   * What it said when it handed the task on
+   */
+  output: string | null;
+  ms: number | null;
+  steps: number;
+  faults: number;
+  cost: number | null;
+  currency: string | null;
+};
+
 export type RunConversationResponseDto = {
   runId: string;
   taskId: string;
@@ -591,6 +776,40 @@ export type TaskRunResponseDto = {
    * Set where it put the task to a person
    */
   review: RunReviewResponseDto | null;
+};
+
+export type TraceNodeResponseDto = {
+  id: string;
+  kind: 'run' | 'phase' | 'step' | 'span';
+  name: string;
+  startedAt: string;
+  /**
+   * How long it took, in ms
+   */
+  ms: number;
+  /**
+   * The agent working, the overhead around it, or a fault
+   */
+  tone: 'agent' | 'overhead' | 'failed';
+  cost: number | null;
+  currency: string | null;
+  step: JournalStepResponseDto | null;
+  span: RunSpanResponseDto | null;
+  children: Array<TraceNodeResponseDto>;
+};
+
+export type TaskTraceResponseDto = {
+  startedAt: string | null;
+  /**
+   * First run to last, in ms
+   */
+  ms: number;
+  /**
+   * How many rows it draws
+   */
+  rows: number;
+  faults: number;
+  roots: Array<TraceNodeResponseDto>;
 };
 
 export type AddTaskRequestDto = {
@@ -1333,6 +1552,200 @@ export type ConnectGitHubResponses = {
 
 export type ConnectGitHubResponse = ConnectGitHubResponses[keyof ConnectGitHubResponses];
 
+export type ReadConfigurationData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration';
+};
+
+export type ReadConfigurationErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+};
+
+export type ReadConfigurationResponses = {
+  200: ConfigurationResponseDto;
+};
+
+export type ReadConfigurationResponse = ReadConfigurationResponses[keyof ReadConfigurationResponses];
+
+export type RereadConfigurationData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration/reread';
+};
+
+export type RereadConfigurationErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, or nowhere to read it from
+   */
+  404: unknown;
+};
+
+export type RereadConfigurationResponses = {
+  200: ConfigurationResponseDto;
+};
+
+export type RereadConfigurationResponse = RereadConfigurationResponses[keyof RereadConfigurationResponses];
+
+export type ProposeLineData = {
+  body?: never;
+  path: {
+    teamId: string;
+    lineId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration/lines/{lineId}/propose';
+};
+
+export type ProposeLineErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team or line
+   */
+  404: unknown;
+  /**
+   * The repository moved while this was being edited
+   */
+  409: unknown;
+};
+
+export type ProposeLineResponses = {
+  200: ProposedResponseDto;
+};
+
+export type ProposeLineResponse = ProposeLineResponses[keyof ProposeLineResponses];
+
+export type ReadOnboardingData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration/onboarding';
+};
+
+export type ReadOnboardingErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+};
+
+export type ReadOnboardingResponses = {
+  200: OnboardingResponseDto;
+};
+
+export type ReadOnboardingResponse = ReadOnboardingResponses[keyof ReadOnboardingResponses];
+
+export type ChooseToolsData = {
+  body: ChooseToolsRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration/tools';
+};
+
+export type ChooseToolsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, or nowhere to write it yet
+   */
+  404: unknown;
+};
+
+export type ChooseToolsResponses = {
+  200: ProposedResponseDto;
+};
+
+export type ChooseToolsResponse = ChooseToolsResponses[keyof ChooseToolsResponses];
+
+export type SetSecretData = {
+  body: SetSecretRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration/secrets';
+};
+
+export type SetSecretErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, or not yours to set one on
+   */
+  404: unknown;
+};
+
+export type SetSecretResponses = {
+  /**
+   * Set
+   */
+  204: void;
+};
+
+export type SetSecretResponse = SetSecretResponses[keyof SetSecretResponses];
+
+export type ForgetSecretData = {
+  body?: never;
+  path: {
+    teamId: string;
+    name: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration/secrets/{name}';
+};
+
+export type ForgetSecretErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, or not yours to change
+   */
+  404: unknown;
+};
+
+export type ForgetSecretResponses = {
+  /**
+   * Forgotten
+   */
+  204: void;
+};
+
+export type ForgetSecretResponse = ForgetSecretResponses[keyof ForgetSecretResponses];
+
 export type ListHappeningsData = {
   body?: never;
   path: {
@@ -1406,6 +1819,33 @@ export type ListTeamRunsResponses = {
 };
 
 export type ListTeamRunsResponse = ListTeamRunsResponses[keyof ListTeamRunsResponses];
+
+export type ListTeamTracesData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: {
+    /**
+     * Only runs started at or after this. Defaults to 30 days.
+     */
+    since?: unknown;
+  };
+  url: '/teams/{teamId}/traces';
+};
+
+export type ListTeamTracesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+};
+
+export type ListTeamTracesResponses = {
+  200: Array<TeamTraceResponseDto>;
+};
+
+export type ListTeamTracesResponse = ListTeamTracesResponses[keyof ListTeamTracesResponses];
 
 export type ReadRunConversationData = {
   body?: never;
@@ -1490,6 +1930,33 @@ export type ListTaskRunsResponses = {
 };
 
 export type ListTaskRunsResponse = ListTaskRunsResponses[keyof ListTaskRunsResponses];
+
+export type ReadTaskTraceData = {
+  body?: never;
+  path: {
+    taskId: string;
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/trace';
+};
+
+export type ReadTaskTraceErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task, or not the viewer's
+   */
+  404: unknown;
+};
+
+export type ReadTaskTraceResponses = {
+  200: TaskTraceResponseDto;
+};
+
+export type ReadTaskTraceResponse = ReadTaskTraceResponses[keyof ReadTaskTraceResponses];
 
 export type DeleteTaskData = {
   body?: never;

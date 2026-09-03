@@ -6,11 +6,6 @@ import { RunBriefing } from '@/components/runs/RunBriefing';
 import { type TeamRun, working } from '@/lib/run';
 import { stationShare } from '@/lib/station';
 
-/**
- * A run that has not said anything yet. Until it does there is no conversation
- * to read, so what stands in its place is what it was given: the task itself,
- * and the station saying it is working.
- */
 type RunOpeningProps = {
   run: TeamRun;
   briefing: string | null;

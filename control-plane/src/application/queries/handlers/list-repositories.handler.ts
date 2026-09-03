@@ -6,7 +6,8 @@ import type {
 } from '@application/ports/repository-catalog.port';
 import type { WorkspaceReaderPort } from '@application/ports/workspace-reader.port';
 import type { ListRepositoriesQuery } from '@application/queries/list-repositories.query';
-import type { GitHubInstallations } from '@domain/repositories/workspace.repository';
+import type { WorkspaceConnections } from '@domain/repositories/workspace.repository';
+import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 
@@ -15,7 +16,7 @@ export class ListRepositoriesHandler
 {
   constructor(
     private readonly workspaces: WorkspaceReaderPort,
-    private readonly installations: GitHubInstallations,
+    private readonly installations: WorkspaceConnections,
     private readonly catalog: RepositoryCatalogPort,
   ) {}
 
@@ -32,8 +33,11 @@ export class ListRepositoriesHandler
         return null;
       }
 
-      const installation = await this.installations.installationOf(
-        WorkspaceId.of(workspace.id),
+      const installation = GitHubInstallation.from(
+        await this.installations.connectionTo(
+          WorkspaceId.of(workspace.id),
+          GitHubInstallation.SOURCE,
+        ),
       );
 
       // Connected to nothing is not the same as not found: the workspace is

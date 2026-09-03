@@ -24,10 +24,26 @@ const register = (slugs: WorkspaceSlugRegistry) => {
 
 describe('WorkspaceRegistration', () => {
   it('hands back a workspace when the slug belongs to nobody', async () => {
-    const workspace = await register(registry(false));
+    const { workspace } = await register(registry(false));
 
     expect(workspace.slug.value).toBe('acme-inc');
-    expect(workspace.teams).toHaveLength(1);
+  });
+
+  // Neither is worth having without the other, so both are made together.
+  it('opens it with a team, named after it and belonging to it', async () => {
+    const { workspace, firstTeam } = await register(registry(false));
+
+    expect(workspace.teams).toEqual([firstTeam.id]);
+    expect(firstTeam.workspaceId).toEqual(workspace.id);
+    expect(firstTeam.name.value).toBe('Acme Inc.');
+    expect(firstTeam.key.value).toBe('acme-inc');
+  });
+
+  // A team opened is the team's own news.
+  it('has the team say it was opened', async () => {
+    const { firstTeam } = await register(registry(false));
+
+    expect(firstTeam.happened).toHaveLength(1);
   });
 
   it('refuses a slug already on the register', async () => {

@@ -7,6 +7,8 @@ import type {
   Happened,
   WebhookSourcePort,
 } from '@application/ports/webhook-source.port';
+import type { AttendToNotices } from '@application/services/attend-to-notices.service';
+import { SourceForDelivery } from '@application/services/source-for-delivery.service';
 import type { TaskDispatching } from '@application/services/task-dispatch';
 import { WebhookSources } from '@application/services/webhook-sources.service';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
@@ -118,7 +120,14 @@ const lines = () =>
     save: vi.fn(),
     find: vi.fn(async () => line()),
     holding: vi.fn(async () => line()),
+    ofWorkspace: vi.fn(async () => []),
+    ofTeam: vi.fn(async () => []),
   }) satisfies AssemblyLineRepository;
+
+/** Nothing here is about the workspace, so nothing is attended to. */
+const attending = {
+  attend: async () => {},
+} as unknown as AttendToNotices;
 
 const dispatch: TaskDispatching = {
   dispatch: async ({ task }) => {
@@ -132,23 +141,29 @@ const sourced = (
   carried: readonly Happened[],
   over: { workspaceId?: string | null; delivery?: string } = {},
 ) =>
-  new WebhookSources([
-    {
-      key: 'github',
-      happenings: [],
-      verifies: () => true,
-      delivery: () => over.delivery ?? 'delivery_1',
-      routes: async () =>
-        over.workspaceId === null
-          ? null
-          : WorkspaceId.of(over.workspaceId ?? 'ws_1'),
-      read: () => carried,
-    } satisfies WebhookSourcePort,
-  ]);
+  new SourceForDelivery(
+    WebhookSources.of([
+      {
+        key: 'github',
+        happenings: [],
+        verifies: () => true,
+        delivery: () => over.delivery ?? 'delivery_1',
+        routes: async () =>
+          over.workspaceId === null
+            ? null
+            : WorkspaceId.of(over.workspaceId ?? 'ws_1'),
+        read: () => carried,
+      } satisfies WebhookSourcePort,
+    ]),
+    { find: async () => null, all: async () => [] },
+  );
 
 /** A delivery already taken in: what the worker hands the handler. */
 const taken: StoredDelivery = {
   source: 'github',
+  workspaceId: '',
+  teamId: '',
+  teamKey: '',
   id: 'delivery_1',
   headers: {},
   body: {},
@@ -187,6 +202,7 @@ const heard = (
     dispatch,
     transaction,
     clock,
+    attending,
   ).execute(new ReactToHappeningCommand(taken));
 
 describe('ReactToHappening', () => {
@@ -329,6 +345,7 @@ describe('ReactToHappening', () => {
       dispatch,
       transaction,
       clock,
+      attending,
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(saved).toBeUndefined();
@@ -367,6 +384,7 @@ describe('ReactToHappening', () => {
       dispatch,
       transaction,
       clock,
+      attending,
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(held.holding).not.toHaveBeenCalled();
@@ -389,6 +407,7 @@ describe('ReactToHappening', () => {
       dispatch,
       transaction,
       clock,
+      attending,
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(held.holding).toHaveBeenCalledWith(

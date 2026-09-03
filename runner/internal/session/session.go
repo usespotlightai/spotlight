@@ -2,12 +2,14 @@ package session
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"usespotlight.ai/runner/internal/account"
@@ -15,6 +17,7 @@ import (
 	"usespotlight.ai/runner/internal/declare"
 	"usespotlight.ai/runner/internal/gitproxy"
 	"usespotlight.ai/runner/internal/hook"
+	"usespotlight.ai/runner/internal/otel"
 	"usespotlight.ai/runner/internal/protocol"
 	"usespotlight.ai/runner/internal/workspace"
 )
@@ -162,10 +165,24 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	}
 	defer channel.Close()
 
+	// Raised before the agent for the same reason the endpoint is: a harness
+	// that exports from its first breath needs somewhere to export to.
+	telemetry, err := otel.Serve(func(span json.RawMessage) {
+		journal.append(protocol.Event{Type: protocol.EventSpan, Data: span})
+	})
+	if err != nil {
+		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+	}
+	defer func() {
+		if err := telemetry.Close(); err != nil {
+			log.Warn("could not stop taking telemetry", "error", err)
+		}
+	}()
+
 	harness, err := acp.Start(ctx, acp.Options{
 		Executable: run.Spec.Command.Executable,
 		Args:       run.Spec.Command.Args,
-		Env:        granted(run.Spec.Command.Env, channel, state),
+		Env:        granted(run.Spec.Command.Env, channel, state, telemetry.URL),
 		Root:       cwd,
 		RunAs:      opts.AgentUser,
 		// A station is worked with nobody watching, so the runner answers for
@@ -467,11 +484,19 @@ func (o Options) runHook(
 type journalWriter struct {
 	runID   string
 	journal Journal
+	// Held for seq and pending only. A harness exporting telemetry writes here
+	// from whichever goroutine took the export, while the agent's own updates
+	// arrive on the one reading it; seq rises without gaps or the control plane
+	// drops what it cannot place.
+	mu      sync.Mutex
 	seq     int
 	pending []protocol.Event
 }
 
 func (j *journalWriter) append(event protocol.Event) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+
 	j.seq++
 	event.Seq = j.seq
 	event.At = time.Now().UTC()
@@ -484,12 +509,16 @@ func (j *journalWriter) record(ctx context.Context, event protocol.Event) {
 }
 
 func (j *journalWriter) flush(ctx context.Context) {
-	if len(j.pending) == 0 {
-		return
-	}
-
+	// Taken under the lock and sent outside it: a slow control plane must not
+	// hold up the agent being read.
+	j.mu.Lock()
 	batch := j.pending
 	j.pending = nil
+	j.mu.Unlock()
+
+	if len(batch) == 0 {
+		return
+	}
 
 	// A rejected batch is dropped, not retried. The run matters more than its
 	// narration, and the recording on disk has the same bytes.
@@ -503,11 +532,19 @@ func (j *journalWriter) flush(ctx context.Context) {
 // say: the runner offers a directory and reads no meaning into the answer.
 const StateVar = "SPOTLIGHT_STATE_DIR"
 
+// TelemetryVar tells a harness where to export what it records of itself. What
+// it exports, and under which of its own variables this belongs, is the harness
+// catalogue's to say: the runner offers a collector and reads nothing into the
+// answer.
+const TelemetryVar = "SPOTLIGHT_TELEMETRY_URL"
+
 // granted hands the agent the endpoint it declares through, and expands the
 // catalogue's own variables against this run's directories. Explicit, because
 // the agent inherits none of the runner's own SPOTLIGHT_ variables.
-func granted(env map[string]string, channel *declare.Server, state string) map[string]string {
-	places := map[string]string{StateVar: state}
+func granted(
+	env map[string]string, channel *declare.Server, state, telemetry string,
+) map[string]string {
+	places := map[string]string{StateVar: state, TelemetryVar: telemetry}
 
 	granted := make(map[string]string, len(env)+3)
 	for key, value := range env {

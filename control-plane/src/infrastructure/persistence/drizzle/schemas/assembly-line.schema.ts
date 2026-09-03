@@ -15,6 +15,8 @@ export const assemblyLine = pgTable(
   'assembly_line',
   {
     id: text('id').primaryKey(),
+    /** What it is called in the file that describes it. */
+    key: text('key').notNull().default('default'),
     workspaceId: text('workspace_id')
       .notNull()
       .references(() => workspace.id, { onDelete: 'cascade' }),
@@ -40,6 +42,12 @@ export const station = pgTable(
   'station',
   {
     id: text('id').primaryKey(),
+    /**
+     * What it is called in the file. Matched on when configuration is read
+     * again, so a station that was edited is the same station, and the tasks
+     * standing at it are not stranded.
+     */
+    key: text('key').notNull().default(''),
     assemblyLineId: text('assembly_line_id')
       .notNull()
       .references(() => assemblyLine.id, { onDelete: 'cascade' }),

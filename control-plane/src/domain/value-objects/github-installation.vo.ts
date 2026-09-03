@@ -1,4 +1,5 @@
 import { InvalidIdentifierError } from '@domain/exceptions/invalid-identifier.error';
+import type { Connection } from '@domain/value-objects/connection.vo';
 
 const DIGITS = /^\d+$/;
 
@@ -8,9 +9,19 @@ const DIGITS = /^\d+$/;
  * one can reach no repository at all.
  */
 export class GitHubInstallation {
+  /** The name GitHub's source is addressed by, and its connections keyed on. */
+  static readonly SOURCE = 'github';
+
   private readonly kind = 'github-installation';
 
   private constructor(readonly value: string) {}
+
+  /** The number behind a workspace's connection to GitHub, where it has one. */
+  static from(connection: Connection | null): GitHubInstallation | null {
+    return connection?.isTo(GitHubInstallation.SOURCE)
+      ? GitHubInstallation.of(connection.externalId)
+      : null;
+  }
 
   static of(value: string): GitHubInstallation {
     const trimmed = value.trim();
