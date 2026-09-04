@@ -12,8 +12,8 @@ export const GRACE_MS = 5_000;
 /**
  * Closing the server waits for every open connection, and a terminal being
  * watched is a connection that never closes on its own. Left alone, a deploy
- * would hang until something killed it, and nothing that runs afterwards —
- * closing the database pool among it — would run at all.
+ * would hang until something killed it, and nothing that runs afterwards,
+ * closing the database pool among it, would run at all.
  */
 @Injectable()
 export class GracefulShutdown implements BeforeApplicationShutdown {

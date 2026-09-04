@@ -7,6 +7,7 @@ import {
   type Conversing,
   HELD_AT_TOP,
   type InboxMessage as Message,
+  openedAt,
   type RunJournal,
 } from '@/lib/inbox';
 
@@ -27,6 +28,27 @@ const turnsOf = (item: Conversing): Turn[] => {
   }
 
   return cut;
+};
+
+/**
+ * Which notes are worth a time above them: the ones that do not read the same
+ * as the mark already standing. A note raised with the conversation it opens
+ * carries the same moment as the conversation, and one of them is enough.
+ */
+const marksIn = (item: Conversing): Set<number> => {
+  let standing = openedAt(item.createdAt);
+  const marked = new Set<number>();
+
+  for (const note of item.notes) {
+    const reads = openedAt(note.at);
+
+    if (reads !== standing) {
+      standing = reads;
+      marked.add(note.position);
+    }
+  }
+
+  return marked;
 };
 
 const CLOSE = 80;
@@ -74,6 +96,7 @@ export function Conversation({
   opening,
   footer,
 }: ConversationProps) {
+  const marked = marksIn(item);
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const following = useRef(true);
@@ -207,7 +230,7 @@ export function Conversation({
                 key={at}
                 className="flex flex-col"
               >
-                {turn.prompt && (
+                {turn.prompt && marked.has(turn.prompt.position) && (
                   <div className="mt-6 mb-3">
                     <TimeMarker at={turn.prompt.at} />
                   </div>
@@ -221,15 +244,18 @@ export function Conversation({
 
                     return (
                       <Fragment key={`${item.id}-${note.position}`}>
-                        {(!before || before.station !== note.station) && (
-                          <li>
-                            <TimeMarker at={note.at} />
-                          </li>
-                        )}
+                        {(!before || before.station !== note.station) &&
+                          marked.has(note.position) && (
+                            <li>
+                              <TimeMarker at={note.at} />
+                            </li>
+                          )}
 
                         <InboxMessage
                           message={note}
                           stationCount={item.station.count}
+                          teamId={item.teamId}
+                          about={item.about}
                           worked={worked.filter(
                             (each) => each.runId === note.runId,
                           )}

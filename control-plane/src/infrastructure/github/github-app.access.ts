@@ -1,4 +1,3 @@
-import { createSign } from 'node:crypto';
 import type {
   RepositoryAccessPort,
   RepositoryCredential,
@@ -7,18 +6,13 @@ import { UpstreamRefusedError } from '@domain/exceptions/upstream-refused.error'
 import type { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import { ENV } from '@infrastructure/config/config.constants';
 import type { Env } from '@infrastructure/config/env.schema';
+import { assertionFor } from '@infrastructure/github/app-assertion';
 import { Inject, Injectable } from '@nestjs/common';
 
 const API = 'https://api.github.com';
 
-/** GitHub refuses a token minted more than ten minutes ahead of its clock. */
-const JWT_LIFETIME_SECONDS = 540;
-
 /** Renewed before it lapses, so a clone never starts on a token about to die. */
 const RENEW_BEFORE_MS = 60_000;
-
-const base64url = (value: Buffer | string): string =>
-  Buffer.from(value).toString('base64url');
 
 type Minted = { token: string; expiresAt: number };
 
@@ -58,7 +52,7 @@ export class GitHubAppAccess implements RepositoryAccessPort {
       {
         method: 'POST',
         headers: {
-          authorization: `Bearer ${this.assertion()}`,
+          authorization: `Bearer ${assertionFor(this.env)}`,
           accept: 'application/vnd.github+json',
           'x-github-api-version': '2022-11-28',
         },
@@ -88,24 +82,5 @@ export class GitHubAppAccess implements RepositoryAccessPort {
       token: minted.token,
       expiresAt: new Date(minted.expires_at).getTime(),
     };
-  }
-
-  private assertion(): string {
-    const issued = Math.floor(Date.now() / 1000);
-    const claims = {
-      iat: issued - 60,
-      exp: issued + JWT_LIFETIME_SECONDS,
-      iss: this.env.GITHUB_APP_ID,
-    };
-
-    const signed = `${base64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))}.${base64url(
-      JSON.stringify(claims),
-    )}`;
-
-    const signature = createSign('RSA-SHA256')
-      .update(signed)
-      .sign(this.env.GITHUB_APP_PRIVATE_KEY.replace(/\\n/g, '\n'));
-
-    return `${signed}.${base64url(signature)}`;
   }
 }

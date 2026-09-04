@@ -1,10 +1,8 @@
 import { parse } from '@marcbachmann/cel-js';
 
 /**
- * What a delivery may be before Spotlight stops reading it. A host sending
- * more than this is not sending configuration anybody wrote an expression
- * against, and every one of these bounds the work an expression can ask for:
- * CEL cannot loop, but it can walk a list, and the list comes from outside.
+ * Every one of these bounds the work an expression can ask for: CEL cannot
+ * loop, but it can walk a list, and the list comes from outside.
  */
 const MOST_DEPTH = 24;
 const MOST_NODES = 20_000;
@@ -72,13 +70,9 @@ export const compile = (source: string): Expression => {
 };
 
 /**
- * Whether an expression holds. Anything that is not plainly true is false,
- * including an expression that could not be evaluated at all: a host sends
- * every event it has, and most of them say nothing this was asked about.
- *
- * CEL throws where a key is missing rather than reading it as absent, so a
- * rule written for one shape of delivery meets another and simply does not
- * match. Which is what a person meant by it.
+ * Anything not plainly true is false, including what could not be evaluated:
+ * CEL throws on a missing key, so a rule written for one shape of delivery
+ * meets another and simply does not match.
  */
 export const holds = (expression: Expression, against: Bindings): boolean => {
   try {
@@ -111,10 +105,9 @@ export const reads = (
 };
 
 /**
- * A delivery as an expression may see it: plain values, no deeper than anyone
- * would write, and on objects that inherit nothing. CEL refuses a reserved
- * name of its own accord; this makes that true of the data as well, so it
- * stays true of whatever reads it next.
+ * Plain values on objects that inherit nothing. CEL refuses a reserved name
+ * itself; this makes it true of the data, so it stays true of whatever reads
+ * the delivery next.
  */
 export const bound = (value: unknown): unknown => {
   let nodes = 0;

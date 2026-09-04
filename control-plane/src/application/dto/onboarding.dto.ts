@@ -1,24 +1,33 @@
+import { SETUP_STEPS, type SetupStepKey } from '@domain/services/setup-list';
+
+/** The steps this contract names. The list is the domain's; publishing it is this layer's. */
+export const SETUP_STEP_KEYS = SETUP_STEPS;
+
 /** One host Spotlight can write a starting file for. */
 export interface KnownToolDto {
   readonly source: string;
   readonly name: string;
   readonly summary: string;
   readonly secretCalled: string;
-  /** True where this team already listens to it. */
   readonly chosen: boolean;
 }
 
-/**
- * What a team still needs before any of this does anything, and what it may
- * choose. Said as plainly as it can be: each of these is something a person
- * has to go and do somewhere else.
- */
+export interface SetupStepDto {
+  readonly key: SetupStepKey;
+  readonly title: string;
+  readonly description: string;
+  readonly where: string | null;
+  readonly done: boolean;
+}
+
+/** What a team still needs before any of this does anything. */
 export interface OnboardingDto {
-  /** A runner has to be reachable, or nothing runs. */
-  readonly hasRunner: boolean;
-  /** The App has to be installed, or nothing is read or written. */
+  /** The list itself, in the order it is worked through. */
+  readonly steps: readonly SetupStepDto[];
+  /** Where to go and install the App, or null where GitHub would not say. */
+  readonly installUrl: string | null;
   readonly connectedToGitHub: boolean;
-  /** Configuration has to have been read at least once. */
-  readonly hasConfiguration: boolean;
+  /** Null where nobody chose, and then the fallback scan answers instead. */
+  readonly configRepository: string | null;
   readonly tools: readonly KnownToolDto[];
 }

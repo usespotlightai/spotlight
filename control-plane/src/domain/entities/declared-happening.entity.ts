@@ -2,12 +2,7 @@ import { InvalidIdentifierError } from '@domain/exceptions/invalid-identifier.er
 import type { Happening } from '@domain/value-objects/happening.vo';
 import type { MarkKind } from '@domain/value-objects/mark-kind.vo';
 
-/**
- * One word a source says it can raise, as a person choosing between them
- * sees it. What decides whether a given delivery is this word, and what it
- * says the task is, are rules the source holds and the domain does not read:
- * this is the vocabulary, not the reading of it.
- */
+/** One word a source can raise: the vocabulary, not the reading of it. */
 export class DeclaredHappening {
   private constructor(
     readonly happening: Happening,
@@ -17,9 +12,7 @@ export class DeclaredHappening {
     readonly told: string,
     /** A merge tells itself. Only a person speaking answers what was asked. */
     readonly spoken: boolean,
-    /** The kinds of handle this word carries, for showing what it can find. */
     readonly finds: readonly MarkKind[],
-    /** Whether it can also name the task outright, by its branch. */
     readonly findsByBranch: boolean,
   ) {}
 

@@ -282,6 +282,42 @@ describe('GitHubSource', () => {
     it('notices nothing where the push names no repository', () => {
       expect(events.noticed(pushed({ repository: {} }))).toEqual([]);
     });
+
+    // Uninstalled on GitHub, so what the workspace holds for it opens nothing.
+    it('notices an installation that was removed', () => {
+      expect(
+        events.noticed(
+          delivered('installation', {
+            action: 'deleted',
+            installation: { id: 158876513 },
+          }),
+        ),
+      ).toEqual([
+        {
+          kind: 'connection-ended',
+          source: 'github',
+          externalId: '158876513',
+        },
+      ]);
+    });
+
+    // Installed, suspended, given another repository: still reachable.
+    it('notices nothing of an installation that is still there', () => {
+      expect(
+        events.noticed(
+          delivered('installation', {
+            action: 'created',
+            installation: { id: 158876513 },
+          }),
+        ),
+      ).toEqual([]);
+    });
+
+    it('notices nothing where the removal names no installation', () => {
+      expect(
+        events.noticed(delivered('installation', { action: 'deleted' })),
+      ).toEqual([]);
+    });
   });
 
   describe('routing to a workspace', () => {

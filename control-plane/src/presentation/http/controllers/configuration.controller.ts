@@ -1,6 +1,6 @@
 import { ChooseToolsCommand } from '@application/commands/choose-tools.command';
 import { ForgetSecretCommand } from '@application/commands/forget-secret.command';
-import { ProposeLineCommand } from '@application/commands/propose-line.command';
+import { PinConfigurationCommand } from '@application/commands/pin-configuration.command';
 import { ReadConfigurationCommand } from '@application/commands/read-configuration.command';
 import { SetSecretCommand } from '@application/commands/set-secret.command';
 import type { ConfigurationDto } from '@application/dto/configuration.dto';
@@ -10,10 +10,8 @@ import type { AuthenticatedUser } from '@application/ports/session.port';
 import { OnboardingQuery } from '@application/queries/onboarding.query';
 import { ConfigurationQuery } from '@application/queries/read-configuration.query';
 import type { Read } from '@application/services/read-configuration.service';
-import type { WrittenBack } from '@application/services/write-back-line.service';
 import {
   Body,
-  ConflictException,
   Controller,
   Delete,
   Get,
@@ -25,7 +23,6 @@ import {
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
-  ApiConflictResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -43,8 +40,10 @@ import {
   ConfiguredIntegrationResponseDto,
   KnownToolResponseDto,
   OnboardingResponseDto,
+  PinConfigurationRequestDto,
   ProposedResponseDto,
   SetSecretRequestDto,
+  SetupStepResponseDto,
 } from '@presentation/http/dto/configuration.response.dto';
 
 const shown = (read: ConfigurationDto): ConfigurationResponseDto =>
@@ -138,45 +137,34 @@ export class ConfigurationController {
   }
 
   /**
-   * Proposes a line as it now stands on the board. What comes back is a pull
-   * request to read, not a change already made: the board is ahead of the
-   * repository until somebody merges it.
+   * Says which repository this team reads its configuration from. Worth
+   * saying rather than leaving to the rule that guesses, once a workspace
+   * has more than one team.
    */
-  @Post('lines/:lineId/propose')
+  @Post('repository')
   @ApiOperation({
-    operationId: 'proposeLine',
-    summary: 'Write this line back to the repository, as a pull request',
+    operationId: 'pinConfigurationRepository',
+    summary: 'Choose the repository this team reads its configuration from',
   })
   @ApiParam({ name: 'teamId', example: 'team_1' })
-  @ApiParam({ name: 'lineId', example: 'line_1' })
-  @ApiOkResponse({ type: ProposedResponseDto })
-  @ApiNotFoundResponse({ description: 'No such team or line' })
-  @ApiConflictResponse({
-    description: 'The repository moved while this was being edited',
+  @ApiNoContentResponse({ description: 'Chosen' })
+  @ApiNotFoundResponse({
+    description: 'No such team, or not yours to choose for',
   })
-  async propose(
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async pinRepository(
     @Param('teamId') teamId: string,
-    @Param('lineId') lineId: string,
+    @Body() body: PinConfigurationRequestDto,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<ProposedResponseDto> {
-    const written = await this.commandBus.execute<
-      ProposeLineCommand,
-      WrittenBack | null
-    >(new ProposeLineCommand(teamId, lineId, user.id));
+  ): Promise<void> {
+    const pinned = await this.commandBus.execute<
+      PinConfigurationCommand,
+      boolean
+    >(new PinConfigurationCommand(teamId, body.repository ?? null, user.id));
 
-    if (!written || written.kind === 'nowhere') {
+    if (!pinned) {
       throw new NotFoundException();
     }
-
-    // Said rather than written over: what is in the repository now has not
-    // been looked at, and reading it again is the caller's to ask for.
-    if (written.kind === 'moved') {
-      throw new ConflictException(
-        'The repository has moved since this was last read. Read it again, then propose.',
-      );
-    }
-
-    return new ProposedResponseDto(written.url);
   }
 
   @Get('onboarding')
@@ -201,9 +189,19 @@ export class ConfigurationController {
     }
 
     return new OnboardingResponseDto(
-      read.hasRunner,
+      read.steps.map(
+        (each) =>
+          new SetupStepResponseDto(
+            each.key,
+            each.title,
+            each.description,
+            each.where,
+            each.done,
+          ),
+      ),
+      read.installUrl,
       read.connectedToGitHub,
-      read.hasConfiguration,
+      read.configRepository,
       read.tools.map(
         (each) =>
           new KnownToolResponseDto(
@@ -218,13 +216,14 @@ export class ConfigurationController {
   }
 
   /**
-   * Writes a starting file for each host this team says it uses. What comes
-   * back is a pull request, not a team already listening.
+   * Writes a starting file for each host this team says it uses, and takes
+   * away the file of each it no longer does. What comes back is a pull
+   * request, not a team already listening.
    */
   @Post('tools')
   @ApiOperation({
     operationId: 'chooseTools',
-    summary: 'Write configuration for the tools this team uses',
+    summary: 'Write and remove configuration for the tools this team uses',
   })
   @ApiParam({ name: 'teamId', example: 'team_1' })
   @ApiOkResponse({ type: ProposedResponseDto })
@@ -239,7 +238,14 @@ export class ConfigurationController {
     const opened = await this.commandBus.execute<
       ChooseToolsCommand,
       OpenedPullRequestDto | null
-    >(new ChooseToolsCommand(teamId, body.sources ?? [], user.id));
+    >(
+      new ChooseToolsCommand(
+        teamId,
+        body.sources ?? [],
+        user.id,
+        body.dropped ?? [],
+      ),
+    );
 
     if (!opened) {
       throw new NotFoundException();

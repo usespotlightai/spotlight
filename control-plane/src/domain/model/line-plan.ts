@@ -11,10 +11,7 @@ import type { StationKey } from '@domain/value-objects/station-key.vo';
 import type { StationName } from '@domain/value-objects/station-name.vo';
 import type { Tool } from '@domain/value-objects/tool.vo';
 
-/**
- * A station as somebody described it, before it is any particular station
- * here. Named by its key rather than by an identifier nobody typed.
- */
+/** Named by its key rather than an identifier nobody typed. */
 export interface StationPlan {
   readonly key: StationKey;
   readonly name: StationName;
@@ -36,17 +33,9 @@ export interface ReactionPlan {
 }
 
 /**
- * A line as somebody described it, before it is any particular line here.
- *
- * A plan is whole on its own terms or it is not a plan: every station it
- * names is named once, and everywhere it points — where work passes to, where
- * a word takes a task — lands on a station it describes. Those are true of
- * the description itself, so they are settled here rather than found out when
- * somebody tries to run it.
- *
- * Turning one into a line is reconciling it with the line already standing,
- * because a station that is already there keeps who it is and the tasks
- * standing at it.
+ * A line as somebody described it. Whole on its own terms or not a plan:
+ * every station named once, and everywhere it points landing on one it
+ * describes.
  */
 export class LinePlan {
   private constructor(
@@ -108,7 +97,6 @@ export class LinePlan {
     return new LinePlan(input.key, input.name, input.stations, reactions);
   }
 
-  /** Whether the plan describes a station by that name in the file. */
   names(key: StationKey): boolean {
     return this.stations.some((each) => each.key.equals(key));
   }

@@ -58,7 +58,7 @@ export class WorkspaceController {
     const workspace = await this.commandBus.execute<
       CreateWorkspaceCommand,
       WorkspaceDto
-    >(new CreateWorkspaceCommand(body.name, body.slug, user.id));
+    >(new CreateWorkspaceCommand(body.name, body.slug, body.teamName, user.id));
 
     return WorkspaceHttpMapper.toResponse(workspace);
   }

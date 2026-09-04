@@ -4,21 +4,12 @@ import type { Signing } from '@domain/value-objects/signing.vo';
 import type { SourceKey } from '@domain/value-objects/source-key.vo';
 
 /**
- * A host a workspace told Spotlight to listen to, as against one Spotlight
- * was written for. It holds the vocabulary — which words this host can raise,
- * what each is called, and how each reads in a note — and how the host proves
- * a delivery is its own.
+ * An entity of a team's configuration: identified by its source within it,
+ * with no repository, read out of the files each time they are.
  *
- * An entity of the workspace's configuration rather than a thing in its own
- * right: it is identified by its source within that configuration, has no
- * repository, and is read out of the files each time they are. Nothing here
- * outlives the reading it came from.
- *
- * It does not hold the reading of a delivery. Which word a given delivery is,
- * and what it says the task is, are rules written beside it in a language the
- * domain has no opinion about. What the domain insists on is that the words
- * are this source's, that each is said once, and that every one of them could
- * reach a task at all.
+ * It holds the vocabulary and how the host signs, not the reading of a
+ * delivery. Those rules are written beside it in a language the domain has no
+ * opinion about.
  */
 export class Integration {
   private constructor(
@@ -71,7 +62,6 @@ export class Integration {
     );
   }
 
-  /** Whether this host says a given word at all. */
   raises(happening: { readonly value: string }): boolean {
     return this.declares.some(
       (each) => each.happening.value === happening.value,

@@ -1182,9 +1182,9 @@
         ]
       }
     },
-    "/teams/{teamId}/configuration/lines/{lineId}/propose": {
+    "/teams/{teamId}/configuration/repository": {
       "post": {
-        "operationId": "proposeLine",
+        "operationId": "pinConfigurationRepository",
         "parameters": [
           {
             "name": "teamId",
@@ -1194,39 +1194,30 @@
               "example": "team_1",
               "type": "string"
             }
-          },
-          {
-            "name": "lineId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "line_1",
-              "type": "string"
-            }
           }
         ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProposedResponseDto"
-                }
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PinConfigurationRequestDto"
               }
             }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Chosen"
           },
           "401": {
             "description": "No valid session"
           },
           "404": {
-            "description": "No such team or line"
-          },
-          "409": {
-            "description": "The repository moved while this was being edited"
+            "description": "No such team, or not yours to choose for"
           }
         },
-        "summary": "Write this line back to the repository, as a pull request",
+        "summary": "Choose the repository this team reads its configuration from",
         "tags": [
           "configuration"
         ]
@@ -1312,7 +1303,7 @@
             "description": "No such team, or nowhere to write it yet"
           }
         },
-        "summary": "Write configuration for the tools this team uses",
+        "summary": "Write and remove configuration for the tools this team uses",
         "tags": [
           "configuration"
         ]
@@ -2686,6 +2677,15 @@
               "said"
             ]
           },
+          "form": {
+            "type": "string",
+            "example": "words",
+            "enum": [
+              "words",
+              "setup"
+            ],
+            "description": "What it shows, which is not what it did"
+          },
           "voice": {
             "type": "string",
             "example": "station",
@@ -2736,6 +2736,7 @@
         "required": [
           "position",
           "kind",
+          "form",
           "voice",
           "station",
           "stationColor",
@@ -3434,16 +3435,58 @@
           "problems"
         ]
       },
-      "ProposedResponseDto": {
+      "PinConfigurationRequestDto": {
         "type": "object",
         "properties": {
-          "url": {
+          "repository": {
             "type": "string",
-            "example": "https://github.com/acme/api/pull/4"
+            "description": "The repository this team reads its configuration from. Null takes the pin off.",
+            "example": "acme/api",
+            "nullable": true
           }
         },
         "required": [
-          "url"
+          "repository"
+        ]
+      },
+      "SetupStepResponseDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Which step this is",
+            "enum": [
+              "runner",
+              "github",
+              "repository",
+              "configuration",
+              "tools"
+            ],
+            "example": "runner"
+          },
+          "title": {
+            "type": "string",
+            "example": "Start a runner"
+          },
+          "description": {
+            "type": "string"
+          },
+          "where": {
+            "type": "string",
+            "description": "The page in Spotlight this step is taken from, or null where there is none",
+            "nullable": true,
+            "example": "/w/acme/runners"
+          },
+          "done": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "description",
+          "where",
+          "done"
         ]
       },
       "KnownToolResponseDto": {
@@ -3481,17 +3524,27 @@
       "OnboardingResponseDto": {
         "type": "object",
         "properties": {
-          "hasRunner": {
-            "type": "boolean",
-            "description": "A runner has to be reachable, or nothing runs"
+          "steps": {
+            "description": "The list itself, in the order it is worked through",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SetupStepResponseDto"
+            }
+          },
+          "installUrl": {
+            "type": "string",
+            "description": "Where to install the App, or null where GitHub would not say",
+            "nullable": true,
+            "example": "https://github.com/apps/spotlight/installations/new"
           },
           "connectedToGitHub": {
             "type": "boolean",
             "description": "The App has to be installed to read or write"
           },
-          "hasConfiguration": {
-            "type": "boolean",
-            "description": "Configuration has been read at least once"
+          "configRepository": {
+            "type": "string",
+            "nullable": true,
+            "example": "acme/api"
           },
           "tools": {
             "type": "array",
@@ -3501,9 +3554,10 @@
           }
         },
         "required": [
-          "hasRunner",
+          "steps",
+          "installUrl",
           "connectedToGitHub",
-          "hasConfiguration",
+          "configRepository",
           "tools"
         ]
       },
@@ -3520,10 +3574,32 @@
             "items": {
               "type": "string"
             }
+          },
+          "dropped": {
+            "description": "The hosts it no longer uses, whose files the change removes",
+            "example": [
+              "grafana"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
           "sources"
+        ]
+      },
+      "ProposedResponseDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "example": "https://github.com/acme/api/pull/4"
+          }
+        },
+        "required": [
+          "url"
         ]
       },
       "SetSecretRequestDto": {
@@ -4312,11 +4388,18 @@
             "example": "acme-inc",
             "maxLength": 48,
             "description": "Addresses the workspace at /w/{slug}. Lowercase letters, numbers and single dashes."
+          },
+          "teamName": {
+            "type": "string",
+            "example": "Platform",
+            "maxLength": 100,
+            "description": "Names the team the workspace opens with. A workspace with no team has nowhere to put work."
           }
         },
         "required": [
           "name",
-          "slug"
+          "slug",
+          "teamName"
         ]
       },
       "TeamResponseDto": {

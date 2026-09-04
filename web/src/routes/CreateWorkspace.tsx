@@ -3,20 +3,31 @@ import { useNavigate } from 'react-router';
 import { useCreateWorkspace } from '@/hooks/api/useCreateWorkspace';
 import { useSession } from '@/hooks/api/useSession';
 import { useSignOut } from '@/hooks/api/useSignOut';
+import { inboxPath } from '@/lib/inbox';
 import { sanitizeSlug, slugify } from '@/lib/slug';
-import { WORKSPACE_URL_PREFIX, workspacePath } from '@/lib/workspace';
+import { WORKSPACE_URL_PREFIX } from '@/lib/workspace';
 
+type Step = 'workspace' | 'team';
+
+/**
+ * Naming the workspace, then naming the team it opens with. Two steps rather
+ * than two fields on one form, because the second question only makes sense
+ * once the first is answered, and neither exists until both are.
+ */
 export function CreateWorkspace() {
   const nameId = useId();
   const slugId = useId();
   const prefixId = useId();
+  const teamId = useId();
   const { data: session } = useSession();
   const signOut = useSignOut();
   const navigate = useNavigate();
   const createWorkspace = useCreateWorkspace();
 
+  const [step, setStep] = useState<Step>('workspace');
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
+  const [teamName, setTeamName] = useState('');
   // The URL follows the name until edited by hand. Emptying it hands it back.
   const [slugTakenOver, setSlugTakenOver] = useState(false);
 
@@ -37,18 +48,28 @@ export function CreateWorkspace() {
   const onSubmit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    if (step === 'workspace') {
+      setStep('team');
+      return;
+    }
+
     createWorkspace.mutate(
-      { name: name.trim(), slug: slugify(slug) },
+      { name: name.trim(), slug: slugify(slug), teamName: teamName.trim() },
       {
         onSuccess: (workspace) => {
-          void navigate(workspacePath(workspace.slug), { replace: true });
+          // Straight to the inbox, where opening the team has left a note
+          // saying what it still needs.
+          void navigate(inboxPath(workspace.slug), { replace: true });
         },
       },
     );
   };
 
+  const namedWorkspace = name.trim() !== '' && slugify(slug) !== '';
   const canSubmit =
-    name.trim() !== '' && slugify(slug) !== '' && !createWorkspace.isPending;
+    step === 'workspace'
+      ? namedWorkspace
+      : teamName.trim() !== '' && !createWorkspace.isPending;
 
   return (
     <div className="flex min-h-svh flex-col">
@@ -73,46 +94,74 @@ export function CreateWorkspace() {
       <main className="flex flex-1 items-center justify-center px-4 pb-20">
         <div className="flex w-72 flex-col gap-6">
           <h1 className="text-center font-medium text-2xl text-foreground leading-tight tracking-tight">
-            Create workspace
+            {step === 'workspace' ? 'Create workspace' : 'Name your first team'}
           </h1>
           <p className="text-center text-muted-foreground text-sm">
-            A workspace is a shared environment your team works in.
+            {step === 'workspace'
+              ? 'A workspace is a shared environment your team works in.'
+              : `A team has its own board, its own repository and its own integrations. You can add more teams later.`}
           </p>
-          <form onSubmit={onSubmit} className="flex flex-col gap-4">
-            <label htmlFor={nameId} className="sr-only">
-              Workspace Name
-            </label>
-            <input
-              id={nameId}
-              name="name"
-              type="text"
-              required
-              autoComplete="off"
-              placeholder="Workspace name"
-              value={name}
-              onChange={onNameChange}
-              className="h-11 rounded-lg border-[0.5px] border-input bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border focus:border-ring"
-            />
 
-            <label htmlFor={slugId} className="sr-only">
-              Workspace URL
-            </label>
-            <div className="flex h-11 items-center rounded-lg border-[0.5px] border-input bg-background pl-3 text-sm focus-within:border focus-within:border-ring">
-              <span id={prefixId} className="text-muted-foreground">
-                {WORKSPACE_URL_PREFIX}
-              </span>
-              <input
-                id={slugId}
-                name="slug"
-                type="text"
-                required
-                autoComplete="off"
-                aria-describedby={prefixId}
-                value={slug}
-                onChange={onSlugChange}
-                className="h-full min-w-0 flex-1 bg-transparent pr-3 text-foreground outline-none"
-              />
-            </div>
+          <form onSubmit={onSubmit} className="flex flex-col gap-4">
+            {step === 'workspace' ? (
+              <>
+                <label htmlFor={nameId} className="sr-only">
+                  Workspace Name
+                </label>
+                <input
+                  id={nameId}
+                  name="name"
+                  type="text"
+                  required
+                  autoComplete="off"
+                  placeholder="Workspace name"
+                  value={name}
+                  onChange={onNameChange}
+                  className="h-11 rounded-lg border-[0.5px] border-input bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border focus:border-ring"
+                />
+
+                <label htmlFor={slugId} className="sr-only">
+                  Workspace URL
+                </label>
+                <div className="flex h-11 items-center rounded-lg border-[0.5px] border-input bg-background pl-3 text-sm focus-within:border focus-within:border-ring">
+                  <span id={prefixId} className="text-muted-foreground">
+                    {WORKSPACE_URL_PREFIX}
+                  </span>
+                  <input
+                    id={slugId}
+                    name="slug"
+                    type="text"
+                    required
+                    autoComplete="off"
+                    aria-describedby={prefixId}
+                    value={slug}
+                    onChange={onSlugChange}
+                    className="h-full min-w-0 flex-1 bg-transparent pr-3 text-foreground outline-none"
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <label htmlFor={teamId} className="sr-only">
+                  Team Name
+                </label>
+                <input
+                  id={teamId}
+                  name="teamName"
+                  type="text"
+                  required
+                  // The step it belongs to has just appeared, so this is where
+                  // somebody is looking.
+                  // biome-ignore lint/a11y/noAutofocus: the step just changed under the cursor
+                  autoFocus
+                  autoComplete="off"
+                  placeholder="Product"
+                  value={teamName}
+                  onChange={(event) => setTeamName(event.target.value)}
+                  className="h-11 rounded-lg border-[0.5px] border-input bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border focus:border-ring"
+                />
+              </>
+            )}
 
             {createWorkspace.isError && (
               <p role="alert" className="text-center text-destructive text-sm">
@@ -125,10 +174,23 @@ export function CreateWorkspace() {
               disabled={!canSubmit}
               className="h-11 rounded-full bg-primary font-medium text-primary-foreground text-sm outline-none transition-opacity hover:opacity-90 disabled:opacity-60"
             >
-              {createWorkspace.isPending
-                ? 'Creating workspace…'
-                : 'Create workspace'}
+              {step === 'workspace'
+                ? 'Continue'
+                : createWorkspace.isPending
+                  ? 'Creating workspace…'
+                  : 'Create workspace'}
             </button>
+
+            {step === 'team' && (
+              <button
+                type="button"
+                onClick={() => setStep('workspace')}
+                disabled={createWorkspace.isPending}
+                className="text-muted-foreground text-sm outline-none transition-opacity hover:opacity-70 disabled:opacity-60"
+              >
+                Back
+              </button>
+            )}
           </form>
         </div>
       </main>

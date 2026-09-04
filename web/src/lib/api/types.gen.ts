@@ -267,6 +267,10 @@ export type InboxMessageResponseDto = {
   position: number;
   kind: 'asked' | 'passed' | 'answered' | 'said';
   /**
+   * What it shows, which is not what it did
+   */
+  form: 'words' | 'setup';
+  /**
    * Who spoke: the station, a person, or the world outside it
    */
   voice: 'station' | 'person' | 'world';
@@ -543,8 +547,25 @@ export type ConfigurationResponseDto = {
   problems: Array<ConfigProblemResponseDto>;
 };
 
-export type ProposedResponseDto = {
-  url: string;
+export type PinConfigurationRequestDto = {
+  /**
+   * The repository this team reads its configuration from. Null takes the pin off.
+   */
+  repository: string | null;
+};
+
+export type SetupStepResponseDto = {
+  /**
+   * Which step this is
+   */
+  key: 'runner' | 'github' | 'repository' | 'configuration' | 'tools';
+  title: string;
+  description: string;
+  /**
+   * The page in Spotlight this step is taken from, or null where there is none
+   */
+  where: string | null;
+  done: boolean;
 };
 
 export type KnownToolResponseDto = {
@@ -560,17 +581,18 @@ export type KnownToolResponseDto = {
 
 export type OnboardingResponseDto = {
   /**
-   * A runner has to be reachable, or nothing runs
+   * The list itself, in the order it is worked through
    */
-  hasRunner: boolean;
+  steps: Array<SetupStepResponseDto>;
+  /**
+   * Where to install the App, or null where GitHub would not say
+   */
+  installUrl: string | null;
   /**
    * The App has to be installed to read or write
    */
   connectedToGitHub: boolean;
-  /**
-   * Configuration has been read at least once
-   */
-  hasConfiguration: boolean;
+  configRepository: string | null;
   tools: Array<KnownToolResponseDto>;
 };
 
@@ -579,6 +601,14 @@ export type ChooseToolsRequestDto = {
    * The hosts this team uses, by the name each is known by
    */
   sources: Array<string>;
+  /**
+   * The hosts it no longer uses, whose files the change removes
+   */
+  dropped?: Array<string>;
+};
+
+export type ProposedResponseDto = {
+  url: string;
 };
 
 export type SetSecretRequestDto = {
@@ -841,6 +871,10 @@ export type CreateWorkspaceRequestDto = {
    * Addresses the workspace at /w/{slug}. Lowercase letters, numbers and single dashes.
    */
   slug: string;
+  /**
+   * Names the team the workspace opens with. A workspace with no team has nowhere to put work.
+   */
+  teamName: string;
 };
 
 export type TeamResponseDto = {
@@ -1604,36 +1638,34 @@ export type RereadConfigurationResponses = {
 
 export type RereadConfigurationResponse = RereadConfigurationResponses[keyof RereadConfigurationResponses];
 
-export type ProposeLineData = {
-  body?: never;
+export type PinConfigurationRepositoryData = {
+  body: PinConfigurationRequestDto;
   path: {
     teamId: string;
-    lineId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/configuration/lines/{lineId}/propose';
+  url: '/teams/{teamId}/configuration/repository';
 };
 
-export type ProposeLineErrors = {
+export type PinConfigurationRepositoryErrors = {
   /**
    * No valid session
    */
   401: unknown;
   /**
-   * No such team or line
+   * No such team, or not yours to choose for
    */
   404: unknown;
+};
+
+export type PinConfigurationRepositoryResponses = {
   /**
-   * The repository moved while this was being edited
+   * Chosen
    */
-  409: unknown;
+  204: void;
 };
 
-export type ProposeLineResponses = {
-  200: ProposedResponseDto;
-};
-
-export type ProposeLineResponse = ProposeLineResponses[keyof ProposeLineResponses];
+export type PinConfigurationRepositoryResponse = PinConfigurationRepositoryResponses[keyof PinConfigurationRepositoryResponses];
 
 export type ReadOnboardingData = {
   body?: never;

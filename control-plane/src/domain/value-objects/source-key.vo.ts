@@ -1,10 +1,6 @@
 import { InvalidIdentifierError } from '@domain/exceptions/invalid-identifier.error';
 
-/**
- * One word, lowercase: it is the first part of every happening the source
- * raises and a segment of the address its deliveries knock at, and both would
- * read ambiguously if it could hold a stop or a slash.
- */
+/** One word: it is a path segment and the first part of every word raised. */
 const SHAPE = /^[a-z0-9]+$/;
 
 /**
@@ -30,7 +26,6 @@ export class SourceKey {
     return new SourceKey(named);
   }
 
-  /** Whether a word is one of this source's to raise. */
   raises(happening: { readonly source: string }): boolean {
     return happening.source === this.value;
   }

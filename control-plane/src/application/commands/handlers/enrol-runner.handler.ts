@@ -30,6 +30,8 @@ export class EnrolRunnerHandler
         tokenHash: TokenHash.of(minted.hash),
       });
 
+      // Nothing on anybody's list has moved: this is a name and a token, and
+      // what they wait on is a machine checking in against it.
       await this.runners.add(enrolled);
 
       return {

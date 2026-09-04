@@ -3,6 +3,7 @@ import type { IntegrationReaderPort } from '@application/ports/integration-reade
 import type { RepositoryCatalogPort } from '@application/ports/repository-catalog.port';
 import type { RepositoryContentsPort } from '@application/ports/repository-contents.port';
 import type { ApplyLines } from '@application/services/apply-lines.service';
+import type { SettleSetup } from '@application/services/settle-setup.service';
 import type { Team } from '@domain/aggregates/team.aggregate';
 import {
   KEPT_UNDER,
@@ -24,17 +25,11 @@ export interface Read {
 }
 
 /**
- * Reads a workspace's configuration out of the repository that holds it.
+ * Reads a team's configuration out of the repository holding it: the one it
+ * pinned, or the first connected one with a configuration directory.
  *
- * Which repository that is has one answer where somebody pinned one and a
- * plain rule where nobody has: the connected repositories in the order they
- * are named, and the first holding a configuration directory. The rule is
- * stable rather than clever, so the answer does not change under a workspace
- * that never chose.
- *
- * What is read is written down whether or not all of it was good. A file that
- * will not read leaves the last one that did still running, and its problems
- * are what the workspace is shown instead of silence.
+ * Written down whether or not all of it was good. A file that will not read
+ * leaves the last one that did still running.
  */
 export class ReadConfiguration {
   constructor(
@@ -44,6 +39,7 @@ export class ReadConfiguration {
     private readonly lines: ApplyLines,
     private readonly configurations: TeamConfigurationRepository,
     private readonly clock: ClockPort,
+    private readonly settling: SettleSetup,
   ) {}
 
   /**
@@ -93,6 +89,10 @@ export class ReadConfiguration {
       }),
     );
 
+    // Two steps at once: the setup pull request is merged when its files can
+    // be read, and the tools chosen are the ones those files listen to.
+    await this.settling.forTeam(team.id);
+
     return {
       repository: holding.repository.value,
       sha: holding.sha,
@@ -100,11 +100,7 @@ export class ReadConfiguration {
     };
   }
 
-  /**
-   * The repository holding it. Pinned wins outright; otherwise the connected
-   * ones are asked in the order they are named, and the first with anything
-   * under the configuration directory is it.
-   */
+  /** Pinned wins outright; otherwise the first connected one holding any. */
   private async holding(
     installation: GitHubInstallation,
     team: Team,

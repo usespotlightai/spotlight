@@ -22,6 +22,8 @@ export interface WrittenFile {
 export interface PullRequestProposal extends PullRequestOpening {
   /** Written in one commit, so the branch never exists half-changed. */
   readonly files: readonly WrittenFile[];
+  /** Paths to take away, in the same commit as whatever is written. */
+  readonly removes?: readonly string[];
   readonly message: string;
 }
 

@@ -6,11 +6,7 @@ import { StationId } from '@domain/value-objects/station-id.vo';
 import type { StationKey } from '@domain/value-objects/station-key.vo';
 import { WayOut } from '@domain/value-objects/way-out.vo';
 
-/**
- * A station a plan would remove while tasks are still standing at it. Naming
- * them is the whole point: "3 tasks stand at Code Review" is something a
- * person can act on, where a silent refusal is not.
- */
+/** Naming them is the point: a silent refusal is nothing to act on. */
 export interface Stranded {
   readonly key: string;
   readonly name: string;
@@ -25,25 +21,16 @@ export type Reconciled =
   | { readonly ok: false; readonly stranded: readonly Stranded[] };
 
 /**
- * The line a plan describes, made out of the line already standing.
+ * A station is matched by its key and a match keeps its identity, so renaming
+ * or moving one leaves every task where it stood.
  *
- * A station is matched by its key, and a match keeps its identity. That is
- * what makes configuration safe to edit: renaming a station, repainting it,
- * rewriting its prompt or moving it along the line all leave every task
- * exactly where it was standing, because the station is the same station.
- *
- * Removing one is the exception. A station nobody is standing at goes
- * quietly; one with tasks at it stops the whole plan, because the
- * alternative is deciding on somebody's behalf where their work went.
+ * Removing is the exception: one nobody stands at goes quietly, one with
+ * tasks at it stops the whole plan.
  */
 export const reconcileLine = (input: {
   standing: AssemblyLine;
   plan: LinePlan;
-  /**
-   * How many tasks stand at each station now, by station identifier. Data
-   * rather than a question to ask: nothing in the domain reaches for a
-   * repository, and what this needs is a count it was handed.
-   */
+  /** Data rather than a question: nothing here reaches for a repository. */
   tasksStanding: TasksStanding;
   newId: () => string;
 }): Reconciled => {

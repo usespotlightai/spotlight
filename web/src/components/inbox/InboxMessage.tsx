@@ -1,10 +1,14 @@
+import { useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router';
 import { StationIcon } from '@/components/board/StationIcon';
 import { MarkdownEditor } from '@/components/common/form/MarkdownEditor';
 import { InboxWork } from '@/components/inbox/InboxWork';
 import { PersonSaid } from '@/components/inbox/PersonSaid';
 import { SaidCard } from '@/components/inbox/SaidCard';
+import { SetupSteps } from '@/components/onboarding/SetupSteps';
 import { useSession } from '@/hooks/api/useSession';
 import {
+  type Conversing,
   HELD_AT_TOP,
   type InboxMessage as Message,
   type RunJournal,
@@ -16,14 +20,49 @@ type InboxMessageProps = {
   // How many stations the line holds, which a place is a share of.
   stationCount: number;
   worked: readonly RunJournal[];
+  // Whose team it is, for a note that shows that team's own standing.
+  teamId: string | undefined;
+  about: Conversing['about'];
 };
 
 export function InboxMessage({
   message,
   stationCount,
   worked,
+  teamId,
+  about,
 }: InboxMessageProps) {
   const { data: session } = useSession();
+  const navigate = useNavigate();
+  const written = useRef<HTMLDivElement>(null);
+
+  // A link in a note goes to a page of this application like any other link
+  // in it, rather than out through the browser and back again. Listened for
+  // rather than handled in the markup, because what carries the link is text
+  // somebody wrote and not an element this renders.
+  useEffect(() => {
+    const held = written.current;
+
+    if (!held) {
+      return;
+    }
+
+    const following = (event: MouseEvent) => {
+      const anchor = (event.target as HTMLElement).closest('a');
+      const href = anchor?.getAttribute('href');
+
+      if (!href?.startsWith('/') || event.metaKey || event.ctrlKey) {
+        return;
+      }
+
+      event.preventDefault();
+      void navigate(href);
+    };
+
+    held.addEventListener('click', following);
+
+    return () => held.removeEventListener('click', following);
+  }, [navigate]);
 
   if (message.voice === 'world') {
     return (
@@ -54,25 +93,37 @@ export function InboxMessage({
     );
   }
 
+  const shows = message.form === 'setup' && teamId;
+
   return (
     <li data-note={message.position} className="flex flex-col gap-1.5">
-      <span className="flex items-center gap-1.5 text-muted-foreground text-xs">
-        <StationIcon
-          share={stationShare(message.stationPosition, stationCount)}
-          color={message.stationColor}
-        />
-        {message.station}
-      </span>
+      {/* Where a station said it, it says which. Spotlight speaking for
+          itself stands under no station's name. */}
+      {!shows && (
+        <span className="flex items-center gap-1.5 text-muted-foreground text-xs">
+          <StationIcon
+            share={stationShare(message.stationPosition, stationCount)}
+            color={message.stationColor}
+          />
+          {message.station}
+        </span>
+      )}
 
       {worked.length > 0 && <InboxWork journals={worked} />}
 
-      <MarkdownEditor
-        readOnly
-        initialValue={message.body}
-        placeholder=""
-        ariaLabel={`What ${message.station} said`}
-        className="border-none bg-transparent p-0"
-      />
+      {shows ? (
+        <SetupSteps teamId={teamId} body={message.body} about={about} />
+      ) : (
+        <div ref={written}>
+          <MarkdownEditor
+            readOnly
+            initialValue={message.body}
+            placeholder=""
+            ariaLabel={`What ${message.station} said`}
+            className="border-none bg-transparent p-0"
+          />
+        </div>
+      )}
     </li>
   );
 }

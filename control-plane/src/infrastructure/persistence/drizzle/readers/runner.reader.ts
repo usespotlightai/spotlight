@@ -9,11 +9,21 @@ import {
   runner,
 } from '@infrastructure/persistence/drizzle/schemas/run.schema';
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleRunnerReader implements RunnerReaderPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
+
+  async anyConnected(): Promise<boolean> {
+    const [reached] = await this.db
+      .select({ id: runner.id })
+      .from(runner)
+      .where(and(isNull(runner.revokedAt), isNotNull(runner.lastSeenAt)))
+      .limit(1);
+
+    return reached !== undefined;
+  }
 
   async listAll(): Promise<RunnerSummary[]> {
     const rows = await this.db

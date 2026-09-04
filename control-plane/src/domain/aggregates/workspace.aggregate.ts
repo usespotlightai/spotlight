@@ -89,7 +89,6 @@ export class Workspace {
     return role !== null && MAY_CONNECT.includes(role);
   }
 
-  /** Where this workspace reaches one host, or nothing where it does not. */
   connectionTo(source: string): Connection | null {
     return this.connections.find((each) => each.isTo(source)) ?? null;
   }
@@ -122,7 +121,27 @@ export class Workspace {
     );
   }
 
-  /** Whether one of its teams is this one. */
+  /**
+   * The host let go of, because the host said so. Nobody's permission is
+   * asked: an installation somebody removed on GitHub is gone whether or not
+   * the person who removed it could have removed it from here.
+   */
+  disconnectedFrom(source: string): Workspace {
+    if (!this.connectionTo(source)) {
+      return this;
+    }
+
+    return new Workspace(
+      this.id,
+      this.name,
+      this.slug,
+      this.members,
+      this.teams,
+      this.connections.filter((each) => !each.isTo(source)),
+      this.happened,
+    );
+  }
+
   holdsTeam(teamId: TeamId): boolean {
     return this.teams.some((each) => each.equals(teamId));
   }

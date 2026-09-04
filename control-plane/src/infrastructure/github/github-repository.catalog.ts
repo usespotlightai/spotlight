@@ -8,6 +8,7 @@ import type {
 } from '@application/ports/repository-catalog.port';
 import { UpstreamRefusedError } from '@domain/exceptions/upstream-refused.error';
 import type { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
+import type { Repository } from '@domain/value-objects/repository.vo';
 import { Inject, Injectable } from '@nestjs/common';
 
 const API = 'https://api.github.com';
@@ -46,6 +47,41 @@ export class GitHubRepositoryCatalog implements RepositoryCatalogPort {
     return found.sort((one, other) =>
       one.fullName.localeCompare(other.fullName),
     );
+  }
+
+  /**
+   * Made under the owner the name gives, with a first commit so it has a
+   * branch to write against. Private, because a repository somebody named in
+   * passing is not one they meant to publish.
+   *
+   * The App needs organisation Administration write to do this. Without it
+   * GitHub refuses, and that refusal is the answer rather than an exception:
+   * naming a repository that cannot be made is a thing to be told about, not
+   * a fault.
+   */
+  async create(
+    installation: GitHubInstallation,
+    repository: Repository,
+  ): Promise<boolean> {
+    const { password: token } = await this.access.credential(installation);
+
+    const response = await fetch(`${API}/orgs/${repository.owner}/repos`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${token}`,
+        accept: 'application/vnd.github+json',
+        'x-github-api-version': '2022-11-28',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: repository.name,
+        private: true,
+        auto_init: true,
+        description: 'Spotlight configuration',
+      }),
+    }).catch(() => null);
+
+    return response?.ok === true;
   }
 
   private async page(

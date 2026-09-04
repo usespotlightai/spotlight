@@ -10,6 +10,13 @@ export type InboxMessage = InboxMessageResponseDto;
 
 export type Conversing = {
   readonly id: string;
+  readonly teamId: string | undefined;
+  // What was asked, where a note carries the opening rather than standing
+  // under it.
+  readonly about?: {
+    readonly title: string;
+    readonly description: string | null;
+  };
   readonly createdAt: string;
   readonly station: {
     readonly name: string;

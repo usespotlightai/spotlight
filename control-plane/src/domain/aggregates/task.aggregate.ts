@@ -20,6 +20,7 @@ import type { TaskDescription } from '@domain/value-objects/task-description.vo'
 import { TaskId } from '@domain/value-objects/task-id.vo';
 import {
   TaskNote,
+  type TaskNoteForm,
   type TaskNoteKind,
 } from '@domain/value-objects/task-note.vo';
 import type { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
@@ -43,6 +44,7 @@ export interface Saying {
   readonly at: Date;
   readonly voice: Voice;
   readonly said?: Said | null;
+  readonly form?: TaskNoteForm;
 }
 
 export class Task {
@@ -70,6 +72,8 @@ export class Task {
     readonly marks: readonly Mark[],
     // When the line last had nothing further to do with it.
     readonly finishedAt: Date | null,
+    /** Which reading of this task it is. Written back against the same one. */
+    readonly version: number = 0,
   ) {}
 
   static add(input: {
@@ -122,6 +126,7 @@ export class Task {
     pullRequest: PullRequestUrl | null;
     marks?: readonly Mark[];
     finishedAt: Date | null;
+    version?: number;
   }): Task {
     return new Task(
       input.id,
@@ -141,6 +146,7 @@ export class Task {
       input.pullRequest,
       input.marks ?? [],
       input.finishedAt,
+      input.version ?? 0,
     );
   }
 
@@ -210,6 +216,20 @@ export class Task {
     }
 
     return this.with(this.spoke(saying, 'said'));
+  }
+
+  /**
+   * What was open closes and nothing else moves. Not the same as being done
+   * with it: a run already working it still holds it.
+   */
+  settled(saying: Saying): Task {
+    if (!this.trail.open) {
+      throw new InvalidTaskTransitionError(
+        'has nothing open, so there is nothing left on it to settle',
+      );
+    }
+
+    return this.with(this.spoke(saying, 'passed'));
   }
 
   /** Nothing further to do here: it settles what was open and stands still. */
@@ -418,6 +438,8 @@ export class Task {
       part.pullRequest !== undefined ? part.pullRequest : this.pullRequest,
       part.marks ?? this.marks,
       part.finishedAt !== undefined ? part.finishedAt : this.finishedAt,
+      // Carried, never raised here: moving it on is the writing's to do.
+      this.version,
     );
   }
 

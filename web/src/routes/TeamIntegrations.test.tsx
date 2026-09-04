@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
+import { installUrlFor } from '@/lib/github';
 import { TeamIntegrations } from '@/routes/TeamIntegrations';
 
 const configuration = vi.fn();
@@ -16,8 +17,16 @@ vi.mock('@/hooks/api/useConfiguration', () => ({
 
 vi.mock('@/hooks/api/useOnboarding', () => ({
   onboardingKeys: { forTeam: () => ['onboarding'] },
-  useOnboarding: () => ({ data: onboarding() }),
+  useOnboarding: () => ({ data: onboarding(), isPending: false }),
   useChooseTools: () => ({ mutate: choose, isPending: false }),
+}));
+
+vi.mock('@/hooks/api/useRepositories', () => ({
+  useRepositories: () => ({ data: [{ fullName: 'acme/api' }] }),
+}));
+
+vi.mock('@/hooks/api/usePinConfiguration', () => ({
+  usePinConfiguration: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 vi.mock('@/hooks/api/useSetSecret', () => ({
@@ -33,11 +42,32 @@ const tool = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
+/** The list as the control plane hands it over, with everything done. */
+const steps = (undone: string[] = []) =>
+  ['runner', 'github', 'repository', 'configuration', 'tools'].map((key) => ({
+    key,
+    title: key,
+    description: key,
+    where: null,
+    done: !undone.includes(key),
+  }));
+
 const ready = (over: Record<string, unknown> = {}) => ({
-  hasRunner: true,
+  steps: steps(),
   connectedToGitHub: true,
-  hasConfiguration: true,
+  configRepository: 'acme/api',
+  installUrl: 'https://github.com/apps/spotlight/installations/new',
   tools: [tool()],
+  ...over,
+});
+
+const listening = (over: Record<string, unknown> = {}) => ({
+  source: 'linear',
+  name: 'Linear',
+  deliverTo: 'https://spotlight.test/deliveries/x',
+  secret: 'LINEAR_WEBHOOK_SECRET',
+  secretSet: true,
+  happenings: [],
   ...over,
 });
 
@@ -79,59 +109,121 @@ describe('TeamIntegrations', () => {
     configuration.mockReturnValue(read());
     showing();
 
-    await userEvent.click(screen.getByRole('checkbox'));
     await userEvent.click(
-      screen.getByRole('button', { name: 'Write the configuration' }),
+      screen.getByRole('button', { name: 'Listen to Linear' }),
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Open pull request' }),
     );
 
-    expect(choose).toHaveBeenCalledWith(['linear'], expect.anything());
+    expect(choose).toHaveBeenCalledWith({ sources: ['linear'], dropped: [] });
   });
 
-  // Already written is not a thing to choose again.
-  it('does not offer one already written', () => {
-    onboarding.mockReturnValue(ready({ tools: [tool({ chosen: true })] }));
-    configuration.mockReturnValue(read());
+  // Written and not written on the same page, so a team sees what it runs.
+  it('shows one already written as listening', () => {
+    onboarding.mockReturnValue(ready());
+    configuration.mockReturnValue(read({ integrations: [listening()] }));
     showing();
 
-    expect(screen.getByRole('checkbox')).toBeDisabled();
-    expect(screen.getByText('already written')).toBeInTheDocument();
-  });
-
-  // Each of these is something a person has to go and do somewhere else.
-  it('says what is still needed before any of it does anything', () => {
-    onboarding.mockReturnValue(
-      ready({ hasRunner: false, hasConfiguration: false }),
-    );
-    configuration.mockReturnValue(read());
-    showing();
-
-    expect(screen.getByText('Start a runner')).toBeInTheDocument();
     expect(
-      screen.getByText('Merge the opening pull request'),
-    ).toBeInTheDocument();
+      screen.getByRole('button', { name: 'Stop listening to Linear' }),
+    ).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('says nothing of prerequisites once they are all done', () => {
+  // What a host still needs from a person is a dialog away, so every card is
+  // the same size whether or not its host is listening.
+  it('keeps what a host still needs behind Configure', async () => {
+    onboarding.mockReturnValue(ready());
+    configuration.mockReturnValue(read({ integrations: [listening()] }));
+    showing();
+
+    expect(
+      screen.queryByText('https://spotlight.test/deliveries/x'),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Configure' }));
+
+    expect(
+      screen.getByText('https://spotlight.test/deliveries/x'),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Webhook secret')).toBeInTheDocument();
+  });
+
+  it('offers nothing to configure for a host not written down', () => {
     onboarding.mockReturnValue(ready());
     configuration.mockReturnValue(read());
     showing();
 
-    expect(screen.queryByText('Start a runner')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Configure' }),
+    ).not.toBeInTheDocument();
   });
 
-  // There is nowhere to write it until the App is installed.
-  it('will not write anything before GitHub is connected', () => {
+  // Letting one go is the same gesture as taking one up, and the same PR.
+  it('takes away the file of one let go', async () => {
+    onboarding.mockReturnValue(ready());
+    configuration.mockReturnValue(read({ integrations: [listening()] }));
+    showing();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Stop listening to Linear' }),
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Open pull request' }),
+    );
+
+    expect(choose).toHaveBeenCalledWith({ sources: [], dropped: ['linear'] });
+  });
+
+  // The one host reached through something of Spotlight's own, so it is the
+  // one connected with a button rather than a file.
+  it('offers to install the App while it is not installed', () => {
     onboarding.mockReturnValue(ready({ connectedToGitHub: false }));
     configuration.mockReturnValue(read());
     showing();
 
     expect(
-      screen.getByRole('button', { name: 'Write the configuration' }),
-    ).toBeDisabled();
-    expect(screen.getByText(/nowhere to write it yet/)).toBeInTheDocument();
+      screen.getByRole('link', { name: 'Install it on GitHub' }),
+    ).toHaveAttribute(
+      'href',
+      installUrlFor('https://github.com/apps/spotlight/installations/new', {
+        slug: 'acme',
+        teamId: 'team_1',
+        from: '/w/acme/team/team_1/integrations',
+      }),
+    );
   });
 
-  it('shows what is wrong with the files', () => {
+  it('drops the offer once it is installed', () => {
+    onboarding.mockReturnValue(ready());
+    configuration.mockReturnValue(read());
+    showing();
+
+    expect(
+      screen.queryByRole('link', { name: 'Install it on GitHub' }),
+    ).not.toBeInTheDocument();
+  });
+
+  // Opening a team is where that is asked about. This page never says it.
+  it.each([
+    ['no runner', { steps: steps(['runner']) }],
+    ['no App', { connectedToGitHub: false }],
+    ['nothing read', { steps: steps(['configuration']) }],
+  ])('says nothing of what is still needed with %s', (_, missing) => {
+    onboarding.mockReturnValue(ready(missing));
+    configuration.mockReturnValue(read());
+    showing();
+
+    expect(screen.getByText('Integrations')).toBeInTheDocument();
+    expect(screen.queryByText('Start a runner')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Merge the opening pull request'),
+    ).not.toBeInTheDocument();
+  });
+
+  // This page is for what a team listens to. What will not read is said where
+  // the reading is done, not here.
+  it('says nothing of what is wrong with the files', () => {
     onboarding.mockReturnValue(ready());
     configuration.mockReturnValue({
       ...read(),
@@ -145,6 +237,7 @@ describe('TeamIntegrations', () => {
     });
     showing();
 
-    expect(screen.getByText('1 problem to fix')).toBeInTheDocument();
+    expect(screen.queryByText('1 problem to fix')).not.toBeInTheDocument();
+    expect(screen.queryByText('must be an expression')).not.toBeInTheDocument();
   });
 });

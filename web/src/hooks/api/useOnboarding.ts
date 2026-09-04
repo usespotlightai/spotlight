@@ -19,15 +19,18 @@ export function useOnboarding(teamId: string | undefined) {
   });
 }
 
-/** Writes a starting file for each host chosen, as a pull request to read. */
+/**
+ * Writes a starting file for each host newly chosen and takes away the file of
+ * each let go, as one pull request to read.
+ */
 export function useChooseTools(teamId: string | undefined) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (sources: string[]) => {
+    mutationFn: async (change: { sources: string[]; dropped: string[] }) => {
       const { data } = await chooseTools({
         path: { teamId: teamId as string },
-        body: { sources },
+        body: change,
         throwOnError: true,
       });
       return data;

@@ -27,13 +27,9 @@ Nothing changes until this is merged: what is on the board today is exactly
 what this describes.`;
 
 /**
- * Writes down what a workspace already runs, as the pull request that opens
- * its configuration.
- *
- * The point is not the pull request. It is that what Spotlight generates is
- * what Spotlight reads: the same renderer the board writes back through, and
- * the same reading a push goes through. A workspace that merges this has
- * changed nothing, which is what makes it safe to merge.
+ * Writes down what a team already runs, as the pull request that opens its
+ * configuration. Merging it changes nothing, which is what makes it safe to
+ * merge, and proves what Spotlight writes is what Spotlight reads.
  */
 export class SeedConfiguration {
   constructor(
@@ -44,11 +40,7 @@ export class SeedConfiguration {
     private readonly logger: LoggerPort,
   ) {}
 
-  /**
-   * Null where there is nowhere to write, or where the repository already
-   * has configuration: opening a pull request over somebody's own files is
-   * not a welcome, it is a mess.
-   */
+  /** Null where there is nowhere to write, or it already has configuration. */
   async seed(
     workspace: Workspace,
     team: Team,

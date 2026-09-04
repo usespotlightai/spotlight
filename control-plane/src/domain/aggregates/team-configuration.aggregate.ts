@@ -17,17 +17,11 @@ export const linePath = (lineKey: string): string =>
   `${LINES_UNDER}/${lineKey}.yml`;
 
 /**
- * What a team told Spotlight about itself, as it last read.
+ * A reading rather than a state: a commit, the files at it, and what would
+ * not read. Kept together because they are only true together.
  *
- * One team has one of these, so its identity is the team's. It is
- * a reading rather than a state: a commit, the files that were at it, and
- * everything that would not read. All three are kept together because they
- * are only true together — problems belong to the commit they were found in,
- * and a later reading replaces the lot.
- *
- * A reading with problems in it is still a reading. What would not read is
- * simply not running, while everything beside it is; the alternative is a
- * workspace whose whole line stops because one file has a typo in it.
+ * One with problems in it is still a reading. What would not read is simply
+ * not running, while everything beside it is.
  */
 export class TeamConfiguration {
   private constructor(
@@ -67,7 +61,6 @@ export class TeamConfiguration {
     );
   }
 
-  /** Everything a workspace wrote read cleanly. */
   get isWhole(): boolean {
     return this.problems.length === 0;
   }
@@ -82,7 +75,6 @@ export class TeamConfiguration {
     return this.files.filter((each) => each.isUnder(KEPT_UNDER));
   }
 
-  /** Those beneath one directory of it, which is how each kind is found. */
   under(directory: string): readonly ConfigurationFile[] {
     return this.files.filter((each) => each.isUnder(directory) && each.isYaml);
   }
@@ -91,10 +83,7 @@ export class TeamConfiguration {
     return this.problems.filter((each) => each.isIn(path));
   }
 
-  /**
-   * Whether this reading is of something newer than another's. A repository
-   * that moved is a reason to read again; one that has not is not.
-   */
+  /** A repository that moved is a reason to read again; one that has not is not. */
   supersedes(other: TeamConfiguration | null): boolean {
     return (
       other === null ||
@@ -103,7 +92,6 @@ export class TeamConfiguration {
     );
   }
 
-  /** The same reading, with what a later look found wrong. */
   withProblems(problems: readonly ConfigurationProblem[]): TeamConfiguration {
     return new TeamConfiguration(
       this.teamId,

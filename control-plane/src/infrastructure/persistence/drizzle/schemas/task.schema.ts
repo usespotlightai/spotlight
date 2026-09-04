@@ -1,4 +1,7 @@
-import type { TaskNoteKind } from '@domain/value-objects/task-note.vo';
+import type {
+  TaskNoteForm,
+  TaskNoteKind,
+} from '@domain/value-objects/task-note.vo';
 import type { SpokenBy } from '@domain/value-objects/voice.vo';
 
 import { station } from '@infrastructure/persistence/drizzle/schemas/assembly-line.schema';
@@ -58,6 +61,9 @@ export const task = pgTable(
     repository: text('repository'),
     pullRequest: text('pull_request'),
     finishedAt: timestamp('finished_at'),
+    // A write says which version it answers, so two answers to one reading
+    // cannot both land.
+    version: integer('version').notNull().default(0),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
       .defaultNow()
@@ -90,6 +96,8 @@ export const taskNote = pgTable(
     runId: text('run_id'),
     // An 'asked' opens a conversation a person owns; a 'passed' closes it.
     kind: text('kind').$type<TaskNoteKind>().notNull(),
+    // What it shows, which is not what it did. Almost everything is words.
+    form: text('form').$type<TaskNoteForm>().notNull().default('words'),
     // What the world said, kept whole: the host's name for it, and where.
     said: jsonb('said').$type<SaidRow>(),
     answeredAt: timestamp('answered_at'),

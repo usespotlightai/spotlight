@@ -68,14 +68,6 @@ const restacked = vi.fn();
 vi.mock('@/hooks/api/useTasks', () => ({
   useTasks: () => ({ data: standing, isPending: false }),
 }));
-vi.mock('@/hooks/api/useProposeLine', () => ({
-  useProposeLine: () => ({
-    mutate: vi.fn(),
-    isPending: false,
-    isError: false,
-  }),
-}));
-
 vi.mock('@/hooks/api/useAddTask', () => ({
   useAddTask: () => ({ mutate: added }),
 }));

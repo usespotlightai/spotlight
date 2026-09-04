@@ -127,4 +127,33 @@ describe('Workspace', () => {
       );
     });
   });
+
+  describe('letting a host go', () => {
+    const connected = () =>
+      Workspace.rehydrate({
+        id: WorkspaceId.of('ws_1'),
+        name: WorkspaceName.of('Acme'),
+        slug: WorkspaceSlug.of('acme'),
+        members: [{ userId: UserId.of('user_1'), role: 'owner' }],
+        teams: [],
+        connections: [Connection.of('github', '158876513')],
+      });
+
+    it('drops what it held for that host', () => {
+      expect(
+        connected().disconnectedFrom('github').connectionTo('github'),
+      ).toBeNull();
+    });
+
+    // Removed on GitHub is removed, whoever did the removing.
+    it('asks nobody for permission', () => {
+      expect(() => connected().disconnectedFrom('github')).not.toThrow();
+    });
+
+    it('leaves a workspace that held nothing for it alone', () => {
+      const workspace = connected();
+
+      expect(workspace.disconnectedFrom('linear')).toBe(workspace);
+    });
+  });
 });

@@ -26,6 +26,11 @@ const clock = (): ClockPort => ({
 
 const reader = (result: RunnerSummary[]): RunnerReaderPort => ({
   listAll: vi.fn().mockResolvedValue(result),
+  anyConnected: vi
+    .fn()
+    .mockResolvedValue(
+      result.some((each) => !each.revokedAt && each.lastSeenAt !== null),
+    ),
 });
 
 const handle = (runners: RunnerSummary[]) =>

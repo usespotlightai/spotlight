@@ -14,15 +14,13 @@ export interface Writing {
   readonly title: string;
   readonly body: string;
   readonly files: readonly ConfigurationFile[];
+  /** Paths the change takes away, written in the same commit. */
+  readonly removes?: readonly string[];
 }
 
 /**
- * Writes configuration into the repository that holds it, as a pull request.
- *
- * Everything Spotlight writes goes this way — the file that opens a
- * workspace, the files for the tools a team chose, a line changed on the
- * board — so there is one answer to where configuration is written and one
- * place it can go wrong.
+ * Everything Spotlight writes goes this way, so there is one answer to where
+ * configuration is written and one place it can go wrong.
  */
 export class WriteConfiguration {
   constructor(
@@ -40,7 +38,9 @@ export class WriteConfiguration {
       workspace.connectionTo(GitHubInstallation.SOURCE),
     );
 
-    if (!installation || writing.files.length === 0) {
+    const removes = writing.removes ?? [];
+
+    if (!installation || writing.files.length + removes.length === 0) {
       return null;
     }
 
@@ -61,13 +61,11 @@ export class WriteConfiguration {
         path: each.path,
         text: each.text,
       })),
+      removes,
     });
   }
 
-  /**
-   * Where it goes: the repository configuration was last read from, or the
-   * one somebody pinned before anything had been read at all.
-   */
+  /** Where it was last read from, or the one pinned before any reading. */
   private async into(team: Team): Promise<Repository | null> {
     const applied = await this.configurations.findFor(team.id);
 

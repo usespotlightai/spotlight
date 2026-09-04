@@ -9,6 +9,7 @@ import type { TransactionPort } from '@application/ports/transaction.port';
 import type { TeamRepository } from '@domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
 import { WorkspaceRegistration } from '@domain/services/workspace-registration';
+import { TeamName } from '@domain/value-objects/team-name.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { WorkspaceName } from '@domain/value-objects/workspace-name.vo';
@@ -44,6 +45,7 @@ export class CreateWorkspaceHandler
       id: WorkspaceId.of(this.ids.generate()),
       name: WorkspaceName.of(command.name),
       slug: WorkspaceSlug.of(command.slug),
+      teamName: TeamName.of(command.teamName),
       owner: UserId.of(command.ownerId),
       newId: () => this.ids.generate(),
     });
@@ -55,7 +57,7 @@ export class CreateWorkspaceHandler
       // A team opened is the team's own news, and what follows from it is
       // somebody else's business.
       for (const event of firstTeam.happened) {
-        await this.provisioning.onTeamCreated(event);
+        await this.provisioning.onTeamCreated(event, workspace.slug);
       }
     });
 

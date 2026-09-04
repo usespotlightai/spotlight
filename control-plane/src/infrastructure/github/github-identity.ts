@@ -1,4 +1,7 @@
-import type { GitHubIdentityPort } from '@application/ports/github-identity.port';
+import type {
+  Administers,
+  GitHubIdentityPort,
+} from '@application/ports/github-identity.port';
 import type { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
@@ -24,30 +27,32 @@ export class GitHubIdentity implements GitHubIdentityPort {
   async administers(
     userId: UserId,
     installation: GitHubInstallation,
-  ): Promise<boolean> {
+  ): Promise<Administers> {
     const token = await this.tokenFor(userId);
 
     // Signed in through something other than GitHub, or signed in long enough
-    // ago that the token has gone: nothing here can be shown, so nothing is.
+    // ago that the token has gone. Nobody was asked, so nothing is known.
     if (!token) {
-      return false;
+      return 'cannot-tell';
     }
 
     for (let page = 1; page <= MAX_PAGES; page += 1) {
       const held = await this.page(token, page);
 
       if (held === null) {
-        return false;
+        return 'cannot-tell';
       }
       if (held.some((each) => each === installation.value)) {
-        return true;
+        return 'administers';
       }
       if (held.length < PER_PAGE) {
-        return false;
+        return 'does-not';
       }
     }
 
-    return false;
+    // More pages than anyone has. Read as far as this and no further, so
+    // nothing beyond it was looked at rather than found to be absent.
+    return 'cannot-tell';
   }
 
   private async tokenFor(userId: UserId): Promise<string | null> {

@@ -19,7 +19,6 @@ export class WebhookSources {
     private readonly registered: () => readonly WebhookSourcePort[],
   ) {}
 
-  /** The sources themselves, where somebody already has them all in hand. */
   static of(sources: readonly WebhookSourcePort[]): WebhookSources {
     return new WebhookSources(() => sources);
   }

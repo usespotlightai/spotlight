@@ -4,7 +4,7 @@ import { AttendToNotices } from '@application/services/attend-to-notices.service
 import type { ReadConfiguration } from '@application/services/read-configuration.service';
 import type { Workspace } from '@domain/aggregates/workspace.aggregate';
 import type { TeamRepository } from '@domain/repositories/team.repository';
-import type { WorkspaceFinding } from '@domain/repositories/workspace.repository';
+import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
 import { describe, expect, it, vi } from 'vitest';
 
 const TOUCHED: Noticed = {
@@ -29,14 +29,42 @@ const attending = (
 
   const workspaces = {
     find: vi.fn(async () => ({}) as Workspace),
-  } as unknown as WorkspaceFinding;
+    withConnection: vi.fn(async () => null),
+    save: vi.fn(async () => {}),
+  } as unknown as WorkspaceRepository;
 
   const configuration = { read: vi.fn(read) } as unknown as ReadConfiguration;
 
   return {
     attend: new AttendToNotices(teams, workspaces, configuration, logger),
     teams,
+    workspaces,
     configuration,
+  };
+};
+
+/** The connection whoever held it can no longer reach anything through. */
+const ENDED: Noticed = {
+  kind: 'connection-ended',
+  source: 'github',
+  externalId: '158876513',
+};
+
+const holding = (workspace: Workspace | null) => {
+  const workspaces = {
+    withConnection: vi.fn(async () => (workspace ? { value: 'ws_1' } : null)),
+    find: vi.fn(async () => workspace),
+    save: vi.fn(async () => {}),
+  } as unknown as WorkspaceRepository;
+
+  return {
+    attend: new AttendToNotices(
+      { readingFrom: vi.fn(async () => []) } as unknown as TeamRepository,
+      workspaces,
+      { read: vi.fn() } as unknown as ReadConfiguration,
+      logger,
+    ),
+    workspaces,
   };
 };
 
@@ -96,5 +124,31 @@ describe('AttendToNotices', () => {
 
     expect(configuration.read).not.toHaveBeenCalled();
     expect(logger.error).toHaveBeenCalled();
+  });
+
+  // Removed on GitHub is removed here: what a workspace holds for it is a key
+  // to a door that is no longer there.
+  it('lets go of a connection the host ended', async () => {
+    const disconnectedFrom = vi.fn(() => 'let go');
+    const { attend, workspaces } = holding({
+      disconnectedFrom,
+    } as unknown as Workspace);
+
+    await attend.attend([ENDED]);
+
+    expect(workspaces.withConnection).toHaveBeenCalledWith(
+      'github',
+      '158876513',
+    );
+    expect(disconnectedFrom).toHaveBeenCalledWith('github');
+    expect(workspaces.save).toHaveBeenCalledWith('let go');
+  });
+
+  it('saves nothing where nobody held that connection', async () => {
+    const { attend, workspaces } = holding(null);
+
+    await attend.attend([ENDED]);
+
+    expect(workspaces.save).not.toHaveBeenCalled();
   });
 });

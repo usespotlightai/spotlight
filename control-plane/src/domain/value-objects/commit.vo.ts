@@ -4,11 +4,8 @@ import { InvalidIdentifierError } from '@domain/exceptions/invalid-identifier.er
 const SHAPE = /^[0-9a-f]{7,64}$/;
 
 /**
- * The commit a workspace's configuration was read at.
- *
- * Configuration is read at a commit rather than at a branch, so what was read
- * is a fact afterwards: the same commit read twice says the same thing, and a
- * branch that moved is a different reading rather than the same one changed.
+ * Configuration is read at a commit rather than a branch, so what was read is
+ * a fact afterwards rather than something that moved under it.
  */
 export class Commit {
   private readonly kind = 'commit';
@@ -28,7 +25,6 @@ export class Commit {
     return new Commit(named);
   }
 
-  /** As it is shown to a person, who reads the first few and no more. */
   get short(): string {
     return this.value.slice(0, 7);
   }

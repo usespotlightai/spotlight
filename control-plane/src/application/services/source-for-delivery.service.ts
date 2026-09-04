@@ -16,13 +16,10 @@ export interface Addressed {
 }
 
 /**
- * Which source answers for a delivery. There are two kinds of door and the
- * address says which was used: a host Spotlight was written for speaks for
- * every workspace at once and says whose word it is in the delivery, while a
- * host a team declared has a door of its own and needs to say nothing.
+ * Two kinds of door, and the address says which: a host Spotlight was written
+ * for speaks for everyone, a host a team declared has one of its own.
  *
- * Everything that reads a delivery asks here, so the guard at the door and
- * the worker that comes back to it later resolve it exactly alike.
+ * The guard and the worker both ask here, so they resolve it alike.
  */
 export class SourceForDelivery {
   constructor(

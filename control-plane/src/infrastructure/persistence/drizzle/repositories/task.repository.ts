@@ -1,5 +1,8 @@
 import { Task } from '@domain/aggregates/task.aggregate';
+import { TaskMovedOnError } from '@domain/exceptions/task-moved-on.error';
 import type {
+  SetupLists,
+  StandingSetup,
   TaskPlacement,
   TaskRepository,
 } from '@domain/repositories/task.repository';
@@ -19,17 +22,24 @@ import { TaskNote } from '@domain/value-objects/task-note.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
+import { TeamId } from '@domain/value-objects/team-id.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { Voice } from '@domain/value-objects/voice.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
+import {
+  assemblyLine,
+  station,
+} from '@infrastructure/persistence/drizzle/schemas/assembly-line.schema';
+import { factory } from '@infrastructure/persistence/drizzle/schemas/factory.schema';
 import {
   task,
   taskMark,
   taskNote,
 } from '@infrastructure/persistence/drizzle/schemas/task.schema';
 import { Injectable } from '@nestjs/common';
-import { and, asc, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, notExists, or, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 type Row = typeof task.$inferSelect;
 type NoteRow = typeof taskNote.$inferSelect;
@@ -45,6 +55,7 @@ const toNote = (row: NoteRow): TaskNote =>
     kind: row.kind,
     readAt: row.readAt,
     deliveredAt: row.deliveredAt,
+    form: row.form,
   });
 
 const toTask = (row: Row, notes: NoteRow[], marks: MarkRow[] = []): Task =>
@@ -66,6 +77,7 @@ const toTask = (row: Row, notes: NoteRow[], marks: MarkRow[] = []): Task =>
     raisedBy: row.raisedById ? UserId.of(row.raisedById) : null,
     repository: row.repository ? Repository.of(row.repository) : null,
     finishedAt: row.finishedAt,
+    version: row.version,
     pullRequest: row.pullRequest ? PullRequestUrl.of(row.pullRequest) : null,
     marks: marks.map((each) => Mark.of(each.kind, each.value)),
   });
@@ -76,7 +88,7 @@ interface MarkRow {
 }
 
 @Injectable()
-export class DrizzleTaskRepository implements TaskRepository {
+export class DrizzleTaskRepository implements TaskRepository, SetupLists {
   constructor(private readonly context: DrizzleContext) {}
 
   async add(added: Task): Promise<void> {
@@ -102,10 +114,16 @@ export class DrizzleTaskRepository implements TaskRepository {
     await this.writeMarks(added);
   }
 
+  /**
+   * Written against the version it was read at. Everything here is written,
+   * not just what the writer touched, so the second of two writers answering
+   * one reading would carry the first one's changes away.
+   */
   async save(saved: Task): Promise<void> {
-    await this.context.db
+    const written = await this.context.db
       .update(task)
       .set({
+        version: saved.version + 1,
         stationId: saved.stationId.value,
         title: saved.title.value,
         description: saved.description?.value ?? null,
@@ -116,7 +134,12 @@ export class DrizzleTaskRepository implements TaskRepository {
         pullRequest: saved.pullRequest?.value ?? null,
         finishedAt: saved.finishedAt,
       })
-      .where(eq(task.id, saved.id.value));
+      .where(and(eq(task.id, saved.id.value), eq(task.version, saved.version)))
+      .returning({ id: task.id });
+
+    if (written.length === 0) {
+      throw new TaskMovedOnError(saved.id.value);
+    }
 
     await this.writeNotes(saved);
     await this.writeMarks(saved);
@@ -258,6 +281,65 @@ export class DrizzleTaskRepository implements TaskRepository {
     return found.map((each) => toTask(each, notes.get(each.id) ?? []));
   }
 
+  async settingUpFor(teamId: TeamId): Promise<StandingSetup | null> {
+    const [found] = await this.standingSetups(eq(factory.teamId, teamId.value));
+
+    return found ?? null;
+  }
+
+  async settingUpIn(
+    workspaceId: WorkspaceId,
+  ): Promise<readonly StandingSetup[]> {
+    return this.standingSetups(eq(task.workspaceId, workspaceId.value));
+  }
+
+  async settingUp(): Promise<readonly StandingSetup[]> {
+    return this.standingSetups();
+  }
+
+  /**
+   * Still standing means what the domain means by it: no note closed the
+   * conversation the list opened. Anything else here would be a second
+   * opinion on when a list is done with.
+   */
+  private async standingSetups(
+    of?: ReturnType<typeof eq>,
+  ): Promise<StandingSetup[]> {
+    const closing = alias(taskNote, 'closing');
+
+    const open = notExists(
+      this.context.db
+        .select({ closed: sql`1` })
+        .from(closing)
+        .where(
+          and(
+            eq(closing.taskId, task.id),
+            eq(closing.kind, 'passed'),
+            gt(closing.position, taskNote.position),
+          ),
+        ),
+    );
+
+    const found = await this.context.db
+      .select({ task, teamId: factory.teamId })
+      .from(task)
+      .innerJoin(
+        taskNote,
+        and(eq(taskNote.taskId, task.id), eq(taskNote.form, 'setup')),
+      )
+      .innerJoin(station, eq(station.id, task.stationId))
+      .innerJoin(assemblyLine, eq(assemblyLine.id, station.assemblyLineId))
+      .innerJoin(factory, eq(factory.id, assemblyLine.factoryId))
+      .where(of ? and(open, of) : open);
+
+    const notes = await this.notesFor(found.map((each) => each.task.id));
+
+    return found.map((each) => ({
+      teamId: TeamId.of(each.teamId),
+      task: toTask(each.task, notes.get(each.task.id) ?? []),
+    }));
+  }
+
   private async notesFor(taskIds: string[]): Promise<Map<string, NoteRow[]>> {
     if (taskIds.length === 0) {
       return new Map();
@@ -298,6 +380,7 @@ export class DrizzleTaskRepository implements TaskRepository {
           kind: note.kind,
           readAt: note.readAt,
           deliveredAt: note.deliveredAt,
+          form: note.form,
         })),
       )
       .onConflictDoUpdate({

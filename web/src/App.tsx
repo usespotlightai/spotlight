@@ -4,6 +4,7 @@ import { RequireGuest } from './components/common/auth/RequireGuest.tsx';
 import { AssemblyLineBoard } from './routes/AssemblyLineBoard.tsx';
 import { CreateWorkspace } from './routes/CreateWorkspace.tsx';
 import { DefaultWorkspace } from './routes/DefaultWorkspace.tsx';
+import { GitHubInstalled } from './routes/GitHubInstalled.tsx';
 import { Inbox } from './routes/Inbox.tsx';
 import { InboxIndex } from './routes/InboxIndex.tsx';
 import { InboxItem } from './routes/InboxItem.tsx';
@@ -29,6 +30,7 @@ export default function App() {
       <Route element={<RequireAuth />}>
         <Route index element={<DefaultWorkspace />} />
         <Route path="/workspaces/new" element={<CreateWorkspace />} />
+        <Route path="/github/installed" element={<GitHubInstalled />} />
         <Route path="/w/:slug" element={<Workspace />}>
           <Route index element={<WorkspaceIndex />} />
           <Route path="team/:teamId">

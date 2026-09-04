@@ -10,6 +10,15 @@ export const TASK_NOTE_KINDS = ['asked', 'passed', 'answered', 'said'] as const;
 /** What a note did: put the task to a person, settled it, or said a thing. */
 export type TaskNoteKind = (typeof TASK_NOTE_KINDS)[number];
 
+export const TASK_NOTE_FORMS = ['words', 'setup'] as const;
+
+/**
+ * What a note shows, which is not what it did. Almost everything is words.
+ * A 'setup' is the standing list a team opens with, and is shown as the
+ * things it names rather than as a paragraph about them.
+ */
+export type TaskNoteForm = (typeof TASK_NOTE_FORMS)[number];
+
 export class TaskNote {
   private constructor(
     readonly station: StationName,
@@ -25,6 +34,7 @@ export class TaskNote {
     readonly readAt: Date | null,
     // When it was handed to the agent working the task.
     readonly deliveredAt: Date | null,
+    readonly form: TaskNoteForm,
   ) {}
 
   static of(input: {
@@ -37,6 +47,7 @@ export class TaskNote {
     kind: TaskNoteKind;
     readAt?: Date | null;
     deliveredAt?: Date | null;
+    form?: TaskNoteForm;
   }): TaskNote {
     return new TaskNote(
       input.station,
@@ -48,6 +59,7 @@ export class TaskNote {
       input.kind,
       input.readAt ?? null,
       input.deliveredAt ?? null,
+      input.form ?? 'words',
     );
   }
 
@@ -98,6 +110,7 @@ export class TaskNote {
       this.kind,
       part.readAt ?? this.readAt,
       part.deliveredAt ?? this.deliveredAt,
+      this.form,
     );
   }
 }

@@ -4,15 +4,10 @@ import type { StationId } from '@domain/value-objects/station-id.vo';
 import { stringify } from 'yaml';
 
 /**
- * A line as the file that would describe it.
+ * What Spotlight writes has to be what Spotlight can read, or the board and
+ * the repository drift apart on the first edit. That has a test.
  *
- * This and the reading of it are one thing in two directions: what Spotlight
- * writes has to be what Spotlight can read, or the board and the repository
- * drift apart the first time anybody edits either. That is worth a test, and
- * has one.
- *
- * Nothing that is not the line's own is written: identifiers a person never
- * typed stay out of the file, because the key is what names a station here.
+ * Identifiers a person never typed stay out: the key names a station here.
  */
 export const renderLine = (line: AssemblyLine): string => {
   const keyOf = (stationId: StationId): string | null =>

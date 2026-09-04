@@ -24,15 +24,9 @@ const headed = (headers: WebhookHeaders, name: string): string | undefined => {
 };
 
 /**
- * A host Spotlight was told about rather than written for.
- *
- * What it can say is the integration's, which is the domain's. How to tell
- * one of its deliveries from another is written beside it in expressions,
- * which are this layer's. Neither knows about the other beyond the word they
- * are both filed under.
- *
- * It belongs to one workspace. Nothing here decides whose a delivery is,
- * because the door it arrived at already said.
+ * A host Spotlight was told about rather than written for. What it can say is
+ * the integration's; how to tell its deliveries apart is written beside it in
+ * expressions, which are this layer's.
  */
 export class DeclaredSource implements WebhookSourcePort {
   constructor(

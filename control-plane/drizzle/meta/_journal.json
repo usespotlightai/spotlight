@@ -8,6 +8,20 @@
       "when": 1788462596045,
       "tag": "20260903190956_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788470070947,
+      "tag": "20260903211430_task_note_form",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788529455782,
+      "tag": "20260904134415_task_version",
+      "breakpoints": true
     }
   ]
 }

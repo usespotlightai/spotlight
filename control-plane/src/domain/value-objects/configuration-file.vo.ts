@@ -24,7 +24,6 @@ export class ConfigurationFile {
     return new ConfigurationFile(named, text);
   }
 
-  /** Whether it sits beneath a directory, however deep. */
   isUnder(directory: string): boolean {
     return this.path.startsWith(
       directory.endsWith('/') ? directory : `${directory}/`,

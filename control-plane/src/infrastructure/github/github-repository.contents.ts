@@ -41,7 +41,6 @@ interface Blob {
 
 const NOT_FOUND = 404;
 
-/** A path names one place whether or not it was written with slashes around it. */
 const tidied = (path: string): string => path.replace(/^\/+|\/+$/g, '');
 
 const decoded = (blob: Blob): string =>

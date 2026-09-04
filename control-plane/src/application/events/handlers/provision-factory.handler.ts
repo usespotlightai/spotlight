@@ -1,21 +1,29 @@
+import type { ClockPort } from '@application/ports/clock.port';
 import type { FactoryProvisioningPort } from '@application/ports/factory-provisioning.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
+import { listed } from '@application/services/setup-steps';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Factory } from '@domain/aggregates/factory.aggregate';
 import type { TeamCreated } from '@domain/events/team-created.event';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { FactoryRepository } from '@domain/repositories/factory.repository';
+import type { TaskRepository } from '@domain/repositories/task.repository';
+import { welcomeTask } from '@domain/services/welcome-task';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
+import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
+import type { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
 
 export class ProvisionFactory implements FactoryProvisioningPort {
   constructor(
     private readonly factories: FactoryRepository,
     private readonly lines: AssemblyLineRepository,
     private readonly ids: IdGeneratorPort,
+    private readonly tasks: TaskRepository,
+    private readonly clock: ClockPort,
   ) {}
 
-  async onTeamCreated(event: TeamCreated): Promise<void> {
+  async onTeamCreated(event: TeamCreated, at: WorkspaceSlug): Promise<void> {
     const opened = Factory.open({
       id: FactoryId.of(this.ids.generate()),
       workspaceId: event.workspaceId,
@@ -24,11 +32,33 @@ export class ProvisionFactory implements FactoryProvisioningPort {
 
     await this.factories.add(opened);
 
-    await this.lines.add(
-      AssemblyLine.open({
+    const line = AssemblyLine.open({
+      workspaceId: event.workspaceId,
+      factoryId: opened.id,
+      name: AssemblyLineName.of('Default'),
+      newId: () => this.ids.generate(),
+    });
+
+    await this.lines.add(line);
+
+    const [first] = line.stations;
+
+    // A line with nowhere to put a task is not one this can say anything on.
+    if (!first) {
+      return;
+    }
+
+    await this.tasks.add(
+      welcomeTask({
         workspaceId: event.workspaceId,
-        factoryId: opened.id,
-        name: AssemblyLineName.of('Default'),
+        teamId: event.teamId,
+        saying: TaskNoteBody.of(
+          listed({ slug: at.value, teamId: event.teamId.value }),
+        ),
+        stationId: first.id,
+        station: first.name,
+        owner: event.owner,
+        now: this.clock.now(),
         newId: () => this.ids.generate(),
       }),
     );

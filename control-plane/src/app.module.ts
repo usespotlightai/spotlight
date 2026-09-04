@@ -26,7 +26,7 @@ import { EnqueueRunHandler } from '@application/commands/handlers/enqueue-run.ha
 import { EnrolRunnerHandler } from '@application/commands/handlers/enrol-runner.handler';
 import { MoveTaskHandler } from '@application/commands/handlers/move-task.handler';
 import { OpenPullRequestHandler } from '@application/commands/handlers/open-pull-request.handler';
-import { ProposeLineHandler } from '@application/commands/handlers/propose-line.handler';
+import { PinConfigurationHandler } from '@application/commands/handlers/pin-configuration.handler';
 import { ReactToHappeningHandler } from '@application/commands/handlers/react-to-happening.handler';
 import { ReadConfigurationHandler } from '@application/commands/handlers/read-configuration.handler';
 import { ReadInboxItemHandler } from '@application/commands/handlers/read-inbox-item.handler';
@@ -42,7 +42,7 @@ import {
 } from '@application/commands/handlers/set-secret.handler';
 import { MoveTaskCommand } from '@application/commands/move-task.command';
 import { OpenPullRequestCommand } from '@application/commands/open-pull-request.command';
-import { ProposeLineCommand } from '@application/commands/propose-line.command';
+import { PinConfigurationCommand } from '@application/commands/pin-configuration.command';
 import { ReactToHappeningCommand } from '@application/commands/react-to-happening.command';
 import { ReadConfigurationCommand } from '@application/commands/read-configuration.command';
 import { ReadInboxItemCommand } from '@application/commands/read-inbox-item.command';
@@ -80,6 +80,7 @@ import {
 } from '@application/ports/delivery-work.port';
 import { FACTORY_PROVISIONING } from '@application/ports/factory-provisioning.port';
 import { GIT_GATEWAY } from '@application/ports/git-gateway.port';
+import { GITHUB_APP } from '@application/ports/github-app.port';
 import { GITHUB_IDENTITY } from '@application/ports/github-identity.port';
 import {
   ID_GENERATOR,
@@ -128,7 +129,10 @@ import { RUN_JOURNAL_READER } from '@application/ports/run-journal-reader.port';
 import { RUN_READER } from '@application/ports/run-reader.port';
 import { RUN_STREAM } from '@application/ports/run-stream.port';
 import { RUNNER_AUTH } from '@application/ports/runner-auth.port';
-import { RUNNER_READER } from '@application/ports/runner-reader.port';
+import {
+  RUNNER_READER,
+  type RunnerReaderPort,
+} from '@application/ports/runner-reader.port';
 import { RUNNER_REVOCATION } from '@application/ports/runner-revocation.port';
 import { RUNNER_TOKEN } from '@application/ports/runner-token.port';
 import { TASK_READER } from '@application/ports/task-reader.port';
@@ -200,6 +204,7 @@ import { RunAtHand } from '@application/services/run-at-hand.service';
 import { RUN_OUTCOMES } from '@application/services/run-outcomes';
 import { RunOutcomesFanOut } from '@application/services/run-outcomes.fan-out';
 import { SeedConfiguration } from '@application/services/seed-configuration.service';
+import { SettleSetup } from '@application/services/settle-setup.service';
 import { SourceForDelivery } from '@application/services/source-for-delivery.service';
 import { STANDING_WORK } from '@application/services/standing-work';
 import { TakeUpStandingWork } from '@application/services/take-up-standing-work.service';
@@ -207,9 +212,9 @@ import {
   TASK_DISPATCH,
   type TaskDispatching,
 } from '@application/services/task-dispatch';
+import { TeamSetup } from '@application/services/team-setup.service';
 import { WebhookSources } from '@application/services/webhook-sources.service';
 import { WorkOffDeliveries } from '@application/services/work-off-deliveries.service';
-import { WriteBackLine } from '@application/services/write-back-line.service';
 import { WriteConfiguration } from '@application/services/write-configuration.service';
 import { AuthenticationModule } from '@infrastructure/auth/auth.module';
 import { RunnerTokenAuth } from '@infrastructure/auth/runner-token.auth';
@@ -222,6 +227,7 @@ import { bindQueryHandler } from '@infrastructure/cqrs/bind-query-handler';
 import { DeliveryWorker } from '@infrastructure/delivery/delivery-worker';
 import { GitHubSource } from '@infrastructure/github/github.source';
 import { GitHubAppAccess } from '@infrastructure/github/github-app.access';
+import { GitHubAppIdentity } from '@infrastructure/github/github-app.identity';
 import { GitHubGitTransport } from '@infrastructure/github/github-git.transport';
 import { GitHubIdentity } from '@infrastructure/github/github-identity';
 import { GitHubPullRequests } from '@infrastructure/github/github-pull-requests';
@@ -369,6 +375,12 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     },
 
     {
+      provide: GITHUB_APP,
+      inject: [ENV],
+      useFactory: (env: Env) => new GitHubAppIdentity(env),
+    },
+
+    {
       provide: DELIVERY_INBOX,
       useClass: DrizzleDeliveryInbox,
     },
@@ -485,22 +497,6 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     },
 
     {
-      provide: WriteBackLine,
-      inject: [
-        DrizzleTeamConfiguration,
-        LINE_READER,
-        REPOSITORY_CONTENTS,
-        PULL_REQUESTS,
-      ],
-      useFactory: (
-        configurations: DrizzleTeamConfiguration,
-        reader: LineReaderPort,
-        contents: RepositoryContentsPort,
-        pullRequests: PullRequestPort,
-      ) => new WriteBackLine(configurations, reader, contents, pullRequests),
-    },
-
-    {
       provide: ApplyLines,
       inject: [
         DrizzleAssemblyLineRepository,
@@ -543,6 +539,42 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     },
 
     {
+      provide: SettleSetup,
+      inject: [DrizzleTaskRepository, TeamSetup, CLOCK, LOGGER],
+      useFactory: (
+        tasks: DrizzleTaskRepository,
+        setup: TeamSetup,
+        clock: ClockPort,
+        logger: LoggerPort,
+      ) => new SettleSetup(tasks, setup, clock, logger),
+    },
+
+    {
+      provide: TeamSetup,
+      inject: [
+        DrizzleWorkspaceRepository,
+        DrizzleTeamConfiguration,
+        INTEGRATION_READER,
+        RUNNER_READER,
+        DrizzleTeamRepository,
+      ],
+      useFactory: (
+        connections: DrizzleWorkspaceRepository,
+        configurations: DrizzleTeamConfiguration,
+        integrations: IntegrationReaderPort,
+        runners: RunnerReaderPort,
+        teams: DrizzleTeamRepository,
+      ) =>
+        new TeamSetup(
+          connections,
+          configurations,
+          integrations,
+          runners,
+          teams,
+        ),
+    },
+
+    {
       provide: ReadConfiguration,
       inject: [
         REPOSITORY_CATALOG,
@@ -551,6 +583,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         ApplyLines,
         DrizzleTeamConfiguration,
         CLOCK,
+        SettleSetup,
       ],
       useFactory: (
         catalog: RepositoryCatalogPort,
@@ -559,6 +592,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         lines: ApplyLines,
         configurations: DrizzleTeamConfiguration,
         clock: ClockPort,
+        settling: SettleSetup,
       ) =>
         new ReadConfiguration(
           catalog,
@@ -567,6 +601,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
           lines,
           configurations,
           clock,
+          settling,
         ),
     },
 
@@ -680,11 +715,15 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         factories: DrizzleFactoryRepository,
         lines: DrizzleAssemblyLineRepository,
         ids: CryptoIdGenerator,
-      ) => new ProvisionFactory(factories, lines, ids),
+        tasks: DrizzleTaskRepository,
+        clock: ClockPort,
+      ) => new ProvisionFactory(factories, lines, ids, tasks, clock),
       inject: [
         DrizzleFactoryRepository,
         DrizzleAssemblyLineRepository,
         ID_GENERATOR,
+        DrizzleTaskRepository,
+        CLOCK,
       ],
     },
 
@@ -789,6 +828,14 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       WORKSPACE_READER,
       TEAM_SECRETS,
     ]),
+    ...bindCommandHandler(PinConfigurationCommand, PinConfigurationHandler, [
+      WORKSPACE_READER,
+      DrizzleWorkspaceRepository,
+      DrizzleTeamRepository,
+      SeedConfiguration,
+      REPOSITORY_CATALOG,
+      SettleSetup,
+    ]),
     ...bindCommandHandler(ChooseToolsCommand, ChooseToolsHandler, [
       DrizzleWorkspaceRepository,
       WORKSPACE_READER,
@@ -797,17 +844,8 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     ]),
     ...bindQueryHandler(OnboardingQuery, OnboardingHandler, [
       WORKSPACE_READER,
-      DrizzleWorkspaceRepository,
-      DrizzleTeamConfiguration,
-      INTEGRATION_READER,
-      RUNNER_READER,
-    ]),
-    ...bindCommandHandler(ProposeLineCommand, ProposeLineHandler, [
-      DrizzleWorkspaceRepository,
-      WORKSPACE_READER,
-      DrizzleTeamRepository,
-      DrizzleAssemblyLineRepository,
-      WriteBackLine,
+      TeamSetup,
+      GITHUB_APP,
     ]),
     ...bindCommandHandler(ReadConfigurationCommand, ReadConfigurationHandler, [
       DrizzleWorkspaceRepository,
@@ -854,6 +892,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       REPOSITORY_CATALOG,
       DrizzleTeamRepository,
       SeedConfiguration,
+      SettleSetup,
     ]),
     ...bindCommandHandler(OpenPullRequestCommand, OpenPullRequestHandler, [
       RunAtHand,
@@ -911,6 +950,8 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       DrizzleRunnerRepository,
       CLOCK,
       TRANSACTION,
+      RUNNER_READER,
+      SettleSetup,
     ]),
     ...bindCommandHandler(RevokeRunnerCommand, RevokeRunnerHandler, [
       DrizzleRunnerRepository,

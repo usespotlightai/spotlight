@@ -2,7 +2,7 @@ import { Team } from '@domain/aggregates/team.aggregate';
 import { Workspace } from '@domain/aggregates/workspace.aggregate';
 import { WorkspaceSlugTakenError } from '@domain/exceptions/workspace-slug-taken.error';
 import type { WorkspaceSlugRegistry } from '@domain/repositories/workspace.repository';
-import { TeamName } from '@domain/value-objects/team-name.vo';
+import type { TeamName } from '@domain/value-objects/team-name.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import type { WorkspaceName } from '@domain/value-objects/workspace-name.vo';
@@ -20,6 +20,7 @@ export class WorkspaceRegistration {
     id: WorkspaceId;
     name: WorkspaceName;
     slug: WorkspaceSlug;
+    teamName: TeamName;
     owner: UserId;
     newId: () => string;
   }): Promise<{ workspace: Workspace; firstTeam: Team }> {
@@ -29,7 +30,7 @@ export class WorkspaceRegistration {
 
     const firstTeam = Team.open({
       workspaceId: input.id,
-      name: TeamName.of(input.name.value),
+      name: input.teamName,
       owner: input.owner,
       newId: input.newId,
     });

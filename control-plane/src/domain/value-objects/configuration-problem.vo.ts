@@ -1,12 +1,6 @@
 import { InvalidIdentifierError } from '@domain/exceptions/invalid-identifier.error';
 
-/**
- * What is wrong with a file, in the words of whoever has to fix it.
- *
- * A problem points at where it is the way a person would — a file, and a
- * field within it — so the answer to "why is my integration not running" is
- * a list to work through rather than a stack trace to interpret.
- */
+/** What is wrong with a file, and where, in the words of whoever fixes it. */
 export class ConfigurationProblem {
   private constructor(
     readonly path: string,

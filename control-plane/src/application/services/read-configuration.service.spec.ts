@@ -97,10 +97,13 @@ const reading = (
     } as unknown as ApplyLines,
     config,
     clock,
+    { forTeam: settling } as never,
   );
 
-  return { service, config, contents, apply };
+  return { service, config, contents, apply, settling };
 };
+
+const settling = vi.fn(async () => {});
 
 describe('ReadConfiguration', () => {
   it('reads it and writes down what was found', async () => {
@@ -120,6 +123,16 @@ describe('ReadConfiguration', () => {
     expect(written.commit.value).toBe('a1b2c3d');
     expect(written.files.map((each) => each.path)).toEqual([CONFIG.path]);
     expect(written.readAt).toBe(NOW);
+  });
+
+  // Two steps at once: the setup pull request is merged when its files can be
+  // read, and the tools chosen are the ones those files listen to.
+  it('looks at whether that was the last step', async () => {
+    const { service, settling } = reading();
+
+    await service.read(workspace(), TEAM);
+
+    expect(settling).toHaveBeenCalled();
   });
 
   // Read at a commit rather than a branch, so what was read is a fact after.

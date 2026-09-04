@@ -12,18 +12,13 @@ export type SigningEncoding = (typeof SIGNING_ENCODINGS)[number];
 
 /**
  * How a host proves a delivery is its own. There is no way to express that it
- * does not: an unsigned door takes anybody's word for what happened, and what
- * happens on that word is an agent running.
- *
- * Nothing here signs anything. This says what the signature should be, and
- * whoever holds the secret works out whether it is.
+ * does not: an unsigned door takes anybody's word, and an agent runs on it.
  */
 export class Signing {
   private constructor(
     readonly scheme: SigningScheme,
-    /** Where the host puts the digest. Matched however either side cased it. */
     readonly header: string,
-    /** What the workspace calls the secret. Never the secret. */
+    /** Never the secret itself. */
     readonly secret: SecretName,
     readonly encoding: SigningEncoding,
     /** Some hosts write `sha256=` in front of the digest, and some do not. */

@@ -18,8 +18,8 @@ export interface StoredDelivery {
 
 /**
  * What hosts have told us, kept as it arrived and worked afterwards. A host
- * sends the same word more than once — on retry, and whenever someone asks it
- * to — so taking it in is what makes it ours, and only once.
+ * sends the same word more than once, on retry and whenever someone asks it
+ * to, so taking it in is what makes it ours, and only once.
  */
 export interface DeliveryInboxPort {
   /**

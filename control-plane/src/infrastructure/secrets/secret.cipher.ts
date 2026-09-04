@@ -17,12 +17,9 @@ const TAG_BYTES = 16;
 const VERSION = 'v1';
 
 /**
- * A secret at rest. AES-256-GCM, so a row that has been edited in the
- * database fails to open rather than opening as something else.
- *
- * The key belongs to the deployment, not to a workspace: it is what turns a
- * stolen database into rows nobody can read, and it is the one thing here
- * that must not be in the database.
+ * AES-256-GCM, so a row edited in the database fails to open rather than
+ * opening as something else. The key is the deployment's, and is the one
+ * thing here that must not be in the database.
  */
 export class SecretCipher {
   private readonly key: Buffer;

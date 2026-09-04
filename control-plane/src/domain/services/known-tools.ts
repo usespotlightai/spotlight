@@ -1,20 +1,14 @@
 import { SourceKey } from '@domain/value-objects/source-key.vo';
 
 /**
- * A host Spotlight knows how to listen to before anybody has written a file
- * for it. Choosing one writes that file; what is written is ordinary
- * configuration afterwards, and a person may change any of it.
- *
- * The `when` rules here are what each host's own documentation describes.
- * They are a starting point rather than a promise: a host changes its
- * payloads on its own schedule, and the file is where that is fixed.
+ * A host Spotlight can write a starting file for. The `when` rules are what
+ * each host's documentation describes: a starting point rather than a promise,
+ * and the file is where that is fixed.
  */
 export interface KnownTool {
   readonly source: SourceKey;
   readonly name: string;
-  /** What a person choosing between them reads. */
   readonly summary: string;
-  /** What its own settings page calls the field a secret goes in. */
   readonly secretCalled: string;
   readonly file: string;
 }

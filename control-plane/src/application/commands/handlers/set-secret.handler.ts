@@ -15,8 +15,8 @@ import { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
  *
  * Only an owner or an admin: a secret is what stands in for a session at a
  * door anybody can knock at, so who may set one is who may connect a host.
- * True where it was set, and nothing more — there is no answer here that
- * carries a secret in any direction but inward.
+ * True where it was set, and nothing more. No answer here carries a secret in
+ * any direction but inward.
  */
 export class SetSecretHandler
   implements CommandHandlerPort<SetSecretCommand, boolean>

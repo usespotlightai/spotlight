@@ -115,7 +115,6 @@ export class DrizzleTeamRepository implements TeamRepository {
     };
   }
 
-  /** Their members in one question rather than one each. */
   private async rehydrated(rows: readonly Row[]): Promise<Team[]> {
     if (rows.length === 0) {
       return [];

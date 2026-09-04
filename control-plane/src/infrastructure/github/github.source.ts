@@ -198,15 +198,30 @@ export class GitHubSource implements WebhookSourcePort {
   }
 
   /**
-   * A push to the branch a repository is read from, where it touched anything
-   * under the configuration directory. Anything else is somebody's ordinary
-   * work, which this has no opinion about.
+   * What a delivery said about the workspace rather than about a task: a
+   * configuration file that moved, or the installation itself going away.
    */
   noticed(delivered: Delivered): readonly Noticed[] {
     const event = headed(delivered.headers, 'x-github-event');
     const body = (delivered.body ?? {}) as Delivery;
     const repository = text(body.repository?.full_name);
     const branch = text(body.repository?.default_branch);
+
+    // Uninstalled, or every repository taken off it, which reaches Spotlight
+    // the same way and leaves it able to read nothing either way.
+    if (event === 'installation' && body.action === 'deleted') {
+      const installation = named(body.installation?.id);
+
+      return installation
+        ? [
+            {
+              kind: 'connection-ended',
+              source: this.key,
+              externalId: installation.value,
+            },
+          ]
+        : [];
+    }
 
     if (
       event !== 'push' ||

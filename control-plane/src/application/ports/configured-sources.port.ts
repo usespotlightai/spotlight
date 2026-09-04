@@ -22,9 +22,7 @@ export interface OfTeam {
  * rather than by name alone.
  */
 export interface ConfiguredSourcesPort {
-  /** Null where this team has declared no such host. */
   find(team: OfTeam, key: string): Promise<WebhookSourcePort | null>;
 
-  /** Everything it has declared, for showing a person what it listens to. */
   all(team: OfTeam): Promise<readonly WebhookSourcePort[]>;
 }

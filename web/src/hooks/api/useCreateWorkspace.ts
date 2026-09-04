@@ -5,6 +5,7 @@ import { createWorkspace } from '@/lib/api';
 export type CreateWorkspaceInput = {
   name: string;
   slug: string;
+  teamName: string;
 };
 
 export class WorkspaceSlugTakenError extends Error {
@@ -27,9 +28,9 @@ export function useCreateWorkspace() {
 
   return useMutation({
     mutationKey: ['workspaces', 'create'],
-    mutationFn: async ({ name, slug }: CreateWorkspaceInput) => {
+    mutationFn: async ({ name, slug, teamName }: CreateWorkspaceInput) => {
       const { data, error, response } = await createWorkspace({
-        body: { name, slug },
+        body: { name, slug, teamName },
       });
 
       if (data) {

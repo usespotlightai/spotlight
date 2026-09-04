@@ -25,11 +25,7 @@ export interface HappeningRules {
   readonly marks: readonly { kind: MarkKind; value: Expression }[];
 }
 
-/**
- * An integration and the rules for reading its deliveries. The vocabulary is
- * the domain's; the rules are written in a language the domain has no opinion
- * about, so they travel beside it rather than inside it.
- */
+/** The rules travel beside the integration rather than inside it. */
 export interface ReadableIntegration {
   readonly integration: Integration;
   readonly delivery: Expression | null;
@@ -67,11 +63,8 @@ const expressionAt = (
 };
 
 /**
- * A file into a host that can be listened to, or everything wrong with it.
- *
- * Both halves are checked here and neither is trusted to the other: the
- * expressions are parsed so that nothing fails on a Sunday, and the words are
- * handed to the domain, which says whether they are a vocabulary at all.
+ * Expressions are parsed here so nothing fails on a Sunday; the words go to
+ * the domain, which says whether they are a vocabulary at all.
  */
 export const compileIntegration = (path: string, text: string): Compiled => {
   const problems: ConfigurationProblem[] = [];

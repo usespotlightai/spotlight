@@ -5,9 +5,7 @@ import type { ConfigurationProblem } from '@domain/value-objects/configuration-p
 export const INTEGRATION_READER = Symbol('INTEGRATION_READER');
 
 export interface ReadIntegrations {
-  /** Every host the files declare well enough to listen to. */
   readonly integrations: readonly Integration[];
-  /** Everything wrong with the rest, for whoever has to fix it. */
   readonly problems: readonly ConfigurationProblem[];
 }
 

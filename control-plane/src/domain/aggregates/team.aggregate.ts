@@ -1,4 +1,5 @@
 import { TeamCreated } from '@domain/events/team-created.event';
+import { ConfigurationSettledError } from '@domain/exceptions/configuration-settled.error';
 import type { Repository } from '@domain/value-objects/repository.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { TeamKey } from '@domain/value-objects/team-key.vo';
@@ -13,31 +14,18 @@ export interface TeamMember {
 }
 
 /**
- * A team, and everything that is its own rather than its workspace's: where
- * it reads its configuration from, the hosts it listens to, the lines it
- * runs, and who is on it.
- *
- * A root rather than something inside a workspace, because all of that is
- * addressed by the team and not through the workspace that holds it: a
- * delivery knocks at a team's door, and a reading is a team's reading.
+ * A root rather than something inside a workspace: a delivery knocks at a
+ * team's door, and a reading is a team's reading.
  */
 export class Team {
   private constructor(
     readonly id: TeamId,
     /** Whose it is. A team belongs to one workspace and never moves. */
     readonly workspaceId: WorkspaceId,
-    /**
-     * What it is called where a person writes it down: the directory its
-     * configuration sits in, and the door its hosts knock at.
-     */
     readonly key: TeamKey,
     readonly name: TeamName,
     readonly members: readonly TeamMember[],
-    /**
-     * The repository this team reads its configuration from. Its own: two
-     * teams may keep theirs in different places, and one that has not chosen
-     * reads from whichever connected repository holds any.
-     */
+    /** Null where nobody chose, and then the fallback rule applies. */
     readonly configRepository: Repository | null,
     readonly happened: readonly TeamCreated[],
   ) {}
@@ -58,7 +46,7 @@ export class Team {
       input.name,
       [{ userId: input.owner, role: 'owner' }],
       null,
-      [new TeamCreated(input.workspaceId, id)],
+      [new TeamCreated(input.workspaceId, id, input.owner)],
     );
   }
 
@@ -81,17 +69,23 @@ export class Team {
     );
   }
 
-  /** Whether this person is on it, or of the workspace that holds it. */
   holds(userId: UserId): boolean {
     return this.members.some((each) => each.userId.equals(userId));
   }
 
+  /** Who may is the workspace's to say. */
   /**
-   * Pins where this team reads its configuration from. Whether the person
-   * asking may is the workspace's to say: it is the same kind of change as
-   * connecting the workspace to a host.
+   * Said once. Moving it would leave every file already written behind and
+   * start reading someone else's from then on, so a team that has somewhere
+   * keeps it; saying the same place again is not a change.
    */
   keepsConfigurationIn(repository: Repository | null): Team {
+    const held = this.configRepository;
+
+    if (held && !(repository && held.equals(repository))) {
+      throw new ConfigurationSettledError(held.value);
+    }
+
     return new Team(
       this.id,
       this.workspaceId,

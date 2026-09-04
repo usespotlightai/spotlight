@@ -99,6 +99,7 @@ export class InboxController {
               new InboxMessageResponseDto(
                 note.position,
                 note.kind,
+                note.form,
                 note.voice,
                 note.station,
                 note.stationColor,

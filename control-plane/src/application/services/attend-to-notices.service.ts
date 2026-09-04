@@ -2,42 +2,63 @@ import type { LoggerPort } from '@application/ports/logger.port';
 import type { Noticed } from '@application/ports/webhook-source.port';
 import type { ReadConfiguration } from '@application/services/read-configuration.service';
 import type { TeamRepository } from '@domain/repositories/team.repository';
-import type { WorkspaceFinding } from '@domain/repositories/workspace.repository';
+import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
 import { Repository } from '@domain/value-objects/repository.vo';
 
 /**
- * What a delivery said about a workspace rather than about a task.
+ * What a delivery said about a team rather than about a task: a repository it
+ * reads configuration from has moved, or the host it reached them through is
+ * gone.
  *
- * There is one such thing today: a repository Spotlight reads configuration
- * from has moved, and so what it should be listening to may have changed.
- * Read again, and only for the workspace whose repository it was.
- *
- * Nothing here fails a delivery. A host is not to be told to send its push
- * again because a file in it would not parse: the problems are written down
- * where the workspace can see them, and the delivery is done with.
+ * Nothing here fails a delivery. A host is not told to send its push again
+ * because a file in it would not parse.
  */
 export class AttendToNotices {
   constructor(
     private readonly teams: TeamRepository,
-    private readonly workspaces: WorkspaceFinding,
+    private readonly workspaces: WorkspaceRepository,
     private readonly reading: ReadConfiguration,
     private readonly logger: LoggerPort,
   ) {}
 
   async attend(noticed: readonly Noticed[]): Promise<void> {
     for (const notice of noticed) {
-      if (notice.kind !== 'configuration-touched') {
-        continue;
-      }
-
       try {
-        await this.readFor(notice.repository);
+        if (notice.kind === 'configuration-touched') {
+          await this.readFor(notice.repository);
+        }
+
+        if (notice.kind === 'connection-ended') {
+          await this.letGoOf(notice.source, notice.externalId);
+        }
       } catch (error) {
         this.logger.error(
-          { err: error, repository: notice.repository },
-          'Reading configuration after a push',
+          { err: error, notice: notice.kind },
+          'Attending to what a delivery said about the workspace',
         );
       }
+    }
+  }
+
+  /**
+   * The connection dropped, so nothing goes on believing Spotlight can reach
+   * a host it cannot. Found by what the host called it rather than by which
+   * workspace: an installation removed is removed from whoever held it.
+   */
+  private async letGoOf(source: string, externalId: string): Promise<void> {
+    const workspaceId = await this.workspaces.withConnection(
+      source,
+      externalId,
+    );
+
+    if (!workspaceId) {
+      return;
+    }
+
+    const workspace = await this.workspaces.find(workspaceId);
+
+    if (workspace) {
+      await this.workspaces.save(workspace.disconnectedFrom(source));
     }
   }
 

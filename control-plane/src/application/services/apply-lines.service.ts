@@ -10,18 +10,12 @@ import type { StationId } from '@domain/value-objects/station-id.vo';
 import type { TeamId } from '@domain/value-objects/team-id.vo';
 
 /**
- * Makes a workspace's lines say what its files say.
+ * Makes a team's lines say what its files say. Reconciled rather than
+ * replaced, so a station still described keeps its tasks; a plan that would
+ * strand work is refused and written down as a problem instead.
  *
- * A line is found by key and reconciled rather than replaced, so a station
- * that is still described is still the same station and the tasks standing
- * at it never move. A plan that would strand somebody's work is refused, and
- * the refusal is written down as a problem with the file: the line that was
- * already running goes on running, and a person is told which stations still
- * have tasks at them.
- *
- * A line the files do not mention is left alone. Configuration says what a
- * workspace has, not what it may not have: this reads files, and deleting a
- * line is not something a missing file should quietly do.
+ * A line no file mentions is left alone: deleting one is not something a
+ * missing file should quietly do.
  */
 export class ApplyLines {
   constructor(

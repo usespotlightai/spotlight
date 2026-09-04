@@ -554,6 +554,18 @@ describe('Task, what it is doing', () => {
       );
     });
 
+    // Settling closes what is open. With nothing open there is nothing to
+    // close, and a 'passed' nobody asked for is a trail that reads wrong.
+    it('will not settle what nothing opened', () => {
+      expect(() => added().settled(saying)).toThrow(InvalidTaskTransitionError);
+    });
+
+    it('will not settle the same conversation twice', () => {
+      expect(() =>
+        added().askedAbout(saying).settled(saying).settled(saying),
+      ).toThrow(InvalidTaskTransitionError);
+    });
+
     it('will not be taken up by a second run while one holds it', () => {
       expect(() =>
         added().handedTo(RunId.of('run_1')).handedTo(RunId.of('run_2')),

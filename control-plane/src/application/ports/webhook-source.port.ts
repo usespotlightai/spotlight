@@ -31,11 +31,26 @@ export interface HappeningDeclaration {
  * A host telling us its repository moved is not news about anybody's work; it
  * is news about what Spotlight should be reading.
  */
-export interface Noticed {
+/** A repository Spotlight reads configuration from has moved. */
+export interface ConfigurationTouched {
   readonly kind: 'configuration-touched';
   /** Which repository moved, named the way a workspace names one. */
   readonly repository: string;
 }
+
+/**
+ * The host let go of Spotlight rather than the other way about: somebody
+ * removed the installation where it lives. What a workspace holds for it is
+ * a key to a door that is no longer there.
+ */
+export interface ConnectionEnded {
+  readonly kind: 'connection-ended';
+  readonly source: string;
+  /** The host's own name for what ended, which is what a workspace holds. */
+  readonly externalId: string;
+}
+
+export type Noticed = ConfigurationTouched | ConnectionEnded;
 
 export interface Happened extends Word {
   readonly concerns: Concerns;

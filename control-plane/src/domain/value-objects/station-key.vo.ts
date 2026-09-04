@@ -5,13 +5,8 @@ const SHAPE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const LONGEST = 64;
 
 /**
- * What a station is called in the file that describes it, and what it stays
- * called however it is renamed or moved.
- *
- * Every task stands at a station by an identifier nobody writes down. This is
- * the other end of that: the name in the file, matched on when configuration
- * is read again, so a station that was edited is the same station and the
- * tasks standing at it are not stranded.
+ * What a station is called in the file. Matched on when configuration is read
+ * again, so an edited station is the same station and its tasks stay put.
  */
 export class StationKey {
   private readonly kind = 'station-key';
@@ -31,7 +26,6 @@ export class StationKey {
     return new StationKey(named);
   }
 
-  /** What a station written without one would be called, from its name. */
   static from(name: string): StationKey {
     const slugged = name
       .trim()

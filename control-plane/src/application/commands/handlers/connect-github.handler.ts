@@ -5,6 +5,7 @@ import type { GitHubIdentityPort } from '@application/ports/github-identity.port
 import type { RepositoryCatalogPort } from '@application/ports/repository-catalog.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import type { SeedConfiguration } from '@application/services/seed-configuration.service';
+import type { SettleSetup } from '@application/services/settle-setup.service';
 import type { Workspace } from '@domain/aggregates/workspace.aggregate';
 import { WorkspaceConnected } from '@domain/events/workspace-connected.event';
 import { NotYoursToConnectError } from '@domain/exceptions/not-yours-to-connect.error';
@@ -26,6 +27,7 @@ export class ConnectGitHubHandler
     private readonly catalog: RepositoryCatalogPort,
     private readonly teams: TeamRepository,
     private readonly seeding: SeedConfiguration,
+    private readonly settling: SettleSetup,
   ) {}
 
   /** The workspace connected, or null where this person has no such one. */
@@ -54,9 +56,19 @@ export class ConnectGitHubHandler
         // Asked of GitHub, not taken from the request: an installation number
         // is a guess anyone could make, and the wrong one would hand this
         // workspace somebody else's repositories.
-        if (!(await this.identity.administers(by, installation))) {
+        const held = await this.identity.administers(by, installation);
+
+        if (held === 'does-not') {
           throw new NotYoursToConnectError(
             'That is not an installation you administer on GitHub',
+          );
+        }
+
+        // Refused either way, but said as what it is. A question GitHub would
+        // not answer is not an answer of no.
+        if (held === 'cannot-tell') {
+          throw new NotYoursToConnectError(
+            'GitHub would not say whether that installation is yours. Sign in again, and if it keeps happening the sign-in is not authorised to list App installations.',
           );
         }
 
@@ -75,6 +87,7 @@ export class ConnectGitHubHandler
       for (const event of connected.happened) {
         if (event instanceof WorkspaceConnected) {
           await this.wroteItDown(connected);
+          await this.settling.forWorkspace(connected.id);
         }
       }
 

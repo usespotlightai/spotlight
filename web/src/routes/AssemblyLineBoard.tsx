@@ -18,7 +18,6 @@ import { StationSection } from '@/components/board/StationSection';
 import { TaskPreview } from '@/components/board/TaskPreview';
 import { TaskRow } from '@/components/board/TaskRow';
 import { InitialAvatar } from '@/components/common/avatar/InitialAvatar';
-import { ProposeLine } from '@/components/integrations/ProposeLine';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useAddTask } from '@/hooks/api/useAddTask';
@@ -106,9 +105,6 @@ export function AssemblyLineBoard() {
               { label: line.name },
             ]}
           />
-        }
-        actions={
-          <ProposeLine teamId={teamId} lineId={line.id} name={line.name} />
         }
       />
 

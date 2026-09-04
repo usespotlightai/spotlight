@@ -29,14 +29,14 @@ const provisioning = (): FactoryProvisioningPort => ({
   },
 });
 
-const handle = (name = 'Acme Inc.', slug = 'acme-inc') =>
+const handle = (name = 'Acme Inc.', slug = 'acme-inc', teamName = 'Platform') =>
   new CreateWorkspaceHandler(
     repository,
     teams as unknown as TeamRepository,
     ids(),
     transaction,
     provisioning(),
-  ).execute(new CreateWorkspaceCommand(name, slug, 'user_1'));
+  ).execute(new CreateWorkspaceCommand(name, slug, teamName, 'user_1'));
 
 let teams: Record<string, unknown>;
 
@@ -70,7 +70,7 @@ describe('CreateWorkspaceHandler', () => {
       id: 'id_1',
       name: 'Acme Inc.',
       slug: 'acme-inc',
-      teams: [{ id: 'id_2', name: 'Acme Inc.' }],
+      teams: [{ id: 'id_2', name: 'Platform' }],
     });
   });
 

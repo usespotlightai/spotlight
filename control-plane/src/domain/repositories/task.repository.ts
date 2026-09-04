@@ -3,12 +3,34 @@ import type { Concerns } from '@domain/value-objects/concerns.vo';
 import type { StationId } from '@domain/value-objects/station-id.vo';
 import type { TaskId } from '@domain/value-objects/task-id.vo';
 import type { TaskRank } from '@domain/value-objects/task-rank.vo';
+import type { TeamId } from '@domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 
 /** A task's place among those standing at a station. */
 export interface TaskPlacement {
   readonly id: TaskId;
   readonly rank: TaskRank;
+}
+
+/** A setup list and whose it is, which the task itself does not know. */
+export interface StandingSetup {
+  readonly teamId: TeamId;
+  readonly task: Task;
+}
+
+/**
+ * The lists teams are still working through. Apart from the rest of a task's
+ * repository because settling one is all this is for.
+ */
+export interface SetupLists {
+  settingUpFor(teamId: TeamId): Promise<StandingSetup | null>;
+
+  settingUpIn(workspaceId: WorkspaceId): Promise<readonly StandingSetup[]>;
+
+  /** Every list still standing anywhere, for the step no team takes alone. */
+  settingUp(): Promise<readonly StandingSetup[]>;
+
+  save(task: Task): Promise<void>;
 }
 
 export interface TaskRepository {

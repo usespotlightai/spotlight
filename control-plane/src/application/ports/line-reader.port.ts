@@ -18,6 +18,5 @@ export interface ReadLines {
 export interface LineReaderPort {
   read(files: readonly ConfigurationFile[]): ReadLines;
 
-  /** The file that would describe a line, for writing one back. */
   write(line: AssemblyLine): ConfigurationFile;
 }

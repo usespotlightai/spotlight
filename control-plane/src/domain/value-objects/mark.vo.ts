@@ -5,13 +5,8 @@ import type { PullRequestUrl } from '@domain/value-objects/pull-request-url.vo';
 const KIND = /^[a-z0-9]+(\.[a-z0-9][a-z0-9_-]*)+$/;
 
 /**
- * A handle the world outside knows a task by. A pull request has an address,
- * an issue tracker has a key, an alert has a fingerprint: each is a different
- * kind of handle, and none of them is a task id.
- *
- * What makes a mark worth having is that a source can mint its own. Bringing
- * a delivery home is then the same question every time — which task wears
- * this handle — rather than a new column and a new query per host.
+ * A handle the world outside knows a task by. A source mints its own kind, so
+ * finding a task is one question however many hosts there are.
  */
 export class Mark {
   private constructor(
@@ -38,7 +33,6 @@ export class Mark {
     return new Mark(named, held);
   }
 
-  /** The one handle Spotlight hands out itself, by opening the thing. */
   static pullRequest(url: PullRequestUrl): Mark {
     return Mark.of('git.pull-request', url.value);
   }

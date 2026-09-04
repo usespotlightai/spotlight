@@ -18,8 +18,8 @@ import { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
  *
  * What comes back is a pull request, not a team already listening: the files
  * are ordinary configuration, and somebody reads them before they are true.
- * Nothing is set up here — a host still has to be pointed at the door, and
- * its secret still has to be set — and the pull request says so.
+ * Nothing is set up here. A host still has to be pointed at the door and its
+ * secret still has to be set, and the pull request says so.
  */
 export class ChooseToolsHandler
   implements CommandHandlerPort<ChooseToolsCommand, OpenedPullRequestDto | null>
@@ -54,15 +54,21 @@ export class ChooseToolsHandler
         .map((each) => knownTool(each))
         .filter((each) => each !== null);
 
+      // Taking one away needs no file, only a path, so an unknown host can
+      // still be dropped: it is what a team wrote here once and no longer uses.
+      const dropped = command.dropped.map(
+        (each) => `${INTEGRATIONS_UNDER}/${each}.yml`,
+      );
+
       const held = await this.teams.find(TeamId.of(command.teamId));
 
-      if (!workspace || !held || chosen.length === 0) {
+      if (!workspace || !held || chosen.length + dropped.length === 0) {
         return null;
       }
 
       return await this.writing.write(workspace, held, {
         branch: 'spotlight/tools',
-        title: 'Listen to the tools this team uses',
+        title: titleFor(chosen.length, dropped.length),
         body: BODY,
         files: chosen.map((tool) =>
           ConfigurationFile.of(
@@ -70,12 +76,23 @@ export class ChooseToolsHandler
             tool.file,
           ),
         ),
+        removes: dropped,
       });
     } catch (error) {
       rethrowAsFault(error);
     }
   }
 }
+
+const titleFor = (written: number, taken: number): string => {
+  if (written === 0) {
+    return 'Stop listening to tools this team no longer uses';
+  }
+
+  return taken === 0
+    ? 'Listen to the tools this team uses'
+    : 'Change the tools this team listens to';
+};
 
 const BODY = `These are the hosts this team said it uses, written down.
 

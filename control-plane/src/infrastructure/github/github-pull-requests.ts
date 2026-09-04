@@ -109,11 +109,19 @@ export class GitHubPullRequests implements PullRequestPort {
       })),
     );
 
+    // A null sha against a path is how git says the tree no longer holds it.
+    const taken = (proposal.removes ?? []).map((path) => ({
+      path: path.replace(/^\/+/, ''),
+      mode: FILE,
+      type: 'blob',
+      sha: null,
+    }));
+
     const tree = await answered<Named>(
       await call(
         `${at}/git/trees`,
         token,
-        sending({ base_tree: parent, tree: blobs }),
+        sending({ base_tree: parent, tree: [...blobs, ...taken] }),
       ),
       'GitHub would not lay out the change',
     );
