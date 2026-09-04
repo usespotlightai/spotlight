@@ -1,1 +1,0 @@
-ALTER TABLE "task_note" ADD COLUMN "form" text DEFAULT 'words' NOT NULL;
