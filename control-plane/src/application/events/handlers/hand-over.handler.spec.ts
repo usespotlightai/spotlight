@@ -137,7 +137,7 @@ const dispatch: TaskDispatching = {
 
 const handOver = (ended = run(false), held: TaskRepository = tasks()) => {
   const handler = new HandOver(held, lines(), dispatch, clock);
-  const [raised] = ended.happened;
+  const [raised] = ended.pullEvents();
 
   if (!raised) {
     throw new Error('the run announced nothing');

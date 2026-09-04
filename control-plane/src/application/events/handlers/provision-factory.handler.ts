@@ -8,11 +8,11 @@ import type { TeamCreated } from '@domain/events/team-created.event';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { FactoryRepository } from '@domain/repositories/factory.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
+import type { WorkspaceFinding } from '@domain/repositories/workspace.repository';
 import { welcomeTask } from '@domain/services/welcome-task';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
-import type { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
 
 export class ProvisionFactory implements FactoryProvisioningPort {
   constructor(
@@ -21,9 +21,16 @@ export class ProvisionFactory implements FactoryProvisioningPort {
     private readonly ids: IdGeneratorPort,
     private readonly tasks: TaskRepository,
     private readonly clock: ClockPort,
+    private readonly workspaces: WorkspaceFinding,
   ) {}
 
-  async onTeamCreated(event: TeamCreated, at: WorkspaceSlug): Promise<void> {
+  async onTeamCreated(event: TeamCreated): Promise<void> {
+    const workspace = await this.workspaces.find(event.workspaceId);
+
+    if (!workspace) {
+      return;
+    }
+
     const opened = Factory.open({
       id: FactoryId.of(this.ids.generate()),
       workspaceId: event.workspaceId,
@@ -53,7 +60,7 @@ export class ProvisionFactory implements FactoryProvisioningPort {
         workspaceId: event.workspaceId,
         teamId: event.teamId,
         saying: TaskNoteBody.of(
-          listed({ slug: at.value, teamId: event.teamId.value }),
+          listed({ slug: workspace.slug.value, teamId: event.teamId.value }),
         ),
         stationId: first.id,
         station: first.name,

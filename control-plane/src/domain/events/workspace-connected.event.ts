@@ -1,3 +1,4 @@
+import type { DomainEvent } from '@domain/events/domain-event';
 import type { Connection } from '@domain/value-objects/connection.vo';
 import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 
@@ -8,7 +9,9 @@ import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
  * a workspace able to be read from and written to, and what should follow
  * from it is not the connecting's business.
  */
-export class WorkspaceConnected {
+export class WorkspaceConnected implements DomainEvent {
+  readonly kind = 'workspace.connected';
+
   constructor(
     readonly workspaceId: WorkspaceId,
     readonly connection: Connection,

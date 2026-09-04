@@ -3,7 +3,7 @@ import type { WorkspaceDto } from '@application/dto/workspace.dto';
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import { WorkspaceMapper } from '@application/mappers/workspace.mapper';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
-import type { FactoryProvisioningPort } from '@application/ports/factory-provisioning.port';
+import type { DomainEventDispatcher } from '@application/ports/domain-event-dispatcher.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import type { TeamRepository } from '@domain/repositories/team.repository';
@@ -25,7 +25,7 @@ export class CreateWorkspaceHandler
     private readonly teams: TeamRepository,
     private readonly ids: IdGeneratorPort,
     private readonly transaction: TransactionPort,
-    private readonly provisioning: FactoryProvisioningPort,
+    private readonly events: DomainEventDispatcher,
   ) {
     this.registration = new WorkspaceRegistration(workspaces);
   }
@@ -53,13 +53,12 @@ export class CreateWorkspaceHandler
     await this.transaction.run(async () => {
       await this.workspaces.add(workspace);
       await this.teams.add(firstTeam);
-
-      // A team opened is the team's own news, and what follows from it is
-      // somebody else's business.
-      for (const event of firstTeam.happened) {
-        await this.provisioning.onTeamCreated(event, workspace.slug);
-      }
     });
+
+    await this.events.dispatch([
+      ...workspace.pullEvents(),
+      ...firstTeam.pullEvents(),
+    ]);
 
     return WorkspaceMapper.toDto(workspace, [firstTeam]);
   }

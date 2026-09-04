@@ -6,6 +6,7 @@ import type { TeamSecretsPort } from '@application/ports/team-secrets.port';
 import type { WorkspaceReaderPort } from '@application/ports/workspace-reader.port';
 import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
 import { SecretName } from '@domain/value-objects/secret-name.vo';
+import { SecretValue } from '@domain/value-objects/secret-value.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
@@ -47,14 +48,16 @@ export class SetSecretHandler
       }
 
       // Empty is not a secret. Forgetting one is its own thing to ask for.
-      if (command.value.trim().length === 0) {
+      const value = SecretValue.maybe(command.value);
+
+      if (!value) {
         return false;
       }
 
       await this.secrets.set(
         TeamId.of(command.teamId),
         SecretName.of(command.name),
-        command.value,
+        value,
       );
 
       return true;

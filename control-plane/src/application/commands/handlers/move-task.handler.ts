@@ -91,7 +91,7 @@ export class MoveTaskHandler
           });
 
       const runId =
-        stayed || moved.currentRunId
+        stayed || moved.running
           ? null
           : await this.dispatch.dispatch({ task: moved, line });
 

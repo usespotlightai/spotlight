@@ -30,7 +30,7 @@ const TEAM = Team.rehydrate({
   workspaceId: WorkspaceId.of('ws_1'),
   key: TeamKey.of('platform'),
   name: TeamName.of('Platform'),
-  members: [],
+  members: [{ userId: OWNER, role: 'owner' }],
 });
 
 const pinned = (repository: string) =>

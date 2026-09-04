@@ -25,4 +25,14 @@ export class Concerns {
 
     return named || worn.length > 0 ? new Concerns(named, worn) : null;
   }
+
+  equals(other: Concerns): boolean {
+    return (
+      (this.taskId === null
+        ? other.taskId === null
+        : other.taskId !== null && this.taskId.equals(other.taskId)) &&
+      this.marks.length === other.marks.length &&
+      this.marks.every((each, index) => each.equals(other.marks[index]))
+    );
+  }
 }

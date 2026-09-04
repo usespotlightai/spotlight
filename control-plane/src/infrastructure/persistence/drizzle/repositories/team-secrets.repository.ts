@@ -3,6 +3,7 @@ import type {
   TeamSecretsPort,
 } from '@application/ports/team-secrets.port';
 import type { SecretName } from '@domain/value-objects/secret-name.vo';
+import type { SecretValue } from '@domain/value-objects/secret-value.vo';
 import type { TeamId } from '@domain/value-objects/team-id.vo';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
 import { teamSecret } from '@infrastructure/persistence/drizzle/schemas/workspace.schema';
@@ -17,10 +18,14 @@ export class DrizzleTeamSecrets implements TeamSecretsPort {
     private readonly cipher: SecretCipher,
   ) {}
 
-  async set(teamId: TeamId, name: SecretName, value: string): Promise<void> {
+  async set(
+    teamId: TeamId,
+    name: SecretName,
+    value: SecretValue,
+  ): Promise<void> {
     // Sealed before it is anywhere near the statement, so nothing that logs
     // a query ever has the secret to log.
-    const sealed = this.cipher.seal(value);
+    const sealed = this.cipher.seal(value.value);
 
     await this.context.db
       .insert(teamSecret)

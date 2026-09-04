@@ -1,6 +1,6 @@
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Station } from '@domain/entities/station.entity';
-import type { LinePlan } from '@domain/model/line-plan';
+import type { LinePlan } from '@domain/value-objects/line-plan.vo';
 import { Reaction } from '@domain/value-objects/reaction.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import type { StationKey } from '@domain/value-objects/station-key.vo';

@@ -21,7 +21,15 @@ const acme = (role: WorkspaceRole = 'owner', user = 'user_1') =>
     id: WorkspaceId.of('ws_1'),
     name: WorkspaceName.of('Acme'),
     slug: WorkspaceSlug.of('acme'),
-    members: [{ userId: UserId.of(user), role }],
+    // The viewer under test wears `role`; an owner is always in the room too,
+    // because a workspace never loses its last one and the guard now says so.
+    members:
+      role === 'owner'
+        ? [{ userId: UserId.of(user), role: 'owner' }]
+        : [
+            { userId: UserId.of('owner_1'), role: 'owner' },
+            { userId: UserId.of(user), role },
+          ],
     teams: [],
   });
 
@@ -66,7 +74,7 @@ describe('SetSecretHandler', () => {
     expect(secrets.set).toHaveBeenCalledWith(
       expect.objectContaining({ value: 'team_1' }),
       expect.objectContaining({ value: 'LINEAR_WEBHOOK_SECRET' }),
-      'whsec_abc123',
+      expect.objectContaining({ value: 'whsec_abc123' }),
     );
   });
 

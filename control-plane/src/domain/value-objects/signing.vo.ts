@@ -49,4 +49,14 @@ export class Signing {
       input.prefix ?? '',
     );
   }
+
+  equals(other: Signing): boolean {
+    return (
+      this.scheme === other.scheme &&
+      this.header === other.header &&
+      this.secret.equals(other.secret) &&
+      this.encoding === other.encoding &&
+      this.prefix === other.prefix
+    );
+  }
 }

@@ -124,13 +124,16 @@ describe('SetLineReactionsHandler', () => {
   // Written whole: a rule left out of the set stops applying.
   it('drops what it was not given again', async () => {
     const { handler, saved } = setting(
-      line().reactsWith([
-        {
-          happening: Happening.of(MERGED),
-          from: null,
-          to: StationId.of('station_2'),
-        } as never,
-      ]),
+      line().reactsWith(
+        [
+          {
+            happening: Happening.of(MERGED),
+            from: null,
+            to: StationId.of('station_2'),
+          } as never,
+        ],
+        [Happening.of(MERGED)],
+      ),
     );
 
     await handler.execute(new SetLineReactionsCommand('line_1', []));

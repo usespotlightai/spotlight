@@ -77,7 +77,7 @@ export class PinConfigurationHandler
     }
   }
 
-/**
+  /**
    * A name nobody has is a repository to make rather than a mistake. Nothing
    * is thrown where the host will not make it: seeding finds nothing to write
    * against, which is what the team is shown.

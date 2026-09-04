@@ -3,6 +3,8 @@ import { InvalidStationNameError } from '@domain/exceptions/invalid-station-name
 const MAX_LENGTH = 100;
 
 export class StationName {
+  private readonly kind = 'station-name' as const;
+
   private constructor(readonly value: string) {}
 
   static of(raw: string): StationName {
@@ -38,6 +40,6 @@ export class StationName {
   }
 
   equals(other: StationName): boolean {
-    return this.value === other.value;
+    return this.value === other.value && this.kind === other.kind;
   }
 }

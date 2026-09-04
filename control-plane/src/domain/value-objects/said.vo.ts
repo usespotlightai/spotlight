@@ -49,6 +49,18 @@ export class Said {
     };
   }
 
+  equals(other: Said): boolean {
+    return (
+      this.body === other.body &&
+      this.path === other.path &&
+      this.from === other.from &&
+      this.to === other.to &&
+      (this.remark === null
+        ? other.remark === null
+        : other.remark !== null && this.remark.equals(other.remark))
+    );
+  }
+
   /** Where it was said about, if anywhere: a file, and the line in it. */
   get place(): string | null {
     if (!this.path) {

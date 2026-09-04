@@ -1,5 +1,7 @@
+import { EventRecorder } from '@domain/aggregates/event-recorder';
 import { TeamCreated } from '@domain/events/team-created.event';
 import { ConfigurationSettledError } from '@domain/exceptions/configuration-settled.error';
+import { InconsistentStateError } from '@domain/exceptions/inconsistent-state.error';
 import type { Repository } from '@domain/value-objects/repository.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { TeamKey } from '@domain/value-objects/team-key.vo';
@@ -17,7 +19,7 @@ export interface TeamMember {
  * A root rather than something inside a workspace: a delivery knocks at a
  * team's door, and a reading is a team's reading.
  */
-export class Team {
+export class Team extends EventRecorder {
   private constructor(
     readonly id: TeamId,
     /** Whose it is. A team belongs to one workspace and never moves. */
@@ -27,8 +29,9 @@ export class Team {
     readonly members: readonly TeamMember[],
     /** Null where nobody chose, and then the fallback rule applies. */
     readonly configRepository: Repository | null,
-    readonly happened: readonly TeamCreated[],
-  ) {}
+  ) {
+    super();
+  }
 
   static open(input: {
     workspaceId: WorkspaceId;
@@ -39,15 +42,18 @@ export class Team {
   }): Team {
     const id = TeamId.of(input.newId());
 
-    return new Team(
+    const team = new Team(
       id,
       input.workspaceId,
       input.key ?? TeamKey.from(input.name.value),
       input.name,
       [{ userId: input.owner, role: 'owner' }],
       null,
-      [new TeamCreated(input.workspaceId, id, input.owner)],
     );
+
+    team.record(new TeamCreated(input.workspaceId, id, input.owner));
+
+    return team;
   }
 
   static rehydrate(input: {
@@ -58,6 +64,13 @@ export class Team {
     members: readonly TeamMember[];
     configRepository?: Repository | null;
   }): Team {
+    if (input.members.length === 0) {
+      throw new InconsistentStateError('team', 'has no members at all');
+    }
+    if (!input.members.some((member) => member.role === 'owner')) {
+      throw new InconsistentStateError('team', 'has nobody who owns it');
+    }
+
     return new Team(
       input.id,
       input.workspaceId,
@@ -65,7 +78,6 @@ export class Team {
       input.name,
       input.members,
       input.configRepository ?? null,
-      [],
     );
   }
 
@@ -73,7 +85,6 @@ export class Team {
     return this.members.some((each) => each.userId.equals(userId));
   }
 
-  /** Who may is the workspace's to say. */
   /**
    * Said once. Moving it would leave every file already written behind and
    * start reading someone else's from then on, so a team that has somewhere
@@ -93,7 +104,6 @@ export class Team {
       this.name,
       this.members,
       repository,
-      this.happened,
     );
   }
 

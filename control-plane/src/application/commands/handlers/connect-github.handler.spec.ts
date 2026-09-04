@@ -7,6 +7,8 @@ import type {
 } from '@application/ports/github-identity.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import { Workspace } from '@domain/aggregates/workspace.aggregate';
+import type { DomainEvent } from '@domain/events/domain-event';
+import { WorkspaceConnected } from '@domain/events/workspace-connected.event';
 import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
 import { Connection } from '@domain/value-objects/connection.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
@@ -34,6 +36,7 @@ const connecting = (
   over: { workspace?: Workspace | null; administers?: Administers } = {},
 ) => {
   const save = vi.fn(async () => {});
+  const events = { dispatch: vi.fn().mockResolvedValue(undefined) };
 
   const handler = new ConnectGitHubHandler(
     {
@@ -48,20 +51,11 @@ const connecting = (
       administers: vi.fn(async () => over.administers ?? 'administers'),
     } as unknown as GitHubIdentityPort,
     transaction,
-    { list: vi.fn(async () => [{ fullName: 'acme/api' }]), create: vi.fn() },
-    { ofWorkspace: vi.fn(async () => []) } as never,
-    { trySeed: seed, seed } as never,
-    { forWorkspace: settling } as never,
+    events,
   );
 
-  return { handler, save, settling };
+  return { handler, save, events };
 };
-
-/** Writing the configuration down is its own thing, and has its own test. */
-const seed = vi.fn(async () => ({ url: 'https://github.com/acme/api/pull/1' }));
-
-/** Settling a setup list is its own thing, and has its own test. */
-const settling = vi.fn(async () => {});
 
 const command = (installationId = '81234567') =>
   new ConnectGitHubCommand('acme', 'user_1', installationId);
@@ -78,13 +72,16 @@ describe('ConnectGitHubHandler', () => {
     );
   });
 
-  // A step on every list in the workspace, and on no list outside it.
-  it('looks at whether that was the last step, in this workspace', async () => {
-    const { handler } = connecting();
+  // Connecting is worth hearing: what follows from it is dispatched after.
+  it('dispatches that the workspace was connected', async () => {
+    const { handler, events } = connecting();
 
     await handler.execute(command());
 
-    expect(settling).toHaveBeenCalledWith(WorkspaceId.of('ws_1'));
+    const [raised] = events.dispatch.mock.calls[0] as [readonly DomainEvent[]];
+    expect(raised.some((each) => each instanceof WorkspaceConnected)).toBe(
+      true,
+    );
   });
 
   it('answers with nothing where there is no such workspace', async () => {
@@ -106,7 +103,10 @@ describe('ConnectGitHubHandler', () => {
 
   it('refuses a member who is neither owner nor admin', async () => {
     const { handler, save } = connecting({
-      workspace: acme([{ user: 'user_1', role: 'member' }]),
+      workspace: acme([
+        { user: 'owner_1', role: 'owner' },
+        { user: 'user_1', role: 'member' },
+      ]),
     });
 
     await expect(handler.execute(command())).rejects.toBeInstanceOf(
@@ -117,7 +117,10 @@ describe('ConnectGitHubHandler', () => {
 
   it('lets an admin connect one', async () => {
     const { handler, save } = connecting({
-      workspace: acme([{ user: 'user_1', role: 'admin' }]),
+      workspace: acme([
+        { user: 'owner_1', role: 'owner' },
+        { user: 'user_1', role: 'admin' },
+      ]),
     });
 
     await handler.execute(command());

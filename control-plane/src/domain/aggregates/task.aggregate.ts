@@ -1,4 +1,7 @@
+import { EventRecorder } from '@domain/aggregates/event-recorder';
 import type { Station } from '@domain/entities/station.entity';
+import { TaskFinished } from '@domain/events/task-finished.event';
+import { InconsistentStateError } from '@domain/exceptions/inconsistent-state.error';
 import { InvalidTaskTransitionError } from '@domain/exceptions/invalid-task-transition.error';
 import { ContinuityKey } from '@domain/services/continuity-key';
 import type { Conversation } from '@domain/services/conversations';
@@ -47,7 +50,7 @@ export interface Saying {
   readonly form?: TaskNoteForm;
 }
 
-export class Task {
+export class Task extends EventRecorder {
   private constructor(
     readonly id: TaskId,
     readonly workspaceId: WorkspaceId,
@@ -74,7 +77,9 @@ export class Task {
     readonly finishedAt: Date | null,
     /** Which reading of this task it is. Written back against the same one. */
     readonly version: number = 0,
-  ) {}
+  ) {
+    super();
+  }
 
   static add(input: {
     workspaceId: WorkspaceId;
@@ -128,6 +133,13 @@ export class Task {
     finishedAt: Date | null;
     version?: number;
   }): Task {
+    if (input.finishedAt !== null && input.currentRunId !== null) {
+      throw new InconsistentStateError(
+        'task',
+        'is finished yet still held by a run',
+      );
+    }
+
     return new Task(
       input.id,
       input.workspaceId,
@@ -154,7 +166,7 @@ export class Task {
   moveTo(into: Station, rank: TaskRank, saying: Saying): Task {
     this.refuseStandingStill(into.id, 'moved to');
 
-    return this.with({
+    const moved = this.with({
       stationId: into.id,
       rank,
       currentRunId: null,
@@ -163,6 +175,14 @@ export class Task {
       ...this.spoke(saying, 'passed'),
       finishedAt: into.isCompleted ? saying.at : null,
     });
+
+    if (into.isCompleted) {
+      moved.record(
+        new TaskFinished(moved.id, moved.workspaceId, into.id, saying.at),
+      );
+    }
+
+    return moved;
   }
 
   reorderTo(rank: TaskRank): Task {
@@ -234,11 +254,22 @@ export class Task {
 
   /** Nothing further to do here: it settles what was open and stands still. */
   finishedHere(saying: Saying): Task {
-    return this.with({
+    const finished = this.with({
       currentRunId: null,
       ...this.spoke(saying, 'passed'),
       finishedAt: saying.at,
     });
+
+    finished.record(
+      new TaskFinished(
+        finished.id,
+        finished.workspaceId,
+        finished.stationId,
+        saying.at,
+      ),
+    );
+
+    return finished;
   }
 
   handedTo(runId: RunId): Task {

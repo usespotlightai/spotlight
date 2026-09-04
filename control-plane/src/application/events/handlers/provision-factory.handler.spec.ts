@@ -3,12 +3,15 @@ import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Factory } from '@domain/aggregates/factory.aggregate';
 import type { Task } from '@domain/aggregates/task.aggregate';
+import { Workspace } from '@domain/aggregates/workspace.aggregate';
 import { TeamCreated } from '@domain/events/team-created.event';
 import type { TaskRepository } from '@domain/repositories/task.repository';
+import type { WorkspaceFinding } from '@domain/repositories/workspace.repository';
 import { BUILT_IN_STATIONS } from '@domain/services/built-in-stations';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
+import { WorkspaceName } from '@domain/value-objects/workspace-name.vo';
 import { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -47,13 +50,23 @@ const provision = () =>
       }),
     } as unknown as TaskRepository,
     { now: () => at, sleep: async () => {} },
+    {
+      find: vi.fn(async () =>
+        Workspace.create({
+          id: WorkspaceId.of('ws_1'),
+          name: WorkspaceName.of('Acme'),
+          slug: WorkspaceSlug.of('acme'),
+          owner: UserId.of('user_1'),
+          firstTeam: TeamId.of('team_1'),
+        }),
+      ),
+    } satisfies WorkspaceFinding,
   ).onTeamCreated(
     new TeamCreated(
       WorkspaceId.of('ws_1'),
       TeamId.of('team_1'),
       UserId.of('user_1'),
     ),
-    WorkspaceSlug.of('acme'),
   );
 
 beforeEach(() => {

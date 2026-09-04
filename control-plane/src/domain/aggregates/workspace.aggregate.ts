@@ -1,4 +1,6 @@
+import { EventRecorder } from '@domain/aggregates/event-recorder';
 import { WorkspaceConnected } from '@domain/events/workspace-connected.event';
+import { InconsistentStateError } from '@domain/exceptions/inconsistent-state.error';
 import { NotYoursToConnectError } from '@domain/exceptions/not-yours-to-connect.error';
 import { Connection } from '@domain/value-objects/connection.vo';
 import type { TeamId } from '@domain/value-objects/team-id.vo';
@@ -8,9 +10,6 @@ import type { WorkspaceName } from '@domain/value-objects/workspace-name.vo';
 import type { WorkspaceRole } from '@domain/value-objects/workspace-role';
 import type { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
 
-/** What a workspace can say has happened to it. */
-export type WorkspaceHappening = WorkspaceConnected;
-
 export interface WorkspaceMember {
   readonly userId: UserId;
   readonly role: WorkspaceRole;
@@ -19,7 +18,7 @@ export interface WorkspaceMember {
 /** Connecting changes how every run in the workspace reaches out. */
 const MAY_CONNECT: readonly WorkspaceRole[] = ['owner', 'admin'];
 
-export class Workspace {
+export class Workspace extends EventRecorder {
   private constructor(
     readonly id: WorkspaceId,
     readonly name: WorkspaceName,
@@ -29,8 +28,9 @@ export class Workspace {
     readonly teams: readonly TeamId[],
     /** Every host this workspace has been connected to, at most one each. */
     readonly connections: readonly Connection[],
-    readonly happened: readonly WorkspaceHappening[],
-  ) {}
+  ) {
+    super();
+  }
 
   static create(input: {
     id: WorkspaceId;
@@ -49,7 +49,6 @@ export class Workspace {
       // Connected afterwards, by whoever installs the App: a workspace is
       // worth having before it reaches anything.
       [],
-      [],
     );
   }
 
@@ -61,6 +60,13 @@ export class Workspace {
     teams: readonly TeamId[];
     connections?: readonly Connection[];
   }): Workspace {
+    if (input.members.length === 0) {
+      throw new InconsistentStateError('workspace', 'has no members at all');
+    }
+    if (!input.members.some((member) => member.role === 'owner')) {
+      throw new InconsistentStateError('workspace', 'has nobody who owns it');
+    }
+
     return new Workspace(
       input.id,
       input.name,
@@ -68,7 +74,6 @@ export class Workspace {
       input.members,
       input.teams,
       input.connections ?? [],
-      [],
     );
   }
 
@@ -105,7 +110,7 @@ export class Workspace {
       );
     }
 
-    return new Workspace(
+    const connected = new Workspace(
       this.id,
       this.name,
       this.slug,
@@ -115,10 +120,11 @@ export class Workspace {
         ...this.connections.filter((each) => !each.isTo(connection.source)),
         connection,
       ],
-      // Said out loud: what should follow from connecting is not connecting's
-      // business, and a workspace that reaches a new host is worth hearing.
-      [...this.happened, new WorkspaceConnected(this.id, connection)],
     );
+
+    connected.record(new WorkspaceConnected(this.id, connection));
+
+    return connected;
   }
 
   /**
@@ -138,7 +144,6 @@ export class Workspace {
       this.members,
       this.teams,
       this.connections.filter((each) => !each.isTo(source)),
-      this.happened,
     );
   }
 

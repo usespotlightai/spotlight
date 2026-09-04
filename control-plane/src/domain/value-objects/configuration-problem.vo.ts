@@ -35,4 +35,12 @@ export class ConfigurationProblem {
   isIn(path: string): boolean {
     return this.path === path;
   }
+
+  equals(other: ConfigurationProblem): boolean {
+    return (
+      this.path === other.path &&
+      this.at === other.at &&
+      this.reason === other.reason
+    );
+  }
 }

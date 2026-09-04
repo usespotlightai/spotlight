@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { readFile, readdir } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { DrizzleDatabase } from '@infrastructure/persistence/drizzle/drizzle.client';
 import * as schema from '@infrastructure/persistence/drizzle/schemas';

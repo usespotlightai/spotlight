@@ -4,9 +4,9 @@ import type {
 } from '@application/ports/line-reader.port';
 import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { linePath } from '@domain/aggregates/team-configuration.aggregate';
-import type { LinePlan } from '@domain/model/line-plan';
 import { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
 import { ConfigurationProblem } from '@domain/value-objects/configuration-problem.vo';
+import type { LinePlan } from '@domain/value-objects/line-plan.vo';
 import { compileLine } from '@infrastructure/integrations/line.compile';
 import { renderLine } from '@infrastructure/integrations/line.render';
 import { Injectable } from '@nestjs/common';

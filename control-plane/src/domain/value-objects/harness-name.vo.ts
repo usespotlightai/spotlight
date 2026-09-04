@@ -3,6 +3,8 @@ import { InvalidHarnessNameError } from '@domain/exceptions/invalid-harness-name
 const MAX_LENGTH = 100;
 
 export class HarnessName {
+  private readonly kind = 'harness-name' as const;
+
   private constructor(readonly value: string) {}
 
   static of(raw: string): HarnessName {
@@ -21,6 +23,6 @@ export class HarnessName {
   }
 
   equals(other: HarnessName): boolean {
-    return this.value === other.value;
+    return this.value === other.value && this.kind === other.kind;
   }
 }

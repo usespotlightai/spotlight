@@ -6,6 +6,7 @@ import {
 } from '@application/contracts/run-spec.contract';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { TraceParentPort } from '@application/ports/trace-parent.port';
+import { TaskBriefing } from '@application/rendering/task-briefing';
 import type { TaskDispatching } from '@application/services/task-dispatch';
 import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Run } from '@domain/aggregates/run.aggregate';
@@ -18,7 +19,11 @@ import { RunId as RunIdOf } from '@domain/value-objects/run-id.vo';
 import { RunSpec } from '@domain/value-objects/run-spec.vo';
 
 /** Named as Spotlight serves it: no host address ever reaches a runner. */
-const written = (order: RunOrder, naming: string): RunSpecShape =>
+const written = (
+  order: RunOrder,
+  briefing: string,
+  naming: string,
+): RunSpecShape =>
   RunSpecContract.of({
     checkouts: order.repository
       ? [
@@ -30,7 +35,7 @@ const written = (order: RunOrder, naming: string): RunSpecShape =>
         ]
       : undefined,
     command: order.harness.command.started({ [TRACE_PARENT_VAR]: naming }),
-    briefing: order.briefing,
+    briefing,
     handover: { options: order.options, noteLimit: order.noteLimit },
     continuity: order.continuity.told(),
     tools: order.tools,
@@ -60,6 +65,8 @@ export class DispatchTask implements TaskDispatching {
     // Named before it is written down: the spec has to say which run it is for.
     const id = RunIdOf.of(this.ids.generate());
 
+    const briefing = TaskBriefing.brief({ task, line });
+
     const queued = Run.enqueue({
       id,
       workspaceId: task.workspaceId,
@@ -68,7 +75,7 @@ export class DispatchTask implements TaskDispatching {
       taskId: task.id,
       stationId: order.stationId,
       targetRunner: order.pinnedTo,
-      spec: RunSpec.of(written(order, this.tracing.for(task.id, id))),
+      spec: RunSpec.of(written(order, briefing, this.tracing.for(task.id, id))),
     });
 
     await this.runs.add(queued);

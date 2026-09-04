@@ -1,5 +1,5 @@
-import type { RunSpecShape } from '@application/contracts/run-spec.contract';
 import { Run } from '@domain/aggregates/run.aggregate';
+import { InconsistentStateError } from '@domain/exceptions/inconsistent-state.error';
 import type {
   RunEventRecord,
   RunRepository,
@@ -20,13 +20,6 @@ import { Injectable } from '@nestjs/common';
 import { and, eq, inArray, lte, sql } from 'drizzle-orm';
 
 type Row = typeof run.$inferSelect;
-
-const EMPTY_SPEC: RunSpecShape = {
-  command: { executable: 'unknown', args: [] },
-  briefing: 'This run was queued before its spec had a shape.',
-  handover: { options: [], noteLimit: 4_000 },
-  continuity: { key: '', keep: false },
-};
 
 @Injectable()
 export class DrizzleRunRepository implements RunRepository {
@@ -183,7 +176,7 @@ export class DrizzleRunRepository implements RunRepository {
         .from(run)
         .where(and(eq(run.state, 'claimed'), lte(run.leaseExpiresAt, now)));
 
-      const abandoned: Run[] = [];
+      const givenUp: Run[] = [];
 
       for (const row of candidates) {
         const lapsing = toRun(row);
@@ -194,12 +187,12 @@ export class DrizzleRunRepository implements RunRepository {
         const requeued = lapsing.requeue(now);
         await this.save(requeued);
 
-        if (requeued.abandoned) {
-          abandoned.push(requeued);
+        if (requeued.hasEvents) {
+          givenUp.push(requeued);
         }
       }
 
-      return abandoned;
+      return givenUp;
     });
   }
 }
@@ -216,6 +209,19 @@ const asDate = (value: Date | string | null): Date | null => {
   return value instanceof Date ? value : new Date(value);
 };
 
+const specOf = (row: Row): RunSpec => {
+  const spec = RunSpec.from(row.spec);
+
+  if (!spec) {
+    throw new InconsistentStateError(
+      'run',
+      `has a spec that no longer reads (${row.id})`,
+    );
+  }
+
+  return spec;
+};
+
 const toRun = (row: Row): Run =>
   Run.rehydrate({
     id: RunId.of(row.id),
@@ -224,9 +230,7 @@ const toRun = (row: Row): Run =>
     priority: row.priority,
     taskId: row.taskId ? TaskId.of(row.taskId) : null,
     stationId: row.stationId ? StationId.of(row.stationId) : null,
-    // A spec written by an older shape reads back as nothing rather than
-    // crashing the read; the run is still there to be seen.
-    spec: RunSpec.from(row.spec) ?? RunSpec.of(EMPTY_SPEC),
+    spec: specOf(row),
     targetRunner: row.targetRunnerId ? RunnerId.of(row.targetRunnerId) : null,
     state: row.state,
     claimedBy: row.claimedBy ? RunnerId.of(row.claimedBy) : null,

@@ -22,7 +22,7 @@ const TEAM = Team.rehydrate({
   workspaceId: WorkspaceId.of('ws_1'),
   key: TeamKey.of('platform'),
   name: TeamName.of('Platform'),
-  members: [],
+  members: [{ userId: UserId.of('user_1'), role: 'owner' }],
 });
 
 const acme = (role: WorkspaceRole = 'owner') =>
@@ -30,7 +30,15 @@ const acme = (role: WorkspaceRole = 'owner') =>
     id: WorkspaceId.of('ws_1'),
     name: WorkspaceName.of('Acme'),
     slug: WorkspaceSlug.of('acme'),
-    members: [{ userId: UserId.of('user_1'), role }],
+    // Keep an owner in the room whatever role the viewer is under test as: a
+    // workspace never loses its last owner, and the guard now says so.
+    members:
+      role === 'owner'
+        ? [{ userId: UserId.of('user_1'), role: 'owner' }]
+        : [
+            { userId: UserId.of('owner_1'), role: 'owner' },
+            { userId: UserId.of('user_1'), role },
+          ],
     teams: [TEAM.id],
     connections: [Connection.of('github', '158883204')],
   });

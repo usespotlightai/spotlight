@@ -1,4 +1,4 @@
-import type { RunSpan, SpanAttribute } from '@domain/model/journal';
+import type { RunSpan, SpanAttribute } from '@domain/read-models/journal';
 import { decoded, type Journalled } from '@infrastructure/journal/journalled';
 
 /**

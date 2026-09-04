@@ -1,10 +1,10 @@
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
-import { LinePlan, type StationPlan } from '@domain/model/line-plan';
 import { reconcileLine } from '@domain/services/reconcile-line';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
 import { LineKey } from '@domain/value-objects/line-key.vo';
+import { LinePlan, type StationPlan } from '@domain/value-objects/line-plan.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import type { StationId } from '@domain/value-objects/station-id.vo';
 import { StationKey } from '@domain/value-objects/station-key.vo';

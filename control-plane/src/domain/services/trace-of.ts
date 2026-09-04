@@ -1,4 +1,8 @@
-import type { JournalStep, RunJournal, RunSpan } from '@domain/model/journal';
+import type {
+  JournalStep,
+  RunJournal,
+  RunSpan,
+} from '@domain/read-models/journal';
 import type { HarnessName } from '@domain/value-objects/harness-name.vo';
 import type { Money } from '@domain/value-objects/money.vo';
 import type { RunId } from '@domain/value-objects/run-id.vo';

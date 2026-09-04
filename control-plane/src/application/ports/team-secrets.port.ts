@@ -1,4 +1,5 @@
 import type { SecretName } from '@domain/value-objects/secret-name.vo';
+import type { SecretValue } from '@domain/value-objects/secret-value.vo';
 import type { TeamId } from '@domain/value-objects/team-id.vo';
 
 export const TEAM_SECRETS = Symbol('TEAM_SECRETS');
@@ -18,7 +19,7 @@ export interface SecretSummary {
  * and that is the only way its value moves in any direction but inward.
  */
 export interface TeamSecretsPort {
-  set(teamId: TeamId, name: SecretName, value: string): Promise<void>;
+  set(teamId: TeamId, name: SecretName, value: SecretValue): Promise<void>;
 
   /** Read where a source needs one. Null where the workspace has set none. */
   resolve(teamId: TeamId, name: SecretName): Promise<string | null>;

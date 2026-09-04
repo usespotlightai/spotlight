@@ -51,7 +51,7 @@ describe('WorkspaceRegistration', () => {
   it('has the team say it was opened', async () => {
     const { firstTeam } = await register(registry(false));
 
-    expect(firstTeam.happened).toHaveLength(1);
+    expect(firstTeam.pullEvents()).toHaveLength(1);
   });
 
   it('refuses a slug already on the register', async () => {

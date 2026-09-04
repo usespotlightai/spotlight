@@ -1,5 +1,5 @@
 import type { RunJournalReaderPort } from '@application/ports/run-journal-reader.port';
-import type { RunJournal } from '@domain/model/journal';
+import type { RunJournal } from '@domain/read-models/journal';
 import type { TaskId } from '@domain/value-objects/task-id.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
 import { Told } from '@infrastructure/acp/told';

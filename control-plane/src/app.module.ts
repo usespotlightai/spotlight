@@ -64,6 +64,8 @@ import { DigestRun } from '@application/events/handlers/digest-run.handler';
 import { HandOver } from '@application/events/handlers/hand-over.handler';
 import { ProvisionFactory } from '@application/events/handlers/provision-factory.handler';
 import { ReleaseHeldRuns } from '@application/events/handlers/release-held-runs.handler';
+import { SeedOnConnection } from '@application/events/handlers/seed-on-connection.handler';
+import { RoutingDispatcher } from '@application/events/routing.dispatcher';
 import { ASSEMBLY_LINE_READER } from '@application/ports/assembly-line-reader.port';
 import { CLOCK, type ClockPort } from '@application/ports/clock.port';
 import {
@@ -78,7 +80,11 @@ import {
   DELIVERY_WORK,
   type DeliveryWorkPort,
 } from '@application/ports/delivery-work.port';
-import { FACTORY_PROVISIONING } from '@application/ports/factory-provisioning.port';
+import { DOMAIN_EVENT_DISPATCHER } from '@application/ports/domain-event-dispatcher.port';
+import {
+  FACTORY_PROVISIONING,
+  type FactoryProvisioningPort,
+} from '@application/ports/factory-provisioning.port';
 import { GIT_GATEWAY } from '@application/ports/git-gateway.port';
 import { GITHUB_APP } from '@application/ports/github-app.port';
 import { GITHUB_IDENTITY } from '@application/ports/github-identity.port';
@@ -133,7 +139,10 @@ import {
   RUNNER_READER,
   type RunnerReaderPort,
 } from '@application/ports/runner-reader.port';
-import { RUNNER_REVOCATION } from '@application/ports/runner-revocation.port';
+import {
+  RUNNER_REVOCATION,
+  type RunnerRevocationPort,
+} from '@application/ports/runner-revocation.port';
 import { RUNNER_TOKEN } from '@application/ports/runner-token.port';
 import { TASK_READER } from '@application/ports/task-reader.port';
 import {
@@ -201,7 +210,10 @@ import { ConversationAtHand } from '@application/services/conversation-at-hand.s
 import { DispatchTask } from '@application/services/dispatch-task.service';
 import { ReadConfiguration } from '@application/services/read-configuration.service';
 import { RunAtHand } from '@application/services/run-at-hand.service';
-import { RUN_OUTCOMES } from '@application/services/run-outcomes';
+import {
+  RUN_OUTCOMES,
+  type RunOutcomes,
+} from '@application/services/run-outcomes';
 import { RunOutcomesFanOut } from '@application/services/run-outcomes.fan-out';
 import { SeedConfiguration } from '@application/services/seed-configuration.service';
 import { SettleSetup } from '@application/services/settle-setup.service';
@@ -717,14 +729,63 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         ids: CryptoIdGenerator,
         tasks: DrizzleTaskRepository,
         clock: ClockPort,
-      ) => new ProvisionFactory(factories, lines, ids, tasks, clock),
+        workspaces: DrizzleWorkspaceRepository,
+      ) =>
+        new ProvisionFactory(factories, lines, ids, tasks, clock, workspaces),
       inject: [
         DrizzleFactoryRepository,
         DrizzleAssemblyLineRepository,
         ID_GENERATOR,
         DrizzleTaskRepository,
         CLOCK,
+        DrizzleWorkspaceRepository,
       ],
+    },
+
+    {
+      provide: SeedOnConnection,
+      inject: [
+        DrizzleWorkspaceRepository,
+        DrizzleTeamRepository,
+        REPOSITORY_CATALOG,
+        SeedConfiguration,
+        SettleSetup,
+      ],
+      useFactory: (
+        workspaces: DrizzleWorkspaceRepository,
+        teams: DrizzleTeamRepository,
+        catalog: RepositoryCatalogPort,
+        seeding: SeedConfiguration,
+        settling: SettleSetup,
+      ) => new SeedOnConnection(workspaces, teams, catalog, seeding, settling),
+    },
+
+    {
+      provide: DOMAIN_EVENT_DISPATCHER,
+      inject: [
+        RUN_OUTCOMES,
+        FACTORY_PROVISIONING,
+        RUNNER_REVOCATION,
+        SeedOnConnection,
+        TRANSACTION,
+        LOGGER,
+      ],
+      useFactory: (
+        outcomes: RunOutcomes,
+        provisioning: FactoryProvisioningPort,
+        revocation: RunnerRevocationPort,
+        seeding: SeedOnConnection,
+        transaction: TransactionPort,
+        logger: LoggerPort,
+      ) =>
+        new RoutingDispatcher(
+          outcomes,
+          provisioning,
+          revocation,
+          seeding,
+          transaction,
+          logger,
+        ),
     },
 
     ...bindQueryHandler(ListWorkspacesQuery, ListWorkspacesHandler, [
@@ -792,7 +853,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       DrizzleTeamRepository,
       ID_GENERATOR,
       TRANSACTION,
-      FACTORY_PROVISIONING,
+      DOMAIN_EVENT_DISPATCHER,
     ]),
 
     ...bindCommandHandler(AddTaskCommand, AddTaskHandler, [
@@ -889,10 +950,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       DrizzleWorkspaceRepository,
       GITHUB_IDENTITY,
       TRANSACTION,
-      REPOSITORY_CATALOG,
-      DrizzleTeamRepository,
-      SeedConfiguration,
-      SettleSetup,
+      DOMAIN_EVENT_DISPATCHER,
     ]),
     ...bindCommandHandler(OpenPullRequestCommand, OpenPullRequestHandler, [
       RunAtHand,
@@ -957,13 +1015,13 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       DrizzleRunnerRepository,
       CLOCK,
       TRANSACTION,
-      RUNNER_REVOCATION,
+      DOMAIN_EVENT_DISPATCHER,
     ]),
     ...bindCommandHandler(ClaimRunCommand, ClaimRunHandler, [
       DrizzleRunRepository,
       DrizzleRunnerRepository,
       CLOCK,
-      RUN_OUTCOMES,
+      DOMAIN_EVENT_DISPATCHER,
     ]),
     ...bindCommandHandler(RenewLeaseCommand, RenewLeaseHandler, [
       DrizzleRunRepository,
@@ -978,7 +1036,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     ...bindCommandHandler(CompleteRunCommand, CompleteRunHandler, [
       DrizzleRunRepository,
       TRANSACTION,
-      RUN_OUTCOMES,
+      DOMAIN_EVENT_DISPATCHER,
     ]),
     ...bindCommandHandler(EnqueueRunCommand, EnqueueRunHandler, [
       DrizzleRunRepository,

@@ -3,6 +3,8 @@ import { InvalidTeamNameError } from '@domain/exceptions/invalid-team-name.error
 const MAX_LENGTH = 100;
 
 export class TeamName {
+  private readonly kind = 'team-name' as const;
+
   private constructor(readonly value: string) {}
 
   static of(raw: string): TeamName {
@@ -21,6 +23,6 @@ export class TeamName {
   }
 
   equals(other: TeamName): boolean {
-    return this.value === other.value;
+    return this.value === other.value && this.kind === other.kind;
   }
 }

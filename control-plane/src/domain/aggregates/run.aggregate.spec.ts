@@ -68,7 +68,8 @@ describe('Run', () => {
     const given = spent.requeue(new Date(lapsedAt.getTime() + 600_000));
 
     expect(given.state).toBe('failed');
-    expect(given.abandoned).toBe(true);
+    const events = given.pullEvents();
+    expect(events.some((each) => each instanceof RunAbandoned)).toBe(true);
   });
 
   it('goes back on the queue while it still has attempts left', () => {
@@ -78,7 +79,8 @@ describe('Run', () => {
     const again = first.requeue(new Date(lapsedAt.getTime() + 600_000));
 
     expect(again.state).toBe('queued');
-    expect(again.abandoned).toBe(false);
+    const events = again.pullEvents();
+    expect(events.some((each) => each instanceof RunAbandoned)).toBe(false);
   });
 
   it('starts queued, unclaimed and on its first attempt', () => {
@@ -262,14 +264,16 @@ describe('Run', () => {
 
   describe('announcing how it ended', () => {
     it('says what the agent reported when it completes', () => {
-      const [raised] = claimed().complete(
-        runner(),
-        { exitCode: 0, failed: false },
-        {
-          declared: Declaration.of({ next: 'Spec', note: 'ready' }),
-          session: HarnessSession.of('session_1'),
-        },
-      ).happened;
+      const [raised] = claimed()
+        .complete(
+          runner(),
+          { exitCode: 0, failed: false },
+          {
+            declared: Declaration.of({ next: 'Spec', note: 'ready' }),
+            session: HarnessSession.of('session_1'),
+          },
+        )
+        .pullEvents();
 
       expect(raised).toBeInstanceOf(RunCompleted);
       const completed = raised as RunCompleted;
@@ -296,11 +300,12 @@ describe('Run', () => {
         run = run.claim(runner(), noon).requeue(at('2026-08-23T12:05:00.000Z'));
       }
 
-      const [raised] = run.happened;
+      const events = run.pullEvents();
+      const [raised] = events;
 
       expect(raised).toBeInstanceOf(RunAbandoned);
       expect((raised as RunAbandoned).attempt).toBe(3);
-      expect(run.abandoned).toBe(true);
+      expect(events.some((each) => each instanceof RunAbandoned)).toBe(true);
     });
 
     it('leaves the run it was completed from with nothing to announce', () => {
@@ -308,7 +313,7 @@ describe('Run', () => {
 
       held.complete(runner(), { exitCode: 0, failed: false });
 
-      expect(held.happened).toHaveLength(0);
+      expect(held.pullEvents()).toHaveLength(0);
       expect(held.state).toBe('claimed');
     });
   });

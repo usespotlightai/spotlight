@@ -7,13 +7,13 @@ import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { Voice } from '@domain/value-objects/voice.vo';
+import type { DrizzleDatabase } from '@infrastructure/persistence/drizzle/drizzle.client';
+import type { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
 import { DrizzleInboxReader } from '@infrastructure/persistence/drizzle/readers/inbox.reader';
 import { DrizzleRunnerReader } from '@infrastructure/persistence/drizzle/readers/runner.reader';
-import type { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
 import { DrizzleTaskRepository } from '@infrastructure/persistence/drizzle/repositories/task.repository';
 import * as schema from '@infrastructure/persistence/drizzle/schemas';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import type { DrizzleDatabase } from '@infrastructure/persistence/drizzle/drizzle.client';
 import { openDatabase, type TestDatabase } from './support/database';
 import { openTeam as opening } from './support/team';
 

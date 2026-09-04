@@ -1,7 +1,7 @@
+import { TaskBriefing } from '@application/rendering/task-briefing';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { Station } from '@domain/entities/station.entity';
-import { TaskBriefing } from '@domain/services/task-briefing';
 import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';

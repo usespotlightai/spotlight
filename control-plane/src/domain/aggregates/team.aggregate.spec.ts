@@ -48,11 +48,11 @@ describe('Team', () => {
 
   // A team opened is the team's own news; what follows is somebody else's.
   it('says it was opened', () => {
-    const [raised, ...rest] = open().happened;
+    const [raised, ...rest] = open().pullEvents();
 
     expect(rest).toHaveLength(0);
     expect(raised).toBeInstanceOf(TeamCreated);
-    expect(raised?.workspaceId).toEqual(WORKSPACE);
+    expect((raised as TeamCreated).workspaceId).toEqual(WORKSPACE);
   });
 
   it('says nothing of the sort once it has been read back', () => {
@@ -61,8 +61,8 @@ describe('Team', () => {
         id: open().id,
         workspaceId: WORKSPACE,
         name: TeamName.of('Platform'),
-        members: [],
-      }).happened,
+        members: [{ userId: OWNER, role: 'owner' }],
+      }).pullEvents(),
     ).toEqual([]);
   });
 

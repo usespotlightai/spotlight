@@ -1,8 +1,8 @@
 import { InvalidLinePlanError } from '@domain/exceptions/invalid-line-plan.error';
-import { LinePlan, type StationPlan } from '@domain/model/line-plan';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
 import { LineKey } from '@domain/value-objects/line-key.vo';
+import { LinePlan, type StationPlan } from '@domain/value-objects/line-plan.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationKey } from '@domain/value-objects/station-key.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';

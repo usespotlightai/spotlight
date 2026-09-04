@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { TaskMovedOnError } from '@domain/exceptions/task-moved-on.error';
 import { settling } from '@domain/services/setup-list';
 import { RunId } from '@domain/value-objects/run-id.vo';
@@ -7,7 +8,6 @@ import { Voice } from '@domain/value-objects/voice.vo';
 import type { DrizzleDatabase } from '@infrastructure/persistence/drizzle/drizzle.client';
 import type { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
 import { DrizzleTaskRepository } from '@infrastructure/persistence/drizzle/repositories/task.repository';
-import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import { openTeam } from './support/team';
@@ -102,9 +102,11 @@ describe('writing a task somebody else has written', () => {
     const saying = settling(again?.notes ?? [], DONE, NOW);
 
     await expect(
-      tasks.save((again as NonNullable<typeof again>).settled(
-        saying as NonNullable<typeof saying>,
-      )),
+      tasks.save(
+        (again as NonNullable<typeof again>).settled(
+          saying as NonNullable<typeof saying>,
+        ),
+      ),
     ).resolves.toBeUndefined();
   });
 

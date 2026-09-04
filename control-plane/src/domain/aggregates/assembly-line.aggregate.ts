@@ -1,5 +1,6 @@
 import { Station } from '@domain/entities/station.entity';
 import { InvalidStationLayoutError } from '@domain/exceptions/invalid-station-layout.error';
+import { UnknownHappeningError } from '@domain/exceptions/unknown-happening.error';
 import { UnknownStationError } from '@domain/exceptions/unknown-station.error';
 import {
   BUILT_IN_REACTIONS,
@@ -160,7 +161,12 @@ export class AssemblyLine {
    * Written whole rather than changed one at a time: the rules only make
    * sense together, and are few enough to say again.
    */
-  reactsWith(reactions: readonly Reaction[]): AssemblyLine {
+  reactsWith(
+    reactions: readonly Reaction[],
+    raised: readonly Happening[],
+  ): AssemblyLine {
+    AssemblyLine.guardEveryHappeningIsRaised(reactions, raised);
+
     return AssemblyLine.of({
       id: this.id,
       workspaceId: this.workspaceId,
@@ -169,6 +175,19 @@ export class AssemblyLine {
       stations: this.stations,
       reactions,
     });
+  }
+
+  private static guardEveryHappeningIsRaised(
+    reactions: readonly Reaction[],
+    raised: readonly Happening[],
+  ): void {
+    const said = new Set(raised.map((each) => each.value));
+
+    for (const reaction of reactions) {
+      if (!said.has(reaction.happening.value)) {
+        throw new UnknownHappeningError(reaction.happening.value);
+      }
+    }
   }
 
   reorderStations(order: readonly StationId[]): AssemblyLine {

@@ -128,8 +128,8 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
   }
 
   /**
-   * Only what a workspace can be changed to say. Its teams and members are
-   * added through their own paths, and are not diffed back from here.
+   * Only what a workspace can be changed to say. Its members and teams are
+   * write-once at create, so save deliberately does not write them back.
    */
   async save(saved: Workspace): Promise<void> {
     await this.context.run(async () => {

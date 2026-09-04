@@ -22,7 +22,7 @@ const TEAM = Team.rehydrate({
   workspaceId: WorkspaceId.of('ws_1'),
   key: TeamKey.of('platform'),
   name: TeamName.of('Platform'),
-  members: [],
+  members: [{ userId: UserId.of('user_1'), role: 'owner' }],
 });
 
 const acme = (member = 'user_1') =>

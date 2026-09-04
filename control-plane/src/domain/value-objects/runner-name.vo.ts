@@ -7,6 +7,8 @@ const MAX_LENGTH = 60;
  * the control plane assigns and nobody types.
  */
 export class RunnerName {
+  private readonly kind = 'runner-name' as const;
+
   private constructor(readonly value: string) {}
 
   static of(raw: string): RunnerName {
@@ -25,6 +27,6 @@ export class RunnerName {
   }
 
   equals(other: RunnerName): boolean {
-    return this.value === other.value;
+    return this.value === other.value && this.kind === other.kind;
   }
 }

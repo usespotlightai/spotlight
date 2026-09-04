@@ -6,7 +6,6 @@ import type { CommandHandlerPort } from '@application/ports/command-handler.port
 import type { TransactionPort } from '@application/ports/transaction.port';
 import type { WebhookSources } from '@application/services/webhook-sources.service';
 import { UnknownAssemblyLineError } from '@domain/exceptions/unknown-assembly-line.error';
-import { UnknownHappeningError } from '@domain/exceptions/unknown-happening.error';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
@@ -31,8 +30,10 @@ export class SetLineReactionsHandler
           throw new UnknownAssemblyLineError(command.lineId);
         }
 
+        // The line refuses a reaction to a word none of its sources raise.
         const line = found.reactsWith(
           command.reactions.map((each) => this.reaction(each)),
+          this.sources.happenings.map((each) => each.happening),
         );
 
         await this.lines.save(line);
@@ -49,24 +50,10 @@ export class SetLineReactionsHandler
     from: string | null;
     to: string;
   }): Reaction {
-    const happening = Happening.of(change.happening);
-
-    // Waiting for a word nobody says would leave a station listening to
-    // silence, and nothing later would say why it never reacted.
-    if (!this.raised(happening)) {
-      throw new UnknownHappeningError(happening.value);
-    }
-
     return Reaction.of({
-      happening,
+      happening: Happening.of(change.happening),
       from: change.from ? StationId.of(change.from) : null,
       to: StationId.of(change.to),
     });
-  }
-
-  private raised(happening: Happening): boolean {
-    return this.sources.happenings.some((each) =>
-      each.happening.equals(happening),
-    );
   }
 }

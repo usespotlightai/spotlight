@@ -59,4 +59,11 @@ export class Trail {
   marked(change: (note: TaskNote) => TaskNote): Trail {
     return new Trail(this.notes.map(change));
   }
+
+  equals(other: Trail): boolean {
+    return (
+      this.notes.length === other.notes.length &&
+      this.notes.every((each, index) => each.equals(other.notes[index]))
+    );
+  }
 }

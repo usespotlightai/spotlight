@@ -1,7 +1,6 @@
 import { ClaimRunHandler } from '@application/commands/handlers/claim-run.handler';
 import { ClaimRunCommand } from '@application/commands/runner.commands';
 import type { ClockPort } from '@application/ports/clock.port';
-import type { RunOutcomes } from '@application/services/run-outcomes';
 import { Run } from '@domain/aggregates/run.aggregate';
 import { Runner } from '@domain/aggregates/runner.aggregate';
 import type { RunRepository } from '@domain/repositories/run.repository';
@@ -52,10 +51,7 @@ const claiming = () =>
       save: vi.fn(async () => undefined),
     } as unknown as RunnerRepository,
     { now: () => NOW } as ClockPort,
-    {
-      onRunCompleted: vi.fn(),
-      onRunAbandoned: vi.fn(),
-    } as unknown as RunOutcomes,
+    { dispatch: vi.fn(async () => undefined) },
   );
 
 describe('ClaimRunHandler', () => {

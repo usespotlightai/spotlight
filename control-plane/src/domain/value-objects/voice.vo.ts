@@ -62,6 +62,18 @@ export class Voice {
     return Voice.station(input.run ? RunId.of(input.run) : null);
   }
 
+  equals(other: Voice): boolean {
+    return (
+      this.by === other.by &&
+      (this.author === null
+        ? other.author === null
+        : other.author !== null && this.author.equals(other.author)) &&
+      (this.run === null
+        ? other.run === null
+        : other.run !== null && this.run.equals(other.run))
+    );
+  }
+
   get isStation(): boolean {
     return this.by === 'station';
   }

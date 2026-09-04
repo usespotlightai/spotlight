@@ -19,6 +19,9 @@ export const TASK_NOTE_FORMS = ['words', 'setup'] as const;
  */
 export type TaskNoteForm = (typeof TASK_NOTE_FORMS)[number];
 
+const sameMoment = (a: Date | null, b: Date | null): boolean =>
+  a === null ? b === null : b !== null && a.getTime() === b.getTime();
+
 export class TaskNote {
   private constructor(
     readonly station: StationName,
@@ -60,6 +63,23 @@ export class TaskNote {
       input.readAt ?? null,
       input.deliveredAt ?? null,
       input.form ?? 'words',
+    );
+  }
+
+  equals(other: TaskNote): boolean {
+    return (
+      this.station.equals(other.station) &&
+      this.body.equals(other.body) &&
+      sameMoment(this.at, other.at) &&
+      this.voice.equals(other.voice) &&
+      (this.said === null
+        ? other.said === null
+        : other.said !== null && this.said.equals(other.said)) &&
+      sameMoment(this.answeredAt, other.answeredAt) &&
+      this.kind === other.kind &&
+      sameMoment(this.readAt, other.readAt) &&
+      sameMoment(this.deliveredAt, other.deliveredAt) &&
+      this.form === other.form
     );
   }
 
