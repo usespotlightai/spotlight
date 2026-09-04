@@ -1,4 +1,4 @@
-import type { RunJournal } from '@domain/read-models/journal';
+import type { RunJournal } from '@application/contracts/run-journal.contract';
 import type { TaskId } from '@domain/value-objects/task-id.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
 
