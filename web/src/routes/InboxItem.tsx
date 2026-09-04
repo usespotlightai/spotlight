@@ -113,7 +113,7 @@ export function InboxItem() {
           )
         }
         footer={
-          item.resolved ? (
+          carriesItsOwn ? null : item.resolved ? (
             <p className="text-center text-muted-foreground text-xs">
               {item.standsAt.name === item.station
                 ? 'This is settled. There is nothing left to answer.'
