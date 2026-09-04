@@ -64,6 +64,10 @@ export function InboxMessage({
     return () => held.removeEventListener('click', following);
   }, [navigate]);
 
+  if (message.form === 'settled') {
+    return null;
+  }
+
   if (message.voice === 'world') {
     return (
       // The same inset the held cards carry, so every card is one width and

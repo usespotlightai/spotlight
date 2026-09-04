@@ -63,6 +63,7 @@ export const settling = (
   return {
     station: opened.station,
     body: TaskNoteBody.of(SETTLED),
+    form: 'settled',
     at,
     voice: Voice.station(),
   };

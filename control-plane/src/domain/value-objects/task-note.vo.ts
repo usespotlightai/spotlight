@@ -10,12 +10,13 @@ export const TASK_NOTE_KINDS = ['asked', 'passed', 'answered', 'said'] as const;
 /** What a note did: put the task to a person, settled it, or said a thing. */
 export type TaskNoteKind = (typeof TASK_NOTE_KINDS)[number];
 
-export const TASK_NOTE_FORMS = ['words', 'setup'] as const;
+export const TASK_NOTE_FORMS = ['words', 'setup', 'settled'] as const;
 
 /**
  * What a note shows, which is not what it did. Almost everything is words.
  * A 'setup' is the standing list a team opens with, and is shown as the
- * things it names rather than as a paragraph about them.
+ * things it names rather than as a paragraph about them. A 'settled' closes
+ * that list and shows nothing.
  */
 export type TaskNoteForm = (typeof TASK_NOTE_FORMS)[number];
 

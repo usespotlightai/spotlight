@@ -14,7 +14,7 @@ type ChooseRepositoryProps = {
 
 /** The same popup the menus wear, so one control does not read as two. */
 const POPUP =
-  'absolute top-full right-0 left-0 z-50 mt-1.5 max-h-64 overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10';
+  'absolute top-full right-0 left-0 z-50 mt-1.5 max-h-64 origin-top animate-in overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 fade-in-0 zoom-in-95 slide-in-from-top-1';
 
 /**
  * Which repository a team works in: one of the ones the App can already see,
@@ -77,7 +77,7 @@ export function ChooseRepository({
           aria-autocomplete="list"
           aria-controls={listId}
           aria-expanded={open && suggestions.length > 0}
-          className="h-9 w-full rounded-lg border-[0.5px] border-input bg-background px-3 text-foreground text-sm outline-none placeholder:text-muted-foreground focus:border focus:border-ring"
+          className="h-7 w-full rounded-lg border-[0.5px] border-input bg-background px-3 text-foreground text-sm outline-none placeholder:text-muted-foreground focus:border focus:border-ring"
         />
 
         {open && suggestions.length > 0 && (
