@@ -40,6 +40,8 @@ const reactionSchema = z.object({
   /** Where the task must be standing. Left out, it applies wherever it is. */
   from: key('code-review').optional(),
   to: key('code-review'),
+  /** Opens a task at `to` when the word concerns none, rather than moving one. */
+  opens: z.boolean().default(false),
 });
 
 export const lineSchema = z.object({

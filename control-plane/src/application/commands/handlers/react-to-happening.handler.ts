@@ -3,16 +3,18 @@ import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { StoredDelivery } from '@application/ports/delivery-inbox.port';
+import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import type { Happened } from '@application/ports/webhook-source.port';
 import type { AttendToNotices } from '@application/services/attend-to-notices.service';
 import type { SourceForDelivery } from '@application/services/source-for-delivery.service';
 import type { TaskDispatching } from '@application/services/task-dispatch';
-import type { Task } from '@domain/aggregates/task.aggregate';
+import { Task } from '@domain/aggregates/task.aggregate';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { Placement } from '@domain/services/placement';
 import { type Outcome, ReactionFor } from '@domain/services/reaction-for';
+import { TeamId } from '@domain/value-objects/team-id.vo';
 import { Voice } from '@domain/value-objects/voice.vo';
 import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 
@@ -33,6 +35,7 @@ export class ReactToHappeningHandler
     private readonly clock: ClockPort,
     /** What the delivery said about the workspace, rather than about a task. */
     private readonly notices: AttendToNotices,
+    private readonly ids: IdGeneratorPort,
   ) {}
 
   /**
@@ -79,7 +82,9 @@ export class ReactToHappeningHandler
       }
 
       for (const happened of news) {
-        await this.transaction.run(() => this.reactTo(workspaceId, happened));
+        await this.transaction.run(() =>
+          this.reactTo(workspaceId, stored.teamId, happened),
+        );
       }
     } catch (error) {
       rethrowAsFault(error);
@@ -88,12 +93,20 @@ export class ReactToHappeningHandler
 
   private async reactTo(
     workspaceId: WorkspaceId,
+    teamId: string,
     happened: Happened,
   ): Promise<void> {
     const task = await this.tasks.holding(workspaceId, happened.concerns);
-    const line = task && (await this.lines.holding(task.stationId));
 
-    if (!task || !line) {
+    if (!task) {
+      await this.opened(workspaceId, teamId, happened);
+
+      return;
+    }
+
+    const line = await this.lines.holding(task.stationId);
+
+    if (!line) {
       return;
     }
 
@@ -118,6 +131,51 @@ export class ReactToHappeningHandler
       : null;
 
     await this.tasks.save(runId ? heard.handedTo(runId) : heard);
+  }
+
+  /** Opens a task for a word nobody here has a task for, where a line says to. */
+  private async opened(
+    workspaceId: WorkspaceId,
+    teamId: string,
+    happened: Happened,
+  ): Promise<void> {
+    const lines = teamId
+      ? await this.lines.ofTeam(TeamId.of(teamId))
+      : await this.lines.ofWorkspace(workspaceId);
+
+    for (const line of lines) {
+      const opening = ReactionFor.opening({
+        line,
+        word: happened,
+        concerns: happened.concerns,
+      });
+
+      if (!opening) {
+        continue;
+      }
+
+      const opened = opening.marks.reduce(
+        (task, mark) => task.markedBy(mark),
+        Task.add({
+          workspaceId,
+          stationId: opening.at.id,
+          title: opening.title,
+          rank: Placement.atTheBack(
+            await this.tasks.placementsAt(opening.at.id),
+          ),
+          now: this.clock.now(),
+          newId: () => this.ids.generate(),
+        }),
+      );
+
+      const runId = opened.idle
+        ? await this.dispatch.dispatch({ task: opened, line })
+        : null;
+
+      await this.tasks.add(runId ? opened.handedTo(runId) : opened);
+
+      return;
+    }
   }
 
   private async applied(reaction: Outcome, task: Task): Promise<Task | null> {

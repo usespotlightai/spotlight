@@ -2,6 +2,7 @@ import { ReactToHappeningHandler } from '@application/commands/handlers/react-to
 import { ReactToHappeningCommand } from '@application/commands/react-to-happening.command';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { StoredDelivery } from '@application/ports/delivery-inbox.port';
+import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import type {
   Happened,
@@ -22,6 +23,7 @@ import { Concerns } from '@domain/value-objects/concerns.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { Mark } from '@domain/value-objects/mark.vo';
 import { Reaction } from '@domain/value-objects/reaction.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { Said } from '@domain/value-objects/said.vo';
@@ -39,6 +41,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const NOW = new Date('2026-08-31T12:00:00.000Z');
 const clock: ClockPort = { now: () => NOW, sleep: async () => {} };
 const transaction: TransactionPort = { run: async (work) => work() };
+const ids: IdGeneratorPort = { generate: () => 'task_new' };
 
 const MERGED = Happening.of('github.pull_request.merged');
 const COMMENTED = Happening.of('github.pull_request.commented');
@@ -203,6 +206,7 @@ const heard = (
     transaction,
     clock,
     attending,
+    ids,
   ).execute(new ReactToHappeningCommand(taken));
 
 describe('ReactToHappening', () => {
@@ -346,6 +350,7 @@ describe('ReactToHappening', () => {
       transaction,
       clock,
       attending,
+      ids,
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(saved).toBeUndefined();
@@ -385,6 +390,7 @@ describe('ReactToHappening', () => {
       transaction,
       clock,
       attending,
+      ids,
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(held.holding).not.toHaveBeenCalled();
@@ -408,11 +414,76 @@ describe('ReactToHappening', () => {
       transaction,
       clock,
       attending,
+      ids,
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(held.holding).toHaveBeenCalledWith(
       WorkspaceId.of('ws_1'),
       expect.anything(),
     );
+  });
+
+  // A word about work nobody here has, that a line watches for: the line opens
+  // one, filed where it waits and marked so the words that follow find it.
+  it('opens a task where a line waits for work nobody here has', async () => {
+    const ISSUE_CREATED = Happening.of('linear.issue.created');
+    const issueMark = Mark.of('linear.issue', 'ISS-1');
+
+    let next = 0;
+    const opening = AssemblyLine.open({
+      workspaceId: WorkspaceId.of('ws_1'),
+      factoryId: FactoryId.of('factory_1'),
+      name: AssemblyLineName.of('Default'),
+      newId: () => `id_${++next}`,
+    });
+    const backlog = opening.opensAt(ISSUE_CREATED) as Station;
+
+    let added: Task | undefined;
+    const held = {
+      add: vi.fn(async (each: Task) => {
+        added = each;
+      }),
+      save: vi.fn(),
+      find: vi.fn(async () => null),
+      remove: vi.fn(),
+      standingAt: vi.fn(async () => []),
+      placementsAt: vi.fn(async () => []),
+      // Nobody here is working this yet.
+      holding: vi.fn(async () => null),
+    } satisfies TaskRepository;
+
+    const running = {
+      add: vi.fn(),
+      save: vi.fn(),
+      find: vi.fn(async () => opening),
+      holding: vi.fn(async () => opening),
+      ofWorkspace: vi.fn(async () => [opening]),
+      ofTeam: vi.fn(async () => []),
+    } satisfies AssemblyLineRepository;
+
+    const filed: Happened = {
+      happening: ISSUE_CREATED,
+      told: 'An issue was filed.',
+      spoken: false,
+      state: 'raised',
+      concerns: Concerns.of({ marks: [issueMark] }) as Concerns,
+      said: Said.of({ body: null, path: null, from: null, remark: null }),
+      ourOwn: false,
+    };
+
+    await new ReactToHappeningHandler(
+      sourced([filed]),
+      held,
+      running,
+      dispatch,
+      transaction,
+      clock,
+      attending,
+      ids,
+    ).execute(new ReactToHappeningCommand(taken));
+
+    expect(held.add).toHaveBeenCalledTimes(1);
+    expect(added?.stationId).toEqual(backlog.id);
+    expect(added?.marks.some((each) => each.equals(issueMark))).toBe(true);
   });
 });

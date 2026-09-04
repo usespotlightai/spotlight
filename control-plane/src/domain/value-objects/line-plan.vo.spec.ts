@@ -39,7 +39,12 @@ describe('LinePlan', () => {
   it('describes a line, its stations and what words do to a task', () => {
     const held = plan({
       reactions: [
-        { happening: MERGED, from: null, to: StationKey.of('review') },
+        {
+          happening: MERGED,
+          from: null,
+          to: StationKey.of('review'),
+          opens: false,
+        },
       ],
     });
 
@@ -76,7 +81,12 @@ describe('LinePlan', () => {
     expect(() =>
       plan({
         reactions: [
-          { happening: MERGED, from: null, to: StationKey.of('nowhere') },
+          {
+            happening: MERGED,
+            from: null,
+            to: StationKey.of('nowhere'),
+            opens: false,
+          },
         ],
       }),
     ).toThrow(/not a station on it/);
@@ -90,6 +100,7 @@ describe('LinePlan', () => {
             happening: MERGED,
             from: StationKey.of('nowhere'),
             to: StationKey.of('review'),
+            opens: false,
           },
         ],
       }),

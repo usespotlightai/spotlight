@@ -25,6 +25,15 @@ verify:
 delivery: \${{ headers["linear-delivery"] }}
 
 happenings:
+  - happening: linear.issue.created
+    label: Issue created
+    told: A new issue was filed in Linear.
+    when: \${{ body.type == "Issue" && body.action == "create" }}
+    concerns:
+      marks:
+        - kind: linear.issue
+          value: \${{ body.data.identifier }}
+
   - happening: linear.issue.completed
     label: Issue completed
     told: The issue was moved to Done.

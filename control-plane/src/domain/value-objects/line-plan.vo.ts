@@ -30,6 +30,7 @@ export interface ReactionPlan {
   /** Where the task must be standing. Null is wherever it is. */
   readonly from: StationKey | null;
   readonly to: StationKey;
+  readonly opens: boolean;
 }
 
 /**

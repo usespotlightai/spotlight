@@ -87,7 +87,8 @@ export class Task extends EventRecorder {
     title: TaskTitle;
     description?: TaskDescription | null;
     rank: TaskRank;
-    raisedBy: UserId;
+    /** Null where nobody raised it: a word from outside opened it, not a person. */
+    raisedBy?: UserId | null;
     repository?: Repository | null;
     now: Date;
     newId: () => string;
@@ -105,7 +106,7 @@ export class Task extends EventRecorder {
       [],
       input.now,
       input.stationId,
-      input.raisedBy,
+      input.raisedBy ?? null,
       input.repository ?? null,
       null,
       [],

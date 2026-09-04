@@ -135,6 +135,23 @@ describe('writing a line out and reading it back', () => {
     }
   });
 
+  // A reaction that opens a task, rather than moving one, has to read back as
+  // one: otherwise a line loses the only way work it did not raise gets on it.
+  it('keeps whether a reaction opens a task', () => {
+    const line = built();
+    const read = readBack(line);
+
+    for (const reaction of line.reactions) {
+      const written = read.reactions.find((each) =>
+        each.happening.equals(reaction.happening),
+      );
+
+      expect(written?.opens).toBe(reaction.opens);
+    }
+
+    expect(read.reactions.some((each) => each.opens)).toBe(true);
+  });
+
   // The second pass has to be identical, or the board and the repository
   // drift a little further apart on every edit.
   it('writes the same file the second time round', () => {

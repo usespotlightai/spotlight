@@ -132,6 +132,7 @@ export const compileLine = (path: string, text: string): CompiledLine => {
           happening: Happening.of(reaction.happening),
           from: reaction.from ? StationKey.of(reaction.from) : null,
           to: StationKey.of(reaction.to),
+          opens: reaction.opens,
         })),
       }),
     };

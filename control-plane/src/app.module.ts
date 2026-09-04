@@ -933,6 +933,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       TRANSACTION,
       CLOCK,
       AttendToNotices,
+      ID_GENERATOR,
     ]),
 
     ...bindCommandHandler(ReadInboxItemCommand, ReadInboxItemHandler, [

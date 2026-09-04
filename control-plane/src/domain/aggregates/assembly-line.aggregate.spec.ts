@@ -389,6 +389,27 @@ describe('AssemblyLine', () => {
         ),
       ).not.toThrow();
     });
+
+    // A word about work nobody here has yet opens a task where the line
+    // watches, rather than moving one that is not there.
+    const ISSUE_CREATED = Happening.of('linear.issue.created');
+
+    it('opens a task at the backlog for a word it watches for', () => {
+      const line = opened();
+
+      expect(line.opensAt(ISSUE_CREATED)?.name.value).toBe('Backlog');
+      expect(line.opensAt(ISSUE_CREATED)?.id).toEqual(line.backlog.id);
+    });
+
+    it('opens nothing for a word it does not watch for', () => {
+      expect(opened().opensAt(Happening.of('linear.issue.deleted'))).toBeNull();
+    });
+
+    // Moving a task and opening one are different rules: what the world knows
+    // as an opener never comes back as somewhere to take an existing task.
+    it('does not take an opening rule as somewhere to move a task', () => {
+      expect(opened().reactionTo(ISSUE_CREATED, somewhere())).toBeNull();
+    });
   });
 
   it('changes the one station it was asked about', () => {

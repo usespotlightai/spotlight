@@ -23,8 +23,14 @@ describe('the words the built-in line waits for', () => {
   const awaited = BUILT_IN_REACTIONS.map((each) => each.happening.value);
 
   it('are all words the GitHub source actually raises', () => {
-    expect(awaited).not.toHaveLength(0);
-    expect(raised).toEqual(expect.arrayContaining(awaited));
+    // A line may watch for words other sources raise; only the ones GitHub
+    // owns are the ones GitHub has to raise.
+    const fromGitHub = BUILT_IN_REACTIONS.filter(
+      (each) => each.happening.source === source.key,
+    ).map((each) => each.happening.value);
+
+    expect(fromGitHub).not.toHaveLength(0);
+    expect(raised).toEqual(expect.arrayContaining(fromGitHub));
   });
 
   it('are each waited for once', () => {

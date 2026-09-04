@@ -1,3 +1,4 @@
+import { InvalidReactionError } from '@domain/exceptions/invalid-reaction.error';
 import type { Happening } from '@domain/value-objects/happening.vo';
 import type { StationId } from '@domain/value-objects/station-id.vo';
 
@@ -15,14 +16,28 @@ export class Reaction {
     /** Where the task must stand for this to apply. Null is wherever it is. */
     readonly from: StationId | null,
     readonly to: StationId,
+    readonly opens: boolean,
   ) {}
 
   static of(input: {
     happening: Happening;
     from?: StationId | null;
     to: StationId;
+    opens?: boolean;
   }): Reaction {
-    return new Reaction(input.happening, input.from ?? null, input.to);
+    // An opener has no standing task, so it cannot say where one must stand.
+    if (input.opens && input.from) {
+      throw new InvalidReactionError(
+        'that opens a task stands nowhere, so it cannot say where the task must be',
+      );
+    }
+
+    return new Reaction(
+      input.happening,
+      input.from ?? null,
+      input.to,
+      input.opens ?? false,
+    );
   }
 
   /** True where this is a rule about a task standing at that station. */
@@ -39,6 +54,7 @@ export class Reaction {
     return (
       this.happening.equals(other.happening) &&
       this.to.equals(other.to) &&
+      this.opens === other.opens &&
       (this.from === null
         ? other.from === null
         : other.from !== null && this.from.equals(other.from))

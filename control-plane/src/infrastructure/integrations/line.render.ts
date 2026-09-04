@@ -24,6 +24,7 @@ export const renderLine = (line: AssemblyLine): string => {
       happening: reaction.happening.value,
       ...(from ? { from } : {}),
       to: keyOf(reaction.to) ?? '',
+      ...(reaction.opens ? { opens: true } : {}),
     };
   });
 

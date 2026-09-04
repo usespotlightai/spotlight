@@ -1,11 +1,14 @@
 import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Task } from '@domain/aggregates/task.aggregate';
 import type { Station } from '@domain/entities/station.entity';
+import type { Concerns } from '@domain/value-objects/concerns.vo';
 import type { Word } from '@domain/value-objects/happening.vo';
+import type { Mark } from '@domain/value-objects/mark.vo';
 import { NotePosition } from '@domain/value-objects/note-position.vo';
 import type { Said } from '@domain/value-objects/said.vo';
 import type { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
+import { TaskTitle } from '@domain/value-objects/task-title.vo';
 
 interface Told {
   readonly station: StationName;
@@ -19,6 +22,13 @@ export type Outcome =
   | (Told & { readonly kind: 'stays' })
   | (Told & { readonly kind: 'answers'; readonly to: NotePosition })
   | (Told & { readonly kind: 'moves'; readonly to: Station });
+
+/** A task to open where a word concerns none: where, what to call it, and the handles it wears. */
+export interface Opening {
+  readonly at: Station;
+  readonly title: TaskTitle;
+  readonly marks: readonly Mark[];
+}
 
 export const ReactionFor = {
   happened(input: {
@@ -70,5 +80,30 @@ export const ReactionFor = {
     return owed && input.word.spoken
       ? { kind: 'answers', to: NotePosition.of(owed.from), ...told }
       : { kind: 'stays', ...told };
+  },
+
+  /** A task to open for a word that concerns none. A word with no handle opens nothing. */
+  opening(input: {
+    line: AssemblyLine;
+    word: Word;
+    concerns: Concerns;
+  }): Opening | null {
+    const at = input.line.opensAt(input.word.happening);
+
+    if (!at) {
+      return null;
+    }
+
+    const [named] = input.concerns.marks;
+
+    if (!named) {
+      return null;
+    }
+
+    return {
+      at,
+      title: TaskTitle.of(named.value),
+      marks: input.concerns.marks,
+    };
   },
 };

@@ -99,7 +99,12 @@ export const reconcileLine = (input: {
           const from = planned.from ? at(planned.from) : null;
 
           return to
-            ? Reaction.of({ happening: planned.happening, from, to })
+            ? Reaction.of({
+                happening: planned.happening,
+                from,
+                to,
+                opens: planned.opens,
+              })
             : null;
         })
         .filter((each): each is Reaction => each !== null),

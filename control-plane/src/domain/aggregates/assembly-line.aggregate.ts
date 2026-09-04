@@ -80,7 +80,11 @@ export class AssemblyLine {
         }),
       ),
       reactions: BUILT_IN_REACTIONS.map((each) =>
-        Reaction.of({ happening: each.happening, to: at(each.to) }),
+        Reaction.of({
+          happening: each.happening,
+          to: at(each.to),
+          opens: each.opens,
+        }),
       ),
     });
   }
@@ -151,10 +155,22 @@ export class AssemblyLine {
    */
   reactionTo(happening: Happening, standingAt: StationId): Reaction | null {
     const applies = this.reactions.filter(
-      (each) => each.happening.equals(happening) && each.appliesAt(standingAt),
+      (each) =>
+        !each.opens &&
+        each.happening.equals(happening) &&
+        each.appliesAt(standingAt),
     );
 
     return applies.find((each) => !each.isEverywhere) ?? applies[0] ?? null;
+  }
+
+  /** Where a word opens a new task when it concerns none, or nothing. */
+  opensAt(happening: Happening): Station | null {
+    const rule = this.reactions.find(
+      (each) => each.opens && each.happening.equals(happening),
+    );
+
+    return rule ? (this.stationAt(rule.to) ?? null) : null;
   }
 
   /**
