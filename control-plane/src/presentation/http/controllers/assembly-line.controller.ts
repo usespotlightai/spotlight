@@ -1,6 +1,5 @@
 import { CustomiseStationCommand } from '@application/commands/customise-station.command';
 import { ReorderStationsCommand } from '@application/commands/reorder-stations.command';
-import { SetLineReactionsCommand } from '@application/commands/set-line-reactions.command';
 import type {
   AssemblyLineDto,
   StationDto,
@@ -18,7 +17,6 @@ import {
   Param,
   Patch,
   Post,
-  Put,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
@@ -37,7 +35,6 @@ import {
 } from '@presentation/http/dto/assembly-line.response.dto';
 import { CustomiseStationRequestDto } from '@presentation/http/dto/customise-station.request.dto';
 import { ReorderStationsRequestDto } from '@presentation/http/dto/reorder-stations.request.dto';
-import { SetLineReactionsRequestDto } from '@presentation/http/dto/set-line-reactions.request.dto';
 import { AssemblyLineHttpMapper } from '@presentation/http/mappers/assembly-line.http.mapper';
 
 @ApiTags('assembly-lines')
@@ -105,51 +102,6 @@ export class AssemblyLineController {
     >(new ReorderStationsCommand(lineId, body.stationIds));
 
     return AssemblyLineHttpMapper.toResponse(reordered);
-  }
-
-  @Put(':lineId/reactions')
-  @ApiOperation({
-    operationId: 'setLineReactions',
-    summary: 'Set what this line does when a word comes in from outside',
-  })
-  @ApiParam({ name: 'teamId', example: '9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84' })
-  @ApiParam({ name: 'lineId', example: '7b2c9e14-3a5d-4c8f-b6e1-9d0a2f7c5b43' })
-  @ApiOkResponse({ type: AssemblyLineResponseDto })
-  @ApiNotFoundResponse({ description: 'No such line for this caller' })
-  @ApiUnprocessableEntityResponse({
-    description: 'A word nobody raises, or two rules that collide',
-  })
-  @HttpCode(HttpStatus.OK)
-  async react(
-    @Param('teamId') teamId: string,
-    @Param('lineId') lineId: string,
-    @Body() body: SetLineReactionsRequestDto,
-    @CurrentUser() user: AuthenticatedUser,
-  ): Promise<AssemblyLineResponseDto> {
-    const lines = await this.queryBus.execute<
-      ListAssemblyLinesQuery,
-      AssemblyLineDto[] | null
-    >(new ListAssemblyLinesQuery(teamId, user.id));
-
-    if (!lines?.some((line) => line.id === lineId)) {
-      throw new NotFoundException();
-    }
-
-    const changed = await this.commandBus.execute<
-      SetLineReactionsCommand,
-      AssemblyLineDto
-    >(
-      new SetLineReactionsCommand(
-        lineId,
-        (body.reactions ?? []).map((each) => ({
-          happening: each.happening,
-          from: each.from ?? null,
-          to: each.to,
-        })),
-      ),
-    );
-
-    return AssemblyLineHttpMapper.toResponse(changed);
   }
 
   @Patch(':lineId/stations/:stationId')

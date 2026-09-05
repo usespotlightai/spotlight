@@ -52,7 +52,6 @@ export function AssemblyLineBoard() {
   const moveTask = useMoveTask();
   const [selected, setSelected] = useState<readonly string[]>([]);
   const [params, setParams] = useSearchParams();
-  // A named view in the address wins; otherwise, the one last looked at.
   const inUrl = params.get('view');
   const view: BoardView = BOARD_VIEWS.some((each) => each.id === inUrl)
     ? (inUrl as BoardView)

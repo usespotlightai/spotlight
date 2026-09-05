@@ -13,7 +13,6 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { useCustomiseStation } from '@/hooks/api/useCustomiseStation';
-import { useSetLineReactions } from '@/hooks/api/useSetLineReactions';
 import { useStation } from '@/hooks/api/useStation';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useStationEdits } from '@/hooks/useStationEdits';
@@ -26,7 +25,6 @@ export function Station() {
   const { line, station, isPending } = useStation(teamId, lineId, stationId);
   const { edits, change } = useStationEdits(station);
   const customise = useCustomiseStation();
-  const setReactions = useSetLineReactions();
 
   if (isPending) {
     return null;
@@ -156,22 +154,7 @@ export function Station() {
             </p>
           )}
 
-          {setReactions.isError && (
-            <p className="text-destructive text-xs">
-              {setReactions.error.message}
-            </p>
-          )}
-
           <StationProperties
-            slug={slug}
-            stationId={station.id}
-            stations={line.stations}
-            reactions={line.reactions}
-            onReactions={(reactions) =>
-              teamId &&
-              lineId &&
-              setReactions.mutate({ teamId, lineId, reactions })
-            }
             {...(ends
               ? {
                   note:

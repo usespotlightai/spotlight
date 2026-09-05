@@ -53,28 +53,6 @@ export type ReorderStationsRequestDto = {
   stationIds: Array<string>;
 };
 
-export type ReactionRequestDto = {
-  /**
-   * One of the words a connected source raises
-   */
-  happening: string;
-  /**
-   * Where the task must stand for this to count. Leave out for wherever it is.
-   */
-  from?: string | null;
-  /**
-   * Where the word takes the task
-   */
-  to: string;
-};
-
-export type SetLineReactionsRequestDto = {
-  /**
-   * The whole set. Anything left out stops applying.
-   */
-  reactions: Array<ReactionRequestDto>;
-};
-
 export type CustomiseStationRequestDto = {
   name?: string;
   /**
@@ -976,37 +954,6 @@ export type ReorderStationsResponses = {
 };
 
 export type ReorderStationsResponse = ReorderStationsResponses[keyof ReorderStationsResponses];
-
-export type SetLineReactionsData = {
-  body: SetLineReactionsRequestDto;
-  path: {
-    teamId: string;
-    lineId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/assembly-lines/{lineId}/reactions';
-};
-
-export type SetLineReactionsErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such line for this caller
-   */
-  404: unknown;
-  /**
-   * A word nobody raises, or two rules that collide
-   */
-  422: unknown;
-};
-
-export type SetLineReactionsResponses = {
-  200: AssemblyLineResponseDto;
-};
-
-export type SetLineReactionsResponse = SetLineReactionsResponses[keyof SetLineReactionsResponses];
 
 export type CustomiseStationData = {
   body: CustomiseStationRequestDto;

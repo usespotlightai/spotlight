@@ -38,41 +38,10 @@ const line = {
       kind: 'completed',
     },
   ],
-  reactions: [
-    {
-      happening: 'github.pull_request.merged',
-      from: null,
-      to: 'station_3',
-    },
-  ],
 };
 
 vi.mock('@/hooks/api/useAssemblyLines', () => ({
   useAssemblyLines: () => ({ data: [line], isPending: false }),
-}));
-const setReactions = vi.fn();
-
-vi.mock('@/hooks/api/useSetLineReactions', () => ({
-  useSetLineReactions: () => ({ mutate: setReactions }),
-}));
-
-vi.mock('@/hooks/api/useHappenings', () => ({
-  useHappenings: () => ({
-    data: [
-      {
-        happening: 'github.pull_request.merged',
-        source: 'github',
-        label: 'Pull request merged',
-        told: 'The pull request was merged.',
-      },
-      {
-        happening: 'github.checks.failed',
-        source: 'github',
-        label: 'Checks failed',
-        told: 'The checks failed on the pull request.',
-      },
-    ],
-  }),
 }));
 
 const customised = vi.fn();

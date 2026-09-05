@@ -1,23 +1,6 @@
 import { HarnessSelect } from '@/components/stations/HarnessSelect';
-import { StationReactions } from '@/components/stations/StationReactions';
-
-type Reaction = {
-  happening: string;
-  from?: string | null;
-  to: string;
-};
-
-type Station = {
-  id: string;
-  name: string;
-};
 
 type StationPropertiesProps = {
-  slug: string | undefined;
-  stationId: string;
-  stations: readonly Station[];
-  reactions: readonly Reaction[];
-  onReactions: (reactions: Reaction[]) => void;
   /** Absent where nothing runs at this station. */
   harness?: string;
   onHarness?: (harness: string) => void;
@@ -26,11 +9,6 @@ type StationPropertiesProps = {
 };
 
 export function StationProperties({
-  slug,
-  stationId,
-  stations,
-  reactions,
-  onReactions,
   harness,
   onHarness,
   note,
@@ -50,14 +28,6 @@ export function StationProperties({
       {note ? (
         <p className="px-2 text-muted-foreground text-xs leading-5">{note}</p>
       ) : null}
-
-      <StationReactions
-        slug={slug}
-        stationId={stationId}
-        stations={stations}
-        reactions={reactions}
-        onChange={onReactions}
-      />
     </aside>
   );
 }

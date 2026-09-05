@@ -37,7 +37,6 @@ import { RenewLeaseHandler } from '@application/commands/handlers/renew-lease.ha
 import { ReorderStationsHandler } from '@application/commands/handlers/reorder-stations.handler';
 import { RevokeRunnerHandler } from '@application/commands/handlers/revoke-runner.handler';
 import { SayToRunHandler } from '@application/commands/handlers/say-to-run.handler';
-import { SetLineReactionsHandler } from '@application/commands/handlers/set-line-reactions.handler';
 import {
   ForgetSecretHandler,
   SetSecretHandler,
@@ -61,7 +60,6 @@ import {
   RevokeRunnerCommand,
 } from '@application/commands/runner.commands';
 import { SayToRunCommand } from '@application/commands/say-to-run.command';
-import { SetLineReactionsCommand } from '@application/commands/set-line-reactions.command';
 import { SetSecretCommand } from '@application/commands/set-secret.command';
 import { SetTaskRepositoryCommand } from '@application/commands/set-task-repository.command';
 import { DigestRun } from '@application/events/handlers/digest-run.handler';
@@ -954,11 +952,6 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       CLOCK,
     ]),
 
-    ...bindCommandHandler(SetLineReactionsCommand, SetLineReactionsHandler, [
-      DrizzleAssemblyLineRepository,
-      WebhookSources,
-      TRANSACTION,
-    ]),
     ...bindCommandHandler(ConnectGitHubCommand, ConnectGitHubHandler, [
       DrizzleWorkspaceRepository,
       GITHUB_IDENTITY,

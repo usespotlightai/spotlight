@@ -102,66 +102,6 @@
         ]
       }
     },
-    "/teams/{teamId}/assembly-lines/{lineId}/reactions": {
-      "put": {
-        "operationId": "setLineReactions",
-        "parameters": [
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
-              "type": "string"
-            }
-          },
-          {
-            "name": "lineId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "7b2c9e14-3a5d-4c8f-b6e1-9d0a2f7c5b43",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetLineReactionsRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AssemblyLineResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session"
-          },
-          "404": {
-            "description": "No such line for this caller"
-          },
-          "422": {
-            "description": "A word nobody raises, or two rules that collide"
-          }
-        },
-        "summary": "Set what this line does when a word comes in from outside",
-        "tags": [
-          "assembly-lines"
-        ]
-      }
-    },
     "/teams/{teamId}/assembly-lines/{lineId}/stations/{stationId}": {
       "patch": {
         "operationId": "customiseStation",
@@ -2328,46 +2268,6 @@
         },
         "required": [
           "stationIds"
-        ]
-      },
-      "ReactionRequestDto": {
-        "type": "object",
-        "properties": {
-          "happening": {
-            "type": "string",
-            "example": "github.pull_request.commented",
-            "description": "One of the words a connected source raises"
-          },
-          "from": {
-            "type": "string",
-            "example": null,
-            "nullable": true,
-            "description": "Where the task must stand for this to count. Leave out for wherever it is."
-          },
-          "to": {
-            "type": "string",
-            "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80",
-            "description": "Where the word takes the task"
-          }
-        },
-        "required": [
-          "happening",
-          "to"
-        ]
-      },
-      "SetLineReactionsRequestDto": {
-        "type": "object",
-        "properties": {
-          "reactions": {
-            "description": "The whole set. Anything left out stops applying.",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ReactionRequestDto"
-            }
-          }
-        },
-        "required": [
-          "reactions"
         ]
       },
       "CustomiseStationRequestDto": {
