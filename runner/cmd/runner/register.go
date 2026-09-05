@@ -18,7 +18,7 @@ import (
 )
 
 const registerUsage = `usage:
-  runner register [--token <spot_…>] [--url <https://…>]`
+  runner register [--token <token>] [--url <https://…>]`
 
 func register(args []string, in io.Reader, out io.Writer) error {
 	flags := flag.NewFlagSet("register", flag.ContinueOnError)
@@ -41,7 +41,7 @@ func register(args []string, in io.Reader, out io.Writer) error {
 
 	token := strings.TrimSpace(*tokenFlag)
 	if token == "" {
-		token, err = prompt(in, out, "Enrollment token (spot_…): ")
+		token, err = prompt(in, out, "Enrollment token: ")
 		if err != nil {
 			return err
 		}

@@ -7,7 +7,7 @@ describe('RunnerTokenService', () => {
   it('mints a token nobody could guess', () => {
     const { token } = tokens.mint();
 
-    expect(token).toMatch(/^spot_[\w-]{43}$/);
+    expect(token).toMatch(/^[\w-]{43}$/);
   });
 
   it('never mints the same token twice', () => {

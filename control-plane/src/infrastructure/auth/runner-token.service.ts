@@ -5,7 +5,6 @@ import type {
 } from '@application/ports/runner-token.port';
 import { Injectable } from '@nestjs/common';
 
-const PREFIX = 'spot_';
 const BYTES = 32;
 
 /**
@@ -16,7 +15,7 @@ const BYTES = 32;
 @Injectable()
 export class RunnerTokenService implements RunnerTokenPort {
   mint(): MintedToken {
-    const token = PREFIX + randomBytes(BYTES).toString('base64url');
+    const token = randomBytes(BYTES).toString('base64url');
     return { token, hash: this.hash(token) };
   }
 

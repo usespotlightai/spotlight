@@ -51,7 +51,7 @@ can):
 
 ```bash
 runner register              # prompts for the token
-runner register --token spot_…   # or pass it directly
+runner register --token <token>   # or pass it directly
 ```
 
 The control plane serves only the script (`installer/install.sh`, bind-mounted
