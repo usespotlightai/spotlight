@@ -32,7 +32,7 @@ export class SayToRunHandler
       const run = await this.runs.findById(RunId.of(command.runId));
       const task = run?.taskId ? await this.tasks.find(run.taskId) : null;
 
-      if (!run?.stationId || !task?.raisedByThem(UserId.of(command.saidBy))) {
+      if (!run?.stationId || !task?.assignedToThem(UserId.of(command.saidBy))) {
         throw new UnknownTaskError(command.runId);
       }
 

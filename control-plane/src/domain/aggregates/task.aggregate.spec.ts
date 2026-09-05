@@ -387,6 +387,22 @@ describe('Task, what it is doing', () => {
     it('belongs to nobody else, however much of the workspace they see', () => {
       expect(added().raisedByThem(UserId.of('user_2'))).toBe(false);
     });
+
+    // Putting it to a person makes it theirs, so an inbox is never left with
+    // no one to reach: it falls back to whoever raised it.
+    it('is assigned to the raiser when a person is asked and none is set', () => {
+      expect(added().assignedToThem(UserId.of('user_1'))).toBe(false);
+      expect(
+        added().askedAbout(saying).assignedToThem(UserId.of('user_1')),
+      ).toBe(true);
+    });
+
+    it('keeps the assignee it already has when a person is asked', () => {
+      const asked = added().assignedTo(UserId.of('user_2')).askedAbout(saying);
+
+      expect(asked.assignedToThem(UserId.of('user_2'))).toBe(true);
+      expect(asked.assignedToThem(UserId.of('user_1'))).toBe(false);
+    });
   });
 
   describe('reading what was put to a person', () => {

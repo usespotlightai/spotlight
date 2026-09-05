@@ -26,9 +26,9 @@ export class ConversationAtHand {
     const item = ConversationId.parse(itemId);
     const task = await this.tasks.find(item.taskId);
 
-    // An inbox is one person's: a conversation nobody raised for them is one
-    // they cannot see, so it is not there to answer.
-    if (!task?.raisedByThem(UserId.of(them))) {
+    // An inbox is one person's: a conversation not assigned to them is one they
+    // cannot see, so it is not there to answer.
+    if (!task?.assignedToThem(UserId.of(them))) {
       throw new UnknownTaskError(item.taskId.value);
     }
 

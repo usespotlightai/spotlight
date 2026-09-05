@@ -344,6 +344,10 @@ export class Task extends EventRecorder {
     return this.raisedBy?.equals(userId) ?? false;
   }
 
+  assignedToThem(userId: UserId): boolean {
+    return this.assignee?.equals(userId) ?? false;
+  }
+
   unreadFrom(from: NotePosition): boolean {
     return anyUnread(this.conversationAt(from));
   }
@@ -435,6 +439,9 @@ export class Task extends EventRecorder {
 
     return this.with({
       currentRunId: null,
+      // Put to a person is put to an owner: whoever it is already assigned to,
+      // or else whoever raised it. An inbox is the assignee's.
+      assignee: this.assignee ?? this.raisedBy,
       ...this.spoke(saying, 'asked'),
     });
   }
