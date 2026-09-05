@@ -1,7 +1,7 @@
 import { RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { useParams } from 'react-router';
-import { ConnectGitHub } from '@/components/integrations/ConnectGitHub';
+import { GitHubIntegration } from '@/components/integrations/GitHubIntegration';
 import { IntegrationCard } from '@/components/integrations/IntegrationCard';
 import { SettingsPage } from '@/components/settings/SettingsPage';
 import { Button } from '@/components/ui/button';
@@ -61,12 +61,22 @@ export function TeamIntegrations() {
       title="Integrations"
       description="The hosts this team listens to, written as files in its configuration repository. Push a change and Spotlight reads it again."
     >
-      {onboarding && !onboarding.connectedToGitHub && (
-        <ConnectGitHub
-          slug={slug}
-          teamId={teamId}
-          installUrl={onboarding.installUrl}
-        />
+      {onboarding && (
+        <section className="flex flex-col gap-3">
+          <h2 className="flex h-6 items-center font-medium text-muted-foreground text-xs">
+            GitHub
+          </h2>
+
+          <div className="grid auto-rows-fr gap-3 sm:grid-cols-2">
+            <GitHubIntegration
+              slug={slug}
+              teamId={teamId}
+              installUrl={onboarding.installUrl}
+              connected={onboarding.connectedToGitHub}
+              repository={onboarding.configRepository}
+            />
+          </div>
+        </section>
       )}
 
       <section className="flex flex-col gap-3">

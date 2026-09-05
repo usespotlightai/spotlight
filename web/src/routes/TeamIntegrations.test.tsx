@@ -204,6 +204,26 @@ describe('TeamIntegrations', () => {
     ).not.toBeInTheDocument();
   });
 
+  // Installed, it is still an integration, so the page shows it stands connected
+  // and where to go to manage it.
+  it('shows GitHub connected once the App is installed', () => {
+    onboarding.mockReturnValue(ready({ configRepository: 'acme/platform' }));
+    configuration.mockReturnValue(read());
+    showing();
+
+    expect(screen.getByText(/acme\/platform/)).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Manage on GitHub' }),
+    ).toHaveAttribute(
+      'href',
+      installUrlFor('https://github.com/apps/spotlight/installations/new', {
+        slug: 'acme',
+        teamId: 'team_1',
+        from: '/w/acme/team/team_1/integrations',
+      }),
+    );
+  });
+
   // Opening a team is where that is asked about. This page never says it.
   it.each([
     ['no runner', { steps: steps(['runner']) }],
