@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 import { Conversation } from '@/components/inbox/Conversation';
-import { openedAt } from '@/lib/inbox';
+import { type InboxMessage, openedAt } from '@/lib/inbox';
 
 vi.mock('@/hooks/api/useSession', () => ({
   useSession: () => ({ data: { user: { id: 'user_1' } } }),
@@ -25,7 +25,11 @@ vi.mock('@/hooks/api/usePinConfiguration', () => ({
 const AT = '2026-09-03T21:22:00.000Z';
 const LATER = '2026-09-03T23:45:00.000Z';
 
-const note = (position: number, at: string, station = 'Backlog') => ({
+const note = (
+  position: number,
+  at: string,
+  station = 'Backlog',
+): InboxMessage => ({
   position,
   kind: 'asked',
   form: 'words',
@@ -53,6 +57,7 @@ const showing = (notes: ReturnType<typeof note>[]) =>
         }}
         worked={[]}
         viewerId="user_1"
+        footer={null}
       />
     </MemoryRouter>,
   );

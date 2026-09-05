@@ -55,7 +55,7 @@ export function StationReactions({
         Brought here by
       </h2>
 
-      <div role="group" aria-label="Brought here by" className="flex flex-col">
+      <fieldset aria-label="Brought here by" className="flex min-w-0 flex-col">
         {happenings.map((each) => {
           const to = leadingTo(each.happening);
           const here = to === stationId;
@@ -89,7 +89,7 @@ export function StationReactions({
             </div>
           );
         })}
-      </div>
+      </fieldset>
     </section>
   );
 }
