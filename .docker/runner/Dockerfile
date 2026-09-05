@@ -17,19 +17,15 @@ COPY runner/ ./
 RUN go build -o /usr/local/bin/spotlight ./cmd/spotlight
 CMD ["air", "-c", ".air.toml"]
 
-FROM deps AS build
-ENV CGO_ENABLED=0
-COPY runner/ ./
-RUN go build -o /out/runner ./cmd/runner
-RUN go build -o /out/spotlight ./cmd/spotlight
-
 FROM alpine:3 AS runtime
-RUN apk add --no-cache git jq nodejs npm bash ca-certificates \
+ARG SPOTLIGHT_VERSION=latest
+RUN apk add --no-cache git jq nodejs npm bash curl ca-certificates \
     && adduser -D -u 2000 -s /bin/bash agent
-RUN npm install -g @anthropic-ai/claude-code @zed-industries/claude-agent-acp
 COPY .docker/runner/hooks/ /etc/spotlight/hooks/
-COPY --from=build /out/runner /usr/local/bin/runner
-COPY --from=build /out/spotlight /usr/local/bin/spotlight
+COPY installer/install.sh /tmp/install.sh
+RUN SPOTLIGHT_BIN_DIR=/usr/local/bin SPOTLIGHT_VERSION="$SPOTLIGHT_VERSION" \
+    SPOTLIGHT_CONFIG=/dev/null sh /tmp/install.sh \
+    && rm /tmp/install.sh
 
 USER root
 ENTRYPOINT ["runner"]

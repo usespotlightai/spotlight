@@ -83,7 +83,7 @@ export class EnrolledRunnerResponseDto {
   readonly name: string;
 
   @ApiProperty({
-    example: 'spot_xY3...',
+    example: 'xY3...',
     description: 'Shown once. Nothing can recover it after this response.',
   })
   readonly token: string;

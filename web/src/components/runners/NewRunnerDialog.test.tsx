@@ -56,7 +56,7 @@ describe('NewRunnerDialog', () => {
   // and a dialog rendered inside the empty state used to unmount with it.
   it('shows the token once enrolled, and keeps showing it', async () => {
     enrol.mutate = vi.fn((_input, options) =>
-      options.onSuccess({ id: 'r1', name: 'Laptop', token: 'spot_secret' }),
+      options.onSuccess({ id: 'r1', name: 'Laptop', token: 'a-secret-token' }),
     );
 
     openDialog();
@@ -64,7 +64,7 @@ describe('NewRunnerDialog', () => {
     await user.click(screen.getByRole('button', { name: /Create runner/ }));
 
     await waitFor(() =>
-      expect(screen.getByText('spot_secret')).toBeInTheDocument(),
+      expect(screen.getByText('a-secret-token')).toBeInTheDocument(),
     );
     expect(screen.getByRole('button', { name: 'Copy token' })).toBeVisible();
   });
@@ -74,7 +74,7 @@ describe('NewRunnerDialog', () => {
   // Reopening has to start clean all the same.
   it('forgets the token once the dialog has closed', async () => {
     enrol.mutate = vi.fn((_input, options) =>
-      options.onSuccess({ id: 'r1', name: 'Laptop', token: 'spot_secret' }),
+      options.onSuccess({ id: 'r1', name: 'Laptop', token: 'a-secret-token' }),
     );
 
     const { rerender } = render(
@@ -83,7 +83,7 @@ describe('NewRunnerDialog', () => {
     const user = await fill('Laptop');
     await user.click(screen.getByRole('button', { name: /Create runner/ }));
     await waitFor(() =>
-      expect(screen.getByText('spot_secret')).toBeInTheDocument(),
+      expect(screen.getByText('a-secret-token')).toBeInTheDocument(),
     );
 
     rerender(<NewRunnerDialog open={false} onOpenChange={vi.fn()} />);
@@ -94,7 +94,7 @@ describe('NewRunnerDialog', () => {
         '',
       ),
     );
-    expect(screen.queryByText('spot_secret')).not.toBeInTheDocument();
+    expect(screen.queryByText('a-secret-token')).not.toBeInTheDocument();
   });
 
   it('says so when the control plane refused', () => {
