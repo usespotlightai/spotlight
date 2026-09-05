@@ -1,4 +1,4 @@
-import type { Ref } from 'react';
+import type { CSSProperties, Ref } from 'react';
 import { PaneHandle } from '@/components/layout/PaneHandle';
 import { DetailDiff } from '@/components/trace/detail/DetailDiff';
 import { DetailFields } from '@/components/trace/detail/DetailFields';
@@ -23,6 +23,7 @@ const DETAIL_PANE = {
   initial: 520,
   label: 'Resize the details',
   edge: 'left' as const,
+  property: '--detail-w',
 };
 
 /** The same panel whatever was picked: a row answers what it can, in order. */
@@ -56,8 +57,13 @@ export function SpanDetail({
     kind: 'string',
   }));
 
+  const openState = {
+    'data-closed': open ? undefined : '',
+    'data-open': open ? '' : undefined,
+  };
+
   return (
-    <aside
+    <div
       ref={(node) => {
         paneRef.current = node;
 
@@ -67,67 +73,76 @@ export function SpanDetail({
           ref.current = node;
         }
       }}
-      style={{ width }}
-      data-closed={open ? undefined : ''}
-      data-open={open ? '' : undefined}
+      style={{ '--detail-w': `${width}px` } as CSSProperties}
+      {...openState}
       className={cn(
-        // The duration is for the animations below. Transitions are off, or
-        // every width the drag writes would be animated to over 150ms and the
-        // panel would trail the pointer.
-        'relative shrink-0 border-border border-l-[0.5px] transition-none duration-150',
-        'data-open:animate-in data-open:fade-in data-open:slide-in-from-right-4',
-        // Held at where it left off until it is taken away: without this the
-        // animation ends, the panel snaps back to full, and it flickers.
-        'data-closed:animate-out data-closed:fade-out data-closed:slide-out-to-right-4 data-closed:fill-mode-forwards',
-        resizing && 'select-none',
+        'relative w-[var(--detail-w)] shrink-0',
+        'data-open:[animation:detail-room-open_240ms_ease-in-out]',
+        'data-closed:[animation:detail-room-close_240ms_ease-in-out_forwards]',
       )}
     >
-      <PaneHandle {...handleProps} edge="left" resizing={resizing} />
-
-      <div className="flex h-full flex-col gap-5 overflow-y-auto px-4 py-4">
-        <DetailHeader node={node} />
-
-        {asked && <DetailTold told={asked} />}
-        {answered && <DetailTold told={answered} />}
-
-        {step?.change && (
-          <DetailSection title="Diff" copy={step.change.after}>
-            <p className="flex gap-2 font-mono text-muted-foreground text-xs">
-              {step.change.path && (
-                <span className="truncate">{step.change.path}</span>
-              )}
-              {/* The lines it touched: the only thing locations say that the
-                  input and the row's own name do not. */}
-              {step.locations.length > 0 && (
-                <span className="shrink-0">
-                  {step.locations
-                    .flatMap((where) =>
-                      where.line === null ? [] : [where.line],
-                    )
-                    .join(', ')}
-                </span>
-              )}
-            </p>
-            <DetailDiff
-              path={step.change.path}
-              before={step.change.before}
-              after={step.change.after}
-            />
-          </DetailSection>
+      <aside
+        {...openState}
+        style={{ width: 'calc(var(--detail-w) - 16px)' }}
+        className={cn(
+          'absolute inset-y-2 right-2 flex flex-col overflow-hidden rounded-lg border-[0.5px] border-border bg-card shadow-pane',
+          'data-open:[animation:detail-open_240ms_ease-in-out]',
+          'data-closed:[animation:detail-close_240ms_ease-in-out_forwards]',
+          resizing && 'select-none',
         )}
+      >
+        <div className="flex h-full flex-col gap-5 overflow-y-auto px-4 py-4 scrollbar-hide">
+          <DetailHeader node={node} />
 
-        {holding.length > 0 && (
-          <DetailSection title="Contents">
-            <DetailFields fields={holding} />
-          </DetailSection>
-        )}
+          {asked && <DetailTold told={asked} />}
+          {answered && <DetailTold told={answered} />}
 
-        {reported.length > 0 && (
-          <DetailSection title="Attributes">
-            <DetailFields fields={reported} />
-          </DetailSection>
-        )}
-      </div>
-    </aside>
+          {step?.change && (
+            <DetailSection title="Diff" copy={step.change.after}>
+              <p className="flex gap-2 font-mono text-muted-foreground text-xs">
+                {step.change.path && (
+                  <span className="truncate">{step.change.path}</span>
+                )}
+                {/* The lines it touched: the only thing locations say that
+                      the input and the row's own name do not. */}
+                {step.locations.length > 0 && (
+                  <span className="shrink-0">
+                    {step.locations
+                      .flatMap((where) =>
+                        where.line === null ? [] : [where.line],
+                      )
+                      .join(', ')}
+                  </span>
+                )}
+              </p>
+              <DetailDiff
+                path={step.change.path}
+                before={step.change.before}
+                after={step.change.after}
+              />
+            </DetailSection>
+          )}
+
+          {holding.length > 0 && (
+            <DetailSection title="Contents">
+              <DetailFields fields={holding} />
+            </DetailSection>
+          )}
+
+          {reported.length > 0 && (
+            <DetailSection title="Attributes">
+              <DetailFields fields={reported} />
+            </DetailSection>
+          )}
+        </div>
+      </aside>
+
+      <PaneHandle
+        {...handleProps}
+        edge="left"
+        resizing={resizing}
+        className="inset-y-2 left-1"
+      />
+    </div>
   );
 }

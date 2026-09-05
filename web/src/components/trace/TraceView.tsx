@@ -9,7 +9,8 @@ import { took } from '@/lib/inbox';
 import { rowsOf, type Trace, type TraceNode } from '@/lib/trace';
 import { cn } from '@/lib/utils';
 
-const LEAVING = 150;
+// Matches the pane's close animation so it stays mounted until that finishes.
+const LEAVING = 240;
 
 const NAMES_PANE = {
   property: '--names',
@@ -105,11 +106,11 @@ export function TraceView({ trace }: TraceViewProps) {
           >
             <div
               className={cn(
-                'flex h-full flex-col overflow-auto',
+                'flex h-full flex-col overflow-auto scrollbar-hide',
                 names.resizing && 'select-none',
               )}
             >
-              <div className="sticky top-0 z-20 flex h-6 min-w-0 shrink-0 items-end border-border border-b-[0.5px] bg-card px-1.5">
+              <div className="sticky top-0 z-20 flex h-6 min-w-0 shrink-0 items-end border-border border-b-[0.5px] bg-surface px-1.5">
                 <span className="shrink-0" style={{ width: 'var(--names)' }} />
                 <div
                   className="relative min-w-0 flex-1"
