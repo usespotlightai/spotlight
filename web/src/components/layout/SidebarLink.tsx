@@ -31,7 +31,8 @@ export function SidebarLink({
         cn(
           'flex h-7 items-center gap-2 rounded-md px-2 text-muted-foreground text-sm outline-none transition-colors',
           'hover:bg-accent hover:text-foreground',
-          (isActive || active) && 'bg-accent font-medium text-foreground',
+          (isActive || active) &&
+            'bg-border font-medium text-foreground hover:bg-border',
           className,
         )
       }

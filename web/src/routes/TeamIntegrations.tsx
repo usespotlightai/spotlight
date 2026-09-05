@@ -18,8 +18,10 @@ import { shownTogether } from '@/lib/integrations';
  */
 export function TeamIntegrations() {
   const { slug, teamId } = useParams();
-  const { data: onboarding } = useOnboarding(teamId);
-  const { data: configuration, isPending } = useConfiguration(teamId);
+  const { data: onboarding, isPending: loadingOnboarding } =
+    useOnboarding(teamId);
+  const { data: configuration, isPending: loadingConfiguration } =
+    useConfiguration(teamId);
   const reread = useRereadConfiguration(teamId);
   const choose = useChooseTools(teamId);
 
@@ -30,7 +32,7 @@ export function TeamIntegrations() {
    */
   const [wanted, setWanted] = useState<ReadonlyMap<string, boolean>>(new Map());
 
-  if (isPending || !teamId) {
+  if (loadingOnboarding || loadingConfiguration || !teamId) {
     return null;
   }
 
