@@ -13,6 +13,7 @@ else
 fi
 
 BINARIES="runner spotlight"
+HARNESS="@anthropic-ai/claude-code @zed-industries/claude-agent-acp"
 
 say() { printf 'spotlight: %s\n' "$1" >&2; }
 die() { printf 'spotlight: %s\n' "$1" >&2; exit 1; }
@@ -102,6 +103,24 @@ save_url() {
   } >"$cfg"
 }
 
+# The runner supervises the Claude Code harness over ACP; without it a runner
+# registers but has nothing to work runs with.
+install_harness() {
+  if ! command -v npm >/dev/null 2>&1; then
+    say "Node.js/npm not found; install it, then: npm install -g $HARNESS"
+    return
+  fi
+  say "installing the Claude Code harness"
+  npm install -g $HARNESS >/dev/null 2>&1 \
+    || say "could not install the harness; run: npm install -g $HARNESS"
+}
+
+warn_missing() {
+  for tool in git jq; do
+    command -v "$tool" >/dev/null 2>&1 || say "$tool is not installed; a runner needs it to work runs"
+  done
+}
+
 main() {
   detect_platform
   choose_bindir
@@ -114,6 +133,8 @@ main() {
   done
 
   save_url
+  install_harness
+  warn_missing
 
   case ":$PATH:" in
     *":$BIN_DIR:"*) runner="runner" ;;
