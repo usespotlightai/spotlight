@@ -600,6 +600,13 @@ export type SetSecretRequestDto = {
   value: string;
 };
 
+export type RenameTeamRequestDto = {
+  /**
+   * What the team is called.
+   */
+  name: string;
+};
+
 export type HappeningResponseDto = {
   happening: string;
   source: string;
@@ -1748,6 +1755,35 @@ export type ForgetSecretResponses = {
 };
 
 export type ForgetSecretResponse = ForgetSecretResponses[keyof ForgetSecretResponses];
+
+export type RenameTeamData = {
+  body: RenameTeamRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}';
+};
+
+export type RenameTeamErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, or not yours to rename
+   */
+  404: unknown;
+};
+
+export type RenameTeamResponses = {
+  /**
+   * Renamed
+   */
+  204: void;
+};
+
+export type RenameTeamResponse = RenameTeamResponses[keyof RenameTeamResponses];
 
 export type ListHappeningsData = {
   body?: never;

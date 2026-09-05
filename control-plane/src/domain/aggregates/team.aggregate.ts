@@ -15,10 +15,6 @@ export interface TeamMember {
   readonly role: TeamRole;
 }
 
-/**
- * A root rather than something inside a workspace: a delivery knocks at a
- * team's door, and a reading is a team's reading.
- */
 export class Team extends EventRecorder {
   private constructor(
     readonly id: TeamId,
@@ -104,6 +100,17 @@ export class Team extends EventRecorder {
       this.name,
       this.members,
       repository,
+    );
+  }
+
+  renamedTo(name: TeamName): Team {
+    return new Team(
+      this.id,
+      this.workspaceId,
+      this.key,
+      name,
+      this.members,
+      this.configRepository,
     );
   }
 

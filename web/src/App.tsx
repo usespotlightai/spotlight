@@ -17,6 +17,7 @@ import { TaskTrace } from './routes/TaskTrace.tsx';
 import { TeamIndex } from './routes/TeamIndex.tsx';
 import { TeamIntegrations } from './routes/TeamIntegrations.tsx';
 import { TeamSection } from './routes/TeamSection.tsx';
+import { TeamSettings } from './routes/TeamSettings.tsx';
 import { Workspace } from './routes/Workspace.tsx';
 import { WorkspaceIndex } from './routes/WorkspaceIndex.tsx';
 
@@ -44,6 +45,7 @@ export default function App() {
             <Route path="observability/tasks/:taskId" element={<TaskTrace />} />
             <Route path="runs/:runId" element={<Run />} />
             <Route path="integrations" element={<TeamIntegrations />} />
+            <Route path="settings" element={<TeamSettings />} />
             <Route path=":section" element={<TeamSection />} />
           </Route>
           <Route path="inbox" element={<Inbox />}>

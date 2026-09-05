@@ -33,6 +33,7 @@ import { ReactToHappeningHandler } from '@application/commands/handlers/react-to
 import { ReadConfigurationHandler } from '@application/commands/handlers/read-configuration.handler';
 import { ReadInboxItemHandler } from '@application/commands/handlers/read-inbox-item.handler';
 import { RegisterRunnerHandler } from '@application/commands/handlers/register-runner.handler';
+import { RenameTeamHandler } from '@application/commands/handlers/rename-team.handler';
 import { RenewLeaseHandler } from '@application/commands/handlers/renew-lease.handler';
 import { ReorderStationsHandler } from '@application/commands/handlers/reorder-stations.handler';
 import { RevokeRunnerHandler } from '@application/commands/handlers/revoke-runner.handler';
@@ -48,6 +49,7 @@ import { PinConfigurationCommand } from '@application/commands/pin-configuration
 import { ReactToHappeningCommand } from '@application/commands/react-to-happening.command';
 import { ReadConfigurationCommand } from '@application/commands/read-configuration.command';
 import { ReadInboxItemCommand } from '@application/commands/read-inbox-item.command';
+import { RenameTeamCommand } from '@application/commands/rename-team.command';
 import { ReorderStationsCommand } from '@application/commands/reorder-stations.command';
 import {
   AppendRunEventsCommand,
@@ -316,6 +318,7 @@ import { RunStreamController } from '@presentation/http/controllers/run-stream.c
 import { RunnerController } from '@presentation/http/controllers/runner.controller';
 import { RunnerFleetController } from '@presentation/http/controllers/runner-fleet.controller';
 import { TaskController } from '@presentation/http/controllers/task.controller';
+import { TeamController } from '@presentation/http/controllers/team.controller';
 import { WebhookController } from '@presentation/http/controllers/webhook.controller';
 import { WorkspaceController } from '@presentation/http/controllers/workspace.controller';
 import { ServerFaultFilter } from '@presentation/http/filters/server-fault.filter';
@@ -347,6 +350,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     RepositoryController,
     GitHubConnectionController,
     ConfigurationController,
+    TeamController,
     HappeningController,
     WebhookController,
     TaskController,
@@ -909,6 +913,11 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       SeedConfiguration,
       REPOSITORY_CATALOG,
       SettleSetup,
+    ]),
+    ...bindCommandHandler(RenameTeamCommand, RenameTeamHandler, [
+      WORKSPACE_READER,
+      DrizzleWorkspaceRepository,
+      DrizzleTeamRepository,
     ]),
     ...bindCommandHandler(ChooseToolsCommand, ChooseToolsHandler, [
       DrizzleWorkspaceRepository,
