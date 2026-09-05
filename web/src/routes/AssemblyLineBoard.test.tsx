@@ -360,6 +360,13 @@ describe('AssemblyLineBoard', () => {
     expect(named()).toEqual(['Completed']);
   });
 
+  it('opens on the view last looked at, however it is reached', () => {
+    localStorage.setItem('spotlight.board-view', 'completed');
+    renderAt('line_1');
+
+    expect(named()).toEqual(['Completed']);
+  });
+
   it('drops the selection when the view changes under it', async () => {
     const user = userEvent.setup();
     renderAt('line_1');
