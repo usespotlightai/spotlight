@@ -95,6 +95,7 @@ import {
   type IdGeneratorPort,
 } from '@application/ports/id-generator.port';
 import { INBOX_READER } from '@application/ports/inbox-reader.port';
+import { INSTALLER_ASSETS } from '@application/ports/installer-assets.port';
 import {
   INTEGRATION_READER,
   type IntegrationReaderPort,
@@ -254,6 +255,7 @@ import { GitHubRepositoryContents } from '@infrastructure/github/github-reposito
 import { GitHubWebhookSignature } from '@infrastructure/github/github-webhook.signature';
 import { BuiltInHarnesses } from '@infrastructure/harnesses/built-in-harnesses';
 import { CryptoIdGenerator } from '@infrastructure/identity/crypto-id.generator';
+import { InstallerAssets } from '@infrastructure/installer/installer-assets';
 import { ConfiguredSources } from '@infrastructure/integrations/configured.sources';
 import { IntegrationReader } from '@infrastructure/integrations/integration.reader';
 import { LineReader } from '@infrastructure/integrations/line.reader';
@@ -307,6 +309,7 @@ import { HappeningController } from '@presentation/http/controllers/happening.co
 import { HarnessController } from '@presentation/http/controllers/harness.controller';
 import { HealthController } from '@presentation/http/controllers/health.controller';
 import { InboxController } from '@presentation/http/controllers/inbox.controller';
+import { InstallController } from '@presentation/http/controllers/install.controller';
 import { RepositoryController } from '@presentation/http/controllers/repository.controller';
 import { RunController } from '@presentation/http/controllers/run.controller';
 import { RunStreamController } from '@presentation/http/controllers/run-stream.controller';
@@ -338,6 +341,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     RunnerController,
     HarnessController,
     InboxController,
+    InstallController,
     RunnerFleetController,
     GitController,
     RepositoryController,
@@ -349,6 +353,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     WorkspaceController,
   ],
   providers: [
+    { provide: INSTALLER_ASSETS, useClass: InstallerAssets },
     DrizzleContext,
     { provide: TRANSACTION, useExisting: DrizzleContext },
     DrizzleWorkspaceRepository,

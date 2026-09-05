@@ -38,6 +38,11 @@ export const envSchema = databaseSchema
     // Seals what a workspace's configuration may name but must not hold.
     // 32 bytes, base64. Generate with: openssl rand -base64 32
     SPOTLIGHT_SECRETS_KEY: z.string().min(1),
+    // The control-plane base baked into the served install script. Defaults to
+    // BETTER_AUTH_URL.
+    SPOTLIGHT_PUBLIC_URL: z.url().optional(),
+    // Where the served install script lives in this image.
+    SPOTLIGHT_INSTALLER_DIR: z.string().default('/opt/spotlight/installer'),
     LOG_LEVEL: z.enum(LOG_LEVELS).optional(),
   })
   .transform((env) => ({

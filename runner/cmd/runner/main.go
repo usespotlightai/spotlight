@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -18,6 +19,14 @@ import (
 )
 
 func main() {
+	if args := os.Args[1:]; len(args) > 0 && args[0] == "register" {
+		if err := register(args[1:], os.Stdin, os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	if err := run(); err != nil {
 		slog.Error("runner stopped", "error", err)
 		os.Exit(1)
