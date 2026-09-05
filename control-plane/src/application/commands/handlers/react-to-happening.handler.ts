@@ -143,39 +143,37 @@ export class ReactToHappeningHandler
       ? await this.lines.ofTeam(TeamId.of(teamId))
       : await this.lines.ofWorkspace(workspaceId);
 
-    for (const line of lines) {
-      const opening = ReactionFor.opening({
-        line,
-        word: happened,
-        concerns: happened.concerns,
-      });
+    const chosen = ReactionFor.openingAcross({
+      lines,
+      word: happened,
+      concerns: happened.concerns,
+      opens: happened.opens,
+    });
 
-      if (!opening) {
-        continue;
-      }
-
-      const opened = opening.marks.reduce(
-        (task, mark) => task.markedBy(mark),
-        Task.add({
-          workspaceId,
-          stationId: opening.at.id,
-          title: opening.title,
-          rank: Placement.atTheBack(
-            await this.tasks.placementsAt(opening.at.id),
-          ),
-          now: this.clock.now(),
-          newId: () => this.ids.generate(),
-        }),
-      );
-
-      const runId = opened.idle
-        ? await this.dispatch.dispatch({ task: opened, line })
-        : null;
-
-      await this.tasks.add(runId ? opened.handedTo(runId) : opened);
-
+    if (!chosen) {
       return;
     }
+
+    const { line, opening } = chosen;
+
+    const opened = opening.marks.reduce(
+      (task, mark) => task.markedBy(mark),
+      Task.add({
+        workspaceId,
+        stationId: opening.at.id,
+        title: opening.title,
+        description: opening.description,
+        rank: Placement.atTheBack(await this.tasks.placementsAt(opening.at.id)),
+        now: this.clock.now(),
+        newId: () => this.ids.generate(),
+      }),
+    );
+
+    const runId = opened.idle
+      ? await this.dispatch.dispatch({ task: opened, line })
+      : null;
+
+    await this.tasks.add(runId ? opened.handedTo(runId) : opened);
   }
 
   private async applied(reaction: Outcome, task: Task): Promise<Task | null> {

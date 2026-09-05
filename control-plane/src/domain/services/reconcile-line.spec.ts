@@ -251,9 +251,7 @@ describe('reconciling a line with the plan describing it', () => {
 
     const { result } = reconciling(
       like(plan, {
-        reactions: [
-          { happening: MERGED, from: null, to: to.key, opens: false },
-        ],
+        reactions: [{ happening: MERGED, from: null, to: to.key }],
       }),
       line,
     );

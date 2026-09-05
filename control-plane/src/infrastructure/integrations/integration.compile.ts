@@ -23,6 +23,11 @@ export interface HappeningRules {
   readonly when: Expression;
   readonly branch: Expression | null;
   readonly marks: readonly { kind: MarkKind; value: Expression }[];
+  /** What a task this word opens is titled and described, read per delivery. */
+  readonly opens: {
+    readonly title: Expression;
+    readonly description: Expression | null;
+  } | null;
 }
 
 /** The rules travel beside the integration rather than inside it. */
@@ -155,6 +160,24 @@ export const compileIntegration = (path: string, text: string): Compiled => {
           path,
         ),
       })),
+      opens: raising.opens
+        ? {
+            title: expressionAt(
+              raising.opens.title,
+              `${where}.opens.title`,
+              problems,
+              path,
+            ),
+            description: raising.opens.description
+              ? expressionAt(
+                  raising.opens.description,
+                  `${where}.opens.description`,
+                  problems,
+                  path,
+                )
+              : null,
+          }
+        : null,
     };
   });
 
@@ -200,6 +223,12 @@ export const compileIntegration = (path: string, text: string): Compiled => {
             kind: MarkKind.of(mark.kind),
             value: mark.value as Expression,
           })),
+          opens: rule.opens
+            ? {
+                title: rule.opens.title as Expression,
+                description: rule.opens.description,
+              }
+            : null,
         })),
       },
     };

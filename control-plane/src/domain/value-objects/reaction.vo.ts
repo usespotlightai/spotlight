@@ -1,10 +1,10 @@
-import { InvalidReactionError } from '@domain/exceptions/invalid-reaction.error';
 import type { Happening } from '@domain/value-objects/happening.vo';
 import type { StationId } from '@domain/value-objects/station-id.vo';
 
 /**
- * What a line does when a word comes in from outside: which word, where the
- * task has to be standing for it to count, and where it goes.
+ * What a line does when a word comes in from outside about a task it already
+ * has: which word, where the task has to be standing for it to count, and
+ * where it goes.
  *
  * Held by the line rather than by a station, because where a word takes a
  * task can depend on where the task already is. A comment at code review is
@@ -16,28 +16,14 @@ export class Reaction {
     /** Where the task must stand for this to apply. Null is wherever it is. */
     readonly from: StationId | null,
     readonly to: StationId,
-    readonly opens: boolean,
   ) {}
 
   static of(input: {
     happening: Happening;
     from?: StationId | null;
     to: StationId;
-    opens?: boolean;
   }): Reaction {
-    // An opener has no standing task, so it cannot say where one must stand.
-    if (input.opens && input.from) {
-      throw new InvalidReactionError(
-        'that opens a task stands nowhere, so it cannot say where the task must be',
-      );
-    }
-
-    return new Reaction(
-      input.happening,
-      input.from ?? null,
-      input.to,
-      input.opens ?? false,
-    );
+    return new Reaction(input.happening, input.from ?? null, input.to);
   }
 
   /** True where this is a rule about a task standing at that station. */
@@ -54,7 +40,6 @@ export class Reaction {
     return (
       this.happening.equals(other.happening) &&
       this.to.equals(other.to) &&
-      this.opens === other.opens &&
       (this.from === null
         ? other.from === null
         : other.from !== null && this.from.equals(other.from))

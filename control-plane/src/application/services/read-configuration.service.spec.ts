@@ -59,20 +59,20 @@ const reading = (
     catalog?: readonly string[];
     /** Which repositories hold anything under the configuration directory. */
     holding?: readonly string[];
+    files?: readonly { path: string; text: string }[];
     problems?: readonly ConfigurationProblem[];
     strandings?: readonly ConfigurationProblem[];
     head?: string | null;
   } = {},
 ) => {
   const holding = over.holding ?? ['acme/api'];
-  const apply = vi.fn(async () => ({}));
 
   const contents = {
     headOf: vi.fn(async () =>
       over.head === undefined ? 'a1b2c3d' : over.head,
     ),
     under: vi.fn(async ({ repository }: { repository: Repository }) =>
-      holding.includes(repository.value) ? [CONFIG] : [],
+      holding.includes(repository.value) ? (over.files ?? [CONFIG]) : [],
     ),
     read: vi.fn(async () => null),
   } as unknown as RepositoryContentsPort;
@@ -82,6 +82,15 @@ const reading = (
     save: vi.fn(async () => {}),
   } as unknown as TeamConfigurationRepository;
 
+  const read = vi.fn((_files: readonly { path: string }[]) => ({
+    integrations: [],
+    problems: over.problems ?? [],
+  }));
+  const apply = vi.fn(
+    async (_teamId: unknown, _files: readonly { path: string }[]) =>
+      over.strandings ?? [],
+  );
+
   const service = new ReadConfiguration(
     {
       list: vi.fn(async () =>
@@ -89,18 +98,14 @@ const reading = (
       ),
     } as unknown as RepositoryCatalogPort,
     contents,
-    {
-      read: () => ({ integrations: [], problems: over.problems ?? [] }),
-    } as unknown as IntegrationReaderPort,
-    {
-      apply: vi.fn(async () => over.strandings ?? []),
-    } as unknown as ApplyLines,
+    { read } as unknown as IntegrationReaderPort,
+    { apply } as unknown as ApplyLines,
     config,
     clock,
     { forTeam: settling } as never,
   );
 
-  return { service, config, contents, apply, settling };
+  return { service, config, contents, read, apply, settling };
 };
 
 const settling = vi.fn(async () => {});
@@ -195,6 +200,36 @@ describe('ReadConfiguration', () => {
 
       expect(await service.read(workspace(), pinned('acme/gone'))).toBeNull();
     });
+  });
+
+  // Each reader gets its own directory, or every line reads as a broken
+  // integration and every integration as a broken line.
+  it('gives each reader only its own directory', async () => {
+    const integration = {
+      path: '.spotlight/integrations/linear.yml',
+      text: 'source: linear',
+    };
+    const line = { path: '.spotlight/lines/default.yml', text: 'key: default' };
+    const { service, read, apply, config } = reading({
+      files: [integration, line],
+    });
+
+    await service.read(workspace(), TEAM);
+
+    const readFiles = read.mock.calls[0]?.[0] ?? [];
+    const appliedFiles = apply.mock.calls[0]?.[1] ?? [];
+
+    expect(readFiles.map((each) => each.path)).toEqual([integration.path]);
+    expect(appliedFiles.map((each) => each.path)).toEqual([line.path]);
+
+    // What is written down is still the whole tree, so a delivery can read it.
+    const [written] = (config.save as never as { mock: { calls: unknown[][] } })
+      .mock.calls[0] as [TeamConfiguration];
+
+    expect(written.files.map((each) => each.path)).toEqual([
+      integration.path,
+      line.path,
+    ]);
   });
 
   describe('what is wrong with it', () => {

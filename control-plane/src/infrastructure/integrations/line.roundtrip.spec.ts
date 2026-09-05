@@ -1,7 +1,9 @@
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { linePath } from '@domain/aggregates/team-configuration.aggregate';
+import { contributionOf } from '@domain/services/source-contribution';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
+import { SourceKey } from '@domain/value-objects/source-key.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { compileLine } from '@infrastructure/integrations/line.compile';
 import { renderLine } from '@infrastructure/integrations/line.render';
@@ -20,7 +22,7 @@ const built = () => {
     factoryId: FactoryId.of('factory_1'),
     name: AssemblyLineName.of('Default'),
     newId: () => `id_${++next}`,
-  });
+  }).installing(contributionOf(SourceKey.of('linear')));
 };
 
 const readBack = (line: AssemblyLine) => {
@@ -135,21 +137,23 @@ describe('writing a line out and reading it back', () => {
     }
   });
 
-  // A reaction that opens a task, rather than moving one, has to read back as
-  // one: otherwise a line loses the only way work it did not raise gets on it.
-  it('keeps whether a reaction opens a task', () => {
+  // An opener — the only way work the line did not raise gets on it — has to
+  // read back as one, landing where it did.
+  it('keeps every opener, and where each one opens', () => {
     const line = built();
     const read = readBack(line);
 
-    for (const reaction of line.reactions) {
-      const written = read.reactions.find((each) =>
-        each.happening.equals(reaction.happening),
+    expect(read.openers).toHaveLength(line.openers.length);
+    expect(line.openers.length).toBeGreaterThan(0);
+
+    for (const opener of line.openers) {
+      const written = read.openers.find((each) =>
+        each.happening.equals(opener.happening),
       );
+      const to = line.stations.find((each) => each.id.equals(opener.to));
 
-      expect(written?.opens).toBe(reaction.opens);
+      expect(written?.to.value).toBe(to?.key.value);
     }
-
-    expect(read.reactions.some((each) => each.opens)).toBe(true);
   });
 
   // The second pass has to be identical, or the board and the repository

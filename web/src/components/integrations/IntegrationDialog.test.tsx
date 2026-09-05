@@ -57,9 +57,7 @@ describe('IntegrationDialog', () => {
   it('says it is set rather than showing anything', () => {
     showing({ secretSet: true });
 
-    expect(
-      screen.getByPlaceholderText('Set. Type to replace it.'),
-    ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Replace')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Replace' })).toBeInTheDocument();
   });
 

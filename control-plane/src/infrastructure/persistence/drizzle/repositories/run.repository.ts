@@ -186,10 +186,7 @@ export class DrizzleRunRepository implements RunRepository {
 
         const requeued = lapsing.requeue(now);
         await this.save(requeued);
-
-        if (requeued.hasEvents) {
-          givenUp.push(requeued);
-        }
+        givenUp.push(requeued);
       }
 
       return givenUp;

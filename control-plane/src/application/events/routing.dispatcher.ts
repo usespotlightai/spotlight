@@ -38,31 +38,37 @@ export class RoutingDispatcher implements DomainEventDispatcher {
   }
 
   private async route(event: DomainEvent): Promise<void> {
-    if (event instanceof RunCompleted) {
-      return this.outcomes.onRunCompleted(event);
-    }
-    if (event instanceof RunAbandoned) {
-      return this.outcomes.onRunAbandoned(event);
-    }
-    if (event instanceof TeamCreated) {
-      return this.provisioning.onTeamCreated(event);
-    }
-    if (event instanceof WorkspaceConnected) {
-      return this.seeding.onWorkspaceConnected(event);
-    }
-    if (event instanceof RunnerRevoked) {
-      return this.revocation.onRunnerRevoked(event);
-    }
-    if (event instanceof TaskFinished) {
-      // No subscriber yet; recorded for the trail only.
-      this.logger.debug({ event: event.kind }, 'A task finished');
+    // Its kind is its identity; the union narrows it back to a typed event.
+    const known = event as Routable;
 
-      return;
+    switch (known.kind) {
+      case 'run.completed':
+        return this.outcomes.onRunCompleted(known);
+      case 'run.abandoned':
+        return this.outcomes.onRunAbandoned(known);
+      case 'team.created':
+        return this.provisioning.onTeamCreated(known);
+      case 'workspace.connected':
+        return this.seeding.onWorkspaceConnected(known);
+      case 'runner.revoked':
+        return this.revocation.onRunnerRevoked(known);
+      case 'task.finished':
+        // No subscriber yet; recorded for the trail only.
+        this.logger.debug({ event: known.kind }, 'A task finished');
+        return;
+      default:
+        this.logger.warn(
+          { event: event.kind },
+          'A domain event has nobody to answer it',
+        );
     }
-
-    this.logger.warn(
-      { event: event.kind },
-      'A domain event has nobody to answer it',
-    );
   }
 }
+
+type Routable =
+  | RunCompleted
+  | RunAbandoned
+  | TeamCreated
+  | WorkspaceConnected
+  | RunnerRevoked
+  | TaskFinished;

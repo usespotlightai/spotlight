@@ -29,6 +29,9 @@ happenings:
     label: Issue created
     told: A new issue was filed in Linear.
     when: \${{ body.type == "Issue" && body.action == "create" }}
+    opens:
+      title: \${{ body.data.title }}
+      description: \${{ body.data.description }}
     concerns:
       marks:
         - kind: linear.issue

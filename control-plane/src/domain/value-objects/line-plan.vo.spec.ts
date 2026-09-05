@@ -43,7 +43,6 @@ describe('LinePlan', () => {
           happening: MERGED,
           from: null,
           to: StationKey.of('review'),
-          opens: false,
         },
       ],
     });
@@ -85,7 +84,6 @@ describe('LinePlan', () => {
             happening: MERGED,
             from: null,
             to: StationKey.of('nowhere'),
-            opens: false,
           },
         ],
       }),
@@ -100,9 +98,16 @@ describe('LinePlan', () => {
             happening: MERGED,
             from: StationKey.of('nowhere'),
             to: StationKey.of('review'),
-            opens: false,
           },
         ],
+      }),
+    ).toThrow(/not a station on it/);
+  });
+
+  it('refuses a word opening a task at a station it does not describe', () => {
+    expect(() =>
+      plan({
+        openers: [{ happening: MERGED, to: StationKey.of('nowhere') }],
       }),
     ).toThrow(/not a station on it/);
   });

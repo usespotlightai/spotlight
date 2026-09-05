@@ -17,6 +17,7 @@ import { Task } from '@domain/aggregates/task.aggregate';
 import { Station } from '@domain/entities/station.entity';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
+import { contributionOf } from '@domain/services/source-contribution';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { Concerns } from '@domain/value-objects/concerns.vo';
@@ -27,6 +28,7 @@ import { Mark } from '@domain/value-objects/mark.vo';
 import { Reaction } from '@domain/value-objects/reaction.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { Said } from '@domain/value-objects/said.vo';
+import { SourceKey } from '@domain/value-objects/source-key.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
@@ -191,6 +193,7 @@ const news = (
     remark: said ? 'PRRC_kwDO' : null,
   }),
   ourOwn,
+  opens: null,
 });
 
 const heard = (
@@ -435,7 +438,7 @@ describe('ReactToHappening', () => {
       factoryId: FactoryId.of('factory_1'),
       name: AssemblyLineName.of('Default'),
       newId: () => `id_${++next}`,
-    });
+    }).installing(contributionOf(SourceKey.of('linear')));
     const backlog = opening.opensAt(ISSUE_CREATED) as Station;
 
     let added: Task | undefined;
@@ -469,6 +472,10 @@ describe('ReactToHappening', () => {
       concerns: Concerns.of({ marks: [issueMark] }) as Concerns,
       said: Said.of({ body: null, path: null, from: null, remark: null }),
       ourOwn: false,
+      opens: {
+        title: 'Drain the retry queue',
+        description: 'It loops forever.',
+      },
     };
 
     await new ReactToHappeningHandler(
@@ -485,5 +492,8 @@ describe('ReactToHappening', () => {
     expect(held.add).toHaveBeenCalledTimes(1);
     expect(added?.stationId).toEqual(backlog.id);
     expect(added?.marks.some((each) => each.equals(issueMark))).toBe(true);
+    // The task is named and described by what the source read, not its handle.
+    expect(added?.title.value).toBe('Drain the retry queue');
+    expect(added?.description?.value).toBe('It loops forever.');
   });
 });

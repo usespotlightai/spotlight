@@ -154,12 +154,12 @@ export interface ReactionOpening {
   readonly happening: Happening;
   /** Named rather than identified: the stations do not exist yet. */
   readonly to: string;
-  readonly opens?: boolean;
 }
 
 /**
- * How every line opens to the world. Each applies wherever the task stands,
- * which is how the line behaved when a station held its own reactions.
+ * How every line answers a word about a task it already has. Each applies
+ * wherever the task stands, which is how the line behaved when a station held
+ * its own reactions.
  */
 export const BUILT_IN_REACTIONS: readonly ReactionOpening[] = [
   // A broken build is not a comment to weigh: it is work.
@@ -180,11 +180,5 @@ export const BUILT_IN_REACTIONS: readonly ReactionOpening[] = [
   {
     happening: Happening.of('github.pull_request.merged'),
     to: 'Completed',
-  },
-  // A new issue filed elsewhere has no task yet: open one in the backlog.
-  {
-    happening: Happening.of('linear.issue.created'),
-    to: 'Backlog',
-    opens: true,
   },
 ];

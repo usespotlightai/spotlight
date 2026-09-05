@@ -85,9 +85,7 @@ export function IntegrationDialog({
                 value={value}
                 onChange={(event) => setValue(event.target.value)}
                 placeholder={
-                  integration.secretSet
-                    ? 'Set. Type to replace it.'
-                    : 'Paste the webhook secret'
+                  integration.secretSet ? 'Replace' : 'Paste the webhook secret'
                 }
                 aria-label="Webhook secret"
                 autoComplete="off"

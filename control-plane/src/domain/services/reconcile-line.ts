@@ -1,6 +1,7 @@
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Station } from '@domain/entities/station.entity';
 import type { LinePlan } from '@domain/value-objects/line-plan.vo';
+import { Opener } from '@domain/value-objects/opener.vo';
 import { Reaction } from '@domain/value-objects/reaction.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import type { StationKey } from '@domain/value-objects/station-key.vo';
@@ -99,15 +100,17 @@ export const reconcileLine = (input: {
           const from = planned.from ? at(planned.from) : null;
 
           return to
-            ? Reaction.of({
-                happening: planned.happening,
-                from,
-                to,
-                opens: planned.opens,
-              })
+            ? Reaction.of({ happening: planned.happening, from, to })
             : null;
         })
         .filter((each): each is Reaction => each !== null),
+      openers: input.plan.openers
+        .map((planned) => {
+          const to = at(planned.to);
+
+          return to ? Opener.of({ happening: planned.happening, to }) : null;
+        })
+        .filter((each): each is Opener => each !== null),
     }),
   };
 };

@@ -24,9 +24,13 @@ export const renderLine = (line: AssemblyLine): string => {
       happening: reaction.happening.value,
       ...(from ? { from } : {}),
       to: keyOf(reaction.to) ?? '',
-      ...(reaction.opens ? { opens: true } : {}),
     };
   });
+
+  const openers = line.openers.map((opener) => ({
+    happening: opener.happening.value,
+    to: keyOf(opener.to) ?? '',
+  }));
 
   return stringify(
     {
@@ -35,6 +39,7 @@ export const renderLine = (line: AssemblyLine): string => {
       name: line.name.value,
       stations,
       ...(reactions.length > 0 ? { reactions } : {}),
+      ...(openers.length > 0 ? { openers } : {}),
     },
     // Long prompts are the point of the file, so they are written as blocks
     // rather than as one unreadable quoted line.

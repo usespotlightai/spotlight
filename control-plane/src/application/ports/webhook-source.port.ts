@@ -1,3 +1,4 @@
+import type { OpensWith } from '@domain/services/reaction-for';
 import type { Concerns } from '@domain/value-objects/concerns.vo';
 import type { Happening, Word } from '@domain/value-objects/happening.vo';
 import type { Said } from '@domain/value-objects/said.vo';
@@ -57,6 +58,7 @@ export interface Happened extends Word {
   /** What was said, where anything was: the note the station works from. */
   readonly said: Said | null;
   readonly ourOwn: boolean;
+  readonly opens: OpensWith | null;
 }
 
 /**

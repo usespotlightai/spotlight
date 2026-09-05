@@ -143,6 +143,8 @@ export class DeclaredSource implements WebhookSourcePort {
       );
     }
 
+    const title = rule.opens ? reads(rule.opens.title, against) : null;
+
     return {
       happening: declared.happening,
       told: declared.told,
@@ -155,6 +157,16 @@ export class DeclaredSource implements WebhookSourcePort {
       // Spotlight reaches a host it was merely told about through nothing of
       // its own, so nothing arriving from one is its own doing.
       ourOwn: false,
+      // No title read, no opening to describe: the line falls back to the mark.
+      opens: title
+        ? {
+            title,
+            description:
+              rule.opens?.description != null
+                ? reads(rule.opens.description, against)
+                : null,
+          }
+        : null,
     };
   }
 

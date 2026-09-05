@@ -290,6 +290,8 @@ export class GitHubSource implements WebhookSourcePort {
       concerns,
       said: remarked(delivered.comment) ?? remarked(delivered.review),
       ourOwn: byUs(delivered),
+      // GitHub answers work that already has a task; it opens none of its own.
+      opens: null,
     };
   }
 

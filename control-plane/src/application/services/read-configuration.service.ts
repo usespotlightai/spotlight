@@ -6,7 +6,9 @@ import type { ApplyLines } from '@application/services/apply-lines.service';
 import type { SettleSetup } from '@application/services/settle-setup.service';
 import type { Team } from '@domain/aggregates/team.aggregate';
 import {
+  INTEGRATIONS_UNDER,
   KEPT_UNDER,
+  LINES_UNDER,
   TeamConfiguration,
 } from '@domain/aggregates/team-configuration.aggregate';
 import type { Workspace } from '@domain/aggregates/workspace.aggregate';
@@ -70,13 +72,20 @@ export class ReadConfiguration {
       })
     ).map((each) => ConfigurationFile.of(each.path, each.text));
 
+    // Each reader is given only its own directory, or every line would read
+    // as a broken integration and every integration as a broken line.
+    const integrationFiles = files.filter((each) =>
+      each.isUnder(INTEGRATIONS_UNDER),
+    );
+    const lineFiles = files.filter((each) => each.isUnder(LINES_UNDER));
+
     // Read now rather than when a delivery arrives: a problem with a file is
     // something to be told about while looking at it, not at midnight.
-    const { problems } = this.integrations.read(files);
+    const { problems } = this.integrations.read(integrationFiles);
 
     // The lines are made to say what the files say. What could not be done
     // without stranding somebody's work comes back as a problem to show.
-    const strandings = await this.lines.apply(team.id, files);
+    const strandings = await this.lines.apply(team.id, lineFiles);
 
     await this.configurations.save(
       TeamConfiguration.read({

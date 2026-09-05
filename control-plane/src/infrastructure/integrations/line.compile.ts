@@ -102,6 +102,18 @@ export const compileLine = (path: string, text: string): CompiledLine => {
     }
   }
 
+  for (const [at, opener] of file.openers.entries()) {
+    if (!keys.has(opener.to)) {
+      problems.push(
+        ConfigurationProblem.of({
+          path,
+          at: `openers.${at}.to`,
+          reason: `names ${opener.to}, which is not a station on this line`,
+        }),
+      );
+    }
+  }
+
   if (problems.length > 0) {
     return { ok: false, problems };
   }
@@ -132,7 +144,10 @@ export const compileLine = (path: string, text: string): CompiledLine => {
           happening: Happening.of(reaction.happening),
           from: reaction.from ? StationKey.of(reaction.from) : null,
           to: StationKey.of(reaction.to),
-          opens: reaction.opens,
+        })),
+        openers: file.openers.map((opener) => ({
+          happening: Happening.of(opener.happening),
+          to: StationKey.of(opener.to),
         })),
       }),
     };

@@ -35,6 +35,13 @@ const happeningSchema = z.object({
   /** A person speaking needs what they said; the world reporting does not. */
   spoken: z.boolean().default(false),
   when: expression,
+  /** What a task this word opens is called and says, read from the delivery. */
+  opens: z
+    .object({
+      title: expression,
+      description: expression.optional(),
+    })
+    .optional(),
   concerns: z.object({
     branch: expression.optional(),
     marks: z.array(markSchema).default([]),

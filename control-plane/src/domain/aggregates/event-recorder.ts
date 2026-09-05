@@ -1,6 +1,11 @@
 import type { DomainEvent } from '@domain/events/domain-event';
 
-// A transition records onto the instance it returns, not the one it was called on.
+/**
+ * What an aggregate has done that something outside it may need to answer. A
+ * transition records onto the new instance it returns; pulling drains that
+ * instance in place, since the events are a note for whoever saves it rather
+ * than part of what it is.
+ */
 export abstract class EventRecorder {
   private pending: DomainEvent[] = [];
 

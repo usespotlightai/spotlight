@@ -7,6 +7,7 @@ import type { Mark } from '@domain/value-objects/mark.vo';
 import { NotePosition } from '@domain/value-objects/note-position.vo';
 import type { Said } from '@domain/value-objects/said.vo';
 import type { StationName } from '@domain/value-objects/station-name.vo';
+import { TaskDescription } from '@domain/value-objects/task-description.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
 
@@ -27,7 +28,19 @@ export type Outcome =
 export interface Opening {
   readonly at: Station;
   readonly title: TaskTitle;
+  readonly description: TaskDescription | null;
   readonly marks: readonly Mark[];
+}
+
+export interface OpenedOn {
+  readonly line: AssemblyLine;
+  readonly opening: Opening;
+}
+
+/** What a source read off a delivery for a task the word opens. */
+export interface OpensWith {
+  readonly title: string;
+  readonly description: string | null;
 }
 
 export const ReactionFor = {
@@ -82,11 +95,43 @@ export const ReactionFor = {
       : { kind: 'stays', ...told };
   },
 
+  /**
+   * The one line a word opens a task on. Where more than one watches for it,
+   * the line whose key sorts first takes it, so the choice never rides on the
+   * order the lines happened to come back in.
+   */
+  openingAcross(input: {
+    lines: readonly AssemblyLine[];
+    word: Word;
+    concerns: Concerns;
+    opens: OpensWith | null;
+  }): OpenedOn | null {
+    const ordered = [...input.lines].sort((one, other) =>
+      one.key.value.localeCompare(other.key.value),
+    );
+
+    for (const line of ordered) {
+      const opening = ReactionFor.opening({
+        line,
+        word: input.word,
+        concerns: input.concerns,
+        opens: input.opens,
+      });
+
+      if (opening) {
+        return { line, opening };
+      }
+    }
+
+    return null;
+  },
+
   /** A task to open for a word that concerns none. A word with no handle opens nothing. */
   opening(input: {
     line: AssemblyLine;
     word: Word;
     concerns: Concerns;
+    opens: OpensWith | null;
   }): Opening | null {
     const at = input.line.opensAt(input.word.happening);
 
@@ -100,9 +145,14 @@ export const ReactionFor = {
       return null;
     }
 
+    // What the source read off the delivery names the task; the handle it is
+    // marked by is only the fallback, so a task is never left named by an id.
     return {
       at,
-      title: TaskTitle.of(named.value),
+      title: TaskTitle.clamp(input.opens?.title ?? named.value),
+      description: input.opens?.description
+        ? TaskDescription.clamp(input.opens.description)
+        : null,
       marks: input.concerns.marks,
     };
   },

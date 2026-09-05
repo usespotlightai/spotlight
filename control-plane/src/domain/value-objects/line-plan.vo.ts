@@ -30,7 +30,11 @@ export interface ReactionPlan {
   /** Where the task must be standing. Null is wherever it is. */
   readonly from: StationKey | null;
   readonly to: StationKey;
-  readonly opens: boolean;
+}
+
+export interface OpenerPlan {
+  readonly happening: Happening;
+  readonly to: StationKey;
 }
 
 /**
@@ -44,6 +48,7 @@ export class LinePlan {
     readonly name: AssemblyLineName,
     readonly stations: readonly StationPlan[],
     readonly reactions: readonly ReactionPlan[],
+    readonly openers: readonly OpenerPlan[],
   ) {}
 
   static of(input: {
@@ -51,8 +56,10 @@ export class LinePlan {
     name: AssemblyLineName;
     stations: readonly StationPlan[];
     reactions?: readonly ReactionPlan[];
+    openers?: readonly OpenerPlan[];
   }): LinePlan {
     const reactions = input.reactions ?? [];
+    const openers = input.openers ?? [];
     const keys = input.stations.map((each) => each.key.value);
 
     // A line with nowhere to stand is not a line.
@@ -95,7 +102,22 @@ export class LinePlan {
       }
     }
 
-    return new LinePlan(input.key, input.name, input.stations, reactions);
+    for (const opener of openers) {
+      if (!named.has(opener.to.value)) {
+        throw new InvalidLinePlanError(
+          input.key.value,
+          `opens ${opener.happening.value} at ${opener.to.value}, which is not a station on it`,
+        );
+      }
+    }
+
+    return new LinePlan(
+      input.key,
+      input.name,
+      input.stations,
+      reactions,
+      openers,
+    );
   }
 
   names(key: StationKey): boolean {

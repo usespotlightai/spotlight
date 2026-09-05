@@ -902,6 +902,8 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       WORKSPACE_READER,
       DrizzleTeamRepository,
       WriteConfiguration,
+      DrizzleAssemblyLineRepository,
+      LINE_READER,
     ]),
     ...bindQueryHandler(OnboardingQuery, OnboardingHandler, [
       WORKSPACE_READER,
