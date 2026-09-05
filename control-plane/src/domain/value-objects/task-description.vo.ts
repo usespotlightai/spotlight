@@ -20,6 +20,17 @@ export class TaskDescription {
     return new TaskDescription(trimmed);
   }
 
+  /** A description from outside, cut to fit rather than refused. */
+  static clamp(raw: string): TaskDescription {
+    const trimmed = raw.trim();
+
+    if (trimmed.length === 0) {
+      throw new InvalidTaskDescriptionError('must not be empty');
+    }
+
+    return new TaskDescription(trimmed.slice(0, MAX_LENGTH).trimEnd());
+  }
+
   equals(other: TaskDescription): boolean {
     return this.value === other.value;
   }

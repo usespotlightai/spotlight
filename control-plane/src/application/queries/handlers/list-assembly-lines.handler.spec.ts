@@ -21,6 +21,13 @@ const board: AssemblyLineDetail = {
     { id: 'station_1', name: 'Triage', position: 0, ...bare },
     { id: 'station_2', name: 'Spec', position: 1, ...bare, harness: 'dev' },
   ],
+  reactions: [
+    {
+      happening: 'github.pull_request.commented',
+      from: null,
+      to: 'station_2',
+    },
+  ],
 };
 
 const reader = (
@@ -48,6 +55,13 @@ describe('ListAssemblyLinesHandler', () => {
             position: 1,
             ...bare,
             harness: 'dev',
+          },
+        ],
+        reactions: [
+          {
+            happening: 'github.pull_request.commented',
+            from: null,
+            to: 'station_2',
           },
         ],
       },

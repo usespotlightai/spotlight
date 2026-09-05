@@ -6,6 +6,9 @@ import { Run } from '@domain/aggregates/run.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import type { RunRepository } from '@domain/repositories/run.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
+import type { WorkspaceConnections } from '@domain/repositories/workspace.repository';
+import { Connection } from '@domain/value-objects/connection.vo';
+import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { PullRequestUrl } from '@domain/value-objects/pull-request-url.vo';
 import { Repository } from '@domain/value-objects/repository.vo';
@@ -68,6 +71,9 @@ const opening = (held: Task) => {
       tasks,
     ),
     tasks,
+    {
+      connectionTo: vi.fn(async () => Connection.of('github', '42')),
+    } as unknown as WorkspaceConnections,
     pullRequests as unknown as PullRequestPort,
   );
 
@@ -84,6 +90,7 @@ describe('OpenPullRequestHandler', () => {
 
     expect(opened.url).toBe('https://github.com/acme/widgets/pull/7');
     expect(pullRequests.open).toHaveBeenCalledWith({
+      installation: GitHubInstallation.of('42'),
       repository: Repository.of('acme/widgets'),
       branch: 'spotlight/task_1',
       title: 'Fix the queue',

@@ -3,7 +3,9 @@ import type { RegisteredRunnerDto } from '@application/dto/run.dto';
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
+import type { RunnerReaderPort } from '@application/ports/runner-reader.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
+import type { SettleSetup } from '@application/services/settle-setup.service';
 import { UnknownRunError } from '@domain/exceptions/unknown-run.error';
 import type { RunnerRepository } from '@domain/repositories/runner.repository';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
@@ -20,6 +22,8 @@ export class RegisterRunnerHandler
     private readonly runners: RunnerRepository,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
+    private readonly enrolled: RunnerReaderPort,
+    private readonly settling: SettleSetup,
   ) {}
 
   async execute(command: RegisterRunnerCommand): Promise<RegisteredRunnerDto> {
@@ -33,11 +37,20 @@ export class RegisterRunnerHandler
 
       const found = command.harnesses.map(HarnessId.of);
 
+      // Asked before it checks in, because afterwards one always has.
+      const wasNone = !(await this.enrolled.anyConnected());
+
       await this.transaction.run(async () => {
         await this.runners.save(
           registering.reports(found).seen(this.clock.now()),
         );
       });
+
+      // The step no team takes alone: the first machine to reach us takes it
+      // for all of them. Not waited on — a runner is here to work.
+      if (wasNone) {
+        void this.settling.wherever();
+      }
 
       return { runnerId: registering.id.value };
     } catch (error) {

@@ -66,7 +66,9 @@ export class GitHubRemarks implements RemarksPort {
   ) {}
 
   async answer(answer: RemarkAnswer): Promise<void> {
-    const { password: token } = await this.access.credential();
+    const { password: token } = await this.access.credential(
+      answer.installation,
+    );
     const thread = await this.holding(answer, token);
 
     // Said on the pull request rather than on a line of it: there is no

@@ -19,6 +19,7 @@ function Harness() {
     <NewTaskDialog
       open={open}
       onOpenChange={setOpen}
+      slug="acme"
       lineName="Default"
       stationName="Triage"
       onCreate={(task: NewTask) => created(task)}

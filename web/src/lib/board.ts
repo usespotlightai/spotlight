@@ -15,5 +15,23 @@ export const asBoardView = (raw: string | null): BoardView =>
     ? (raw as BoardView)
     : FALLBACK_BOARD_VIEW;
 
+const BOARD_VIEW_STORAGE_KEY = 'spotlight.board-view';
+
+export const rememberedBoardView = (): BoardView => {
+  try {
+    return asBoardView(localStorage.getItem(BOARD_VIEW_STORAGE_KEY));
+  } catch {
+    return FALLBACK_BOARD_VIEW;
+  }
+};
+
+export const rememberBoardView = (view: BoardView): void => {
+  try {
+    localStorage.setItem(BOARD_VIEW_STORAGE_KEY, view);
+  } catch {
+    // a browser that refuses storage just forgets the view between visits
+  }
+};
+
 export const inView = (view: BoardView, kind: StationResponseDto['kind']) =>
   view === 'active' ? kind === 'work' : kind === view;

@@ -64,6 +64,29 @@ export class StationResponseDto {
   }
 }
 
+export class ReactionResponseDto {
+  @ApiProperty({ example: 'github.pull_request.commented' })
+  readonly happening: string;
+
+  @ApiProperty({
+    example: null,
+    nullable: true,
+    type: String,
+    description:
+      'Where the task must stand for this to count. Null is wherever it is.',
+  })
+  readonly from: string | null;
+
+  @ApiProperty({ example: 'd41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80' })
+  readonly to: string;
+
+  constructor(happening: string, from: string | null, to: string) {
+    this.happening = happening;
+    this.from = from;
+    this.to = to;
+  }
+}
+
 export class AssemblyLineResponseDto {
   @ApiProperty({ example: '7b2c9e14-3a5d-4c8f-b6e1-9d0a2f7c5b43' })
   readonly id: string;
@@ -74,9 +97,18 @@ export class AssemblyLineResponseDto {
   @ApiProperty({ type: StationResponseDto, isArray: true })
   readonly stations: StationResponseDto[];
 
-  constructor(id: string, name: string, stations: StationResponseDto[]) {
+  @ApiProperty({ type: ReactionResponseDto, isArray: true })
+  readonly reactions: ReactionResponseDto[];
+
+  constructor(
+    id: string,
+    name: string,
+    stations: StationResponseDto[],
+    reactions: ReactionResponseDto[],
+  ) {
     this.id = id;
     this.name = name;
     this.stations = stations;
+    this.reactions = reactions;
   }
 }

@@ -41,6 +41,11 @@ export const AssemblyLineMapper = {
       id: line.id.value,
       name: line.name.value,
       stations: line.stations.map(AssemblyLineMapper.stationToDto),
+      reactions: line.reactions.map((each) => ({
+        happening: each.happening.value,
+        from: each.from?.value ?? null,
+        to: each.to.value,
+      })),
     };
   },
 
@@ -49,6 +54,7 @@ export const AssemblyLineMapper = {
       id: detail.id,
       name: detail.name,
       stations: detail.stations.map(AssemblyLineMapper.summaryToDto),
+      reactions: detail.reactions.map((each) => ({ ...each })),
     };
   },
 };

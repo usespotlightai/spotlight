@@ -1,1 +1,6 @@
-export class ListRepositoriesQuery {}
+export class ListRepositoriesQuery {
+  constructor(
+    readonly slug: string,
+    readonly viewerId: string,
+  ) {}
+}

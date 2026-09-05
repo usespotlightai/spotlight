@@ -18,6 +18,7 @@ import type { NewTask } from '@/lib/task';
 type NewTaskDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  slug: string | undefined;
   lineName: string;
   stationName: string;
   onCreate: (task: NewTask) => void;
@@ -26,6 +27,7 @@ type NewTaskDialogProps = {
 export function NewTaskDialog({
   open,
   onOpenChange,
+  slug,
   lineName,
   stationName,
   onCreate,
@@ -106,7 +108,11 @@ export function NewTaskDialog({
               placeholderClassName="top-0 left-0"
             />
             <div className="flex">
-              <RepositorySelect value={repository} onChange={setRepository} />
+              <RepositorySelect
+                slug={slug}
+                value={repository}
+                onChange={setRepository}
+              />
             </div>
           </div>
 

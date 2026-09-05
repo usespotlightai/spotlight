@@ -3,7 +3,7 @@ import type {
   TraceNodeDto,
 } from '@application/dto/task-trace.dto';
 import { spanToDto, stepToDto } from '@application/mappers/run-journal.mapper';
-import type { Trace, TraceNode } from '@domain/services/trace-of';
+import type { Trace, TraceNode } from '@application/read-models/trace-of';
 
 const nodeToDto = (node: TraceNode): TraceNodeDto => ({
   id: node.id,

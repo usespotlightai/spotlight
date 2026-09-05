@@ -8,8 +8,6 @@ export class CustomiseStationCommand {
       readonly description?: string | null;
       readonly harness?: string | null;
       readonly agentPrompt?: string | null;
-      readonly passesTo?: readonly string[];
-      readonly reactsTo?: readonly string[];
     },
   ) {}
 }

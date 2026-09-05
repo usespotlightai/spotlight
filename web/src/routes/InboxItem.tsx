@@ -55,6 +55,10 @@ export function InboxItem() {
     (candidate) => candidate.id === item.teamId,
   );
 
+  // A note that shows itself carries the opening too. Shown above it, the
+  // opening reads as something the person wrote, which nobody did.
+  const carriesItsOwn = item.notes[0]?.form === 'setup';
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader
@@ -84,6 +88,10 @@ export function InboxItem() {
       <Conversation
         item={{
           id: item.id,
+          teamId: item.teamId,
+          about: carriesItsOwn
+            ? { title: item.title, description: item.description }
+            : undefined,
           createdAt: item.createdAt,
           station: {
             name: item.station,
@@ -98,14 +106,14 @@ export function InboxItem() {
         viewerId={session?.user.id}
         openAt={shownAt(item.notes, params.get('run'))}
         opening={
-          item.briefing ? (
+          carriesItsOwn ? undefined : item.briefing ? (
             <RunBriefing briefing={item.briefing} />
           ) : (
             <InboxAsked item={item} />
           )
         }
         footer={
-          item.resolved ? (
+          carriesItsOwn ? null : item.resolved ? (
             <p className="text-center text-muted-foreground text-xs">
               {item.standsAt.name === item.station
                 ? 'This is settled. There is nothing left to answer.'

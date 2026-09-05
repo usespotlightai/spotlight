@@ -29,6 +29,12 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
     isPending: false,
   }),
 }));
+vi.mock('@/hooks/api/useMembers', () => ({
+  useMembers: () => ({ data: [] }),
+}));
+vi.mock('@/hooks/api/useAssignTask', () => ({
+  useAssignTask: () => ({ mutate: vi.fn() }),
+}));
 
 const standing = [
   {
@@ -350,6 +356,13 @@ describe('AssemblyLineBoard', () => {
     renderAt('line_1');
 
     await user.click(screen.getByRole('button', { name: 'Completed' }));
+
+    expect(named()).toEqual(['Completed']);
+  });
+
+  it('opens on the view last looked at, however it is reached', () => {
+    localStorage.setItem('spotlight.board-view', 'completed');
+    renderAt('line_1');
 
     expect(named()).toEqual(['Completed']);
   });

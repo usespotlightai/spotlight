@@ -9,7 +9,7 @@ import {
   DRIZZLE,
   PG_POOL,
 } from '@infrastructure/persistence/drizzle/drizzle.constants';
-import { Inject, Module, type OnModuleDestroy } from '@nestjs/common';
+import { Inject, Module, type OnApplicationShutdown } from '@nestjs/common';
 import type { Pool } from 'pg';
 
 export type { DrizzleDatabase };
@@ -22,10 +22,15 @@ export type { DrizzleDatabase };
   ],
   exports: [DRIZZLE, PG_POOL],
 })
-export class DrizzleModule implements OnModuleDestroy {
+export class DrizzleModule implements OnApplicationShutdown {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
-  async onModuleDestroy(): Promise<void> {
+  /**
+   * Last of all, and deliberately: destroy hooks run before the server has
+   * stopped answering, and a pool closed under a request in flight turns it
+   * into a fault the caller did nothing to deserve.
+   */
+  async onApplicationShutdown(): Promise<void> {
     await this.pool.end();
   }
 }

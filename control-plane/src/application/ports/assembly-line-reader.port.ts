@@ -13,10 +13,17 @@ export interface StationSummary {
   readonly kind: StationKind;
 }
 
+export interface ReactionSummary {
+  readonly happening: string;
+  readonly from: string | null;
+  readonly to: string;
+}
+
 export interface AssemblyLineDetail {
   readonly id: string;
   readonly name: string;
   readonly stations: readonly StationSummary[];
+  readonly reactions: readonly ReactionSummary[];
 }
 
 export const ASSEMBLY_LINE_READER = Symbol('ASSEMBLY_LINE_READER');

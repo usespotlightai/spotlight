@@ -1,26 +1,34 @@
 import { ReactToHappeningHandler } from '@application/commands/handlers/react-to-happening.handler';
 import { ReactToHappeningCommand } from '@application/commands/react-to-happening.command';
 import type { ClockPort } from '@application/ports/clock.port';
-import type { DeliveryLogPort } from '@application/ports/delivery-log.port';
+import type { StoredDelivery } from '@application/ports/delivery-inbox.port';
+import type { IdGeneratorPort } from '@application/ports/id-generator.port';
+import type { TransactionPort } from '@application/ports/transaction.port';
 import type {
   Happened,
-  RepositoryEventsPort,
-} from '@application/ports/repository-events.port';
-import type { TransactionPort } from '@application/ports/transaction.port';
+  WebhookSourcePort,
+} from '@application/ports/webhook-source.port';
+import type { AttendToNotices } from '@application/services/attend-to-notices.service';
+import { SourceForDelivery } from '@application/services/source-for-delivery.service';
 import type { TaskDispatching } from '@application/services/task-dispatch';
+import { WebhookSources } from '@application/services/webhook-sources.service';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { Station } from '@domain/entities/station.entity';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
+import { contributionOf } from '@domain/services/source-contribution';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { Concerns } from '@domain/value-objects/concerns.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
-import type { Happening } from '@domain/value-objects/happening.vo';
+import { Happening } from '@domain/value-objects/happening.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { Mark } from '@domain/value-objects/mark.vo';
+import { Reaction } from '@domain/value-objects/reaction.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { Said } from '@domain/value-objects/said.vo';
+import { SourceKey } from '@domain/value-objects/source-key.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
@@ -35,12 +43,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const NOW = new Date('2026-08-31T12:00:00.000Z');
 const clock: ClockPort = { now: () => NOW, sleep: async () => {} };
 const transaction: TransactionPort = { run: async (work) => work() };
+const ids: IdGeneratorPort = { generate: () => 'task_new' };
+
+const MERGED = Happening.of('github.pull_request.merged');
+const COMMENTED = Happening.of('github.pull_request.commented');
+const CHANGES_REQUESTED = Happening.of('github.pull_request.changes-requested');
+const CHECKS_FAILED = Happening.of('github.checks.failed');
 
 const at = (
   id: string,
   name: string,
   position: number,
-  reactsTo: Happening[] = [],
   kind: 'backlog' | 'work' | 'completed' = 'work',
 ) =>
   Station.create({
@@ -49,8 +62,14 @@ const at = (
     position,
     color: StationColor.of('#a3a8b0'),
     harness: kind === 'work' ? HarnessId.of('dev') : undefined,
-    reactsTo,
     kind,
+  });
+
+const sends = (happening: Happening, to: string, from?: string) =>
+  Reaction.of({
+    happening,
+    from: from ? StationId.of(from) : null,
+    to: StationId.of(to),
   });
 
 const line = () =>
@@ -60,10 +79,16 @@ const line = () =>
     factoryId: FactoryId.of('factory_1'),
     name: AssemblyLineName.of('Default'),
     stations: [
-      at('station_0', 'Backlog', 0, [], 'backlog'),
-      at('station_1', 'Implementation', 1, ['changes-requested']),
-      at('station_2', 'Code Review', 2, ['commented', 'checks-failed']),
-      at('station_3', 'Completed', 3, ['merged'], 'completed'),
+      at('station_0', 'Backlog', 0, 'backlog'),
+      at('station_1', 'Implementation', 1),
+      at('station_2', 'Code Review', 2),
+      at('station_3', 'Completed', 3, 'completed'),
+    ],
+    reactions: [
+      sends(CHANGES_REQUESTED, 'station_1'),
+      sends(COMMENTED, 'station_2'),
+      sends(CHECKS_FAILED, 'station_2'),
+      sends(MERGED, 'station_3'),
     ],
   });
 
@@ -91,7 +116,6 @@ const tasks = (found: Task | null) =>
     remove: vi.fn(),
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
-    withPullRequest: vi.fn(async () => found),
     holding: vi.fn(async () => found),
   }) satisfies TaskRepository;
 
@@ -101,7 +125,14 @@ const lines = () =>
     save: vi.fn(),
     find: vi.fn(async () => line()),
     holding: vi.fn(async () => line()),
+    ofWorkspace: vi.fn(async () => []),
+    ofTeam: vi.fn(async () => []),
   }) satisfies AssemblyLineRepository;
+
+/** Nothing here is about the workspace, so nothing is attended to. */
+const attending = {
+  attend: async () => {},
+} as unknown as AttendToNotices;
 
 const dispatch: TaskDispatching = {
   dispatch: async ({ task }) => {
@@ -110,22 +141,50 @@ const dispatch: TaskDispatching = {
   },
 };
 
-let told: string[] = [];
+/** A host that says what it carried, whose it is, and what to call it. */
+const sourced = (
+  carried: readonly Happened[],
+  over: { workspaceId?: string | null; delivery?: string } = {},
+) =>
+  new SourceForDelivery(
+    WebhookSources.of([
+      {
+        key: 'github',
+        happenings: [],
+        verifies: () => true,
+        delivery: () => over.delivery ?? 'delivery_1',
+        routes: async () =>
+          over.workspaceId === null
+            ? null
+            : WorkspaceId.of(over.workspaceId ?? 'ws_1'),
+        read: () => carried,
+      } satisfies WebhookSourcePort,
+    ]),
+    { find: async () => null, all: async () => [] },
+  );
 
-const heardOf: DeliveryLogPort = {
-  claim: async (delivery: string) => {
-    const first = !told.includes(delivery);
-    told.push(delivery);
-    return first;
-  },
+/** A delivery already taken in: what the worker hands the handler. */
+const taken: StoredDelivery = {
+  source: 'github',
+  workspaceId: '',
+  teamId: '',
+  teamKey: '',
+  id: 'delivery_1',
+  headers: {},
+  body: {},
+  attempts: 0,
 };
 
-const reading = (happened: Happened | null): RepositoryEventsPort => ({
-  read: () => happened,
-});
-
-const news = (happening: Happening, said: string | null, ourOwn = false) => ({
+const news = (
+  happening: Happening,
+  said: string | null,
+  ourOwn = false,
+): Happened => ({
   happening,
+  told: `The pull request was ${happening.value.split('.').pop()}.`,
+  // Only what a person says needs anything said with it.
+  spoken: happening.equals(COMMENTED) || happening.equals(CHANGES_REQUESTED),
+  state: 'raised',
   concerns: Concerns.of({ branch: 'spotlight/task_1' }) as Concerns,
   said: Said.of({
     body: said,
@@ -134,6 +193,7 @@ const news = (happening: Happening, said: string | null, ourOwn = false) => ({
     remark: said ? 'PRRC_kwDO' : null,
   }),
   ourOwn,
+  opens: null,
 });
 
 const heard = (
@@ -142,31 +202,31 @@ const heard = (
   said: string | null = null,
 ) =>
   new ReactToHappeningHandler(
-    reading(news(happening, said)),
-    heardOf,
+    sourced([news(happening, said)]),
     tasks(found),
     lines(),
     dispatch,
     transaction,
     clock,
-  ).execute(new ReactToHappeningCommand('delivery_1', 'pull_request', {}));
+    attending,
+    ids,
+  ).execute(new ReactToHappeningCommand(taken));
 
 describe('ReactToHappening', () => {
   beforeEach(() => {
     saved = undefined;
     dispatched.length = 0;
-    told = [];
   });
 
   it('takes the task to the station waiting for it', async () => {
-    await heard('changes-requested', standing(), 'Handle the empty case.');
+    await heard(CHANGES_REQUESTED, standing(), 'Handle the empty case.');
 
     expect(saved?.stationId).toEqual(StationId.of('station_1'));
     expect(saved?.notes[0]?.body.value).toContain('Handle the empty case.');
   });
 
   it('starts the work at the station it was taken to', async () => {
-    await heard('changes-requested', standing(), 'Handle the empty case.');
+    await heard(CHANGES_REQUESTED, standing(), 'Handle the empty case.');
 
     expect(dispatched).toHaveLength(1);
     expect(saved?.currentRunId).toEqual(RunId.of('run_2'));
@@ -174,7 +234,7 @@ describe('ReactToHappening', () => {
 
   // A comment while it stands at review is still news, and still worth a run.
   it('leaves a task where it stands when that is where it belongs', async () => {
-    await heard('commented', standing(), 'This retries forever.');
+    await heard(COMMENTED, standing(), 'This retries forever.');
 
     expect(saved?.stationId).toEqual(StationId.of('station_2'));
     expect(saved?.notes.map((each) => each.kind)).toEqual(['said']);
@@ -185,7 +245,7 @@ describe('ReactToHappening', () => {
   // Written down as it was said, not only as it reads: what the agent is
   // told to answer, and what it answers with, both come from this.
   it('keeps what the world said on the note, whole', async () => {
-    await heard('commented', standing(), 'pin this to a version.');
+    await heard(COMMENTED, standing(), 'pin this to a version.');
 
     const note = saved?.notes[0];
 
@@ -198,7 +258,7 @@ describe('ReactToHappening', () => {
   // The machinery for telling a live agent something already exists: what a
   // person says waits to be delivered, and so does this.
   it('waits to be handed to the agent already working the task', async () => {
-    await heard('commented', standing().handedTo(RunId.of('run_1')), 'Look.');
+    await heard(COMMENTED, standing().handedTo(RunId.of('run_1')), 'Look.');
 
     expect(saved?.undelivered.map((each) => each.kind)).toEqual(['said']);
   });
@@ -213,7 +273,7 @@ describe('ReactToHappening', () => {
       at: NOW,
     });
 
-    await heard('commented', asked, 'The Dockerfile still copies all.');
+    await heard(COMMENTED, asked, 'The Dockerfile still copies all.');
 
     expect(saved?.notes.map((each) => each.kind)).toEqual([
       'asked',
@@ -232,7 +292,7 @@ describe('ReactToHappening', () => {
       at: NOW,
     });
 
-    await heard('checks-failed', asked);
+    await heard(CHECKS_FAILED, asked);
 
     expect(saved?.notes.map((each) => each.kind)).toEqual(['asked', 'said']);
     expect(saved?.awaitingReview).toBe(true);
@@ -241,21 +301,24 @@ describe('ReactToHappening', () => {
 
   // Its comments arrive on their own, carrying what was actually said.
   it('says nothing of a review submitted with nothing written on it', async () => {
-    await heard('commented', standing(), null);
+    await heard(COMMENTED, standing(), null);
 
     expect(saved).toBeUndefined();
     expect(dispatched).toHaveLength(0);
   });
 
   it('says nothing to a station nobody set to wait for it', async () => {
-    await heard('closed-unmerged', standing());
+    await heard(
+      Happening.of('github.pull_request.closed-unmerged'),
+      standing(),
+    );
 
     expect(saved).toBeUndefined();
     expect(dispatched).toHaveLength(0);
   });
 
   it('leaves a task that has landed at the end of the line alone', async () => {
-    await heard('merged', standing('station_3'));
+    await heard(MERGED, standing('station_3'));
 
     expect(saved).toBeUndefined();
   });
@@ -270,20 +333,10 @@ describe('ReactToHappening', () => {
 
     expect(ended.finished).toBe(true);
 
-    await heard('commented', ended, 'One more thing.');
+    await heard(COMMENTED, ended, 'One more thing.');
 
     expect(saved?.notes.map((each) => each.kind)).toEqual(['passed', 'said']);
     expect(saved?.finished).toBe(false);
-    expect(dispatched).toHaveLength(1);
-  });
-
-  // A host retries, and a person can ask it to send the same word again.
-  it('acts on a delivery once, however often it arrives', async () => {
-    await heard('changes-requested', standing(), 'Again, please.');
-    saved = undefined;
-    await heard('changes-requested', standing(), 'Again, please.');
-
-    expect(saved).toBeUndefined();
     expect(dispatched).toHaveLength(1);
   });
 
@@ -291,33 +344,156 @@ describe('ReactToHappening', () => {
   // again, and so on.
   it('says nothing about what Spotlight itself did', async () => {
     await new ReactToHappeningHandler(
-      reading(news('commented', 'Opened by the agent.', true)),
-      heardOf,
+      sourced([news(COMMENTED, 'Opened by the agent.', true)], {
+        delivery: 'delivery_2',
+      }),
       tasks(standing()),
       lines(),
       dispatch,
       transaction,
       clock,
-    ).execute(new ReactToHappeningCommand('delivery_2', 'issue_comment', {}));
+      attending,
+      ids,
+    ).execute(new ReactToHappeningCommand(taken));
 
     expect(saved).toBeUndefined();
     expect(dispatched).toHaveLength(0);
   });
 
   it('lets a pull request nobody here opened pass', async () => {
-    await heard('merged', null);
+    await heard(MERGED, null);
 
     expect(saved).toBeUndefined();
   });
 
   it('starts nothing where a run already holds the task', async () => {
     await heard(
-      'commented',
+      COMMENTED,
       standing().handedTo(RunId.of('run_1')),
       'One more thing.',
     );
 
     expect(dispatched).toHaveLength(0);
     expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
+  });
+
+  // The App is installed by whoever likes; being installed somewhere is not
+  // being anyone's here.
+  it('says nothing for an installation no workspace has claimed', async () => {
+    const held = tasks(standing());
+
+    await new ReactToHappeningHandler(
+      sourced([news(MERGED, null)], {
+        workspaceId: null,
+        delivery: 'delivery_3',
+      }),
+      held,
+      lines(),
+      dispatch,
+      transaction,
+      clock,
+      attending,
+      ids,
+    ).execute(new ReactToHappeningCommand(taken));
+
+    expect(held.holding).not.toHaveBeenCalled();
+    expect(saved).toBeUndefined();
+    expect(dispatched).toHaveLength(0);
+  });
+
+  // Whatever a delivery names, it may only name it within its own workspace:
+  // a branch or a pull request address is not proof of whose task it is.
+  it('looks for the task only in the workspace the word came from', async () => {
+    const held = tasks(standing());
+
+    await new ReactToHappeningHandler(
+      sourced([news(MERGED, null)], {
+        workspaceId: 'ws_1',
+        delivery: 'delivery_4',
+      }),
+      held,
+      lines(),
+      dispatch,
+      transaction,
+      clock,
+      attending,
+      ids,
+    ).execute(new ReactToHappeningCommand(taken));
+
+    expect(held.holding).toHaveBeenCalledWith(
+      WorkspaceId.of('ws_1'),
+      expect.anything(),
+    );
+  });
+
+  // A word about work nobody here has, that a line watches for: the line opens
+  // one, filed where it waits and marked so the words that follow find it.
+  it('opens a task where a line waits for work nobody here has', async () => {
+    const ISSUE_CREATED = Happening.of('linear.issue.created');
+    const issueMark = Mark.of('linear.issue', 'ISS-1');
+
+    let next = 0;
+    const opening = AssemblyLine.open({
+      workspaceId: WorkspaceId.of('ws_1'),
+      factoryId: FactoryId.of('factory_1'),
+      name: AssemblyLineName.of('Default'),
+      newId: () => `id_${++next}`,
+    }).installing(contributionOf(SourceKey.of('linear')));
+    const backlog = opening.opensAt(ISSUE_CREATED) as Station;
+
+    let added: Task | undefined;
+    const held = {
+      add: vi.fn(async (each: Task) => {
+        added = each;
+      }),
+      save: vi.fn(),
+      find: vi.fn(async () => null),
+      remove: vi.fn(),
+      standingAt: vi.fn(async () => []),
+      placementsAt: vi.fn(async () => []),
+      // Nobody here is working this yet.
+      holding: vi.fn(async () => null),
+    } satisfies TaskRepository;
+
+    const running = {
+      add: vi.fn(),
+      save: vi.fn(),
+      find: vi.fn(async () => opening),
+      holding: vi.fn(async () => opening),
+      ofWorkspace: vi.fn(async () => [opening]),
+      ofTeam: vi.fn(async () => []),
+    } satisfies AssemblyLineRepository;
+
+    const filed: Happened = {
+      happening: ISSUE_CREATED,
+      told: 'An issue was filed.',
+      spoken: false,
+      state: 'raised',
+      concerns: Concerns.of({ marks: [issueMark] }) as Concerns,
+      said: Said.of({ body: null, path: null, from: null, remark: null }),
+      ourOwn: false,
+      opens: {
+        title: 'Drain the retry queue',
+        description: 'It loops forever.',
+      },
+    };
+
+    await new ReactToHappeningHandler(
+      sourced([filed]),
+      held,
+      running,
+      dispatch,
+      transaction,
+      clock,
+      attending,
+      ids,
+    ).execute(new ReactToHappeningCommand(taken));
+
+    expect(held.add).toHaveBeenCalledTimes(1);
+    expect(added?.stationId).toEqual(backlog.id);
+    expect(added?.marks.some((each) => each.equals(issueMark))).toBe(true);
+    // The task is named and described by what the source read, not its handle.
+    expect(added?.title.value).toBe('Drain the retry queue');
+    expect(added?.description?.value).toBe('It loops forever.');
   });
 });

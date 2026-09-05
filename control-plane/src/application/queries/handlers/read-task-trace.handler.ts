@@ -5,7 +5,7 @@ import type { QueryHandlerPort } from '@application/ports/query-handler.port';
 import type { RunJournalReaderPort } from '@application/ports/run-journal-reader.port';
 import type { RunReaderPort } from '@application/ports/run-reader.port';
 import type { ReadTaskTraceQuery } from '@application/queries/read-task-trace.query';
-import { traceOf, type WorkedRun } from '@domain/services/trace-of';
+import { traceOf, type WorkedRun } from '@application/read-models/trace-of';
 import { HarnessName } from '@domain/value-objects/harness-name.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';

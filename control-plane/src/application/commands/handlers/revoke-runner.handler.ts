@@ -2,7 +2,7 @@ import type { RevokeRunnerCommand } from '@application/commands/runner.commands'
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
-import type { RunnerRevocationPort } from '@application/ports/runner-revocation.port';
+import type { DomainEventDispatcher } from '@application/ports/domain-event-dispatcher.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import { UnknownRunError } from '@domain/exceptions/unknown-run.error';
 import type { RunnerRepository } from '@domain/repositories/runner.repository';
@@ -15,7 +15,7 @@ export class RevokeRunnerHandler
     private readonly runners: RunnerRepository,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
-    private readonly revocation: RunnerRevocationPort,
+    private readonly events: DomainEventDispatcher,
   ) {}
 
   async execute(command: RevokeRunnerCommand): Promise<void> {
@@ -29,13 +29,9 @@ export class RevokeRunnerHandler
 
       const revoked = revoking.revoke(this.clock.now());
 
-      await this.transaction.run(async () => {
-        await this.runners.save(revoked);
+      await this.transaction.run(() => this.runners.save(revoked));
 
-        for (const event of revoked.happened) {
-          await this.revocation.onRunnerRevoked(event);
-        }
-      });
+      await this.events.dispatch(revoked.pullEvents());
     } catch (error) {
       rethrowAsFault(error);
     }

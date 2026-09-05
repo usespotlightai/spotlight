@@ -6,15 +6,17 @@ import type {
   WorkspaceDetail,
   WorkspaceListing,
 } from '@application/ports/workspace-reader.port';
+import type { Team } from '@domain/aggregates/team.aggregate';
 import type { Workspace } from '@domain/aggregates/workspace.aggregate';
 
 export const WorkspaceMapper = {
-  toDto(workspace: Workspace): WorkspaceDto {
+  /** Its teams are their own aggregates, so whoever has them passes them. */
+  toDto(workspace: Workspace, teams: readonly Team[]): WorkspaceDto {
     return {
       id: workspace.id.value,
       name: workspace.name.value,
       slug: workspace.slug.value,
-      teams: workspace.teams.map((team) => ({
+      teams: teams.map((team) => ({
         id: team.id.value,
         name: team.name.value,
       })),

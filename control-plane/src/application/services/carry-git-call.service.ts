@@ -5,10 +5,13 @@ import type {
   RepositoryGitPort,
 } from '@application/ports/repository-git.port';
 import type { RunAtHand } from '@application/services/run-at-hand.service';
+import type { WorkspaceConnections } from '@domain/repositories/workspace.repository';
+import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 
 export class CarryGitCall implements GitGatewayPort {
   constructor(
     private readonly held: RunAtHand,
+    private readonly workspaces: WorkspaceConnections,
     private readonly git: RepositoryGitPort,
   ) {}
 
@@ -20,6 +23,19 @@ export class CarryGitCall implements GitGatewayPort {
     const { task } = await this.held.heldBy(runId, runnerId);
     const repository = task?.repository;
 
-    return repository ? this.git.call(repository, call) : null;
+    if (!task || !repository) {
+      return null;
+    }
+
+    // Answered as nothing rather than refused: git is speaking its own
+    // protocol here, and a workspace that reaches no GitHub has no remote.
+    const installation = GitHubInstallation.from(
+      await this.workspaces.connectionTo(
+        task.workspaceId,
+        GitHubInstallation.SOURCE,
+      ),
+    );
+
+    return installation ? this.git.call(installation, repository, call) : null;
   }
 }

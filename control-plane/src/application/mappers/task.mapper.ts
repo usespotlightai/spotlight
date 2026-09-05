@@ -29,6 +29,7 @@ export const TaskMapper = {
       repository: summary.repository,
       pullRequest: summary.pullRequest,
       raisedBy: summary.raisedBy,
+      assignee: summary.assignee,
       note: summary.note
         ? {
             position: summary.note.position,
@@ -40,7 +41,11 @@ export const TaskMapper = {
   },
 
   /** The aggregate holds only an identity, so the caller resolves the rest. */
-  taskToDto(task: Task, raisedBy: TaskPersonDto | null): TaskDto {
+  taskToDto(
+    task: Task,
+    raisedBy: TaskPersonDto | null,
+    assignee: TaskPersonDto | null,
+  ): TaskDto {
     const last = task.notes[task.notes.length - 1];
 
     return {
@@ -54,6 +59,7 @@ export const TaskMapper = {
       repository: task.repository?.value ?? null,
       pullRequest: task.pullRequest?.value ?? null,
       raisedBy,
+      assignee,
       note: last
         ? {
             position: task.notes.length - 1,

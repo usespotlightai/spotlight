@@ -2,7 +2,6 @@ import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Task } from '@domain/aggregates/task.aggregate';
 import type { Harness } from '@domain/entities/harness.entity';
 import type { HarnessRepository } from '@domain/repositories/harness.repository';
-import { TaskBriefing } from '@domain/services/task-briefing';
 import type { Continuity } from '@domain/value-objects/continuity.vo';
 import type { Repository } from '@domain/value-objects/repository.vo';
 import type { RunnerId } from '@domain/value-objects/runner-id.vo';
@@ -15,12 +14,13 @@ export interface RunOrder {
   readonly stationId: StationId;
   readonly priority: number;
   readonly pinnedTo: RunnerId | null;
-  readonly briefing: string;
   readonly options: readonly string[];
   readonly noteLimit: number;
   readonly continuity: Continuity;
   readonly repository: Repository | null;
   readonly branch: string;
+  /** What this run may reach for, named so the runner knows what to raise. */
+  readonly tools: readonly string[];
 }
 
 /** Queueing what nothing can start strands the task on the queue, where
@@ -53,11 +53,11 @@ export const orderFor = ({
     stationId: station.id,
     priority: station.position,
     pinnedTo: continuity.pinnedTo,
-    briefing: TaskBriefing.brief({ task, line }),
     options: line.optionsFrom(station.id).map((each) => each.value),
     noteLimit: TASK_NOTE_MAX_LENGTH,
     continuity,
     repository: task.repository,
     branch: task.branch.value,
+    tools: station.tools.map((each) => each.value),
   };
 };

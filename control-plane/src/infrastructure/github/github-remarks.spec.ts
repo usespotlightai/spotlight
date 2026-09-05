@@ -1,6 +1,7 @@
 import type { RemarkAnswer } from '@application/ports/remarks.port';
 import { InvalidPullRequestError } from '@domain/exceptions/invalid-pull-request.error';
 import { UpstreamRefusedError } from '@domain/exceptions/upstream-refused.error';
+import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import { PullRequestUrl } from '@domain/value-objects/pull-request-url.vo';
 import { Remark } from '@domain/value-objects/remark.vo';
 import { Repository } from '@domain/value-objects/repository.vo';
@@ -12,6 +13,7 @@ const access = {
 };
 
 const answering = (over: Partial<RemarkAnswer> = {}): RemarkAnswer => ({
+  installation: GitHubInstallation.of('42'),
   repository: Repository.of('acme/widgets'),
   pullRequest: PullRequestUrl.of('https://github.com/acme/widgets/pull/7'),
   remark: Remark.of('PRRC_one'),

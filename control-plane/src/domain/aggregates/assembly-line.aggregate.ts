@@ -1,11 +1,14 @@
 import { Station } from '@domain/entities/station.entity';
 import { InvalidStationLayoutError } from '@domain/exceptions/invalid-station-layout.error';
+import { UnknownHappeningError } from '@domain/exceptions/unknown-happening.error';
 import { UnknownStationError } from '@domain/exceptions/unknown-station.error';
 import {
+  BUILT_IN_REACTIONS,
   BUILT_IN_STATIONS,
   type StationOpening,
 } from '@domain/services/built-in-stations';
 import { handoverOptions } from '@domain/services/handover-options';
+import type { SourceContribution } from '@domain/services/source-contribution';
 import type { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import type { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
@@ -13,6 +16,10 @@ import type { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { HandoverOption } from '@domain/value-objects/handover-option.vo';
 import type { Happening } from '@domain/value-objects/happening.vo';
 import type { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { LineKey } from '@domain/value-objects/line-key.vo';
+import { Opener } from '@domain/value-objects/opener.vo';
+import { Reaction } from '@domain/value-objects/reaction.vo';
+import type { SourceKey } from '@domain/value-objects/source-key.vo';
 import type { StationColor } from '@domain/value-objects/station-color.vo';
 import type { StationDescription } from '@domain/value-objects/station-description.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
@@ -25,8 +32,14 @@ export class AssemblyLine {
     readonly id: AssemblyLineId,
     readonly workspaceId: WorkspaceId,
     readonly factoryId: FactoryId,
+    /** What it is called in the file that describes it. */
+    readonly key: LineKey,
     readonly name: AssemblyLineName,
     readonly stations: readonly Station[],
+    /** What a word from outside does to a task this line already has. */
+    readonly reactions: readonly Reaction[],
+    /** Where a word opens a task for work this line has none for yet. */
+    readonly openers: readonly Opener[],
   ) {}
 
   static open(input: {
@@ -68,8 +81,11 @@ export class AssemblyLine {
             stations: each.passesTo.map((to) => at(to)),
             ends: each.ends,
           }),
-          reactsTo: each.reactsTo,
+          tools: each.tools,
         }),
+      ),
+      reactions: BUILT_IN_REACTIONS.map((each) =>
+        Reaction.of({ happening: each.happening, to: at(each.to) }),
       ),
     });
   }
@@ -78,21 +94,33 @@ export class AssemblyLine {
     id: AssemblyLineId;
     workspaceId: WorkspaceId;
     factoryId: FactoryId;
+    key?: LineKey;
     name: AssemblyLineName;
     stations: readonly Station[];
+    reactions?: readonly Reaction[];
+    openers?: readonly Opener[];
   }): AssemblyLine {
+    const reactions = input.reactions ?? [];
+    const openers = input.openers ?? [];
+
     AssemblyLine.guardPositionsAreContiguous(input.stations);
     AssemblyLine.guardBacklogStandsFirst(input.stations);
     AssemblyLine.guardCompletedStandsLast(input.stations);
     AssemblyLine.guardEveryPassLandsOnTheLine(input.stations);
-    AssemblyLine.guardNoHappeningIsClaimedTwice(input.stations);
+    AssemblyLine.guardEveryReactionLandsOnTheLine(input.stations, reactions);
+    AssemblyLine.guardNoWordReachesTwoStations(reactions);
+    AssemblyLine.guardEveryOpenerLandsOnTheLine(input.stations, openers);
+    AssemblyLine.guardNoWordOpensTwoStations(openers);
 
     return new AssemblyLine(
       input.id,
       input.workspaceId,
       input.factoryId,
+      input.key ?? LineKey.from(input.name.value),
       input.name,
       [...input.stations].sort((a, b) => a.position - b.position),
+      reactions,
+      openers,
     );
   }
 
@@ -126,8 +154,132 @@ export class AssemblyLine {
     );
   }
 
-  reactionTo(happening: Happening): Station | null {
-    return this.stations.find((each) => each.awaits(happening)) ?? null;
+  /**
+   * What this line does with that word for a task standing there. A rule
+   * naming the station beats one that applies wherever it stands, so a line
+   * can say "comments go to review, but from spec they go back to triage".
+   */
+  reactionTo(happening: Happening, standingAt: StationId): Reaction | null {
+    const applies = this.reactions.filter(
+      (each) => each.happening.equals(happening) && each.appliesAt(standingAt),
+    );
+
+    return applies.find((each) => !each.isEverywhere) ?? applies[0] ?? null;
+  }
+
+  /** Where a word opens a new task when it concerns none, or nothing. */
+  opensAt(happening: Happening): Station | null {
+    const opener = this.openers.find((each) =>
+      each.happening.equals(happening),
+    );
+
+    return opener ? (this.stationAt(opener.to) ?? null) : null;
+  }
+
+  /**
+   * The same line with a chosen source's rules installed: what it opens filed
+   * at the backlog, what it moves sent to the station it names. Each is added
+   * once, so choosing a tool already listened to changes nothing.
+   */
+  installing(contribution: SourceContribution): AssemblyLine {
+    const opensHere = new Set(this.openers.map((each) => each.happening.value));
+    const openers = contribution.opens
+      .filter((each) => !opensHere.has(each.value))
+      .map((each) => Opener.of({ happening: each, to: this.backlog.id }));
+
+    // One move per word, or the guard would refuse the fork: skip what it has.
+    const movesHere = new Set(
+      this.reactions
+        .filter((each) => each.isEverywhere)
+        .map((each) => each.happening.value),
+    );
+    const reactions = contribution.moves
+      .filter((each) => !movesHere.has(each.happening.value))
+      .map((each) => {
+        const to = this.stationNamed(each.to);
+
+        return to
+          ? Reaction.of({ happening: each.happening, to: to.id })
+          : null;
+      })
+      .filter((each): each is Reaction => each !== null);
+
+    if (openers.length === 0 && reactions.length === 0) {
+      return this;
+    }
+
+    return AssemblyLine.of({
+      id: this.id,
+      workspaceId: this.workspaceId,
+      factoryId: this.factoryId,
+      key: this.key,
+      name: this.name,
+      stations: this.stations,
+      reactions: [...this.reactions, ...reactions],
+      openers: [...this.openers, ...openers],
+    });
+  }
+
+  /** The same line with nothing it did on a source's words: a dropped tool takes its rules with it. */
+  withoutRulesFrom(source: SourceKey): AssemblyLine {
+    const reactions = this.reactions.filter(
+      (each) => !source.raises(each.happening),
+    );
+    const openers = this.openers.filter(
+      (each) => !source.raises(each.happening),
+    );
+
+    if (
+      reactions.length === this.reactions.length &&
+      openers.length === this.openers.length
+    ) {
+      return this;
+    }
+
+    return AssemblyLine.of({
+      id: this.id,
+      workspaceId: this.workspaceId,
+      factoryId: this.factoryId,
+      key: this.key,
+      name: this.name,
+      stations: this.stations,
+      reactions,
+      openers,
+    });
+  }
+
+  /**
+   * Written whole rather than changed one at a time: the rules only make
+   * sense together, and are few enough to say again.
+   */
+  reactsWith(
+    reactions: readonly Reaction[],
+    raised: readonly Happening[],
+  ): AssemblyLine {
+    AssemblyLine.guardEveryHappeningIsRaised(reactions, raised);
+
+    return AssemblyLine.of({
+      id: this.id,
+      workspaceId: this.workspaceId,
+      factoryId: this.factoryId,
+      name: this.name,
+      stations: this.stations,
+      reactions,
+      openers: this.openers,
+    });
+  }
+
+  private static guardEveryHappeningIsRaised(
+    reactions: readonly Reaction[],
+    raised: readonly Happening[],
+  ): void {
+    const said = new Set(raised.map((each) => each.value));
+
+    for (const reaction of reactions) {
+      if (!said.has(reaction.happening.value)) {
+        throw new UnknownHappeningError(reaction.happening.value);
+      }
+    }
   }
 
   reorderStations(order: readonly StationId[]): AssemblyLine {
@@ -163,6 +315,8 @@ export class AssemblyLine {
       workspaceId: this.workspaceId,
       factoryId: this.factoryId,
       name: this.name,
+      reactions: this.reactions,
+      openers: this.openers,
       stations: moved,
     });
   }
@@ -182,6 +336,8 @@ export class AssemblyLine {
       workspaceId: this.workspaceId,
       factoryId: this.factoryId,
       name: this.name,
+      reactions: this.reactions,
+      openers: this.openers,
       stations: this.stations.map((each) =>
         each.equals(target) ? change(each) : each,
       ),
@@ -251,20 +407,72 @@ export class AssemblyLine {
     }
   }
 
-  private static guardNoHappeningIsClaimedTwice(
+  private static guardEveryReactionLandsOnTheLine(
     stations: readonly Station[],
+    reactions: readonly Reaction[],
+  ): void {
+    const standing = new Set(stations.map((each) => each.id.value));
+
+    for (const reaction of reactions) {
+      if (!standing.has(reaction.to.value)) {
+        throw new InvalidStationLayoutError(
+          `must send "${reaction.happening.value}" to a station on the line`,
+        );
+      }
+      if (reaction.from && !standing.has(reaction.from.value)) {
+        throw new InvalidStationLayoutError(
+          `must wait for "${reaction.happening.value}" at a station on the line`,
+        );
+      }
+    }
+  }
+
+  private static guardEveryOpenerLandsOnTheLine(
+    stations: readonly Station[],
+    openers: readonly Opener[],
+  ): void {
+    const standing = new Set(stations.map((each) => each.id.value));
+
+    for (const opener of openers) {
+      if (!standing.has(opener.to.value)) {
+        throw new InvalidStationLayoutError(
+          `must open "${opener.happening.value}" at a station on the line`,
+        );
+      }
+    }
+  }
+
+  /** A word opening a task in two places at once is a fork nobody can settle. */
+  private static guardNoWordOpensTwoStations(openers: readonly Opener[]): void {
+    const claimed = new Set<string>();
+
+    for (const opener of openers) {
+      if (claimed.has(opener.happening.value)) {
+        throw new InvalidStationLayoutError(
+          `must open a happening at one station, but two open "${opener.happening.value}"`,
+        );
+      }
+      claimed.add(opener.happening.value);
+    }
+  }
+
+  /** A word landing in two places at once is a fork nobody can settle. */
+  private static guardNoWordReachesTwoStations(
+    reactions: readonly Reaction[],
   ): void {
     const claimed = new Set<string>();
 
-    for (const station of stations) {
-      for (const happening of station.reactsTo) {
-        if (claimed.has(happening)) {
-          throw new InvalidStationLayoutError(
-            `must send a happening to one station, but two wait for "${happening}"`,
-          );
-        }
-        claimed.add(happening);
+    for (const reaction of reactions) {
+      // One rule per word for a given standing place, and one for wherever it
+      // stands: the named place wins, so the two never collide.
+      const at = `${reaction.happening.value}@${reaction.from?.value ?? '*'}`;
+
+      if (claimed.has(at)) {
+        throw new InvalidStationLayoutError(
+          `must send a happening to one station, but two wait for "${reaction.happening.value}"`,
+        );
       }
+      claimed.add(at);
     }
   }
 
@@ -316,6 +524,10 @@ export class AssemblyLine {
    */
   stationAt(stationId: StationId): Station | null {
     return this.stations.find((each) => each.id.equals(stationId)) ?? null;
+  }
+
+  private stationNamed(name: string): Station | null {
+    return this.stations.find((each) => each.name.value === name) ?? null;
   }
 
   /** True where this line is the one holding that station. */

@@ -1,7 +1,11 @@
-import { TASK_NOTE_KINDS } from '@domain/value-objects/task-note.vo';
+import {
+  TASK_NOTE_FORMS,
+  TASK_NOTE_KINDS,
+} from '@domain/value-objects/task-note.vo';
 import { VOICES } from '@domain/value-objects/voice.vo';
 
 export const NOTE_KINDS = TASK_NOTE_KINDS;
+export const NOTE_FORMS = TASK_NOTE_FORMS;
 export const NOTE_VOICES = VOICES;
 
 export interface InboxAuthorDto {
@@ -13,6 +17,7 @@ export interface InboxAuthorDto {
 export interface InboxMessageDto {
   readonly position: number;
   readonly kind: string;
+  readonly form: string;
   readonly voice: string;
   readonly station: string;
   readonly stationColor: string;

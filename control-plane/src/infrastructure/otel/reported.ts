@@ -1,4 +1,7 @@
-import type { RunSpan, SpanAttribute } from '@domain/model/journal';
+import type {
+  RunSpan,
+  SpanAttribute,
+} from '@application/contracts/run-journal.contract';
 import { decoded, type Journalled } from '@infrastructure/journal/journalled';
 
 /**

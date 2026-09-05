@@ -75,15 +75,15 @@ describe('Runner', () => {
   });
 
   it('keeps the moment it was first revoked', () => {
-    const revoked = enrolled().revoke(NOW).revoke(LATER);
+    const events = enrolled().revoke(NOW).revoke(LATER).pullEvents();
 
-    expect(revoked.happened).toHaveLength(1);
-    expect(revoked.happened[0]).toBeInstanceOf(RunnerRevoked);
-    expect(revoked.happened[0]?.runnerId.value).toBe('runner_1');
+    expect(events).toHaveLength(1);
+    expect(events[0]).toBeInstanceOf(RunnerRevoked);
+    expect((events[0] as RunnerRevoked).runnerId.value).toBe('runner_1');
   });
 
   it('raises nothing until it is revoked', () => {
-    expect(enrolled().happened).toHaveLength(0);
+    expect(enrolled().pullEvents()).toHaveLength(0);
   });
 
   // What a change raised belongs to the runner that change made, so the one
@@ -92,7 +92,7 @@ describe('Runner', () => {
     const runner = enrolled();
     runner.revoke(NOW);
 
-    expect(runner.happened).toHaveLength(0);
+    expect(runner.pullEvents()).toHaveLength(0);
     expect(runner.revoked).toBe(false);
   });
 });

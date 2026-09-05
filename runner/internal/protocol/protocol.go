@@ -3,6 +3,10 @@ package protocol
 
 import "time"
 
+// ToolPullRequest is the tool a run is given to have Spotlight open a pull
+// request for it. The name is the control plane's; the runner only matches it.
+const ToolPullRequest = "pull-request"
+
 // Registration says a runner is there, and what it found installed. What is on
 // a machine is the one thing a runner says about itself; what it is then given
 // remains the control plane's to decide.
@@ -74,6 +78,11 @@ type Spec struct {
 	// things, and only the second changes per run.
 	Briefing string   `json:"briefing,omitempty"`
 	Handover Handover `json:"handover,omitzero"`
+	// Tools are what this run may reach for beyond handing over. The runner
+	// holds the list without knowing what the words mean: it raises only what
+	// is named, so a run never has a way to reach something its station was
+	// not given.
+	Tools []string `json:"tools,omitempty"`
 	// Continuity is how this run carries on from an earlier one. Absent, the
 	// run is its own: a fresh directory and a fresh conversation.
 	Continuity Continuity `json:"continuity,omitzero"`

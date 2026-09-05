@@ -30,10 +30,20 @@ export type StationResponseDto = {
   kind: 'backlog' | 'work' | 'completed';
 };
 
+export type ReactionResponseDto = {
+  happening: string;
+  /**
+   * Where the task must stand for this to count. Null is wherever it is.
+   */
+  from: string | null;
+  to: string;
+};
+
 export type AssemblyLineResponseDto = {
   id: string;
   name: string;
   stations: Array<StationResponseDto>;
+  reactions: Array<ReactionResponseDto>;
 };
 
 export type ReorderStationsRequestDto = {
@@ -234,6 +244,10 @@ export type InboxAuthorResponseDto = {
 export type InboxMessageResponseDto = {
   position: number;
   kind: 'asked' | 'passed' | 'answered' | 'said';
+  /**
+   * What it shows, which is not what it did
+   */
+  form: 'words' | 'setup' | 'settled';
   /**
    * Who spoke: the station, a person, or the world outside it
    */
@@ -470,6 +484,129 @@ export type RepositoryResponseDto = {
   fullName: string;
 };
 
+export type ConnectGitHubRequestDto = {
+  /**
+   * The installation GitHub named when it sent you back
+   */
+  installationId: string;
+};
+
+export type ConfiguredHappeningResponseDto = {
+  happening: string;
+  label: string;
+};
+
+export type ConfiguredIntegrationResponseDto = {
+  source: string;
+  name: string;
+  /**
+   * Where this host should be told to send its deliveries
+   */
+  deliverTo: string;
+  secret: string;
+  /**
+   * Whether the workspace has set it. Never its value.
+   */
+  secretSet: boolean;
+  happenings: Array<ConfiguredHappeningResponseDto>;
+};
+
+export type ConfigProblemResponseDto = {
+  path: string;
+  at: string;
+  reason: string;
+};
+
+export type ConfigurationResponseDto = {
+  repository: string | null;
+  sha: string | null;
+  readAt: string | null;
+  integrations: Array<ConfiguredIntegrationResponseDto>;
+  problems: Array<ConfigProblemResponseDto>;
+};
+
+export type PinConfigurationRequestDto = {
+  /**
+   * The repository this team reads its configuration from. Null takes the pin off.
+   */
+  repository: string | null;
+};
+
+export type SetupStepResponseDto = {
+  /**
+   * Which step this is
+   */
+  key: 'runner' | 'github' | 'repository' | 'configuration' | 'tools';
+  title: string;
+  description: string;
+  /**
+   * The page in Spotlight this step is taken from, or null where there is none
+   */
+  where: string | null;
+  done: boolean;
+};
+
+export type KnownToolResponseDto = {
+  source: string;
+  name: string;
+  summary: string;
+  secretCalled: string;
+  /**
+   * Whether this team already listens to it
+   */
+  chosen: boolean;
+};
+
+export type OnboardingResponseDto = {
+  /**
+   * The list itself, in the order it is worked through
+   */
+  steps: Array<SetupStepResponseDto>;
+  /**
+   * Where to install the App, or null where GitHub would not say
+   */
+  installUrl: string | null;
+  /**
+   * The App has to be installed to read or write
+   */
+  connectedToGitHub: boolean;
+  configRepository: string | null;
+  tools: Array<KnownToolResponseDto>;
+};
+
+export type ChooseToolsRequestDto = {
+  /**
+   * The hosts this team uses, by the name each is known by
+   */
+  sources: Array<string>;
+  /**
+   * The hosts it no longer uses, whose files the change removes
+   */
+  dropped?: Array<string>;
+};
+
+export type ProposedResponseDto = {
+  url: string;
+};
+
+export type SetSecretRequestDto = {
+  /**
+   * What the configuration calls it. Never its value.
+   */
+  name: string;
+  /**
+   * Written once and never read back out of Spotlight.
+   */
+  value: string;
+};
+
+export type HappeningResponseDto = {
+  happening: string;
+  source: string;
+  label: string;
+  told: string;
+};
+
 export type TaskReviewResponseDto = {
   /**
    * The inbox conversation waiting on a person
@@ -518,6 +655,10 @@ export type TaskResponseDto = {
    * Who raised it, and so who it comes back to
    */
   raisedBy: TaskPersonResponseDto | null;
+  /**
+   * The team member who owns the work, or nobody where unclaimed
+   */
+  assignee: TaskPersonResponseDto | null;
   /**
    * The last thing said about this task, and where it was said
    */
@@ -706,12 +847,36 @@ export type MoveTaskRequestDto = {
   afterTaskId?: string | null;
 };
 
+export type AssignTaskRequestDto = {
+  /**
+   * The team member to give it to, or null to leave it unclaimed
+   */
+  assigneeId: string | null;
+};
+
+export type SetTaskRepositoryRequestDto = {
+  /**
+   * The repository a run works it in, or null for none
+   */
+  repository: string | null;
+};
+
+export type MemberResponseDto = {
+  id: string;
+  name: string;
+  image: string | null;
+};
+
 export type CreateWorkspaceRequestDto = {
   name: string;
   /**
    * Addresses the workspace at /w/{slug}. Lowercase letters, numbers and single dashes.
    */
   slug: string;
+  /**
+   * Names the team the workspace opens with. A workspace with no team has nowhere to put work.
+   */
+  teamName: string;
 };
 
 export type TeamResponseDto = {
@@ -1335,9 +1500,11 @@ export type RevokeRunnerResponse = RevokeRunnerResponses[keyof RevokeRunnerRespo
 
 export type ListRepositoriesData = {
   body?: never;
-  path?: never;
+  path: {
+    slug: string;
+  };
   query?: never;
-  url: '/repositories';
+  url: '/workspaces/{slug}/repositories';
 };
 
 export type ListRepositoriesErrors = {
@@ -1345,6 +1512,10 @@ export type ListRepositoriesErrors = {
    * No valid session
    */
   401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
 };
 
 export type ListRepositoriesResponses = {
@@ -1352,6 +1523,257 @@ export type ListRepositoriesResponses = {
 };
 
 export type ListRepositoriesResponse = ListRepositoriesResponses[keyof ListRepositoriesResponses];
+
+export type ConnectGitHubData = {
+  body: ConnectGitHubRequestDto;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/github';
+};
+
+export type ConnectGitHubErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * Not an owner or admin, or not your installation
+   */
+  403: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type ConnectGitHubResponses = {
+  /**
+   * Connected
+   */
+  204: void;
+};
+
+export type ConnectGitHubResponse = ConnectGitHubResponses[keyof ConnectGitHubResponses];
+
+export type ReadConfigurationData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration';
+};
+
+export type ReadConfigurationErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+};
+
+export type ReadConfigurationResponses = {
+  200: ConfigurationResponseDto;
+};
+
+export type ReadConfigurationResponse = ReadConfigurationResponses[keyof ReadConfigurationResponses];
+
+export type RereadConfigurationData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration/reread';
+};
+
+export type RereadConfigurationErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, or nowhere to read it from
+   */
+  404: unknown;
+};
+
+export type RereadConfigurationResponses = {
+  200: ConfigurationResponseDto;
+};
+
+export type RereadConfigurationResponse = RereadConfigurationResponses[keyof RereadConfigurationResponses];
+
+export type PinConfigurationRepositoryData = {
+  body: PinConfigurationRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration/repository';
+};
+
+export type PinConfigurationRepositoryErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, or not yours to choose for
+   */
+  404: unknown;
+};
+
+export type PinConfigurationRepositoryResponses = {
+  /**
+   * Chosen
+   */
+  204: void;
+};
+
+export type PinConfigurationRepositoryResponse = PinConfigurationRepositoryResponses[keyof PinConfigurationRepositoryResponses];
+
+export type ReadOnboardingData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration/onboarding';
+};
+
+export type ReadOnboardingErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+};
+
+export type ReadOnboardingResponses = {
+  200: OnboardingResponseDto;
+};
+
+export type ReadOnboardingResponse = ReadOnboardingResponses[keyof ReadOnboardingResponses];
+
+export type ChooseToolsData = {
+  body: ChooseToolsRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration/tools';
+};
+
+export type ChooseToolsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, or nowhere to write it yet
+   */
+  404: unknown;
+};
+
+export type ChooseToolsResponses = {
+  200: ProposedResponseDto;
+};
+
+export type ChooseToolsResponse = ChooseToolsResponses[keyof ChooseToolsResponses];
+
+export type SetSecretData = {
+  body: SetSecretRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration/secrets';
+};
+
+export type SetSecretErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, or not yours to set one on
+   */
+  404: unknown;
+};
+
+export type SetSecretResponses = {
+  /**
+   * Set
+   */
+  204: void;
+};
+
+export type SetSecretResponse = SetSecretResponses[keyof SetSecretResponses];
+
+export type ForgetSecretData = {
+  body?: never;
+  path: {
+    teamId: string;
+    name: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration/secrets/{name}';
+};
+
+export type ForgetSecretErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, or not yours to change
+   */
+  404: unknown;
+};
+
+export type ForgetSecretResponses = {
+  /**
+   * Forgotten
+   */
+  204: void;
+};
+
+export type ForgetSecretResponse = ForgetSecretResponses[keyof ForgetSecretResponses];
+
+export type ListHappeningsData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/happenings';
+};
+
+export type ListHappeningsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type ListHappeningsResponses = {
+  200: Array<HappeningResponseDto>;
+};
+
+export type ListHappeningsResponse = ListHappeningsResponses[keyof ListHappeningsResponses];
 
 export type ListTasksData = {
   body?: never;
@@ -1628,6 +2050,86 @@ export type MoveTaskResponses = {
 };
 
 export type MoveTaskResponse = MoveTaskResponses[keyof MoveTaskResponses];
+
+export type AssignTaskData = {
+  body: AssignTaskRequestDto;
+  path: {
+    teamId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/assignee';
+};
+
+export type AssignTaskErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+};
+
+export type AssignTaskResponses = {
+  200: TaskResponseDto;
+};
+
+export type AssignTaskResponse = AssignTaskResponses[keyof AssignTaskResponses];
+
+export type SetTaskRepositoryData = {
+  body: SetTaskRepositoryRequestDto;
+  path: {
+    teamId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/repository';
+};
+
+export type SetTaskRepositoryErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+};
+
+export type SetTaskRepositoryResponses = {
+  200: TaskResponseDto;
+};
+
+export type SetTaskRepositoryResponse = SetTaskRepositoryResponses[keyof SetTaskRepositoryResponses];
+
+export type ListMembersData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/members';
+};
+
+export type ListMembersErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+};
+
+export type ListMembersResponses = {
+  200: Array<MemberResponseDto>;
+};
+
+export type ListMembersResponse = ListMembersResponses[keyof ListMembersResponses];
 
 export type ListWorkspacesData = {
   body?: never;

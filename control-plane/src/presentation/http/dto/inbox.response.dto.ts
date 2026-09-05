@@ -1,5 +1,9 @@
-import { NOTE_KINDS, NOTE_VOICES } from '@application/dto/inbox.dto';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  NOTE_FORMS,
+  NOTE_KINDS,
+  NOTE_VOICES,
+} from '@application/dto/inbox.dto';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class InboxAuthorResponseDto {
   @ApiProperty({ example: 'b7f3c1d9-2a48-4e6b-9c05-7d1e3f8a2b64' })
@@ -27,6 +31,13 @@ export class InboxMessageResponseDto {
     enum: [...NOTE_KINDS],
   })
   readonly kind: string;
+
+  @ApiProperty({
+    example: 'words',
+    enum: [...NOTE_FORMS],
+    description: 'What it shows, which is not what it did',
+  })
+  readonly form: string;
 
   @ApiProperty({
     example: 'station',
@@ -67,6 +78,7 @@ export class InboxMessageResponseDto {
   constructor(
     position: number,
     kind: string,
+    form: string,
     voice: string,
     station: string,
     stationColor: string,
@@ -78,6 +90,7 @@ export class InboxMessageResponseDto {
   ) {
     this.position = position;
     this.kind = kind;
+    this.form = form;
     this.voice = voice;
     this.station = station;
     this.stationColor = stationColor;

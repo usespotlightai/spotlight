@@ -45,7 +45,6 @@ jobs:
       GITHUB_CLIENT_SECRET: ci
       GITHUB_APP_ID: ci
       GITHUB_APP_PRIVATE_KEY: ci
-      GITHUB_APP_INSTALLATION_ID: ci
     steps:
       - uses: actions/checkout@v7
 

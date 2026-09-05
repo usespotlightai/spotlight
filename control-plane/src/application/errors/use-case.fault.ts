@@ -1,6 +1,7 @@
 export type UseCaseFaultKind =
   | 'conflict'
   | 'invalid-input'
+  | 'not-allowed'
   | 'not-found'
   | 'refused-upstream';
 

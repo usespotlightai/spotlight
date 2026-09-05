@@ -11,7 +11,7 @@ export class WayOut {
     stations?: readonly StationId[];
     ends?: boolean;
   }): WayOut {
-    return new WayOut(input.stations ?? [], input.ends ?? false);
+    return new WayOut([...(input.stations ?? [])], input.ends ?? false);
   }
 
   static nowhere(): WayOut {
@@ -20,5 +20,13 @@ export class WayOut {
 
   leadsTo(stationId: StationId): boolean {
     return this.stations.some((each) => each.equals(stationId));
+  }
+
+  equals(other: WayOut): boolean {
+    return (
+      this.ends === other.ends &&
+      this.stations.length === other.stations.length &&
+      this.stations.every((each, index) => each.equals(other.stations[index]))
+    );
   }
 }

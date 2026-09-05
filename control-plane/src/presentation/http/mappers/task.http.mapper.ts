@@ -27,6 +27,13 @@ export const TaskHttpMapper = {
             dto.raisedBy.image,
           )
         : null,
+      dto.assignee
+        ? new TaskPersonResponseDto(
+            dto.assignee.id,
+            dto.assignee.name,
+            dto.assignee.image,
+          )
+        : null,
       dto.note
         ? new TaskNoteResponseDto(
             dto.note.position,

@@ -27,4 +27,5 @@ export interface TaskDto {
   readonly pullRequest: string | null;
   readonly note: TaskNoteDto | null;
   readonly raisedBy: TaskPersonDto | null;
+  readonly assignee: TaskPersonDto | null;
 }

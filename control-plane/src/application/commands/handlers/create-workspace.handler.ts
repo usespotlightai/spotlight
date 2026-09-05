@@ -3,11 +3,13 @@ import type { WorkspaceDto } from '@application/dto/workspace.dto';
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import { WorkspaceMapper } from '@application/mappers/workspace.mapper';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
-import type { FactoryProvisioningPort } from '@application/ports/factory-provisioning.port';
+import type { DomainEventDispatcher } from '@application/ports/domain-event-dispatcher.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
+import type { TeamRepository } from '@domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
 import { WorkspaceRegistration } from '@domain/services/workspace-registration';
+import { TeamName } from '@domain/value-objects/team-name.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { WorkspaceName } from '@domain/value-objects/workspace-name.vo';
@@ -20,9 +22,10 @@ export class CreateWorkspaceHandler
 
   constructor(
     private readonly workspaces: WorkspaceRepository,
+    private readonly teams: TeamRepository,
     private readonly ids: IdGeneratorPort,
     private readonly transaction: TransactionPort,
-    private readonly provisioning: FactoryProvisioningPort,
+    private readonly events: DomainEventDispatcher,
   ) {
     this.registration = new WorkspaceRegistration(workspaces);
   }
@@ -38,22 +41,25 @@ export class CreateWorkspaceHandler
   private async createWorkspace(
     command: CreateWorkspaceCommand,
   ): Promise<WorkspaceDto> {
-    const workspace = await this.registration.register({
+    const { workspace, firstTeam } = await this.registration.register({
       id: WorkspaceId.of(this.ids.generate()),
       name: WorkspaceName.of(command.name),
       slug: WorkspaceSlug.of(command.slug),
+      teamName: TeamName.of(command.teamName),
       owner: UserId.of(command.ownerId),
       newId: () => this.ids.generate(),
     });
 
     await this.transaction.run(async () => {
       await this.workspaces.add(workspace);
-
-      for (const event of workspace.happened) {
-        await this.provisioning.onTeamCreated(event);
-      }
+      await this.teams.add(firstTeam);
     });
 
-    return WorkspaceMapper.toDto(workspace);
+    await this.events.dispatch([
+      ...workspace.pullEvents(),
+      ...firstTeam.pullEvents(),
+    ]);
+
+    return WorkspaceMapper.toDto(workspace, [firstTeam]);
   }
 }

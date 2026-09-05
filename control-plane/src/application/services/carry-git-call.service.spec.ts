@@ -10,6 +10,9 @@ import { InvalidRunTransitionError } from '@domain/exceptions/invalid-run-transi
 import { UnknownRunError } from '@domain/exceptions/unknown-run.error';
 import type { RunRepository } from '@domain/repositories/run.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
+import type { WorkspaceConnections } from '@domain/repositories/workspace.repository';
+import { Connection } from '@domain/value-objects/connection.vo';
+import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { Repository } from '@domain/value-objects/repository.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
@@ -69,6 +72,9 @@ const carrying = (run: Run | null, held: Task | null) => {
       { findById: vi.fn(async () => run) } as unknown as RunRepository,
       { find: vi.fn(async () => held) } as unknown as TaskRepository,
     ),
+    {
+      connectionTo: vi.fn(async () => Connection.of('github', '42')),
+    } as unknown as WorkspaceConnections,
     git as unknown as RepositoryGitPort,
   );
 
@@ -84,7 +90,11 @@ describe('CarryGitCall', () => {
 
     await service.carry('run_1', 'runner_1', call);
 
-    expect(git.call).toHaveBeenCalledWith(Repository.of('acme/widgets'), call);
+    expect(git.call).toHaveBeenCalledWith(
+      GitHubInstallation.of('42'),
+      Repository.of('acme/widgets'),
+      call,
+    );
   });
 
   // The whole point of proxying: a runner reaches what it is working on, and

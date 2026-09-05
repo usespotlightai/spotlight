@@ -3,23 +3,11 @@ import type { ClaimedRunDto } from '@application/dto/run.dto';
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
-import type { RunOutcomes } from '@application/services/run-outcomes';
-import { Run } from '@domain/aggregates/run.aggregate';
-import { RunCompleted } from '@domain/events/run-completed.event';
+import type { DomainEventDispatcher } from '@application/ports/domain-event-dispatcher.port';
 import { UnknownRunError } from '@domain/exceptions/unknown-run.error';
 import type { RunRepository } from '@domain/repositories/run.repository';
 import type { RunnerRepository } from '@domain/repositories/runner.repository';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
-
-const announce = async (ended: Run, to: RunOutcomes): Promise<void> => {
-  for (const raised of ended.happened) {
-    if (raised instanceof RunCompleted) {
-      await to.onRunCompleted(raised);
-    } else {
-      await to.onRunAbandoned(raised);
-    }
-  }
-};
 
 /**
  * How long a claim is held open before answering empty. The runner polls in a
@@ -35,7 +23,7 @@ export class ClaimRunHandler
     private readonly runs: RunRepository,
     private readonly runners: RunnerRepository,
     private readonly clock: ClockPort,
-    private readonly handover: RunOutcomes,
+    private readonly events: DomainEventDispatcher,
   ) {}
 
   async execute(command: ClaimRunCommand): Promise<ClaimedRunDto | null> {
@@ -55,9 +43,11 @@ export class ClaimRunHandler
 
       // Once per claim, not per attempt. A runner whose host died leaves a run
       // held until its lease lapses, and somebody has to notice.
-      for (const abandoned of await this.runs.requeueLapsed(this.clock.now())) {
-        await announce(abandoned, this.handover);
-      }
+      const givenUp = await this.runs.requeueLapsed(this.clock.now());
+
+      await this.events.dispatch(
+        givenUp.flatMap((run) => [...run.pullEvents()]),
+      );
 
       const deadline = this.clock.now().getTime() + POLL_TIMEOUT_MS;
 

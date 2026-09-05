@@ -2,6 +2,7 @@ export class CreateWorkspaceCommand {
   constructor(
     readonly name: string,
     readonly slug: string,
+    readonly teamName: string,
     readonly ownerId: string,
   ) {}
 }

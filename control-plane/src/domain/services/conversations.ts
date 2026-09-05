@@ -58,7 +58,8 @@ const settledAfter = <T extends { kind: TaskNoteKind }>(
     .slice(at + 1)
     .some((later) => later.kind === 'answered' || later.kind === 'passed');
 
-const holding = (cut: readonly Conversation[], at: number) =>
+/** Which conversation a note at this place belongs to, if any still does. */
+export const holding = (cut: readonly Conversation[], at: number) =>
   cut.find((each) => each.from <= at && (each.to === null || at <= each.to));
 
 export const reviewsIn = <

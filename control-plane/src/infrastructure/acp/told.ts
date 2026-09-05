@@ -4,7 +4,7 @@ import type {
   RunSpent,
   StepChange,
   StepLocation,
-} from '@domain/model/journal';
+} from '@application/contracts/run-journal.contract';
 import { Money } from '@domain/value-objects/money.vo';
 import type { StepKind } from '@domain/value-objects/step-kind';
 import { decoded, type Journalled } from '@infrastructure/journal/journalled';

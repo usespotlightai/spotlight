@@ -17,6 +17,7 @@ import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
+import { UserId } from '@domain/value-objects/user-id.vo';
 import { Voice } from '@domain/value-objects/voice.vo';
 
 export class MoveTaskHandler
@@ -78,32 +79,43 @@ export class MoveTaskHandler
 
       const rank = Placement.below(standing, after ?? null);
 
+      const from = line.stationAt(task.stationId);
       const stayed = task.stationId.equals(stationId);
       const moved = stayed
         ? task.reorderTo(rank)
         : // Moved by hand is still a move, and what a person was owed where
           // it stood, they are owed no longer.
           task.moveTo(station, rank, {
-            station: line.stationAt(task.stationId)?.name ?? station.name,
+            station: from?.name ?? station.name,
             body: TaskNoteBody.movedTo(station.name),
             at: this.clock.now(),
             voice: Voice.station(),
           });
 
-      const runId =
-        stayed || moved.currentRunId
-          ? null
-          : await this.dispatch.dispatch({ task: moved, line });
+      // Moving unclaimed work out of the backlog into active makes the mover
+      // its owner; work someone already holds keeps them.
+      const claimed =
+        !stayed && from?.isBacklog && station.isWorked
+          ? moved.claimedBy(UserId.of(command.viewerId))
+          : moved;
 
-      const placed = runId ? moved.handedTo(runId) : moved;
+      const runId =
+        stayed || claimed.running
+          ? null
+          : await this.dispatch.dispatch({ task: claimed, line });
+
+      const placed = runId ? claimed.handedTo(runId) : claimed;
 
       await this.tasks.save(placed);
 
       const raisedBy = placed.raisedBy
         ? await this.people.find(placed.raisedBy)
         : null;
+      const assignee = placed.assignee
+        ? await this.people.find(placed.assignee)
+        : null;
 
-      return TaskMapper.taskToDto(placed, raisedBy);
+      return TaskMapper.taskToDto(placed, raisedBy, assignee);
     });
   }
 }

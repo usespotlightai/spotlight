@@ -16,6 +16,9 @@ const acme: WorkspaceDetail = {
 
 const reader = (found: WorkspaceDetail | null): WorkspaceReaderPort => ({
   listForMember: vi.fn().mockResolvedValue([]),
+  identify: vi.fn(),
+  identifyTeam: vi.fn(),
+  findTeamForMember: vi.fn(),
   findForMember: vi.fn().mockResolvedValue(found),
 });
 

@@ -8,7 +8,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 import { BoardViews } from '@/components/board/BoardViews';
 import { NewTaskDialog } from '@/components/board/NewTaskDialog';
@@ -27,7 +27,13 @@ import { useTasks } from '@/hooks/api/useTasks';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useBoardDrag } from '@/hooks/useBoardDrag';
 import { useCollapsed } from '@/hooks/useCollapsed';
-import { asBoardView, inView } from '@/lib/board';
+import {
+  BOARD_VIEWS,
+  type BoardView,
+  inView,
+  rememberBoardView,
+  rememberedBoardView,
+} from '@/lib/board';
 import { inboxItemPath } from '@/lib/inbox';
 import { stationPath, stationShare } from '@/lib/station';
 import { moveTargetFor, type Task, taskPath, tasksAt } from '@/lib/task';
@@ -46,8 +52,15 @@ export function AssemblyLineBoard() {
   const moveTask = useMoveTask();
   const [selected, setSelected] = useState<readonly string[]>([]);
   const [params, setParams] = useSearchParams();
-  const view = asBoardView(params.get('view'));
+  const inUrl = params.get('view');
+  const view: BoardView = BOARD_VIEWS.some((each) => each.id === inUrl)
+    ? (inUrl as BoardView)
+    : rememberedBoardView();
   const [adding, setAdding] = useState<string | null>(null);
+
+  useEffect(() => {
+    rememberBoardView(view);
+  }, [view]);
 
   const line = lines?.find((candidate) => candidate.id === lineId);
 
@@ -178,6 +191,7 @@ export function AssemblyLineBoard() {
                             <TaskRow
                               key={task.id}
                               task={task}
+                              teamId={teamId ?? ''}
                               to={
                                 slug && teamId
                                   ? taskPath(slug, teamId, task.id)
@@ -305,6 +319,7 @@ export function AssemblyLineBoard() {
       <NewTaskDialog
         open={adding !== null}
         onOpenChange={(next) => !next && setAdding(null)}
+        slug={slug}
         lineName={line.name}
         stationName={
           line.stations.find((each) => each.id === adding)?.name ?? ''

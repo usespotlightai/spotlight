@@ -89,7 +89,6 @@ const tasks = (found: Task) =>
     remove: vi.fn(),
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
-    withPullRequest: vi.fn(async () => null),
     holding: vi.fn(async () => found),
   }) satisfies TaskRepository;
 
@@ -99,6 +98,8 @@ const lines = () =>
     save: vi.fn(),
     find: vi.fn(async () => line()),
     holding: vi.fn(async () => line()),
+    ofWorkspace: vi.fn(async () => []),
+    ofTeam: vi.fn(async () => []),
   }) satisfies AssemblyLineRepository;
 
 const dispatch: TaskDispatching = {

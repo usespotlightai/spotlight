@@ -3,6 +3,8 @@ import { InvalidWorkspaceNameError } from '@domain/exceptions/invalid-workspace-
 const MAX_LENGTH = 100;
 
 export class WorkspaceName {
+  private readonly kind = 'workspace-name' as const;
+
   private constructor(readonly value: string) {}
 
   static of(raw: string): WorkspaceName {
@@ -21,6 +23,6 @@ export class WorkspaceName {
   }
 
   equals(other: WorkspaceName): boolean {
-    return this.value === other.value;
+    return this.value === other.value && this.kind === other.kind;
   }
 }

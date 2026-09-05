@@ -28,4 +28,8 @@ export class Declaration {
   names(station: StationName): boolean {
     return station.value.toLowerCase() === this.next.toLowerCase();
   }
+
+  equals(other: Declaration): boolean {
+    return this.next === other.next && this.note === other.note;
+  }
 }

@@ -4,6 +4,7 @@ import { RequireGuest } from './components/common/auth/RequireGuest.tsx';
 import { AssemblyLineBoard } from './routes/AssemblyLineBoard.tsx';
 import { CreateWorkspace } from './routes/CreateWorkspace.tsx';
 import { DefaultWorkspace } from './routes/DefaultWorkspace.tsx';
+import { GitHubInstalled } from './routes/GitHubInstalled.tsx';
 import { Inbox } from './routes/Inbox.tsx';
 import { InboxIndex } from './routes/InboxIndex.tsx';
 import { InboxItem } from './routes/InboxItem.tsx';
@@ -14,6 +15,7 @@ import { Station } from './routes/Station.tsx';
 import { Task } from './routes/Task.tsx';
 import { TaskTrace } from './routes/TaskTrace.tsx';
 import { TeamIndex } from './routes/TeamIndex.tsx';
+import { TeamIntegrations } from './routes/TeamIntegrations.tsx';
 import { TeamSection } from './routes/TeamSection.tsx';
 import { Workspace } from './routes/Workspace.tsx';
 import { WorkspaceIndex } from './routes/WorkspaceIndex.tsx';
@@ -28,6 +30,7 @@ export default function App() {
       <Route element={<RequireAuth />}>
         <Route index element={<DefaultWorkspace />} />
         <Route path="/workspaces/new" element={<CreateWorkspace />} />
+        <Route path="/github/installed" element={<GitHubInstalled />} />
         <Route path="/w/:slug" element={<Workspace />}>
           <Route index element={<WorkspaceIndex />} />
           <Route path="team/:teamId">
@@ -40,6 +43,7 @@ export default function App() {
             <Route path="tasks/:taskId" element={<Task />} />
             <Route path="observability/tasks/:taskId" element={<TaskTrace />} />
             <Route path="runs/:runId" element={<Run />} />
+            <Route path="integrations" element={<TeamIntegrations />} />
             <Route path=":section" element={<TeamSection />} />
           </Route>
           <Route path="inbox" element={<Inbox />}>

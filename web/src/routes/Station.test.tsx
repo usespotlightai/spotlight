@@ -43,6 +43,7 @@ const line = {
 vi.mock('@/hooks/api/useAssemblyLines', () => ({
   useAssemblyLines: () => ({ data: [line], isPending: false }),
 }));
+
 const customised = vi.fn();
 
 vi.mock('@/hooks/api/useCustomiseStation', () => ({
@@ -171,7 +172,7 @@ describe('Station', () => {
 
     expect(screen.queryByLabelText('Harness')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Agent prompt')).not.toBeInTheDocument();
-    expect(screen.getByText(/pull request is merged/)).toBeInTheDocument();
+    expect(screen.getByText(/the line is done with them/)).toBeInTheDocument();
   });
 
   it('still offers a station both', () => {

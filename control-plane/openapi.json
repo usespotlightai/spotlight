@@ -961,10 +961,20 @@
         ]
       }
     },
-    "/repositories": {
+    "/workspaces/{slug}/repositories": {
       "get": {
         "operationId": "listRepositories",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -981,11 +991,383 @@
           },
           "401": {
             "description": "No valid session"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
           }
         },
         "summary": "List the repositories a task can be raised against",
         "tags": [
           "repositories"
+        ]
+      }
+    },
+    "/workspaces/{slug}/github": {
+      "post": {
+        "operationId": "connectGitHub",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectGitHubRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Connected"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "Not an owner or admin, or not your installation"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          }
+        },
+        "summary": "Point this workspace at a GitHub App installation",
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
+    "/teams/{teamId}/configuration": {
+      "get": {
+        "operationId": "readConfiguration",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "team_1",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team for this caller"
+          }
+        },
+        "summary": "What this team listens to, and what is wrong with it",
+        "tags": [
+          "configuration"
+        ]
+      }
+    },
+    "/teams/{teamId}/configuration/reread": {
+      "post": {
+        "operationId": "rereadConfiguration",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "team_1",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team, or nowhere to read it from"
+          }
+        },
+        "summary": "Read this team’s configuration from its repository again",
+        "tags": [
+          "configuration"
+        ]
+      }
+    },
+    "/teams/{teamId}/configuration/repository": {
+      "post": {
+        "operationId": "pinConfigurationRepository",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "team_1",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PinConfigurationRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Chosen"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team, or not yours to choose for"
+          }
+        },
+        "summary": "Choose the repository this team reads its configuration from",
+        "tags": [
+          "configuration"
+        ]
+      }
+    },
+    "/teams/{teamId}/configuration/onboarding": {
+      "get": {
+        "operationId": "readOnboarding",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "team_1",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team for this caller"
+          }
+        },
+        "summary": "What this team still needs, and the tools it may choose",
+        "tags": [
+          "configuration"
+        ]
+      }
+    },
+    "/teams/{teamId}/configuration/tools": {
+      "post": {
+        "operationId": "chooseTools",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "team_1",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChooseToolsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposedResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team, or nowhere to write it yet"
+          }
+        },
+        "summary": "Write and remove configuration for the tools this team uses",
+        "tags": [
+          "configuration"
+        ]
+      }
+    },
+    "/teams/{teamId}/configuration/secrets": {
+      "post": {
+        "operationId": "setSecret",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "team_1",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetSecretRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Set"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team, or not yours to set one on"
+          }
+        },
+        "summary": "Set a secret this team’s integrations verify with",
+        "tags": [
+          "configuration"
+        ]
+      }
+    },
+    "/teams/{teamId}/configuration/secrets/{name}": {
+      "delete": {
+        "operationId": "forgetSecret",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "team_1",
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "LINEAR_WEBHOOK_SECRET",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Forgotten"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team, or not yours to change"
+          }
+        },
+        "summary": "Forget a secret, so nothing verifies with it again",
+        "tags": [
+          "configuration"
+        ]
+      }
+    },
+    "/workspaces/{slug}/happenings": {
+      "get": {
+        "operationId": "listHappenings",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HappeningResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          }
+        },
+        "summary": "The words a station here can be set to wait for",
+        "tags": [
+          "happenings"
         ]
       }
     },
@@ -1480,6 +1862,161 @@
         ]
       }
     },
+    "/teams/{teamId}/tasks/{taskId}/assignee": {
+      "put": {
+        "operationId": "assignTask",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignTaskRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such task for this caller"
+          }
+        },
+        "summary": "Give a task to a team member, or clear its assignee",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/teams/{teamId}/tasks/{taskId}/repository": {
+      "put": {
+        "operationId": "setTaskRepository",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetTaskRepositoryRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such task for this caller"
+          }
+        },
+        "summary": "Point a task at a repository, or clear it",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/teams/{teamId}/members": {
+      "get": {
+        "operationId": "listMembers",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MemberResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team for this caller"
+          }
+        },
+        "summary": "List the team members a task can be assigned to",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
     "/workspaces": {
       "post": {
         "operationId": "createWorkspace",
@@ -1659,6 +2196,30 @@
           "kind"
         ]
       },
+      "ReactionResponseDto": {
+        "type": "object",
+        "properties": {
+          "happening": {
+            "type": "string",
+            "example": "github.pull_request.commented"
+          },
+          "from": {
+            "type": "string",
+            "example": null,
+            "nullable": true,
+            "description": "Where the task must stand for this to count. Null is wherever it is."
+          },
+          "to": {
+            "type": "string",
+            "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80"
+          }
+        },
+        "required": [
+          "happening",
+          "from",
+          "to"
+        ]
+      },
       "AssemblyLineResponseDto": {
         "type": "object",
         "properties": {
@@ -1675,12 +2236,19 @@
             "items": {
               "$ref": "#/components/schemas/StationResponseDto"
             }
+          },
+          "reactions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReactionResponseDto"
+            }
           }
         },
         "required": [
           "id",
           "name",
-          "stations"
+          "stations",
+          "reactions"
         ]
       },
       "ReorderStationsRequestDto": {
@@ -2164,6 +2732,16 @@
               "said"
             ]
           },
+          "form": {
+            "type": "string",
+            "example": "words",
+            "enum": [
+              "words",
+              "setup",
+              "settled"
+            ],
+            "description": "What it shows, which is not what it did"
+          },
           "voice": {
             "type": "string",
             "example": "station",
@@ -2214,6 +2792,7 @@
         "required": [
           "position",
           "kind",
+          "form",
           "voice",
           "station",
           "stationColor",
@@ -2781,6 +3360,350 @@
           "fullName"
         ]
       },
+      "ConnectGitHubRequestDto": {
+        "type": "object",
+        "properties": {
+          "installationId": {
+            "type": "string",
+            "example": "81234567",
+            "description": "The installation GitHub named when it sent you back"
+          }
+        },
+        "required": [
+          "installationId"
+        ]
+      },
+      "ConfiguredHappeningResponseDto": {
+        "type": "object",
+        "properties": {
+          "happening": {
+            "type": "string",
+            "example": "linear.issue.completed"
+          },
+          "label": {
+            "type": "string",
+            "example": "Issue completed"
+          }
+        },
+        "required": [
+          "happening",
+          "label"
+        ]
+      },
+      "ConfiguredIntegrationResponseDto": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "example": "linear"
+          },
+          "name": {
+            "type": "string",
+            "example": "Linear"
+          },
+          "deliverTo": {
+            "type": "string",
+            "description": "Where this host should be told to send its deliveries",
+            "example": "/api/webhooks/w/acme/linear"
+          },
+          "secret": {
+            "type": "string",
+            "example": "LINEAR_WEBHOOK_SECRET"
+          },
+          "secretSet": {
+            "type": "boolean",
+            "description": "Whether the workspace has set it. Never its value.",
+            "example": true
+          },
+          "happenings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfiguredHappeningResponseDto"
+            }
+          }
+        },
+        "required": [
+          "source",
+          "name",
+          "deliverTo",
+          "secret",
+          "secretSet",
+          "happenings"
+        ]
+      },
+      "ConfigProblemResponseDto": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "example": ".spotlight/integrations/linear.yml"
+          },
+          "at": {
+            "type": "string",
+            "example": "happenings.0.when"
+          },
+          "reason": {
+            "type": "string",
+            "example": "must be an expression"
+          }
+        },
+        "required": [
+          "path",
+          "at",
+          "reason"
+        ]
+      },
+      "ConfigurationResponseDto": {
+        "type": "object",
+        "properties": {
+          "repository": {
+            "type": "string",
+            "nullable": true,
+            "example": "acme/api"
+          },
+          "sha": {
+            "type": "string",
+            "nullable": true,
+            "example": "a1b2c3d"
+          },
+          "readAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "integrations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfiguredIntegrationResponseDto"
+            }
+          },
+          "problems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfigProblemResponseDto"
+            }
+          }
+        },
+        "required": [
+          "repository",
+          "sha",
+          "readAt",
+          "integrations",
+          "problems"
+        ]
+      },
+      "PinConfigurationRequestDto": {
+        "type": "object",
+        "properties": {
+          "repository": {
+            "type": "string",
+            "description": "The repository this team reads its configuration from. Null takes the pin off.",
+            "example": "acme/api",
+            "nullable": true
+          }
+        },
+        "required": [
+          "repository"
+        ]
+      },
+      "SetupStepResponseDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Which step this is",
+            "enum": [
+              "runner",
+              "github",
+              "repository",
+              "configuration",
+              "tools"
+            ],
+            "example": "runner"
+          },
+          "title": {
+            "type": "string",
+            "example": "Start a runner"
+          },
+          "description": {
+            "type": "string"
+          },
+          "where": {
+            "type": "string",
+            "description": "The page in Spotlight this step is taken from, or null where there is none",
+            "nullable": true,
+            "example": "/w/acme/runners"
+          },
+          "done": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "description",
+          "where",
+          "done"
+        ]
+      },
+      "KnownToolResponseDto": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "example": "linear"
+          },
+          "name": {
+            "type": "string",
+            "example": "Linear"
+          },
+          "summary": {
+            "type": "string",
+            "example": "Move a task on when its issue is done."
+          },
+          "secretCalled": {
+            "type": "string",
+            "example": "the signing secret on the webhook you create"
+          },
+          "chosen": {
+            "type": "boolean",
+            "description": "Whether this team already listens to it"
+          }
+        },
+        "required": [
+          "source",
+          "name",
+          "summary",
+          "secretCalled",
+          "chosen"
+        ]
+      },
+      "OnboardingResponseDto": {
+        "type": "object",
+        "properties": {
+          "steps": {
+            "description": "The list itself, in the order it is worked through",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SetupStepResponseDto"
+            }
+          },
+          "installUrl": {
+            "type": "string",
+            "description": "Where to install the App, or null where GitHub would not say",
+            "nullable": true,
+            "example": "https://github.com/apps/spotlight/installations/new"
+          },
+          "connectedToGitHub": {
+            "type": "boolean",
+            "description": "The App has to be installed to read or write"
+          },
+          "configRepository": {
+            "type": "string",
+            "nullable": true,
+            "example": "acme/api"
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnownToolResponseDto"
+            }
+          }
+        },
+        "required": [
+          "steps",
+          "installUrl",
+          "connectedToGitHub",
+          "configRepository",
+          "tools"
+        ]
+      },
+      "ChooseToolsRequestDto": {
+        "type": "object",
+        "properties": {
+          "sources": {
+            "description": "The hosts this team uses, by the name each is known by",
+            "example": [
+              "linear",
+              "sentry"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dropped": {
+            "description": "The hosts it no longer uses, whose files the change removes",
+            "example": [
+              "grafana"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "sources"
+        ]
+      },
+      "ProposedResponseDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "example": "https://github.com/acme/api/pull/4"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "SetSecretRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "What the configuration calls it. Never its value.",
+            "example": "LINEAR_WEBHOOK_SECRET"
+          },
+          "value": {
+            "type": "string",
+            "description": "Written once and never read back out of Spotlight.",
+            "example": "whsec_..."
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ]
+      },
+      "HappeningResponseDto": {
+        "type": "object",
+        "properties": {
+          "happening": {
+            "type": "string",
+            "example": "github.pull_request.commented"
+          },
+          "source": {
+            "type": "string",
+            "example": "github"
+          },
+          "label": {
+            "type": "string",
+            "example": "Pull request commented on"
+          },
+          "told": {
+            "type": "string",
+            "example": "The pull request was commented on."
+          }
+        },
+        "required": [
+          "happening",
+          "source",
+          "label",
+          "told"
+        ]
+      },
       "TaskReviewResponseDto": {
         "type": "object",
         "properties": {
@@ -2901,6 +3824,16 @@
               }
             ]
           },
+          "assignee": {
+            "nullable": true,
+            "description": "The team member who owns the work, or nobody where unclaimed",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TaskPersonResponseDto"
+              }
+            ]
+          },
           "note": {
             "nullable": true,
             "description": "The last thing said about this task, and where it was said",
@@ -2923,6 +3856,7 @@
           "repository",
           "pullRequest",
           "raisedBy",
+          "assignee",
           "note"
         ]
       },
@@ -3508,6 +4442,56 @@
           "stationId"
         ]
       },
+      "AssignTaskRequestDto": {
+        "type": "object",
+        "properties": {
+          "assigneeId": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
+            "nullable": true,
+            "description": "The team member to give it to, or null to leave it unclaimed"
+          }
+        },
+        "required": [
+          "assigneeId"
+        ]
+      },
+      "SetTaskRepositoryRequestDto": {
+        "type": "object",
+        "properties": {
+          "repository": {
+            "type": "string",
+            "example": "usespotlightai/spotlight",
+            "nullable": true,
+            "description": "The repository a run works it in, or null for none"
+          }
+        },
+        "required": [
+          "repository"
+        ]
+      },
+      "MemberResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13"
+          },
+          "name": {
+            "type": "string",
+            "example": "Ada Lovelace"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "image"
+        ]
+      },
       "CreateWorkspaceRequestDto": {
         "type": "object",
         "properties": {
@@ -3521,11 +4505,18 @@
             "example": "acme-inc",
             "maxLength": 48,
             "description": "Addresses the workspace at /w/{slug}. Lowercase letters, numbers and single dashes."
+          },
+          "teamName": {
+            "type": "string",
+            "example": "Platform",
+            "maxLength": 100,
+            "description": "Names the team the workspace opens with. A workspace with no team has nowhere to put work."
           }
         },
         "required": [
           "name",
-          "slug"
+          "slug",
+          "teamName"
         ]
       },
       "TeamResponseDto": {

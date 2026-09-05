@@ -13,6 +13,7 @@ const dto: TaskDto = {
   repository: null,
   pullRequest: null,
   raisedBy: { id: 'user_1', name: 'Ada', image: null },
+  assignee: null,
   note: {
     position: 0,
     station: 'Implementation',

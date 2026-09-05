@@ -12,37 +12,70 @@ import { cn } from '@/lib/utils';
 const NONE = 'none';
 
 type RepositorySelectProps = {
+  slug: string | undefined;
   value: string;
   onChange: (repository: string) => void;
+  /** 'pill' is the compact chip for a dialog; 'row' is a labelled line. */
+  variant?: 'pill' | 'row';
 };
 
-export function RepositorySelect({ value, onChange }: RepositorySelectProps) {
-  const { data: repositories } = useRepositories();
+export function RepositorySelect({
+  slug,
+  value,
+  onChange,
+  variant = 'pill',
+}: RepositorySelectProps) {
+  const { data: repositories } = useRepositories(slug);
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        type="button"
-        aria-label="Repository"
-        className="flex h-6 items-center gap-1.5 rounded-full border border-border bg-card px-2 text-left text-xs shadow-control outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent"
-      >
-        <GitBranch
-          className="size-3 shrink-0 text-muted-foreground"
-          aria-hidden
-        />
-        <span
-          className={cn(
-            'truncate',
-            value ? 'text-foreground' : 'text-muted-foreground',
-          )}
+      {variant === 'row' ? (
+        <DropdownMenuTrigger
+          type="button"
+          aria-label="Repository"
+          className="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent"
         >
-          {value || 'No repository'}
-        </span>
-        <ChevronsUpDown
-          className="size-2.5 shrink-0 text-muted-foreground"
-          aria-hidden
-        />
-      </DropdownMenuTrigger>
+          <GitBranch
+            className="size-4 shrink-0 text-muted-foreground"
+            aria-hidden
+          />
+          <span
+            className={cn(
+              'truncate',
+              value ? 'text-foreground' : 'text-muted-foreground',
+            )}
+          >
+            {value || 'No repository'}
+          </span>
+          <ChevronsUpDown
+            className="ml-auto size-3 shrink-0 text-muted-foreground"
+            aria-hidden
+          />
+        </DropdownMenuTrigger>
+      ) : (
+        <DropdownMenuTrigger
+          type="button"
+          aria-label="Repository"
+          className="flex h-6 items-center gap-1.5 rounded-full border border-border bg-card px-2 text-left text-xs shadow-control outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent"
+        >
+          <GitBranch
+            className="size-3 shrink-0 text-muted-foreground"
+            aria-hidden
+          />
+          <span
+            className={cn(
+              'truncate',
+              value ? 'text-foreground' : 'text-muted-foreground',
+            )}
+          >
+            {value || 'No repository'}
+          </span>
+          <ChevronsUpDown
+            className="size-2.5 shrink-0 text-muted-foreground"
+            aria-hidden
+          />
+        </DropdownMenuTrigger>
+      )}
 
       <DropdownMenuContent
         align="start"

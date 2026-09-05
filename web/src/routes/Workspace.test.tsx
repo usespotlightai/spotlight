@@ -21,6 +21,10 @@ vi.mock('@/hooks/api/useSignOut', () => ({
 vi.mock('@/hooks/api/useWorkspaces', () => ({
   useWorkspaces: () => ({ data: [], isPending: false }),
 }));
+vi.mock('@/hooks/api/useConfiguration', () => ({
+  configurationKeys: { forWorkspace: () => ['configuration'] },
+  useConfiguration: () => ({ data: { problems: [] } }),
+}));
 vi.mock('@/hooks/api/useInbox', () => ({
   inboxKeys: { forWorkspace: () => ['inbox'] },
   useInbox: () => ({ data: [] }),

@@ -5,6 +5,7 @@ import type {
 } from '@application/dto/assembly-line.dto';
 import {
   AssemblyLineResponseDto,
+  ReactionResponseDto,
   StationResponseDto,
 } from '@presentation/http/dto/assembly-line.response.dto';
 import type { CustomiseStationRequestDto } from '@presentation/http/dto/customise-station.request.dto';
@@ -48,6 +49,9 @@ export const AssemblyLineHttpMapper = {
       dto.id,
       dto.name,
       dto.stations.map(AssemblyLineHttpMapper.stationToResponse),
+      dto.reactions.map(
+        (each) => new ReactionResponseDto(each.happening, each.from, each.to),
+      ),
     );
   },
 };

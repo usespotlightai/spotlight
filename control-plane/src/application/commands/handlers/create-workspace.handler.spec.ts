@@ -1,12 +1,14 @@
 import { CreateWorkspaceCommand } from '@application/commands/create-workspace.command';
 import { CreateWorkspaceHandler } from '@application/commands/handlers/create-workspace.handler';
 import { UseCaseFault } from '@application/errors/use-case.fault';
-import type { FactoryProvisioningPort } from '@application/ports/factory-provisioning.port';
+import type { DomainEventDispatcher } from '@application/ports/domain-event-dispatcher.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import type { Workspace } from '@domain/aggregates/workspace.aggregate';
+import type { DomainEvent } from '@domain/events/domain-event';
 import { TeamCreated } from '@domain/events/team-created.event';
 import { WorkspaceSlugTakenError } from '@domain/exceptions/workspace-slug-taken.error';
+import type { TeamRepository } from '@domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -17,33 +19,49 @@ const ids = (): IdGeneratorPort => {
 };
 
 let added: Workspace | undefined;
-let provisioned: TeamCreated[];
+let enqueued: DomainEvent[];
 let repository: WorkspaceRepository;
 
 const transaction: TransactionPort = { run: (work) => work() };
 
-const provisioning = (): FactoryProvisioningPort => ({
-  onTeamCreated: async (event) => {
-    provisioned.push(event);
+const events: DomainEventDispatcher = {
+  dispatch: async (raised) => {
+    enqueued.push(...raised);
   },
-});
+};
 
-const handle = (name = 'Acme Inc.', slug = 'acme-inc') =>
+const handle = (name = 'Acme Inc.', slug = 'acme-inc', teamName = 'Platform') =>
   new CreateWorkspaceHandler(
     repository,
+    teams as unknown as TeamRepository,
     ids(),
     transaction,
-    provisioning(),
-  ).execute(new CreateWorkspaceCommand(name, slug, 'user_1'));
+    events,
+  ).execute(new CreateWorkspaceCommand(name, slug, teamName, 'user_1'));
+
+let teams: Record<string, unknown>;
 
 beforeEach(() => {
   added = undefined;
-  provisioned = [];
+  enqueued = [];
+  teams = {
+    add: vi.fn(),
+    save: vi.fn(),
+    find: vi.fn(),
+    named: vi.fn(),
+    ofWorkspace: vi.fn(),
+    readingFrom: vi.fn(),
+  };
   repository = {
     isTaken: vi.fn().mockResolvedValue(false),
     add: vi.fn(async (workspace: Workspace) => {
       added = workspace;
     }),
+    withConnection: vi.fn().mockResolvedValue(null),
+    connectionTo: vi.fn().mockResolvedValue(null),
+    find: vi.fn().mockResolvedValue(null),
+    findBySlug: vi.fn().mockResolvedValue(null),
+    save: vi.fn().mockResolvedValue(undefined),
   };
 });
 
@@ -53,7 +71,7 @@ describe('CreateWorkspaceHandler', () => {
       id: 'id_1',
       name: 'Acme Inc.',
       slug: 'acme-inc',
-      teams: [{ id: 'id_2', name: 'Acme Inc.' }],
+      teams: [{ id: 'id_2', name: 'Platform' }],
     });
   });
 
@@ -66,19 +84,20 @@ describe('CreateWorkspaceHandler', () => {
     expect(added?.teams).toHaveLength(1);
   });
 
-  it('has the factory provisioned for the team it opens with', async () => {
+  it('enqueues that the team was opened, for the factory to follow', async () => {
     await handle();
 
-    expect(provisioned).toHaveLength(1);
-    expect(provisioned[0]).toBeInstanceOf(TeamCreated);
+    expect(enqueued.filter((each) => each instanceof TeamCreated)).toHaveLength(
+      1,
+    );
   });
 
-  it('provisions nothing when the write is refused', async () => {
+  it('enqueues nothing when the write is refused', async () => {
     repository.isTaken = vi.fn().mockResolvedValue(true);
 
     await handle().catch(() => undefined);
 
-    expect(provisioned).toHaveLength(0);
+    expect(enqueued).toHaveLength(0);
   });
 
   it('reports a taken slug as a conflict, without writing', async () => {

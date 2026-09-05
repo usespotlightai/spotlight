@@ -1,16 +1,17 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Link } from 'react-router';
+import { AssigneePicker } from '@/components/board/AssigneePicker';
 import { DropIndicator } from '@/components/board/DropIndicator';
 import { StationIcon } from '@/components/board/StationIcon';
 import { TaskState } from '@/components/board/TaskState';
-import { PersonAvatar } from '@/components/common/avatar/PersonAvatar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { raisedOn, type Task } from '@/lib/task';
 import { cn } from '@/lib/utils';
 
 type TaskRowProps = {
   task: Task;
+  teamId: string;
   to: string;
   reviewTo?: string;
   stationColor: string;
@@ -24,6 +25,7 @@ type TaskRowProps = {
 
 export function TaskRow({
   task,
+  teamId,
   to,
   reviewTo,
   stationColor,
@@ -104,13 +106,7 @@ export function TaskRow({
 
         <TaskState task={task} reviewTo={reviewTo} />
 
-        {task.raisedBy && (
-          <PersonAvatar
-            person={task.raisedBy}
-            className="-ml-1"
-            key={task.raisedBy.id}
-          />
-        )}
+        <AssigneePicker teamId={teamId} task={task} className="-ml-1" />
 
         <time
           dateTime={task.createdAt}

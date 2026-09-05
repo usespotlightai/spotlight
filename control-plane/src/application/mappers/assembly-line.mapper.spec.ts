@@ -60,6 +60,7 @@ describe('AssemblyLineMapper.lineToDto', () => {
           kind: 'completed',
         },
       ],
+      reactions: [],
     });
   });
 });

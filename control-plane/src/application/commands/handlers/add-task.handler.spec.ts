@@ -5,13 +5,13 @@ import type { ClockPort } from '@application/ports/clock.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { PersonReaderPort } from '@application/ports/person-reader.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
+import { TaskBriefing } from '@application/rendering/task-briefing';
 import type { TaskDispatching } from '@application/services/task-dispatch';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Task } from '@domain/aggregates/task.aggregate';
 import { Station } from '@domain/entities/station.entity';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
-import { TaskBriefing } from '@domain/services/task-briefing';
 import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
@@ -91,7 +91,6 @@ const tasks = () =>
     remove: vi.fn(),
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
-    withPullRequest: vi.fn(async () => null),
     holding: vi.fn(async () => null),
   }) satisfies TaskRepository;
 
@@ -103,6 +102,8 @@ const lines = (found: AssemblyLine | null = line()) =>
     save: vi.fn(),
     find: vi.fn(async () => found),
     holding: vi.fn(async () => found),
+    ofWorkspace: vi.fn(async () => []),
+    ofTeam: vi.fn(async () => []),
   }) satisfies AssemblyLineRepository;
 
 const addTask = (
@@ -154,6 +155,7 @@ describe('AddTaskHandler', () => {
       repository: null,
       pullRequest: null,
       raisedBy: raiser,
+      assignee: null,
       note: null,
     });
   });

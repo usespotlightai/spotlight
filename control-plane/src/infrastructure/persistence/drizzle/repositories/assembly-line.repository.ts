@@ -5,21 +5,30 @@ import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
-import type { Happening } from '@domain/value-objects/happening.vo';
+import { Happening } from '@domain/value-objects/happening.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { LineKey } from '@domain/value-objects/line-key.vo';
+import { Opener } from '@domain/value-objects/opener.vo';
+import { Reaction } from '@domain/value-objects/reaction.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationDescription } from '@domain/value-objects/station-description.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
+import { StationKey } from '@domain/value-objects/station-key.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
+import { TeamId } from '@domain/value-objects/team-id.vo';
+import { Tool } from '@domain/value-objects/tool.vo';
 import { WayOut } from '@domain/value-objects/way-out.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
 import {
   assemblyLine,
+  assemblyLineOpener,
+  assemblyLineReaction,
   station,
-  stationReaction,
   stationRoute,
+  stationTool,
 } from '@infrastructure/persistence/drizzle/schemas/assembly-line.schema';
+import { factory } from '@infrastructure/persistence/drizzle/schemas/factory.schema';
 import { Injectable } from '@nestjs/common';
 import { eq, inArray } from 'drizzle-orm';
 
@@ -28,11 +37,12 @@ type StationRow = typeof station.$inferSelect;
 
 type Ways = {
   routes: Map<string, StationId[]>;
-  reactions: Map<string, Happening[]>;
+  tools: Map<string, Tool[]>;
 };
 
 const toStation = (row: StationRow, ways: Ways): Station =>
   Station.create({
+    key: row.key ? StationKey.of(row.key) : StationKey.from(row.name),
     id: StationId.of(row.id),
     name: StationName.of(row.name),
     position: row.position,
@@ -47,20 +57,25 @@ const toStation = (row: StationRow, ways: Ways): Station =>
       stations: ways.routes.get(row.id) ?? [],
       ends: row.finishes,
     }),
-    reactsTo: ways.reactions.get(row.id) ?? [],
+    tools: ways.tools.get(row.id) ?? [],
   });
 
 const toLine = (
   line: LineRow,
   stations: StationRow[],
   ways: Ways,
+  reactions: readonly Reaction[],
+  openers: readonly Opener[],
 ): AssemblyLine =>
   AssemblyLine.of({
     id: AssemblyLineId.of(line.id),
     workspaceId: WorkspaceId.of(line.workspaceId),
     factoryId: FactoryId.of(line.factoryId),
+    key: LineKey.of(line.key || 'default'),
     name: AssemblyLineName.of(line.name),
     stations: stations.map((row) => toStation(row, ways)),
+    reactions,
+    openers,
   });
 
 const routeRowsOf = (line: AssemblyLine) =>
@@ -71,15 +86,31 @@ const routeRowsOf = (line: AssemblyLine) =>
     })),
   );
 
-const reactionRowsOf = (line: AssemblyLine) =>
+const toolRowsOf = (line: AssemblyLine) =>
   line.stations.flatMap((each) =>
-    each.reactsTo.map((happening) => ({
+    each.tools.map((tool) => ({
       stationId: each.id.value,
-      happening,
+      tool: tool.value,
     })),
   );
 
+const reactionRowsOf = (line: AssemblyLine) =>
+  line.reactions.map((each) => ({
+    assemblyLineId: line.id.value,
+    happening: each.happening.value,
+    fromStationId: each.from?.value ?? null,
+    toStationId: each.to.value,
+  }));
+
+const openerRowsOf = (line: AssemblyLine) =>
+  line.openers.map((each) => ({
+    assemblyLineId: line.id.value,
+    happening: each.happening.value,
+    toStationId: each.to.value,
+  }));
+
 const columnsOf = (each: Station) => ({
+  key: each.key.value,
   name: each.name.value,
   position: each.position,
   color: each.color.value,
@@ -106,6 +137,7 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
       id: added.id.value,
       workspaceId: added.workspaceId.value,
       factoryId: added.factoryId.value,
+      key: added.key.value,
       name: added.name.value,
     });
 
@@ -116,7 +148,7 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
   async save(saved: AssemblyLine): Promise<void> {
     await this.context.db
       .update(assemblyLine)
-      .set({ name: saved.name.value })
+      .set({ key: saved.key.value, name: saved.name.value })
       .where(eq(assemblyLine.id, saved.id.value));
 
     for (const each of saved.stations) {
@@ -133,26 +165,40 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
       .delete(stationRoute)
       .where(inArray(stationRoute.stationId, held));
     await this.context.db
-      .delete(stationReaction)
-      .where(inArray(stationReaction.stationId, held));
+      .delete(stationTool)
+      .where(inArray(stationTool.stationId, held));
+    await this.context.db
+      .delete(assemblyLineReaction)
+      .where(eq(assemblyLineReaction.assemblyLineId, saved.id.value));
+    await this.context.db
+      .delete(assemblyLineOpener)
+      .where(eq(assemblyLineOpener.assemblyLineId, saved.id.value));
     await this.writeWays(saved);
   }
 
   private async writeWays(line: AssemblyLine): Promise<void> {
     const routes = routeRowsOf(line);
     const reactions = reactionRowsOf(line);
+    const openers = openerRowsOf(line);
+    const tools = toolRowsOf(line);
 
     if (routes.length > 0) {
       await this.context.db.insert(stationRoute).values(routes);
     }
+    if (tools.length > 0) {
+      await this.context.db.insert(stationTool).values(tools);
+    }
     if (reactions.length > 0) {
-      await this.context.db.insert(stationReaction).values(reactions);
+      await this.context.db.insert(assemblyLineReaction).values(reactions);
+    }
+    if (openers.length > 0) {
+      await this.context.db.insert(assemblyLineOpener).values(openers);
     }
   }
 
   private async waysOf(stations: StationRow[]): Promise<Ways> {
     const held = stations.map((each) => each.id);
-    const ways: Ways = { routes: new Map(), reactions: new Map() };
+    const ways: Ways = { routes: new Map(), tools: new Map() };
 
     if (held.length === 0) {
       return ways;
@@ -169,18 +215,47 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
       ways.routes.set(row.stationId, found);
     }
 
-    const reactions = await this.context.db
+    const tools = await this.context.db
       .select()
-      .from(stationReaction)
-      .where(inArray(stationReaction.stationId, held));
+      .from(stationTool)
+      .where(inArray(stationTool.stationId, held));
 
-    for (const row of reactions) {
-      const found = ways.reactions.get(row.stationId) ?? [];
-      found.push(row.happening);
-      ways.reactions.set(row.stationId, found);
+    for (const row of tools) {
+      const found = ways.tools.get(row.stationId) ?? [];
+      found.push(Tool.of(row.tool));
+      ways.tools.set(row.stationId, found);
     }
 
     return ways;
+  }
+
+  private async reactionsOf(lineId: string): Promise<Reaction[]> {
+    const held = await this.context.db
+      .select()
+      .from(assemblyLineReaction)
+      .where(eq(assemblyLineReaction.assemblyLineId, lineId));
+
+    return held.map((row) =>
+      Reaction.of({
+        happening: Happening.of(row.happening),
+        from: row.fromStationId ? StationId.of(row.fromStationId) : null,
+        to: StationId.of(row.toStationId),
+      }),
+    );
+  }
+
+  private async openersOf(lineId: string): Promise<Opener[]> {
+    const held = await this.context.db
+      .select()
+      .from(assemblyLineOpener)
+      .where(eq(assemblyLineOpener.assemblyLineId, lineId));
+
+    return held.map((row) =>
+      Opener.of({
+        happening: Happening.of(row.happening),
+        to: StationId.of(row.toStationId),
+      }),
+    );
   }
 
   async holding(stationId: StationId): Promise<AssemblyLine | null> {
@@ -210,6 +285,51 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
       .where(eq(station.assemblyLineId, id.value))
       .orderBy(station.position);
 
-    return toLine(found, stations, await this.waysOf(stations));
+    const [ways, reactions, openers] = await Promise.all([
+      this.waysOf(stations),
+      this.reactionsOf(id.value),
+      this.openersOf(id.value),
+    ]);
+
+    return toLine(found, stations, ways, reactions, openers);
+  }
+
+  async ofTeam(teamId: TeamId): Promise<readonly AssemblyLine[]> {
+    const found = await this.context.db
+      .select({ id: assemblyLine.id })
+      .from(assemblyLine)
+      .innerJoin(factory, eq(factory.id, assemblyLine.factoryId))
+      .where(eq(factory.teamId, teamId.value))
+      .orderBy(assemblyLine.id);
+
+    return this.allOf(found.map((each) => each.id));
+  }
+
+  async ofWorkspace(
+    workspaceId: WorkspaceId,
+  ): Promise<readonly AssemblyLine[]> {
+    const found = await this.context.db
+      .select({ id: assemblyLine.id })
+      .from(assemblyLine)
+      .where(eq(assemblyLine.workspaceId, workspaceId.value))
+      .orderBy(assemblyLine.id);
+
+    return this.allOf(found.map((each) => each.id));
+  }
+
+  private async allOf(
+    ids: readonly string[],
+  ): Promise<readonly AssemblyLine[]> {
+    const held: AssemblyLine[] = [];
+
+    for (const id of ids) {
+      const line = await this.find(AssemblyLineId.of(id));
+
+      if (line) {
+        held.push(line);
+      }
+    }
+
+    return held;
   }
 }

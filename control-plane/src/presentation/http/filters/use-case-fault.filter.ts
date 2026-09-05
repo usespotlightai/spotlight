@@ -7,6 +7,7 @@ import {
   BadGatewayException,
   Catch,
   ConflictException,
+  ForbiddenException,
   type HttpException,
   NotFoundException,
   UnprocessableEntityException,
@@ -16,6 +17,7 @@ import { BaseExceptionFilter } from '@nestjs/core';
 const AS_HTTP: Record<UseCaseFaultKind, (message: string) => HttpException> = {
   conflict: (message) => new ConflictException(message),
   'invalid-input': (message) => new UnprocessableEntityException(message),
+  'not-allowed': (message) => new ForbiddenException(message),
   'not-found': (message) => new NotFoundException(message),
   'refused-upstream': (message) => new BadGatewayException(message),
 };

@@ -46,6 +46,7 @@ export function Run() {
 
   const item = said && {
     id: said.runId,
+    teamId,
     createdAt: said.createdAt,
     station: {
       name: said.station?.name ?? '',

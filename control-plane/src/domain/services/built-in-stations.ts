@@ -1,8 +1,10 @@
 import type { StationKind } from '@domain/entities/station.entity';
+import { PULL_REQUEST } from '@domain/services/built-in-tools';
 import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
-import type { Happening } from '@domain/value-objects/happening.vo';
+import { Happening } from '@domain/value-objects/happening.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
+import type { Tool } from '@domain/value-objects/tool.vo';
 
 export interface StationOpening {
   readonly name: StationName;
@@ -10,7 +12,7 @@ export interface StationOpening {
   readonly kind: StationKind;
   readonly agentPrompt: AgentPrompt | null;
   readonly passesTo: readonly string[];
-  readonly reactsTo: readonly Happening[];
+  readonly tools: readonly Tool[];
   readonly ends: boolean;
 }
 
@@ -20,7 +22,7 @@ const opening = (input: {
   prompt?: string;
   kind?: StationKind;
   passesTo?: readonly string[];
-  reactsTo?: readonly Happening[];
+  tools?: readonly Tool[];
   ends?: boolean;
 }): StationOpening => ({
   name: StationName.of(input.name),
@@ -28,7 +30,7 @@ const opening = (input: {
   kind: input.kind ?? 'work',
   agentPrompt: input.prompt ? AgentPrompt.of(input.prompt) : null,
   passesTo: input.passesTo ?? [],
-  reactsTo: input.reactsTo ?? [],
+  tools: input.tools ?? [],
   ends: input.ends ?? false,
 });
 
@@ -100,12 +102,7 @@ what that run works from, so it has to be enough to act on without reading the
 diff again.
 
 If it is sound, say so plainly and say what you checked, then open a pull
-request and give its address in your note:
-
-    spotlight pull-request --title "<what it does>" --body "<the detail>"
-
-Spotlight opens it for the branch this task was worked on. You cannot reach
-GitHub yourself, and do not need to.
+request and give its address in your note.
 
 With the pull request open, the task is finished: hand on to \`done\` rather
 than to a person, so nothing is left waiting on an answer nobody owes.`;
@@ -135,7 +132,6 @@ export const BUILT_IN_STATIONS: readonly StationOpening[] = [
     color: '#edc12b',
     prompt: IMPLEMENTATION,
     passesTo: ['Code Review'],
-    reactsTo: ['checks-failed'],
   }),
   opening({
     name: 'Code Review',
@@ -143,12 +139,46 @@ export const BUILT_IN_STATIONS: readonly StationOpening[] = [
     prompt: CODE_REVIEW,
     passesTo: ['Implementation'],
     ends: true,
-    reactsTo: ['commented', 'changes-requested'],
+    // The one station on the opening line that opens pull requests.
+    tools: [PULL_REQUEST],
   }),
   opening({
     name: 'Completed',
     color: '#a3a8b0',
     kind: 'completed',
-    reactsTo: ['merged'],
   }),
+];
+
+/** A word from outside, and where on the opening line it takes a task. */
+export interface ReactionOpening {
+  readonly happening: Happening;
+  /** Named rather than identified: the stations do not exist yet. */
+  readonly to: string;
+}
+
+/**
+ * How every line answers a word about a task it already has. Each applies
+ * wherever the task stands, which is how the line behaved when a station held
+ * its own reactions.
+ */
+export const BUILT_IN_REACTIONS: readonly ReactionOpening[] = [
+  // A broken build is not a comment to weigh: it is work.
+  {
+    happening: Happening.of('github.checks.failed'),
+    to: 'Implementation',
+  },
+  // What a reviewer says is weighed at review before it becomes work.
+  {
+    happening: Happening.of('github.pull_request.commented'),
+    to: 'Code Review',
+  },
+  {
+    happening: Happening.of('github.pull_request.changes-requested'),
+    to: 'Code Review',
+  },
+  // Merged is the end of the line, whoever pressed the button.
+  {
+    happening: Happening.of('github.pull_request.merged'),
+    to: 'Completed',
+  },
 ];

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -144,12 +145,17 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 
 	// Raised before the agent so the endpoint is there from its first breath,
 	// and closed after it so nothing can speak for a run that has ended.
+	var opener declare.Opener
+	if slices.Contains(run.Spec.Tools, protocol.ToolPullRequest) {
+		opener = func(ctx context.Context, asked protocol.PullRequest) (string, error) {
+			return opts.Journal.OpenPullRequest(ctx, run.ID, asked)
+		}
+	}
+
 	channel, err := declare.Serve(
 		run.Spec.Handover.Options,
 		run.Spec.Handover.NoteLimit,
-		func(ctx context.Context, asked protocol.PullRequest) (string, error) {
-			return opts.Journal.OpenPullRequest(ctx, run.ID, asked)
-		},
+		opener,
 		func(ctx context.Context, said protocol.Remark) error {
 			return opts.Journal.AnswerRemark(ctx, run.ID, said)
 		},

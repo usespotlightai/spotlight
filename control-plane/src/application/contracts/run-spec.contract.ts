@@ -31,6 +31,8 @@ export interface RunSpecShape {
     readonly sessionId?: string;
     readonly keep: boolean;
   };
+  /** What this run may reach for. Absent is none of them. */
+  readonly tools?: readonly string[];
 }
 
 /**

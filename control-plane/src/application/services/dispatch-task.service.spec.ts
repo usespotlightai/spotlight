@@ -25,6 +25,7 @@ import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
+import { Tool } from '@domain/value-objects/tool.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WayOut } from '@domain/value-objects/way-out.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
@@ -93,13 +94,15 @@ const runs = {
 
 const ids: IdGeneratorPort = { generate: () => 'run_1' };
 
-const held = () =>
+const held = (changed?: Station) =>
   AssemblyLine.of({
     id: AssemblyLineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
     name: AssemblyLineName.of('Default'),
-    stations,
+    stations: changed
+      ? stations.map((each) => (each.equals(changed) ? changed : each))
+      : stations,
   });
 
 const tracing = {
@@ -110,7 +113,7 @@ const tracing = {
 const dispatch = (station: Station, standing?: Task) =>
   new DispatchTask(runs, ids, harnesses, tracing).dispatch({
     task: standing ?? task(station.id.value),
-    line: held(),
+    line: held(station),
   });
 
 describe('DispatchTask', () => {
@@ -152,6 +155,21 @@ describe('DispatchTask', () => {
 
   // A station naming no harness is how work is held back: the Backlog keeps
   // tasks precisely because nothing works it.
+  // The runner raises only what the run was handed, so a station's tools
+  // have to reach the spec or the agent is told about something that is not
+  // there to reach.
+  it('hands the run what its station may reach for', async () => {
+    await dispatch((stations[1] as Station).reaches([Tool.of('pull-request')]));
+
+    expect(queued[0]?.spec.value).toMatchObject({ tools: ['pull-request'] });
+  });
+
+  it('hands a station with no tools none', async () => {
+    await dispatch(stations[1] as Station);
+
+    expect(queued[0]?.spec.value).toMatchObject({ tools: [] });
+  });
+
   it('queues nothing for a station nothing works', async () => {
     expect(await dispatch(stations[0] as Station)).toBeNull();
     expect(queued).toHaveLength(0);

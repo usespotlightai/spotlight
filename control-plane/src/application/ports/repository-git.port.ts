@@ -1,3 +1,4 @@
+import type { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import type { Repository } from '@domain/value-objects/repository.vo';
 
 export interface GitCall {
@@ -18,5 +19,9 @@ export const REPOSITORY_GIT = Symbol('REPOSITORY_GIT');
 
 /** Under the control plane's own credential, which the adapter holds. */
 export interface RepositoryGitPort {
-  call(repository: Repository, call: GitCall): Promise<GitAnswer>;
+  call(
+    installation: GitHubInstallation,
+    repository: Repository,
+    call: GitCall,
+  ): Promise<GitAnswer>;
 }

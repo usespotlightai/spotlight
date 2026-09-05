@@ -5,11 +5,11 @@ x-control-plane-env: &control-plane-env
   DATABASE_URL: ${DATABASE_URL:-postgres://postgres:postgres@db:5432/postgres}
   BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-xj4/EgMfb/oOOX54xSnrKiCToESDSWJIy4mLF5Sxlo/IUzvEd/hJDh9VT2kqsyeo}
   BETTER_AUTH_URL: ${BETTER_AUTH_URL:-https://app.dev.usespotlight.ai}
+  SPOTLIGHT_SECRETS_KEY: ${SPOTLIGHT_SECRETS_KEY:-3h+HUYiFyqYwqtMg1AXtsVO1pTcSprmLnsjvI18ksco=}
   GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
   GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
   GITHUB_APP_ID: ${GITHUB_APP_ID:-}
   GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY:-}
-  GITHUB_APP_INSTALLATION_ID: ${GITHUB_APP_INSTALLATION_ID:-}
   GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
   LOG_LEVEL: ${LOG_LEVEL:-debug}
 
@@ -111,7 +111,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 3
-      start_period: 40s
+      start_period: 120s
     labels:
       - traefik.enable=true
       - "traefik.http.routers.control-plane.rule=Host(`app.dev.usespotlight.ai`) && PathPrefix(`/api`)"

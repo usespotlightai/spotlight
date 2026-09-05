@@ -1,9 +1,13 @@
 import type {
+  JournalStep,
+  RunJournal,
+  RunSpan,
+} from '@application/contracts/run-journal.contract';
+import type {
   JournalStepDto,
   RunJournalDto,
   RunSpanDto,
 } from '@application/dto/run-journal.dto';
-import type { JournalStep, RunJournal, RunSpan } from '@domain/model/journal';
 
 const spoken = (at: Date | null): string | null => at?.toISOString() ?? null;
 

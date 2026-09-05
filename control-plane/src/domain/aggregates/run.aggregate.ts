@@ -1,5 +1,7 @@
+import { EventRecorder } from '@domain/aggregates/event-recorder';
 import { RunAbandoned } from '@domain/events/run-abandoned.event';
 import { RunCompleted } from '@domain/events/run-completed.event';
+import { InconsistentStateError } from '@domain/exceptions/inconsistent-state.error';
 import { InvalidRunTransitionError } from '@domain/exceptions/invalid-run-transition.error';
 import type { Declaration } from '@domain/value-objects/declaration.vo';
 import type { HarnessId } from '@domain/value-objects/harness-id.vo';
@@ -31,7 +33,7 @@ export interface Said {
  * One unit of work a runner claims. A runner reporting nothing for a lease's
  * length is indistinguishable from one that died, so both requeue the run.
  */
-export class Run {
+export class Run extends EventRecorder {
   private constructor(
     readonly id: RunId,
     readonly workspaceId: WorkspaceId,
@@ -47,10 +49,9 @@ export class Run {
     readonly leaseExpiresAt: Date | null,
     readonly result: RunOutcome | null,
     readonly attempt: number,
-    /** Raised by whatever change made this one, for the caller to publish. */
-    readonly happened: readonly (RunCompleted | RunAbandoned)[],
-    readonly abandoned: boolean,
-  ) {}
+  ) {
+    super();
+  }
 
   static enqueue(input: {
     id: RunId;
@@ -76,8 +77,6 @@ export class Run {
       null,
       null,
       1,
-      [],
-      false,
     );
   }
 
@@ -96,6 +95,8 @@ export class Run {
     result: RunOutcome | null;
     attempt: number;
   }): Run {
+    Run.guardReconstituted(input);
+
     return new Run(
       input.id,
       input.workspaceId,
@@ -110,9 +111,30 @@ export class Run {
       input.leaseExpiresAt,
       input.result,
       input.attempt,
-      [],
-      false,
     );
+  }
+
+  private static guardReconstituted(input: {
+    state: RunState;
+    claimedBy: RunnerId | null;
+    leaseExpiresAt: Date | null;
+    attempt: number;
+  }): void {
+    if (input.attempt < 1) {
+      throw new InconsistentStateError('run', 'has no attempt to its name');
+    }
+    if (input.state === 'claimed' && !input.claimedBy) {
+      throw new InconsistentStateError('run', 'is claimed by nobody');
+    }
+    if (input.state === 'claimed' && !input.leaseExpiresAt) {
+      throw new InconsistentStateError('run', 'is claimed with no lease');
+    }
+    if (input.state === 'queued' && (input.claimedBy || input.leaseExpiresAt)) {
+      throw new InconsistentStateError(
+        'run',
+        'is queued yet still held by a runner',
+      );
+    }
   }
 
   /** Which row gets here is the queue's problem, settled in the database. */
@@ -150,14 +172,16 @@ export class Run {
   }
 
   private givenUp(reason: string): Run {
-    return this.with({
+    const abandoned = this.with({
       state: 'failed',
       claimedBy: null,
       leaseExpiresAt: null,
       result: { exitCode: -1, failed: true, message: reason },
-      happened: [new RunAbandoned(this.id, this.taskId, this.attempt)],
-      abandoned: true,
     });
+
+    abandoned.record(new RunAbandoned(this.id, this.taskId, this.attempt));
+
+    return abandoned;
   }
 
   /** Queued again, on a fresh attempt so its telling is not taken for the last. */
@@ -190,21 +214,24 @@ export class Run {
   complete(by: RunnerId, outcome: RunOutcome, said: Said = {}): Run {
     this.requireHeldBy(by, 'complete');
 
-    return this.with({
+    const ended = this.with({
       state: outcome.failed ? 'failed' : 'completed',
       result: outcome,
       leaseExpiresAt: null,
-      happened: [
-        new RunCompleted(
-          this.id,
-          this.taskId,
-          outcome,
-          by,
-          said.declared ?? null,
-          said.session ?? null,
-        ),
-      ],
     });
+
+    ended.record(
+      new RunCompleted(
+        this.id,
+        this.taskId,
+        outcome,
+        by,
+        said.declared ?? null,
+        said.session ?? null,
+      ),
+    );
+
+    return ended;
   }
 
   assertHeldBy(by: RunnerId): void {
@@ -225,8 +252,6 @@ export class Run {
     leaseExpiresAt?: Date | null;
     result?: RunOutcome | null;
     attempt?: number;
-    happened?: readonly (RunCompleted | RunAbandoned)[];
-    abandoned?: boolean;
   }): Run {
     return new Run(
       this.id,
@@ -244,8 +269,6 @@ export class Run {
         : this.leaseExpiresAt,
       part.result !== undefined ? part.result : this.result,
       part.attempt ?? this.attempt,
-      part.happened ?? this.happened,
-      part.abandoned ?? this.abandoned,
     );
   }
 

@@ -53,7 +53,7 @@ beforeAll(async () => {
     workspaceId,
     harness: 'dev',
     state: 'claimed',
-    spec: {},
+    spec: { command: 'noop' },
     claimedBy: enrolled.runnerId,
     // Nowhere near lapsing: the point is that revoking does not wait for it.
     leaseExpiresAt: new Date(Date.now() + 5 * 60_000),

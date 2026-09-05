@@ -10,8 +10,16 @@ export interface StationDto {
   readonly kind: StationKind;
 }
 
+export interface ReactionDto {
+  readonly happening: string;
+  /** Where the task must stand for it to count. Null is wherever it is. */
+  readonly from: string | null;
+  readonly to: string;
+}
+
 export interface AssemblyLineDto {
   readonly id: string;
   readonly name: string;
   readonly stations: readonly StationDto[];
+  readonly reactions: readonly ReactionDto[];
 }
