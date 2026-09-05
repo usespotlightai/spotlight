@@ -49,6 +49,11 @@ export const task = pgTable(
     raisedById: text('raised_by_id').references(() => user.id, {
       onDelete: 'set null',
     }),
+    // The team member who owns the work. Set null when they leave, the same
+    // way the task outlives whoever raised it.
+    assigneeId: text('assignee_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
     currentRunId: text('current_run_id'),
     // What the harness called the conversation this task was last worked in.
     // Opaque here: it is handed back to a harness, never read.

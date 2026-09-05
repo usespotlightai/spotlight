@@ -29,6 +29,12 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
     isPending: false,
   }),
 }));
+vi.mock('@/hooks/api/useMembers', () => ({
+  useMembers: () => ({ data: [] }),
+}));
+vi.mock('@/hooks/api/useAssignTask', () => ({
+  useAssignTask: () => ({ mutate: vi.fn() }),
+}));
 
 const standing = [
   {

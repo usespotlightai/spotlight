@@ -75,6 +75,7 @@ const toTask = (row: Row, notes: NoteRow[], marks: MarkRow[] = []): Task =>
       ? StationId.of(row.raisedAtStationId)
       : null,
     raisedBy: row.raisedById ? UserId.of(row.raisedById) : null,
+    assignee: row.assigneeId ? UserId.of(row.assigneeId) : null,
     repository: row.repository ? Repository.of(row.repository) : null,
     finishedAt: row.finishedAt,
     version: row.version,
@@ -105,6 +106,7 @@ export class DrizzleTaskRepository implements TaskRepository, SetupLists {
       createdAt: added.createdAt,
       raisedAtStationId: added.raisedAt?.value ?? null,
       raisedById: added.raisedBy?.value ?? null,
+      assigneeId: added.assignee?.value ?? null,
       repository: added.repository?.value ?? null,
       pullRequest: added.pullRequest?.value ?? null,
       finishedAt: added.finishedAt,
@@ -131,8 +133,10 @@ export class DrizzleTaskRepository implements TaskRepository, SetupLists {
         currentRunId: saved.currentRunId?.value ?? null,
         sessionId: saved.sessionId?.value ?? null,
         runnerId: saved.runnerId?.value ?? null,
+        repository: saved.repository?.value ?? null,
         pullRequest: saved.pullRequest?.value ?? null,
         finishedAt: saved.finishedAt,
+        assigneeId: saved.assignee?.value ?? null,
       })
       .where(and(eq(task.id, saved.id.value), eq(task.version, saved.version)))
       .returning({ id: task.id });

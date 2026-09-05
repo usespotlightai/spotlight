@@ -15,6 +15,13 @@
       "when": 1788593813295,
       "tag": "20260905073653_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788595002321,
+      "tag": "20260905075642_add_task_assignee",
+      "breakpoints": true
     }
   ]
 }

@@ -75,6 +75,8 @@ export class Task extends EventRecorder {
     readonly marks: readonly Mark[],
     // When the line last had nothing further to do with it.
     readonly finishedAt: Date | null,
+    /** The team member who owns the work, or nobody where it is unclaimed. */
+    readonly assignee: UserId | null,
     /** Which reading of this task it is. Written back against the same one. */
     readonly version: number = 0,
   ) {
@@ -111,6 +113,7 @@ export class Task extends EventRecorder {
       null,
       [],
       null,
+      null,
     );
   }
 
@@ -132,6 +135,7 @@ export class Task extends EventRecorder {
     pullRequest: PullRequestUrl | null;
     marks?: readonly Mark[];
     finishedAt: Date | null;
+    assignee?: UserId | null;
     version?: number;
   }): Task {
     if (input.finishedAt !== null && input.currentRunId !== null) {
@@ -159,6 +163,7 @@ export class Task extends EventRecorder {
       input.pullRequest,
       input.marks ?? [],
       input.finishedAt,
+      input.assignee ?? null,
       input.version ?? 0,
     );
   }
@@ -188,6 +193,29 @@ export class Task extends EventRecorder {
 
   reorderTo(rank: TaskRank): Task {
     return this.with({ rank });
+  }
+
+  /** Given to a team member to own. Reassigning replaces whoever held it. */
+  assignedTo(userId: UserId): Task {
+    return this.with({ assignee: userId });
+  }
+
+  /** Owned by nobody again. */
+  unassigned(): Task {
+    return this.with({ assignee: null });
+  }
+
+  /**
+   * Taken up by whoever moved it into active work, but only where nobody held
+   * it: claiming unclaimed work, never taking it from the person who owns it.
+   */
+  claimedBy(userId: UserId): Task {
+    return this.assignee ? this : this.with({ assignee: userId });
+  }
+
+  /** The repository a run works this task in, or none. */
+  worksIn(repository: Repository | null): Task {
+    return this.with({ repository });
   }
 
   get branch(): Branch {
@@ -448,9 +476,11 @@ export class Task extends EventRecorder {
     sessionId?: HarnessSession | null;
     runnerId?: RunnerId | null;
     notes?: readonly TaskNote[];
+    repository?: Repository | null;
     pullRequest?: PullRequestUrl | null;
     marks?: readonly Mark[];
     finishedAt?: Date | null;
+    assignee?: UserId | null;
   }): Task {
     return new Task(
       this.id,
@@ -466,10 +496,11 @@ export class Task extends EventRecorder {
       this.createdAt,
       this.raisedAt,
       this.raisedBy,
-      this.repository,
+      part.repository !== undefined ? part.repository : this.repository,
       part.pullRequest !== undefined ? part.pullRequest : this.pullRequest,
       part.marks ?? this.marks,
       part.finishedAt !== undefined ? part.finishedAt : this.finishedAt,
+      part.assignee !== undefined ? part.assignee : this.assignee,
       // Carried, never raised here: moving it on is the writing's to do.
       this.version,
     );

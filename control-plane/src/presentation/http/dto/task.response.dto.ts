@@ -105,6 +105,13 @@ export class TaskResponseDto {
   readonly raisedBy: TaskPersonResponseDto | null;
 
   @ApiProperty({
+    type: TaskPersonResponseDto,
+    nullable: true,
+    description: 'The team member who owns the work, or nobody where unclaimed',
+  })
+  readonly assignee: TaskPersonResponseDto | null;
+
+  @ApiProperty({
     type: TaskNoteResponseDto,
     nullable: true,
     description: 'The last thing said about this task, and where it was said',
@@ -122,6 +129,7 @@ export class TaskResponseDto {
     repository: string | null,
     pullRequest: string | null,
     raisedBy: TaskPersonResponseDto | null,
+    assignee: TaskPersonResponseDto | null,
     note: TaskNoteResponseDto | null,
   ) {
     this.id = id;
@@ -134,6 +142,7 @@ export class TaskResponseDto {
     this.repository = repository;
     this.pullRequest = pullRequest;
     this.raisedBy = raisedBy;
+    this.assignee = assignee;
     this.note = note;
   }
 }

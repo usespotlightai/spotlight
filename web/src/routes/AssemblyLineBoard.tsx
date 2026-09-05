@@ -178,6 +178,7 @@ export function AssemblyLineBoard() {
                             <TaskRow
                               key={task.id}
                               task={task}
+                              teamId={teamId ?? ''}
                               to={
                                 slug && teamId
                                   ? taskPath(slug, teamId, task.id)

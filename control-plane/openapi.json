@@ -1922,6 +1922,161 @@
         ]
       }
     },
+    "/teams/{teamId}/tasks/{taskId}/assignee": {
+      "put": {
+        "operationId": "assignTask",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignTaskRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such task for this caller"
+          }
+        },
+        "summary": "Give a task to a team member, or clear its assignee",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/teams/{teamId}/tasks/{taskId}/repository": {
+      "put": {
+        "operationId": "setTaskRepository",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetTaskRepositoryRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such task for this caller"
+          }
+        },
+        "summary": "Point a task at a repository, or clear it",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/teams/{teamId}/members": {
+      "get": {
+        "operationId": "listMembers",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MemberResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team for this caller"
+          }
+        },
+        "summary": "List the team members a task can be assigned to",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
     "/workspaces": {
       "post": {
         "operationId": "createWorkspace",
@@ -2682,7 +2837,8 @@
             "example": "words",
             "enum": [
               "words",
-              "setup"
+              "setup",
+              "settled"
             ],
             "description": "What it shows, which is not what it did"
           },
@@ -3768,6 +3924,16 @@
               }
             ]
           },
+          "assignee": {
+            "nullable": true,
+            "description": "The team member who owns the work, or nobody where unclaimed",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TaskPersonResponseDto"
+              }
+            ]
+          },
           "note": {
             "nullable": true,
             "description": "The last thing said about this task, and where it was said",
@@ -3790,6 +3956,7 @@
           "repository",
           "pullRequest",
           "raisedBy",
+          "assignee",
           "note"
         ]
       },
@@ -4373,6 +4540,56 @@
         },
         "required": [
           "stationId"
+        ]
+      },
+      "AssignTaskRequestDto": {
+        "type": "object",
+        "properties": {
+          "assigneeId": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
+            "nullable": true,
+            "description": "The team member to give it to, or null to leave it unclaimed"
+          }
+        },
+        "required": [
+          "assigneeId"
+        ]
+      },
+      "SetTaskRepositoryRequestDto": {
+        "type": "object",
+        "properties": {
+          "repository": {
+            "type": "string",
+            "example": "usespotlightai/spotlight",
+            "nullable": true,
+            "description": "The repository a run works it in, or null for none"
+          }
+        },
+        "required": [
+          "repository"
+        ]
+      },
+      "MemberResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13"
+          },
+          "name": {
+            "type": "string",
+            "example": "Ada Lovelace"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "image"
         ]
       },
       "CreateWorkspaceRequestDto": {

@@ -26,6 +26,7 @@ export interface TaskSummary {
   readonly pullRequest: string | null;
   readonly note: TaskNoteSummary | null;
   readonly raisedBy: PersonSummary | null;
+  readonly assignee: PersonSummary | null;
 }
 
 export const TASK_READER = Symbol('TASK_READER');

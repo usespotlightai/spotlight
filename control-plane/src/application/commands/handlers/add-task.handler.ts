@@ -83,6 +83,6 @@ export class AddTaskHandler
       return handed;
     });
 
-    return TaskMapper.taskToDto(raised, await this.people.find(raisedBy));
+    return TaskMapper.taskToDto(raised, await this.people.find(raisedBy), null);
   }
 }

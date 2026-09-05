@@ -26,6 +26,18 @@ vi.mock('@/hooks/api/useMoveTask', () => ({
 vi.mock('@/hooks/api/useDeleteTask', () => ({
   useDeleteTask: () => ({ mutate: deleted }),
 }));
+vi.mock('@/hooks/api/useSetTaskRepository', () => ({
+  useSetTaskRepository: () => ({ mutate: vi.fn() }),
+}));
+vi.mock('@/hooks/api/useMembers', () => ({
+  useMembers: () => ({ data: [] }),
+}));
+vi.mock('@/hooks/api/useAssignTask', () => ({
+  useAssignTask: () => ({ mutate: vi.fn() }),
+}));
+vi.mock('@/hooks/api/useRepositories', () => ({
+  useRepositories: () => ({ data: [] }),
+}));
 vi.mock('@/hooks/api/useAssemblyLines', () => ({
   useAssemblyLines: () => ({
     data: [

@@ -1,9 +1,10 @@
-import { GitBranch, GitPullRequest } from 'lucide-react';
+import { GitPullRequest } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
+import { AssigneePicker } from '@/components/board/AssigneePicker';
+import { RepositorySelect } from '@/components/board/RepositorySelect';
 import { StationSelect } from '@/components/board/StationSelect';
 import { TaskActions } from '@/components/board/TaskActions';
 import { InitialAvatar } from '@/components/common/avatar/InitialAvatar';
-import { PersonAvatar } from '@/components/common/avatar/PersonAvatar';
 import { MarkdownEditor } from '@/components/common/form/MarkdownEditor';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -11,6 +12,7 @@ import { TaskActivity } from '@/components/runs/TaskActivity';
 import { useAssemblyLines } from '@/hooks/api/useAssemblyLines';
 import { useDeleteTask } from '@/hooks/api/useDeleteTask';
 import { useMoveTask } from '@/hooks/api/useMoveTask';
+import { useSetTaskRepository } from '@/hooks/api/useSetTaskRepository';
 import { useTasks } from '@/hooks/api/useTasks';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { assemblyLinePath, teamPath } from '@/lib/team';
@@ -21,6 +23,7 @@ export function Task() {
   const { data: lines } = useAssemblyLines(teamId);
   const { data: tasks, isPending } = useTasks(teamId);
   const moveTask = useMoveTask();
+  const setRepository = useSetTaskRepository();
   const deleteTask = useDeleteTask();
   const navigate = useNavigate();
 
@@ -152,18 +155,23 @@ export function Task() {
                 />
               )}
 
-              {task.repository && (
-                <div className="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-sm">
-                  <GitBranch
-                    className="size-4 shrink-0 text-muted-foreground"
-                    aria-hidden
-                  />
-
-                  <span className="truncate text-foreground">
-                    {task.repository}
-                  </span>
-                </div>
+              {teamId && (
+                <AssigneePicker teamId={teamId} task={task} variant="row" />
               )}
+
+              <RepositorySelect
+                slug={slug}
+                value={task.repository ?? ''}
+                variant="row"
+                onChange={(repository) =>
+                  teamId &&
+                  setRepository.mutate({
+                    teamId,
+                    taskId: task.id,
+                    repository: repository || null,
+                  })
+                }
+              />
 
               {task.pullRequest && (
                 <a
@@ -179,19 +187,6 @@ export function Task() {
 
                   <span className="truncate text-foreground">Pull request</span>
                 </a>
-              )}
-
-              {task.raisedBy && (
-                <div className="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-sm">
-                  <PersonAvatar
-                    person={task.raisedBy}
-                    className="size-4 data-[size=sm]:size-4"
-                  />
-
-                  <span className="truncate text-foreground">
-                    {task.raisedBy.name}
-                  </span>
-                </div>
               )}
             </section>
           </aside>

@@ -23,7 +23,14 @@ import {
   workspaceMember,
 } from '@infrastructure/persistence/drizzle/schemas/workspace.schema';
 import { Inject, Injectable } from '@nestjs/common';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
+
+/** A second seat at the user table, so a task's assignee joins beside its raiser. */
+const assigneeUser = alias(user, 'assignee_user');
+
+/** The setup note, joined only to leave its task out: a list is not board work. */
+const setupNote = alias(taskNote, 'setup_note');
 
 @Injectable()
 export class DrizzleTaskReader implements TaskReaderPort {
@@ -63,13 +70,21 @@ export class DrizzleTaskReader implements TaskReaderPort {
         raisedById: user.id,
         raisedByName: user.name,
         raisedByImage: user.image,
+        assigneeId: assigneeUser.id,
+        assigneeName: assigneeUser.name,
+        assigneeImage: assigneeUser.image,
       })
       .from(task)
       .innerJoin(station, eq(station.id, task.stationId))
       .innerJoin(assemblyLine, eq(assemblyLine.id, station.assemblyLineId))
       .innerJoin(factory, eq(factory.id, assemblyLine.factoryId))
       .leftJoin(user, eq(user.id, task.raisedById))
-      .where(eq(factory.teamId, teamId.value))
+      .leftJoin(assigneeUser, eq(assigneeUser.id, task.assigneeId))
+      .leftJoin(
+        setupNote,
+        and(eq(setupNote.taskId, task.id), eq(setupNote.form, 'setup')),
+      )
+      .where(and(eq(factory.teamId, teamId.value), isNull(setupNote.taskId)))
       .orderBy(task.rank);
 
     const [notes, awaited] = await Promise.all([
@@ -81,7 +96,16 @@ export class DrizzleTaskReader implements TaskReaderPort {
     ]);
 
     return rows.map(
-      ({ currentRunId, raisedById, raisedByName, raisedByImage, ...rest }) => ({
+      ({
+        currentRunId,
+        raisedById,
+        raisedByName,
+        raisedByImage,
+        assigneeId,
+        assigneeName,
+        assigneeImage,
+        ...rest
+      }) => ({
         ...rest,
         running: currentRunId !== null,
         awaitingReview: awaited.has(rest.id)
@@ -92,6 +116,13 @@ export class DrizzleTaskReader implements TaskReaderPort {
               id: raisedById,
               name: raisedByName ?? '',
               image: raisedByImage,
+            }
+          : null,
+        assignee: assigneeId
+          ? {
+              id: assigneeId,
+              name: assigneeName ?? '',
+              image: assigneeImage,
             }
           : null,
         note: notes.get(rest.id) ?? null,

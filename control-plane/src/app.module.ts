@@ -2,6 +2,7 @@ import { AcceptDeliveryCommand } from '@application/commands/accept-delivery.com
 import { AddTaskCommand } from '@application/commands/add-task.command';
 import { AnswerInboxItemCommand } from '@application/commands/answer-inbox-item.command';
 import { AnswerRemarkCommand } from '@application/commands/answer-remark.command';
+import { AssignTaskCommand } from '@application/commands/assign-task.command';
 import { ChooseToolsCommand } from '@application/commands/choose-tools.command';
 import { ConnectGitHubCommand } from '@application/commands/connect-github.command';
 import { CreateWorkspaceCommand } from '@application/commands/create-workspace.command';
@@ -14,6 +15,7 @@ import { AddTaskHandler } from '@application/commands/handlers/add-task.handler'
 import { AnswerInboxItemHandler } from '@application/commands/handlers/answer-inbox-item.handler';
 import { AnswerRemarkHandler } from '@application/commands/handlers/answer-remark.handler';
 import { AppendRunEventsHandler } from '@application/commands/handlers/append-run-events.handler';
+import { AssignTaskHandler } from '@application/commands/handlers/assign-task.handler';
 import { ChooseToolsHandler } from '@application/commands/handlers/choose-tools.handler';
 import { ClaimRunHandler } from '@application/commands/handlers/claim-run.handler';
 import { CompleteRunHandler } from '@application/commands/handlers/complete-run.handler';
@@ -40,6 +42,7 @@ import {
   ForgetSecretHandler,
   SetSecretHandler,
 } from '@application/commands/handlers/set-secret.handler';
+import { SetTaskRepositoryHandler } from '@application/commands/handlers/set-task-repository.handler';
 import { MoveTaskCommand } from '@application/commands/move-task.command';
 import { OpenPullRequestCommand } from '@application/commands/open-pull-request.command';
 import { PinConfigurationCommand } from '@application/commands/pin-configuration.command';
@@ -60,6 +63,7 @@ import {
 import { SayToRunCommand } from '@application/commands/say-to-run.command';
 import { SetLineReactionsCommand } from '@application/commands/set-line-reactions.command';
 import { SetSecretCommand } from '@application/commands/set-secret.command';
+import { SetTaskRepositoryCommand } from '@application/commands/set-task-repository.command';
 import { DigestRun } from '@application/events/handlers/digest-run.handler';
 import { HandOver } from '@application/events/handlers/hand-over.handler';
 import { ProvisionFactory } from '@application/events/handlers/provision-factory.handler';
@@ -103,6 +107,7 @@ import {
   type LineReaderPort,
 } from '@application/ports/line-reader.port';
 import { LOGGER, type LoggerPort } from '@application/ports/logger.port';
+import { MEMBER_READER } from '@application/ports/member-reader.port';
 import { PERSON_READER } from '@application/ports/person-reader.port';
 import {
   PULL_REQUESTS,
@@ -168,6 +173,7 @@ import { ListHappeningsHandler } from '@application/queries/handlers/list-happen
 import { ListHarnessesHandler } from '@application/queries/handlers/list-harnesses.handler';
 import { ListInboxHandler } from '@application/queries/handlers/list-inbox.handler';
 import { ListKeptWorkspacesHandler } from '@application/queries/handlers/list-kept-workspaces.handler';
+import { ListMembersHandler } from '@application/queries/handlers/list-members.handler';
 import { ListRepositoriesHandler } from '@application/queries/handlers/list-repositories.handler';
 import { ListRunnersHandler } from '@application/queries/handlers/list-runners.handler';
 import { ListTaskRunsHandler } from '@application/queries/handlers/list-task-runs.handler';
@@ -188,6 +194,7 @@ import { ListHappeningsQuery } from '@application/queries/list-happenings.query'
 import { ListHarnessesQuery } from '@application/queries/list-harnesses.query';
 import { ListInboxQuery } from '@application/queries/list-inbox.query';
 import { ListKeptWorkspacesQuery } from '@application/queries/list-kept-workspaces.query';
+import { ListMembersQuery } from '@application/queries/list-members.query';
 import { ListRepositoriesQuery } from '@application/queries/list-repositories.query';
 import { ListRunnersQuery } from '@application/queries/list-runners.query';
 import { ListTaskRunsQuery } from '@application/queries/list-task-runs.query';
@@ -259,6 +266,7 @@ import { DrizzleModule } from '@infrastructure/persistence/drizzle/drizzle.modul
 import { DrizzleAssemblyLineReader } from '@infrastructure/persistence/drizzle/readers/assembly-line.reader';
 import { DrizzleInboxReader } from '@infrastructure/persistence/drizzle/readers/inbox.reader';
 import { DrizzleKeptWorkspaceReader } from '@infrastructure/persistence/drizzle/readers/kept-workspace.reader';
+import { DrizzleMemberReader } from '@infrastructure/persistence/drizzle/readers/member.reader';
 import { DrizzlePersonReader } from '@infrastructure/persistence/drizzle/readers/person.reader';
 import { DrizzleRunReader } from '@infrastructure/persistence/drizzle/readers/run.reader';
 import { DrizzleRunEventReader } from '@infrastructure/persistence/drizzle/readers/run-event.reader';
@@ -356,6 +364,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     { provide: ASSEMBLY_LINE_READER, useClass: DrizzleAssemblyLineReader },
     { provide: PERSON_READER, useClass: DrizzlePersonReader },
     { provide: TASK_READER, useClass: DrizzleTaskReader },
+    { provide: MEMBER_READER, useClass: DrizzleMemberReader },
     { provide: INBOX_READER, useClass: DrizzleInboxReader },
     { provide: RUN_READER, useClass: DrizzleRunReader },
     { provide: RUNNER_READER, useClass: DrizzleRunnerReader },
@@ -798,6 +807,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       ASSEMBLY_LINE_READER,
     ]),
     ...bindQueryHandler(ListTasksQuery, ListTasksHandler, [TASK_READER]),
+    ...bindQueryHandler(ListMembersQuery, ListMembersHandler, [MEMBER_READER]),
     ...bindQueryHandler(ListTaskRunsQuery, ListTaskRunsHandler, [RUN_READER]),
     ...bindQueryHandler(ListTeamRunsQuery, ListTeamRunsHandler, [RUN_READER]),
     ...bindQueryHandler(FindStationQuery, FindStationHandler, [
@@ -988,6 +998,18 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       TRANSACTION,
       TASK_DISPATCH,
       CLOCK,
+      PERSON_READER,
+    ]),
+    ...bindCommandHandler(AssignTaskCommand, AssignTaskHandler, [
+      DrizzleTaskRepository,
+      DrizzleTeamRepository,
+      TRANSACTION,
+      PERSON_READER,
+    ]),
+    ...bindCommandHandler(SetTaskRepositoryCommand, SetTaskRepositoryHandler, [
+      DrizzleTaskRepository,
+      DrizzleTeamRepository,
+      TRANSACTION,
       PERSON_READER,
     ]),
 

@@ -269,7 +269,7 @@ export type InboxMessageResponseDto = {
   /**
    * What it shows, which is not what it did
    */
-  form: 'words' | 'setup';
+  form: 'words' | 'setup' | 'settled';
   /**
    * Who spoke: the station, a person, or the world outside it
    */
@@ -678,6 +678,10 @@ export type TaskResponseDto = {
    */
   raisedBy: TaskPersonResponseDto | null;
   /**
+   * The team member who owns the work, or nobody where unclaimed
+   */
+  assignee: TaskPersonResponseDto | null;
+  /**
    * The last thing said about this task, and where it was said
    */
   note: TaskNoteResponseDto | null;
@@ -863,6 +867,26 @@ export type MoveTaskRequestDto = {
    * The task it was dropped after. Left out for the top of the station.
    */
   afterTaskId?: string | null;
+};
+
+export type AssignTaskRequestDto = {
+  /**
+   * The team member to give it to, or null to leave it unclaimed
+   */
+  assigneeId: string | null;
+};
+
+export type SetTaskRepositoryRequestDto = {
+  /**
+   * The repository a run works it in, or null for none
+   */
+  repository: string | null;
+};
+
+export type MemberResponseDto = {
+  id: string;
+  name: string;
+  image: string | null;
 };
 
 export type CreateWorkspaceRequestDto = {
@@ -2079,6 +2103,86 @@ export type MoveTaskResponses = {
 };
 
 export type MoveTaskResponse = MoveTaskResponses[keyof MoveTaskResponses];
+
+export type AssignTaskData = {
+  body: AssignTaskRequestDto;
+  path: {
+    teamId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/assignee';
+};
+
+export type AssignTaskErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+};
+
+export type AssignTaskResponses = {
+  200: TaskResponseDto;
+};
+
+export type AssignTaskResponse = AssignTaskResponses[keyof AssignTaskResponses];
+
+export type SetTaskRepositoryData = {
+  body: SetTaskRepositoryRequestDto;
+  path: {
+    teamId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/repository';
+};
+
+export type SetTaskRepositoryErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+};
+
+export type SetTaskRepositoryResponses = {
+  200: TaskResponseDto;
+};
+
+export type SetTaskRepositoryResponse = SetTaskRepositoryResponses[keyof SetTaskRepositoryResponses];
+
+export type ListMembersData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/members';
+};
+
+export type ListMembersErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+};
+
+export type ListMembersResponses = {
+  200: Array<MemberResponseDto>;
+};
+
+export type ListMembersResponse = ListMembersResponses[keyof ListMembersResponses];
 
 export type ListWorkspacesData = {
   body?: never;

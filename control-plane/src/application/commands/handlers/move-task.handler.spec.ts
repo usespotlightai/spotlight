@@ -126,7 +126,9 @@ const move = (
     dispatch(),
     clock,
     people,
-  ).execute(new MoveTaskCommand('line_1', 'task_1', stationId, null));
+  ).execute(
+    new MoveTaskCommand('line_1', 'task_1', stationId, null, 'user_mover'),
+  );
 
 beforeEach(() => {
   saved = undefined;
@@ -194,5 +196,27 @@ describe('MoveTaskHandler', () => {
 
   it('refuses a line that does not exist', async () => {
     await expect(move('station_1', lines(null))).rejects.toThrow(UseCaseFault);
+  });
+
+  // Backlog is station_1; Triage (station_2) is the first active station.
+  it('gives unclaimed work to whoever moves it from the backlog into active', async () => {
+    await move('station_2', lines(), tasks(standing('station_1')));
+
+    expect(saved?.assignee?.value).toBe('user_mover');
+  });
+
+  it('leaves work its owner already holds with them when moved active', async () => {
+    const owned = standing('station_1').assignedTo(UserId.of('user_other'));
+
+    await move('station_2', lines(), tasks(owned));
+
+    expect(saved?.assignee?.value).toBe('user_other');
+  });
+
+  it('assigns nobody when the move is not out of the backlog', async () => {
+    // The default task stands at Triage; moving it to Completed is not a claim.
+    await move('station_3', lines(), tasks(standing('station_2')));
+
+    expect(saved?.assignee).toBeNull();
   });
 });

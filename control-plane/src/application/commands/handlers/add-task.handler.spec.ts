@@ -155,6 +155,7 @@ describe('AddTaskHandler', () => {
       repository: null,
       pullRequest: null,
       raisedBy: raiser,
+      assignee: null,
       note: null,
     });
   });
