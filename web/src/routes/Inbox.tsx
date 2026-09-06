@@ -1,10 +1,10 @@
 import { Outlet, useParams } from 'react-router';
-import { InboxRow } from '@/components/inbox/InboxRow';
-import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
-import { Disclosure } from '@/components/layout/Disclosure';
-import { DisclosureRow } from '@/components/layout/DisclosureRow';
-import { PageHeader } from '@/components/layout/PageHeader';
-import { PaneHandle } from '@/components/layout/PaneHandle';
+import { InboxRow } from '@/components/features/inbox/InboxRow';
+import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
+import { Disclosure } from '@/components/shell/layout/Disclosure';
+import { DisclosureRow } from '@/components/shell/layout/DisclosureRow';
+import { PageHeader } from '@/components/shell/layout/PageHeader';
+import { PaneHandle } from '@/components/shell/layout/PaneHandle';
 import { useInbox } from '@/hooks/api/useInbox';
 import { useCollapsed } from '@/hooks/useCollapsed';
 import { usePaneWidth } from '@/hooks/usePaneWidth';

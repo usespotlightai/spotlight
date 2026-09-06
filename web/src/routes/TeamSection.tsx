@@ -1,12 +1,12 @@
 import { Navigate, useParams } from 'react-router';
+import { TeamRuns } from '@/components/features/runs/TeamRuns';
+import { RangePicker } from '@/components/features/trace/list/RangePicker';
+import { TraceList } from '@/components/features/trace/list/TraceList';
 import {
   type BreadcrumbSegment,
   Breadcrumbs,
-} from '@/components/layout/Breadcrumbs';
-import { PageHeader } from '@/components/layout/PageHeader';
-import { TeamRuns } from '@/components/runs/TeamRuns';
-import { RangePicker } from '@/components/trace/RangePicker';
-import { TraceList } from '@/components/trace/TraceList';
+} from '@/components/shell/layout/Breadcrumbs';
+import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useRemembered } from '@/hooks/useRemembered';
 import { DEFAULT_RANGE, rangeOf } from '@/lib/range';

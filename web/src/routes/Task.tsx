@@ -1,16 +1,16 @@
 import { GitPullRequest } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
-import { AssigneePicker } from '@/components/board/AssigneePicker';
-import { RepositorySelect } from '@/components/board/RepositorySelect';
-import { StationSelect } from '@/components/board/StationSelect';
-import { TaskActions } from '@/components/board/TaskActions';
-import { MarkdownEditor } from '@/components/common/form/MarkdownEditor';
+import { AssigneePicker } from '@/components/features/board/task/AssigneePicker';
+import { RepositorySelect } from '@/components/features/board/task/RepositorySelect';
+import { StationSelect } from '@/components/features/board/task/StationSelect';
+import { TaskActions } from '@/components/features/board/task/TaskActions';
+import { TaskActivity } from '@/components/features/runs/TaskActivity';
+import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import {
   type BreadcrumbSegment,
   Breadcrumbs,
-} from '@/components/layout/Breadcrumbs';
-import { PageHeader } from '@/components/layout/PageHeader';
-import { TaskActivity } from '@/components/runs/TaskActivity';
+} from '@/components/shell/layout/Breadcrumbs';
+import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useAssemblyLines } from '@/hooks/api/useAssemblyLines';
 import { useDeleteTask } from '@/hooks/api/useDeleteTask';
 import { useMoveTask } from '@/hooks/api/useMoveTask';

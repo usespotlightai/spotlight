@@ -1,14 +1,14 @@
 import { useParams } from 'react-router';
-import { StationIcon } from '@/components/board/StationIcon';
-import { AutoGrowTextarea } from '@/components/common/form/AutoGrowTextarea';
+import { StationIcon } from '@/components/features/board/column/StationIcon';
+import { AgentPromptField } from '@/components/features/stations/AgentPromptField';
+import { StationColorPicker } from '@/components/features/stations/StationColorPicker';
+import { StationProperties } from '@/components/features/stations/StationProperties';
+import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
 import {
   type BreadcrumbSegment,
   Breadcrumbs,
-} from '@/components/layout/Breadcrumbs';
-import { PageHeader } from '@/components/layout/PageHeader';
-import { AgentPromptField } from '@/components/stations/AgentPromptField';
-import { StationColorPicker } from '@/components/stations/StationColorPicker';
-import { StationProperties } from '@/components/stations/StationProperties';
+} from '@/components/shell/layout/Breadcrumbs';
+import { PageHeader } from '@/components/shell/layout/PageHeader';
 import {
   Popover,
   PopoverContent,

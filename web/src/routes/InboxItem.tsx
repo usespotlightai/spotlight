@@ -1,14 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router';
-import { Conversation } from '@/components/inbox/Conversation';
-import { InboxAsked } from '@/components/inbox/InboxAsked';
-import { InboxComposer } from '@/components/inbox/InboxComposer';
+import { Conversation } from '@/components/features/inbox/conversation/Conversation';
+import { InboxAsked } from '@/components/features/inbox/conversation/InboxAsked';
+import { InboxComposer } from '@/components/features/inbox/conversation/InboxComposer';
+import { RunBriefing } from '@/components/features/runs/RunBriefing';
 import {
   type BreadcrumbSegment,
   Breadcrumbs,
-} from '@/components/layout/Breadcrumbs';
-import { PageHeader } from '@/components/layout/PageHeader';
-import { RunBriefing } from '@/components/runs/RunBriefing';
+} from '@/components/shell/layout/Breadcrumbs';
+import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useInbox } from '@/hooks/api/useInbox';
 import { useReadInboxItem } from '@/hooks/api/useReadInboxItem';
 import { useSession } from '@/hooks/api/useSession';

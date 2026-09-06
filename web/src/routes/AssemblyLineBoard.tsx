@@ -10,18 +10,18 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router';
-import { BoardViews } from '@/components/board/BoardViews';
-import { NewTaskDialog } from '@/components/board/NewTaskDialog';
-import { SelectionBar } from '@/components/board/SelectionBar';
-import { StationPreview } from '@/components/board/StationPreview';
-import { StationSection } from '@/components/board/StationSection';
-import { TaskPreview } from '@/components/board/TaskPreview';
-import { TaskRow } from '@/components/board/TaskRow';
+import { BoardViews } from '@/components/features/board/BoardViews';
+import { StationPreview } from '@/components/features/board/column/StationPreview';
+import { StationSection } from '@/components/features/board/column/StationSection';
+import { SelectionBar } from '@/components/features/board/SelectionBar';
+import { NewTaskDialog } from '@/components/features/board/task/NewTaskDialog';
+import { TaskPreview } from '@/components/features/board/task/TaskPreview';
+import { TaskRow } from '@/components/features/board/task/TaskRow';
 import {
   type BreadcrumbSegment,
   Breadcrumbs,
-} from '@/components/layout/Breadcrumbs';
-import { PageHeader } from '@/components/layout/PageHeader';
+} from '@/components/shell/layout/Breadcrumbs';
+import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useAddTask } from '@/hooks/api/useAddTask';
 import { useAssemblyLines } from '@/hooks/api/useAssemblyLines';
 import { useMoveTask } from '@/hooks/api/useMoveTask';

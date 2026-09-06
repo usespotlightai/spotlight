@@ -1,13 +1,13 @@
 import { useParams } from 'react-router';
-import { Conversation } from '@/components/inbox/Conversation';
+import { Conversation } from '@/components/features/inbox/conversation/Conversation';
+import { RunBriefing } from '@/components/features/runs/RunBriefing';
+import { RunComposer } from '@/components/features/runs/RunComposer';
+import { RunOpening } from '@/components/features/runs/RunOpening';
 import {
   type BreadcrumbSegment,
   Breadcrumbs,
-} from '@/components/layout/Breadcrumbs';
-import { PageHeader } from '@/components/layout/PageHeader';
-import { RunBriefing } from '@/components/runs/RunBriefing';
-import { RunComposer } from '@/components/runs/RunComposer';
-import { RunOpening } from '@/components/runs/RunOpening';
+} from '@/components/shell/layout/Breadcrumbs';
+import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useRunConversation } from '@/hooks/api/useRunConversation';
 import { useRunStream } from '@/hooks/api/useRunStream';
 import { useSession } from '@/hooks/api/useSession';

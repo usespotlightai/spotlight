@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router';
-import { RequireAuth } from './components/common/auth/RequireAuth.tsx';
-import { RequireGuest } from './components/common/auth/RequireGuest.tsx';
+import { RequireAuth } from './components/shell/auth/RequireAuth.tsx';
+import { RequireGuest } from './components/shell/auth/RequireGuest.tsx';
 import { AssemblyLineBoard } from './routes/AssemblyLineBoard.tsx';
 import { CreateWorkspace } from './routes/CreateWorkspace.tsx';
 import { DefaultWorkspace } from './routes/DefaultWorkspace.tsx';

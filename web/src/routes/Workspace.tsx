@@ -1,6 +1,6 @@
 import { Link, Outlet, useParams } from 'react-router';
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { WorkspaceSidebar } from '@/components/layout/WorkspaceSidebar';
+import { DashboardLayout } from '@/components/shell/layout/DashboardLayout';
+import { WorkspaceSidebar } from '@/components/shell/layout/WorkspaceSidebar';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { WORKSPACE_URL_PREFIX } from '@/lib/workspace';
 

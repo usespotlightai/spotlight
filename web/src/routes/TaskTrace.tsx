@@ -1,10 +1,10 @@
 import { useParams } from 'react-router';
+import { TraceView } from '@/components/features/trace/view/TraceView';
 import {
   type BreadcrumbSegment,
   Breadcrumbs,
-} from '@/components/layout/Breadcrumbs';
-import { PageHeader } from '@/components/layout/PageHeader';
-import { TraceView } from '@/components/trace/TraceView';
+} from '@/components/shell/layout/Breadcrumbs';
+import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useTasks } from '@/hooks/api/useTasks';
 import { useTaskTrace } from '@/hooks/api/useTaskTrace';
 import { useWorkspace } from '@/hooks/api/useWorkspace';

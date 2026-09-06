@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router';
-import { SettingsPage } from '@/components/settings/SettingsPage';
-import { SettingsRow } from '@/components/settings/SettingsRow';
-import { SettingsSection } from '@/components/settings/SettingsSection';
+import { SettingsPage } from '@/components/features/settings/SettingsPage';
+import { SettingsRow } from '@/components/features/settings/SettingsRow';
+import { SettingsSection } from '@/components/features/settings/SettingsSection';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useMembers } from '@/hooks/api/useMembers';
 import { useRenameTeam } from '@/hooks/api/useRenameTeam';

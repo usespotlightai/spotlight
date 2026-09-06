@@ -1,9 +1,9 @@
 import { RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { useParams } from 'react-router';
-import { GitHubIntegration } from '@/components/integrations/GitHubIntegration';
-import { IntegrationCard } from '@/components/integrations/IntegrationCard';
-import { SettingsPage } from '@/components/settings/SettingsPage';
+import { GitHubIntegration } from '@/components/features/integrations/GitHubIntegration';
+import { IntegrationCard } from '@/components/features/integrations/IntegrationCard';
+import { SettingsPage } from '@/components/features/settings/SettingsPage';
 import { Button } from '@/components/ui/button';
 import {
   useConfiguration,
