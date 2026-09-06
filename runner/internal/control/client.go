@@ -115,6 +115,21 @@ func (c *Client) AnswerRemark(
 	return nil
 }
 
+// Trace reads another task's run trace, so the agent can study it. The control
+// plane allows it only where that task is in the same team as this run.
+func (c *Client) Trace(
+	ctx context.Context, runID, taskID string,
+) (json.RawMessage, error) {
+	var out json.RawMessage
+	path := "/api/runs/" + runID + "/trace/" + taskID
+
+	if err := c.do(ctx, http.MethodGet, path, nil, &out); err != nil {
+		return nil, fmt.Errorf("read a trace: %w", err)
+	}
+
+	return out, nil
+}
+
 // Claim long-polls for work. An empty queue returns nil, nil, not an error.
 func (c *Client) Claim(ctx context.Context) (*protocol.Run, error) {
 	ctx, cancel := context.WithTimeout(ctx, PollTimeout+15*time.Second)

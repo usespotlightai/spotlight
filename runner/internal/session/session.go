@@ -30,6 +30,7 @@ type Journal interface {
 	Complete(ctx context.Context, runID string, done protocol.Completion) error
 	OpenPullRequest(ctx context.Context, runID string, asked protocol.PullRequest) (string, error)
 	AnswerRemark(ctx context.Context, runID string, said protocol.Remark) error
+	Trace(ctx context.Context, runID, taskID string) (json.RawMessage, error)
 	Said(ctx context.Context, runID string) ([]protocol.Said, error)
 	Delivered(ctx context.Context, runID string, upTo int) error
 }
@@ -164,6 +165,12 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 	defer channel.Close()
+
+	// The runner reads the trace with its own token, so the agent studying one
+	// never holds it.
+	channel.Traces(func(ctx context.Context, taskID string) (json.RawMessage, error) {
+		return opts.Journal.Trace(ctx, run.ID, taskID)
+	})
 
 	// Raised before the agent for the same reason the endpoint is: a harness
 	// that exports from its first breath needs somewhere to export to.

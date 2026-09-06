@@ -150,6 +150,7 @@ import {
   type RunnerRevocationPort,
 } from '@application/ports/runner-revocation.port';
 import { RUNNER_TOKEN } from '@application/ports/runner-token.port';
+import { RUNNER_TRACE_READER } from '@application/ports/runner-trace-reader.port';
 import { TASK_READER } from '@application/ports/task-reader.port';
 import {
   TEAM_SECRETS,
@@ -187,6 +188,7 @@ import { PendingMessagesHandler } from '@application/queries/handlers/pending-me
 import { ConfigurationHandler } from '@application/queries/handlers/read-configuration.handler';
 import { ReadRunConversationHandler } from '@application/queries/handlers/read-run-conversation.handler';
 import { ReadRunEventsHandler } from '@application/queries/handlers/read-run-events.handler';
+import { ReadRunnerTraceHandler } from '@application/queries/handlers/read-runner-trace.handler';
 import { ReadTaskJournalHandler } from '@application/queries/handlers/read-task-journal.handler';
 import { ReadTaskTraceHandler } from '@application/queries/handlers/read-task-trace.handler';
 import { WatchRunHandler } from '@application/queries/handlers/watch-run.handler';
@@ -208,6 +210,7 @@ import { PendingMessagesQuery } from '@application/queries/pending-messages.quer
 import { ConfigurationQuery } from '@application/queries/read-configuration.query';
 import { ReadRunConversationQuery } from '@application/queries/read-run-conversation.query';
 import { ReadRunEventsQuery } from '@application/queries/read-run-events.query';
+import { ReadRunnerTraceQuery } from '@application/queries/read-runner-trace.query';
 import { ReadTaskJournalQuery } from '@application/queries/read-task-journal.query';
 import { ReadTaskTraceQuery } from '@application/queries/read-task-trace.query';
 import { WatchRunQuery } from '@application/queries/watch-run.query';
@@ -274,6 +277,7 @@ import { DrizzleRunReader } from '@infrastructure/persistence/drizzle/readers/ru
 import { DrizzleRunEventReader } from '@infrastructure/persistence/drizzle/readers/run-event.reader';
 import { DrizzleRunJournalReader } from '@infrastructure/persistence/drizzle/readers/run-journal.reader';
 import { DrizzleRunnerReader } from '@infrastructure/persistence/drizzle/readers/runner.reader';
+import { DrizzleRunnerTraceReader } from '@infrastructure/persistence/drizzle/readers/runner-trace.reader';
 import { DrizzleTaskReader } from '@infrastructure/persistence/drizzle/readers/task.reader';
 import { DrizzleTeamTraceReader } from '@infrastructure/persistence/drizzle/readers/team-trace.reader';
 import { DrizzleWorkspaceReader } from '@infrastructure/persistence/drizzle/readers/workspace.reader';
@@ -374,6 +378,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     { provide: MEMBER_READER, useClass: DrizzleMemberReader },
     { provide: INBOX_READER, useClass: DrizzleInboxReader },
     { provide: RUN_READER, useClass: DrizzleRunReader },
+    { provide: RUNNER_TRACE_READER, useClass: DrizzleRunnerTraceReader },
     { provide: RUNNER_READER, useClass: DrizzleRunnerReader },
     { provide: KEPT_WORKSPACE_READER, useClass: DrizzleKeptWorkspaceReader },
     { provide: RUN_JOURNAL_READER, useClass: DrizzleRunJournalReader },
@@ -852,6 +857,10 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     ...bindQueryHandler(ReadTaskTraceQuery, ReadTaskTraceHandler, [
       RUN_READER,
       RUN_JOURNAL_READER,
+    ]),
+
+    ...bindQueryHandler(ReadRunnerTraceQuery, ReadRunnerTraceHandler, [
+      RUNNER_TRACE_READER,
     ]),
 
     ...bindQueryHandler(ReadTaskJournalQuery, ReadTaskJournalHandler, [

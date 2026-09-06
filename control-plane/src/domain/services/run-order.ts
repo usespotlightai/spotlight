@@ -6,7 +6,6 @@ import type { Continuity } from '@domain/value-objects/continuity.vo';
 import type { Repository } from '@domain/value-objects/repository.vo';
 import type { RunnerId } from '@domain/value-objects/runner-id.vo';
 import type { StationId } from '@domain/value-objects/station-id.vo';
-import { TASK_NOTE_MAX_LENGTH } from '@domain/value-objects/task-note-body.vo';
 
 /** What a run is for. How it is written down for a runner is not this. */
 export interface RunOrder {
@@ -54,7 +53,7 @@ export const orderFor = ({
     priority: station.position,
     pinnedTo: continuity.pinnedTo,
     options: line.optionsFrom(station.id).map((each) => each.value),
-    noteLimit: TASK_NOTE_MAX_LENGTH,
+    noteLimit: 0,
     continuity,
     repository: task.repository,
     branch: task.branch.value,

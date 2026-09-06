@@ -36,16 +36,20 @@ const opening = (input: {
 
 const TRIAGE = `## Triage
 
-Work out what is actually being asked for, and whether it is clear enough to
-build. Read the code it would touch before deciding.
+Decide what is actually being asked for, and whether it is clear and coherent
+enough to plan against. This is a gate, not a plan: read just enough to judge
+the request.
 
 Read only. Make no edits and run nothing that changes a file, however small
 the change and however certain you are of it.
 
-Say in your note: what the change is, which parts of the codebase it lands in,
-and anything the request leaves open.
+Say in your note what the request comes down to, in a sentence or two, and
+anything it leaves open or takes for granted.
 
-Hand on when you can state the change in a sentence and name where it goes.
+Hand on to Spec once a plan could be written against it. Which files it
+touches, the approach and the design are Spec's to work out, not yours — do not
+do its job here.
+
 A small change still goes along the line rather than skipping ahead to the end 
 of it.
 
@@ -54,8 +58,9 @@ question for a person, not a guess for you to make.`;
 
 const SPEC = `## Spec
 
-Turn what triage understood into a plan someone can implement without going
-back to the requester.
+Take the request as triage settled it and turn it into a plan someone can
+implement without going back to the requester. What is being asked is decided;
+do not reopen it — your job is the how, not the what.
 
 Say in your note: the approach and why it beats the obvious alternative, the
 files and functions to change, how it should be tested, and what is explicitly

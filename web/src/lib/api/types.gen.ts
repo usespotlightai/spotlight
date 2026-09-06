@@ -149,6 +149,104 @@ export type PendingMessageResponseDto = {
   body: string;
 };
 
+export type StepLocationResponseDto = {
+  path: string;
+  line: number | null;
+};
+
+export type StepChangeResponseDto = {
+  path: string | null;
+  /**
+   * The file as it stood
+   */
+  before: string;
+  /**
+   * The file as the agent left it
+   */
+  after: string;
+};
+
+export type JournalStepResponseDto = {
+  kind: 'said' | 'thought' | 'tool' | 'planned' | 'hook';
+  text: string;
+  status: string | null;
+  /**
+   * What sort of tool it was: execute, read, edit, …
+   */
+  tool: string | null;
+  /**
+   * What the tool answered with, as much of it as is worth reading
+   */
+  detail: string | null;
+  /**
+   * How long it took, in ms
+   */
+  ms: number;
+  /**
+   * When it began, for laying the run out against a clock
+   */
+  startedAt: string;
+  locations: Array<StepLocationResponseDto>;
+  /**
+   * What the tool was asked for, as it was asked
+   */
+  given: string | null;
+  /**
+   * What it handed back, unread
+   */
+  returned: string | null;
+  change: StepChangeResponseDto | null;
+};
+
+export type SpanAttributeResponseDto = {
+  name: string;
+  value: string;
+};
+
+export type RunSpanResponseDto = {
+  id: string;
+  parentId: string | null;
+  name: string;
+  startedAt: string;
+  ms: number;
+  failed: boolean;
+  attributes: Array<SpanAttributeResponseDto>;
+};
+
+export type TraceNodeResponseDto = {
+  id: string;
+  kind: 'run' | 'phase' | 'step' | 'span';
+  name: string;
+  startedAt: string;
+  /**
+   * How long it took, in ms
+   */
+  ms: number;
+  /**
+   * The agent working, the overhead around it, or a fault
+   */
+  tone: 'agent' | 'overhead' | 'failed';
+  cost: number | null;
+  currency: string | null;
+  step: JournalStepResponseDto | null;
+  span: RunSpanResponseDto | null;
+  children: Array<TraceNodeResponseDto>;
+};
+
+export type TaskTraceResponseDto = {
+  startedAt: string | null;
+  /**
+   * First run to last, in ms
+   */
+  ms: number;
+  /**
+   * How many rows it draws
+   */
+  rows: number;
+  faults: number;
+  roots: Array<TraceNodeResponseDto>;
+};
+
 export type DeliverSaidRequestDto = {
   /**
    * Everything said up to and including this note was given
@@ -323,70 +421,6 @@ export type AnswerInboxItemRequestDto = {
    * What the person says back. It joins the task’s trail.
    */
   body: string;
-};
-
-export type StepLocationResponseDto = {
-  path: string;
-  line: number | null;
-};
-
-export type StepChangeResponseDto = {
-  path: string | null;
-  /**
-   * The file as it stood
-   */
-  before: string;
-  /**
-   * The file as the agent left it
-   */
-  after: string;
-};
-
-export type JournalStepResponseDto = {
-  kind: 'said' | 'thought' | 'tool' | 'planned' | 'hook';
-  text: string;
-  status: string | null;
-  /**
-   * What sort of tool it was: execute, read, edit, …
-   */
-  tool: string | null;
-  /**
-   * What the tool answered with, as much of it as is worth reading
-   */
-  detail: string | null;
-  /**
-   * How long it took, in ms
-   */
-  ms: number;
-  /**
-   * When it began, for laying the run out against a clock
-   */
-  startedAt: string;
-  locations: Array<StepLocationResponseDto>;
-  /**
-   * What the tool was asked for, as it was asked
-   */
-  given: string | null;
-  /**
-   * What it handed back, unread
-   */
-  returned: string | null;
-  change: StepChangeResponseDto | null;
-};
-
-export type SpanAttributeResponseDto = {
-  name: string;
-  value: string;
-};
-
-export type RunSpanResponseDto = {
-  id: string;
-  parentId: string | null;
-  name: string;
-  startedAt: string;
-  ms: number;
-  failed: boolean;
-  attributes: Array<SpanAttributeResponseDto>;
 };
 
 export type RunMarksResponseDto = {
@@ -797,40 +831,6 @@ export type TaskRunResponseDto = {
   review: RunReviewResponseDto | null;
 };
 
-export type TraceNodeResponseDto = {
-  id: string;
-  kind: 'run' | 'phase' | 'step' | 'span';
-  name: string;
-  startedAt: string;
-  /**
-   * How long it took, in ms
-   */
-  ms: number;
-  /**
-   * The agent working, the overhead around it, or a fault
-   */
-  tone: 'agent' | 'overhead' | 'failed';
-  cost: number | null;
-  currency: string | null;
-  step: JournalStepResponseDto | null;
-  span: RunSpanResponseDto | null;
-  children: Array<TraceNodeResponseDto>;
-};
-
-export type TaskTraceResponseDto = {
-  startedAt: string | null;
-  /**
-   * First run to last, in ms
-   */
-  ms: number;
-  /**
-   * How many rows it draws
-   */
-  rows: number;
-  faults: number;
-  roots: Array<TraceNodeResponseDto>;
-};
-
 export type AddTaskRequestDto = {
   title: string;
   /**
@@ -1170,6 +1170,33 @@ export type PendingMessagesResponses = {
 };
 
 export type PendingMessagesResponse = PendingMessagesResponses[keyof PendingMessagesResponses];
+
+export type ReadRunTraceData = {
+  body?: never;
+  path: {
+    runId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/trace/{taskId}';
+};
+
+export type ReadRunTraceErrors = {
+  /**
+   * Missing or wrong enrollment token
+   */
+  401: unknown;
+  /**
+   * No such run or task, or not this run’s team to read
+   */
+  404: unknown;
+};
+
+export type ReadRunTraceResponses = {
+  200: TaskTraceResponseDto;
+};
+
+export type ReadRunTraceResponse = ReadRunTraceResponses[keyof ReadRunTraceResponses];
 
 export type DeliverSaidData = {
   body: DeliverSaidRequestDto;

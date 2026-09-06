@@ -61,6 +61,12 @@ func (j *journal) AnswerRemark(
 	return nil
 }
 
+func (j *journal) Trace(
+	_ context.Context, _ string, _ string,
+) (json.RawMessage, error) {
+	return nil, nil
+}
+
 // Said hands back one batch per call, so a fake can end the run by running
 // out rather than by saying the same thing for ever.
 func (j *journal) Said(context.Context, string) ([]protocol.Said, error) {

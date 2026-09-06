@@ -38,11 +38,18 @@ const PullRequestPath = "/pull-request"
 // RemarkPath is where the agent answers something said on the pull request.
 const RemarkPath = "/remark"
 
+// TracePath is where the agent reads a task's trace, behind the same token.
+const TracePath = "/trace"
+
 // Opener is the runner's, so nothing that reaches GitHub is in the agent's.
 type Opener func(ctx context.Context, asked protocol.PullRequest) (string, error)
 
 // Answerer is likewise the runner's, for answering what was said on one.
 type Answerer func(ctx context.Context, said protocol.Remark) error
+
+// Tracer is the runner's too: it reads a trace from the control plane with the
+// runner's token, so the agent never holds one.
+type Tracer func(ctx context.Context, taskID string) (json.RawMessage, error)
 
 type Server struct {
 	listener  net.Listener
@@ -52,6 +59,7 @@ type Server struct {
 	noteLimit int
 	open      Opener
 	answer    Answerer
+	trace     Tracer
 
 	mu       sync.Mutex
 	declared *protocol.Outcome
@@ -103,6 +111,12 @@ func (s *Server) Token() string {
 	return s.token
 }
 
+// Traces sets what answers the agent's requests to read a task's trace. Left
+// unset, the run cannot read one.
+func (s *Server) Traces(trace Tracer) {
+	s.trace = trace
+}
+
 // Spoken closes when the agent first declares. An agent at a terminal never
 // exits on its own, and this is the only word it says that means "finished".
 func (s *Server) Spoken() <-chan struct{} {
@@ -140,6 +154,11 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 	if path.Clean(request.URL.Path) == RemarkPath {
 		s.remark(writer, request)
+		return
+	}
+
+	if path.Clean(request.URL.Path) == TracePath {
+		s.traceOf(writer, request)
 		return
 	}
 
@@ -207,6 +226,34 @@ func (s *Server) remark(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	writer.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) traceOf(writer http.ResponseWriter, request *http.Request) {
+	if s.trace == nil {
+		refuse(writer, http.StatusNotImplemented, "this run cannot read a trace")
+		return
+	}
+
+	var asked protocol.TraceRequest
+	if err := json.NewDecoder(request.Body).Decode(&asked); err != nil {
+		refuse(writer, http.StatusBadRequest, "unreadable trace request")
+		return
+	}
+
+	if strings.TrimSpace(asked.Task) == "" {
+		refuse(writer, http.StatusUnprocessableEntity, "say which task")
+		return
+	}
+
+	trace, err := s.trace(request.Context(), asked.Task)
+	if err != nil {
+		refuse(writer, http.StatusBadGateway, err.Error())
+		return
+	}
+
+	writer.Header().Set("Content-Type", "application/json")
+	writer.WriteHeader(http.StatusOK)
+	_, _ = writer.Write(trace)
 }
 
 func (s *Server) pullRequest(writer http.ResponseWriter, request *http.Request) {
