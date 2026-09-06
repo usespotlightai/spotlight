@@ -19,8 +19,8 @@
     {
       "idx": 2,
       "version": "7",
-      "when": 1788684070224,
-      "tag": "20260906084110_add_line_analysis",
+      "when": 1788699875645,
+      "tag": "20260906130435_add_line_role",
       "breakpoints": true
     }
   ]

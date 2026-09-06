@@ -62,6 +62,7 @@ const repository = (found: AssemblyLine | null = line()) =>
     holding: vi.fn(async () => found),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
+    withRole: vi.fn(async () => null),
     save: vi.fn(async (updated: AssemblyLine) => {
       saved = updated;
     }),

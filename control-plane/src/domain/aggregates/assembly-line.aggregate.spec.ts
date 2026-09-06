@@ -3,7 +3,13 @@ import { Station } from '@domain/entities/station.entity';
 import { InvalidStationChangeError } from '@domain/exceptions/invalid-station-change.error';
 import { InvalidStationLayoutError } from '@domain/exceptions/invalid-station-layout.error';
 import { UnknownStationError } from '@domain/exceptions/unknown-station.error';
-import { BUILT_IN_STATIONS } from '@domain/services/built-in-stations';
+import {
+  BUILT_IN_LINES,
+  type LineOpening,
+} from '@domain/services/built-in-lines';
+
+const BUILT_IN_STATIONS = BUILT_IN_LINES[0]?.stations ?? [];
+
 import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
@@ -72,19 +78,19 @@ const sends = (to: string, from?: string) =>
     to: StationId.of(to),
   });
 
-const opened = (name = 'Default') => {
+const opened = () => {
   let next = 0;
   return AssemblyLine.open({
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
-    name: AssemblyLineName.of(name),
+    line: BUILT_IN_LINES[0] as LineOpening,
     newId: () => `id_${++next}`,
   });
 };
 
 describe('AssemblyLine', () => {
-  it('takes the name it was opened under', () => {
-    expect(opened('Bug Fix').name.value).toBe('Bug Fix');
+  it('takes the name of the line it opens', () => {
+    expect(opened().name.value).toBe('Software Delivery');
   });
 
   it('opens with the stations a line is made of, left to right', () => {

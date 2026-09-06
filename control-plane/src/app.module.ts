@@ -540,16 +540,18 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       provide: ApplyLines,
       inject: [
         DrizzleAssemblyLineRepository,
+        DrizzleFactoryRepository,
         DrizzleTaskRepository,
         LINE_READER,
         ID_GENERATOR,
       ],
       useFactory: (
         lines: DrizzleAssemblyLineRepository,
+        factories: DrizzleFactoryRepository,
         tasks: DrizzleTaskRepository,
         reader: LineReaderPort,
         ids: IdGeneratorPort,
-      ) => new ApplyLines(lines, tasks, reader, ids),
+      ) => new ApplyLines(lines, factories, tasks, reader, ids),
     },
 
     {

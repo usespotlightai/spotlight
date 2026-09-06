@@ -37,17 +37,10 @@ export const renderLine = (line: AssemblyLine): string => {
       version: 1,
       key: line.key.value,
       name: line.name.value,
+      ...(line.role ? { role: line.role.value } : {}),
       stations,
       ...(reactions.length > 0 ? { reactions } : {}),
       ...(openers.length > 0 ? { openers } : {}),
-      ...(line.analysis
-        ? {
-            analysis: {
-              title: line.analysis.title,
-              brief: line.analysis.brief,
-            },
-          }
-        : {}),
     },
     // Long prompts are the point of the file, so they are written as blocks
     // rather than as one unreadable quoted line.

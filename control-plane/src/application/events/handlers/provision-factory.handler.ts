@@ -9,8 +9,8 @@ import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.
 import type { FactoryRepository } from '@domain/repositories/factory.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import type { WorkspaceFinding } from '@domain/repositories/workspace.repository';
+import { BUILT_IN_LINES } from '@domain/services/built-in-lines';
 import { welcomeTask } from '@domain/services/welcome-task';
-import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 
@@ -39,18 +39,24 @@ export class ProvisionFactory implements FactoryProvisioningPort {
 
     await this.factories.add(opened);
 
-    const line = AssemblyLine.open({
-      workspaceId: event.workspaceId,
-      factoryId: opened.id,
-      name: AssemblyLineName.of('Default'),
-      newId: () => this.ids.generate(),
-    });
+    const lines = BUILT_IN_LINES.map((line) =>
+      AssemblyLine.open({
+        workspaceId: event.workspaceId,
+        factoryId: opened.id,
+        line,
+        newId: () => this.ids.generate(),
+      }),
+    );
 
-    await this.lines.add(line);
+    for (const line of lines) {
+      await this.lines.add(line);
+    }
 
-    const [first] = line.stations;
+    // The welcome task lands where work first enters the line a team delivers
+    // on — the first line it was opened with.
+    const [delivery] = lines;
+    const first = delivery?.stations[0];
 
-    // A line with nowhere to put a task is not one this can say anything on.
     if (!first) {
       return;
     }

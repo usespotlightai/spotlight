@@ -1,0 +1,1 @@
+ALTER TABLE "assembly_line" ADD COLUMN "role" text;

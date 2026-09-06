@@ -103,6 +103,7 @@ const lines = (found: AssemblyLine | null = line()) =>
     holding: vi.fn(async () => found),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
+    withRole: vi.fn(async () => null),
   }) satisfies AssemblyLineRepository;
 
 const clock: ClockPort = {

@@ -17,6 +17,10 @@ import { Task } from '@domain/aggregates/task.aggregate';
 import { Station } from '@domain/entities/station.entity';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
+import {
+  BUILT_IN_LINES,
+  type LineOpening,
+} from '@domain/services/built-in-lines';
 import { contributionOf } from '@domain/services/source-contribution';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
@@ -127,6 +131,7 @@ const lines = () =>
     holding: vi.fn(async () => line()),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
+    withRole: vi.fn(async () => null),
   }) satisfies AssemblyLineRepository;
 
 /** Nothing here is about the workspace, so nothing is attended to. */
@@ -436,7 +441,7 @@ describe('ReactToHappening', () => {
     const opening = AssemblyLine.open({
       workspaceId: WorkspaceId.of('ws_1'),
       factoryId: FactoryId.of('factory_1'),
-      name: AssemblyLineName.of('Default'),
+      line: BUILT_IN_LINES[0] as LineOpening,
       newId: () => `id_${++next}`,
     }).installing(contributionOf(SourceKey.of('linear')));
     const backlog = opening.opensAt(ISSUE_CREATED) as Station;
@@ -462,6 +467,7 @@ describe('ReactToHappening', () => {
       holding: vi.fn(async () => opening),
       ofWorkspace: vi.fn(async () => [opening]),
       ofTeam: vi.fn(async () => []),
+      withRole: vi.fn(async () => null),
     } satisfies AssemblyLineRepository;
 
     const filed: Happened = {

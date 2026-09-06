@@ -1,4 +1,8 @@
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import {
+  BUILT_IN_LINES,
+  type LineOpening,
+} from '@domain/services/built-in-lines';
 import { reconcileLine } from '@domain/services/reconcile-line';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
@@ -20,7 +24,7 @@ const standing = () => {
   return AssemblyLine.open({
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
-    name: AssemblyLineName.of('Default'),
+    line: BUILT_IN_LINES[0] as LineOpening,
     newId: () => `id_${++next}`,
   });
 };

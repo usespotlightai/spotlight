@@ -16,11 +16,11 @@ import type { TaskRepository } from '@domain/repositories/task.repository';
 import type { TeamRepository } from '@domain/repositories/team.repository';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
 import { Placement } from '@domain/services/placement';
-import { AnalysisPrompt } from '@domain/value-objects/analysis-prompt.vo';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { LineRole } from '@domain/value-objects/line-role.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
@@ -38,13 +38,13 @@ const transaction: TransactionPort = { run: (work) => work() };
 const requester = { id: 'user_1', name: 'Ada', image: null };
 const people: PersonReaderPort = { find: async () => requester };
 
-const line = (analysis: AnalysisPrompt | null) =>
+const improvementLine = () =>
   AssemblyLine.of({
-    id: AssemblyLineId.of('line_1'),
+    id: AssemblyLineId.of('line_improve'),
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
-    name: AssemblyLineName.of('Default'),
-    analysis,
+    name: AssemblyLineName.of('Factory Improvement'),
+    role: LineRole.IMPROVEMENT,
     stations: [
       Station.create({
         id: StationId.of('station_0'),
@@ -54,10 +54,10 @@ const line = (analysis: AnalysisPrompt | null) =>
         kind: 'backlog',
       }),
       Station.create({
-        id: StationId.of('station_1'),
-        name: StationName.of('Triage'),
+        id: StationId.of('station_analysis'),
+        name: StationName.of('Analysis'),
         position: 1,
-        color: StationColor.of('#93a1b5'),
+        color: StationColor.of('#9b8cf0'),
         harness: HarnessId.of('dev'),
       }),
       Station.create({
@@ -105,14 +105,18 @@ const tasks = (found: Task | null) =>
     holding: vi.fn(async () => null),
   }) satisfies TaskRepository;
 
-const lines = (found: AssemblyLine | null) =>
+const lines = (ofTeam: AssemblyLine[]) =>
   ({
     add: vi.fn(),
     save: vi.fn(),
-    find: vi.fn(async () => found),
-    holding: vi.fn(async () => found),
+    find: vi.fn(async () => ofTeam[0] ?? null),
+    holding: vi.fn(async () => null),
     ofWorkspace: vi.fn(async () => []),
-    ofTeam: vi.fn(async () => []),
+    ofTeam: vi.fn(async () => ofTeam),
+    withRole: vi.fn(
+      async (_team, role) =>
+        ofTeam.find((each) => each.role?.equals(role)) ?? null,
+    ),
   }) satisfies AssemblyLineRepository;
 
 const configurations = (repository: string | null) =>
@@ -129,13 +133,13 @@ const dispatch: TaskDispatching = {
 
 const handler = (over: {
   found?: Task | null;
-  board?: AssemblyLine | null;
+  ofTeam?: AssemblyLine[];
   holds?: boolean;
   repository?: string | null;
 }) =>
   new AnalyseTraceHandler(
     tasks(over.found ?? traced()),
-    lines(over.board ?? line(null)),
+    lines(over.ofTeam ?? [improvementLine()]),
     teams(over.holds ?? true),
     configurations(over.repository ?? null),
     ids,
@@ -152,28 +156,15 @@ beforeEach(() => {
 });
 
 describe('AnalyseTraceHandler', () => {
-  it('opens a triage task briefed by the line, given to whoever asked', async () => {
-    const analysis = AnalysisPrompt.of({
-      title: 'Analyse trace: {trace}',
-      brief: 'Read the trace of task {task}.',
-    });
-
-    const [created] = await handler({ board: line(analysis) }).execute(
-      command(),
-    );
-
-    expect(created?.title).toBe('Analyse trace: Fix the queue');
-    expect(created?.description).toBe('Read the trace of task task_orig.');
-    expect(created?.assignee).toEqual(requester);
-    expect(added?.stationId).toEqual(StationId.of('station_1'));
-    expect(added?.workspaceId).toEqual(WorkspaceId.of('ws_1'));
-  });
-
-  it('falls back to the built-in brief where the line has none', async () => {
-    const [created] = await handler({ board: line(null) }).execute(command());
+  it('opens an analysis task on the improvement line, given to whoever asked', async () => {
+    const [created] = await handler({}).execute(command());
 
     expect(created?.title).toBe('Analyse trace: Fix the queue');
     expect(created?.description).toContain('spotlight trace --task task_orig');
+    expect(created?.assignee).toEqual(requester);
+    // At the line's entry — the first station work is done at.
+    expect(added?.stationId).toEqual(StationId.of('station_analysis'));
+    expect(added?.workspaceId).toEqual(WorkspaceId.of('ws_1'));
   });
 
   it('points the task at the configured repository', async () => {
@@ -182,6 +173,13 @@ describe('AnalyseTraceHandler', () => {
     );
 
     expect(added?.repository?.value).toBe('usespotlightai/spotlight');
+  });
+
+  it('does nothing where the team has no improvement line', async () => {
+    const created = await handler({ ofTeam: [] }).execute(command());
+
+    expect(created).toEqual([]);
+    expect(added).toBeUndefined();
   });
 
   it('says nothing of a trace in another team', async () => {

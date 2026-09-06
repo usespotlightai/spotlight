@@ -2,13 +2,20 @@ import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { LineReaderPort } from '@application/ports/line-reader.port';
 import { ApplyLines } from '@application/services/apply-lines.service';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import { Factory } from '@domain/aggregates/factory.aggregate';
 import type { Task } from '@domain/aggregates/task.aggregate';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
+import type { FactoryRepository } from '@domain/repositories/factory.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
+import {
+  BUILT_IN_LINES,
+  type LineOpening,
+} from '@domain/services/built-in-lines';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { LineKey } from '@domain/value-objects/line-key.vo';
 import { LinePlan, type StationPlan } from '@domain/value-objects/line-plan.vo';
+import { LineRole } from '@domain/value-objects/line-role.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationKey } from '@domain/value-objects/station-key.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
@@ -25,7 +32,7 @@ const line = () => {
   return AssemblyLine.open({
     workspaceId: WORKSPACE,
     factoryId: FactoryId.of('factory_1'),
-    name: AssemblyLineName.of('Default'),
+    line: BUILT_IN_LINES[0] as LineOpening,
     newId: () => `id_${++next}`,
   });
 };
@@ -67,6 +74,7 @@ const like = (
     name: over.name ?? plan.name,
     stations: over.stations ?? plan.stations,
     reactions: over.reactions ?? plan.reactions,
+    role: over.role ?? plan.role,
   });
 
 const applying = (
@@ -80,15 +88,28 @@ const applying = (
 ) => {
   const held = over.held ?? line();
   const save = vi.fn(async () => {});
+  const add = vi.fn(async () => {});
 
   const lines = {
     ofWorkspace: vi.fn(async () => over.standing ?? [held]),
     ofTeam: vi.fn(async () => over.standing ?? [held]),
+    withRole: vi.fn(async () => null),
     save,
-    add: vi.fn(),
+    add,
     find: vi.fn(),
     holding: vi.fn(),
   } as unknown as AssemblyLineRepository;
+
+  const factories = {
+    add: vi.fn(),
+    ofTeam: vi.fn(async () =>
+      Factory.of({
+        id: FactoryId.of('factory_1'),
+        workspaceId: WORKSPACE,
+        teamId: TEAM,
+      }),
+    ),
+  } satisfies FactoryRepository;
 
   const tasks = {
     standingAt: vi.fn(async (stationId: { value: string }) => {
@@ -112,7 +133,12 @@ const applying = (
     generate: () => `new_${++next}`,
   } as unknown as IdGeneratorPort;
 
-  return { apply: new ApplyLines(lines, tasks, reader, ids), save, held };
+  return {
+    apply: new ApplyLines(lines, factories, tasks, reader, ids),
+    save,
+    add,
+    held,
+  };
 };
 
 describe('ApplyLines', () => {
@@ -163,21 +189,48 @@ describe('ApplyLines', () => {
     expect(save).not.toHaveBeenCalled();
     expect(problems).toHaveLength(1);
     expect(problems[0]?.reason).toMatch(/2 standing there/);
-    expect(problems[0]?.path).toBe('.spotlight/lines/default.yml');
+    expect(problems[0]?.path).toBe('.spotlight/lines/delivery.yml');
   });
 
-  // A line is opened with a team, not by a file appearing.
-  it('says so rather than opening a line the workspace does not have', async () => {
+  // A line a file names and the workspace does not have is opened from it.
+  it('opens a line the workspace does not have from its file', async () => {
     const held = line();
-    const { apply, save } = applying(
+    const { apply, add, save } = applying(
       [like(asStanding(held), { key: LineKey.of('release') })],
+      { held },
+    );
+
+    expect(await apply.apply(TEAM, [])).toEqual([]);
+    expect(save).not.toHaveBeenCalled();
+    expect(add).toHaveBeenCalledTimes(1);
+
+    const [opened] = add.mock.calls[0] as never as [AssemblyLine];
+
+    expect(opened.key).toEqual(LineKey.of('release'));
+    expect(opened.factoryId).toEqual(held.factoryId);
+  });
+
+  // A role names one line: two files claiming it settle nothing between them.
+  it('opens neither of two lines that claim the same role', async () => {
+    const held = line();
+    const base = asStanding(held);
+
+    const { apply, add } = applying(
+      [
+        like(base, { key: LineKey.of('one'), role: LineRole.IMPROVEMENT }),
+        like(base, { key: LineKey.of('two'), role: LineRole.IMPROVEMENT }),
+      ],
       { held },
     );
 
     const problems = await apply.apply(TEAM, []);
 
-    expect(save).not.toHaveBeenCalled();
-    expect(problems[0]?.reason).toMatch(/does not have/);
+    expect(add).not.toHaveBeenCalled();
+    expect(problems.map((each) => each.path).sort()).toEqual([
+      '.spotlight/lines/one.yml',
+      '.spotlight/lines/two.yml',
+    ]);
+    expect(problems[0]?.reason).toMatch(/role "improvement"/);
   });
 
   // Configuration says what a workspace has, not what it may not have.

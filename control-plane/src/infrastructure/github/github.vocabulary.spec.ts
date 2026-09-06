@@ -1,11 +1,11 @@
 import type { WorkspaceConnections } from '@domain/repositories/workspace.repository';
-import {
-  BUILT_IN_REACTIONS,
-  BUILT_IN_STATIONS,
-} from '@domain/services/built-in-stations';
+import { BUILT_IN_LINES } from '@domain/services/built-in-lines';
 import { BUILT_IN_TOOLS } from '@domain/services/built-in-tools';
 import { GitHubSource } from '@infrastructure/github/github.source';
 import { describe, expect, it } from 'vitest';
+
+const BUILT_IN_REACTIONS = BUILT_IN_LINES.flatMap((line) => line.reactions);
+const BUILT_IN_STATIONS = BUILT_IN_LINES.flatMap((line) => line.stations);
 
 const source = new GitHubSource(
   { signs: () => true },
@@ -19,9 +19,7 @@ const raised = source.happenings.map((each) => each.happening.value);
  * compile time makes them agree. A station waiting for a word its source
  * never raises would simply never react, and say nothing about why.
  */
-describe('the words the built-in line waits for', () => {
-  const awaited = BUILT_IN_REACTIONS.map((each) => each.happening.value);
-
+describe('the words the built-in lines wait for', () => {
   it('are all words the GitHub source actually raises', () => {
     // A line may watch for words other sources raise; only the ones GitHub
     // owns are the ones GitHub has to raise.
@@ -33,8 +31,12 @@ describe('the words the built-in line waits for', () => {
     expect(raised).toEqual(expect.arrayContaining(fromGitHub));
   });
 
-  it('are each waited for once', () => {
-    expect(new Set(awaited).size).toBe(awaited.length);
+  it('are each waited for once on any one line', () => {
+    for (const line of BUILT_IN_LINES) {
+      const awaited = line.reactions.map((each) => each.happening.value);
+
+      expect(new Set(awaited).size).toBe(awaited.length);
+    }
   });
 });
 

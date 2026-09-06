@@ -1,5 +1,5 @@
 {
-  "id": "e59ad46e-3724-4fde-b912-7fb6c2e7cf37",
+  "id": "5fb32e22-af1c-4d45-995e-f3c57f433bbb",
   "prevId": "d9fa99ef-0d90-4ebc-a58d-fa3929f30a28",
   "version": "7",
   "dialect": "postgresql",
@@ -39,14 +39,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "analysis_title": {
-          "name": "analysis_title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "analysis_brief": {
-          "name": "analysis_brief",
+        "role": {
+          "name": "role",
           "type": "text",
           "primaryKey": false,
           "notNull": false

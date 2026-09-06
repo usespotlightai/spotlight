@@ -12,8 +12,11 @@ import type { Workspace } from '@domain/aggregates/workspace.aggregate';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TeamRepository } from '@domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
+import {
+  BUILT_IN_LINES,
+  type LineOpening,
+} from '@domain/services/built-in-lines';
 import { contributionOf } from '@domain/services/source-contribution';
-import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
@@ -28,7 +31,7 @@ const bareLine = () =>
   AssemblyLine.open({
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
-    name: AssemblyLineName.of('Default'),
+    line: BUILT_IN_LINES[0] as LineOpening,
     newId: () => `id_${++next}`,
   });
 
@@ -80,6 +83,7 @@ const over = (lines: AssemblyLine[]) => {
     holding: vi.fn(),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => lines),
+    withRole: vi.fn(async () => null),
   } satisfies AssemblyLineRepository;
 
   const handler = new ChooseToolsHandler(
@@ -113,7 +117,7 @@ describe('ChooseTools', () => {
 
     expect(paths(written())).toEqual([
       '.spotlight/integrations/linear.yml',
-      '.spotlight/lines/Default.yml',
+      '.spotlight/lines/Software Delivery.yml',
     ]);
   });
 
@@ -139,7 +143,9 @@ describe('ChooseTools', () => {
     const rewritten = vi.mocked(reader.write).mock.calls[0]?.[0];
     expect(rewritten?.opensAt(ISSUE_CREATED)).toBeNull();
 
-    expect(paths(written())).toContain('.spotlight/lines/Default.yml');
+    expect(paths(written())).toContain(
+      '.spotlight/lines/Software Delivery.yml',
+    );
     expect(written()?.removes).toContain('.spotlight/integrations/linear.yml');
   });
 
@@ -164,7 +170,7 @@ describe('ChooseTools', () => {
 
     expect(paths(written())).toEqual([
       '.spotlight/integrations/sentry.yml',
-      '.spotlight/lines/Default.yml',
+      '.spotlight/lines/Software Delivery.yml',
     ]);
   });
 

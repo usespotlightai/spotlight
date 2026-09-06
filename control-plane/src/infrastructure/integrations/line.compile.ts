@@ -1,11 +1,11 @@
 import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
-import { AnalysisPrompt } from '@domain/value-objects/analysis-prompt.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { ConfigurationProblem } from '@domain/value-objects/configuration-problem.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { LineKey } from '@domain/value-objects/line-key.vo';
 import { LinePlan } from '@domain/value-objects/line-plan.vo';
+import { LineRole } from '@domain/value-objects/line-role.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationDescription } from '@domain/value-objects/station-description.vo';
 import { StationKey } from '@domain/value-objects/station-key.vo';
@@ -150,7 +150,7 @@ export const compileLine = (path: string, text: string): CompiledLine => {
           happening: Happening.of(opener.happening),
           to: StationKey.of(opener.to),
         })),
-        analysis: file.analysis ? AnalysisPrompt.of(file.analysis) : null,
+        role: file.role ? LineRole.of(file.role) : null,
       }),
     };
   } catch (error) {

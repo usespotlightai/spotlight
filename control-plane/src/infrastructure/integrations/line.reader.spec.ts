@@ -1,5 +1,8 @@
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
-import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
+import {
+  BUILT_IN_LINES,
+  type LineOpening,
+} from '@domain/services/built-in-lines';
 import { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
@@ -34,14 +37,14 @@ const line = () => {
   return AssemblyLine.open({
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
-    name: AssemblyLineName.of('Default'),
+    line: BUILT_IN_LINES[0] as LineOpening,
     newId: () => `id_${++next}`,
   });
 };
 
 describe('LineReader', () => {
   it('reads every line a workspace wrote', () => {
-    const read = reading([at('.spotlight/lines/default.yml')]);
+    const read = reading([at('.spotlight/lines/delivery.yml')]);
 
     expect(read.plans.map((each) => each.key.value)).toEqual(['default']);
     expect(read.plans[0]?.stations).toHaveLength(3);
@@ -49,7 +52,7 @@ describe('LineReader', () => {
   });
 
   it('reads the reactions along with the stations', () => {
-    const [plan] = reading([at('.spotlight/lines/default.yml')]).plans;
+    const [plan] = reading([at('.spotlight/lines/delivery.yml')]).plans;
 
     expect(plan?.reactions).toHaveLength(1);
     expect(plan?.reactions[0]?.to.value).toBe('completed');
@@ -64,7 +67,7 @@ describe('LineReader', () => {
   it('keeps reading past a file that will not', () => {
     const read = reading([
       at('.spotlight/lines/broken.yml', 'version: 1\nkey: broken'),
-      at('.spotlight/lines/default.yml'),
+      at('.spotlight/lines/delivery.yml'),
     ]);
 
     expect(read.plans.map((each) => each.key.value)).toEqual(['default']);
@@ -85,7 +88,7 @@ describe('LineReader', () => {
   describe('writing one back', () => {
     it('writes it where that line is read from', () => {
       expect(new LineReader().write(line()).path).toBe(
-        '.spotlight/lines/default.yml',
+        '.spotlight/lines/delivery.yml',
       );
     });
 

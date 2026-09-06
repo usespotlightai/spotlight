@@ -19,6 +19,14 @@ export class Factory {
     return new Factory(input.id, input.workspaceId, input.teamId);
   }
 
+  static of(input: {
+    id: FactoryId;
+    workspaceId: WorkspaceId;
+    teamId: TeamId;
+  }): Factory {
+    return new Factory(input.id, input.workspaceId, input.teamId);
+  }
+
   equals(other: Factory): boolean {
     return this.id.equals(other.id);
   }

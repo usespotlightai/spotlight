@@ -2,13 +2,13 @@ import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Station } from '@domain/entities/station.entity';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
-import { AnalysisPrompt } from '@domain/value-objects/analysis-prompt.vo';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { LineKey } from '@domain/value-objects/line-key.vo';
+import { LineRole } from '@domain/value-objects/line-role.vo';
 import { Opener } from '@domain/value-objects/opener.vo';
 import { Reaction } from '@domain/value-objects/reaction.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
@@ -31,7 +31,7 @@ import {
 } from '@infrastructure/persistence/drizzle/schemas/assembly-line.schema';
 import { factory } from '@infrastructure/persistence/drizzle/schemas/factory.schema';
 import { Injectable } from '@nestjs/common';
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 
 type LineRow = typeof assemblyLine.$inferSelect;
 type StationRow = typeof station.$inferSelect;
@@ -77,13 +77,7 @@ const toLine = (
     stations: stations.map((row) => toStation(row, ways)),
     reactions,
     openers,
-    analysis:
-      line.analysisTitle && line.analysisBrief
-        ? AnalysisPrompt.of({
-            title: line.analysisTitle,
-            brief: line.analysisBrief,
-          })
-        : null,
+    role: line.role ? LineRole.of(line.role) : null,
   });
 
 const routeRowsOf = (line: AssemblyLine) =>
@@ -147,8 +141,7 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
       factoryId: added.factoryId.value,
       key: added.key.value,
       name: added.name.value,
-      analysisTitle: added.analysis?.title ?? null,
-      analysisBrief: added.analysis?.brief ?? null,
+      role: added.role?.value ?? null,
     });
 
     await this.context.db.insert(station).values(rowsOf(added));
@@ -161,8 +154,7 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
       .set({
         key: saved.key.value,
         name: saved.name.value,
-        analysisTitle: saved.analysis?.title ?? null,
-        analysisBrief: saved.analysis?.brief ?? null,
+        role: saved.role?.value ?? null,
       })
       .where(eq(assemblyLine.id, saved.id.value));
 
@@ -318,6 +310,23 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
       .orderBy(assemblyLine.id);
 
     return this.allOf(found.map((each) => each.id));
+  }
+
+  async withRole(teamId: TeamId, role: LineRole): Promise<AssemblyLine | null> {
+    const [found] = await this.context.db
+      .select({ id: assemblyLine.id })
+      .from(assemblyLine)
+      .innerJoin(factory, eq(factory.id, assemblyLine.factoryId))
+      .where(
+        and(
+          eq(factory.teamId, teamId.value),
+          eq(assemblyLine.role, role.value),
+        ),
+      )
+      .orderBy(assemblyLine.id)
+      .limit(1);
+
+    return found ? this.find(AssemblyLineId.of(found.id)) : null;
   }
 
   async ofWorkspace(

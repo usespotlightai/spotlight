@@ -1,7 +1,10 @@
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { linePath } from '@domain/aggregates/team-configuration.aggregate';
+import {
+  BUILT_IN_LINES,
+  type LineOpening,
+} from '@domain/services/built-in-lines';
 import { contributionOf } from '@domain/services/source-contribution';
-import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { SourceKey } from '@domain/value-objects/source-key.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
@@ -20,7 +23,7 @@ const built = () => {
   return AssemblyLine.open({
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
-    name: AssemblyLineName.of('Default'),
+    line: BUILT_IN_LINES[0] as LineOpening,
     newId: () => `id_${++next}`,
   }).installing(contributionOf(SourceKey.of('linear')));
 };
@@ -41,7 +44,7 @@ const readBack = (line: AssemblyLine) => {
 
 describe('writing a line out and reading it back', () => {
   it('reads back at all', () => {
-    expect(readBack(built()).key.value).toBe('default');
+    expect(readBack(built()).key.value).toBe('delivery');
   });
 
   it('keeps every station, in the order they stand in', () => {

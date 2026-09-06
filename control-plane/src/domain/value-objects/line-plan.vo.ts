@@ -1,11 +1,11 @@
 import type { StationKind } from '@domain/entities/station.entity';
 import { InvalidLinePlanError } from '@domain/exceptions/invalid-line-plan.error';
 import type { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
-import type { AnalysisPrompt } from '@domain/value-objects/analysis-prompt.vo';
 import type { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import type { Happening } from '@domain/value-objects/happening.vo';
 import type { HarnessId } from '@domain/value-objects/harness-id.vo';
 import type { LineKey } from '@domain/value-objects/line-key.vo';
+import type { LineRole } from '@domain/value-objects/line-role.vo';
 import type { StationColor } from '@domain/value-objects/station-color.vo';
 import type { StationDescription } from '@domain/value-objects/station-description.vo';
 import type { StationKey } from '@domain/value-objects/station-key.vo';
@@ -50,8 +50,8 @@ export class LinePlan {
     readonly stations: readonly StationPlan[],
     readonly reactions: readonly ReactionPlan[],
     readonly openers: readonly OpenerPlan[],
-    /** How an analysis of a trace on this line is briefed, or the default. */
-    readonly analysis: AnalysisPrompt | null,
+    /** What the line is for, where the factory routes work by purpose. */
+    readonly role: LineRole | null,
   ) {}
 
   static of(input: {
@@ -60,7 +60,7 @@ export class LinePlan {
     stations: readonly StationPlan[];
     reactions?: readonly ReactionPlan[];
     openers?: readonly OpenerPlan[];
-    analysis?: AnalysisPrompt | null;
+    role?: LineRole | null;
   }): LinePlan {
     const reactions = input.reactions ?? [];
     const openers = input.openers ?? [];
@@ -121,7 +121,7 @@ export class LinePlan {
       input.stations,
       reactions,
       openers,
-      input.analysis ?? null,
+      input.role ?? null,
     );
   }
 

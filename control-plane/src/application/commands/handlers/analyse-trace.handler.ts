@@ -10,21 +10,29 @@ import type {
   PersonSummary,
 } from '@application/ports/person-reader.port';
 import type { RaiseTask } from '@application/services/raise-task';
+import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import type { Team } from '@domain/aggregates/team.aggregate';
+import type { Station } from '@domain/entities/station.entity';
 import { NotATeamMemberError } from '@domain/exceptions/not-a-team-member.error';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import type { TeamRepository } from '@domain/repositories/team.repository';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
-import { BUILT_IN_ANALYSIS } from '@domain/services/built-in-stations';
 import { Placement } from '@domain/services/placement';
+import { LineRole } from '@domain/value-objects/line-role.vo';
 import type { Repository } from '@domain/value-objects/repository.vo';
 import { TaskDescription } from '@domain/value-objects/task-description.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
+
+/** Points a task at the trace to study; how to study it is the station's own. */
+const analysisNote = (trace: string, traceOf: string): string =>
+  `Analyse the run trace for **${trace}** (task \`${traceOf}\`).
+
+Write it to a file with \`spotlight trace --task ${traceOf}\` and work from there.`;
 
 export class AnalyseTraceHandler
   implements CommandHandlerPort<AnalyseTraceCommand, TaskDto[]>
@@ -56,6 +64,15 @@ export class AnalyseTraceHandler
       throw new NotATeamMemberError();
     }
 
+    // Analysis is the improvement line's work; where a team has no such line,
+    // there is nowhere to open it.
+    const line = await this.lines.withRole(team.id, LineRole.IMPROVEMENT);
+    const entry = line?.entry ?? null;
+
+    if (!line || !entry) {
+      return [];
+    }
+
     const configured = await this.configurations.findFor(team.id);
     const repository = configured?.repository ?? null;
     const person = await this.people.find(requester);
@@ -66,6 +83,8 @@ export class AnalyseTraceHandler
       const dto = await this.analyseOne({
         traceOf: TaskId.of(id),
         team,
+        line,
+        entry,
         requester,
         person,
         repository,
@@ -82,35 +101,27 @@ export class AnalyseTraceHandler
   private async analyseOne(input: {
     traceOf: TaskId;
     team: Team;
+    line: AssemblyLine;
+    entry: Station;
     requester: UserId;
     person: PersonSummary | null;
     repository: Repository | null;
   }): Promise<TaskDto | null> {
     const traced = await this.tasks.find(input.traceOf);
 
-    // Only a trace of this team's own work, and only one still on a line.
+    // Only a trace of this team's own work.
     if (!traced?.workspaceId.equals(input.team.workspaceId)) {
       return null;
     }
 
-    const line = await this.lines.holding(traced.stationId);
-    const triage = line?.entry ?? null;
-
-    if (!line || !triage) {
-      return null;
-    }
-
-    const analysis = (line.analysis ?? BUILT_IN_ANALYSIS).render({
-      trace: traced.title.value,
-      task: traced.id.value,
-    });
-
-    const standing = await this.tasks.placementsAt(triage.id);
+    const standing = await this.tasks.placementsAt(input.entry.id);
     const added = Task.add({
-      workspaceId: line.workspaceId,
-      stationId: triage.id,
-      title: TaskTitle.of(analysis.title),
-      description: TaskDescription.of(analysis.note),
+      workspaceId: input.line.workspaceId,
+      stationId: input.entry.id,
+      title: TaskTitle.of(`Analyse trace: ${traced.title.value}`),
+      description: TaskDescription.of(
+        analysisNote(traced.title.value, traced.id.value),
+      ),
       rank: Placement.atTheBack(standing),
       raisedBy: input.requester,
       now: this.clock.now(),
@@ -118,7 +129,7 @@ export class AnalyseTraceHandler
       repository: input.repository,
     }).assignedTo(input.requester);
 
-    const raised = await this.raise.raise({ task: added, line });
+    const raised = await this.raise.raise({ task: added, line: input.line });
 
     return TaskMapper.taskToDto(raised, input.person, input.person);
   }

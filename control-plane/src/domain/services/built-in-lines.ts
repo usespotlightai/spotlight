@@ -1,8 +1,10 @@
 import type { StationKind } from '@domain/entities/station.entity';
 import { PULL_REQUEST } from '@domain/services/built-in-tools';
 import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
-import { AnalysisPrompt } from '@domain/value-objects/analysis-prompt.vo';
+import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
+import { LineKey } from '@domain/value-objects/line-key.vo';
+import { LineRole } from '@domain/value-objects/line-role.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import type { Tool } from '@domain/value-objects/tool.vo';
@@ -15,6 +17,21 @@ export interface StationOpening {
   readonly passesTo: readonly string[];
   readonly tools: readonly Tool[];
   readonly ends: boolean;
+}
+
+/** A word from outside, and where on a line it takes a task. */
+export interface ReactionOpening {
+  readonly happening: Happening;
+  /** Named rather than identified: the stations do not exist yet. */
+  readonly to: string;
+}
+
+export interface LineOpening {
+  readonly key: LineKey;
+  readonly name: AssemblyLineName;
+  readonly role: LineRole | null;
+  readonly stations: readonly StationOpening[];
+  readonly reactions: readonly ReactionOpening[];
 }
 
 const opening = (input: {
@@ -51,7 +68,7 @@ Hand on to Spec once a plan could be written against it. Which files it
 touches, the approach and the design are Spec's to work out, not yours — do not
 do its job here.
 
-A small change still goes along the line rather than skipping ahead to the end 
+A small change still goes along the line rather than skipping ahead to the end
 of it.
 
 If what was asked for is ambiguous, contradictory, or already done, that is a
@@ -113,30 +130,65 @@ request and give its address in your note.
 With the pull request open, the task is finished: hand on to \`done\` rather
 than to a person, so nothing is left waiting on an answer nobody owes.`;
 
-const ANALYSIS_TITLE = 'Analyse trace: {trace}';
+const ANALYSIS = `## Analysis
 
-const ANALYSIS_BRIEF = `Analyse the run trace for **{trace}** (task \`{task}\`) and work out how we can reduce its failure modes in future runs.
+Analyse the run trace this task points to, and work out how to reduce its
+failure modes in future runs.
 
-Write the trace to a file with \`spotlight trace --task {task}\`. It prints only the file's path and a one-line count — never the trace itself. Read and search that file with your own tools (grep, jq, a ranged read) rather than loading it whole.
-
-The file is one JSON object: \`rows\`, \`faults\`, \`ms\`, and \`roots\` — a tree of nodes. Each node has an \`id\`, a \`kind\` (run, phase, step or span), a \`name\`, \`ms\` and \`tone\`; the heavy detail lives on step nodes (\`step.given\`, \`step.returned\`, \`step.change\`) and span nodes (\`span.attributes\`). Skim the ids, names and tones first, and read the detail only of the nodes worth it.
+The note names the trace and how to pull it: write it to a file with the
+\`spotlight trace --task\` command given there — it prints only the file's
+path, never the trace itself — and read and search that file with your own
+tools rather than loading it whole. The file is one JSON object: \`rows\`,
+\`faults\`, \`ms\`, and \`roots\`, a tree of nodes. Each node has an \`id\`, a
+\`kind\` (run, phase, step or span), a \`name\`, \`ms\` and \`tone\`; the heavy
+detail lives on step nodes (\`step.given\`, \`step.returned\`, \`step.change\`)
+and span nodes (\`span.attributes\`). Skim the ids, names and tones first, and
+read the detail only of the nodes worth it.
 
 Report concretely on:
 
-- **System prompt** — where a station's agent prompt misled it or left it unsure, with specific wording to change.
-- **Missing tools or environment** — anything it lacked or could not reach that cost it retries or dead ends.
-- **Token usage** — where context was spent needlessly (re-reading, loading whole files or traces) and a leaner way to do it.
+- **System prompt** — where a station's prompt misled the agent or left it
+  unsure, with specific wording to change.
+- **Missing tools or environment** — anything it lacked or could not reach
+  that cost it retries or dead ends.
+- **Token usage** — where context was spent needlessly, and a leaner way.
 - **Mistakes** — wrong turns worth skipping next time.
 
-Write it up as a short report with specific, actionable recommendations. Do not make the change here — this is Triage. Hand the task on to Implementation with the recommendations in your handover note, and let Implementation open the pull request against the configuration repository.`;
+Read only. The change is worked out here, not made. Hand the task on to
+Implementation with your recommendations.`;
 
-export const BUILT_IN_ANALYSIS: AnalysisPrompt = AnalysisPrompt.of({
-  title: ANALYSIS_TITLE,
-  brief: ANALYSIS_BRIEF,
-});
+const IMPROVE = `## Implementation
 
-/** What a line is made of. Stations are not added or taken away. */
-export const BUILT_IN_STATIONS: readonly StationOpening[] = [
+Make the change the analysis recommends to the factory's own configuration — a
+station's prompt, the tools it is given, the shape of a line — and no more than
+it. The repository this works in is the configuration repository, not a
+product's.
+
+Match what is already there: the shape of the files, the voice of the prompts.
+Commit your work and push it; the workspace is already on the branch this task
+belongs to:
+
+    git push -u origin HEAD
+
+Say in your note what you changed and why. If the recommendation turns out to
+be wrong or cannot be followed as written, stop and put that to a person
+rather than improvising a different change.`;
+
+const IMPROVE_REVIEW = `## Code review
+
+Review the change against what the analysis asked for, not against how you
+would have written it. Configuration is read by people and by agents alike: a
+prompt that reads two ways is a defect.
+
+Say in your note what you found, most serious first, and be specific. If
+anything needs changing, hand the task back to implementation.
+
+If it is sound, say so and say what you checked, then open a pull request
+against the configuration repository and give its address in your note.
+
+With the pull request open, the task is finished: hand on to \`done\`.`;
+
+const DELIVERY_STATIONS: readonly StationOpening[] = [
   opening({
     name: 'Backlog',
     color: '#a3a8b0',
@@ -167,7 +219,7 @@ export const BUILT_IN_STATIONS: readonly StationOpening[] = [
     prompt: CODE_REVIEW,
     passesTo: ['Implementation'],
     ends: true,
-    // The one station on the opening line that opens pull requests.
+    // The one station on this line that opens pull requests.
     tools: [PULL_REQUEST],
   }),
   opening({
@@ -177,24 +229,48 @@ export const BUILT_IN_STATIONS: readonly StationOpening[] = [
   }),
 ];
 
-/** A word from outside, and where on the opening line it takes a task. */
-export interface ReactionOpening {
-  readonly happening: Happening;
-  /** Named rather than identified: the stations do not exist yet. */
-  readonly to: string;
-}
+const IMPROVEMENT_STATIONS: readonly StationOpening[] = [
+  opening({
+    name: 'Backlog',
+    color: '#a3a8b0',
+    kind: 'backlog',
+    passesTo: ['Analysis'],
+  }),
+  opening({
+    name: 'Analysis',
+    color: '#9b8cf0',
+    prompt: ANALYSIS,
+    passesTo: ['Implementation'],
+  }),
+  opening({
+    name: 'Implementation',
+    color: '#edc12b',
+    prompt: IMPROVE,
+    passesTo: ['Code Review'],
+  }),
+  opening({
+    name: 'Code Review',
+    color: '#56b98d',
+    prompt: IMPROVE_REVIEW,
+    passesTo: ['Implementation'],
+    ends: true,
+    tools: [PULL_REQUEST],
+  }),
+  opening({
+    name: 'Completed',
+    color: '#a3a8b0',
+    kind: 'completed',
+  }),
+];
 
 /**
- * How every line answers a word about a task it already has. Each applies
- * wherever the task stands, which is how the line behaved when a station held
- * its own reactions.
+ * How a line answers a word about a task it already holds. Each applies
+ * wherever the task stands, and reaches only the line whose task the word is
+ * about, so two lines carrying the same rules never contend for one word.
  */
-export const BUILT_IN_REACTIONS: readonly ReactionOpening[] = [
+const GITHUB_REACTIONS: readonly ReactionOpening[] = [
   // A broken build is not a comment to weigh: it is work.
-  {
-    happening: Happening.of('github.checks.failed'),
-    to: 'Implementation',
-  },
+  { happening: Happening.of('github.checks.failed'), to: 'Implementation' },
   // What a reviewer says is weighed at review before it becomes work.
   {
     happening: Happening.of('github.pull_request.commented'),
@@ -205,8 +281,27 @@ export const BUILT_IN_REACTIONS: readonly ReactionOpening[] = [
     to: 'Code Review',
   },
   // Merged is the end of the line, whoever pressed the button.
+  { happening: Happening.of('github.pull_request.merged'), to: 'Completed' },
+];
+
+/**
+ * The lines a team is opened with: delivery, where a product is built, and
+ * factory improvement, where the factory studies its own runs and improves
+ * them. A team may describe more of its own; these are the ones it starts with.
+ */
+export const BUILT_IN_LINES: readonly LineOpening[] = [
   {
-    happening: Happening.of('github.pull_request.merged'),
-    to: 'Completed',
+    key: LineKey.of('delivery'),
+    name: AssemblyLineName.of('Software Delivery'),
+    role: null,
+    stations: DELIVERY_STATIONS,
+    reactions: GITHUB_REACTIONS,
+  },
+  {
+    key: LineKey.of('factory-improvement'),
+    name: AssemblyLineName.of('Factory Improvement'),
+    role: LineRole.IMPROVEMENT,
+    stations: IMPROVEMENT_STATIONS,
+    reactions: GITHUB_REACTIONS,
   },
 ];
