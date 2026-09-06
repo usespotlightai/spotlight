@@ -2,10 +2,10 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ChevronDown, Plus } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { Link } from 'react-router';
 import { DropIndicator } from '@/components/board/DropIndicator';
 import { StationIcon } from '@/components/board/StationIcon';
 import { Disclosure } from '@/components/layout/Disclosure';
+import { TrailLink } from '@/components/layout/TrailLink';
 import { cn } from '@/lib/utils';
 
 type StationSectionProps = {
@@ -91,13 +91,13 @@ export function StationSection({
 
         <h2 className="flex min-w-0 font-medium text-foreground text-sm">
           {to ? (
-            <Link
+            <TrailLink
               to={to}
               draggable={false}
               className="truncate px-1.5 py-0.5 outline-none"
             >
               {name}
-            </Link>
+            </TrailLink>
           ) : (
             <span className="truncate px-1.5 py-0.5">{name}</span>
           )}

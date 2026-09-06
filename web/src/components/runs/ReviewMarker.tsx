@@ -1,5 +1,5 @@
 import { Inbox } from 'lucide-react';
-import { Link } from 'react-router';
+import { TrailLink } from '@/components/layout/TrailLink';
 import { inboxItemPath } from '@/lib/inbox';
 import { since } from '@/lib/runner';
 
@@ -18,7 +18,7 @@ export function ReviewMarker({
 }: ReviewMarkerProps) {
   return (
     <li>
-      <Link
+      <TrailLink
         to={slug ? inboxItemPath(slug, conversationId, runId) : ''}
         className="flex h-9 min-w-0 items-center gap-2 rounded-md px-2 text-muted-foreground text-sm outline-none transition-colors hover:bg-accent"
       >
@@ -29,7 +29,7 @@ export function ReviewMarker({
         <span className="ml-auto shrink-0 text-xs tabular-nums">
           {since(at)}
         </span>
-      </Link>
+      </TrailLink>
     </li>
   );
 }

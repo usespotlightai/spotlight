@@ -130,7 +130,6 @@ Report concretely on:
 
 Write it up as a short report with specific, actionable recommendations. Do not make the change here — this is Triage. Hand the task on to Implementation with the recommendations in your handover note, and let Implementation open the pull request against the configuration repository.`;
 
-/** The prompt an analysis of a trace on the opening line turns into. */
 export const BUILT_IN_ANALYSIS: AnalysisPrompt = AnalysisPrompt.of({
   title: ANALYSIS_TITLE,
   brief: ANALYSIS_BRIEF,

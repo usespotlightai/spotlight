@@ -5,6 +5,7 @@ import type { ClockPort } from '@application/ports/clock.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { PersonReaderPort } from '@application/ports/person-reader.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
+import { RaiseTask } from '@application/services/raise-task';
 import type { TaskDispatching } from '@application/services/task-dispatch';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
@@ -139,9 +140,8 @@ const handler = (over: {
     configurations(over.repository ?? null),
     ids,
     clock,
-    dispatch,
+    new RaiseTask(tasks(null), dispatch, transaction),
     people,
-    transaction,
   );
 
 const command = (taskIds: string[] = ['task_orig']) =>

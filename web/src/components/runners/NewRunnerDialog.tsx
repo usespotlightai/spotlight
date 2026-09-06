@@ -131,6 +131,7 @@ function Token({ token, onDone }: { token: string; onDone: () => void }) {
           size="sm"
           onClick={() => copy(token)}
           aria-label="Copy token"
+          className="bg-card"
         >
           {/* Keyed so the swap is a remount, and can be animated. */}
           <span

@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router';
-import { InitialAvatar } from '@/components/common/avatar/InitialAvatar';
 import { Conversation } from '@/components/inbox/Conversation';
 import { InboxAsked } from '@/components/inbox/InboxAsked';
 import { InboxComposer } from '@/components/inbox/InboxComposer';
-import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
+import {
+  type BreadcrumbSegment,
+  Breadcrumbs,
+} from '@/components/layout/Breadcrumbs';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { RunBriefing } from '@/components/runs/RunBriefing';
 import { useInbox } from '@/hooks/api/useInbox';
@@ -15,6 +17,7 @@ import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { shownAt } from '@/lib/inbox';
 import { taskPath } from '@/lib/task';
 import { teamPath } from '@/lib/team';
+import { useTrail } from '@/lib/trail';
 
 export function InboxItem() {
   const { slug, itemId } = useParams();
@@ -41,6 +44,26 @@ export function InboxItem() {
     read.mutate({ slug, itemId: item.id });
   }, [slug, item, read.mutate]);
 
+  const team = workspace?.teams.find(
+    (candidate) => candidate.id === item?.teamId,
+  );
+
+  const base: BreadcrumbSegment[] = [
+    ...(team && slug
+      ? [
+          {
+            label: team.name,
+            avatar: team.name,
+            to: teamPath(slug, team.id),
+          },
+        ]
+      : []),
+    ...(item && slug
+      ? [{ label: item.title, to: taskPath(slug, item.teamId, item.taskId) }]
+      : []),
+  ];
+  const { trail } = useTrail(base);
+
   if (!item || !slug) {
     return (
       <div className="flex min-h-0 flex-1 items-center justify-center p-8">
@@ -51,39 +74,13 @@ export function InboxItem() {
     );
   }
 
-  const team = workspace?.teams.find(
-    (candidate) => candidate.id === item.teamId,
-  );
-
   // A note that shows itself carries the opening too. Shown above it, the
   // opening reads as something the person wrote, which nobody did.
   const carriesItsOwn = item.notes[0]?.form === 'setup';
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <PageHeader
-        title={
-          <Breadcrumbs
-            segments={[
-              ...(team
-                ? [
-                    {
-                      label: team.name,
-                      icon: (
-                        <InitialAvatar name={team.name} className="bg-card" />
-                      ),
-                      to: teamPath(slug, team.id),
-                    },
-                  ]
-                : []),
-              {
-                label: item.title,
-                to: taskPath(slug, item.teamId, item.taskId),
-              },
-            ]}
-          />
-        }
-      />
+      <PageHeader title={<Breadcrumbs segments={trail} />} />
 
       <Conversation
         item={{

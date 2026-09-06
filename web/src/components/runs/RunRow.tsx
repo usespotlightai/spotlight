@@ -1,8 +1,8 @@
 import { Inbox } from 'lucide-react';
-import { Link } from 'react-router';
 import { StationIcon } from '@/components/board/StationIcon';
 import { InProgress } from '@/components/common/InProgress';
 import { Pill } from '@/components/common/Pill';
+import { TrailLink } from '@/components/layout/TrailLink';
 import { type Run, reviewInk, standing } from '@/lib/run';
 import { since } from '@/lib/runner';
 import { stationShare } from '@/lib/station';
@@ -27,12 +27,12 @@ export function RunRow({ run, to, taskTitle, reviewTo, inTrail }: RunRowProps) {
         <span className="size-4 shrink-0" aria-hidden />
       )}
 
-      <Link
+      <TrailLink
         to={to}
         className="min-w-0 truncate text-foreground outline-none after:absolute after:inset-0 after:rounded-md"
       >
         {taskTitle ?? run.station?.name ?? 'Unknown station'}
-      </Link>
+      </TrailLink>
 
       {taskTitle && run.station && (
         <span className="shrink-0 truncate text-muted-foreground text-xs">
@@ -42,14 +42,14 @@ export function RunRow({ run, to, taskTitle, reviewTo, inTrail }: RunRowProps) {
 
       <span className="ml-auto flex shrink-0 items-center gap-2">
         {run.review && !inTrail && (
-          <Link to={reviewTo ?? ''} className="relative z-10 outline-none">
+          <TrailLink to={reviewTo ?? ''} className="relative z-10 outline-none">
             <Pill
               lead={<Inbox className="size-3.5 shrink-0" aria-hidden />}
               className={reviewInk(run.review)}
             >
               Awaiting review
             </Pill>
-          </Link>
+          </TrailLink>
         )}
 
         {run.state === 'claimed' && <InProgress />}

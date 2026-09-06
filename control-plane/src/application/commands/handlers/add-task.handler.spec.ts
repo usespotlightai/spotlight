@@ -6,6 +6,7 @@ import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { PersonReaderPort } from '@application/ports/person-reader.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import { TaskBriefing } from '@application/rendering/task-briefing';
+import { RaiseTask } from '@application/services/raise-task';
 import type { TaskDispatching } from '@application/services/task-dispatch';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Task } from '@domain/aggregates/task.aggregate';
@@ -115,9 +116,8 @@ const addTask = (
     board,
     ids,
     clock,
-    dispatch(),
+    new RaiseTask(tasks(), dispatch(), transaction),
     people,
-    transaction,
   ).execute(command);
 
 beforeEach(() => {

@@ -221,6 +221,7 @@ import { AttendToNotices } from '@application/services/attend-to-notices.service
 import { CarryGitCall } from '@application/services/carry-git-call.service';
 import { ConversationAtHand } from '@application/services/conversation-at-hand.service';
 import { DispatchTask } from '@application/services/dispatch-task.service';
+import { RaiseTask } from '@application/services/raise-task';
 import { ReadConfiguration } from '@application/services/read-configuration.service';
 import { RunAtHand } from '@application/services/run-at-hand.service';
 import {
@@ -716,6 +717,16 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     },
 
     {
+      provide: RaiseTask,
+      inject: [DrizzleTaskRepository, TASK_DISPATCH, TRANSACTION],
+      useFactory: (
+        tasks: DrizzleTaskRepository,
+        dispatch: DispatchTask,
+        transaction: TransactionPort,
+      ) => new RaiseTask(tasks, dispatch, transaction),
+    },
+
+    {
       provide: STANDING_WORK,
       inject: [DrizzleTaskRepository, TASK_DISPATCH],
       useFactory: (tasks: DrizzleTaskRepository, dispatch: DispatchTask) =>
@@ -889,9 +900,8 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       DrizzleAssemblyLineRepository,
       ID_GENERATOR,
       CLOCK,
-      TASK_DISPATCH,
+      RaiseTask,
       PERSON_READER,
-      TRANSACTION,
     ]),
 
     ...bindCommandHandler(AnalyseTraceCommand, AnalyseTraceHandler, [
@@ -901,9 +911,8 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       DrizzleTeamConfiguration,
       ID_GENERATOR,
       CLOCK,
-      TASK_DISPATCH,
+      RaiseTask,
       PERSON_READER,
-      TRANSACTION,
     ]),
 
     ...bindCommandHandler(DeleteTaskCommand, DeleteTaskHandler, [

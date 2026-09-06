@@ -1,12 +1,10 @@
 import { InvalidAnalysisPromptError } from '@domain/exceptions/invalid-analysis-prompt.error';
 
-/** What a trace and a task look like to the prompt when it is filled in. */
 export interface AnalysisSubject {
   readonly trace: string;
   readonly task: string;
 }
 
-/** The filled-in prompt: the title of the work item and the note it carries. */
 export interface Analysis {
   readonly title: string;
   readonly note: string;
@@ -38,7 +36,6 @@ export class AnalysisPrompt {
     return new AnalysisPrompt(title, brief);
   }
 
-  /** The prompt with its stand-ins filled in for one trace. */
   render(subject: AnalysisSubject): Analysis {
     return {
       title: fill(this.title, subject),

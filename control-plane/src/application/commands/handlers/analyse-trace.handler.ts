@@ -9,8 +9,7 @@ import type {
   PersonReaderPort,
   PersonSummary,
 } from '@application/ports/person-reader.port';
-import type { TransactionPort } from '@application/ports/transaction.port';
-import type { TaskDispatching } from '@application/services/task-dispatch';
+import type { RaiseTask } from '@application/services/raise-task';
 import { Task } from '@domain/aggregates/task.aggregate';
 import type { Team } from '@domain/aggregates/team.aggregate';
 import { NotATeamMemberError } from '@domain/exceptions/not-a-team-member.error';
@@ -27,11 +26,6 @@ import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 
-/**
- * Turns a trace into work: one Triage task per trace, briefed the way the
- * trace's own line briefs an analysis, and given to whoever asked. What the
- * task says is the line's to configure, not this handler's to word.
- */
 export class AnalyseTraceHandler
   implements CommandHandlerPort<AnalyseTraceCommand, TaskDto[]>
 {
@@ -42,9 +36,8 @@ export class AnalyseTraceHandler
     private readonly configurations: TeamConfigurationRepository,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
-    private readonly dispatch: TaskDispatching,
+    private readonly raise: RaiseTask,
     private readonly people: PersonReaderPort,
-    private readonly transaction: TransactionPort,
   ) {}
 
   async execute(command: AnalyseTraceCommand): Promise<TaskDto[]> {
@@ -101,7 +94,7 @@ export class AnalyseTraceHandler
     }
 
     const line = await this.lines.holding(traced.stationId);
-    const triage = line?.worked[0] ?? null;
+    const triage = line?.entry ?? null;
 
     if (!line || !triage) {
       return null;
@@ -125,14 +118,7 @@ export class AnalyseTraceHandler
       repository: input.repository,
     }).assignedTo(input.requester);
 
-    const raised = await this.transaction.run(async () => {
-      const runId = await this.dispatch.dispatch({ task: added, line });
-      const handed = runId ? added.handedTo(runId) : added;
-
-      await this.tasks.add(handed);
-
-      return handed;
-    });
+    const raised = await this.raise.raise({ task: added, line });
 
     return TaskMapper.taskToDto(raised, input.person, input.person);
   }

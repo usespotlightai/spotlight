@@ -154,6 +154,7 @@ function Address({ address }: { address: string }) {
         type="button"
         onClick={() => copy(address)}
         aria-label="Copy the address"
+        className="bg-card"
       >
         <span
           key={copied ? 'copied' : 'copy'}

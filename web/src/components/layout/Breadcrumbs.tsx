@@ -1,13 +1,19 @@
 import { ChevronRight } from 'lucide-react';
-import { Fragment, type ReactNode } from 'react';
+import { Fragment } from 'react';
 import { Link } from 'react-router';
+import { InitialAvatar } from '@/components/common/avatar/InitialAvatar';
 import { Shortened } from '@/components/layout/Shortened';
 
 const LABEL_WIDTH = 256;
 
+/**
+ * Serialisable on purpose: a breadcrumb travels in navigation state so a page
+ * can show the trail it was reached by, and a React node would not survive the
+ * trip. The avatar is named rather than drawn, and built here from the name.
+ */
 export type BreadcrumbSegment = {
   label: string;
-  icon?: ReactNode;
+  avatar?: string;
   to?: string;
 };
 
@@ -16,10 +22,10 @@ type BreadcrumbsProps = {
 };
 
 export function Breadcrumbs({ segments }: BreadcrumbsProps) {
-  return segments.map(({ label, icon, to }, index) => {
+  return segments.map(({ label, avatar, to }, index) => {
     const content = (
       <>
-        {icon}
+        {avatar && <InitialAvatar name={avatar} className="bg-card" />}
         <Shortened
           text={label}
           most={LABEL_WIDTH}

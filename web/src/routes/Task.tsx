@@ -4,9 +4,11 @@ import { AssigneePicker } from '@/components/board/AssigneePicker';
 import { RepositorySelect } from '@/components/board/RepositorySelect';
 import { StationSelect } from '@/components/board/StationSelect';
 import { TaskActions } from '@/components/board/TaskActions';
-import { InitialAvatar } from '@/components/common/avatar/InitialAvatar';
 import { MarkdownEditor } from '@/components/common/form/MarkdownEditor';
-import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
+import {
+  type BreadcrumbSegment,
+  Breadcrumbs,
+} from '@/components/layout/Breadcrumbs';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { TaskActivity } from '@/components/runs/TaskActivity';
 import { useAssemblyLines } from '@/hooks/api/useAssemblyLines';
@@ -16,6 +18,7 @@ import { useSetTaskRepository } from '@/hooks/api/useSetTaskRepository';
 import { useTasks } from '@/hooks/api/useTasks';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { assemblyLinePath, teamPath } from '@/lib/team';
+import { TrailContext, useTrail } from '@/lib/trail';
 
 export function Task() {
   const { slug, teamId, taskId } = useParams();
@@ -27,11 +30,41 @@ export function Task() {
   const deleteTask = useDeleteTask();
   const navigate = useNavigate();
 
+  const task = tasks?.find((candidate) => candidate.id === taskId);
+  const line = lines?.find((candidate) =>
+    candidate.stations.some((station) => station.id === task?.stationId),
+  );
+  const station = line?.stations.find((each) => each.id === task?.stationId);
+  const team = workspace?.teams.find((candidate) => candidate.id === teamId);
+
+  const base: BreadcrumbSegment[] = [
+    ...(team
+      ? [
+          {
+            label: team.name,
+            avatar: team.name,
+            to: slug && teamId ? teamPath(slug, teamId) : undefined,
+          },
+        ]
+      : []),
+    ...(line
+      ? [
+          {
+            label: line.name,
+            to:
+              slug && teamId
+                ? assemblyLinePath(slug, teamId, line.id)
+                : undefined,
+          },
+        ]
+      : []),
+    ...(task ? [{ label: task.title }] : []),
+  ];
+  const { trail, forward } = useTrail(base);
+
   if (isPending) {
     return null;
   }
-
-  const task = tasks?.find((candidate) => candidate.id === taskId);
 
   if (!task) {
     return (
@@ -46,44 +79,10 @@ export function Task() {
     );
   }
 
-  const line = lines?.find((candidate) =>
-    candidate.stations.some((station) => station.id === task.stationId),
-  );
-  const station = line?.stations.find((each) => each.id === task.stationId);
-  const team = workspace?.teams.find((candidate) => candidate.id === teamId);
-
   return (
-    <>
+    <TrailContext value={forward}>
       <PageHeader
-        title={
-          <Breadcrumbs
-            segments={[
-              ...(team
-                ? [
-                    {
-                      label: team.name,
-                      icon: (
-                        <InitialAvatar name={team.name} className="bg-card" />
-                      ),
-                      to: slug && teamId ? teamPath(slug, teamId) : undefined,
-                    },
-                  ]
-                : []),
-              ...(line
-                ? [
-                    {
-                      label: line.name,
-                      to:
-                        slug && teamId
-                          ? assemblyLinePath(slug, teamId, line.id)
-                          : undefined,
-                    },
-                  ]
-                : []),
-              { label: task.title },
-            ]}
-          />
-        }
+        title={<Breadcrumbs segments={trail} />}
         trailing={
           <TaskActions
             title={task.title}
@@ -192,6 +191,6 @@ export function Task() {
           </aside>
         </div>
       </div>
-    </>
+    </TrailContext>
   );
 }

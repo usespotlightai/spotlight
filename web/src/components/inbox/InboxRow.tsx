@@ -3,6 +3,7 @@ import { StationIcon } from '@/components/board/StationIcon';
 import { type InboxItem, inboxItemPath, waitingOn } from '@/lib/inbox';
 import { stationShare } from '@/lib/station';
 import { raisedOn } from '@/lib/task';
+import { useForwardTrail } from '@/lib/trail';
 import { cn } from '@/lib/utils';
 
 type InboxRowProps = {
@@ -12,10 +13,12 @@ type InboxRowProps = {
 
 export function InboxRow({ slug, item }: InboxRowProps) {
   const asked = waitingOn(item);
+  const trail = useForwardTrail();
 
   return (
     <NavLink
       to={inboxItemPath(slug, item.id)}
+      state={trail.length > 0 ? { trail } : undefined}
       className={({ isActive }) =>
         cn(
           'flex flex-col gap-0.5 rounded-md px-2 py-2 outline-none transition-colors',

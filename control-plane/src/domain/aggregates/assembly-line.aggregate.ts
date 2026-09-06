@@ -529,6 +529,12 @@ export class AssemblyLine {
     return this.stations.filter((each) => each.isWorked);
   }
 
+  /** Where a task enters the line to be worked: the first station work is done
+   *  at, and where an analysis of a trace on this line is opened. */
+  get entry(): Station | null {
+    return this.worked[0] ?? null;
+  }
+
   /**
    * The station standing at this id, asked of the line rather than found in
    * it: a station is the line's to give out, and the line is what knows

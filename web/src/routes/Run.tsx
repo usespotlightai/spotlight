@@ -1,7 +1,9 @@
 import { useParams } from 'react-router';
-import { InitialAvatar } from '@/components/common/avatar/InitialAvatar';
 import { Conversation } from '@/components/inbox/Conversation';
-import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
+import {
+  type BreadcrumbSegment,
+  Breadcrumbs,
+} from '@/components/layout/Breadcrumbs';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { RunBriefing } from '@/components/runs/RunBriefing';
 import { RunComposer } from '@/components/runs/RunComposer';
@@ -14,6 +16,7 @@ import { useTeamRuns } from '@/hooks/api/useTeamRuns';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { taskPath } from '@/lib/task';
 import { teamPath } from '@/lib/team';
+import { TrailContext, useTrail } from '@/lib/trail';
 
 export function Run() {
   const { slug, teamId, runId } = useParams();
@@ -25,6 +28,35 @@ export function Run() {
   const { data: workspace } = useWorkspace(slug);
 
   useRunStream(runId, run?.state === 'claimed');
+
+  const team = workspace?.teams.find((candidate) => candidate.id === teamId);
+
+  const base: BreadcrumbSegment[] = [
+    ...(team && slug
+      ? [
+          {
+            label: team.name,
+            avatar: team.name,
+            to: teamPath(slug, team.id),
+          },
+        ]
+      : []),
+    ...(run
+      ? [
+          {
+            label: said?.title ?? run.taskTitle ?? 'Run',
+            to:
+              run.taskId && slug && teamId
+                ? taskPath(slug, teamId, run.taskId)
+                : undefined,
+          },
+          { label: run.station?.name ?? 'Run' },
+        ]
+      : []),
+  ];
+  // A run owns two crumbs: the task it is of, and its station — both shown
+  // however it was reached.
+  const { trail, forward } = useTrail(base, 2);
 
   if (isPending || !slug || !teamId) {
     return null;
@@ -40,7 +72,6 @@ export function Run() {
     );
   }
 
-  const team = workspace?.teams.find((candidate) => candidate.id === teamId);
   // Only while the task is still where this run was dispatched from.
   const here = run.station?.name === said?.station?.name;
 
@@ -71,62 +102,39 @@ export function Run() {
   );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <PageHeader
-        title={
-          <Breadcrumbs
-            segments={[
-              ...(team
-                ? [
-                    {
-                      label: team.name,
-                      icon: (
-                        <InitialAvatar name={team.name} className="bg-card" />
-                      ),
-                      to: teamPath(slug, team.id),
-                    },
-                  ]
-                : []),
-              {
-                label: said?.title ?? run.taskTitle ?? 'Run',
-                ...(run.taskId
-                  ? { to: taskPath(slug, teamId, run.taskId) }
-                  : {}),
-              },
-              { label: run.station?.name ?? 'Run' },
-            ]}
+    <TrailContext value={forward}>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <PageHeader title={<Breadcrumbs segments={trail} />} />
+
+        {item && item.notes.length > 0 ? (
+          <Conversation
+            item={item}
+            worked={worked ?? []}
+            viewerId={session?.user.id}
+            opening={
+              said?.briefing ? (
+                <RunBriefing briefing={said.briefing} />
+              ) : undefined
+            }
+            footer={footer}
           />
-        }
-      />
+        ) : (
+          <>
+            <RunOpening run={run} briefing={said?.briefing ?? null} />
 
-      {item && item.notes.length > 0 ? (
-        <Conversation
-          item={item}
-          worked={worked ?? []}
-          viewerId={session?.user.id}
-          opening={
-            said?.briefing ? (
-              <RunBriefing briefing={said.briefing} />
-            ) : undefined
-          }
-          footer={footer}
-        />
-      ) : (
-        <>
-          <RunOpening run={run} briefing={said?.briefing ?? null} />
+            <div className="relative shrink-0 bg-surface">
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 bottom-full h-10 bg-gradient-to-t from-surface to-transparent"
+              />
 
-          <div className="relative shrink-0 bg-surface">
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-x-0 bottom-full h-10 bg-gradient-to-t from-surface to-transparent"
-            />
-
-            <div className="mx-auto w-full max-w-3xl px-8 pt-2 pb-6">
-              <div className="-mx-3">{footer}</div>
+              <div className="mx-auto w-full max-w-3xl px-8 pt-2 pb-6">
+                <div className="-mx-3">{footer}</div>
+              </div>
             </div>
-          </div>
-        </>
-      )}
-    </div>
+          </>
+        )}
+      </div>
+    </TrailContext>
   );
 }

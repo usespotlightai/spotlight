@@ -1,10 +1,10 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Link } from 'react-router';
 import { AssigneePicker } from '@/components/board/AssigneePicker';
 import { DropIndicator } from '@/components/board/DropIndicator';
 import { StationIcon } from '@/components/board/StationIcon';
 import { TaskState } from '@/components/board/TaskState';
+import { TrailLink } from '@/components/layout/TrailLink';
 import { Checkbox } from '@/components/ui/checkbox';
 import { raisedOn, type Task } from '@/lib/task';
 import { cn } from '@/lib/utils';
@@ -95,13 +95,13 @@ export function TaskRow({
         />
 
         <span className="flex min-w-0 flex-1 pl-1.5">
-          <Link
+          <TrailLink
             to={to}
             draggable={false}
             className="truncate text-foreground text-sm outline-none"
           >
             {task.title}
-          </Link>
+          </TrailLink>
         </span>
 
         <TaskState task={task} reviewTo={reviewTo} />
