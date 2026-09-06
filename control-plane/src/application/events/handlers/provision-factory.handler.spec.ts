@@ -58,7 +58,7 @@ const provision = () =>
     { now: () => at, sleep: async () => {} },
     {
       find: vi.fn(async () =>
-        Workspace.create({
+        Workspace.open({
           id: WorkspaceId.of('ws_1'),
           name: WorkspaceName.of('Acme'),
           slug: WorkspaceSlug.of('acme'),

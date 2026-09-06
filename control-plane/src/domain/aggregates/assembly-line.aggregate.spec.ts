@@ -29,7 +29,7 @@ const at = (
   name = `Station ${position}`,
   ways: { passesTo?: string[] } = {},
 ) =>
-  Station.create({
+  Station.of({
     id: StationId.of(`station_${position}`),
     name: StationName.of(name),
     position,
@@ -38,7 +38,7 @@ const at = (
   });
 
 const backlog = (position = 0) =>
-  Station.create({
+  Station.of({
     id: StationId.of('backlog_1'),
     name: StationName.of('Backlog'),
     position,
@@ -47,7 +47,7 @@ const backlog = (position = 0) =>
   });
 
 const completed = (position: number) =>
-  Station.create({
+  Station.of({
     id: StationId.of('completed_1'),
     name: StationName.of('Completed'),
     position,
@@ -305,7 +305,7 @@ describe('AssemblyLine', () => {
         of([
           backlog(),
           at(1, 'Triage'),
-          Station.create({
+          Station.of({
             id: StationId.of('completed_1'),
             name: StationName.of('Completed'),
             position: 2,

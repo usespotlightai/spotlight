@@ -15,8 +15,6 @@ type RunOpeningProps = {
 
 export function RunOpening({ run, briefing, activity }: RunOpeningProps) {
   const station = run.station;
-  // The steps stream in below; keep the newest in view unless the reader has
-  // scrolled up to read what came before.
   const scroller = useStickToBottom<HTMLDivElement>();
 
   return (

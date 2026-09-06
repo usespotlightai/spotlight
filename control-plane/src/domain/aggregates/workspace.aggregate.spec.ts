@@ -15,7 +15,7 @@ const REINSTALLED = Connection.of('github', '43');
 const FIRST_TEAM = TeamId.of('team_1');
 
 const build = (id = 'ws_1') =>
-  Workspace.create({
+  Workspace.open({
     id: WorkspaceId.of(id),
     name: WorkspaceName.of('Acme Inc.'),
     slug: WorkspaceSlug.of('acme-inc'),

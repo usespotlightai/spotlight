@@ -15,11 +15,6 @@ type RunActivityProps = {
   station: Station;
 };
 
-/**
- * A run's steps as they land, with the station's pulse at the tail while it is
- * still going. The same steps a finished note folds away under InboxWork, laid
- * open here because watching them arrive is the whole point.
- */
 export function RunActivity({ journals, working, station }: RunActivityProps) {
   const steps = journals.flatMap((each) => each.steps);
 

@@ -1,10 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-/**
- * How often a run that is talking without pause is read. Twice the runner's own
- * ~200ms flush, so a busy run refetches steadily rather than only once it falls
- * quiet — the whole point being to watch the steps land as they arrive.
- */
+/** Refetch cadence while a run keeps talking: twice the runner's ~200ms flush. */
 const EVERY_MS = 500;
 
 /**

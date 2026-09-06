@@ -2,7 +2,7 @@ import { HandOver } from '@application/events/handlers/hand-over.handler';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { TaskDispatching } from '@application/services/task-dispatch';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
-import { Run, type Said } from '@domain/aggregates/run.aggregate';
+import { Run } from '@domain/aggregates/run.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { Station } from '@domain/entities/station.entity';
 import type { RunAbandoned } from '@domain/events/run-abandoned.event';
@@ -13,9 +13,11 @@ import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { Declaration } from '@domain/value-objects/declaration.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
+import { HandoverReport } from '@domain/value-objects/handover-report.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
+import { RunOutcome } from '@domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@domain/value-objects/run-spec.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
@@ -40,7 +42,7 @@ const NOW = new Date('2026-08-28T12:00:00.000Z');
 const clock: ClockPort = { now: () => NOW, sleep: async () => {} };
 
 const at = (id: string, name: string, position: number, harness?: HarnessId) =>
-  Station.create({
+  Station.of({
     id: StationId.of(id),
     name: StationName.of(name),
     position,
@@ -88,12 +90,16 @@ const queued = (taskId: string | null = 'task_1') =>
     spec: aSpec(),
   });
 
-const run = (failed: boolean, said: Said = {}) => {
+const run = (failed: boolean, said: HandoverReport = HandoverReport.none()) => {
   const runner = RunnerId.of('runner_1');
 
   return queued()
     .claim(runner, NOW)
-    .complete(runner, { exitCode: failed ? 1 : 0, failed }, said);
+    .complete(
+      runner,
+      RunOutcome.of({ exitCode: failed ? 1 : 0, failed }),
+      said,
+    );
 };
 
 // Claimed and left unreported until there are no attempts left.
@@ -173,12 +179,15 @@ describe('HandOver', () => {
 
   it('closes a task the run said was done', async () => {
     await handOver(
-      run(false, {
-        declared: Declaration.of({
-          next: 'done',
-          note: 'Pull request opened.',
+      run(
+        false,
+        HandoverReport.of({
+          declared: Declaration.of({
+            next: 'done',
+            note: 'Pull request opened.',
+          }),
         }),
-      }),
+      ),
     );
 
     expect(saved?.finished).toBe(true);
@@ -203,7 +212,7 @@ describe('HandOver', () => {
     const runner = RunnerId.of('runner_1');
     const loose = queued(null)
       .claim(runner, NOW)
-      .complete(runner, { exitCode: 0, failed: false });
+      .complete(runner, RunOutcome.of({ exitCode: 0, failed: false }));
 
     await handOver(loose);
 
@@ -221,7 +230,12 @@ describe('HandOver', () => {
     await expect(handOver(run(false), tasks(null))).resolves.toBeUndefined();
   });
   it('remembers the conversation the run worked in', async () => {
-    await handOver(run(false, { session: HarnessSession.of('session_1') }));
+    await handOver(
+      run(
+        false,
+        HandoverReport.of({ session: HarnessSession.of('session_1') }),
+      ),
+    );
 
     expect(saved?.sessionId?.value).toBe('session_1');
     expect(saved?.awaitingReview).toBe(true);

@@ -245,8 +245,6 @@ body.resizing {
   }
 }
 
-/* A step still in flight: a bright band travels along its otherwise muted
-   label, no spinner. Reduced motion leaves it a flat muted fill. */
 @utility step-shine {
   color: transparent;
   background-image: linear-gradient(

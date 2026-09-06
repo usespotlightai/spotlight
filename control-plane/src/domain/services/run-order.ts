@@ -4,6 +4,7 @@ import type { Harness } from '@domain/entities/harness.entity';
 import type { HarnessRepository } from '@domain/repositories/harness.repository';
 import type { Continuity } from '@domain/value-objects/continuity.vo';
 import type { Repository } from '@domain/value-objects/repository.vo';
+import { RunPriority } from '@domain/value-objects/run-priority.vo';
 import type { RunnerId } from '@domain/value-objects/runner-id.vo';
 import type { StationId } from '@domain/value-objects/station-id.vo';
 
@@ -11,7 +12,7 @@ import type { StationId } from '@domain/value-objects/station-id.vo';
 export interface RunOrder {
   readonly harness: Harness;
   readonly stationId: StationId;
-  readonly priority: number;
+  readonly priority: RunPriority;
   readonly pinnedTo: RunnerId | null;
   readonly options: readonly string[];
   readonly noteLimit: number;
@@ -50,7 +51,7 @@ export const orderFor = ({
   return {
     harness,
     stationId: station.id,
-    priority: station.position,
+    priority: RunPriority.of(station.position),
     pinnedTo: continuity.pinnedTo,
     options: line.optionsFrom(station.id).map((each) => each.value),
     noteLimit: 0,

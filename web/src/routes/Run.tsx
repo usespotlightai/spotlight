@@ -36,8 +36,6 @@ export function Run() {
 
   const queryClient = useQueryClient();
 
-  // The stream only nudges; the journal, conversation and the run's own state
-  // are read whole so the server stays the one place that decodes them.
   const bump = useCallback(() => {
     void queryClient.invalidateQueries({
       queryKey: journalKeys.forTask(said?.taskId),
@@ -124,7 +122,6 @@ export function Run() {
     </p>
   );
 
-  // What this run has done so far, drawn live off the stream's nudges.
   const activity = run.station ? (
     <RunActivity
       journals={(worked ?? []).filter((each) => each.runId === run.id)}

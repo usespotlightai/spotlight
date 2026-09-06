@@ -172,9 +172,25 @@ export class Task extends EventRecorder {
     );
   }
 
-  /** Landing at the end of the line is what finishes a task. */
-  moveTo(into: Station, rank: TaskRank, saying: Saying): Task {
+  /**
+   * Landing at the end of the line is what finishes a task. A person moving
+   * unclaimed work out of the backlog into a worked station takes it up — the
+   * station kinds are the line's to say, so they are handed in; the rule of who
+   * owns it now is the task's.
+   */
+  moveTo(
+    into: Station,
+    rank: TaskRank,
+    saying: Saying,
+    handMove: { from: Station | null; mover: UserId } | null = null,
+  ): Task {
     this.refuseStandingStill(into.id, 'moved to');
+
+    const takesOwnership =
+      handMove !== null &&
+      !this.assignee &&
+      (handMove.from?.isBacklog ?? false) &&
+      into.isWorked;
 
     const moved = this.with({
       stationId: into.id,
@@ -184,6 +200,7 @@ export class Task extends EventRecorder {
       runnerId: null,
       ...this.spoke(saying, 'passed'),
       finishedAt: into.isCompleted ? saying.at : null,
+      ...(takesOwnership ? { assignee: handMove.mover } : {}),
     });
 
     if (into.isCompleted) {

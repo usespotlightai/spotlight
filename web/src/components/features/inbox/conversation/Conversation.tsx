@@ -85,8 +85,6 @@ type ConversationProps = {
   viewerId?: string;
   openAt?: number | null;
   opening?: ReactNode;
-  // Shown at the tail of the last turn: the live run's steps as they land,
-  // standing in for the plain working pulse.
   live?: ReactNode;
   footer: ReactNode;
 };

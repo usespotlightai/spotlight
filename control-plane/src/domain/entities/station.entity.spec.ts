@@ -8,7 +8,7 @@ import { StationName } from '@domain/value-objects/station-name.vo';
 import { describe, expect, it } from 'vitest';
 
 const station = () =>
-  Station.create({
+  Station.of({
     id: StationId.of('station_1'),
     name: StationName.of('Triage'),
     position: 0,

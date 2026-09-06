@@ -40,7 +40,7 @@ type Ways = {
 };
 
 const toStation = (row: StationRow, ways: Ways): Station =>
-  Station.create({
+  Station.of({
     key: row.key ? StationKey.of(row.key) : StationKey.from(row.name),
     id: StationId.of(row.id),
     name: StationName.of(row.name),

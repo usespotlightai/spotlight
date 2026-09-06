@@ -34,8 +34,6 @@ export function InboxItem() {
 
   const queryClient = useQueryClient();
 
-  // The run's stream only nudges; the journal it feeds and the inbox that holds
-  // the working flag are read whole.
   const bump = useCallback(() => {
     void queryClient.invalidateQueries({
       queryKey: journalKeys.forTask(item?.taskId),

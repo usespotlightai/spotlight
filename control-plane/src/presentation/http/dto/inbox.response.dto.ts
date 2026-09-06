@@ -183,7 +183,8 @@ export class InboxItemResponseDto {
   @ApiProperty({
     nullable: true,
     type: String,
-    description: 'The run working it now, whose steps can be watched as they land',
+    description:
+      'The run working it now, whose steps can be watched as they land',
   })
   readonly runId: string | null;
 

@@ -9,14 +9,14 @@ import { StationName } from '@domain/value-objects/station-name.vo';
 import { describe, expect, it } from 'vitest';
 
 const stations = [
-  Station.create({
+  Station.of({
     id: StationId.of('station_1'),
     name: StationName.of('Triage'),
     position: 0,
     color: StationColor.of('#a3a8b0'),
     harness: HarnessId.of('dev'),
   }),
-  Station.create({
+  Station.of({
     id: StationId.of('station_2'),
     name: StationName.of('Spec'),
     position: 1,
@@ -33,7 +33,7 @@ const passedTo = (handover: Handover): StationId | null =>
 
 describe('HandoverFor.declared', () => {
   it('will not pass a task to a station nothing runs at', () => {
-    const backlog = Station.create({
+    const backlog = Station.of({
       id: StationId.of('station_0'),
       name: StationName.of('Backlog'),
       position: 0,

@@ -16,8 +16,6 @@ import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import type { JournalStep } from '@/lib/inbox';
 import { cn } from '@/lib/utils';
 
-/** The glyph that stands for what a step was: its kind, or the tool it reached
- * for. One line, one icon — the icon is the only thing that names the kind. */
 const glyphFor = (step: JournalStep): LucideIcon => {
   if (step.kind === 'thought') {
     return MessageCircle;
@@ -54,8 +52,6 @@ const glyphFor = (step: JournalStep): LucideIcon => {
 export function InboxStep({ step }: { step: JournalStep }) {
   const [open, setOpen] = useState(false);
 
-  // What the agent said is its own voice, laid out as plain document rather
-  // than folded into a row: it is the answer, not a step toward one.
   if (step.kind === 'said') {
     return (
       <li className="px-1 py-0.5">
@@ -72,12 +68,8 @@ export function InboxStep({ step }: { step: JournalStep }) {
 
   const Glyph = glyphFor(step);
   const failed = step.status === 'failed';
-  // Still in flight when the journal was read: asked for, not yet answered.
   const running = step.status === 'running' || step.status === 'pending';
 
-  // A thought reads as a whole; a tool's answer as a block of its own. The
-  // first shows its start and opens to the rest, the second names itself and
-  // opens to what came back.
   const prose = step.kind === 'thought' || step.kind === 'planned';
   const label = prose ? (step.text.split('\n')[0] ?? '') : step.text;
   const body =
@@ -124,8 +116,6 @@ export function InboxStep({ step }: { step: JournalStep }) {
     </>
   );
 
-  // A notch below the conversation: the steps are how the answer was reached,
-  // read under the answer itself.
   const row =
     'flex w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-xs leading-6';
 

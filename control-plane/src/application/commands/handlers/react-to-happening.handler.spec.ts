@@ -60,7 +60,7 @@ const at = (
   position: number,
   kind: 'backlog' | 'work' | 'completed' = 'work',
 ) =>
-  Station.create({
+  Station.of({
     id: StationId.of(id),
     name: StationName.of(name),
     position,

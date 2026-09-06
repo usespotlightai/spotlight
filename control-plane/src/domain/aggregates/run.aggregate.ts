@@ -3,10 +3,11 @@ import { RunAbandoned } from '@domain/events/run-abandoned.event';
 import { RunCompleted } from '@domain/events/run-completed.event';
 import { InconsistentStateError } from '@domain/exceptions/inconsistent-state.error';
 import { InvalidRunTransitionError } from '@domain/exceptions/invalid-run-transition.error';
-import type { Declaration } from '@domain/value-objects/declaration.vo';
+import { HandoverReport } from '@domain/value-objects/handover-report.vo';
 import type { HarnessId } from '@domain/value-objects/harness-id.vo';
-import type { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
+import { RunOutcome } from '@domain/value-objects/run-outcome.vo';
+import { RunPriority } from '@domain/value-objects/run-priority.vo';
 import type { RunSpec } from '@domain/value-objects/run-spec.vo';
 import type { RunState } from '@domain/value-objects/run-state';
 import type { RunnerId } from '@domain/value-objects/runner-id.vo';
@@ -18,17 +19,6 @@ const LEASE_DURATION_MS = 60_000;
 
 const MAX_ATTEMPTS = 3;
 
-export interface RunOutcome {
-  readonly exitCode: number;
-  readonly failed: boolean;
-  readonly message?: string;
-}
-
-export interface Said {
-  readonly declared?: Declaration | null;
-  readonly session?: HarnessSession | null;
-}
-
 /**
  * One unit of work a runner claims. A runner reporting nothing for a lease's
  * length is indistinguishable from one that died, so both requeue the run.
@@ -38,7 +28,7 @@ export class Run extends EventRecorder {
     readonly id: RunId,
     readonly workspaceId: WorkspaceId,
     readonly harness: HarnessId,
-    readonly priority: number,
+    readonly priority: RunPriority,
     readonly taskId: TaskId | null,
     // A task moves on; the station a run worked does not.
     readonly stationId: StationId | null,
@@ -57,7 +47,7 @@ export class Run extends EventRecorder {
     id: RunId;
     workspaceId: WorkspaceId;
     harness: HarnessId;
-    priority?: number;
+    priority?: RunPriority;
     taskId?: TaskId | null;
     stationId?: StationId | null;
     spec: RunSpec;
@@ -67,7 +57,7 @@ export class Run extends EventRecorder {
       input.id,
       input.workspaceId,
       input.harness,
-      input.priority ?? 0,
+      input.priority ?? RunPriority.normal,
       input.taskId ?? null,
       input.stationId ?? null,
       input.spec,
@@ -84,7 +74,7 @@ export class Run extends EventRecorder {
     id: RunId;
     workspaceId: WorkspaceId;
     harness: HarnessId;
-    priority: number;
+    priority: RunPriority;
     taskId: TaskId | null;
     stationId: StationId | null;
     spec: RunSpec;
@@ -176,7 +166,7 @@ export class Run extends EventRecorder {
       state: 'failed',
       claimedBy: null,
       leaseExpiresAt: null,
-      result: { exitCode: -1, failed: true, message: reason },
+      result: RunOutcome.abandoned(reason),
     });
 
     abandoned.record(new RunAbandoned(this.id, this.taskId, this.attempt));
@@ -211,7 +201,11 @@ export class Run extends EventRecorder {
     return this.with({ leaseExpiresAt: this.leaseFrom(now) });
   }
 
-  complete(by: RunnerId, outcome: RunOutcome, said: Said = {}): Run {
+  complete(
+    by: RunnerId,
+    outcome: RunOutcome,
+    said: HandoverReport = HandoverReport.none(),
+  ): Run {
     this.requireHeldBy(by, 'complete');
 
     const ended = this.with({

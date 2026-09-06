@@ -46,21 +46,21 @@ const improvementLine = () =>
     name: AssemblyLineName.of('Factory Improvement'),
     role: LineRole.IMPROVEMENT,
     stations: [
-      Station.create({
+      Station.of({
         id: StationId.of('station_0'),
         name: StationName.of('Backlog'),
         position: 0,
         color: StationColor.of('#a3a8b0'),
         kind: 'backlog',
       }),
-      Station.create({
+      Station.of({
         id: StationId.of('station_analysis'),
         name: StationName.of('Analysis'),
         position: 1,
         color: StationColor.of('#9b8cf0'),
         harness: HarnessId.of('dev'),
       }),
-      Station.create({
+      Station.of({
         id: StationId.of('station_2'),
         name: StationName.of('Completed'),
         position: 2,

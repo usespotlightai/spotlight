@@ -104,7 +104,7 @@ const assemble = (
   const at = (key: StationKey): StationId | null => idOf.get(key.value) ?? null;
 
   const stations = plan.stations.map((planned, position) =>
-    Station.create({
+    Station.of({
       id: idOf.get(planned.key.value) as StationId,
       key: planned.key,
       name: planned.name,

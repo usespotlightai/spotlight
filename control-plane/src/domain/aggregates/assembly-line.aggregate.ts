@@ -69,7 +69,7 @@ export class AssemblyLine {
       name: input.line.name,
       role: input.line.role,
       stations: named.map((each, position) =>
-        Station.create({
+        Station.of({
           id: ids[position] as StationId,
           name: each.name,
           color: each.color,

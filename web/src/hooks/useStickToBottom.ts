@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 
-/** Within this far of the foot, the reader is taken to be following the tail. */
 const NEAR = 80;
 
 /**

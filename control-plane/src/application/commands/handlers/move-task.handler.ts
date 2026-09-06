@@ -85,26 +85,24 @@ export class MoveTaskHandler
         ? task.reorderTo(rank)
         : // Moved by hand is still a move, and what a person was owed where
           // it stood, they are owed no longer.
-          task.moveTo(station, rank, {
-            station: from?.name ?? station.name,
-            body: TaskNoteBody.movedTo(station.name),
-            at: this.clock.now(),
-            voice: Voice.station(),
-          });
-
-      // Moving unclaimed work out of the backlog into active makes the mover
-      // its owner; work someone already holds keeps them.
-      const claimed =
-        !stayed && from?.isBacklog && station.isWorked
-          ? moved.claimedBy(UserId.of(command.viewerId))
-          : moved;
+          task.moveTo(
+            station,
+            rank,
+            {
+              station: from?.name ?? station.name,
+              body: TaskNoteBody.movedTo(station.name),
+              at: this.clock.now(),
+              voice: Voice.station(),
+            },
+            { from: from ?? null, mover: UserId.of(command.viewerId) },
+          );
 
       const runId =
-        stayed || claimed.running
+        stayed || moved.running
           ? null
-          : await this.dispatch.dispatch({ task: claimed, line });
+          : await this.dispatch.dispatch({ task: moved, line });
 
-      const placed = runId ? claimed.handedTo(runId) : claimed;
+      const placed = runId ? moved.handedTo(runId) : moved;
 
       await this.tasks.save(placed);
 

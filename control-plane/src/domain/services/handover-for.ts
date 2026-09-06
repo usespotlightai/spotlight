@@ -1,7 +1,7 @@
-import type { RunOutcome } from '@domain/aggregates/run.aggregate';
 import type { Station } from '@domain/entities/station.entity';
 import type { Declaration } from '@domain/value-objects/declaration.vo';
 import { Handover } from '@domain/value-objects/handover.vo';
+import type { RunOutcome } from '@domain/value-objects/run-outcome.vo';
 import type { StationId } from '@domain/value-objects/station-id.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 

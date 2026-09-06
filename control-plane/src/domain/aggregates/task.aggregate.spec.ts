@@ -56,7 +56,7 @@ const added = (description?: TaskDescription) =>
 const NOW = new Date('2026-08-29T12:00:00.000Z');
 
 const at = (id: string, name = 'Spec', kind: 'work' | 'completed' = 'work') =>
-  Station.create({
+  Station.of({
     id: StationId.of(id),
     name: StationName.of(name),
     position: kind === 'completed' ? 9 : 2,

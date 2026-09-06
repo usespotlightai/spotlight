@@ -17,7 +17,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const transaction: TransactionPort = { run: (work) => work() };
 
 const at = (id: string, name: string, position: number) =>
-  Station.create({
+  Station.of({
     id: StationId.of(id),
     name: StationName.of(name),
     position,

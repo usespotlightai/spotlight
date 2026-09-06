@@ -7,7 +7,6 @@ import {
 } from 'react';
 import { cn } from '@/lib/utils';
 
-/** How much of each edge softens into nothing. */
 const FADE = '1.5rem';
 
 /**

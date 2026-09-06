@@ -6,6 +6,8 @@ import type {
 } from '@domain/repositories/run.repository';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
+import { RunOutcome } from '@domain/value-objects/run-outcome.vo';
+import { RunPriority } from '@domain/value-objects/run-priority.vo';
 import { RunSpec } from '@domain/value-objects/run-spec.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
@@ -30,7 +32,7 @@ export class DrizzleRunRepository implements RunRepository {
       id: added.id.value,
       workspaceId: added.workspaceId.value,
       harness: added.harness.value,
-      priority: added.priority,
+      priority: added.priority.value,
       taskId: added.taskId?.value ?? null,
       stationId: added.stationId?.value ?? null,
       state: added.state,
@@ -224,7 +226,7 @@ const toRun = (row: Row): Run =>
     id: RunId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
     harness: HarnessId.of(row.harness),
-    priority: row.priority,
+    priority: RunPriority.of(row.priority),
     taskId: row.taskId ? TaskId.of(row.taskId) : null,
     stationId: row.stationId ? StationId.of(row.stationId) : null,
     spec: specOf(row),
@@ -235,10 +237,10 @@ const toRun = (row: Row): Run =>
     result:
       row.exitCode === null
         ? null
-        : {
+        : RunOutcome.of({
             exitCode: row.exitCode,
             failed: row.state === 'failed',
-            message: row.message ?? undefined,
-          },
+            message: row.message,
+          }),
     attempt: row.attempt ?? 1,
   });
