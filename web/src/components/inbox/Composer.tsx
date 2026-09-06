@@ -40,7 +40,7 @@ export function Composer({
   return (
     <form
       onSubmit={send}
-      className="flex items-center gap-2 rounded-full border border-border bg-background py-1 pr-1 pl-4 shadow-xs"
+      className="flex items-center gap-2 rounded-full border border-border bg-surface py-1 pr-1 pl-4 shadow-xs"
     >
       <AutoGrowTextarea
         value={body}

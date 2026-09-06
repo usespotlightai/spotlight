@@ -115,10 +115,10 @@ export function Run() {
         <>
           <RunOpening run={run} briefing={said?.briefing ?? null} />
 
-          <div className="relative shrink-0 bg-card">
+          <div className="relative shrink-0 bg-surface">
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-x-0 bottom-full h-10 bg-gradient-to-t from-card to-transparent"
+              className="pointer-events-none absolute inset-x-0 bottom-full h-10 bg-gradient-to-t from-surface to-transparent"
             />
 
             <div className="mx-auto w-full max-w-3xl px-8 pt-2 pb-6">

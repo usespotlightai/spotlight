@@ -65,7 +65,7 @@ export function TeamSettings() {
                 event.currentTarget.blur();
               }
             }}
-            className="h-8 w-56 rounded-md border-[0.5px] border-border bg-background px-2.5 text-foreground text-sm outline-none placeholder:text-muted-foreground focus-visible:border-input"
+            className="h-8 w-56 rounded-md border-[0.5px] border-border bg-surface px-2.5 text-foreground text-sm outline-none placeholder:text-muted-foreground focus-visible:border-input"
           />
         </SettingsRow>
       </SettingsSection>

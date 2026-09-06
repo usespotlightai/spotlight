@@ -60,7 +60,7 @@ export function TeamNavItem({
         onClick={onToggle}
         aria-expanded={expanded}
         className={cn(
-          'group/team flex h-7 w-full items-center gap-2 rounded-md px-2 text-sm outline-none transition-colors hover:bg-accent',
+          'group/team flex h-7 w-full items-center gap-2 rounded-md px-2 text-sm outline-none transition-colors hover:bg-border/50',
           active ? 'font-medium text-foreground' : 'text-muted-foreground',
         )}
       >

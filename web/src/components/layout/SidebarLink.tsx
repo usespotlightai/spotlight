@@ -30,7 +30,7 @@ export function SidebarLink({
       className={({ isActive }) =>
         cn(
           'flex h-7 items-center gap-2 rounded-md px-2 text-muted-foreground text-sm outline-none transition-colors',
-          'hover:bg-accent hover:text-foreground',
+          'hover:bg-border/50 hover:text-foreground',
           (isActive || active) &&
             'bg-border font-medium text-foreground hover:bg-border',
           className,
