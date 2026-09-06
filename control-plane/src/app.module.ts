@@ -269,6 +269,8 @@ import { IntegrationReader } from '@infrastructure/integrations/integration.read
 import { LineReader } from '@infrastructure/integrations/line.reader';
 import { GracefulShutdown } from '@infrastructure/lifecycle/graceful-shutdown';
 import { LoggingModule } from '@infrastructure/logging/logging.module';
+import type { DrizzleDatabase } from '@infrastructure/persistence/drizzle/drizzle.client';
+import { DRIZZLE } from '@infrastructure/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
 import { DrizzleModule } from '@infrastructure/persistence/drizzle/drizzle.module';
 import { DrizzleAssemblyLineReader } from '@infrastructure/persistence/drizzle/readers/assembly-line.reader';
@@ -467,7 +469,9 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
 
     {
       provide: GITHUB_IDENTITY,
-      useClass: GitHubIdentity,
+      inject: [DRIZZLE, ENV],
+      useFactory: (db: DrizzleDatabase, env: Env) =>
+        new GitHubIdentity(db, env.GITHUB_CLIENT_ID, env.GITHUB_CLIENT_SECRET),
     },
 
     {

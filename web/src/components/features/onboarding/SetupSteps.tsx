@@ -19,8 +19,8 @@ type SetupStepsProps = {
   about: About | undefined;
 };
 
-/** Squarer than a control standing alone, and merged so one radius wins. */
-const CONTROL = 'rounded-[5px]';
+/** The application's pill controls: round, flat, one radius winning the merge. */
+const CONTROL = 'rounded-full px-3.5 shadow-none';
 
 /** Named by the step, so one renamed on the way here stops compiling. */
 const CALLS: Partial<Record<SetupStepResponseDto['key'], string>> = {
@@ -119,6 +119,7 @@ export function SetupSteps({ teamId, body, about }: SetupStepsProps) {
           className={cn(
             buttonVariants({ variant: 'outline', size: 'sm' }),
             CONTROL,
+            'bg-card',
           )}
         >
           {CALLS[step.key] ?? 'Take me there'}

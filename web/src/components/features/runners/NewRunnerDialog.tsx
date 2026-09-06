@@ -121,7 +121,7 @@ function Token({ token, onDone }: { token: string; onDone: () => void }) {
 
   return (
     <>
-      <span className="flex min-w-0 items-center gap-2 rounded-md border-[0.5px] border-border bg-background p-2">
+      <span className="flex h-8 min-w-0 items-center gap-2 rounded-md border-[0.5px] border-border bg-background pr-0.5 pl-2.5">
         <code className="min-w-0 flex-1 truncate font-mono text-foreground text-xs">
           {token}
         </code>
