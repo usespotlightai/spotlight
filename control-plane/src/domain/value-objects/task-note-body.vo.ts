@@ -2,11 +2,6 @@ import { InvalidTaskNoteError } from '@domain/exceptions/invalid-task-note.error
 import type { Said } from '@domain/value-objects/said.vo';
 import type { StationName } from '@domain/value-objects/station-name.vo';
 
-/** How long a note may be. Told to the runner, so an agent hears it early. */
-export const TASK_NOTE_MAX_LENGTH = 4_000;
-
-const MAX_LENGTH = TASK_NOTE_MAX_LENGTH;
-
 export class TaskNoteBody {
   private constructor(readonly value: string) {}
 
@@ -15,11 +10,6 @@ export class TaskNoteBody {
 
     if (trimmed.length === 0) {
       throw new InvalidTaskNoteError('must not be empty');
-    }
-    if (trimmed.length > MAX_LENGTH) {
-      throw new InvalidTaskNoteError(
-        `must be at most ${MAX_LENGTH} characters`,
-      );
     }
 
     return new TaskNoteBody(trimmed);

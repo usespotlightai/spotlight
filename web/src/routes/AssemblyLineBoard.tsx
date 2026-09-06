@@ -10,16 +10,18 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router';
-import { BoardViews } from '@/components/board/BoardViews';
-import { NewTaskDialog } from '@/components/board/NewTaskDialog';
-import { SelectionBar } from '@/components/board/SelectionBar';
-import { StationPreview } from '@/components/board/StationPreview';
-import { StationSection } from '@/components/board/StationSection';
-import { TaskPreview } from '@/components/board/TaskPreview';
-import { TaskRow } from '@/components/board/TaskRow';
-import { InitialAvatar } from '@/components/common/avatar/InitialAvatar';
-import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
-import { PageHeader } from '@/components/layout/PageHeader';
+import { BoardViews } from '@/components/features/board/BoardViews';
+import { StationPreview } from '@/components/features/board/column/StationPreview';
+import { StationSection } from '@/components/features/board/column/StationSection';
+import { SelectionBar } from '@/components/features/board/SelectionBar';
+import { NewTaskDialog } from '@/components/features/board/task/NewTaskDialog';
+import { TaskPreview } from '@/components/features/board/task/TaskPreview';
+import { TaskRow } from '@/components/features/board/task/TaskRow';
+import {
+  type BreadcrumbSegment,
+  Breadcrumbs,
+} from '@/components/shell/layout/Breadcrumbs';
+import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useAddTask } from '@/hooks/api/useAddTask';
 import { useAssemblyLines } from '@/hooks/api/useAssemblyLines';
 import { useMoveTask } from '@/hooks/api/useMoveTask';
@@ -38,6 +40,7 @@ import { inboxItemPath } from '@/lib/inbox';
 import { stationPath, stationShare } from '@/lib/station';
 import { moveTargetFor, type Task, taskPath, tasksAt } from '@/lib/task';
 import { teamPath } from '@/lib/team';
+import { TrailContext, useTrail } from '@/lib/trail';
 
 const STATIONS_STORAGE_KEY = 'spotlight.collapsed-stations';
 
@@ -71,6 +74,22 @@ export function AssemblyLineBoard() {
     tasks: tasks ?? [],
   });
 
+  const team = workspace?.teams.find((candidate) => candidate.id === teamId);
+
+  const base: BreadcrumbSegment[] = [
+    ...(team
+      ? [
+          {
+            label: team.name,
+            avatar: team.name,
+            to: slug && teamId ? teamPath(slug, teamId) : undefined,
+          },
+        ]
+      : []),
+    ...(line ? [{ label: line.name }] : []),
+  ];
+  const { trail, forward } = useTrail(base);
+
   if (isPending) {
     return null;
   }
@@ -88,7 +107,6 @@ export function AssemblyLineBoard() {
     );
   }
 
-  const team = workspace?.teams.find((candidate) => candidate.id === teamId);
   const target = moveTargetFor(line.stations, tasks ?? [], selected);
   const liftedTask =
     (tasks ?? []).find((each) => each.id === drag.lifted) ?? null;
@@ -99,27 +117,8 @@ export function AssemblyLineBoard() {
     line.stations.find((each) => each.id === drag.lifted) ?? null;
 
   return (
-    <>
-      <PageHeader
-        title={
-          <Breadcrumbs
-            segments={[
-              ...(team
-                ? [
-                    {
-                      label: team.name,
-                      icon: (
-                        <InitialAvatar name={team.name} className="bg-card" />
-                      ),
-                      to: slug && teamId ? teamPath(slug, teamId) : undefined,
-                    },
-                  ]
-                : []),
-              { label: line.name },
-            ]}
-          />
-        }
-      />
+    <TrailContext value={forward}>
+      <PageHeader title={<Breadcrumbs segments={trail} />} />
 
       <BoardViews
         current={view}
@@ -330,6 +329,6 @@ export function AssemblyLineBoard() {
           addTask.mutate({ teamId, lineId: line.id, stationId: adding, task })
         }
       />
-    </>
+    </TrailContext>
   );
 }

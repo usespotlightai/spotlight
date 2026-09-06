@@ -3,7 +3,13 @@ import { Station } from '@domain/entities/station.entity';
 import { InvalidStationChangeError } from '@domain/exceptions/invalid-station-change.error';
 import { InvalidStationLayoutError } from '@domain/exceptions/invalid-station-layout.error';
 import { UnknownStationError } from '@domain/exceptions/unknown-station.error';
-import { BUILT_IN_STATIONS } from '@domain/services/built-in-stations';
+import {
+  BUILT_IN_LINES,
+  type LineOpening,
+} from '@domain/services/built-in-lines';
+
+const BUILT_IN_STATIONS = BUILT_IN_LINES[0]?.stations ?? [];
+
 import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
@@ -11,7 +17,6 @@ import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { Reaction } from '@domain/value-objects/reaction.vo';
-import { SourceKey } from '@domain/value-objects/source-key.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
@@ -24,7 +29,7 @@ const at = (
   name = `Station ${position}`,
   ways: { passesTo?: string[] } = {},
 ) =>
-  Station.create({
+  Station.of({
     id: StationId.of(`station_${position}`),
     name: StationName.of(name),
     position,
@@ -33,7 +38,7 @@ const at = (
   });
 
 const backlog = (position = 0) =>
-  Station.create({
+  Station.of({
     id: StationId.of('backlog_1'),
     name: StationName.of('Backlog'),
     position,
@@ -42,7 +47,7 @@ const backlog = (position = 0) =>
   });
 
 const completed = (position: number) =>
-  Station.create({
+  Station.of({
     id: StationId.of('completed_1'),
     name: StationName.of('Completed'),
     position,
@@ -72,19 +77,19 @@ const sends = (to: string, from?: string) =>
     to: StationId.of(to),
   });
 
-const opened = (name = 'Default') => {
+const opened = () => {
   let next = 0;
   return AssemblyLine.open({
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
-    name: AssemblyLineName.of(name),
+    line: BUILT_IN_LINES[0] as LineOpening,
     newId: () => `id_${++next}`,
   });
 };
 
 describe('AssemblyLine', () => {
-  it('takes the name it was opened under', () => {
-    expect(opened('Bug Fix').name.value).toBe('Bug Fix');
+  it('takes the name of the line it opens', () => {
+    expect(opened().name.value).toBe('Software Delivery');
   });
 
   it('opens with the stations a line is made of, left to right', () => {
@@ -300,7 +305,7 @@ describe('AssemblyLine', () => {
         of([
           backlog(),
           at(1, 'Triage'),
-          Station.create({
+          Station.of({
             id: StationId.of('completed_1'),
             name: StationName.of('Completed'),
             position: 2,
@@ -389,87 +394,6 @@ describe('AssemblyLine', () => {
           [sends('station_1', 'station_2'), sends('station_2', 'station_1')],
         ),
       ).not.toThrow();
-    });
-
-    // A word about work nobody here has yet opens a task where the line
-    // watches, rather than moving one that is not there.
-    const ISSUE_CREATED = Happening.of('linear.issue.created');
-    const REGRESSED = Happening.of('sentry.issue.regressed');
-    const opensLinear = { opens: [ISSUE_CREATED], moves: [] };
-    const withLinear = () => opened().installing(opensLinear);
-
-    it('opens what a chosen source opens, at the backlog, and only once', () => {
-      const line = withLinear();
-
-      expect(line.opensAt(ISSUE_CREATED)?.id).toEqual(line.backlog.id);
-      expect(line.installing(opensLinear)).toBe(line);
-    });
-
-    it('moves a standing task on for a word a chosen source moves, once', () => {
-      const line = opened().installing({
-        opens: [],
-        moves: [{ happening: REGRESSED, to: 'Implementation' }],
-      });
-
-      expect(named(line, line.reactionTo(REGRESSED, somewhere()))).toBe(
-        'Implementation',
-      );
-      expect(
-        line.installing({
-          opens: [],
-          moves: [{ happening: REGRESSED, to: 'Implementation' }],
-        }),
-      ).toBe(line);
-    });
-
-    it('installs nothing a source names no station on the line for', () => {
-      const line = opened();
-
-      expect(
-        line.installing({
-          opens: [],
-          moves: [{ happening: REGRESSED, to: 'Nowhere' }],
-        }),
-      ).toBe(line);
-    });
-
-    it('installs nothing for a source that contributes nothing', () => {
-      const line = opened();
-
-      expect(line.installing({ opens: [], moves: [] })).toBe(line);
-    });
-
-    it('opens nothing for a word it does not watch for', () => {
-      expect(
-        withLinear().opensAt(Happening.of('linear.issue.deleted')),
-      ).toBeNull();
-    });
-
-    // Moving a task and opening one are different rules: what the world knows
-    // as an opener never comes back as somewhere to take an existing task.
-    it('does not take an opening rule as somewhere to move a task', () => {
-      expect(withLinear().reactionTo(ISSUE_CREATED, somewhere())).toBeNull();
-    });
-
-    it('drops what it did on a source’s words when that source is taken away', () => {
-      const line = withLinear().withoutRulesFrom(SourceKey.of('linear'));
-
-      expect(line.opensAt(ISSUE_CREATED)).toBeNull();
-      expect(
-        named(
-          line,
-          line.reactionTo(
-            Happening.of('github.pull_request.merged'),
-            somewhere(),
-          ),
-        ),
-      ).toBe('Completed');
-    });
-
-    it('is left as it was when the source did nothing here', () => {
-      const line = opened();
-
-      expect(line.withoutRulesFrom(SourceKey.of('sentry'))).toBe(line);
     });
   });
 

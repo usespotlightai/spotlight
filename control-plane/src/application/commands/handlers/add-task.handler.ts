@@ -6,8 +6,7 @@ import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { PersonReaderPort } from '@application/ports/person-reader.port';
-import type { TransactionPort } from '@application/ports/transaction.port';
-import type { TaskDispatching } from '@application/services/task-dispatch';
+import type { RaiseTask } from '@application/services/raise-task';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { UnknownAssemblyLineError } from '@domain/exceptions/unknown-assembly-line.error';
 import { UnknownStationError } from '@domain/exceptions/unknown-station.error';
@@ -29,9 +28,8 @@ export class AddTaskHandler
     private readonly lines: AssemblyLineRepository,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
-    private readonly dispatch: TaskDispatching,
+    private readonly raise: RaiseTask,
     private readonly people: PersonReaderPort,
-    private readonly transaction: TransactionPort,
   ) {}
 
   async execute(command: AddTaskCommand): Promise<TaskDto> {
@@ -73,16 +71,15 @@ export class AddTaskHandler
       repository: command.repository ? Repository.of(command.repository) : null,
     });
 
-    // A task that failed to save would leave a run queued against nothing.
-    const raised = await this.transaction.run(async () => {
-      const runId = await this.dispatch.dispatch({ task: added, line });
-      const handed = runId ? added.handedTo(runId) : added;
+    const raised = await this.raise.raise({ task: added, line });
 
-      await this.tasks.add(handed);
+    // The raiser owns what they raised, so they are the assignee too.
+    const person = await this.people.find(raisedBy);
 
-      return handed;
-    });
-
-    return TaskMapper.taskToDto(raised, await this.people.find(raisedBy), null);
+    return TaskMapper.taskToDto(
+      raised,
+      person,
+      raised.assignee ? person : null,
+    );
   }
 }

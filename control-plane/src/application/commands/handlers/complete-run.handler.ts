@@ -6,8 +6,10 @@ import type { TransactionPort } from '@application/ports/transaction.port';
 import { UnknownRunError } from '@domain/exceptions/unknown-run.error';
 import type { RunRepository } from '@domain/repositories/run.repository';
 import { Declaration } from '@domain/value-objects/declaration.vo';
+import { HandoverReport } from '@domain/value-objects/handover-report.vo';
 import { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
+import { RunOutcome } from '@domain/value-objects/run-outcome.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 
 export class CompleteRunHandler
@@ -29,19 +31,19 @@ export class CompleteRunHandler
 
         const done = found.complete(
           RunnerId.of(command.runnerId),
-          {
+          RunOutcome.of({
             exitCode: command.exitCode,
             failed: command.failed,
             message: command.message,
-          },
-          {
+          }),
+          HandoverReport.of({
             declared: command.declared
               ? Declaration.of(command.declared)
               : null,
             session: command.sessionId
               ? HarnessSession.of(command.sessionId)
               : null,
-          },
+          }),
         );
 
         await this.runs.save(done);

@@ -30,16 +30,16 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, desc, eq } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
-const ranAt = alias(station, 'ran_at');
+export const ranAt = alias(station, 'ran_at');
 
-type StationRow = {
+export type StationRow = {
   stationName: string | null;
   stationColor: string | null;
   stationPosition: number | null;
   stationLineId: string | null;
 };
 
-const worked = (
+export const worked = (
   row: StationRow,
   held: Map<string, number>,
 ): RunStationSummary | null =>

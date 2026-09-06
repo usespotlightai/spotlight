@@ -17,7 +17,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const transaction: TransactionPort = { run: (work) => work() };
 
 const at = (id: string, name: string, position: number) =>
-  Station.create({
+  Station.of({
     id: StationId.of(id),
     name: StationName.of(name),
     position,
@@ -52,6 +52,7 @@ const lines = (found: AssemblyLine | null = line()) =>
     holding: vi.fn(async () => found),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
+    withRole: vi.fn(async () => null),
   }) satisfies AssemblyLineRepository;
 
 const reorder = (order: string[], board: AssemblyLineRepository = lines()) =>

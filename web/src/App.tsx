@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router';
-import { RequireAuth } from './components/common/auth/RequireAuth.tsx';
-import { RequireGuest } from './components/common/auth/RequireGuest.tsx';
+import { RequireAuth } from './components/shell/auth/RequireAuth.tsx';
+import { RequireGuest } from './components/shell/auth/RequireGuest.tsx';
 import { AssemblyLineBoard } from './routes/AssemblyLineBoard.tsx';
 import { CreateWorkspace } from './routes/CreateWorkspace.tsx';
 import { DefaultWorkspace } from './routes/DefaultWorkspace.tsx';
@@ -17,6 +17,7 @@ import { TaskTrace } from './routes/TaskTrace.tsx';
 import { TeamIndex } from './routes/TeamIndex.tsx';
 import { TeamIntegrations } from './routes/TeamIntegrations.tsx';
 import { TeamSection } from './routes/TeamSection.tsx';
+import { TeamSettings } from './routes/TeamSettings.tsx';
 import { Workspace } from './routes/Workspace.tsx';
 import { WorkspaceIndex } from './routes/WorkspaceIndex.tsx';
 
@@ -44,6 +45,7 @@ export default function App() {
             <Route path="observability/tasks/:taskId" element={<TaskTrace />} />
             <Route path="runs/:runId" element={<Run />} />
             <Route path="integrations" element={<TeamIntegrations />} />
+            <Route path="settings" element={<TeamSettings />} />
             <Route path=":section" element={<TeamSection />} />
           </Route>
           <Route path="inbox" element={<Inbox />}>

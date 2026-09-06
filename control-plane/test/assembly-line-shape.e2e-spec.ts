@@ -4,8 +4,13 @@ import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { AppModule } from '@/app.module';
 import { AssemblyLine } from '@/domain/aggregates/assembly-line.aggregate';
-import { BUILT_IN_STATIONS } from '@/domain/services/built-in-stations';
-import { AssemblyLineName } from '@/domain/value-objects/assembly-line-name.vo';
+import {
+  BUILT_IN_LINES,
+  type LineOpening,
+} from '@/domain/services/built-in-lines';
+
+const BUILT_IN_STATIONS = BUILT_IN_LINES[0]?.stations ?? [];
+
 import { FactoryId } from '@/domain/value-objects/factory-id.vo';
 import { WorkspaceId } from '@/domain/value-objects/workspace-id.vo';
 import type { DrizzleDatabase } from '@/infrastructure/persistence/drizzle/drizzle.client';
@@ -60,7 +65,7 @@ describe('a line, written and read back (e2e)', () => {
     const opened = AssemblyLine.open({
       workspaceId: WorkspaceId.of(held),
       factoryId: FactoryId.of(held),
-      name: AssemblyLineName.of('Shape'),
+      line: BUILT_IN_LINES[0] as LineOpening,
       newId: () => `${held}_${++next}`,
     });
 

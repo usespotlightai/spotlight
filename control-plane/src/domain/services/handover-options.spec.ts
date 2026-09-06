@@ -17,7 +17,7 @@ const at = (
   harness: HarnessId | null = HarnessId.of('dev'),
   finishes = false,
 ) =>
-  Station.create({
+  Station.of({
     id: StationId.of(id),
     name: StationName.of(name),
     position,

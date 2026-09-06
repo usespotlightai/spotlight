@@ -36,7 +36,7 @@ export class WorkspaceRegistration {
     });
 
     return {
-      workspace: Workspace.create({ ...input, firstTeam: firstTeam.id }),
+      workspace: Workspace.open({ ...input, firstTeam: firstTeam.id }),
       firstTeam,
     };
   }

@@ -9,6 +9,7 @@ import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { HandoverFor } from '@domain/services/handover-for';
 import { Placement } from '@domain/services/placement';
+import { routeAfterRun } from '@domain/services/route-after-run';
 import type { Handover } from '@domain/value-objects/handover.vo';
 import type { RunId } from '@domain/value-objects/run-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
@@ -102,27 +103,26 @@ export class HandOver implements RunOutcomes {
       voice: Voice.station(run),
     };
 
-    if (handover.kind === 'done') {
+    const routing = routeAfterRun(handover, line);
+
+    if (routing.kind === 'finish') {
       return task.finishedHere(saying);
     }
 
-    if (handover.kind === 'review' || !handover.stationId || !line) {
-      return task.askedAbout(saying);
-    }
-
-    const arriving = line.stationAt(handover.stationId);
-
-    if (!arriving) {
+    if (routing.kind === 'ask') {
       return task.askedAbout(saying);
     }
 
     const passed = task.moveTo(
-      arriving,
-      Placement.atTheBack(await this.tasks.placementsAt(arriving.id)),
+      routing.to,
+      Placement.atTheBack(await this.tasks.placementsAt(routing.to.id)),
       saying,
     );
 
-    const runId = await this.dispatch.dispatch({ task: passed, line });
+    const runId = await this.dispatch.dispatch({
+      task: passed,
+      line: routing.line,
+    });
 
     return runId ? passed.handedTo(runId) : passed;
   }

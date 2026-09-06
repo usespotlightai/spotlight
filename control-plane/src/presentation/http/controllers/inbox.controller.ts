@@ -92,6 +92,7 @@ export class InboxController {
           item.askedAt,
           item.resolved,
           item.working,
+          item.runId,
           item.unread,
           item.briefing,
           item.notes.map(

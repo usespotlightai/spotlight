@@ -6,6 +6,7 @@ import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { PersonReaderPort } from '@application/ports/person-reader.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import { TaskBriefing } from '@application/rendering/task-briefing';
+import { RaiseTask } from '@application/services/raise-task';
 import type { TaskDispatching } from '@application/services/task-dispatch';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Task } from '@domain/aggregates/task.aggregate';
@@ -36,14 +37,14 @@ const line = () =>
     factoryId: FactoryId.of('factory_1'),
     name: AssemblyLineName.of('Default'),
     stations: [
-      Station.create({
+      Station.of({
         id: StationId.of('station_0'),
         name: StationName.of('Backlog'),
         position: 0,
         color: StationColor.of('#a3a8b0'),
         kind: 'backlog',
       }),
-      Station.create({
+      Station.of({
         id: StationId.of('station_1'),
         name: StationName.of('Triage'),
         position: 1,
@@ -51,7 +52,7 @@ const line = () =>
         harness: HarnessId.of('dev'),
         agentPrompt: AgentPrompt.of('## Role'),
       }),
-      Station.create({
+      Station.of({
         id: StationId.of('station_2'),
         name: StationName.of('Completed'),
         position: 2,
@@ -104,6 +105,7 @@ const lines = (found: AssemblyLine | null = line()) =>
     holding: vi.fn(async () => found),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
+    withRole: vi.fn(async () => null),
   }) satisfies AssemblyLineRepository;
 
 const addTask = (
@@ -115,9 +117,8 @@ const addTask = (
     board,
     ids,
     clock,
-    dispatch(),
+    new RaiseTask(tasks(), dispatch(), transaction),
     people,
-    transaction,
   ).execute(command);
 
 beforeEach(() => {
@@ -155,7 +156,8 @@ describe('AddTaskHandler', () => {
       repository: null,
       pullRequest: null,
       raisedBy: raiser,
-      assignee: null,
+      // The raiser owns what they raised.
+      assignee: raiser,
       note: null,
     });
   });

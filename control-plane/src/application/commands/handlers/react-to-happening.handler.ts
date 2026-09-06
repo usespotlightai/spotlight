@@ -133,19 +133,27 @@ export class ReactToHappeningHandler
     await this.tasks.save(runId ? heard.handedTo(runId) : heard);
   }
 
-  /** Opens a task for a word nobody here has a task for, where a line says to. */
+  /**
+   * Opens the one task a word nobody here has one for calls for, on the line
+   * it opens onto. A word onto a role no line holds opens nothing, and a word
+   * onto a role several lines hold still opens one task: the handle it is
+   * found by names one, so the line is chosen rather than each taking a copy.
+   */
   private async opened(
     workspaceId: WorkspaceId,
     teamId: string,
     happened: Happened,
   ): Promise<void> {
+    if (!happened.opens) {
+      return;
+    }
+
     const lines = teamId
       ? await this.lines.ofTeam(TeamId.of(teamId))
       : await this.lines.ofWorkspace(workspaceId);
 
-    const chosen = ReactionFor.openingAcross({
+    const chosen = ReactionFor.openingOn({
       lines,
-      word: happened,
       concerns: happened.concerns,
       opens: happened.opens,
     });

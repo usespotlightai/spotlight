@@ -1,9 +1,10 @@
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { linePath } from '@domain/aggregates/team-configuration.aggregate';
-import { contributionOf } from '@domain/services/source-contribution';
-import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
+import {
+  BUILT_IN_LINES,
+  type LineOpening,
+} from '@domain/services/built-in-lines';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
-import { SourceKey } from '@domain/value-objects/source-key.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { compileLine } from '@infrastructure/integrations/line.compile';
 import { renderLine } from '@infrastructure/integrations/line.render';
@@ -20,9 +21,9 @@ const built = () => {
   return AssemblyLine.open({
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
-    name: AssemblyLineName.of('Default'),
+    line: BUILT_IN_LINES[0] as LineOpening,
     newId: () => `id_${++next}`,
-  }).installing(contributionOf(SourceKey.of('linear')));
+  });
 };
 
 const readBack = (line: AssemblyLine) => {
@@ -41,7 +42,7 @@ const readBack = (line: AssemblyLine) => {
 
 describe('writing a line out and reading it back', () => {
   it('reads back at all', () => {
-    expect(readBack(built()).key.value).toBe('default');
+    expect(readBack(built()).key.value).toBe('delivery');
   });
 
   it('keeps every station, in the order they stand in', () => {
@@ -132,25 +133,6 @@ describe('writing a line out and reading it back', () => {
         each.happening.equals(reaction.happening),
       );
       const to = line.stations.find((each) => each.id.equals(reaction.to));
-
-      expect(written?.to.value).toBe(to?.key.value);
-    }
-  });
-
-  // An opener — the only way work the line did not raise gets on it — has to
-  // read back as one, landing where it did.
-  it('keeps every opener, and where each one opens', () => {
-    const line = built();
-    const read = readBack(line);
-
-    expect(read.openers).toHaveLength(line.openers.length);
-    expect(line.openers.length).toBeGreaterThan(0);
-
-    for (const opener of line.openers) {
-      const written = read.openers.find((each) =>
-        each.happening.equals(opener.happening),
-      );
-      const to = line.stations.find((each) => each.id.equals(opener.to));
 
       expect(written?.to.value).toBe(to?.key.value);
     }

@@ -53,7 +53,7 @@ const at = (
   passesTo: string[] = [],
   finishes = false,
 ) =>
-  Station.create({
+  Station.of({
     id: StationId.of(id),
     name: StationName.of(name),
     position,
@@ -68,7 +68,7 @@ const triage = () => at('station_1', 'Triage', 0, undefined, ['station_2']);
 // The line a briefing is read out of, since where a task stands and what it
 // may be handed on to are both the line's to answer.
 const ends = (id: string, name: string, position: number) =>
-  Station.create({
+  Station.of({
     id: StationId.of(id),
     name: StationName.of(name),
     position,

@@ -95,6 +95,8 @@ export class Task extends EventRecorder {
     now: Date;
     newId: () => string;
   }): Task {
+    const raisedBy = input.raisedBy ?? null;
+
     return new Task(
       TaskId.of(input.newId()),
       input.workspaceId,
@@ -108,12 +110,14 @@ export class Task extends EventRecorder {
       [],
       input.now,
       input.stationId,
-      input.raisedBy ?? null,
+      raisedBy,
       input.repository ?? null,
       null,
       [],
       null,
-      null,
+      // A person who raises a task owns it from the start; one a word from
+      // outside opened is owned by nobody until somebody takes it.
+      raisedBy,
     );
   }
 
@@ -168,9 +172,25 @@ export class Task extends EventRecorder {
     );
   }
 
-  /** Landing at the end of the line is what finishes a task. */
-  moveTo(into: Station, rank: TaskRank, saying: Saying): Task {
+  /**
+   * Landing at the end of the line is what finishes a task. A person moving
+   * unclaimed work out of the backlog into a worked station takes it up — the
+   * station kinds are the line's to say, so they are handed in; the rule of who
+   * owns it now is the task's.
+   */
+  moveTo(
+    into: Station,
+    rank: TaskRank,
+    saying: Saying,
+    handMove: { from: Station | null; mover: UserId } | null = null,
+  ): Task {
     this.refuseStandingStill(into.id, 'moved to');
+
+    const takesOwnership =
+      handMove !== null &&
+      !this.assignee &&
+      (handMove.from?.isBacklog ?? false) &&
+      into.isWorked;
 
     const moved = this.with({
       stationId: into.id,
@@ -180,6 +200,7 @@ export class Task extends EventRecorder {
       runnerId: null,
       ...this.spoke(saying, 'passed'),
       finishedAt: into.isCompleted ? saying.at : null,
+      ...(takesOwnership ? { assignee: handMove.mover } : {}),
     });
 
     if (into.isCompleted) {
@@ -344,6 +365,10 @@ export class Task extends EventRecorder {
     return this.raisedBy?.equals(userId) ?? false;
   }
 
+  assignedToThem(userId: UserId): boolean {
+    return this.assignee?.equals(userId) ?? false;
+  }
+
   unreadFrom(from: NotePosition): boolean {
     return anyUnread(this.conversationAt(from));
   }
@@ -435,6 +460,9 @@ export class Task extends EventRecorder {
 
     return this.with({
       currentRunId: null,
+      // Put to a person is put to an owner: whoever it is already assigned to,
+      // or else whoever raised it. An inbox is the assignee's.
+      assignee: this.assignee ?? this.raisedBy,
       ...this.spoke(saying, 'asked'),
     });
   }

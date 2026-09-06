@@ -8,7 +8,7 @@ import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { LineKey } from '@domain/value-objects/line-key.vo';
-import { Opener } from '@domain/value-objects/opener.vo';
+import { LineRole } from '@domain/value-objects/line-role.vo';
 import { Reaction } from '@domain/value-objects/reaction.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationDescription } from '@domain/value-objects/station-description.vo';
@@ -22,7 +22,6 @@ import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
 import {
   assemblyLine,
-  assemblyLineOpener,
   assemblyLineReaction,
   station,
   stationRoute,
@@ -30,7 +29,7 @@ import {
 } from '@infrastructure/persistence/drizzle/schemas/assembly-line.schema';
 import { factory } from '@infrastructure/persistence/drizzle/schemas/factory.schema';
 import { Injectable } from '@nestjs/common';
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 
 type LineRow = typeof assemblyLine.$inferSelect;
 type StationRow = typeof station.$inferSelect;
@@ -41,7 +40,7 @@ type Ways = {
 };
 
 const toStation = (row: StationRow, ways: Ways): Station =>
-  Station.create({
+  Station.of({
     key: row.key ? StationKey.of(row.key) : StationKey.from(row.name),
     id: StationId.of(row.id),
     name: StationName.of(row.name),
@@ -65,7 +64,6 @@ const toLine = (
   stations: StationRow[],
   ways: Ways,
   reactions: readonly Reaction[],
-  openers: readonly Opener[],
 ): AssemblyLine =>
   AssemblyLine.of({
     id: AssemblyLineId.of(line.id),
@@ -75,7 +73,7 @@ const toLine = (
     name: AssemblyLineName.of(line.name),
     stations: stations.map((row) => toStation(row, ways)),
     reactions,
-    openers,
+    role: line.role ? LineRole.of(line.role) : null,
   });
 
 const routeRowsOf = (line: AssemblyLine) =>
@@ -99,13 +97,6 @@ const reactionRowsOf = (line: AssemblyLine) =>
     assemblyLineId: line.id.value,
     happening: each.happening.value,
     fromStationId: each.from?.value ?? null,
-    toStationId: each.to.value,
-  }));
-
-const openerRowsOf = (line: AssemblyLine) =>
-  line.openers.map((each) => ({
-    assemblyLineId: line.id.value,
-    happening: each.happening.value,
     toStationId: each.to.value,
   }));
 
@@ -139,6 +130,7 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
       factoryId: added.factoryId.value,
       key: added.key.value,
       name: added.name.value,
+      role: added.role?.value ?? null,
     });
 
     await this.context.db.insert(station).values(rowsOf(added));
@@ -148,7 +140,11 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
   async save(saved: AssemblyLine): Promise<void> {
     await this.context.db
       .update(assemblyLine)
-      .set({ key: saved.key.value, name: saved.name.value })
+      .set({
+        key: saved.key.value,
+        name: saved.name.value,
+        role: saved.role?.value ?? null,
+      })
       .where(eq(assemblyLine.id, saved.id.value));
 
     for (const each of saved.stations) {
@@ -170,16 +166,12 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
     await this.context.db
       .delete(assemblyLineReaction)
       .where(eq(assemblyLineReaction.assemblyLineId, saved.id.value));
-    await this.context.db
-      .delete(assemblyLineOpener)
-      .where(eq(assemblyLineOpener.assemblyLineId, saved.id.value));
     await this.writeWays(saved);
   }
 
   private async writeWays(line: AssemblyLine): Promise<void> {
     const routes = routeRowsOf(line);
     const reactions = reactionRowsOf(line);
-    const openers = openerRowsOf(line);
     const tools = toolRowsOf(line);
 
     if (routes.length > 0) {
@@ -190,9 +182,6 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
     }
     if (reactions.length > 0) {
       await this.context.db.insert(assemblyLineReaction).values(reactions);
-    }
-    if (openers.length > 0) {
-      await this.context.db.insert(assemblyLineOpener).values(openers);
     }
   }
 
@@ -244,20 +233,6 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
     );
   }
 
-  private async openersOf(lineId: string): Promise<Opener[]> {
-    const held = await this.context.db
-      .select()
-      .from(assemblyLineOpener)
-      .where(eq(assemblyLineOpener.assemblyLineId, lineId));
-
-    return held.map((row) =>
-      Opener.of({
-        happening: Happening.of(row.happening),
-        to: StationId.of(row.toStationId),
-      }),
-    );
-  }
-
   async holding(stationId: StationId): Promise<AssemblyLine | null> {
     const [found] = await this.context.db
       .select({ assemblyLineId: station.assemblyLineId })
@@ -285,13 +260,12 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
       .where(eq(station.assemblyLineId, id.value))
       .orderBy(station.position);
 
-    const [ways, reactions, openers] = await Promise.all([
+    const [ways, reactions] = await Promise.all([
       this.waysOf(stations),
       this.reactionsOf(id.value),
-      this.openersOf(id.value),
     ]);
 
-    return toLine(found, stations, ways, reactions, openers);
+    return toLine(found, stations, ways, reactions);
   }
 
   async ofTeam(teamId: TeamId): Promise<readonly AssemblyLine[]> {
@@ -303,6 +277,23 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
       .orderBy(assemblyLine.id);
 
     return this.allOf(found.map((each) => each.id));
+  }
+
+  async withRole(teamId: TeamId, role: LineRole): Promise<AssemblyLine | null> {
+    const [found] = await this.context.db
+      .select({ id: assemblyLine.id })
+      .from(assemblyLine)
+      .innerJoin(factory, eq(factory.id, assemblyLine.factoryId))
+      .where(
+        and(
+          eq(factory.teamId, teamId.value),
+          eq(assemblyLine.role, role.value),
+        ),
+      )
+      .orderBy(assemblyLine.id)
+      .limit(1);
+
+    return found ? this.find(AssemblyLineId.of(found.id)) : null;
   }
 
   async ofWorkspace(

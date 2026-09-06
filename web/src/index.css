@@ -17,11 +17,13 @@
      dark page keeps painting the light scrollbar over its own ground. */
   color-scheme: light;
 
-  --background: #f8f8f9;
+  --background: #efeff1;
 
   --foreground: #2f2f31;
 
   --card: #fefeff;
+
+  --surface: #fbfbfc;
 
   --card-foreground: #2f2f31;
 
@@ -96,6 +98,9 @@
   --shadow-overlay:
     0 9px 48px #00000014, 0 6px 24px #0000001a, 0 1px 1px #0000000a;
 
+  /* Lifts a floating card off what it sits on, cast softly all round. */
+  --shadow-pane: 0 1px 2px #00000008, 0 8px 22px -12px #00000012;
+
   --text-sm: 0.8125rem;
   --text-sm--line-height: 1.25rem;
 
@@ -130,6 +135,7 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-surface: var(--surface);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
   --radius-sm: calc(var(--radius) * 0.6);
@@ -147,6 +153,7 @@
   --background: #0d0d0e;
   --foreground: #e2e3e5;
   --card: #1b1b1c;
+  --surface: #161617;
   --card-foreground: #e2e3e5;
   --popover: #1b1b1c;
   --popover-foreground: #e2e3e5;
@@ -199,4 +206,66 @@
 body.resizing {
   cursor: col-resize;
   user-select: none;
+}
+
+@keyframes detail-room-open {
+  from {
+    width: 0;
+  }
+}
+
+@keyframes detail-room-close {
+  to {
+    width: 0;
+  }
+}
+
+@keyframes detail-open {
+  from {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes detail-close {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@utility scrollbar-hide {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@keyframes step-shine {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@utility step-shine {
+  color: transparent;
+  background-image: linear-gradient(
+    90deg,
+    var(--color-muted-foreground) 0%,
+    var(--color-muted-foreground) 35%,
+    var(--color-foreground) 50%,
+    var(--color-muted-foreground) 65%,
+    var(--color-muted-foreground) 100%
+  );
+  background-size: 200% 100%;
+  background-position: 200% 0;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: step-shine 2.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .step-shine {
+    animation: none;
+    background-image: none;
+    color: var(--color-muted-foreground);
+  }
 }

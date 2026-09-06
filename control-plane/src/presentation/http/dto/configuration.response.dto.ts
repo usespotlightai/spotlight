@@ -227,6 +227,14 @@ export class OnboardingResponseDto {
   @ApiProperty({ nullable: true, type: String, example: 'acme/api' })
   readonly configRepository: string | null;
 
+  @ApiProperty({
+    description: 'The account repositories are named under, or null',
+    nullable: true,
+    type: String,
+    example: 'acme',
+  })
+  readonly repositoryOwner: string | null;
+
   @ApiProperty({ type: KnownToolResponseDto, isArray: true })
   readonly tools: readonly KnownToolResponseDto[];
 
@@ -235,12 +243,14 @@ export class OnboardingResponseDto {
     installUrl: string | null,
     connectedToGitHub: boolean,
     configRepository: string | null,
+    repositoryOwner: string | null,
     tools: readonly KnownToolResponseDto[],
   ) {
     this.steps = steps;
     this.installUrl = installUrl;
     this.connectedToGitHub = connectedToGitHub;
     this.configRepository = configRepository;
+    this.repositoryOwner = repositoryOwner;
     this.tools = tools;
   }
 }

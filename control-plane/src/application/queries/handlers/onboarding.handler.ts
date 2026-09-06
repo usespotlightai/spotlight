@@ -49,6 +49,12 @@ export class OnboardingHandler
         this.app.installUrl(),
       ]);
 
+      // The account a team's repositories are named under, so a person naming
+      // one types only the part that is theirs. Null until it has a connection.
+      const repositoryOwner = facts.installation
+        ? await this.app.owner(facts.installation)
+        : null;
+
       return {
         steps: shownFor(asSetupState(facts), {
           slug: team.slug,
@@ -57,6 +63,7 @@ export class OnboardingHandler
         installUrl,
         connectedToGitHub: facts.connectedToGitHub,
         configRepository: facts.configRepository,
+        repositoryOwner,
         tools: KNOWN_TOOLS.map(
           (each): KnownToolDto => ({
             source: each.source.value,

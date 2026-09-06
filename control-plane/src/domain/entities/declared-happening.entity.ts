@@ -1,5 +1,6 @@
 import { InvalidIdentifierError } from '@domain/exceptions/invalid-identifier.error';
 import type { Happening } from '@domain/value-objects/happening.vo';
+import type { LineRole } from '@domain/value-objects/line-role.vo';
 import type { MarkKind } from '@domain/value-objects/mark-kind.vo';
 
 /** One word a source can raise: the vocabulary, not the reading of it. */
@@ -14,6 +15,8 @@ export class DeclaredHappening {
     readonly spoken: boolean,
     readonly finds: readonly MarkKind[],
     readonly findsByBranch: boolean,
+    /** The role of the lines this word opens a task on, where it opens one. */
+    readonly opensOnto: LineRole | null,
   ) {}
 
   static of(input: {
@@ -23,6 +26,7 @@ export class DeclaredHappening {
     spoken?: boolean;
     finds?: readonly MarkKind[];
     findsByBranch?: boolean;
+    opensOnto?: LineRole | null;
   }): DeclaredHappening {
     const label = input.label.trim();
     const told = input.told.trim();
@@ -60,6 +64,7 @@ export class DeclaredHappening {
       input.spoken ?? false,
       finds,
       findsByBranch,
+      input.opensOnto ?? null,
     );
   }
 }

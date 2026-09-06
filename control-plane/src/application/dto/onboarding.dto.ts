@@ -29,5 +29,7 @@ export interface OnboardingDto {
   readonly connectedToGitHub: boolean;
   /** Null where nobody chose, and then the fallback scan answers instead. */
   readonly configRepository: string | null;
+  /** The account repositories are named under, so only the name is typed. */
+  readonly repositoryOwner: string | null;
   readonly tools: readonly KnownToolDto[];
 }

@@ -36,21 +36,21 @@ const line = () =>
     factoryId: FactoryId.of('factory_1'),
     name: AssemblyLineName.of('Default'),
     stations: [
-      Station.create({
+      Station.of({
         id: StationId.of('station_0'),
         name: StationName.of('Backlog'),
         position: 0,
         color: StationColor.of('#a3a8b0'),
         kind: 'backlog',
       }),
-      Station.create({
+      Station.of({
         id: StationId.of('station_1'),
         name: StationName.of('Triage'),
         position: 1,
         color: StationColor.of('#a3a8b0'),
         harness: HarnessId.of('dev'),
       }),
-      Station.create({
+      Station.of({
         id: StationId.of('station_2'),
         name: StationName.of('Completed'),
         position: 2,
@@ -100,6 +100,7 @@ const lines = () =>
     holding: vi.fn(async () => line()),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
+    withRole: vi.fn(async () => null),
   }) satisfies AssemblyLineRepository;
 
 const dispatch: TaskDispatching = {

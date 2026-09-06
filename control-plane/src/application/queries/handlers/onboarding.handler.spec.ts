@@ -7,17 +7,20 @@ import type {
   TeamSetup,
 } from '@application/services/team-setup.service';
 import { SETUP_STEPS } from '@domain/services/setup-list';
+import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 type Given = {
   member?: boolean;
   facts?: Partial<TeamFacts>;
   installUrl?: string | null;
+  owner?: string | null;
 };
 
 const nothing: TeamFacts = {
   hasRunner: false,
   connectedToGitHub: false,
+  installation: null,
   configRepository: null,
   hasConfiguration: false,
   listening: [],
@@ -46,6 +49,7 @@ const handler = (given: Given = {}) => {
           ? 'https://github.com/apps/spotlight/installations/new'
           : given.installUrl,
       ),
+    owner: vi.fn().mockResolvedValue(given.owner ?? null),
   };
 
   return new OnboardingHandler(workspaces, setup, app);
@@ -122,5 +126,20 @@ describe('OnboardingHandler', () => {
     expect(
       onboarding?.tools.find((each) => each.source === 'linear')?.chosen,
     ).toBe(true);
+  });
+
+  it('names the account repositories are under, so only the name is typed', async () => {
+    await expect(
+      read({
+        facts: { installation: GitHubInstallation.of('42') },
+        owner: 'acme',
+      }),
+    ).resolves.toMatchObject({
+      repositoryOwner: 'acme',
+    });
+  });
+
+  it('names no account until the team is connected', async () => {
+    await expect(read()).resolves.toMatchObject({ repositoryOwner: null });
   });
 });

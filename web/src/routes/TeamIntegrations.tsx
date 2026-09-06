@@ -1,9 +1,9 @@
 import { RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { useParams } from 'react-router';
-import { GitHubIntegration } from '@/components/integrations/GitHubIntegration';
-import { IntegrationCard } from '@/components/integrations/IntegrationCard';
-import { SettingsPage } from '@/components/settings/SettingsPage';
+import { GitHubIntegration } from '@/components/features/integrations/GitHubIntegration';
+import { IntegrationCard } from '@/components/features/integrations/IntegrationCard';
+import { SettingsPage } from '@/components/features/settings/SettingsPage';
 import { Button } from '@/components/ui/button';
 import {
   useConfiguration,
@@ -18,8 +18,10 @@ import { shownTogether } from '@/lib/integrations';
  */
 export function TeamIntegrations() {
   const { slug, teamId } = useParams();
-  const { data: onboarding } = useOnboarding(teamId);
-  const { data: configuration, isPending } = useConfiguration(teamId);
+  const { data: onboarding, isPending: loadingOnboarding } =
+    useOnboarding(teamId);
+  const { data: configuration, isPending: loadingConfiguration } =
+    useConfiguration(teamId);
   const reread = useRereadConfiguration(teamId);
   const choose = useChooseTools(teamId);
 
@@ -30,7 +32,7 @@ export function TeamIntegrations() {
    */
   const [wanted, setWanted] = useState<ReadonlyMap<string, boolean>>(new Map());
 
-  if (isPending || !teamId) {
+  if (loadingOnboarding || loadingConfiguration || !teamId) {
     return null;
   }
 

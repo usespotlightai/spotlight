@@ -5,6 +5,7 @@ import { Happening } from '@domain/value-objects/happening.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { LineKey } from '@domain/value-objects/line-key.vo';
 import { LinePlan } from '@domain/value-objects/line-plan.vo';
+import { LineRole } from '@domain/value-objects/line-role.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationDescription } from '@domain/value-objects/station-description.vo';
 import { StationKey } from '@domain/value-objects/station-key.vo';
@@ -102,18 +103,6 @@ export const compileLine = (path: string, text: string): CompiledLine => {
     }
   }
 
-  for (const [at, opener] of file.openers.entries()) {
-    if (!keys.has(opener.to)) {
-      problems.push(
-        ConfigurationProblem.of({
-          path,
-          at: `openers.${at}.to`,
-          reason: `names ${opener.to}, which is not a station on this line`,
-        }),
-      );
-    }
-  }
-
   if (problems.length > 0) {
     return { ok: false, problems };
   }
@@ -145,10 +134,7 @@ export const compileLine = (path: string, text: string): CompiledLine => {
           from: reaction.from ? StationKey.of(reaction.from) : null,
           to: StationKey.of(reaction.to),
         })),
-        openers: file.openers.map((opener) => ({
-          happening: Happening.of(opener.happening),
-          to: StationKey.of(opener.to),
-        })),
+        role: file.role ? LineRole.of(file.role) : null,
       }),
     };
   } catch (error) {

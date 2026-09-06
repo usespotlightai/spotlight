@@ -7,7 +7,10 @@ import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Team } from '@domain/aggregates/team.aggregate';
 import { Workspace } from '@domain/aggregates/workspace.aggregate';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
-import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
+import {
+  BUILT_IN_LINES,
+  type LineOpening,
+} from '@domain/services/built-in-lines';
 import { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
 import { Connection } from '@domain/value-objects/connection.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
@@ -52,7 +55,7 @@ const line = () => {
   return AssemblyLine.open({
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
-    name: AssemblyLineName.of('Default'),
+    line: BUILT_IN_LINES[0] as LineOpening,
     newId: () => `id_${++next}`,
   });
 };
@@ -93,6 +96,7 @@ const seeding = (
   const service = new SeedConfiguration(
     {
       ofTeam: vi.fn(async () => over.lines ?? [line()]),
+      withRole: vi.fn(async () => null),
       ofWorkspace: vi.fn(async () => over.lines ?? [line()]),
     } as unknown as AssemblyLineRepository,
     reader,
@@ -124,7 +128,7 @@ describe('SeedConfiguration', () => {
     ];
 
     expect(proposal.files.map((each) => each.path)).toEqual([
-      '.spotlight/lines/default.yml',
+      '.spotlight/lines/delivery.yml',
     ]);
     expect(proposal.files[0]?.text).toContain('version: 1');
   });
@@ -132,7 +136,7 @@ describe('SeedConfiguration', () => {
   // Opening a pull request over somebody's own files is not a welcome.
   it('writes nothing where the repository already has configuration', async () => {
     const { service, propose } = seeding({
-      already: [{ path: '.spotlight/lines/default.yml', text: 'version: 1' }],
+      already: [{ path: '.spotlight/lines/delivery.yml', text: 'version: 1' }],
     });
 
     expect(await service.seed(workspace(), TEAM, INTO)).toBeNull();

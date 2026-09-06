@@ -30,6 +30,7 @@ type Journal interface {
 	Complete(ctx context.Context, runID string, done protocol.Completion) error
 	OpenPullRequest(ctx context.Context, runID string, asked protocol.PullRequest) (string, error)
 	AnswerRemark(ctx context.Context, runID string, said protocol.Remark) error
+	Trace(ctx context.Context, runID, taskID string) (json.RawMessage, error)
 	Said(ctx context.Context, runID string) ([]protocol.Said, error)
 	Delivered(ctx context.Context, runID string, upTo int) error
 }
@@ -164,6 +165,12 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 	defer channel.Close()
+
+	// The runner reads the trace with its own token, so the agent studying one
+	// never holds it.
+	channel.Traces(func(ctx context.Context, taskID string) (json.RawMessage, error) {
+		return opts.Journal.Trace(ctx, run.ID, taskID)
+	})
 
 	// Raised before the agent for the same reason the endpoint is: a harness
 	// that exports from its first breath needs somewhere to export to.
@@ -307,6 +314,14 @@ func work(
 	defer stopRenewing()
 	go renew(renewing, lease, run.ID, log)
 
+	// The agent's updates are appended as they arrive but only shipped by a
+	// flush; without this ticker nothing would ship until the turn ended, and a
+	// reader would see a run's result rather than its working. The per-turn
+	// flush below still has the last word.
+	flushing, stopFlushing := context.WithCancel(ctx)
+	defer stopFlushing()
+	go stream(flushing, journal)
+
 	prompt := run.Spec.Briefing
 
 	for {
@@ -387,6 +402,24 @@ func renew(ctx context.Context, lease Journal, runID string, log *slog.Logger) {
 			if err := lease.RenewLease(ctx, runID); err != nil {
 				log.Warn("could not renew lease", "error", err)
 			}
+		}
+	}
+}
+
+// stream ships whatever the agent has said so far every flushEvery, coalescing
+// a turn's chunks into a few requests rather than one per update. It stops when
+// the turn's context is cancelled; the caller flushes once more after, so a
+// tick lost to a race at the end costs nothing.
+func stream(ctx context.Context, journal *journalWriter) {
+	ticker := time.NewTicker(flushEvery)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			journal.flush(ctx)
 		}
 	}
 }

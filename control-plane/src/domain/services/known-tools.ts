@@ -30,6 +30,7 @@ happenings:
     told: A new issue was filed in Linear.
     when: \${{ body.type == "Issue" && body.action == "create" }}
     opens:
+      onto: delivery
       title: \${{ body.data.title }}
       description: \${{ body.data.description }}
     concerns:

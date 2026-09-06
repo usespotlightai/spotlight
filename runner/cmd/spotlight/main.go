@@ -27,7 +27,8 @@ func main() {
 const usage = `usage:
   spotlight handover --next <where> [--note <text>]
   spotlight pull-request --title <text> [--body <text>]
-  spotlight reply --to <handle> [--body <text>] [--resolve]`
+  spotlight reply --to <handle> [--body <text>] [--resolve]
+  spotlight trace --task <id> [--out <path>]`
 
 func run(args []string, in io.Reader, out io.Writer) error {
 	if len(args) == 0 {
@@ -41,6 +42,8 @@ func run(args []string, in io.Reader, out io.Writer) error {
 		return pullRequest(args[1:], in, out)
 	case "reply":
 		return reply(args[1:], in, out)
+	case "trace":
+		return traceCmd(args[1:], out)
 	default:
 		return fmt.Errorf("no such command %q\n%s", args[0], usage)
 	}

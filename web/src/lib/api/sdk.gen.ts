@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddTaskData, AddTaskErrors, AddTaskResponses, AnswerInboxItemData, AnswerInboxItemErrors, AnswerInboxItemResponses, AnswerRemarkData, AnswerRemarkErrors, AnswerRemarkResponses, AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, AssignTaskData, AssignTaskErrors, AssignTaskResponses, ChooseToolsData, ChooseToolsErrors, ChooseToolsResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, ConnectGitHubData, ConnectGitHubErrors, ConnectGitHubResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, CustomiseStationData, CustomiseStationErrors, CustomiseStationResponses, DeleteTaskData, DeleteTaskErrors, DeleteTaskResponses, DeliverSaidData, DeliverSaidErrors, DeliverSaidResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, EnrolRunnerData, EnrolRunnerErrors, EnrolRunnerResponses, ForgetSecretData, ForgetSecretErrors, ForgetSecretResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, InstallableHarnessesData, InstallableHarnessesErrors, InstallableHarnessesResponses, KeptWorkspacesData, KeptWorkspacesErrors, KeptWorkspacesResponses, ListAssemblyLinesData, ListAssemblyLinesErrors, ListAssemblyLinesResponses, ListHappeningsData, ListHappeningsErrors, ListHappeningsResponses, ListHarnessesData, ListHarnessesErrors, ListHarnessesResponses, ListInboxData, ListInboxErrors, ListInboxResponses, ListMembersData, ListMembersErrors, ListMembersResponses, ListRepositoriesData, ListRepositoriesErrors, ListRepositoriesResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListTaskRunsData, ListTaskRunsErrors, ListTaskRunsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListTeamRunsData, ListTeamRunsErrors, ListTeamRunsResponses, ListTeamTracesData, ListTeamTracesErrors, ListTeamTracesResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, MoveTaskData, MoveTaskErrors, MoveTaskResponses, OpenPullRequestData, OpenPullRequestErrors, OpenPullRequestResponses, PendingMessagesData, PendingMessagesErrors, PendingMessagesResponses, PinConfigurationRepositoryData, PinConfigurationRepositoryErrors, PinConfigurationRepositoryResponses, ReadConfigurationData, ReadConfigurationErrors, ReadConfigurationResponses, ReadInboxItemData, ReadInboxItemErrors, ReadInboxItemResponses, ReadOnboardingData, ReadOnboardingErrors, ReadOnboardingResponses, ReadRunConversationData, ReadRunConversationErrors, ReadRunConversationResponses, ReadTaskJournalData, ReadTaskJournalErrors, ReadTaskJournalResponses, ReadTaskTraceData, ReadTaskTraceErrors, ReadTaskTraceResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, ReorderStationsData, ReorderStationsErrors, ReorderStationsResponses, RereadConfigurationData, RereadConfigurationErrors, RereadConfigurationResponses, RevokeRunnerData, RevokeRunnerErrors, RevokeRunnerResponses, SayToRunData, SayToRunErrors, SayToRunResponses, SetSecretData, SetSecretErrors, SetSecretResponses, SetTaskRepositoryData, SetTaskRepositoryErrors, SetTaskRepositoryResponses, StreamRunData, StreamRunErrors, StreamRunResponses } from './types.gen';
+import type { AddTaskData, AddTaskErrors, AddTaskResponses, AnalyseTracesData, AnalyseTracesErrors, AnalyseTracesResponses, AnswerInboxItemData, AnswerInboxItemErrors, AnswerInboxItemResponses, AnswerRemarkData, AnswerRemarkErrors, AnswerRemarkResponses, AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, AssignTaskData, AssignTaskErrors, AssignTaskResponses, ChooseToolsData, ChooseToolsErrors, ChooseToolsResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, ConnectGitHubData, ConnectGitHubErrors, ConnectGitHubResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, CustomiseStationData, CustomiseStationErrors, CustomiseStationResponses, DeleteTaskData, DeleteTaskErrors, DeleteTaskResponses, DeliverSaidData, DeliverSaidErrors, DeliverSaidResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, EnrolRunnerData, EnrolRunnerErrors, EnrolRunnerResponses, ForgetSecretData, ForgetSecretErrors, ForgetSecretResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, InstallableHarnessesData, InstallableHarnessesErrors, InstallableHarnessesResponses, KeptWorkspacesData, KeptWorkspacesErrors, KeptWorkspacesResponses, ListAssemblyLinesData, ListAssemblyLinesErrors, ListAssemblyLinesResponses, ListHappeningsData, ListHappeningsErrors, ListHappeningsResponses, ListHarnessesData, ListHarnessesErrors, ListHarnessesResponses, ListInboxData, ListInboxErrors, ListInboxResponses, ListMembersData, ListMembersErrors, ListMembersResponses, ListRepositoriesData, ListRepositoriesErrors, ListRepositoriesResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListTaskRunsData, ListTaskRunsErrors, ListTaskRunsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListTeamRunsData, ListTeamRunsErrors, ListTeamRunsResponses, ListTeamTracesData, ListTeamTracesErrors, ListTeamTracesResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, MoveTaskData, MoveTaskErrors, MoveTaskResponses, OpenPullRequestData, OpenPullRequestErrors, OpenPullRequestResponses, PendingMessagesData, PendingMessagesErrors, PendingMessagesResponses, PinConfigurationRepositoryData, PinConfigurationRepositoryErrors, PinConfigurationRepositoryResponses, ReadConfigurationData, ReadConfigurationErrors, ReadConfigurationResponses, ReadInboxItemData, ReadInboxItemErrors, ReadInboxItemResponses, ReadOnboardingData, ReadOnboardingErrors, ReadOnboardingResponses, ReadRunConversationData, ReadRunConversationErrors, ReadRunConversationResponses, ReadRunTraceData, ReadRunTraceErrors, ReadRunTraceResponses, ReadTaskJournalData, ReadTaskJournalErrors, ReadTaskJournalResponses, ReadTaskTraceData, ReadTaskTraceErrors, ReadTaskTraceResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RenameTeamData, RenameTeamErrors, RenameTeamResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, ReorderStationsData, ReorderStationsErrors, ReorderStationsResponses, RereadConfigurationData, RereadConfigurationErrors, RereadConfigurationResponses, RevokeRunnerData, RevokeRunnerErrors, RevokeRunnerResponses, SayToRunData, SayToRunErrors, SayToRunResponses, SetSecretData, SetSecretErrors, SetSecretResponses, SetTaskRepositoryData, SetTaskRepositoryErrors, SetTaskRepositoryResponses, StreamRunData, StreamRunErrors, StreamRunResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -102,6 +102,11 @@ export const claimRun = <ThrowOnError extends boolean = false>(options?: Options
  * What a person has said to the agent working this run
  */
 export const pendingMessages = <ThrowOnError extends boolean = false>(options: Options<PendingMessagesData, ThrowOnError>): RequestResult<PendingMessagesResponses, PendingMessagesErrors, ThrowOnError> => (options.client ?? client).get<PendingMessagesResponses, PendingMessagesErrors, ThrowOnError>({ url: '/runs/{runId}/messages', ...options });
+
+/**
+ * Read a task's trace, for an agent studying one of its own team
+ */
+export const readRunTrace = <ThrowOnError extends boolean = false>(options: Options<ReadRunTraceData, ThrowOnError>): RequestResult<ReadRunTraceResponses, ReadRunTraceErrors, ThrowOnError> => (options.client ?? client).get<ReadRunTraceResponses, ReadRunTraceErrors, ThrowOnError>({ url: '/runs/{runId}/trace/{taskId}', ...options });
 
 /**
  * Say what the agent has been given
@@ -300,6 +305,18 @@ export const setSecret = <ThrowOnError extends boolean = false>(options: Options
 export const forgetSecret = <ThrowOnError extends boolean = false>(options: Options<ForgetSecretData, ThrowOnError>): RequestResult<ForgetSecretResponses, ForgetSecretErrors, ThrowOnError> => (options.client ?? client).delete<ForgetSecretResponses, ForgetSecretErrors, ThrowOnError>({ url: '/teams/{teamId}/configuration/secrets/{name}', ...options });
 
 /**
+ * Rename a team
+ */
+export const renameTeam = <ThrowOnError extends boolean = false>(options: Options<RenameTeamData, ThrowOnError>): RequestResult<RenameTeamResponses, RenameTeamErrors, ThrowOnError> => (options.client ?? client).patch<RenameTeamResponses, RenameTeamErrors, ThrowOnError>({
+  url: '/teams/{teamId}',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
  * The words a station here can be set to wait for
  */
 export const listHappenings = <ThrowOnError extends boolean = false>(options: Options<ListHappeningsData, ThrowOnError>): RequestResult<ListHappeningsResponses, ListHappeningsErrors, ThrowOnError> => (options.client ?? client).get<ListHappeningsResponses, ListHappeningsErrors, ThrowOnError>({ url: '/workspaces/{slug}/happenings', ...options });
@@ -356,6 +373,18 @@ export const deleteTask = <ThrowOnError extends boolean = false>(options: Option
  */
 export const addTask = <ThrowOnError extends boolean = false>(options: Options<AddTaskData, ThrowOnError>): RequestResult<AddTaskResponses, AddTaskErrors, ThrowOnError> => (options.client ?? client).post<AddTaskResponses, AddTaskErrors, ThrowOnError>({
   url: '/teams/{teamId}/assembly-lines/{lineId}/stations/{stationId}/tasks',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Open a triage task to analyse each selected trace
+ */
+export const analyseTraces = <ThrowOnError extends boolean = false>(options: Options<AnalyseTracesData, ThrowOnError>): RequestResult<AnalyseTracesResponses, AnalyseTracesErrors, ThrowOnError> => (options.client ?? client).post<AnalyseTracesResponses, AnalyseTracesErrors, ThrowOnError>({
+  url: '/teams/{teamId}/traces/analysis',
   ...options,
   headers: {
     'Content-Type': 'application/json',

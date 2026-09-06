@@ -1,11 +1,11 @@
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useParams } from 'react-router';
-import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
-import { PageHeader } from '@/components/layout/PageHeader';
-import { NewRunnerDialog } from '@/components/runners/NewRunnerDialog';
-import { RunnerCard } from '@/components/runners/RunnerCard';
-import { SettingsPage } from '@/components/settings/SettingsPage';
+import { NewRunnerDialog } from '@/components/features/runners/NewRunnerDialog';
+import { RunnerCard } from '@/components/features/runners/RunnerCard';
+import { SettingsPage } from '@/components/features/settings/SettingsPage';
+import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
+import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useRunners } from '@/hooks/api/useRunners';

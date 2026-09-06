@@ -7,7 +7,9 @@ import { Workspace } from '@domain/aggregates/workspace.aggregate';
 import { TeamCreated } from '@domain/events/team-created.event';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import type { WorkspaceFinding } from '@domain/repositories/workspace.repository';
-import { BUILT_IN_STATIONS } from '@domain/services/built-in-stations';
+import { BUILT_IN_LINES } from '@domain/services/built-in-lines';
+import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { LineRole } from '@domain/value-objects/line-role.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
@@ -21,8 +23,10 @@ const ids = (): IdGeneratorPort => {
 };
 
 let opened: Factory | undefined;
-let seeded: AssemblyLine | undefined;
+let seeded: AssemblyLine[] = [];
 let raised: Task | undefined;
+
+const delivery = BUILT_IN_LINES[0];
 
 const at = new Date('2026-09-03T09:00:00.000Z');
 
@@ -32,16 +36,18 @@ const provision = () =>
       add: vi.fn(async (factory: Factory) => {
         opened = factory;
       }),
+      ofTeam: vi.fn(async () => null),
     },
     {
       add: vi.fn(async (line: AssemblyLine) => {
-        seeded = line;
+        seeded.push(line);
       }),
       save: vi.fn(),
       find: vi.fn(async () => null),
       holding: vi.fn(async () => null),
       ofWorkspace: vi.fn(async () => []),
       ofTeam: vi.fn(async () => []),
+      withRole: vi.fn(async () => null),
     },
     ids(),
     {
@@ -52,7 +58,7 @@ const provision = () =>
     { now: () => at, sleep: async () => {} },
     {
       find: vi.fn(async () =>
-        Workspace.create({
+        Workspace.open({
           id: WorkspaceId.of('ws_1'),
           name: WorkspaceName.of('Acme'),
           slug: WorkspaceSlug.of('acme'),
@@ -61,6 +67,7 @@ const provision = () =>
         }),
       ),
     } satisfies WorkspaceFinding,
+    HarnessId.of('claude-code'),
   ).onTeamCreated(
     new TeamCreated(
       WorkspaceId.of('ws_1'),
@@ -71,7 +78,7 @@ const provision = () =>
 
 beforeEach(() => {
   opened = undefined;
-  seeded = undefined;
+  seeded = [];
   raised = undefined;
 });
 
@@ -83,16 +90,50 @@ describe('ProvisionFactory', () => {
     expect(opened?.workspaceId).toEqual(WorkspaceId.of('ws_1'));
   });
 
-  it('opens the line every line opens with', async () => {
+  it('opens every line a team starts with', async () => {
     await provision();
 
-    expect(seeded?.factoryId).toEqual(opened?.id);
-    expect(seeded?.stations.map((each) => each.name.value)).toEqual(
-      BUILT_IN_STATIONS.map((each) => each.name.value),
+    expect(seeded.map((line) => line.key.value)).toEqual(
+      BUILT_IN_LINES.map((line) => line.key.value),
     );
-    expect(seeded?.stations.map((each) => each.color.value)).toEqual(
-      BUILT_IN_STATIONS.map((each) => each.color.value),
+    for (const line of seeded) {
+      expect(line.factoryId).toEqual(opened?.id);
+    }
+  });
+
+  it('opens the delivery line with the stations it opens with', async () => {
+    await provision();
+
+    expect(seeded[0]?.stations.map((each) => each.name.value)).toEqual(
+      delivery?.stations.map((each) => each.name.value),
     );
+    expect(seeded[0]?.stations.map((each) => each.color.value)).toEqual(
+      delivery?.stations.map((each) => each.color.value),
+    );
+  });
+
+  // A team with a runner can begin the moment its lines are open: every
+  // station where work is done is already worked by the default harness.
+  it('opens every worked station on the default harness, and the rest on none', async () => {
+    await provision();
+
+    for (const line of seeded) {
+      expect(
+        line.worked.every((each) => each.harness?.value === 'claude-code'),
+      ).toBe(true);
+      expect(line.backlog.harness).toBeNull();
+      expect(line.completed.harness).toBeNull();
+    }
+  });
+
+  it('marks the improvement line by its role', async () => {
+    await provision();
+
+    const improvement = seeded.find((line) =>
+      line.role?.equals(LineRole.IMPROVEMENT),
+    );
+
+    expect(improvement?.name.value).toBe('Factory Improvement');
   });
 
   // An inbox is one person's, and this is the person who opened the team.
@@ -103,10 +144,10 @@ describe('ProvisionFactory', () => {
     expect(raised?.title.value).toBe('Set up your team');
   });
 
-  it('stands it at the first station of the line it opened', async () => {
+  it('stands it at the first station of the delivery line', async () => {
     await provision();
 
-    expect(raised?.stationId).toEqual(seeded?.stations[0]?.id);
+    expect(raised?.stationId).toEqual(seeded[0]?.stations[0]?.id);
   });
 
   // An 'asked' with nothing after it is what an inbox item is made of.

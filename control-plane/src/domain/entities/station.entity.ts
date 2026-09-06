@@ -59,7 +59,7 @@ export abstract class Station {
   abstract readonly harness: HarnessId | null;
   abstract readonly agentPrompt: AgentPrompt | null;
 
-  static create(input: StationInput): Station {
+  static of(input: StationInput): Station {
     const ends = [
       input.id,
       input.key ?? StationKey.from(input.name.value),

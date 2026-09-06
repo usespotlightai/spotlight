@@ -90,7 +90,7 @@ export const openedAt = (at: string): string => {
  * nowhere to travel. The inset is what the card's own padding cancels.
  */
 export const HELD_AT_TOP =
-  'sticky top-0 z-10 -mx-3 bg-card pt-2 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-6 after:bg-gradient-to-b after:from-card after:to-transparent';
+  'sticky top-0 z-10 -mx-3 bg-surface pt-2 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-6 after:bg-gradient-to-b after:from-surface after:to-transparent';
 
 export const inboxPath = (slug: string) => `/w/${slug}/inbox`;
 

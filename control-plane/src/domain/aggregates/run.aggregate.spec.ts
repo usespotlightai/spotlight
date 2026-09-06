@@ -3,9 +3,12 @@ import { RunAbandoned } from '@domain/events/run-abandoned.event';
 import { RunCompleted } from '@domain/events/run-completed.event';
 import { InvalidRunTransitionError } from '@domain/exceptions/invalid-run-transition.error';
 import { Declaration } from '@domain/value-objects/declaration.vo';
+import { HandoverReport } from '@domain/value-objects/handover-report.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
+import { RunOutcome } from '@domain/value-objects/run-outcome.vo';
+import { RunPriority } from '@domain/value-objects/run-priority.vo';
 import { RunSpec } from '@domain/value-objects/run-spec.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
@@ -48,7 +51,7 @@ const onAttempt = (attempt: number, leaseUntil: Date) =>
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
-    priority: 0,
+    priority: RunPriority.normal,
     taskId: null,
     stationId: null,
     spec: aSpec(),
@@ -168,34 +171,42 @@ describe('Run', () => {
     const run = claimed();
 
     expect(() =>
-      run.complete(runner('someone_else'), { exitCode: 0, failed: false }),
+      run.complete(
+        runner('someone_else'),
+        RunOutcome.of({ exitCode: 0, failed: false }),
+      ),
     ).toThrow(InvalidRunTransitionError);
   });
 
   it('records what a finished run produced, and drops the lease', () => {
-    const ended = claimed().complete(runner(), { exitCode: 0, failed: false });
+    const ended = claimed().complete(
+      runner(),
+      RunOutcome.of({ exitCode: 0, failed: false }),
+    );
 
     expect(ended.state).toBe('completed');
-    expect(ended.result).toEqual({ exitCode: 0, failed: false });
+    expect(ended.result).toEqual(RunOutcome.of({ exitCode: 0, failed: false }));
     expect(ended.leaseExpiresAt).toBeNull();
   });
 
   it('calls a failing run failed even though it reported an exit code', () => {
-    const ended = claimed().complete(runner(), {
-      exitCode: 2,
-      failed: true,
-      message: 'no push',
-    });
+    const ended = claimed().complete(
+      runner(),
+      RunOutcome.of({ exitCode: 2, failed: true, message: 'no push' }),
+    );
 
     expect(ended.state).toBe('failed');
     expect(ended.result?.message).toBe('no push');
   });
 
   it('cannot be completed once it already is', () => {
-    const ended = claimed().complete(runner(), { exitCode: 0, failed: false });
+    const ended = claimed().complete(
+      runner(),
+      RunOutcome.of({ exitCode: 0, failed: false }),
+    );
 
     expect(() =>
-      ended.complete(runner(), { exitCode: 0, failed: false }),
+      ended.complete(runner(), RunOutcome.of({ exitCode: 0, failed: false })),
     ).toThrow(InvalidRunTransitionError);
   });
 
@@ -267,11 +278,11 @@ describe('Run', () => {
       const [raised] = claimed()
         .complete(
           runner(),
-          { exitCode: 0, failed: false },
-          {
+          RunOutcome.of({ exitCode: 0, failed: false }),
+          HandoverReport.of({
             declared: Declaration.of({ next: 'Spec', note: 'ready' }),
             session: HarnessSession.of('session_1'),
-          },
+          }),
         )
         .pullEvents();
 
@@ -287,11 +298,13 @@ describe('Run', () => {
     it('keeps nothing of what it announced', () => {
       const ended = claimed().complete(
         runner(),
-        { exitCode: 0, failed: false },
-        { session: HarnessSession.of('session_1') },
+        RunOutcome.of({ exitCode: 0, failed: false }),
+        HandoverReport.of({ session: HarnessSession.of('session_1') }),
       );
 
-      expect(ended.result).toEqual({ exitCode: 0, failed: false });
+      expect(ended.result).toEqual(
+        RunOutcome.of({ exitCode: 0, failed: false }),
+      );
     });
 
     it('says so when it is given up on', () => {
@@ -311,7 +324,7 @@ describe('Run', () => {
     it('leaves the run it was completed from with nothing to announce', () => {
       const held = claimed();
 
-      held.complete(runner(), { exitCode: 0, failed: false });
+      held.complete(runner(), RunOutcome.of({ exitCode: 0, failed: false }));
 
       expect(held.pullEvents()).toHaveLength(0);
       expect(held.state).toBe('claimed');

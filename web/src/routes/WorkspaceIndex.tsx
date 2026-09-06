@@ -1,5 +1,5 @@
 import { Navigate, useParams } from 'react-router';
-import { PageHeader } from '@/components/layout/PageHeader';
+import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { teamPath } from '@/lib/team';
 

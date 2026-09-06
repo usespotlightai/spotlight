@@ -1,18 +1,14 @@
 import type { ChooseToolsCommand } from '@application/commands/choose-tools.command';
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
-import type { LineReaderPort } from '@application/ports/line-reader.port';
 import type { OpenedPullRequestDto } from '@application/ports/pull-request.port';
 import type { WorkspaceReaderPort } from '@application/ports/workspace-reader.port';
 import type { WriteConfiguration } from '@application/services/write-configuration.service';
 import { INTEGRATIONS_UNDER } from '@domain/aggregates/team-configuration.aggregate';
-import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TeamRepository } from '@domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
 import { knownTool } from '@domain/services/known-tools';
-import { contributionOf } from '@domain/services/source-contribution';
 import { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
-import { SourceKey } from '@domain/value-objects/source-key.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
@@ -23,7 +19,8 @@ import { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
  * What comes back is a pull request, not a team already listening: the files
  * are ordinary configuration, and somebody reads them before they are true.
  * Nothing is set up here. A host still has to be pointed at the door and its
- * secret still has to be set, and the pull request says so.
+ * secret still has to be set, and the pull request says so. The file itself
+ * says which of its words open work, and on the lines of which role.
  */
 export class ChooseToolsHandler
   implements CommandHandlerPort<ChooseToolsCommand, OpenedPullRequestDto | null>
@@ -33,8 +30,6 @@ export class ChooseToolsHandler
     private readonly members: WorkspaceReaderPort,
     private readonly teams: TeamRepository,
     private readonly writing: WriteConfiguration,
-    private readonly lines: AssemblyLineRepository,
-    private readonly reader: LineReaderPort,
   ) {}
 
   async execute(
@@ -72,39 +67,16 @@ export class ChooseToolsHandler
         return null;
       }
 
-      // A chosen tool puts what it opens on the line; a dropped one takes its
-      // rules off. Both ride the same change.
-      const relined: ConfigurationFile[] = [];
-
-      for (const line of await this.lines.ofTeam(TeamId.of(command.teamId))) {
-        const opened = command.sources.reduce(
-          (each, source) =>
-            each.installing(contributionOf(SourceKey.of(source))),
-          line,
-        );
-        const trimmed = command.dropped.reduce(
-          (each, source) => each.withoutRulesFrom(SourceKey.of(source)),
-          opened,
-        );
-
-        if (trimmed !== line) {
-          relined.push(this.reader.write(trimmed));
-        }
-      }
-
       return await this.writing.write(workspace, held, {
         branch: 'spotlight/tools',
         title: titleFor(chosen.length, dropped.length),
         body: BODY,
-        files: [
-          ...chosen.map((tool) =>
-            ConfigurationFile.of(
-              `${INTEGRATIONS_UNDER}/${tool.source.value}.yml`,
-              tool.file,
-            ),
+        files: chosen.map((tool) =>
+          ConfigurationFile.of(
+            `${INTEGRATIONS_UNDER}/${tool.source.value}.yml`,
+            tool.file,
           ),
-          ...relined,
-        ],
+        ),
         removes: dropped,
       });
     } catch (error) {

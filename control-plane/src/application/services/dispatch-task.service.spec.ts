@@ -54,7 +54,7 @@ const at = (
   harness?: HarnessId,
   passesTo: string[] = [],
 ) =>
-  Station.create({
+  Station.of({
     id: StationId.of(id),
     name: StationName.of(name),
     position,
@@ -189,7 +189,7 @@ describe('DispatchTask', () => {
   it('gives a run the standing of the station it serves', async () => {
     await dispatch(stations[2] as Station);
 
-    expect(queued[0]?.priority).toBe(2);
+    expect(queued[0]?.priority.value).toBe(2);
   });
 
   // The runner refuses a word that is not on this list, so it has to hold

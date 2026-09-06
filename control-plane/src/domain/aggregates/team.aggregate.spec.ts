@@ -1,6 +1,5 @@
 import { Team } from '@domain/aggregates/team.aggregate';
 import { TeamCreated } from '@domain/events/team-created.event';
-import { ConfigurationSettledError } from '@domain/exceptions/configuration-settled.error';
 import { Repository } from '@domain/value-objects/repository.vo';
 import { TeamKey } from '@domain/value-objects/team-key.vo';
 import { TeamName } from '@domain/value-objects/team-name.vo';
@@ -82,25 +81,23 @@ describe('Team', () => {
       expect(pinned.configRepository?.value).toBe('acme/api');
     });
 
-    // Moving it would leave every file already written behind, and read
-    // somebody else's from then on.
-    it('refuses to be moved once it has somewhere', () => {
-      const pinned = open().keepsConfigurationIn(Repository.of('acme/api'));
+    // The files already written stay where they were; reading begins anew.
+    it('moves to another place once it has somewhere', () => {
+      const moved = open()
+        .keepsConfigurationIn(Repository.of('acme/api'))
+        .keepsConfigurationIn(Repository.of('acme/other'));
 
-      expect(() =>
-        pinned.keepsConfigurationIn(Repository.of('acme/other')),
-      ).toThrow(ConfigurationSettledError);
+      expect(moved.configRepository?.value).toBe('acme/other');
     });
 
-    it('refuses to have it taken back', () => {
-      const pinned = open().keepsConfigurationIn(Repository.of('acme/api'));
+    it('takes the pin off when it is reset to none', () => {
+      const reset = open()
+        .keepsConfigurationIn(Repository.of('acme/api'))
+        .keepsConfigurationIn(null);
 
-      expect(() => pinned.keepsConfigurationIn(null)).toThrow(
-        ConfigurationSettledError,
-      );
+      expect(reset.configRepository).toBeNull();
     });
 
-    // Saying the same place twice is not a change, so it is not a refusal.
     it('takes the same place again as nothing new', () => {
       const pinned = open().keepsConfigurationIn(Repository.of('acme/api'));
 

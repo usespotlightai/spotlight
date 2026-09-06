@@ -24,6 +24,8 @@ export const assemblyLine = pgTable(
       .notNull()
       .references(() => factory.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
+    /** What the line is for, so work can be routed to it by purpose. */
+    role: text('role'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
       .defaultNow()
@@ -122,19 +124,4 @@ export const assemblyLineReaction = pgTable(
   (table) => [
     index('assembly_line_reaction_line_idx').on(table.assemblyLineId),
   ],
-);
-
-/** Where a word opens a task for work the line has none for yet. */
-export const assemblyLineOpener = pgTable(
-  'assembly_line_opener',
-  {
-    assemblyLineId: text('assembly_line_id')
-      .notNull()
-      .references(() => assemblyLine.id, { onDelete: 'cascade' }),
-    happening: text('happening').notNull(),
-    toStationId: text('to_station_id')
-      .notNull()
-      .references(() => station.id, { onDelete: 'cascade' }),
-  },
-  (table) => [index('assembly_line_opener_line_idx').on(table.assemblyLineId)],
 );

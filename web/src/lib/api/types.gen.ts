@@ -149,6 +149,104 @@ export type PendingMessageResponseDto = {
   body: string;
 };
 
+export type StepLocationResponseDto = {
+  path: string;
+  line: number | null;
+};
+
+export type StepChangeResponseDto = {
+  path: string | null;
+  /**
+   * The file as it stood
+   */
+  before: string;
+  /**
+   * The file as the agent left it
+   */
+  after: string;
+};
+
+export type JournalStepResponseDto = {
+  kind: 'said' | 'thought' | 'tool' | 'planned' | 'hook';
+  text: string;
+  status: string | null;
+  /**
+   * What sort of tool it was: execute, read, edit, …
+   */
+  tool: string | null;
+  /**
+   * What the tool answered with, as much of it as is worth reading
+   */
+  detail: string | null;
+  /**
+   * How long it took, in ms
+   */
+  ms: number;
+  /**
+   * When it began, for laying the run out against a clock
+   */
+  startedAt: string;
+  locations: Array<StepLocationResponseDto>;
+  /**
+   * What the tool was asked for, as it was asked
+   */
+  given: string | null;
+  /**
+   * What it handed back, unread
+   */
+  returned: string | null;
+  change: StepChangeResponseDto | null;
+};
+
+export type SpanAttributeResponseDto = {
+  name: string;
+  value: string;
+};
+
+export type RunSpanResponseDto = {
+  id: string;
+  parentId: string | null;
+  name: string;
+  startedAt: string;
+  ms: number;
+  failed: boolean;
+  attributes: Array<SpanAttributeResponseDto>;
+};
+
+export type TraceNodeResponseDto = {
+  id: string;
+  kind: 'run' | 'phase' | 'step' | 'span';
+  name: string;
+  startedAt: string;
+  /**
+   * How long it took, in ms
+   */
+  ms: number;
+  /**
+   * The agent working, the overhead around it, or a fault
+   */
+  tone: 'agent' | 'overhead' | 'failed';
+  cost: number | null;
+  currency: string | null;
+  step: JournalStepResponseDto | null;
+  span: RunSpanResponseDto | null;
+  children: Array<TraceNodeResponseDto>;
+};
+
+export type TaskTraceResponseDto = {
+  startedAt: string | null;
+  /**
+   * First run to last, in ms
+   */
+  ms: number;
+  /**
+   * How many rows it draws
+   */
+  rows: number;
+  faults: number;
+  roots: Array<TraceNodeResponseDto>;
+};
+
 export type DeliverSaidRequestDto = {
   /**
    * Everything said up to and including this note was given
@@ -308,6 +406,10 @@ export type InboxItemResponseDto = {
    */
   working: boolean;
   /**
+   * The run working it now, whose steps can be watched as they land
+   */
+  runId: string | null;
+  /**
    * Something was asked here that they have not seen yet
    */
   unread: boolean;
@@ -323,70 +425,6 @@ export type AnswerInboxItemRequestDto = {
    * What the person says back. It joins the task’s trail.
    */
   body: string;
-};
-
-export type StepLocationResponseDto = {
-  path: string;
-  line: number | null;
-};
-
-export type StepChangeResponseDto = {
-  path: string | null;
-  /**
-   * The file as it stood
-   */
-  before: string;
-  /**
-   * The file as the agent left it
-   */
-  after: string;
-};
-
-export type JournalStepResponseDto = {
-  kind: 'said' | 'thought' | 'tool' | 'planned' | 'hook';
-  text: string;
-  status: string | null;
-  /**
-   * What sort of tool it was: execute, read, edit, …
-   */
-  tool: string | null;
-  /**
-   * What the tool answered with, as much of it as is worth reading
-   */
-  detail: string | null;
-  /**
-   * How long it took, in ms
-   */
-  ms: number;
-  /**
-   * When it began, for laying the run out against a clock
-   */
-  startedAt: string;
-  locations: Array<StepLocationResponseDto>;
-  /**
-   * What the tool was asked for, as it was asked
-   */
-  given: string | null;
-  /**
-   * What it handed back, unread
-   */
-  returned: string | null;
-  change: StepChangeResponseDto | null;
-};
-
-export type SpanAttributeResponseDto = {
-  name: string;
-  value: string;
-};
-
-export type RunSpanResponseDto = {
-  id: string;
-  parentId: string | null;
-  name: string;
-  startedAt: string;
-  ms: number;
-  failed: boolean;
-  attributes: Array<SpanAttributeResponseDto>;
 };
 
 export type RunMarksResponseDto = {
@@ -571,6 +609,10 @@ export type OnboardingResponseDto = {
    */
   connectedToGitHub: boolean;
   configRepository: string | null;
+  /**
+   * The account repositories are named under, or null
+   */
+  repositoryOwner: string | null;
   tools: Array<KnownToolResponseDto>;
 };
 
@@ -598,6 +640,13 @@ export type SetSecretRequestDto = {
    * Written once and never read back out of Spotlight.
    */
   value: string;
+};
+
+export type RenameTeamRequestDto = {
+  /**
+   * What the team is called.
+   */
+  name: string;
 };
 
 export type HappeningResponseDto = {
@@ -790,40 +839,6 @@ export type TaskRunResponseDto = {
   review: RunReviewResponseDto | null;
 };
 
-export type TraceNodeResponseDto = {
-  id: string;
-  kind: 'run' | 'phase' | 'step' | 'span';
-  name: string;
-  startedAt: string;
-  /**
-   * How long it took, in ms
-   */
-  ms: number;
-  /**
-   * The agent working, the overhead around it, or a fault
-   */
-  tone: 'agent' | 'overhead' | 'failed';
-  cost: number | null;
-  currency: string | null;
-  step: JournalStepResponseDto | null;
-  span: RunSpanResponseDto | null;
-  children: Array<TraceNodeResponseDto>;
-};
-
-export type TaskTraceResponseDto = {
-  startedAt: string | null;
-  /**
-   * First run to last, in ms
-   */
-  ms: number;
-  /**
-   * How many rows it draws
-   */
-  rows: number;
-  faults: number;
-  roots: Array<TraceNodeResponseDto>;
-};
-
 export type AddTaskRequestDto = {
   title: string;
   /**
@@ -834,6 +849,13 @@ export type AddTaskRequestDto = {
    * The codebase the work is done in, as owner/name
    */
   repository?: string | null;
+};
+
+export type AnalyseTracesRequestDto = {
+  /**
+   * The tasks whose traces are to be analysed, one work item each
+   */
+  taskIds: Array<string>;
 };
 
 export type MoveTaskRequestDto = {
@@ -1163,6 +1185,33 @@ export type PendingMessagesResponses = {
 };
 
 export type PendingMessagesResponse = PendingMessagesResponses[keyof PendingMessagesResponses];
+
+export type ReadRunTraceData = {
+  body?: never;
+  path: {
+    runId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/trace/{taskId}';
+};
+
+export type ReadRunTraceErrors = {
+  /**
+   * Missing or wrong enrollment token
+   */
+  401: unknown;
+  /**
+   * No such run or task, or not this run’s team to read
+   */
+  404: unknown;
+};
+
+export type ReadRunTraceResponses = {
+  200: TaskTraceResponseDto;
+};
+
+export type ReadRunTraceResponse = ReadRunTraceResponses[keyof ReadRunTraceResponses];
 
 export type DeliverSaidData = {
   body: DeliverSaidRequestDto;
@@ -1749,6 +1798,35 @@ export type ForgetSecretResponses = {
 
 export type ForgetSecretResponse = ForgetSecretResponses[keyof ForgetSecretResponses];
 
+export type RenameTeamData = {
+  body: RenameTeamRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}';
+};
+
+export type RenameTeamErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, or not yours to rename
+   */
+  404: unknown;
+};
+
+export type RenameTeamResponses = {
+  /**
+   * Renamed
+   */
+  204: void;
+};
+
+export type RenameTeamResponse = RenameTeamResponses[keyof RenameTeamResponses];
+
 export type ListHappeningsData = {
   body?: never;
   path: {
@@ -2022,6 +2100,28 @@ export type AddTaskResponses = {
 };
 
 export type AddTaskResponse = AddTaskResponses[keyof AddTaskResponses];
+
+export type AnalyseTracesData = {
+  body: AnalyseTracesRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/traces/analysis';
+};
+
+export type AnalyseTracesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+};
+
+export type AnalyseTracesResponses = {
+  201: Array<TaskResponseDto>;
+};
+
+export type AnalyseTracesResponse = AnalyseTracesResponses[keyof AnalyseTracesResponses];
 
 export type MoveTaskData = {
   body: MoveTaskRequestDto;

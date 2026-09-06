@@ -202,6 +202,7 @@ export class ConfigurationController {
       read.installUrl,
       read.connectedToGitHub,
       read.configRepository,
+      read.repositoryOwner,
       read.tools.map(
         (each) =>
           new KnownToolResponseDto(

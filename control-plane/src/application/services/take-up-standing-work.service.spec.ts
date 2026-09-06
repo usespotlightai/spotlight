@@ -22,7 +22,7 @@ import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const at = (name: string, harness = HarnessId.of('dev')) =>
-  Station.create({
+  Station.of({
     id: StationId.of('station_1'),
     name: StationName.of(name),
     position: 1,
@@ -33,7 +33,7 @@ const at = (name: string, harness = HarnessId.of('dev')) =>
 const worked = at('Triage');
 // A station of its own: two sharing an id would make the line ambiguous
 // about which one it holds.
-const nobody = Station.create({
+const nobody = Station.of({
   id: StationId.of('station_0'),
   name: StationName.of('Backlog'),
   position: 0,
@@ -67,7 +67,7 @@ const dispatched = vi.fn(async () => RunId.of('run_1'));
 const dispatch = { dispatch: dispatched } as unknown as TaskDispatching;
 
 const ends = (id: string, name: string, position: number) =>
-  Station.create({
+  Station.of({
     id: StationId.of(id),
     name: StationName.of(name),
     position,

@@ -42,26 +42,18 @@ const reactionSchema = z.object({
   to: key('code-review'),
 });
 
-const openerSchema = z.object({
-  happening: z
-    .string()
-    .regex(HAPPENING, 'names its source first, as in linear.issue.created'),
-  /** Where a task is opened when the word concerns none the line has. */
-  to: key('backlog'),
-});
-
 export const lineSchema = z.object({
   version: z.literal(1, { message: 'must be 1' }),
-  key: key('default'),
+  key: key('delivery'),
   name: z.string().min(1, 'is what this line is called'),
+  /** What the line is for, so the factory can route work to it by purpose. */
+  role: key('improvement').optional(),
   stations: z
     .array(stationSchema)
     .min(1, 'is the stations along this line, and there has to be one'),
   reactions: z.array(reactionSchema).default([]),
-  openers: z.array(openerSchema).default([]),
 });
 
 export type LineFile = z.infer<typeof lineSchema>;
 export type StationFile = z.infer<typeof stationSchema>;
 export type ReactionFile = z.infer<typeof reactionSchema>;
-export type OpenerFile = z.infer<typeof openerSchema>;

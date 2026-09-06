@@ -441,6 +441,51 @@
         ]
       }
     },
+    "/runs/{runId}/trace/{taskId}": {
+      "get": {
+        "operationId": "readRunTrace",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskTraceResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong enrollment token"
+          },
+          "404": {
+            "description": "No such run or task, or not this run’s team to read"
+          }
+        },
+        "summary": "Read a task's trace, for an agent studying one of its own team",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
     "/runs/{runId}/messages/delivered": {
       "post": {
         "operationId": "deliverSaid",
@@ -1330,6 +1375,47 @@
         ]
       }
     },
+    "/teams/{teamId}": {
+      "patch": {
+        "operationId": "renameTeam",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "team_1",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameTeamRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Renamed"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team, or not yours to rename"
+          }
+        },
+        "summary": "Rename a team",
+        "tags": [
+          "teams"
+        ]
+      }
+    },
     "/workspaces/{slug}/happenings": {
       "get": {
         "operationId": "listHappenings",
@@ -1791,6 +1877,54 @@
           }
         },
         "summary": "Add a task to a station",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/teams/{teamId}/traces/analysis": {
+      "post": {
+        "operationId": "analyseTraces",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalyseTracesRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TaskResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          }
+        },
+        "summary": "Open a triage task to analyse each selected trace",
         "tags": [
           "tasks"
         ]
@@ -2494,6 +2628,316 @@
           "body"
         ]
       },
+      "StepLocationResponseDto": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "example": "control-plane/src/app.module.ts"
+          },
+          "line": {
+            "type": "number",
+            "example": 126,
+            "nullable": true
+          }
+        },
+        "required": [
+          "path",
+          "line"
+        ]
+      },
+      "StepChangeResponseDto": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "nullable": true
+          },
+          "before": {
+            "type": "string",
+            "description": "The file as it stood"
+          },
+          "after": {
+            "type": "string",
+            "description": "The file as the agent left it"
+          }
+        },
+        "required": [
+          "path",
+          "before",
+          "after"
+        ]
+      },
+      "JournalStepResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "example": "tool",
+            "enum": [
+              "said",
+              "thought",
+              "tool",
+              "planned",
+              "hook"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "example": "ToolSearch"
+          },
+          "status": {
+            "type": "string",
+            "nullable": true,
+            "example": "completed"
+          },
+          "tool": {
+            "type": "string",
+            "nullable": true,
+            "example": "execute",
+            "description": "What sort of tool it was: execute, read, edit, …"
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true,
+            "description": "What the tool answered with, as much of it as is worth reading"
+          },
+          "ms": {
+            "type": "number",
+            "example": 1200,
+            "description": "How long it took, in ms"
+          },
+          "startedAt": {
+            "type": "string",
+            "example": "2026-08-29T12:00:03.000Z",
+            "description": "When it began, for laying the run out against a clock"
+          },
+          "locations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StepLocationResponseDto"
+            }
+          },
+          "given": {
+            "type": "string",
+            "nullable": true,
+            "description": "What the tool was asked for, as it was asked"
+          },
+          "returned": {
+            "type": "string",
+            "nullable": true,
+            "description": "What it handed back, unread"
+          },
+          "change": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StepChangeResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "text",
+          "status",
+          "tool",
+          "detail",
+          "ms",
+          "startedAt",
+          "locations",
+          "given",
+          "returned",
+          "change"
+        ]
+      },
+      "SpanAttributeResponseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "gen_ai.request.model"
+          },
+          "value": {
+            "type": "string",
+            "example": "claude-opus-5"
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ]
+      },
+      "RunSpanResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "8889c15027e46e76"
+          },
+          "parentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "example": "claude_code.llm_request"
+          },
+          "startedAt": {
+            "type": "string",
+            "example": "2026-08-29T12:00:03.000Z"
+          },
+          "ms": {
+            "type": "number",
+            "example": 4350
+          },
+          "failed": {
+            "type": "boolean",
+            "example": false
+          },
+          "attributes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SpanAttributeResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "parentId",
+          "name",
+          "startedAt",
+          "ms",
+          "failed",
+          "attributes"
+        ]
+      },
+      "TraceNodeResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "run:run_1"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "run",
+              "phase",
+              "step",
+              "span"
+            ],
+            "example": "run"
+          },
+          "name": {
+            "type": "string",
+            "example": "Implementation"
+          },
+          "startedAt": {
+            "type": "string",
+            "example": "2026-09-01T13:25:04.000Z"
+          },
+          "ms": {
+            "type": "number",
+            "example": 143000,
+            "description": "How long it took, in ms"
+          },
+          "tone": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "overhead",
+              "failed"
+            ],
+            "example": "agent",
+            "description": "The agent working, the overhead around it, or a fault"
+          },
+          "cost": {
+            "type": "number",
+            "nullable": true,
+            "example": 4.97
+          },
+          "currency": {
+            "type": "string",
+            "nullable": true,
+            "example": "USD"
+          },
+          "step": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/JournalStepResponseDto"
+              }
+            ]
+          },
+          "span": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunSpanResponseDto"
+              }
+            ]
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceNodeResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "startedAt",
+          "ms",
+          "tone",
+          "cost",
+          "currency",
+          "step",
+          "span",
+          "children"
+        ]
+      },
+      "TaskTraceResponseDto": {
+        "type": "object",
+        "properties": {
+          "startedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "ms": {
+            "type": "number",
+            "example": 2423000,
+            "description": "First run to last, in ms"
+          },
+          "rows": {
+            "type": "number",
+            "example": 454,
+            "description": "How many rows it draws"
+          },
+          "faults": {
+            "type": "number",
+            "example": 21
+          },
+          "roots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceNodeResponseDto"
+            }
+          }
+        },
+        "required": [
+          "startedAt",
+          "ms",
+          "rows",
+          "faults",
+          "roots"
+        ]
+      },
       "DeliverSaidRequestDto": {
         "type": "object",
         "properties": {
@@ -2879,6 +3323,11 @@
             "example": false,
             "description": "True while a run is working it, so an answer is coming"
           },
+          "runId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The run working it now, whose steps can be watched as they land"
+          },
           "unread": {
             "type": "boolean",
             "example": true,
@@ -2912,6 +3361,7 @@
           "askedAt",
           "resolved",
           "working",
+          "runId",
           "unread",
           "briefing",
           "notes"
@@ -2928,191 +3378,6 @@
         },
         "required": [
           "body"
-        ]
-      },
-      "StepLocationResponseDto": {
-        "type": "object",
-        "properties": {
-          "path": {
-            "type": "string",
-            "example": "control-plane/src/app.module.ts"
-          },
-          "line": {
-            "type": "number",
-            "example": 126,
-            "nullable": true
-          }
-        },
-        "required": [
-          "path",
-          "line"
-        ]
-      },
-      "StepChangeResponseDto": {
-        "type": "object",
-        "properties": {
-          "path": {
-            "type": "string",
-            "nullable": true
-          },
-          "before": {
-            "type": "string",
-            "description": "The file as it stood"
-          },
-          "after": {
-            "type": "string",
-            "description": "The file as the agent left it"
-          }
-        },
-        "required": [
-          "path",
-          "before",
-          "after"
-        ]
-      },
-      "JournalStepResponseDto": {
-        "type": "object",
-        "properties": {
-          "kind": {
-            "type": "string",
-            "example": "tool",
-            "enum": [
-              "said",
-              "thought",
-              "tool",
-              "planned",
-              "hook"
-            ]
-          },
-          "text": {
-            "type": "string",
-            "example": "ToolSearch"
-          },
-          "status": {
-            "type": "string",
-            "nullable": true,
-            "example": "completed"
-          },
-          "tool": {
-            "type": "string",
-            "nullable": true,
-            "example": "execute",
-            "description": "What sort of tool it was: execute, read, edit, …"
-          },
-          "detail": {
-            "type": "string",
-            "nullable": true,
-            "description": "What the tool answered with, as much of it as is worth reading"
-          },
-          "ms": {
-            "type": "number",
-            "example": 1200,
-            "description": "How long it took, in ms"
-          },
-          "startedAt": {
-            "type": "string",
-            "example": "2026-08-29T12:00:03.000Z",
-            "description": "When it began, for laying the run out against a clock"
-          },
-          "locations": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/StepLocationResponseDto"
-            }
-          },
-          "given": {
-            "type": "string",
-            "nullable": true,
-            "description": "What the tool was asked for, as it was asked"
-          },
-          "returned": {
-            "type": "string",
-            "nullable": true,
-            "description": "What it handed back, unread"
-          },
-          "change": {
-            "nullable": true,
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/StepChangeResponseDto"
-              }
-            ]
-          }
-        },
-        "required": [
-          "kind",
-          "text",
-          "status",
-          "tool",
-          "detail",
-          "ms",
-          "startedAt",
-          "locations",
-          "given",
-          "returned",
-          "change"
-        ]
-      },
-      "SpanAttributeResponseDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "example": "gen_ai.request.model"
-          },
-          "value": {
-            "type": "string",
-            "example": "claude-opus-5"
-          }
-        },
-        "required": [
-          "name",
-          "value"
-        ]
-      },
-      "RunSpanResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "example": "8889c15027e46e76"
-          },
-          "parentId": {
-            "type": "string",
-            "nullable": true
-          },
-          "name": {
-            "type": "string",
-            "example": "claude_code.llm_request"
-          },
-          "startedAt": {
-            "type": "string",
-            "example": "2026-08-29T12:00:03.000Z"
-          },
-          "ms": {
-            "type": "number",
-            "example": 4350
-          },
-          "failed": {
-            "type": "boolean",
-            "example": false
-          },
-          "attributes": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SpanAttributeResponseDto"
-            }
-          }
-        },
-        "required": [
-          "id",
-          "parentId",
-          "name",
-          "startedAt",
-          "ms",
-          "failed",
-          "attributes"
         ]
       },
       "RunMarksResponseDto": {
@@ -3602,6 +3867,12 @@
             "nullable": true,
             "example": "acme/api"
           },
+          "repositoryOwner": {
+            "type": "string",
+            "description": "The account repositories are named under, or null",
+            "nullable": true,
+            "example": "acme"
+          },
           "tools": {
             "type": "array",
             "items": {
@@ -3614,6 +3885,7 @@
           "installUrl",
           "connectedToGitHub",
           "configRepository",
+          "repositoryOwner",
           "tools"
         ]
       },
@@ -3675,6 +3947,19 @@
         "required": [
           "name",
           "value"
+        ]
+      },
+      "RenameTeamRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "What the team is called.",
+            "example": "Platform"
+          }
+        },
+        "required": [
+          "name"
         ]
       },
       "HappeningResponseDto": {
@@ -4272,131 +4557,6 @@
           "review"
         ]
       },
-      "TraceNodeResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "example": "run:run_1"
-          },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "run",
-              "phase",
-              "step",
-              "span"
-            ],
-            "example": "run"
-          },
-          "name": {
-            "type": "string",
-            "example": "Implementation"
-          },
-          "startedAt": {
-            "type": "string",
-            "example": "2026-09-01T13:25:04.000Z"
-          },
-          "ms": {
-            "type": "number",
-            "example": 143000,
-            "description": "How long it took, in ms"
-          },
-          "tone": {
-            "type": "string",
-            "enum": [
-              "agent",
-              "overhead",
-              "failed"
-            ],
-            "example": "agent",
-            "description": "The agent working, the overhead around it, or a fault"
-          },
-          "cost": {
-            "type": "number",
-            "nullable": true,
-            "example": 4.97
-          },
-          "currency": {
-            "type": "string",
-            "nullable": true,
-            "example": "USD"
-          },
-          "step": {
-            "nullable": true,
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/JournalStepResponseDto"
-              }
-            ]
-          },
-          "span": {
-            "nullable": true,
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/RunSpanResponseDto"
-              }
-            ]
-          },
-          "children": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TraceNodeResponseDto"
-            }
-          }
-        },
-        "required": [
-          "id",
-          "kind",
-          "name",
-          "startedAt",
-          "ms",
-          "tone",
-          "cost",
-          "currency",
-          "step",
-          "span",
-          "children"
-        ]
-      },
-      "TaskTraceResponseDto": {
-        "type": "object",
-        "properties": {
-          "startedAt": {
-            "type": "string",
-            "nullable": true
-          },
-          "ms": {
-            "type": "number",
-            "example": 2423000,
-            "description": "First run to last, in ms"
-          },
-          "rows": {
-            "type": "number",
-            "example": 454,
-            "description": "How many rows it draws"
-          },
-          "faults": {
-            "type": "number",
-            "example": 21
-          },
-          "roots": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TraceNodeResponseDto"
-            }
-          }
-        },
-        "required": [
-          "startedAt",
-          "ms",
-          "rows",
-          "faults",
-          "roots"
-        ]
-      },
       "AddTaskRequestDto": {
         "type": "object",
         "properties": {
@@ -4421,6 +4581,24 @@
         },
         "required": [
           "title"
+        ]
+      },
+      "AnalyseTracesRequestDto": {
+        "type": "object",
+        "properties": {
+          "taskIds": {
+            "example": [
+              "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13"
+            ],
+            "description": "The tasks whose traces are to be analysed, one work item each",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "taskIds"
         ]
       },
       "MoveTaskRequestDto": {

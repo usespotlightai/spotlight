@@ -1,6 +1,5 @@
 import { EventRecorder } from '@domain/aggregates/event-recorder';
 import { TeamCreated } from '@domain/events/team-created.event';
-import { ConfigurationSettledError } from '@domain/exceptions/configuration-settled.error';
 import { InconsistentStateError } from '@domain/exceptions/inconsistent-state.error';
 import type { Repository } from '@domain/value-objects/repository.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
@@ -15,10 +14,6 @@ export interface TeamMember {
   readonly role: TeamRole;
 }
 
-/**
- * A root rather than something inside a workspace: a delivery knocks at a
- * team's door, and a reading is a team's reading.
- */
 export class Team extends EventRecorder {
   private constructor(
     readonly id: TeamId,
@@ -86,17 +81,11 @@ export class Team extends EventRecorder {
   }
 
   /**
-   * Said once. Moving it would leave every file already written behind and
-   * start reading someone else's from then on, so a team that has somewhere
-   * keeps it; saying the same place again is not a change.
+   * Where a team keeps its configuration. Said with another place, or with
+   * none, moves it: the files already written stay in the old repository, and
+   * reading begins from the new. Saying the same place again is no change.
    */
   keepsConfigurationIn(repository: Repository | null): Team {
-    const held = this.configRepository;
-
-    if (held && !(repository && held.equals(repository))) {
-      throw new ConfigurationSettledError(held.value);
-    }
-
     return new Team(
       this.id,
       this.workspaceId,
@@ -104,6 +93,17 @@ export class Team extends EventRecorder {
       this.name,
       this.members,
       repository,
+    );
+  }
+
+  renamedTo(name: TeamName): Team {
+    return new Team(
+      this.id,
+      this.workspaceId,
+      this.key,
+      name,
+      this.members,
+      this.configRepository,
     );
   }
 

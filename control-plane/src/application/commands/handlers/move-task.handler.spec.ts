@@ -28,7 +28,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const transaction: TransactionPort = { run: (work) => work() };
 
 const at = (id: string, name: string, position: number, harness?: HarnessId) =>
-  Station.create({
+  Station.of({
     id: StationId.of(id),
     name: StationName.of(name),
     position,
@@ -103,6 +103,7 @@ const lines = (found: AssemblyLine | null = line()) =>
     holding: vi.fn(async () => found),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
+    withRole: vi.fn(async () => null),
   }) satisfies AssemblyLineRepository;
 
 const clock: ClockPort = {
@@ -200,7 +201,7 @@ describe('MoveTaskHandler', () => {
 
   // Backlog is station_1; Triage (station_2) is the first active station.
   it('gives unclaimed work to whoever moves it from the backlog into active', async () => {
-    await move('station_2', lines(), tasks(standing('station_1')));
+    await move('station_2', lines(), tasks(standing('station_1').unassigned()));
 
     expect(saved?.assignee?.value).toBe('user_mover');
   });
@@ -215,7 +216,7 @@ describe('MoveTaskHandler', () => {
 
   it('assigns nobody when the move is not out of the backlog', async () => {
     // The default task stands at Triage; moving it to Completed is not a claim.
-    await move('station_3', lines(), tasks(standing('station_2')));
+    await move('station_3', lines(), tasks(standing('station_2').unassigned()));
 
     expect(saved?.assignee).toBeNull();
   });

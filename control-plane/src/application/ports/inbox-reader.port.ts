@@ -51,6 +51,7 @@ export interface InboxItemSummary {
   readonly askedAt: Date;
   readonly resolved: boolean;
   readonly working: boolean;
+  readonly runId: string | null;
   readonly unread: boolean;
   // What the station that opened it was given. A conversation begins with the
   // prompt its own station received, not with the one the task started on.

@@ -15,15 +15,18 @@ import type {
   ClaimedRunDto,
   RegisteredRunnerDto,
 } from '@application/dto/run.dto';
+import type { TaskTraceDto } from '@application/dto/task-trace.dto';
 import { ListHarnessesQuery } from '@application/queries/list-harnesses.query';
 import { ListKeptWorkspacesQuery } from '@application/queries/list-kept-workspaces.query';
 import { PendingMessagesQuery } from '@application/queries/pending-messages.query';
+import { ReadRunnerTraceQuery } from '@application/queries/read-runner-trace.query';
 import {
   Body,
   Controller,
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Param,
   Post,
   Res,
@@ -31,6 +34,7 @@ import {
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
   ApiNoContentResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -54,6 +58,8 @@ import {
   OpenedPullRequestResponseDto,
   RegisteredRunnerResponseDto,
 } from '@presentation/http/dto/runner.response.dto';
+import { TaskTraceResponseDto } from '@presentation/http/dto/task-trace.response.dto';
+import { TaskTraceHttpMapper } from '@presentation/http/mappers/task-trace.http.mapper';
 
 /**
  * Only what setting an empty answer needs. Typed structurally, since the
@@ -174,6 +180,32 @@ export class RunnerController {
     return waiting.map(
       (each) => new PendingMessageResponseDto(each.position, each.body),
     );
+  }
+
+  @Get('runs/:runId/trace/:taskId')
+  @ApiOperation({
+    operationId: 'readRunTrace',
+    summary: "Read a task's trace, for an agent studying one of its own team",
+  })
+  @ApiOkResponse({ type: TaskTraceResponseDto })
+  @ApiNotFoundResponse({
+    description: 'No such run or task, or not this run’s team to read',
+  })
+  async trace(
+    @Param('runId') runId: string,
+    @Param('taskId') taskId: string,
+    @CurrentRunner() runnerId: string,
+  ): Promise<TaskTraceResponseDto> {
+    const trace = await this.queryBus.execute<
+      ReadRunnerTraceQuery,
+      TaskTraceDto | null
+    >(new ReadRunnerTraceQuery(runId, runnerId, taskId));
+
+    if (!trace) {
+      throw new NotFoundException();
+    }
+
+    return TaskTraceHttpMapper.toResponse(trace);
   }
 
   @Post('runs/:runId/messages/delivered')

@@ -32,7 +32,7 @@ export class Workspace extends EventRecorder {
     super();
   }
 
-  static create(input: {
+  static open(input: {
     id: WorkspaceId;
     name: WorkspaceName;
     slug: WorkspaceSlug;

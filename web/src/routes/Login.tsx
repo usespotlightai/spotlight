@@ -1,5 +1,5 @@
-import { LogoLockup } from '@/components/common/brand/LogoLockup';
-import { GithubMark } from '@/components/common/icons';
+import { LogoLockup } from '@/components/shared/brand/LogoLockup';
+import { GithubMark } from '@/components/shared/icons';
 import { useSignIn } from '@/hooks/api/useSignIn';
 
 export function Login() {

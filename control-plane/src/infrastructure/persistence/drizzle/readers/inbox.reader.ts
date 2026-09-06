@@ -82,11 +82,11 @@ export class DrizzleInboxReader implements InboxReaderPort {
       .innerJoin(assemblyLine, eq(assemblyLine.id, station.assemblyLineId))
       .innerJoin(factory, eq(factory.id, assemblyLine.factoryId))
       .leftJoin(raised, eq(raised.id, task.raisedAtStationId))
-      // An inbox is one person's, not the workspace's.
+      // An inbox is one person's, not the workspace's: whoever it is assigned to.
       .where(
         and(
           eq(task.workspaceId, visible.id),
-          eq(task.raisedById, userId.value),
+          eq(task.assigneeId, userId.value),
         ),
       );
 
@@ -159,6 +159,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
           // Two facts, not one: the task has a run, and this is the
           // conversation still waiting for it.
           working: stillOpen(conversation) && row.working !== null,
+          runId: stillOpen(conversation) ? row.working : null,
           unread: anyUnread(notes),
           briefing: (note.runId && given.get(note.runId)) || null,
           notes,
