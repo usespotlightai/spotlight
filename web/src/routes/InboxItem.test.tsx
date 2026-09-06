@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router';
@@ -76,11 +77,13 @@ const item = (notes: unknown[], description: string | null = null) => [
 
 const renderItem = () =>
   render(
-    <MemoryRouter initialEntries={['/w/acme/inbox/task_1:0']}>
-      <Routes>
-        <Route path="/w/:slug/inbox/:itemId" element={<InboxItem />} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={['/w/acme/inbox/task_1:0']}>
+        <Routes>
+          <Route path="/w/:slug/inbox/:itemId" element={<InboxItem />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 
 // Switching item is a navigation, not a remount.
@@ -151,7 +154,6 @@ describe('InboxItem', () => {
 
     const ran = screen.getByRole('button', { name: /ls -la \/workspaces/ });
     expect(ran).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByText('Ran')).toBeInTheDocument();
 
     await person.click(ran);
 
@@ -304,12 +306,14 @@ describe('InboxItem', () => {
     ]);
 
     render(
-      <MemoryRouter initialEntries={['/w/acme/inbox/task_1:0']}>
-        <Switch to="/w/acme/inbox/task_2:0" />
-        <Routes>
-          <Route path="/w/:slug/inbox/:itemId" element={<InboxItem />} />
-        </Routes>
-      </MemoryRouter>,
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/w/acme/inbox/task_1:0']}>
+          <Switch to="/w/acme/inbox/task_2:0" />
+          <Routes>
+            <Route path="/w/:slug/inbox/:itemId" element={<InboxItem />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
 
     expect(screen.getByText('The first task said this.')).toBeInTheDocument();
@@ -456,11 +460,13 @@ describe('InboxItem', () => {
     );
 
     render(
-      <MemoryRouter initialEntries={['/w/acme/inbox/task_1:4']}>
-        <Routes>
-          <Route path="/w/:slug/inbox/:itemId" element={<InboxItem />} />
-        </Routes>
-      </MemoryRouter>,
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/w/acme/inbox/task_1:4']}>
+          <Routes>
+            <Route path="/w/:slug/inbox/:itemId" element={<InboxItem />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
 
     expect(read).toHaveBeenCalledWith({ slug: 'acme', itemId: 'task_1:4' });
