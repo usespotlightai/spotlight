@@ -38,6 +38,14 @@ const bareLine = () =>
 const withLinearOpener = () =>
   bareLine().installing(contributionOf(SourceKey.of('linear')));
 
+const improvementLine = () =>
+  AssemblyLine.open({
+    workspaceId: WorkspaceId.of('ws_1'),
+    factoryId: FactoryId.of('factory_1'),
+    line: BUILT_IN_LINES[1] as LineOpening,
+    newId: () => `id_${++next}`,
+  });
+
 const members = {
   findTeamForMember: vi.fn(async () => ({
     workspaceId: 'ws_1',
@@ -115,6 +123,20 @@ describe('ChooseTools', () => {
       rewritten?.backlog.id,
     );
 
+    expect(paths(written())).toEqual([
+      '.spotlight/integrations/linear.yml',
+      '.spotlight/lines/Software Delivery.yml',
+    ]);
+  });
+
+  it('does not put an outside source on the improvement line', async () => {
+    const { handler, written } = over([bareLine(), improvementLine()]);
+
+    await handler.execute(
+      new ChooseToolsCommand('team_1', ['linear'], 'user_1', []),
+    );
+
+    // Only the delivery line's file is written; the improvement line's is not.
     expect(paths(written())).toEqual([
       '.spotlight/integrations/linear.yml',
       '.spotlight/lines/Software Delivery.yml',

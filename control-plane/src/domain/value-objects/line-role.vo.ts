@@ -13,6 +13,10 @@ export class LineRole {
 
   private constructor(readonly value: string) {}
 
+  /** The line a team delivers its product on, where outside work is opened. */
+  static readonly DELIVERY = new LineRole('delivery');
+
+  /** The line that improves the factory itself, where a trace is analysed. */
   static readonly IMPROVEMENT = new LineRole('improvement');
 
   static of(raw: string): LineRole {

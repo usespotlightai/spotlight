@@ -12,6 +12,7 @@ import type { WorkspaceRepository } from '@domain/repositories/workspace.reposit
 import { knownTool } from '@domain/services/known-tools';
 import { contributionOf } from '@domain/services/source-contribution';
 import { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
+import { LineRole } from '@domain/value-objects/line-role.vo';
 import { SourceKey } from '@domain/value-objects/source-key.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
@@ -74,9 +75,15 @@ export class ChooseToolsHandler
 
       // A chosen tool puts what it opens on the line; a dropped one takes its
       // rules off. Both ride the same change.
+      //
+      // Only the delivery line: an outside word opens the product work a team
+      // delivers on, not the factory's own lines.
       const relined: ConfigurationFile[] = [];
+      const fielding = (
+        await this.lines.ofTeam(TeamId.of(command.teamId))
+      ).filter((line) => line.role?.equals(LineRole.DELIVERY));
 
-      for (const line of await this.lines.ofTeam(TeamId.of(command.teamId))) {
+      for (const line of fielding) {
         const opened = command.sources.reduce(
           (each, source) =>
             each.installing(contributionOf(SourceKey.of(source))),

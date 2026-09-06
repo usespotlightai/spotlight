@@ -293,7 +293,7 @@ export const BUILT_IN_LINES: readonly LineOpening[] = [
   {
     key: LineKey.of('delivery'),
     name: AssemblyLineName.of('Software Delivery'),
-    role: null,
+    role: LineRole.DELIVERY,
     stations: DELIVERY_STATIONS,
     reactions: GITHUB_REACTIONS,
   },

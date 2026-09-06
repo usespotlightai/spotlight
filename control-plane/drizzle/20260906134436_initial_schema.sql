@@ -7,6 +7,7 @@ CREATE TABLE "assembly_line" (
 	"workspace_id" text NOT NULL,
 	"factory_id" text NOT NULL,
 	"name" text NOT NULL,
+	"role" text,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
