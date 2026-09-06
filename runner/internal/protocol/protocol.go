@@ -169,10 +169,13 @@ type Outcome struct {
 }
 
 type Completion struct {
-	ExitCode int      `json:"exitCode"`
-	Failed   bool     `json:"failed"`
-	Message  string   `json:"message,omitempty"`
-	Outcome  *Outcome `json:"outcome,omitempty"`
+	ExitCode int  `json:"exitCode"`
+	Failed   bool `json:"failed"`
+	// Stopped says a person stopped the run; what that means is the control
+	// plane's to decide.
+	Stopped bool     `json:"stopped,omitempty"`
+	Message string   `json:"message,omitempty"`
+	Outcome *Outcome `json:"outcome,omitempty"`
 	// SessionID is what the harness called this conversation. It is reported
 	// rather than remembered: the runner that held it may not be the one asked
 	// to carry on.

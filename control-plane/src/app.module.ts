@@ -45,6 +45,7 @@ import {
   SetSecretHandler,
 } from '@application/commands/handlers/set-secret.handler';
 import { SetTaskRepositoryHandler } from '@application/commands/handlers/set-task-repository.handler';
+import { StopRunHandler } from '@application/commands/handlers/stop-run.handler';
 import { MoveTaskCommand } from '@application/commands/move-task.command';
 import { OpenPullRequestCommand } from '@application/commands/open-pull-request.command';
 import { PinConfigurationCommand } from '@application/commands/pin-configuration.command';
@@ -66,6 +67,7 @@ import {
 import { SayToRunCommand } from '@application/commands/say-to-run.command';
 import { SetSecretCommand } from '@application/commands/set-secret.command';
 import { SetTaskRepositoryCommand } from '@application/commands/set-task-repository.command';
+import { StopRunCommand } from '@application/commands/stop-run.command';
 import { DigestRun } from '@application/events/handlers/digest-run.handler';
 import { HandOver } from '@application/events/handlers/hand-over.handler';
 import { ProvisionFactory } from '@application/events/handlers/provision-factory.handler';
@@ -193,6 +195,7 @@ import { ReadRunEventsHandler } from '@application/queries/handlers/read-run-eve
 import { ReadRunnerTraceHandler } from '@application/queries/handlers/read-runner-trace.handler';
 import { ReadTaskJournalHandler } from '@application/queries/handlers/read-task-journal.handler';
 import { ReadTaskTraceHandler } from '@application/queries/handlers/read-task-trace.handler';
+import { RunStopRequestedHandler } from '@application/queries/handlers/run-stop-requested.handler';
 import { WatchRunHandler } from '@application/queries/handlers/watch-run.handler';
 import { ListAssemblyLinesQuery } from '@application/queries/list-assembly-lines.query';
 import { ListHappeningsQuery } from '@application/queries/list-happenings.query';
@@ -215,6 +218,7 @@ import { ReadRunEventsQuery } from '@application/queries/read-run-events.query';
 import { ReadRunnerTraceQuery } from '@application/queries/read-runner-trace.query';
 import { ReadTaskJournalQuery } from '@application/queries/read-task-journal.query';
 import { ReadTaskTraceQuery } from '@application/queries/read-task-trace.query';
+import { RunStopRequestedQuery } from '@application/queries/run-stop-requested.query';
 import { WatchRunQuery } from '@application/queries/watch-run.query';
 import { ApplyLines } from '@application/services/apply-lines.service';
 import { AttendToNotices } from '@application/services/attend-to-notices.service';
@@ -862,6 +866,9 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       DrizzleRunRepository,
       DrizzleTaskRepository,
     ]),
+    ...bindQueryHandler(RunStopRequestedQuery, RunStopRequestedHandler, [
+      DrizzleRunRepository,
+    ]),
     ...bindQueryHandler(ListHarnessesQuery, ListHarnessesHandler, [
       BuiltInHarnesses,
     ]),
@@ -1038,6 +1045,12 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       DrizzleTaskRepository,
       DrizzleAssemblyLineRepository,
       CLOCK,
+    ]),
+    ...bindCommandHandler(StopRunCommand, StopRunHandler, [
+      DrizzleRunRepository,
+      DrizzleTaskRepository,
+      CLOCK,
+      DOMAIN_EVENT_DISPATCHER,
     ]),
 
     ...bindCommandHandler(DeliverSaidCommand, DeliverSaidHandler, [

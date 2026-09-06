@@ -85,6 +85,7 @@ CREATE TABLE "run" (
 	"target_runner_id" text,
 	"claimed_by" text,
 	"lease_expires_at" timestamp,
+	"stop_requested_at" timestamp,
 	"exit_code" integer,
 	"message" text,
 	"created_at" timestamp DEFAULT now() NOT NULL,

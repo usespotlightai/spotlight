@@ -31,11 +31,13 @@ export class CompleteRunHandler
 
         const done = found.complete(
           RunnerId.of(command.runnerId),
-          RunOutcome.of({
-            exitCode: command.exitCode,
-            failed: command.failed,
-            message: command.message,
-          }),
+          command.stopped
+            ? RunOutcome.stopped(command.exitCode)
+            : RunOutcome.of({
+                exitCode: command.exitCode,
+                failed: command.failed,
+                message: command.message,
+              }),
           HandoverReport.of({
             declared: command.declared
               ? Declaration.of(command.declared)

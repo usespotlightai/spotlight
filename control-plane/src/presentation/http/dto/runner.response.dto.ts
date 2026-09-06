@@ -58,6 +58,18 @@ export class EnqueuedRunResponseDto {
   }
 }
 
+export class RenewLeaseResponseDto {
+  @ApiProperty({
+    example: false,
+    description: 'Whether a person has asked the runner to stop this run',
+  })
+  readonly stop: boolean;
+
+  constructor(stop: boolean) {
+    this.stop = stop;
+  }
+}
+
 export class OpenedPullRequestResponseDto {
   @ApiProperty({ example: 'https://github.com/acme/widgets/pull/7' })
   readonly url: string;

@@ -119,6 +119,7 @@ export class DrizzleRunRepository implements RunRepository {
         attempt: saved.attempt,
         claimedBy: saved.claimedBy?.value ?? null,
         leaseExpiresAt: saved.leaseExpiresAt,
+        stopRequestedAt: saved.stopRequestedAt,
         exitCode: saved.result?.exitCode ?? null,
         message: saved.result?.message ?? null,
       })
@@ -234,6 +235,7 @@ const toRun = (row: Row): Run =>
     state: row.state,
     claimedBy: row.claimedBy ? RunnerId.of(row.claimedBy) : null,
     leaseExpiresAt: asDate(row.leaseExpiresAt),
+    stopRequestedAt: asDate(row.stopRequestedAt),
     result:
       row.exitCode === null
         ? null

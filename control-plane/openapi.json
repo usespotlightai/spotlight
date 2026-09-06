@@ -525,6 +525,7 @@
     },
     "/runs/{runId}/lease": {
       "post": {
+        "description": "The answer carries back whether a person has asked the run to stop, so the heartbeat doubles as how a stop reaches the runner.",
         "operationId": "renewLease",
         "parameters": [
           {
@@ -537,8 +538,15 @@
           }
         ],
         "responses": {
-          "204": {
-            "description": ""
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenewLeaseResponseDto"
+                }
+              }
+            }
           },
           "401": {
             "description": "Missing or wrong enrollment token"
@@ -1676,6 +1684,48 @@
           }
         },
         "summary": "Say something to the agent working a run",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/teams/{teamId}/runs/{runId}/stop": {
+      "post": {
+        "operationId": "stopRun",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The run was asked to stop"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such run for this caller"
+          },
+          "409": {
+            "description": "The run is no longer being worked"
+          }
+        },
+        "summary": "Stop the agent working a run",
         "tags": [
           "tasks"
         ]
@@ -2951,6 +3001,19 @@
           "upTo"
         ]
       },
+      "RenewLeaseResponseDto": {
+        "type": "object",
+        "properties": {
+          "stop": {
+            "type": "boolean",
+            "example": false,
+            "description": "Whether a person has asked the runner to stop this run"
+          }
+        },
+        "required": [
+          "stop"
+        ]
+      },
       "RunEventRequestDto": {
         "type": "object",
         "properties": {
@@ -3091,6 +3154,11 @@
             "type": "string",
             "example": "67e5ddad-0fc6-4a33-90df-3c17732132c8",
             "description": "What the harness called this conversation. Reported rather than remembered by the runner, because the next run may fall to another one."
+          },
+          "stopped": {
+            "type": "boolean",
+            "example": false,
+            "description": "A person stopped the run rather than the agent finishing it."
           }
         },
         "required": [

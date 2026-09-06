@@ -23,6 +23,9 @@ type journal struct {
 	events   []protocol.Event
 	renewals int
 	done     *protocol.Completion
+	// stopAfter makes lease renewals report a stop once this many have been
+	// asked for; 0 never does.
+	stopAfter int
 	// What a person has typed at the agent, handed over one batch per turn.
 	said      [][]protocol.Said
 	delivered []int
@@ -35,11 +38,11 @@ func (j *journal) AppendEvents(_ context.Context, _ string, events []protocol.Ev
 	return nil
 }
 
-func (j *journal) RenewLease(context.Context, string) error {
+func (j *journal) RenewLease(context.Context, string) (bool, error) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	j.renewals++
-	return nil
+	return j.stopAfter > 0 && j.renewals >= j.stopAfter, nil
 }
 
 func (j *journal) Complete(_ context.Context, _ string, done protocol.Completion) error {
@@ -170,6 +173,44 @@ process.stdin.on("data", (chunk) => {
 	return path
 }
 
+// stalling speaks ACP but never finishes a turn, so a run on it ends only when
+// it is stopped from the console.
+func stalling(t *testing.T) string {
+	t.Helper()
+
+	script := `#!/usr/bin/env node
+const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
+let buffered = "";
+process.stdin.on("data", (chunk) => {
+  buffered += chunk.toString();
+  const lines = buffered.split("\n");
+  buffered = lines.pop();
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const msg = JSON.parse(line);
+    if (msg.method === "initialize") send({ jsonrpc: "2.0", id: msg.id, result: { protocolVersion: 1 } });
+    if (msg.method === "session/new") send({ jsonrpc: "2.0", id: msg.id, result: { sessionId: "session_opened" } });
+    // session/prompt is left unanswered: the turn runs until the run is stopped.
+  }
+});
+`
+
+	dir, err := os.MkdirTemp("", "harness")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	if err := os.Chmod(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	path := filepath.Join(dir, "harness")
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
 type runOptions struct {
 	said       [][]protocol.Said
 	briefing   string
@@ -178,6 +219,7 @@ type runOptions struct {
 	root       string
 	env        map[string]string
 	continuity protocol.Continuity
+	stopAfter  int
 }
 
 func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
@@ -188,7 +230,7 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 		adjust(&settings)
 	}
 
-	written := &journal{said: settings.said}
+	written := &journal{said: settings.said, stopAfter: settings.stopAfter}
 	err := session.Execute(context.Background(), protocol.Run{
 		ID: "run_1",
 		Spec: protocol.Spec{
@@ -285,6 +327,40 @@ func TestATurnThatEndsBadlyIsReportedAsFailed(t *testing.T) {
 
 	if written.done == nil || !written.done.Failed {
 		t.Fatalf("completion %+v", written.done)
+	}
+}
+
+// Stopping a run from the console ends a turn that would otherwise run on, and
+// the run is reported stopped rather than failed.
+func TestARunStoppedFromTheConsoleFinishesAsStopped(t *testing.T) {
+	written := run(t, stalling(t), func(o *runOptions) { o.stopAfter = 1 })
+
+	if written.done == nil {
+		t.Fatal("nothing was reported")
+	}
+	if written.done.Failed {
+		t.Errorf("a stopped run should not be a failure: %+v", written.done)
+	}
+	if !written.done.Stopped {
+		t.Errorf("a stopped run should say so: %+v", written.done)
+	}
+}
+
+// A turn cut short to steer it is not a failure: what the person said is taken
+// up as the next turn, and the run carries on to finish.
+func TestASteeredTurnIsTakenUpNotFailed(t *testing.T) {
+	written := run(t, harness(t, `said = "working";`, "cancelled"),
+		func(o *runOptions) {
+			o.said = [][]protocol.Said{
+				{{Position: 1, Body: "actually, do this instead"}},
+			}
+		})
+
+	if written.done == nil || written.done.Failed {
+		t.Fatalf("a steered run should finish, not fail: %+v", written.done)
+	}
+	if len(written.delivered) == 0 {
+		t.Error("what the person said mid-turn was never delivered to the agent")
 	}
 }
 

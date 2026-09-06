@@ -1,6 +1,7 @@
 import { EventRecorder } from '@domain/aggregates/event-recorder';
 import { RunAbandoned } from '@domain/events/run-abandoned.event';
 import { RunCompleted } from '@domain/events/run-completed.event';
+import { RunStopRequested } from '@domain/events/run-stop-requested.event';
 import { InconsistentStateError } from '@domain/exceptions/inconsistent-state.error';
 import { InvalidRunTransitionError } from '@domain/exceptions/invalid-run-transition.error';
 import { HandoverReport } from '@domain/value-objects/handover-report.vo';
@@ -39,6 +40,8 @@ export class Run extends EventRecorder {
     readonly leaseExpiresAt: Date | null,
     readonly result: RunOutcome | null,
     readonly attempt: number,
+    // When a person asked the run to stop; null until they do.
+    readonly stopRequestedAt: Date | null,
   ) {
     super();
   }
@@ -67,6 +70,7 @@ export class Run extends EventRecorder {
       null,
       null,
       1,
+      null,
     );
   }
 
@@ -84,6 +88,7 @@ export class Run extends EventRecorder {
     leaseExpiresAt: Date | null;
     result: RunOutcome | null;
     attempt: number;
+    stopRequestedAt?: Date | null;
   }): Run {
     Run.guardReconstituted(input);
 
@@ -101,6 +106,7 @@ export class Run extends EventRecorder {
       input.leaseExpiresAt,
       input.result,
       input.attempt,
+      input.stopRequestedAt ?? null,
     );
   }
 
@@ -228,6 +234,33 @@ export class Run extends EventRecorder {
     return ended;
   }
 
+  /**
+   * A person asks the run to stop. Only a claimed run can be, and asking twice
+   * changes nothing. This is not the end of the run: the runner sees the
+   * request, ends the work, and completes it.
+   */
+  requestStop(now: Date): Run {
+    if (this.state !== 'claimed') {
+      throw new InvalidRunTransitionError(
+        `cannot be stopped while it is ${this.state}`,
+      );
+    }
+
+    if (this.stopRequested) {
+      return this;
+    }
+
+    const stopping = this.with({ stopRequestedAt: now });
+
+    stopping.record(new RunStopRequested(this.id, this.taskId, now));
+
+    return stopping;
+  }
+
+  get stopRequested(): boolean {
+    return this.stopRequestedAt !== null;
+  }
+
   assertHeldBy(by: RunnerId): void {
     this.requireHeldBy(by, 'act on');
   }
@@ -246,6 +279,7 @@ export class Run extends EventRecorder {
     leaseExpiresAt?: Date | null;
     result?: RunOutcome | null;
     attempt?: number;
+    stopRequestedAt?: Date | null;
   }): Run {
     return new Run(
       this.id,
@@ -263,6 +297,9 @@ export class Run extends EventRecorder {
         : this.leaseExpiresAt,
       part.result !== undefined ? part.result : this.result,
       part.attempt ?? this.attempt,
+      part.stopRequestedAt !== undefined
+        ? part.stopRequestedAt
+        : this.stopRequestedAt,
     );
   }
 

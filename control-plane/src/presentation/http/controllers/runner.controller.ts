@@ -20,6 +20,7 @@ import { ListHarnessesQuery } from '@application/queries/list-harnesses.query';
 import { ListKeptWorkspacesQuery } from '@application/queries/list-kept-workspaces.query';
 import { PendingMessagesQuery } from '@application/queries/pending-messages.query';
 import { ReadRunnerTraceQuery } from '@application/queries/read-runner-trace.query';
+import { RunStopRequestedQuery } from '@application/queries/run-stop-requested.query';
 import {
   Body,
   Controller,
@@ -57,6 +58,7 @@ import {
   ClaimedRunResponseDto,
   OpenedPullRequestResponseDto,
   RegisteredRunnerResponseDto,
+  RenewLeaseResponseDto,
 } from '@presentation/http/dto/runner.response.dto';
 import { TaskTraceResponseDto } from '@presentation/http/dto/task-trace.response.dto';
 import { TaskTraceHttpMapper } from '@presentation/http/mappers/task-trace.http.mapper';
@@ -223,17 +225,25 @@ export class RunnerController {
   }
 
   @Post('runs/:runId/lease')
-  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'renewLease',
     summary: 'Say the run is still being worked on',
+    description:
+      'The answer carries back whether a person has asked the run to stop, ' +
+      'so the heartbeat doubles as how a stop reaches the runner.',
   })
-  @ApiNoContentResponse()
+  @ApiOkResponse({ type: RenewLeaseResponseDto })
   async renewLease(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,
-  ): Promise<void> {
+  ): Promise<RenewLeaseResponseDto> {
     await this.commandBus.execute(new RenewLeaseCommand(runId, runnerId));
+
+    const stop = await this.queryBus.execute<RunStopRequestedQuery, boolean>(
+      new RunStopRequestedQuery(runId),
+    );
+
+    return new RenewLeaseResponseDto(stop);
   }
 
   @Post('runs/:runId/events')
@@ -322,6 +332,7 @@ export class RunnerController {
         body.message,
         body.outcome ?? null,
         body.sessionId ?? null,
+        body.stopped ?? false,
       ),
     );
   }

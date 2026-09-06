@@ -68,6 +68,8 @@ export const run = pgTable(
       onDelete: 'set null',
     }),
     leaseExpiresAt: timestamp('lease_expires_at'),
+    // When a person asked the run to stop; null until they do.
+    stopRequestedAt: timestamp('stop_requested_at'),
     exitCode: integer('exit_code'),
     message: text('message'),
     createdAt: timestamp('created_at').defaultNow().notNull(),

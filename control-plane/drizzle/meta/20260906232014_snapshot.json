@@ -1,5 +1,5 @@
 {
-  "id": "b1e08485-98fc-4e7a-ac91-357052de426b",
+  "id": "bb0badae-3b17-4b3a-b426-f561978d8a45",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -1160,6 +1160,12 @@
         },
         "lease_expires_at": {
           "name": "lease_expires_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "stop_requested_at": {
+          "name": "stop_requested_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false

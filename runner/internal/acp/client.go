@@ -159,6 +159,24 @@ func (c *Client) Prompt(
 	return out, err
 }
 
+// Cancel asks the agent to end the turn in flight. The pending Prompt returns
+// with a "cancelled" stop reason and the session stays open for the next turn,
+// which is how a person steers a run.
+func (c *Client) Cancel(sessionID string) error {
+	return c.notify("session/cancel", map[string]any{"sessionId": sessionID})
+}
+
+// notify sends a request with no id, which the agent answers by acting rather
+// than by replying.
+func (c *Client) notify(method string, params any) error {
+	encoded, err := json.Marshal(params)
+	if err != nil {
+		return err
+	}
+
+	return c.write(request{JSONRPC: "2.0", Method: method, Params: encoded})
+}
+
 func (c *Client) Close() error {
 	c.closeOnce.Do(func() {
 		_ = c.stdin.Close()

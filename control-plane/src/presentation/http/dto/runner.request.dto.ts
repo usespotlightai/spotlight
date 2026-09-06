@@ -78,6 +78,12 @@ export class CompleteRunRequestDto {
       'remembered by the runner, because the next run may fall to another one.',
   })
   readonly sessionId?: string;
+
+  @ApiPropertyOptional({
+    example: false,
+    description: 'A person stopped the run rather than the agent finishing it.',
+  })
+  readonly stopped?: boolean;
 }
 
 export class EnqueueRunRequestDto {
