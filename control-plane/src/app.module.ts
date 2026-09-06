@@ -193,9 +193,9 @@ import { ConfigurationHandler } from '@application/queries/handlers/read-configu
 import { ReadRunConversationHandler } from '@application/queries/handlers/read-run-conversation.handler';
 import { ReadRunEventsHandler } from '@application/queries/handlers/read-run-events.handler';
 import { ReadRunnerTraceHandler } from '@application/queries/handlers/read-runner-trace.handler';
-import { RunStopRequestedHandler } from '@application/queries/handlers/run-stop-requested.handler';
 import { ReadTaskJournalHandler } from '@application/queries/handlers/read-task-journal.handler';
 import { ReadTaskTraceHandler } from '@application/queries/handlers/read-task-trace.handler';
+import { RunStopRequestedHandler } from '@application/queries/handlers/run-stop-requested.handler';
 import { WatchRunHandler } from '@application/queries/handlers/watch-run.handler';
 import { ListAssemblyLinesQuery } from '@application/queries/list-assembly-lines.query';
 import { ListHappeningsQuery } from '@application/queries/list-happenings.query';
@@ -216,9 +216,9 @@ import { ConfigurationQuery } from '@application/queries/read-configuration.quer
 import { ReadRunConversationQuery } from '@application/queries/read-run-conversation.query';
 import { ReadRunEventsQuery } from '@application/queries/read-run-events.query';
 import { ReadRunnerTraceQuery } from '@application/queries/read-runner-trace.query';
-import { RunStopRequestedQuery } from '@application/queries/run-stop-requested.query';
 import { ReadTaskJournalQuery } from '@application/queries/read-task-journal.query';
 import { ReadTaskTraceQuery } from '@application/queries/read-task-trace.query';
+import { RunStopRequestedQuery } from '@application/queries/run-stop-requested.query';
 import { WatchRunQuery } from '@application/queries/watch-run.query';
 import { ApplyLines } from '@application/services/apply-lines.service';
 import { AttendToNotices } from '@application/services/attend-to-notices.service';
