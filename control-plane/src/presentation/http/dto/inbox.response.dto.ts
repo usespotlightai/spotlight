@@ -181,6 +181,13 @@ export class InboxItemResponseDto {
   readonly working: boolean;
 
   @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'The run working it now, whose steps can be watched as they land',
+  })
+  readonly runId: string | null;
+
+  @ApiProperty({
     example: true,
     description: 'Something was asked here that they have not seen yet',
   })
@@ -212,6 +219,7 @@ export class InboxItemResponseDto {
     askedAt: string,
     resolved: boolean,
     working: boolean,
+    runId: string | null,
     unread: boolean,
     briefing: string | null,
     notes: readonly InboxMessageResponseDto[],
@@ -231,6 +239,7 @@ export class InboxItemResponseDto {
     this.askedAt = askedAt;
     this.resolved = resolved;
     this.working = working;
+    this.runId = runId;
     this.unread = unread;
     this.briefing = briefing;
     this.notes = notes;

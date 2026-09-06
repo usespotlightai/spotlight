@@ -73,6 +73,13 @@ export class AddTaskHandler
 
     const raised = await this.raise.raise({ task: added, line });
 
-    return TaskMapper.taskToDto(raised, await this.people.find(raisedBy), null);
+    // The raiser owns what they raised, so they are the assignee too.
+    const person = await this.people.find(raisedBy);
+
+    return TaskMapper.taskToDto(
+      raised,
+      person,
+      raised.assignee ? person : null,
+    );
   }
 }

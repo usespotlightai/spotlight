@@ -1,5 +1,8 @@
+import { useQueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
 import { useParams } from 'react-router';
 import { Conversation } from '@/components/features/inbox/conversation/Conversation';
+import { RunActivity } from '@/components/features/runs/RunActivity';
 import { RunBriefing } from '@/components/features/runs/RunBriefing';
 import { RunComposer } from '@/components/features/runs/RunComposer';
 import { RunOpening } from '@/components/features/runs/RunOpening';
@@ -8,12 +11,16 @@ import {
   Breadcrumbs,
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
-import { useRunConversation } from '@/hooks/api/useRunConversation';
+import {
+  runConversationKeys,
+  useRunConversation,
+} from '@/hooks/api/useRunConversation';
 import { useRunStream } from '@/hooks/api/useRunStream';
 import { useSession } from '@/hooks/api/useSession';
-import { useTaskJournal } from '@/hooks/api/useTaskJournal';
-import { useTeamRuns } from '@/hooks/api/useTeamRuns';
+import { journalKeys, useTaskJournal } from '@/hooks/api/useTaskJournal';
+import { teamRunKeys, useTeamRuns } from '@/hooks/api/useTeamRuns';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { working } from '@/lib/run';
 import { taskPath } from '@/lib/task';
 import { teamPath } from '@/lib/team';
 import { TrailContext, useTrail } from '@/lib/trail';
@@ -27,7 +34,23 @@ export function Run() {
   const { data: session } = useSession();
   const { data: workspace } = useWorkspace(slug);
 
-  useRunStream(runId, run?.state === 'claimed');
+  const queryClient = useQueryClient();
+
+  // The stream only nudges; the journal, conversation and the run's own state
+  // are read whole so the server stays the one place that decodes them.
+  const bump = useCallback(() => {
+    void queryClient.invalidateQueries({
+      queryKey: journalKeys.forTask(said?.taskId),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: runConversationKeys.forRun(runId),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: teamRunKeys.forTeam(teamId),
+    });
+  }, [queryClient, said?.taskId, runId, teamId]);
+
+  useRunStream(runId, run?.state === 'claimed', bump);
 
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
 
@@ -101,6 +124,15 @@ export function Run() {
     </p>
   );
 
+  // What this run has done so far, drawn live off the stream's nudges.
+  const activity = run.station ? (
+    <RunActivity
+      journals={(worked ?? []).filter((each) => each.runId === run.id)}
+      working={working(run)}
+      station={run.station}
+    />
+  ) : null;
+
   return (
     <TrailContext value={forward}>
       <div className="flex min-h-0 flex-1 flex-col">
@@ -116,11 +148,16 @@ export function Run() {
                 <RunBriefing briefing={said.briefing} />
               ) : undefined
             }
+            live={run.state === 'claimed' ? activity : undefined}
             footer={footer}
           />
         ) : (
           <>
-            <RunOpening run={run} briefing={said?.briefing ?? null} />
+            <RunOpening
+              run={run}
+              briefing={said?.briefing ?? null}
+              activity={activity}
+            />
 
             <div className="relative shrink-0 bg-surface">
               <div

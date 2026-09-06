@@ -1,50 +1,15 @@
 import { ChooseToolsCommand } from '@application/commands/choose-tools.command';
 import { ChooseToolsHandler } from '@application/commands/handlers/choose-tools.handler';
-import type { LineReaderPort } from '@application/ports/line-reader.port';
 import type { WorkspaceReaderPort } from '@application/ports/workspace-reader.port';
 import type {
   WriteConfiguration,
   Writing,
 } from '@application/services/write-configuration.service';
-import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Team } from '@domain/aggregates/team.aggregate';
 import type { Workspace } from '@domain/aggregates/workspace.aggregate';
-import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TeamRepository } from '@domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@domain/services/built-in-lines';
-import { contributionOf } from '@domain/services/source-contribution';
-import { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
-import { FactoryId } from '@domain/value-objects/factory-id.vo';
-import { Happening } from '@domain/value-objects/happening.vo';
-import { SourceKey } from '@domain/value-objects/source-key.vo';
-import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
-
-const ISSUE_CREATED = Happening.of('linear.issue.created');
-
-let next = 0;
-const bareLine = () =>
-  AssemblyLine.open({
-    workspaceId: WorkspaceId.of('ws_1'),
-    factoryId: FactoryId.of('factory_1'),
-    line: BUILT_IN_LINES[0] as LineOpening,
-    newId: () => `id_${++next}`,
-  });
-
-const withLinearOpener = () =>
-  bareLine().installing(contributionOf(SourceKey.of('linear')));
-
-const improvementLine = () =>
-  AssemblyLine.open({
-    workspaceId: WorkspaceId.of('ws_1'),
-    factoryId: FactoryId.of('factory_1'),
-    line: BUILT_IN_LINES[1] as LineOpening,
-    newId: () => `id_${++next}`,
-  });
 
 const members = {
   findTeamForMember: vi.fn(async () => ({
@@ -63,8 +28,8 @@ const teams = {
   find: vi.fn(async () => ({}) as Team),
 } as unknown as TeamRepository;
 
-/** A handler over a team whose lines are these, with the writing captured. */
-const over = (lines: AssemblyLine[]) => {
+/** A handler with the writing it asks for captured. */
+const handler = () => {
   let written: Writing | undefined;
 
   const writing = {
@@ -74,132 +39,63 @@ const over = (lines: AssemblyLine[]) => {
     }),
   } as unknown as WriteConfiguration;
 
-  const reader = {
-    read: vi.fn(),
-    write: vi.fn((line: AssemblyLine) =>
-      ConfigurationFile.of(
-        `.spotlight/lines/${line.name.value}.yml`,
-        'written',
-      ),
-    ),
-  } as unknown as LineReaderPort;
-
-  const held = {
-    add: vi.fn(),
-    save: vi.fn(),
-    find: vi.fn(),
-    holding: vi.fn(),
-    ofWorkspace: vi.fn(async () => []),
-    ofTeam: vi.fn(async () => lines),
-    withRole: vi.fn(async () => null),
-  } satisfies AssemblyLineRepository;
-
-  const handler = new ChooseToolsHandler(
-    workspaces,
-    members,
-    teams,
-    writing,
-    held,
-    reader,
-  );
-
-  return { handler, reader, written: () => written };
+  return {
+    handler: new ChooseToolsHandler(workspaces, members, teams, writing),
+    written: () => written,
+  };
 };
 
 const paths = (writing: Writing | undefined) =>
   (writing?.files ?? []).map((each) => each.path);
 
 describe('ChooseTools', () => {
-  it('puts a chosen tool’s opener on a line that was missing it', async () => {
-    const { handler, reader, written } = over([bareLine()]);
+  it('writes a chosen tool’s integration file', async () => {
+    const { handler: choose, written } = handler();
 
-    await handler.execute(
+    await choose.execute(
       new ChooseToolsCommand('team_1', ['linear'], 'user_1', []),
     );
 
-    expect(reader.write).toHaveBeenCalledTimes(1);
-    const rewritten = vi.mocked(reader.write).mock.calls[0]?.[0];
-    expect(rewritten?.opensAt(ISSUE_CREATED)?.id).toEqual(
-      rewritten?.backlog.id,
-    );
-
-    expect(paths(written())).toEqual([
-      '.spotlight/integrations/linear.yml',
-      '.spotlight/lines/Software Delivery.yml',
-    ]);
-  });
-
-  it('does not put an outside source on the improvement line', async () => {
-    const { handler, written } = over([bareLine(), improvementLine()]);
-
-    await handler.execute(
-      new ChooseToolsCommand('team_1', ['linear'], 'user_1', []),
-    );
-
-    // Only the delivery line's file is written; the improvement line's is not.
-    expect(paths(written())).toEqual([
-      '.spotlight/integrations/linear.yml',
-      '.spotlight/lines/Software Delivery.yml',
-    ]);
-  });
-
-  it('leaves the line alone when the chosen tool’s opener is already on it', async () => {
-    const { handler, reader, written } = over([withLinearOpener()]);
-
-    await handler.execute(
-      new ChooseToolsCommand('team_1', ['linear'], 'user_1', []),
-    );
-
-    expect(reader.write).not.toHaveBeenCalled();
     expect(paths(written())).toEqual(['.spotlight/integrations/linear.yml']);
   });
 
-  it('takes a dropped tool’s reactions off the team’s lines in the same change', async () => {
-    const { handler, reader, written } = over([withLinearOpener()]);
+  it('removes a dropped tool’s integration file', async () => {
+    const { handler: choose, written } = handler();
 
-    await handler.execute(
+    await choose.execute(
       new ChooseToolsCommand('team_1', [], 'user_1', ['linear']),
     );
 
-    expect(reader.write).toHaveBeenCalledTimes(1);
-    const rewritten = vi.mocked(reader.write).mock.calls[0]?.[0];
-    expect(rewritten?.opensAt(ISSUE_CREATED)).toBeNull();
-
-    expect(paths(written())).toContain(
-      '.spotlight/lines/Software Delivery.yml',
-    );
+    expect(paths(written())).toHaveLength(0);
     expect(written()?.removes).toContain('.spotlight/integrations/linear.yml');
   });
 
-  it('leaves the lines alone when the dropped tool had nothing on them', async () => {
-    const { handler, reader, written } = over([withLinearOpener()]);
+  it('writes a chosen tool’s file beside a dropped one’s removal', async () => {
+    const { handler: choose, written } = handler();
 
-    await handler.execute(
-      new ChooseToolsCommand('team_1', [], 'user_1', ['sentry']),
-    );
-
-    expect(reader.write).not.toHaveBeenCalled();
-    expect(paths(written())).toHaveLength(0);
-    expect(written()?.removes).toContain('.spotlight/integrations/sentry.yml');
-  });
-
-  it('writes the chosen tool’s file beside the line it rewrites', async () => {
-    const { handler, written } = over([withLinearOpener()]);
-
-    await handler.execute(
+    await choose.execute(
       new ChooseToolsCommand('team_1', ['sentry'], 'user_1', ['linear']),
     );
 
-    expect(paths(written())).toEqual([
-      '.spotlight/integrations/sentry.yml',
-      '.spotlight/lines/Software Delivery.yml',
-    ]);
+    expect(paths(written())).toEqual(['.spotlight/integrations/sentry.yml']);
+    expect(written()?.removes).toContain('.spotlight/integrations/linear.yml');
+  });
+
+  it('says nothing where a host nobody knows is the only one chosen', async () => {
+    const { handler: choose, written } = handler();
+
+    const opened = await choose.execute(
+      new ChooseToolsCommand('team_1', ['nonesuch'], 'user_1', []),
+    );
+
+    expect(opened).toBeNull();
+    expect(written()).toBeUndefined();
   });
 
   it('writes nothing where a team neither chose nor dropped a tool', async () => {
-    const { handler, written } = over([withLinearOpener()]);
+    const { handler: choose, written } = handler();
 
-    const opened = await handler.execute(
+    const opened = await choose.execute(
       new ChooseToolsCommand('team_1', [], 'user_1', []),
     );
 

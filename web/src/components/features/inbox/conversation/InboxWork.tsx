@@ -2,6 +2,7 @@ import { ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { ContextDonut } from '@/components/features/inbox/conversation/ContextDonut';
 import { InboxStep } from '@/components/features/inbox/conversation/InboxStep';
+import { FadingScroll } from '@/components/shared/FadingScroll';
 import { counted, type RunJournal, took } from '@/lib/inbox';
 import { cn } from '@/lib/utils';
 
@@ -65,12 +66,16 @@ export function InboxWork({ journals }: { journals: readonly RunJournal[] }) {
         {/* The grid item carries no padding of its own: a box of height zero
             with padding is not a box of height zero. */}
         <div className="min-h-0 overflow-hidden">
-          <ol className="flex flex-col gap-2 border-border border-l pt-2 pl-3">
-            {steps.map((step, at) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: steps are appended and never reordered, so where one sits is what names it
-              <InboxStep key={at} step={step} />
-            ))}
-          </ol>
+          {/* A long run scrolls within itself rather than shoving the
+              conversation down, its edges fading to say there is more. */}
+          <FadingScroll className="max-h-[min(18rem,50dvh)]">
+            <ol className="flex flex-col gap-px pt-1">
+              {steps.map((step, at) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: steps are appended and never reordered, so where one sits is what names it
+                <InboxStep key={at} step={step} />
+              ))}
+            </ol>
+          </FadingScroll>
         </div>
       </div>
     </div>

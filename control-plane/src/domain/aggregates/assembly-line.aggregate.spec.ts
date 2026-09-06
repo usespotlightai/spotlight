@@ -17,7 +17,6 @@ import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { Reaction } from '@domain/value-objects/reaction.vo';
-import { SourceKey } from '@domain/value-objects/source-key.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
@@ -395,87 +394,6 @@ describe('AssemblyLine', () => {
           [sends('station_1', 'station_2'), sends('station_2', 'station_1')],
         ),
       ).not.toThrow();
-    });
-
-    // A word about work nobody here has yet opens a task where the line
-    // watches, rather than moving one that is not there.
-    const ISSUE_CREATED = Happening.of('linear.issue.created');
-    const REGRESSED = Happening.of('sentry.issue.regressed');
-    const opensLinear = { opens: [ISSUE_CREATED], moves: [] };
-    const withLinear = () => opened().installing(opensLinear);
-
-    it('opens what a chosen source opens, at the backlog, and only once', () => {
-      const line = withLinear();
-
-      expect(line.opensAt(ISSUE_CREATED)?.id).toEqual(line.backlog.id);
-      expect(line.installing(opensLinear)).toBe(line);
-    });
-
-    it('moves a standing task on for a word a chosen source moves, once', () => {
-      const line = opened().installing({
-        opens: [],
-        moves: [{ happening: REGRESSED, to: 'Implementation' }],
-      });
-
-      expect(named(line, line.reactionTo(REGRESSED, somewhere()))).toBe(
-        'Implementation',
-      );
-      expect(
-        line.installing({
-          opens: [],
-          moves: [{ happening: REGRESSED, to: 'Implementation' }],
-        }),
-      ).toBe(line);
-    });
-
-    it('installs nothing a source names no station on the line for', () => {
-      const line = opened();
-
-      expect(
-        line.installing({
-          opens: [],
-          moves: [{ happening: REGRESSED, to: 'Nowhere' }],
-        }),
-      ).toBe(line);
-    });
-
-    it('installs nothing for a source that contributes nothing', () => {
-      const line = opened();
-
-      expect(line.installing({ opens: [], moves: [] })).toBe(line);
-    });
-
-    it('opens nothing for a word it does not watch for', () => {
-      expect(
-        withLinear().opensAt(Happening.of('linear.issue.deleted')),
-      ).toBeNull();
-    });
-
-    // Moving a task and opening one are different rules: what the world knows
-    // as an opener never comes back as somewhere to take an existing task.
-    it('does not take an opening rule as somewhere to move a task', () => {
-      expect(withLinear().reactionTo(ISSUE_CREATED, somewhere())).toBeNull();
-    });
-
-    it('drops what it did on a source’s words when that source is taken away', () => {
-      const line = withLinear().withoutRulesFrom(SourceKey.of('linear'));
-
-      expect(line.opensAt(ISSUE_CREATED)).toBeNull();
-      expect(
-        named(
-          line,
-          line.reactionTo(
-            Happening.of('github.pull_request.merged'),
-            somewhere(),
-          ),
-        ),
-      ).toBe('Completed');
-    });
-
-    it('is left as it was when the source did nothing here', () => {
-      const line = opened();
-
-      expect(line.withoutRulesFrom(SourceKey.of('sentry'))).toBe(line);
     });
   });
 

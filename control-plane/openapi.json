@@ -3323,6 +3323,11 @@
             "example": false,
             "description": "True while a run is working it, so an answer is coming"
           },
+          "runId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The run working it now, whose steps can be watched as they land"
+          },
           "unread": {
             "type": "boolean",
             "example": true,
@@ -3356,6 +3361,7 @@
           "askedAt",
           "resolved",
           "working",
+          "runId",
           "unread",
           "briefing",
           "notes"
@@ -3861,6 +3867,12 @@
             "nullable": true,
             "example": "acme/api"
           },
+          "repositoryOwner": {
+            "type": "string",
+            "description": "The account repositories are named under, or null",
+            "nullable": true,
+            "example": "acme"
+          },
           "tools": {
             "type": "array",
             "items": {
@@ -3873,6 +3885,7 @@
           "installUrl",
           "connectedToGitHub",
           "configRepository",
+          "repositoryOwner",
           "tools"
         ]
       },

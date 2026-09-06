@@ -1,5 +1,5 @@
 {
-  "id": "a8ee8d81-a866-42eb-8e42-60f3f9e070c6",
+  "id": "b1e08485-98fc-4e7a-ac91-357052de426b",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -112,80 +112,6 @@
           "tableTo": "factory",
           "columnsFrom": [
             "factory_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.assembly_line_opener": {
-      "name": "assembly_line_opener",
-      "schema": "",
-      "columns": {
-        "assembly_line_id": {
-          "name": "assembly_line_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "happening": {
-          "name": "happening",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "to_station_id": {
-          "name": "to_station_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "assembly_line_opener_line_idx": {
-          "name": "assembly_line_opener_line_idx",
-          "columns": [
-            {
-              "expression": "assembly_line_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "assembly_line_opener_assembly_line_id_assembly_line_id_fk": {
-          "name": "assembly_line_opener_assembly_line_id_assembly_line_id_fk",
-          "tableFrom": "assembly_line_opener",
-          "tableTo": "assembly_line",
-          "columnsFrom": [
-            "assembly_line_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "assembly_line_opener_to_station_id_station_id_fk": {
-          "name": "assembly_line_opener_to_station_id_station_id_fk",
-          "tableFrom": "assembly_line_opener",
-          "tableTo": "station",
-          "columnsFrom": [
-            "to_station_id"
           ],
           "columnsTo": [
             "id"

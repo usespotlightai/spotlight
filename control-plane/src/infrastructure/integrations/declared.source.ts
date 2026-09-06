@@ -157,16 +157,18 @@ export class DeclaredSource implements WebhookSourcePort {
       // Spotlight reaches a host it was merely told about through nothing of
       // its own, so nothing arriving from one is its own doing.
       ourOwn: false,
-      // No title read, no opening to describe: the line falls back to the mark.
-      opens: title
-        ? {
-            title,
-            description:
-              rule.opens?.description != null
-                ? reads(rule.opens.description, against)
-                : null,
-          }
-        : null,
+      // No role to open onto, or no title read, and this word opens nothing.
+      opens:
+        declared.opensOnto && title
+          ? {
+              onto: declared.opensOnto,
+              title,
+              description:
+                rule.opens?.description != null
+                  ? reads(rule.opens.description, against)
+                  : null,
+            }
+          : null,
     };
   }
 

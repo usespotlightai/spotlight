@@ -7,6 +7,8 @@ import {
 import type { TeamRepository } from '@domain/repositories/team.repository';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
 import type { WorkspaceConnections } from '@domain/repositories/workspace.repository';
+import { Connection } from '@domain/value-objects/connection.vo';
+import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -24,7 +26,11 @@ type Given = {
 
 const read = (given: Given = {}) => {
   const connections = {
-    connectionTo: vi.fn().mockResolvedValue(given.connected ? {} : null),
+    connectionTo: vi
+      .fn()
+      .mockResolvedValue(
+        given.connected ? Connection.of(GitHubInstallation.SOURCE, '42') : null,
+      ),
   } as unknown as WorkspaceConnections;
 
   const configurations = {
@@ -70,6 +76,7 @@ describe('TeamSetup', () => {
     await expect(read()).resolves.toEqual({
       hasRunner: false,
       connectedToGitHub: false,
+      installation: null,
       configRepository: null,
       hasConfiguration: false,
       listening: [],
@@ -88,6 +95,7 @@ describe('TeamSetup', () => {
     ).resolves.toEqual({
       hasRunner: true,
       connectedToGitHub: true,
+      installation: GitHubInstallation.of('42'),
       configRepository: 'acme/spotlight-config',
       hasConfiguration: true,
       listening: ['linear'],
@@ -114,6 +122,7 @@ describe('asSetupState', () => {
       asSetupState({
         hasRunner: true,
         connectedToGitHub: true,
+        installation: GitHubInstallation.of('42'),
         configRepository: 'acme/spotlight-config',
         hasConfiguration: true,
         listening: ['linear'],
@@ -132,6 +141,7 @@ describe('asSetupState', () => {
       asSetupState({
         hasRunner: false,
         connectedToGitHub: false,
+        installation: null,
         configRepository: null,
         hasConfiguration: false,
         listening: [],

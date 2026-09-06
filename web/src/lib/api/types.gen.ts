@@ -406,6 +406,10 @@ export type InboxItemResponseDto = {
    */
   working: boolean;
   /**
+   * The run working it now, whose steps can be watched as they land
+   */
+  runId: string | null;
+  /**
    * Something was asked here that they have not seen yet
    */
   unread: boolean;
@@ -605,6 +609,10 @@ export type OnboardingResponseDto = {
    */
   connectedToGitHub: boolean;
   configRepository: string | null;
+  /**
+   * The account repositories are named under, or null
+   */
+  repositoryOwner: string | null;
   tools: Array<KnownToolResponseDto>;
 };
 

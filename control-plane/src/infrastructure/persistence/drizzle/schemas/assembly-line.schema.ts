@@ -125,18 +125,3 @@ export const assemblyLineReaction = pgTable(
     index('assembly_line_reaction_line_idx').on(table.assemblyLineId),
   ],
 );
-
-/** Where a word opens a task for work the line has none for yet. */
-export const assemblyLineOpener = pgTable(
-  'assembly_line_opener',
-  {
-    assemblyLineId: text('assembly_line_id')
-      .notNull()
-      .references(() => assemblyLine.id, { onDelete: 'cascade' }),
-    happening: text('happening').notNull(),
-    toStationId: text('to_station_id')
-      .notNull()
-      .references(() => station.id, { onDelete: 'cascade' }),
-  },
-  (table) => [index('assembly_line_opener_line_idx').on(table.assemblyLineId)],
-);

@@ -1,6 +1,5 @@
 import { EventRecorder } from '@domain/aggregates/event-recorder';
 import { TeamCreated } from '@domain/events/team-created.event';
-import { ConfigurationSettledError } from '@domain/exceptions/configuration-settled.error';
 import { InconsistentStateError } from '@domain/exceptions/inconsistent-state.error';
 import type { Repository } from '@domain/value-objects/repository.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
@@ -82,17 +81,11 @@ export class Team extends EventRecorder {
   }
 
   /**
-   * Said once. Moving it would leave every file already written behind and
-   * start reading someone else's from then on, so a team that has somewhere
-   * keeps it; saying the same place again is not a change.
+   * Where a team keeps its configuration. Said with another place, or with
+   * none, moves it: the files already written stay in the old repository, and
+   * reading begins from the new. Saying the same place again is no change.
    */
   keepsConfigurationIn(repository: Repository | null): Team {
-    const held = this.configRepository;
-
-    if (held && !(repository && held.equals(repository))) {
-      throw new ConfigurationSettledError(held.value);
-    }
-
     return new Team(
       this.id,
       this.workspaceId,

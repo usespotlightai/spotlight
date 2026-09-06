@@ -21,18 +21,18 @@ import {
   BUILT_IN_LINES,
   type LineOpening,
 } from '@domain/services/built-in-lines';
-import { contributionOf } from '@domain/services/source-contribution';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { Concerns } from '@domain/value-objects/concerns.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { LineKey } from '@domain/value-objects/line-key.vo';
+import { LineRole } from '@domain/value-objects/line-role.vo';
 import { Mark } from '@domain/value-objects/mark.vo';
 import { Reaction } from '@domain/value-objects/reaction.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { Said } from '@domain/value-objects/said.vo';
-import { SourceKey } from '@domain/value-objects/source-key.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
@@ -431,9 +431,9 @@ describe('ReactToHappening', () => {
     );
   });
 
-  // A word about work nobody here has, that a line watches for: the line opens
-  // one, filed where it waits and marked so the words that follow find it.
-  it('opens a task where a line waits for work nobody here has', async () => {
+  // A word about work nobody here has, onto a role a line holds: the line
+  // opens one at its entry, marked so the words that follow find it.
+  it('opens a task on a line the word opens onto', async () => {
     const ISSUE_CREATED = Happening.of('linear.issue.created');
     const issueMark = Mark.of('linear.issue', 'ISS-1');
 
@@ -443,8 +443,8 @@ describe('ReactToHappening', () => {
       factoryId: FactoryId.of('factory_1'),
       line: BUILT_IN_LINES[0] as LineOpening,
       newId: () => `id_${++next}`,
-    }).installing(contributionOf(SourceKey.of('linear')));
-    const backlog = opening.opensAt(ISSUE_CREATED) as Station;
+    });
+    const entry = opening.entry as Station;
 
     let added: Task | undefined;
     const held = {
@@ -479,6 +479,7 @@ describe('ReactToHappening', () => {
       said: Said.of({ body: null, path: null, from: null, remark: null }),
       ourOwn: false,
       opens: {
+        onto: LineRole.DELIVERY,
         title: 'Drain the retry queue',
         description: 'It loops forever.',
       },
@@ -496,10 +497,87 @@ describe('ReactToHappening', () => {
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(held.add).toHaveBeenCalledTimes(1);
-    expect(added?.stationId).toEqual(backlog.id);
+    expect(added?.stationId).toEqual(entry.id);
     expect(added?.marks.some((each) => each.equals(issueMark))).toBe(true);
     // The task is named and described by what the source read, not its handle.
     expect(added?.title.value).toBe('Drain the retry queue');
     expect(added?.description?.value).toBe('It loops forever.');
+  });
+
+  // The handle names one task. Two lines sharing the role it opens onto do not
+  // each take a copy: one opens, chosen by key, and the other is left alone.
+  it('opens one task where two lines share the role it opens onto', async () => {
+    const ISSUE_CREATED = Happening.of('linear.issue.created');
+    const issueMark = Mark.of('linear.issue', 'ISS-1');
+
+    const delivery = (key: string) => {
+      let next = 0;
+      return AssemblyLine.open({
+        workspaceId: WorkspaceId.of('ws_1'),
+        factoryId: FactoryId.of('factory_1'),
+        line: {
+          ...(BUILT_IN_LINES[0] as LineOpening),
+          key: LineKey.of(key),
+          name: AssemblyLineName.of(key),
+        },
+        newId: () => `${key}_${++next}`,
+      });
+    };
+
+    // Given back in the order that would open the wrong one without a rule.
+    const second = delivery('delivery-b');
+    const first = delivery('delivery-a');
+
+    const added: Task[] = [];
+    const held = {
+      add: vi.fn(async (each: Task) => {
+        added.push(each);
+      }),
+      save: vi.fn(),
+      find: vi.fn(async () => null),
+      remove: vi.fn(),
+      standingAt: vi.fn(async () => []),
+      placementsAt: vi.fn(async () => []),
+      holding: vi.fn(async () => null),
+    } satisfies TaskRepository;
+
+    const running = {
+      add: vi.fn(),
+      save: vi.fn(),
+      find: vi.fn(async () => first),
+      holding: vi.fn(async () => first),
+      ofWorkspace: vi.fn(async () => [second, first]),
+      ofTeam: vi.fn(async () => []),
+      withRole: vi.fn(async () => null),
+    } satisfies AssemblyLineRepository;
+
+    const filed: Happened = {
+      happening: ISSUE_CREATED,
+      told: 'An issue was filed.',
+      spoken: false,
+      state: 'raised',
+      concerns: Concerns.of({ marks: [issueMark] }) as Concerns,
+      said: Said.of({ body: null, path: null, from: null, remark: null }),
+      ourOwn: false,
+      opens: {
+        onto: LineRole.DELIVERY,
+        title: 'Drain the retry queue',
+        description: null,
+      },
+    };
+
+    await new ReactToHappeningHandler(
+      sourced([filed]),
+      held,
+      running,
+      dispatch,
+      transaction,
+      clock,
+      attending,
+      ids,
+    ).execute(new ReactToHappeningCommand(taken));
+
+    expect(held.add).toHaveBeenCalledTimes(1);
+    expect(added[0]?.stationId).toEqual((first.entry as Station).id);
   });
 });

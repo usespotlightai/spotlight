@@ -1,99 +1,173 @@
-import { ChevronRight } from 'lucide-react';
+import {
+  ChevronRight,
+  Eye,
+  Globe,
+  Hammer,
+  ListTodo,
+  type LucideIcon,
+  MessageCircle,
+  Search,
+  SquarePen,
+  Terminal,
+  Wrench,
+} from 'lucide-react';
 import { useState } from 'react';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
-import { type JournalStep, took } from '@/lib/inbox';
+import type { JournalStep } from '@/lib/inbox';
 import { cn } from '@/lib/utils';
+
+/** The glyph that stands for what a step was: its kind, or the tool it reached
+ * for. One line, one icon — the icon is the only thing that names the kind. */
+const glyphFor = (step: JournalStep): LucideIcon => {
+  if (step.kind === 'thought') {
+    return MessageCircle;
+  }
+  if (step.kind === 'planned') {
+    return ListTodo;
+  }
+  if (step.kind === 'hook') {
+    return Terminal;
+  }
+
+  switch (step.tool) {
+    case 'read':
+      return Eye;
+    case 'edit':
+    case 'write':
+    case 'create':
+      return SquarePen;
+    case 'execute':
+      return Terminal;
+    case 'search':
+    case 'grep':
+      return Search;
+    case 'web':
+    case 'fetch':
+      return Globe;
+    case 'mcp':
+      return Wrench;
+    default:
+      return Hammer;
+  }
+};
 
 export function InboxStep({ step }: { step: JournalStep }) {
   const [open, setOpen] = useState(false);
 
-  if (step.kind !== 'tool') {
+  // What the agent said is its own voice, laid out as plain document rather
+  // than folded into a row: it is the answer, not a step toward one.
+  if (step.kind === 'said') {
     return (
-      <li className="flex flex-col gap-0.5">
-        <span className="text-muted-foreground text-xs">
-          {step.kind === 'thought' ? 'Thought' : 'Said'}
-          {step.ms >= 1_000 && ` ${took(step.ms)}`}
-        </span>
-
-        {step.kind === 'thought' ? (
-          <p className="whitespace-pre-wrap text-muted-foreground text-sm italic leading-6">
-            {step.text}
-          </p>
-        ) : (
-          <MarkdownEditor
-            readOnly
-            initialValue={step.text}
-            placeholder=""
-            ariaLabel="What the agent said"
-            className="border-none bg-transparent p-0"
-          />
-        )}
+      <li className="px-1 py-0.5">
+        <MarkdownEditor
+          readOnly
+          initialValue={step.text}
+          placeholder=""
+          ariaLabel="What the agent said"
+          className="border-none bg-transparent p-0"
+        />
       </li>
     );
   }
 
-  // A command is the one title that does not name its own tool, so it is the
-  // one that needs saying what was done with it.
-  const ran = step.tool === 'execute';
+  const Glyph = glyphFor(step);
   const failed = step.status === 'failed';
+  // Still in flight when the journal was read: asked for, not yet answered.
+  const running = step.status === 'running' || step.status === 'pending';
 
-  if (!step.detail) {
-    return (
-      <li className="text-sm leading-6">
-        {ran && <span className="text-muted-foreground">Ran </span>}
-        <span className={cn(failed ? 'text-destructive' : 'text-foreground')}>
-          {step.text}
-        </span>
-        {step.ms >= 1_000 && (
-          <span className="text-muted-foreground"> {took(step.ms)}</span>
+  // A thought reads as a whole; a tool's answer as a block of its own. The
+  // first shows its start and opens to the rest, the second names itself and
+  // opens to what came back.
+  const prose = step.kind === 'thought' || step.kind === 'planned';
+  const label = prose ? (step.text.split('\n')[0] ?? '') : step.text;
+  const body =
+    step.kind === 'thought'
+      ? step.text.length > label.length
+        ? step.text
+        : null
+      : step.detail;
+  const expandable = Boolean(body);
+
+  const head = (
+    <>
+      <span className="flex size-6 shrink-0 items-center justify-center">
+        <Glyph
+          className={cn(
+            'size-4 stroke-[1.8]',
+            failed ? 'text-destructive' : 'text-muted-foreground',
+          )}
+        />
+      </span>
+
+      <span
+        className={cn(
+          'min-w-0 flex-1 truncate',
+          running
+            ? 'step-shine'
+            : failed
+              ? 'text-destructive'
+              : 'text-muted-foreground',
         )}
-      </li>
-    );
-  }
+      >
+        {label}
+      </span>
+
+      <span className="flex size-4 shrink-0 items-center justify-center">
+        <ChevronRight
+          className={cn(
+            'size-3 text-muted-foreground opacity-70 transition-transform duration-200',
+            open && 'rotate-90',
+            !expandable && 'invisible',
+          )}
+        />
+      </span>
+    </>
+  );
+
+  // A notch below the conversation: the steps are how the answer was reached,
+  // read under the answer itself.
+  const row =
+    'flex w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-xs leading-6';
 
   return (
     <li>
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        aria-expanded={open}
-        className="flex w-full items-center gap-1 text-left text-sm leading-6 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <ChevronRight
+      {expandable ? (
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
           className={cn(
-            'size-3 shrink-0 text-muted-foreground transition-transform duration-200',
-            open && 'rotate-90',
-          )}
-        />
-        {ran && <span className="text-muted-foreground">Ran </span>}
-        <span
-          className={cn(
-            'truncate',
-            failed ? 'text-destructive' : 'text-foreground',
+            row,
+            'cursor-pointer outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/70',
           )}
         >
-          {step.text}
-        </span>
-        {step.ms >= 1_000 && (
-          <span className="shrink-0 text-muted-foreground">
-            {took(step.ms)}
-          </span>
-        )}
-      </button>
+          {head}
+        </button>
+      ) : (
+        <div className={row}>{head}</div>
+      )}
 
-      <div
-        inert={!open}
-        className={cn(
-          'grid transition-all duration-200 ease-out',
-          open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
-        )}
-      >
-        <div className="min-h-0 overflow-hidden">
-          <pre className="mt-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-muted-foreground text-xs leading-5">
-            {step.detail}
-          </pre>
+      {expandable && (
+        <div
+          inert={!open}
+          className={cn(
+            'grid transition-all duration-200 ease-out',
+            open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
+          )}
+        >
+          <div className="min-h-0 overflow-hidden">
+            {prose ? (
+              <p className="mt-0.5 mb-1 ms-7 max-h-64 overflow-auto whitespace-pre-wrap text-muted-foreground text-xs leading-5">
+                {body}
+              </p>
+            ) : (
+              <pre className="mt-0.5 mb-1 ms-7 max-h-64 select-text overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/60 px-3 py-2 font-mono text-muted-foreground text-xs leading-5">
+                {body}
+              </pre>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </li>
   );
 }

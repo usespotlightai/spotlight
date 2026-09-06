@@ -63,6 +63,7 @@ const onboarding = (
   steps: STEPS.map((step) => ({ ...step, done: done.includes(step.key) })),
   connectedToGitHub: false,
   configRepository: null,
+  repositoryOwner: 'acme',
   installUrl: 'https://github.com/apps/spotlight/installations/new',
   tools: [{ source: 'linear', chosen: false }],
   ...over,
@@ -184,9 +185,10 @@ describe('SetupSteps', () => {
     onboardingState.data = onboarding({ connectedToGitHub: true });
     showing();
 
-    await userEvent.type(screen.getByLabelText('Repository'), 'acme/config');
+    await userEvent.type(screen.getByLabelText('Repository'), 'config');
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
+    // Owner is shown, not typed, so what is sent is the two put together.
     expect(pin).toHaveBeenCalledWith('acme/config');
   });
 
@@ -197,7 +199,7 @@ describe('SetupSteps', () => {
 
     await userEvent.type(
       screen.getByLabelText('Repository'),
-      'acme/brand-new{Enter}',
+      'brand-new{Enter}',
     );
 
     expect(pin).toHaveBeenCalledWith('acme/brand-new');
@@ -208,7 +210,7 @@ describe('SetupSteps', () => {
     onboardingState.data = onboarding({ connectedToGitHub: true });
     showing();
 
-    await userEvent.type(screen.getByLabelText('Repository'), 'acme/bra');
+    await userEvent.type(screen.getByLabelText('Repository'), 'bra');
 
     expect(pin).not.toHaveBeenCalled();
   });
@@ -220,6 +222,18 @@ describe('SetupSteps', () => {
     expect(screen.queryByLabelText('Repository')).not.toBeInTheDocument();
   });
 
+  // The repository a team works in is a setting, not a one-off: it stays
+  // changeable once chosen, where the other steps' controls drop away.
+  it('keeps the repository control after one has been chosen', () => {
+    onboardingState.data = onboarding(
+      { connectedToGitHub: true, configRepository: 'acme/config' },
+      ['repository'],
+    );
+    showing();
+
+    expect(screen.getByLabelText('Repository')).toHaveValue('config');
+  });
+
   // Narrowed by what is typed, so the list is the ones still worth picking.
   it('suggests the repositories that match what is typed', async () => {
     onboardingState.data = onboarding({ connectedToGitHub: true });
@@ -227,11 +241,10 @@ describe('SetupSteps', () => {
 
     await userEvent.type(screen.getByLabelText('Repository'), 'conf');
 
+    // The owner is already shown, so a suggestion reads as the name alone.
+    expect(screen.getByRole('button', { name: 'config' })).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'acme/config' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'acme/api' }),
+      screen.queryByRole('button', { name: 'api' }),
     ).not.toBeInTheDocument();
   });
 
@@ -240,9 +253,9 @@ describe('SetupSteps', () => {
     showing();
 
     await userEvent.type(screen.getByLabelText('Repository'), 'conf');
-    await userEvent.click(screen.getByRole('button', { name: 'acme/config' }));
+    await userEvent.click(screen.getByRole('button', { name: 'config' }));
 
-    expect(screen.getByLabelText('Repository')).toHaveValue('acme/config');
+    expect(screen.getByLabelText('Repository')).toHaveValue('config');
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
     expect(pin).toHaveBeenCalledWith('acme/config');
@@ -253,13 +266,13 @@ describe('SetupSteps', () => {
     onboardingState.data = onboarding({ connectedToGitHub: true });
     showing();
 
-    await userEvent.type(screen.getByLabelText('Repository'), 'acme/brand-new');
+    await userEvent.type(screen.getByLabelText('Repository'), 'brand-new');
 
     expect(
-      screen.queryByRole('button', { name: 'acme/config' }),
+      screen.queryByRole('button', { name: 'config' }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: 'acme/api' }),
+      screen.queryByRole('button', { name: 'api' }),
     ).not.toBeInTheDocument();
   });
 });

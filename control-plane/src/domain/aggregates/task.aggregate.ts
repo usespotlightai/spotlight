@@ -95,6 +95,8 @@ export class Task extends EventRecorder {
     now: Date;
     newId: () => string;
   }): Task {
+    const raisedBy = input.raisedBy ?? null;
+
     return new Task(
       TaskId.of(input.newId()),
       input.workspaceId,
@@ -108,12 +110,14 @@ export class Task extends EventRecorder {
       [],
       input.now,
       input.stationId,
-      input.raisedBy ?? null,
+      raisedBy,
       input.repository ?? null,
       null,
       [],
       null,
-      null,
+      // A person who raises a task owns it from the start; one a word from
+      // outside opened is owned by nobody until somebody takes it.
+      raisedBy,
     );
   }
 

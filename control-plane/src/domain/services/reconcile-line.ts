@@ -3,7 +3,6 @@ import { Station } from '@domain/entities/station.entity';
 import type { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import type { FactoryId } from '@domain/value-objects/factory-id.vo';
 import type { LinePlan } from '@domain/value-objects/line-plan.vo';
-import { Opener } from '@domain/value-objects/opener.vo';
 import { Reaction } from '@domain/value-objects/reaction.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import type { StationKey } from '@domain/value-objects/station-key.vo';
@@ -143,12 +142,5 @@ const assemble = (
           : null;
       })
       .filter((each): each is Reaction => each !== null),
-    openers: plan.openers
-      .map((planned) => {
-        const to = at(planned.to);
-
-        return to ? Opener.of({ happening: planned.happening, to }) : null;
-      })
-      .filter((each): each is Opener => each !== null),
   });
 };

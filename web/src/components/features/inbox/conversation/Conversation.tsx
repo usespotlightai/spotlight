@@ -85,6 +85,9 @@ type ConversationProps = {
   viewerId?: string;
   openAt?: number | null;
   opening?: ReactNode;
+  // Shown at the tail of the last turn: the live run's steps as they land,
+  // standing in for the plain working pulse.
+  live?: ReactNode;
   footer: ReactNode;
 };
 
@@ -94,6 +97,7 @@ export function Conversation({
   viewerId,
   openAt,
   opening,
+  live,
   footer,
 }: ConversationProps) {
   const marked = marksIn(item);
@@ -264,14 +268,21 @@ export function Conversation({
                     );
                   })}
 
-                  {item.working && at === all.length - 1 && (
-                    <InboxWorking
-                      station={item.station.name}
-                      stationColor={item.station.color}
-                      stationPosition={item.station.position}
-                      stationCount={item.station.count}
-                    />
-                  )}
+                  {at === all.length - 1 &&
+                    (live ? (
+                      // Its own list of steps, so it hangs in a row of its own
+                      // rather than nesting a list straight inside this one.
+                      <li>{live}</li>
+                    ) : (
+                      item.working && (
+                        <InboxWorking
+                          station={item.station.name}
+                          stationColor={item.station.color}
+                          stationPosition={item.station.position}
+                          stationCount={item.station.count}
+                        />
+                      )
+                    ))}
                 </ol>
               </section>
             );

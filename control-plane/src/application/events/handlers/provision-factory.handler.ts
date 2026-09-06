@@ -12,6 +12,7 @@ import type { WorkspaceFinding } from '@domain/repositories/workspace.repository
 import { BUILT_IN_LINES } from '@domain/services/built-in-lines';
 import { welcomeTask } from '@domain/services/welcome-task';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
+import type { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 
 export class ProvisionFactory implements FactoryProvisioningPort {
@@ -22,6 +23,9 @@ export class ProvisionFactory implements FactoryProvisioningPort {
     private readonly tasks: TaskRepository,
     private readonly clock: ClockPort,
     private readonly workspaces: WorkspaceFinding,
+    /** What a line's worked stations start running on, so a team with a runner
+     *  can begin the moment its lines are open. */
+    private readonly harness: HarnessId,
   ) {}
 
   async onTeamCreated(event: TeamCreated): Promise<void> {
@@ -39,14 +43,21 @@ export class ProvisionFactory implements FactoryProvisioningPort {
 
     await this.factories.add(opened);
 
-    const lines = BUILT_IN_LINES.map((line) =>
-      AssemblyLine.open({
+    const lines = BUILT_IN_LINES.map((line) => {
+      const built = AssemblyLine.open({
         workspaceId: event.workspaceId,
         factoryId: opened.id,
         line,
         newId: () => this.ids.generate(),
-      }),
-    );
+      });
+
+      // Every station where work is done starts on the default harness; a
+      // backlog and an end run nothing, so they are left worked by none.
+      return built.worked.reduce(
+        (each, station) => each.runStationOn(station.id, this.harness),
+        built,
+      );
+    });
 
     for (const line of lines) {
       await this.lines.add(line);

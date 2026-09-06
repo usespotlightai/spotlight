@@ -12,12 +12,6 @@ CREATE TABLE "assembly_line" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "assembly_line_opener" (
-	"assembly_line_id" text NOT NULL,
-	"happening" text NOT NULL,
-	"to_station_id" text NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE "assembly_line_reaction" (
 	"assembly_line_id" text NOT NULL,
 	"happening" text NOT NULL,
@@ -242,8 +236,6 @@ CREATE TABLE "workspace_member" (
 --> statement-breakpoint
 ALTER TABLE "assembly_line" ADD CONSTRAINT "assembly_line_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "assembly_line" ADD CONSTRAINT "assembly_line_factory_id_factory_id_fk" FOREIGN KEY ("factory_id") REFERENCES "public"."factory"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "assembly_line_opener" ADD CONSTRAINT "assembly_line_opener_assembly_line_id_assembly_line_id_fk" FOREIGN KEY ("assembly_line_id") REFERENCES "public"."assembly_line"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "assembly_line_opener" ADD CONSTRAINT "assembly_line_opener_to_station_id_station_id_fk" FOREIGN KEY ("to_station_id") REFERENCES "public"."station"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "assembly_line_reaction" ADD CONSTRAINT "assembly_line_reaction_assembly_line_id_assembly_line_id_fk" FOREIGN KEY ("assembly_line_id") REFERENCES "public"."assembly_line"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "assembly_line_reaction" ADD CONSTRAINT "assembly_line_reaction_from_station_id_station_id_fk" FOREIGN KEY ("from_station_id") REFERENCES "public"."station"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "assembly_line_reaction" ADD CONSTRAINT "assembly_line_reaction_to_station_id_station_id_fk" FOREIGN KEY ("to_station_id") REFERENCES "public"."station"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -278,7 +270,6 @@ ALTER TABLE "workspace_member" ADD CONSTRAINT "workspace_member_workspace_id_wor
 ALTER TABLE "workspace_member" ADD CONSTRAINT "workspace_member_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "assembly_line_factory_idx" ON "assembly_line" USING btree ("factory_id");--> statement-breakpoint
 CREATE INDEX "assembly_line_workspace_idx" ON "assembly_line" USING btree ("workspace_id");--> statement-breakpoint
-CREATE INDEX "assembly_line_opener_line_idx" ON "assembly_line_opener" USING btree ("assembly_line_id");--> statement-breakpoint
 CREATE INDEX "assembly_line_reaction_line_idx" ON "assembly_line_reaction" USING btree ("assembly_line_id");--> statement-breakpoint
 CREATE INDEX "station_assembly_line_idx" ON "station" USING btree ("assembly_line_id");--> statement-breakpoint
 CREATE INDEX "station_route_station_idx" ON "station_route" USING btree ("station_id");--> statement-breakpoint

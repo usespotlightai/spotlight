@@ -33,11 +33,6 @@ export interface ReactionPlan {
   readonly to: StationKey;
 }
 
-export interface OpenerPlan {
-  readonly happening: Happening;
-  readonly to: StationKey;
-}
-
 /**
  * A line as somebody described it. Whole on its own terms or not a plan:
  * every station named once, and everywhere it points landing on one it
@@ -49,7 +44,6 @@ export class LinePlan {
     readonly name: AssemblyLineName,
     readonly stations: readonly StationPlan[],
     readonly reactions: readonly ReactionPlan[],
-    readonly openers: readonly OpenerPlan[],
     /** What the line is for, where the factory routes work by purpose. */
     readonly role: LineRole | null,
   ) {}
@@ -59,11 +53,9 @@ export class LinePlan {
     name: AssemblyLineName;
     stations: readonly StationPlan[];
     reactions?: readonly ReactionPlan[];
-    openers?: readonly OpenerPlan[];
     role?: LineRole | null;
   }): LinePlan {
     const reactions = input.reactions ?? [];
-    const openers = input.openers ?? [];
     const keys = input.stations.map((each) => each.key.value);
 
     // A line with nowhere to stand is not a line.
@@ -106,21 +98,11 @@ export class LinePlan {
       }
     }
 
-    for (const opener of openers) {
-      if (!named.has(opener.to.value)) {
-        throw new InvalidLinePlanError(
-          input.key.value,
-          `opens ${opener.happening.value} at ${opener.to.value}, which is not a station on it`,
-        );
-      }
-    }
-
     return new LinePlan(
       input.key,
       input.name,
       input.stations,
       reactions,
-      openers,
       input.role ?? null,
     );
   }

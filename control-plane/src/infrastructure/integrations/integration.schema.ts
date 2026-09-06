@@ -9,6 +9,7 @@ import { z } from 'zod';
 const SOURCE = /^[a-z0-9]+$/;
 const HAPPENING = /^[a-z0-9]+(\.[a-z0-9][a-z0-9_-]*)+$/;
 const MARK_KIND = HAPPENING;
+const ROLE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const SECRET = /^[A-Z][A-Z0-9_]{0,63}$/;
 
 /** `${{ ... }}`, which is the one place configuration holds an expression. */
@@ -35,9 +36,13 @@ const happeningSchema = z.object({
   /** A person speaking needs what they said; the world reporting does not. */
   spoken: z.boolean().default(false),
   when: expression,
-  /** What a task this word opens is called and says, read from the delivery. */
+  /** What a task this word opens is called and says, read from the delivery,
+   *  and the role of the lines it opens one on. */
   opens: z
     .object({
+      onto: z
+        .string()
+        .regex(ROLE, 'is the role of the lines this opens on, as in delivery'),
       title: expression,
       description: expression.optional(),
     })

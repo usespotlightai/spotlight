@@ -3,6 +3,7 @@ import type { Task } from '@domain/aggregates/task.aggregate';
 import type { Station } from '@domain/entities/station.entity';
 import type { Concerns } from '@domain/value-objects/concerns.vo';
 import type { Word } from '@domain/value-objects/happening.vo';
+import type { LineRole } from '@domain/value-objects/line-role.vo';
 import type { Mark } from '@domain/value-objects/mark.vo';
 import { NotePosition } from '@domain/value-objects/note-position.vo';
 import type { Said } from '@domain/value-objects/said.vo';
@@ -39,6 +40,8 @@ export interface OpenedOn {
 
 /** What a source read off a delivery for a task the word opens. */
 export interface OpensWith {
+  /** The role of the lines it opens a task on. */
+  readonly onto: LineRole;
   readonly title: string;
   readonly description: string | null;
 }
@@ -96,15 +99,15 @@ export const ReactionFor = {
   },
 
   /**
-   * The one line a word opens a task on. Where more than one watches for it,
-   * the line whose key sorts first takes it, so the choice never rides on the
-   * order the lines happened to come back in.
+   * The one line a word opens a task on: the first, by key, whose role it
+   * opens onto. However many lines share the role, the word names one task —
+   * the same handle cannot wear two — so the choice is settled here rather
+   * than left to ride on the order the lines came back in.
    */
-  openingAcross(input: {
+  openingOn(input: {
     lines: readonly AssemblyLine[];
-    word: Word;
     concerns: Concerns;
-    opens: OpensWith | null;
+    opens: OpensWith;
   }): OpenedOn | null {
     const ordered = [...input.lines].sort((one, other) =>
       one.key.value.localeCompare(other.key.value),
@@ -113,7 +116,6 @@ export const ReactionFor = {
     for (const line of ordered) {
       const opening = ReactionFor.opening({
         line,
-        word: input.word,
         concerns: input.concerns,
         opens: input.opens,
       });
@@ -126,14 +128,18 @@ export const ReactionFor = {
     return null;
   },
 
-  /** A task to open for a word that concerns none. A word with no handle opens nothing. */
+  /** A task to open on a line the word opens onto. A word its role does not
+   *  match, or with no handle to find it by, opens nothing. */
   opening(input: {
     line: AssemblyLine;
-    word: Word;
     concerns: Concerns;
-    opens: OpensWith | null;
+    opens: OpensWith;
   }): Opening | null {
-    const at = input.line.opensAt(input.word.happening);
+    if (!input.line.role?.equals(input.opens.onto)) {
+      return null;
+    }
+
+    const at = input.line.entry;
 
     if (!at) {
       return null;
@@ -149,8 +155,8 @@ export const ReactionFor = {
     // marked by is only the fallback, so a task is never left named by an id.
     return {
       at,
-      title: TaskTitle.clamp(input.opens?.title ?? named.value),
-      description: input.opens?.description
+      title: TaskTitle.clamp(input.opens.title || named.value),
+      description: input.opens.description
         ? TaskDescription.clamp(input.opens.description)
         : null,
       marks: input.concerns.marks,

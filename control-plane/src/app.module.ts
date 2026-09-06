@@ -261,7 +261,10 @@ import { GitHubRemarks } from '@infrastructure/github/github-remarks';
 import { GitHubRepositoryCatalog } from '@infrastructure/github/github-repository.catalog';
 import { GitHubRepositoryContents } from '@infrastructure/github/github-repository.contents';
 import { GitHubWebhookSignature } from '@infrastructure/github/github-webhook.signature';
-import { BuiltInHarnesses } from '@infrastructure/harnesses/built-in-harnesses';
+import {
+  BuiltInHarnesses,
+  CLAUDE_CODE,
+} from '@infrastructure/harnesses/built-in-harnesses';
 import { CryptoIdGenerator } from '@infrastructure/identity/crypto-id.generator';
 import { InstallerAssets } from '@infrastructure/installer/installer-assets';
 import { ConfiguredSources } from '@infrastructure/integrations/configured.sources';
@@ -771,7 +774,15 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         clock: ClockPort,
         workspaces: DrizzleWorkspaceRepository,
       ) =>
-        new ProvisionFactory(factories, lines, ids, tasks, clock, workspaces),
+        new ProvisionFactory(
+          factories,
+          lines,
+          ids,
+          tasks,
+          clock,
+          workspaces,
+          CLAUDE_CODE.id,
+        ),
       inject: [
         DrizzleFactoryRepository,
         DrizzleAssemblyLineRepository,
@@ -962,8 +973,6 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       WORKSPACE_READER,
       DrizzleTeamRepository,
       WriteConfiguration,
-      DrizzleAssemblyLineRepository,
-      LINE_READER,
     ]),
     ...bindQueryHandler(OnboardingQuery, OnboardingHandler, [
       WORKSPACE_READER,

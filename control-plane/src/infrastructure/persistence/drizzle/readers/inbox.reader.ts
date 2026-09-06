@@ -159,6 +159,8 @@ export class DrizzleInboxReader implements InboxReaderPort {
           // Two facts, not one: the task has a run, and this is the
           // conversation still waiting for it.
           working: stillOpen(conversation) && row.working !== null,
+          // The same run, named so the open conversation can watch it work.
+          runId: stillOpen(conversation) ? row.working : null,
           unread: anyUnread(notes),
           briefing: (note.runId && given.get(note.runId)) || null,
           notes,

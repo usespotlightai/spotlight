@@ -17,6 +17,8 @@ import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 export interface TeamFacts {
   readonly hasRunner: boolean;
   readonly connectedToGitHub: boolean;
+  /** The GitHub installation this team works through, where it has one. */
+  readonly installation: GitHubInstallation | null;
   readonly configRepository: string | null;
   readonly hasConfiguration: boolean;
   readonly listening: readonly string[];
@@ -58,6 +60,7 @@ export class TeamSetup {
     return {
       hasRunner,
       connectedToGitHub: connection !== null,
+      installation: GitHubInstallation.from(connection),
       configRepository: held?.configRepository?.value ?? null,
       hasConfiguration: applied !== null,
       listening: applied

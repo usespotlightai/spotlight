@@ -201,7 +201,7 @@ describe('MoveTaskHandler', () => {
 
   // Backlog is station_1; Triage (station_2) is the first active station.
   it('gives unclaimed work to whoever moves it from the backlog into active', async () => {
-    await move('station_2', lines(), tasks(standing('station_1')));
+    await move('station_2', lines(), tasks(standing('station_1').unassigned()));
 
     expect(saved?.assignee?.value).toBe('user_mover');
   });
@@ -216,7 +216,7 @@ describe('MoveTaskHandler', () => {
 
   it('assigns nobody when the move is not out of the backlog', async () => {
     // The default task stands at Triage; moving it to Completed is not a claim.
-    await move('station_3', lines(), tasks(standing('station_2')));
+    await move('station_3', lines(), tasks(standing('station_2').unassigned()));
 
     expect(saved?.assignee).toBeNull();
   });

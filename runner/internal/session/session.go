@@ -314,6 +314,14 @@ func work(
 	defer stopRenewing()
 	go renew(renewing, lease, run.ID, log)
 
+	// The agent's updates are appended as they arrive but only shipped by a
+	// flush; without this ticker nothing would ship until the turn ended, and a
+	// reader would see a run's result rather than its working. The per-turn
+	// flush below still has the last word.
+	flushing, stopFlushing := context.WithCancel(ctx)
+	defer stopFlushing()
+	go stream(flushing, journal)
+
 	prompt := run.Spec.Briefing
 
 	for {
@@ -394,6 +402,24 @@ func renew(ctx context.Context, lease Journal, runID string, log *slog.Logger) {
 			if err := lease.RenewLease(ctx, runID); err != nil {
 				log.Warn("could not renew lease", "error", err)
 			}
+		}
+	}
+}
+
+// stream ships whatever the agent has said so far every flushEvery, coalescing
+// a turn's chunks into a few requests rather than one per update. It stops when
+// the turn's context is cancelled; the caller flushes once more after, so a
+// tick lost to a race at the end costs nothing.
+func stream(ctx context.Context, journal *journalWriter) {
+	ticker := time.NewTicker(flushEvery)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			journal.flush(ctx)
 		}
 	}
 }

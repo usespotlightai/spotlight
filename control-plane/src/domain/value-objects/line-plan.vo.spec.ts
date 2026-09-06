@@ -104,14 +104,6 @@ describe('LinePlan', () => {
     ).toThrow(/not a station on it/);
   });
 
-  it('refuses a word opening a task at a station it does not describe', () => {
-    expect(() =>
-      plan({
-        openers: [{ happening: MERGED, to: StationKey.of('nowhere') }],
-      }),
-    ).toThrow(/not a station on it/);
-  });
-
   it('says whether it names a station at all', () => {
     expect(plan().names(StationKey.of('review'))).toBe(true);
     expect(plan().names(StationKey.of('nowhere'))).toBe(false);

@@ -31,9 +31,11 @@ const CALLS: Partial<Record<SetupStepResponseDto['key'], string>> = {
 type StepProps = {
   step: SetupStepResponseDto;
   action: ReactNode;
+  /** A step whose control is a setting to revise, not a one-off to be done. */
+  keepsControl?: boolean;
 };
 
-function Step({ step, action }: StepProps) {
+function Step({ step, action, keepsControl }: StepProps) {
   return (
     <li className="flex items-start gap-3">
       <span
@@ -57,7 +59,7 @@ function Step({ step, action }: StepProps) {
           </p>
         </div>
 
-        {!step.done && action}
+        {(!step.done || keepsControl) && action}
       </div>
     </li>
   );
@@ -105,6 +107,7 @@ export function SetupSteps({ teamId, body, about }: SetupStepsProps) {
           <ChooseRepository
             slug={slug}
             teamId={teamId}
+            owner={onboarding.repositoryOwner}
             chosen={onboarding.configRepository}
             controlClassName={CONTROL}
           />
@@ -146,7 +149,14 @@ export function SetupSteps({ teamId, body, about }: SetupStepsProps) {
 
       <ul className="flex flex-col gap-3">
         {onboarding.steps.map((step) => (
-          <Step key={step.key} step={step} action={goAndDoIt(step)} />
+          <Step
+            key={step.key}
+            step={step}
+            action={goAndDoIt(step)}
+            // The repository a team works in is a choice it can revisit, so its
+            // control stays even once one has been chosen.
+            keepsControl={step.key === 'repository'}
+          />
         ))}
       </ul>
     </div>

@@ -388,13 +388,16 @@ describe('Task, what it is doing', () => {
       expect(added().raisedByThem(UserId.of('user_2'))).toBe(false);
     });
 
+    it('is owned by whoever raised it from the start', () => {
+      expect(added().assignedToThem(UserId.of('user_1'))).toBe(true);
+    });
+
     // Putting it to a person makes it theirs, so an inbox is never left with
-    // no one to reach: it falls back to whoever raised it.
-    it('is assigned to the raiser when a person is asked and none is set', () => {
-      expect(added().assignedToThem(UserId.of('user_1'))).toBe(false);
-      expect(
-        added().askedAbout(saying).assignedToThem(UserId.of('user_1')),
-      ).toBe(true);
+    // no one to reach: with nobody assigned it falls back to whoever raised it.
+    it('falls back to the raiser when a person is asked and none is set', () => {
+      const asked = added().unassigned().askedAbout(saying);
+
+      expect(asked.assignedToThem(UserId.of('user_1'))).toBe(true);
     });
 
     it('keeps the assignee it already has when a person is asked', () => {

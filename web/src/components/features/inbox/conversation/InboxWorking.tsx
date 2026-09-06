@@ -15,11 +15,13 @@ export function InboxWorking({
   stationCount,
 }: InboxWorkingProps) {
   return (
-    <li className="flex items-center gap-1.5 text-muted-foreground text-xs">
-      <StationIcon
-        share={stationShare(stationPosition, stationCount)}
-        color={stationColor}
-      />
+    <li className="flex items-center gap-1.5 px-1 pt-3 pb-0.5 text-xs leading-6">
+      <span className="flex size-6 shrink-0 items-center justify-center">
+        <StationIcon
+          share={stationShare(stationPosition, stationCount)}
+          color={stationColor}
+        />
+      </span>
       <span className="animate-pulse">{station} is working…</span>
     </li>
   );

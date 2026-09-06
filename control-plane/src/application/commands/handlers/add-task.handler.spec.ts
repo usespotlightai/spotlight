@@ -156,7 +156,8 @@ describe('AddTaskHandler', () => {
       repository: null,
       pullRequest: null,
       raisedBy: raiser,
-      assignee: null,
+      // The raiser owns what they raised.
+      assignee: raiser,
       note: null,
     });
   });

@@ -2,6 +2,7 @@ import { DeclaredHappening } from '@domain/entities/declared-happening.entity';
 import { Integration } from '@domain/entities/integration.entity';
 import { ConfigurationProblem } from '@domain/value-objects/configuration-problem.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
+import { LineRole } from '@domain/value-objects/line-role.vo';
 import { MarkKind } from '@domain/value-objects/mark-kind.vo';
 import { SecretName } from '@domain/value-objects/secret-name.vo';
 import { Signing } from '@domain/value-objects/signing.vo';
@@ -206,6 +207,7 @@ export const compileIntegration = (path: string, text: string): Compiled => {
           spoken: raising.spoken,
           finds: raising.concerns.marks.map((mark) => MarkKind.of(mark.kind)),
           findsByBranch: raising.concerns.branch !== undefined,
+          opensOnto: raising.opens ? LineRole.of(raising.opens.onto) : null,
         }),
       ),
     });

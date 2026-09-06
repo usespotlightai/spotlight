@@ -8,6 +8,7 @@ import { TeamCreated } from '@domain/events/team-created.event';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import type { WorkspaceFinding } from '@domain/repositories/workspace.repository';
 import { BUILT_IN_LINES } from '@domain/services/built-in-lines';
+import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { LineRole } from '@domain/value-objects/line-role.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
@@ -66,6 +67,7 @@ const provision = () =>
         }),
       ),
     } satisfies WorkspaceFinding,
+    HarnessId.of('claude-code'),
   ).onTeamCreated(
     new TeamCreated(
       WorkspaceId.of('ws_1'),
@@ -108,6 +110,20 @@ describe('ProvisionFactory', () => {
     expect(seeded[0]?.stations.map((each) => each.color.value)).toEqual(
       delivery?.stations.map((each) => each.color.value),
     );
+  });
+
+  // A team with a runner can begin the moment its lines are open: every
+  // station where work is done is already worked by the default harness.
+  it('opens every worked station on the default harness, and the rest on none', async () => {
+    await provision();
+
+    for (const line of seeded) {
+      expect(
+        line.worked.every((each) => each.harness?.value === 'claude-code'),
+      ).toBe(true);
+      expect(line.backlog.harness).toBeNull();
+      expect(line.completed.harness).toBeNull();
+    }
   });
 
   it('marks the improvement line by its role', async () => {
