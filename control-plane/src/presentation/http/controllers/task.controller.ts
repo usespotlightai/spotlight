@@ -5,6 +5,7 @@ import { DeleteTaskCommand } from '@application/commands/delete-task.command';
 import { MoveTaskCommand } from '@application/commands/move-task.command';
 import { SayToRunCommand } from '@application/commands/say-to-run.command';
 import { SetTaskRepositoryCommand } from '@application/commands/set-task-repository.command';
+import { StopRunCommand } from '@application/commands/stop-run.command';
 import type { StationDto } from '@application/dto/assembly-line.dto';
 import type { RunConversationDto } from '@application/dto/run-conversation.dto';
 import type { TaskDto } from '@application/dto/task.dto';
@@ -36,6 +37,7 @@ import {
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
+  ApiConflictResponse,
   ApiCreatedResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
@@ -245,6 +247,23 @@ export class TaskController {
     await this.commandBus.execute(
       new SayToRunCommand(runId, user.id, body.body),
     );
+  }
+
+  @Post('runs/:runId/stop')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'stopRun',
+    summary: 'Stop the agent working a run',
+  })
+  @ApiParam({ name: 'runId', type: String })
+  @ApiNoContentResponse({ description: 'The run was asked to stop' })
+  @ApiNotFoundResponse({ description: 'No such run for this caller' })
+  @ApiConflictResponse({ description: 'The run is no longer being worked' })
+  async stop(
+    @Param('runId') runId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    await this.commandBus.execute(new StopRunCommand(runId, user.id));
   }
 
   @Get('tasks/:taskId/runs')

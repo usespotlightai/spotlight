@@ -102,6 +102,13 @@ const run = (failed: boolean, said: HandoverReport = HandoverReport.none()) => {
     );
 };
 
+// A run a person stopped: it completes, but its outcome says so.
+const stoppedRun = () => {
+  const runner = RunnerId.of('runner_1');
+
+  return queued().claim(runner, NOW).complete(runner, RunOutcome.stopped(0));
+};
+
 // Claimed and left unreported until there are no attempts left.
 const givenUp = () => {
   const runner = RunnerId.of('runner_1');
@@ -175,6 +182,14 @@ describe('HandOver', () => {
 
     expect(saved?.awaitingReview).toBe(true);
     expect(saved?.notes[0]?.body.value).toContain('The run failed');
+  });
+
+  it('brings a stopped run back to the person rather than advancing it', async () => {
+    await handOver(stoppedRun());
+
+    expect(saved?.awaitingReview).toBe(true);
+    expect(saved?.currentRunId).toBeNull();
+    expect(saved?.notes[0]?.body.value).toContain('Stopped from the console');
   });
 
   it('closes a task the run said was done', async () => {

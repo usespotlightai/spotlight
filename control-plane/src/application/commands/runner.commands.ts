@@ -51,6 +51,8 @@ export class CompleteRunCommand {
     readonly message?: string,
     readonly declared?: { next?: string; note?: string } | null,
     readonly sessionId?: string | null,
+    /** A person stopped the run rather than the agent finishing it. */
+    readonly stopped: boolean = false,
   ) {}
 }
 

@@ -254,6 +254,13 @@ export type DeliverSaidRequestDto = {
   upTo: number;
 };
 
+export type RenewLeaseResponseDto = {
+  /**
+   * Whether a person has asked the runner to stop this run
+   */
+  stop: boolean;
+};
+
 export type RunEventRequestDto = {
   /**
    * Assigned by the runner, gapless
@@ -320,6 +327,10 @@ export type CompleteRunRequestDto = {
    * What the harness called this conversation. Reported rather than remembered by the runner, because the next run may fall to another one.
    */
   sessionId?: string;
+  /**
+   * A person stopped the run rather than the agent finishing it.
+   */
+  stopped?: boolean;
 };
 
 export type HarnessResponseDto = {
@@ -1252,7 +1263,7 @@ export type RenewLeaseErrors = {
 };
 
 export type RenewLeaseResponses = {
-  204: void;
+  200: RenewLeaseResponseDto;
 };
 
 export type RenewLeaseResponse = RenewLeaseResponses[keyof RenewLeaseResponses];
@@ -1988,6 +1999,40 @@ export type SayToRunResponses = {
 };
 
 export type SayToRunResponse = SayToRunResponses[keyof SayToRunResponses];
+
+export type StopRunData = {
+  body?: never;
+  path: {
+    runId: string;
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/runs/{runId}/stop';
+};
+
+export type StopRunErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such run for this caller
+   */
+  404: unknown;
+  /**
+   * The run is no longer being worked
+   */
+  409: unknown;
+};
+
+export type StopRunResponses = {
+  /**
+   * The run was asked to stop
+   */
+  204: void;
+};
+
+export type StopRunResponse = StopRunResponses[keyof StopRunResponses];
 
 export type ListTaskRunsData = {
   body?: never;

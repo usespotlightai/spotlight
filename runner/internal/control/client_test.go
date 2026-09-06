@@ -128,7 +128,7 @@ func TestAFailureCarriesTheServersExplanation(t *testing.T) {
 		http.Error(w, "lease expired", http.StatusConflict)
 	})
 
-	err := client.RenewLease(context.Background(), "run_1")
+	_, err := client.RenewLease(context.Background(), "run_1")
 	if err == nil {
 		t.Fatal("expected an error")
 	}
@@ -136,6 +136,39 @@ func TestAFailureCarriesTheServersExplanation(t *testing.T) {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error %q does not mention %q", err, want)
 		}
+	}
+}
+
+func TestRenewLeaseReadsBackAStopRequest(t *testing.T) {
+	var asked string
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		asked = r.URL.Path
+		_, _ = w.Write([]byte(`{"stop":true}`))
+	})
+
+	stop, err := client.RenewLease(context.Background(), "run_1")
+	if err != nil {
+		t.Fatalf("renew: %v", err)
+	}
+	if !stop {
+		t.Error("expected the renewal to report a stop")
+	}
+	if asked != "/api/runs/run_1/lease" {
+		t.Errorf("asked %q", asked)
+	}
+}
+
+func TestRenewLeaseCarriesOnWhenNoStopIsAsked(t *testing.T) {
+	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"stop":false}`))
+	})
+
+	stop, err := client.RenewLease(context.Background(), "run_1")
+	if err != nil {
+		t.Fatalf("renew: %v", err)
+	}
+	if stop {
+		t.Error("no stop was asked, yet one was reported")
 	}
 }
 

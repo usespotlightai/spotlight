@@ -177,12 +177,19 @@ func (c *Client) Delivered(ctx context.Context, runID string, upTo int) error {
 	return nil
 }
 
-func (c *Client) RenewLease(ctx context.Context, runID string) error {
+// RenewLease keeps the claim alive and reports whether a person has since
+// asked the run to stop. The heartbeat doubles as how a stop reaches the runner.
+func (c *Client) RenewLease(ctx context.Context, runID string) (bool, error) {
 	path := fmt.Sprintf("/api/runs/%s/lease", url.PathEscape(runID))
-	if err := c.do(ctx, http.MethodPost, path, nil, nil); err != nil {
-		return fmt.Errorf("renew lease: %w", err)
+
+	var out struct {
+		Stop bool `json:"stop"`
 	}
-	return nil
+	if err := c.do(ctx, http.MethodPost, path, nil, &out); err != nil {
+		return false, fmt.Errorf("renew lease: %w", err)
+	}
+
+	return out.Stop, nil
 }
 
 // AppendEvents adds to the run's journal. Events carry their own sequence, so

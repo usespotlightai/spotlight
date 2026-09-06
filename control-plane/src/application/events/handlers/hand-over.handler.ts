@@ -37,8 +37,9 @@ export class HandOver implements RunOutcomes {
 
     const { task, line } = standing;
 
-    const handover =
-      event.declared && !event.result.failed
+    const handover = event.result.stopped
+      ? HandoverFor.stopped()
+      : event.declared && !event.result.failed
         ? HandoverFor.declared(
             event.declared,
             line?.stations ?? [],

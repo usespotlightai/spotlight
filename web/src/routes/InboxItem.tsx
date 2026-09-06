@@ -155,6 +155,9 @@ export function InboxItem() {
                 slug={slug}
                 itemId={item.id}
                 station={item.station}
+                teamId={item.teamId}
+                runId={item.runId}
+                running={item.working}
               />
             )
           }

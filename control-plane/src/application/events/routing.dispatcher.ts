@@ -8,6 +8,7 @@ import type { RunOutcomes } from '@application/services/run-outcomes';
 import type { DomainEvent } from '@domain/events/domain-event';
 import { RunAbandoned } from '@domain/events/run-abandoned.event';
 import { RunCompleted } from '@domain/events/run-completed.event';
+import { RunStopRequested } from '@domain/events/run-stop-requested.event';
 import { RunnerRevoked } from '@domain/events/runner-revoked.event';
 import { TaskFinished } from '@domain/events/task-finished.event';
 import { TeamCreated } from '@domain/events/team-created.event';
@@ -56,6 +57,10 @@ export class RoutingDispatcher implements DomainEventDispatcher {
         // No subscriber yet; recorded for the trail only.
         this.logger.debug({ event: known.kind }, 'A task finished');
         return;
+      case 'run.stop_requested':
+        // No subscriber; the runner acts on it by asking, not by being told.
+        this.logger.debug({ event: known.kind }, 'A run was asked to stop');
+        return;
       default:
         this.logger.warn(
           { event: event.kind },
@@ -68,6 +73,7 @@ export class RoutingDispatcher implements DomainEventDispatcher {
 type Routable =
   | RunCompleted
   | RunAbandoned
+  | RunStopRequested
   | TeamCreated
   | WorkspaceConnected
   | RunnerRevoked

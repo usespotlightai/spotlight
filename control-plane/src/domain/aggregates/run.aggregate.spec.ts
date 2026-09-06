@@ -1,6 +1,7 @@
 import { Run } from '@domain/aggregates/run.aggregate';
 import { RunAbandoned } from '@domain/events/run-abandoned.event';
 import { RunCompleted } from '@domain/events/run-completed.event';
+import { RunStopRequested } from '@domain/events/run-stop-requested.event';
 import { InvalidRunTransitionError } from '@domain/exceptions/invalid-run-transition.error';
 import { Declaration } from '@domain/value-objects/declaration.vo';
 import { HandoverReport } from '@domain/value-objects/handover-report.vo';
@@ -271,6 +272,47 @@ describe('Run', () => {
 
   it('refuses to release a run nobody is holding', () => {
     expect(() => queued().release()).toThrow(InvalidRunTransitionError);
+  });
+
+  describe('being asked to stop', () => {
+    it('records when a person asked a claimed run to stop', () => {
+      const asked = claimed().requestStop(at('2026-08-23T12:00:30.000Z'));
+
+      expect(asked.stopRequested).toBe(true);
+      expect(asked.stopRequestedAt).toEqual(at('2026-08-23T12:00:30.000Z'));
+    });
+
+    it('announces the request so it is a fact of the model', () => {
+      const [raised] = claimed()
+        .requestStop(at('2026-08-23T12:00:30.000Z'))
+        .pullEvents();
+
+      expect(raised).toBeInstanceOf(RunStopRequested);
+      expect((raised as RunStopRequested).runId).toEqual(RunId.of('run_1'));
+    });
+
+    it('is not stop-requested until someone asks', () => {
+      expect(claimed().stopRequested).toBe(false);
+    });
+
+    it('refuses to stop a run that is not being worked', () => {
+      expect(() => queued().requestStop(noon)).toThrow(
+        InvalidRunTransitionError,
+      );
+
+      const ended = claimed().complete(
+        runner(),
+        RunOutcome.of({ exitCode: 0, failed: false }),
+      );
+      expect(() => ended.requestStop(noon)).toThrow(InvalidRunTransitionError);
+    });
+
+    it('keeps the first ask when told twice', () => {
+      const first = claimed().requestStop(at('2026-08-23T12:00:30.000Z'));
+      const again = first.requestStop(at('2026-08-23T12:00:45.000Z'));
+
+      expect(again.stopRequestedAt).toEqual(at('2026-08-23T12:00:30.000Z'));
+    });
   });
 
   describe('announcing how it ended', () => {

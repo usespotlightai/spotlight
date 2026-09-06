@@ -171,6 +171,57 @@ process.stdin.on("data", (chunk) => {
 });
 `
 
+// steering never finishes a turn on its own; it ends the one in flight only
+// when it is told to cancel, the way a person steering a run cuts it short.
+const steering = `
+const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
+let buffered = "", promptId = null;
+process.stdin.on("data", (chunk) => {
+  buffered += chunk.toString();
+  const lines = buffered.split("\n");
+  buffered = lines.pop();
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const msg = JSON.parse(line);
+    if (msg.method === "initialize") send({ jsonrpc: "2.0", id: msg.id, result: { protocolVersion: 1 } });
+    if (msg.method === "session/prompt") { promptId = msg.id; }
+    if (msg.method === "session/cancel") {
+      send({ jsonrpc: "2.0", id: promptId, result: { stopReason: "cancelled" } });
+    }
+  }
+});
+`
+
+// A turn the agent would run for ever ends the moment it is cancelled, so a
+// person can steer it without waiting for it to finish.
+func TestCancelEndsTheTurnInFlight(t *testing.T) {
+	client, _ := start(t, steering, nil)
+
+	ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
+	defer stop()
+
+	done := make(chan acp.Result, 1)
+	go func() {
+		result, _ := client.Prompt(ctx, "session_1", "keep working", func(acp.Update) {})
+		done <- result
+	}()
+
+	// Let the prompt reach the harness before cutting it short.
+	time.Sleep(200 * time.Millisecond)
+	if err := client.Cancel("session_1"); err != nil {
+		t.Fatalf("cancel: %v", err)
+	}
+
+	select {
+	case result := <-done:
+		if result.StopReason != "cancelled" {
+			t.Errorf("the turn stopped for %q, not a cancellation", result.StopReason)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the turn did not end after it was cancelled")
+	}
+}
+
 // An unanswered request is a stopped agent, so a station that runs unattended
 // has to answer for itself.
 func TestAnswersThePermissionTheAgentAsksFor(t *testing.T) {

@@ -88,4 +88,14 @@ export const HandoverFor = {
       ),
     );
   },
+
+  /**
+   * A person stopped the run, so the task comes back to them rather than
+   * advancing on whatever the halted work had done so far.
+   */
+  stopped(): Handover {
+    return Handover.review(
+      TaskNoteBody.of('Stopped from the console. It is back with you.'),
+    );
+  },
 };

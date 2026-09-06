@@ -11,6 +11,9 @@ export class RunOutcome {
     readonly exitCode: number,
     readonly failed: boolean,
     readonly message: string | null,
+    // A person stopped the run: not a failure, but distinct from a run that
+    // finished on its own, so what happens to the task next can tell them apart.
+    readonly stopped: boolean = false,
   ) {}
 
   static of(input: {
@@ -35,6 +38,10 @@ export class RunOutcome {
     return new RunOutcome(-1, true, reason);
   }
 
+  static stopped(exitCode: number): RunOutcome {
+    return new RunOutcome(exitCode, false, 'Stopped from the console.', true);
+  }
+
   get succeeded(): boolean {
     return !this.failed;
   }
@@ -43,7 +50,8 @@ export class RunOutcome {
     return (
       this.exitCode === other.exitCode &&
       this.failed === other.failed &&
-      this.message === other.message
+      this.message === other.message &&
+      this.stopped === other.stopped
     );
   }
 }

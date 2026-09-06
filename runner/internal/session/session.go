@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"usespotlight.ai/runner/internal/account"
@@ -26,7 +27,9 @@ import (
 // in the client, so this package can be tested without one.
 type Journal interface {
 	AppendEvents(ctx context.Context, runID string, events []protocol.Event) error
-	RenewLease(ctx context.Context, runID string) error
+	// RenewLease keeps the claim alive and answers whether a person has asked
+	// the run to stop.
+	RenewLease(ctx context.Context, runID string) (bool, error)
 	Complete(ctx context.Context, runID string, done protocol.Completion) error
 	OpenPullRequest(ctx context.Context, runID string, asked protocol.PullRequest) (string, error)
 	AnswerRemark(ctx context.Context, runID string, said protocol.Remark) error
@@ -39,8 +42,13 @@ const (
 	// flushEvery coalesces terminal output. Per-read events would mean a
 	// request per echoed keystroke.
 	flushEvery = 200 * time.Millisecond
-	// renewEvery keeps the lease alive well inside its expiry.
-	renewEvery = 15 * time.Second
+	// renewEvery keeps the lease alive well inside its expiry, and doubles as
+	// how often the runner learns of a stop. Short, so a stop reaches a working
+	// agent in a couple of seconds rather than the tens the lease would allow.
+	renewEvery = 2 * time.Second
+	// steerEvery is how often a running turn is checked for something a person
+	// said, so steering lands about as quickly as a stop.
+	steerEvery = 2 * time.Second
 	readBuffer = 32 * 1024
 	// drainFor bounds the wait for output still in flight when the agent
 	// exits. It is generous: the reader is spent the moment the terminal is.
@@ -253,7 +261,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		return opts.Journal.Complete(ctx, run.ID, protocol.Completion{
 			ExitCode:  exitCode,
 			Failed:    false,
-			Message:   "stopped from the console",
+			Stopped:   true,
 			Outcome:   declared,
 			SessionID: sessionID,
 		})
@@ -312,7 +320,15 @@ func work(
 ) (int, bool) {
 	renewing, stopRenewing := context.WithCancel(ctx)
 	defer stopRenewing()
-	go renew(renewing, lease, run.ID, log)
+
+	// Closing the harness on a stop ends the turn: the in-flight prompt unblocks
+	// and the loop reports it stopped. Close is a sync.Once, so Execute's
+	// deferred Close stays a no-op after this.
+	var stopped atomic.Bool
+	go renew(renewing, lease, run.ID, log, func() {
+		stopped.Store(true)
+		_ = harness.Close()
+	})
 
 	// The agent's updates are appended as they arrive but only shipped by a
 	// flush; without this ticker nothing would ship until the turn ended, and a
@@ -325,14 +341,26 @@ func work(
 	prompt := run.Spec.Briefing
 
 	for {
+		// Cut the turn short if a person speaks while it runs, so their words
+		// steer the work in flight. Scoped to the turn, not the run.
+		turn, endTurn := context.WithCancel(ctx)
+		go steer(turn, harness, lease, sessionID, run.ID, log)
+
 		result, err := harness.Prompt(ctx, sessionID, prompt, func(update acp.Update) {
 			journal.append(protocol.Event{
 				Type: protocol.EventOutput,
 				Data: update.Raw,
 			})
 		})
+		endTurn()
 
 		journal.flush(ctx)
+
+		// A stop closes the harness, which surfaces here as the prompt failing.
+		// Checked first so it is read as a clean stop, not an agent that broke.
+		if stopped.Load() {
+			return 0, true
+		}
 
 		if err != nil {
 			log.Warn("the agent stopped short", "error", err)
@@ -341,9 +369,12 @@ func work(
 
 		log.Info("turn finished", "stopReason", result.StopReason)
 
-		// Refused and cancelled are the agent saying it will not or cannot,
-		// which is a failed run rather than a finished one.
-		if result.StopReason != "end_turn" && result.StopReason != "max_tokens" {
+		// A cancelled turn is a steer: a person spoke, so it is taken up below
+		// like any other turn. Refused, or ended short any other way, is the
+		// agent saying it will not or cannot, which is a failed run.
+		if result.StopReason != "end_turn" &&
+			result.StopReason != "max_tokens" &&
+			result.StopReason != "cancelled" {
 			return 1, false
 		}
 
@@ -362,6 +393,43 @@ func work(
 
 		log.Info("a person said something", "upTo", upTo)
 		prompt = said
+	}
+}
+
+// steer cuts a turn short once a person has said something, so it is taken up
+// at once. It only reads to notice; the loop does the reading and marking
+// delivered when it takes the turn up.
+func steer(
+	ctx context.Context,
+	harness *acp.Client,
+	lease Journal,
+	sessionID, runID string,
+	log *slog.Logger,
+) {
+	ticker := time.NewTicker(steerEvery)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			said, err := lease.Said(ctx, runID)
+			if err != nil {
+				// The turn ending cancels this context; that read is not a fault.
+				if ctx.Err() == nil {
+					log.Warn("could not look for anything said", "error", err)
+				}
+				continue
+			}
+			if len(said) > 0 {
+				log.Info("a person spoke mid-turn; steering")
+				if err := harness.Cancel(sessionID); err != nil {
+					log.Warn("could not cancel the turn", "error", err)
+				}
+				return
+			}
+		}
 	}
 }
 
@@ -390,7 +458,15 @@ func waiting(
 	return strings.Join(bodies, "\n\n"), said[len(said)-1].Position
 }
 
-func renew(ctx context.Context, lease Journal, runID string, log *slog.Logger) {
+// renew keeps the lease alive and watches its answer for a stop, calling onStop
+// once and returning when one comes.
+func renew(
+	ctx context.Context,
+	lease Journal,
+	runID string,
+	log *slog.Logger,
+	onStop func(),
+) {
 	ticker := time.NewTicker(renewEvery)
 	defer ticker.Stop()
 
@@ -399,8 +475,15 @@ func renew(ctx context.Context, lease Journal, runID string, log *slog.Logger) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := lease.RenewLease(ctx, runID); err != nil {
+			stop, err := lease.RenewLease(ctx, runID)
+			if err != nil {
 				log.Warn("could not renew lease", "error", err)
+				continue
+			}
+			if stop {
+				log.Info("a person asked the run to stop")
+				onStop()
+				return
 			}
 		}
 	}

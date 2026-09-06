@@ -116,6 +116,7 @@ export function Run() {
       teamId={teamId}
       runId={run.id}
       station={run.station?.name ?? 'the agent'}
+      running={run.state === 'claimed'}
     />
   ) : (
     <p className="text-center text-muted-foreground text-xs">
