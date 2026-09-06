@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useParams } from 'react-router';
 import { Conversation } from '@/components/features/inbox/conversation/Conversation';
+import { ChangesPanel } from '@/components/features/runs/ChangesPanel';
 import { RunActivity } from '@/components/features/runs/RunActivity';
 import { RunBriefing } from '@/components/features/runs/RunBriefing';
 import { RunComposer } from '@/components/features/runs/RunComposer';
@@ -135,39 +136,41 @@ export function Run() {
       <div className="flex min-h-0 flex-1 flex-col">
         <PageHeader title={<Breadcrumbs segments={trail} />} />
 
-        {item && item.notes.length > 0 ? (
-          <Conversation
-            item={item}
-            worked={worked ?? []}
-            viewerId={session?.user.id}
-            opening={
-              said?.briefing ? (
-                <RunBriefing briefing={said.briefing} />
-              ) : undefined
-            }
-            live={run.state === 'claimed' ? activity : undefined}
-            footer={footer}
-          />
-        ) : (
-          <>
-            <RunOpening
-              run={run}
-              briefing={said?.briefing ?? null}
-              activity={activity}
+        <ChangesPanel>
+          {item && item.notes.length > 0 ? (
+            <Conversation
+              item={item}
+              worked={worked ?? []}
+              viewerId={session?.user.id}
+              opening={
+                said?.briefing ? (
+                  <RunBriefing briefing={said.briefing} />
+                ) : undefined
+              }
+              live={run.state === 'claimed' ? activity : undefined}
+              footer={footer}
             />
-
-            <div className="relative shrink-0 bg-surface">
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-x-0 bottom-full h-10 bg-gradient-to-t from-surface to-transparent"
+          ) : (
+            <>
+              <RunOpening
+                run={run}
+                briefing={said?.briefing ?? null}
+                activity={activity}
               />
 
-              <div className="mx-auto w-full max-w-3xl px-8 pt-2 pb-6">
-                <div className="-mx-3">{footer}</div>
+              <div className="relative shrink-0 bg-surface">
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-x-0 bottom-full h-10 bg-gradient-to-t from-surface to-transparent"
+                />
+
+                <div className="mx-auto w-full max-w-3xl px-8 pt-2 pb-6">
+                  <div className="-mx-3">{footer}</div>
+                </div>
               </div>
-            </div>
-          </>
-        )}
+            </>
+          )}
+        </ChangesPanel>
       </div>
     </TrailContext>
   );
