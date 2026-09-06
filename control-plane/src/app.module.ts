@@ -1,5 +1,6 @@
 import { AcceptDeliveryCommand } from '@application/commands/accept-delivery.command';
 import { AddTaskCommand } from '@application/commands/add-task.command';
+import { AnalyseTraceCommand } from '@application/commands/analyse-trace.command';
 import { AnswerInboxItemCommand } from '@application/commands/answer-inbox-item.command';
 import { AnswerRemarkCommand } from '@application/commands/answer-remark.command';
 import { AssignTaskCommand } from '@application/commands/assign-task.command';
@@ -12,6 +13,7 @@ import { DeliverSaidCommand } from '@application/commands/deliver-said.command';
 import { ForgetSecretCommand } from '@application/commands/forget-secret.command';
 import { AcceptDeliveryHandler } from '@application/commands/handlers/accept-delivery.handler';
 import { AddTaskHandler } from '@application/commands/handlers/add-task.handler';
+import { AnalyseTraceHandler } from '@application/commands/handlers/analyse-trace.handler';
 import { AnswerInboxItemHandler } from '@application/commands/handlers/answer-inbox-item.handler';
 import { AnswerRemarkHandler } from '@application/commands/handlers/answer-remark.handler';
 import { AppendRunEventsHandler } from '@application/commands/handlers/append-run-events.handler';
@@ -885,6 +887,18 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     ...bindCommandHandler(AddTaskCommand, AddTaskHandler, [
       DrizzleTaskRepository,
       DrizzleAssemblyLineRepository,
+      ID_GENERATOR,
+      CLOCK,
+      TASK_DISPATCH,
+      PERSON_READER,
+      TRANSACTION,
+    ]),
+
+    ...bindCommandHandler(AnalyseTraceCommand, AnalyseTraceHandler, [
+      DrizzleTaskRepository,
+      DrizzleAssemblyLineRepository,
+      DrizzleTeamRepository,
+      DrizzleTeamConfiguration,
       ID_GENERATOR,
       CLOCK,
       TASK_DISPATCH,

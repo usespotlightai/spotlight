@@ -843,6 +843,13 @@ export type AddTaskRequestDto = {
   repository?: string | null;
 };
 
+export type AnalyseTracesRequestDto = {
+  /**
+   * The tasks whose traces are to be analysed, one work item each
+   */
+  taskIds: Array<string>;
+};
+
 export type MoveTaskRequestDto = {
   /**
    * The station to move the task to, on the same assembly line
@@ -2085,6 +2092,28 @@ export type AddTaskResponses = {
 };
 
 export type AddTaskResponse = AddTaskResponses[keyof AddTaskResponses];
+
+export type AnalyseTracesData = {
+  body: AnalyseTracesRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/traces/analysis';
+};
+
+export type AnalyseTracesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+};
+
+export type AnalyseTracesResponses = {
+  201: Array<TaskResponseDto>;
+};
+
+export type AnalyseTracesResponse = AnalyseTracesResponses[keyof AnalyseTracesResponses];
 
 export type MoveTaskData = {
   body: MoveTaskRequestDto;

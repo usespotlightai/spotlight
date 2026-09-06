@@ -1,6 +1,7 @@
 import type { StationKind } from '@domain/entities/station.entity';
 import { InvalidLinePlanError } from '@domain/exceptions/invalid-line-plan.error';
 import type { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
+import type { AnalysisPrompt } from '@domain/value-objects/analysis-prompt.vo';
 import type { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import type { Happening } from '@domain/value-objects/happening.vo';
 import type { HarnessId } from '@domain/value-objects/harness-id.vo';
@@ -49,6 +50,8 @@ export class LinePlan {
     readonly stations: readonly StationPlan[],
     readonly reactions: readonly ReactionPlan[],
     readonly openers: readonly OpenerPlan[],
+    /** How an analysis of a trace on this line is briefed, or the default. */
+    readonly analysis: AnalysisPrompt | null,
   ) {}
 
   static of(input: {
@@ -57,6 +60,7 @@ export class LinePlan {
     stations: readonly StationPlan[];
     reactions?: readonly ReactionPlan[];
     openers?: readonly OpenerPlan[];
+    analysis?: AnalysisPrompt | null;
   }): LinePlan {
     const reactions = input.reactions ?? [];
     const openers = input.openers ?? [];
@@ -117,6 +121,7 @@ export class LinePlan {
       input.stations,
       reactions,
       openers,
+      input.analysis ?? null,
     );
   }
 

@@ -4,17 +4,11 @@ import { StationIcon } from '@/components/board/StationIcon';
 import { TraceSelectionBar } from '@/components/trace/TraceSelectionBar';
 import { TraceVolume } from '@/components/trace/TraceVolume';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useAddTask } from '@/hooks/api/useAddTask';
-import { useAssemblyLines } from '@/hooks/api/useAssemblyLines';
-import { useAssignTask } from '@/hooks/api/useAssignTask';
-import { useConfiguration } from '@/hooks/api/useConfiguration';
-import { useSession } from '@/hooks/api/useSession';
-import { useTasks } from '@/hooks/api/useTasks';
+import { useAnalyseTraces } from '@/hooks/api/useAnalyseTraces';
 import { useTeamTraces } from '@/hooks/api/useTeamTraces';
 import { spentOn, took } from '@/lib/inbox';
 import { stationShare } from '@/lib/station';
 import { taskTracePath } from '@/lib/task';
-import { analysisBrief, analysisTitle } from '@/lib/trace-analysis';
 import { startedOn, type Traced } from '@/lib/trace-list';
 import { cn } from '@/lib/utils';
 
@@ -118,12 +112,7 @@ export function TraceList({
   range: string;
 }) {
   const { data: traces, isPending } = useTeamTraces(teamId, range);
-  const { data: lines } = useAssemblyLines(teamId);
-  const { data: tasks } = useTasks(teamId);
-  const { data: configuration } = useConfiguration(teamId);
-  const { data: session } = useSession();
-  const addTask = useAddTask();
-  const assign = useAssignTask();
+  const analyseTraces = useAnalyseTraces();
 
   const [selected, setSelected] = useState<readonly string[]>([]);
 
@@ -138,56 +127,8 @@ export function TraceList({
       on ? [...current, taskId] : current.filter((each) => each !== taskId),
     );
 
-  // The trace's own line, so the analysis lands on the Triage it came through;
-  // the first line is the fallback when the task is no longer on a board.
-  const lineOf = (traceTaskId: string) => {
-    const stationId = tasks?.find((task) => task.id === traceTaskId)?.stationId;
-    return (
-      lines?.find((line) =>
-        line.stations.some((station) => station.id === stationId),
-      ) ?? lines?.[0]
-    );
-  };
-
   const analyse = async () => {
-    const repository = configuration?.repository ?? null;
-    // Given to whoever asked for it, so the finding comes back to them.
-    const assignee = session?.user
-      ? {
-          id: session.user.id,
-          name: session.user.name ?? '',
-          image: session.user.image ?? null,
-        }
-      : null;
-    const chosen = worked.filter((trace) => selected.includes(trace.taskId));
-
-    await Promise.all(
-      chosen.map(async (trace) => {
-        const line = lineOf(trace.taskId);
-        const triage = line?.stations.find(
-          (station) => station.name === 'Triage',
-        );
-        if (!line || !triage) {
-          return;
-        }
-
-        const created = await addTask.mutateAsync({
-          teamId,
-          lineId: line.id,
-          stationId: triage.id,
-          task: {
-            title: analysisTitle(trace.title),
-            description: analysisBrief(trace.taskId, trace.title),
-            repository,
-          },
-        });
-
-        if (created && assignee) {
-          await assign.mutateAsync({ teamId, taskId: created.id, assignee });
-        }
-      }),
-    );
-
+    await analyseTraces.mutateAsync({ teamId, taskIds: selected });
     setSelected([]);
   };
 
@@ -228,7 +169,7 @@ export function TraceList({
 
       <TraceSelectionBar
         count={selected.length}
-        pending={addTask.isPending || assign.isPending}
+        pending={analyseTraces.isPending}
         onAnalyse={analyse}
         onClear={() => setSelected([])}
       />

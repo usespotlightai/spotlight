@@ -1,4 +1,5 @@
 import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
+import { AnalysisPrompt } from '@domain/value-objects/analysis-prompt.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { ConfigurationProblem } from '@domain/value-objects/configuration-problem.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
@@ -149,6 +150,7 @@ export const compileLine = (path: string, text: string): CompiledLine => {
           happening: Happening.of(opener.happening),
           to: StationKey.of(opener.to),
         })),
+        analysis: file.analysis ? AnalysisPrompt.of(file.analysis) : null,
       }),
     };
   } catch (error) {

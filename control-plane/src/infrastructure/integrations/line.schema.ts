@@ -50,6 +50,16 @@ const openerSchema = z.object({
   to: key('backlog'),
 });
 
+/**
+ * How an "Analyse with AI" from a trace on this line is briefed. {trace} and
+ * {task} stand in for the trace and the task it studies. Left out, the line
+ * uses the built-in brief.
+ */
+const analysisSchema = z.object({
+  title: z.string().min(1, 'is what the analysis work item is called'),
+  brief: z.string().min(1, 'is the instruction the analysis is given'),
+});
+
 export const lineSchema = z.object({
   version: z.literal(1, { message: 'must be 1' }),
   key: key('default'),
@@ -59,9 +69,11 @@ export const lineSchema = z.object({
     .min(1, 'is the stations along this line, and there has to be one'),
   reactions: z.array(reactionSchema).default([]),
   openers: z.array(openerSchema).default([]),
+  analysis: analysisSchema.optional(),
 });
 
 export type LineFile = z.infer<typeof lineSchema>;
 export type StationFile = z.infer<typeof stationSchema>;
 export type ReactionFile = z.infer<typeof reactionSchema>;
 export type OpenerFile = z.infer<typeof openerSchema>;
+export type AnalysisFile = z.infer<typeof analysisSchema>;

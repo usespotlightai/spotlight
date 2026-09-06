@@ -3,6 +3,7 @@ import { InvalidStationLayoutError } from '@domain/exceptions/invalid-station-la
 import { UnknownHappeningError } from '@domain/exceptions/unknown-happening.error';
 import { UnknownStationError } from '@domain/exceptions/unknown-station.error';
 import {
+  BUILT_IN_ANALYSIS,
   BUILT_IN_REACTIONS,
   BUILT_IN_STATIONS,
   type StationOpening,
@@ -10,6 +11,7 @@ import {
 import { handoverOptions } from '@domain/services/handover-options';
 import type { SourceContribution } from '@domain/services/source-contribution';
 import type { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
+import type { AnalysisPrompt } from '@domain/value-objects/analysis-prompt.vo';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import type { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import type { FactoryId } from '@domain/value-objects/factory-id.vo';
@@ -40,6 +42,8 @@ export class AssemblyLine {
     readonly reactions: readonly Reaction[],
     /** Where a word opens a task for work this line has none for yet. */
     readonly openers: readonly Opener[],
+    /** How an analysis of a trace on this line is briefed, or the default. */
+    readonly analysis: AnalysisPrompt | null,
   ) {}
 
   static open(input: {
@@ -87,6 +91,7 @@ export class AssemblyLine {
       reactions: BUILT_IN_REACTIONS.map((each) =>
         Reaction.of({ happening: each.happening, to: at(each.to) }),
       ),
+      analysis: BUILT_IN_ANALYSIS,
     });
   }
 
@@ -99,6 +104,7 @@ export class AssemblyLine {
     stations: readonly Station[];
     reactions?: readonly Reaction[];
     openers?: readonly Opener[];
+    analysis?: AnalysisPrompt | null;
   }): AssemblyLine {
     const reactions = input.reactions ?? [];
     const openers = input.openers ?? [];
@@ -121,6 +127,7 @@ export class AssemblyLine {
       [...input.stations].sort((a, b) => a.position - b.position),
       reactions,
       openers,
+      input.analysis ?? null,
     );
   }
 
@@ -217,6 +224,7 @@ export class AssemblyLine {
       stations: this.stations,
       reactions: [...this.reactions, ...reactions],
       openers: [...this.openers, ...openers],
+      analysis: this.analysis,
     });
   }
 
@@ -245,6 +253,7 @@ export class AssemblyLine {
       stations: this.stations,
       reactions,
       openers,
+      analysis: this.analysis,
     });
   }
 
@@ -266,6 +275,7 @@ export class AssemblyLine {
       stations: this.stations,
       reactions,
       openers: this.openers,
+      analysis: this.analysis,
     });
   }
 
@@ -318,6 +328,7 @@ export class AssemblyLine {
       reactions: this.reactions,
       openers: this.openers,
       stations: moved,
+      analysis: this.analysis,
     });
   }
 
@@ -341,6 +352,7 @@ export class AssemblyLine {
       stations: this.stations.map((each) =>
         each.equals(target) ? change(each) : each,
       ),
+      analysis: this.analysis,
     });
   }
 

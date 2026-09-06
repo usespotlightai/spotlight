@@ -1,6 +1,7 @@
 import type { StationKind } from '@domain/entities/station.entity';
 import { PULL_REQUEST } from '@domain/services/built-in-tools';
 import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
+import { AnalysisPrompt } from '@domain/value-objects/analysis-prompt.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
@@ -111,6 +112,29 @@ request and give its address in your note.
 
 With the pull request open, the task is finished: hand on to \`done\` rather
 than to a person, so nothing is left waiting on an answer nobody owes.`;
+
+const ANALYSIS_TITLE = 'Analyse trace: {trace}';
+
+const ANALYSIS_BRIEF = `Analyse the run trace for **{trace}** (task \`{task}\`) and work out how we can reduce its failure modes in future runs.
+
+Write the trace to a file with \`spotlight trace --task {task}\`. It prints only the file's path and a one-line count — never the trace itself. Read and search that file with your own tools (grep, jq, a ranged read) rather than loading it whole.
+
+The file is one JSON object: \`rows\`, \`faults\`, \`ms\`, and \`roots\` — a tree of nodes. Each node has an \`id\`, a \`kind\` (run, phase, step or span), a \`name\`, \`ms\` and \`tone\`; the heavy detail lives on step nodes (\`step.given\`, \`step.returned\`, \`step.change\`) and span nodes (\`span.attributes\`). Skim the ids, names and tones first, and read the detail only of the nodes worth it.
+
+Report concretely on:
+
+- **System prompt** — where a station's agent prompt misled it or left it unsure, with specific wording to change.
+- **Missing tools or environment** — anything it lacked or could not reach that cost it retries or dead ends.
+- **Token usage** — where context was spent needlessly (re-reading, loading whole files or traces) and a leaner way to do it.
+- **Mistakes** — wrong turns worth skipping next time.
+
+Write it up as a short report with specific, actionable recommendations. Do not make the change here — this is Triage. Hand the task on to Implementation with the recommendations in your handover note, and let Implementation open the pull request against the configuration repository.`;
+
+/** The prompt an analysis of a trace on the opening line turns into. */
+export const BUILT_IN_ANALYSIS: AnalysisPrompt = AnalysisPrompt.of({
+  title: ANALYSIS_TITLE,
+  brief: ANALYSIS_BRIEF,
+});
 
 /** What a line is made of. Stations are not added or taken away. */
 export const BUILT_IN_STATIONS: readonly StationOpening[] = [

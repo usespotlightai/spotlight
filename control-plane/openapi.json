@@ -1882,6 +1882,54 @@
         ]
       }
     },
+    "/teams/{teamId}/traces/analysis": {
+      "post": {
+        "operationId": "analyseTraces",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalyseTracesRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TaskResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          }
+        },
+        "summary": "Open a triage task to analyse each selected trace",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
     "/teams/{teamId}/assembly-lines/{lineId}/tasks/{taskId}/move": {
       "post": {
         "operationId": "moveTask",
@@ -4520,6 +4568,24 @@
         },
         "required": [
           "title"
+        ]
+      },
+      "AnalyseTracesRequestDto": {
+        "type": "object",
+        "properties": {
+          "taskIds": {
+            "example": [
+              "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13"
+            ],
+            "description": "The tasks whose traces are to be analysed, one work item each",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "taskIds"
         ]
       },
       "MoveTaskRequestDto": {

@@ -2,6 +2,7 @@ import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Station } from '@domain/entities/station.entity';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
+import { AnalysisPrompt } from '@domain/value-objects/analysis-prompt.vo';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
@@ -76,6 +77,13 @@ const toLine = (
     stations: stations.map((row) => toStation(row, ways)),
     reactions,
     openers,
+    analysis:
+      line.analysisTitle && line.analysisBrief
+        ? AnalysisPrompt.of({
+            title: line.analysisTitle,
+            brief: line.analysisBrief,
+          })
+        : null,
   });
 
 const routeRowsOf = (line: AssemblyLine) =>
@@ -139,6 +147,8 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
       factoryId: added.factoryId.value,
       key: added.key.value,
       name: added.name.value,
+      analysisTitle: added.analysis?.title ?? null,
+      analysisBrief: added.analysis?.brief ?? null,
     });
 
     await this.context.db.insert(station).values(rowsOf(added));
@@ -148,7 +158,12 @@ export class DrizzleAssemblyLineRepository implements AssemblyLineRepository {
   async save(saved: AssemblyLine): Promise<void> {
     await this.context.db
       .update(assemblyLine)
-      .set({ key: saved.key.value, name: saved.name.value })
+      .set({
+        key: saved.key.value,
+        name: saved.name.value,
+        analysisTitle: saved.analysis?.title ?? null,
+        analysisBrief: saved.analysis?.brief ?? null,
+      })
       .where(eq(assemblyLine.id, saved.id.value));
 
     for (const each of saved.stations) {

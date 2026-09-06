@@ -94,6 +94,7 @@ export const reconcileLine = (input: {
       key: input.plan.key,
       name: input.plan.name,
       stations,
+      analysis: input.plan.analysis,
       reactions: input.plan.reactions
         .map((planned) => {
           const to = at(planned.to);

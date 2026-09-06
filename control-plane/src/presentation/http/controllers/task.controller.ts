@@ -1,4 +1,5 @@
 import { AddTaskCommand } from '@application/commands/add-task.command';
+import { AnalyseTraceCommand } from '@application/commands/analyse-trace.command';
 import { AssignTaskCommand } from '@application/commands/assign-task.command';
 import { DeleteTaskCommand } from '@application/commands/delete-task.command';
 import { MoveTaskCommand } from '@application/commands/move-task.command';
@@ -48,6 +49,7 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser } from '@presentation/http/decorators/current-user.decorator';
 import { AddTaskRequestDto } from '@presentation/http/dto/add-task.request.dto';
+import { AnalyseTracesRequestDto } from '@presentation/http/dto/analyse-traces.request.dto';
 import { AssignTaskRequestDto } from '@presentation/http/dto/assign-task.request.dto';
 import {
   InboxAuthorResponseDto,
@@ -360,6 +362,25 @@ export class TaskController {
     );
 
     return TaskHttpMapper.toResponse(added);
+  }
+
+  @Post('traces/analysis')
+  @ApiOperation({
+    operationId: 'analyseTraces',
+    summary: 'Open a triage task to analyse each selected trace',
+  })
+  @ApiCreatedResponse({ type: TaskResponseDto, isArray: true })
+  async analyseTraces(
+    @Param('teamId') teamId: string,
+    @Body() body: AnalyseTracesRequestDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<TaskResponseDto[]> {
+    const created = await this.commandBus.execute<
+      AnalyseTraceCommand,
+      TaskDto[]
+    >(new AnalyseTraceCommand(teamId, body.taskIds, user.id));
+
+    return created.map((task) => TaskHttpMapper.toResponse(task));
   }
 
   @Post('assembly-lines/:lineId/tasks/:taskId/move')

@@ -24,6 +24,9 @@ export const assemblyLine = pgTable(
       .notNull()
       .references(() => factory.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
+    /** How an analysis of a trace on this line is briefed, or null for none. */
+    analysisTitle: text('analysis_title'),
+    analysisBrief: text('analysis_brief'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
       .defaultNow()
