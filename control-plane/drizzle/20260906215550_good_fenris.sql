@@ -1,1 +1,0 @@
-ALTER TABLE "run" ADD COLUMN "stop_requested_at" timestamp;
