@@ -2,6 +2,7 @@ import { ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { ContextDonut } from '@/components/features/inbox/conversation/ContextDonut';
 import { InboxStep } from '@/components/features/inbox/conversation/InboxStep';
+import { RunChanges } from '@/components/features/runs/RunChanges';
 import { FadingScroll } from '@/components/shared/FadingScroll';
 import { counted, type RunJournal, took } from '@/lib/inbox';
 import { cn } from '@/lib/utils';
@@ -55,6 +56,8 @@ export function InboxWork({ journals }: { journals: readonly RunJournal[] }) {
           </span>
         )}
       </button>
+
+      <RunChanges journals={journals} />
 
       <div
         inert={!open}

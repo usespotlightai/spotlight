@@ -4,6 +4,7 @@ import { useParams, useSearchParams } from 'react-router';
 import { Conversation } from '@/components/features/inbox/conversation/Conversation';
 import { InboxAsked } from '@/components/features/inbox/conversation/InboxAsked';
 import { InboxComposer } from '@/components/features/inbox/conversation/InboxComposer';
+import { ChangesPanel } from '@/components/features/runs/ChangesPanel';
 import { RunActivity } from '@/components/features/runs/RunActivity';
 import { RunBriefing } from '@/components/features/runs/RunBriefing';
 import {
@@ -98,65 +99,67 @@ export function InboxItem() {
     <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader title={<Breadcrumbs segments={trail} />} />
 
-      <Conversation
-        item={{
-          id: item.id,
-          teamId: item.teamId,
-          about: carriesItsOwn
-            ? { title: item.title, description: item.description }
-            : undefined,
-          createdAt: item.createdAt,
-          station: {
-            name: item.station,
-            color: item.stationColor,
-            position: item.stationPosition,
-            count: item.stationCount,
-          },
-          working: item.working,
-          notes: item.notes,
-        }}
-        worked={worked ?? []}
-        viewerId={session?.user.id}
-        openAt={shownAt(item.notes, params.get('run'))}
-        live={
-          item.runId && item.working ? (
-            <RunActivity
-              journals={(worked ?? []).filter(
-                (each) => each.runId === item.runId,
-              )}
-              working={item.working}
-              station={{
-                name: item.station,
-                color: item.stationColor,
-                position: item.stationPosition,
-                count: item.stationCount,
-              }}
-            />
-          ) : undefined
-        }
-        opening={
-          carriesItsOwn ? undefined : item.briefing ? (
-            <RunBriefing briefing={item.briefing} />
-          ) : (
-            <InboxAsked item={item} />
-          )
-        }
-        footer={
-          carriesItsOwn ? null : item.resolved ? (
-            <p className="text-center text-muted-foreground text-xs">
-              {item.standsAt.name === item.station
-                ? 'This is settled. There is nothing left to answer.'
-                : `This moved on to ${item.standsAt.name}. There is nothing left to answer.`}
-            </p>
-          ) : (
-            <InboxComposer
-              slug={slug}
-              itemId={item.id}
-              station={item.station}
-            />
-          )
-        }
-      />
+      <ChangesPanel>
+        <Conversation
+          item={{
+            id: item.id,
+            teamId: item.teamId,
+            about: carriesItsOwn
+              ? { title: item.title, description: item.description }
+              : undefined,
+            createdAt: item.createdAt,
+            station: {
+              name: item.station,
+              color: item.stationColor,
+              position: item.stationPosition,
+              count: item.stationCount,
+            },
+            working: item.working,
+            notes: item.notes,
+          }}
+          worked={worked ?? []}
+          viewerId={session?.user.id}
+          openAt={shownAt(item.notes, params.get('run'))}
+          live={
+            item.runId && item.working ? (
+              <RunActivity
+                journals={(worked ?? []).filter(
+                  (each) => each.runId === item.runId,
+                )}
+                working={item.working}
+                station={{
+                  name: item.station,
+                  color: item.stationColor,
+                  position: item.stationPosition,
+                  count: item.stationCount,
+                }}
+              />
+            ) : undefined
+          }
+          opening={
+            carriesItsOwn ? undefined : item.briefing ? (
+              <RunBriefing briefing={item.briefing} />
+            ) : (
+              <InboxAsked item={item} />
+            )
+          }
+          footer={
+            carriesItsOwn ? null : item.resolved ? (
+              <p className="text-center text-muted-foreground text-xs">
+                {item.standsAt.name === item.station
+                  ? 'This is settled. There is nothing left to answer.'
+                  : `This moved on to ${item.standsAt.name}. There is nothing left to answer.`}
+              </p>
+            ) : (
+              <InboxComposer
+                slug={slug}
+                itemId={item.id}
+                station={item.station}
+              />
+            )
+          }
+        />
+      </ChangesPanel>
     </div>
   );
 }
