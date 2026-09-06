@@ -7,7 +7,7 @@ export type TeamRun = TeamRunResponseDto;
 export type Review = NonNullable<Run['review']>;
 
 export const reviewInk = (review: Review): string =>
-  review.state === 'owed' ? 'text-muted-foreground' : 'text-faint';
+  review.state === 'owed' ? 'text-muted-foreground' : 'text-faint opacity-70';
 
 export const working = (run: Run): boolean =>
   run.state === 'claimed' || run.state === 'queued';
