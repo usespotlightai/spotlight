@@ -1,38 +1,35 @@
 import type { DeclaredHappening } from '@domain/entities/declared-happening.entity';
 import { InvalidIntegrationError } from '@domain/exceptions/invalid-integration.error';
-import type { Signing } from '@domain/value-objects/signing.vo';
+import type { SecretName } from '@domain/value-objects/secret-name.vo';
 import type { SourceKey } from '@domain/value-objects/source-key.vo';
 
 /**
  * An entity of a team's configuration: identified by its source within it,
  * with no repository, read out of the files each time they are.
  *
- * It holds the vocabulary and how the host signs, not the reading of a
- * delivery. Those rules are written beside it in a language the domain has no
+ * It holds the vocabulary — the words this host can raise — and the secrets it
+ * reads, not the reading, signing, or calling of a delivery. Those are compiled
+ * beside it into an IR the runtimes execute, in a language the domain has no
  * opinion about.
  */
 export class Integration {
   private constructor(
     readonly source: SourceKey,
     readonly name: string,
-    readonly signing: Signing,
     readonly declares: readonly DeclaredHappening[],
+    /** Every team secret this host's expressions read, by name. */
+    readonly credentials: readonly SecretName[],
+    /** Whether a team links to this host by authorizing a connection to it. */
+    readonly connects: boolean,
   ) {}
 
   static of(input: {
     source: SourceKey;
     name?: string;
-    signing: Signing;
     declares: readonly DeclaredHappening[];
+    credentials?: readonly SecretName[];
+    connects?: boolean;
   }): Integration {
-    // A host that raises nothing is one nobody could wait on.
-    if (input.declares.length === 0) {
-      throw new InvalidIntegrationError(
-        input.source.value,
-        'raises no words, so nothing here could ever wait for it',
-      );
-    }
-
     for (const declared of input.declares) {
       // A file raising another host's words would have stations waiting on
       // something this source never says.
@@ -57,8 +54,9 @@ export class Integration {
     return new Integration(
       input.source,
       (input.name ?? input.source.value).trim() || input.source.value,
-      input.signing,
       input.declares,
+      input.credentials ?? [],
+      input.connects ?? false,
     );
   }
 

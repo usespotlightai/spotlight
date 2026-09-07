@@ -269,3 +269,24 @@ body.resizing {
     color: var(--color-muted-foreground);
   }
 }
+
+/* Shiki output inside CodeBlock (rendered with defaultColor: false, so tokens
+   carry --shiki-light / --shiki-dark vars and no inline colour or background).
+   Drop the <pre> margin/padding so our bordered box frames it, wrap long lines,
+   and pick the theme colour per mode via the app's .dark class. */
+.code-block .shiki {
+  margin: 0;
+  padding: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.code-block .shiki,
+.code-block .shiki span {
+  color: var(--shiki-light);
+}
+
+.dark .code-block .shiki,
+.dark .code-block .shiki span {
+  color: var(--shiki-dark);
+}

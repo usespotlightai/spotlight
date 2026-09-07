@@ -4,20 +4,22 @@ import { describe, expect, it } from 'vitest';
 
 const WHOLE = `
 version: 1
-source: linear
-verify:
-  scheme: hmac-sha256
-  header: linear-signature
-  secret: LINEAR_WEBHOOK_SECRET
-happenings:
-  - happening: linear.issue.completed
-    label: Issue completed
-    told: The issue was moved to Done.
-    when: \${{ body.type == "Issue" }}
-    concerns:
-      marks:
-        - kind: linear.issue
-          value: \${{ body.data.identifier }}
+integration: linear
+webhook:
+  verify:
+    hmac:
+      algorithm: sha256
+      secret: secret.LINEAR_WEBHOOK_SECRET
+      header: linear-signature
+  events:
+    - when: \${{ body.type == "Issue" }}
+      raise:
+        happening: linear.issue.completed
+        label: Issue completed
+        told: The issue was moved to Done.
+        marks:
+          - kind: linear.issue
+            value: \${{ body.data.identifier }}
 `;
 
 const at = (path: string, text = WHOLE) => ConfigurationFile.of(path, text);

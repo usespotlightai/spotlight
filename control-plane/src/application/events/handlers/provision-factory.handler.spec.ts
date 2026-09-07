@@ -37,6 +37,7 @@ const provision = () =>
         opened = factory;
       }),
       ofTeam: vi.fn(async () => null),
+      find: vi.fn(async () => null),
     },
     {
       add: vi.fn(async (line: AssemblyLine) => {

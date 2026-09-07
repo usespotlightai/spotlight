@@ -540,9 +540,33 @@ export type ConnectGitHubRequestDto = {
   installationId: string;
 };
 
+export type OAuth2StartResponseDto = {
+  /**
+   * Where to send the person to authorize the link
+   */
+  url: string;
+};
+
+export type ConfiguredSecretResponseDto = {
+  name: string;
+  /**
+   * Whether the workspace has set it. Never its value.
+   */
+  set: boolean;
+};
+
 export type ConfiguredHappeningResponseDto = {
   happening: string;
   label: string;
+};
+
+export type ConfiguredConnectionResponseDto = {
+  /**
+   * What the host calls the team, where it says; null otherwise
+   */
+  handle: {
+    [key: string]: unknown;
+  } | null;
 };
 
 export type ConfiguredIntegrationResponseDto = {
@@ -552,12 +576,16 @@ export type ConfiguredIntegrationResponseDto = {
    * Where this host should be told to send its deliveries
    */
   deliverTo: string;
-  secret: string;
-  /**
-   * Whether the workspace has set it. Never its value.
-   */
-  secretSet: boolean;
+  secrets: Array<ConfiguredSecretResponseDto>;
   happenings: Array<ConfiguredHappeningResponseDto>;
+  /**
+   * Whether this host is linked by authorizing a connection
+   */
+  connectable: boolean;
+  /**
+   * The living link, or null where the team has not linked
+   */
+  connection: ConfiguredConnectionResponseDto | null;
 };
 
 export type ConfigProblemResponseDto = {
@@ -1616,6 +1644,33 @@ export type ConnectGitHubResponses = {
 };
 
 export type ConnectGitHubResponse = ConnectGitHubResponses[keyof ConnectGitHubResponses];
+
+export type ConnectIntegrationData = {
+  body?: never;
+  path: {
+    teamId: string;
+    source: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/integrations/{source}/connect';
+};
+
+export type ConnectIntegrationErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, not yours to link, or the host does not link so
+   */
+  404: unknown;
+};
+
+export type ConnectIntegrationResponses = {
+  200: OAuth2StartResponseDto;
+};
+
+export type ConnectIntegrationResponse = ConnectIntegrationResponses[keyof ConnectIntegrationResponses];
 
 export type ReadConfigurationData = {
   body?: never;

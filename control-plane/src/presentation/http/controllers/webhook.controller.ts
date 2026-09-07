@@ -3,11 +3,11 @@ import {
   Body,
   Controller,
   Headers,
-  HttpCode,
   HttpStatus,
   Param,
   Post,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
@@ -19,6 +19,14 @@ interface Delivering {
   readonly rawBody?: Uint8Array;
   /** Put there by the guard, which had to resolve the team anyway. */
   readonly deliveredTo?: { workspaceId: string; teamId: string };
+  /** A handshake the guard already answered from the delivery, when the host asks. */
+  readonly answered?: string | null;
+}
+
+/** Only what setting a status and body needs, typed structurally. */
+interface Answerable {
+  status(code: number): Answerable;
+  send(body?: string): void;
 }
 
 @ApiTags('webhooks')
@@ -39,13 +47,13 @@ export class WebhookController {
   @AllowAnonymous()
   @UseGuards(WebhookGuard)
   @ApiExcludeEndpoint()
-  @HttpCode(HttpStatus.NO_CONTENT)
   async deliveredToTeam(
     @Param('source') source: string,
     @Param('teamKey') teamKey: string,
     @Headers() headers: Record<string, string | string[] | undefined>,
     @Body() body: unknown,
     @Req() request: Delivering,
+    @Res({ passthrough: true }) response: Answerable,
   ): Promise<void> {
     await this.take(
       source,
@@ -53,6 +61,7 @@ export class WebhookController {
       headers,
       body,
       request,
+      response,
     );
   }
 
@@ -62,12 +71,12 @@ export class WebhookController {
   @AllowAnonymous()
   @UseGuards(WebhookGuard)
   @ApiExcludeEndpoint()
-  @HttpCode(HttpStatus.NO_CONTENT)
   async delivered(
     @Param('source') source: string,
     @Headers() headers: Record<string, string | string[] | undefined>,
     @Body() body: unknown,
     @Req() request: Delivering,
+    @Res({ passthrough: true }) response: Answerable,
   ): Promise<void> {
     await this.take(
       source,
@@ -75,12 +84,13 @@ export class WebhookController {
       headers,
       body,
       request,
+      response,
     );
   }
 
   /**
-   * Taken in and nothing more: what any of it means is the source's to say,
-   * and it is said once the host has been answered.
+   * A handshake is echoed at once; anything else is taken in and nothing more —
+   * what it means is the source's to say, once the host has been answered.
    */
   private async take(
     source: string,
@@ -88,7 +98,13 @@ export class WebhookController {
     headers: Record<string, string | string[] | undefined>,
     body: unknown,
     request: Delivering,
+    response: Answerable,
   ): Promise<void> {
+    if (request.answered != null) {
+      response.status(HttpStatus.OK).send(request.answered);
+      return;
+    }
+
     await this.commandBus.execute(
       new AcceptDeliveryCommand(source, at.workspaceId, at.teamId, at.teamKey, {
         headers,
@@ -96,5 +112,7 @@ export class WebhookController {
         raw: request.rawBody ?? null,
       }),
     );
+
+    response.status(HttpStatus.NO_CONTENT).send();
   }
 }

@@ -36,8 +36,10 @@ import {
   ChooseToolsRequestDto,
   ConfigProblemResponseDto,
   ConfigurationResponseDto,
+  ConfiguredConnectionResponseDto,
   ConfiguredHappeningResponseDto,
   ConfiguredIntegrationResponseDto,
+  ConfiguredSecretResponseDto,
   KnownToolResponseDto,
   OnboardingResponseDto,
   PinConfigurationRequestDto,
@@ -57,8 +59,10 @@ const shown = (read: ConfigurationDto): ConfigurationResponseDto =>
           each.source,
           each.name,
           each.deliverTo,
-          each.secret,
-          each.secretSet,
+          each.secrets.map(
+            (secret) =>
+              new ConfiguredSecretResponseDto(secret.name, secret.set),
+          ),
           each.happenings.map(
             (raising) =>
               new ConfiguredHappeningResponseDto(
@@ -66,6 +70,10 @@ const shown = (read: ConfigurationDto): ConfigurationResponseDto =>
                 raising.label,
               ),
           ),
+          each.connectable,
+          each.connection
+            ? new ConfiguredConnectionResponseDto(each.connection.handle)
+            : null,
         ),
     ),
     read.problems.map(

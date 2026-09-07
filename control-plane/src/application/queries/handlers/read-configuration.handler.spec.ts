@@ -6,6 +6,10 @@ import { ConfigurationQuery } from '@application/queries/read-configuration.quer
 import { TeamConfiguration } from '@domain/aggregates/team-configuration.aggregate';
 import { DeclaredHappening } from '@domain/entities/declared-happening.entity';
 import { Integration } from '@domain/entities/integration.entity';
+import type {
+  HostConnectionRepository,
+  HostConnectionSummary,
+} from '@domain/repositories/host-connection.repository';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
 import { Commit } from '@domain/value-objects/commit.vo';
 import { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
@@ -14,22 +18,18 @@ import { Happening } from '@domain/value-objects/happening.vo';
 import { MarkKind } from '@domain/value-objects/mark-kind.vo';
 import { Repository } from '@domain/value-objects/repository.vo';
 import { SecretName } from '@domain/value-objects/secret-name.vo';
-import { Signing } from '@domain/value-objects/signing.vo';
 import { SourceKey } from '@domain/value-objects/source-key.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const READ_AT = new Date('2026-09-03T08:00:00.000Z');
 
-const integration = () =>
+const integration = (connects = false) =>
   Integration.of({
     source: SourceKey.of('linear'),
     name: 'Linear',
-    signing: Signing.of({
-      scheme: 'hmac-sha256',
-      header: 'linear-signature',
-      secret: SecretName.of('LINEAR_WEBHOOK_SECRET'),
-    }),
+    connects,
+    credentials: [SecretName.of('LINEAR_WEBHOOK_SECRET')],
     declares: [
       DeclaredHappening.of({
         happening: Happening.of('linear.issue.completed'),
@@ -46,6 +46,8 @@ const asking = (
     applied?: boolean;
     problems?: readonly ConfigurationProblem[];
     held?: readonly string[];
+    linked?: readonly HostConnectionSummary[];
+    connects?: boolean;
   } = {},
 ) =>
   new ConfigurationHandler(
@@ -86,7 +88,10 @@ const asking = (
       save: vi.fn(),
     } as unknown as TeamConfigurationRepository,
     {
-      read: () => ({ integrations: [integration()], problems: [] }),
+      read: () => ({
+        integrations: [integration(over.connects)],
+        problems: [],
+      }),
     } as unknown as IntegrationReaderPort,
     {
       held: vi.fn(async () =>
@@ -96,6 +101,9 @@ const asking = (
         })),
       ),
     } as unknown as TeamSecretsPort,
+    {
+      held: vi.fn(async () => over.linked ?? []),
+    } as unknown as HostConnectionRepository,
   );
 
 const query = () => new ConfigurationQuery('acme', 'user_1');
@@ -131,15 +139,40 @@ describe('ConfigurationHandler', () => {
   it('names the secret without ever giving it back', async () => {
     const read = await asking().execute(query());
 
-    expect(read?.integrations[0]?.secret).toBe('LINEAR_WEBHOOK_SECRET');
-    expect(read?.integrations[0]?.secretSet).toBe(true);
+    expect(read?.integrations[0]?.secrets).toEqual([
+      { name: 'LINEAR_WEBHOOK_SECRET', set: true },
+    ]);
     expect(JSON.stringify(read)).not.toContain('whsec');
+  });
+
+  it('says a host is not connected where it links but the team has not', async () => {
+    const read = await asking({ connects: true }).execute(query());
+
+    expect(read?.integrations[0]?.connectable).toBe(true);
+    expect(read?.integrations[0]?.connection).toBeNull();
+  });
+
+  it('shows the identity the host gave once a team has linked', async () => {
+    const read = await asking({
+      connects: true,
+      linked: [{ source: 'linear', handle: 'Acme', connectedAt: READ_AT }],
+    }).execute(query());
+
+    expect(read?.integrations[0]?.connection).toEqual({ handle: 'Acme' });
+  });
+
+  it('never offers to connect a host that does not link that way', async () => {
+    const read = await asking().execute(query());
+
+    expect(read?.integrations[0]?.connectable).toBe(false);
   });
 
   it('says when a host is waiting on a secret nobody set', async () => {
     const read = await asking({ held: [] }).execute(query());
 
-    expect(read?.integrations[0]?.secretSet).toBe(false);
+    expect(read?.integrations[0]?.secrets).toEqual([
+      { name: 'LINEAR_WEBHOOK_SECRET', set: false },
+    ]);
   });
 
   it('carries what is wrong with the files', async () => {

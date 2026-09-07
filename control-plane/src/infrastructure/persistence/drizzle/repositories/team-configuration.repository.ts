@@ -21,20 +21,13 @@ export class DrizzleTeamConfiguration implements TeamConfigurationRepository {
       .where(eq(teamConfig.teamId, teamId.value))
       .limit(1);
 
-    if (!found) {
-      return null;
-    }
+    return found ? toConfiguration(found) : null;
+  }
 
-    return TeamConfiguration.read({
-      teamId: TeamId.of(found.teamId),
-      repository: Repository.of(found.repository),
-      commit: Commit.of(found.sha),
-      files: found.files.map((each) =>
-        ConfigurationFile.of(each.path, each.text),
-      ),
-      problems: found.problems.map((each) => ConfigurationProblem.of(each)),
-      readAt: found.readAt,
-    });
+  async all(): Promise<readonly TeamConfiguration[]> {
+    const rows = await this.context.db.select().from(teamConfig);
+
+    return rows.map(toConfiguration);
   }
 
   async save(configuration: TeamConfiguration): Promise<void> {
@@ -62,3 +55,15 @@ export class DrizzleTeamConfiguration implements TeamConfigurationRepository {
       });
   }
 }
+
+type Row = typeof teamConfig.$inferSelect;
+
+const toConfiguration = (row: Row): TeamConfiguration =>
+  TeamConfiguration.read({
+    teamId: TeamId.of(row.teamId),
+    repository: Repository.of(row.repository),
+    commit: Commit.of(row.sha),
+    files: row.files.map((each) => ConfigurationFile.of(each.path, each.text)),
+    problems: row.problems.map((each) => ConfigurationProblem.of(each)),
+    readAt: row.readAt,
+  });

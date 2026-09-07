@@ -105,6 +105,20 @@ export const reads = (
 };
 
 /**
+ * What an expression evaluates to, whole: a map for a request body, a scalar
+ * for a header. Null where it names nothing there or could not be evaluated.
+ */
+export const value = (expression: Expression, against: Bindings): unknown => {
+  try {
+    const read = expression.evaluate(against);
+
+    return read === undefined ? null : read;
+  } catch {
+    return null;
+  }
+};
+
+/**
  * Plain values on objects that inherit nothing. CEL refuses a reserved name
  * itself; this makes it true of the data, so it stays true of whatever reads
  * the delivery next.

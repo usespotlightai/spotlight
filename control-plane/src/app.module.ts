@@ -4,12 +4,14 @@ import { AnalyseTraceCommand } from '@application/commands/analyse-trace.command
 import { AnswerInboxItemCommand } from '@application/commands/answer-inbox-item.command';
 import { AnswerRemarkCommand } from '@application/commands/answer-remark.command';
 import { AssignTaskCommand } from '@application/commands/assign-task.command';
+import { BeginOAuth2ConnectionCommand } from '@application/commands/begin-oauth2-connection.command';
 import { ChooseToolsCommand } from '@application/commands/choose-tools.command';
 import { ConnectGitHubCommand } from '@application/commands/connect-github.command';
 import { CreateWorkspaceCommand } from '@application/commands/create-workspace.command';
 import { CustomiseStationCommand } from '@application/commands/customise-station.command';
 import { DeleteTaskCommand } from '@application/commands/delete-task.command';
 import { DeliverSaidCommand } from '@application/commands/deliver-said.command';
+import { FinishOAuth2ConnectionCommand } from '@application/commands/finish-oauth2-connection.command';
 import { ForgetSecretCommand } from '@application/commands/forget-secret.command';
 import { AcceptDeliveryHandler } from '@application/commands/handlers/accept-delivery.handler';
 import { AddTaskHandler } from '@application/commands/handlers/add-task.handler';
@@ -29,6 +31,10 @@ import { DeliverSaidHandler } from '@application/commands/handlers/deliver-said.
 import { EnqueueRunHandler } from '@application/commands/handlers/enqueue-run.handler';
 import { EnrolRunnerHandler } from '@application/commands/handlers/enrol-runner.handler';
 import { MoveTaskHandler } from '@application/commands/handlers/move-task.handler';
+import {
+  BeginOAuth2ConnectionHandler,
+  FinishOAuth2ConnectionHandler,
+} from '@application/commands/handlers/oauth2-connection.handler';
 import { OpenPullRequestHandler } from '@application/commands/handlers/open-pull-request.handler';
 import { PinConfigurationHandler } from '@application/commands/handlers/pin-configuration.handler';
 import { ReactToHappeningHandler } from '@application/commands/handlers/react-to-happening.handler';
@@ -103,6 +109,10 @@ import {
 import { INBOX_READER } from '@application/ports/inbox-reader.port';
 import { INSTALLER_ASSETS } from '@application/ports/installer-assets.port';
 import {
+  INTEGRATION_CURSORS,
+  type IntegrationCursorsPort,
+} from '@application/ports/integration-cursors.port';
+import {
   INTEGRATION_READER,
   type IntegrationReaderPort,
 } from '@application/ports/integration-reader.port';
@@ -113,6 +123,7 @@ import {
 } from '@application/ports/line-reader.port';
 import { LOGGER, type LoggerPort } from '@application/ports/logger.port';
 import { MEMBER_READER } from '@application/ports/member-reader.port';
+import { OAUTH2_LINKING } from '@application/ports/oauth2-linking.port';
 import { PERSON_READER } from '@application/ports/person-reader.port';
 import {
   PULL_REQUESTS,
@@ -155,6 +166,10 @@ import {
 } from '@application/ports/runner-revocation.port';
 import { RUNNER_TOKEN } from '@application/ports/runner-token.port';
 import { RUNNER_TRACE_READER } from '@application/ports/runner-trace-reader.port';
+import {
+  TASK_ASK_NOTIFIER,
+  type TaskAskNotifierPort,
+} from '@application/ports/task-ask-notifier.port';
 import { TASK_READER } from '@application/ports/task-reader.port';
 import {
   TEAM_SECRETS,
@@ -169,7 +184,10 @@ import {
   TRANSACTION,
   type TransactionPort,
 } from '@application/ports/transaction.port';
-import { WORKSPACE_READER } from '@application/ports/workspace-reader.port';
+import {
+  WORKSPACE_READER,
+  type WorkspaceReaderPort,
+} from '@application/ports/workspace-reader.port';
 import { FindStationQuery } from '@application/queries/find-station.query';
 import { GetWorkspaceQuery } from '@application/queries/get-workspace.query';
 import { FindStationHandler } from '@application/queries/handlers/find-station.handler';
@@ -223,9 +241,11 @@ import { WatchRunQuery } from '@application/queries/watch-run.query';
 import { ApplyLines } from '@application/services/apply-lines.service';
 import { AttendToNotices } from '@application/services/attend-to-notices.service';
 import { CarryGitCall } from '@application/services/carry-git-call.service';
+import { ConnectionAuthorization } from '@application/services/connection-authorization.service';
 import { ConversationAtHand } from '@application/services/conversation-at-hand.service';
 import { DispatchTask } from '@application/services/dispatch-task.service';
 import { RaiseTask } from '@application/services/raise-task';
+import { ReactToHappenings } from '@application/services/react-to-happenings.service';
 import { ReadConfiguration } from '@application/services/read-configuration.service';
 import { RunAtHand } from '@application/services/run-at-hand.service';
 import {
@@ -246,6 +266,10 @@ import { TeamSetup } from '@application/services/team-setup.service';
 import { WebhookSources } from '@application/services/webhook-sources.service';
 import { WorkOffDeliveries } from '@application/services/work-off-deliveries.service';
 import { WriteConfiguration } from '@application/services/write-configuration.service';
+import {
+  HOST_CONNECTIONS,
+  type HostConnectionRepository,
+} from '@domain/repositories/host-connection.repository';
 import { AuthenticationModule } from '@infrastructure/auth/auth.module';
 import { RunnerTokenAuth } from '@infrastructure/auth/runner-token.auth';
 import { RunnerTokenService } from '@infrastructure/auth/runner-token.service';
@@ -272,10 +296,25 @@ import {
 import { CryptoIdGenerator } from '@infrastructure/identity/crypto-id.generator';
 import { InstallerAssets } from '@infrastructure/installer/installer-assets';
 import { ConfiguredSources } from '@infrastructure/integrations/configured.sources';
+import { ConnectionRefreshWorker } from '@infrastructure/integrations/connection-refresh.worker';
 import { IntegrationReader } from '@infrastructure/integrations/integration.reader';
+import { JwksCache } from '@infrastructure/integrations/jwks';
 import { LineReader } from '@infrastructure/integrations/line.reader';
+import { OAuth2Access } from '@infrastructure/integrations/oauth2-access';
+import { OAuth2Clients } from '@infrastructure/integrations/oauth2-clients';
+import { OAuth2Exchange } from '@infrastructure/integrations/oauth2-exchange';
+import { OAuth2Linking } from '@infrastructure/integrations/oauth2-linking';
+import { OAuth2State } from '@infrastructure/integrations/oauth2-state';
+import { PollWorker } from '@infrastructure/integrations/poll.worker';
+import { RefreshConnections } from '@infrastructure/integrations/refresh-connections';
+import { RunSchedules } from '@infrastructure/integrations/run-schedules';
+import { ScheduleWorker } from '@infrastructure/integrations/schedule.worker';
+import { WorkOffPolls } from '@infrastructure/integrations/work-off-polls';
 import { GracefulShutdown } from '@infrastructure/lifecycle/graceful-shutdown';
 import { LoggingModule } from '@infrastructure/logging/logging.module';
+import { Egress } from '@infrastructure/outbound/egress';
+import { HttpOutbound } from '@infrastructure/outbound/http-outbound';
+import { OutboundAskNotifier } from '@infrastructure/outbound/outbound-ask.notifier';
 import type { DrizzleDatabase } from '@infrastructure/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@infrastructure/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
@@ -296,6 +335,8 @@ import { DrizzleWorkspaceReader } from '@infrastructure/persistence/drizzle/read
 import { DrizzleAssemblyLineRepository } from '@infrastructure/persistence/drizzle/repositories/assembly-line.repository';
 import { DrizzleDeliveryInbox } from '@infrastructure/persistence/drizzle/repositories/delivery-inbox.repository';
 import { DrizzleFactoryRepository } from '@infrastructure/persistence/drizzle/repositories/factory.repository';
+import { DrizzleHostConnections } from '@infrastructure/persistence/drizzle/repositories/host-connections.repository';
+import { DrizzleIntegrationCursors } from '@infrastructure/persistence/drizzle/repositories/integration-cursors.repository';
 import { DrizzleRunRepository } from '@infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleRunDigests } from '@infrastructure/persistence/drizzle/repositories/run-digest.repository';
 import { DrizzleRunnerRepository } from '@infrastructure/persistence/drizzle/repositories/runner.repository';
@@ -328,6 +369,7 @@ import { HarnessController } from '@presentation/http/controllers/harness.contro
 import { HealthController } from '@presentation/http/controllers/health.controller';
 import { InboxController } from '@presentation/http/controllers/inbox.controller';
 import { InstallController } from '@presentation/http/controllers/install.controller';
+import { OAuth2ConnectionController } from '@presentation/http/controllers/oauth2-connection.controller';
 import { RepositoryController } from '@presentation/http/controllers/repository.controller';
 import { RunController } from '@presentation/http/controllers/run.controller';
 import { RunStreamController } from '@presentation/http/controllers/run-stream.controller';
@@ -365,6 +407,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     GitController,
     RepositoryController,
     GitHubConnectionController,
+    OAuth2ConnectionController,
     ConfigurationController,
     TeamController,
     HappeningController,
@@ -456,6 +499,92 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         new DeliveryWorker(work, logger),
     },
 
+    { provide: INTEGRATION_CURSORS, useClass: DrizzleIntegrationCursors },
+    {
+      provide: WorkOffPolls,
+      inject: [
+        DrizzleTeamConfiguration,
+        IntegrationReader,
+        DrizzleFactoryRepository,
+        TEAM_SECRETS,
+        INTEGRATION_CURSORS,
+        OAuth2Access,
+        ReactToHappenings,
+        CLOCK,
+        ENV,
+        LOGGER,
+      ],
+      useFactory: (
+        configurations: DrizzleTeamConfiguration,
+        reader: IntegrationReader,
+        factories: DrizzleFactoryRepository,
+        secrets: TeamSecretsPort,
+        cursors: IntegrationCursorsPort,
+        oauth2: OAuth2Access,
+        reactions: ReactToHappenings,
+        clock: ClockPort,
+        env: Env,
+        logger: LoggerPort,
+      ) =>
+        new WorkOffPolls(
+          configurations,
+          reader,
+          factories,
+          secrets,
+          cursors,
+          new HttpOutbound(env.OUTBOUND_ALLOWED_HOSTS.split(',')),
+          oauth2,
+          reactions,
+          clock,
+          logger,
+        ),
+    },
+    {
+      provide: PollWorker,
+      inject: [WorkOffPolls, LOGGER],
+      useFactory: (polls: WorkOffPolls, logger: LoggerPort) =>
+        new PollWorker(polls, logger),
+    },
+    {
+      provide: RunSchedules,
+      inject: [
+        DrizzleTeamConfiguration,
+        IntegrationReader,
+        TEAM_SECRETS,
+        INTEGRATION_CURSORS,
+        OAuth2Access,
+        CLOCK,
+        ENV,
+        LOGGER,
+      ],
+      useFactory: (
+        configurations: DrizzleTeamConfiguration,
+        reader: IntegrationReader,
+        secrets: TeamSecretsPort,
+        cursors: IntegrationCursorsPort,
+        oauth2: OAuth2Access,
+        clock: ClockPort,
+        env: Env,
+        logger: LoggerPort,
+      ) =>
+        new RunSchedules(
+          configurations,
+          reader,
+          secrets,
+          cursors,
+          new HttpOutbound(env.OUTBOUND_ALLOWED_HOSTS.split(',')),
+          oauth2,
+          clock,
+          logger,
+        ),
+    },
+    {
+      provide: ScheduleWorker,
+      inject: [RunSchedules, LOGGER],
+      useFactory: (schedules: RunSchedules, logger: LoggerPort) =>
+        new ScheduleWorker(schedules, logger),
+    },
+
     // Every host Spotlight listens to is a provider wearing @WebhookSource.
     // Adding one is adding it here, and nowhere else.
     {
@@ -506,6 +635,107 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       inject: [DrizzleContext, SecretCipher],
       useFactory: (context: DrizzleContext, cipher: SecretCipher) =>
         new DrizzleTeamSecrets(context, cipher),
+    },
+
+    {
+      provide: HOST_CONNECTIONS,
+      inject: [DrizzleContext, SecretCipher],
+      useFactory: (context: DrizzleContext, cipher: SecretCipher) =>
+        new DrizzleHostConnections(context, cipher),
+    },
+    {
+      provide: OAuth2Clients,
+      inject: [ENV],
+      useFactory: (env: Env) => OAuth2Clients.from(env.OAUTH_CLIENTS),
+    },
+    {
+      provide: OAuth2Exchange,
+      inject: [ENV, CLOCK],
+      useFactory: (env: Env, clock: ClockPort) =>
+        new OAuth2Exchange(
+          new Egress(env.OUTBOUND_ALLOWED_HOSTS.split(',')),
+          clock,
+        ),
+    },
+    {
+      provide: OAuth2Access,
+      inject: [HOST_CONNECTIONS],
+      useFactory: (connections: HostConnectionRepository) =>
+        new OAuth2Access(connections),
+    },
+    {
+      provide: RefreshConnections,
+      inject: [
+        HOST_CONNECTIONS,
+        DrizzleTeamConfiguration,
+        IntegrationReader,
+        OAuth2Clients,
+        OAuth2Exchange,
+        CLOCK,
+        LOGGER,
+      ],
+      useFactory: (
+        connections: HostConnectionRepository,
+        configurations: DrizzleTeamConfiguration,
+        reader: IntegrationReader,
+        clients: OAuth2Clients,
+        exchange: OAuth2Exchange,
+        clock: ClockPort,
+        logger: LoggerPort,
+      ) =>
+        new RefreshConnections(
+          connections,
+          configurations,
+          reader,
+          clients,
+          exchange,
+          clock,
+          logger,
+        ),
+    },
+    {
+      provide: ConnectionRefreshWorker,
+      inject: [RefreshConnections, LOGGER],
+      useFactory: (connections: RefreshConnections, logger: LoggerPort) =>
+        new ConnectionRefreshWorker(connections, logger),
+    },
+    {
+      provide: OAuth2State,
+      inject: [ENV],
+      useFactory: (env: Env) => new OAuth2State(env.BETTER_AUTH_SECRET),
+    },
+    {
+      provide: OAUTH2_LINKING,
+      inject: [
+        DrizzleTeamConfiguration,
+        IntegrationReader,
+        OAuth2Clients,
+        OAuth2Exchange,
+        DrizzleFactoryRepository,
+        WORKSPACE_READER,
+        OAuth2State,
+        ENV,
+      ],
+      useFactory: (
+        configurations: DrizzleTeamConfiguration,
+        reader: IntegrationReader,
+        clients: OAuth2Clients,
+        exchange: OAuth2Exchange,
+        factories: DrizzleFactoryRepository,
+        workspaces: WorkspaceReaderPort,
+        state: OAuth2State,
+        env: Env,
+      ) =>
+        new OAuth2Linking(
+          configurations,
+          reader,
+          clients,
+          exchange,
+          factories,
+          workspaces,
+          state,
+          env.SPOTLIGHT_PUBLIC_URL ?? env.BETTER_AUTH_URL,
+        ),
     },
 
     DrizzleTeamConfiguration,
@@ -561,14 +791,21 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       ) => new ApplyLines(lines, factories, tasks, reader, ids),
     },
 
+    { provide: JwksCache, useFactory: () => new JwksCache() },
     {
       provide: CONFIGURED_SOURCES,
-      inject: [DrizzleTeamConfiguration, TEAM_SECRETS, IntegrationReader],
+      inject: [
+        DrizzleTeamConfiguration,
+        TEAM_SECRETS,
+        IntegrationReader,
+        JwksCache,
+      ],
       useFactory: (
         configurations: DrizzleTeamConfiguration,
         secrets: TeamSecretsPort,
         reader: IntegrationReader,
-      ) => new ConfiguredSources(configurations, secrets, reader),
+        jwks: JwksCache,
+      ) => new ConfiguredSources(configurations, secrets, reader, jwks),
     },
 
     {
@@ -585,6 +822,36 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         reading: ReadConfiguration,
         logger: LoggerPort,
       ) => new AttendToNotices(teams, workspaces, reading, logger),
+    },
+
+    {
+      provide: ReactToHappenings,
+      inject: [
+        DrizzleTaskRepository,
+        DrizzleAssemblyLineRepository,
+        TASK_DISPATCH,
+        TRANSACTION,
+        CLOCK,
+        ID_GENERATOR,
+      ],
+      useFactory: (
+        tasks: DrizzleTaskRepository,
+        lines: DrizzleAssemblyLineRepository,
+        dispatch: TaskDispatching,
+        transaction: TransactionPort,
+        clock: ClockPort,
+        ids: IdGeneratorPort,
+      ) =>
+        new ReactToHappenings(tasks, lines, dispatch, transaction, clock, ids),
+    },
+
+    {
+      provide: ConnectionAuthorization,
+      inject: [WORKSPACE_READER, DrizzleWorkspaceRepository],
+      useFactory: (
+        teams: WorkspaceReaderPort,
+        workspaces: DrizzleWorkspaceRepository,
+      ) => new ConnectionAuthorization(teams, workspaces),
     },
 
     {
@@ -747,6 +1014,47 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     },
 
     {
+      provide: TASK_ASK_NOTIFIER,
+      inject: [
+        DrizzleAssemblyLineRepository,
+        DrizzleFactoryRepository,
+        DrizzleTeamConfiguration,
+        IntegrationReader,
+        TEAM_SECRETS,
+        OAuth2Access,
+        DrizzleTaskRepository,
+        WORKSPACE_READER,
+        ENV,
+        LOGGER,
+      ],
+      useFactory: (
+        lines: DrizzleAssemblyLineRepository,
+        factories: DrizzleFactoryRepository,
+        configurations: DrizzleTeamConfiguration,
+        reader: IntegrationReader,
+        secrets: TeamSecretsPort,
+        oauth2: OAuth2Access,
+        tasks: DrizzleTaskRepository,
+        workspaces: WorkspaceReaderPort,
+        env: Env,
+        logger: LoggerPort,
+      ) =>
+        new OutboundAskNotifier(
+          lines,
+          factories,
+          configurations,
+          reader,
+          secrets,
+          new HttpOutbound(env.OUTBOUND_ALLOWED_HOSTS.split(',')),
+          oauth2,
+          tasks,
+          workspaces,
+          env.SPOTLIGHT_PUBLIC_URL ?? env.BETTER_AUTH_URL,
+          logger,
+        ),
+    },
+
+    {
       provide: RUN_OUTCOMES,
       inject: [
         DrizzleTaskRepository,
@@ -754,6 +1062,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         TASK_DISPATCH,
         CLOCK,
         RUN_DIGEST_WRITER,
+        TASK_ASK_NOTIFIER,
       ],
       useFactory: (
         tasks: DrizzleTaskRepository,
@@ -761,9 +1070,10 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         dispatch: TaskDispatching,
         clock: ClockPort,
         digests: RunDigestWriterPort,
+        notifier: TaskAskNotifierPort,
       ) =>
         new RunOutcomesFanOut(
-          new HandOver(tasks, lines, dispatch, clock),
+          new HandOver(tasks, lines, dispatch, clock, notifier),
           new DigestRun(digests),
         ),
     },
@@ -953,26 +1263,38 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     ]),
 
     ...bindCommandHandler(SetSecretCommand, SetSecretHandler, [
-      DrizzleWorkspaceRepository,
-      WORKSPACE_READER,
+      ConnectionAuthorization,
       TEAM_SECRETS,
     ]),
     ...bindCommandHandler(ForgetSecretCommand, ForgetSecretHandler, [
-      DrizzleWorkspaceRepository,
-      WORKSPACE_READER,
+      ConnectionAuthorization,
       TEAM_SECRETS,
     ]),
+    ...bindCommandHandler(
+      BeginOAuth2ConnectionCommand,
+      BeginOAuth2ConnectionHandler,
+      [ConnectionAuthorization, OAUTH2_LINKING],
+    ),
+    ...bindCommandHandler(
+      FinishOAuth2ConnectionCommand,
+      FinishOAuth2ConnectionHandler,
+      [
+        OAUTH2_LINKING,
+        HOST_CONNECTIONS,
+        ConnectionAuthorization,
+        TRANSACTION,
+        DOMAIN_EVENT_DISPATCHER,
+      ],
+    ),
     ...bindCommandHandler(PinConfigurationCommand, PinConfigurationHandler, [
-      WORKSPACE_READER,
-      DrizzleWorkspaceRepository,
+      ConnectionAuthorization,
       DrizzleTeamRepository,
       SeedConfiguration,
       REPOSITORY_CATALOG,
       SettleSetup,
     ]),
     ...bindCommandHandler(RenameTeamCommand, RenameTeamHandler, [
-      WORKSPACE_READER,
-      DrizzleWorkspaceRepository,
+      ConnectionAuthorization,
       DrizzleTeamRepository,
     ]),
     ...bindCommandHandler(ChooseToolsCommand, ChooseToolsHandler, [
@@ -997,6 +1319,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       DrizzleTeamConfiguration,
       INTEGRATION_READER,
       TEAM_SECRETS,
+      HOST_CONNECTIONS,
     ]),
 
     ...bindCommandHandler(AcceptDeliveryCommand, AcceptDeliveryHandler, [

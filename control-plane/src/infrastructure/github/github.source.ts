@@ -166,7 +166,7 @@ export class GitHubSource implements WebhookSourcePort {
     private readonly workspaces: WorkspaceConnections,
   ) {}
 
-  verifies(delivered: Delivered): boolean {
+  async verifies(delivered: Delivered): Promise<boolean> {
     return (
       delivered.raw !== null &&
       this.signature.signs(

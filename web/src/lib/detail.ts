@@ -10,6 +10,8 @@ export interface Told {
   readonly body: string;
   /** Prose wraps; what a machine wrote is kept as it was written. */
   readonly prose: boolean;
+  /** A shell command, worth syntax-highlighting; its output is not. */
+  readonly command?: boolean;
 }
 
 const SPOKEN: Record<string, string> = {
@@ -17,10 +19,17 @@ const SPOKEN: Record<string, string> = {
   thought: 'Reasoning',
 };
 
-export const askedOf = (node: TraceNode): Told | null =>
-  node.step?.given
-    ? { title: 'Input', body: node.step.given, prose: false }
-    : null;
+export const askedOf = (node: TraceNode): Told | null => {
+  const step = node.step;
+
+  if (!step?.given) {
+    return null;
+  }
+
+  const command = step.kind === 'hook' || step.tool === 'execute';
+
+  return { title: 'Input', body: step.given, prose: false, command };
+};
 
 export const answeredBy = (node: TraceNode): Told | null => {
   const step = node.step;

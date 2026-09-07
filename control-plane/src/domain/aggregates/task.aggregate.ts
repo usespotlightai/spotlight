@@ -1,5 +1,6 @@
 import { EventRecorder } from '@domain/aggregates/event-recorder';
 import type { Station } from '@domain/entities/station.entity';
+import { TaskAsked } from '@domain/events/task-asked.event';
 import { TaskFinished } from '@domain/events/task-finished.event';
 import { InconsistentStateError } from '@domain/exceptions/inconsistent-state.error';
 import { InvalidTaskTransitionError } from '@domain/exceptions/invalid-task-transition.error';
@@ -458,13 +459,24 @@ export class Task extends EventRecorder {
       );
     }
 
-    return this.with({
+    const asked = this.with({
       currentRunId: null,
       // Put to a person is put to an owner: whoever it is already assigned to,
       // or else whoever raised it. An inbox is the assignee's.
       assignee: this.assignee ?? this.raisedBy,
       ...this.spoke(saying, 'asked'),
     });
+
+    asked.record(
+      new TaskAsked(
+        asked.id,
+        asked.workspaceId,
+        asked.stationId,
+        asked.assignee,
+      ),
+    );
+
+    return asked;
   }
 
   /** It stays where it is, so the run that follows takes the conversation up. */

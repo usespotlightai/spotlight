@@ -1099,6 +1099,53 @@
         ]
       }
     },
+    "/teams/{teamId}/integrations/{source}/connect": {
+      "post": {
+        "operationId": "connectIntegration",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "team_1",
+              "type": "string"
+            }
+          },
+          {
+            "name": "source",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "slack",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuth2StartResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team, not yours to link, or the host does not link so"
+          }
+        },
+        "summary": "Begin linking this team to a host over OAuth2",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
     "/teams/{teamId}/configuration": {
       "get": {
         "operationId": "readConfiguration",
@@ -3706,6 +3753,37 @@
           "installationId"
         ]
       },
+      "OAuth2StartResponseDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Where to send the person to authorize the link",
+            "example": "https://slack.com/oauth/authorize?client_id=...&state=..."
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "ConfiguredSecretResponseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "LINEAR_WEBHOOK_SECRET"
+          },
+          "set": {
+            "type": "boolean",
+            "description": "Whether the workspace has set it. Never its value.",
+            "example": true
+          }
+        },
+        "required": [
+          "name",
+          "set"
+        ]
+      },
       "ConfiguredHappeningResponseDto": {
         "type": "object",
         "properties": {
@@ -3721,6 +3799,20 @@
         "required": [
           "happening",
           "label"
+        ]
+      },
+      "ConfiguredConnectionResponseDto": {
+        "type": "object",
+        "properties": {
+          "handle": {
+            "type": "object",
+            "description": "What the host calls the team, where it says; null otherwise",
+            "example": "Acme",
+            "nullable": true
+          }
+        },
+        "required": [
+          "handle"
         ]
       },
       "ConfiguredIntegrationResponseDto": {
@@ -3739,29 +3831,42 @@
             "description": "Where this host should be told to send its deliveries",
             "example": "/api/webhooks/w/acme/linear"
           },
-          "secret": {
-            "type": "string",
-            "example": "LINEAR_WEBHOOK_SECRET"
-          },
-          "secretSet": {
-            "type": "boolean",
-            "description": "Whether the workspace has set it. Never its value.",
-            "example": true
+          "secrets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfiguredSecretResponseDto"
+            }
           },
           "happenings": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ConfiguredHappeningResponseDto"
             }
+          },
+          "connectable": {
+            "type": "boolean",
+            "description": "Whether this host is linked by authorizing a connection",
+            "example": true
+          },
+          "connection": {
+            "nullable": true,
+            "description": "The living link, or null where the team has not linked",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConfiguredConnectionResponseDto"
+              }
+            ]
           }
         },
         "required": [
           "source",
           "name",
           "deliverTo",
-          "secret",
-          "secretSet",
-          "happenings"
+          "secrets",
+          "happenings",
+          "connectable",
+          "connection"
         ]
       },
       "ConfigProblemResponseDto": {

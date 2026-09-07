@@ -15,6 +15,20 @@
       "when": 1788736814651,
       "tag": "20260906232014_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788791653259,
+      "tag": "20260907143413_integration_cursor",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788807832371,
+      "tag": "20260907190352_oauth2_connection",
+      "breakpoints": true
     }
   ]
 }

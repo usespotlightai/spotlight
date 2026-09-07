@@ -14,109 +14,108 @@ export interface KnownTool {
 }
 
 const linear = `version: 1
-source: linear
+integration: linear
 name: Linear
 
-verify:
-  scheme: hmac-sha256
-  header: linear-signature
-  secret: LINEAR_WEBHOOK_SECRET
+webhook:
+  verify:
+    hmac:
+      secret: secret.LINEAR_WEBHOOK_SECRET
+      header: linear-signature
+  delivery: \${{ headers["linear-delivery"] }}
+  events:
+    - when: \${{ body.type == "Issue" && body.action == "create" }}
+      raise:
+        happening: linear.issue.created
+        label: Issue created
+        told: A new issue was filed in Linear.
+        opens:
+          onto: delivery
+          title: \${{ body.data.title }}
+          description: \${{ body.data.description }}
+        marks:
+          - kind: linear.issue
+            value: \${{ body.data.identifier }}
 
-delivery: \${{ headers["linear-delivery"] }}
+    - when: \${{ body.type == "Issue" && body.data.state.type == "completed" }}
+      raise:
+        happening: linear.issue.completed
+        label: Issue completed
+        told: The issue was moved to Done.
+        marks:
+          - kind: linear.issue
+            value: \${{ body.data.identifier }}
 
-happenings:
-  - happening: linear.issue.created
-    label: Issue created
-    told: A new issue was filed in Linear.
-    when: \${{ body.type == "Issue" && body.action == "create" }}
-    opens:
-      onto: delivery
-      title: \${{ body.data.title }}
-      description: \${{ body.data.description }}
-    concerns:
-      marks:
-        - kind: linear.issue
-          value: \${{ body.data.identifier }}
-
-  - happening: linear.issue.completed
-    label: Issue completed
-    told: The issue was moved to Done.
-    when: \${{ body.type == "Issue" && body.data.state.type == "completed" }}
-    concerns:
-      marks:
-        - kind: linear.issue
-          value: \${{ body.data.identifier }}
-
-  - happening: linear.issue.commented
-    label: Issue commented on
-    told: Somebody commented on the issue.
-    spoken: true
-    when: \${{ body.type == "Comment" }}
-    concerns:
-      marks:
-        - kind: linear.issue
-          value: \${{ body.data.issue.identifier }}
+    - when: \${{ body.type == "Comment" }}
+      raise:
+        happening: linear.issue.commented
+        label: Issue commented on
+        told: Somebody commented on the issue.
+        spoken: true
+        marks:
+          - kind: linear.issue
+            value: \${{ body.data.issue.identifier }}
 `;
 
 const sentry = `version: 1
-source: sentry
+integration: sentry
 name: Sentry
 
-verify:
-  scheme: hmac-sha256
-  header: sentry-hook-signature
-  secret: SENTRY_WEBHOOK_SECRET
-
-happenings:
-  - happening: sentry.issue.regressed
-    label: Issue regressed
-    told: Sentry says this went wrong again.
-    when: \${{ body.action == "created" || body.action == "unresolved" }}
-    concerns:
-      marks:
-        - kind: sentry.issue
-          value: \${{ body.data.issue.id }}
+webhook:
+  verify:
+    hmac:
+      secret: secret.SENTRY_WEBHOOK_SECRET
+      header: sentry-hook-signature
+  events:
+    - when: \${{ body.action == "created" || body.action == "unresolved" }}
+      raise:
+        happening: sentry.issue.regressed
+        label: Issue regressed
+        told: Sentry says this went wrong again.
+        marks:
+          - kind: sentry.issue
+            value: \${{ body.data.issue.id }}
 `;
 
 const grafana = `version: 1
-source: grafana
+integration: grafana
 name: Grafana
 
-verify:
-  scheme: hmac-sha256
-  header: x-grafana-signature
-  secret: GRAFANA_WEBHOOK_SECRET
-
-happenings:
-  - happening: grafana.alert.firing
-    label: Alert firing
-    told: An alert is firing.
-    when: \${{ body.status == "firing" }}
-    concerns:
-      marks:
-        - kind: grafana.alert
-          value: \${{ body.commonLabels.alertname }}
+webhook:
+  verify:
+    hmac:
+      secret: secret.GRAFANA_WEBHOOK_SECRET
+      header: x-grafana-signature
+  events:
+    - when: \${{ body.status == "firing" }}
+      raise:
+        happening: grafana.alert.firing
+        label: Alert firing
+        told: An alert is firing.
+        marks:
+          - kind: grafana.alert
+            value: \${{ body.commonLabels.alertname }}
 `;
 
 const pagerduty = `version: 1
-source: pagerduty
+integration: pagerduty
 name: PagerDuty
 
-verify:
-  scheme: hmac-sha256
-  header: x-pagerduty-signature
-  secret: PAGERDUTY_WEBHOOK_SECRET
-  prefix: 'v1='
-
-happenings:
-  - happening: pagerduty.incident.triggered
-    label: Incident triggered
-    told: An incident was raised.
-    when: \${{ body.event.event_type == "incident.triggered" }}
-    concerns:
-      marks:
-        - kind: pagerduty.incident
-          value: \${{ body.event.data.id }}
+webhook:
+  verify:
+    hmac:
+      secret: secret.PAGERDUTY_WEBHOOK_SECRET
+      header: x-pagerduty-signature
+      prefix: 'v1='
+  events:
+    - when: \${{ body.event.event_type == "incident.triggered" }}
+      raise:
+        happening: pagerduty.incident.triggered
+        label: Incident triggered
+        told: An incident was raised.
+        marks:
+          - kind: pagerduty.incident
+            value: \${{ body.event.data.id }}
 `;
 
 const known = (input: {

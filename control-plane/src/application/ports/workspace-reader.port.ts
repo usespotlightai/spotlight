@@ -32,6 +32,9 @@ export interface WorkspaceReaderPort {
    */
   identify(slug: string): Promise<string | null>;
 
+  /** The slug a workspace goes by, for building a link back into the app. */
+  slugOf(workspaceId: string): Promise<string | null>;
+
   /**
    * Which team a workspace's slug and a team's key name between them, asked
    * without a person asking it. A host knocking at a team's door has no

@@ -1,6 +1,6 @@
 import { RefreshCw } from 'lucide-react';
-import { useState } from 'react';
-import { useParams } from 'react-router';
+import { useEffect, useState } from 'react';
+import { useParams, useSearchParams } from 'react-router';
 import { GitHubIntegration } from '@/components/features/integrations/GitHubIntegration';
 import { IntegrationCard } from '@/components/features/integrations/IntegrationCard';
 import { SettingsPage } from '@/components/features/settings/SettingsPage';
@@ -24,6 +24,24 @@ export function TeamIntegrations() {
     useConfiguration(teamId);
   const reread = useRereadConfiguration(teamId);
   const choose = useChooseTools(teamId);
+
+  // Coming back from authorizing a host is a fresh page load, so the
+  // configuration is read anew on its own; all that is left is to take the
+  // marker off the URL so a later refresh is plain.
+  const [params, setParams] = useSearchParams();
+  const connected = params.get('connected');
+  useEffect(() => {
+    if (!connected) {
+      return;
+    }
+    setParams(
+      (held) => {
+        held.delete('connected');
+        return held;
+      },
+      { replace: true },
+    );
+  }, [connected, setParams]);
 
   /**
    * What this team has asked for, against what its repository holds. Kept

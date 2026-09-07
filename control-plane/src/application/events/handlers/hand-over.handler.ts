@@ -1,10 +1,12 @@
 import type { ClockPort } from '@application/ports/clock.port';
+import type { TaskAskNotifierPort } from '@application/ports/task-ask-notifier.port';
 import type { RunOutcomes } from '@application/services/run-outcomes';
 import type { TaskDispatching } from '@application/services/task-dispatch';
 import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Task } from '@domain/aggregates/task.aggregate';
 import type { RunAbandoned } from '@domain/events/run-abandoned.event';
 import type { RunCompleted } from '@domain/events/run-completed.event';
+import { TaskAsked } from '@domain/events/task-asked.event';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { HandoverFor } from '@domain/services/handover-for';
@@ -27,6 +29,7 @@ export class HandOver implements RunOutcomes {
     private readonly lines: AssemblyLineRepository,
     private readonly dispatch: TaskDispatching,
     private readonly clock: ClockPort,
+    private readonly notifier: TaskAskNotifierPort,
   ) {}
 
   async onRunCompleted(event: RunCompleted): Promise<void> {
@@ -51,9 +54,7 @@ export class HandOver implements RunOutcomes {
       ? task.workedIn(event.session, event.workedBy)
       : task;
 
-    await this.tasks.save(
-      await this.applied(handover, worked, line, event.runId),
-    );
+    await this.saved(await this.applied(handover, worked, line, event.runId));
   }
 
   async onRunAbandoned(event: RunAbandoned): Promise<void> {
@@ -62,7 +63,7 @@ export class HandOver implements RunOutcomes {
       return;
     }
 
-    await this.tasks.save(
+    await this.saved(
       await this.applied(
         HandoverFor.exhausted(event.attempt),
         standing.task,
@@ -70,6 +71,21 @@ export class HandOver implements RunOutcomes {
         event.runId,
       ),
     );
+  }
+
+  /**
+   * Saves the task, then carries any question it now holds to wherever the
+   * team routes its asks. A direct call, not a dispatch: the run-event
+   * dispatcher already holds this handler, so it cannot hold that too.
+   */
+  private async saved(task: Task): Promise<void> {
+    await this.tasks.save(task);
+
+    for (const event of task.pullEvents()) {
+      if (event instanceof TaskAsked) {
+        await this.notifier.onAsked(task);
+      }
+    }
   }
 
   /** Nothing to do for a task another run has since taken up. */

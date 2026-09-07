@@ -156,7 +156,7 @@ const sourced = (
       {
         key: 'github',
         happenings: [],
-        verifies: () => true,
+        verifies: async () => true,
         delivery: () => over.delivery ?? 'delivery_1',
         routes: async () =>
           over.workspaceId === null
@@ -480,6 +480,7 @@ describe('ReactToHappening', () => {
       ourOwn: false,
       opens: {
         onto: LineRole.DELIVERY,
+        at: null,
         title: 'Drain the retry queue',
         description: 'It loops forever.',
       },
@@ -561,6 +562,7 @@ describe('ReactToHappening', () => {
       ourOwn: false,
       opens: {
         onto: LineRole.DELIVERY,
+        at: null,
         title: 'Drain the retry queue',
         description: null,
       },

@@ -6,8 +6,9 @@ import type { TeamSecretsPort } from '@application/ports/team-secrets.port';
 import type { WebhookSourcePort } from '@application/ports/webhook-source.port';
 import { INTEGRATIONS_UNDER } from '@domain/aggregates/team-configuration.aggregate';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
-import { DeclaredSource } from '@infrastructure/integrations/declared.source';
 import type { IntegrationReader } from '@infrastructure/integrations/integration.reader';
+import type { JwksResolver } from '@infrastructure/integrations/jwks';
+import { WebhookRuntime } from '@infrastructure/integrations/webhook.runtime';
 
 /**
  * The hosts a workspace declared, built from the configuration it last read.
@@ -22,6 +23,7 @@ export class ConfiguredSources implements ConfiguredSourcesPort {
     private readonly configurations: TeamConfigurationRepository,
     private readonly secrets: TeamSecretsPort,
     private readonly reader: IntegrationReader,
+    private readonly jwks: JwksResolver,
   ) {}
 
   async find(team: OfTeam, key: string): Promise<WebhookSourcePort | null> {
@@ -45,16 +47,26 @@ export class ConfiguredSources implements ConfiguredSourcesPort {
     const mine = applied.under(INTEGRATIONS_UNDER);
 
     for (const readable of this.reader.readable(mine).integrations) {
-      // A secret the team has not set leaves the source verifying nothing,
-      // which is how it refuses every delivery until somebody does.
+      // The values of the secrets the file names. A secret the team has not
+      // set is simply absent, which is how a source verifying by it refuses
+      // every delivery until somebody sets it.
+      const secrets = new Map<string, string>();
+
+      for (const name of readable.integration.credentials) {
+        const value = await this.secrets.resolve(team.teamId, name);
+
+        if (value !== null) {
+          secrets.set(name.value, value);
+        }
+      }
+
       built.push(
-        new DeclaredSource(
+        new WebhookRuntime(
           readable,
           team.workspaceId,
-          await this.secrets.resolve(
-            team.teamId,
-            readable.integration.signing.secret,
-          ),
+          secrets,
+          undefined,
+          this.jwks,
         ),
       );
     }

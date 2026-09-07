@@ -1,5 +1,6 @@
 import { HandOver } from '@application/events/handlers/hand-over.handler';
 import type { ClockPort } from '@application/ports/clock.port';
+import { SilentAskNotifier } from '@application/ports/task-ask-notifier.port';
 import type { TaskDispatching } from '@application/services/task-dispatch';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Run } from '@domain/aggregates/run.aggregate';
@@ -149,8 +150,10 @@ const dispatch: TaskDispatching = {
   dispatch: async () => RunId.of('run_2'),
 };
 
+const notifier = new SilentAskNotifier();
+
 const handOver = (ended = run(false), held: TaskRepository = tasks()) => {
-  const handler = new HandOver(held, lines(), dispatch, clock);
+  const handler = new HandOver(held, lines(), dispatch, clock, notifier);
   const [raised] = ended.pullEvents();
 
   if (!raised) {

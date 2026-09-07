@@ -15,7 +15,9 @@ const source = (verifies: (delivered: Delivered) => boolean) =>
   ({
     key: 'github',
     happenings: [],
-    verifies: vi.fn(verifies),
+    verifies: vi.fn((delivered: Delivered) =>
+      Promise.resolve(verifies(delivered)),
+    ),
     delivery: () => 'delivery_1',
     routes: async () => null,
     read: () => [],
@@ -39,6 +41,7 @@ const asking = (
       }),
       {
         identify: async () => 'ws_1',
+        slugOf: async () => 'acme',
         identifyTeam: async (_slug: string, teamKey: string) =>
           teamKey === 'platform'
             ? { workspaceId: 'ws_1', teamId: 'team_1' }

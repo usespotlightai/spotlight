@@ -109,6 +109,7 @@ const applying = (
         teamId: TEAM,
       }),
     ),
+    find: vi.fn(async () => null),
   } satisfies FactoryRepository;
 
   const tasks = {

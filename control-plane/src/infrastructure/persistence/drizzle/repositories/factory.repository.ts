@@ -27,14 +27,27 @@ export class DrizzleFactoryRepository implements FactoryRepository {
       .where(eq(factory.teamId, teamId.value))
       .limit(1);
 
-    if (!found) {
-      return null;
-    }
+    return found ? toFactory(found) : null;
+  }
 
-    return Factory.of({
-      id: FactoryId.of(found.id),
-      workspaceId: WorkspaceId.of(found.workspaceId),
-      teamId: TeamId.of(found.teamId),
-    });
+  async find(id: FactoryId): Promise<Factory | null> {
+    const [found] = await this.context.db
+      .select()
+      .from(factory)
+      .where(eq(factory.id, id.value))
+      .limit(1);
+
+    return found ? toFactory(found) : null;
   }
 }
+
+const toFactory = (row: {
+  id: string;
+  workspaceId: string;
+  teamId: string;
+}): Factory =>
+  Factory.of({
+    id: FactoryId.of(row.id),
+    workspaceId: WorkspaceId.of(row.workspaceId),
+    teamId: TeamId.of(row.teamId),
+  });

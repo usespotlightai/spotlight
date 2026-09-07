@@ -1,11 +1,10 @@
 import { PinConfigurationHandler } from '@application/commands/handlers/pin-configuration.handler';
 import { PinConfigurationCommand } from '@application/commands/pin-configuration.command';
 import { UseCaseFault } from '@application/errors/use-case.fault';
-import type { WorkspaceReaderPort } from '@application/ports/workspace-reader.port';
+import type { ConnectionAuthorization } from '@application/services/connection-authorization.service';
 import { Team } from '@domain/aggregates/team.aggregate';
 import { Workspace } from '@domain/aggregates/workspace.aggregate';
 import type { TeamRepository } from '@domain/repositories/team.repository';
-import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
 import { Connection } from '@domain/value-objects/connection.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { TeamKey } from '@domain/value-objects/team-key.vo';
@@ -13,7 +12,6 @@ import { TeamName } from '@domain/value-objects/team-name.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { WorkspaceName } from '@domain/value-objects/workspace-name.vo';
-import type { WorkspaceRole } from '@domain/value-objects/workspace-role';
 import { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -25,31 +23,22 @@ const TEAM = Team.rehydrate({
   members: [{ userId: UserId.of('user_1'), role: 'owner' }],
 });
 
-const acme = (role: WorkspaceRole = 'owner') =>
+// The workspace the authorization hands back — it carries the connection the
+// seeding needs.
+const acme = () =>
   Workspace.rehydrate({
     id: WorkspaceId.of('ws_1'),
     name: WorkspaceName.of('Acme'),
     slug: WorkspaceSlug.of('acme'),
-    // Keep an owner in the room whatever role the viewer is under test as: a
-    // workspace never loses its last owner, and the guard now says so.
-    members:
-      role === 'owner'
-        ? [{ userId: UserId.of('user_1'), role: 'owner' }]
-        : [
-            { userId: UserId.of('owner_1'), role: 'owner' },
-            { userId: UserId.of('user_1'), role },
-          ],
+    members: [{ userId: UserId.of('user_1'), role: 'owner' }],
     teams: [TEAM.id],
     connections: [Connection.of('github', '158883204')],
   });
 
+// Who may pin lives in ConnectionAuthorization, tested there; here it is only
+// whether the gate opens.
 const pinning = (
-  over: {
-    workspace?: Workspace | null;
-    team?: null;
-    of?: null;
-    held?: { fullName: string }[];
-  } = {},
+  over: { allowed?: boolean; team?: null; held?: { fullName: string }[] } = {},
 ) => {
   const save = vi.fn(async () => {});
   const trySeed = vi.fn(async () => null);
@@ -64,22 +53,10 @@ const pinning = (
     settling,
     handler: new PinConfigurationHandler(
       {
-        findTeamForMember: vi.fn(async () =>
-          over.of === null
-            ? null
-            : {
-                workspaceId: 'ws_1',
-                teamId: 'team_1',
-                teamKey: 'platform',
-                slug: 'acme',
-              },
+        connectableBy: vi.fn(async () =>
+          over.allowed === false ? null : acme(),
         ),
-      } as unknown as WorkspaceReaderPort,
-      {
-        findBySlug: vi.fn(async () =>
-          over.workspace === undefined ? acme() : over.workspace,
-        ),
-      } as unknown as WorkspaceRepository,
+      } as unknown as ConnectionAuthorization,
       {
         find: vi.fn(async () => (over.team === null ? null : TEAM)),
         save,
@@ -122,17 +99,8 @@ describe('PinConfigurationHandler', () => {
     expect(saved.configRepository).toBeNull();
   });
 
-  // Someone outside it is not told a team is there at all.
-  it('says nothing where the caller is not of the team', async () => {
-    const { handler, save } = pinning({ of: null });
-
-    expect(await handler.execute(command())).toBe(false);
-    expect(save).not.toHaveBeenCalled();
-  });
-
-  // It decides what an agent is told to do, so it is not a member's to change.
-  it('refuses a member who is neither owner nor admin', async () => {
-    const { handler, save } = pinning({ workspace: acme('member') });
+  it('says nothing where the caller may not connect the team’s hosts', async () => {
+    const { handler, save } = pinning({ allowed: false });
 
     expect(await handler.execute(command())).toBe(false);
     expect(save).not.toHaveBeenCalled();

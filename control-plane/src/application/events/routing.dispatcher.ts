@@ -6,6 +6,7 @@ import type { RunnerRevocationPort } from '@application/ports/runner-revocation.
 import type { TransactionPort } from '@application/ports/transaction.port';
 import type { RunOutcomes } from '@application/services/run-outcomes';
 import type { DomainEvent } from '@domain/events/domain-event';
+import { HostConnected } from '@domain/events/host-connected.event';
 import { RunAbandoned } from '@domain/events/run-abandoned.event';
 import { RunCompleted } from '@domain/events/run-completed.event';
 import { RunStopRequested } from '@domain/events/run-stop-requested.event';
@@ -61,6 +62,10 @@ export class RoutingDispatcher implements DomainEventDispatcher {
         // No subscriber; the runner acts on it by asking, not by being told.
         this.logger.debug({ event: known.kind }, 'A run was asked to stop');
         return;
+      case 'host.connected':
+        // No subscriber yet; recorded for the trail only.
+        this.logger.debug({ event: known.kind }, 'A host was connected');
+        return;
       default:
         this.logger.warn(
           { event: event.kind },
@@ -76,5 +81,6 @@ type Routable =
   | RunStopRequested
   | TeamCreated
   | WorkspaceConnected
+  | HostConnected
   | RunnerRevoked
   | TaskFinished;

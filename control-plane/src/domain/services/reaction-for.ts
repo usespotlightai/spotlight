@@ -42,6 +42,8 @@ export interface OpenedOn {
 export interface OpensWith {
   /** The role of the lines it opens a task on. */
   readonly onto: LineRole;
+  /** Which station along that line, by key; null for the line's entry. */
+  readonly at: string | null;
   readonly title: string;
   readonly description: string | null;
 }
@@ -139,7 +141,12 @@ export const ReactionFor = {
       return null;
     }
 
-    const at = input.line.entry;
+    // A named station lands the task there; otherwise it enters at the front.
+    const at = input.opens.at
+      ? (input.line.stations.find(
+          (station) => station.key.value === input.opens.at,
+        ) ?? input.line.entry)
+      : input.line.entry;
 
     if (!at) {
       return null;
