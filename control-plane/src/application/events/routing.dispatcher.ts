@@ -1,4 +1,4 @@
-import type { SeedOnConnection } from '@application/events/handlers/seed-on-connection.handler';
+import type { SettleOnConnection } from '@application/events/handlers/settle-on-connection.handler';
 import type { DomainEventDispatcher } from '@application/ports/domain-event-dispatcher.port';
 import type { FactoryProvisioningPort } from '@application/ports/factory-provisioning.port';
 import type { LoggerPort } from '@application/ports/logger.port';
@@ -21,7 +21,7 @@ export class RoutingDispatcher implements DomainEventDispatcher {
     private readonly outcomes: RunOutcomes,
     private readonly provisioning: FactoryProvisioningPort,
     private readonly revocation: RunnerRevocationPort,
-    private readonly seeding: SeedOnConnection,
+    private readonly settling: SettleOnConnection,
     private readonly transaction: TransactionPort,
     private readonly logger: LoggerPort,
   ) {}
@@ -51,7 +51,7 @@ export class RoutingDispatcher implements DomainEventDispatcher {
       case 'team.created':
         return this.provisioning.onTeamCreated(known);
       case 'workspace.connected':
-        return this.seeding.onWorkspaceConnected(known);
+        return this.settling.onWorkspaceConnected(known);
       case 'runner.revoked':
         return this.revocation.onRunnerRevoked(known);
       case 'task.finished':

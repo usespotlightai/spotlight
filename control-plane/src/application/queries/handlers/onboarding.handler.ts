@@ -12,6 +12,7 @@ import {
   asSetupState,
   type TeamSetup,
 } from '@application/services/team-setup.service';
+import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import { KNOWN_TOOLS } from '@domain/services/known-tools';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
@@ -28,6 +29,7 @@ export class OnboardingHandler
     private readonly workspaces: WorkspaceReaderPort,
     private readonly setup: TeamSetup,
     private readonly app: GitHubAppPort,
+    private readonly lines: AssemblyLineRepository,
   ) {}
 
   async execute(query: OnboardingQuery): Promise<OnboardingDto | null> {
@@ -41,12 +43,13 @@ export class OnboardingHandler
         return null;
       }
 
-      const [facts, installUrl] = await Promise.all([
+      const [facts, installUrl, lines] = await Promise.all([
         this.setup.factsFor(
           WorkspaceId.of(team.workspaceId),
           TeamId.of(team.teamId),
         ),
         this.app.installUrl(),
+        this.lines.ofTeam(TeamId.of(team.teamId)),
       ]);
 
       // The account a team's repositories are named under, so a person naming
@@ -64,6 +67,12 @@ export class OnboardingHandler
         connectedToGitHub: facts.connectedToGitHub,
         configRepository: facts.configRepository,
         repositoryOwner,
+        lines: lines.map((line) => ({
+          key: line.key.value,
+          name: line.name.value,
+          harness: line.worked[0]?.harness?.value ?? null,
+          repositories: line.repositories.all.map((each) => each.value),
+        })),
         tools: KNOWN_TOOLS.map(
           (each): KnownToolDto => ({
             source: each.source.value,

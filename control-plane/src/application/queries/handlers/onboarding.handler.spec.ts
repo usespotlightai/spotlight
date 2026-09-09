@@ -10,12 +10,28 @@ import { SETUP_STEPS } from '@domain/services/setup-list';
 import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import { describe, expect, it, vi } from 'vitest';
 
+type LineStub = {
+  key: string;
+  name: string;
+  harness: string | null;
+  repositories: readonly string[];
+};
+
 type Given = {
   member?: boolean;
   facts?: Partial<TeamFacts>;
   installUrl?: string | null;
   owner?: string | null;
+  lines?: readonly LineStub[];
 };
+
+/** A line as the repository hands it back, only what the handler reads of it. */
+const asLine = (line: LineStub) => ({
+  key: { value: line.key },
+  name: { value: line.name },
+  worked: line.harness ? [{ harness: { value: line.harness } }] : [],
+  repositories: { all: line.repositories.map((value) => ({ value })) },
+});
 
 const nothing: TeamFacts = {
   hasRunner: false,
@@ -52,7 +68,11 @@ const handler = (given: Given = {}) => {
     owner: vi.fn().mockResolvedValue(given.owner ?? null),
   };
 
-  return new OnboardingHandler(workspaces, setup, app);
+  const lines = {
+    ofTeam: vi.fn().mockResolvedValue((given.lines ?? []).map(asLine)),
+  } as never;
+
+  return new OnboardingHandler(workspaces, setup, app, lines);
 };
 
 const read = (given: Given = {}) =>
@@ -71,6 +91,40 @@ describe('OnboardingHandler', () => {
 
     expect(onboarding?.steps.map((each) => each.key)).toEqual([...SETUP_STEPS]);
     expect(onboarding?.steps.every((each) => !each.done)).toBe(true);
+  });
+
+  it('offers each line its harness and repositories to set up', async () => {
+    const onboarding = await read({
+      lines: [
+        {
+          key: 'delivery',
+          name: 'Software Delivery',
+          harness: 'claude-code',
+          repositories: ['acme/api'],
+        },
+        {
+          key: 'factory-improvement',
+          name: 'Factory Improvement',
+          harness: null,
+          repositories: [],
+        },
+      ],
+    });
+
+    expect(onboarding?.lines).toEqual([
+      {
+        key: 'delivery',
+        name: 'Software Delivery',
+        harness: 'claude-code',
+        repositories: ['acme/api'],
+      },
+      {
+        key: 'factory-improvement',
+        name: 'Factory Improvement',
+        harness: null,
+        repositories: [],
+      },
+    ]);
   });
 
   it('ticks a step off once it has been taken', async () => {

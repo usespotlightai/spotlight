@@ -1,7 +1,8 @@
-import { Check } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { Check, ChevronDown } from 'lucide-react';
+import { type ReactNode, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { ChooseRepository } from '@/components/features/onboarding/ChooseRepository';
+import { SetUpLines } from '@/components/features/onboarding/SetUpLines';
 import { buttonVariants } from '@/components/ui/button';
 import { useOnboarding } from '@/hooks/api/useOnboarding';
 import type { SetupStepResponseDto } from '@/lib/api/types.gen';
@@ -31,11 +32,35 @@ const CALLS: Partial<Record<SetupStepResponseDto['key'], string>> = {
 type StepProps = {
   step: SetupStepResponseDto;
   action: ReactNode;
-  /** A step whose control is a setting to revise, not a one-off to be done. */
-  keepsControl?: boolean;
 };
 
-function Step({ step, action, keepsControl }: StepProps) {
+function Step({ step, action }: StepProps) {
+  const [expanded, setExpanded] = useState(false);
+
+  // A done step folds its control away to keep the list tidy; clicking it opens
+  // the control again, so a choice already made can still be revised.
+  const revisable = step.done && Boolean(action);
+  const showAction = !step.done || expanded;
+
+  // Clipping lets the height animate, but an open control's popup has to spill
+  // out, so clipping is dropped once it has finished opening and put back the
+  // moment it begins to close.
+  const [clipped, setClipped] = useState(!showAction);
+  if (!showAction && !clipped) {
+    setClipped(true);
+  }
+
+  const heading = (
+    <div>
+      <p className="font-medium text-foreground text-sm leading-6">
+        {step.title}
+      </p>
+      <p className="text-muted-foreground text-sm leading-6">
+        {step.description}
+      </p>
+    </div>
+  );
+
   return (
     <li className="flex items-start gap-3">
       <span
@@ -49,17 +74,46 @@ function Step({ step, action, keepsControl }: StepProps) {
         {step.done && <Check className="size-3" />}
       </span>
 
-      <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
-        <div>
-          <p className="font-medium text-foreground text-sm leading-6">
-            {step.title}
-          </p>
-          <p className="text-muted-foreground text-sm leading-6">
-            {step.description}
-          </p>
-        </div>
+      <div className="flex min-w-0 flex-1 flex-col items-start">
+        {revisable ? (
+          <button
+            type="button"
+            onClick={() => setExpanded((open) => !open)}
+            aria-expanded={expanded}
+            className="flex w-full items-start justify-between gap-2 text-left outline-none"
+          >
+            {heading}
+            <ChevronDown
+              className={cn(
+                'mt-1.5 size-3.5 shrink-0 text-muted-foreground transition-transform duration-200',
+                expanded && 'rotate-180',
+              )}
+              aria-hidden
+            />
+          </button>
+        ) : (
+          heading
+        )}
 
-        {(!step.done || keepsControl) && action}
+        {action && (
+          <div
+            className={cn(
+              'grid w-full transition-all duration-200 ease-out',
+              showAction
+                ? 'grid-rows-[1fr] opacity-100'
+                : 'grid-rows-[0fr] opacity-0',
+            )}
+            onTransitionEnd={() => {
+              if (showAction) {
+                setClipped(false);
+              }
+            }}
+          >
+            <div className={cn('min-h-0', clipped && 'overflow-hidden')}>
+              <div className="pt-2">{action}</div>
+            </div>
+          </div>
+        )}
       </div>
     </li>
   );
@@ -115,6 +169,20 @@ export function SetupSteps({ teamId, body, about }: SetupStepsProps) {
       );
     }
 
+    if (step.key === 'configuration') {
+      return (
+        onboarding.configRepository && (
+          <SetUpLines
+            slug={slug}
+            teamId={teamId}
+            lines={onboarding.lines}
+            configRepository={onboarding.configRepository}
+            controlClassName={CONTROL}
+          />
+        )
+      );
+    }
+
     return (
       step.where && (
         <Link
@@ -149,14 +217,7 @@ export function SetupSteps({ teamId, body, about }: SetupStepsProps) {
 
       <ul className="flex flex-col gap-3">
         {onboarding.steps.map((step) => (
-          <Step
-            key={step.key}
-            step={step}
-            action={goAndDoIt(step)}
-            // The repository a team works in is a choice it can revisit, so its
-            // control stays even once one has been chosen.
-            keepsControl={step.key === 'repository'}
-          />
+          <Step key={step.key} step={step} action={goAndDoIt(step)} />
         ))}
       </ul>
     </div>

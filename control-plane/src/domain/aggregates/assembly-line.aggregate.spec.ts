@@ -470,4 +470,22 @@ describe('AssemblyLine', () => {
   it('refuses a station standing before the start of the board', () => {
     expect(() => lineOf([at(-1), at(1)])).toThrow(InvalidStationLayoutError);
   });
+
+  describe('the harness its stations run on', () => {
+    it('runs every work station on the one chosen, leaving the rest alone', () => {
+      const line = opened().runsOn(HarnessId.of('claude-code'));
+
+      expect(
+        line.worked.every((each) => each.harness?.value === 'claude-code'),
+      ).toBe(true);
+      expect(line.backlog.harness).toBeNull();
+      expect(line.completed.harness).toBeNull();
+    });
+
+    it('takes the harness off every work station when given none', () => {
+      const line = opened().runsOn(HarnessId.of('claude-code')).runsOn(null);
+
+      expect(line.worked.every((each) => each.harness === null)).toBe(true);
+    });
+  });
 });

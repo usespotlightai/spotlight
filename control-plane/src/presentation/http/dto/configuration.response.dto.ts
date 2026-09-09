@@ -243,6 +243,32 @@ export class SetupStepResponseDto {
   }
 }
 
+export class OnboardingLineResponseDto {
+  @ApiProperty({ example: 'delivery' })
+  readonly key: string;
+
+  @ApiProperty({ example: 'Software Delivery' })
+  readonly name: string;
+
+  @ApiProperty({ nullable: true, type: String, example: 'claude-code' })
+  readonly harness: string | null;
+
+  @ApiProperty({ isArray: true, type: String, example: ['acme/api'] })
+  readonly repositories: readonly string[];
+
+  constructor(
+    key: string,
+    name: string,
+    harness: string | null,
+    repositories: readonly string[],
+  ) {
+    this.key = key;
+    this.name = name;
+    this.harness = harness;
+    this.repositories = repositories;
+  }
+}
+
 export class OnboardingResponseDto {
   @ApiProperty({
     description: 'The list itself, in the order it is worked through',
@@ -273,6 +299,9 @@ export class OnboardingResponseDto {
   })
   readonly repositoryOwner: string | null;
 
+  @ApiProperty({ type: OnboardingLineResponseDto, isArray: true })
+  readonly lines: readonly OnboardingLineResponseDto[];
+
   @ApiProperty({ type: KnownToolResponseDto, isArray: true })
   readonly tools: readonly KnownToolResponseDto[];
 
@@ -282,6 +311,7 @@ export class OnboardingResponseDto {
     connectedToGitHub: boolean,
     configRepository: string | null,
     repositoryOwner: string | null,
+    lines: readonly OnboardingLineResponseDto[],
     tools: readonly KnownToolResponseDto[],
   ) {
     this.steps = steps;
@@ -289,8 +319,25 @@ export class OnboardingResponseDto {
     this.connectedToGitHub = connectedToGitHub;
     this.configRepository = configRepository;
     this.repositoryOwner = repositoryOwner;
+    this.lines = lines;
     this.tools = tools;
   }
+}
+
+export class SetUpLineRequestDto {
+  @ApiProperty({ example: 'delivery' })
+  readonly key!: string;
+
+  @ApiPropertyOptional({ nullable: true, type: String, example: 'claude-code' })
+  readonly harness?: string | null;
+
+  @ApiProperty({ isArray: true, type: String, example: ['acme/api'] })
+  readonly repositories!: string[];
+}
+
+export class SetUpLinesRequestDto {
+  @ApiProperty({ type: SetUpLineRequestDto, isArray: true })
+  readonly lines!: SetUpLineRequestDto[];
 }
 
 export class ChooseToolsRequestDto {

@@ -20,6 +20,15 @@ export interface SetupStepDto {
   readonly done: boolean;
 }
 
+/** A built-in line as it stands, so setup can offer its harness and repositories. */
+export interface OnboardingLineDto {
+  readonly key: string;
+  readonly name: string;
+  /** The harness its work stations run on, or null where none is set yet. */
+  readonly harness: string | null;
+  readonly repositories: readonly string[];
+}
+
 /** What a team still needs before any of this does anything. */
 export interface OnboardingDto {
   /** The list itself, in the order it is worked through. */
@@ -31,5 +40,7 @@ export interface OnboardingDto {
   readonly configRepository: string | null;
   /** The account repositories are named under, so only the name is typed. */
   readonly repositoryOwner: string | null;
+  /** The team's lines, each offered a harness and repositories during setup. */
+  readonly lines: readonly OnboardingLineDto[];
   readonly tools: readonly KnownToolDto[];
 }

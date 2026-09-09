@@ -36,13 +36,13 @@ const WORDING: Record<SetupStepKey, Wording> = {
     where: (at) => `${team(at)}/integrations`,
   },
   repository: {
-    title: 'Choose a repository',
-    says: 'Select the repository this team should work in, or enter a new repository name and Spotlight will create it for you.',
+    title: 'Choose a configuration repository',
+    says: 'Choose the repository where this team’s Spotlight configuration is saved — the setup pull request opens here, and it is read back from here on every push. Pick an existing one, or enter a new name and Spotlight will create it.',
     where: (at) => `${team(at)}/integrations`,
   },
   configuration: {
-    title: 'Merge the setup pull request',
-    says: 'Spotlight will open a pull request with the initial setup. Your repository won’t be read until you review and merge it.',
+    title: 'Set up your lines',
+    says: 'Choose the harness and repositories for each line, then open the setup pull request. Nothing is written until you do, and nothing changes until you merge it.',
     where: () => null,
   },
   tools: {

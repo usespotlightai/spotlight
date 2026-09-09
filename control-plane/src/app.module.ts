@@ -50,6 +50,7 @@ import {
   ForgetSecretHandler,
   SetSecretHandler,
 } from '@application/commands/handlers/set-secret.handler';
+import { SetUpLinesHandler } from '@application/commands/handlers/set-up-lines.handler';
 import { StopRunHandler } from '@application/commands/handlers/stop-run.handler';
 import { MoveTaskCommand } from '@application/commands/move-task.command';
 import { OpenPullRequestCommand } from '@application/commands/open-pull-request.command';
@@ -71,12 +72,13 @@ import {
 import { SayToRunCommand } from '@application/commands/say-to-run.command';
 import { SetLineRepositoriesCommand } from '@application/commands/set-line-repositories.command';
 import { SetSecretCommand } from '@application/commands/set-secret.command';
+import { SetUpLinesCommand } from '@application/commands/set-up-lines.command';
 import { StopRunCommand } from '@application/commands/stop-run.command';
 import { DigestRun } from '@application/events/handlers/digest-run.handler';
 import { HandOver } from '@application/events/handlers/hand-over.handler';
 import { ProvisionFactory } from '@application/events/handlers/provision-factory.handler';
 import { ReleaseHeldRuns } from '@application/events/handlers/release-held-runs.handler';
-import { SeedOnConnection } from '@application/events/handlers/seed-on-connection.handler';
+import { SettleOnConnection } from '@application/events/handlers/settle-on-connection.handler';
 import { RoutingDispatcher } from '@application/events/routing.dispatcher';
 import { ASSEMBLY_LINE_READER } from '@application/ports/assembly-line-reader.port';
 import { CLOCK, type ClockPort } from '@application/ports/clock.port';
@@ -751,20 +753,12 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
 
     {
       provide: SeedConfiguration,
-      inject: [
-        DrizzleAssemblyLineRepository,
-        LINE_READER,
-        REPOSITORY_CONTENTS,
-        PULL_REQUESTS,
-        LOGGER,
-      ],
+      inject: [LINE_READER, REPOSITORY_CONTENTS, PULL_REQUESTS],
       useFactory: (
-        lines: DrizzleAssemblyLineRepository,
         reader: LineReaderPort,
         contents: RepositoryContentsPort,
         pullRequests: PullRequestPort,
-        logger: LoggerPort,
-      ) => new SeedConfiguration(lines, reader, contents, pullRequests, logger),
+      ) => new SeedConfiguration(reader, contents, pullRequests),
     },
 
     {
@@ -1181,21 +1175,9 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     },
 
     {
-      provide: SeedOnConnection,
-      inject: [
-        DrizzleWorkspaceRepository,
-        DrizzleTeamRepository,
-        REPOSITORY_CATALOG,
-        SeedConfiguration,
-        SettleSetup,
-      ],
-      useFactory: (
-        workspaces: DrizzleWorkspaceRepository,
-        teams: DrizzleTeamRepository,
-        catalog: RepositoryCatalogPort,
-        seeding: SeedConfiguration,
-        settling: SettleSetup,
-      ) => new SeedOnConnection(workspaces, teams, catalog, seeding, settling),
+      provide: SettleOnConnection,
+      inject: [SettleSetup],
+      useFactory: (settling: SettleSetup) => new SettleOnConnection(settling),
     },
 
     {
@@ -1204,7 +1186,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         RUN_OUTCOMES,
         FACTORY_PROVISIONING,
         RUNNER_REVOCATION,
-        SeedOnConnection,
+        SettleOnConnection,
         TRANSACTION,
         LOGGER,
       ],
@@ -1212,7 +1194,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         outcomes: RunOutcomes,
         provisioning: FactoryProvisioningPort,
         revocation: RunnerRevocationPort,
-        seeding: SeedOnConnection,
+        settling: SettleOnConnection,
         transaction: TransactionPort,
         logger: LoggerPort,
       ) =>
@@ -1220,7 +1202,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
           outcomes,
           provisioning,
           revocation,
-          seeding,
+          settling,
           transaction,
           logger,
         ),
@@ -1361,8 +1343,14 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     ...bindCommandHandler(PinConfigurationCommand, PinConfigurationHandler, [
       ConnectionAuthorization,
       DrizzleTeamRepository,
-      SeedConfiguration,
       REPOSITORY_CATALOG,
+      SettleSetup,
+    ]),
+    ...bindCommandHandler(SetUpLinesCommand, SetUpLinesHandler, [
+      ConnectionAuthorization,
+      DrizzleTeamRepository,
+      DrizzleAssemblyLineRepository,
+      SeedConfiguration,
       SettleSetup,
     ]),
     ...bindCommandHandler(RenameTeamCommand, RenameTeamHandler, [
@@ -1379,6 +1367,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       WORKSPACE_READER,
       TeamSetup,
       GITHUB_APP,
+      DrizzleAssemblyLineRepository,
     ]),
     ...bindCommandHandler(ReadConfigurationCommand, ReadConfigurationHandler, [
       DrizzleWorkspaceRepository,

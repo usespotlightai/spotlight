@@ -1301,6 +1301,54 @@
         ]
       }
     },
+    "/teams/{teamId}/configuration/setup": {
+      "post": {
+        "operationId": "setUpLines",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "team_1",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetUpLinesRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposedResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team, or nowhere to write it yet"
+          }
+        },
+        "summary": "Assign each line a harness and repositories, and open the setup",
+        "tags": [
+          "configuration"
+        ]
+      }
+    },
     "/teams/{teamId}/configuration/tools": {
       "post": {
         "operationId": "chooseTools",
@@ -3954,6 +4002,39 @@
           "done"
         ]
       },
+      "OnboardingLineResponseDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "delivery"
+          },
+          "name": {
+            "type": "string",
+            "example": "Software Delivery"
+          },
+          "harness": {
+            "type": "string",
+            "nullable": true,
+            "example": "claude-code"
+          },
+          "repositories": {
+            "example": [
+              "acme/api"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "harness",
+          "repositories"
+        ]
+      },
       "KnownToolResponseDto": {
         "type": "object",
         "properties": {
@@ -4017,6 +4098,12 @@
             "nullable": true,
             "example": "acme"
           },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OnboardingLineResponseDto"
+            }
+          },
           "tools": {
             "type": "array",
             "items": {
@@ -4030,7 +4117,49 @@
           "connectedToGitHub",
           "configRepository",
           "repositoryOwner",
+          "lines",
           "tools"
+        ]
+      },
+      "SetUpLineRequestDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "delivery"
+          },
+          "harness": {
+            "type": "string",
+            "nullable": true,
+            "example": "claude-code"
+          },
+          "repositories": {
+            "example": [
+              "acme/api"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "key",
+          "repositories"
+        ]
+      },
+      "SetUpLinesRequestDto": {
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SetUpLineRequestDto"
+            }
+          }
+        },
+        "required": [
+          "lines"
         ]
       },
       "ChooseToolsRequestDto": {

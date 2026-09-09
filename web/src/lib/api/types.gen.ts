@@ -635,6 +635,13 @@ export type SetupStepResponseDto = {
   done: boolean;
 };
 
+export type OnboardingLineResponseDto = {
+  key: string;
+  name: string;
+  harness: string | null;
+  repositories: Array<string>;
+};
+
 export type KnownToolResponseDto = {
   source: string;
   name: string;
@@ -664,7 +671,18 @@ export type OnboardingResponseDto = {
    * The account repositories are named under, or null
    */
   repositoryOwner: string | null;
+  lines: Array<OnboardingLineResponseDto>;
   tools: Array<KnownToolResponseDto>;
+};
+
+export type SetUpLineRequestDto = {
+  key: string;
+  harness?: string | null;
+  repositories: Array<string>;
+};
+
+export type SetUpLinesRequestDto = {
+  lines: Array<SetUpLineRequestDto>;
 };
 
 export type ChooseToolsRequestDto = {
@@ -1771,6 +1789,32 @@ export type ReadOnboardingResponses = {
 };
 
 export type ReadOnboardingResponse = ReadOnboardingResponses[keyof ReadOnboardingResponses];
+
+export type SetUpLinesData = {
+  body: SetUpLinesRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration/setup';
+};
+
+export type SetUpLinesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, or nowhere to write it yet
+   */
+  404: unknown;
+};
+
+export type SetUpLinesResponses = {
+  200: ProposedResponseDto;
+};
+
+export type SetUpLinesResponse = SetUpLinesResponses[keyof SetUpLinesResponses];
 
 export type ChooseToolsData = {
   body: ChooseToolsRequestDto;

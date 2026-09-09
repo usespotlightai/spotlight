@@ -153,6 +153,23 @@ export class AssemblyLine {
     return this.repositories.opening(name);
   }
 
+  /** Every work station on this line run on the one harness, or none of them. */
+  runsOn(harness: HarnessId | null): AssemblyLine {
+    return AssemblyLine.of({
+      id: this.id,
+      workspaceId: this.workspaceId,
+      factoryId: this.factoryId,
+      key: this.key,
+      name: this.name,
+      stations: this.stations.map((each) =>
+        each.isWorked ? each.runsOn(harness) : each,
+      ),
+      reactions: this.reactions,
+      role: this.role,
+      repositories: this.repositories.all,
+    });
+  }
+
   renameStation(stationId: StationId, name: StationName): AssemblyLine {
     return this.withStation(stationId, (station) => station.rename(name));
   }

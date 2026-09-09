@@ -41,14 +41,12 @@ const pinning = (
   over: { allowed?: boolean; team?: null; held?: { fullName: string }[] } = {},
 ) => {
   const save = vi.fn(async () => {});
-  const trySeed = vi.fn(async () => null);
   const settling = vi.fn(async () => {});
   const create = vi.fn(async () => true);
   const list = vi.fn(async () => over.held ?? [{ fullName: 'acme/api' }]);
 
   return {
     save,
-    trySeed,
     create,
     settling,
     handler: new PinConfigurationHandler(
@@ -61,7 +59,6 @@ const pinning = (
         find: vi.fn(async () => (over.team === null ? null : TEAM)),
         save,
       } as unknown as TeamRepository,
-      { trySeed } as never,
       { list, create } as never,
       { forTeam: settling } as never,
     ),
@@ -119,28 +116,6 @@ describe('PinConfigurationHandler', () => {
     await expect(handler.execute(command('not a repo'))).rejects.toBeInstanceOf(
       UseCaseFault,
     );
-  });
-
-  it('opens the configuration in the repository just chosen', async () => {
-    const { handler, trySeed } = pinning();
-
-    await handler.execute(command());
-
-    expect(trySeed).toHaveBeenCalledTimes(1);
-    const [, , into] = trySeed.mock.calls[0] as never as [
-      unknown,
-      unknown,
-      { value: string },
-    ];
-    expect(into.value).toBe('acme/api');
-  });
-
-  it('writes nothing where the choice was taken off', async () => {
-    const { handler, trySeed } = pinning();
-
-    await handler.execute(command(null));
-
-    expect(trySeed).not.toHaveBeenCalled();
   });
 
   // Naming one Spotlight cannot see means they want it.

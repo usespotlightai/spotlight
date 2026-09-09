@@ -1,3 +1,4 @@
+import { GitBranch } from 'lucide-react';
 import { type FormEvent, useId, useState } from 'react';
 import { buttonVariants } from '@/components/ui/button';
 import { usePinConfiguration } from '@/hooks/api/usePinConfiguration';
@@ -77,9 +78,13 @@ export function ChooseRepository({
   };
 
   return (
-    <form onSubmit={confirm} className="flex flex-wrap items-center gap-2">
-      <div className="relative w-72 max-w-full">
-        <div className="flex h-7 items-center rounded-lg border-[0.5px] border-input bg-background px-3 text-sm focus-within:border focus-within:border-ring">
+    <form onSubmit={confirm} className="flex w-full flex-col gap-3">
+      <div className="relative rounded-lg border-[0.5px] border-border bg-card p-1 focus-within:border-ring">
+        <div className="flex h-7 w-full items-center gap-2 rounded-md px-2 text-sm">
+          <GitBranch
+            className="size-3.5 shrink-0 text-muted-foreground"
+            aria-hidden
+          />
           {owner && (
             <span className="shrink-0 text-muted-foreground">{owner}/</span>
           )}
@@ -130,15 +135,17 @@ export function ChooseRepository({
         )}
       </div>
 
-      <button
-        type="submit"
-        // Emptying it is how a choice is taken off, so an empty field is only
-        // nothing to say where nothing was chosen.
-        disabled={pin.isPending || (wanted === '' && !chosen)}
-        className={cn(buttonVariants({ size: 'sm' }), controlClassName)}
-      >
-        {pin.isPending ? 'Setting up…' : 'Confirm'}
-      </button>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="submit"
+          // Emptying it is how a choice is taken off, so an empty field is only
+          // nothing to say where nothing was chosen.
+          disabled={pin.isPending || (wanted === '' && !chosen)}
+          className={cn(buttonVariants({ size: 'sm' }), controlClassName)}
+        >
+          {pin.isPending ? 'Setting up…' : 'Confirm'}
+        </button>
+      </div>
     </form>
   );
 }

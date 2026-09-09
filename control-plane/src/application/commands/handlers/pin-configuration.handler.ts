@@ -3,7 +3,6 @@ import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { RepositoryCatalogPort } from '@application/ports/repository-catalog.port';
 import type { ConnectionAuthorization } from '@application/services/connection-authorization.service';
-import type { SeedConfiguration } from '@application/services/seed-configuration.service';
 import type { SettleSetup } from '@application/services/settle-setup.service';
 import type { Workspace } from '@domain/aggregates/workspace.aggregate';
 import type { TeamRepository } from '@domain/repositories/team.repository';
@@ -23,7 +22,6 @@ export class PinConfigurationHandler
   constructor(
     private readonly authorization: ConnectionAuthorization,
     private readonly teams: TeamRepository,
-    private readonly seeding: SeedConfiguration,
     private readonly catalog: RepositoryCatalogPort,
     private readonly settling: SettleSetup,
   ) {}
@@ -53,11 +51,10 @@ export class PinConfigurationHandler
 
       await this.teams.save(team.keepsConfigurationIn(repository));
 
-      // Seeding refuses a repository that already holds configuration, so
-      // saying this twice writes nothing twice.
+      // Only the repository is readied here; what to write into it is chosen
+      // and written later, when the lines are set up.
       if (repository) {
         await this.madeIfMissing(workspace, repository);
-        await this.seeding.trySeed(workspace, team, repository);
       }
 
       await this.settling.forTeam(team.id);

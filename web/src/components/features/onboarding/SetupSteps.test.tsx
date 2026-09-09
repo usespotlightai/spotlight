@@ -22,6 +22,17 @@ vi.mock('@/hooks/api/usePinConfiguration', () => ({
   usePinConfiguration: () => ({ mutate: pin, isPending: false }),
 }));
 
+const setUp = vi.fn();
+vi.mock('@/hooks/api/useSetUpLines', () => ({
+  useSetUpLines: () => ({ mutate: setUp, isPending: false }),
+}));
+
+vi.mock('@/hooks/api/useHarnesses', () => ({
+  useHarnesses: () => ({
+    data: [{ id: 'claude-code', name: 'Claude Code' }],
+  }),
+}));
+
 /** The list as the control plane hands it over, which is what this shows. */
 const STEPS = [
   {
@@ -65,6 +76,14 @@ const onboarding = (
   configRepository: null,
   repositoryOwner: 'acme',
   installUrl: 'https://github.com/apps/spotlight/installations/new',
+  lines: [
+    {
+      key: 'delivery',
+      name: 'Software Delivery',
+      harness: null,
+      repositories: [],
+    },
+  ],
   tools: [{ source: 'linear', chosen: false }],
   ...over,
 });
@@ -95,6 +114,7 @@ const showing = () =>
 
 beforeEach(() => {
   pin.mockReset();
+  setUp.mockReset();
 });
 
 describe('SetupSteps', () => {
@@ -123,14 +143,15 @@ describe('SetupSteps', () => {
     );
   });
 
-  // The note is worth coming back to, so what is done is ticked off.
-  it('drops the control from a step already done', () => {
+  // A done step folds its control behind a toggle, while the next, unfinished
+  // step still shows its own to go and take.
+  it('folds a done step away, keeping the next one open', () => {
     onboardingState.data = onboarding({}, ['runner']);
     showing();
 
     expect(
-      screen.queryByRole('link', { name: 'Enrol one' }),
-    ).not.toBeInTheDocument();
+      screen.getByRole('button', { name: /Start a runner/ }),
+    ).toHaveAttribute('aria-expanded', 'false');
     expect(
       screen.getByRole('link', { name: 'Install on GitHub' }),
     ).toBeInTheDocument();
@@ -162,13 +183,17 @@ describe('SetupSteps', () => {
     ).toBeInTheDocument();
   });
 
-  it('ticks off picking tools once one is chosen', () => {
+  it('folds the tools step away once one is chosen', () => {
     onboardingState.data = onboarding({}, ['tools']);
     showing();
 
     expect(
-      screen.queryByRole('link', { name: 'Choose them' }),
-    ).not.toBeInTheDocument();
+      screen.getByRole('button', { name: /Choose your tools/ }),
+    ).toHaveAttribute('aria-expanded', 'false');
+    // Collapsed, not gone: the control is still there to revise.
+    expect(
+      screen.getByRole('link', { name: 'Choose them' }),
+    ).toBeInTheDocument();
   });
 
   // Where the standing cannot be read, the note still says what it said.
@@ -222,15 +247,23 @@ describe('SetupSteps', () => {
     expect(screen.queryByLabelText('Repository')).not.toBeInTheDocument();
   });
 
-  // The repository a team works in is a setting, not a one-off: it stays
-  // changeable once chosen, where the other steps' controls drop away.
-  it('keeps the repository control after one has been chosen', () => {
+  // A done step folds its control away to keep the list tidy, and clicking it
+  // opens the control again so the choice can still be revised.
+  it('folds a done step’s control away until it is clicked', async () => {
     onboardingState.data = onboarding(
       { connectedToGitHub: true, configRepository: 'acme/config' },
       ['repository'],
     );
     showing();
 
+    const toggle = screen.getByRole('button', {
+      name: /Choose a repository/,
+    });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+    await userEvent.click(toggle);
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByLabelText('Repository')).toHaveValue('config');
   });
 
@@ -259,6 +292,79 @@ describe('SetupSteps', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
     expect(pin).toHaveBeenCalledWith('acme/config');
+  });
+
+  // Nothing is written until a repository is chosen to write it into.
+  it('offers no line setup before a repository is chosen', () => {
+    onboardingState.data = onboarding({ connectedToGitHub: true });
+    showing();
+
+    expect(
+      screen.queryByRole('button', { name: /Open pull request/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('opens the setup with each line’s harness and repositories', async () => {
+    onboardingState.data = onboarding({
+      connectedToGitHub: true,
+      configRepository: 'acme/config',
+      lines: [
+        {
+          key: 'delivery',
+          name: 'Software Delivery',
+          harness: 'claude-code',
+          repositories: ['acme/api'],
+        },
+      ],
+    });
+    showing();
+
+    expect(screen.getByText('Software Delivery')).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('button', { name: /Open pull request/ }),
+    );
+
+    expect(setUp).toHaveBeenCalledWith([
+      { key: 'delivery', harness: 'claude-code', repositories: ['acme/api'] },
+    ]);
+  });
+
+  // The improvement line works on the factory's own configuration, so it opens
+  // already working in the configuration repository, while delivery stays the
+  // person's to choose.
+  it('starts the improvement line working in the configuration repository', async () => {
+    onboardingState.data = onboarding({
+      connectedToGitHub: true,
+      configRepository: 'acme/config',
+      lines: [
+        {
+          key: 'delivery',
+          name: 'Software Delivery',
+          harness: null,
+          repositories: [],
+        },
+        {
+          key: 'factory-improvement',
+          name: 'Factory Improvement',
+          harness: null,
+          repositories: [],
+        },
+      ],
+    });
+    showing();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /Open pull request/ }),
+    );
+
+    expect(setUp).toHaveBeenCalledWith([
+      { key: 'delivery', harness: null, repositories: [] },
+      {
+        key: 'factory-improvement',
+        harness: null,
+        repositories: ['acme/config'],
+      },
+    ]);
   });
 
   // A name nobody has is still a name, and the list simply goes away.
