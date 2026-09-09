@@ -65,7 +65,6 @@ export class DrizzleTaskReader implements TaskReaderPort {
         description: task.description,
         createdAt: task.createdAt,
         currentRunId: task.currentRunId,
-        repository: task.repository,
         pullRequest: task.pullRequest,
         raisedById: user.id,
         raisedByName: user.name,

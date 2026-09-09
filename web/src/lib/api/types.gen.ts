@@ -44,6 +44,10 @@ export type AssemblyLineResponseDto = {
   name: string;
   stations: Array<StationResponseDto>;
   reactions: Array<ReactionResponseDto>;
+  /**
+   * The repositories a run on this line works in, as owner/name
+   */
+  repositories: Array<string>;
 };
 
 export type ReorderStationsRequestDto = {
@@ -289,6 +293,10 @@ export type OpenPullRequestRequestDto = {
    * Markdown, shown as the pull request description
    */
   body?: string | null;
+  /**
+   * Which of the line’s repositories to open against, by name. Left out where the line works only one.
+   */
+  repository?: string | null;
 };
 
 export type OpenedPullRequestResponseDto = {
@@ -732,10 +740,6 @@ export type TaskResponseDto = {
    */
   awaitingReview: TaskReviewResponseDto | null;
   /**
-   * The codebase the work is done in
-   */
-  repository: string | null;
-  /**
    * The pull request this task ended in, once one is open
    */
   pullRequest: string | null;
@@ -884,10 +888,6 @@ export type AddTaskRequestDto = {
    * Markdown. Left out or blank for a task with nothing said.
    */
   description?: string | null;
-  /**
-   * The codebase the work is done in, as owner/name
-   */
-  repository?: string | null;
 };
 
 export type AnalyseTracesRequestDto = {
@@ -913,13 +913,6 @@ export type AssignTaskRequestDto = {
    * The team member to give it to, or null to leave it unclaimed
    */
   assigneeId: string | null;
-};
-
-export type SetTaskRepositoryRequestDto = {
-  /**
-   * The repository a run works it in, or null for none
-   */
-  repository: string | null;
 };
 
 export type MemberResponseDto = {
@@ -2277,33 +2270,6 @@ export type AssignTaskResponses = {
 };
 
 export type AssignTaskResponse = AssignTaskResponses[keyof AssignTaskResponses];
-
-export type SetTaskRepositoryData = {
-  body: SetTaskRepositoryRequestDto;
-  path: {
-    teamId: string;
-    taskId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/tasks/{taskId}/repository';
-};
-
-export type SetTaskRepositoryErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such task for this caller
-   */
-  404: unknown;
-};
-
-export type SetTaskRepositoryResponses = {
-  200: TaskResponseDto;
-};
-
-export type SetTaskRepositoryResponse = SetTaskRepositoryResponses[keyof SetTaskRepositoryResponses];
 
 export type ListMembersData = {
   body?: never;

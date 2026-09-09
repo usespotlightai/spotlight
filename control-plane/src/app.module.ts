@@ -50,7 +50,6 @@ import {
   ForgetSecretHandler,
   SetSecretHandler,
 } from '@application/commands/handlers/set-secret.handler';
-import { SetTaskRepositoryHandler } from '@application/commands/handlers/set-task-repository.handler';
 import { StopRunHandler } from '@application/commands/handlers/stop-run.handler';
 import { MoveTaskCommand } from '@application/commands/move-task.command';
 import { OpenPullRequestCommand } from '@application/commands/open-pull-request.command';
@@ -72,7 +71,6 @@ import {
 } from '@application/commands/runner.commands';
 import { SayToRunCommand } from '@application/commands/say-to-run.command';
 import { SetSecretCommand } from '@application/commands/set-secret.command';
-import { SetTaskRepositoryCommand } from '@application/commands/set-task-repository.command';
 import { StopRunCommand } from '@application/commands/stop-run.command';
 import { DigestRun } from '@application/events/handlers/digest-run.handler';
 import { HandOver } from '@application/events/handlers/hand-over.handler';
@@ -122,7 +120,10 @@ import {
   type LineReaderPort,
 } from '@application/ports/line-reader.port';
 import { LOGGER, type LoggerPort } from '@application/ports/logger.port';
-import { MEMBER_READER } from '@application/ports/member-reader.port';
+import {
+  MEMBER_READER,
+  type MemberReaderPort,
+} from '@application/ports/member-reader.port';
 import { OAUTH2_LINKING } from '@application/ports/oauth2-linking.port';
 import { PERSON_READER } from '@application/ports/person-reader.port';
 import {
@@ -799,13 +800,22 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         TEAM_SECRETS,
         IntegrationReader,
         JwksCache,
+        ENV,
       ],
       useFactory: (
         configurations: DrizzleTeamConfiguration,
         secrets: TeamSecretsPort,
         reader: IntegrationReader,
         jwks: JwksCache,
-      ) => new ConfiguredSources(configurations, secrets, reader, jwks),
+        env: Env,
+      ) =>
+        new ConfiguredSources(
+          configurations,
+          secrets,
+          reader,
+          jwks,
+          new HttpOutbound(env.OUTBOUND_ALLOWED_HOSTS.split(',')),
+        ),
     },
 
     {
@@ -833,6 +843,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         TRANSACTION,
         CLOCK,
         ID_GENERATOR,
+        MEMBER_READER,
       ],
       useFactory: (
         tasks: DrizzleTaskRepository,
@@ -841,8 +852,17 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         transaction: TransactionPort,
         clock: ClockPort,
         ids: IdGeneratorPort,
+        members: MemberReaderPort,
       ) =>
-        new ReactToHappenings(tasks, lines, dispatch, transaction, clock, ids),
+        new ReactToHappenings(
+          tasks,
+          lines,
+          dispatch,
+          transaction,
+          clock,
+          ids,
+          members,
+        ),
     },
 
     {
@@ -968,12 +988,18 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
 
     {
       provide: GIT_GATEWAY,
-      inject: [RunAtHand, DrizzleWorkspaceRepository, REPOSITORY_GIT],
+      inject: [
+        RunAtHand,
+        DrizzleAssemblyLineRepository,
+        DrizzleWorkspaceRepository,
+        REPOSITORY_GIT,
+      ],
       useFactory: (
         held: RunAtHand,
+        lines: DrizzleAssemblyLineRepository,
         workspaces: DrizzleWorkspaceRepository,
         git: RepositoryGitPort,
-      ) => new CarryGitCall(held, workspaces, git),
+      ) => new CarryGitCall(held, lines, workspaces, git),
     },
 
     BuiltInHarnesses,
@@ -1242,7 +1268,6 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       DrizzleTaskRepository,
       DrizzleAssemblyLineRepository,
       DrizzleTeamRepository,
-      DrizzleTeamConfiguration,
       ID_GENERATOR,
       CLOCK,
       RaiseTask,
@@ -1335,6 +1360,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       CLOCK,
       AttendToNotices,
       ID_GENERATOR,
+      MEMBER_READER,
     ]),
 
     ...bindCommandHandler(ReadInboxItemCommand, ReadInboxItemHandler, [
@@ -1352,6 +1378,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     ...bindCommandHandler(OpenPullRequestCommand, OpenPullRequestHandler, [
       RunAtHand,
       DrizzleTaskRepository,
+      DrizzleAssemblyLineRepository,
       DrizzleWorkspaceRepository,
       PULL_REQUESTS,
     ]),
@@ -1391,12 +1418,6 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       PERSON_READER,
     ]),
     ...bindCommandHandler(AssignTaskCommand, AssignTaskHandler, [
-      DrizzleTaskRepository,
-      DrizzleTeamRepository,
-      TRANSACTION,
-      PERSON_READER,
-    ]),
-    ...bindCommandHandler(SetTaskRepositoryCommand, SetTaskRepositoryHandler, [
       DrizzleTaskRepository,
       DrizzleTeamRepository,
       TRANSACTION,

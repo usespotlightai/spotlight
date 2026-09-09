@@ -158,6 +158,7 @@ export function Station() {
           )}
 
           <StationProperties
+            repositories={line.repositories}
             {...(ends
               ? {
                   note:

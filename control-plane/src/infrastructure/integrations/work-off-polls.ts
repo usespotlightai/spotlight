@@ -119,7 +119,7 @@ export class WorkOffPolls {
 
     const against = { body: bound(result.response), cursor: cursor ?? '' };
 
-    const happenings = readEvents(
+    const happenings = await readEvents(
       poll.events,
       (happening) =>
         readable.integration.declares.find(

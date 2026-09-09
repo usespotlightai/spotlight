@@ -14,7 +14,6 @@ import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { Placement } from '@domain/services/placement';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
-import { Repository } from '@domain/value-objects/repository.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { TaskDescription } from '@domain/value-objects/task-description.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
@@ -68,7 +67,6 @@ export class AddTaskHandler
       raisedBy,
       now: this.clock.now(),
       newId: () => this.ids.generate(),
-      repository: command.repository ? Repository.of(command.repository) : null,
     });
 
     const raised = await this.raise.raise({ task: added, line });

@@ -6,7 +6,8 @@ import {
   type ReadableIntegration,
 } from '@infrastructure/integrations/integration.compile';
 import { WebhookRuntime } from '@infrastructure/integrations/webhook.runtime';
-import { describe, expect, it } from 'vitest';
+import type { HttpOutbound } from '@infrastructure/outbound/http-outbound';
+import { describe, expect, it, vi } from 'vitest';
 
 /**
  * Slack drives the same generic runtime as any host: the primitives — an HMAC
@@ -178,8 +179,8 @@ describe('the Slack webhook runtime', () => {
   });
 
   describe('reading', () => {
-    it('opens a task on the delivery role from a mention', () => {
-      const [read] = runtime().read(delivered(mention));
+    it('opens a task on the delivery role from a mention', async () => {
+      const [read] = await runtime().read(delivered(mention));
 
       expect(read?.happening.value).toBe('slack.app_mention');
       expect(read?.opens?.onto.value).toBe('delivery');
@@ -189,14 +190,14 @@ describe('the Slack webhook runtime', () => {
       ]);
     });
 
-    it('reads a thread reply as a person speaking', () => {
-      const [read] = runtime().read(delivered(reply));
+    it('reads a thread reply as a person speaking', async () => {
+      const [read] = await runtime().read(delivered(reply));
 
       expect(read?.happening.value).toBe('slack.message.replied');
       expect(read?.spoken).toBe(true);
     });
 
-    it('marks its own posts as its own doing', () => {
+    it('marks its own posts as its own doing', async () => {
       const echo = {
         event: {
           type: 'message',
@@ -206,11 +207,105 @@ describe('the Slack webhook runtime', () => {
         },
       };
 
-      expect(runtime().read(delivered(echo))[0]?.ourOwn).toBe(true);
+      expect((await runtime().read(delivered(echo)))[0]?.ourOwn).toBe(true);
     });
 
-    it('does not mark a person’s reply as its own', () => {
-      expect(runtime().read(delivered(reply))[0]?.ourOwn).toBe(false);
+    it('does not mark a person’s reply as its own', async () => {
+      expect((await runtime().read(delivered(reply)))[0]?.ourOwn).toBe(false);
+    });
+  });
+
+  describe('enriching before it raises', () => {
+    const WITH_LOOKUP = `
+version: 1
+integration: slack
+webhook:
+  verify:
+    token:
+      secret: secret.SLACK_SIGNING_SECRET
+  events:
+    - when: '\${{ body.event.type == "app_mention" }}'
+      lookup:
+        request:
+          method: GET
+          url: https://slack.com/api/users.info
+          query:
+            user: '\${{ body.event.user }}'
+          auth:
+            token:
+              secret: secret.SLACK_BOT_TOKEN
+        capture:
+          email: '\${{ response.user.profile.email }}'
+      raise:
+        happening: slack.app_mention
+        opens:
+          onto: delivery
+          title: '\${{ body.event.text }}'
+          assignBy:
+            email: '\${{ email }}'
+        marks:
+          - kind: slack.thread
+            value: '\${{ body.event.ts }}'
+`;
+
+    const looking = (response: unknown, ok = true) => {
+      const read = compileIntegration(
+        '.spotlight/integrations/slack.yml',
+        WITH_LOOKUP,
+      );
+      if (!read.ok) {
+        throw new Error(read.problems.map((each) => each.reason).join(', '));
+      }
+
+      const run = vi.fn(async () => ({
+        ok,
+        status: 200,
+        response,
+        capture: {},
+      }));
+
+      const runtime = new WebhookRuntime(
+        read.readable,
+        WORKSPACE,
+        new Map([['SLACK_BOT_TOKEN', 'xoxb-1']]),
+        () => NOW * 1000,
+        null,
+        { run } as unknown as HttpOutbound,
+      );
+
+      return { runtime, run };
+    };
+
+    const mentioning = {
+      event: { type: 'app_mention', text: 'do it', user: 'U0', ts: '170.1' },
+    };
+
+    it('calls the lookup and assigns the opened task by the email it found', async () => {
+      const { runtime, run } = looking({
+        ok: true,
+        user: { profile: { email: 'dev@acme.test' } },
+      });
+
+      const [read] = await runtime.read({
+        headers: {},
+        body: mentioning,
+        raw: null,
+      });
+
+      expect(run).toHaveBeenCalledOnce();
+      expect(read?.opens?.assignEmail).toBe('dev@acme.test');
+    });
+
+    it('opens unassigned where the lookup is refused', async () => {
+      const { runtime } = looking(null, false);
+
+      const [read] = await runtime.read({
+        headers: {},
+        body: mentioning,
+        raw: null,
+      });
+
+      expect(read?.opens?.assignEmail).toBeNull();
     });
   });
 });

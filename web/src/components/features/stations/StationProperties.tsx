@@ -1,4 +1,5 @@
 import { HarnessSelect } from '@/components/features/stations/HarnessSelect';
+import { StationRepositories } from '@/components/features/stations/StationRepositories';
 
 type StationPropertiesProps = {
   /** Absent where nothing runs at this station. */
@@ -6,12 +7,15 @@ type StationPropertiesProps = {
   onHarness?: (harness: string) => void;
   /** Said in place of a harness, where there is nothing to run. */
   note?: string;
+  /** The repositories the line works in, shown for every station on it. */
+  repositories: readonly string[];
 };
 
 export function StationProperties({
   harness,
   onHarness,
   note,
+  repositories,
 }: StationPropertiesProps) {
   return (
     <aside className="sticky top-8 hidden w-56 shrink-0 flex-col gap-4 self-start lg:flex">
@@ -28,6 +32,8 @@ export function StationProperties({
       {note ? (
         <p className="px-2 text-muted-foreground text-xs leading-5">{note}</p>
       ) : null}
+
+      <StationRepositories repositories={repositories} />
     </aside>
   );
 }

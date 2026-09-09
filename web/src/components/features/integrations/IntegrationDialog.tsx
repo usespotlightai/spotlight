@@ -5,7 +5,6 @@ import { Pill } from '@/components/shared/Pill';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -38,6 +37,31 @@ export function IntegrationDialog({
   open,
   onOpenChange,
 }: IntegrationDialogProps) {
+  const set = useSetSecret(teamId);
+
+  // What has been typed into each secret's field, until it is saved. Held here
+  // rather than per field, so one button at the bottom saves them together.
+  const [typed, setTyped] = useState<Record<string, string>>({});
+
+  const pending = integration.secrets
+    .map((secret) => ({
+      name: secret.name,
+      value: (typed[secret.name] ?? '').trim(),
+    }))
+    .filter((each) => each.value.length > 0);
+
+  const save = async () => {
+    try {
+      for (const secret of pending) {
+        await set.mutateAsync({ name: secret.name, value: secret.value });
+      }
+      setTyped({});
+      onOpenChange(false);
+    } catch {
+      // Left open with the error shown, so nothing is lost to a closed dialog.
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* Wider than the default: it holds a delivery address that
@@ -65,7 +89,15 @@ export function IntegrationDialog({
           )}
 
           {integration.secrets.map((secret) => (
-            <SecretField key={secret.name} secret={secret} teamId={teamId} />
+            <SecretField
+              key={secret.name}
+              secret={secret}
+              value={typed[secret.name] ?? ''}
+              onChange={(value) =>
+                setTyped((held) => ({ ...held, [secret.name]: value }))
+              }
+              onEnter={save}
+            />
           ))}
 
           {integration.happenings.length > 0 && (
@@ -77,12 +109,16 @@ export function IntegrationDialog({
               </div>
             </Field>
           )}
+
+          {set.error && (
+            <p className="text-destructive text-xs">{set.error.message}</p>
+          )}
         </div>
 
         <DialogFooter>
-          <DialogClose render={<Button variant="outline" size="sm" />}>
-            Done
-          </DialogClose>
+          <Button size="sm" onClick={save} disabled={set.isPending}>
+            {set.isPending ? 'Saving…' : 'Save'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -147,58 +183,35 @@ function ConnectField({
 /** One secret the host reads: set once, replaceable, never read back. */
 function SecretField({
   secret,
-  teamId,
+  value,
+  onChange,
+  onEnter,
 }: {
   secret: ConfiguredSecretResponseDto;
-  teamId: string | undefined;
+  value: string;
+  onChange: (value: string) => void;
+  onEnter: () => void;
 }) {
-  const [value, setValue] = useState('');
-  const set = useSetSecret(teamId);
-
-  const save = () => {
-    if (value.trim()) {
-      set.mutate(
-        { name: secret.name, value },
-        { onSuccess: () => setValue('') },
-      );
-    }
-  };
-
   return (
     <Field label={secret.name}>
-      <div className="flex items-center gap-2">
-        {/* Takes a secret and does not give it back. Once set, the field is
-            empty and says so: a row of dots would only suggest there were
-            something to read. */}
-        <input
-          type="password"
-          value={value}
-          onChange={(event) => setValue(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              event.preventDefault();
-              save();
-            }
-          }}
-          placeholder={
-            secret.set ? 'Set — paste to replace' : 'Paste the secret'
+      {/* Takes a secret and does not give it back. Once set, the field is
+          empty and says so: a row of dots would only suggest there were
+          something to read. */}
+      <input
+        type="password"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            onEnter();
           }
-          aria-label={secret.name}
-          autoComplete="off"
-          className="h-8 flex-1 rounded-md border-[0.5px] border-border bg-background px-2.5 text-foreground text-sm outline-none placeholder:text-muted-foreground focus-visible:border-input"
-        />
-        <Button
-          type="button"
-          size="sm"
-          onClick={save}
-          disabled={set.isPending || value.trim().length === 0}
-        >
-          {set.isPending ? 'Saving…' : secret.set ? 'Replace' : 'Save'}
-        </Button>
-      </div>
-      {set.error && (
-        <p className="text-destructive text-xs">{set.error.message}</p>
-      )}
+        }}
+        placeholder={secret.set ? 'Paste to replace' : 'Paste the secret'}
+        aria-label={secret.name}
+        autoComplete="off"
+        className="h-8 w-full rounded-md border-[0.5px] border-border bg-background px-2.5 text-foreground text-sm outline-none placeholder:text-muted-foreground focus-visible:border-input"
+      />
     </Field>
   );
 }

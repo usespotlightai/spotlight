@@ -1,6 +1,7 @@
 import type { ClockPort } from '@application/ports/clock.port';
 import type { HappeningReactionsPort } from '@application/ports/happening-reactions.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
+import type { MemberReaderPort } from '@application/ports/member-reader.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import type { Happened } from '@application/ports/webhook-source.port';
 import type { TaskDispatching } from '@application/services/task-dispatch';
@@ -27,6 +28,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
     private readonly ids: IdGeneratorPort,
+    private readonly members: MemberReaderPort,
   ) {}
 
   /** Each word in its own transaction; one that fails does not undo the rest. */
@@ -109,7 +111,13 @@ export class ReactToHappenings implements HappeningReactionsPort {
 
     const { line, opening } = chosen;
 
-    const opened = opening.marks.reduce(
+    // Assigned to whoever the delivery named by email, where a member has it;
+    // left unassigned otherwise, so a name we cannot place loses nothing.
+    const assignee = happened.opens.assignEmail
+      ? await this.members.byEmail(workspaceId, happened.opens.assignEmail)
+      : null;
+
+    const added = opening.marks.reduce(
       (task, mark) => task.markedBy(mark),
       Task.add({
         workspaceId,
@@ -121,6 +129,8 @@ export class ReactToHappenings implements HappeningReactionsPort {
         newId: () => this.ids.generate(),
       }),
     );
+
+    const opened = assignee ? added.assignedTo(assignee) : added;
 
     const runId = opened.idle
       ? await this.dispatch.dispatch({ task: opened, line })

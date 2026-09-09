@@ -35,7 +35,9 @@ export class AnswerRemarkHandler
         command.runnerId,
       );
 
-      if (!task?.repository || !task.pullRequest) {
+      const repository = task?.pullRequest?.repository ?? null;
+
+      if (!task || !task.pullRequest || !repository) {
         throw new NoRepositoryError();
       }
 
@@ -65,7 +67,7 @@ export class AnswerRemarkHandler
       // Answering twice says the same thing, which the host is told to skip.
       await this.remarks.answer({
         installation,
-        repository: task.repository,
+        repository,
         pullRequest: task.pullRequest,
         remark: task.remarkAt(at),
         body: command.body,

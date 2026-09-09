@@ -12,7 +12,6 @@ const task = (id: string, stationId: string): Task => ({
   awaitingReview: null,
   raisedBy: null,
   assignee: null,
-  repository: null,
   pullRequest: null,
   note: null,
 });

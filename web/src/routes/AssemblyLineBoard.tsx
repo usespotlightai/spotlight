@@ -318,7 +318,6 @@ export function AssemblyLineBoard() {
       <NewTaskDialog
         open={adding !== null}
         onOpenChange={(next) => !next && setAdding(null)}
-        slug={slug}
         lineName={line.name}
         stationName={
           line.stations.find((each) => each.id === adding)?.name ?? ''

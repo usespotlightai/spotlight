@@ -14,7 +14,6 @@ import { Mark } from '@domain/value-objects/mark.vo';
 import { NotePosition } from '@domain/value-objects/note-position.vo';
 import type { PullRequestUrl } from '@domain/value-objects/pull-request-url.vo';
 import type { Remark } from '@domain/value-objects/remark.vo';
-import type { Repository } from '@domain/value-objects/repository.vo';
 import type { RunId } from '@domain/value-objects/run-id.vo';
 import type { RunnerId } from '@domain/value-objects/runner-id.vo';
 import type { Said } from '@domain/value-objects/said.vo';
@@ -68,8 +67,6 @@ export class Task extends EventRecorder {
     readonly createdAt: Date,
     readonly raisedAt: StationId | null,
     readonly raisedBy: UserId | null,
-    // Told to the runner as somewhere to reach, never as something to open.
-    readonly repository: Repository | null,
     readonly pullRequest: PullRequestUrl | null,
     // Every handle the world outside knows it by, so a delivery naming one
     // of them finds it without anybody adding a way to look it up.
@@ -92,7 +89,6 @@ export class Task extends EventRecorder {
     rank: TaskRank;
     /** Null where nobody raised it: a word from outside opened it, not a person. */
     raisedBy?: UserId | null;
-    repository?: Repository | null;
     now: Date;
     newId: () => string;
   }): Task {
@@ -112,7 +108,6 @@ export class Task extends EventRecorder {
       input.now,
       input.stationId,
       raisedBy,
-      input.repository ?? null,
       null,
       [],
       null,
@@ -136,7 +131,6 @@ export class Task extends EventRecorder {
     createdAt: Date;
     raisedAt: StationId | null;
     raisedBy: UserId | null;
-    repository: Repository | null;
     pullRequest: PullRequestUrl | null;
     marks?: readonly Mark[];
     finishedAt: Date | null;
@@ -164,7 +158,6 @@ export class Task extends EventRecorder {
       input.createdAt,
       input.raisedAt,
       input.raisedBy,
-      input.repository,
       input.pullRequest,
       input.marks ?? [],
       input.finishedAt,
@@ -233,11 +226,6 @@ export class Task extends EventRecorder {
    */
   claimedBy(userId: UserId): Task {
     return this.assignee ? this : this.with({ assignee: userId });
-  }
-
-  /** The repository a run works this task in, or none. */
-  worksIn(repository: Repository | null): Task {
-    return this.with({ repository });
   }
 
   get branch(): Branch {
@@ -516,7 +504,6 @@ export class Task extends EventRecorder {
     sessionId?: HarnessSession | null;
     runnerId?: RunnerId | null;
     notes?: readonly TaskNote[];
-    repository?: Repository | null;
     pullRequest?: PullRequestUrl | null;
     marks?: readonly Mark[];
     finishedAt?: Date | null;
@@ -536,7 +523,6 @@ export class Task extends EventRecorder {
       this.createdAt,
       this.raisedAt,
       this.raisedBy,
-      part.repository !== undefined ? part.repository : this.repository,
       part.pullRequest !== undefined ? part.pullRequest : this.pullRequest,
       part.marks ?? this.marks,
       part.finishedAt !== undefined ? part.finishedAt : this.finishedAt,

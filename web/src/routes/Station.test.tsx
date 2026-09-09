@@ -38,6 +38,7 @@ const line = {
       kind: 'completed',
     },
   ],
+  repositories: ['usespotlightai/spotlight'],
 };
 
 vi.mock('@/hooks/api/useAssemblyLines', () => ({
@@ -198,6 +199,15 @@ describe('Station', () => {
       'contenteditable',
       'true',
     );
+  });
+
+  it('shows the repositories the line works in', () => {
+    renderAt('station_1');
+
+    expect(
+      screen.getByRole('heading', { name: 'Repositories' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('usespotlightai/spotlight')).toBeInTheDocument();
   });
 
   it('offers every harness Spotlight knows, and nobody', async () => {

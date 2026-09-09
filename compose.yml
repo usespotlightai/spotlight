@@ -11,6 +11,9 @@ x-control-plane-env: &control-plane-env
   GITHUB_APP_ID: ${GITHUB_APP_ID:-}
   GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY:-}
   GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+  OUTBOUND_ALLOWED_HOSTS: ${OUTBOUND_ALLOWED_HOSTS:-slack.com}
+  # The shared OAuth2 apps, per host, as JSON
+  OAUTH_CLIENTS: ${OAUTH_CLIENTS:-}
   LOG_LEVEL: ${LOG_LEVEL:-debug}
 
 x-runner-env: &runner-env

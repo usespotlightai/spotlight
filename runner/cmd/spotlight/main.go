@@ -26,7 +26,7 @@ func main() {
 
 const usage = `usage:
   spotlight handover --next <where> [--note <text>]
-  spotlight pull-request --title <text> [--body <text>]
+  spotlight pull-request --title <text> [--body <text>] [--repository <name>]
   spotlight reply --to <handle> [--body <text>] [--resolve]
   spotlight trace --task <id> [--out <path>]`
 
@@ -156,6 +156,9 @@ func pullRequest(args []string, in io.Reader, out io.Writer) error {
 
 	title := flags.String("title", "", "what to call it")
 	body := flags.String("body", "", "what it does, as markdown")
+	repository := flags.String(
+		"repository", "", "which repository, by name, where the line works several",
+	)
 
 	if err := flags.Parse(args); err != nil {
 		return fmt.Errorf("%s", usage)
@@ -179,7 +182,11 @@ func pullRequest(args []string, in io.Reader, out io.Writer) error {
 		return fmt.Errorf("no run to open one for: spotlight runs inside a Spotlight workspace")
 	}
 
-	asked, err := json.Marshal(protocol.PullRequest{Title: *title, Body: *body})
+	asked, err := json.Marshal(protocol.PullRequest{
+		Title:      *title,
+		Body:       *body,
+		Repository: strings.TrimSpace(*repository),
+	})
 	if err != nil {
 		return err
 	}

@@ -675,15 +675,17 @@ func granted(
 }
 
 // reached turns the control plane's stand-in remote into the address this
-// runner is serving the repository on. A checkout naming anywhere else is
-// left alone: what a remote means is otherwise the hook's business.
+// runner is serving the repository on. A run may work several, so each is
+// reached under its own path, which is the directory it is cloned into. A
+// checkout naming anywhere else is left alone: what a remote means is
+// otherwise the hook's business.
 func reached(checkouts []protocol.Checkout, remote string) []protocol.Checkout {
 	resolved := make([]protocol.Checkout, len(checkouts))
 
 	for at, checkout := range checkouts {
 		resolved[at] = checkout
 		if checkout.Remote == protocol.ThroughSpotlight {
-			resolved[at].Remote = remote
+			resolved[at].Remote = remote + "/" + checkout.Path
 		}
 	}
 

@@ -89,8 +89,11 @@ export interface WebhookSourcePort {
   /** Whose word this is. Null where it belongs to no workspace here. */
   routes(delivered: Delivered): Promise<WorkspaceId | null>;
 
-  /** One delivery may carry several words, or none Spotlight acts on. */
-  read(delivered: Delivered): readonly Happened[];
+  /**
+   * One delivery may carry several words, or none Spotlight acts on. Async
+   * because a word may need something the delivery only named fetched first.
+   */
+  read(delivered: Delivered): Promise<readonly Happened[]>;
 
   /**
    * What the delivery says about the workspace rather than about a task.

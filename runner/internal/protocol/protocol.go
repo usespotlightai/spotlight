@@ -109,6 +109,9 @@ type Continuity struct {
 type PullRequest struct {
 	Title string `json:"title"`
 	Body  string `json:"body,omitempty"`
+	// Repository names which of the line's repositories to open against, by
+	// its directory name. Empty where the line works only one.
+	Repository string `json:"repository,omitempty"`
 }
 
 // Opened is where the pull request landed.

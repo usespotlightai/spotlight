@@ -2,3 +2,4 @@ node_modules/
 .idea/
 .docker/traefik/certs/*.pem
 .env
+scripts/

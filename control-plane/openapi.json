@@ -2150,63 +2150,6 @@
         ]
       }
     },
-    "/teams/{teamId}/tasks/{taskId}/repository": {
-      "put": {
-        "operationId": "setTaskRepository",
-        "parameters": [
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
-              "type": "string"
-            }
-          },
-          {
-            "name": "taskId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetTaskRepositoryRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TaskResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session"
-          },
-          "404": {
-            "description": "No such task for this caller"
-          }
-        },
-        "summary": "Point a task at a repository, or clear it",
-        "tags": [
-          "tasks"
-        ]
-      }
-    },
     "/teams/{teamId}/members": {
       "get": {
         "operationId": "listMembers",
@@ -2473,13 +2416,24 @@
             "items": {
               "$ref": "#/components/schemas/ReactionResponseDto"
             }
+          },
+          "repositories": {
+            "example": [
+              "usespotlightai/spotlight"
+            ],
+            "description": "The repositories a run on this line works in, as owner/name",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
           "id",
           "name",
           "stations",
-          "reactions"
+          "reactions",
+          "repositories"
         ]
       },
       "ReorderStationsRequestDto": {
@@ -3121,6 +3075,12 @@
             "type": "string",
             "nullable": true,
             "description": "Markdown, shown as the pull request description"
+          },
+          "repository": {
+            "type": "string",
+            "example": "api",
+            "nullable": true,
+            "description": "Which of the line’s repositories to open against, by name. Left out where the line works only one."
           }
         },
         "required": [
@@ -4260,12 +4220,6 @@
               }
             ]
           },
-          "repository": {
-            "type": "string",
-            "example": "usespotlightai/spotlight",
-            "nullable": true,
-            "description": "The codebase the work is done in"
-          },
           "pullRequest": {
             "type": "string",
             "example": "https://github.com/acme/widgets/pull/7",
@@ -4311,7 +4265,6 @@
           "createdAt",
           "running",
           "awaitingReview",
-          "repository",
           "pullRequest",
           "raisedBy",
           "assignee",
@@ -4744,12 +4697,6 @@
             "maxLength": 20000,
             "nullable": true,
             "description": "Markdown. Left out or blank for a task with nothing said."
-          },
-          "repository": {
-            "type": "string",
-            "example": "usespotlightai/spotlight",
-            "nullable": true,
-            "description": "The codebase the work is done in, as owner/name"
           }
         },
         "required": [
@@ -4805,20 +4752,6 @@
         },
         "required": [
           "assigneeId"
-        ]
-      },
-      "SetTaskRepositoryRequestDto": {
-        "type": "object",
-        "properties": {
-          "repository": {
-            "type": "string",
-            "example": "usespotlightai/spotlight",
-            "nullable": true,
-            "description": "The repository a run works it in, or null for none"
-          }
-        },
-        "required": [
-          "repository"
         ]
       },
       "MemberResponseDto": {

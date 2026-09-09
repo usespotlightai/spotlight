@@ -53,7 +53,7 @@ export class WebhookController {
     @Headers() headers: Record<string, string | string[] | undefined>,
     @Body() body: unknown,
     @Req() request: Delivering,
-    @Res({ passthrough: true }) response: Answerable,
+    @Res() response: Answerable,
   ): Promise<void> {
     await this.take(
       source,
@@ -76,7 +76,7 @@ export class WebhookController {
     @Headers() headers: Record<string, string | string[] | undefined>,
     @Body() body: unknown,
     @Req() request: Delivering,
-    @Res({ passthrough: true }) response: Answerable,
+    @Res() response: Answerable,
   ): Promise<void> {
     await this.take(
       source,

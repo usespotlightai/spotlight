@@ -14,14 +14,22 @@ import type {
 } from '@application/ports/webhook-source.port';
 import type { DeclaredHappening } from '@domain/entities/declared-happening.entity';
 import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
-import { bound, holds, reads } from '@infrastructure/integrations/expression';
+import {
+  type Bindings,
+  bound,
+  holds,
+  reads,
+  value,
+} from '@infrastructure/integrations/expression';
 import { readEvents } from '@infrastructure/integrations/happenings';
 import type {
   AuthIR,
+  EventIR,
   ReadableIntegration,
   Templated,
 } from '@infrastructure/integrations/integration.compile';
 import type { JwksResolver } from '@infrastructure/integrations/jwks';
+import type { HttpOutbound } from '@infrastructure/outbound/http-outbound';
 
 /** The SPKI wrapper for a raw 32-byte ed25519 public key. */
 const ED25519_SPKI = Buffer.from('302a300506032b6570032100', 'hex');
@@ -48,6 +56,8 @@ export class WebhookRuntime implements WebhookSourcePort {
     private readonly secrets: ReadonlyMap<string, string>,
     private readonly now: () => number = () => Date.now(),
     private readonly jwks: JwksResolver | null = null,
+    /** Makes an event's `lookup` call, where one is named; none, where not. */
+    private readonly outbound: HttpOutbound | null = null,
   ) {}
 
   get key(): string {
@@ -291,7 +301,7 @@ export class WebhookRuntime implements WebhookSourcePort {
     return this.workspaceId;
   }
 
-  read(delivered: Delivered): readonly Happened[] {
+  async read(delivered: Delivered): Promise<readonly Happened[]> {
     const mine = this.readable.webhook?.mine;
 
     return readEvents(
@@ -299,7 +309,38 @@ export class WebhookRuntime implements WebhookSourcePort {
       (happening) => this.declaring(happening),
       this.bindings(delivered),
       (against) => (mine ? holds(mine, against) : false),
+      (event, against) => this.enriched(event, against),
     );
+  }
+
+  /**
+   * A matched event's `lookup` filled in: the call is made, and what it says to
+   * keep joins the bindings. Where there is no lookup, or no way to make it, the
+   * bindings are left as they came — a name that cannot be filled is not fatal.
+   */
+  private async enriched(event: EventIR, against: Bindings): Promise<Bindings> {
+    if (!event.lookup || !this.outbound) {
+      return against;
+    }
+
+    const secret = Object.fromEntries(this.secrets);
+    const result = await this.outbound.run(event.lookup.request, {
+      ...against,
+      secret,
+    });
+
+    if (!result.ok) {
+      return against;
+    }
+
+    const beside = { ...against, secret, response: bound(result.response) };
+    const captured: Record<string, unknown> = {};
+
+    for (const each of event.lookup.capture) {
+      captured[each.name] = value(each.value, beside);
+    }
+
+    return { ...against, ...captured };
   }
 
   private declaring(happening: string): DeclaredHappening | null {

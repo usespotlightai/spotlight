@@ -6,6 +6,7 @@ import type { Happening } from '@domain/value-objects/happening.vo';
 import type { HarnessId } from '@domain/value-objects/harness-id.vo';
 import type { LineKey } from '@domain/value-objects/line-key.vo';
 import type { LineRole } from '@domain/value-objects/line-role.vo';
+import type { Repository } from '@domain/value-objects/repository.vo';
 import type { StationColor } from '@domain/value-objects/station-color.vo';
 import type { StationDescription } from '@domain/value-objects/station-description.vo';
 import type { StationKey } from '@domain/value-objects/station-key.vo';
@@ -46,6 +47,8 @@ export class LinePlan {
     readonly reactions: readonly ReactionPlan[],
     /** What the line is for, where the factory routes work by purpose. */
     readonly role: LineRole | null,
+    /** The repositories a run on this line works in. */
+    readonly repositories: readonly Repository[],
   ) {}
 
   static of(input: {
@@ -54,6 +57,7 @@ export class LinePlan {
     stations: readonly StationPlan[];
     reactions?: readonly ReactionPlan[];
     role?: LineRole | null;
+    repositories?: readonly Repository[];
   }): LinePlan {
     const reactions = input.reactions ?? [];
     const keys = input.stations.map((each) => each.key.value);
@@ -104,6 +108,7 @@ export class LinePlan {
       input.stations,
       reactions,
       input.role ?? null,
+      input.repositories ?? [],
     );
   }
 

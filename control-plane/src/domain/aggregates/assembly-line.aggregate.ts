@@ -15,8 +15,10 @@ import { HandoverOption } from '@domain/value-objects/handover-option.vo';
 import type { Happening } from '@domain/value-objects/happening.vo';
 import type { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { LineKey } from '@domain/value-objects/line-key.vo';
+import { LineRepositories } from '@domain/value-objects/line-repositories.vo';
 import type { LineRole } from '@domain/value-objects/line-role.vo';
 import { Reaction } from '@domain/value-objects/reaction.vo';
+import type { Repository } from '@domain/value-objects/repository.vo';
 import type { StationColor } from '@domain/value-objects/station-color.vo';
 import type { StationDescription } from '@domain/value-objects/station-description.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
@@ -37,6 +39,11 @@ export class AssemblyLine {
     readonly reactions: readonly Reaction[],
     /** What this line is for, where the factory routes work by purpose. */
     readonly role: LineRole | null,
+    /**
+     * The repositories a run on this line works in. All are pulled into the
+     * workspace; which one a task's change belongs in is the agent's to tell.
+     */
+    readonly repositories: LineRepositories,
   ) {}
 
   static open(input: {
@@ -68,6 +75,7 @@ export class AssemblyLine {
       key: input.line.key,
       name: input.line.name,
       role: input.line.role,
+      repositories: input.line.repositories,
       stations: named.map((each, position) =>
         Station.of({
           id: ids[position] as StationId,
@@ -98,6 +106,7 @@ export class AssemblyLine {
     stations: readonly Station[];
     reactions?: readonly Reaction[];
     role?: LineRole | null;
+    repositories?: readonly Repository[];
   }): AssemblyLine {
     const reactions = input.reactions ?? [];
 
@@ -117,7 +126,16 @@ export class AssemblyLine {
       [...input.stations].sort((a, b) => a.position - b.position),
       reactions,
       input.role ?? null,
+      LineRepositories.of(input.repositories ?? []),
     );
+  }
+
+  repositoryNamed(name: string): Repository | null {
+    return this.repositories.named(name);
+  }
+
+  opening(name: string | null): Repository {
+    return this.repositories.opening(name);
   }
 
   renameStation(stationId: StationId, name: StationName): AssemblyLine {
@@ -182,6 +200,7 @@ export class AssemblyLine {
       stations: this.stations,
       reactions,
       role: this.role,
+      repositories: this.repositories.all,
     });
   }
 
@@ -235,6 +254,7 @@ export class AssemblyLine {
       reactions: this.reactions,
       stations: moved,
       role: this.role,
+      repositories: this.repositories.all,
     });
   }
 
@@ -259,6 +279,7 @@ export class AssemblyLine {
         each.equals(target) ? change(each) : each,
       ),
       role: this.role,
+      repositories: this.repositories.all,
     });
   }
 

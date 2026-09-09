@@ -33,6 +33,9 @@ export const renderLine = (line: AssemblyLine): string => {
       key: line.key.value,
       name: line.name.value,
       ...(line.role ? { role: line.role.value } : {}),
+      ...(line.repositories.all.length > 0
+        ? { repositories: line.repositories.all.map((each) => each.value) }
+        : {}),
       stations,
       ...(reactions.length > 0 ? { reactions } : {}),
     },

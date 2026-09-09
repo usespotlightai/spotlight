@@ -103,15 +103,24 @@ export interface RaiseIR {
     readonly at: string | null;
     readonly title: Expression;
     readonly description: Expression | null;
+    /** The email of the member to assign the opened task to, where one matches. */
+    readonly assignBy: { readonly email: Expression } | null;
   } | null;
   readonly branch: Expression | null;
   readonly marks: readonly { kind: MarkKind; value: Expression }[];
+}
+
+/** A call whose captures join the bindings before a word is raised. */
+export interface LookupIR {
+  readonly request: RequestIR;
+  readonly capture: readonly { name: string; value: Expression }[];
 }
 
 export interface EventIR {
   /** A list, one word raised per item; each item bound as `item`. */
   readonly forEach: Expression | null;
   readonly when: Expression;
+  readonly lookup: LookupIR | null;
   readonly raise: RaiseIR;
 }
 
@@ -366,6 +375,23 @@ class Compiler {
         ? this.expression(event.forEach, `${where}.forEach`)
         : null,
       when: this.expression(event.when, `${where}.when`) as Expression,
+      lookup: event.lookup
+        ? {
+            request: this.request(
+              event.lookup.request,
+              `${where}.lookup.request`,
+            ),
+            capture: Object.entries(event.lookup.capture).map(
+              ([name, value]) => ({
+                name,
+                value: this.expression(
+                  value,
+                  `${where}.lookup.capture.${name}`,
+                ) as Expression,
+              }),
+            ),
+          }
+        : null,
       raise: this.raise(event.raise, `${where}.raise`),
     };
   }
@@ -387,6 +413,14 @@ class Compiler {
                   raise.opens.description,
                   `${at}.opens.description`,
                 )
+              : null,
+            assignBy: raise.opens.assignBy
+              ? {
+                  email: this.expression(
+                    raise.opens.assignBy.email,
+                    `${at}.opens.assignBy.email`,
+                  ) as Expression,
+                }
               : null,
           }
         : null,

@@ -6,10 +6,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NewTaskDialog } from '@/components/features/board/task/NewTaskDialog';
 import type { NewTask } from '@/lib/task';
 
-vi.mock('@/hooks/api/useRepositories', () => ({
-  useRepositories: () => ({ data: [{ fullName: 'acme/widgets' }] }),
-}));
-
 const created = vi.fn();
 
 function Harness() {
@@ -19,7 +15,6 @@ function Harness() {
     <NewTaskDialog
       open={open}
       onOpenChange={setOpen}
-      slug="acme"
       lineName="Default"
       stationName="Triage"
       onCreate={(task: NewTask) => created(task)}
@@ -43,23 +38,6 @@ beforeEach(() => {
 });
 
 describe('NewTaskDialog', () => {
-  it('starts on the repository the last task was raised against', () => {
-    localStorage.setItem('spotlight.last-repository', 'acme/widgets');
-    renderDialog();
-
-    expect(screen.getByLabelText('Repository')).toHaveTextContent(
-      'acme/widgets',
-    );
-  });
-
-  it('starts on none where nothing has been raised yet', () => {
-    renderDialog();
-
-    expect(screen.getByLabelText('Repository')).toHaveTextContent(
-      'No repository',
-    );
-  });
-
   it('says which line and station the task is going to', () => {
     renderDialog();
 
@@ -86,7 +64,6 @@ describe('NewTaskDialog', () => {
     expect(created).toHaveBeenCalledWith({
       title: 'Fix the queue',
       description: '',
-      repository: null,
     });
   });
 

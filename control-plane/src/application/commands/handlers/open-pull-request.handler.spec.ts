@@ -2,14 +2,17 @@ import { OpenPullRequestHandler } from '@application/commands/handlers/open-pull
 import { OpenPullRequestCommand } from '@application/commands/open-pull-request.command';
 import type { PullRequestPort } from '@application/ports/pull-request.port';
 import { RunAtHand } from '@application/services/run-at-hand.service';
+import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Run } from '@domain/aggregates/run.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
+import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { RunRepository } from '@domain/repositories/run.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import type { WorkspaceConnections } from '@domain/repositories/workspace.repository';
 import { Connection } from '@domain/value-objects/connection.vo';
 import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { LineRepositories } from '@domain/value-objects/line-repositories.vo';
 import { PullRequestUrl } from '@domain/value-objects/pull-request-url.vo';
 import { Repository } from '@domain/value-objects/repository.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
@@ -25,7 +28,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-08-31T09:00:00.000Z');
 
-const task = (repository: string | null) =>
+const task = () =>
   Task.add({
     workspaceId: WorkspaceId.of('ws_1'),
     stationId: StationId.of('station_1'),
@@ -34,8 +37,18 @@ const task = (repository: string | null) =>
     raisedBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
-    repository: repository ? Repository.of(repository) : null,
   });
+
+/** Enough of a line for the handler: the rule for which repository to open. */
+const lineWorking = (repositories: readonly string[]): AssemblyLine => {
+  const held = LineRepositories.of(
+    repositories.map((each) => Repository.of(each)),
+  );
+
+  return {
+    opening: (name: string | null) => held.opening(name),
+  } as unknown as AssemblyLine;
+};
 
 const claimed = () =>
   Run.enqueue({
@@ -51,7 +64,10 @@ const claimed = () =>
     }),
   }).claim(RunnerId.of('runner_1'), NOW);
 
-const opening = (held: Task) => {
+const opening = (
+  held: Task,
+  repositories: readonly string[] = ['acme/widgets'],
+) => {
   const saved: Task[] = [];
   const pullRequests = {
     open: vi.fn(async () => ({
@@ -65,12 +81,17 @@ const opening = (held: Task) => {
     }),
   } as unknown as TaskRepository;
 
+  const lines = {
+    holding: vi.fn(async () => lineWorking(repositories)),
+  } as unknown as AssemblyLineRepository;
+
   const handler = new OpenPullRequestHandler(
     new RunAtHand(
       { findById: vi.fn(async () => claimed()) } as unknown as RunRepository,
       tasks,
     ),
     tasks,
+    lines,
     {
       connectionTo: vi.fn(async () => Connection.of('github', '42')),
     } as unknown as WorkspaceConnections,
@@ -81,11 +102,17 @@ const opening = (held: Task) => {
 };
 
 describe('OpenPullRequestHandler', () => {
-  it('opens one for the task’s own branch', async () => {
-    const { handler, pullRequests } = opening(task('acme/widgets'));
+  it('opens one against the line’s only repository, for the task’s branch', async () => {
+    const { handler, pullRequests } = opening(task());
 
     const opened = await handler.execute(
-      new OpenPullRequestCommand('run_1', 'runner_1', 'Fix the queue', 'why'),
+      new OpenPullRequestCommand(
+        'run_1',
+        'runner_1',
+        'Fix the queue',
+        'why',
+        null,
+      ),
     );
 
     expect(opened.url).toBe('https://github.com/acme/widgets/pull/7');
@@ -98,11 +125,69 @@ describe('OpenPullRequestHandler', () => {
     });
   });
 
-  it('remembers where it landed, so nothing has to read the note for it', async () => {
-    const { handler, saved } = opening(task('acme/widgets'));
+  it('opens against the repository the agent names where the line works several', async () => {
+    const { handler, pullRequests } = opening(task(), ['acme/api', 'acme/web']);
 
     await handler.execute(
-      new OpenPullRequestCommand('run_1', 'runner_1', 'Fix the queue', ''),
+      new OpenPullRequestCommand(
+        'run_1',
+        'runner_1',
+        'Fix the queue',
+        '',
+        'web',
+      ),
+    );
+
+    expect(pullRequests.open).toHaveBeenCalledWith(
+      expect.objectContaining({ repository: Repository.of('acme/web') }),
+    );
+  });
+
+  it('refuses where several are worked and the agent named none', async () => {
+    const { handler, pullRequests } = opening(task(), ['acme/api', 'acme/web']);
+
+    await expect(
+      handler.execute(
+        new OpenPullRequestCommand(
+          'run_1',
+          'runner_1',
+          'Fix the queue',
+          '',
+          null,
+        ),
+      ),
+    ).rejects.toThrow(/name which one/);
+    expect(pullRequests.open).not.toHaveBeenCalled();
+  });
+
+  it('refuses a repository the line does not work', async () => {
+    const { handler, pullRequests } = opening(task(), ['acme/api']);
+
+    await expect(
+      handler.execute(
+        new OpenPullRequestCommand(
+          'run_1',
+          'runner_1',
+          'Fix the queue',
+          '',
+          'web',
+        ),
+      ),
+    ).rejects.toThrow(/no repository named "web"/);
+    expect(pullRequests.open).not.toHaveBeenCalled();
+  });
+
+  it('remembers where it landed, so nothing has to read the note for it', async () => {
+    const { handler, saved } = opening(task());
+
+    await handler.execute(
+      new OpenPullRequestCommand(
+        'run_1',
+        'runner_1',
+        'Fix the queue',
+        '',
+        null,
+      ),
     );
 
     expect(saved[0]?.pullRequest?.value).toBe(
@@ -112,27 +197,39 @@ describe('OpenPullRequestHandler', () => {
 
   // A station worked twice must not leave two pull requests behind.
   it('answers with the one already open rather than opening another', async () => {
-    const already = task('acme/widgets').openedAt(
+    const already = task().openedAt(
       PullRequestUrl.of('https://github.com/acme/widgets/pull/1'),
     );
     const { handler, pullRequests } = opening(already);
 
     const opened = await handler.execute(
-      new OpenPullRequestCommand('run_1', 'runner_1', 'Fix the queue', ''),
+      new OpenPullRequestCommand(
+        'run_1',
+        'runner_1',
+        'Fix the queue',
+        '',
+        null,
+      ),
     );
 
     expect(opened.url).toBe('https://github.com/acme/widgets/pull/1');
     expect(pullRequests.open).not.toHaveBeenCalled();
   });
 
-  it('refuses a task that names no repository', async () => {
-    const { handler, pullRequests } = opening(task(null));
+  it('refuses where the line works no repository', async () => {
+    const { handler, pullRequests } = opening(task(), []);
 
     await expect(
       handler.execute(
-        new OpenPullRequestCommand('run_1', 'runner_1', 'Fix the queue', ''),
+        new OpenPullRequestCommand(
+          'run_1',
+          'runner_1',
+          'Fix the queue',
+          '',
+          null,
+        ),
       ),
-    ).rejects.toThrow(/names no repository/);
+    ).rejects.toThrow(/no repository/);
     expect(pullRequests.open).not.toHaveBeenCalled();
   });
 });

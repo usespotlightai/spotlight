@@ -140,7 +140,6 @@ describe('AddTaskHandler', () => {
           'Fix the queue',
           null,
           'user_1',
-          null,
         ),
       ),
     ).resolves.toEqual({
@@ -153,7 +152,6 @@ describe('AddTaskHandler', () => {
       // Dispatched the moment it was raised, so it is already being worked.
       running: true,
       awaitingReview: null,
-      repository: null,
       pullRequest: null,
       raisedBy: raiser,
       // The raiser owns what they raised.
@@ -170,7 +168,6 @@ describe('AddTaskHandler', () => {
         'Fix the queue',
         null,
         'user_1',
-        null,
       ),
     );
 
@@ -185,7 +182,6 @@ describe('AddTaskHandler', () => {
         'Fix it',
         '## Steps\n\nGo.',
         'user_1',
-        null,
       ),
     );
 
@@ -200,7 +196,6 @@ describe('AddTaskHandler', () => {
         'Fix the queue',
         null,
         'user_1',
-        null,
       ),
     );
 
@@ -218,7 +213,6 @@ describe('AddTaskHandler', () => {
         'Think about it',
         null,
         'user_1',
-        null,
       ),
     );
 
@@ -235,7 +229,6 @@ describe('AddTaskHandler', () => {
           'Fix it',
           null,
           'user_1',
-          null,
         ),
       ),
     ).rejects.toThrow(UseCaseFault);
@@ -250,7 +243,6 @@ describe('AddTaskHandler', () => {
           'Fix it',
           null,
           'user_1',
-          null,
         ),
         lines(null),
       ),
@@ -259,9 +251,7 @@ describe('AddTaskHandler', () => {
 
   it('refuses a task with no title', async () => {
     await expect(
-      addTask(
-        new AddTaskCommand('line_1', 'station_1', '   ', null, 'user_1', null),
-      ),
+      addTask(new AddTaskCommand('line_1', 'station_1', '   ', null, 'user_1')),
     ).rejects.toThrow(UseCaseFault);
   });
 });

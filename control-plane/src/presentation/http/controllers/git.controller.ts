@@ -42,7 +42,7 @@ interface Outgoing {
  * control plane, so no repository credential lives on the machine.
  */
 @ApiExcludeController()
-@Controller('git/:runId')
+@Controller('git/:runId/:repo')
 @RunnerOnly()
 export class GitController {
   constructor(@Inject(GIT_GATEWAY) private readonly gateway: GitGatewayPort) {}
@@ -50,6 +50,7 @@ export class GitController {
   @Get('info/refs')
   async advertise(
     @Param('runId') runId: string,
+    @Param('repo') repo: string,
     @Query('service') service: string,
     @CurrentRunner() runnerId: string,
     @Req() request: Incoming,
@@ -60,7 +61,7 @@ export class GitController {
     }
 
     await this.answer(
-      await this.gateway.carry(runId, runnerId, {
+      await this.gateway.carry(runId, runnerId, repo, {
         method: 'GET',
         path: '/info/refs',
         search: `?service=${service}`,
@@ -74,6 +75,7 @@ export class GitController {
   @Post(':service')
   async pack(
     @Param('runId') runId: string,
+    @Param('repo') repo: string,
     @Param('service') service: string,
     @CurrentRunner() runnerId: string,
     @Req() request: Incoming,
@@ -84,7 +86,7 @@ export class GitController {
     }
 
     await this.answer(
-      await this.gateway.carry(runId, runnerId, {
+      await this.gateway.carry(runId, runnerId, repo, {
         method: 'POST',
         path: `/${service}`,
         search: '',

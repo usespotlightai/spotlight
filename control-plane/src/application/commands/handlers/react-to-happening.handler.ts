@@ -4,6 +4,7 @@ import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { StoredDelivery } from '@application/ports/delivery-inbox.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
+import type { MemberReaderPort } from '@application/ports/member-reader.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import type { AttendToNotices } from '@application/services/attend-to-notices.service';
 import { ReactToHappenings } from '@application/services/react-to-happenings.service';
@@ -35,6 +36,7 @@ export class ReactToHappeningHandler
     /** What the delivery said about the workspace, rather than about a task. */
     private readonly notices: AttendToNotices,
     ids: IdGeneratorPort,
+    members: MemberReaderPort,
   ) {
     this.reactions = new ReactToHappenings(
       tasks,
@@ -43,6 +45,7 @@ export class ReactToHappeningHandler
       transaction,
       clock,
       ids,
+      members,
     );
   }
 
@@ -75,7 +78,9 @@ export class ReactToHappeningHandler
       await this.notices.attend(source.noticed?.(delivered) ?? []);
 
       // What Spotlight itself did is not news to Spotlight.
-      const news = source.read(delivered).filter((each) => !each.ourOwn);
+      const news = (await source.read(delivered)).filter(
+        (each) => !each.ourOwn,
+      );
 
       if (news.length === 0) {
         return;

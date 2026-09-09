@@ -22,4 +22,6 @@ export interface AssemblyLineDto {
   readonly name: string;
   readonly stations: readonly StationDto[];
   readonly reactions: readonly ReactionDto[];
+  /** The repositories a run on this line works in, as owner/name. */
+  readonly repositories: readonly string[];
 }

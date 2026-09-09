@@ -161,6 +161,8 @@ const raiseSchema = z.object({
       at: key('triage').optional(),
       title: expression,
       description: expression.optional(),
+      /** Assign the opened task to the member with this email, where one matches. */
+      assignBy: z.object({ email: expression }).optional(),
     })
     .optional(),
   branch: expression.optional(),
@@ -171,6 +173,13 @@ const eventSchema = z.object({
   /** A list to raise one word per item of; each is bound as `item`. */
   forEach: expression.optional(),
   when: expression,
+  /**
+   * A call made before the word is raised, whose captures join the bindings —
+   * for reading what a delivery only names, such as the email behind a user id.
+   */
+  lookup: z
+    .object({ request: requestSchema, capture: captureSchema })
+    .optional(),
   raise: raiseSchema,
 });
 

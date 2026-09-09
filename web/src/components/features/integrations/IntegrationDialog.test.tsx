@@ -1,14 +1,14 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { IntegrationDialog } from '@/components/features/integrations/IntegrationDialog';
 
-const set = vi.fn();
+const set = vi.fn().mockResolvedValue(undefined);
 const state = vi.fn(() => ({ isPending: false, error: null }));
 const connect = vi.fn();
 
 vi.mock('@/hooks/api/useSetSecret', () => ({
-  useSetSecret: () => ({ mutate: set, ...state() }),
+  useSetSecret: () => ({ mutateAsync: set, ...state() }),
 }));
 
 vi.mock('@/hooks/api/useConnectIntegration', () => ({
@@ -32,15 +32,20 @@ const integration = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-const showing = (over: Record<string, unknown> = {}) =>
+const showing = (
+  over: Record<string, unknown> = {},
+  onOpenChange = vi.fn(),
+) => {
   render(
     <IntegrationDialog
       integration={integration(over)}
       teamId="team_1"
       open
-      onOpenChange={vi.fn()}
+      onOpenChange={onOpenChange}
     />,
   );
+  return { onOpenChange };
+};
 
 describe('IntegrationDialog', () => {
   it('gives the address to point the host at', () => {
@@ -77,10 +82,7 @@ describe('IntegrationDialog', () => {
   it('says a secret is set rather than showing anything', () => {
     showing({ secrets: [{ name: 'LINEAR_WEBHOOK_SECRET', set: true }] });
 
-    expect(
-      screen.getByPlaceholderText('Set — paste to replace'),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Replace' })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Paste to replace')).toBeInTheDocument();
   });
 
   it('never puts the secret where it could be read', async () => {
@@ -93,8 +95,8 @@ describe('IntegrationDialog', () => {
     expect(field).toHaveAttribute('autocomplete', 'off');
   });
 
-  it('sends it under the name the config gives it', async () => {
-    showing();
+  it('saves what was entered under the name the config gives it, from one button', async () => {
+    const { onOpenChange } = showing();
 
     await userEvent.type(
       screen.getByLabelText('LINEAR_WEBHOOK_SECRET'),
@@ -102,22 +104,44 @@ describe('IntegrationDialog', () => {
     );
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(set).toHaveBeenCalledWith(
-      { name: 'LINEAR_WEBHOOK_SECRET', value: 'whsec_abc' },
-      expect.anything(),
-    );
+    expect(set).toHaveBeenCalledWith({
+      name: 'LINEAR_WEBHOOK_SECRET',
+      value: 'whsec_abc',
+    });
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
   });
 
-  it('will not send an empty one', () => {
-    showing();
+  it('saves every secret that was entered, together', async () => {
+    set.mockClear();
+    showing({
+      secrets: [
+        { name: 'SLACK_SIGNING_SECRET', set: false },
+        { name: 'SLACK_BOT_TOKEN', set: false },
+      ],
+    });
 
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    await userEvent.type(screen.getByLabelText('SLACK_SIGNING_SECRET'), 'shhh');
+    await userEvent.type(screen.getByLabelText('SLACK_BOT_TOKEN'), 'xoxb-1');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(set).toHaveBeenCalledWith({
+      name: 'SLACK_SIGNING_SECRET',
+      value: 'shhh',
+    });
+    expect(set).toHaveBeenCalledWith({
+      name: 'SLACK_BOT_TOKEN',
+      value: 'xoxb-1',
+    });
   });
 
-  it('offers a way out that changes nothing', () => {
-    showing();
+  it('saves nothing and just closes when nothing was entered', async () => {
+    set.mockClear();
+    const { onOpenChange } = showing();
 
-    expect(screen.getByRole('button', { name: 'Done' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(set).not.toHaveBeenCalled();
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
   });
 
   it('offers to connect a host that links by authorizing, and begins on click', async () => {

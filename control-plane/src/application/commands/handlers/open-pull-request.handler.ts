@@ -6,6 +6,7 @@ import type { PullRequestPort } from '@application/ports/pull-request.port';
 import type { RunAtHand } from '@application/services/run-at-hand.service';
 import { NoGitHubInstallationError } from '@domain/exceptions/no-github-installation.error';
 import { NoRepositoryError } from '@domain/exceptions/no-repository.error';
+import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import type { WorkspaceConnections } from '@domain/repositories/workspace.repository';
 import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
@@ -17,6 +18,7 @@ export class OpenPullRequestHandler
   constructor(
     private readonly held: RunAtHand,
     private readonly tasks: TaskRepository,
+    private readonly lines: AssemblyLineRepository,
     private readonly workspaces: WorkspaceConnections,
     private readonly pullRequests: PullRequestPort,
   ) {}
@@ -27,7 +29,7 @@ export class OpenPullRequestHandler
     try {
       const { task } = await this.held.heldBy(command.runId, command.runnerId);
 
-      if (!task?.repository) {
+      if (!task) {
         throw new NoRepositoryError();
       }
 
@@ -35,6 +37,14 @@ export class OpenPullRequestHandler
       if (task.pullRequest) {
         return { url: task.pullRequest.value };
       }
+
+      const line = await this.lines.holding(task.stationId);
+
+      if (!line) {
+        throw new NoRepositoryError();
+      }
+
+      const repository = line.opening(command.repository);
 
       const installation = GitHubInstallation.from(
         await this.workspaces.connectionTo(
@@ -49,7 +59,7 @@ export class OpenPullRequestHandler
 
       const opened = await this.pullRequests.open({
         installation,
-        repository: task.repository,
+        repository,
         branch: task.branch.value,
         title: command.title,
         body: command.body,

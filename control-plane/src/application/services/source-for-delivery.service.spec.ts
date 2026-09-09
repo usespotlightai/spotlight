@@ -10,7 +10,7 @@ const source = (key: string): WebhookSourcePort => ({
   verifies: async () => true,
   delivery: () => 'delivery_1',
   routes: async () => null,
-  read: () => [],
+  read: async () => [],
 });
 
 const asking = (

@@ -24,6 +24,8 @@ export interface AssemblyLineDetail {
   readonly name: string;
   readonly stations: readonly StationSummary[];
   readonly reactions: readonly ReactionSummary[];
+  /** The repositories a run on this line works in, as owner/name. */
+  readonly repositories: readonly string[];
 }
 
 export const ASSEMBLY_LINE_READER = Symbol('ASSEMBLY_LINE_READER');

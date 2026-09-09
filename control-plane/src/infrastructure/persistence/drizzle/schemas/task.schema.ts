@@ -63,7 +63,6 @@ export const task = pgTable(
     runnerId: text('runner_id').references(() => runner.id, {
       onDelete: 'set null',
     }),
-    repository: text('repository'),
     pullRequest: text('pull_request'),
     finishedAt: timestamp('finished_at'),
     // A write says which version it answers, so two answers to one reading

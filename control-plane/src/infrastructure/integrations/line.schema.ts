@@ -48,6 +48,10 @@ export const lineSchema = z.object({
   name: z.string().min(1, 'is what this line is called'),
   /** What the line is for, so the factory can route work to it by purpose. */
   role: key('improvement').optional(),
+  /** The repositories a run on this line works in, each as owner/name. */
+  repositories: z
+    .array(z.string().min(1, 'is a repository named owner/name'))
+    .default([]),
   stations: z
     .array(stationSchema)
     .min(1, 'is the stations along this line, and there has to be one'),

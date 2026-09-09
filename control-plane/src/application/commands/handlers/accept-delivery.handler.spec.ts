@@ -22,7 +22,7 @@ const github = {
       (delivered.headers as Record<string, string>)['x-delivery'] ?? 'unnamed',
     ),
   routes: async () => null,
-  read: () => [],
+  read: async () => [],
 } satisfies WebhookSourcePort;
 
 const accepting = () => {

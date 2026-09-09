@@ -353,4 +353,62 @@ poll:
       ).toContain('LINEAR_TOKEN');
     });
   });
+
+  describe('an event that looks up and assigns', () => {
+    const WITH_LOOKUP = `version: 1
+integration: slack
+webhook:
+  verify:
+    token:
+      secret: secret.SLACK_SIGNING_SECRET
+  events:
+    - when: \${{ true }}
+      lookup:
+        request:
+          method: GET
+          url: https://slack.com/api/users.info
+          query:
+            user: \${{ body.event.user }}
+          auth:
+            token:
+              secret: secret.SLACK_BOT_TOKEN
+        capture:
+          email: \${{ response.user.profile.email }}
+      raise:
+        happening: slack.app_mention
+        opens:
+          onto: delivery
+          title: \${{ body.event.text }}
+          assignBy:
+            email: \${{ email }}
+        marks:
+          - kind: slack.thread
+            value: \${{ body.event.ts }}
+`;
+
+    it('compiles the lookup request and its captures', () => {
+      const read = compileIntegration(PATH, WITH_LOOKUP);
+      const lookup = read.ok ? read.readable.webhook?.events[0]?.lookup : null;
+
+      expect(lookup?.request.url).toBeDefined();
+      expect(lookup?.capture.map((each) => each.name)).toEqual(['email']);
+    });
+
+    it('compiles the email the opened task is assigned by', () => {
+      const read = compileIntegration(PATH, WITH_LOOKUP);
+
+      expect(
+        read.ok && read.readable.webhook?.events[0]?.raise.opens?.assignBy,
+      ).not.toBeNull();
+    });
+
+    it('collects the lookup’s token as a credential', () => {
+      const read = compileIntegration(PATH, WITH_LOOKUP);
+
+      expect(
+        read.ok &&
+          read.readable.integration.credentials.map((each) => each.value),
+      ).toContain('SLACK_BOT_TOKEN');
+    });
+  });
 });

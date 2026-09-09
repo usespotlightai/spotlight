@@ -9,6 +9,7 @@ import type { TeamConfigurationRepository } from '@domain/repositories/team-conf
 import type { IntegrationReader } from '@infrastructure/integrations/integration.reader';
 import type { JwksResolver } from '@infrastructure/integrations/jwks';
 import { WebhookRuntime } from '@infrastructure/integrations/webhook.runtime';
+import type { HttpOutbound } from '@infrastructure/outbound/http-outbound';
 
 /**
  * The hosts a workspace declared, built from the configuration it last read.
@@ -24,6 +25,7 @@ export class ConfiguredSources implements ConfiguredSourcesPort {
     private readonly secrets: TeamSecretsPort,
     private readonly reader: IntegrationReader,
     private readonly jwks: JwksResolver,
+    private readonly outbound: HttpOutbound,
   ) {}
 
   async find(team: OfTeam, key: string): Promise<WebhookSourcePort | null> {
@@ -67,6 +69,7 @@ export class ConfiguredSources implements ConfiguredSourcesPort {
           secrets,
           undefined,
           this.jwks,
+          this.outbound,
         ),
       );
     }

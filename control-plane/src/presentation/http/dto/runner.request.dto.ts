@@ -160,4 +160,14 @@ export class OpenPullRequestRequestDto {
     description: 'Markdown, shown as the pull request description',
   })
   readonly body?: string | null;
+
+  @ApiPropertyOptional({
+    example: 'api',
+    nullable: true,
+    type: String,
+    description:
+      'Which of the line’s repositories to open against, by name. Left out ' +
+      'where the line works only one.',
+  })
+  readonly repository?: string | null;
 }

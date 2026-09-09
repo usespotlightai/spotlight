@@ -9,6 +9,7 @@ import { TeamKey } from '@domain/value-objects/team-key.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { ConfiguredSources } from '@infrastructure/integrations/configured.sources';
 import { IntegrationReader } from '@infrastructure/integrations/integration.reader';
+import { HttpOutbound } from '@infrastructure/outbound/http-outbound';
 import { describe, expect, it, vi } from 'vitest';
 
 const WORKSPACE = WorkspaceId.of('ws_1');
@@ -68,6 +69,7 @@ const holding = (
       { resolve } as unknown as TeamSecretsPort,
       new IntegrationReader(),
       { keys: async () => new Map() },
+      new HttpOutbound([]),
     ),
   };
 };

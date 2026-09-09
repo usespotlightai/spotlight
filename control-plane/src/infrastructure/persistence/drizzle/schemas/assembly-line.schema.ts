@@ -102,6 +102,22 @@ export const stationTool = pgTable(
   ],
 );
 
+/** A repository a run on this line works in, one row per repository. */
+export const assemblyLineRepository = pgTable(
+  'assembly_line_repository',
+  {
+    assemblyLineId: text('assembly_line_id')
+      .notNull()
+      .references(() => assemblyLine.id, { onDelete: 'cascade' }),
+    /** As owner/name, the way Spotlight holds it. */
+    repository: text('repository').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.assemblyLineId, table.repository] }),
+    index('assembly_line_repository_line_idx').on(table.assemblyLineId),
+  ],
+);
+
 /**
  * What a word from outside does on this line: where the task has to be
  * standing for it to count, and where it goes. A null from is wherever it

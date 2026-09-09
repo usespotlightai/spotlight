@@ -30,7 +30,7 @@ const sourceOf = (named: string) => {
       return null;
     }
 
-    read(): readonly Happened[] {
+    async read(): Promise<readonly Happened[]> {
       return [];
     }
   }

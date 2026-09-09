@@ -46,6 +46,8 @@ export interface OpensWith {
   readonly at: string | null;
   readonly title: string;
   readonly description: string | null;
+  /** The email to assign the task by, where the delivery named one; else null. */
+  readonly assignEmail: string | null;
 }
 
 export const ReactionFor = {

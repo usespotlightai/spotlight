@@ -174,7 +174,7 @@ describe('AssemblyLineBoard', () => {
       teamId: 'team_1',
       lineId: 'line_1',
       stationId: 'station_2',
-      task: { title: 'Write the spec', description: '', repository: null },
+      task: { title: 'Write the spec', description: '' },
     });
   });
 

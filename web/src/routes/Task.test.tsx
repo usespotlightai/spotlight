@@ -26,9 +26,6 @@ vi.mock('@/hooks/api/useMoveTask', () => ({
 vi.mock('@/hooks/api/useDeleteTask', () => ({
   useDeleteTask: () => ({ mutate: deleted }),
 }));
-vi.mock('@/hooks/api/useSetTaskRepository', () => ({
-  useSetTaskRepository: () => ({ mutate: vi.fn() }),
-}));
 vi.mock('@/hooks/api/useMembers', () => ({
   useMembers: () => ({ data: [] }),
 }));

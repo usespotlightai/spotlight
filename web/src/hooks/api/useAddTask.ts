@@ -20,7 +20,6 @@ export function useAddTask() {
         body: {
           title: task.title,
           description: task.description || null,
-          repository: task.repository,
         },
         throwOnError: true,
       });

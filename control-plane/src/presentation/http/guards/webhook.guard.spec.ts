@@ -20,7 +20,7 @@ const source = (verifies: (delivered: Delivered) => boolean) =>
     ),
     delivery: () => 'delivery_1',
     routes: async () => null,
-    read: () => [],
+    read: async () => [],
   }) satisfies WebhookSourcePort;
 
 const asking = (

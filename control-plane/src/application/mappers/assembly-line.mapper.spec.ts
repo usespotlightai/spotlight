@@ -61,6 +61,7 @@ describe('AssemblyLineMapper.lineToDto', () => {
         },
       ],
       reactions: [],
+      repositories: [],
     });
   });
 });

@@ -46,6 +46,7 @@ export const AssemblyLineMapper = {
         from: each.from?.value ?? null,
         to: each.to.value,
       })),
+      repositories: line.repositories.all.map((each) => each.value),
     };
   },
 
@@ -55,6 +56,7 @@ export const AssemblyLineMapper = {
       name: detail.name,
       stations: detail.stations.map(AssemblyLineMapper.summaryToDto),
       reactions: detail.reactions.map((each) => ({ ...each })),
+      repositories: detail.repositories,
     };
   },
 };

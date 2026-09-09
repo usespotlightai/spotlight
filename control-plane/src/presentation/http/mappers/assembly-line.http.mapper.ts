@@ -52,6 +52,7 @@ export const AssemblyLineHttpMapper = {
       dto.reactions.map(
         (each) => new ReactionResponseDto(each.happening, each.from, each.to),
       ),
+      [...dto.repositories],
     );
   },
 };

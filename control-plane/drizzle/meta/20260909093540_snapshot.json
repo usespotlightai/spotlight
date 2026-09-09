@@ -1,5 +1,5 @@
 {
-  "id": "bb0badae-3b17-4b3a-b426-f561978d8a45",
+  "id": "37334bb4-7d8d-4725-b549-8326e5758448",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -214,6 +214,69 @@
         }
       },
       "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.assembly_line_repository": {
+      "name": "assembly_line_repository",
+      "schema": "",
+      "columns": {
+        "assembly_line_id": {
+          "name": "assembly_line_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "repository": {
+          "name": "repository",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "assembly_line_repository_line_idx": {
+          "name": "assembly_line_repository_line_idx",
+          "columns": [
+            {
+              "expression": "assembly_line_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "assembly_line_repository_assembly_line_id_assembly_line_id_fk": {
+          "name": "assembly_line_repository_assembly_line_id_assembly_line_id_fk",
+          "tableFrom": "assembly_line_repository",
+          "tableTo": "assembly_line",
+          "columnsFrom": [
+            "assembly_line_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "assembly_line_repository_assembly_line_id_repository_pk": {
+          "name": "assembly_line_repository_assembly_line_id_repository_pk",
+          "columns": [
+            "assembly_line_id",
+            "repository"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -1085,6 +1148,150 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.integration_cursor": {
+      "name": "integration_cursor",
+      "schema": "",
+      "columns": {
+        "team_id": {
+          "name": "team_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cursor": {
+          "name": "cursor",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ran_at": {
+          "name": "ran_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "integration_cursor_team_id_team_id_fk": {
+          "name": "integration_cursor_team_id_team_id_fk",
+          "tableFrom": "integration_cursor",
+          "tableTo": "team",
+          "columnsFrom": [
+            "team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "integration_cursor_team_id_source_pk": {
+          "name": "integration_cursor_team_id_source_pk",
+          "columns": [
+            "team_id",
+            "source"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.oauth2_connection": {
+      "name": "oauth2_connection",
+      "schema": "",
+      "columns": {
+        "team_id": {
+          "name": "team_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "access_token": {
+          "name": "access_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "refresh_token": {
+          "name": "refresh_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scopes": {
+          "name": "scopes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "identity": {
+          "name": "identity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "connected_at": {
+          "name": "connected_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "oauth2_connection_team_id_team_id_fk": {
+          "name": "oauth2_connection_team_id_team_id_fk",
+          "tableFrom": "oauth2_connection",
+          "tableTo": "team",
+          "columnsFrom": [
+            "team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "oauth2_connection_team_id_source_pk": {
+          "name": "oauth2_connection_team_id_source_pk",
+          "columns": [
+            "team_id",
+            "source"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.run": {
       "name": "run",
       "schema": "",
@@ -1671,12 +1878,6 @@
         },
         "runner_id": {
           "name": "runner_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "repository": {
-          "name": "repository",
           "type": "text",
           "primaryKey": false,
           "notNull": false

@@ -5,6 +5,7 @@ import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
 import { LineKey } from '@domain/value-objects/line-key.vo';
 import { LineRole } from '@domain/value-objects/line-role.vo';
+import type { Repository } from '@domain/value-objects/repository.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import type { Tool } from '@domain/value-objects/tool.vo';
@@ -32,6 +33,8 @@ export interface LineOpening {
   readonly role: LineRole | null;
   readonly stations: readonly StationOpening[];
   readonly reactions: readonly ReactionOpening[];
+  /** The repositories a run on this line works in, all cloned side by side. */
+  readonly repositories: readonly Repository[];
 }
 
 const opening = (input: {
@@ -296,6 +299,9 @@ export const BUILT_IN_LINES: readonly LineOpening[] = [
     role: LineRole.DELIVERY,
     stations: DELIVERY_STATIONS,
     reactions: GITHUB_REACTIONS,
+    // A team says which repositories its delivery line works in through its
+    // configuration; it starts with none until it does.
+    repositories: [],
   },
   {
     key: LineKey.of('factory-improvement'),
@@ -303,5 +309,6 @@ export const BUILT_IN_LINES: readonly LineOpening[] = [
     role: LineRole.IMPROVEMENT,
     stations: IMPROVEMENT_STATIONS,
     reactions: GITHUB_REACTIONS,
+    repositories: [],
   },
 ];

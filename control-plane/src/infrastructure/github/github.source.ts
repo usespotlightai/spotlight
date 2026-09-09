@@ -243,7 +243,7 @@ export class GitHubSource implements WebhookSourcePort {
     return touched ? [{ kind: 'configuration-touched', repository }] : [];
   }
 
-  read(delivered: Delivered): readonly Happened[] {
+  async read(delivered: Delivered): Promise<readonly Happened[]> {
     const event = headed(delivered.headers, 'x-github-event');
     const body = (delivered.body ?? {}) as Delivery;
     const happening = this.happening(event, body);

@@ -10,7 +10,6 @@ import type { Concerns } from '@domain/value-objects/concerns.vo';
 import { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { Mark } from '@domain/value-objects/mark.vo';
 import { PullRequestUrl } from '@domain/value-objects/pull-request-url.vo';
-import { Repository } from '@domain/value-objects/repository.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { Said } from '@domain/value-objects/said.vo';
@@ -76,7 +75,6 @@ const toTask = (row: Row, notes: NoteRow[], marks: MarkRow[] = []): Task =>
       : null,
     raisedBy: row.raisedById ? UserId.of(row.raisedById) : null,
     assignee: row.assigneeId ? UserId.of(row.assigneeId) : null,
-    repository: row.repository ? Repository.of(row.repository) : null,
     finishedAt: row.finishedAt,
     version: row.version,
     pullRequest: row.pullRequest ? PullRequestUrl.of(row.pullRequest) : null,
@@ -107,7 +105,6 @@ export class DrizzleTaskRepository implements TaskRepository, SetupLists {
       raisedAtStationId: added.raisedAt?.value ?? null,
       raisedById: added.raisedBy?.value ?? null,
       assigneeId: added.assignee?.value ?? null,
-      repository: added.repository?.value ?? null,
       pullRequest: added.pullRequest?.value ?? null,
       finishedAt: added.finishedAt,
     });
@@ -133,7 +130,6 @@ export class DrizzleTaskRepository implements TaskRepository, SetupLists {
         currentRunId: saved.currentRunId?.value ?? null,
         sessionId: saved.sessionId?.value ?? null,
         runnerId: saved.runnerId?.value ?? null,
-        repository: saved.repository?.value ?? null,
         pullRequest: saved.pullRequest?.value ?? null,
         finishedAt: saved.finishedAt,
         assigneeId: saved.assignee?.value ?? null,

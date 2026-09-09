@@ -16,16 +16,30 @@ import type {
 } from '@infrastructure/integrations/integration.compile';
 
 /**
+ * A word matched, with the bindings it matched against, so a caller may fill
+ * them out — reading what a delivery only names — before the word is raised.
+ */
+const identity = async (
+  _event: EventIR,
+  against: Bindings,
+): Promise<Bindings> => against;
+
+/**
  * Reads the words a set of events raises off one delivery or poll response.
  * Shared by every trigger, so `forEach`, `when`, marks, and `opens` mean the
  * same whether a webhook delivered the body or a poll fetched it.
+ *
+ * Where a matched event has more to fetch than the delivery carried — an email
+ * behind a user id, say — `enrich` gets a chance to add it to the bindings
+ * before the word is raised. Triggers that cannot fetch (a poll) leave it out.
  */
-export const readEvents = (
+export const readEvents = async (
   events: readonly EventIR[],
   declaring: (happening: string) => DeclaredHappening | null,
   against: Bindings,
   ourOwn: (against: Bindings) => boolean,
-): Happened[] => {
+  enrich: (event: EventIR, against: Bindings) => Promise<Bindings> = identity,
+): Promise<Happened[]> => {
   const raised: Happened[] = [];
 
   for (const event of events) {
@@ -43,7 +57,10 @@ export const readEvents = (
           const per = { ...against, item: bound(item) };
 
           if (holds(event.when, per)) {
-            raised.push(raiseFrom(event.raise, declared, per, ourOwn(per)));
+            const filled = await enrich(event, per);
+            raised.push(
+              raiseFrom(event.raise, declared, filled, ourOwn(filled)),
+            );
           }
         }
       }
@@ -52,7 +69,8 @@ export const readEvents = (
     }
 
     if (holds(event.when, against)) {
-      raised.push(raiseFrom(event.raise, declared, against, ourOwn(against)));
+      const filled = await enrich(event, against);
+      raised.push(raiseFrom(event.raise, declared, filled, ourOwn(filled)));
     }
   }
 
@@ -99,6 +117,9 @@ const raiseFrom = (
             title,
             description: raise.opens.description
               ? reads(raise.opens.description, against)
+              : null,
+            assignEmail: raise.opens.assignBy
+              ? reads(raise.opens.assignBy.email, against)
               : null,
           }
         : null,

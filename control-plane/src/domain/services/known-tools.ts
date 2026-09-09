@@ -118,6 +118,80 @@ webhook:
             value: \${{ body.event.data.id }}
 `;
 
+const slack = `version: 1
+integration: slack
+name: Slack
+
+webhook:
+  verify:
+    hmac:
+      secret: secret.SLACK_SIGNING_SECRET
+      header: x-slack-signature
+      signed: '\${{ "v0:" + headers["x-slack-request-timestamp"] + ":" + raw }}'
+      prefix: 'v0='
+      freshness:
+        at: '\${{ headers["x-slack-request-timestamp"] }}'
+        within: 300s
+  respond:
+    when: '\${{ body.type == "url_verification" }}'
+    body: '\${{ body.challenge }}'
+  mine: '\${{ body.event.bot_id != null }}'
+  events:
+    - when: '\${{ body.event.type == "app_mention" }}'
+      lookup:
+        request:
+          method: GET
+          url: https://slack.com/api/users.info
+          query:
+            user: '\${{ body.event.user }}'
+          auth:
+            token:
+              secret: secret.SLACK_BOT_TOKEN
+          expect:
+            success: '\${{ response.ok }}'
+        capture:
+          email: '\${{ response.user.profile.email }}'
+      raise:
+        happening: slack.app_mention
+        label: Mentioned in Slack
+        told: Somebody mentioned Spotlight in Slack.
+        opens:
+          onto: delivery
+          title: '\${{ body.event.text }}'
+          assignBy:
+            email: '\${{ email }}'
+        marks:
+          - kind: slack.thread
+            value: '\${{ body.event.ts }}'
+          - kind: slack.channel
+            value: '\${{ body.event.channel }}'
+
+actions:
+  post-message:
+    request:
+      method: POST
+      url: https://slack.com/api/chat.postMessage
+      headers:
+        authorization: '\${{ "Bearer " + secret.SLACK_BOT_TOKEN }}'
+      body: '\${{ {"channel": target.channel, "thread_ts": target.thread, "text": ask.body} }}'
+      expect:
+        success: '\${{ response.ok }}'
+      capture:
+        thread: '\${{ response.ts }}'
+
+on:
+  task.asked:
+    do: post-message
+    to:
+      channel: '\${{ task.marks["slack.channel"] }}'
+      thread: '\${{ task.marks["slack.thread"] }}'
+    routes:
+      delivery: C0DELIVERY
+    mark:
+      - kind: slack.thread
+        value: '\${{ capture.thread }}'
+`;
+
 const known = (input: {
   source: string;
   name: string;
@@ -133,6 +207,15 @@ const known = (input: {
 });
 
 export const KNOWN_TOOLS: readonly KnownTool[] = [
+  known({
+    source: 'slack',
+    name: 'Slack',
+    summary:
+      'Turn a mention into a task, and answer its questions in the thread.',
+    secretCalled:
+      'the app’s Signing Secret, and a Bot User OAuth token to reply with',
+    file: slack,
+  }),
   known({
     source: 'linear',
     name: 'Linear',
