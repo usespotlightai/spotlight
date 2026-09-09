@@ -217,47 +217,6 @@ export class AssemblyLine {
     }
   }
 
-  reorderStations(order: readonly StationId[]): AssemblyLine {
-    if (order[0] && !this.backlog.id.equals(order[0])) {
-      throw new InvalidStationLayoutError(
-        'must leave the backlog standing first',
-      );
-    }
-    if (
-      order.length > 0 &&
-      !this.completed.id.equals(order[order.length - 1] as StationId)
-    ) {
-      throw new InvalidStationLayoutError('must leave completed standing last');
-    }
-    if (order.length !== this.stations.length) {
-      throw new InvalidStationLayoutError(
-        `must name every station, but named ${order.length} of ${this.stations.length}`,
-      );
-    }
-
-    const moved = order.map((stationId, position) => {
-      const standing = this.stations.find((each) => each.id.equals(stationId));
-
-      if (!standing) {
-        throw new UnknownStationError(stationId.value);
-      }
-
-      return standing.movedTo(position);
-    });
-
-    return AssemblyLine.of({
-      id: this.id,
-      workspaceId: this.workspaceId,
-      factoryId: this.factoryId,
-      key: this.key,
-      name: this.name,
-      reactions: this.reactions,
-      stations: moved,
-      role: this.role,
-      repositories: this.repositories.all,
-    });
-  }
-
   private withStation(
     stationId: StationId,
     change: (station: Station) => Station,
@@ -450,6 +409,50 @@ export class AssemblyLine {
   /** Where a task standing here may be handed on to, or a person. */
   optionsFrom(stationId: StationId): HandoverOption[] {
     return handoverOptions(this.stationAt(stationId), this.stations);
+  }
+
+  /**
+   * How far downstream a station stands, which is what its runs are prioritised
+   * by: the shortest distance from the backlog along where work passes, with
+   * what finishes the line standing last of all.
+   */
+  depthOf(stationId: StationId): number {
+    return this.depths().get(stationId.value) ?? 0;
+  }
+
+  private depths(): ReadonlyMap<string, number> {
+    const byId = new Map(this.stations.map((each) => [each.id.value, each]));
+    const depth = new Map<string, number>([[this.backlog.id.value, 0]]);
+    const queue: Station[] = [this.backlog];
+
+    // Breadth-first, so a station is first reached by its shortest path; rework
+    // looping back finds it already set.
+    while (queue.length > 0) {
+      const station = queue.shift() as Station;
+      const here = depth.get(station.id.value) as number;
+
+      for (const to of station.wayOut.stations) {
+        const next = byId.get(to.value);
+
+        if (next && !depth.has(to.value)) {
+          depth.set(to.value, here + 1);
+          queue.push(next);
+        }
+      }
+    }
+
+    const reached = this.stations
+      .filter((each) => !each.isCompleted)
+      .map((each) => depth.get(each.id.value) ?? 0);
+    const last = Math.max(0, ...reached) + 1;
+
+    for (const station of this.stations) {
+      if (station.isCompleted) {
+        depth.set(station.id.value, last);
+      }
+    }
+
+    return depth;
   }
 
   equals(other: AssemblyLine): boolean {

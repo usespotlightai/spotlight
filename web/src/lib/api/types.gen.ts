@@ -50,13 +50,6 @@ export type AssemblyLineResponseDto = {
   repositories: Array<string>;
 };
 
-export type ReorderStationsRequestDto = {
-  /**
-   * Every station on the line, left to right
-   */
-  stationIds: Array<string>;
-};
-
 export type CustomiseStationRequestDto = {
   name?: string;
   /**
@@ -72,6 +65,10 @@ export type CustomiseStationRequestDto = {
    * Markdown, handed to the agent that works this station
    */
   agentPrompt?: string | null;
+};
+
+export type ProposedResponseDto = {
+  url: string;
 };
 
 export type HealthResponseDto = {
@@ -674,10 +671,6 @@ export type ChooseToolsRequestDto = {
   dropped?: Array<string>;
 };
 
-export type ProposedResponseDto = {
-  url: string;
-};
-
 export type SetSecretRequestDto = {
   /**
    * What the configuration calls it. Never its value.
@@ -978,37 +971,6 @@ export type ListAssemblyLinesResponses = {
 
 export type ListAssemblyLinesResponse = ListAssemblyLinesResponses[keyof ListAssemblyLinesResponses];
 
-export type ReorderStationsData = {
-  body: ReorderStationsRequestDto;
-  path: {
-    teamId: string;
-    lineId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/assembly-lines/{lineId}/stations/order';
-};
-
-export type ReorderStationsErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such line for this caller
-   */
-  404: unknown;
-  /**
-   * Not every station named
-   */
-  422: unknown;
-};
-
-export type ReorderStationsResponses = {
-  200: AssemblyLineResponseDto;
-};
-
-export type ReorderStationsResponse = ReorderStationsResponses[keyof ReorderStationsResponses];
-
 export type CustomiseStationData = {
   body: CustomiseStationRequestDto;
   path: {
@@ -1026,7 +988,7 @@ export type CustomiseStationErrors = {
    */
   401: unknown;
   /**
-   * No such station for this caller
+   * No such station, or nowhere to write it
    */
   404: unknown;
   /**
@@ -1036,7 +998,7 @@ export type CustomiseStationErrors = {
 };
 
 export type CustomiseStationResponses = {
-  200: StationResponseDto;
+  200: ProposedResponseDto;
 };
 
 export type CustomiseStationResponse = CustomiseStationResponses[keyof CustomiseStationResponses];

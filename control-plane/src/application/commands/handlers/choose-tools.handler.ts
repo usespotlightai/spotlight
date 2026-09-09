@@ -4,7 +4,10 @@ import type { CommandHandlerPort } from '@application/ports/command-handler.port
 import type { OpenedPullRequestDto } from '@application/ports/pull-request.port';
 import type { WorkspaceReaderPort } from '@application/ports/workspace-reader.port';
 import type { WriteConfiguration } from '@application/services/write-configuration.service';
-import { INTEGRATIONS_UNDER } from '@domain/aggregates/team-configuration.aggregate';
+import {
+  CONFIGURATION_BRANCH,
+  INTEGRATIONS_UNDER,
+} from '@domain/aggregates/team-configuration.aggregate';
 import type { TeamRepository } from '@domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
 import { knownTool } from '@domain/services/known-tools';
@@ -68,7 +71,7 @@ export class ChooseToolsHandler
       }
 
       return await this.writing.write(workspace, held, {
-        branch: 'spotlight/tools',
+        branch: CONFIGURATION_BRANCH,
         title: titleFor(chosen.length, dropped.length),
         body: BODY,
         files: chosen.map((tool) =>

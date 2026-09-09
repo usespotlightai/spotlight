@@ -65,8 +65,10 @@ const at = (
       position === 0 ? 'backlog' : name === 'Completed' ? 'completed' : 'work',
   });
 
+// Connected backlog → Triage → Spec, so a station's depth from the backlog is
+// its distance along the flow: Triage 1, Spec 2. That depth is its priority.
 const stations = [
-  at('station_1', 'Backlog', 0),
+  at('station_1', 'Backlog', 0, undefined, ['station_2']),
   at('station_2', 'Triage', 1, DEV.id, ['station_3']),
   at('station_3', 'Spec', 2, DEV.id),
   at('station_4', 'Completed', 3),

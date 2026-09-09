@@ -62,22 +62,3 @@ export const landingFor = (
 
   return { stationId: over.stationId, afterTaskId: following(order, taskId) };
 };
-
-export const reordered = (
-  ids: readonly string[],
-  activeId: string,
-  overId: string,
-): string[] => {
-  const from = ids.indexOf(activeId);
-  const to = ids.indexOf(overId);
-
-  if (from === -1 || to === -1 || from === to) {
-    return [...ids];
-  }
-
-  const order = [...ids];
-  order.splice(from, 1);
-  order.splice(to, 0, activeId);
-
-  return order;
-};

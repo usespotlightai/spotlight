@@ -6,13 +6,11 @@ import type {
 } from '@application/ports/pull-request.port';
 import type { RepositoryContentsPort } from '@application/ports/repository-contents.port';
 import type { Team } from '@domain/aggregates/team.aggregate';
+import { CONFIGURATION_BRANCH } from '@domain/aggregates/team-configuration.aggregate';
 import type { Workspace } from '@domain/aggregates/workspace.aggregate';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import type { Repository } from '@domain/value-objects/repository.vo';
-
-/** The branch the opening pull request is written on, and written on again. */
-const BRANCH = 'spotlight/configuration';
 
 const TITLE = 'Set up Spotlight';
 
@@ -82,7 +80,7 @@ export class SeedConfiguration {
     return this.pullRequests.propose({
       installation,
       repository: into,
-      branch: BRANCH,
+      branch: CONFIGURATION_BRANCH,
       title: TITLE,
       body: BODY,
       message: TITLE,

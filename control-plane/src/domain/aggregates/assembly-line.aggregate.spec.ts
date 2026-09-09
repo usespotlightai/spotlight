@@ -171,14 +171,6 @@ describe('AssemblyLine', () => {
       expect(renamed.backlog.name.value).toBe('Inbox');
     });
 
-    it('will not let it be moved off the front', () => {
-      const line = lineOf([at(1, 'Triage')]);
-
-      expect(() =>
-        line.reorderStations([StationId.of('station_1'), line.backlog.id]),
-      ).toThrow(InvalidStationLayoutError);
-    });
-
     it('refuses a line without one', () => {
       expect(() => of([at(0)])).toThrow(InvalidStationLayoutError);
     });
@@ -232,18 +224,6 @@ describe('AssemblyLine', () => {
       expect(() =>
         line.instructStation(line.completed.id, AgentPrompt.of('## Sort it')),
       ).toThrow(InvalidStationChangeError);
-    });
-
-    it('will not let it be moved off the end', () => {
-      const line = lineOf([at(1, 'Triage')]);
-
-      expect(() =>
-        line.reorderStations([
-          line.backlog.id,
-          line.completed.id,
-          StationId.of('station_1'),
-        ]),
-      ).toThrow(InvalidStationLayoutError);
     });
 
     it('refuses a line without one', () => {
@@ -315,6 +295,48 @@ describe('AssemblyLine', () => {
           }),
         ]),
       ).toThrow(InvalidStationLayoutError);
+    });
+  });
+
+  describe('how far downstream a station stands', () => {
+    const depth = (line: AssemblyLine, name: string) => {
+      const station = line.stations.find((each) => each.name.value === name);
+      return station ? line.depthOf(station.id) : -1;
+    };
+
+    it('is the shortest distance from the backlog along the flow', () => {
+      const line = opened();
+
+      expect(depth(line, 'Backlog')).toBe(0);
+      expect(depth(line, 'Triage')).toBe(1);
+      expect(depth(line, 'Spec')).toBe(2);
+      expect(depth(line, 'Code Review')).toBe(3);
+    });
+
+    // Triage forks to Spec and Implementation, so both stand at the same
+    // distance; Implementation is reached straight from Triage, not only the
+    // longer way through Spec.
+    it('stands a fork’s branches at the same depth', () => {
+      const line = opened();
+
+      expect(depth(line, 'Implementation')).toBe(depth(line, 'Spec'));
+    });
+
+    // Code Review loops back to Implementation. That rework is a longer path,
+    // so it does not push Implementation deeper than the two it already is.
+    it('does not count rework that loops back', () => {
+      const line = opened();
+
+      expect(depth(line, 'Implementation')).toBe(2);
+    });
+
+    it('stands what finishes the line last of all', () => {
+      const line = opened();
+      const furthest = Math.max(
+        ...line.worked.map((each) => line.depthOf(each.id)),
+      );
+
+      expect(depth(line, 'Completed')).toBeGreaterThan(furthest);
     });
   });
 

@@ -4,11 +4,7 @@ type StationRepositoriesProps = {
   repositories: readonly string[];
 };
 
-/**
- * The repositories a run on this line works in. They belong to the line, not
- * the station, but every run at every station is given all of them, so they
- * are shown here as read-only. They are set in the line's configuration.
- */
+/** The line's repositories, read-only; every station on it gets all of them. */
 export function StationRepositories({
   repositories,
 }: StationRepositoriesProps) {

@@ -43,7 +43,6 @@ import { ReadInboxItemHandler } from '@application/commands/handlers/read-inbox-
 import { RegisterRunnerHandler } from '@application/commands/handlers/register-runner.handler';
 import { RenameTeamHandler } from '@application/commands/handlers/rename-team.handler';
 import { RenewLeaseHandler } from '@application/commands/handlers/renew-lease.handler';
-import { ReorderStationsHandler } from '@application/commands/handlers/reorder-stations.handler';
 import { RevokeRunnerHandler } from '@application/commands/handlers/revoke-runner.handler';
 import { SayToRunHandler } from '@application/commands/handlers/say-to-run.handler';
 import {
@@ -58,7 +57,6 @@ import { ReactToHappeningCommand } from '@application/commands/react-to-happenin
 import { ReadConfigurationCommand } from '@application/commands/read-configuration.command';
 import { ReadInboxItemCommand } from '@application/commands/read-inbox-item.command';
 import { RenameTeamCommand } from '@application/commands/rename-team.command';
-import { ReorderStationsCommand } from '@application/commands/reorder-stations.command';
 import {
   AppendRunEventsCommand,
   ClaimRunCommand,
@@ -242,9 +240,11 @@ import { WatchRunQuery } from '@application/queries/watch-run.query';
 import { ApplyLines } from '@application/services/apply-lines.service';
 import { AttendToNotices } from '@application/services/attend-to-notices.service';
 import { CarryGitCall } from '@application/services/carry-git-call.service';
+import { ConfigurationTarget } from '@application/services/configuration-target.service';
 import { ConnectionAuthorization } from '@application/services/connection-authorization.service';
 import { ConversationAtHand } from '@application/services/conversation-at-hand.service';
 import { DispatchTask } from '@application/services/dispatch-task.service';
+import { ProposeLineChange } from '@application/services/propose-line-change.service';
 import { RaiseTask } from '@application/services/raise-task';
 import { ReactToHappenings } from '@application/services/react-to-happenings.service';
 import { ReadConfiguration } from '@application/services/read-configuration.service';
@@ -766,12 +766,57 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     },
 
     {
+      provide: ConfigurationTarget,
+      inject: [DrizzleTeamConfiguration],
+      useFactory: (configurations: DrizzleTeamConfiguration) =>
+        new ConfigurationTarget(configurations),
+    },
+    {
       provide: WriteConfiguration,
-      inject: [DrizzleTeamConfiguration, PULL_REQUESTS],
+      inject: [ConfigurationTarget, PULL_REQUESTS],
       useFactory: (
-        configurations: DrizzleTeamConfiguration,
+        target: ConfigurationTarget,
         pullRequests: PullRequestPort,
-      ) => new WriteConfiguration(configurations, pullRequests),
+      ) => new WriteConfiguration(target, pullRequests),
+    },
+    {
+      provide: ProposeLineChange,
+      inject: [
+        DrizzleWorkspaceRepository,
+        WORKSPACE_READER,
+        DrizzleTeamRepository,
+        DrizzleAssemblyLineRepository,
+        LINE_READER,
+        REPOSITORY_CONTENTS,
+        ConfigurationTarget,
+        WriteConfiguration,
+        ID_GENERATOR,
+        LOGGER,
+      ],
+      useFactory: (
+        workspaces: DrizzleWorkspaceRepository,
+        members: WorkspaceReaderPort,
+        teams: DrizzleTeamRepository,
+        lines: DrizzleAssemblyLineRepository,
+        reader: LineReaderPort,
+        contents: RepositoryContentsPort,
+        target: ConfigurationTarget,
+        writing: WriteConfiguration,
+        ids: IdGeneratorPort,
+        logger: LoggerPort,
+      ) =>
+        new ProposeLineChange(
+          workspaces,
+          members,
+          teams,
+          lines,
+          reader,
+          contents,
+          target,
+          writing,
+          ids,
+          logger,
+        ),
     },
 
     {
@@ -1424,15 +1469,8 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       PERSON_READER,
     ]),
 
-    ...bindCommandHandler(ReorderStationsCommand, ReorderStationsHandler, [
-      DrizzleAssemblyLineRepository,
-      TRANSACTION,
-    ]),
-
     ...bindCommandHandler(CustomiseStationCommand, CustomiseStationHandler, [
-      DrizzleAssemblyLineRepository,
-      STANDING_WORK,
-      TRANSACTION,
+      ProposeLineChange,
     ]),
 
     ...bindCommandHandler(EnrolRunnerCommand, EnrolRunnerHandler, [

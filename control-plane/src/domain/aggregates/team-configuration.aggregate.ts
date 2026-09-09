@@ -12,6 +12,13 @@ export const INTEGRATIONS_UNDER = `${KEPT_UNDER}/integrations`;
 
 export const LINES_UNDER = `${KEPT_UNDER}/lines`;
 
+/**
+ * The one branch every configuration change is written on, so all of it —
+ * the opening, the tools a team lists, an edited station — reads as a single
+ * rolling pull request rather than a scatter of them.
+ */
+export const CONFIGURATION_BRANCH = 'spotlight/configuration';
+
 /** Where one line's file sits, so it is written back over itself. */
 export const linePath = (lineKey: string): string =>
   `${LINES_UNDER}/${lineKey}.yml`;

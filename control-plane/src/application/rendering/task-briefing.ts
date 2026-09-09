@@ -85,11 +85,7 @@ const reaching = (station: Station | null): string | null => {
   return told.length > 0 ? told.join('\n\n') : null;
 };
 
-/**
- * What the workspace holds. Each repository the line works in is cloned into a
- * directory of its own name; the agent works out which its change belongs in,
- * because a task rarely says, and a change may touch more than one.
- */
+/** Tells the agent which repositories are checked out, and to pick which apply. */
 const workspaceOf = (line: AssemblyLine): string | null => {
   const repositories = line.repositories.all;
 

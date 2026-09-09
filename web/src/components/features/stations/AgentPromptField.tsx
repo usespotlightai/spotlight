@@ -3,7 +3,7 @@ import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 type AgentPromptFieldProps = {
   value: string;
   onChange: (prompt: string) => void;
-  onBlur: () => void;
+  onBlur?: () => void;
 };
 
 export function AgentPromptField({

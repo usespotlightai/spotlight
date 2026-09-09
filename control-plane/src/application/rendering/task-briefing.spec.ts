@@ -75,6 +75,20 @@ const ends = (id: string, name: string, position: number) =>
     kind: position === 0 ? 'backlog' : 'completed',
   });
 
+const atPlace = (station: Station, position: number) =>
+  Station.of({
+    id: station.id,
+    name: station.name,
+    position,
+    color: station.color,
+    description: station.description,
+    harness: station.harness,
+    agentPrompt: station.agentPrompt,
+    kind: station.kind,
+    wayOut: station.wayOut,
+    tools: station.tools,
+  });
+
 const held = (...stations: Station[]) =>
   AssemblyLine.of({
     id: AssemblyLineId.of('line_1'),
@@ -83,7 +97,7 @@ const held = (...stations: Station[]) =>
     name: AssemblyLineName.of('Default'),
     stations: [
       ends('station_0', 'Backlog', 0),
-      ...stations.map((each, place) => each.movedTo(place + 1)),
+      ...stations.map((each, place) => atPlace(each, place + 1)),
       ends('station_end', 'Completed', stations.length + 1),
     ],
   });

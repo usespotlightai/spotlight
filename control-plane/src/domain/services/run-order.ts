@@ -51,7 +51,7 @@ export const orderFor = ({
   return {
     harness,
     stationId: station.id,
-    priority: RunPriority.of(station.position),
+    priority: RunPriority.of(line.depthOf(station.id)),
     pinnedTo: continuity.pinnedTo,
     options: line.optionsFrom(station.id).map((each) => each.value),
     noteLimit: 0,
