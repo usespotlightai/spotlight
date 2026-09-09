@@ -1,4 +1,5 @@
 import { GitPullRequest, RefreshCw } from 'lucide-react';
+import { useState } from 'react';
 import { useParams } from 'react-router';
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { AgentPromptField } from '@/components/features/stations/AgentPromptField';
@@ -18,6 +19,7 @@ import {
 } from '@/components/ui/popover';
 import { useRereadConfiguration } from '@/hooks/api/useConfiguration';
 import { useCustomiseStation } from '@/hooks/api/useCustomiseStation';
+import { useSetLineRepositories } from '@/hooks/api/useSetLineRepositories';
 import { useStation } from '@/hooks/api/useStation';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useStationEdits } from '@/hooks/useStationEdits';
@@ -31,7 +33,19 @@ export function Station() {
   const { line, station, isPending } = useStation(teamId, lineId, stationId);
   const { edits, change } = useStationEdits(station);
   const customise = useCustomiseStation();
+  const setRepositories = useSetLineRepositories();
   const reread = useRereadConfiguration(teamId);
+
+  // The line's repositories are edited from the station too; kept locally and
+  // re-seeded when the line changes, the way station edits are.
+  const [reposOf, setReposOf] = useState(line?.id);
+  const [repos, setRepos] = useState<string[]>(
+    line ? [...line.repositories] : [],
+  );
+  if (line && line.id !== reposOf) {
+    setReposOf(line.id);
+    setRepos([...line.repositories]);
+  }
 
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
 
@@ -99,16 +113,37 @@ export function Station() {
     changed.agentPrompt = edits.agentPrompt || null;
   }
 
-  const dirty = Object.keys(changed).length > 0;
+  // Repositories belong to the line, not the station, so they travel as their
+  // own proposal into the same rolling pull request.
+  const reposChanged =
+    repos.length !== line.repositories.length ||
+    repos.some((each) => !line.repositories.includes(each));
+
+  const stationChanged = Object.keys(changed).length > 0;
+  const dirty = stationChanged || reposChanged;
   const proposable = dirty && edits.name.trim().length > 0;
 
-  const propose = () => {
-    if (teamId && proposable) {
-      customise.mutate({
+  const proposing = customise.isPending || setRepositories.isPending;
+  const proposedUrl = customise.data?.url ?? setRepositories.data?.url;
+  const proposeError = customise.error ?? setRepositories.error;
+
+  const propose = async () => {
+    if (!teamId || !proposable) {
+      return;
+    }
+    if (stationChanged) {
+      await customise.mutateAsync({
         teamId,
         lineId: line.id,
         stationId: station.id,
         changes: changed,
+      });
+    }
+    if (reposChanged) {
+      await setRepositories.mutateAsync({
+        teamId,
+        lineId: line.id,
+        repositories: repos,
       });
     }
   };
@@ -133,10 +168,10 @@ export function Station() {
             <Button
               size="sm"
               onClick={propose}
-              disabled={!proposable || customise.isPending}
+              disabled={!proposable || proposing}
               className="rounded-full shadow-none"
             >
-              {customise.isPending ? 'Proposing…' : 'Propose changes'}
+              {proposing ? 'Proposing…' : 'Propose changes'}
             </Button>
           </>
         }
@@ -144,9 +179,9 @@ export function Station() {
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-8 py-8">
-          {customise.data?.url && !dirty && (
+          {proposedUrl && !dirty && (
             <a
-              href={customise.data.url}
+              href={proposedUrl}
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-2 rounded-lg border-[0.5px] border-border bg-card px-3 py-2 text-sm outline-none transition-colors hover:bg-accent"
@@ -162,10 +197,8 @@ export function Station() {
             </a>
           )}
 
-          {customise.isError && (
-            <p className="text-destructive text-sm">
-              {customise.error.message}
-            </p>
+          {proposeError && (
+            <p className="text-destructive text-sm">{proposeError.message}</p>
           )}
 
           <div className="flex gap-10">
@@ -228,7 +261,9 @@ export function Station() {
             </main>
 
             <StationProperties
-              repositories={line.repositories}
+              slug={slug}
+              repositories={repos}
+              onRepositories={setRepos}
               {...(ends
                 ? {
                     note:

@@ -1,4 +1,5 @@
 import { CustomiseStationCommand } from '@application/commands/customise-station.command';
+import { SetLineRepositoriesCommand } from '@application/commands/set-line-repositories.command';
 import type {
   AssemblyLineDto,
   StationDto,
@@ -29,6 +30,7 @@ import { CurrentUser } from '@presentation/http/decorators/current-user.decorato
 import { AssemblyLineResponseDto } from '@presentation/http/dto/assembly-line.response.dto';
 import { ProposedResponseDto } from '@presentation/http/dto/configuration.response.dto';
 import { CustomiseStationRequestDto } from '@presentation/http/dto/customise-station.request.dto';
+import { SetLineRepositoriesRequestDto } from '@presentation/http/dto/set-line-repositories.request.dto';
 import { AssemblyLineHttpMapper } from '@presentation/http/mappers/assembly-line.http.mapper';
 
 @ApiTags('assembly-lines')
@@ -107,6 +109,41 @@ export class AssemblyLineController {
         lineId,
         stationId,
         AssemblyLineHttpMapper.toStationChanges(body),
+      ),
+    );
+
+    if (!opened) {
+      throw new NotFoundException();
+    }
+
+    return new ProposedResponseDto(opened.url);
+  }
+
+  @Patch(':lineId/repositories')
+  @ApiOperation({
+    operationId: 'setLineRepositories',
+    summary: 'Set the repositories a line, and so its every station, works in',
+  })
+  @ApiParam({ name: 'teamId', example: '9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84' })
+  @ApiParam({ name: 'lineId', example: '7b2c9e14-3a5d-4c8f-b6e1-9d0a2f7c5b43' })
+  @ApiOkResponse({ type: ProposedResponseDto })
+  @ApiNotFoundResponse({ description: 'No such line, or nowhere to write it' })
+  @ApiUnprocessableEntityResponse({ description: 'Invalid repository' })
+  async setRepositories(
+    @Param('teamId') teamId: string,
+    @Param('lineId') lineId: string,
+    @Body() body: SetLineRepositoriesRequestDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<ProposedResponseDto> {
+    const opened = await this.commandBus.execute<
+      SetLineRepositoriesCommand,
+      OpenedPullRequestDto | null
+    >(
+      new SetLineRepositoriesCommand(
+        teamId,
+        user.id,
+        lineId,
+        body.repositories,
       ),
     );
 

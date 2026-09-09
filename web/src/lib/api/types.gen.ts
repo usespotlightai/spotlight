@@ -71,6 +71,13 @@ export type ProposedResponseDto = {
   url: string;
 };
 
+export type SetLineRepositoriesRequestDto = {
+  /**
+   * The line’s repositories, as owner/name, set whole.
+   */
+  repositories: Array<string>;
+};
+
 export type HealthResponseDto = {
   status: 'ok';
 };
@@ -1002,6 +1009,37 @@ export type CustomiseStationResponses = {
 };
 
 export type CustomiseStationResponse = CustomiseStationResponses[keyof CustomiseStationResponses];
+
+export type SetLineRepositoriesData = {
+  body: SetLineRepositoriesRequestDto;
+  path: {
+    teamId: string;
+    lineId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/assembly-lines/{lineId}/repositories';
+};
+
+export type SetLineRepositoriesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such line, or nowhere to write it
+   */
+  404: unknown;
+  /**
+   * Invalid repository
+   */
+  422: unknown;
+};
+
+export type SetLineRepositoriesResponses = {
+  200: ProposedResponseDto;
+};
+
+export type SetLineRepositoriesResponse = SetLineRepositoriesResponses[keyof SetLineRepositoriesResponses];
 
 export type GetHealthData = {
   body?: never;

@@ -47,12 +47,19 @@ vi.mock('@/hooks/api/useAssemblyLines', () => ({
 }));
 
 const customised = vi.fn();
+const setRepositories = vi.fn();
 
 vi.mock('@/hooks/api/useConfiguration', () => ({
   useRereadConfiguration: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 vi.mock('@/hooks/api/useCustomiseStation', () => ({
-  useCustomiseStation: () => ({ mutate: customised }),
+  useCustomiseStation: () => ({ mutate: customised, mutateAsync: customised }),
+}));
+vi.mock('@/hooks/api/useSetLineRepositories', () => ({
+  useSetLineRepositories: () => ({
+    mutate: setRepositories,
+    mutateAsync: setRepositories,
+  }),
 }));
 
 vi.mock('@/hooks/api/useWorkspace', () => ({
@@ -67,6 +74,11 @@ vi.mock('@/hooks/api/useHarnesses', () => ({
       { id: 'claude-code', name: 'Claude Code' },
       { id: 'other', name: 'Other Harness' },
     ],
+  }),
+}));
+vi.mock('@/hooks/api/useRepositories', () => ({
+  useRepositories: () => ({
+    data: [{ fullName: 'usespotlightai/spotlight' }, { fullName: 'acme/web' }],
   }),
 }));
 vi.mock('@/hooks/api/useRunners', () => ({
@@ -105,6 +117,7 @@ const openHarnesses = async () => {
 beforeEach(() => {
   localStorage.clear();
   customised.mockClear();
+  setRepositories.mockClear();
 });
 
 describe('Station', () => {
@@ -209,7 +222,7 @@ describe('Station', () => {
     renderAt('station_1');
 
     expect(
-      screen.getByRole('heading', { name: 'Repositories' }),
+      screen.getByRole('heading', { name: 'Line Repositories' }),
     ).toBeInTheDocument();
     expect(screen.getByText('usespotlightai/spotlight')).toBeInTheDocument();
   });
@@ -309,6 +322,25 @@ describe('Station', () => {
       stationId: 'station_1',
       changes: { harness: 'other' },
     });
+  });
+
+  it('proposes the line’s repositories as their own change', async () => {
+    const user = userEvent.setup();
+    renderAt('station_1');
+
+    await user.click(screen.getByLabelText('Repositories'));
+    await screen.findByRole('menu');
+    await user.click(
+      screen.getByRole('menuitemcheckbox', { name: 'acme/web' }),
+    );
+    await propose();
+
+    expect(setRepositories).toHaveBeenCalledWith({
+      teamId: 'team_1',
+      lineId: 'line_1',
+      repositories: ['usespotlightai/spotlight', 'acme/web'],
+    });
+    expect(customised).not.toHaveBeenCalled();
   });
 
   it('proposes an emptied harness, so the station holds its work', async () => {

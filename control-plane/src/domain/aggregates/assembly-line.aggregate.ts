@@ -134,6 +134,21 @@ export class AssemblyLine {
     return this.repositories.named(name);
   }
 
+  /** The repositories this line works in, set whole. */
+  worksIn(repositories: readonly Repository[]): AssemblyLine {
+    return AssemblyLine.of({
+      id: this.id,
+      workspaceId: this.workspaceId,
+      factoryId: this.factoryId,
+      key: this.key,
+      name: this.name,
+      stations: this.stations,
+      reactions: this.reactions,
+      role: this.role,
+      repositories,
+    });
+  }
+
   opening(name: string | null): Repository {
     return this.repositories.opening(name);
   }

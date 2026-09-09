@@ -111,6 +111,66 @@
         ]
       }
     },
+    "/teams/{teamId}/assembly-lines/{lineId}/repositories": {
+      "patch": {
+        "operationId": "setLineRepositories",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "lineId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "7b2c9e14-3a5d-4c8f-b6e1-9d0a2f7c5b43",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetLineRepositoriesRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposedResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such line, or nowhere to write it"
+          },
+          "422": {
+            "description": "Invalid repository"
+          }
+        },
+        "summary": "Set the repositories a line, and so its every station, works in",
+        "tags": [
+          "assembly-lines"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "operationId": "getHealth",
@@ -2421,6 +2481,24 @@
         },
         "required": [
           "url"
+        ]
+      },
+      "SetLineRepositoriesRequestDto": {
+        "type": "object",
+        "properties": {
+          "repositories": {
+            "example": [
+              "usespotlightai/spotlight"
+            ],
+            "description": "The line’s repositories, as owner/name, set whole.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "repositories"
         ]
       },
       "HealthResponseDto": {

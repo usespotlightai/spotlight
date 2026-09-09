@@ -45,6 +45,7 @@ import { RenameTeamHandler } from '@application/commands/handlers/rename-team.ha
 import { RenewLeaseHandler } from '@application/commands/handlers/renew-lease.handler';
 import { RevokeRunnerHandler } from '@application/commands/handlers/revoke-runner.handler';
 import { SayToRunHandler } from '@application/commands/handlers/say-to-run.handler';
+import { SetLineRepositoriesHandler } from '@application/commands/handlers/set-line-repositories.handler';
 import {
   ForgetSecretHandler,
   SetSecretHandler,
@@ -68,6 +69,7 @@ import {
   RevokeRunnerCommand,
 } from '@application/commands/runner.commands';
 import { SayToRunCommand } from '@application/commands/say-to-run.command';
+import { SetLineRepositoriesCommand } from '@application/commands/set-line-repositories.command';
 import { SetSecretCommand } from '@application/commands/set-secret.command';
 import { StopRunCommand } from '@application/commands/stop-run.command';
 import { DigestRun } from '@application/events/handlers/digest-run.handler';
@@ -1472,6 +1474,12 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     ...bindCommandHandler(CustomiseStationCommand, CustomiseStationHandler, [
       ProposeLineChange,
     ]),
+
+    ...bindCommandHandler(
+      SetLineRepositoriesCommand,
+      SetLineRepositoriesHandler,
+      [ProposeLineChange],
+    ),
 
     ...bindCommandHandler(EnrolRunnerCommand, EnrolRunnerHandler, [
       DrizzleRunnerRepository,

@@ -37,7 +37,7 @@ export class AnswerRemarkHandler
 
       const repository = task?.pullRequest?.repository ?? null;
 
-      if (!task || !task.pullRequest || !repository) {
+      if (!task?.pullRequest || !repository) {
         throw new NoRepositoryError();
       }
 
