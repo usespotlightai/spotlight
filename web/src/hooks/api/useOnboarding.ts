@@ -5,10 +5,16 @@ export const onboardingKeys = {
   forTeam: (teamId?: string) => ['onboarding', teamId ?? null] as const,
 };
 
+const POLL_MS = 10_000;
+
 export function useOnboarding(teamId: string | undefined) {
   return useQuery({
     queryKey: onboardingKeys.forTeam(teamId),
     enabled: Boolean(teamId),
+    // Steps turn done out of band (a runner connects, the setup pull request
+    // merges), so keep looking until they all are, then stop.
+    refetchInterval: (query) =>
+      query.state.data?.steps.every((step) => step.done) ? false : POLL_MS,
     queryFn: async () => {
       const { data } = await readOnboarding({
         path: { teamId: teamId as string },

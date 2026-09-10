@@ -25,6 +25,7 @@ export type Conversing = {
     readonly count: number;
   };
   readonly working: boolean;
+  readonly resolved?: boolean;
   readonly notes: readonly InboxMessage[];
 };
 

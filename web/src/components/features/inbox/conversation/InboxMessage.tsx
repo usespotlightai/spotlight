@@ -23,6 +23,7 @@ type InboxMessageProps = {
   // Whose team it is, for a note that shows that team's own standing.
   teamId: string | undefined;
   about: Conversing['about'];
+  resolved: Conversing['resolved'];
 };
 
 export function InboxMessage({
@@ -31,6 +32,7 @@ export function InboxMessage({
   worked,
   teamId,
   about,
+  resolved,
 }: InboxMessageProps) {
   const { data: session } = useSession();
   const navigate = useNavigate();
@@ -116,7 +118,12 @@ export function InboxMessage({
       {worked.length > 0 && <InboxWork journals={worked} />}
 
       {shows ? (
-        <SetupSteps teamId={teamId} body={message.body} about={about} />
+        <SetupSteps
+          teamId={teamId}
+          body={message.body}
+          about={about}
+          resolved={Boolean(resolved)}
+        />
       ) : (
         <div ref={written}>
           <MarkdownEditor
