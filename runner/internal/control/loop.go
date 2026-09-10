@@ -142,6 +142,6 @@ func checkIn(ctx context.Context, registrar Registrar, capacity int) error {
 
 	return registrar.Register(ctx, protocol.Registration{
 		Capacity:  capacity,
-		Harnesses: harness.Installed(candidates),
+		Harnesses: harness.Installed(ctx, candidates),
 	})
 }

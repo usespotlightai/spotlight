@@ -7,6 +7,8 @@ export type StationDraft = {
   readonly name: string;
   readonly description: string;
   readonly harness: string;
+  readonly model: string;
+  readonly effort: string;
   readonly agentPrompt: string;
 };
 

@@ -3,6 +3,8 @@ import type { Task } from '@domain/aggregates/task.aggregate';
 import type { Harness } from '@domain/entities/harness.entity';
 import type { HarnessRepository } from '@domain/repositories/harness.repository';
 import type { Continuity } from '@domain/value-objects/continuity.vo';
+import type { Effort } from '@domain/value-objects/effort.vo';
+import type { HarnessModel } from '@domain/value-objects/harness-model.vo';
 import type { Repository } from '@domain/value-objects/repository.vo';
 import { RunPriority } from '@domain/value-objects/run-priority.vo';
 import type { RunnerId } from '@domain/value-objects/runner-id.vo';
@@ -11,6 +13,10 @@ import type { StationId } from '@domain/value-objects/station-id.vo';
 /** What a run is for. How it is written down for a runner is not this. */
 export interface RunOrder {
   readonly harness: Harness;
+  /** Which model answers here, or null to let the harness's own default. */
+  readonly model: HarnessModel | null;
+  /** How hard to think here, or null to let the harness's own default. */
+  readonly effort: Effort | null;
   readonly stationId: StationId;
   readonly priority: RunPriority;
   readonly pinnedTo: RunnerId | null;
@@ -50,6 +56,10 @@ export const orderFor = ({
 
   return {
     harness,
+    // Whatever the station named, or none: an unset model or effort lets the
+    // harness answer with its own default rather than one Spotlight imposed.
+    model: station.model,
+    effort: station.effort,
     stationId: station.id,
     priority: RunPriority.of(line.depthOf(station.id)),
     pinnedTo: continuity.pinnedTo,

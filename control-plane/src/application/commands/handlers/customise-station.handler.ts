@@ -5,7 +5,9 @@ import type { OpenedPullRequestDto } from '@application/ports/pull-request.port'
 import type { ProposeLineChange } from '@application/services/propose-line-change.service';
 import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
+import { Effort } from '@domain/value-objects/effort.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { HarnessModel } from '@domain/value-objects/harness-model.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationDescription } from '@domain/value-objects/station-description.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
@@ -46,7 +48,8 @@ const applied = (
   command: CustomiseStationCommand,
 ): AssemblyLine => {
   const stationId = StationId.of(command.stationId);
-  const { name, color, description, harness, agentPrompt } = command.changes;
+  const { name, color, description, harness, model, effort, agentPrompt } =
+    command.changes;
   let edited = line;
 
   if (name !== undefined) {
@@ -61,8 +64,23 @@ const applied = (
       told(description, StationDescription.of),
     );
   }
-  if (harness !== undefined) {
-    edited = edited.runStationOn(stationId, told(harness, HarnessId.of));
+  // The harness and its model are one choice: whichever the edit names, the
+  // other is taken from where the station already stands, and set together.
+  if (harness !== undefined || model !== undefined) {
+    const standing = line.stationAt(stationId);
+    const nextHarness =
+      harness !== undefined ? told(harness, HarnessId.of) : standing?.harness;
+    const nextModel =
+      model !== undefined ? told(model, HarnessModel.of) : standing?.model;
+
+    edited = edited.runStationOn(
+      stationId,
+      nextHarness ?? null,
+      nextModel ?? null,
+    );
+  }
+  if (effort !== undefined) {
+    edited = edited.setStationEffort(stationId, told(effort, Effort.of));
   }
   if (agentPrompt !== undefined) {
     edited = edited.instructStation(
@@ -79,6 +97,8 @@ const WORDS: Record<string, string> = {
   color: 'colour',
   description: 'description',
   harness: 'harness',
+  model: 'model',
+  effort: 'effort',
   agentPrompt: 'agent prompt',
 };
 

@@ -220,6 +220,8 @@ export class ConfigurationController {
             each.key,
             each.name,
             each.harness,
+            each.model,
+            each.effort,
             each.repositories,
           ),
       ),
@@ -266,6 +268,8 @@ export class ConfigurationController {
         body.lines.map((line) => ({
           key: line.key,
           harness: line.harness ?? null,
+          model: line.model ?? null,
+          effort: line.effort ?? null,
           repositories: line.repositories,
         })),
       ),

@@ -1,6 +1,8 @@
 export interface LineSetup {
   readonly key: string;
   readonly harness: string | null;
+  readonly model: string | null;
+  readonly effort: string | null;
   readonly repositories: readonly string[];
 }
 

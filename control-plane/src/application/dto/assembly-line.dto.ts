@@ -6,6 +6,8 @@ export interface StationDto {
   readonly color: string;
   readonly description: string | null;
   readonly harness: string | null;
+  readonly model: string | null;
+  readonly effort: string | null;
   readonly agentPrompt: string | null;
   readonly kind: StationKind;
 }

@@ -5,6 +5,8 @@ import {
   type LineOpening,
 } from '@domain/services/built-in-lines';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
+import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { HarnessModel } from '@domain/value-objects/harness-model.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { compileLine } from '@infrastructure/integrations/line.compile';
 import { renderLine } from '@infrastructure/integrations/line.render';
@@ -83,6 +85,23 @@ describe('writing a line out and reading it back', () => {
       expect(written?.agentPrompt?.value ?? null).toBe(
         standing.agentPrompt?.value ?? null,
       );
+    }
+  });
+
+  it('keeps the harness and model each work station runs on', () => {
+    const line = built().runsOn(
+      HarnessId.of('claude-code'),
+      HarnessModel.of('claude-sonnet-5'),
+    );
+    const read = readBack(line);
+
+    for (const standing of line.worked) {
+      const written = read.stations.find((each) =>
+        each.key.equals(standing.key),
+      );
+
+      expect(written?.harness?.value ?? null).toBe('claude-code');
+      expect(written?.model?.value ?? null).toBe('claude-sonnet-5');
     }
   });
 

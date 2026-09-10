@@ -1,6 +1,10 @@
-import { Runner } from '@domain/aggregates/runner.aggregate';
+import {
+  type InstalledHarness,
+  Runner,
+} from '@domain/aggregates/runner.aggregate';
 import type { RunnerRepository } from '@domain/repositories/runner.repository';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { HarnessModel } from '@domain/value-objects/harness-model.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { RunnerName } from '@domain/value-objects/runner-name.vo';
 import { TokenHash } from '@domain/value-objects/token-hash.vo';
@@ -11,15 +15,32 @@ import { eq } from 'drizzle-orm';
 
 type Row = typeof runner.$inferSelect;
 
+// Installed ids and advertised models: two columns of one aggregate fact.
 const toRunner = (row: Row): Runner =>
   Runner.rehydrate({
     id: RunnerId.of(row.id),
     name: RunnerName.of(row.name),
     tokenHash: TokenHash.of(row.tokenHash),
-    harnesses: row.harnesses.map(HarnessId.of),
+    installed: row.harnesses.map((id) => ({
+      id: HarnessId.of(id),
+      models: (row.advertisedModels[id] ?? []).map(HarnessModel.of),
+    })),
     revokedAt: row.revokedAt,
     lastSeenAt: row.lastSeenAt,
   });
+
+const harnessesOf = (installed: readonly InstalledHarness[]): string[] =>
+  installed.map((each) => each.id.value);
+
+const advertisedOf = (
+  installed: readonly InstalledHarness[],
+): Record<string, string[]> =>
+  Object.fromEntries(
+    installed.map((each) => [
+      each.id.value,
+      each.models.map((model) => model.value),
+    ]),
+  );
 
 @Injectable()
 export class DrizzleRunnerRepository implements RunnerRepository {
@@ -30,7 +51,8 @@ export class DrizzleRunnerRepository implements RunnerRepository {
       id: added.id.value,
       name: added.name.value,
       tokenHash: added.tokenHash.value,
-      harnesses: added.harnesses.map((each) => each.value),
+      harnesses: harnessesOf(added.installed),
+      advertisedModels: advertisedOf(added.installed),
       revokedAt: added.revokedAt,
       lastSeenAt: added.lastSeenAt,
     });
@@ -42,7 +64,8 @@ export class DrizzleRunnerRepository implements RunnerRepository {
       .set({
         revokedAt: saved.revokedAt,
         lastSeenAt: saved.lastSeenAt,
-        harnesses: saved.harnesses.map((each) => each.value),
+        harnesses: harnessesOf(saved.installed),
+        advertisedModels: advertisedOf(saved.installed),
       })
       .where(eq(runner.id, saved.id.value));
   }

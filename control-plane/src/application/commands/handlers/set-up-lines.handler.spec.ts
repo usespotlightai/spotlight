@@ -101,7 +101,13 @@ const setting = (over: { allowed?: boolean; configured?: boolean } = {}) => {
 const run = (handler: SetUpLinesHandler, repositories = ['acme/api']) =>
   handler.execute(
     new SetUpLinesCommand('team_1', 'user_1', [
-      { key: 'delivery', harness: 'claude-code', repositories },
+      {
+        key: 'delivery',
+        harness: 'claude-code',
+        model: 'claude-sonnet-5',
+        effort: 'high',
+        repositories,
+      },
     ]),
   );
 
@@ -119,6 +125,11 @@ describe('SetUpLinesHandler', () => {
     expect(
       delivery()?.worked.every((each) => each.harness?.value === 'claude-code'),
     ).toBe(true);
+    expect(
+      delivery()?.worked.every(
+        (each) => each.model?.value === 'claude-sonnet-5',
+      ),
+    ).toBe(true);
     expect(seed).toHaveBeenCalledTimes(1);
     // Git-first: the board is not written; it takes the change on merge.
     expect(save).not.toHaveBeenCalled();
@@ -129,7 +140,13 @@ describe('SetUpLinesHandler', () => {
 
     await handler.execute(
       new SetUpLinesCommand('team_1', 'user_1', [
-        { key: 'delivery', harness: null, repositories: [] },
+        {
+          key: 'delivery',
+          harness: null,
+          model: null,
+          effort: null,
+          repositories: [],
+        },
       ]),
     );
 

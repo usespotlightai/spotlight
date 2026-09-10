@@ -26,6 +26,10 @@ export interface OnboardingLineDto {
   readonly name: string;
   /** The harness its work stations run on, or null where none is set yet. */
   readonly harness: string | null;
+  /** The model that harness answers with, or null where none is set yet. */
+  readonly model: string | null;
+  /** How hard that harness thinks, or null where none is set yet. */
+  readonly effort: string | null;
   readonly repositories: readonly string[];
 }
 

@@ -95,7 +95,11 @@ export class RunnerController {
 
     return harnesses.map(
       (harness) =>
-        new InstallableHarnessResponseDto(harness.id, harness.executable),
+        new InstallableHarnessResponseDto(
+          harness.id,
+          harness.executable,
+          harness.discovery,
+        ),
     );
   }
 
@@ -132,7 +136,15 @@ export class RunnerController {
     const registered = await this.commandBus.execute<
       RegisterRunnerCommand,
       RegisteredRunnerDto
-    >(new RegisterRunnerCommand(runnerId, body.harnesses ?? []));
+    >(
+      new RegisterRunnerCommand(
+        runnerId,
+        (body.harnesses ?? []).map((each) => ({
+          id: each.id,
+          models: each.models ?? [],
+        })),
+      ),
+    );
 
     return new RegisteredRunnerResponseDto(registered.runnerId);
   }

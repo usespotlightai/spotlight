@@ -2391,6 +2391,18 @@
             "nullable": true,
             "description": "Which runners work this station. Null until one is chosen."
           },
+          "model": {
+            "type": "string",
+            "example": "claude-sonnet-5",
+            "nullable": true,
+            "description": "Which model the harness answers with. Null falls back to its default."
+          },
+          "effort": {
+            "type": "string",
+            "example": "high",
+            "nullable": true,
+            "description": "How hard the harness is told to think. Null leaves its own default."
+          },
           "agentPrompt": {
             "type": "string",
             "example": "## Role\n\nSort the queue.",
@@ -2414,6 +2426,8 @@
           "color",
           "description",
           "harness",
+          "model",
+          "effort",
           "agentPrompt",
           "kind"
         ]
@@ -2509,6 +2523,20 @@
             "maxLength": 60,
             "nullable": true,
             "description": "Which runners work this station"
+          },
+          "model": {
+            "type": "string",
+            "example": "claude-sonnet-5",
+            "maxLength": 60,
+            "nullable": true,
+            "description": "Which model the harness answers with here"
+          },
+          "effort": {
+            "type": "string",
+            "example": "high",
+            "maxLength": 20,
+            "nullable": true,
+            "description": "How hard the harness is told to think here"
           },
           "agentPrompt": {
             "type": "string",
@@ -2636,11 +2664,23 @@
             "type": "string",
             "example": "claude",
             "description": "What to look for on the runner’s PATH."
+          },
+          "discovery": {
+            "example": [
+              "cursor-agent",
+              "models"
+            ],
+            "description": "What to run to list this harness’s models, argv-style. Empty where the CLI cannot enumerate them.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
           "id",
-          "executable"
+          "executable",
+          "discovery"
         ]
       },
       "KeptWorkspacesResponseDto": {
@@ -2673,14 +2713,11 @@
             "description": "What the runner advertises. The control plane grants work."
           },
           "harnesses": {
-            "example": [
-              "claude-code"
-            ],
-            "description": "The harnesses the runner found installed. What is on a machine is a fact about that machine, so the machine is what says it.",
+            "description": "The harnesses the runner found installed, each with the models it discovered. What is on a machine is a fact about that machine, so the machine is what says it.",
             "items": {
               "type": "array",
               "items": {
-                "type": "string"
+                "type": "registeredHarnessRequestDto"
               }
             },
             "type": "array"
@@ -3232,6 +3269,23 @@
           "failed"
         ]
       },
+      "HarnessModelResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "claude-sonnet-5"
+          },
+          "name": {
+            "type": "string",
+            "example": "Sonnet 5"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
       "HarnessResponseDto": {
         "type": "object",
         "properties": {
@@ -3242,11 +3296,39 @@
           "name": {
             "type": "string",
             "example": "Claude Code"
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HarnessModelResponseDto"
+            }
+          },
+          "defaultModel": {
+            "type": "string",
+            "example": "claude-sonnet-5",
+            "description": "Which model a station runs on where it names none of its own"
+          },
+          "efforts": {
+            "example": [
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max"
+            ],
+            "description": "The effort levels this harness offers. Empty where it takes none.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
           "id",
-          "name"
+          "name",
+          "models",
+          "defaultModel",
+          "efforts"
         ]
       },
       "InboxStationResponseDto": {
@@ -4018,6 +4100,16 @@
             "nullable": true,
             "example": "claude-code"
           },
+          "model": {
+            "type": "string",
+            "nullable": true,
+            "example": "claude-sonnet-5"
+          },
+          "effort": {
+            "type": "string",
+            "nullable": true,
+            "example": "high"
+          },
           "repositories": {
             "example": [
               "acme/api"
@@ -4032,6 +4124,8 @@
           "key",
           "name",
           "harness",
+          "model",
+          "effort",
           "repositories"
         ]
       },
@@ -4132,6 +4226,16 @@
             "type": "string",
             "nullable": true,
             "example": "claude-code"
+          },
+          "model": {
+            "type": "string",
+            "nullable": true,
+            "example": "claude-sonnet-5"
+          },
+          "effort": {
+            "type": "string",
+            "nullable": true,
+            "example": "high"
           },
           "repositories": {
             "example": [

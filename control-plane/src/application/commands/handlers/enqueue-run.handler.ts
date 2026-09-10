@@ -3,10 +3,10 @@ import { RunSpecContract } from '@application/contracts/run-spec.contract';
 import type { EnqueuedRunDto } from '@application/dto/run.dto';
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
+import type { HarnessLaunchPort } from '@application/ports/harness-launch.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import { Run } from '@domain/aggregates/run.aggregate';
 import { UnknownHarnessError } from '@domain/exceptions/unknown-harness.error';
-import type { HarnessRepository } from '@domain/repositories/harness.repository';
 import type { RunRepository } from '@domain/repositories/run.repository';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
@@ -20,22 +20,26 @@ export class EnqueueRunHandler
   constructor(
     private readonly runs: RunRepository,
     private readonly ids: IdGeneratorPort,
-    private readonly harnesses: HarnessRepository,
+    private readonly launch: HarnessLaunchPort,
   ) {}
 
   async execute(command: EnqueueRunCommand): Promise<EnqueuedRunDto> {
     try {
-      const harness = this.harnesses.named(HarnessId.of(command.harness));
-      if (!harness) {
+      const harness = HarnessId.of(command.harness);
+      const started = this.launch.commandFor(harness, {
+        model: null,
+        effort: null,
+      });
+      if (!started) {
         throw new UnknownHarnessError(command.harness);
       }
 
       const queued = Run.enqueue({
         id: RunId.of(this.ids.generate()),
         workspaceId: WorkspaceId.of(command.workspaceId),
-        harness: harness.id,
+        harness,
         spec: RunSpec.of(
-          RunSpecContract.ordered(command.spec, harness.command.started()),
+          RunSpecContract.ordered(command.spec, started.started()),
         ),
         targetRunner: command.targetRunnerId
           ? RunnerId.of(command.targetRunnerId)

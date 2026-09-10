@@ -1,6 +1,8 @@
 import { GitPullRequest } from 'lucide-react';
 import { useState } from 'react';
+import { EffortSelect } from '@/components/features/stations/EffortSelect';
 import { HarnessSelect } from '@/components/features/stations/HarnessSelect';
+import { ModelSelect } from '@/components/features/stations/ModelSelect';
 import { RepositoriesSelect } from '@/components/features/stations/RepositoriesSelect';
 import { Button } from '@/components/ui/button';
 import { useSetUpLines } from '@/hooks/api/useSetUpLines';
@@ -15,7 +17,12 @@ type SetUpLinesProps = {
   controlClassName?: string;
 };
 
-type Assignment = { harness: string; repositories: string[] };
+type Assignment = {
+  harness: string;
+  model: string;
+  effort: string;
+  repositories: string[];
+};
 
 /** The line that improves the factory, which opens its work against the config. */
 const IMPROVEMENT = 'factory-improvement';
@@ -42,6 +49,8 @@ const seededFrom = (
       line.key,
       {
         harness: line.harness ?? '',
+        model: line.model ?? '',
+        effort: line.effort ?? '',
         repositories: reposFor(line, configRepository),
       },
     ]),
@@ -55,7 +64,7 @@ const signatureOf = (
   `${configRepository ?? ''}#${lines
     .map(
       (line) =>
-        `${line.key}:${line.harness ?? ''}:${line.repositories.join(',')}`,
+        `${line.key}:${line.harness ?? ''}:${line.model ?? ''}:${line.effort ?? ''}:${line.repositories.join(',')}`,
     )
     .join('|')}`;
 
@@ -87,11 +96,18 @@ export function SetUpLines({
   const assign = (key: string, change: Partial<Assignment>) =>
     setAssignments((all) => ({ ...all, [key]: { ...all[key], ...change } }));
 
+  // Model and effort are per harness, so choosing one clears both back to the
+  // new harness's own defaults.
+  const chooseHarness = (key: string, harness: string) =>
+    assign(key, { harness, model: '', effort: '' });
+
   const write = () =>
     setUp.mutate(
       lines.map((line) => ({
         key: line.key,
         harness: assignments[line.key]?.harness || null,
+        model: assignments[line.key]?.model || null,
+        effort: assignments[line.key]?.effort || null,
         repositories: assignments[line.key]?.repositories ?? [],
       })),
     );
@@ -105,8 +121,22 @@ export function SetUpLines({
           <div className="flex flex-col gap-1 rounded-lg border-[0.5px] border-border bg-card p-1">
             <HarnessSelect
               value={assignments[line.key]?.harness ?? ''}
-              onChange={(harness) => assign(line.key, { harness })}
+              onChange={(harness) => chooseHarness(line.key, harness)}
             />
+            {assignments[line.key]?.harness ? (
+              <>
+                <ModelSelect
+                  harness={assignments[line.key]?.harness ?? ''}
+                  value={assignments[line.key]?.model ?? ''}
+                  onChange={(model) => assign(line.key, { model })}
+                />
+                <EffortSelect
+                  harness={assignments[line.key]?.harness ?? ''}
+                  value={assignments[line.key]?.effort ?? ''}
+                  onChange={(effort) => assign(line.key, { effort })}
+                />
+              </>
+            ) : null}
             <RepositoriesSelect
               slug={slug}
               value={assignments[line.key]?.repositories ?? []}

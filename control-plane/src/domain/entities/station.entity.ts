@@ -1,6 +1,8 @@
 import { InvalidStationChangeError } from '@domain/exceptions/invalid-station-change.error';
 import type { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
+import type { Effort } from '@domain/value-objects/effort.vo';
 import type { HarnessId } from '@domain/value-objects/harness-id.vo';
+import type { HarnessModel } from '@domain/value-objects/harness-model.vo';
 import type { StationColor } from '@domain/value-objects/station-color.vo';
 import type { StationDescription } from '@domain/value-objects/station-description.vo';
 import type { StationId } from '@domain/value-objects/station-id.vo';
@@ -17,6 +19,8 @@ type Part = {
   color?: StationColor;
   description?: StationDescription | null;
   harness?: HarnessId | null;
+  model?: HarnessModel | null;
+  effort?: Effort | null;
   agentPrompt?: AgentPrompt | null;
   wayOut?: WayOut;
   tools?: readonly Tool[];
@@ -31,6 +35,8 @@ export type StationInput = {
   color: StationColor;
   description?: StationDescription | null;
   harness?: HarnessId | null;
+  model?: HarnessModel | null;
+  effort?: Effort | null;
   agentPrompt?: AgentPrompt | null;
   kind?: StationKind;
   wayOut?: WayOut;
@@ -57,6 +63,10 @@ export abstract class Station {
 
   abstract readonly kind: StationKind;
   abstract readonly harness: HarnessId | null;
+  /** Which model the harness answers with here. Null where nothing runs. */
+  abstract readonly model: HarnessModel | null;
+  /** How hard the harness is told to think here. Null leaves its own default. */
+  abstract readonly effort: Effort | null;
   abstract readonly agentPrompt: AgentPrompt | null;
 
   static of(input: StationInput): Station {
@@ -80,6 +90,8 @@ export abstract class Station {
         return new WorkStation(
           ...ends,
           input.harness ?? null,
+          input.model ?? null,
+          input.effort ?? null,
           input.agentPrompt ?? null,
         );
     }
@@ -118,7 +130,12 @@ export abstract class Station {
     return this.copiedWith({ tools });
   }
 
-  abstract runsOn(harness: HarnessId | null): Station;
+  abstract runsOn(
+    harness: HarnessId | null,
+    model: HarnessModel | null,
+  ): Station;
+
+  abstract atEffort(effort: Effort | null): Station;
 
   abstract instruct(agentPrompt: AgentPrompt | null): Station;
 
@@ -142,13 +159,25 @@ export class WorkStation extends Station {
     wayOut: WayOut,
     tools: readonly Tool[],
     readonly harness: HarnessId | null,
+    readonly model: HarnessModel | null,
+    readonly effort: Effort | null,
     readonly agentPrompt: AgentPrompt | null,
   ) {
     super(id, key, name, position, color, description, wayOut, tools);
   }
 
-  runsOn(harness: HarnessId | null): Station {
-    return this.copiedWith({ harness });
+  // A harness, its model and its effort travel together: dropping the harness
+  // drops both, so nothing names them with nothing to answer them.
+  runsOn(harness: HarnessId | null, model: HarnessModel | null): Station {
+    return this.copiedWith({
+      harness,
+      model: harness ? model : null,
+      effort: harness ? this.effort : null,
+    });
+  }
+
+  atEffort(effort: Effort | null): Station {
+    return this.copiedWith({ effort });
   }
 
   instruct(agentPrompt: AgentPrompt | null): Station {
@@ -166,6 +195,8 @@ export class WorkStation extends Station {
       part.wayOut ?? this.wayOut,
       part.tools ?? this.tools,
       part.harness !== undefined ? part.harness : this.harness,
+      part.model !== undefined ? part.model : this.model,
+      part.effort !== undefined ? part.effort : this.effort,
       part.agentPrompt !== undefined ? part.agentPrompt : this.agentPrompt,
     );
   }
@@ -174,11 +205,19 @@ export class WorkStation extends Station {
 export class Backlog extends Station {
   readonly kind = 'backlog' as const;
   readonly harness = null;
+  readonly model = null;
+  readonly effort = null;
   readonly agentPrompt = null;
 
   runsOn(): Station {
     throw new InvalidStationChangeError(
       'is a backlog, where tasks wait to be started, so nothing runs there',
+    );
+  }
+
+  atEffort(): Station {
+    throw new InvalidStationChangeError(
+      'is a backlog, where nothing runs, so there is no effort to set',
     );
   }
 
@@ -206,11 +245,19 @@ export class Backlog extends Station {
 export class Completed extends Station {
   readonly kind = 'completed' as const;
   readonly harness = null;
+  readonly model = null;
+  readonly effort = null;
   readonly agentPrompt = null;
 
   runsOn(): Station {
     throw new InvalidStationChangeError(
       'is where the line ends, so nothing runs there',
+    );
+  }
+
+  atEffort(): Station {
+    throw new InvalidStationChangeError(
+      'is where the line ends, so there is no effort to set',
     );
   }
 

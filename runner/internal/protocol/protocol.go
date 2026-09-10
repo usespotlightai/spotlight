@@ -11,15 +11,27 @@ const ToolPullRequest = "pull-request"
 // a machine is the one thing a runner says about itself; what it is then given
 // remains the control plane's to decide.
 type Registration struct {
-	Capacity  int      `json:"capacity"`
-	Harnesses []string `json:"harnesses"`
+	Capacity  int             `json:"capacity"`
+	Harnesses []HarnessReport `json:"harnesses"`
+}
+
+// HarnessReport is one harness the runner found, with the models it discovered
+// that harness can answer with. The models come from the CLI itself, so they
+// are what the machine's account may actually use; empty where it could not say.
+type HarnessReport struct {
+	ID     string   `json:"id"`
+	Models []string `json:"models,omitempty"`
 }
 
 // Installable is one harness to look for. The runner reads no meaning into it:
-// it looks for the executable and reports the id back.
+// it looks for the executable, and where a Discovery command is given runs it to
+// list the harness's models, reporting the id and whatever it found back.
 type Installable struct {
 	ID         string `json:"id"`
 	Executable string `json:"executable"`
+	// Discovery lists the harness's models, argv-style, one id per line on
+	// stdout. Empty where the CLI cannot enumerate them.
+	Discovery []string `json:"discovery,omitempty"`
 }
 
 type Registered struct {

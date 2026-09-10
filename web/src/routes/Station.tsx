@@ -109,6 +109,12 @@ export function Station() {
   if (!ends && edits.harness !== (station.harness ?? '')) {
     changed.harness = edits.harness || null;
   }
+  if (!ends && edits.model !== (station.model ?? '')) {
+    changed.model = edits.model || null;
+  }
+  if (!ends && edits.effort !== (station.effort ?? '')) {
+    changed.effort = edits.effort || null;
+  }
   if (!ends && edits.agentPrompt !== (station.agentPrompt ?? '')) {
     changed.agentPrompt = edits.agentPrompt || null;
   }
@@ -273,7 +279,13 @@ export function Station() {
                   }
                 : {
                     harness: edits.harness,
-                    onHarness: (harness: string) => change({ harness }),
+                    // Model and effort are per harness; changing it clears both.
+                    onHarness: (harness: string) =>
+                      change({ harness, model: '', effort: '' }),
+                    model: edits.model,
+                    onModel: (model: string) => change({ model }),
+                    effort: edits.effort,
+                    onEffort: (effort: string) => change({ effort }),
                   })}
             />
           </div>

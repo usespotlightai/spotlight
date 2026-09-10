@@ -3,20 +3,27 @@ import { RunnerRevoked } from '@domain/events/runner-revoked.event';
 import { InconsistentStateError } from '@domain/exceptions/inconsistent-state.error';
 import { RevokedRunnerError } from '@domain/exceptions/revoked-runner.error';
 import type { HarnessId } from '@domain/value-objects/harness-id.vo';
+import type { HarnessModel } from '@domain/value-objects/harness-model.vo';
 import type { RunnerId } from '@domain/value-objects/runner-id.vo';
 import type { RunnerName } from '@domain/value-objects/runner-name.vo';
 import type { TokenHash } from '@domain/value-objects/token-hash.vo';
 
+/** One harness a runner found, with the models it advertises for it. */
+export interface InstalledHarness {
+  readonly id: HarnessId;
+  readonly models: readonly HarnessModel[];
+}
+
 /**
- * Name and token are decided at enrolment. What harnesses it has is not: what
- * is installed on a machine is the machine's to say.
+ * Name and token are decided at enrolment; what harnesses it has, and what each
+ * can answer with, is the machine's to say.
  */
 export class Runner extends EventRecorder {
   private constructor(
     readonly id: RunnerId,
     readonly name: RunnerName,
     readonly tokenHash: TokenHash,
-    readonly harnesses: readonly HarnessId[],
+    readonly installed: readonly InstalledHarness[],
     readonly revokedAt: Date | null,
     readonly lastSeenAt: Date | null,
   ) {
@@ -35,7 +42,7 @@ export class Runner extends EventRecorder {
     id: RunnerId;
     name: RunnerName;
     tokenHash: TokenHash;
-    harnesses: readonly HarnessId[];
+    installed: readonly InstalledHarness[];
     revokedAt: Date | null;
     lastSeenAt: Date | null;
   }): Runner {
@@ -54,7 +61,7 @@ export class Runner extends EventRecorder {
       input.id,
       input.name,
       input.tokenHash,
-      [...input.harnesses],
+      [...input.installed],
       input.revokedAt,
       input.lastSeenAt,
     );
@@ -68,11 +75,20 @@ export class Runner extends EventRecorder {
     return this.lastSeenAt !== null;
   }
 
+  /** The harnesses it has, by id — what a run is matched against. */
+  get harnesses(): readonly HarnessId[] {
+    return this.installed.map((each) => each.id);
+  }
+
+  modelsOf(harness: HarnessId): readonly HarnessModel[] {
+    return this.installed.find((each) => each.id.equals(harness))?.models ?? [];
+  }
+
   /** Reported on every registration, so restarting corrects the record. */
-  reports(harnesses: readonly HarnessId[]): Runner {
+  reports(installed: readonly InstalledHarness[]): Runner {
     this.refuseRevoked();
 
-    return this.with({ harnesses: [...harnesses] });
+    return this.with({ installed: [...installed] });
   }
 
   /** Every call says so, not just the first: silence stops it being counted on. */
@@ -106,7 +122,7 @@ export class Runner extends EventRecorder {
   }
 
   private with(part: {
-    harnesses?: readonly HarnessId[];
+    installed?: readonly InstalledHarness[];
     revokedAt?: Date;
     lastSeenAt?: Date;
   }): Runner {
@@ -114,7 +130,7 @@ export class Runner extends EventRecorder {
       this.id,
       this.name,
       this.tokenHash,
-      part.harnesses ?? this.harnesses,
+      part.installed ?? this.installed,
       part.revokedAt ?? this.revokedAt,
       part.lastSeenAt ?? this.lastSeenAt,
     );

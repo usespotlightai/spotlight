@@ -7,7 +7,9 @@ import type { SeedConfiguration } from '@application/services/seed-configuration
 import type { SettleSetup } from '@application/services/settle-setup.service';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TeamRepository } from '@domain/repositories/team.repository';
+import { Effort } from '@domain/value-objects/effort.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { HarnessModel } from '@domain/value-objects/harness-model.vo';
 import { Repository } from '@domain/value-objects/repository.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 
@@ -57,7 +59,11 @@ export class SetUpLinesHandler
 
         return setup
           ? line
-              .runsOn(setup.harness ? HarnessId.of(setup.harness) : null)
+              .runsOn(
+                setup.harness ? HarnessId.of(setup.harness) : null,
+                setup.model ? HarnessModel.of(setup.model) : null,
+              )
+              .thinksAt(setup.effort ? Effort.of(setup.effort) : null)
               .worksIn(setup.repositories.map((each) => Repository.of(each)))
           : line;
       });

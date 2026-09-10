@@ -253,6 +253,12 @@ export class OnboardingLineResponseDto {
   @ApiProperty({ nullable: true, type: String, example: 'claude-code' })
   readonly harness: string | null;
 
+  @ApiProperty({ nullable: true, type: String, example: 'claude-sonnet-5' })
+  readonly model: string | null;
+
+  @ApiProperty({ nullable: true, type: String, example: 'high' })
+  readonly effort: string | null;
+
   @ApiProperty({ isArray: true, type: String, example: ['acme/api'] })
   readonly repositories: readonly string[];
 
@@ -260,11 +266,15 @@ export class OnboardingLineResponseDto {
     key: string,
     name: string,
     harness: string | null,
+    model: string | null,
+    effort: string | null,
     repositories: readonly string[],
   ) {
     this.key = key;
     this.name = name;
     this.harness = harness;
+    this.model = model;
+    this.effort = effort;
     this.repositories = repositories;
   }
 }
@@ -330,6 +340,16 @@ export class SetUpLineRequestDto {
 
   @ApiPropertyOptional({ nullable: true, type: String, example: 'claude-code' })
   readonly harness?: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: String,
+    example: 'claude-sonnet-5',
+  })
+  readonly model?: string | null;
+
+  @ApiPropertyOptional({ nullable: true, type: String, example: 'high' })
+  readonly effort?: string | null;
 
   @ApiProperty({ isArray: true, type: String, example: ['acme/api'] })
   readonly repositories!: string[];

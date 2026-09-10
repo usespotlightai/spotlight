@@ -103,6 +103,10 @@ import { GIT_GATEWAY } from '@application/ports/git-gateway.port';
 import { GITHUB_APP } from '@application/ports/github-app.port';
 import { GITHUB_IDENTITY } from '@application/ports/github-identity.port';
 import {
+  HARNESS_LAUNCH,
+  type HarnessLaunchPort,
+} from '@application/ports/harness-launch.port';
+import {
   ID_GENERATOR,
   type IdGeneratorPort,
 } from '@application/ports/id-generator.port';
@@ -298,7 +302,7 @@ import { GitHubRepositoryContents } from '@infrastructure/github/github-reposito
 import { GitHubWebhookSignature } from '@infrastructure/github/github-webhook.signature';
 import {
   BuiltInHarnesses,
-  CLAUDE_CODE,
+  DEFAULT_HARNESS,
 } from '@infrastructure/harnesses/built-in-harnesses';
 import { CryptoIdGenerator } from '@infrastructure/identity/crypto-id.generator';
 import { InstallerAssets } from '@infrastructure/installer/installer-assets';
@@ -443,6 +447,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     { provide: RUN_READER, useClass: DrizzleRunReader },
     { provide: RUNNER_TRACE_READER, useClass: DrizzleRunnerTraceReader },
     { provide: RUNNER_READER, useClass: DrizzleRunnerReader },
+    { provide: HARNESS_LAUNCH, useExisting: BuiltInHarnesses },
     { provide: KEPT_WORKSPACE_READER, useClass: DrizzleKeptWorkspaceReader },
     { provide: RUN_JOURNAL_READER, useClass: DrizzleRunJournalReader },
     { provide: TEAM_TRACE_READER, useClass: DrizzleTeamTraceReader },
@@ -1060,14 +1065,16 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         DrizzleRunRepository,
         ID_GENERATOR,
         BuiltInHarnesses,
+        HARNESS_LAUNCH,
         TRACE_PARENT,
       ],
       useFactory: (
         runs: DrizzleRunRepository,
         ids: CryptoIdGenerator,
         harnesses: BuiltInHarnesses,
+        launch: HarnessLaunchPort,
         tracing: TraceParentPort,
-      ) => new DispatchTask(runs, ids, harnesses, tracing),
+      ) => new DispatchTask(runs, ids, harnesses, launch, tracing),
     },
 
     {
@@ -1175,7 +1182,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
           tasks,
           clock,
           workspaces,
-          CLAUDE_CODE.id,
+          DEFAULT_HARNESS,
         ),
       inject: [
         DrizzleFactoryRepository,
@@ -1248,7 +1255,8 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       DrizzleRunRepository,
     ]),
     ...bindQueryHandler(ListHarnessesQuery, ListHarnessesHandler, [
-      BuiltInHarnesses,
+      HARNESS_LAUNCH,
+      RUNNER_READER,
     ]),
     ...bindQueryHandler(ListHappeningsQuery, ListHappeningsHandler, [
       WORKSPACE_READER,
@@ -1529,7 +1537,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     ...bindCommandHandler(EnqueueRunCommand, EnqueueRunHandler, [
       DrizzleRunRepository,
       ID_GENERATOR,
-      BuiltInHarnesses,
+      HARNESS_LAUNCH,
     ]),
 
     // The runner guard must answer before the session guard rejects a request

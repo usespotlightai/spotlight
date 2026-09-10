@@ -15,6 +15,27 @@
       "when": 1788946540085,
       "tag": "20260909093540_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789046390063,
+      "tag": "20260910131950_add_station_model",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789049344664,
+      "tag": "20260910140904_runner_advertised_models",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789051953611,
+      "tag": "20260910145233_add_station_effort",
+      "breakpoints": true
     }
   ]
 }

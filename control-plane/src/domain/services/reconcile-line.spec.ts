@@ -39,6 +39,8 @@ const station = (
   color: StationColor.of('#a3a8b0'),
   description: null,
   harness: null,
+  model: null,
+  effort: null,
   agentPrompt: null,
   tools: [],
   passesTo: [],

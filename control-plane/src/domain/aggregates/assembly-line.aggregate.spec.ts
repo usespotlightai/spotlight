@@ -16,6 +16,7 @@ import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { HarnessModel } from '@domain/value-objects/harness-model.vo';
 import { Reaction } from '@domain/value-objects/reaction.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
@@ -149,7 +150,7 @@ describe('AssemblyLine', () => {
       const line = opened();
 
       expect(() =>
-        line.runStationOn(line.backlog.id, HarnessId.of('dev')),
+        line.runStationOn(line.backlog.id, HarnessId.of('dev'), null),
       ).toThrow(InvalidStationChangeError);
     });
 
@@ -214,7 +215,7 @@ describe('AssemblyLine', () => {
       const line = opened();
 
       expect(() =>
-        line.runStationOn(line.completed.id, HarnessId.of('dev')),
+        line.runStationOn(line.completed.id, HarnessId.of('dev'), null),
       ).toThrow(InvalidStationChangeError);
     });
 
@@ -425,10 +426,15 @@ describe('AssemblyLine', () => {
     const assigned = line.runStationOn(
       StationId.of('station_1'),
       HarnessId.of('dev'),
+      HarnessModel.of('dev-large'),
     );
 
     expect(assigned.worked.map((each) => each.harness?.value ?? null)).toEqual([
       'dev',
+      null,
+    ]);
+    expect(assigned.worked.map((each) => each.model?.value ?? null)).toEqual([
+      'dev-large',
       null,
     ]);
   });
@@ -438,13 +444,14 @@ describe('AssemblyLine', () => {
       lineOf([at(1)]).runStationOn(
         StationId.of('station_missing'),
         HarnessId.of('dev'),
+        null,
       ),
     ).toThrow(UnknownStationError);
   });
 
   it('leaves the line it was changed from untouched', () => {
     const line = lineOf([at(1)]);
-    line.runStationOn(StationId.of('station_1'), HarnessId.of('dev'));
+    line.runStationOn(StationId.of('station_1'), HarnessId.of('dev'), null);
 
     expect(line.worked[0]?.harness).toBeNull();
   });
@@ -473,19 +480,28 @@ describe('AssemblyLine', () => {
 
   describe('the harness its stations run on', () => {
     it('runs every work station on the one chosen, leaving the rest alone', () => {
-      const line = opened().runsOn(HarnessId.of('claude-code'));
+      const line = opened().runsOn(
+        HarnessId.of('claude-code'),
+        HarnessModel.of('claude-sonnet-5'),
+      );
 
       expect(
         line.worked.every((each) => each.harness?.value === 'claude-code'),
+      ).toBe(true);
+      expect(
+        line.worked.every((each) => each.model?.value === 'claude-sonnet-5'),
       ).toBe(true);
       expect(line.backlog.harness).toBeNull();
       expect(line.completed.harness).toBeNull();
     });
 
     it('takes the harness off every work station when given none', () => {
-      const line = opened().runsOn(HarnessId.of('claude-code')).runsOn(null);
+      const line = opened()
+        .runsOn(HarnessId.of('claude-code'), HarnessModel.of('claude-sonnet-5'))
+        .runsOn(null, null);
 
       expect(line.worked.every((each) => each.harness === null)).toBe(true);
+      expect(line.worked.every((each) => each.model === null)).toBe(true);
     });
   });
 });

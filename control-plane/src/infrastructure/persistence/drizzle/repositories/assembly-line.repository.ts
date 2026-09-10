@@ -4,9 +4,11 @@ import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.
 import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
+import { Effort } from '@domain/value-objects/effort.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { HarnessModel } from '@domain/value-objects/harness-model.vo';
 import { LineKey } from '@domain/value-objects/line-key.vo';
 import { LineRole } from '@domain/value-objects/line-role.vo';
 import { Reaction } from '@domain/value-objects/reaction.vo';
@@ -52,6 +54,8 @@ const toStation = (row: StationRow, ways: Ways): Station =>
       ? StationDescription.of(row.description)
       : null,
     harness: row.harness ? HarnessId.of(row.harness) : null,
+    model: row.model ? HarnessModel.of(row.model) : null,
+    effort: row.effort ? Effort.of(row.effort) : null,
     agentPrompt: row.agentPrompt ? AgentPrompt.of(row.agentPrompt) : null,
     kind: row.kind,
     wayOut: WayOut.of({
@@ -117,6 +121,8 @@ const columnsOf = (each: Station) => ({
   color: each.color.value,
   description: each.description?.value ?? null,
   harness: each.harness?.value ?? null,
+  model: each.model?.value ?? null,
+  effort: each.effort?.value ?? null,
   agentPrompt: each.agentPrompt?.value ?? null,
   kind: each.kind,
   finishes: each.wayOut.ends,
