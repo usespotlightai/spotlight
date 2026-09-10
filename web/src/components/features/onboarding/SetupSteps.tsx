@@ -127,7 +127,11 @@ function Step({ step, action }: StepProps) {
 export function SetupSteps({ teamId, body, about }: SetupStepsProps) {
   const { slug } = useParams();
   const here = useLocation();
-  const { data: onboarding } = useOnboarding(teamId);
+  const { data: onboarding, isPending } = useOnboarding(teamId);
+
+  if (slug && isPending) {
+    return null;
+  }
 
   if (!onboarding || !slug) {
     return (

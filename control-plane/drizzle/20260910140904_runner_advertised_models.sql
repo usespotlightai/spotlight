@@ -1,1 +1,0 @@
-ALTER TABLE "runner" ADD COLUMN "advertised_models" jsonb DEFAULT '{}'::jsonb NOT NULL;

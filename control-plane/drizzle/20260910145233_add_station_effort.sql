@@ -1,1 +1,0 @@
-ALTER TABLE "station" ADD COLUMN "effort" text;
