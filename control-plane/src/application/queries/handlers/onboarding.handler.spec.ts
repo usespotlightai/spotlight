@@ -6,7 +6,6 @@ import type {
   TeamFacts,
   TeamSetup,
 } from '@application/services/team-setup.service';
-import { KnownTools } from '@infrastructure/integrations/known-tools';
 import { SETUP_STEPS } from '@domain/services/setup-list';
 import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -73,7 +72,17 @@ const handler = (given: Given = {}) => {
     ofTeam: vi.fn().mockResolvedValue((given.lines ?? []).map(asLine)),
   } as never;
 
-  return new OnboardingHandler(workspaces, setup, app, lines, new KnownTools());
+  return new OnboardingHandler(workspaces, setup, app, lines, {
+    all: () => [
+      {
+        source: 'linear',
+        name: 'Linear',
+        summary: 'Move a task on when its issue is done.',
+        secretCalled: 'the signing secret',
+      },
+    ],
+    fileFor: () => null,
+  });
 };
 
 const read = (given: Given = {}) =>

@@ -7,7 +7,6 @@ import type {
 } from '@application/services/write-configuration.service';
 import type { Team } from '@domain/aggregates/team.aggregate';
 import type { Workspace } from '@domain/aggregates/workspace.aggregate';
-import { KnownTools } from '@infrastructure/integrations/known-tools';
 import type { TeamRepository } from '@domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
 import { describe, expect, it, vi } from 'vitest';
@@ -41,13 +40,14 @@ const handler = () => {
   } as unknown as WriteConfiguration;
 
   return {
-    handler: new ChooseToolsHandler(
-      workspaces,
-      members,
-      teams,
-      writing,
-      new KnownTools(),
-    ),
+    handler: new ChooseToolsHandler(workspaces, members, teams, writing, {
+      all: () => [],
+      // Known hosts have a file; anything else is unknown, as the real one is.
+      fileFor: (source) =>
+        ['linear', 'sentry', 'slack'].includes(source)
+          ? `version: 1\nintegration: ${source}\n`
+          : null,
+    }),
     written: () => written,
   };
 };

@@ -23,7 +23,7 @@ import type {
   HttpOutbound,
   OutboundResult,
 } from '@infrastructure/outbound/http-outbound';
-import { OutboundAskNotifier } from '@infrastructure/outbound/outbound-ask.notifier';
+import { OutboundTaskNotifier } from '@infrastructure/outbound/outbound-task.notifier';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-07T10:00:00.000Z');
@@ -59,7 +59,23 @@ actions:
         success: '\${{ response.ok }}'
       capture:
         thread: '\${{ response.ts }}'
+  acknowledge:
+    request:
+      method: POST
+      url: https://slack.com/api/chat.postMessage
+      headers:
+        authorization: '\${{ "Bearer " + secret.SLACK_BOT_TOKEN }}'
+      body: '\${{ {"channel": target.channel, "thread_ts": target.thread, "text": dyn("On it.")} }}'
+      expect:
+        success: '\${{ response.ok }}'
 on:
+  task.opened:
+    do: acknowledge
+    to:
+      channel: '\${{ task.marks["slack.channel"] }}'
+      thread: '\${{ task.marks["slack.thread"] }}'
+    routes:
+      delivery: C0DELIVERY
   task.asked:
     do: post-message
     to:
@@ -112,7 +128,7 @@ const notifying = (
     async (_action: unknown, _against: Record<string, unknown>) => reply,
   );
 
-  const notifier = new OutboundAskNotifier(
+  const notifier = new OutboundTaskNotifier(
     { holding: vi.fn(async () => line) } as unknown as AssemblyLineRepository,
     {
       find: vi.fn(
@@ -142,11 +158,11 @@ const notifying = (
   return { notifier, run };
 };
 
-describe('OutboundAskNotifier', () => {
+describe('OutboundTaskNotifier', () => {
   it('posts a routed line’s ask to its channel, with the ask body and a link', async () => {
     const { notifier, run } = notifying();
 
-    await notifier.onAsked(asked());
+    await notifier.notify(asked(), 'task.asked');
 
     const action = run.mock.calls[0]?.[1] as {
       ask: { body: string; link: string };
@@ -161,11 +177,12 @@ describe('OutboundAskNotifier', () => {
   it('posts into the origin thread when the task carries one, over the route', async () => {
     const { notifier, run } = notifying();
 
-    await notifier.onAsked(
+    await notifier.notify(
       asked([
         Mark.of('slack.thread', '170.1'),
         Mark.of('slack.channel', 'C0REQ'),
       ]),
+      'task.asked',
     );
 
     const action = run.mock.calls[0]?.[1] as {
@@ -178,7 +195,7 @@ describe('OutboundAskNotifier', () => {
   it('hands back the thread it captured, for the caller to record', async () => {
     const { notifier } = notifying();
 
-    const kept = await notifier.onAsked(asked());
+    const kept = await notifier.notify(asked(), 'task.asked');
 
     expect(kept.map((each) => `${each.kind}:${each.value}`)).toContain(
       'slack.thread:170.9',
@@ -193,6 +210,23 @@ describe('OutboundAskNotifier', () => {
       capture: {},
     });
 
-    expect(await notifier.onAsked(asked())).toEqual([]);
+    expect(await notifier.notify(asked(), 'task.asked')).toEqual([]);
+  });
+
+  // The event chooses the binding: task.opened runs its acknowledge action,
+  // and an event nothing binds runs nothing at all.
+  it('runs the binding for the event it is given', async () => {
+    const { notifier, run } = notifying();
+    const opened = asked([
+      Mark.of('slack.thread', '170.1'),
+      Mark.of('slack.channel', 'C0REQ'),
+    ]);
+
+    await notifier.notify(opened, 'task.opened');
+    expect(run).toHaveBeenCalledTimes(1);
+
+    run.mockClear();
+    await notifier.notify(opened, 'task.moved');
+    expect(run).not.toHaveBeenCalled();
   });
 });

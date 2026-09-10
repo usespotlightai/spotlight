@@ -1,5 +1,5 @@
 import type { LoggerPort } from '@application/ports/logger.port';
-import type { TaskAskNotifierPort } from '@application/ports/task-ask-notifier.port';
+import type { OutboundTaskNotifierPort } from '@application/ports/outbound-task-notifier.port';
 import type { TeamSecretsPort } from '@application/ports/team-secrets.port';
 import type { WorkspaceReaderPort } from '@application/ports/workspace-reader.port';
 import type { Task } from '@domain/aggregates/task.aggregate';
@@ -19,8 +19,6 @@ import type { IntegrationReader } from '@infrastructure/integrations/integration
 import type { OAuth2Access } from '@infrastructure/integrations/oauth2-access';
 import type { HttpOutbound } from '@infrastructure/outbound/http-outbound';
 
-const ASKED = 'task.asked';
-
 /** What to carry when a task is put to a person with nothing written — a review
  *  with only a pull request, say — so the thread still learns one is waiting
  *  rather than the host refusing an empty message. */
@@ -31,12 +29,12 @@ const waiting = (station: string, link: string | null): string => {
 };
 
 /**
- * Carries a task's question out to wherever the team's integration says, when
- * it is put to a person. Generic throughout: it derives a target from the
- * task's marks and the binding's routes, runs the named action, and wears back
- * whatever the action captured — no host is named here.
+ * Carries what happens to a task out to wherever the team's integration says.
+ * Generic throughout: it derives a target from the task's marks and the
+ * binding's routes, runs the action bound to the event, and wears back whatever
+ * the action captured — no host, and no one event, is named here.
  */
-export class OutboundAskNotifier implements TaskAskNotifierPort {
+export class OutboundTaskNotifier implements OutboundTaskNotifierPort {
   constructor(
     private readonly lines: AssemblyLineRepository,
     private readonly factories: FactoryRepository,
@@ -50,7 +48,7 @@ export class OutboundAskNotifier implements TaskAskNotifierPort {
     private readonly log: LoggerPort,
   ) {}
 
-  async onAsked(task: Task): Promise<readonly Mark[]> {
+  async notify(task: Task, event: string): Promise<readonly Mark[]> {
     const line = await this.lines.holding(task.stationId);
     if (!line) {
       return [];
@@ -69,42 +67,24 @@ export class OutboundAskNotifier implements TaskAskNotifierPort {
     const bound = this.reader
       .readable(applied.under(INTEGRATIONS_UNDER))
       .integrations.filter((each) =>
-        each.on.some((binding) => binding.event === ASKED),
+        each.on.some((binding) => binding.event === event),
       );
 
     if (bound.length === 0) {
       return [];
     }
 
-    const open = task.openConversation;
-    if (!open) {
-      return [];
-    }
-
     const station = line.stationAt(task.stationId)?.name.value ?? '';
-    const slug = await this.workspaces.slugOf(task.workspaceId.value);
-    const conversation = ConversationId.of({
-      taskId: task.id,
-      from: open.from,
-    }).value;
-
-    const link = slug ? `${this.base}/w/${slug}/inbox/${conversation}` : null;
-    const said = task.notes[open.from]?.body.value?.trim() ?? '';
-    const ask = {
-      body: said || waiting(station, link),
-      link,
-      station,
-    };
-
     const context = {
       line: line.key.value,
       station,
       marks: marksOf(task),
     };
+    const ask = await this.asking(task, station);
 
     const kept: Mark[] = [];
     for (const readable of bound) {
-      const binding = readable.on.find((each) => each.event === ASKED);
+      const binding = readable.on.find((each) => each.event === event);
       if (binding) {
         kept.push(
           ...(await this.post(task, readable, binding, factory.teamId, {
@@ -116,6 +96,30 @@ export class OutboundAskNotifier implements TaskAskNotifierPort {
     }
 
     return kept;
+  }
+
+  /** The question a task holds, where it holds one: what a binding whose action
+   *  answers a person writes into the thread. Empty for an event that is not a
+   *  question — an opening acknowledgement carries its own words instead. */
+  private async asking(
+    task: Task,
+    station: string,
+  ): Promise<{ body: string; link: string | null; station: string }> {
+    const open = task.openConversation;
+    if (!open) {
+      return { body: '', link: null, station };
+    }
+
+    const slug = await this.workspaces.slugOf(task.workspaceId.value);
+    const conversation = ConversationId.of({
+      taskId: task.id,
+      from: open.from,
+    }).value;
+
+    const link = slug ? `${this.base}/w/${slug}/inbox/${conversation}` : null;
+    const said = task.notes[open.from]?.body.value?.trim() ?? '';
+
+    return { body: said || waiting(station, link), link, station };
   }
 
   private async post(
@@ -172,7 +176,7 @@ export class OutboundAskNotifier implements TaskAskNotifierPort {
     } catch (error) {
       this.log.warn(
         { err: error, task: task.id.value },
-        'Posting a task’s ask',
+        'Posting a task’s word to a host',
       );
       return [];
     }
@@ -186,7 +190,7 @@ export class OutboundAskNotifier implements TaskAskNotifierPort {
           target,
           marks: (against.task as { marks?: unknown }).marks,
         },
-        'A host refused a task’s ask',
+        'A host refused a task’s word',
       );
       return [];
     }

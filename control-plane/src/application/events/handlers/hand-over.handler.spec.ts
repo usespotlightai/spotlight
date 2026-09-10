@@ -1,7 +1,8 @@
 import { HandOver } from '@application/events/handlers/hand-over.handler';
 import type { ClockPort } from '@application/ports/clock.port';
-import type { TaskAskNotifierPort } from '@application/ports/task-ask-notifier.port';
-import { SilentAskNotifier } from '@application/ports/task-ask-notifier.port';
+import type { OutboundTaskNotifierPort } from '@application/ports/outbound-task-notifier.port';
+import { SilentTaskNotifier } from '@application/ports/outbound-task-notifier.port';
+import { AnnounceTaskEvents } from '@application/services/announce-task-events';
 import type { TaskDispatching } from '@application/services/task-dispatch';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Run } from '@domain/aggregates/run.aggregate';
@@ -152,10 +153,10 @@ const dispatch: TaskDispatching = {
   dispatch: async () => RunId.of('run_2'),
 };
 
-const notifier = new SilentAskNotifier();
+const announce = new AnnounceTaskEvents(new SilentTaskNotifier(), tasks());
 
 const handOver = (ended = run(false), held: TaskRepository = tasks()) => {
-  const handler = new HandOver(held, lines(), dispatch, clock, notifier);
+  const handler = new HandOver(held, lines(), dispatch, clock, announce);
   const [raised] = ended.pullEvents();
 
   if (!raised) {
@@ -283,14 +284,18 @@ describe('HandOver', () => {
       find: vi.fn(async () => reads.shift() ?? moved),
     } as unknown as TaskRepository;
 
-    const speaking: TaskAskNotifierPort = {
-      onAsked: async () => [Mark.of('slack.thread', '170.9')],
+    const speaking: OutboundTaskNotifierPort = {
+      notify: async () => [Mark.of('slack.thread', '170.9')],
     };
 
     const [raised] = run(false).pullEvents();
-    await new HandOver(repo, lines(), dispatch, clock, speaking).onRunCompleted(
-      raised as RunCompleted,
-    );
+    await new HandOver(
+      repo,
+      lines(),
+      dispatch,
+      clock,
+      new AnnounceTaskEvents(speaking, repo),
+    ).onRunCompleted(raised as RunCompleted);
 
     const last = saves[saves.length - 1];
     expect(last?.marks.map((each) => each.kind)).toEqual(

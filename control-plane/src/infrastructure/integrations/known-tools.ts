@@ -193,7 +193,46 @@ actions:
         # Keep the thread's root, so the next reply still finds the task.
         thread: '\${{ has(response.message.thread_ts) ? response.message.thread_ts : response.ts }}'
 
+  # A fixed line back into the thread. dyn() makes the literal a dynamic value,
+  # which is what a map alongside the read-out channel and thread expects.
+  acknowledge:
+    request:
+      method: POST
+      url: https://slack.com/api/chat.postMessage
+      headers:
+        authorization: '\${{ "Bearer " + secret.SLACK_BOT_TOKEN }}'
+      body: '\${{ {"channel": target.channel, "thread_ts": target.thread, "text": dyn("Got it. I''ve opened a task for this and I''ll follow up here.")} }}'
+      expect:
+        success: '\${{ response.ok }}'
+
+  share-pull-request:
+    request:
+      method: POST
+      url: https://slack.com/api/chat.postMessage
+      headers:
+        authorization: '\${{ "Bearer " + secret.SLACK_BOT_TOKEN }}'
+      body: '\${{ {"channel": target.channel, "thread_ts": target.thread, "text": dyn("I''ve opened a pull request for this: " + task.marks["git.pull-request"])} }}'
+      expect:
+        success: '\${{ response.ok }}'
+
 on:
+  # Acknowledged in its thread the moment a mention opens a task, so the person
+  # knows it was heard before the work has anything to say.
+  task.opened:
+    do: acknowledge
+    to:
+      channel: '\${{ task.marks["slack.channel"] }}'
+      thread: '\${{ task.marks["slack.thread"] }}'
+    routes:
+      delivery: C0DELIVERY
+  # The pull request, dropped in the thread as soon as the work opens one.
+  task.pull-request-opened:
+    do: share-pull-request
+    to:
+      channel: '\${{ task.marks["slack.channel"] }}'
+      thread: '\${{ task.marks["slack.thread"] }}'
+    routes:
+      delivery: C0DELIVERY
   task.asked:
     do: post-message
     to:

@@ -127,6 +127,10 @@ import {
   type MemberReaderPort,
 } from '@application/ports/member-reader.port';
 import { OAUTH2_LINKING } from '@application/ports/oauth2-linking.port';
+import {
+  OUTBOUND_TASK_NOTIFIER,
+  type OutboundTaskNotifierPort,
+} from '@application/ports/outbound-task-notifier.port';
 import { PERSON_READER } from '@application/ports/person-reader.port';
 import {
   PULL_REQUESTS,
@@ -170,10 +174,6 @@ import {
 import { RUNNER_TOKEN } from '@application/ports/runner-token.port';
 import { RUNNER_TRACE_READER } from '@application/ports/runner-trace-reader.port';
 import { STARTER_TOOLS } from '@application/ports/starter-tools.port';
-import {
-  TASK_ASK_NOTIFIER,
-  type TaskAskNotifierPort,
-} from '@application/ports/task-ask-notifier.port';
 import { TASK_READER } from '@application/ports/task-reader.port';
 import {
   TEAM_SECRETS,
@@ -242,6 +242,7 @@ import { ReadTaskJournalQuery } from '@application/queries/read-task-journal.que
 import { ReadTaskTraceQuery } from '@application/queries/read-task-trace.query';
 import { RunStopRequestedQuery } from '@application/queries/run-stop-requested.query';
 import { WatchRunQuery } from '@application/queries/watch-run.query';
+import { AnnounceTaskEvents } from '@application/services/announce-task-events';
 import { ApplyLines } from '@application/services/apply-lines.service';
 import { AttendToNotices } from '@application/services/attend-to-notices.service';
 import { CarryGitCall } from '@application/services/carry-git-call.service';
@@ -321,7 +322,7 @@ import { GracefulShutdown } from '@infrastructure/lifecycle/graceful-shutdown';
 import { LoggingModule } from '@infrastructure/logging/logging.module';
 import { Egress } from '@infrastructure/outbound/egress';
 import { HttpOutbound } from '@infrastructure/outbound/http-outbound';
-import { OutboundAskNotifier } from '@infrastructure/outbound/outbound-ask.notifier';
+import { OutboundTaskNotifier } from '@infrastructure/outbound/outbound-task.notifier';
 import type { DrizzleDatabase } from '@infrastructure/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@infrastructure/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
@@ -888,6 +889,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         CLOCK,
         ID_GENERATOR,
         MEMBER_READER,
+        AnnounceTaskEvents,
       ],
       useFactory: (
         tasks: DrizzleTaskRepository,
@@ -897,6 +899,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         clock: ClockPort,
         ids: IdGeneratorPort,
         members: MemberReaderPort,
+        announce: AnnounceTaskEvents,
       ) =>
         new ReactToHappenings(
           tasks,
@@ -906,6 +909,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
           clock,
           ids,
           members,
+          announce,
         ),
     },
 
@@ -1084,7 +1088,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     },
 
     {
-      provide: TASK_ASK_NOTIFIER,
+      provide: OUTBOUND_TASK_NOTIFIER,
       inject: [
         DrizzleAssemblyLineRepository,
         DrizzleFactoryRepository,
@@ -1107,7 +1111,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         env: Env,
         logger: LoggerPort,
       ) =>
-        new OutboundAskNotifier(
+        new OutboundTaskNotifier(
           lines,
           factories,
           configurations,
@@ -1122,6 +1126,15 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     },
 
     {
+      provide: AnnounceTaskEvents,
+      inject: [OUTBOUND_TASK_NOTIFIER, DrizzleTaskRepository],
+      useFactory: (
+        notifier: OutboundTaskNotifierPort,
+        tasks: DrizzleTaskRepository,
+      ) => new AnnounceTaskEvents(notifier, tasks),
+    },
+
+    {
       provide: RUN_OUTCOMES,
       inject: [
         DrizzleTaskRepository,
@@ -1129,7 +1142,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         TASK_DISPATCH,
         CLOCK,
         RUN_DIGEST_WRITER,
-        TASK_ASK_NOTIFIER,
+        AnnounceTaskEvents,
       ],
       useFactory: (
         tasks: DrizzleTaskRepository,
@@ -1137,10 +1150,10 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         dispatch: TaskDispatching,
         clock: ClockPort,
         digests: RunDigestWriterPort,
-        notifier: TaskAskNotifierPort,
+        announce: AnnounceTaskEvents,
       ) =>
         new RunOutcomesFanOut(
-          new HandOver(tasks, lines, dispatch, clock, notifier),
+          new HandOver(tasks, lines, dispatch, clock, announce),
           new DigestRun(digests),
         ),
     },
@@ -1399,6 +1412,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       AttendToNotices,
       ID_GENERATOR,
       MEMBER_READER,
+      AnnounceTaskEvents,
     ]),
 
     ...bindCommandHandler(ReadInboxItemCommand, ReadInboxItemHandler, [
@@ -1419,6 +1433,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       DrizzleAssemblyLineRepository,
       DrizzleWorkspaceRepository,
       PULL_REQUESTS,
+      AnnounceTaskEvents,
     ]),
     ...bindCommandHandler(AnswerRemarkCommand, AnswerRemarkHandler, [
       RunAtHand,

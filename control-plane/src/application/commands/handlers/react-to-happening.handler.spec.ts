@@ -4,11 +4,13 @@ import type { ClockPort } from '@application/ports/clock.port';
 import type { StoredDelivery } from '@application/ports/delivery-inbox.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { MemberReaderPort } from '@application/ports/member-reader.port';
+import { SilentTaskNotifier } from '@application/ports/outbound-task-notifier.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import type {
   Happened,
   WebhookSourcePort,
 } from '@application/ports/webhook-source.port';
+import { AnnounceTaskEvents } from '@application/services/announce-task-events';
 import type { AttendToNotices } from '@application/services/attend-to-notices.service';
 import { SourceForDelivery } from '@application/services/source-for-delivery.service';
 import type { TaskDispatching } from '@application/services/task-dispatch';
@@ -151,6 +153,12 @@ const dispatch: TaskDispatching = {
   },
 };
 
+// A no-op announce for the reactions that are not about being announced.
+const silentAnnounce = new AnnounceTaskEvents(
+  new SilentTaskNotifier(),
+  tasks(null),
+);
+
 /** A host that says what it carried, whose it is, and what to call it. */
 const sourced = (
   carried: readonly Happened[],
@@ -221,6 +229,7 @@ const heard = (
     attending,
     ids,
     members,
+    silentAnnounce,
   ).execute(new ReactToHappeningCommand(taken));
 
 describe('ReactToHappening', () => {
@@ -327,13 +336,16 @@ describe('ReactToHappening', () => {
       attending,
       ids,
       members,
+      silentAnnounce,
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(saved?.notes.map((each) => each.kind)).toEqual([
       'asked',
       'answered',
     ]);
-    expect(saved?.notes[1]?.body.value).toBe('In the example repository, please.');
+    expect(saved?.notes[1]?.body.value).toBe(
+      'In the example repository, please.',
+    );
     expect(saved?.notes[1]?.body.value).not.toContain('mentioned Spotlight');
     expect(saved?.awaitingReview).toBe(false);
     expect(dispatched).toHaveLength(1);
@@ -411,6 +423,7 @@ describe('ReactToHappening', () => {
       attending,
       ids,
       members,
+      silentAnnounce,
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(saved).toBeUndefined();
@@ -452,6 +465,7 @@ describe('ReactToHappening', () => {
       attending,
       ids,
       members,
+      silentAnnounce,
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(held.holding).not.toHaveBeenCalled();
@@ -477,6 +491,7 @@ describe('ReactToHappening', () => {
       attending,
       ids,
       members,
+      silentAnnounce,
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(held.holding).toHaveBeenCalledWith(
@@ -542,6 +557,8 @@ describe('ReactToHappening', () => {
       },
     };
 
+    const notifier = { notify: vi.fn(async () => []) };
+
     await new ReactToHappeningHandler(
       sourced([filed]),
       held,
@@ -552,6 +569,7 @@ describe('ReactToHappening', () => {
       attending,
       ids,
       members,
+      new AnnounceTaskEvents(notifier, held),
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(held.add).toHaveBeenCalledTimes(1);
@@ -560,6 +578,8 @@ describe('ReactToHappening', () => {
     // The task is named and described by what the source read, not its handle.
     expect(added?.title.value).toBe('Drain the retry queue');
     expect(added?.description?.value).toBe('It loops forever.');
+    // Opening the task records the event that a bound host acknowledges.
+    expect(notifier.notify).toHaveBeenCalledWith(added, 'task.opened');
   });
 
   // A word that named who it is from, by email, opens the task assigned to the
@@ -629,6 +649,7 @@ describe('ReactToHappening', () => {
       attending,
       ids,
       { listForTeam: async () => null, byEmail },
+      silentAnnounce,
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(byEmail).toHaveBeenCalledWith(
@@ -701,6 +722,7 @@ describe('ReactToHappening', () => {
       attending,
       ids,
       { listForTeam: async () => null, byEmail: async () => null },
+      silentAnnounce,
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(added?.assignee).toBeNull();
@@ -781,6 +803,7 @@ describe('ReactToHappening', () => {
       attending,
       ids,
       members,
+      silentAnnounce,
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(held.add).toHaveBeenCalledTimes(1);

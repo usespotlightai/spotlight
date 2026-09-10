@@ -6,6 +6,7 @@ import type { StoredDelivery } from '@application/ports/delivery-inbox.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { MemberReaderPort } from '@application/ports/member-reader.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
+import type { AnnounceTaskEvents } from '@application/services/announce-task-events';
 import type { AttendToNotices } from '@application/services/attend-to-notices.service';
 import { ReactToHappenings } from '@application/services/react-to-happenings.service';
 import type { SourceForDelivery } from '@application/services/source-for-delivery.service';
@@ -37,6 +38,7 @@ export class ReactToHappeningHandler
     private readonly notices: AttendToNotices,
     ids: IdGeneratorPort,
     members: MemberReaderPort,
+    announce: AnnounceTaskEvents,
   ) {
     this.reactions = new ReactToHappenings(
       tasks,
@@ -46,6 +48,7 @@ export class ReactToHappeningHandler
       clock,
       ids,
       members,
+      announce,
     );
   }
 

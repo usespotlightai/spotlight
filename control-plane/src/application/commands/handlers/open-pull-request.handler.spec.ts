@@ -1,6 +1,7 @@
 import { OpenPullRequestHandler } from '@application/commands/handlers/open-pull-request.handler';
 import { OpenPullRequestCommand } from '@application/commands/open-pull-request.command';
 import type { PullRequestPort } from '@application/ports/pull-request.port';
+import { AnnounceTaskEvents } from '@application/services/announce-task-events';
 import { RunAtHand } from '@application/services/run-at-hand.service';
 import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Run } from '@domain/aggregates/run.aggregate';
@@ -69,6 +70,7 @@ const opening = (
   repositories: readonly string[] = ['acme/widgets'],
 ) => {
   const saved: Task[] = [];
+  const notifier = { notify: vi.fn(async () => []) };
   const pullRequests = {
     open: vi.fn(async () => ({
       url: 'https://github.com/acme/widgets/pull/7',
@@ -96,9 +98,10 @@ const opening = (
       connectionTo: vi.fn(async () => Connection.of('github', '42')),
     } as unknown as WorkspaceConnections,
     pullRequests as unknown as PullRequestPort,
+    new AnnounceTaskEvents(notifier, tasks),
   );
 
-  return { handler, pullRequests, saved };
+  return { handler, pullRequests, saved, notifier };
 };
 
 describe('OpenPullRequestHandler', () => {
@@ -192,6 +195,26 @@ describe('OpenPullRequestHandler', () => {
 
     expect(saved[0]?.pullRequest?.value).toBe(
       'https://github.com/acme/widgets/pull/7',
+    );
+  });
+
+  // Told once the pull request is open, so a bound host can share it.
+  it('announces the pull request it opened', async () => {
+    const { handler, notifier, saved } = opening(task());
+
+    await handler.execute(
+      new OpenPullRequestCommand(
+        'run_1',
+        'runner_1',
+        'Fix the queue',
+        '',
+        null,
+      ),
+    );
+
+    expect(notifier.notify).toHaveBeenCalledWith(
+      saved[0],
+      'task.pull-request-opened',
     );
   });
 

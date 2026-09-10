@@ -1,7 +1,9 @@
 import { EventRecorder } from '@domain/aggregates/event-recorder';
 import type { Station } from '@domain/entities/station.entity';
+import { PullRequestOpened } from '@domain/events/pull-request-opened.event';
 import { TaskAsked } from '@domain/events/task-asked.event';
 import { TaskFinished } from '@domain/events/task-finished.event';
+import { TaskOpened } from '@domain/events/task-opened.event';
 import { InconsistentStateError } from '@domain/exceptions/inconsistent-state.error';
 import { InvalidTaskTransitionError } from '@domain/exceptions/invalid-task-transition.error';
 import { ContinuityKey } from '@domain/services/continuity-key';
@@ -94,7 +96,7 @@ export class Task extends EventRecorder {
   }): Task {
     const raisedBy = input.raisedBy ?? null;
 
-    return new Task(
+    const task = new Task(
       TaskId.of(input.newId()),
       input.workspaceId,
       input.stationId,
@@ -115,6 +117,10 @@ export class Task extends EventRecorder {
       // outside opened is owned by nobody until somebody takes it.
       raisedBy,
     );
+
+    task.record(new TaskOpened(task.id, task.workspaceId, task.stationId));
+
+    return task;
   }
 
   static rehydrate(input: {
@@ -234,9 +240,16 @@ export class Task extends EventRecorder {
 
   /** Opened once: asking again keeps the one already open. */
   openedAt(url: PullRequestUrl): Task {
-    return this.pullRequest
-      ? this
-      : this.markedBy(Mark.pullRequest(url)).with({ pullRequest: url });
+    if (this.pullRequest) {
+      return this;
+    }
+
+    const opened = this.markedBy(Mark.pullRequest(url)).with({
+      pullRequest: url,
+    });
+    opened.record(new PullRequestOpened(opened.id, opened.workspaceId, url));
+
+    return opened;
   }
 
   /**
@@ -509,7 +522,7 @@ export class Task extends EventRecorder {
     finishedAt?: Date | null;
     assignee?: UserId | null;
   }): Task {
-    return new Task(
+    const next = new Task(
       this.id,
       this.workspaceId,
       part.stationId ?? this.stationId,
@@ -530,6 +543,10 @@ export class Task extends EventRecorder {
       // Carried, never raised here: moving it on is the writing's to do.
       this.version,
     );
+
+    next.inheritEvents(this);
+
+    return next;
   }
 
   equals(other: Task): boolean {

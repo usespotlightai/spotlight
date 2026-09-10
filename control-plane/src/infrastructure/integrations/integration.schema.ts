@@ -1,3 +1,4 @@
+import { BINDABLE_TASK_EVENTS } from '@domain/events/bindable-task-events';
 import { z } from 'zod';
 
 /**
@@ -235,7 +236,10 @@ const connectionSchema = z.object({
 
 // ── The file. ──────────────────────────────────────────────────────────────
 
-export const ON_EVENTS = ['task.asked'] as const;
+// The Spotlight events a team may bind an outbound action to. One vocabulary,
+// held with the domain events it names, so a config cannot bind to an event
+// the aggregate never records.
+export const ON_EVENTS = BINDABLE_TASK_EVENTS;
 
 export const integrationSchema = z
   .object({

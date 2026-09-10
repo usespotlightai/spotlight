@@ -3,6 +3,7 @@ import type { OpenedPullRequestDto } from '@application/dto/pull-request.dto';
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { PullRequestPort } from '@application/ports/pull-request.port';
+import type { AnnounceTaskEvents } from '@application/services/announce-task-events';
 import type { RunAtHand } from '@application/services/run-at-hand.service';
 import { NoGitHubInstallationError } from '@domain/exceptions/no-github-installation.error';
 import { NoRepositoryError } from '@domain/exceptions/no-repository.error';
@@ -21,6 +22,7 @@ export class OpenPullRequestHandler
     private readonly lines: AssemblyLineRepository,
     private readonly workspaces: WorkspaceConnections,
     private readonly pullRequests: PullRequestPort,
+    private readonly announce: AnnounceTaskEvents,
   ) {}
 
   async execute(
@@ -65,7 +67,9 @@ export class OpenPullRequestHandler
         body: command.body,
       });
 
-      await this.tasks.save(task.openedAt(PullRequestUrl.of(opened.url)));
+      const shared = task.openedAt(PullRequestUrl.of(opened.url));
+      await this.tasks.save(shared);
+      await this.announce.of(shared);
 
       return opened;
     } catch (error) {

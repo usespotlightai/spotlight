@@ -4,6 +4,7 @@ import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { MemberReaderPort } from '@application/ports/member-reader.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import type { Happened } from '@application/ports/webhook-source.port';
+import type { AnnounceTaskEvents } from '@application/services/announce-task-events';
 import type { TaskDispatching } from '@application/services/task-dispatch';
 import { Task } from '@domain/aggregates/task.aggregate';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
@@ -29,6 +30,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
     private readonly clock: ClockPort,
     private readonly ids: IdGeneratorPort,
     private readonly members: MemberReaderPort,
+    private readonly announce: AnnounceTaskEvents,
   ) {}
 
   /** Each word in its own transaction; one that fails does not undo the rest. */
@@ -135,7 +137,9 @@ export class ReactToHappenings implements HappeningReactionsPort {
       ? await this.dispatch.dispatch({ task: opened, line })
       : null;
 
-    await this.tasks.add(runId ? opened.handedTo(runId) : opened);
+    const stored = runId ? opened.handedTo(runId) : opened;
+    await this.tasks.add(stored);
+    await this.announce.of(stored);
   }
 
   private async applied(reaction: Outcome, task: Task): Promise<Task | null> {
