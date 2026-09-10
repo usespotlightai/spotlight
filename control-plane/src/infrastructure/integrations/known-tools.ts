@@ -1,17 +1,7 @@
-import { SourceKey } from '@domain/value-objects/source-key.vo';
-
-/**
- * A host Spotlight can write a starting file for. The `when` rules are what
- * each host's documentation describes: a starting point rather than a promise,
- * and the file is where that is fixed.
- */
-export interface KnownTool {
-  readonly source: SourceKey;
-  readonly name: string;
-  readonly summary: string;
-  readonly secretCalled: string;
-  readonly file: string;
-}
+import type {
+  StarterTool,
+  StarterToolsPort,
+} from '@application/ports/starter-tools.port';
 
 const linear = `version: 1
 integration: linear
@@ -155,15 +145,24 @@ webhook:
         happening: slack.app_mention
         label: Mentioned in Slack
         told: Somebody mentioned Spotlight in Slack.
+        spoken: true
+        say: '\${{ body.event.text.substring(body.event.text.indexOf(">") + 2).trim() }}'
         opens:
           onto: delivery
-          title: '\${{ body.event.text }}'
+          # The mention text without the leading "@Spotlight", so the title
+          # reads as what was said rather than who was tagged.
+          title: '\${{ body.event.text.substring(body.event.text.indexOf(">") + 2).trim() }}'
           assignBy:
             email: '\${{ email }}'
         marks:
+          # The thread's root: thread_ts for a reply, the message's own ts for
+          # the opening mention. So every word in one thread finds the one task.
           - kind: slack.thread
-            value: '\${{ body.event.ts }}'
+            value: '\${{ has(body.event.thread_ts) ? body.event.thread_ts : body.event.ts }}'
+          # Ambient: shared by every mention in the channel, so it is worn for
+          # routing a reply but never used to find which task a word is about.
           - kind: slack.channel
+            find: false
             value: '\${{ body.event.channel }}'
 
 actions:
@@ -177,7 +176,8 @@ actions:
       expect:
         success: '\${{ response.ok }}'
       capture:
-        thread: '\${{ response.ts }}'
+        # Keep the thread's root, so the next reply still finds the task.
+        thread: '\${{ has(response.message.thread_ts) ? response.message.thread_ts : response.ts }}'
 
 on:
   task.asked:
@@ -192,22 +192,8 @@ on:
         value: '\${{ capture.thread }}'
 `;
 
-const known = (input: {
-  source: string;
-  name: string;
-  summary: string;
-  secretCalled: string;
-  file: string;
-}): KnownTool => ({
-  source: SourceKey.of(input.source),
-  name: input.name,
-  summary: input.summary,
-  secretCalled: input.secretCalled,
-  file: input.file,
-});
-
-export const KNOWN_TOOLS: readonly KnownTool[] = [
-  known({
+const CATALOG: readonly (StarterTool & { readonly file: string })[] = [
+  {
     source: 'slack',
     name: 'Slack',
     summary:
@@ -215,36 +201,48 @@ export const KNOWN_TOOLS: readonly KnownTool[] = [
     secretCalled:
       'the app’s Signing Secret, and a Bot User OAuth token to reply with',
     file: slack,
-  }),
-  known({
+  },
+  {
     source: 'linear',
     name: 'Linear',
     summary: 'Move a task on when its issue is done, and hear its comments.',
     secretCalled: 'the signing secret on the webhook you create',
     file: linear,
-  }),
-  known({
+  },
+  {
     source: 'sentry',
     name: 'Sentry',
     summary: 'Bring work back when something starts going wrong again.',
     secretCalled: 'the Client Secret of the internal integration',
     file: sentry,
-  }),
-  known({
+  },
+  {
     source: 'grafana',
     name: 'Grafana',
     summary: 'Bring work back when an alert fires.',
     secretCalled: 'the secret on the outgoing webhook',
     file: grafana,
-  }),
-  known({
+  },
+  {
     source: 'pagerduty',
     name: 'PagerDuty',
     summary: 'Bring work back when an incident is raised.',
     secretCalled: 'the signing secret shown when the webhook is created',
     file: pagerduty,
-  }),
+  },
 ];
 
-export const knownTool = (source: string): KnownTool | null =>
-  KNOWN_TOOLS.find((each) => each.source.value === source) ?? null;
+/**
+ * The hosts Spotlight can write a starting file for. The `when` rules are what
+ * each host's documentation describes: a starting point rather than a promise,
+ * and the file is where that is fixed.
+ */
+export class KnownTools implements StarterToolsPort {
+  all(): readonly StarterTool[] {
+    return CATALOG.map(({ file: _file, ...tool }) => tool);
+  }
+
+  fileFor(source: string): string | null {
+    return CATALOG.find((each) => each.source === source)?.file ?? null;
+  }
+}

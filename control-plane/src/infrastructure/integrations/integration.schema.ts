@@ -146,6 +146,11 @@ const markSchema = z.object({
     .string()
     .regex(MARK_KIND, 'names its source first, as in linear.issue'),
   value: expression,
+  /** Whether a task is found by this mark. Left true, it is a handle a task is
+   *  known by. Set false for an ambient mark — the channel a mention came from,
+   *  say — that many tasks share, so a later word is not tied to whichever wore
+   *  it first; it is still recorded on the task it opens. */
+  find: z.boolean().default(true),
 });
 
 const raiseSchema = z.object({
@@ -155,6 +160,9 @@ const raiseSchema = z.object({
   label: z.string().min(1).optional(),
   told: z.string().min(1).optional(),
   spoken: z.boolean().default(false),
+  /** The words a spoken delivery carries — a comment or a thread reply — read
+   *  onto the note and taken as the answer where a task was waiting on one. */
+  say: expression.optional(),
   opens: z
     .object({
       onto: z.string().regex(ROLE, 'is the role of the lines this opens on'),

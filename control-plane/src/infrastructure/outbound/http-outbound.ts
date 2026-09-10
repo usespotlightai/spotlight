@@ -63,10 +63,15 @@ export class HttpOutbound {
     }
     const target = query.size > 0 ? `${url}?${query.toString()}` : url;
 
+    const body = this.body(request, against);
+    if (body?.json && !has(headers, 'content-type')) {
+      headers['content-type'] = 'application/json';
+    }
+
     const reply = await this.fetch(target, {
       method: request.method,
       headers,
-      body: this.body(request, against),
+      body: body?.text,
     });
 
     const response = await parse(reply);
@@ -95,13 +100,16 @@ export class HttpOutbound {
     return held.expression ? reads(held.expression, against) : null;
   }
 
-  private body(request: RequestIR, against: Bindings): string | undefined {
+  private body(
+    request: RequestIR,
+    against: Bindings,
+  ): { text: string; json: boolean } | undefined {
     if (!request.body) {
       return undefined;
     }
 
     if (request.body.literal !== null) {
-      return request.body.literal;
+      return { text: request.body.literal, json: false };
     }
 
     const read = request.body.expression
@@ -112,7 +120,11 @@ export class HttpOutbound {
       return undefined;
     }
 
-    return typeof read === 'string' ? read : JSON.stringify(read);
+    // Anything but a string is JSON-encoded and flagged as such: a host not
+    // told it is JSON reads the body as form data and finds no fields.
+    return typeof read === 'string'
+      ? { text: read, json: false }
+      : { text: JSON.stringify(read), json: true };
   }
 
   private authorize(
@@ -154,6 +166,9 @@ export class HttpOutbound {
     }
   }
 }
+
+const has = (headers: Record<string, string>, name: string): boolean =>
+  Object.keys(headers).some((key) => key.toLowerCase() === name);
 
 const parse = async (reply: Response): Promise<unknown> => {
   const body = await reply.text();

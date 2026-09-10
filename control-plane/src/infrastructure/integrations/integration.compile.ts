@@ -98,6 +98,7 @@ export interface RequestIR {
 export interface RaiseIR {
   readonly happening: string;
   readonly spoken: boolean;
+  readonly say: Expression | null;
   readonly opens: {
     readonly onto: string;
     readonly at: string | null;
@@ -107,7 +108,11 @@ export interface RaiseIR {
     readonly assignBy: { readonly email: Expression } | null;
   } | null;
   readonly branch: Expression | null;
-  readonly marks: readonly { kind: MarkKind; value: Expression }[];
+  readonly marks: readonly {
+    kind: MarkKind;
+    value: Expression;
+    finds: boolean;
+  }[];
 }
 
 /** A call whose captures join the bindings before a word is raised. */
@@ -400,6 +405,7 @@ class Compiler {
     return {
       happening: raise.happening,
       spoken: raise.spoken,
+      say: raise.say ? this.expression(raise.say, `${at}.say`) : null,
       opens: raise.opens
         ? {
             onto: raise.opens.onto,
@@ -433,6 +439,7 @@ class Compiler {
           mark.value,
           `${at}.marks.${index}.value`,
         ) as Expression,
+        finds: mark.find,
       })),
     };
   }
@@ -650,7 +657,9 @@ export const compileIntegration = (path: string, text: string): Compiled => {
           label: event.raise.label ?? event.raise.happening,
           told: event.raise.told ?? event.raise.happening,
           spoken: event.raise.spoken,
-          finds: event.raise.marks.map((mark) => MarkKind.of(mark.kind)),
+          finds: event.raise.marks
+            .filter((mark) => mark.find)
+            .map((mark) => MarkKind.of(mark.kind)),
           findsByBranch: event.raise.branch !== undefined,
           opensOnto: event.raise.opens
             ? LineRole.of(event.raise.opens.onto)

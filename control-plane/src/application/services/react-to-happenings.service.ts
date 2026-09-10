@@ -101,7 +101,6 @@ export class ReactToHappenings implements HappeningReactionsPort {
 
     const chosen = ReactionFor.openingOn({
       lines,
-      concerns: happened.concerns,
       opens: happened.opens,
     });
 

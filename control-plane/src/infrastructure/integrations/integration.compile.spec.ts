@@ -411,4 +411,65 @@ webhook:
       ).toContain('SLACK_BOT_TOKEN');
     });
   });
+
+  describe('a mark that does not find a task', () => {
+    const withAmbient = `version: 1
+integration: slack
+webhook:
+  verify:
+    token:
+      secret: secret.SLACK_SIGNING_SECRET
+  events:
+    - when: \${{ true }}
+      raise:
+        happening: slack.app_mention
+        opens:
+          onto: delivery
+          title: \${{ body.event.text }}
+        marks:
+          - kind: slack.thread
+            value: \${{ body.event.ts }}
+          - kind: slack.channel
+            find: false
+            value: \${{ body.event.channel }}
+`;
+
+    it('keeps an ambient mark, but not among what finds the task', () => {
+      const read = compileIntegration(PATH, withAmbient);
+      const marks = read.ok
+        ? read.readable.webhook?.events[0]?.raise.marks
+        : [];
+
+      expect(marks?.map((each) => `${each.kind.value}:${each.finds}`)).toEqual([
+        'slack.thread:true',
+        'slack.channel:false',
+      ]);
+      expect(
+        read.ok &&
+          read.readable.integration.declares[0]?.finds.map(
+            (each) => each.value,
+          ),
+      ).toEqual(['slack.thread']);
+    });
+
+    it('refuses a happening nothing could find a task from', () => {
+      const onlyAmbient = `version: 1
+integration: slack
+webhook:
+  verify:
+    token:
+      secret: secret.SLACK_SIGNING_SECRET
+  events:
+    - when: \${{ true }}
+      raise:
+        happening: slack.app_mention
+        marks:
+          - kind: slack.channel
+            find: false
+            value: \${{ body.event.channel }}
+`;
+
+      expect(problems(onlyAmbient)).not.toHaveLength(0);
+    });
+  });
 });

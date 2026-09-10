@@ -6,6 +6,7 @@ import type {
   TeamFacts,
   TeamSetup,
 } from '@application/services/team-setup.service';
+import { KnownTools } from '@infrastructure/integrations/known-tools';
 import { SETUP_STEPS } from '@domain/services/setup-list';
 import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -72,7 +73,7 @@ const handler = (given: Given = {}) => {
     ofTeam: vi.fn().mockResolvedValue((given.lines ?? []).map(asLine)),
   } as never;
 
-  return new OnboardingHandler(workspaces, setup, app, lines);
+  return new OnboardingHandler(workspaces, setup, app, lines, new KnownTools());
 };
 
 const read = (given: Given = {}) =>

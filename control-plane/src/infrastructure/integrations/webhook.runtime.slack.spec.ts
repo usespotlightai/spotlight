@@ -52,12 +52,16 @@ webhook:
         marks:
           - kind: slack.thread
             value: '\${{ body.event.channel + ":" + body.event.ts }}'
+          - kind: slack.channel
+            find: false
+            value: '\${{ body.event.channel }}'
     - when: '\${{ body.event.type == "message" && body.event.thread_ts != "" }}'
       raise:
         happening: slack.message.replied
         label: Replied
         told: Replied in a Slack thread.
         spoken: true
+        say: '\${{ body.event.text }}'
         marks:
           - kind: slack.thread
             value: '\${{ body.event.channel + ":" + body.event.thread_ts }}'
@@ -190,11 +194,27 @@ describe('the Slack webhook runtime', () => {
       ]);
     });
 
+    // The channel is ambient — shared by every mention there — so it is kept
+    // off the concerns a task is found by, but still worn by the task it opens
+    // so a reply can be routed back.
+    it('wears an ambient mark without finding a task by it', async () => {
+      const [read] = await runtime().read(delivered(mention));
+
+      expect(read?.concerns.marks.map((each) => each.kind)).toEqual([
+        'slack.thread',
+      ]);
+      expect(read?.opens?.marks.map((each) => each.kind)).toEqual([
+        'slack.thread',
+        'slack.channel',
+      ]);
+    });
+
     it('reads a thread reply as a person speaking', async () => {
       const [read] = await runtime().read(delivered(reply));
 
       expect(read?.happening.value).toBe('slack.message.replied');
       expect(read?.spoken).toBe(true);
+      expect(read?.said?.body).toBe('the queue');
     });
 
     it('marks its own posts as its own doing', async () => {

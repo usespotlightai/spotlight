@@ -83,7 +83,13 @@ export class HandOver implements RunOutcomes {
 
     for (const event of task.pullEvents()) {
       if (event instanceof TaskAsked) {
-        await this.notifier.onAsked(task);
+        const kept = await this.notifier.onAsked(task);
+
+        if (kept.length > 0) {
+          await this.tasks.save(
+            kept.reduce((held, mark) => held.markedBy(mark), task),
+          );
+        }
       }
     }
   }

@@ -294,6 +294,51 @@ describe('ReactToHappening', () => {
     expect(dispatched).toHaveLength(1);
   });
 
+  // A reply in a thread, that this line routes with no rule, still answers the
+  // question the task was waiting on: the owed conversation says where it goes.
+  it('takes an unruled spoken word as the answer a task was owed', async () => {
+    const asked = standing().askedAbout({
+      voice: Voice.station(),
+      station: StationName.of('Code Review'),
+      body: TaskNoteBody.of('Which repository should this live in?'),
+      at: NOW,
+    });
+
+    const reply: Happened = {
+      happening: Happening.of('slack.app_mention'),
+      told: 'Somebody mentioned Spotlight in Slack.',
+      spoken: true,
+      state: 'raised',
+      concerns: Concerns.of({
+        marks: [Mark.of('slack.thread', '1789022375.833389')],
+      }) as Concerns,
+      said: Said.of({ body: 'In the example repository, please.' }),
+      ourOwn: false,
+      opens: null,
+    };
+
+    await new ReactToHappeningHandler(
+      sourced([reply]),
+      tasks(asked),
+      lines(),
+      dispatch,
+      transaction,
+      clock,
+      attending,
+      ids,
+      members,
+    ).execute(new ReactToHappeningCommand(taken));
+
+    expect(saved?.notes.map((each) => each.kind)).toEqual([
+      'asked',
+      'answered',
+    ]);
+    expect(saved?.notes[1]?.body.value).toBe('In the example repository, please.');
+    expect(saved?.notes[1]?.body.value).not.toContain('mentioned Spotlight');
+    expect(saved?.awaitingReview).toBe(false);
+    expect(dispatched).toHaveLength(1);
+  });
+
   // A build breaking answers nothing a station asked a person.
   it('leaves a person owed where the world merely reports itself', async () => {
     const asked = standing().askedAbout({
@@ -493,6 +538,7 @@ describe('ReactToHappening', () => {
         title: 'Drain the retry queue',
         description: 'It loops forever.',
         assignEmail: null,
+        marks: [issueMark],
       },
     };
 
@@ -569,6 +615,7 @@ describe('ReactToHappening', () => {
         title: 'Drain the retry queue',
         description: null,
         assignEmail: 'dev@acme.test',
+        marks: [issueMark],
       },
     };
 
@@ -640,6 +687,7 @@ describe('ReactToHappening', () => {
         title: 'Drain the retry queue',
         description: null,
         assignEmail: 'stranger@acme.test',
+        marks: [issueMark],
       },
     };
 
@@ -719,6 +767,7 @@ describe('ReactToHappening', () => {
         title: 'Drain the retry queue',
         description: null,
         assignEmail: null,
+        marks: [issueMark],
       },
     };
 

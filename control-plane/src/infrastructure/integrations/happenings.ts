@@ -3,6 +3,7 @@ import type { DeclaredHappening } from '@domain/entities/declared-happening.enti
 import { UpstreamRefusedError } from '@domain/exceptions/upstream-refused.error';
 import { Concerns } from '@domain/value-objects/concerns.vo';
 import { Mark } from '@domain/value-objects/mark.vo';
+import { Said } from '@domain/value-objects/said.vo';
 import {
   type Bindings,
   bound,
@@ -83,13 +84,24 @@ const raiseFrom = (
   against: Bindings,
   ourOwn: boolean,
 ): Happened => {
-  const concerns = Concerns.of({
-    branch: raise.branch ? reads(raise.branch, against) : null,
-    marks: raise.marks.map((mark) => {
+  // Every mark the delivery yields, each kept with whether a task is found by
+  // it. Concerns — which task the word is about — is built from the finding
+  // marks alone; the opened task still wears them all, ambient ones included.
+  const marked = raise.marks
+    .map((mark) => {
       const read = reads(mark.value, against);
 
-      return read ? Mark.of(mark.kind.value, read) : null;
-    }),
+      return read
+        ? { mark: Mark.of(mark.kind.value, read), finds: mark.finds }
+        : null;
+    })
+    .filter((each): each is { mark: Mark; finds: boolean } => each !== null);
+
+  const marks = marked.map((each) => each.mark);
+
+  const concerns = Concerns.of({
+    branch: raise.branch ? reads(raise.branch, against) : null,
+    marks: marked.filter((each) => each.finds).map((each) => each.mark),
   });
 
   if (!concerns) {
@@ -100,6 +112,7 @@ const raiseFrom = (
   }
 
   const title = raise.opens ? reads(raise.opens.title, against) : null;
+  const said = raise.say ? Said.of({ body: reads(raise.say, against) }) : null;
 
   return {
     happening: declared.happening,
@@ -107,7 +120,7 @@ const raiseFrom = (
     spoken: declared.spoken,
     state: 'raised',
     concerns,
-    said: null,
+    said,
     ourOwn,
     opens:
       declared.opensOnto && raise.opens && title
@@ -121,6 +134,7 @@ const raiseFrom = (
             assignEmail: raise.opens.assignBy
               ? reads(raise.opens.assignBy.email, against)
               : null,
+            marks,
           }
         : null,
   };

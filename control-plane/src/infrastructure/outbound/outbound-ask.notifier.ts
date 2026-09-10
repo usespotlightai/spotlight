@@ -6,7 +6,6 @@ import type { Task } from '@domain/aggregates/task.aggregate';
 import { INTEGRATIONS_UNDER } from '@domain/aggregates/team-configuration.aggregate';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { FactoryRepository } from '@domain/repositories/factory.repository';
-import type { TaskRepository } from '@domain/repositories/task.repository';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
 import { ConversationId } from '@domain/value-objects/conversation-id.vo';
 import { Mark } from '@domain/value-objects/mark.vo';
@@ -21,6 +20,15 @@ import type { OAuth2Access } from '@infrastructure/integrations/oauth2-access';
 import type { HttpOutbound } from '@infrastructure/outbound/http-outbound';
 
 const ASKED = 'task.asked';
+
+/** What to carry when a task is put to a person with nothing written — a review
+ *  with only a pull request, say — so the thread still learns one is waiting
+ *  rather than the host refusing an empty message. */
+const waiting = (station: string, link: string | null): string => {
+  const where = station ? ` at ${station}` : '';
+
+  return `A task${where} is waiting on you.${link ? ` ${link}` : ''}`;
+};
 
 /**
  * Carries a task's question out to wherever the team's integration says, when
@@ -37,26 +45,25 @@ export class OutboundAskNotifier implements TaskAskNotifierPort {
     private readonly secrets: TeamSecretsPort,
     private readonly outbound: HttpOutbound,
     private readonly oauth2: OAuth2Access,
-    private readonly tasks: TaskRepository,
     private readonly workspaces: WorkspaceReaderPort,
     private readonly base: string,
     private readonly log: LoggerPort,
   ) {}
 
-  async onAsked(task: Task): Promise<void> {
+  async onAsked(task: Task): Promise<readonly Mark[]> {
     const line = await this.lines.holding(task.stationId);
     if (!line) {
-      return;
+      return [];
     }
 
     const factory = await this.factories.find(line.factoryId);
     if (!factory) {
-      return;
+      return [];
     }
 
     const applied = await this.configurations.findFor(factory.teamId);
     if (!applied) {
-      return;
+      return [];
     }
 
     const bound = this.reader
@@ -66,12 +73,12 @@ export class OutboundAskNotifier implements TaskAskNotifierPort {
       );
 
     if (bound.length === 0) {
-      return;
+      return [];
     }
 
     const open = task.openConversation;
     if (!open) {
-      return;
+      return [];
     }
 
     const station = line.stationAt(task.stationId)?.name.value ?? '';
@@ -81,9 +88,11 @@ export class OutboundAskNotifier implements TaskAskNotifierPort {
       from: open.from,
     }).value;
 
+    const link = slug ? `${this.base}/w/${slug}/inbox/${conversation}` : null;
+    const said = task.notes[open.from]?.body.value?.trim() ?? '';
     const ask = {
-      body: task.notes[open.from]?.body.value ?? '',
-      link: slug ? `${this.base}/w/${slug}/inbox/${conversation}` : null,
+      body: said || waiting(station, link),
+      link,
       station,
     };
 
@@ -93,15 +102,20 @@ export class OutboundAskNotifier implements TaskAskNotifierPort {
       marks: marksOf(task),
     };
 
+    const kept: Mark[] = [];
     for (const readable of bound) {
       const binding = readable.on.find((each) => each.event === ASKED);
       if (binding) {
-        await this.post(task, readable, binding, factory.teamId, {
-          task: context,
-          ask,
-        });
+        kept.push(
+          ...(await this.post(task, readable, binding, factory.teamId, {
+            task: context,
+            ask,
+          })),
+        );
       }
     }
+
+    return kept;
   }
 
   private async post(
@@ -110,10 +124,10 @@ export class OutboundAskNotifier implements TaskAskNotifierPort {
     binding: OnBindingIR,
     teamId: TeamId,
     against: Record<string, unknown>,
-  ): Promise<void> {
+  ): Promise<readonly Mark[]> {
     const action = readable.actions.get(binding.action);
     if (!action) {
-      return;
+      return [];
     }
 
     const target: Record<string, string> = {};
@@ -135,7 +149,7 @@ export class OutboundAskNotifier implements TaskAskNotifierPort {
 
     // Nowhere to post is not a failure — the team routes this line nowhere.
     if (!target.channel && !target.thread) {
-      return;
+      return [];
     }
 
     const secret = await this.resolved(readable, teamId);
@@ -160,15 +174,21 @@ export class OutboundAskNotifier implements TaskAskNotifierPort {
         { err: error, task: task.id.value },
         'Posting a task’s ask',
       );
-      return;
+      return [];
     }
 
     if (!result.ok) {
       this.log.warn(
-        { task: task.id.value, status: result.status },
+        {
+          task: task.id.value,
+          status: result.status,
+          response: result.response,
+          target,
+          marks: (against.task as { marks?: unknown }).marks,
+        },
         'A host refused a task’s ask',
       );
-      return;
+      return [];
     }
 
     const beside = {
@@ -177,17 +197,15 @@ export class OutboundAskNotifier implements TaskAskNotifierPort {
       capture: result.capture,
     };
 
-    let marked = task;
+    const kept: Mark[] = [];
     for (const mark of binding.mark) {
       const value = reads(mark.value, beside);
       if (value) {
-        marked = marked.markedBy(Mark.of(mark.kind.value, value));
+        kept.push(Mark.of(mark.kind.value, value));
       }
     }
 
-    if (marked !== task) {
-      await this.tasks.save(marked);
-    }
+    return kept;
   }
 
   private async resolved(

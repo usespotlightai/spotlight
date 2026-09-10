@@ -1,7 +1,6 @@
 import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Task } from '@domain/aggregates/task.aggregate';
 import type { Station } from '@domain/entities/station.entity';
-import type { Concerns } from '@domain/value-objects/concerns.vo';
 import type { Word } from '@domain/value-objects/happening.vo';
 import type { LineRole } from '@domain/value-objects/line-role.vo';
 import type { Mark } from '@domain/value-objects/mark.vo';
@@ -48,6 +47,9 @@ export interface OpensWith {
   readonly description: string | null;
   /** The email to assign the task by, where the delivery named one; else null. */
   readonly assignEmail: string | null;
+  /** Every mark the opened task wears: the handles it is found by, and any
+   *  ambient context it carries, such as where the word came from. */
+  readonly marks: readonly Mark[];
 }
 
 export const ReactionFor = {
@@ -68,38 +70,46 @@ export const ReactionFor = {
       input.word.happening,
       input.task.stationId,
     );
+    const here = input.line.stationAt(input.task.stationId);
 
-    // A review with nothing written on it says nothing: its comments arrive
-    // on their own, carrying what was actually said.
-    if (!rule || (input.word.spoken && !input.said)) {
-      return { kind: 'nothing' };
-    }
-
-    const waiting = input.line.stationAt(rule.to);
-
-    // The line guards that a rule lands on it, so this is only ever a line
-    // read in pieces. Nothing here guesses where the task should go instead.
-    if (!waiting) {
-      return { kind: 'nothing' };
-    }
-
-    const told = {
-      station: input.line.stationAt(input.task.stationId)?.name ?? waiting.name,
+    const note = (station: StationName): Told => ({
+      station,
       body: TaskNoteBody.heard(input.word.told, input.said),
       said: input.said,
-    };
+    });
 
-    if (!waiting.id.equals(input.task.stationId)) {
-      return { kind: 'moves', to: waiting, ...told };
+    // A rule that lands the work on another station routes it there, and that
+    // wins over answering in place.
+    if (rule) {
+      const destination = input.line.stationAt(rule.to);
+
+      if (!destination) {
+        return { kind: 'nothing' };
+      }
+
+      if (!destination.id.equals(input.task.stationId)) {
+        return {
+          kind: 'moves',
+          to: destination,
+          ...note(here?.name ?? destination.name),
+        };
+      }
     }
 
-    // Replied on the pull request rather than in the inbox, but it is still
-    // the answer the station was waiting for.
+    // A spoken word the task was waiting on answers it in place, needing no
+    // rule: the owed conversation already says where the answer belongs.
     const owed = input.task.owedConversation;
+    if (here && owed && input.word.spoken && input.said) {
+      return {
+        kind: 'answers',
+        to: NotePosition.of(owed.from),
+        ...note(here.name),
+      };
+    }
 
-    return owed && input.word.spoken
-      ? { kind: 'answers', to: NotePosition.of(owed.from), ...told }
-      : { kind: 'stays', ...told };
+    return rule && here && !(input.word.spoken && !input.said)
+      ? { kind: 'stays', ...note(here.name) }
+      : { kind: 'nothing' };
   },
 
   /**
@@ -110,7 +120,6 @@ export const ReactionFor = {
    */
   openingOn(input: {
     lines: readonly AssemblyLine[];
-    concerns: Concerns;
     opens: OpensWith;
   }): OpenedOn | null {
     const ordered = [...input.lines].sort((one, other) =>
@@ -118,11 +127,7 @@ export const ReactionFor = {
     );
 
     for (const line of ordered) {
-      const opening = ReactionFor.opening({
-        line,
-        concerns: input.concerns,
-        opens: input.opens,
-      });
+      const opening = ReactionFor.opening({ line, opens: input.opens });
 
       if (opening) {
         return { line, opening };
@@ -133,12 +138,8 @@ export const ReactionFor = {
   },
 
   /** A task to open on a line the word opens onto. A word its role does not
-   *  match, or with no handle to find it by, opens nothing. */
-  opening(input: {
-    line: AssemblyLine;
-    concerns: Concerns;
-    opens: OpensWith;
-  }): Opening | null {
+   *  match, or with no mark to wear, opens nothing. */
+  opening(input: { line: AssemblyLine; opens: OpensWith }): Opening | null {
     if (!input.line.role?.equals(input.opens.onto)) {
       return null;
     }
@@ -154,21 +155,21 @@ export const ReactionFor = {
       return null;
     }
 
-    const [named] = input.concerns.marks;
+    const [first] = input.opens.marks;
 
-    if (!named) {
+    if (!first) {
       return null;
     }
 
-    // What the source read off the delivery names the task; the handle it is
-    // marked by is only the fallback, so a task is never left named by an id.
+    // What the source read off the delivery names the task; the first mark it
+    // wears is only the fallback, so a task is never left named by an id.
     return {
       at,
-      title: TaskTitle.clamp(input.opens.title || named.value),
+      title: TaskTitle.clamp(input.opens.title || first.value),
       description: input.opens.description
         ? TaskDescription.clamp(input.opens.description)
         : null,
-      marks: input.concerns.marks,
+      marks: input.opens.marks,
     };
   },
 };

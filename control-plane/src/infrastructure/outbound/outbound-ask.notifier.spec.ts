@@ -5,7 +5,6 @@ import type { Factory } from '@domain/aggregates/factory.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { FactoryRepository } from '@domain/repositories/factory.repository';
-import type { TaskRepository } from '@domain/repositories/task.repository';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
 import { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
@@ -112,7 +111,6 @@ const notifying = (
   const run = vi.fn(
     async (_action: unknown, _against: Record<string, unknown>) => reply,
   );
-  const save = vi.fn(async (_task: Task) => undefined);
 
   const notifier = new OutboundAskNotifier(
     { holding: vi.fn(async () => line) } as unknown as AssemblyLineRepository,
@@ -136,13 +134,12 @@ const notifying = (
     } as unknown as TeamSecretsPort,
     { run } as unknown as HttpOutbound,
     { token: async () => null } as unknown as OAuth2Access,
-    { save } as unknown as TaskRepository,
     { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,
     'https://app.example',
     { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
   );
 
-  return { notifier, run, save };
+  return { notifier, run };
 };
 
 describe('OutboundAskNotifier', () => {
@@ -178,27 +175,24 @@ describe('OutboundAskNotifier', () => {
     expect(action.target.thread).toBe('170.1');
   });
 
-  it('wears the thread it captured back onto the task', async () => {
-    const { notifier, save } = notifying();
+  it('hands back the thread it captured, for the caller to record', async () => {
+    const { notifier } = notifying();
 
-    await notifier.onAsked(asked());
+    const kept = await notifier.onAsked(asked());
 
-    const saved = save.mock.calls[0]?.[0] as Task;
-    expect(saved.marks.map((each) => `${each.kind}:${each.value}`)).toContain(
+    expect(kept.map((each) => `${each.kind}:${each.value}`)).toContain(
       'slack.thread:170.9',
     );
   });
 
-  it('does nothing where the host refuses the post', async () => {
-    const { notifier, save } = notifying({
+  it('keeps nothing where the host refuses the post', async () => {
+    const { notifier } = notifying({
       ok: false,
       status: 200,
       response: { ok: false },
       capture: {},
     });
 
-    await notifier.onAsked(asked());
-
-    expect(save).not.toHaveBeenCalled();
+    expect(await notifier.onAsked(asked())).toEqual([]);
   });
 });

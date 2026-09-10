@@ -61,6 +61,49 @@ describe('HttpOutbound', () => {
     });
   });
 
+  it('says the body is JSON so a host parses it rather than reading form data', async () => {
+    const fetch = replying({ ok: true, ts: '1' });
+    const out = new HttpOutbound(['slack.com'], fetch);
+
+    await out.run(action(), against);
+
+    const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect((init.headers as Record<string, string>)['content-type']).toBe(
+      'application/json',
+    );
+  });
+
+  it('leaves a content-type the file set alone', async () => {
+    const FORM = `
+version: 1
+integration: demo
+actions:
+  post-message:
+    request:
+      method: POST
+      url: https://slack.com/api/chat.postMessage
+      headers:
+        content-type: application/x-www-form-urlencoded
+      body: '\${{ {"channel": target.channel} }}'
+`;
+    const read = compileIntegration('.spotlight/integrations/demo.yml', FORM);
+    const request = read.ok
+      ? (read.readable.actions.get('post-message') as RequestIR)
+      : (() => {
+          throw new Error('did not compile');
+        })();
+
+    const fetch = replying({ ok: true });
+    const out = new HttpOutbound(['slack.com'], fetch);
+
+    await out.run(request, against);
+
+    const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect((init.headers as Record<string, string>)['content-type']).toBe(
+      'application/x-www-form-urlencoded',
+    );
+  });
+
   it('reads success and captures from the reply', async () => {
     const out = new HttpOutbound(
       ['slack.com'],

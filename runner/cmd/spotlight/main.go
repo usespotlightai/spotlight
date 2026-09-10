@@ -49,6 +49,23 @@ func run(args []string, in io.Reader, out io.Writer) error {
 	}
 }
 
+// prose is a flag's value, or what was piped in where the flag is left off or
+// names stdin explicitly ("-" or "/dev/stdin"). Piping a heredoc while writing
+// --note /dev/stdin is a natural shell idiom; honouring it keeps the pipe from
+// being recorded as the literal path.
+func prose(value string, in io.Reader) (string, error) {
+	if value != "" && value != "-" && value != "/dev/stdin" {
+		return value, nil
+	}
+
+	piped, err := io.ReadAll(in)
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(string(piped)), nil
+}
+
 func handover(args []string, in io.Reader, out io.Writer) error {
 	flags := flag.NewFlagSet("handover", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
@@ -66,13 +83,11 @@ func handover(args []string, in io.Reader, out io.Writer) error {
 
 	// A note is prose and often long, so it may be piped in rather than
 	// fought through shell quoting.
-	if *note == "" {
-		piped, err := io.ReadAll(in)
-		if err != nil {
-			return fmt.Errorf("read the note: %w", err)
-		}
-		*note = strings.TrimSpace(string(piped))
+	noted, err := prose(*note, in)
+	if err != nil {
+		return fmt.Errorf("read the note: %w", err)
 	}
+	*note = noted
 
 	endpoint, token := os.Getenv(declare.URLVar), os.Getenv(declare.TokenVar)
 	if endpoint == "" || token == "" {
@@ -111,13 +126,11 @@ func reply(args []string, in io.Reader, out io.Writer) error {
 	}
 
 	// As with a note, an answer is prose and may be piped in.
-	if *body == "" {
-		piped, err := io.ReadAll(in)
-		if err != nil {
-			return fmt.Errorf("read the answer: %w", err)
-		}
-		*body = strings.TrimSpace(string(piped))
+	answered, err := prose(*body, in)
+	if err != nil {
+		return fmt.Errorf("read the answer: %w", err)
 	}
+	*body = answered
 
 	if *body == "" {
 		return fmt.Errorf("--body is required\n%s", usage)
@@ -169,13 +182,11 @@ func pullRequest(args []string, in io.Reader, out io.Writer) error {
 	}
 
 	// As with a note, the description is prose and may be piped in.
-	if *body == "" {
-		piped, err := io.ReadAll(in)
-		if err != nil {
-			return fmt.Errorf("read the description: %w", err)
-		}
-		*body = strings.TrimSpace(string(piped))
+	described, err := prose(*body, in)
+	if err != nil {
+		return fmt.Errorf("read the description: %w", err)
 	}
+	*body = described
 
 	endpoint, token := os.Getenv(declare.URLVar), os.Getenv(declare.TokenVar)
 	if endpoint == "" || token == "" {

@@ -59,6 +59,26 @@ func TestTakesTheNoteFromStandardInput(t *testing.T) {
 	}
 }
 
+// Piping a heredoc while writing --note /dev/stdin (or -) is a natural shell
+// idiom; the pipe must win, not be recorded as the literal path.
+func TestReadsNoteFromStandardInputWhenNamed(t *testing.T) {
+	for _, named := range []string{"/dev/stdin", "-"} {
+		t.Run(named, func(t *testing.T) {
+			server := inARun(t)
+
+			piped := strings.NewReader("the real note\n")
+			args := []string{"handover", "--next", "review", "--note", named}
+			if err := run(args, piped, new(bytes.Buffer)); err != nil {
+				t.Fatalf("run: %v", err)
+			}
+
+			if note := server.Declared().Note; note != "the real note" {
+				t.Fatalf("got %q", note)
+			}
+		})
+	}
+}
+
 // The reason this is a command and not a file: the agent is told, in its own
 // terminal, that it got the name wrong, and can try again.
 func TestSaysWhatWouldHaveWorked(t *testing.T) {

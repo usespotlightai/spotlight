@@ -169,6 +169,7 @@ import {
 } from '@application/ports/runner-revocation.port';
 import { RUNNER_TOKEN } from '@application/ports/runner-token.port';
 import { RUNNER_TRACE_READER } from '@application/ports/runner-trace-reader.port';
+import { STARTER_TOOLS } from '@application/ports/starter-tools.port';
 import {
   TASK_ASK_NOTIFIER,
   type TaskAskNotifierPort,
@@ -304,6 +305,7 @@ import { ConfiguredSources } from '@infrastructure/integrations/configured.sourc
 import { ConnectionRefreshWorker } from '@infrastructure/integrations/connection-refresh.worker';
 import { IntegrationReader } from '@infrastructure/integrations/integration.reader';
 import { JwksCache } from '@infrastructure/integrations/jwks';
+import { KnownTools } from '@infrastructure/integrations/known-tools';
 import { LineReader } from '@infrastructure/integrations/line.reader';
 import { OAuth2Access } from '@infrastructure/integrations/oauth2-access';
 import { OAuth2Clients } from '@infrastructure/integrations/oauth2-clients';
@@ -452,6 +454,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     { provide: RUN_STREAM, useClass: InMemoryRunStream },
     { provide: ID_GENERATOR, useClass: CryptoIdGenerator },
     { provide: CLOCK, useClass: SystemClock },
+    { provide: STARTER_TOOLS, useClass: KnownTools },
     RunnerTokenService,
     { provide: RUNNER_TOKEN, useClass: RunnerTokenService },
     { provide: RUNNER_AUTH, useClass: RunnerTokenAuth },
@@ -1089,7 +1092,6 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         IntegrationReader,
         TEAM_SECRETS,
         OAuth2Access,
-        DrizzleTaskRepository,
         WORKSPACE_READER,
         ENV,
         LOGGER,
@@ -1101,7 +1103,6 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         reader: IntegrationReader,
         secrets: TeamSecretsPort,
         oauth2: OAuth2Access,
-        tasks: DrizzleTaskRepository,
         workspaces: WorkspaceReaderPort,
         env: Env,
         logger: LoggerPort,
@@ -1114,7 +1115,6 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
           secrets,
           new HttpOutbound(env.OUTBOUND_ALLOWED_HOSTS.split(',')),
           oauth2,
-          tasks,
           workspaces,
           env.SPOTLIGHT_PUBLIC_URL ?? env.BETTER_AUTH_URL,
           logger,
@@ -1362,12 +1362,14 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       WORKSPACE_READER,
       DrizzleTeamRepository,
       WriteConfiguration,
+      STARTER_TOOLS,
     ]),
     ...bindQueryHandler(OnboardingQuery, OnboardingHandler, [
       WORKSPACE_READER,
       TeamSetup,
       GITHUB_APP,
       DrizzleAssemblyLineRepository,
+      STARTER_TOOLS,
     ]),
     ...bindCommandHandler(ReadConfigurationCommand, ReadConfigurationHandler, [
       DrizzleWorkspaceRepository,
