@@ -6,6 +6,7 @@ import type { TeamSecretsPort } from '@application/ports/team-secrets.port';
 import type { WorkspaceReaderPort } from '@application/ports/workspace-reader.port';
 import type { ConfigurationQuery } from '@application/queries/read-configuration.query';
 import { INTEGRATIONS_UNDER } from '@domain/aggregates/team-configuration.aggregate';
+import type { HostConnectionRepository } from '@domain/repositories/host-connection.repository';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
@@ -23,6 +24,7 @@ export class ConfigurationHandler
     private readonly configurations: TeamConfigurationRepository,
     private readonly integrations: IntegrationReaderPort,
     private readonly secrets: TeamSecretsPort,
+    private readonly connections: HostConnectionRepository,
   ) {}
 
   async execute(query: ConfigurationQuery): Promise<ConfigurationDto | null> {
@@ -54,6 +56,13 @@ export class ConfigurationHandler
       const held = await this.secrets.held(TeamId.of(team.teamId));
       const set = new Set(held.map((each) => each.name));
 
+      const linked = new Map(
+        (await this.connections.held(TeamId.of(team.teamId))).map((each) => [
+          each.source,
+          each,
+        ]),
+      );
+
       return {
         repository: applied.repository.value,
         sha: applied.commit.value,
@@ -64,13 +73,19 @@ export class ConfigurationHandler
           // Where the host is told to knock, which is what a person copies
           // into it. Its own door, so nothing has to be read to place it.
           deliverTo: `/api/webhooks/w/${team.slug}/t/${team.teamKey}/${each.source.value}`,
-          secret: each.signing.secret.value,
-          // Named rather than shown, and only whether there is one at all.
-          secretSet: set.has(each.signing.secret.value),
+          // Named rather than shown, and only whether each has been set.
+          secrets: each.credentials.map((secret) => ({
+            name: secret.value,
+            set: set.has(secret.value),
+          })),
           happenings: each.declares.map((declared) => ({
             happening: declared.happening.value,
             label: declared.label,
           })),
+          connectable: each.connects,
+          connection: linked.has(each.source.value)
+            ? { handle: linked.get(each.source.value)?.handle ?? null }
+            : null,
         })),
         problems: applied.problems.map((each) => ({
           path: each.path,

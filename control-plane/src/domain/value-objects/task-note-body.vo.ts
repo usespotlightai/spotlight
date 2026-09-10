@@ -15,12 +15,12 @@ export class TaskNoteBody {
     return new TaskNoteBody(trimmed);
   }
 
-  /** Told in the source's own words, which travel with the word itself. */
+  /** A person's own words, where there are any; the source's generic
+   *  description of the event only where nobody said anything. */
   static heard(told: string, said: Said | null): TaskNoteBody {
-    // The place labels what was said, so the two stay together.
-    const remark = [said?.place, said?.body].filter(Boolean).join('\n');
+    const spoken = [said?.place, said?.body].filter(Boolean).join('\n');
 
-    return TaskNoteBody.of([told, remark].filter(Boolean).join('\n\n'));
+    return TaskNoteBody.of(spoken || told);
   }
 
   static movedTo(station: StationName): TaskNoteBody {

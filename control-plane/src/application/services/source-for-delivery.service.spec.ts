@@ -7,10 +7,10 @@ import { describe, expect, it, vi } from 'vitest';
 const source = (key: string): WebhookSourcePort => ({
   key,
   happenings: [],
-  verifies: () => true,
+  verifies: async () => true,
   delivery: () => 'delivery_1',
   routes: async () => null,
-  read: () => [],
+  read: async () => [],
 });
 
 const asking = (

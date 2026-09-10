@@ -1,7 +1,6 @@
 import { GitPullRequest } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
 import { AssigneePicker } from '@/components/features/board/task/AssigneePicker';
-import { RepositorySelect } from '@/components/features/board/task/RepositorySelect';
 import { StationSelect } from '@/components/features/board/task/StationSelect';
 import { TaskActions } from '@/components/features/board/task/TaskActions';
 import { TaskActivity } from '@/components/features/runs/TaskActivity';
@@ -14,7 +13,6 @@ import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useAssemblyLines } from '@/hooks/api/useAssemblyLines';
 import { useDeleteTask } from '@/hooks/api/useDeleteTask';
 import { useMoveTask } from '@/hooks/api/useMoveTask';
-import { useSetTaskRepository } from '@/hooks/api/useSetTaskRepository';
 import { useTasks } from '@/hooks/api/useTasks';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { assemblyLinePath, teamPath } from '@/lib/team';
@@ -26,7 +24,6 @@ export function Task() {
   const { data: lines } = useAssemblyLines(teamId);
   const { data: tasks, isPending } = useTasks(teamId);
   const moveTask = useMoveTask();
-  const setRepository = useSetTaskRepository();
   const deleteTask = useDeleteTask();
   const navigate = useNavigate();
 
@@ -157,20 +154,6 @@ export function Task() {
               {teamId && (
                 <AssigneePicker teamId={teamId} task={task} variant="row" />
               )}
-
-              <RepositorySelect
-                slug={slug}
-                value={task.repository ?? ''}
-                variant="row"
-                onChange={(repository) =>
-                  teamId &&
-                  setRepository.mutate({
-                    teamId,
-                    taskId: task.id,
-                    repository: repository || null,
-                  })
-                }
-              />
 
               {task.pullRequest && (
                 <a

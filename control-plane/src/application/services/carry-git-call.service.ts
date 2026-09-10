@@ -5,12 +5,14 @@ import type {
   RepositoryGitPort,
 } from '@application/ports/repository-git.port';
 import type { RunAtHand } from '@application/services/run-at-hand.service';
+import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { WorkspaceConnections } from '@domain/repositories/workspace.repository';
 import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 
 export class CarryGitCall implements GitGatewayPort {
   constructor(
     private readonly held: RunAtHand,
+    private readonly lines: AssemblyLineRepository,
     private readonly workspaces: WorkspaceConnections,
     private readonly git: RepositoryGitPort,
   ) {}
@@ -18,12 +20,21 @@ export class CarryGitCall implements GitGatewayPort {
   async carry(
     runId: string,
     runnerId: string,
+    repo: string,
     call: GitCall,
   ): Promise<GitAnswer | null> {
-    const { task } = await this.held.heldBy(runId, runnerId);
-    const repository = task?.repository;
+    const { run, task } = await this.held.heldBy(runId, runnerId);
 
-    if (!task || !repository) {
+    if (!task || !run.stationId) {
+      return null;
+    }
+
+    // Which of the line's repositories this call is for, named by the door it
+    // came in at. A run reaches only what its line works in.
+    const line = await this.lines.holding(run.stationId);
+    const repository = line?.repositoryNamed(repo) ?? null;
+
+    if (!repository) {
       return null;
     }
 

@@ -9,6 +9,7 @@ import { TeamKey } from '@domain/value-objects/team-key.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { ConfiguredSources } from '@infrastructure/integrations/configured.sources';
 import { IntegrationReader } from '@infrastructure/integrations/integration.reader';
+import { HttpOutbound } from '@infrastructure/outbound/http-outbound';
 import { describe, expect, it, vi } from 'vitest';
 
 const WORKSPACE = WorkspaceId.of('ws_1');
@@ -21,20 +22,22 @@ const TEAM = {
 
 const linear = (source = 'linear') => `
 version: 1
-source: ${source}
-verify:
-  scheme: hmac-sha256
-  header: ${source}-signature
-  secret: ${source.toUpperCase()}_WEBHOOK_SECRET
-happenings:
-  - happening: ${source}.issue.completed
-    label: Issue completed
-    told: Done.
-    when: \${{ body.type == "Issue" }}
-    concerns:
-      marks:
-        - kind: ${source}.issue
-          value: \${{ body.data.identifier }}
+integration: ${source}
+webhook:
+  verify:
+    hmac:
+      algorithm: sha256
+      secret: secret.${source.toUpperCase()}_WEBHOOK_SECRET
+      header: ${source}-signature
+  events:
+    - when: \${{ body.type == "Issue" }}
+      raise:
+        happening: ${source}.issue.completed
+        label: Issue completed
+        told: Done.
+        marks:
+          - kind: ${source}.issue
+            value: \${{ body.data.identifier }}
 `;
 
 const holding = (
@@ -65,6 +68,8 @@ const holding = (
       } as unknown as TeamConfigurationRepository,
       { resolve } as unknown as TeamSecretsPort,
       new IntegrationReader(),
+      { keys: async () => new Map() },
+      new HttpOutbound([]),
     ),
   };
 };
@@ -114,7 +119,7 @@ describe('ConfiguredSources', () => {
     const [source] = await sources.all(TEAM);
 
     expect(
-      source?.verifies({
+      await source?.verifies({
         headers: { 'linear-signature': 'anything' },
         body: {},
         raw: Buffer.from('{}'),

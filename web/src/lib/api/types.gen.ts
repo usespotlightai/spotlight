@@ -44,13 +44,10 @@ export type AssemblyLineResponseDto = {
   name: string;
   stations: Array<StationResponseDto>;
   reactions: Array<ReactionResponseDto>;
-};
-
-export type ReorderStationsRequestDto = {
   /**
-   * Every station on the line, left to right
+   * The repositories a run on this line works in, as owner/name
    */
-  stationIds: Array<string>;
+  repositories: Array<string>;
 };
 
 export type CustomiseStationRequestDto = {
@@ -68,6 +65,17 @@ export type CustomiseStationRequestDto = {
    * Markdown, handed to the agent that works this station
    */
   agentPrompt?: string | null;
+};
+
+export type ProposedResponseDto = {
+  url: string;
+};
+
+export type SetLineRepositoriesRequestDto = {
+  /**
+   * The line’s repositories, as owner/name, set whole.
+   */
+  repositories: Array<string>;
 };
 
 export type HealthResponseDto = {
@@ -289,6 +297,10 @@ export type OpenPullRequestRequestDto = {
    * Markdown, shown as the pull request description
    */
   body?: string | null;
+  /**
+   * Which of the line’s repositories to open against, by name. Left out where the line works only one.
+   */
+  repository?: string | null;
 };
 
 export type OpenedPullRequestResponseDto = {
@@ -540,9 +552,33 @@ export type ConnectGitHubRequestDto = {
   installationId: string;
 };
 
+export type OAuth2StartResponseDto = {
+  /**
+   * Where to send the person to authorize the link
+   */
+  url: string;
+};
+
+export type ConfiguredSecretResponseDto = {
+  name: string;
+  /**
+   * Whether the workspace has set it. Never its value.
+   */
+  set: boolean;
+};
+
 export type ConfiguredHappeningResponseDto = {
   happening: string;
   label: string;
+};
+
+export type ConfiguredConnectionResponseDto = {
+  /**
+   * What the host calls the team, where it says; null otherwise
+   */
+  handle: {
+    [key: string]: unknown;
+  } | null;
 };
 
 export type ConfiguredIntegrationResponseDto = {
@@ -552,12 +588,16 @@ export type ConfiguredIntegrationResponseDto = {
    * Where this host should be told to send its deliveries
    */
   deliverTo: string;
-  secret: string;
-  /**
-   * Whether the workspace has set it. Never its value.
-   */
-  secretSet: boolean;
+  secrets: Array<ConfiguredSecretResponseDto>;
   happenings: Array<ConfiguredHappeningResponseDto>;
+  /**
+   * Whether this host is linked by authorizing a connection
+   */
+  connectable: boolean;
+  /**
+   * The living link, or null where the team has not linked
+   */
+  connection: ConfiguredConnectionResponseDto | null;
 };
 
 export type ConfigProblemResponseDto = {
@@ -595,6 +635,13 @@ export type SetupStepResponseDto = {
   done: boolean;
 };
 
+export type OnboardingLineResponseDto = {
+  key: string;
+  name: string;
+  harness: string | null;
+  repositories: Array<string>;
+};
+
 export type KnownToolResponseDto = {
   source: string;
   name: string;
@@ -624,7 +671,18 @@ export type OnboardingResponseDto = {
    * The account repositories are named under, or null
    */
   repositoryOwner: string | null;
+  lines: Array<OnboardingLineResponseDto>;
   tools: Array<KnownToolResponseDto>;
+};
+
+export type SetUpLineRequestDto = {
+  key: string;
+  harness?: string | null;
+  repositories: Array<string>;
+};
+
+export type SetUpLinesRequestDto = {
+  lines: Array<SetUpLineRequestDto>;
 };
 
 export type ChooseToolsRequestDto = {
@@ -636,10 +694,6 @@ export type ChooseToolsRequestDto = {
    * The hosts it no longer uses, whose files the change removes
    */
   dropped?: Array<string>;
-};
-
-export type ProposedResponseDto = {
-  url: string;
 };
 
 export type SetSecretRequestDto = {
@@ -703,10 +757,6 @@ export type TaskResponseDto = {
    * Where a standing question is answered, or null for none
    */
   awaitingReview: TaskReviewResponseDto | null;
-  /**
-   * The codebase the work is done in
-   */
-  repository: string | null;
   /**
    * The pull request this task ended in, once one is open
    */
@@ -856,10 +906,6 @@ export type AddTaskRequestDto = {
    * Markdown. Left out or blank for a task with nothing said.
    */
   description?: string | null;
-  /**
-   * The codebase the work is done in, as owner/name
-   */
-  repository?: string | null;
 };
 
 export type AnalyseTracesRequestDto = {
@@ -885,13 +931,6 @@ export type AssignTaskRequestDto = {
    * The team member to give it to, or null to leave it unclaimed
    */
   assigneeId: string | null;
-};
-
-export type SetTaskRepositoryRequestDto = {
-  /**
-   * The repository a run works it in, or null for none
-   */
-  repository: string | null;
 };
 
 export type MemberResponseDto = {
@@ -957,37 +996,6 @@ export type ListAssemblyLinesResponses = {
 
 export type ListAssemblyLinesResponse = ListAssemblyLinesResponses[keyof ListAssemblyLinesResponses];
 
-export type ReorderStationsData = {
-  body: ReorderStationsRequestDto;
-  path: {
-    teamId: string;
-    lineId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/assembly-lines/{lineId}/stations/order';
-};
-
-export type ReorderStationsErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such line for this caller
-   */
-  404: unknown;
-  /**
-   * Not every station named
-   */
-  422: unknown;
-};
-
-export type ReorderStationsResponses = {
-  200: AssemblyLineResponseDto;
-};
-
-export type ReorderStationsResponse = ReorderStationsResponses[keyof ReorderStationsResponses];
-
 export type CustomiseStationData = {
   body: CustomiseStationRequestDto;
   path: {
@@ -1005,7 +1013,7 @@ export type CustomiseStationErrors = {
    */
   401: unknown;
   /**
-   * No such station for this caller
+   * No such station, or nowhere to write it
    */
   404: unknown;
   /**
@@ -1015,10 +1023,41 @@ export type CustomiseStationErrors = {
 };
 
 export type CustomiseStationResponses = {
-  200: StationResponseDto;
+  200: ProposedResponseDto;
 };
 
 export type CustomiseStationResponse = CustomiseStationResponses[keyof CustomiseStationResponses];
+
+export type SetLineRepositoriesData = {
+  body: SetLineRepositoriesRequestDto;
+  path: {
+    teamId: string;
+    lineId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/assembly-lines/{lineId}/repositories';
+};
+
+export type SetLineRepositoriesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such line, or nowhere to write it
+   */
+  404: unknown;
+  /**
+   * Invalid repository
+   */
+  422: unknown;
+};
+
+export type SetLineRepositoriesResponses = {
+  200: ProposedResponseDto;
+};
+
+export type SetLineRepositoriesResponse = SetLineRepositoriesResponses[keyof SetLineRepositoriesResponses];
 
 export type GetHealthData = {
   body?: never;
@@ -1617,6 +1656,33 @@ export type ConnectGitHubResponses = {
 
 export type ConnectGitHubResponse = ConnectGitHubResponses[keyof ConnectGitHubResponses];
 
+export type ConnectIntegrationData = {
+  body?: never;
+  path: {
+    teamId: string;
+    source: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/integrations/{source}/connect';
+};
+
+export type ConnectIntegrationErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, not yours to link, or the host does not link so
+   */
+  404: unknown;
+};
+
+export type ConnectIntegrationResponses = {
+  200: OAuth2StartResponseDto;
+};
+
+export type ConnectIntegrationResponse = ConnectIntegrationResponses[keyof ConnectIntegrationResponses];
+
 export type ReadConfigurationData = {
   body?: never;
   path: {
@@ -1723,6 +1789,32 @@ export type ReadOnboardingResponses = {
 };
 
 export type ReadOnboardingResponse = ReadOnboardingResponses[keyof ReadOnboardingResponses];
+
+export type SetUpLinesData = {
+  body: SetUpLinesRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration/setup';
+};
+
+export type SetUpLinesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, or nowhere to write it yet
+   */
+  404: unknown;
+};
+
+export type SetUpLinesResponses = {
+  200: ProposedResponseDto;
+};
+
+export type SetUpLinesResponse = SetUpLinesResponses[keyof SetUpLinesResponses];
 
 export type ChooseToolsData = {
   body: ChooseToolsRequestDto;
@@ -2222,33 +2314,6 @@ export type AssignTaskResponses = {
 };
 
 export type AssignTaskResponse = AssignTaskResponses[keyof AssignTaskResponses];
-
-export type SetTaskRepositoryData = {
-  body: SetTaskRepositoryRequestDto;
-  path: {
-    teamId: string;
-    taskId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/tasks/{taskId}/repository';
-};
-
-export type SetTaskRepositoryErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such task for this caller
-   */
-  404: unknown;
-};
-
-export type SetTaskRepositoryResponses = {
-  200: TaskResponseDto;
-};
-
-export type SetTaskRepositoryResponse = SetTaskRepositoryResponses[keyof SetTaskRepositoryResponses];
 
 export type ListMembersData = {
   body?: never;

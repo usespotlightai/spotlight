@@ -18,10 +18,8 @@ import { NotATeamMemberError } from '@domain/exceptions/not-a-team-member.error'
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import type { TeamRepository } from '@domain/repositories/team.repository';
-import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
 import { Placement } from '@domain/services/placement';
 import { LineRole } from '@domain/value-objects/line-role.vo';
-import type { Repository } from '@domain/value-objects/repository.vo';
 import { TaskDescription } from '@domain/value-objects/task-description.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
@@ -41,7 +39,6 @@ export class AnalyseTraceHandler
     private readonly tasks: TaskRepository,
     private readonly lines: AssemblyLineRepository,
     private readonly teams: TeamRepository,
-    private readonly configurations: TeamConfigurationRepository,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly raise: RaiseTask,
@@ -73,8 +70,6 @@ export class AnalyseTraceHandler
       return [];
     }
 
-    const configured = await this.configurations.findFor(team.id);
-    const repository = configured?.repository ?? null;
     const person = await this.people.find(requester);
 
     const created: TaskDto[] = [];
@@ -87,7 +82,6 @@ export class AnalyseTraceHandler
         entry,
         requester,
         person,
-        repository,
       });
 
       if (dto) {
@@ -105,7 +99,6 @@ export class AnalyseTraceHandler
     entry: Station;
     requester: UserId;
     person: PersonSummary | null;
-    repository: Repository | null;
   }): Promise<TaskDto | null> {
     const traced = await this.tasks.find(input.traceOf);
 
@@ -126,7 +119,6 @@ export class AnalyseTraceHandler
       raisedBy: input.requester,
       now: this.clock.now(),
       newId: () => this.ids.generate(),
-      repository: input.repository,
     }).assignedTo(input.requester);
 
     const raised = await this.raise.raise({ task: added, line: input.line });

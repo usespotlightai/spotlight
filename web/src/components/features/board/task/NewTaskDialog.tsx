@@ -1,5 +1,4 @@
 import { type FormEvent, useState } from 'react';
-import { RepositorySelect } from '@/components/features/board/task/RepositorySelect';
 import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
@@ -12,13 +11,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { useLastRepository } from '@/hooks/useLastRepository';
 import type { NewTask } from '@/lib/task';
 
 type NewTaskDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  slug: string | undefined;
   lineName: string;
   stationName: string;
   onCreate: (task: NewTask) => void;
@@ -27,22 +24,18 @@ type NewTaskDialogProps = {
 export function NewTaskDialog({
   open,
   onOpenChange,
-  slug,
   lineName,
   stationName,
   onCreate,
 }: NewTaskDialogProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [lastRepository, rememberRepository] = useLastRepository();
-  const [repository, setRepository] = useState(lastRepository);
   const [more, setMore] = useState(false);
   const [round, setRound] = useState(0);
 
   const forget = () => {
     setTitle('');
     setDescription('');
-    setRepository(lastRepository);
     setRound((each) => each + 1);
   };
 
@@ -52,12 +45,9 @@ export function NewTaskDialog({
       return;
     }
 
-    rememberRepository(repository);
-
     onCreate({
       title: title.trim(),
       description: description.trim(),
-      repository: repository || null,
     });
 
     if (more) {
@@ -107,13 +97,6 @@ export function NewTaskDialog({
               className="min-h-24 border-none bg-transparent p-0"
               placeholderClassName="top-0 left-0"
             />
-            <div className="flex">
-              <RepositorySelect
-                slug={slug}
-                value={repository}
-                onChange={setRepository}
-              />
-            </div>
           </div>
 
           <DialogFooter className="items-center sm:justify-between">

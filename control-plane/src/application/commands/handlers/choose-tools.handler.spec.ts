@@ -40,7 +40,14 @@ const handler = () => {
   } as unknown as WriteConfiguration;
 
   return {
-    handler: new ChooseToolsHandler(workspaces, members, teams, writing),
+    handler: new ChooseToolsHandler(workspaces, members, teams, writing, {
+      all: () => [],
+      // Known hosts have a file; anything else is unknown, as the real one is.
+      fileFor: (source) =>
+        ['linear', 'sentry', 'slack'].includes(source)
+          ? `version: 1\nintegration: ${source}\n`
+          : null,
+    }),
     written: () => written,
   };
 };

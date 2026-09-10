@@ -41,6 +41,15 @@ export const envSchema = databaseSchema
     // The control-plane base baked into the served install script. Defaults to
     // BETTER_AUTH_URL.
     SPOTLIGHT_PUBLIC_URL: z.url().optional(),
+    // Hosts an integration's outbound calls (posts and polls) may reach,
+    // comma-separated. Empty allows none: a templated URL carries real secrets,
+    // so where it may reach is the deployment's to say, never the config author's.
+    OUTBOUND_ALLOWED_HOSTS: z.string().default(''),
+    // The shared OAuth2 apps, one per host, as JSON: a map from a source name
+    // to its client id and secret, e.g. {"slack":{"id":"...","secret":"..."}}.
+    // These are the operator's apps, never a team's, so they live here and not
+    // in any team's configuration. Empty means no host can be linked.
+    OAUTH_CLIENTS: z.string().default('{}'),
     // Where the served install script lives in this image.
     SPOTLIGHT_INSTALLER_DIR: z.string().default('/opt/spotlight/installer'),
     LOG_LEVEL: z.enum(LOG_LEVELS).optional(),

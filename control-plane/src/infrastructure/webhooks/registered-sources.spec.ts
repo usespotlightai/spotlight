@@ -18,7 +18,7 @@ const sourceOf = (named: string) => {
     readonly key = named;
     readonly happenings: readonly HappeningDeclaration[] = [];
 
-    verifies(): boolean {
+    async verifies(): Promise<boolean> {
       return true;
     }
 
@@ -30,7 +30,7 @@ const sourceOf = (named: string) => {
       return null;
     }
 
-    read(): readonly Happened[] {
+    async read(): Promise<readonly Happened[]> {
       return [];
     }
   }

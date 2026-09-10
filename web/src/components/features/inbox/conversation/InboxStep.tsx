@@ -1,55 +1,57 @@
-import {
-  ChevronRight,
-  Eye,
-  Globe,
-  Hammer,
-  ListTodo,
-  type LucideIcon,
-  MessageCircle,
-  Search,
-  SquarePen,
-  Terminal,
-  Wrench,
-} from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { useState } from 'react';
+import { CodeBlock } from '@/components/shared/CodeBlock';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import type { JournalStep } from '@/lib/inbox';
 import { cn } from '@/lib/utils';
 
-const glyphFor = (step: JournalStep): LucideIcon => {
+// The action, as a past-tense word, the way the icon used to name it. It leads
+// the row in a darker weight; the step's own text follows it, muted.
+const verbFor = (step: JournalStep): string => {
   if (step.kind === 'thought') {
-    return MessageCircle;
+    return 'Thought';
   }
   if (step.kind === 'planned') {
-    return ListTodo;
+    return 'Planned';
   }
   if (step.kind === 'hook') {
-    return Terminal;
+    return 'Ran';
   }
 
   switch (step.tool) {
     case 'read':
-      return Eye;
+      return 'Read';
     case 'edit':
+      return 'Edited';
     case 'write':
+      return 'Wrote';
     case 'create':
-      return SquarePen;
+      return 'Created';
     case 'execute':
-      return Terminal;
+      return 'Ran';
     case 'search':
+      return 'Searched';
     case 'grep':
-      return Search;
+      return 'Grepped';
     case 'web':
     case 'fetch':
-      return Globe;
+      return 'Fetched';
     case 'mcp':
-      return Wrench;
+      return 'Called';
     default:
-      return Hammer;
+      return 'Used';
   }
 };
 
-export function InboxStep({ step }: { step: JournalStep }) {
+export function InboxStep({
+  step,
+  live = false,
+}: {
+  step: JournalStep;
+  /** Whether the run is still going. A settled run's steps never shimmer,
+   *  even one left at 'pending' because its completion update never arrived. */
+  live?: boolean;
+}) {
   const [open, setOpen] = useState(false);
 
   if (step.kind === 'said') {
@@ -66,15 +68,18 @@ export function InboxStep({ step }: { step: JournalStep }) {
     );
   }
 
-  const Glyph = glyphFor(step);
   const failed = step.status === 'failed';
-  const running = step.status === 'running' || step.status === 'pending';
+  const running =
+    live && (step.status === 'running' || step.status === 'pending');
 
   const prose = step.kind === 'thought' || step.kind === 'planned';
-  const label = prose ? (step.text.split('\n')[0] ?? '') : step.text;
+  const terminal = step.kind === 'hook' || step.tool === 'execute';
+  const detail = prose ? (step.text.split('\n')[0] ?? '') : step.text;
+  const keyword = verbFor(step);
+  const label = `${keyword} ${detail}`.trim();
   const body =
     step.kind === 'thought'
-      ? step.text.length > label.length
+      ? step.text.length > detail.length
         ? step.text
         : null
       : step.detail;
@@ -82,26 +87,31 @@ export function InboxStep({ step }: { step: JournalStep }) {
 
   const head = (
     <>
-      <span className="flex size-6 shrink-0 items-center justify-center">
-        <Glyph
-          className={cn(
-            'size-4 stroke-[1.8]',
-            failed ? 'text-destructive' : 'text-muted-foreground',
-          )}
-        />
-      </span>
-
-      <span
-        className={cn(
-          'min-w-0 flex-1 truncate',
-          running
-            ? 'step-shine'
-            : failed
-              ? 'text-destructive'
-              : 'text-muted-foreground',
+      <span className={cn('min-w-0 flex-1 truncate', running && 'step-shine')}>
+        {running ? (
+          label
+        ) : (
+          <>
+            <span
+              className={cn(
+                'font-medium',
+                failed ? 'text-destructive' : 'text-foreground',
+              )}
+            >
+              {keyword}
+            </span>
+            {detail && (
+              <span
+                className={
+                  failed ? 'text-destructive/70' : 'text-muted-foreground'
+                }
+              >
+                {' '}
+                {detail}
+              </span>
+            )}
+          </>
         )}
-      >
-        {label}
       </span>
 
       <span className="flex size-4 shrink-0 items-center justify-center">
@@ -147,13 +157,15 @@ export function InboxStep({ step }: { step: JournalStep }) {
         >
           <div className="min-h-0 overflow-hidden">
             {prose ? (
-              <p className="mt-0.5 mb-1 ms-7 max-h-64 overflow-auto whitespace-pre-wrap text-muted-foreground text-xs leading-5">
+              <p className="mt-0.5 mb-1 ms-1 max-h-64 overflow-auto whitespace-pre-wrap text-muted-foreground text-xs leading-5">
                 {body}
               </p>
             ) : (
-              <pre className="mt-0.5 mb-1 ms-7 max-h-64 select-text overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/60 px-3 py-2 font-mono text-muted-foreground text-xs leading-5">
-                {body}
-              </pre>
+              <CodeBlock
+                command={terminal ? step.text : undefined}
+                output={body ?? ''}
+                className="mt-2 mb-1 ms-1"
+              />
             )}
           </div>
         </div>

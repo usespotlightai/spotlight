@@ -1,12 +1,9 @@
 import type { LineReaderPort } from '@application/ports/line-reader.port';
-import type { LoggerPort } from '@application/ports/logger.port';
 import type { PullRequestPort } from '@application/ports/pull-request.port';
 import type { RepositoryContentsPort } from '@application/ports/repository-contents.port';
 import { SeedConfiguration } from '@application/services/seed-configuration.service';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
-import { Team } from '@domain/aggregates/team.aggregate';
 import { Workspace } from '@domain/aggregates/workspace.aggregate';
-import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import {
   BUILT_IN_LINES,
   type LineOpening,
@@ -15,9 +12,6 @@ import { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
 import { Connection } from '@domain/value-objects/connection.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { Repository } from '@domain/value-objects/repository.vo';
-import { TeamId } from '@domain/value-objects/team-id.vo';
-import { TeamKey } from '@domain/value-objects/team-key.vo';
-import { TeamName } from '@domain/value-objects/team-name.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { WorkspaceName } from '@domain/value-objects/workspace-name.vo';
@@ -39,16 +33,6 @@ name: ${each.name.value}
 
 const INTO = Repository.of('acme/api');
 
-const TEAM = Team.rehydrate({
-  id: TeamId.of('team_1'),
-  workspaceId: WorkspaceId.of('ws_1'),
-  key: TeamKey.of('platform'),
-  name: TeamName.of('Platform'),
-  members: [{ userId: UserId.of('user_1'), role: 'owner' }],
-});
-
-const logger = { error: vi.fn() } as unknown as LoggerPort;
-
 const line = () => {
   let next = 0;
 
@@ -66,7 +50,7 @@ const workspace = (connected = true) => {
     name: WorkspaceName.of('Acme'),
     slug: WorkspaceSlug.of('acme'),
     members: [{ userId: UserId.of('user_1'), role: 'owner' }],
-    teams: [TEAM.id],
+    teams: [],
   });
 
   return connected
@@ -93,35 +77,28 @@ const seeding = (
     read: vi.fn(async () => null),
   } as unknown as RepositoryContentsPort;
 
-  const service = new SeedConfiguration(
-    {
-      ofTeam: vi.fn(async () => over.lines ?? [line()]),
-      withRole: vi.fn(async () => null),
-      ofWorkspace: vi.fn(async () => over.lines ?? [line()]),
-    } as unknown as AssemblyLineRepository,
-    reader,
-    contents,
-    { propose, open: vi.fn() } as unknown as PullRequestPort,
-    logger,
-  );
+  const service = new SeedConfiguration(reader, contents, {
+    propose,
+    open: vi.fn(),
+  } as unknown as PullRequestPort);
 
-  return { service, propose, contents };
+  return { service, propose, lines: over.lines ?? [line()] };
 };
 
 describe('SeedConfiguration', () => {
-  it('opens a pull request carrying what the workspace already runs', async () => {
-    const { service, propose } = seeding();
+  it('opens a pull request carrying the lines it is given', async () => {
+    const { service, propose, lines } = seeding();
 
-    expect(await service.seed(workspace(), TEAM, INTO)).toEqual({
+    expect(await service.seed(workspace(), INTO, lines)).toEqual({
       url: 'https://github.com/acme/api/pull/1',
     });
     expect(propose).toHaveBeenCalledTimes(1);
   });
 
   it('writes one file for each line, where that line is read from', async () => {
-    const { service, propose } = seeding();
+    const { service, propose, lines } = seeding();
 
-    await service.seed(workspace(), TEAM, INTO);
+    await service.seed(workspace(), INTO, lines);
 
     const [proposal] = propose.mock.calls[0] as never as [
       { files: { path: string; text: string }[] },
@@ -135,51 +112,32 @@ describe('SeedConfiguration', () => {
 
   // Opening a pull request over somebody's own files is not a welcome.
   it('writes nothing where the repository already has configuration', async () => {
-    const { service, propose } = seeding({
+    const { service, propose, lines } = seeding({
       already: [{ path: '.spotlight/lines/delivery.yml', text: 'version: 1' }],
     });
 
-    expect(await service.seed(workspace(), TEAM, INTO)).toBeNull();
+    expect(await service.seed(workspace(), INTO, lines)).toBeNull();
     expect(propose).not.toHaveBeenCalled();
   });
 
   it('writes nothing where the workspace reaches no host', async () => {
-    const { service, propose } = seeding();
+    const { service, propose, lines } = seeding();
 
-    expect(await service.seed(workspace(false), TEAM, INTO)).toBeNull();
+    expect(await service.seed(workspace(false), INTO, lines)).toBeNull();
     expect(propose).not.toHaveBeenCalled();
   });
 
   it('writes nothing where the repository stands nowhere', async () => {
-    const { service, propose } = seeding({ head: null });
+    const { service, propose, lines } = seeding({ head: null });
 
-    expect(await service.seed(workspace(), TEAM, INTO)).toBeNull();
+    expect(await service.seed(workspace(), INTO, lines)).toBeNull();
     expect(propose).not.toHaveBeenCalled();
   });
 
-  it('writes nothing where the workspace runs no lines', async () => {
-    const { service, propose } = seeding({ lines: [] });
+  it('writes nothing where it is given no lines', async () => {
+    const { service, propose } = seeding();
 
-    expect(await service.seed(workspace(), TEAM, INTO)).toBeNull();
+    expect(await service.seed(workspace(), INTO, [])).toBeNull();
     expect(propose).not.toHaveBeenCalled();
-  });
-
-  // Connecting is not to be undone by somebody else's machine answering.
-  it('does not fail connecting when writing goes wrong', async () => {
-    const { service } = seeding();
-    const failing = new SeedConfiguration(
-      {
-        ofTeam: vi.fn(async () => {
-          throw new Error('GitHub would not answer');
-        }),
-      } as unknown as AssemblyLineRepository,
-      reader,
-      (service as never as { contents: RepositoryContentsPort }).contents,
-      { propose: vi.fn(), open: vi.fn() } as unknown as PullRequestPort,
-      logger,
-    );
-
-    await expect(failing.trySeed(workspace(), TEAM, INTO)).resolves.toBeNull();
-    expect(logger.error).toHaveBeenCalled();
   });
 });

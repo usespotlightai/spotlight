@@ -1,7 +1,8 @@
 import type { MemberReaderPort } from '@application/ports/member-reader.port';
 import type { PersonSummary } from '@application/ports/person-reader.port';
 import type { TeamId } from '@domain/value-objects/team-id.vo';
-import type { UserId } from '@domain/value-objects/user-id.vo';
+import { UserId } from '@domain/value-objects/user-id.vo';
+import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import type { DrizzleDatabase } from '@infrastructure/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@infrastructure/persistence/drizzle/drizzle.constants';
 import { user } from '@infrastructure/persistence/drizzle/schemas/auth.schema';
@@ -11,7 +12,7 @@ import {
   workspaceMember,
 } from '@infrastructure/persistence/drizzle/schemas/workspace.schema';
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleMemberReader implements MemberReaderPort {
@@ -52,5 +53,30 @@ export class DrizzleMemberReader implements MemberReaderPort {
       name: row.name ?? '',
       image: row.image,
     }));
+  }
+
+  async byEmail(
+    workspaceId: WorkspaceId,
+    email: string,
+  ): Promise<UserId | null> {
+    const wanted = email.trim();
+
+    if (wanted.length === 0) {
+      return null;
+    }
+
+    const [found] = await this.db
+      .select({ id: user.id })
+      .from(workspaceMember)
+      .innerJoin(user, eq(user.id, workspaceMember.userId))
+      .where(
+        and(
+          eq(workspaceMember.workspaceId, workspaceId.value),
+          sql`lower(${user.email}) = lower(${wanted})`,
+        ),
+      )
+      .limit(1);
+
+    return found ? UserId.of(found.id) : null;
   }
 }

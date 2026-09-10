@@ -5,6 +5,7 @@ import type {
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import type { GitHubAppPort } from '@application/ports/github-app.port';
 import type { QueryHandlerPort } from '@application/ports/query-handler.port';
+import type { StarterToolsPort } from '@application/ports/starter-tools.port';
 import type { WorkspaceReaderPort } from '@application/ports/workspace-reader.port';
 import type { OnboardingQuery } from '@application/queries/onboarding.query';
 import { shownFor } from '@application/services/setup-steps';
@@ -12,7 +13,7 @@ import {
   asSetupState,
   type TeamSetup,
 } from '@application/services/team-setup.service';
-import { KNOWN_TOOLS } from '@domain/services/known-tools';
+import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
@@ -28,6 +29,8 @@ export class OnboardingHandler
     private readonly workspaces: WorkspaceReaderPort,
     private readonly setup: TeamSetup,
     private readonly app: GitHubAppPort,
+    private readonly lines: AssemblyLineRepository,
+    private readonly tools: StarterToolsPort,
   ) {}
 
   async execute(query: OnboardingQuery): Promise<OnboardingDto | null> {
@@ -41,12 +44,13 @@ export class OnboardingHandler
         return null;
       }
 
-      const [facts, installUrl] = await Promise.all([
+      const [facts, installUrl, lines] = await Promise.all([
         this.setup.factsFor(
           WorkspaceId.of(team.workspaceId),
           TeamId.of(team.teamId),
         ),
         this.app.installUrl(),
+        this.lines.ofTeam(TeamId.of(team.teamId)),
       ]);
 
       // The account a team's repositories are named under, so a person naming
@@ -64,13 +68,19 @@ export class OnboardingHandler
         connectedToGitHub: facts.connectedToGitHub,
         configRepository: facts.configRepository,
         repositoryOwner,
-        tools: KNOWN_TOOLS.map(
+        lines: lines.map((line) => ({
+          key: line.key.value,
+          name: line.name.value,
+          harness: line.worked[0]?.harness?.value ?? null,
+          repositories: line.repositories.all.map((each) => each.value),
+        })),
+        tools: this.tools.all().map(
           (each): KnownToolDto => ({
-            source: each.source.value,
+            source: each.source,
             name: each.name,
             summary: each.summary,
             secretCalled: each.secretCalled,
-            chosen: facts.listening.includes(each.source.value),
+            chosen: facts.listening.includes(each.source),
           }),
         ),
       };

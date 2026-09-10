@@ -2,6 +2,7 @@ import { InvalidIdentifierError } from '@domain/exceptions/invalid-identifier.er
 import type { Happening } from '@domain/value-objects/happening.vo';
 import type { LineRole } from '@domain/value-objects/line-role.vo';
 import type { MarkKind } from '@domain/value-objects/mark-kind.vo';
+import type { StationKey } from '@domain/value-objects/station-key.vo';
 
 /** One word a source can raise: the vocabulary, not the reading of it. */
 export class DeclaredHappening {
@@ -17,6 +18,8 @@ export class DeclaredHappening {
     readonly findsByBranch: boolean,
     /** The role of the lines this word opens a task on, where it opens one. */
     readonly opensOnto: LineRole | null,
+    /** Which station along that line a task lands on, or null for its entry. */
+    readonly opensAt: StationKey | null,
   ) {}
 
   static of(input: {
@@ -27,6 +30,7 @@ export class DeclaredHappening {
     finds?: readonly MarkKind[];
     findsByBranch?: boolean;
     opensOnto?: LineRole | null;
+    opensAt?: StationKey | null;
   }): DeclaredHappening {
     const label = input.label.trim();
     const told = input.told.trim();
@@ -65,6 +69,7 @@ export class DeclaredHappening {
       finds,
       findsByBranch,
       input.opensOnto ?? null,
+      input.opensAt ?? null,
     );
   }
 }

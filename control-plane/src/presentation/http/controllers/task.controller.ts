@@ -4,7 +4,6 @@ import { AssignTaskCommand } from '@application/commands/assign-task.command';
 import { DeleteTaskCommand } from '@application/commands/delete-task.command';
 import { MoveTaskCommand } from '@application/commands/move-task.command';
 import { SayToRunCommand } from '@application/commands/say-to-run.command';
-import { SetTaskRepositoryCommand } from '@application/commands/set-task-repository.command';
 import { StopRunCommand } from '@application/commands/stop-run.command';
 import type { StationDto } from '@application/dto/assembly-line.dto';
 import type { RunConversationDto } from '@application/dto/run-conversation.dto';
@@ -59,7 +58,6 @@ import {
 } from '@presentation/http/dto/inbox.response.dto';
 import { MemberResponseDto } from '@presentation/http/dto/member.response.dto';
 import { MoveTaskRequestDto } from '@presentation/http/dto/move-task.request.dto';
-import { SetTaskRepositoryRequestDto } from '@presentation/http/dto/set-task-repository.request.dto';
 import { TaskResponseDto } from '@presentation/http/dto/task.response.dto';
 import {
   RunConversationResponseDto,
@@ -376,7 +374,6 @@ export class TaskController {
         body.title,
         body.description ?? null,
         user.id,
-        body.repository ?? null,
       ),
     );
 
@@ -469,39 +466,6 @@ export class TaskController {
     );
 
     return TaskHttpMapper.toResponse(assigned);
-  }
-
-  @Put('tasks/:taskId/repository')
-  @ApiOperation({
-    operationId: 'setTaskRepository',
-    summary: 'Point a task at a repository, or clear it',
-  })
-  @ApiParam({
-    name: 'taskId',
-    example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13',
-  })
-  @ApiOkResponse({ type: TaskResponseDto })
-  @ApiNotFoundResponse({ description: 'No such task for this caller' })
-  @HttpCode(HttpStatus.OK)
-  async setRepository(
-    @Param('teamId') teamId: string,
-    @Param('taskId') taskId: string,
-    @Body() body: SetTaskRepositoryRequestDto,
-    @CurrentUser() user: AuthenticatedUser,
-  ): Promise<TaskResponseDto> {
-    const updated = await this.commandBus.execute<
-      SetTaskRepositoryCommand,
-      TaskDto
-    >(
-      new SetTaskRepositoryCommand(
-        teamId,
-        taskId,
-        body.repository ?? null,
-        user.id,
-      ),
-    );
-
-    return TaskHttpMapper.toResponse(updated);
   }
 
   @Get('members')

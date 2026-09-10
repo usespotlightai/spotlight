@@ -3,7 +3,7 @@ import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 type AgentPromptFieldProps = {
   value: string;
   onChange: (prompt: string) => void;
-  onBlur: () => void;
+  onBlur?: () => void;
 };
 
 export function AgentPromptField({
@@ -27,9 +27,8 @@ export function AgentPromptField({
         onBlur={onBlur}
         ariaLabel="Agent prompt"
         placeholder="This is the base prompt the agent will use"
-        className="min-h-48"
+        className="min-h-48 bg-card"
       />
     </section>
   );
 }
-``;

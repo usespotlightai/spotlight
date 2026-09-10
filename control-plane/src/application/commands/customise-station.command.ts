@@ -1,5 +1,7 @@
 export class CustomiseStationCommand {
   constructor(
+    readonly teamId: string,
+    readonly viewerId: string,
     readonly lineId: string,
     readonly stationId: string,
     readonly changes: {

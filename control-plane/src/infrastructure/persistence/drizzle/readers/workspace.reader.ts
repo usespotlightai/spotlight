@@ -28,6 +28,16 @@ export class DrizzleWorkspaceReader implements WorkspaceReaderPort {
     return found?.id ?? null;
   }
 
+  async slugOf(workspaceId: string): Promise<string | null> {
+    const [found] = await this.db
+      .select({ slug: workspace.slug })
+      .from(workspace)
+      .where(eq(workspace.id, workspaceId))
+      .limit(1);
+
+    return found?.slug ?? null;
+  }
+
   async identifyTeam(
     slug: string,
     teamKey: string,

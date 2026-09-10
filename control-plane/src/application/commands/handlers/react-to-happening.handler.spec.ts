@@ -3,11 +3,14 @@ import { ReactToHappeningCommand } from '@application/commands/react-to-happenin
 import type { ClockPort } from '@application/ports/clock.port';
 import type { StoredDelivery } from '@application/ports/delivery-inbox.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
+import type { MemberReaderPort } from '@application/ports/member-reader.port';
+import { SilentTaskNotifier } from '@application/ports/outbound-task-notifier.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import type {
   Happened,
   WebhookSourcePort,
 } from '@application/ports/webhook-source.port';
+import { AnnounceTaskEvents } from '@application/services/announce-task-events';
 import type { AttendToNotices } from '@application/services/attend-to-notices.service';
 import { SourceForDelivery } from '@application/services/source-for-delivery.service';
 import type { TaskDispatching } from '@application/services/task-dispatch';
@@ -48,6 +51,10 @@ const NOW = new Date('2026-08-31T12:00:00.000Z');
 const clock: ClockPort = { now: () => NOW, sleep: async () => {} };
 const transaction: TransactionPort = { run: async (work) => work() };
 const ids: IdGeneratorPort = { generate: () => 'task_new' };
+const members: MemberReaderPort = {
+  listForTeam: async () => null,
+  byEmail: async () => null,
+};
 
 const MERGED = Happening.of('github.pull_request.merged');
 const COMMENTED = Happening.of('github.pull_request.commented');
@@ -146,6 +153,12 @@ const dispatch: TaskDispatching = {
   },
 };
 
+// A no-op announce for the reactions that are not about being announced.
+const silentAnnounce = new AnnounceTaskEvents(
+  new SilentTaskNotifier(),
+  tasks(null),
+);
+
 /** A host that says what it carried, whose it is, and what to call it. */
 const sourced = (
   carried: readonly Happened[],
@@ -156,13 +169,13 @@ const sourced = (
       {
         key: 'github',
         happenings: [],
-        verifies: () => true,
+        verifies: async () => true,
         delivery: () => over.delivery ?? 'delivery_1',
         routes: async () =>
           over.workspaceId === null
             ? null
             : WorkspaceId.of(over.workspaceId ?? 'ws_1'),
-        read: () => carried,
+        read: async () => carried,
       } satisfies WebhookSourcePort,
     ]),
     { find: async () => null, all: async () => [] },
@@ -215,6 +228,8 @@ const heard = (
     clock,
     attending,
     ids,
+    members,
+    silentAnnounce,
   ).execute(new ReactToHappeningCommand(taken));
 
 describe('ReactToHappening', () => {
@@ -284,6 +299,54 @@ describe('ReactToHappening', () => {
       'asked',
       'answered',
     ]);
+    expect(saved?.awaitingReview).toBe(false);
+    expect(dispatched).toHaveLength(1);
+  });
+
+  // A reply in a thread, that this line routes with no rule, still answers the
+  // question the task was waiting on: the owed conversation says where it goes.
+  it('takes an unruled spoken word as the answer a task was owed', async () => {
+    const asked = standing().askedAbout({
+      voice: Voice.station(),
+      station: StationName.of('Code Review'),
+      body: TaskNoteBody.of('Which repository should this live in?'),
+      at: NOW,
+    });
+
+    const reply: Happened = {
+      happening: Happening.of('slack.app_mention'),
+      told: 'Somebody mentioned Spotlight in Slack.',
+      spoken: true,
+      state: 'raised',
+      concerns: Concerns.of({
+        marks: [Mark.of('slack.thread', '1789022375.833389')],
+      }) as Concerns,
+      said: Said.of({ body: 'In the example repository, please.' }),
+      ourOwn: false,
+      opens: null,
+    };
+
+    await new ReactToHappeningHandler(
+      sourced([reply]),
+      tasks(asked),
+      lines(),
+      dispatch,
+      transaction,
+      clock,
+      attending,
+      ids,
+      members,
+      silentAnnounce,
+    ).execute(new ReactToHappeningCommand(taken));
+
+    expect(saved?.notes.map((each) => each.kind)).toEqual([
+      'asked',
+      'answered',
+    ]);
+    expect(saved?.notes[1]?.body.value).toBe(
+      'In the example repository, please.',
+    );
+    expect(saved?.notes[1]?.body.value).not.toContain('mentioned Spotlight');
     expect(saved?.awaitingReview).toBe(false);
     expect(dispatched).toHaveLength(1);
   });
@@ -359,6 +422,8 @@ describe('ReactToHappening', () => {
       clock,
       attending,
       ids,
+      members,
+      silentAnnounce,
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(saved).toBeUndefined();
@@ -399,6 +464,8 @@ describe('ReactToHappening', () => {
       clock,
       attending,
       ids,
+      members,
+      silentAnnounce,
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(held.holding).not.toHaveBeenCalled();
@@ -423,6 +490,8 @@ describe('ReactToHappening', () => {
       clock,
       attending,
       ids,
+      members,
+      silentAnnounce,
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(held.holding).toHaveBeenCalledWith(
@@ -480,8 +549,93 @@ describe('ReactToHappening', () => {
       ourOwn: false,
       opens: {
         onto: LineRole.DELIVERY,
+        at: null,
         title: 'Drain the retry queue',
         description: 'It loops forever.',
+        assignEmail: null,
+        marks: [issueMark],
+      },
+    };
+
+    const notifier = { notify: vi.fn(async () => []) };
+
+    await new ReactToHappeningHandler(
+      sourced([filed]),
+      held,
+      running,
+      dispatch,
+      transaction,
+      clock,
+      attending,
+      ids,
+      members,
+      new AnnounceTaskEvents(notifier, held),
+    ).execute(new ReactToHappeningCommand(taken));
+
+    expect(held.add).toHaveBeenCalledTimes(1);
+    expect(added?.stationId).toEqual(entry.id);
+    expect(added?.marks.some((each) => each.equals(issueMark))).toBe(true);
+    // The task is named and described by what the source read, not its handle.
+    expect(added?.title.value).toBe('Drain the retry queue');
+    expect(added?.description?.value).toBe('It loops forever.');
+    // Opening the task records the event that a bound host acknowledges.
+    expect(notifier.notify).toHaveBeenCalledWith(added, 'task.opened');
+  });
+
+  // A word that named who it is from, by email, opens the task assigned to the
+  // member who has it — so it lands in that person's inbox.
+  it('assigns an opened task to the member matched by email', async () => {
+    const ISSUE_CREATED = Happening.of('linear.issue.created');
+    const issueMark = Mark.of('linear.issue', 'ISS-1');
+
+    let next = 0;
+    const opening = AssemblyLine.open({
+      workspaceId: WorkspaceId.of('ws_1'),
+      factoryId: FactoryId.of('factory_1'),
+      line: BUILT_IN_LINES[0] as LineOpening,
+      newId: () => `id_${++next}`,
+    });
+
+    let added: Task | undefined;
+    const held = {
+      add: vi.fn(async (each: Task) => {
+        added = each;
+      }),
+      save: vi.fn(),
+      find: vi.fn(async () => null),
+      remove: vi.fn(),
+      standingAt: vi.fn(async () => []),
+      placementsAt: vi.fn(async () => []),
+      holding: vi.fn(async () => null),
+    } satisfies TaskRepository;
+
+    const running = {
+      add: vi.fn(),
+      save: vi.fn(),
+      find: vi.fn(async () => opening),
+      holding: vi.fn(async () => opening),
+      ofWorkspace: vi.fn(async () => [opening]),
+      ofTeam: vi.fn(async () => []),
+      withRole: vi.fn(async () => null),
+    } satisfies AssemblyLineRepository;
+
+    const byEmail = vi.fn(async () => UserId.of('user_9'));
+
+    const filed: Happened = {
+      happening: ISSUE_CREATED,
+      told: 'An issue was filed.',
+      spoken: false,
+      state: 'raised',
+      concerns: Concerns.of({ marks: [issueMark] }) as Concerns,
+      said: Said.of({ body: null, path: null, from: null, remark: null }),
+      ourOwn: false,
+      opens: {
+        onto: LineRole.DELIVERY,
+        at: null,
+        title: 'Drain the retry queue',
+        description: null,
+        assignEmail: 'dev@acme.test',
+        marks: [issueMark],
       },
     };
 
@@ -494,14 +648,84 @@ describe('ReactToHappening', () => {
       clock,
       attending,
       ids,
+      { listForTeam: async () => null, byEmail },
+      silentAnnounce,
     ).execute(new ReactToHappeningCommand(taken));
 
-    expect(held.add).toHaveBeenCalledTimes(1);
-    expect(added?.stationId).toEqual(entry.id);
-    expect(added?.marks.some((each) => each.equals(issueMark))).toBe(true);
-    // The task is named and described by what the source read, not its handle.
-    expect(added?.title.value).toBe('Drain the retry queue');
-    expect(added?.description?.value).toBe('It loops forever.');
+    expect(byEmail).toHaveBeenCalledWith(
+      WorkspaceId.of('ws_1'),
+      'dev@acme.test',
+    );
+    expect(added?.assignee?.value).toBe('user_9');
+  });
+
+  it('leaves an opened task unassigned where no member has the email', async () => {
+    const ISSUE_CREATED = Happening.of('linear.issue.created');
+    const issueMark = Mark.of('linear.issue', 'ISS-1');
+
+    let next = 0;
+    const opening = AssemblyLine.open({
+      workspaceId: WorkspaceId.of('ws_1'),
+      factoryId: FactoryId.of('factory_1'),
+      line: BUILT_IN_LINES[0] as LineOpening,
+      newId: () => `id_${++next}`,
+    });
+
+    let added: Task | undefined;
+    const held = {
+      add: vi.fn(async (each: Task) => {
+        added = each;
+      }),
+      save: vi.fn(),
+      find: vi.fn(async () => null),
+      remove: vi.fn(),
+      standingAt: vi.fn(async () => []),
+      placementsAt: vi.fn(async () => []),
+      holding: vi.fn(async () => null),
+    } satisfies TaskRepository;
+
+    const running = {
+      add: vi.fn(),
+      save: vi.fn(),
+      find: vi.fn(async () => opening),
+      holding: vi.fn(async () => opening),
+      ofWorkspace: vi.fn(async () => [opening]),
+      ofTeam: vi.fn(async () => []),
+      withRole: vi.fn(async () => null),
+    } satisfies AssemblyLineRepository;
+
+    const filed: Happened = {
+      happening: ISSUE_CREATED,
+      told: 'An issue was filed.',
+      spoken: false,
+      state: 'raised',
+      concerns: Concerns.of({ marks: [issueMark] }) as Concerns,
+      said: Said.of({ body: null, path: null, from: null, remark: null }),
+      ourOwn: false,
+      opens: {
+        onto: LineRole.DELIVERY,
+        at: null,
+        title: 'Drain the retry queue',
+        description: null,
+        assignEmail: 'stranger@acme.test',
+        marks: [issueMark],
+      },
+    };
+
+    await new ReactToHappeningHandler(
+      sourced([filed]),
+      held,
+      running,
+      dispatch,
+      transaction,
+      clock,
+      attending,
+      ids,
+      { listForTeam: async () => null, byEmail: async () => null },
+      silentAnnounce,
+    ).execute(new ReactToHappeningCommand(taken));
+
+    expect(added?.assignee).toBeNull();
   });
 
   // The handle names one task. Two lines sharing the role it opens onto do not
@@ -561,8 +785,11 @@ describe('ReactToHappening', () => {
       ourOwn: false,
       opens: {
         onto: LineRole.DELIVERY,
+        at: null,
         title: 'Drain the retry queue',
         description: null,
+        assignEmail: null,
+        marks: [issueMark],
       },
     };
 
@@ -575,6 +802,8 @@ describe('ReactToHappening', () => {
       clock,
       attending,
       ids,
+      members,
+      silentAnnounce,
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(held.add).toHaveBeenCalledTimes(1);

@@ -13,6 +13,13 @@ export abstract class EventRecorder {
     this.pending.push(event);
   }
 
+  /** Carries another instance's pending events onto this one, so an event
+   *  recorded on a task survives the transitions that reshape it before it is
+   *  saved. The source is left behind, so nothing is announced twice. */
+  protected inheritEvents(from: EventRecorder): void {
+    this.pending.push(...from.pending);
+  }
+
   pullEvents(): readonly DomainEvent[] {
     const pulled = this.pending;
     this.pending = [];

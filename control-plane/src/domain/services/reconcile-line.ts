@@ -131,6 +131,7 @@ const assemble = (
     key: plan.key,
     name: plan.name,
     role: plan.role,
+    repositories: plan.repositories,
     stations,
     reactions: plan.reactions
       .map((planned) => {

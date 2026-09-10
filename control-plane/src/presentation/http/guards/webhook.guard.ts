@@ -18,6 +18,8 @@ interface DeliveredRequest {
   readonly params?: Record<string, string>;
   /** Written here for the controller, which would otherwise look it up twice. */
   deliveredTo?: { workspaceId: string; teamId: string };
+  /** A handshake to echo instead of taking the delivery in, when the host asks. */
+  answered?: string | null;
 }
 
 @Injectable()
@@ -49,19 +51,21 @@ export class WebhookGuard implements CanActivate {
         })
       : null;
 
+    const delivered = {
+      headers: request.headers,
+      body: request.body,
+      raw: request.rawBody ?? null,
+    };
+
     // A source nobody registered is turned away the same way a bad signature
     // is, so posting at the door tells you nothing about what is behind it.
-    if (
-      !source?.verifies({
-        headers: request.headers,
-        body: request.body,
-        raw: request.rawBody ?? null,
-      })
-    ) {
+    if (!(await source?.verifies(delivered))) {
       throw new UnauthorizedException();
     }
 
     request.deliveredTo = at ?? { workspaceId: '', teamId: '' };
+    // A handshake is answered from the delivery, not taken in as work.
+    request.answered = source?.answer?.(delivered) ?? null;
 
     return true;
   }

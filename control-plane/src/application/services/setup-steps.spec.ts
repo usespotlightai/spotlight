@@ -22,9 +22,9 @@ describe('listed', () => {
     );
   });
 
-  // The one step nobody can be sent to: it is done on GitHub, not here.
+  // The one step nobody can be sent to: it is done here, on the setup task.
   it('leaves a step with nowhere to go as words', () => {
-    expect(listed(AT)).toContain('4. Merge the setup pull request.');
+    expect(listed(AT)).toContain('4. Set up your lines.');
   });
 });
 

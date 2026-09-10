@@ -109,10 +109,6 @@ export abstract class Station {
     return this.copiedWith({ description });
   }
 
-  movedTo(position: number): Station {
-    return this.copiedWith({ position });
-  }
-
   /** True where a run here was told about it, and so may reach for it. */
   has(tool: Tool): boolean {
     return this.tools.some((each) => each.equals(tool));

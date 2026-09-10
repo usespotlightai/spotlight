@@ -11,7 +11,6 @@ import { CSS } from '@dnd-kit/utilities';
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 import { BoardViews } from '@/components/features/board/BoardViews';
-import { StationPreview } from '@/components/features/board/column/StationPreview';
 import { StationSection } from '@/components/features/board/column/StationSection';
 import { SelectionBar } from '@/components/features/board/SelectionBar';
 import { NewTaskDialog } from '@/components/features/board/task/NewTaskDialog';
@@ -70,7 +69,6 @@ export function AssemblyLineBoard() {
   const drag = useBoardDrag({
     teamId,
     lineId: line?.id ?? '',
-    stationIds: line?.stations.map((each) => each.id) ?? [],
     tasks: tasks ?? [],
   });
 
@@ -113,8 +111,6 @@ export function AssemblyLineBoard() {
   const liftedTaskStation = liftedTask
     ? line.stations.find((each) => each.id === liftedTask.stationId)
     : undefined;
-  const liftedStation =
-    line.stations.find((each) => each.id === drag.lifted) ?? null;
 
   return (
     <TrailContext value={forward}>
@@ -135,114 +131,95 @@ export function AssemblyLineBoard() {
           {...drag.handlers}
         >
           <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto py-1.5">
-            <SortableContext
-              items={line.stations.map((each) => each.id)}
-              strategy={() => null}
-            >
-              {line.stations
-                .map((station, place) => ({ station, place }))
-                .filter(({ station }) => inView(view, station.kind))
-                .map(({ station, place }) => (
-                  <StationSection
-                    key={station.id}
-                    id={station.id}
-                    name={station.name}
-                    count={tasksAt(tasks, station.id).length}
-                    selectedCount={
-                      tasksAt(tasks, station.id).filter((task) =>
-                        selected.includes(task.id),
-                      ).length
-                    }
-                    share={stationShare(place, line.stations.length)}
-                    color={station.color}
-                    open={stations.isExpanded(station.id)}
-                    onToggle={() => stations.toggle(station.id)}
-                    onAddTask={() => setAdding(station.id)}
-                    landingEdge={
-                      drag.stationLanding?.stationId === station.id
-                        ? drag.stationLanding.edge
-                        : undefined
-                    }
-                    landing={
-                      drag.landing?.stationId === station.id &&
-                      drag.landing.afterTaskId === null &&
-                      tasksAt(tasks, station.id).length === 0
-                    }
-                    fixed={station.kind !== 'work'}
-                    to={
-                      slug && teamId && station.kind === 'work'
-                        ? stationPath(slug, teamId, line.id, station.id)
-                        : undefined
-                    }
+            {line.stations
+              .map((station, place) => ({ station, place }))
+              .filter(({ station }) => inView(view, station.kind))
+              .map(({ station, place }) => (
+                <StationSection
+                  key={station.id}
+                  id={station.id}
+                  name={station.name}
+                  count={tasksAt(tasks, station.id).length}
+                  selectedCount={
+                    tasksAt(tasks, station.id).filter((task) =>
+                      selected.includes(task.id),
+                    ).length
+                  }
+                  share={stationShare(place, line.stations.length)}
+                  color={station.color}
+                  open={stations.isExpanded(station.id)}
+                  onToggle={() => stations.toggle(station.id)}
+                  onAddTask={() => setAdding(station.id)}
+                  landing={
+                    drag.landing?.stationId === station.id &&
+                    drag.landing.afterTaskId === null &&
+                    tasksAt(tasks, station.id).length === 0
+                  }
+                  to={
+                    slug && teamId && station.kind === 'work'
+                      ? stationPath(slug, teamId, line.id, station.id)
+                      : undefined
+                  }
+                >
+                  <SortableContext
+                    items={tasksAt(tasks, station.id).map((each) => each.id)}
+                    strategy={verticalListSortingStrategy}
                   >
-                    <SortableContext
-                      items={tasksAt(tasks, station.id).map((each) => each.id)}
-                      strategy={verticalListSortingStrategy}
-                    >
-                      {tasksAt(tasks, station.id).map(
-                        (task, spot, standing) => {
-                          const picked = (candidate?: Task) =>
-                            Boolean(
-                              candidate && selected.includes(candidate.id),
-                            );
+                    {tasksAt(tasks, station.id).map((task, spot, standing) => {
+                      const picked = (candidate?: Task) =>
+                        Boolean(candidate && selected.includes(candidate.id));
 
-                          return (
-                            <TaskRow
-                              key={task.id}
-                              task={task}
-                              teamId={teamId ?? ''}
-                              to={
-                                slug && teamId
-                                  ? taskPath(slug, teamId, task.id)
-                                  : ''
-                              }
-                              reviewTo={
-                                slug && task.awaitingReview
-                                  ? inboxItemPath(
-                                      slug,
-                                      task.awaitingReview.conversationId,
-                                    )
-                                  : undefined
-                              }
-                              stationColor={station.color}
-                              stationShare={stationShare(
-                                place,
-                                line.stations.length,
-                              )}
-                              landing={
-                                drag.landing?.stationId === station.id
-                                  ? drag.landing.afterTaskId === task.id
-                                    ? 'below'
-                                    : drag.landing.afterTaskId === null &&
-                                        spot === 0
-                                      ? 'above'
-                                      : undefined
-                                  : undefined
-                              }
-                              selected={picked(task)}
-                              mergeTop={
-                                picked(task) && picked(standing[spot - 1])
-                              }
-                              mergeBottom={
-                                picked(task) && picked(standing[spot + 1])
-                              }
-                              onSelectedChange={(taken) =>
-                                setSelected((current) =>
-                                  taken
-                                    ? [...current, task.id]
-                                    : current.filter(
-                                        (each) => each !== task.id,
-                                      ),
+                      return (
+                        <TaskRow
+                          key={task.id}
+                          task={task}
+                          teamId={teamId ?? ''}
+                          to={
+                            slug && teamId
+                              ? taskPath(slug, teamId, task.id)
+                              : ''
+                          }
+                          reviewTo={
+                            slug && task.awaitingReview
+                              ? inboxItemPath(
+                                  slug,
+                                  task.awaitingReview.conversationId,
                                 )
-                              }
-                            />
-                          );
-                        },
-                      )}
-                    </SortableContext>
-                  </StationSection>
-                ))}
-            </SortableContext>
+                              : undefined
+                          }
+                          stationColor={station.color}
+                          stationShare={stationShare(
+                            place,
+                            line.stations.length,
+                          )}
+                          landing={
+                            drag.landing?.stationId === station.id
+                              ? drag.landing.afterTaskId === task.id
+                                ? 'below'
+                                : drag.landing.afterTaskId === null &&
+                                    spot === 0
+                                  ? 'above'
+                                  : undefined
+                              : undefined
+                          }
+                          selected={picked(task)}
+                          mergeTop={picked(task) && picked(standing[spot - 1])}
+                          mergeBottom={
+                            picked(task) && picked(standing[spot + 1])
+                          }
+                          onSelectedChange={(taken) =>
+                            setSelected((current) =>
+                              taken
+                                ? [...current, task.id]
+                                : current.filter((each) => each !== task.id),
+                            )
+                          }
+                        />
+                      );
+                    })}
+                  </SortableContext>
+                </StationSection>
+              ))}
           </div>
 
           <DragOverlay
@@ -276,20 +253,6 @@ export function AssemblyLineBoard() {
                 )}
               />
             )}
-
-            {liftedStation && (
-              <StationPreview
-                name={liftedStation.name}
-                count={tasksAt(tasks, liftedStation.id).length}
-                color={liftedStation.color}
-                share={stationShare(
-                  line.stations.findIndex(
-                    (each) => each.id === liftedStation.id,
-                  ),
-                  line.stations.length,
-                )}
-              />
-            )}
           </DragOverlay>
         </DndContext>
 
@@ -318,7 +281,6 @@ export function AssemblyLineBoard() {
       <NewTaskDialog
         open={adding !== null}
         onOpenChange={(next) => !next && setAdding(null)}
-        slug={slug}
         lineName={line.name}
         stationName={
           line.stations.find((each) => each.id === adding)?.name ?? ''

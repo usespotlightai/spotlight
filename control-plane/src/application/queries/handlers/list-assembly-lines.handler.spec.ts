@@ -28,6 +28,7 @@ const board: AssemblyLineDetail = {
       to: 'station_2',
     },
   ],
+  repositories: ['acme/api'],
 };
 
 const reader = (
@@ -64,6 +65,7 @@ describe('ListAssemblyLinesHandler', () => {
             to: 'station_2',
           },
         ],
+        repositories: ['acme/api'],
       },
     ]);
   });

@@ -27,6 +27,7 @@ const line = {
       name: 'Spec',
       position: 2,
       color: '#5c66d9',
+      harness: 'claude-code',
       agentPrompt: '## Role\n\n- Sort the queue\n- Ask when unsure',
       kind: 'work',
     },
@@ -38,6 +39,7 @@ const line = {
       kind: 'completed',
     },
   ],
+  repositories: ['usespotlightai/spotlight'],
 };
 
 vi.mock('@/hooks/api/useAssemblyLines', () => ({
@@ -45,9 +47,19 @@ vi.mock('@/hooks/api/useAssemblyLines', () => ({
 }));
 
 const customised = vi.fn();
+const setRepositories = vi.fn();
 
+vi.mock('@/hooks/api/useConfiguration', () => ({
+  useRereadConfiguration: () => ({ mutate: vi.fn(), isPending: false }),
+}));
 vi.mock('@/hooks/api/useCustomiseStation', () => ({
-  useCustomiseStation: () => ({ mutate: customised }),
+  useCustomiseStation: () => ({ mutate: customised, mutateAsync: customised }),
+}));
+vi.mock('@/hooks/api/useSetLineRepositories', () => ({
+  useSetLineRepositories: () => ({
+    mutate: setRepositories,
+    mutateAsync: setRepositories,
+  }),
 }));
 
 vi.mock('@/hooks/api/useWorkspace', () => ({
@@ -62,6 +74,11 @@ vi.mock('@/hooks/api/useHarnesses', () => ({
       { id: 'claude-code', name: 'Claude Code' },
       { id: 'other', name: 'Other Harness' },
     ],
+  }),
+}));
+vi.mock('@/hooks/api/useRepositories', () => ({
+  useRepositories: () => ({
+    data: [{ fullName: 'usespotlightai/spotlight' }, { fullName: 'acme/web' }],
   }),
 }));
 vi.mock('@/hooks/api/useRunners', () => ({
@@ -100,6 +117,7 @@ const openHarnesses = async () => {
 beforeEach(() => {
   localStorage.clear();
   customised.mockClear();
+  setRepositories.mockClear();
 });
 
 describe('Station', () => {
@@ -200,6 +218,15 @@ describe('Station', () => {
     );
   });
 
+  it('shows the repositories the line works in', () => {
+    renderAt('station_1');
+
+    expect(
+      screen.getByRole('heading', { name: 'Line Repositories' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('usespotlightai/spotlight')).toBeInTheDocument();
+  });
+
   it('offers every harness Spotlight knows, and nobody', async () => {
     renderAt('station_1');
     await openHarnesses();
@@ -237,12 +264,24 @@ describe('Station', () => {
     expect(screen.getByLabelText('Station name')).toHaveValue('Spec');
   });
 
-  it('writes a new name back once the field is left', async () => {
+  const propose = () =>
+    userEvent.click(screen.getByRole('button', { name: 'Propose changes' }));
+
+  it('changes nothing on the board until the change is proposed', async () => {
     const user = userEvent.setup();
     renderAt('station_1');
 
     await user.type(screen.getByLabelText('Station name'), ' queue');
-    await user.tab();
+
+    expect(customised).not.toHaveBeenCalled();
+  });
+
+  it('proposes a changed name', async () => {
+    const user = userEvent.setup();
+    renderAt('station_1');
+
+    await user.type(screen.getByLabelText('Station name'), ' queue');
+    await propose();
 
     expect(customised).toHaveBeenCalledWith({
       teamId: 'team_1',
@@ -252,13 +291,14 @@ describe('Station', () => {
     });
   });
 
-  it('writes a description back once the field is left', async () => {
+  it('proposes only the fields that changed, in one pull request', async () => {
     const user = userEvent.setup();
     renderAt('station_1');
 
     await user.type(screen.getByLabelText('Description'), 'Where work lands');
-    await user.tab();
+    await propose();
 
+    expect(customised).toHaveBeenCalledTimes(1);
     expect(customised).toHaveBeenCalledWith({
       teamId: 'team_1',
       lineId: 'line_1',
@@ -267,13 +307,14 @@ describe('Station', () => {
     });
   });
 
-  it('writes the harness back as soon as one is picked', async () => {
+  it('proposes a picked harness', async () => {
     renderAt('station_1');
     const user = await openHarnesses();
 
     await user.click(
       screen.getByRole('menuitemradio', { name: 'Other Harness' }),
     );
+    await propose();
 
     expect(customised).toHaveBeenCalledWith({
       teamId: 'team_1',
@@ -283,28 +324,49 @@ describe('Station', () => {
     });
   });
 
-  it('writes an emptied harness back, so the station holds its work', async () => {
+  it('proposes the line’s repositories as their own change', async () => {
+    const user = userEvent.setup();
     renderAt('station_1');
+
+    await user.click(screen.getByLabelText('Repositories'));
+    await screen.findByRole('menu');
+    await user.click(
+      screen.getByRole('menuitemcheckbox', { name: 'acme/web' }),
+    );
+    await propose();
+
+    expect(setRepositories).toHaveBeenCalledWith({
+      teamId: 'team_1',
+      lineId: 'line_1',
+      repositories: ['usespotlightai/spotlight', 'acme/web'],
+    });
+    expect(customised).not.toHaveBeenCalled();
+  });
+
+  it('proposes an emptied harness, so the station holds its work', async () => {
+    renderAt('station_2');
     const user = await openHarnesses();
 
     await user.click(screen.getByRole('menuitemradio', { name: 'Nobody' }));
+    await propose();
 
     expect(customised).toHaveBeenCalledWith({
       teamId: 'team_1',
       lineId: 'line_1',
-      stationId: 'station_1',
-      changes: { harness: '' },
+      stationId: 'station_2',
+      changes: { harness: null },
     });
   });
 
-  it('holds back a name emptied to nothing, having nowhere to fall back', async () => {
+  it('cannot propose a name emptied to nothing', async () => {
     const user = userEvent.setup();
     renderAt('station_1');
 
     await user.clear(screen.getByLabelText('Station name'));
-    await user.tab();
 
-    expect(customised).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('button', { name: 'Propose changes' }),
+    ).toBeDisabled();
   });
 
   it('marks how far along the line the station stands', () => {
@@ -336,13 +398,14 @@ describe('Station', () => {
     ).toHaveAttribute('stroke', '#db5b52');
   });
 
-  it('repaints the station from the palette behind its icon', async () => {
+  it('proposes a repaint from the palette behind its icon', async () => {
     const user = userEvent.setup();
     renderAt('station_1');
 
     await user.click(screen.getByRole('button', { name: 'Station colour' }));
     await screen.findByRole('button', { name: '#db5b52' });
     await user.click(screen.getByRole('button', { name: '#db5b52' }));
+    await propose();
 
     expect(customised).toHaveBeenCalledWith({
       teamId: 'team_1',

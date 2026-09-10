@@ -16,13 +16,13 @@ import { describe, expect, it, vi } from 'vitest';
 const github = {
   key: 'github',
   happenings: [],
-  verifies: () => true,
+  verifies: async () => true,
   delivery: (delivered: Delivered) =>
     String(
       (delivered.headers as Record<string, string>)['x-delivery'] ?? 'unnamed',
     ),
   routes: async () => null,
-  read: () => [],
+  read: async () => [],
 } satisfies WebhookSourcePort;
 
 const accepting = () => {

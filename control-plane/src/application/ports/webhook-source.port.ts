@@ -77,8 +77,11 @@ export interface WebhookSourcePort {
   /** Everything this source can raise, and so what a station may wait for. */
   readonly happenings: readonly HappeningDeclaration[];
 
-  /** Nothing arriving is acted on until this says the host really sent it. */
-  verifies(delivered: Delivered): boolean;
+  /**
+   * Nothing arriving is acted on until this says the host really sent it.
+   * Async because proving it may need a key fetched from the host (a JWKS).
+   */
+  verifies(delivered: Delivered): Promise<boolean>;
 
   /** Named so that the same delivery twice is acted on once. */
   delivery(delivered: Delivered): string;
@@ -86,8 +89,11 @@ export interface WebhookSourcePort {
   /** Whose word this is. Null where it belongs to no workspace here. */
   routes(delivered: Delivered): Promise<WorkspaceId | null>;
 
-  /** One delivery may carry several words, or none Spotlight acts on. */
-  read(delivered: Delivered): readonly Happened[];
+  /**
+   * One delivery may carry several words, or none Spotlight acts on. Async
+   * because a word may need something the delivery only named fetched first.
+   */
+  read(delivered: Delivered): Promise<readonly Happened[]>;
 
   /**
    * What the delivery says about the workspace rather than about a task.
@@ -95,4 +101,11 @@ export interface WebhookSourcePort {
    * a source that does not answer at all is read as saying nothing.
    */
   noticed?(delivered: Delivered): readonly Noticed[];
+
+  /**
+   * A handshake some hosts make before they will send: they post a challenge
+   * and expect it echoed synchronously. Returns the body to echo, or null when
+   * the delivery is not a handshake (which is almost always).
+   */
+  answer?(delivered: Delivered): string | null;
 }

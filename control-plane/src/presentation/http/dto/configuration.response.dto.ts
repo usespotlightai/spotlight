@@ -34,6 +34,35 @@ export class ConfiguredHappeningResponseDto {
   }
 }
 
+export class ConfiguredSecretResponseDto {
+  @ApiProperty({ example: 'LINEAR_WEBHOOK_SECRET' })
+  readonly name: string;
+
+  @ApiProperty({
+    description: 'Whether the workspace has set it. Never its value.',
+    example: true,
+  })
+  readonly set: boolean;
+
+  constructor(name: string, set: boolean) {
+    this.name = name;
+    this.set = set;
+  }
+}
+
+export class ConfiguredConnectionResponseDto {
+  @ApiProperty({
+    description: 'What the host calls the team, where it says; null otherwise',
+    example: 'Acme',
+    nullable: true,
+  })
+  readonly handle: string | null;
+
+  constructor(handle: string | null) {
+    this.handle = handle;
+  }
+}
+
 export class ConfiguredIntegrationResponseDto {
   @ApiProperty({ example: 'linear' })
   readonly source: string;
@@ -47,32 +76,41 @@ export class ConfiguredIntegrationResponseDto {
   })
   readonly deliverTo: string;
 
-  @ApiProperty({ example: 'LINEAR_WEBHOOK_SECRET' })
-  readonly secret: string;
-
-  @ApiProperty({
-    description: 'Whether the workspace has set it. Never its value.',
-    example: true,
-  })
-  readonly secretSet: boolean;
+  @ApiProperty({ type: ConfiguredSecretResponseDto, isArray: true })
+  readonly secrets: readonly ConfiguredSecretResponseDto[];
 
   @ApiProperty({ type: ConfiguredHappeningResponseDto, isArray: true })
   readonly happenings: readonly ConfiguredHappeningResponseDto[];
+
+  @ApiProperty({
+    description: 'Whether this host is linked by authorizing a connection',
+    example: true,
+  })
+  readonly connectable: boolean;
+
+  @ApiProperty({
+    type: ConfiguredConnectionResponseDto,
+    nullable: true,
+    description: 'The living link, or null where the team has not linked',
+  })
+  readonly connection: ConfiguredConnectionResponseDto | null;
 
   constructor(
     source: string,
     name: string,
     deliverTo: string,
-    secret: string,
-    secretSet: boolean,
+    secrets: readonly ConfiguredSecretResponseDto[],
     happenings: readonly ConfiguredHappeningResponseDto[],
+    connectable: boolean,
+    connection: ConfiguredConnectionResponseDto | null,
   ) {
     this.source = source;
     this.name = name;
     this.deliverTo = deliverTo;
-    this.secret = secret;
-    this.secretSet = secretSet;
+    this.secrets = secrets;
     this.happenings = happenings;
+    this.connectable = connectable;
+    this.connection = connection;
   }
 }
 
@@ -205,6 +243,32 @@ export class SetupStepResponseDto {
   }
 }
 
+export class OnboardingLineResponseDto {
+  @ApiProperty({ example: 'delivery' })
+  readonly key: string;
+
+  @ApiProperty({ example: 'Software Delivery' })
+  readonly name: string;
+
+  @ApiProperty({ nullable: true, type: String, example: 'claude-code' })
+  readonly harness: string | null;
+
+  @ApiProperty({ isArray: true, type: String, example: ['acme/api'] })
+  readonly repositories: readonly string[];
+
+  constructor(
+    key: string,
+    name: string,
+    harness: string | null,
+    repositories: readonly string[],
+  ) {
+    this.key = key;
+    this.name = name;
+    this.harness = harness;
+    this.repositories = repositories;
+  }
+}
+
 export class OnboardingResponseDto {
   @ApiProperty({
     description: 'The list itself, in the order it is worked through',
@@ -235,6 +299,9 @@ export class OnboardingResponseDto {
   })
   readonly repositoryOwner: string | null;
 
+  @ApiProperty({ type: OnboardingLineResponseDto, isArray: true })
+  readonly lines: readonly OnboardingLineResponseDto[];
+
   @ApiProperty({ type: KnownToolResponseDto, isArray: true })
   readonly tools: readonly KnownToolResponseDto[];
 
@@ -244,6 +311,7 @@ export class OnboardingResponseDto {
     connectedToGitHub: boolean,
     configRepository: string | null,
     repositoryOwner: string | null,
+    lines: readonly OnboardingLineResponseDto[],
     tools: readonly KnownToolResponseDto[],
   ) {
     this.steps = steps;
@@ -251,8 +319,25 @@ export class OnboardingResponseDto {
     this.connectedToGitHub = connectedToGitHub;
     this.configRepository = configRepository;
     this.repositoryOwner = repositoryOwner;
+    this.lines = lines;
     this.tools = tools;
   }
+}
+
+export class SetUpLineRequestDto {
+  @ApiProperty({ example: 'delivery' })
+  readonly key!: string;
+
+  @ApiPropertyOptional({ nullable: true, type: String, example: 'claude-code' })
+  readonly harness?: string | null;
+
+  @ApiProperty({ isArray: true, type: String, example: ['acme/api'] })
+  readonly repositories!: string[];
+}
+
+export class SetUpLinesRequestDto {
+  @ApiProperty({ type: SetUpLineRequestDto, isArray: true })
+  readonly lines!: SetUpLineRequestDto[];
 }
 
 export class ChooseToolsRequestDto {

@@ -2,12 +2,15 @@ import type { ChooseToolsCommand } from '@application/commands/choose-tools.comm
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { OpenedPullRequestDto } from '@application/ports/pull-request.port';
+import type { StarterToolsPort } from '@application/ports/starter-tools.port';
 import type { WorkspaceReaderPort } from '@application/ports/workspace-reader.port';
 import type { WriteConfiguration } from '@application/services/write-configuration.service';
-import { INTEGRATIONS_UNDER } from '@domain/aggregates/team-configuration.aggregate';
+import {
+  CONFIGURATION_BRANCH,
+  INTEGRATIONS_UNDER,
+} from '@domain/aggregates/team-configuration.aggregate';
 import type { TeamRepository } from '@domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
-import { knownTool } from '@domain/services/known-tools';
 import { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
@@ -30,6 +33,7 @@ export class ChooseToolsHandler
     private readonly members: WorkspaceReaderPort,
     private readonly teams: TeamRepository,
     private readonly writing: WriteConfiguration,
+    private readonly tools: StarterToolsPort,
   ) {}
 
   async execute(
@@ -52,8 +56,11 @@ export class ChooseToolsHandler
       // A host nobody here knows has no file to write. Said as nothing
       // rather than guessed at.
       const chosen = command.sources
-        .map((each) => knownTool(each))
-        .filter((each) => each !== null);
+        .map((source) => ({ source, file: this.tools.fileFor(source) }))
+        .filter(
+          (each): each is { source: string; file: string } =>
+            each.file !== null,
+        );
 
       // Taking one away needs no file, only a path, so an unknown host can
       // still be dropped: it is what a team wrote here once and no longer uses.
@@ -68,12 +75,12 @@ export class ChooseToolsHandler
       }
 
       return await this.writing.write(workspace, held, {
-        branch: 'spotlight/tools',
+        branch: CONFIGURATION_BRANCH,
         title: titleFor(chosen.length, dropped.length),
         body: BODY,
         files: chosen.map((tool) =>
           ConfigurationFile.of(
-            `${INTEGRATIONS_UNDER}/${tool.source.value}.yml`,
+            `${INTEGRATIONS_UNDER}/${tool.source}.yml`,
             tool.file,
           ),
         ),

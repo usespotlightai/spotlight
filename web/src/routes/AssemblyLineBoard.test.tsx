@@ -69,7 +69,6 @@ const standing = [
 
 const added = vi.fn();
 const moved = vi.fn();
-const restacked = vi.fn();
 
 vi.mock('@/hooks/api/useTasks', () => ({
   useTasks: () => ({ data: standing, isPending: false }),
@@ -79,9 +78,6 @@ vi.mock('@/hooks/api/useAddTask', () => ({
 }));
 vi.mock('@/hooks/api/useMoveTask', () => ({
   useMoveTask: () => ({ mutate: moved }),
-}));
-vi.mock('@/hooks/api/useReorderStations', () => ({
-  useReorderStations: () => ({ mutate: restacked }),
 }));
 
 const renderAt = (lineId: string) =>
@@ -116,7 +112,6 @@ describe('AssemblyLineBoard', () => {
     localStorage.clear();
     added.mockClear();
     moved.mockClear();
-    restacked.mockClear();
   });
 
   it('gives every station its own section, in board order', () => {
@@ -174,7 +169,7 @@ describe('AssemblyLineBoard', () => {
       teamId: 'team_1',
       lineId: 'line_1',
       stationId: 'station_2',
-      task: { title: 'Write the spec', description: '', repository: null },
+      task: { title: 'Write the spec', description: '' },
     });
   });
 
@@ -409,16 +404,6 @@ describe('AssemblyLineBoard', () => {
     const triage = sections()[0] as HTMLElement;
 
     expect(within(triage).queryByText(/1 selected/)).not.toBeInTheDocument();
-  });
-
-  it('lets each station be picked up by its header', () => {
-    renderAt('line_1');
-
-    expect(
-      sections().map((section) =>
-        section.querySelector('header')?.getAttribute('aria-roledescription'),
-      ),
-    ).toEqual(Array(4).fill('sortable'));
   });
 
   it('lets each task be picked up', () => {

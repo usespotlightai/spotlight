@@ -65,9 +65,10 @@ const listening = (over: Record<string, unknown> = {}) => ({
   source: 'linear',
   name: 'Linear',
   deliverTo: 'https://spotlight.test/deliveries/x',
-  secret: 'LINEAR_WEBHOOK_SECRET',
-  secretSet: true,
+  secrets: [{ name: 'LINEAR_WEBHOOK_SECRET', set: true }],
   happenings: [],
+  connectable: false,
+  connection: null,
   ...over,
 });
 
@@ -146,7 +147,7 @@ describe('TeamIntegrations', () => {
     expect(
       screen.getByText('https://spotlight.test/deliveries/x'),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText('Webhook secret')).toBeInTheDocument();
+    expect(screen.getByLabelText('LINEAR_WEBHOOK_SECRET')).toBeInTheDocument();
   });
 
   it('offers nothing to configure for a host not written down', () => {

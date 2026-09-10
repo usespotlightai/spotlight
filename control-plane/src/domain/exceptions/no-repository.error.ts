@@ -1,8 +1,10 @@
 export class NoRepositoryError extends Error {
   readonly violation = 'invalid' as const;
 
-  constructor() {
-    super('This task names no repository, so there is nothing to open');
+  constructor(
+    reason = 'This line works no repository, so there is nothing to open',
+  ) {
+    super(reason);
     this.name = 'NoRepositoryError';
   }
 }

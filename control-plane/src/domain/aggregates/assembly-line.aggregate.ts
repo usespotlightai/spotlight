@@ -15,8 +15,10 @@ import { HandoverOption } from '@domain/value-objects/handover-option.vo';
 import type { Happening } from '@domain/value-objects/happening.vo';
 import type { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { LineKey } from '@domain/value-objects/line-key.vo';
+import { LineRepositories } from '@domain/value-objects/line-repositories.vo';
 import type { LineRole } from '@domain/value-objects/line-role.vo';
 import { Reaction } from '@domain/value-objects/reaction.vo';
+import type { Repository } from '@domain/value-objects/repository.vo';
 import type { StationColor } from '@domain/value-objects/station-color.vo';
 import type { StationDescription } from '@domain/value-objects/station-description.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
@@ -37,6 +39,11 @@ export class AssemblyLine {
     readonly reactions: readonly Reaction[],
     /** What this line is for, where the factory routes work by purpose. */
     readonly role: LineRole | null,
+    /**
+     * The repositories a run on this line works in. All are pulled into the
+     * workspace; which one a task's change belongs in is the agent's to tell.
+     */
+    readonly repositories: LineRepositories,
   ) {}
 
   static open(input: {
@@ -68,6 +75,7 @@ export class AssemblyLine {
       key: input.line.key,
       name: input.line.name,
       role: input.line.role,
+      repositories: input.line.repositories,
       stations: named.map((each, position) =>
         Station.of({
           id: ids[position] as StationId,
@@ -98,6 +106,7 @@ export class AssemblyLine {
     stations: readonly Station[];
     reactions?: readonly Reaction[];
     role?: LineRole | null;
+    repositories?: readonly Repository[];
   }): AssemblyLine {
     const reactions = input.reactions ?? [];
 
@@ -117,7 +126,48 @@ export class AssemblyLine {
       [...input.stations].sort((a, b) => a.position - b.position),
       reactions,
       input.role ?? null,
+      LineRepositories.of(input.repositories ?? []),
     );
+  }
+
+  repositoryNamed(name: string): Repository | null {
+    return this.repositories.named(name);
+  }
+
+  /** The repositories this line works in, set whole. */
+  worksIn(repositories: readonly Repository[]): AssemblyLine {
+    return AssemblyLine.of({
+      id: this.id,
+      workspaceId: this.workspaceId,
+      factoryId: this.factoryId,
+      key: this.key,
+      name: this.name,
+      stations: this.stations,
+      reactions: this.reactions,
+      role: this.role,
+      repositories,
+    });
+  }
+
+  opening(name: string | null): Repository {
+    return this.repositories.opening(name);
+  }
+
+  /** Every work station on this line run on the one harness, or none of them. */
+  runsOn(harness: HarnessId | null): AssemblyLine {
+    return AssemblyLine.of({
+      id: this.id,
+      workspaceId: this.workspaceId,
+      factoryId: this.factoryId,
+      key: this.key,
+      name: this.name,
+      stations: this.stations.map((each) =>
+        each.isWorked ? each.runsOn(harness) : each,
+      ),
+      reactions: this.reactions,
+      role: this.role,
+      repositories: this.repositories.all,
+    });
   }
 
   renameStation(stationId: StationId, name: StationName): AssemblyLine {
@@ -182,6 +232,7 @@ export class AssemblyLine {
       stations: this.stations,
       reactions,
       role: this.role,
+      repositories: this.repositories.all,
     });
   }
 
@@ -196,46 +247,6 @@ export class AssemblyLine {
         throw new UnknownHappeningError(reaction.happening.value);
       }
     }
-  }
-
-  reorderStations(order: readonly StationId[]): AssemblyLine {
-    if (order[0] && !this.backlog.id.equals(order[0])) {
-      throw new InvalidStationLayoutError(
-        'must leave the backlog standing first',
-      );
-    }
-    if (
-      order.length > 0 &&
-      !this.completed.id.equals(order[order.length - 1] as StationId)
-    ) {
-      throw new InvalidStationLayoutError('must leave completed standing last');
-    }
-    if (order.length !== this.stations.length) {
-      throw new InvalidStationLayoutError(
-        `must name every station, but named ${order.length} of ${this.stations.length}`,
-      );
-    }
-
-    const moved = order.map((stationId, position) => {
-      const standing = this.stations.find((each) => each.id.equals(stationId));
-
-      if (!standing) {
-        throw new UnknownStationError(stationId.value);
-      }
-
-      return standing.movedTo(position);
-    });
-
-    return AssemblyLine.of({
-      id: this.id,
-      workspaceId: this.workspaceId,
-      factoryId: this.factoryId,
-      key: this.key,
-      name: this.name,
-      reactions: this.reactions,
-      stations: moved,
-      role: this.role,
-    });
   }
 
   private withStation(
@@ -259,6 +270,7 @@ export class AssemblyLine {
         each.equals(target) ? change(each) : each,
       ),
       role: this.role,
+      repositories: this.repositories.all,
     });
   }
 
@@ -429,6 +441,50 @@ export class AssemblyLine {
   /** Where a task standing here may be handed on to, or a person. */
   optionsFrom(stationId: StationId): HandoverOption[] {
     return handoverOptions(this.stationAt(stationId), this.stations);
+  }
+
+  /**
+   * How far downstream a station stands, which is what its runs are prioritised
+   * by: the shortest distance from the backlog along where work passes, with
+   * what finishes the line standing last of all.
+   */
+  depthOf(stationId: StationId): number {
+    return this.depths().get(stationId.value) ?? 0;
+  }
+
+  private depths(): ReadonlyMap<string, number> {
+    const byId = new Map(this.stations.map((each) => [each.id.value, each]));
+    const depth = new Map<string, number>([[this.backlog.id.value, 0]]);
+    const queue: Station[] = [this.backlog];
+
+    // Breadth-first, so a station is first reached by its shortest path; rework
+    // looping back finds it already set.
+    while (queue.length > 0) {
+      const station = queue.shift() as Station;
+      const here = depth.get(station.id.value) as number;
+
+      for (const to of station.wayOut.stations) {
+        const next = byId.get(to.value);
+
+        if (next && !depth.has(to.value)) {
+          depth.set(to.value, here + 1);
+          queue.push(next);
+        }
+      }
+    }
+
+    const reached = this.stations
+      .filter((each) => !each.isCompleted)
+      .map((each) => depth.get(each.id.value) ?? 0);
+    const last = Math.max(0, ...reached) + 1;
+
+    for (const station of this.stations) {
+      if (station.isCompleted) {
+        depth.set(station.id.value, last);
+      }
+    }
+
+    return depth;
   }
 
   equals(other: AssemblyLine): boolean {

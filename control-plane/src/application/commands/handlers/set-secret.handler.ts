@@ -3,13 +3,10 @@ import type { SetSecretCommand } from '@application/commands/set-secret.command'
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { TeamSecretsPort } from '@application/ports/team-secrets.port';
-import type { WorkspaceReaderPort } from '@application/ports/workspace-reader.port';
-import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
+import type { ConnectionAuthorization } from '@application/services/connection-authorization.service';
 import { SecretName } from '@domain/value-objects/secret-name.vo';
 import { SecretValue } from '@domain/value-objects/secret-value.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
-import { UserId } from '@domain/value-objects/user-id.vo';
-import { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
 
 /**
  * Sets what a workspace's configuration may name but must not hold.
@@ -23,27 +20,18 @@ export class SetSecretHandler
   implements CommandHandlerPort<SetSecretCommand, boolean>
 {
   constructor(
-    private readonly workspaces: WorkspaceRepository,
-    private readonly teams: WorkspaceReaderPort,
+    private readonly authorization: ConnectionAuthorization,
     private readonly secrets: TeamSecretsPort,
   ) {}
 
   async execute(command: SetSecretCommand): Promise<boolean> {
     try {
-      const by = UserId.of(command.viewerId);
-      const team = await this.teams.findTeamForMember(command.teamId, by);
-
-      if (!team) {
-        return false;
-      }
-
-      const workspace = await this.workspaces.findBySlug(
-        WorkspaceSlug.of(team.slug),
-      );
-
-      // A secret stands in for a session at a door anybody can knock at, so
-      // who may set one is who may connect a host.
-      if (!workspace?.mayBeConnectedBy(by)) {
+      if (
+        !(await this.authorization.connectableBy(
+          command.teamId,
+          command.viewerId,
+        ))
+      ) {
         return false;
       }
 
@@ -71,25 +59,18 @@ export class ForgetSecretHandler
   implements CommandHandlerPort<ForgetSecretCommand, boolean>
 {
   constructor(
-    private readonly workspaces: WorkspaceRepository,
-    private readonly teams: WorkspaceReaderPort,
+    private readonly authorization: ConnectionAuthorization,
     private readonly secrets: TeamSecretsPort,
   ) {}
 
   async execute(command: ForgetSecretCommand): Promise<boolean> {
     try {
-      const by = UserId.of(command.viewerId);
-      const team = await this.teams.findTeamForMember(command.teamId, by);
-
-      if (!team) {
-        return false;
-      }
-
-      const workspace = await this.workspaces.findBySlug(
-        WorkspaceSlug.of(team.slug),
-      );
-
-      if (!workspace?.mayBeConnectedBy(by)) {
+      if (
+        !(await this.authorization.connectableBy(
+          command.teamId,
+          command.viewerId,
+        ))
+      ) {
         return false;
       }
 

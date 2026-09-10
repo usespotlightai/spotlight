@@ -2,17 +2,13 @@ import type { PinConfigurationCommand } from '@application/commands/pin-configur
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { RepositoryCatalogPort } from '@application/ports/repository-catalog.port';
-import type { WorkspaceReaderPort } from '@application/ports/workspace-reader.port';
-import type { SeedConfiguration } from '@application/services/seed-configuration.service';
+import type { ConnectionAuthorization } from '@application/services/connection-authorization.service';
 import type { SettleSetup } from '@application/services/settle-setup.service';
 import type { Workspace } from '@domain/aggregates/workspace.aggregate';
 import type { TeamRepository } from '@domain/repositories/team.repository';
-import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
 import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import { Repository } from '@domain/value-objects/repository.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
-import { UserId } from '@domain/value-objects/user-id.vo';
-import { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
 
 /**
  * Worth saying rather than leaving to the fallback scan: two teams that chose
@@ -24,29 +20,22 @@ export class PinConfigurationHandler
   implements CommandHandlerPort<PinConfigurationCommand, boolean>
 {
   constructor(
-    private readonly members: WorkspaceReaderPort,
-    private readonly workspaces: WorkspaceRepository,
+    private readonly authorization: ConnectionAuthorization,
     private readonly teams: TeamRepository,
-    private readonly seeding: SeedConfiguration,
     private readonly catalog: RepositoryCatalogPort,
     private readonly settling: SettleSetup,
   ) {}
 
   async execute(command: PinConfigurationCommand): Promise<boolean> {
     try {
-      const by = UserId.of(command.viewerId);
-      const of = await this.members.findTeamForMember(command.teamId, by);
-
-      // Someone outside it is not told a team is there at all.
-      if (!of) {
-        return false;
-      }
-
-      const workspace = await this.workspaces.findBySlug(
-        WorkspaceSlug.of(of.slug),
+      // Someone outside the team is not told it is there at all; only an owner
+      // or admin may choose its repository. The workspace comes back to seed on.
+      const workspace = await this.authorization.connectableBy(
+        command.teamId,
+        command.viewerId,
       );
 
-      if (!workspace?.mayBeConnectedBy(by)) {
+      if (!workspace) {
         return false;
       }
 
@@ -62,11 +51,10 @@ export class PinConfigurationHandler
 
       await this.teams.save(team.keepsConfigurationIn(repository));
 
-      // Seeding refuses a repository that already holds configuration, so
-      // saying this twice writes nothing twice.
+      // Only the repository is readied here; what to write into it is chosen
+      // and written later, when the lines are set up.
       if (repository) {
         await this.madeIfMissing(workspace, repository);
-        await this.seeding.trySeed(workspace, team, repository);
       }
 
       await this.settling.forTeam(team.id);

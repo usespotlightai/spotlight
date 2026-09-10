@@ -4,10 +4,12 @@ import type {
 } from '@application/ports/repository-git.port';
 import { CarryGitCall } from '@application/services/carry-git-call.service';
 import { RunAtHand } from '@application/services/run-at-hand.service';
+import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Run } from '@domain/aggregates/run.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { InvalidRunTransitionError } from '@domain/exceptions/invalid-run-transition.error';
 import { UnknownRunError } from '@domain/exceptions/unknown-run.error';
+import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { RunRepository } from '@domain/repositories/run.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import type { WorkspaceConnections } from '@domain/repositories/workspace.repository';
@@ -36,7 +38,7 @@ const call: GitCall = {
   body: null,
 };
 
-const task = (repository: string | null) =>
+const task = () =>
   Task.add({
     workspaceId: WorkspaceId.of('ws_1'),
     stationId: StationId.of('station_1'),
@@ -45,33 +47,56 @@ const task = (repository: string | null) =>
     raisedBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
-    repository: repository ? Repository.of(repository) : null,
   });
 
-const claimedBy = (runner: string) =>
+/** Enough of a line for the gateway: which repositories it works. */
+const lineWorking = (repositories: readonly string[]): AssemblyLine => {
+  const held = repositories.map((each) => Repository.of(each));
+
+  return {
+    repositories: held,
+    repositoryNamed: (name: string) =>
+      held.find((each) => each.name === name) ?? null,
+  } as unknown as AssemblyLine;
+};
+
+const enqueued = () =>
   Run.enqueue({
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
     taskId: TaskId.of('task_1'),
+    stationId: StationId.of('station_1'),
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
       continuity: { key: 'task:station', keep: true },
     }),
-  }).claim(RunnerId.of(runner), NOW);
+  });
 
-const carrying = (run: Run | null, held: Task | null) => {
+const claimedBy = (runner: string) =>
+  enqueued().claim(RunnerId.of(runner), NOW);
+
+const carrying = (
+  run: Run | null,
+  held: Task | null,
+  repositories: readonly string[] = ['acme/widgets'],
+) => {
   const git = {
     call: vi.fn(async () => ({ status: 200, headers: {}, body: null })),
   };
+
+  const lines = {
+    holding: vi.fn(async () => lineWorking(repositories)),
+  } as unknown as AssemblyLineRepository;
 
   const service = new CarryGitCall(
     new RunAtHand(
       { findById: vi.fn(async () => run) } as unknown as RunRepository,
       { find: vi.fn(async () => held) } as unknown as TaskRepository,
     ),
+    lines,
     {
       connectionTo: vi.fn(async () => Connection.of('github', '42')),
     } as unknown as WorkspaceConnections,
@@ -82,13 +107,10 @@ const carrying = (run: Run | null, held: Task | null) => {
 };
 
 describe('CarryGitCall', () => {
-  it('carries the call to the repository the task names', async () => {
-    const { service, git } = carrying(
-      claimedBy('runner_1'),
-      task('acme/widgets'),
-    );
+  it('carries the call to the line’s repository named at the door', async () => {
+    const { service, git } = carrying(claimedBy('runner_1'), task());
 
-    await service.carry('run_1', 'runner_1', call);
+    await service.carry('run_1', 'runner_1', 'widgets', call);
 
     expect(git.call).toHaveBeenCalledWith(
       GitHubInstallation.of('42'),
@@ -100,50 +122,37 @@ describe('CarryGitCall', () => {
   // The whole point of proxying: a runner reaches what it is working on, and
   // nothing else anyone else is working on.
   it('refuses a runner that does not hold the run', async () => {
-    const { service, git } = carrying(
-      claimedBy('runner_1'),
-      task('acme/widgets'),
-    );
+    const { service, git } = carrying(claimedBy('runner_1'), task());
 
-    await expect(service.carry('run_1', 'runner_2', call)).rejects.toThrow(
-      InvalidRunTransitionError,
-    );
+    await expect(
+      service.carry('run_1', 'runner_2', 'widgets', call),
+    ).rejects.toThrow(InvalidRunTransitionError);
     expect(git.call).not.toHaveBeenCalled();
   });
 
   it('refuses a run nobody is holding', async () => {
-    const queued = Run.enqueue({
-      id: RunId.of('run_1'),
-      workspaceId: WorkspaceId.of('ws_1'),
-      harness: HarnessId.of('dev'),
-      taskId: TaskId.of('task_1'),
-      spec: RunSpec.of({
-        command: { executable: 'sh', args: [] },
-        briefing: 'do the thing',
-        handover: { options: [], noteLimit: 4_000 },
-        continuity: { key: 'task:station', keep: true },
-      }),
-    });
-    const { service, git } = carrying(queued, task('acme/widgets'));
+    const { service, git } = carrying(enqueued(), task());
 
-    await expect(service.carry('run_1', 'runner_1', call)).rejects.toThrow(
-      InvalidRunTransitionError,
-    );
+    await expect(
+      service.carry('run_1', 'runner_1', 'widgets', call),
+    ).rejects.toThrow(InvalidRunTransitionError);
     expect(git.call).not.toHaveBeenCalled();
   });
 
-  it('says nothing to carry where the task names no repository', async () => {
-    const { service, git } = carrying(claimedBy('runner_1'), task(null));
+  it('says nothing to carry where the line does not work that repository', async () => {
+    const { service, git } = carrying(claimedBy('runner_1'), task());
 
-    await expect(service.carry('run_1', 'runner_1', call)).resolves.toBeNull();
+    await expect(
+      service.carry('run_1', 'runner_1', 'other', call),
+    ).resolves.toBeNull();
     expect(git.call).not.toHaveBeenCalled();
   });
 
   it('refuses a run that does not exist', async () => {
     const { service } = carrying(null, null);
 
-    await expect(service.carry('run_1', 'runner_1', call)).rejects.toThrow(
-      UnknownRunError,
-    );
+    await expect(
+      service.carry('run_1', 'runner_1', 'widgets', call),
+    ).rejects.toThrow(UnknownRunError);
   });
 });

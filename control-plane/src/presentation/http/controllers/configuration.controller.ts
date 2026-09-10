@@ -3,6 +3,7 @@ import { ForgetSecretCommand } from '@application/commands/forget-secret.command
 import { PinConfigurationCommand } from '@application/commands/pin-configuration.command';
 import { ReadConfigurationCommand } from '@application/commands/read-configuration.command';
 import { SetSecretCommand } from '@application/commands/set-secret.command';
+import { SetUpLinesCommand } from '@application/commands/set-up-lines.command';
 import type { ConfigurationDto } from '@application/dto/configuration.dto';
 import type { OnboardingDto } from '@application/dto/onboarding.dto';
 import type { OpenedPullRequestDto } from '@application/ports/pull-request.port';
@@ -36,13 +37,17 @@ import {
   ChooseToolsRequestDto,
   ConfigProblemResponseDto,
   ConfigurationResponseDto,
+  ConfiguredConnectionResponseDto,
   ConfiguredHappeningResponseDto,
   ConfiguredIntegrationResponseDto,
+  ConfiguredSecretResponseDto,
   KnownToolResponseDto,
+  OnboardingLineResponseDto,
   OnboardingResponseDto,
   PinConfigurationRequestDto,
   ProposedResponseDto,
   SetSecretRequestDto,
+  SetUpLinesRequestDto,
   SetupStepResponseDto,
 } from '@presentation/http/dto/configuration.response.dto';
 
@@ -57,8 +62,10 @@ const shown = (read: ConfigurationDto): ConfigurationResponseDto =>
           each.source,
           each.name,
           each.deliverTo,
-          each.secret,
-          each.secretSet,
+          each.secrets.map(
+            (secret) =>
+              new ConfiguredSecretResponseDto(secret.name, secret.set),
+          ),
           each.happenings.map(
             (raising) =>
               new ConfiguredHappeningResponseDto(
@@ -66,6 +73,10 @@ const shown = (read: ConfigurationDto): ConfigurationResponseDto =>
                 raising.label,
               ),
           ),
+          each.connectable,
+          each.connection
+            ? new ConfiguredConnectionResponseDto(each.connection.handle)
+            : null,
         ),
     ),
     read.problems.map(
@@ -203,6 +214,15 @@ export class ConfigurationController {
       read.connectedToGitHub,
       read.configRepository,
       read.repositoryOwner,
+      read.lines.map(
+        (each) =>
+          new OnboardingLineResponseDto(
+            each.key,
+            each.name,
+            each.harness,
+            each.repositories,
+          ),
+      ),
       read.tools.map(
         (each) =>
           new KnownToolResponseDto(
@@ -214,6 +234,48 @@ export class ConfigurationController {
           ),
       ),
     );
+  }
+
+  /**
+   * Sets each line's harness and repositories, then writes them down as the
+   * pull request that opens this team's configuration. The choices are made
+   * before anything is written; nothing changes until the pull request merges.
+   */
+  @Post('setup')
+  @ApiOperation({
+    operationId: 'setUpLines',
+    summary: 'Assign each line a harness and repositories, and open the setup',
+  })
+  @ApiParam({ name: 'teamId', example: 'team_1' })
+  @ApiOkResponse({ type: ProposedResponseDto })
+  @ApiNotFoundResponse({
+    description: 'No such team, or nowhere to write it yet',
+  })
+  async setUp(
+    @Param('teamId') teamId: string,
+    @Body() body: SetUpLinesRequestDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<ProposedResponseDto> {
+    const opened = await this.commandBus.execute<
+      SetUpLinesCommand,
+      OpenedPullRequestDto | null
+    >(
+      new SetUpLinesCommand(
+        teamId,
+        user.id,
+        body.lines.map((line) => ({
+          key: line.key,
+          harness: line.harness ?? null,
+          repositories: line.repositories,
+        })),
+      ),
+    );
+
+    if (!opened) {
+      throw new NotFoundException();
+    }
+
+    return new ProposedResponseDto(opened.url);
   }
 
   /**

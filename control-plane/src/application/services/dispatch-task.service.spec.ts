@@ -65,14 +65,16 @@ const at = (
       position === 0 ? 'backlog' : name === 'Completed' ? 'completed' : 'work',
   });
 
+// Connected backlog → Triage → Spec, so a station's depth from the backlog is
+// its distance along the flow: Triage 1, Spec 2. That depth is its priority.
 const stations = [
-  at('station_1', 'Backlog', 0),
+  at('station_1', 'Backlog', 0, undefined, ['station_2']),
   at('station_2', 'Triage', 1, DEV.id, ['station_3']),
   at('station_3', 'Spec', 2, DEV.id),
   at('station_4', 'Completed', 3),
 ];
 
-const task = (stationId: string, repository?: string) =>
+const task = (stationId: string) =>
   Task.add({
     workspaceId: WorkspaceId.of('ws_1'),
     stationId: StationId.of(stationId),
@@ -81,7 +83,6 @@ const task = (stationId: string, repository?: string) =>
     raisedBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
-    repository: repository ? Repository.of(repository) : null,
   });
 
 let queued: Run[] = [];
@@ -94,12 +95,13 @@ const runs = {
 
 const ids: IdGeneratorPort = { generate: () => 'run_1' };
 
-const held = (changed?: Station) =>
+const held = (changed?: Station, repositories: string[] = []) =>
   AssemblyLine.of({
     id: AssemblyLineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
     name: AssemblyLineName.of('Default'),
+    repositories: repositories.map((each) => Repository.of(each)),
     stations: changed
       ? stations.map((each) => (each.equals(changed) ? changed : each))
       : stations,
@@ -110,10 +112,10 @@ const tracing = {
     `trace:${taskId.value}:${runId.value}`,
 };
 
-const dispatch = (station: Station, standing?: Task) =>
+const dispatch = (station: Station, standing?: Task, repositories?: string[]) =>
   new DispatchTask(runs, ids, harnesses, tracing).dispatch({
     task: standing ?? task(station.id.value),
-    line: held(station),
+    line: held(station, repositories),
   });
 
 describe('DispatchTask', () => {
@@ -121,13 +123,13 @@ describe('DispatchTask', () => {
     queued = [];
   });
 
-  describe('the codebase a run works in', () => {
+  describe('the codebases a run works in', () => {
     // The runner resolves this to an address of its own. A remote that
     // reached GitHub would need a credential written down beside it.
-    it('names the repository through Spotlight, never GitHub', async () => {
+    it('names each of the line’s repositories through Spotlight, never GitHub', async () => {
       const station = stations[1] as Station;
 
-      await dispatch(station, task(station.id.value, 'acme/widgets'));
+      await dispatch(station, undefined, ['acme/widgets']);
 
       expect(written(queued[0]).checkouts).toEqual([
         {
@@ -138,10 +140,30 @@ describe('DispatchTask', () => {
       ]);
     });
 
-    it('asks for no checkout where the task names no repository', async () => {
+    // A run may work several: each is cloned into a directory of its own name.
+    it('checks out every repository the line works, side by side', async () => {
+      const station = stations[1] as Station;
+
+      await dispatch(station, undefined, ['acme/api', 'acme/web']);
+
+      expect(written(queued[0]).checkouts).toEqual([
+        {
+          remote: 'spotlight:repository',
+          path: 'api',
+          branch: 'spotlight/task_1',
+        },
+        {
+          remote: 'spotlight:repository',
+          path: 'web',
+          branch: 'spotlight/task_1',
+        },
+      ]);
+    });
+
+    it('asks for no checkout where the line works no repository', async () => {
       await dispatch(stations[1] as Station);
 
-      expect(written(queued[0]).checkouts).toBeUndefined();
+      expect(written(queued[0]).checkouts).toEqual([]);
     });
   });
 

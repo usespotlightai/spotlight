@@ -28,9 +28,11 @@ const delivered = (
 
 /** Every App delivery names its installation, so every fixture does too. */
 const reading = {
-  read: (event: string | undefined, payload: Record<string, unknown>) =>
-    events.read(
-      delivered(event, { installation: { id: 42 }, ...payload }),
+  read: async (event: string | undefined, payload: Record<string, unknown>) =>
+    (
+      await events.read(
+        delivered(event, { installation: { id: 42 }, ...payload }),
+      )
     )[0] ?? null,
 };
 
@@ -44,9 +46,12 @@ const pull = (over: Record<string, unknown> = {}) => ({
 describe('GitHubSource', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('reads a merged pull request', () => {
+  it('reads a merged pull request', async () => {
     expect(
-      reading.read('pull_request', { action: 'closed', pull_request: pull() }),
+      await reading.read('pull_request', {
+        action: 'closed',
+        pull_request: pull(),
+      }),
     ).toMatchObject({
       happening: Happening.of('github.pull_request.merged'),
       concerns: {
@@ -60,9 +65,9 @@ describe('GitHubSource', () => {
     });
   });
 
-  it('tells a pull request closed without a merge from one merged', () => {
+  it('tells a pull request closed without a merge from one merged', async () => {
     expect(
-      reading.read('pull_request', {
+      await reading.read('pull_request', {
         action: 'closed',
         pull_request: pull({ merged: false }),
       }),
@@ -71,18 +76,18 @@ describe('GitHubSource', () => {
     });
   });
 
-  it('reads a comment, and carries what was said', () => {
-    expect(
-      reading.read('pull_request_review_comment', {
-        action: 'created',
-        pull_request: pull(),
-        comment: { body: 'This retries forever.' },
-      })?.said?.body,
-    ).toBe('This retries forever.');
+  it('reads a comment, and carries what was said', async () => {
+    const read = await reading.read('pull_request_review_comment', {
+      action: 'created',
+      pull_request: pull(),
+      comment: { body: 'This retries forever.' },
+    });
+
+    expect(read?.said?.body).toBe('This retries forever.');
   });
 
-  it('carries the file and line a review comment points at', () => {
-    const read = reading.read('pull_request_review_comment', {
+  it('carries the file and line a review comment points at', async () => {
+    const read = await reading.read('pull_request_review_comment', {
       action: 'created',
       pull_request: pull(),
       comment: {
@@ -95,8 +100,8 @@ describe('GitHubSource', () => {
     expect(read?.said?.place).toBe('runner/internal/session/session.go:42');
   });
 
-  it('carries the whole span where a comment covers several lines', () => {
-    const read = reading.read('pull_request_review_comment', {
+  it('carries the whole span where a comment covers several lines', async () => {
+    const read = await reading.read('pull_request_review_comment', {
       action: 'created',
       pull_request: pull(),
       comment: {
@@ -110,8 +115,8 @@ describe('GitHubSource', () => {
     expect(read?.said?.place).toBe('compose.yml:10-14');
   });
 
-  it('falls back to the line a comment was first left on', () => {
-    const read = reading.read('pull_request_review_comment', {
+  it('falls back to the line a comment was first left on', async () => {
+    const read = await reading.read('pull_request_review_comment', {
       action: 'created',
       pull_request: pull(),
       comment: { body: 'Still here?', path: 'compose.yml', original_line: 7 },
@@ -120,9 +125,9 @@ describe('GitHubSource', () => {
     expect(read?.said?.place).toBe('compose.yml:7');
   });
 
-  it('reads a comment left on the pull request itself', () => {
+  it('reads a comment left on the pull request itself', async () => {
     expect(
-      reading.read('issue_comment', {
+      await reading.read('issue_comment', {
         action: 'created',
         issue: {
           pull_request: { html_url: 'https://github.com/acme/api/pull/7' },
@@ -142,13 +147,13 @@ describe('GitHubSource', () => {
     });
   });
 
-  it('tells a review asking for changes from one merely saying something', () => {
-    const asked = reading.read('pull_request_review', {
+  it('tells a review asking for changes from one merely saying something', async () => {
+    const asked = await reading.read('pull_request_review', {
       action: 'submitted',
       pull_request: pull(),
       review: { state: 'changes_requested', body: 'Handle the empty case.' },
     });
-    const said = reading.read('pull_request_review', {
+    const said = await reading.read('pull_request_review', {
       action: 'submitted',
       pull_request: pull(),
       review: { state: 'commented', body: 'Reads well.' },
@@ -162,9 +167,9 @@ describe('GitHubSource', () => {
     });
   });
 
-  it('reads a failing check suite by the branch it ran on', () => {
+  it('reads a failing check suite by the branch it ran on', async () => {
     expect(
-      reading.read('check_suite', {
+      await reading.read('check_suite', {
         action: 'completed',
         check_suite: { conclusion: 'failure', head_branch: 'spotlight/task_1' },
       }),
@@ -174,18 +179,18 @@ describe('GitHubSource', () => {
     });
   });
 
-  it('says nothing of a check suite that passed', () => {
+  it('says nothing of a check suite that passed', async () => {
     expect(
-      reading.read('check_suite', {
+      await reading.read('check_suite', {
         action: 'completed',
         check_suite: { conclusion: 'success', head_branch: 'spotlight/task_1' },
       }),
     ).toBeNull();
   });
 
-  it('marks what Spotlight itself did, so it does not answer itself', () => {
+  it('marks what Spotlight itself did, so it does not answer itself', async () => {
     expect(
-      reading.read('issue_comment', {
+      await reading.read('issue_comment', {
         action: 'created',
         issue: {
           pull_request: { html_url: 'https://github.com/acme/api/pull/7' },
@@ -195,22 +200,22 @@ describe('GitHubSource', () => {
     ).toMatchObject({ ourOwn: true });
   });
 
-  it('says nothing of an event it was not asked to read', () => {
-    expect(reading.read('push', { pull_request: pull() })).toBeNull();
-    expect(events.read(delivered(undefined, {}))).toEqual([]);
+  it('says nothing of an event it was not asked to read', async () => {
+    expect(await reading.read('push', { pull_request: pull() })).toBeNull();
+    expect(await events.read(delivered(undefined, {}))).toEqual([]);
   });
 
-  it('refuses a delivery it should have understood and could not', () => {
-    expect(() =>
+  it('refuses a delivery it should have understood and could not', async () => {
+    await expect(
       reading.read('pull_request', {
         action: 'closed',
         pull_request: { merged: true },
       }),
-    ).toThrow(UpstreamRefusedError);
+    ).rejects.toThrow(UpstreamRefusedError);
   });
 
   describe('naming the delivery', () => {
-    it('calls it what GitHub called it', () => {
+    it('calls it what GitHub called it', async () => {
       expect(
         events.delivery(
           delivered('pull_request', {}, { 'x-github-delivery': 'd_1' }),
@@ -219,7 +224,7 @@ describe('GitHubSource', () => {
     });
 
     // Without one, the same word twice would be worked twice.
-    it('falls back to the body, so an unnamed one is still the same one', () => {
+    it('falls back to the body, so an unnamed one is still the same one', async () => {
       const body = Buffer.from('{"action":"closed"}');
       const once = events.delivery({ headers: {}, body: {}, raw: body });
       const again = events.delivery({ headers: {}, body: {}, raw: body });
@@ -240,13 +245,13 @@ describe('GitHubSource', () => {
         ...over,
       });
 
-    it('notices a push that touched the configuration directory', () => {
+    it('notices a push that touched the configuration directory', async () => {
       expect(events.noticed(pushed())).toEqual([
         { kind: 'configuration-touched', repository: 'acme/api' },
       ]);
     });
 
-    it('notices one that added or removed a file there', () => {
+    it('notices one that added or removed a file there', async () => {
       expect(
         events.noticed(
           pushed({
@@ -262,29 +267,29 @@ describe('GitHubSource', () => {
     });
 
     // Somebody's ordinary work, which this has no opinion about.
-    it('notices nothing where the push touched nothing of ours', () => {
+    it('notices nothing where the push touched nothing of ours', async () => {
       expect(
         events.noticed(pushed({ commits: [{ modified: ['src/main.ts'] }] })),
       ).toEqual([]);
     });
 
     // What is on the default branch is what the workspace has agreed to.
-    it('notices nothing on a branch it does not read from', () => {
+    it('notices nothing on a branch it does not read from', async () => {
       expect(events.noticed(pushed({ ref: 'refs/heads/topic' }))).toEqual([]);
     });
 
-    it('notices nothing of any other event', () => {
+    it('notices nothing of any other event', async () => {
       expect(
         events.noticed(delivered('pull_request', { action: 'closed' })),
       ).toEqual([]);
     });
 
-    it('notices nothing where the push names no repository', () => {
+    it('notices nothing where the push names no repository', async () => {
       expect(events.noticed(pushed({ repository: {} }))).toEqual([]);
     });
 
     // Uninstalled on GitHub, so what the workspace holds for it opens nothing.
-    it('notices an installation that was removed', () => {
+    it('notices an installation that was removed', async () => {
       expect(
         events.noticed(
           delivered('installation', {
@@ -302,7 +307,7 @@ describe('GitHubSource', () => {
     });
 
     // Installed, suspended, given another repository: still reachable.
-    it('notices nothing of an installation that is still there', () => {
+    it('notices nothing of an installation that is still there', async () => {
       expect(
         events.noticed(
           delivered('installation', {
@@ -313,7 +318,7 @@ describe('GitHubSource', () => {
       ).toEqual([]);
     });
 
-    it('notices nothing where the removal names no installation', () => {
+    it('notices nothing where the removal names no installation', async () => {
       expect(
         events.noticed(delivered('installation', { action: 'deleted' })),
       ).toEqual([]);

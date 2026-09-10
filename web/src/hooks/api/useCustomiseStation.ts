@@ -1,5 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { assemblyLineKeys } from '@/hooks/api/useAssemblyLines';
+import { useMutation } from '@tanstack/react-query';
 import { customiseStation } from '@/lib/api';
 
 type CustomiseStationInput = {
@@ -15,9 +14,9 @@ type CustomiseStationInput = {
   };
 };
 
+/** Git-first: opens/updates a pull request and returns it; the board is not
+ *  changed here, so nothing is invalidated. */
 export function useCustomiseStation() {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async ({
       teamId,
@@ -32,9 +31,5 @@ export function useCustomiseStation() {
       });
       return data;
     },
-    onSuccess: (_station, { teamId }) =>
-      queryClient.invalidateQueries({
-        queryKey: assemblyLineKeys.forTeam(teamId),
-      }),
   });
 }

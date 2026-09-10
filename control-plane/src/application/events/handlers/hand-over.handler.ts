@@ -1,4 +1,5 @@
 import type { ClockPort } from '@application/ports/clock.port';
+import type { AnnounceTaskEvents } from '@application/services/announce-task-events';
 import type { RunOutcomes } from '@application/services/run-outcomes';
 import type { TaskDispatching } from '@application/services/task-dispatch';
 import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
@@ -27,6 +28,7 @@ export class HandOver implements RunOutcomes {
     private readonly lines: AssemblyLineRepository,
     private readonly dispatch: TaskDispatching,
     private readonly clock: ClockPort,
+    private readonly announce: AnnounceTaskEvents,
   ) {}
 
   async onRunCompleted(event: RunCompleted): Promise<void> {
@@ -51,9 +53,7 @@ export class HandOver implements RunOutcomes {
       ? task.workedIn(event.session, event.workedBy)
       : task;
 
-    await this.tasks.save(
-      await this.applied(handover, worked, line, event.runId),
-    );
+    await this.saved(await this.applied(handover, worked, line, event.runId));
   }
 
   async onRunAbandoned(event: RunAbandoned): Promise<void> {
@@ -62,7 +62,7 @@ export class HandOver implements RunOutcomes {
       return;
     }
 
-    await this.tasks.save(
+    await this.saved(
       await this.applied(
         HandoverFor.exhausted(event.attempt),
         standing.task,
@@ -70,6 +70,16 @@ export class HandOver implements RunOutcomes {
         event.runId,
       ),
     );
+  }
+
+  /**
+   * Saves the task, then carries whatever it now announces — a question put to
+   * a person, say — out to wherever the team binds it. A direct call, not a
+   * dispatch: the run-event dispatcher already holds this handler.
+   */
+  private async saved(task: Task): Promise<void> {
+    await this.tasks.save(task);
+    await this.announce.of(task);
   }
 
   /** Nothing to do for a task another run has since taken up. */

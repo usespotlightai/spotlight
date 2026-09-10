@@ -11,6 +11,7 @@ import { DRIZZLE } from '@infrastructure/persistence/drizzle/drizzle.constants';
 import {
   assemblyLine,
   assemblyLineReaction,
+  assemblyLineRepository,
   station,
 } from '@infrastructure/persistence/drizzle/schemas/assembly-line.schema';
 import { factory } from '@infrastructure/persistence/drizzle/schemas/factory.schema';
@@ -39,6 +40,11 @@ type ReactionRow = {
   happening: string;
   from: string | null;
   to: string;
+};
+
+type RepositoryRow = {
+  lineId: string;
+  repository: string;
 };
 
 @Injectable()
@@ -103,13 +109,28 @@ export class DrizzleAssemblyLineReader implements AssemblyLineReaderPort {
       .where(eq(factory.teamId, teamId.value))
       .orderBy(assemblyLineReaction.happening);
 
-    return group(rows, reactions);
+    const repositories = await this.db
+      .select({
+        lineId: assemblyLineRepository.assemblyLineId,
+        repository: assemblyLineRepository.repository,
+      })
+      .from(assemblyLineRepository)
+      .innerJoin(
+        assemblyLine,
+        eq(assemblyLine.id, assemblyLineRepository.assemblyLineId),
+      )
+      .innerJoin(factory, eq(factory.id, assemblyLine.factoryId))
+      .where(eq(factory.teamId, teamId.value))
+      .orderBy(assemblyLineRepository.repository);
+
+    return group(rows, reactions, repositories);
   }
 }
 
 const group = (
   rows: Row[],
   reacting: readonly ReactionRow[],
+  working: readonly RepositoryRow[],
 ): AssemblyLineDetail[] => {
   const lines = new Map<string, { name: string; stations: StationSummary[] }>();
 
@@ -139,5 +160,8 @@ const group = (
     reactions: reacting
       .filter((each) => each.lineId === id)
       .map(({ happening, from, to }) => ({ happening, from, to })),
+    repositories: working
+      .filter((each) => each.lineId === id)
+      .map((each) => each.repository),
   }));
 };

@@ -100,15 +100,25 @@ export class AssemblyLineResponseDto {
   @ApiProperty({ type: ReactionResponseDto, isArray: true })
   readonly reactions: ReactionResponseDto[];
 
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    example: ['usespotlightai/spotlight'],
+    description: 'The repositories a run on this line works in, as owner/name',
+  })
+  readonly repositories: string[];
+
   constructor(
     id: string,
     name: string,
     stations: StationResponseDto[],
     reactions: ReactionResponseDto[],
+    repositories: string[],
   ) {
     this.id = id;
     this.name = name;
     this.stations = stations;
     this.reactions = reactions;
+    this.repositories = repositories;
   }
 }

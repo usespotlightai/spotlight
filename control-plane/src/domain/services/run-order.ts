@@ -17,7 +17,7 @@ export interface RunOrder {
   readonly options: readonly string[];
   readonly noteLimit: number;
   readonly continuity: Continuity;
-  readonly repository: Repository | null;
+  readonly repositories: readonly Repository[];
   readonly branch: string;
   /** What this run may reach for, named so the runner knows what to raise. */
   readonly tools: readonly string[];
@@ -51,12 +51,12 @@ export const orderFor = ({
   return {
     harness,
     stationId: station.id,
-    priority: RunPriority.of(station.position),
+    priority: RunPriority.of(line.depthOf(station.id)),
     pinnedTo: continuity.pinnedTo,
     options: line.optionsFrom(station.id).map((each) => each.value),
     noteLimit: 0,
     continuity,
-    repository: task.repository,
+    repositories: line.repositories.all,
     branch: task.branch.value,
     tools: station.tools.map((each) => each.value),
   };

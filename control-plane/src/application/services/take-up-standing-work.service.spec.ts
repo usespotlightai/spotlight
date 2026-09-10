@@ -35,8 +35,8 @@ const worked = at('Triage');
 // about which one it holds.
 const nobody = Station.of({
   id: StationId.of('station_0'),
-  name: StationName.of('Backlog'),
-  position: 0,
+  name: StationName.of('Holding'),
+  position: 1,
   color: StationColor.of('#a3a8b0'),
 });
 
@@ -84,7 +84,7 @@ const takeUp = (station: Station) =>
       name: AssemblyLineName.of('Default'),
       stations: [
         ends('backlog_1', 'Backlog', 0),
-        station.movedTo(1),
+        station,
         ends('completed_1', 'Completed', 2),
       ],
     }),

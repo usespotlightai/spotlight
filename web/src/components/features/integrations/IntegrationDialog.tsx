@@ -1,20 +1,23 @@
 import { Check, Copy } from 'lucide-react';
-import { type FormEvent, type ReactNode, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { IntegrationLogo } from '@/components/features/integrations/IntegrationLogo';
 import { Pill } from '@/components/shared/Pill';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useConnectIntegration } from '@/hooks/api/useConnectIntegration';
 import { useSetSecret } from '@/hooks/api/useSetSecret';
 import { useCopied } from '@/hooks/useCopied';
-import type { ConfiguredIntegrationResponseDto } from '@/lib/api';
+import type {
+  ConfiguredIntegrationResponseDto,
+  ConfiguredSecretResponseDto,
+} from '@/lib/api';
 
 type IntegrationDialogProps = {
   integration: ConfiguredIntegrationResponseDto;
@@ -25,8 +28,8 @@ type IntegrationDialogProps = {
 
 /**
  * What a host still needs from a person: the address to send to, and the
- * secret it signs with. Held here rather than on the card, so a card is the
- * same size whether or not its host is listening.
+ * secrets it reads. Held here rather than on the card, so a card is the same
+ * size whether or not its host is listening.
  */
 export function IntegrationDialog({
   integration,
@@ -34,22 +37,28 @@ export function IntegrationDialog({
   open,
   onOpenChange,
 }: IntegrationDialogProps) {
-  const [value, setValue] = useState('');
   const set = useSetSecret(teamId);
 
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
+  // What has been typed into each secret's field, until it is saved. Held here
+  // rather than per field, so one button at the bottom saves them together.
+  const [typed, setTyped] = useState<Record<string, string>>({});
 
-    if (value.trim()) {
-      set.mutate(
-        { name: integration.secret, value },
-        {
-          onSuccess: () => {
-            setValue('');
-            onOpenChange(false);
-          },
-        },
-      );
+  const pending = integration.secrets
+    .map((secret) => ({
+      name: secret.name,
+      value: (typed[secret.name] ?? '').trim(),
+    }))
+    .filter((each) => each.value.length > 0);
+
+  const save = async () => {
+    try {
+      for (const secret of pending) {
+        await set.mutateAsync({ name: secret.name, value: secret.value });
+      }
+      setTyped({});
+      onOpenChange(false);
+    } catch {
+      // Left open with the error shown, so nothing is lost to a closed dialog.
     }
   };
 
@@ -65,68 +74,145 @@ export function IntegrationDialog({
           </DialogTitle>
 
           <DialogDescription>
-            Point {integration.name} at this address and set the secret it signs
-            with. Nothing is listening until both are done.
+            Point {integration.name} at this address and set the secrets it
+            reads. Nothing is listening until they are done.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={submit} className="contents">
-          <div className="flex flex-col gap-4">
-            <Field label="Send deliveries to">
-              <Address address={integration.deliverTo} />
-            </Field>
+        <div className="flex flex-col gap-4">
+          <Field label="Send deliveries to">
+            <Address address={integration.deliverTo} />
+          </Field>
 
-            <Field label="Webhook secret">
-              {/* Takes a secret and does not give it back. Once set, the field
-                  is empty and says so: a row of dots would only suggest there
-                  were something to read. */}
-              <input
-                type="password"
-                value={value}
-                onChange={(event) => setValue(event.target.value)}
-                placeholder={
-                  integration.secretSet ? 'Replace' : 'Paste the webhook secret'
-                }
-                aria-label="Webhook secret"
-                autoComplete="off"
-                className="h-8 rounded-md border-[0.5px] border-border bg-background px-2.5 text-foreground text-sm outline-none placeholder:text-muted-foreground focus-visible:border-input"
-              />
-            </Field>
+          {integration.connectable && (
+            <ConnectField integration={integration} teamId={teamId} />
+          )}
 
-            {integration.happenings.length > 0 && (
-              <Field label="What it can wait for">
-                <div className="flex flex-wrap gap-1.5">
-                  {integration.happenings.map((raised) => (
-                    <Pill key={raised.happening}>{raised.label}</Pill>
-                  ))}
-                </div>
-              </Field>
-            )}
-          </div>
+          {integration.secrets.map((secret) => (
+            <SecretField
+              key={secret.name}
+              secret={secret}
+              value={typed[secret.name] ?? ''}
+              onChange={(value) =>
+                setTyped((held) => ({ ...held, [secret.name]: value }))
+              }
+              onEnter={save}
+            />
+          ))}
+
+          {integration.happenings.length > 0 && (
+            <Field label="What it can wait for">
+              <div className="flex flex-wrap gap-1.5">
+                {integration.happenings.map((raised) => (
+                  <Pill key={raised.happening}>{raised.label}</Pill>
+                ))}
+              </div>
+            </Field>
+          )}
 
           {set.error && (
             <p className="text-destructive text-xs">{set.error.message}</p>
           )}
+        </div>
 
-          <DialogFooter>
-            <DialogClose render={<Button variant="outline" size="sm" />}>
-              Cancel
-            </DialogClose>
-            <Button
-              type="submit"
-              size="sm"
-              disabled={set.isPending || value.trim().length === 0}
-            >
-              {set.isPending
-                ? 'Saving…'
-                : integration.secretSet
-                  ? 'Replace'
-                  : 'Save'}
-            </Button>
-          </DialogFooter>
-        </form>
+        <DialogFooter>
+          <Button size="sm" onClick={save} disabled={set.isPending}>
+            {set.isPending ? 'Saving…' : 'Save'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * The team's link to a host it authorizes rather than pastes a secret for.
+ * Connected, it says who the host took the team to be; not, it offers to begin.
+ */
+function ConnectField({
+  integration,
+  teamId,
+}: {
+  integration: ConfiguredIntegrationResponseDto;
+  teamId: string | undefined;
+}) {
+  const connect = useConnectIntegration(teamId);
+  const connection = integration.connection;
+
+  return (
+    <Field label={`Connection to ${integration.name}`}>
+      {connection ? (
+        <span className="flex h-8 items-center gap-2 rounded-md border-[0.5px] border-border bg-background px-2.5">
+          <Check className="size-3.5 text-emerald-600" aria-hidden />
+          <span className="min-w-0 flex-1 truncate text-foreground text-sm">
+            Connected{connection.handle ? ` as ${connection.handle}` : ''}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => connect.mutate(integration.source)}
+            disabled={connect.isPending}
+            className="bg-card"
+          >
+            {connect.isPending ? 'Opening…' : 'Reconnect'}
+          </Button>
+        </span>
+      ) : (
+        <div className="flex items-center gap-2">
+          <p className="flex-1 text-muted-foreground text-xs leading-5">
+            Authorize Spotlight to act as this team in {integration.name}.
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => connect.mutate(integration.source)}
+            disabled={connect.isPending}
+          >
+            {connect.isPending ? 'Opening…' : `Connect to ${integration.name}`}
+          </Button>
+        </div>
+      )}
+      {connect.error && (
+        <p className="text-destructive text-xs">{connect.error.message}</p>
+      )}
+    </Field>
+  );
+}
+
+/** One secret the host reads: set once, replaceable, never read back. */
+function SecretField({
+  secret,
+  value,
+  onChange,
+  onEnter,
+}: {
+  secret: ConfiguredSecretResponseDto;
+  value: string;
+  onChange: (value: string) => void;
+  onEnter: () => void;
+}) {
+  return (
+    <Field label={secret.name}>
+      {/* Takes a secret and does not give it back. Once set, the field is
+          empty and says so: a row of dots would only suggest there were
+          something to read. */}
+      <input
+        type="password"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            onEnter();
+          }
+        }}
+        placeholder={secret.set ? 'Paste to replace' : 'Paste the secret'}
+        aria-label={secret.name}
+        autoComplete="off"
+        className="h-8 w-full rounded-md border-[0.5px] border-border bg-background px-2.5 text-foreground text-sm outline-none placeholder:text-muted-foreground focus-visible:border-input"
+      />
+    </Field>
   );
 }
 

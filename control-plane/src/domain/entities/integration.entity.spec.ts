@@ -1,21 +1,11 @@
 import { DeclaredHappening } from '@domain/entities/declared-happening.entity';
 import { Integration } from '@domain/entities/integration.entity';
-import { InvalidIntegrationError } from '@domain/exceptions/invalid-integration.error';
 import { Happening } from '@domain/value-objects/happening.vo';
 import { MarkKind } from '@domain/value-objects/mark-kind.vo';
-import { SecretName } from '@domain/value-objects/secret-name.vo';
-import { Signing } from '@domain/value-objects/signing.vo';
 import { SourceKey } from '@domain/value-objects/source-key.vo';
 import { describe, expect, it } from 'vitest';
 
 const LINEAR = SourceKey.of('linear');
-
-const signing = () =>
-  Signing.of({
-    scheme: 'hmac-sha256',
-    header: 'Linear-Signature',
-    secret: SecretName.of('LINEAR_WEBHOOK_SECRET'),
-  });
 
 const declared = (happening: string, label = 'Issue completed') =>
   DeclaredHappening.of({
@@ -26,7 +16,7 @@ const declared = (happening: string, label = 'Issue completed') =>
   });
 
 const integration = (declares = [declared('linear.issue.completed')]) =>
-  Integration.of({ source: LINEAR, signing: signing(), declares });
+  Integration.of({ source: LINEAR, declares });
 
 describe('Integration', () => {
   it('holds the words its host can raise', () => {
@@ -45,15 +35,14 @@ describe('Integration', () => {
       Integration.of({
         source: LINEAR,
         name: 'Linear',
-        signing: signing(),
         declares: [declared('linear.issue.completed')],
       }).name,
     ).toBe('Linear');
   });
 
-  // A host that raises nothing is one nobody could wait on.
-  it('refuses one that raises no words at all', () => {
-    expect(() => integration([])).toThrow(InvalidIntegrationError);
+  // A host may only act (post messages) and raise nothing at all.
+  it('allows one that raises no words', () => {
+    expect(integration([]).declares).toHaveLength(0);
   });
 
   // A file raising another host's words would have stations waiting on

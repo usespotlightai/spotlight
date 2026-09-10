@@ -6,34 +6,13 @@ import {
 import { SetSecretCommand } from '@application/commands/set-secret.command';
 import { UseCaseFault } from '@application/errors/use-case.fault';
 import type { TeamSecretsPort } from '@application/ports/team-secrets.port';
-import type { WorkspaceReaderPort } from '@application/ports/workspace-reader.port';
-import { Workspace } from '@domain/aggregates/workspace.aggregate';
-import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
-import { UserId } from '@domain/value-objects/user-id.vo';
-import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
-import { WorkspaceName } from '@domain/value-objects/workspace-name.vo';
-import type { WorkspaceRole } from '@domain/value-objects/workspace-role';
-import { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
+import type { ConnectionAuthorization } from '@application/services/connection-authorization.service';
+import type { Workspace } from '@domain/aggregates/workspace.aggregate';
 import { describe, expect, it, vi } from 'vitest';
 
-const acme = (role: WorkspaceRole = 'owner', user = 'user_1') =>
-  Workspace.rehydrate({
-    id: WorkspaceId.of('ws_1'),
-    name: WorkspaceName.of('Acme'),
-    slug: WorkspaceSlug.of('acme'),
-    // The viewer under test wears `role`; an owner is always in the room too,
-    // because a workspace never loses its last one and the guard now says so.
-    members:
-      role === 'owner'
-        ? [{ userId: UserId.of(user), role: 'owner' }]
-        : [
-            { userId: UserId.of('owner_1'), role: 'owner' },
-            { userId: UserId.of(user), role },
-          ],
-    teams: [],
-  });
-
-const setting = (over: { workspace?: Workspace | null } = {}) => {
+// The role logic lives in ConnectionAuthorization, tested there; here it is only
+// whether the gate opens.
+const setting = (over: { allowed?: boolean } = {}) => {
   const secrets = {
     set: vi.fn(async () => {}),
     forget: vi.fn(async () => {}),
@@ -41,25 +20,16 @@ const setting = (over: { workspace?: Workspace | null } = {}) => {
     held: vi.fn(),
   } as unknown as TeamSecretsPort;
 
-  const teams = {
-    findTeamForMember: vi.fn(async () => ({
-      workspaceId: 'ws_1',
-      teamId: 'team_1',
-      teamKey: 'platform',
-      slug: 'acme',
-    })),
-  } as unknown as WorkspaceReaderPort;
-
-  const workspaces = {
-    findBySlug: vi.fn(async () =>
-      over.workspace === undefined ? acme() : over.workspace,
+  const authorization = {
+    connectableBy: vi.fn(async () =>
+      over.allowed === false ? null : ({} as Workspace),
     ),
-  } as unknown as WorkspaceRepository;
+  } as unknown as ConnectionAuthorization;
 
   return {
     secrets,
-    set: new SetSecretHandler(workspaces, teams, secrets),
-    forget: new ForgetSecretHandler(workspaces, teams, secrets),
+    set: new SetSecretHandler(authorization, secrets),
+    forget: new ForgetSecretHandler(authorization, secrets),
   };
 };
 
@@ -78,35 +48,11 @@ describe('SetSecretHandler', () => {
     );
   });
 
-  // Someone outside it is not told a workspace is there at all.
-  it('sets nothing where the caller is not of the workspace', async () => {
-    const { set, secrets } = setting({ workspace: acme('owner', 'someone') });
+  it('sets nothing where the caller may not connect the host', async () => {
+    const { set, secrets } = setting({ allowed: false });
 
     expect(await set.execute(command())).toBe(false);
     expect(secrets.set).not.toHaveBeenCalled();
-  });
-
-  it('sets nothing where there is no such workspace', async () => {
-    const { set, secrets } = setting({ workspace: null });
-
-    expect(await set.execute(command())).toBe(false);
-    expect(secrets.set).not.toHaveBeenCalled();
-  });
-
-  // A secret stands in for a session at a door anybody can knock at, so who
-  // may set one is who may connect a host.
-  it('refuses a member who is neither owner nor admin', async () => {
-    const { set, secrets } = setting({ workspace: acme('member') });
-
-    expect(await set.execute(command())).toBe(false);
-    expect(secrets.set).not.toHaveBeenCalled();
-  });
-
-  it('lets an admin set one', async () => {
-    const { set, secrets } = setting({ workspace: acme('admin') });
-
-    expect(await set.execute(command())).toBe(true);
-    expect(secrets.set).toHaveBeenCalled();
   });
 
   // Empty is not a secret; forgetting one is its own thing to ask for.
@@ -138,8 +84,8 @@ describe('ForgetSecretHandler', () => {
     expect(secrets.forget).toHaveBeenCalled();
   });
 
-  it('forgets nothing for a member who may not set one either', async () => {
-    const { forget, secrets } = setting({ workspace: acme('member') });
+  it('forgets nothing for a caller who may not connect the host', async () => {
+    const { forget, secrets } = setting({ allowed: false });
 
     expect(
       await forget.execute(

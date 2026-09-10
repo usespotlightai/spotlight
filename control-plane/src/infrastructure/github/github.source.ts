@@ -166,7 +166,7 @@ export class GitHubSource implements WebhookSourcePort {
     private readonly workspaces: WorkspaceConnections,
   ) {}
 
-  verifies(delivered: Delivered): boolean {
+  async verifies(delivered: Delivered): Promise<boolean> {
     return (
       delivered.raw !== null &&
       this.signature.signs(
@@ -243,7 +243,7 @@ export class GitHubSource implements WebhookSourcePort {
     return touched ? [{ kind: 'configuration-touched', repository }] : [];
   }
 
-  read(delivered: Delivered): readonly Happened[] {
+  async read(delivered: Delivered): Promise<readonly Happened[]> {
     const event = headed(delivered.headers, 'x-github-event');
     const body = (delivered.body ?? {}) as Delivery;
     const happening = this.happening(event, body);

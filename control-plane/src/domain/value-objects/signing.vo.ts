@@ -1,8 +1,16 @@
 import { InvalidIdentifierError } from '@domain/exceptions/invalid-identifier.error';
 import type { SecretName } from '@domain/value-objects/secret-name.vo';
 
-/** The only scheme Spotlight verifies by, named so a file has to say it. */
-export const SIGNING_SCHEMES = ['hmac-sha256'] as const;
+/**
+ * How a host signs: an HMAC over a base string, or a shared `token` sent whole
+ * in a header. Named so a file has to say which.
+ */
+export const SIGNING_SCHEMES = [
+  'hmac-sha256',
+  'hmac-sha1',
+  'hmac-sha512',
+  'token',
+] as const;
 
 export type SigningScheme = (typeof SIGNING_SCHEMES)[number];
 

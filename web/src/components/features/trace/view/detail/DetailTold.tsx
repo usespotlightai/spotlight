@@ -1,5 +1,6 @@
 import { DetailFields } from '@/components/features/trace/view/detail/DetailFields';
 import { DetailSection } from '@/components/features/trace/view/detail/DetailSection';
+import { CodeBlock } from '@/components/shared/CodeBlock';
 import { shaped, type Told } from '@/lib/detail';
 
 export function DetailTold({ told }: { told: Told }) {
@@ -13,10 +14,10 @@ export function DetailTold({ told }: { told: Told }) {
         <p className="whitespace-pre-wrap break-words text-foreground/80 text-xs leading-5">
           {told.body}
         </p>
+      ) : told.command ? (
+        <CodeBlock command={told.body} />
       ) : (
-        <pre className="overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-foreground/80 text-xs leading-5">
-          {told.body}
-        </pre>
+        <CodeBlock output={told.body} />
       )}
     </DetailSection>
   );

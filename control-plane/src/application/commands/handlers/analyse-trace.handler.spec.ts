@@ -14,7 +14,6 @@ import { Station } from '@domain/entities/station.entity';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import type { TeamRepository } from '@domain/repositories/team.repository';
-import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
 import { Placement } from '@domain/services/placement';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
@@ -119,14 +118,6 @@ const lines = (ofTeam: AssemblyLine[]) =>
     ),
   }) satisfies AssemblyLineRepository;
 
-const configurations = (repository: string | null) =>
-  ({
-    findFor: vi.fn(async () =>
-      repository ? ({ repository: { value: repository } } as never) : null,
-    ),
-    save: vi.fn(),
-  }) as unknown as TeamConfigurationRepository;
-
 const dispatch: TaskDispatching = {
   dispatch: async () => RunId.of('run_1'),
 };
@@ -135,13 +126,11 @@ const handler = (over: {
   found?: Task | null;
   ofTeam?: AssemblyLine[];
   holds?: boolean;
-  repository?: string | null;
 }) =>
   new AnalyseTraceHandler(
     tasks(over.found ?? traced()),
     lines(over.ofTeam ?? [improvementLine()]),
     teams(over.holds ?? true),
-    configurations(over.repository ?? null),
     ids,
     clock,
     new RaiseTask(tasks(null), dispatch, transaction),
@@ -165,14 +154,6 @@ describe('AnalyseTraceHandler', () => {
     // At the line's entry — the first station work is done at.
     expect(added?.stationId).toEqual(StationId.of('station_analysis'));
     expect(added?.workspaceId).toEqual(WorkspaceId.of('ws_1'));
-  });
-
-  it('points the task at the configured repository', async () => {
-    await handler({ repository: 'usespotlightai/spotlight' }).execute(
-      command(),
-    );
-
-    expect(added?.repository?.value).toBe('usespotlightai/spotlight');
   });
 
   it('does nothing where the team has no improvement line', async () => {

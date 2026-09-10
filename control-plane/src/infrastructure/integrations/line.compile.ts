@@ -6,6 +6,7 @@ import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { LineKey } from '@domain/value-objects/line-key.vo';
 import { LinePlan } from '@domain/value-objects/line-plan.vo';
 import { LineRole } from '@domain/value-objects/line-role.vo';
+import { Repository } from '@domain/value-objects/repository.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationDescription } from '@domain/value-objects/station-description.vo';
 import { StationKey } from '@domain/value-objects/station-key.vo';
@@ -103,6 +104,38 @@ export const compileLine = (path: string, text: string): CompiledLine => {
     }
   }
 
+  const names = new Set<string>();
+
+  for (const [at, named] of file.repositories.entries()) {
+    let repository: Repository;
+
+    try {
+      repository = Repository.of(named);
+    } catch (error) {
+      problems.push(
+        ConfigurationProblem.of({
+          path,
+          at: `repositories.${at}`,
+          reason: reasoned(error),
+        }),
+      );
+      continue;
+    }
+
+    // The name is the directory a repository is cloned into and the key it is
+    // reached by, so two sharing one would collide.
+    if (names.has(repository.name)) {
+      problems.push(
+        ConfigurationProblem.of({
+          path,
+          at: `repositories.${at}`,
+          reason: `names ${repository.name} a second time, and each is cloned into a directory of its own name`,
+        }),
+      );
+    }
+    names.add(repository.name);
+  }
+
   if (problems.length > 0) {
     return { ok: false, problems };
   }
@@ -135,6 +168,7 @@ export const compileLine = (path: string, text: string): CompiledLine => {
           to: StationKey.of(reaction.to),
         })),
         role: file.role ? LineRole.of(file.role) : null,
+        repositories: file.repositories.map((each) => Repository.of(each)),
       }),
     };
   } catch (error) {

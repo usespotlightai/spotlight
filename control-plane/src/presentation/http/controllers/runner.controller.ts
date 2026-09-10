@@ -280,7 +280,15 @@ export class RunnerController {
     const opened = await this.commandBus.execute<
       OpenPullRequestCommand,
       OpenedPullRequestDto
-    >(new OpenPullRequestCommand(runId, runnerId, body.title, body.body ?? ''));
+    >(
+      new OpenPullRequestCommand(
+        runId,
+        runnerId,
+        body.title,
+        body.body ?? '',
+        body.repository ?? null,
+      ),
+    );
 
     return new OpenedPullRequestResponseDto(opened.url);
   }

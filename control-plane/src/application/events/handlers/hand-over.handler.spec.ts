@@ -1,5 +1,8 @@
 import { HandOver } from '@application/events/handlers/hand-over.handler';
 import type { ClockPort } from '@application/ports/clock.port';
+import type { OutboundTaskNotifierPort } from '@application/ports/outbound-task-notifier.port';
+import { SilentTaskNotifier } from '@application/ports/outbound-task-notifier.port';
+import { AnnounceTaskEvents } from '@application/services/announce-task-events';
 import type { TaskDispatching } from '@application/services/task-dispatch';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Run } from '@domain/aggregates/run.aggregate';
@@ -16,6 +19,7 @@ import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { HandoverReport } from '@domain/value-objects/handover-report.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { HarnessSession } from '@domain/value-objects/harness-session.vo';
+import { Mark } from '@domain/value-objects/mark.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { RunOutcome } from '@domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@domain/value-objects/run-spec.vo';
@@ -149,8 +153,10 @@ const dispatch: TaskDispatching = {
   dispatch: async () => RunId.of('run_2'),
 };
 
+const announce = new AnnounceTaskEvents(new SilentTaskNotifier(), tasks());
+
 const handOver = (ended = run(false), held: TaskRepository = tasks()) => {
-  const handler = new HandOver(held, lines(), dispatch, clock);
+  const handler = new HandOver(held, lines(), dispatch, clock, announce);
   const [raised] = ended.pullEvents();
 
   if (!raised) {
@@ -260,5 +266,40 @@ describe('HandOver', () => {
     await handOver();
 
     expect(saved?.sessionId).toBeNull();
+  });
+
+  // The ask save moves the task on; a mark the notifier hands back must land on
+  // the task read back after it, not the copy we still held — otherwise the
+  // second save writes over a stale version and the whole hand-over rolls back.
+  it('records a returned mark onto the task read back, not the stale copy', async () => {
+    const saves: Task[] = [];
+    const moved = task().markedBy(Mark.of('test.moved-on', 'yes'));
+    const reads = [task(), moved];
+
+    const repo = {
+      ...tasks(),
+      save: vi.fn(async (each: Task) => {
+        saves.push(each);
+      }),
+      find: vi.fn(async () => reads.shift() ?? moved),
+    } as unknown as TaskRepository;
+
+    const speaking: OutboundTaskNotifierPort = {
+      notify: async () => [Mark.of('slack.thread', '170.9')],
+    };
+
+    const [raised] = run(false).pullEvents();
+    await new HandOver(
+      repo,
+      lines(),
+      dispatch,
+      clock,
+      new AnnounceTaskEvents(speaking, repo),
+    ).onRunCompleted(raised as RunCompleted);
+
+    const last = saves[saves.length - 1];
+    expect(last?.marks.map((each) => each.kind)).toEqual(
+      expect.arrayContaining(['test.moved-on', 'slack.thread']),
+    );
   });
 });

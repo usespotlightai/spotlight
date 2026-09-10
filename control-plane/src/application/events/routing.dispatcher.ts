@@ -1,4 +1,4 @@
-import type { SeedOnConnection } from '@application/events/handlers/seed-on-connection.handler';
+import type { SettleOnConnection } from '@application/events/handlers/settle-on-connection.handler';
 import type { DomainEventDispatcher } from '@application/ports/domain-event-dispatcher.port';
 import type { FactoryProvisioningPort } from '@application/ports/factory-provisioning.port';
 import type { LoggerPort } from '@application/ports/logger.port';
@@ -6,6 +6,7 @@ import type { RunnerRevocationPort } from '@application/ports/runner-revocation.
 import type { TransactionPort } from '@application/ports/transaction.port';
 import type { RunOutcomes } from '@application/services/run-outcomes';
 import type { DomainEvent } from '@domain/events/domain-event';
+import { HostConnected } from '@domain/events/host-connected.event';
 import { RunAbandoned } from '@domain/events/run-abandoned.event';
 import { RunCompleted } from '@domain/events/run-completed.event';
 import { RunStopRequested } from '@domain/events/run-stop-requested.event';
@@ -20,7 +21,7 @@ export class RoutingDispatcher implements DomainEventDispatcher {
     private readonly outcomes: RunOutcomes,
     private readonly provisioning: FactoryProvisioningPort,
     private readonly revocation: RunnerRevocationPort,
-    private readonly seeding: SeedOnConnection,
+    private readonly settling: SettleOnConnection,
     private readonly transaction: TransactionPort,
     private readonly logger: LoggerPort,
   ) {}
@@ -50,7 +51,7 @@ export class RoutingDispatcher implements DomainEventDispatcher {
       case 'team.created':
         return this.provisioning.onTeamCreated(known);
       case 'workspace.connected':
-        return this.seeding.onWorkspaceConnected(known);
+        return this.settling.onWorkspaceConnected(known);
       case 'runner.revoked':
         return this.revocation.onRunnerRevoked(known);
       case 'task.finished':
@@ -60,6 +61,10 @@ export class RoutingDispatcher implements DomainEventDispatcher {
       case 'run.stop_requested':
         // No subscriber; the runner acts on it by asking, not by being told.
         this.logger.debug({ event: known.kind }, 'A run was asked to stop');
+        return;
+      case 'host.connected':
+        // No subscriber yet; recorded for the trail only.
+        this.logger.debug({ event: known.kind }, 'A host was connected');
         return;
       default:
         this.logger.warn(
@@ -76,5 +81,6 @@ type Routable =
   | RunStopRequested
   | TeamCreated
   | WorkspaceConnected
+  | HostConnected
   | RunnerRevoked
   | TaskFinished;

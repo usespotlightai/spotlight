@@ -85,6 +85,31 @@ const reaching = (station: Station | null): string | null => {
   return told.length > 0 ? told.join('\n\n') : null;
 };
 
+/** Tells the agent which repositories are checked out, and to pick which apply. */
+const workspaceOf = (line: AssemblyLine): string | null => {
+  const repositories = line.repositories.all;
+
+  if (repositories.length === 0) {
+    return null;
+  }
+
+  const listed = repositories
+    .map((each) => `- \`${each.name}/\` — ${each.value}`)
+    .join('\n');
+
+  return repositories.length === 1
+    ? [
+        '## The workspace',
+        `The repository is checked out in:\n\n${listed}`,
+      ].join('\n\n')
+    : [
+        '## The workspace',
+        'These repositories are checked out side by side, each in its own directory:',
+        listed,
+        'Work out which one (or ones) your change belongs in. When you open a pull request, name the repository with `spotlight pull-request --repository <name>`.',
+      ].join('\n\n');
+};
+
 export const TaskBriefing = {
   brief(input: { task: Task; line: AssemblyLine }): string {
     const station = input.line.stationAt(input.task.stationId);
@@ -97,6 +122,7 @@ export const TaskBriefing = {
       `## ${input.task.title.value}`,
       input.task.description?.value,
       notes.length > 0 ? ['## Already done', ...notes].join('\n\n') : null,
+      workspaceOf(input.line),
       reaching(station),
       answering(input.task),
       closing(input.line, input.task.stationId),

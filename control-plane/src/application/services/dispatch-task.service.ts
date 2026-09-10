@@ -25,15 +25,11 @@ const written = (
   naming: string,
 ): RunSpecShape =>
   RunSpecContract.of({
-    checkouts: order.repository
-      ? [
-          {
-            remote: THROUGH_SPOTLIGHT,
-            path: order.repository.name,
-            branch: order.branch,
-          },
-        ]
-      : undefined,
+    checkouts: order.repositories.map((repository) => ({
+      remote: THROUGH_SPOTLIGHT,
+      path: repository.name,
+      branch: order.branch,
+    })),
     command: order.harness.command.started({ [TRACE_PARENT_VAR]: naming }),
     briefing,
     handover: { options: order.options, noteLimit: order.noteLimit },

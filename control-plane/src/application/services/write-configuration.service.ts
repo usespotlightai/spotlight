@@ -2,12 +2,10 @@ import type {
   OpenedPullRequestDto,
   PullRequestPort,
 } from '@application/ports/pull-request.port';
+import type { ConfigurationTarget } from '@application/services/configuration-target.service';
 import type { Team } from '@domain/aggregates/team.aggregate';
 import type { Workspace } from '@domain/aggregates/workspace.aggregate';
-import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
 import type { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
-import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
-import { Repository } from '@domain/value-objects/repository.vo';
 
 export interface Writing {
   readonly branch: string;
@@ -18,13 +16,10 @@ export interface Writing {
   readonly removes?: readonly string[];
 }
 
-/**
- * Everything Spotlight writes goes this way, so there is one answer to where
- * configuration is written and one place it can go wrong.
- */
+/** Everything Spotlight writes to a team's configuration goes this way. */
 export class WriteConfiguration {
   constructor(
-    private readonly configurations: TeamConfigurationRepository,
+    private readonly target: ConfigurationTarget,
     private readonly pullRequests: PullRequestPort,
   ) {}
 
@@ -34,25 +29,21 @@ export class WriteConfiguration {
     team: Team,
     writing: Writing,
   ): Promise<OpenedPullRequestDto | null> {
-    const installation = GitHubInstallation.from(
-      workspace.connectionTo(GitHubInstallation.SOURCE),
-    );
-
     const removes = writing.removes ?? [];
 
-    if (!installation || writing.files.length + removes.length === 0) {
+    if (writing.files.length + removes.length === 0) {
       return null;
     }
 
-    const into = await this.into(team);
+    const into = await this.target.of(workspace, team);
 
     if (!into) {
       return null;
     }
 
     return this.pullRequests.propose({
-      installation,
-      repository: into,
+      installation: into.installation,
+      repository: into.repository,
       branch: writing.branch,
       title: writing.title,
       body: writing.body,
@@ -63,12 +54,5 @@ export class WriteConfiguration {
       })),
       removes,
     });
-  }
-
-  /** Where it was last read from, or the one pinned before any reading. */
-  private async into(team: Team): Promise<Repository | null> {
-    const applied = await this.configurations.findFor(team.id);
-
-    return applied?.repository ?? team.configRepository ?? null;
   }
 }

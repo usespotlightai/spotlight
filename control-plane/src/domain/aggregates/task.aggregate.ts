@@ -1,6 +1,9 @@
 import { EventRecorder } from '@domain/aggregates/event-recorder';
 import type { Station } from '@domain/entities/station.entity';
+import { PullRequestOpened } from '@domain/events/pull-request-opened.event';
+import { TaskAsked } from '@domain/events/task-asked.event';
 import { TaskFinished } from '@domain/events/task-finished.event';
+import { TaskOpened } from '@domain/events/task-opened.event';
 import { InconsistentStateError } from '@domain/exceptions/inconsistent-state.error';
 import { InvalidTaskTransitionError } from '@domain/exceptions/invalid-task-transition.error';
 import { ContinuityKey } from '@domain/services/continuity-key';
@@ -13,7 +16,6 @@ import { Mark } from '@domain/value-objects/mark.vo';
 import { NotePosition } from '@domain/value-objects/note-position.vo';
 import type { PullRequestUrl } from '@domain/value-objects/pull-request-url.vo';
 import type { Remark } from '@domain/value-objects/remark.vo';
-import type { Repository } from '@domain/value-objects/repository.vo';
 import type { RunId } from '@domain/value-objects/run-id.vo';
 import type { RunnerId } from '@domain/value-objects/runner-id.vo';
 import type { Said } from '@domain/value-objects/said.vo';
@@ -67,8 +69,6 @@ export class Task extends EventRecorder {
     readonly createdAt: Date,
     readonly raisedAt: StationId | null,
     readonly raisedBy: UserId | null,
-    // Told to the runner as somewhere to reach, never as something to open.
-    readonly repository: Repository | null,
     readonly pullRequest: PullRequestUrl | null,
     // Every handle the world outside knows it by, so a delivery naming one
     // of them finds it without anybody adding a way to look it up.
@@ -91,13 +91,12 @@ export class Task extends EventRecorder {
     rank: TaskRank;
     /** Null where nobody raised it: a word from outside opened it, not a person. */
     raisedBy?: UserId | null;
-    repository?: Repository | null;
     now: Date;
     newId: () => string;
   }): Task {
     const raisedBy = input.raisedBy ?? null;
 
-    return new Task(
+    const task = new Task(
       TaskId.of(input.newId()),
       input.workspaceId,
       input.stationId,
@@ -111,7 +110,6 @@ export class Task extends EventRecorder {
       input.now,
       input.stationId,
       raisedBy,
-      input.repository ?? null,
       null,
       [],
       null,
@@ -119,6 +117,10 @@ export class Task extends EventRecorder {
       // outside opened is owned by nobody until somebody takes it.
       raisedBy,
     );
+
+    task.record(new TaskOpened(task.id, task.workspaceId, task.stationId));
+
+    return task;
   }
 
   static rehydrate(input: {
@@ -135,7 +137,6 @@ export class Task extends EventRecorder {
     createdAt: Date;
     raisedAt: StationId | null;
     raisedBy: UserId | null;
-    repository: Repository | null;
     pullRequest: PullRequestUrl | null;
     marks?: readonly Mark[];
     finishedAt: Date | null;
@@ -163,7 +164,6 @@ export class Task extends EventRecorder {
       input.createdAt,
       input.raisedAt,
       input.raisedBy,
-      input.repository,
       input.pullRequest,
       input.marks ?? [],
       input.finishedAt,
@@ -234,20 +234,22 @@ export class Task extends EventRecorder {
     return this.assignee ? this : this.with({ assignee: userId });
   }
 
-  /** The repository a run works this task in, or none. */
-  worksIn(repository: Repository | null): Task {
-    return this.with({ repository });
-  }
-
   get branch(): Branch {
     return Branch.for(this.id);
   }
 
   /** Opened once: asking again keeps the one already open. */
   openedAt(url: PullRequestUrl): Task {
-    return this.pullRequest
-      ? this
-      : this.markedBy(Mark.pullRequest(url)).with({ pullRequest: url });
+    if (this.pullRequest) {
+      return this;
+    }
+
+    const opened = this.markedBy(Mark.pullRequest(url)).with({
+      pullRequest: url,
+    });
+    opened.record(new PullRequestOpened(opened.id, opened.workspaceId, url));
+
+    return opened;
   }
 
   /**
@@ -458,13 +460,24 @@ export class Task extends EventRecorder {
       );
     }
 
-    return this.with({
+    const asked = this.with({
       currentRunId: null,
       // Put to a person is put to an owner: whoever it is already assigned to,
       // or else whoever raised it. An inbox is the assignee's.
       assignee: this.assignee ?? this.raisedBy,
       ...this.spoke(saying, 'asked'),
     });
+
+    asked.record(
+      new TaskAsked(
+        asked.id,
+        asked.workspaceId,
+        asked.stationId,
+        asked.assignee,
+      ),
+    );
+
+    return asked;
   }
 
   /** It stays where it is, so the run that follows takes the conversation up. */
@@ -504,13 +517,12 @@ export class Task extends EventRecorder {
     sessionId?: HarnessSession | null;
     runnerId?: RunnerId | null;
     notes?: readonly TaskNote[];
-    repository?: Repository | null;
     pullRequest?: PullRequestUrl | null;
     marks?: readonly Mark[];
     finishedAt?: Date | null;
     assignee?: UserId | null;
   }): Task {
-    return new Task(
+    const next = new Task(
       this.id,
       this.workspaceId,
       part.stationId ?? this.stationId,
@@ -524,7 +536,6 @@ export class Task extends EventRecorder {
       this.createdAt,
       this.raisedAt,
       this.raisedBy,
-      part.repository !== undefined ? part.repository : this.repository,
       part.pullRequest !== undefined ? part.pullRequest : this.pullRequest,
       part.marks ?? this.marks,
       part.finishedAt !== undefined ? part.finishedAt : this.finishedAt,
@@ -532,6 +543,10 @@ export class Task extends EventRecorder {
       // Carried, never raised here: moving it on is the writing's to do.
       this.version,
     );
+
+    next.inheritEvents(this);
+
+    return next;
   }
 
   equals(other: Task): boolean {
