@@ -86,9 +86,15 @@ export class HandOver implements RunOutcomes {
         const kept = await this.notifier.onAsked(task);
 
         if (kept.length > 0) {
-          await this.tasks.save(
-            kept.reduce((held, mark) => held.markedBy(mark), task),
-          );
+          // Read the task back before recording: the save above moved it on, so
+          // marking the copy we still hold would be writing over a stale one.
+          const held = await this.tasks.find(task.id);
+
+          if (held) {
+            await this.tasks.save(
+              kept.reduce((task, mark) => task.markedBy(mark), held),
+            );
+          }
         }
       }
     }

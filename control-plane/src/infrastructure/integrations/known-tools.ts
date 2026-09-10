@@ -165,6 +165,20 @@ webhook:
             find: false
             value: '\${{ body.event.channel }}'
 
+    - when: '\${{ body.event.type == "message" && has(body.event.thread_ts) && !has(body.event.subtype) }}'
+      raise:
+        happening: slack.message.replied
+        label: Replied in Slack
+        told: Replied in a Slack thread.
+        spoken: true
+        say: '\${{ body.event.text }}'
+        marks:
+          - kind: slack.thread
+            value: '\${{ body.event.thread_ts }}'
+          - kind: slack.channel
+            find: false
+            value: '\${{ body.event.channel }}'
+
 actions:
   post-message:
     request:
