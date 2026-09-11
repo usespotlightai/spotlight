@@ -1,9 +1,13 @@
 import type { LineReaderPort } from '@application/ports/line-reader.port';
-import type { PullRequestPort } from '@application/ports/pull-request.port';
 import type { RepositoryContentsPort } from '@application/ports/repository-contents.port';
+import { ConfigurationTarget } from '@application/services/configuration-target.service';
+import { HeldConfiguration } from '@application/services/held-configuration.service';
 import { SeedConfiguration } from '@application/services/seed-configuration.service';
+import type { WriteConfiguration } from '@application/services/write-configuration.service';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import { CONFIGURATION_BRANCH } from '@domain/aggregates/team-configuration.aggregate';
 import { Workspace } from '@domain/aggregates/workspace.aggregate';
+import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
 import {
   BUILT_IN_LINES,
   type LineOpening,
@@ -60,15 +64,10 @@ const workspace = (connected = true) => {
 
 const seeding = (
   over: {
-    lines?: readonly AssemblyLine[];
     already?: readonly { path: string; text: string }[];
     head?: string | null;
   } = {},
 ) => {
-  const propose = vi.fn(async () => ({
-    url: 'https://github.com/acme/api/pull/1',
-  }));
-
   const contents = {
     headOf: vi.fn(async () =>
       over.head === undefined ? 'a1b2c3d' : over.head,
@@ -77,67 +76,70 @@ const seeding = (
     read: vi.fn(async () => null),
   } as unknown as RepositoryContentsPort;
 
-  const service = new SeedConfiguration(reader, contents, {
-    propose,
-    open: vi.fn(),
-  } as unknown as PullRequestPort);
+  const writeInto = vi.fn(async () => ({
+    url: 'https://github.com/acme/api/pull/1',
+  }));
 
-  return { service, propose, lines: over.lines ?? [line()] };
+  return {
+    writeInto,
+    service: new SeedConfiguration(
+      reader,
+      new ConfigurationTarget({} as TeamConfigurationRepository),
+      new HeldConfiguration(contents),
+      { writeInto } as unknown as WriteConfiguration,
+    ),
+  };
 };
 
 describe('SeedConfiguration', () => {
-  it('opens a pull request carrying the lines it is given', async () => {
-    const { service, propose, lines } = seeding();
+  it('opens a pull request carrying one file for each line', async () => {
+    const { service, writeInto } = seeding();
 
-    expect(await service.seed(workspace(), INTO, lines)).toEqual({
+    expect(await service.seed(workspace(), INTO, [line()])).toEqual({
       url: 'https://github.com/acme/api/pull/1',
     });
-    expect(propose).toHaveBeenCalledTimes(1);
-  });
 
-  it('writes one file for each line, where that line is read from', async () => {
-    const { service, propose, lines } = seeding();
-
-    await service.seed(workspace(), INTO, lines);
-
-    const [proposal] = propose.mock.calls[0] as never as [
-      { files: { path: string; text: string }[] },
+    const [into, writing] = writeInto.mock.calls[0] as never as [
+      { repository: Repository },
+      { branch: string; title: string; files: ConfigurationFile[] },
     ];
-
-    expect(proposal.files.map((each) => each.path)).toEqual([
+    expect(into.repository).toEqual(INTO);
+    expect(writing.branch).toBe(CONFIGURATION_BRANCH);
+    expect(writing.title).toBe('Set up Spotlight');
+    expect(writing.files.map((each) => each.path)).toEqual([
       '.spotlight/lines/delivery.yml',
     ]);
-    expect(proposal.files[0]?.text).toContain('version: 1');
+    expect(writing.files[0]?.text).toContain('version: 1');
   });
 
   // Opening a pull request over somebody's own files is not a welcome.
   it('writes nothing where the repository already has configuration', async () => {
-    const { service, propose, lines } = seeding({
+    const { service, writeInto } = seeding({
       already: [{ path: '.spotlight/lines/delivery.yml', text: 'version: 1' }],
     });
 
-    expect(await service.seed(workspace(), INTO, lines)).toBeNull();
-    expect(propose).not.toHaveBeenCalled();
+    expect(await service.seed(workspace(), INTO, [line()])).toBeNull();
+    expect(writeInto).not.toHaveBeenCalled();
   });
 
   it('writes nothing where the workspace reaches no host', async () => {
-    const { service, propose, lines } = seeding();
+    const { service, writeInto } = seeding();
 
-    expect(await service.seed(workspace(false), INTO, lines)).toBeNull();
-    expect(propose).not.toHaveBeenCalled();
+    expect(await service.seed(workspace(false), INTO, [line()])).toBeNull();
+    expect(writeInto).not.toHaveBeenCalled();
   });
 
   it('writes nothing where the repository stands nowhere', async () => {
-    const { service, propose, lines } = seeding({ head: null });
+    const { service, writeInto } = seeding({ head: null });
 
-    expect(await service.seed(workspace(), INTO, lines)).toBeNull();
-    expect(propose).not.toHaveBeenCalled();
+    expect(await service.seed(workspace(), INTO, [line()])).toBeNull();
+    expect(writeInto).not.toHaveBeenCalled();
   });
 
   it('writes nothing where it is given no lines', async () => {
-    const { service, propose } = seeding();
+    const { service, writeInto } = seeding();
 
     expect(await service.seed(workspace(), INTO, [])).toBeNull();
-    expect(propose).not.toHaveBeenCalled();
+    expect(writeInto).not.toHaveBeenCalled();
   });
 });

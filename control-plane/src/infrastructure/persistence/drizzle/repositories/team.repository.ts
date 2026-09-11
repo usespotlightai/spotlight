@@ -20,6 +20,7 @@ interface Row {
   readonly key: string;
   readonly name: string;
   readonly configRepository: string | null;
+  readonly configMovingTo: string | null;
 }
 
 @Injectable()
@@ -50,6 +51,7 @@ export class DrizzleTeamRepository implements TeamRepository {
         key: saved.key.value,
         name: saved.name.value,
         configRepository: saved.configRepository?.value ?? null,
+        configMovingTo: saved.movingConfigurationTo?.value ?? null,
       })
       .where(eq(team.id, saved.id.value));
   }
@@ -98,6 +100,8 @@ export class DrizzleTeamRepository implements TeamRepository {
         .where(
           or(
             eq(team.configRepository, repository.value),
+            // One moving there reads it to learn whether its move has landed.
+            eq(team.configMovingTo, repository.value),
             // One that pinned nothing may be reading it by the fallback rule.
             isNull(team.configRepository),
           ),
@@ -112,6 +116,7 @@ export class DrizzleTeamRepository implements TeamRepository {
       key: held.key.value,
       name: held.name.value,
       configRepository: held.configRepository?.value ?? null,
+      configMovingTo: held.movingConfigurationTo?.value ?? null,
     };
   }
 
@@ -144,6 +149,9 @@ export class DrizzleTeamRepository implements TeamRepository {
           })),
         configRepository: row.configRepository
           ? Repository.of(row.configRepository)
+          : null,
+        movingConfigurationTo: row.configMovingTo
+          ? Repository.of(row.configMovingTo)
           : null,
       }),
     );

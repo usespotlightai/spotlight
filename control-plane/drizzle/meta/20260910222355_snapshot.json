@@ -1,5 +1,5 @@
 {
-  "id": "72cf135c-c41f-4ff4-923b-0a0ca1006bf7",
+  "id": "f095f20b-4ab7-410a-b3e5-5ac932fe1069",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -2302,6 +2302,12 @@
         },
         "config_repository": {
           "name": "config_repository",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "config_moving_to": {
+          "name": "config_moving_to",
           "type": "text",
           "primaryKey": false,
           "notNull": false

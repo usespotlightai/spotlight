@@ -1,4 +1,8 @@
 import {
+  CONFIGURATION_MOVE_KINDS,
+  type ConfigurationMoveDto,
+} from '@application/dto/configuration.dto';
+import {
   SETUP_STEP_KEYS,
   type SetupStepDto,
 } from '@application/dto/onboarding.dto';
@@ -115,7 +119,12 @@ export class ConfiguredIntegrationResponseDto {
 }
 
 export class ConfigurationResponseDto {
-  @ApiProperty({ nullable: true, type: String, example: 'acme/api' })
+  @ApiProperty({
+    description: 'The repository last read from.',
+    nullable: true,
+    type: String,
+    example: 'acme/api',
+  })
   readonly repository: string | null;
 
   @ApiProperty({ nullable: true, type: String, example: 'a1b2c3d' })
@@ -130,18 +139,40 @@ export class ConfigurationResponseDto {
   @ApiProperty({ type: ConfigProblemResponseDto, isArray: true })
   readonly problems: readonly ConfigProblemResponseDto[];
 
+  @ApiProperty({
+    description:
+      'Where this team reads its configuration from: where it keeps it, or else where it was last found.',
+    nullable: true,
+    type: String,
+    example: 'acme/api',
+  })
+  readonly readsFrom: string | null;
+
+  @ApiProperty({
+    description:
+      'Where its configuration is moving to, with a pull request open there.',
+    nullable: true,
+    type: String,
+    example: 'acme/config',
+  })
+  readonly movingTo: string | null;
+
   constructor(
     repository: string | null,
     sha: string | null,
     readAt: string | null,
     integrations: readonly ConfiguredIntegrationResponseDto[],
     problems: readonly ConfigProblemResponseDto[],
+    readsFrom: string | null,
+    movingTo: string | null,
   ) {
     this.repository = repository;
     this.sha = sha;
     this.readAt = readAt;
     this.integrations = integrations;
     this.problems = problems;
+    this.readsFrom = readsFrom;
+    this.movingTo = movingTo;
   }
 }
 
@@ -150,6 +181,39 @@ export class ProposedResponseDto {
   readonly url: string;
 
   constructor(url: string) {
+    this.url = url;
+  }
+}
+
+export class MoveConfigurationRequestDto {
+  @ApiProperty({
+    description: "The repository to move this team's configuration to.",
+    example: 'acme/config',
+    type: String,
+  })
+  readonly repository!: string;
+}
+
+export class MovedConfigurationResponseDto {
+  @ApiProperty({
+    description:
+      'What the move came to: carried in a pull request the team reads through once merged, adopted where the repository already held configuration, or repointed where there was nothing to carry.',
+    enum: CONFIGURATION_MOVE_KINDS,
+    example: 'carried',
+  })
+  readonly kind: ConfigurationMoveDto['kind'];
+
+  @ApiProperty({
+    description:
+      'The pull request carrying the configuration, where it was carried.',
+    example: 'https://github.com/acme/config/pull/4',
+    nullable: true,
+    type: String,
+  })
+  readonly url: string | null;
+
+  constructor(kind: ConfigurationMoveDto['kind'], url: string | null) {
+    this.kind = kind;
     this.url = url;
   }
 }

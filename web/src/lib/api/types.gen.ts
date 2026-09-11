@@ -641,11 +641,22 @@ export type ConfigProblemResponseDto = {
 };
 
 export type ConfigurationResponseDto = {
+  /**
+   * The repository last read from.
+   */
   repository: string | null;
   sha: string | null;
   readAt: string | null;
   integrations: Array<ConfiguredIntegrationResponseDto>;
   problems: Array<ConfigProblemResponseDto>;
+  /**
+   * Where this team reads its configuration from: where it keeps it, or else where it was last found.
+   */
+  readsFrom: string | null;
+  /**
+   * Where its configuration is moving to, with a pull request open there.
+   */
+  movingTo: string | null;
 };
 
 export type PinConfigurationRequestDto = {
@@ -653,6 +664,24 @@ export type PinConfigurationRequestDto = {
    * The repository this team reads its configuration from. Null takes the pin off.
    */
   repository: string | null;
+};
+
+export type MoveConfigurationRequestDto = {
+  /**
+   * The repository to move this team's configuration to.
+   */
+  repository: string;
+};
+
+export type MovedConfigurationResponseDto = {
+  /**
+   * What the move came to: carried in a pull request the team reads through once merged, adopted where the repository already held configuration, or repointed where there was nothing to carry.
+   */
+  kind: 'carried' | 'adopted' | 'repointed';
+  /**
+   * The pull request carrying the configuration, where it was carried.
+   */
+  url: string | null;
 };
 
 export type SetupStepResponseDto = {
@@ -1801,6 +1830,32 @@ export type PinConfigurationRepositoryResponses = {
 };
 
 export type PinConfigurationRepositoryResponse = PinConfigurationRepositoryResponses[keyof PinConfigurationRepositoryResponses];
+
+export type MoveConfigurationData = {
+  body: MoveConfigurationRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration/repository/move';
+};
+
+export type MoveConfigurationErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, or not yours to move
+   */
+  404: unknown;
+};
+
+export type MoveConfigurationResponses = {
+  200: MovedConfigurationResponseDto;
+};
+
+export type MoveConfigurationResponse = MoveConfigurationResponses[keyof MoveConfigurationResponses];
 
 export type ReadOnboardingData = {
   body?: never;

@@ -5,6 +5,8 @@ import type { LoggerPort } from '@application/ports/logger.port';
 import type { RunnerRevocationPort } from '@application/ports/runner-revocation.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import type { RunOutcomes } from '@application/services/run-outcomes';
+import { ConfigurationMoveStarted } from '@domain/events/configuration-move-started.event';
+import { ConfigurationMoved } from '@domain/events/configuration-moved.event';
 import type { DomainEvent } from '@domain/events/domain-event';
 import { HostConnected } from '@domain/events/host-connected.event';
 import { RunAbandoned } from '@domain/events/run-abandoned.event';
@@ -66,6 +68,20 @@ export class RoutingDispatcher implements DomainEventDispatcher {
         // No subscriber yet; recorded for the trail only.
         this.logger.debug({ event: known.kind }, 'A host was connected');
         return;
+      case 'team.configuration-move-started':
+        // No subscriber yet; recorded for the trail only.
+        this.logger.debug(
+          { event: known.kind, teamId: known.teamId.value },
+          'A team started moving its configuration',
+        );
+        return;
+      case 'team.configuration-moved':
+        // No subscriber yet; recorded for the trail only.
+        this.logger.debug(
+          { event: known.kind, teamId: known.teamId.value },
+          'A team’s configuration moved',
+        );
+        return;
       default:
         this.logger.warn(
           { event: event.kind },
@@ -83,4 +99,6 @@ type Routable =
   | WorkspaceConnected
   | HostConnected
   | RunnerRevoked
-  | TaskFinished;
+  | TaskFinished
+  | ConfigurationMoveStarted
+  | ConfigurationMoved;

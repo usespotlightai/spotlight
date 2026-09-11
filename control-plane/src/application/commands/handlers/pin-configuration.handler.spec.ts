@@ -1,11 +1,14 @@
 import { PinConfigurationHandler } from '@application/commands/handlers/pin-configuration.handler';
 import { PinConfigurationCommand } from '@application/commands/pin-configuration.command';
 import { UseCaseFault } from '@application/errors/use-case.fault';
+import { ConfigurationTarget } from '@application/services/configuration-target.service';
 import type { ConnectionAuthorization } from '@application/services/connection-authorization.service';
 import { Team } from '@domain/aggregates/team.aggregate';
 import { Workspace } from '@domain/aggregates/workspace.aggregate';
 import type { TeamRepository } from '@domain/repositories/team.repository';
+import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
 import { Connection } from '@domain/value-objects/connection.vo';
+import type { Repository } from '@domain/value-objects/repository.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { TeamKey } from '@domain/value-objects/team-key.vo';
 import { TeamName } from '@domain/value-objects/team-name.vo';
@@ -37,17 +40,14 @@ const acme = () =>
 
 // Who may pin lives in ConnectionAuthorization, tested there; here it is only
 // whether the gate opens.
-const pinning = (
-  over: { allowed?: boolean; team?: null; held?: { fullName: string }[] } = {},
-) => {
+const pinning = (over: { allowed?: boolean; team?: null } = {}) => {
   const save = vi.fn(async () => {});
   const settling = vi.fn(async () => {});
-  const create = vi.fn(async () => true);
-  const list = vi.fn(async () => over.held ?? [{ fullName: 'acme/api' }]);
+  const ensure = vi.fn(async (_target: { repository: Repository }) => 'held');
 
   return {
     save,
-    create,
+    ensure,
     settling,
     handler: new PinConfigurationHandler(
       {
@@ -59,7 +59,8 @@ const pinning = (
         find: vi.fn(async () => (over.team === null ? null : TEAM)),
         save,
       } as unknown as TeamRepository,
-      { list, create } as never,
+      new ConfigurationTarget({} as TeamConfigurationRepository),
+      { ensure } as never,
       { forTeam: settling } as never,
     ),
   };
@@ -118,25 +119,20 @@ describe('PinConfigurationHandler', () => {
     );
   });
 
-  // Naming one Spotlight cannot see means they want it.
-  it('makes a repository nobody has yet', async () => {
-    const { handler, create } = pinning({ held: [] });
+  it('asks for the chosen repository to be made ready', async () => {
+    const { handler, ensure } = pinning();
 
     await handler.execute(command());
 
-    expect(create).toHaveBeenCalledTimes(1);
-    const [, made] = create.mock.calls[0] as never as [
-      unknown,
-      { value: string },
-    ];
-    expect(made.value).toBe('acme/api');
+    const [target] = ensure.mock.calls[0] as [{ repository: Repository }];
+    expect(target.repository.value).toBe('acme/api');
   });
 
-  it('makes nothing where the installation already has it', async () => {
-    const { handler, create } = pinning();
+  it('asks for nothing where the choice is taken off', async () => {
+    const { handler, ensure } = pinning();
 
-    await handler.execute(command());
+    await handler.execute(command(null));
 
-    expect(create).not.toHaveBeenCalled();
+    expect(ensure).not.toHaveBeenCalled();
   });
 });

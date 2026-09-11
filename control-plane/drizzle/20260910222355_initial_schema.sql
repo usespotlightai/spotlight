@@ -207,6 +207,7 @@ CREATE TABLE "team" (
 	"id" text PRIMARY KEY NOT NULL,
 	"key" text NOT NULL,
 	"config_repository" text,
+	"config_moving_to" text,
 	"workspace_id" text NOT NULL,
 	"name" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
