@@ -18,6 +18,8 @@ export const AssemblyLineMapper = {
       color: summary.color,
       description: summary.description,
       harness: summary.harness,
+      model: summary.model,
+      effort: summary.effort,
       agentPrompt: summary.agentPrompt,
       kind: summary.kind,
     };
@@ -31,6 +33,8 @@ export const AssemblyLineMapper = {
       color: station.color.value,
       description: station.description?.value ?? null,
       harness: station.harness?.value ?? null,
+      model: station.model?.value ?? null,
+      effort: station.effort?.value ?? null,
       agentPrompt: station.agentPrompt?.value ?? null,
       kind: station.kind,
     };

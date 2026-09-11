@@ -17,8 +17,9 @@ export interface TeamRepository {
   ofWorkspace(workspaceId: WorkspaceId): Promise<readonly Team[]>;
 
   /**
-   * Those that read their configuration from a repository: the ones that
-   * pinned it, and the ones that pinned nothing, since one of them may be
+   * Those a push to a repository is news for: the ones that keep their
+   * configuration there, the ones moving it there (whose move may have
+   * landed), and the ones that keep it nowhere, since one of them may be
    * reading it by the fallback rule.
    */
   readingFrom(repository: Repository): Promise<readonly Team[]>;

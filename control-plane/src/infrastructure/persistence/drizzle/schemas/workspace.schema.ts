@@ -85,6 +85,12 @@ export const team = pgTable(
      * directory is read instead, and this is what pins that choice.
      */
     configRepository: text('config_repository'),
+    /**
+     * Where this team's configuration is on its way to, with a pull request
+     * carrying it open there. Reading stays with `config_repository` until
+     * the move lands.
+     */
+    configMovingTo: text('config_moving_to'),
     workspaceId: text('workspace_id')
       .notNull()
       .references(() => workspace.id, { onDelete: 'cascade' }),

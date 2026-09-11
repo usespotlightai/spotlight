@@ -1,5 +1,20 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+export class RegisteredHarnessRequestDto {
+  @ApiProperty({ example: 'claude-code' })
+  readonly id!: string;
+
+  @ApiPropertyOptional({
+    type: String,
+    isArray: true,
+    example: ['claude-sonnet-5', 'claude-opus-4-8'],
+    description:
+      'The models this harness reported it can answer with, discovered by ' +
+      'the runner from the CLI. Empty where the CLI could not enumerate them.',
+  })
+  readonly models?: string[];
+}
+
 export class RegisterRunnerRequestDto {
   @ApiPropertyOptional({
     example: 1,
@@ -8,14 +23,14 @@ export class RegisterRunnerRequestDto {
   readonly capacity?: number;
 
   @ApiPropertyOptional({
-    example: ['claude-code'],
-    type: [String],
+    type: [RegisteredHarnessRequestDto],
     isArray: true,
     description:
-      'The harnesses the runner found installed. What is on a machine is a ' +
-      'fact about that machine, so the machine is what says it.',
+      'The harnesses the runner found installed, each with the models it ' +
+      'discovered. What is on a machine is a fact about that machine, so the ' +
+      'machine is what says it.',
   })
-  readonly harnesses?: string[];
+  readonly harnesses?: RegisteredHarnessRequestDto[];
 }
 
 export class RunEventRequestDto {

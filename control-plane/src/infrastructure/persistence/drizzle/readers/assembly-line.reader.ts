@@ -31,6 +31,8 @@ type Row = {
   stationColor: string | null;
   stationDescription: string | null;
   stationHarness: string | null;
+  stationModel: string | null;
+  stationEffort: string | null;
   stationAgentPrompt: string | null;
   stationKind: StationKind | null;
 };
@@ -84,6 +86,8 @@ export class DrizzleAssemblyLineReader implements AssemblyLineReaderPort {
         stationColor: station.color,
         stationDescription: station.description,
         stationHarness: station.harness,
+        stationModel: station.model,
+        stationEffort: station.effort,
         stationAgentPrompt: station.agentPrompt,
         stationKind: station.kind,
       })
@@ -145,6 +149,8 @@ const group = (
         color: row.stationColor ?? '',
         description: row.stationDescription,
         harness: row.stationHarness,
+        model: row.stationModel,
+        effort: row.stationEffort,
         agentPrompt: row.stationAgentPrompt,
         kind: row.stationKind ?? 'work',
       });

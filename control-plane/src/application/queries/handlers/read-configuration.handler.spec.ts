@@ -3,6 +3,7 @@ import type { TeamSecretsPort } from '@application/ports/team-secrets.port';
 import type { WorkspaceReaderPort } from '@application/ports/workspace-reader.port';
 import { ConfigurationHandler } from '@application/queries/handlers/read-configuration.handler';
 import { ConfigurationQuery } from '@application/queries/read-configuration.query';
+import { Team } from '@domain/aggregates/team.aggregate';
 import { TeamConfiguration } from '@domain/aggregates/team-configuration.aggregate';
 import { DeclaredHappening } from '@domain/entities/declared-happening.entity';
 import { Integration } from '@domain/entities/integration.entity';
@@ -10,6 +11,7 @@ import type {
   HostConnectionRepository,
   HostConnectionSummary,
 } from '@domain/repositories/host-connection.repository';
+import type { TeamRepository } from '@domain/repositories/team.repository';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
 import { Commit } from '@domain/value-objects/commit.vo';
 import { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
@@ -20,6 +22,10 @@ import { Repository } from '@domain/value-objects/repository.vo';
 import { SecretName } from '@domain/value-objects/secret-name.vo';
 import { SourceKey } from '@domain/value-objects/source-key.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
+import { TeamKey } from '@domain/value-objects/team-key.vo';
+import { TeamName } from '@domain/value-objects/team-name.vo';
+import { UserId } from '@domain/value-objects/user-id.vo';
+import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const READ_AT = new Date('2026-09-03T08:00:00.000Z');
@@ -48,6 +54,8 @@ const asking = (
     held?: readonly string[];
     linked?: readonly HostConnectionSummary[];
     connects?: boolean;
+    kept?: string;
+    moving?: string;
   } = {},
 ) =>
   new ConfigurationHandler(
@@ -67,6 +75,21 @@ const asking = (
       identifyTeam: vi.fn(),
       listForMember: vi.fn(),
     } as unknown as WorkspaceReaderPort,
+    {
+      find: vi.fn(async () =>
+        Team.rehydrate({
+          id: TeamId.of('team_1'),
+          workspaceId: WorkspaceId.of('ws_1'),
+          key: TeamKey.of('platform'),
+          name: TeamName.of('Platform'),
+          members: [{ userId: UserId.of('user_1'), role: 'owner' }],
+          configRepository: over.kept ? Repository.of(over.kept) : null,
+          movingConfigurationTo: over.moving
+            ? Repository.of(over.moving)
+            : null,
+        }),
+      ),
+    } as unknown as TeamRepository,
     {
       findFor: vi.fn(async () =>
         over.applied === false
@@ -116,6 +139,35 @@ describe('ConfigurationHandler', () => {
     expect(read?.sha).toBe('a1b2c3d');
     expect(read?.readAt).toBe(READ_AT.toISOString());
     expect(read?.integrations).toHaveLength(1);
+  });
+
+  describe('where the team reads from', () => {
+    it('reads where the fallback rule last found it, where it keeps it nowhere', async () => {
+      const read = await asking().execute(query());
+
+      expect(read?.readsFrom).toBe('acme/api');
+      expect(read?.movingTo).toBeNull();
+    });
+
+    it('says where it keeps it, and where it is moving to', async () => {
+      const read = await asking({
+        kept: 'acme/api',
+        moving: 'acme/new',
+      }).execute(query());
+
+      expect(read?.readsFrom).toBe('acme/api');
+      expect(read?.movingTo).toBe('acme/new');
+    });
+
+    it('says where it keeps it before anything has been read', async () => {
+      const read = await asking({
+        applied: false,
+        kept: 'acme/pinned',
+      }).execute(query());
+
+      expect(read?.repository).toBeNull();
+      expect(read?.readsFrom).toBe('acme/pinned');
+    });
   });
 
   // What a person copies into the host, so it has to be there to copy.
@@ -193,6 +245,8 @@ describe('ConfigurationHandler', () => {
 
     expect(read).toEqual({
       repository: null,
+      readsFrom: null,
+      movingTo: null,
       sha: null,
       readAt: null,
       integrations: [],

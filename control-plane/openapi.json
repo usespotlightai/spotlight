@@ -1263,6 +1263,54 @@
         ]
       }
     },
+    "/teams/{teamId}/configuration/repository/move": {
+      "post": {
+        "operationId": "moveConfiguration",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "team_1",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveConfigurationRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovedConfigurationResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team, or not yours to move"
+          }
+        },
+        "summary": "Move this team's configuration to a different repository",
+        "tags": [
+          "configuration"
+        ]
+      }
+    },
     "/teams/{teamId}/configuration/onboarding": {
       "get": {
         "operationId": "readOnboarding",
@@ -2391,6 +2439,18 @@
             "nullable": true,
             "description": "Which runners work this station. Null until one is chosen."
           },
+          "model": {
+            "type": "string",
+            "example": "claude-sonnet-5",
+            "nullable": true,
+            "description": "Which model the harness answers with. Null falls back to its default."
+          },
+          "effort": {
+            "type": "string",
+            "example": "high",
+            "nullable": true,
+            "description": "How hard the harness is told to think. Null leaves its own default."
+          },
           "agentPrompt": {
             "type": "string",
             "example": "## Role\n\nSort the queue.",
@@ -2414,6 +2474,8 @@
           "color",
           "description",
           "harness",
+          "model",
+          "effort",
           "agentPrompt",
           "kind"
         ]
@@ -2509,6 +2571,20 @@
             "maxLength": 60,
             "nullable": true,
             "description": "Which runners work this station"
+          },
+          "model": {
+            "type": "string",
+            "example": "claude-sonnet-5",
+            "maxLength": 60,
+            "nullable": true,
+            "description": "Which model the harness answers with here"
+          },
+          "effort": {
+            "type": "string",
+            "example": "high",
+            "maxLength": 20,
+            "nullable": true,
+            "description": "How hard the harness is told to think here"
           },
           "agentPrompt": {
             "type": "string",
@@ -2636,11 +2712,23 @@
             "type": "string",
             "example": "claude",
             "description": "What to look for on the runner’s PATH."
+          },
+          "discovery": {
+            "example": [
+              "cursor-agent",
+              "models"
+            ],
+            "description": "What to run to list this harness’s models, argv-style. Empty where the CLI cannot enumerate them.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
           "id",
-          "executable"
+          "executable",
+          "discovery"
         ]
       },
       "KeptWorkspacesResponseDto": {
@@ -2673,14 +2761,11 @@
             "description": "What the runner advertises. The control plane grants work."
           },
           "harnesses": {
-            "example": [
-              "claude-code"
-            ],
-            "description": "The harnesses the runner found installed. What is on a machine is a fact about that machine, so the machine is what says it.",
+            "description": "The harnesses the runner found installed, each with the models it discovered. What is on a machine is a fact about that machine, so the machine is what says it.",
             "items": {
               "type": "array",
               "items": {
-                "type": "string"
+                "type": "registeredHarnessRequestDto"
               }
             },
             "type": "array"
@@ -3232,6 +3317,23 @@
           "failed"
         ]
       },
+      "HarnessModelResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "claude-sonnet-5"
+          },
+          "name": {
+            "type": "string",
+            "example": "Sonnet 5"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
       "HarnessResponseDto": {
         "type": "object",
         "properties": {
@@ -3242,11 +3344,39 @@
           "name": {
             "type": "string",
             "example": "Claude Code"
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HarnessModelResponseDto"
+            }
+          },
+          "defaultModel": {
+            "type": "string",
+            "example": "claude-sonnet-5",
+            "description": "Which model a station runs on where it names none of its own"
+          },
+          "efforts": {
+            "example": [
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max"
+            ],
+            "description": "The effort levels this harness offers. Empty where it takes none.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
           "id",
-          "name"
+          "name",
+          "models",
+          "defaultModel",
+          "efforts"
         ]
       },
       "InboxStationResponseDto": {
@@ -3915,6 +4045,7 @@
         "properties": {
           "repository": {
             "type": "string",
+            "description": "The repository last read from.",
             "nullable": true,
             "example": "acme/api"
           },
@@ -3938,6 +4069,18 @@
             "items": {
               "$ref": "#/components/schemas/ConfigProblemResponseDto"
             }
+          },
+          "readsFrom": {
+            "type": "string",
+            "description": "Where this team reads its configuration from: where it keeps it, or else where it was last found.",
+            "nullable": true,
+            "example": "acme/api"
+          },
+          "movingTo": {
+            "type": "string",
+            "description": "Where its configuration is moving to, with a pull request open there.",
+            "nullable": true,
+            "example": "acme/config"
           }
         },
         "required": [
@@ -3945,7 +4088,9 @@
           "sha",
           "readAt",
           "integrations",
-          "problems"
+          "problems",
+          "readsFrom",
+          "movingTo"
         ]
       },
       "PinConfigurationRequestDto": {
@@ -3960,6 +4105,44 @@
         },
         "required": [
           "repository"
+        ]
+      },
+      "MoveConfigurationRequestDto": {
+        "type": "object",
+        "properties": {
+          "repository": {
+            "type": "string",
+            "description": "The repository to move this team's configuration to.",
+            "example": "acme/config"
+          }
+        },
+        "required": [
+          "repository"
+        ]
+      },
+      "MovedConfigurationResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "What the move came to: carried in a pull request the team reads through once merged, adopted where the repository already held configuration, or repointed where there was nothing to carry.",
+            "enum": [
+              "carried",
+              "adopted",
+              "repointed"
+            ],
+            "example": "carried"
+          },
+          "url": {
+            "type": "string",
+            "description": "The pull request carrying the configuration, where it was carried.",
+            "example": "https://github.com/acme/config/pull/4",
+            "nullable": true
+          }
+        },
+        "required": [
+          "kind",
+          "url"
         ]
       },
       "SetupStepResponseDto": {
@@ -4018,6 +4201,16 @@
             "nullable": true,
             "example": "claude-code"
           },
+          "model": {
+            "type": "string",
+            "nullable": true,
+            "example": "claude-sonnet-5"
+          },
+          "effort": {
+            "type": "string",
+            "nullable": true,
+            "example": "high"
+          },
           "repositories": {
             "example": [
               "acme/api"
@@ -4032,6 +4225,8 @@
           "key",
           "name",
           "harness",
+          "model",
+          "effort",
           "repositories"
         ]
       },
@@ -4132,6 +4327,16 @@
             "type": "string",
             "nullable": true,
             "example": "claude-code"
+          },
+          "model": {
+            "type": "string",
+            "nullable": true,
+            "example": "claude-sonnet-5"
+          },
+          "effort": {
+            "type": "string",
+            "nullable": true,
+            "example": "high"
           },
           "repositories": {
             "example": [

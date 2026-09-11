@@ -36,6 +36,8 @@ CREATE TABLE "station" (
 	"kind" text DEFAULT 'work' NOT NULL,
 	"finishes" boolean DEFAULT false NOT NULL,
 	"harness" text,
+	"model" text,
+	"effort" text,
 	"agent_prompt" text,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
@@ -150,6 +152,7 @@ CREATE TABLE "runner" (
 	"name" text NOT NULL,
 	"token_hash" text NOT NULL,
 	"harnesses" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"advertised_models" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"revoked_at" timestamp,
 	"registered_at" timestamp DEFAULT now() NOT NULL,
 	"last_seen_at" timestamp
@@ -204,6 +207,7 @@ CREATE TABLE "team" (
 	"id" text PRIMARY KEY NOT NULL,
 	"key" text NOT NULL,
 	"config_repository" text,
+	"config_moving_to" text,
 	"workspace_id" text NOT NULL,
 	"name" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,

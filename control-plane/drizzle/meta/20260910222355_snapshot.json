@@ -1,5 +1,5 @@
 {
-  "id": "37334bb4-7d8d-4725-b549-8326e5758448",
+  "id": "f095f20b-4ab7-410a-b3e5-5ac932fe1069",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -346,6 +346,18 @@
         },
         "harness": {
           "name": "harness",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "effort": {
+          "name": "effort",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -1761,6 +1773,13 @@
           "notNull": true,
           "default": "'[]'::jsonb"
         },
+        "advertised_models": {
+          "name": "advertised_models",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
         "revoked_at": {
           "name": "revoked_at",
           "type": "timestamp",
@@ -2283,6 +2302,12 @@
         },
         "config_repository": {
           "name": "config_repository",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "config_moving_to": {
+          "name": "config_moving_to",
           "type": "text",
           "primaryKey": false,
           "notNull": false

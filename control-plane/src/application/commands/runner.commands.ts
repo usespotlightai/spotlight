@@ -2,11 +2,17 @@ export class EnrolRunnerCommand {
   constructor(readonly name: string) {}
 }
 
+/** One harness a runner found, with the models it discovered it can answer with. */
+export interface RegisteredHarness {
+  readonly id: string;
+  readonly models: readonly string[];
+}
+
 export class RegisterRunnerCommand {
   constructor(
     readonly runnerId: string,
-    /** What the runner found installed, by harness id. */
-    readonly harnesses: readonly string[],
+    /** What the runner found installed, each with the models it advertises. */
+    readonly harnesses: readonly RegisteredHarness[],
   ) {}
 }
 

@@ -30,6 +30,7 @@ import { DeleteTaskHandler } from '@application/commands/handlers/delete-task.ha
 import { DeliverSaidHandler } from '@application/commands/handlers/deliver-said.handler';
 import { EnqueueRunHandler } from '@application/commands/handlers/enqueue-run.handler';
 import { EnrolRunnerHandler } from '@application/commands/handlers/enrol-runner.handler';
+import { MoveConfigurationHandler } from '@application/commands/handlers/move-configuration.handler';
 import { MoveTaskHandler } from '@application/commands/handlers/move-task.handler';
 import {
   BeginOAuth2ConnectionHandler,
@@ -52,6 +53,7 @@ import {
 } from '@application/commands/handlers/set-secret.handler';
 import { SetUpLinesHandler } from '@application/commands/handlers/set-up-lines.handler';
 import { StopRunHandler } from '@application/commands/handlers/stop-run.handler';
+import { MoveConfigurationCommand } from '@application/commands/move-configuration.command';
 import { MoveTaskCommand } from '@application/commands/move-task.command';
 import { OpenPullRequestCommand } from '@application/commands/open-pull-request.command';
 import { PinConfigurationCommand } from '@application/commands/pin-configuration.command';
@@ -94,7 +96,10 @@ import {
   DELIVERY_WORK,
   type DeliveryWorkPort,
 } from '@application/ports/delivery-work.port';
-import { DOMAIN_EVENT_DISPATCHER } from '@application/ports/domain-event-dispatcher.port';
+import {
+  DOMAIN_EVENT_DISPATCHER,
+  type DomainEventDispatcher,
+} from '@application/ports/domain-event-dispatcher.port';
 import {
   FACTORY_PROVISIONING,
   type FactoryProvisioningPort,
@@ -102,6 +107,10 @@ import {
 import { GIT_GATEWAY } from '@application/ports/git-gateway.port';
 import { GITHUB_APP } from '@application/ports/github-app.port';
 import { GITHUB_IDENTITY } from '@application/ports/github-identity.port';
+import {
+  HARNESS_LAUNCH,
+  type HarnessLaunchPort,
+} from '@application/ports/harness-launch.port';
 import {
   ID_GENERATOR,
   type IdGeneratorPort,
@@ -250,10 +259,12 @@ import { ConfigurationTarget } from '@application/services/configuration-target.
 import { ConnectionAuthorization } from '@application/services/connection-authorization.service';
 import { ConversationAtHand } from '@application/services/conversation-at-hand.service';
 import { DispatchTask } from '@application/services/dispatch-task.service';
+import { HeldConfiguration } from '@application/services/held-configuration.service';
 import { ProposeLineChange } from '@application/services/propose-line-change.service';
 import { RaiseTask } from '@application/services/raise-task';
 import { ReactToHappenings } from '@application/services/react-to-happenings.service';
 import { ReadConfiguration } from '@application/services/read-configuration.service';
+import { RepositoryProvisioning } from '@application/services/repository-provisioning.service';
 import { RunAtHand } from '@application/services/run-at-hand.service';
 import {
   RUN_OUTCOMES,
@@ -298,7 +309,7 @@ import { GitHubRepositoryContents } from '@infrastructure/github/github-reposito
 import { GitHubWebhookSignature } from '@infrastructure/github/github-webhook.signature';
 import {
   BuiltInHarnesses,
-  CLAUDE_CODE,
+  DEFAULT_HARNESS,
 } from '@infrastructure/harnesses/built-in-harnesses';
 import { CryptoIdGenerator } from '@infrastructure/identity/crypto-id.generator';
 import { InstallerAssets } from '@infrastructure/installer/installer-assets';
@@ -443,6 +454,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     { provide: RUN_READER, useClass: DrizzleRunReader },
     { provide: RUNNER_TRACE_READER, useClass: DrizzleRunnerTraceReader },
     { provide: RUNNER_READER, useClass: DrizzleRunnerReader },
+    { provide: HARNESS_LAUNCH, useExisting: BuiltInHarnesses },
     { provide: KEPT_WORKSPACE_READER, useClass: DrizzleKeptWorkspaceReader },
     { provide: RUN_JOURNAL_READER, useClass: DrizzleRunJournalReader },
     { provide: TEAM_TRACE_READER, useClass: DrizzleTeamTraceReader },
@@ -756,13 +768,31 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     { provide: LINE_READER, useExisting: LineReader },
 
     {
+      provide: HeldConfiguration,
+      inject: [REPOSITORY_CONTENTS],
+      useFactory: (contents: RepositoryContentsPort) =>
+        new HeldConfiguration(contents),
+    },
+    {
       provide: SeedConfiguration,
-      inject: [LINE_READER, REPOSITORY_CONTENTS, PULL_REQUESTS],
+      inject: [
+        LINE_READER,
+        ConfigurationTarget,
+        HeldConfiguration,
+        WriteConfiguration,
+      ],
       useFactory: (
         reader: LineReaderPort,
-        contents: RepositoryContentsPort,
-        pullRequests: PullRequestPort,
-      ) => new SeedConfiguration(reader, contents, pullRequests),
+        target: ConfigurationTarget,
+        held: HeldConfiguration,
+        writing: WriteConfiguration,
+      ) => new SeedConfiguration(reader, target, held, writing),
+    },
+    {
+      provide: RepositoryProvisioning,
+      inject: [REPOSITORY_CATALOG],
+      useFactory: (catalog: RepositoryCatalogPort) =>
+        new RepositoryProvisioning(catalog),
     },
 
     {
@@ -962,28 +992,37 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       provide: ReadConfiguration,
       inject: [
         REPOSITORY_CATALOG,
-        REPOSITORY_CONTENTS,
+        ConfigurationTarget,
+        HeldConfiguration,
         INTEGRATION_READER,
         ApplyLines,
+        DrizzleTeamRepository,
         DrizzleTeamConfiguration,
+        DOMAIN_EVENT_DISPATCHER,
         CLOCK,
         SettleSetup,
       ],
       useFactory: (
         catalog: RepositoryCatalogPort,
-        contents: RepositoryContentsPort,
+        target: ConfigurationTarget,
+        held: HeldConfiguration,
         integrations: IntegrationReaderPort,
         lines: ApplyLines,
+        teams: DrizzleTeamRepository,
         configurations: DrizzleTeamConfiguration,
+        events: DomainEventDispatcher,
         clock: ClockPort,
         settling: SettleSetup,
       ) =>
         new ReadConfiguration(
           catalog,
-          contents,
+          target,
+          held,
           integrations,
           lines,
+          teams,
           configurations,
+          events,
           clock,
           settling,
         ),
@@ -1060,14 +1099,16 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         DrizzleRunRepository,
         ID_GENERATOR,
         BuiltInHarnesses,
+        HARNESS_LAUNCH,
         TRACE_PARENT,
       ],
       useFactory: (
         runs: DrizzleRunRepository,
         ids: CryptoIdGenerator,
         harnesses: BuiltInHarnesses,
+        launch: HarnessLaunchPort,
         tracing: TraceParentPort,
-      ) => new DispatchTask(runs, ids, harnesses, tracing),
+      ) => new DispatchTask(runs, ids, harnesses, launch, tracing),
     },
 
     {
@@ -1175,7 +1216,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
           tasks,
           clock,
           workspaces,
-          CLAUDE_CODE.id,
+          DEFAULT_HARNESS,
         ),
       inject: [
         DrizzleFactoryRepository,
@@ -1248,7 +1289,8 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       DrizzleRunRepository,
     ]),
     ...bindQueryHandler(ListHarnessesQuery, ListHarnessesHandler, [
-      BuiltInHarnesses,
+      HARNESS_LAUNCH,
+      RUNNER_READER,
     ]),
     ...bindQueryHandler(ListHappeningsQuery, ListHappeningsHandler, [
       WORKSPACE_READER,
@@ -1356,8 +1398,20 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     ...bindCommandHandler(PinConfigurationCommand, PinConfigurationHandler, [
       ConnectionAuthorization,
       DrizzleTeamRepository,
-      REPOSITORY_CATALOG,
+      ConfigurationTarget,
+      RepositoryProvisioning,
       SettleSetup,
+    ]),
+    ...bindCommandHandler(MoveConfigurationCommand, MoveConfigurationHandler, [
+      ConnectionAuthorization,
+      DrizzleTeamRepository,
+      DrizzleTeamConfiguration,
+      ConfigurationTarget,
+      RepositoryProvisioning,
+      HeldConfiguration,
+      WriteConfiguration,
+      SettleSetup,
+      DOMAIN_EVENT_DISPATCHER,
     ]),
     ...bindCommandHandler(SetUpLinesCommand, SetUpLinesHandler, [
       ConnectionAuthorization,
@@ -1392,6 +1446,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     ]),
     ...bindQueryHandler(ConfigurationQuery, ConfigurationHandler, [
       WORKSPACE_READER,
+      DrizzleTeamRepository,
       DrizzleTeamConfiguration,
       INTEGRATION_READER,
       TEAM_SECRETS,
@@ -1529,7 +1584,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     ...bindCommandHandler(EnqueueRunCommand, EnqueueRunHandler, [
       DrizzleRunRepository,
       ID_GENERATOR,
-      BuiltInHarnesses,
+      HARNESS_LAUNCH,
     ]),
 
     // The runner guard must answer before the session guard rejects a request

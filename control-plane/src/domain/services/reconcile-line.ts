@@ -113,6 +113,8 @@ const assemble = (
       description: planned.description,
       kind: planned.kind,
       harness: planned.harness,
+      model: planned.model,
+      effort: planned.effort,
       agentPrompt: planned.agentPrompt,
       tools: planned.tools,
       wayOut: WayOut.of({

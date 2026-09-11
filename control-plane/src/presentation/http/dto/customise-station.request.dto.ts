@@ -28,6 +28,24 @@ export class CustomiseStationRequestDto {
   readonly harness?: string | null;
 
   @ApiPropertyOptional({
+    example: 'claude-sonnet-5',
+    maxLength: 60,
+    nullable: true,
+    type: String,
+    description: 'Which model the harness answers with here',
+  })
+  readonly model?: string | null;
+
+  @ApiPropertyOptional({
+    example: 'high',
+    maxLength: 20,
+    nullable: true,
+    type: String,
+    description: 'How hard the harness is told to think here',
+  })
+  readonly effort?: string | null;
+
+  @ApiPropertyOptional({
     example: '## Role\n\nSort the queue.',
     maxLength: 20000,
     nullable: true,

@@ -1,6 +1,7 @@
 import { Station } from '@domain/entities/station.entity';
 import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { HarnessModel } from '@domain/value-objects/harness-model.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationDescription } from '@domain/value-objects/station-description.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
@@ -18,7 +19,7 @@ const station = () =>
 const furnished = () =>
   station()
     .describe(StationDescription.of('Where new work lands'))
-    .runsOn(HarnessId.of('dev'))
+    .runsOn(HarnessId.of('dev'), HarnessModel.of('dev-large'))
     .instruct(AgentPrompt.of('## Role'));
 
 describe('Station', () => {
@@ -35,6 +36,7 @@ describe('Station', () => {
 
     expect(furnishedStation.description?.value).toBe('Where new work lands');
     expect(furnishedStation.harness?.value).toBe('dev');
+    expect(furnishedStation.model?.value).toBe('dev-large');
     expect(furnishedStation.agentPrompt?.value).toBe('## Role');
   });
 
@@ -54,10 +56,18 @@ describe('Station', () => {
   });
 
   it('answers to no pool once it is assigned none', () => {
-    const cleared = furnished().runsOn(null);
+    const cleared = furnished().runsOn(null, null);
 
     expect(cleared.harness).toBeNull();
+    expect(cleared.model).toBeNull();
     expect(cleared.description?.value).toBe('Where new work lands');
+  });
+
+  it('drops the model with the harness, so none is named with nothing to run', () => {
+    const cleared = furnished().runsOn(null, HarnessModel.of('dev-large'));
+
+    expect(cleared.harness).toBeNull();
+    expect(cleared.model).toBeNull();
   });
 
   it('keeps its identity and its place across a change', () => {
@@ -69,7 +79,7 @@ describe('Station', () => {
 
   it('leaves the station it was made from untouched', () => {
     const bare = station();
-    bare.runsOn(HarnessId.of('dev'));
+    bare.runsOn(HarnessId.of('dev'), HarnessModel.of('dev-large'));
 
     expect(bare.harness).toBeNull();
   });

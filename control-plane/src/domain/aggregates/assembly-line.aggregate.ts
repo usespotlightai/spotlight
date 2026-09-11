@@ -10,10 +10,12 @@ import { handoverOptions } from '@domain/services/handover-options';
 import type { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import type { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
+import type { Effort } from '@domain/value-objects/effort.vo';
 import type { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { HandoverOption } from '@domain/value-objects/handover-option.vo';
 import type { Happening } from '@domain/value-objects/happening.vo';
 import type { HarnessId } from '@domain/value-objects/harness-id.vo';
+import type { HarnessModel } from '@domain/value-objects/harness-model.vo';
 import { LineKey } from '@domain/value-objects/line-key.vo';
 import { LineRepositories } from '@domain/value-objects/line-repositories.vo';
 import type { LineRole } from '@domain/value-objects/line-role.vo';
@@ -154,7 +156,7 @@ export class AssemblyLine {
   }
 
   /** Every work station on this line run on the one harness, or none of them. */
-  runsOn(harness: HarnessId | null): AssemblyLine {
+  runsOn(harness: HarnessId | null, model: HarnessModel | null): AssemblyLine {
     return AssemblyLine.of({
       id: this.id,
       workspaceId: this.workspaceId,
@@ -162,7 +164,24 @@ export class AssemblyLine {
       key: this.key,
       name: this.name,
       stations: this.stations.map((each) =>
-        each.isWorked ? each.runsOn(harness) : each,
+        each.isWorked ? each.runsOn(harness, model) : each,
+      ),
+      reactions: this.reactions,
+      role: this.role,
+      repositories: this.repositories.all,
+    });
+  }
+
+  /** Every work station on this line thinks at the one effort, or none does. */
+  thinksAt(effort: Effort | null): AssemblyLine {
+    return AssemblyLine.of({
+      id: this.id,
+      workspaceId: this.workspaceId,
+      factoryId: this.factoryId,
+      key: this.key,
+      name: this.name,
+      stations: this.stations.map((each) =>
+        each.isWorked ? each.atEffort(effort) : each,
       ),
       reactions: this.reactions,
       role: this.role,
@@ -187,8 +206,18 @@ export class AssemblyLine {
     );
   }
 
-  runStationOn(stationId: StationId, harness: HarnessId | null): AssemblyLine {
-    return this.withStation(stationId, (station) => station.runsOn(harness));
+  runStationOn(
+    stationId: StationId,
+    harness: HarnessId | null,
+    model: HarnessModel | null,
+  ): AssemblyLine {
+    return this.withStation(stationId, (station) =>
+      station.runsOn(harness, model),
+    );
+  }
+
+  setStationEffort(stationId: StationId, effort: Effort | null): AssemblyLine {
+    return this.withStation(stationId, (station) => station.atEffort(effort));
   }
 
   instructStation(

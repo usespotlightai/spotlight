@@ -43,7 +43,7 @@ const claiming = () =>
           id: RunnerId.of('runner_1'),
           name: RunnerName.of('one'),
           tokenHash: TokenHash.of('a'.repeat(64)),
-          harnesses: [HarnessId.of('claude-code')],
+          installed: [{ id: HarnessId.of('claude-code'), models: [] }],
           revokedAt: null,
           lastSeenAt: NOW,
         }),

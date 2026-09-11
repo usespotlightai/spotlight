@@ -7,6 +7,10 @@ import { TeamSettings } from '@/routes/TeamSettings';
 const workspace = vi.fn();
 const members = vi.fn();
 const rename = vi.fn();
+const configuration = vi.fn();
+const onboarding = vi.fn();
+const move = vi.fn();
+const moved = vi.fn();
 
 vi.mock('@/hooks/api/useWorkspace', () => ({
   useWorkspace: () => ({ data: workspace() }),
@@ -18,6 +22,31 @@ vi.mock('@/hooks/api/useMembers', () => ({
 
 vi.mock('@/hooks/api/useRenameTeam', () => ({
   useRenameTeam: () => ({ mutate: rename, isPending: false }),
+}));
+
+vi.mock('@/hooks/api/useConfiguration', () => ({
+  useConfiguration: () => ({ data: configuration() }),
+}));
+
+vi.mock('@/hooks/api/useOnboarding', () => ({
+  useOnboarding: () => ({ data: onboarding() }),
+}));
+
+vi.mock('@/hooks/api/useRepositories', () => ({
+  useRepositories: () => ({
+    data: [{ fullName: 'acme/api' }, { fullName: 'acme/config' }],
+  }),
+}));
+
+vi.mock('@/hooks/api/useMoveConfiguration', () => ({
+  useMoveConfiguration: () => ({
+    mutate: move,
+    reset: vi.fn(),
+    isPending: false,
+    isError: false,
+    error: null,
+    ...moved(),
+  }),
 }));
 
 const showing = () =>
@@ -32,6 +61,9 @@ const showing = () =>
     </MemoryRouter>,
   );
 
+const moving = async () =>
+  userEvent.click(screen.getByRole('button', { name: 'Move configuration' }));
+
 beforeEach(() => {
   workspace.mockReturnValue({
     id: 'ws_1',
@@ -43,7 +75,18 @@ beforeEach(() => {
     { id: 'user_1', name: 'Leon Liang', image: null },
     { id: 'user_2', name: 'Ada Lovelace', image: null },
   ]);
+  configuration.mockReturnValue({
+    repository: 'acme/config',
+    readsFrom: 'acme/config',
+    movingTo: null,
+  });
+  onboarding.mockReturnValue({
+    connectedToGitHub: true,
+    repositoryOwner: 'acme',
+  });
+  moved.mockReturnValue({ isSuccess: false, data: undefined });
   rename.mockReset();
+  move.mockReset();
 });
 
 describe('TeamSettings', () => {
@@ -89,6 +132,93 @@ describe('TeamSettings', () => {
     showing();
 
     expect(screen.getByText('No one is on this team yet.')).toBeInTheDocument();
+  });
+
+  it('shows the repository the team reads its configuration from', () => {
+    showing();
+
+    expect(screen.getByText('acme/config')).toBeInTheDocument();
+    // No field until the pencil is clicked; the value is read-only.
+    expect(screen.queryByLabelText('Repository')).not.toBeInTheDocument();
+  });
+
+  it('says where the configuration is moving while that is under way', () => {
+    configuration.mockReturnValue({
+      repository: 'acme/config',
+      readsFrom: 'acme/config',
+      movingTo: 'acme/other',
+    });
+    showing();
+
+    expect(screen.getByText('acme/config')).toBeInTheDocument();
+    expect(
+      screen.getByText('Moving to acme/other once its pull request merges.'),
+    ).toBeInTheDocument();
+  });
+
+  it('moves the configuration to the repository named', async () => {
+    showing();
+
+    await moving();
+
+    // The owner is shown apart, so the field holds only the name.
+    await userEvent.type(screen.getByLabelText('Repository'), 'other');
+    await userEvent.click(screen.getByRole('button', { name: 'Move' }));
+
+    expect(move).toHaveBeenCalledWith('acme/other');
+  });
+
+  it('links the pull request that carries the configuration', async () => {
+    moved.mockReturnValue({
+      isSuccess: true,
+      data: {
+        kind: 'carried',
+        url: 'https://github.com/acme/other/pull/4',
+      },
+      variables: 'acme/other',
+    });
+    showing();
+
+    await moving();
+
+    expect(
+      screen.getByRole('link', { name: 'View pull request' }),
+    ).toHaveAttribute('href', 'https://github.com/acme/other/pull/4');
+    expect(
+      screen.getByText(/The team reads from there once it merges\./),
+    ).toBeInTheDocument();
+  });
+
+  it('says a repository already holding configuration is read from now', async () => {
+    moved.mockReturnValue({
+      isSuccess: true,
+      data: { kind: 'adopted', url: null },
+      variables: 'acme/other',
+    });
+    showing();
+
+    await moving();
+
+    expect(
+      screen.getByText(
+        'acme/other already holds Spotlight configuration, so this team reads from it now. Nothing was written over it.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('asks to connect GitHub before a repository can be chosen', () => {
+    onboarding.mockReturnValue({
+      connectedToGitHub: false,
+      repositoryOwner: null,
+    });
+    showing();
+
+    expect(
+      screen.queryByRole('button', { name: 'Move configuration' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText('Connect GitHub to choose one.'),
+    ).toBeInTheDocument();
   });
 
   it('renders nothing until the team is known', () => {

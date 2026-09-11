@@ -72,6 +72,8 @@ export class OnboardingHandler
           key: line.key.value,
           name: line.name.value,
           harness: line.worked[0]?.harness?.value ?? null,
+          model: line.worked[0]?.model?.value ?? null,
+          effort: line.worked[0]?.effort?.value ?? null,
           repositories: line.repositories.all.map((each) => each.value),
         })),
         tools: this.tools.all().map(

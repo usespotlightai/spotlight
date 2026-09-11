@@ -8,7 +8,10 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { HarnessResponseDto } from '@presentation/http/dto/harness.response.dto';
+import {
+  HarnessModelResponseDto,
+  HarnessResponseDto,
+} from '@presentation/http/dto/harness.response.dto';
 
 @ApiTags('harnesses')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
@@ -29,7 +32,16 @@ export class HarnessController {
     >(new ListHarnessesQuery());
 
     return harnesses.map(
-      (harness) => new HarnessResponseDto(harness.id, harness.name),
+      (harness) =>
+        new HarnessResponseDto(
+          harness.id,
+          harness.name,
+          harness.models.map(
+            (model) => new HarnessModelResponseDto(model.id, model.name),
+          ),
+          harness.defaultModel,
+          harness.efforts,
+        ),
     );
   }
 }

@@ -27,6 +27,8 @@ export const AssemblyLineHttpMapper = {
       color: body.color,
       description: emptied(body.description),
       harness: emptied(body.harness),
+      model: emptied(body.model),
+      effort: emptied(body.effort),
       agentPrompt: emptied(body.agentPrompt),
     };
   },
@@ -39,6 +41,8 @@ export const AssemblyLineHttpMapper = {
       dto.color,
       dto.description,
       dto.harness,
+      dto.model,
+      dto.effort,
       dto.agentPrompt,
       dto.kind,
     );

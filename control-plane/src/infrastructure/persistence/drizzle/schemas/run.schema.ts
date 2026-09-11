@@ -26,8 +26,12 @@ export const runner = pgTable(
     // Only the hash: the token itself is shown once, at enrolment, and is not
     // recoverable afterwards.
     tokenHash: text('token_hash').notNull(),
-    // Reported by the runner: what is installed is the machine's to say.
+    // Reported by the runner: the ids it found, and the models each advertises.
     harnesses: jsonb('harnesses').$type<string[]>().notNull().default([]),
+    advertisedModels: jsonb('advertised_models')
+      .$type<Record<string, string[]>>()
+      .notNull()
+      .default({}),
     revokedAt: timestamp('revoked_at'),
     registeredAt: timestamp('registered_at').defaultNow().notNull(),
     lastSeenAt: timestamp('last_seen_at'),

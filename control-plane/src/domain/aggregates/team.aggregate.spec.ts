@@ -1,5 +1,7 @@
 import { Team } from '@domain/aggregates/team.aggregate';
 import { TeamCreated } from '@domain/events/team-created.event';
+import { InconsistentStateError } from '@domain/exceptions/inconsistent-state.error';
+import { InvalidConfigurationMoveError } from '@domain/exceptions/invalid-configuration-move.error';
 import { Repository } from '@domain/value-objects/repository.vo';
 import { TeamKey } from '@domain/value-objects/team-key.vo';
 import { TeamName } from '@domain/value-objects/team-name.vo';
@@ -112,6 +114,99 @@ describe('Team', () => {
       held.keepsConfigurationIn(Repository.of('acme/api'));
 
       expect(held.configRepository).toBeNull();
+    });
+  });
+
+  describe('moving its configuration', () => {
+    const OLD = Repository.of('acme/old');
+    const NEW = Repository.of('acme/new');
+
+    const keeping = () => {
+      const kept = open().keepsConfigurationIn(OLD);
+      kept.pullEvents();
+
+      return kept;
+    };
+
+    it('goes on reading where it does while a move is under way', () => {
+      const moving = keeping().movesConfigurationTo(NEW, null);
+
+      expect(moving.configRepository).toEqual(OLD);
+      expect(moving.movingConfigurationTo).toEqual(NEW);
+      expect(moving.configurationReadFrom(null)).toEqual(OLD);
+    });
+
+    it('writes changes to where it is moving', () => {
+      expect(
+        keeping().movesConfigurationTo(NEW, null).configurationWrittenTo(OLD),
+      ).toEqual(NEW);
+    });
+
+    it('reads and writes where it keeps its configuration otherwise', () => {
+      expect(keeping().configurationReadFrom(NEW)).toEqual(OLD);
+      expect(keeping().configurationWrittenTo(NEW)).toEqual(OLD);
+    });
+
+    it('reads and writes where it was last found where it keeps it nowhere', () => {
+      expect(open().configurationReadFrom(NEW)).toEqual(NEW);
+      expect(open().configurationWrittenTo(NEW)).toEqual(NEW);
+    });
+
+    it('says a move started, and that it landed', () => {
+      const landed = keeping()
+        .movesConfigurationTo(NEW, null)
+        .finishesMovingConfiguration();
+
+      expect(landed.pullEvents().map((each) => each.kind)).toEqual([
+        'team.configuration-move-started',
+        'team.configuration-moved',
+      ]);
+      expect(landed.configRepository).toEqual(NEW);
+      expect(landed.movingConfigurationTo).toBeNull();
+    });
+
+    it('starts the same move again as nothing new', () => {
+      const moving = keeping().movesConfigurationTo(NEW, null);
+      moving.pullEvents();
+
+      expect(moving.movesConfigurationTo(NEW, null)).toBe(moving);
+    });
+
+    it('refuses to move to where it already reads from', () => {
+      expect(() => keeping().movesConfigurationTo(OLD, null)).toThrow(
+        InvalidConfigurationMoveError,
+      );
+      expect(() => open().movesConfigurationTo(NEW, NEW)).toThrow(
+        InvalidConfigurationMoveError,
+      );
+    });
+
+    it('refuses to finish a move nobody started', () => {
+      expect(() => keeping().finishesMovingConfiguration()).toThrow(
+        InvalidConfigurationMoveError,
+      );
+    });
+
+    it('gives up a move under way when somebody says where it keeps it', () => {
+      const pinned = keeping()
+        .movesConfigurationTo(NEW, null)
+        .keepsConfigurationIn(Repository.of('acme/other'));
+
+      expect(pinned.configRepository?.value).toBe('acme/other');
+      expect(pinned.movingConfigurationTo).toBeNull();
+    });
+
+    it('will not be read back moving to where it already keeps it', () => {
+      expect(() =>
+        Team.rehydrate({
+          id: open().id,
+          workspaceId: WORKSPACE,
+          name: TeamName.of('Platform'),
+          members: [{ userId: OWNER, role: 'owner' }],
+          configRepository: OLD,
+          movingConfigurationTo: OLD,
+        }),
+      ).toThrow(InconsistentStateError);
     });
   });
 

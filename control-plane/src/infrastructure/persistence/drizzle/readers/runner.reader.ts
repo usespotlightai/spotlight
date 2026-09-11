@@ -25,6 +25,31 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
     return reached !== undefined;
   }
 
+  async advertisedModels(): Promise<ReadonlyMap<string, readonly string[]>> {
+    const rows = await this.db
+      .select({ advertised: runner.advertisedModels })
+      .from(runner)
+      .where(isNull(runner.revokedAt));
+
+    // First runner to name a model fixes its place; later ones only add.
+    const byHarness = new Map<string, string[]>();
+
+    for (const row of rows) {
+      for (const [harness, models] of Object.entries(row.advertised)) {
+        const held = byHarness.get(harness) ?? [];
+
+        for (const model of models) {
+          if (!held.includes(model)) {
+            held.push(model);
+          }
+        }
+        byHarness.set(harness, held);
+      }
+    }
+
+    return byHarness;
+  }
+
   async listAll(): Promise<RunnerSummary[]> {
     const rows = await this.db
       .select({

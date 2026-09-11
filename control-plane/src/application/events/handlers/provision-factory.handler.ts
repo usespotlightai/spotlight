@@ -52,9 +52,11 @@ export class ProvisionFactory implements FactoryProvisioningPort {
       });
 
       // Every station where work is done starts on the default harness; a
-      // backlog and an end run nothing, so they are left worked by none.
+      // backlog and an end run nothing, so they are left worked by none. The
+      // model is left unset, so each runs on the harness's default until a team
+      // chooses one during setup.
       return built.worked.reduce(
-        (each, station) => each.runStationOn(station.id, this.harness),
+        (each, station) => each.runStationOn(station.id, this.harness, null),
         built,
       );
     });

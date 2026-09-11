@@ -1,8 +1,10 @@
 import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { ConfigurationProblem } from '@domain/value-objects/configuration-problem.vo';
+import { Effort } from '@domain/value-objects/effort.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { HarnessModel } from '@domain/value-objects/harness-model.vo';
 import { LineKey } from '@domain/value-objects/line-key.vo';
 import { LinePlan } from '@domain/value-objects/line-plan.vo';
 import { LineRole } from '@domain/value-objects/line-role.vo';
@@ -157,6 +159,8 @@ export const compileLine = (path: string, text: string): CompiledLine => {
             ? StationDescription.of(station.description)
             : null,
           harness: station.harness ? HarnessId.of(station.harness) : null,
+          model: station.model ? HarnessModel.of(station.model) : null,
+          effort: station.effort ? Effort.of(station.effort) : null,
           agentPrompt: station.prompt ? AgentPrompt.of(station.prompt) : null,
           tools: station.tools.map((each) => Tool.of(each)),
           passesTo: station.passesTo.map((each) => StationKey.of(each)),

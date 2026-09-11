@@ -1,12 +1,17 @@
 import type { ClockPort } from '@application/ports/clock.port';
+import type { DomainEventDispatcher } from '@application/ports/domain-event-dispatcher.port';
 import type { IntegrationReaderPort } from '@application/ports/integration-reader.port';
 import type { RepositoryCatalogPort } from '@application/ports/repository-catalog.port';
 import type { RepositoryContentsPort } from '@application/ports/repository-contents.port';
 import type { ApplyLines } from '@application/services/apply-lines.service';
+import { ConfigurationTarget } from '@application/services/configuration-target.service';
+import { HeldConfiguration } from '@application/services/held-configuration.service';
 import { ReadConfiguration } from '@application/services/read-configuration.service';
 import { Team } from '@domain/aggregates/team.aggregate';
 import type { TeamConfiguration } from '@domain/aggregates/team-configuration.aggregate';
 import { Workspace } from '@domain/aggregates/workspace.aggregate';
+import { ConfigurationMoved } from '@domain/events/configuration-moved.event';
+import type { TeamRepository } from '@domain/repositories/team.repository';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
 import { ConfigurationProblem } from '@domain/value-objects/configuration-problem.vo';
 import { Connection } from '@domain/value-objects/connection.vo';
@@ -91,21 +96,27 @@ const reading = (
       over.strandings ?? [],
   );
 
+  const saved = vi.fn(async (_team: Team) => {});
+  const dispatch = vi.fn(async (_events: readonly unknown[]) => {});
+
   const service = new ReadConfiguration(
     {
       list: vi.fn(async () =>
         (over.catalog ?? ['acme/api']).map((fullName) => ({ fullName })),
       ),
     } as unknown as RepositoryCatalogPort,
-    contents,
+    new ConfigurationTarget(config),
+    new HeldConfiguration(contents),
     { read } as unknown as IntegrationReaderPort,
     { apply } as unknown as ApplyLines,
+    { save: saved } as unknown as TeamRepository,
     config,
+    { dispatch } as unknown as DomainEventDispatcher,
     clock,
     { forTeam: settling } as never,
   );
 
-  return { service, config, contents, read, apply, settling };
+  return { service, config, contents, read, apply, settling, saved, dispatch };
 };
 
 const settling = vi.fn(async () => {});
@@ -230,6 +241,43 @@ describe('ReadConfiguration', () => {
       integration.path,
       line.path,
     ]);
+  });
+
+  describe('a move under way', () => {
+    const moving = () => {
+      const underWay = pinned('acme/old').movesConfigurationTo(
+        Repository.of('acme/new'),
+        null,
+      );
+      underWay.pullEvents();
+
+      return underWay;
+    };
+
+    it('goes on reading where it did until the destination holds configuration', async () => {
+      const { service, saved, dispatch } = reading({ holding: ['acme/old'] });
+
+      expect((await service.read(workspace(), moving()))?.repository).toBe(
+        'acme/old',
+      );
+      expect(saved).not.toHaveBeenCalled();
+      expect(dispatch).not.toHaveBeenCalled();
+    });
+
+    it('lands once the pull request carrying it has merged, and reads from there', async () => {
+      const { service, saved, dispatch } = reading({
+        holding: ['acme/old', 'acme/new'],
+      });
+
+      expect((await service.read(workspace(), moving()))?.repository).toBe(
+        'acme/new',
+      );
+
+      const [landed] = saved.mock.calls[0] as [Team];
+      expect(landed.configRepository?.value).toBe('acme/new');
+      expect(landed.movingConfigurationTo).toBeNull();
+      expect(dispatch).toHaveBeenCalledWith([expect.any(ConfigurationMoved)]);
+    });
   });
 
   describe('what is wrong with it', () => {

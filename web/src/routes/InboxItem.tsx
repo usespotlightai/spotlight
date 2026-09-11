@@ -115,6 +115,7 @@ export function InboxItem() {
               count: item.stationCount,
             },
             working: item.working,
+            resolved: item.resolved,
             notes: item.notes,
           }}
           worked={worked ?? []}

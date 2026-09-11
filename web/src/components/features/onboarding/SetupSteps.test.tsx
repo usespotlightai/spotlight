@@ -90,7 +90,7 @@ const onboarding = (
 
 const BODY = '1. Start a runner. The machine that does the work.';
 
-const showing = () =>
+const showing = (resolved = false) =>
   render(
     <MemoryRouter initialEntries={['/w/acme/inbox/item_1']}>
       <Routes>
@@ -100,6 +100,7 @@ const showing = () =>
             <SetupSteps
               teamId="team_1"
               body={BODY}
+              resolved={resolved}
               about={{
                 title: 'Set up your team',
                 description:
@@ -325,7 +326,13 @@ describe('SetupSteps', () => {
     );
 
     expect(setUp).toHaveBeenCalledWith([
-      { key: 'delivery', harness: 'claude-code', repositories: ['acme/api'] },
+      {
+        key: 'delivery',
+        harness: 'claude-code',
+        model: null,
+        effort: null,
+        repositories: ['acme/api'],
+      },
     ]);
   });
 
@@ -358,13 +365,40 @@ describe('SetupSteps', () => {
     );
 
     expect(setUp).toHaveBeenCalledWith([
-      { key: 'delivery', harness: null, repositories: [] },
+      {
+        key: 'delivery',
+        harness: null,
+        model: null,
+        effort: null,
+        repositories: [],
+      },
       {
         key: 'factory-improvement',
         harness: null,
+        model: null,
+        effort: null,
         repositories: ['acme/config'],
       },
     ]);
+  });
+
+  it('locks every control once the item is resolved', () => {
+    onboardingState.data = onboarding(
+      { connectedToGitHub: true, configRepository: 'acme/config' },
+      ['runner', 'github', 'repository', 'configuration', 'tools'],
+    );
+    showing(true);
+
+    const install = screen.getByRole('link', { name: 'Install on GitHub' });
+    expect(install.closest('[inert]')).not.toBeNull();
+  });
+
+  it('leaves the controls usable while the item is unresolved', () => {
+    onboardingState.data = onboarding();
+    showing(false);
+
+    const install = screen.getByRole('link', { name: 'Install on GitHub' });
+    expect(install.closest('[inert]')).toBeNull();
   });
 
   // A name nobody has is still a name, and the list simply goes away.

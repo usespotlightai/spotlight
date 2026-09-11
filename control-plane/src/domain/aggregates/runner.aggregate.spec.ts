@@ -2,10 +2,17 @@ import { Runner } from '@domain/aggregates/runner.aggregate';
 import { RunnerRevoked } from '@domain/events/runner-revoked.event';
 import { RevokedRunnerError } from '@domain/exceptions/revoked-runner.error';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { HarnessModel } from '@domain/value-objects/harness-model.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { RunnerName } from '@domain/value-objects/runner-name.vo';
 import { TokenHash } from '@domain/value-objects/token-hash.vo';
 import { describe, expect, it } from 'vitest';
+
+/** One installed harness, with any models it advertises. */
+const has = (id: string, ...models: string[]) => ({
+  id: HarnessId.of(id),
+  models: models.map(HarnessModel.of),
+});
 
 const NOW = new Date('2026-08-25T10:00:00.000Z');
 const LATER = new Date('2026-08-25T11:00:00.000Z');
@@ -31,10 +38,7 @@ describe('Runner', () => {
   });
 
   it('records what the runner says it found', () => {
-    const runner = enrolled().reports([
-      HarnessId.of('claude-code'),
-      HarnessId.of('other'),
-    ]);
+    const runner = enrolled().reports([has('claude-code'), has('other')]);
 
     expect(runner.harnesses.map((each) => each.value)).toEqual([
       'claude-code',
@@ -42,12 +46,24 @@ describe('Runner', () => {
     ]);
   });
 
+  // What each harness can answer with is the machine's to say too, kept with
+  // the harness it belongs to.
+  it('records the models a harness advertises', () => {
+    const runner = enrolled().reports([
+      has('claude-code', 'claude-sonnet-5', 'claude-opus-4-8'),
+    ]);
+
+    expect(
+      runner.modelsOf(HarnessId.of('claude-code')).map((each) => each.value),
+    ).toEqual(['claude-sonnet-5', 'claude-opus-4-8']);
+  });
+
   // A machine that loses a tool says so by not mentioning it, so what it
   // reports replaces what it said before rather than adding to it.
   it('takes the latest word as the whole truth', () => {
     const runner = enrolled()
-      .reports([HarnessId.of('claude-code'), HarnessId.of('other')])
-      .reports([HarnessId.of('other')]);
+      .reports([has('claude-code'), has('other')])
+      .reports([has('other')]);
 
     expect(runner.harnesses.map((each) => each.value)).toEqual(['other']);
   });
@@ -55,7 +71,7 @@ describe('Runner', () => {
   it('will not hear from a runner whose token was retired', () => {
     const runner = enrolled().revoke(NOW);
 
-    expect(() => runner.reports([HarnessId.of('claude-code')])).toThrow(
+    expect(() => runner.reports([has('claude-code')])).toThrow(
       RevokedRunnerError,
     );
   });

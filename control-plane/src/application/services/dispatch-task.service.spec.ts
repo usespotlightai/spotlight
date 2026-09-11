@@ -2,6 +2,7 @@ import {
   RunSpecContract,
   type RunSpecShape,
 } from '@application/contracts/run-spec.contract';
+import type { HarnessLaunchPort } from '@application/ports/harness-launch.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import { DispatchTask } from '@application/services/dispatch-task.service';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
@@ -39,12 +40,26 @@ const written = (run?: Run): RunSpecShape =>
 const DEV = Harness.of({
   id: HarnessId.of('dev'),
   name: HarnessName.of('Dev'),
-  command: HarnessCommand.of({ executable: 'dev-agent', args: ['--acp'] }),
 });
+
+const DEV_EXECUTABLE = 'dev-agent';
+const DEV_ARGS = ['--acp'];
 
 const harnesses: HarnessRepository = {
   all: () => [DEV],
   named: (id: HarnessId) => (id.equals(DEV.id) ? DEV : null),
+};
+
+const launch: HarnessLaunchPort = {
+  commandFor: (id, chosen) =>
+    id.equals(DEV.id)
+      ? HarnessCommand.of({
+          executable: DEV_EXECUTABLE,
+          args: DEV_ARGS,
+          env: chosen.model ? { DEV_MODEL: chosen.model.value } : {},
+        })
+      : null,
+  catalogue: () => [],
 };
 
 const at = (
@@ -113,7 +128,7 @@ const tracing = {
 };
 
 const dispatch = (station: Station, standing?: Task, repositories?: string[]) =>
-  new DispatchTask(runs, ids, harnesses, tracing).dispatch({
+  new DispatchTask(runs, ids, harnesses, launch, tracing).dispatch({
     task: standing ?? task(station.id.value),
     line: held(station, repositories),
   });
@@ -247,8 +262,8 @@ describe('DispatchTask', () => {
 
     const spec = written(queued[0]);
 
-    expect(spec.command.executable).toBe(DEV.command.executable);
-    expect(spec.command.args).toEqual([...DEV.command.args]);
+    expect(spec.command.executable).toBe(DEV_EXECUTABLE);
+    expect(spec.command.args).toEqual([...DEV_ARGS]);
   });
 
   // What to start and what to ask of it are different things: the briefing is

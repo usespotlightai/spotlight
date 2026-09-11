@@ -1,6 +1,9 @@
 import { EventRecorder } from '@domain/aggregates/event-recorder';
+import { ConfigurationMoveStarted } from '@domain/events/configuration-move-started.event';
+import { ConfigurationMoved } from '@domain/events/configuration-moved.event';
 import { TeamCreated } from '@domain/events/team-created.event';
 import { InconsistentStateError } from '@domain/exceptions/inconsistent-state.error';
+import { InvalidConfigurationMoveError } from '@domain/exceptions/invalid-configuration-move.error';
 import type { Repository } from '@domain/value-objects/repository.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { TeamKey } from '@domain/value-objects/team-key.vo';
@@ -24,6 +27,12 @@ export class Team extends EventRecorder {
     readonly members: readonly TeamMember[],
     /** Null where nobody chose, and then the fallback rule applies. */
     readonly configRepository: Repository | null,
+    /**
+     * Where its configuration is on its way to, with a pull request carrying it
+     * open there. Null where nothing is moving. Reading stays where it is until
+     * the move lands, so a pull request nobody has merged changes nothing.
+     */
+    readonly movingConfigurationTo: Repository | null,
   ) {
     super();
   }
@@ -44,6 +53,7 @@ export class Team extends EventRecorder {
       input.name,
       [{ userId: input.owner, role: 'owner' }],
       null,
+      null,
     );
 
     team.record(new TeamCreated(input.workspaceId, id, input.owner));
@@ -58,12 +68,22 @@ export class Team extends EventRecorder {
     name: TeamName;
     members: readonly TeamMember[];
     configRepository?: Repository | null;
+    movingConfigurationTo?: Repository | null;
   }): Team {
     if (input.members.length === 0) {
       throw new InconsistentStateError('team', 'has no members at all');
     }
     if (!input.members.some((member) => member.role === 'owner')) {
       throw new InconsistentStateError('team', 'has nobody who owns it');
+    }
+    if (
+      input.movingConfigurationTo &&
+      input.configRepository?.equals(input.movingConfigurationTo)
+    ) {
+      throw new InconsistentStateError(
+        'team',
+        'is moving its configuration to where it already keeps it',
+      );
     }
 
     return new Team(
@@ -73,6 +93,7 @@ export class Team extends EventRecorder {
       input.name,
       input.members,
       input.configRepository ?? null,
+      input.movingConfigurationTo ?? null,
     );
   }
 
@@ -81,33 +102,113 @@ export class Team extends EventRecorder {
   }
 
   /**
-   * Where a team keeps its configuration. Said with another place, or with
-   * none, moves it: the files already written stay in the old repository, and
-   * reading begins from the new. Saying the same place again is no change.
+   * Where it reads its configuration from: where it keeps it, or else wherever
+   * the fallback rule last found it.
+   */
+  configurationReadFrom(lastRead: Repository | null): Repository | null {
+    return this.configRepository ?? lastRead;
+  }
+
+  /**
+   * Where a change to its configuration is written. While a move is under way
+   * that is where it is going, so an edit made meanwhile lands in the pull
+   * request carrying it rather than somewhere about to be left behind.
+   */
+  configurationWrittenTo(lastRead: Repository | null): Repository | null {
+    return this.movingConfigurationTo ?? this.configurationReadFrom(lastRead);
+  }
+
+  /**
+   * Where a team keeps its configuration, said outright. Said with another
+   * place, or with none, moves it without carrying anything: the files already
+   * written stay in the old repository, and reading begins from the new. A move
+   * under way is given up, since this choice is made over it. Saying the same
+   * place again is no change.
    */
   keepsConfigurationIn(repository: Repository | null): Team {
-    return new Team(
-      this.id,
-      this.workspaceId,
-      this.key,
-      this.name,
-      this.members,
-      repository,
+    return this.reshaped({
+      configRepository: repository,
+      movingConfigurationTo: null,
+    });
+  }
+
+  /** Starting the same move again is no change. */
+  movesConfigurationTo(
+    destination: Repository,
+    lastRead: Repository | null,
+  ): Team {
+    if (this.configurationReadFrom(lastRead)?.equals(destination)) {
+      throw new InvalidConfigurationMoveError(
+        `already reads its configuration from ${destination.value}`,
+      );
+    }
+
+    if (this.movingConfigurationTo?.equals(destination)) {
+      return this;
+    }
+
+    const moving = this.reshaped({ movingConfigurationTo: destination });
+    moving.record(
+      new ConfigurationMoveStarted(this.workspaceId, this.id, destination),
     );
+
+    return moving;
+  }
+
+  finishesMovingConfiguration(): Team {
+    const destination = this.movingConfigurationTo;
+
+    if (!destination) {
+      throw new InvalidConfigurationMoveError(
+        'has no move of its configuration under way',
+      );
+    }
+
+    const moved = this.reshaped({
+      configRepository: destination,
+      movingConfigurationTo: null,
+    });
+    moved.record(
+      new ConfigurationMoved(
+        this.workspaceId,
+        this.id,
+        this.configRepository,
+        destination,
+      ),
+    );
+
+    return moved;
   }
 
   renamedTo(name: TeamName): Team {
-    return new Team(
-      this.id,
-      this.workspaceId,
-      this.key,
-      name,
-      this.members,
-      this.configRepository,
-    );
+    return this.reshaped({ name });
   }
 
   equals(other: Team): boolean {
     return this.id.equals(other.id);
+  }
+
+  /** What was recorded before a change is still owed after it. */
+  private reshaped(
+    over: Partial<
+      Pick<Team, 'name' | 'configRepository' | 'movingConfigurationTo'>
+    >,
+  ): Team {
+    const next = new Team(
+      this.id,
+      this.workspaceId,
+      this.key,
+      over.name ?? this.name,
+      this.members,
+      over.configRepository !== undefined
+        ? over.configRepository
+        : this.configRepository,
+      over.movingConfigurationTo !== undefined
+        ? over.movingConfigurationTo
+        : this.movingConfigurationTo,
+    );
+    next.inheritEvents(this);
+
+    return next;
   }
 }

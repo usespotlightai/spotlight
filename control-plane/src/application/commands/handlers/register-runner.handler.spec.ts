@@ -7,6 +7,7 @@ import type { TransactionPort } from '@application/ports/transaction.port';
 import type { SettleSetup } from '@application/services/settle-setup.service';
 import { Runner } from '@domain/aggregates/runner.aggregate';
 import type { RunnerRepository } from '@domain/repositories/runner.repository';
+import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { RunnerName } from '@domain/value-objects/runner-name.vo';
 import { TokenHash } from '@domain/value-objects/token-hash.vo';
@@ -44,7 +45,7 @@ const registering = (given: { connected?: boolean; known?: boolean } = {}) => {
 
 const register = {
   runnerId: ID,
-  harnesses: ['claude-code'],
+  harnesses: [{ id: 'claude-code', models: ['claude-sonnet-5'] }],
 } as RegisterRunnerCommand;
 
 describe('RegisterRunnerHandler', () => {
@@ -57,6 +58,18 @@ describe('RegisterRunnerHandler', () => {
       lastSeenAt: NOW,
       harnesses: [{ value: 'claude-code' }],
     });
+  });
+
+  it('records, on the runner, the models each harness reported', async () => {
+    const { handler, save } = registering();
+
+    await handler.execute(register);
+
+    const saved = save.mock.calls[0]?.[0] as Runner;
+
+    expect(
+      saved.modelsOf(HarnessId.of('claude-code')).map((each) => each.value),
+    ).toEqual(['claude-sonnet-5']);
   });
 
   it('refuses a token nobody was enrolled against', async () => {

@@ -61,6 +61,10 @@ export const station = pgTable(
     finishes: boolean('finishes').notNull().default(false),
     // None means nothing works this station, so it holds what it is given.
     harness: text('harness'),
+    // Which model the harness answers with. None falls back to its default.
+    model: text('model'),
+    // How hard the harness is told to think. None leaves its own default.
+    effort: text('effort'),
     agentPrompt: text('agent_prompt'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')

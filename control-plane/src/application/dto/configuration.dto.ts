@@ -1,3 +1,6 @@
+import type { OpenedPullRequestDto } from '@application/dto/pull-request.dto';
+import type { ConfigurationMove } from '@domain/services/configuration-move';
+
 /** What is wrong with one file, as whoever has to fix it would read it. */
 export interface ConfigProblemDto {
   readonly path: string;
@@ -20,10 +23,26 @@ export interface ConfiguredIntegrationDto {
 }
 
 export interface ConfigurationDto {
-  /** Null where nothing has been read yet. */
+  /** The repository last read from. Null where nothing has been read yet. */
   readonly repository: string | null;
+  /**
+   * Where the team reads its configuration from: where it keeps it, or else
+   * where the fallback rule last found it. Null where neither.
+   */
+  readonly readsFrom: string | null;
+  readonly movingTo: string | null;
   readonly sha: string | null;
   readonly readAt: string | null;
   readonly integrations: readonly ConfiguredIntegrationDto[];
   readonly problems: readonly ConfigProblemDto[];
 }
+
+export const CONFIGURATION_MOVE_KINDS = [
+  'carried',
+  'adopted',
+  'repointed',
+] as const satisfies readonly ConfigurationMove['kind'][];
+
+export type ConfigurationMoveDto =
+  | { readonly kind: 'carried'; readonly pullRequest: OpenedPullRequestDto }
+  | { readonly kind: Exclude<ConfigurationMove['kind'], 'carried'> };

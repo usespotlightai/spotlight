@@ -14,6 +14,8 @@ type LineStub = {
   key: string;
   name: string;
   harness: string | null;
+  model?: string | null;
+  effort?: string | null;
   repositories: readonly string[];
 };
 
@@ -29,7 +31,15 @@ type Given = {
 const asLine = (line: LineStub) => ({
   key: { value: line.key },
   name: { value: line.name },
-  worked: line.harness ? [{ harness: { value: line.harness } }] : [],
+  worked: line.harness
+    ? [
+        {
+          harness: { value: line.harness },
+          model: line.model ? { value: line.model } : null,
+          effort: line.effort ? { value: line.effort } : null,
+        },
+      ]
+    : [],
   repositories: { all: line.repositories.map((value) => ({ value })) },
 });
 
@@ -110,6 +120,8 @@ describe('OnboardingHandler', () => {
           key: 'delivery',
           name: 'Software Delivery',
           harness: 'claude-code',
+          model: 'claude-sonnet-5',
+          effort: 'high',
           repositories: ['acme/api'],
         },
         {
@@ -126,12 +138,16 @@ describe('OnboardingHandler', () => {
         key: 'delivery',
         name: 'Software Delivery',
         harness: 'claude-code',
+        model: 'claude-sonnet-5',
+        effort: 'high',
         repositories: ['acme/api'],
       },
       {
         key: 'factory-improvement',
         name: 'Factory Improvement',
         harness: null,
+        model: null,
+        effort: null,
         repositories: [],
       },
     ]);

@@ -1,3 +1,4 @@
+import { EFFORTS } from '@domain/value-objects/effort.vo';
 import { z } from 'zod';
 
 /**
@@ -25,6 +26,10 @@ const stationSchema = z.object({
   description: z.string().optional(),
   /** Which harness works here. Nothing runs at a backlog or at the end. */
   harness: z.string().min(1).optional(),
+  /** Which model the harness answers with. Falls back to its default if unset. */
+  model: z.string().min(1).optional(),
+  /** How hard the harness is told to think here. Its own default if unset. */
+  effort: z.enum(EFFORTS).optional(),
   prompt: z.string().optional(),
   tools: z.array(z.string().min(1)).default([]),
   /** Where work may go from here, by station key. */

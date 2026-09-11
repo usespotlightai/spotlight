@@ -7,6 +7,7 @@ import type { WorkspaceReaderPort } from '@application/ports/workspace-reader.po
 import type { ConfigurationQuery } from '@application/queries/read-configuration.query';
 import { INTEGRATIONS_UNDER } from '@domain/aggregates/team-configuration.aggregate';
 import type { HostConnectionRepository } from '@domain/repositories/host-connection.repository';
+import type { TeamRepository } from '@domain/repositories/team.repository';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
@@ -21,6 +22,7 @@ export class ConfigurationHandler
 {
   constructor(
     private readonly workspaces: WorkspaceReaderPort,
+    private readonly teams: TeamRepository,
     private readonly configurations: TeamConfigurationRepository,
     private readonly integrations: IntegrationReaderPort,
     private readonly secrets: TeamSecretsPort,
@@ -38,11 +40,20 @@ export class ConfigurationHandler
         return null;
       }
 
-      const applied = await this.configurations.findFor(TeamId.of(team.teamId));
+      const [kept, applied] = await Promise.all([
+        this.teams.find(TeamId.of(team.teamId)),
+        this.configurations.findFor(TeamId.of(team.teamId)),
+      ]);
+
+      const readsFrom =
+        kept?.configurationReadFrom(applied?.repository ?? null)?.value ?? null;
+      const movingTo = kept?.movingConfigurationTo?.value ?? null;
 
       if (!applied) {
         return {
           repository: null,
+          readsFrom,
+          movingTo,
           sha: null,
           readAt: null,
           integrations: [],
@@ -65,6 +76,8 @@ export class ConfigurationHandler
 
       return {
         repository: applied.repository.value,
+        readsFrom,
+        movingTo,
         sha: applied.commit.value,
         readAt: applied.readAt.toISOString(),
         integrations: read.integrations.map((each) => ({

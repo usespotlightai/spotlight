@@ -18,6 +18,7 @@ type SetupStepsProps = {
   teamId: string;
   body: string;
   about: About | undefined;
+  resolved: boolean;
 };
 
 /** The application's pill controls: round, flat, one radius winning the merge. */
@@ -32,9 +33,10 @@ const CALLS: Partial<Record<SetupStepResponseDto['key'], string>> = {
 type StepProps = {
   step: SetupStepResponseDto;
   action: ReactNode;
+  disabled: boolean;
 };
 
-function Step({ step, action }: StepProps) {
+function Step({ step, action, disabled }: StepProps) {
   const [expanded, setExpanded] = useState(false);
 
   // A done step folds its control away to keep the list tidy; clicking it opens
@@ -110,7 +112,14 @@ function Step({ step, action }: StepProps) {
             }}
           >
             <div className={cn('min-h-0', clipped && 'overflow-hidden')}>
-              <div className="pt-2">{action}</div>
+              {/* inert reaches every control inside — links, buttons, the
+                  selects — however deep, which a disabled prop could not. */}
+              <div
+                className={cn('pt-2', disabled && 'opacity-50')}
+                inert={disabled}
+              >
+                {action}
+              </div>
             </div>
           </div>
         )}
@@ -124,10 +133,14 @@ function Step({ step, action }: StepProps) {
  * each step is and whether it is done come from the list itself; what is
  * left here is how to go and take one. The note's own words are the fallback.
  */
-export function SetupSteps({ teamId, body, about }: SetupStepsProps) {
+export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
   const { slug } = useParams();
   const here = useLocation();
-  const { data: onboarding } = useOnboarding(teamId);
+  const { data: onboarding, isPending } = useOnboarding(teamId);
+
+  if (slug && isPending) {
+    return null;
+  }
 
   if (!onboarding || !slug) {
     return (
@@ -217,7 +230,12 @@ export function SetupSteps({ teamId, body, about }: SetupStepsProps) {
 
       <ul className="flex flex-col gap-3">
         {onboarding.steps.map((step) => (
-          <Step key={step.key} step={step} action={goAndDoIt(step)} />
+          <Step
+            key={step.key}
+            step={step}
+            action={goAndDoIt(step)}
+            disabled={resolved}
+          />
         ))}
       </ul>
     </div>

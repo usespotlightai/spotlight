@@ -1,20 +1,18 @@
-import type { HarnessCommand } from '@domain/value-objects/harness-command.vo';
 import type { HarnessId } from '@domain/value-objects/harness-id.vo';
 import type { HarnessName } from '@domain/value-objects/harness-name.vo';
 
+/**
+ * A harness as the domain knows it: an id and a name. How one is started lives
+ * behind the launch port, out of here.
+ */
 export class Harness {
   private constructor(
     readonly id: HarnessId,
     readonly name: HarnessName,
-    readonly command: HarnessCommand,
   ) {}
 
-  static of(input: {
-    id: HarnessId;
-    name: HarnessName;
-    command: HarnessCommand;
-  }): Harness {
-    return new Harness(input.id, input.name, input.command);
+  static of(input: { id: HarnessId; name: HarnessName }): Harness {
+    return new Harness(input.id, input.name);
   }
 
   equals(other: Harness): boolean {

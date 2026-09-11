@@ -23,4 +23,7 @@ export interface RunnerReaderPort {
    * one writes a row and mints a token, and neither of those is a machine.
    */
   anyConnected(): Promise<boolean>;
+
+  /** The models any live runner advertises, by harness id, in first-seen order. */
+  advertisedModels(): Promise<ReadonlyMap<string, readonly string[]>>;
 }

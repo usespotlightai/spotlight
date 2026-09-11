@@ -29,6 +29,24 @@ export class StationResponseDto {
   readonly harness: string | null;
 
   @ApiProperty({
+    example: 'claude-sonnet-5',
+    nullable: true,
+    type: String,
+    description:
+      'Which model the harness answers with. Null falls back to its default.',
+  })
+  readonly model: string | null;
+
+  @ApiProperty({
+    example: 'high',
+    nullable: true,
+    type: String,
+    description:
+      'How hard the harness is told to think. Null leaves its own default.',
+  })
+  readonly effort: string | null;
+
+  @ApiProperty({
     example: '## Role\n\nSort the queue.',
     nullable: true,
     type: String,
@@ -50,6 +68,8 @@ export class StationResponseDto {
     color: string,
     description: string | null,
     harness: string | null,
+    model: string | null,
+    effort: string | null,
     agentPrompt: string | null,
     kind: string,
   ) {
@@ -59,6 +79,8 @@ export class StationResponseDto {
     this.color = color;
     this.description = description;
     this.harness = harness;
+    this.model = model;
+    this.effort = effort;
     this.agentPrompt = agentPrompt;
     this.kind = kind;
   }

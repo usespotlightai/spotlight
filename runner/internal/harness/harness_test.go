@@ -1,6 +1,7 @@
 package harness_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -26,11 +27,11 @@ func onPath(t *testing.T, name string) string {
 func TestReportsWhatIsThere(t *testing.T) {
 	executable := onPath(t, "here")
 
-	found := harness.Installed([]protocol.Installable{
+	found := harness.Installed(context.Background(), []protocol.Installable{
 		{ID: "the-one-here", Executable: executable},
 	})
 
-	if len(found) != 1 || found[0] != "the-one-here" {
+	if len(found) != 1 || found[0].ID != "the-one-here" {
 		t.Fatalf("got %v", found)
 	}
 }
@@ -40,18 +41,67 @@ func TestReportsWhatIsThere(t *testing.T) {
 func TestLeavesOutWhatIsNotThere(t *testing.T) {
 	onPath(t, "here")
 
-	found := harness.Installed([]protocol.Installable{
+	found := harness.Installed(context.Background(), []protocol.Installable{
 		{ID: "the-one-here", Executable: "here"},
 		{ID: "not-here", Executable: "nothing-of-that-name"},
 	})
 
-	if len(found) != 1 || found[0] != "the-one-here" {
+	if len(found) != 1 || found[0].ID != "the-one-here" {
+		t.Fatalf("got %v", found)
+	}
+}
+
+// A discovery command's stdout is read a model id per line: the first token of
+// each line, when it looks like an id. Headers and decorations are left out.
+func TestDiscoversModelsFromTheCommand(t *testing.T) {
+	dir := t.TempDir()
+	script := filepath.Join(dir, "lister")
+	body := "#!/bin/sh\n" +
+		"echo 'Available models:'\n" +
+		"echo 'sonnet-4.5'\n" +
+		"echo 'gpt-5   (default)'\n" +
+		"echo 'sonnet-4.5'\n" + // a repeat is reported once
+		"echo 'GARBAGE'\n"
+	if err := os.WriteFile(script, []byte(body), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir)
+
+	found := harness.Installed(context.Background(), []protocol.Installable{
+		{ID: "lister", Executable: "lister", Discovery: []string{"lister"}},
+	})
+
+	if len(found) != 1 {
+		t.Fatalf("got %v", found)
+	}
+	got := found[0].Models
+	want := []string{"sonnet-4.5", "gpt-5"}
+	if len(got) != len(want) {
+		t.Fatalf("models: got %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("models: got %v, want %v", got, want)
+		}
+	}
+}
+
+// A harness with no discovery command, or one that fails, simply reports no
+// models: the control plane falls back to what it knows.
+func TestReportsNoModelsWithoutDiscovery(t *testing.T) {
+	executable := onPath(t, "bare")
+
+	found := harness.Installed(context.Background(), []protocol.Installable{
+		{ID: "bare", Executable: executable},
+	})
+
+	if len(found) != 1 || len(found[0].Models) != 0 {
 		t.Fatalf("got %v", found)
 	}
 }
 
 func TestNothingAskedAboutIsNothingReported(t *testing.T) {
-	if found := harness.Installed(nil); len(found) != 0 {
+	if found := harness.Installed(context.Background(), nil); len(found) != 0 {
 		t.Fatalf("got %v", found)
 	}
 }
@@ -61,7 +111,7 @@ func TestNothingAskedAboutIsNothingReported(t *testing.T) {
 func TestSkipsAnEntryThatNamesNothing(t *testing.T) {
 	onPath(t, "here")
 
-	found := harness.Installed([]protocol.Installable{
+	found := harness.Installed(context.Background(), []protocol.Installable{
 		{ID: "", Executable: "here"},
 		{ID: "no-executable", Executable: ""},
 	})

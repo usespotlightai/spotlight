@@ -60,6 +60,8 @@ const written = (
     color: station.color.value,
     ...(station.description ? { description: station.description.value } : {}),
     ...(station.harness ? { harness: station.harness.value } : {}),
+    ...(station.model ? { model: station.model.value } : {}),
+    ...(station.effort ? { effort: station.effort.value } : {}),
     ...(station.agentPrompt ? { prompt: station.agentPrompt.value } : {}),
     ...(station.tools.length > 0
       ? { tools: station.tools.map((each) => each.value) }

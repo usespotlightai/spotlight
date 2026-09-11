@@ -258,6 +258,7 @@ export function Conversation({
                           stationCount={item.station.count}
                           teamId={item.teamId}
                           about={item.about}
+                          resolved={item.resolved}
                           worked={worked.filter(
                             (each) => each.runId === note.runId,
                           )}

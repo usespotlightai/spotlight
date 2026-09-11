@@ -21,6 +21,14 @@ export type StationResponseDto = {
    */
   harness: string | null;
   /**
+   * Which model the harness answers with. Null falls back to its default.
+   */
+  model: string | null;
+  /**
+   * How hard the harness is told to think. Null leaves its own default.
+   */
+  effort: string | null;
+  /**
    * Markdown, handed to the agent that works this station
    */
   agentPrompt: string | null;
@@ -61,6 +69,14 @@ export type CustomiseStationRequestDto = {
    * Which runners work this station
    */
   harness?: string | null;
+  /**
+   * Which model the harness answers with here
+   */
+  model?: string | null;
+  /**
+   * How hard the harness is told to think here
+   */
+  effort?: string | null;
   /**
    * Markdown, handed to the agent that works this station
    */
@@ -117,6 +133,10 @@ export type InstallableHarnessResponseDto = {
    * What to look for on the runner’s PATH.
    */
   executable: string;
+  /**
+   * What to run to list this harness’s models, argv-style. Empty where the CLI cannot enumerate them.
+   */
+  discovery: Array<string>;
 };
 
 export type KeptWorkspacesResponseDto = {
@@ -132,9 +152,9 @@ export type RegisterRunnerRequestDto = {
    */
   capacity?: number;
   /**
-   * The harnesses the runner found installed. What is on a machine is a fact about that machine, so the machine is what says it.
+   * The harnesses the runner found installed, each with the models it discovered. What is on a machine is a fact about that machine, so the machine is what says it.
    */
-  harnesses?: Array<Array<string>>;
+  harnesses?: Array<Array<unknown>>;
 };
 
 export type RegisteredRunnerResponseDto = {
@@ -345,9 +365,23 @@ export type CompleteRunRequestDto = {
   stopped?: boolean;
 };
 
+export type HarnessModelResponseDto = {
+  id: string;
+  name: string;
+};
+
 export type HarnessResponseDto = {
   id: string;
   name: string;
+  models: Array<HarnessModelResponseDto>;
+  /**
+   * Which model a station runs on where it names none of its own
+   */
+  defaultModel: string;
+  /**
+   * The effort levels this harness offers. Empty where it takes none.
+   */
+  efforts: Array<string>;
 };
 
 export type InboxStationResponseDto = {
@@ -607,11 +641,22 @@ export type ConfigProblemResponseDto = {
 };
 
 export type ConfigurationResponseDto = {
+  /**
+   * The repository last read from.
+   */
   repository: string | null;
   sha: string | null;
   readAt: string | null;
   integrations: Array<ConfiguredIntegrationResponseDto>;
   problems: Array<ConfigProblemResponseDto>;
+  /**
+   * Where this team reads its configuration from: where it keeps it, or else where it was last found.
+   */
+  readsFrom: string | null;
+  /**
+   * Where its configuration is moving to, with a pull request open there.
+   */
+  movingTo: string | null;
 };
 
 export type PinConfigurationRequestDto = {
@@ -619,6 +664,24 @@ export type PinConfigurationRequestDto = {
    * The repository this team reads its configuration from. Null takes the pin off.
    */
   repository: string | null;
+};
+
+export type MoveConfigurationRequestDto = {
+  /**
+   * The repository to move this team's configuration to.
+   */
+  repository: string;
+};
+
+export type MovedConfigurationResponseDto = {
+  /**
+   * What the move came to: carried in a pull request the team reads through once merged, adopted where the repository already held configuration, or repointed where there was nothing to carry.
+   */
+  kind: 'carried' | 'adopted' | 'repointed';
+  /**
+   * The pull request carrying the configuration, where it was carried.
+   */
+  url: string | null;
 };
 
 export type SetupStepResponseDto = {
@@ -639,6 +702,8 @@ export type OnboardingLineResponseDto = {
   key: string;
   name: string;
   harness: string | null;
+  model: string | null;
+  effort: string | null;
   repositories: Array<string>;
 };
 
@@ -678,6 +743,8 @@ export type OnboardingResponseDto = {
 export type SetUpLineRequestDto = {
   key: string;
   harness?: string | null;
+  model?: string | null;
+  effort?: string | null;
   repositories: Array<string>;
 };
 
@@ -1763,6 +1830,32 @@ export type PinConfigurationRepositoryResponses = {
 };
 
 export type PinConfigurationRepositoryResponse = PinConfigurationRepositoryResponses[keyof PinConfigurationRepositoryResponses];
+
+export type MoveConfigurationData = {
+  body: MoveConfigurationRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration/repository/move';
+};
+
+export type MoveConfigurationErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, or not yours to move
+   */
+  404: unknown;
+};
+
+export type MoveConfigurationResponses = {
+  200: MovedConfigurationResponseDto;
+};
+
+export type MoveConfigurationResponse = MoveConfigurationResponses[keyof MoveConfigurationResponses];
 
 export type ReadOnboardingData = {
   body?: never;

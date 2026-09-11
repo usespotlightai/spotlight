@@ -1,13 +1,11 @@
 import type { LineReaderPort } from '@application/ports/line-reader.port';
-import type {
-  OpenedPullRequestDto,
-  PullRequestPort,
-} from '@application/ports/pull-request.port';
-import type { RepositoryContentsPort } from '@application/ports/repository-contents.port';
+import type { OpenedPullRequestDto } from '@application/ports/pull-request.port';
+import type { ConfigurationTarget } from '@application/services/configuration-target.service';
+import type { HeldConfiguration } from '@application/services/held-configuration.service';
+import type { WriteConfiguration } from '@application/services/write-configuration.service';
 import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { CONFIGURATION_BRANCH } from '@domain/aggregates/team-configuration.aggregate';
 import type { Workspace } from '@domain/aggregates/workspace.aggregate';
-import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import type { Repository } from '@domain/value-objects/repository.vo';
 
 const TITLE = 'Set up Spotlight';
@@ -32,54 +30,38 @@ board.`;
 export class SeedConfiguration {
   constructor(
     private readonly reader: LineReaderPort,
-    private readonly contents: RepositoryContentsPort,
-    private readonly pullRequests: PullRequestPort,
+    private readonly target: ConfigurationTarget,
+    private readonly held: HeldConfiguration,
+    private readonly writing: WriteConfiguration,
   ) {}
 
-  /** Null where there is nowhere to write, or it already has configuration. */
+  /**
+   * Null where there is nothing to write, nowhere to write it, or the
+   * repository already holds configuration: one that is already set up is not
+   * one to open a pull request over.
+   */
   async seed(
     workspace: Workspace,
     into: Repository,
     lines: readonly AssemblyLine[],
   ): Promise<OpenedPullRequestDto | null> {
-    const installation = GitHubInstallation.from(
-      workspace.connectionTo(GitHubInstallation.SOURCE),
-    );
-
-    if (!installation) {
-      return null;
-    }
-
-    const sha = await this.contents.headOf(installation, into);
-
-    if (!sha) {
-      return null;
-    }
-
-    const already = await this.contents.under({
-      installation,
-      repository: into,
-      ref: sha,
-      path: '.spotlight',
-    });
-
-    if (already.length > 0) {
-      return null;
-    }
-
     const files = lines.map((line) => this.reader.write(line));
 
     if (files.length === 0) {
       return null;
     }
 
-    return this.pullRequests.propose({
-      installation,
-      repository: into,
+    const target = this.target.at(workspace, into);
+    const holding = target ? await this.held.at(target) : null;
+
+    if (!target || !holding || holding.files.length > 0) {
+      return null;
+    }
+
+    return this.writing.writeInto(target, {
       branch: CONFIGURATION_BRANCH,
       title: TITLE,
       body: BODY,
-      message: TITLE,
       files,
     });
   }

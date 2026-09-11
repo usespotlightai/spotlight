@@ -6,6 +6,8 @@ export type StationEdits = {
   readonly color: string;
   readonly description: string;
   readonly harness: string;
+  readonly model: string;
+  readonly effort: string;
   readonly agentPrompt: string;
 };
 
@@ -14,6 +16,8 @@ const asEdits = (station?: Station): StationEdits => ({
   color: station?.color ?? '',
   description: station?.description ?? '',
   harness: station?.harness ?? '',
+  model: station?.model ?? '',
+  effort: station?.effort ?? '',
   agentPrompt: station?.agentPrompt ?? '',
 });
 

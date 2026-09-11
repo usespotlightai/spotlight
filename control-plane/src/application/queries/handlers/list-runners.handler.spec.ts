@@ -31,6 +31,7 @@ const reader = (result: RunnerSummary[]): RunnerReaderPort => ({
     .mockResolvedValue(
       result.some((each) => !each.revokedAt && each.lastSeenAt !== null),
     ),
+  advertisedModels: vi.fn().mockResolvedValue(new Map()),
 });
 
 const handle = (runners: RunnerSummary[]) =>

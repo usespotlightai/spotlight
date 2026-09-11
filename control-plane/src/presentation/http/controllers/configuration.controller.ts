@@ -1,10 +1,14 @@
 import { ChooseToolsCommand } from '@application/commands/choose-tools.command';
 import { ForgetSecretCommand } from '@application/commands/forget-secret.command';
+import { MoveConfigurationCommand } from '@application/commands/move-configuration.command';
 import { PinConfigurationCommand } from '@application/commands/pin-configuration.command';
 import { ReadConfigurationCommand } from '@application/commands/read-configuration.command';
 import { SetSecretCommand } from '@application/commands/set-secret.command';
 import { SetUpLinesCommand } from '@application/commands/set-up-lines.command';
-import type { ConfigurationDto } from '@application/dto/configuration.dto';
+import type {
+  ConfigurationDto,
+  ConfigurationMoveDto,
+} from '@application/dto/configuration.dto';
 import type { OnboardingDto } from '@application/dto/onboarding.dto';
 import type { OpenedPullRequestDto } from '@application/ports/pull-request.port';
 import type { AuthenticatedUser } from '@application/ports/session.port';
@@ -42,6 +46,8 @@ import {
   ConfiguredIntegrationResponseDto,
   ConfiguredSecretResponseDto,
   KnownToolResponseDto,
+  MoveConfigurationRequestDto,
+  MovedConfigurationResponseDto,
   OnboardingLineResponseDto,
   OnboardingResponseDto,
   PinConfigurationRequestDto,
@@ -82,6 +88,8 @@ const shown = (read: ConfigurationDto): ConfigurationResponseDto =>
     read.problems.map(
       (each) => new ConfigProblemResponseDto(each.path, each.at, each.reason),
     ),
+    read.readsFrom,
+    read.movingTo,
   );
 
 @ApiTags('configuration')
@@ -178,6 +186,36 @@ export class ConfigurationController {
     }
   }
 
+  @Post('repository/move')
+  @ApiOperation({
+    operationId: 'moveConfiguration',
+    summary: "Move this team's configuration to a different repository",
+  })
+  @ApiParam({ name: 'teamId', example: 'team_1' })
+  @ApiOkResponse({ type: MovedConfigurationResponseDto })
+  @ApiNotFoundResponse({
+    description: 'No such team, or not yours to move',
+  })
+  async moveRepository(
+    @Param('teamId') teamId: string,
+    @Body() body: MoveConfigurationRequestDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<MovedConfigurationResponseDto> {
+    const moved = await this.commandBus.execute<
+      MoveConfigurationCommand,
+      ConfigurationMoveDto | null
+    >(new MoveConfigurationCommand(teamId, body.repository, user.id));
+
+    if (!moved) {
+      throw new NotFoundException();
+    }
+
+    return new MovedConfigurationResponseDto(
+      moved.kind,
+      moved.kind === 'carried' ? moved.pullRequest.url : null,
+    );
+  }
+
   @Get('onboarding')
   @ApiOperation({
     operationId: 'readOnboarding',
@@ -220,6 +258,8 @@ export class ConfigurationController {
             each.key,
             each.name,
             each.harness,
+            each.model,
+            each.effort,
             each.repositories,
           ),
       ),
@@ -266,6 +306,8 @@ export class ConfigurationController {
         body.lines.map((line) => ({
           key: line.key,
           harness: line.harness ?? null,
+          model: line.model ?? null,
+          effort: line.effort ?? null,
           repositories: line.repositories,
         })),
       ),
