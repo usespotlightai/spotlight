@@ -24,7 +24,7 @@ export function SettingsSection({
         </h2>
       )}
 
-      <div className="divide-y divide-border overflow-hidden rounded-xl border-[0.5px] border-border bg-card">
+      <div className="divide-y-[0.5px] divide-border overflow-hidden rounded-xl border-[0.5px] border-border bg-card">
         {children}
       </div>
     </section>
