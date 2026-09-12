@@ -12,22 +12,8 @@
     {
       "idx": 1,
       "version": "7",
-      "when": 1789231532804,
-      "tag": "20260912164532_initial_schema",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1789233617068,
-      "tag": "20260912172017_invite_somebody_onto_a_team",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1789238984815,
-      "tag": "20260912184944_a_workspace_is_written_against_what_it_was_read_at",
+      "when": 1789244505163,
+      "tag": "20260912202145_initial_schema",
       "breakpoints": true
     }
   ]
