@@ -5,6 +5,7 @@ import { Station } from '@domain/entities/station.entity';
 import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
+import { Attachment } from '@domain/value-objects/attachment.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { Said } from '@domain/value-objects/said.vo';
@@ -42,6 +43,7 @@ const withNotes = (task: Task, ...notes: TaskNote[]) =>
     raisedBy: task.raisedBy,
     pullRequest: task.pullRequest,
     finishedAt: task.finishedAt,
+    attachments: task.attachments,
   });
 
 const at = (
@@ -151,6 +153,51 @@ describe('TaskBriefing', () => {
 
     expect(brief(triage(), worked)).toContain(
       '## Already done\n\n### Triage\n\nReproduced on restart.',
+    );
+  });
+
+  it('says where in the workspace each file handed over will be', () => {
+    const queue = Attachment.of({
+      id: 'file_1',
+      name: 'queue.png',
+      contentType: 'image/png',
+      size: 2048,
+    });
+    const log = Attachment.of({
+      id: 'file_2',
+      name: 'trace.log',
+      contentType: 'text/plain',
+      size: 3 * 1024 * 1024,
+    });
+
+    const worked = withNotes(
+      Task.add({
+        workspaceId: WorkspaceId.of('ws_1'),
+        stationId: StationId.of('station_1'),
+        title: TaskTitle.of('Fix the queue'),
+        attachments: [queue],
+        rank: TaskRank.of('i'),
+        raisedBy: UserId.of('user_1'),
+        now: new Date('2026-08-28T09:15:00.000Z'),
+        newId: () => 'task_1',
+      }),
+      TaskNote.of({
+        voice: Voice.person(UserId.of('user_1')),
+        station: StationName.of('Triage'),
+        body: TaskNoteBody.of('Here is the log.'),
+        at: new Date('2026-08-28T10:00:00.000Z'),
+        kind: 'said',
+        attachments: [log],
+      }),
+    );
+
+    const briefing = brief(triage(), worked);
+
+    expect(briefing).toContain(
+      '## Fix the queue\n\nAttached, in the workspace:\n- `.spotlight/attachments/file_1/queue.png` (image/png, 2 KB)',
+    );
+    expect(briefing).toContain(
+      '### Triage\n\nHere is the log.\n\nAttached, in the workspace:\n- `.spotlight/attachments/file_2/trace.log` (text/plain, 3.0 MB)',
     );
   });
 

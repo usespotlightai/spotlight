@@ -1,3 +1,4 @@
+import type { AttachmentSummary } from '@application/ports/attachment-reader.port';
 import type {
   TaskNoteForm,
   TaskNoteKind,
@@ -22,6 +23,7 @@ export interface InboxNote {
   readonly stationPosition: number;
   readonly runId: string | null;
   readonly body: string;
+  readonly attachments: readonly AttachmentSummary[];
   readonly at: Date;
   readonly author: InboxAuthor | null;
   readonly readAt: Date | null;
@@ -41,6 +43,7 @@ export interface InboxItemSummary {
   readonly teamId: string;
   readonly title: string;
   readonly description: string | null;
+  readonly attachments: readonly AttachmentSummary[];
   readonly station: string;
   readonly stationColor: string;
   readonly stationPosition: number;

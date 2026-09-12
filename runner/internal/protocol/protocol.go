@@ -97,7 +97,13 @@ type Spec struct {
 	Tools []string `json:"tools,omitempty"`
 	// Continuity is how this run carries on from an earlier one. Absent, the
 	// run is its own: a fresh directory and a fresh conversation.
-	Continuity Continuity `json:"continuity,omitzero"`
+	Continuity  Continuity   `json:"continuity,omitzero"`
+	Attachments []Attachment `json:"attachments,omitempty"`
+}
+
+type Attachment struct {
+	ID   string `json:"id"`
+	Path string `json:"path"`
 }
 
 // Continuity is what a run inherits from the one before it. Both halves are
@@ -200,6 +206,7 @@ type Completion struct {
 // Said is something a person typed at the agent while it was working. It is
 // given to the harness when the turn it arrived during ends.
 type Said struct {
-	Position int    `json:"position"`
-	Body     string `json:"body"`
+	Position    int          `json:"position"`
+	Body        string       `json:"body"`
+	Attachments []Attachment `json:"attachments,omitempty"`
 }

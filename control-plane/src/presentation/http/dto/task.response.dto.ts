@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { AttachmentResponseDto } from '@presentation/http/dto/attachment.response.dto';
 
 export class TaskNoteResponseDto {
   @ApiProperty({ example: 0 })
@@ -68,6 +69,13 @@ export class TaskResponseDto {
   })
   readonly description: string | null;
 
+  @ApiProperty({
+    type: AttachmentResponseDto,
+    isArray: true,
+    description: 'The files it was raised with',
+  })
+  readonly attachments: readonly AttachmentResponseDto[];
+
   @ApiProperty({ example: '2026-08-27T09:15:00.000Z' })
   readonly createdAt: string;
 
@@ -115,6 +123,7 @@ export class TaskResponseDto {
     stationId: string,
     title: string,
     description: string | null,
+    attachments: readonly AttachmentResponseDto[],
     createdAt: string,
     running: boolean,
     awaitingReview: TaskReviewResponseDto | null,
@@ -127,6 +136,7 @@ export class TaskResponseDto {
     this.stationId = stationId;
     this.title = title;
     this.description = description;
+    this.attachments = attachments;
     this.createdAt = createdAt;
     this.running = running;
     this.awaitingReview = awaitingReview;

@@ -441,6 +441,44 @@
         ]
       }
     },
+    "/runs/{runId}/attachments/{attachmentId}": {
+      "get": {
+        "operationId": "readRunAttachment",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attachmentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file, byte for byte"
+          },
+          "401": {
+            "description": "Missing or wrong enrollment token"
+          },
+          "404": {
+            "description": "No such file, or not this runner’s run to read it for"
+          }
+        },
+        "summary": "A file the run’s task was given, to lay out in its workspace",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
     "/runs/{runId}/trace/{taskId}": {
       "get": {
         "operationId": "readRunTrace",
@@ -920,6 +958,104 @@
         "summary": "What each run did to arrive at what it said",
         "tags": [
           "inbox"
+        ]
+      }
+    },
+    "/workspaces/{slug}/attachments": {
+      "post": {
+        "description": "The bytes go straight to where files are kept, not through here. The upload is only an upload: the file joins a task when its id is sent with one.",
+        "operationId": "grantAttachmentUpload",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantAttachmentUploadRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttachmentUploadResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          },
+          "422": {
+            "description": "Too large to attach, or nowhere to keep it"
+          }
+        },
+        "summary": "Somewhere to upload one file, before attaching it",
+        "tags": [
+          "attachments"
+        ]
+      }
+    },
+    "/workspaces/{slug}/attachments/{attachmentId}": {
+      "get": {
+        "operationId": "readAttachment",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          },
+          {
+            "name": "attachmentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "download",
+            "required": false,
+            "in": "query",
+            "description": "Saved rather than shown, where set",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Sent on to the file itself"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such file for this caller"
+          }
+        },
+        "summary": "Open a file a task was given",
+        "tags": [
+          "attachments"
         ]
       }
     },
@@ -2806,6 +2942,24 @@
           "leaseExpiresAt"
         ]
       },
+      "RunAttachmentResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "5f0c1d84-9c2e-4c8b-9a3d-2b7e6d5a1f47"
+          },
+          "path": {
+            "type": "string",
+            "example": ".spotlight/attachments/5f0c1d84-9c2e-4c8b-9a3d-2b7e6d5a1f47/queue-stuck.png",
+            "description": "Where in the workspace to put it"
+          }
+        },
+        "required": [
+          "id",
+          "path"
+        ]
+      },
       "PendingMessageResponseDto": {
         "type": "object",
         "properties": {
@@ -2816,11 +2970,19 @@
           "body": {
             "type": "string",
             "example": "Cap the retries at 500 while you are in there."
+          },
+          "attachments": {
+            "description": "Files to lay out before the words are given",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RunAttachmentResponseDto"
+            }
           }
         },
         "required": [
           "position",
-          "body"
+          "body",
+          "attachments"
         ]
       },
       "StepLocationResponseDto": {
@@ -3379,6 +3541,34 @@
           "efforts"
         ]
       },
+      "AttachmentResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "5f0c1d84-9c2e-4c8b-9a3d-2b7e6d5a1f47"
+          },
+          "name": {
+            "type": "string",
+            "example": "queue-stuck.png"
+          },
+          "contentType": {
+            "type": "string",
+            "example": "image/png"
+          },
+          "size": {
+            "type": "number",
+            "example": 48213,
+            "description": "In bytes"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "contentType",
+          "size"
+        ]
+      },
       "InboxStationResponseDto": {
         "type": "object",
         "properties": {
@@ -3482,6 +3672,13 @@
             "type": "string",
             "example": "Reproduced on restart. Needs a spec."
           },
+          "attachments": {
+            "description": "The files handed over with it",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttachmentResponseDto"
+            }
+          },
           "at": {
             "type": "string",
             "example": "2026-08-28T21:15:00.000Z"
@@ -3507,6 +3704,7 @@
           "stationPosition",
           "runId",
           "body",
+          "attachments",
           "at",
           "author"
         ]
@@ -3534,6 +3732,13 @@
           "description": {
             "type": "string",
             "nullable": true
+          },
+          "attachments": {
+            "description": "The files the task was raised with",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttachmentResponseDto"
+            }
           },
           "station": {
             "type": "string",
@@ -3615,6 +3820,7 @@
           "teamId",
           "title",
           "description",
+          "attachments",
           "station",
           "stationColor",
           "stationPosition",
@@ -3637,7 +3843,14 @@
           "body": {
             "type": "string",
             "example": "Drain the queue before retrying, and cap it at 500.",
-            "description": "What the person says back. It joins the task’s trail."
+            "description": "What the person says back. It joins the task’s trail. May be empty where files are attached."
+          },
+          "attachments": {
+            "description": "Uploads to attach, by the id each was granted",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -3761,6 +3974,59 @@
           "spans",
           "marks",
           "readable"
+        ]
+      },
+      "GrantAttachmentUploadRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "queue-stuck.png"
+          },
+          "contentType": {
+            "type": "string",
+            "example": "image/png",
+            "description": "Left out where the browser could not tell"
+          },
+          "size": {
+            "type": "number",
+            "example": 48213,
+            "description": "In bytes, at most 25 MB"
+          }
+        },
+        "required": [
+          "name",
+          "size"
+        ]
+      },
+      "AttachmentUploadResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "5f0c1d84-9c2e-4c8b-9a3d-2b7e6d5a1f47",
+            "description": "What to attach it by, once it is uploaded"
+          },
+          "url": {
+            "type": "string",
+            "example": "https://files.example.com/…",
+            "description": "Where to PUT the bytes. Good for a few minutes."
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "example": {
+              "content-type": "image/png"
+            },
+            "description": "Sent with the bytes, exactly as given"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "headers"
         ]
       },
       "ActiveRunResponseDto": {
@@ -4534,6 +4800,13 @@
             "nullable": true,
             "description": "Markdown"
           },
+          "attachments": {
+            "description": "The files it was raised with",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttachmentResponseDto"
+            }
+          },
           "createdAt": {
             "type": "string",
             "example": "2026-08-27T09:15:00.000Z"
@@ -4595,6 +4868,7 @@
           "stationId",
           "title",
           "description",
+          "attachments",
           "createdAt",
           "running",
           "awaitingReview",
@@ -4890,6 +5164,13 @@
             "type": "string",
             "nullable": true
           },
+          "attachments": {
+            "description": "The files the task was raised with",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttachmentResponseDto"
+            }
+          },
           "station": {
             "nullable": true,
             "type": "object",
@@ -4925,6 +5206,7 @@
           "taskId",
           "title",
           "description",
+          "attachments",
           "station",
           "createdAt",
           "briefing",
@@ -4938,7 +5220,14 @@
           "body": {
             "type": "string",
             "example": "Cap the retries at 500 while you are in there.",
-            "description": "Reaches the agent when its current turn ends"
+            "description": "Reaches the agent when its current turn ends. May be empty where files are attached."
+          },
+          "attachments": {
+            "description": "Uploads to attach, by the id each was granted",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -5030,6 +5319,13 @@
             "maxLength": 20000,
             "nullable": true,
             "description": "Markdown. Left out or blank for a task with nothing said."
+          },
+          "attachments": {
+            "description": "Uploads to attach, by the id each was granted",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [

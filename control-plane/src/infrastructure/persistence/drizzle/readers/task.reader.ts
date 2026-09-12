@@ -7,7 +7,11 @@ import type { TeamId } from '@domain/value-objects/team-id.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
 import type { DrizzleDatabase } from '@infrastructure/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@infrastructure/persistence/drizzle/drizzle.constants';
-import { awaitedReviewsFor } from '@infrastructure/persistence/drizzle/readers/task-trail';
+import {
+  attachmentsFor,
+  attachmentsOf,
+  awaitedReviewsFor,
+} from '@infrastructure/persistence/drizzle/readers/task-trail';
 import {
   assemblyLine,
   station,
@@ -86,9 +90,13 @@ export class DrizzleTaskReader implements TaskReaderPort {
       .where(and(eq(factory.teamId, teamId.value), isNull(setupNote.taskId)))
       .orderBy(task.rank);
 
-    const [notes, awaited] = await Promise.all([
+    const [notes, awaited, attached] = await Promise.all([
       this.latestNotes(rows.map((row) => row.id)),
       awaitedReviewsFor(
+        this.db,
+        rows.map((row) => row.id),
+      ),
+      attachmentsFor(
         this.db,
         rows.map((row) => row.id),
       ),
@@ -106,6 +114,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
         ...rest
       }) => ({
         ...rest,
+        attachments: attachmentsOf(attached, rest.id).own,
         running: currentRunId !== null,
         awaitingReview: awaited.has(rest.id)
           ? { conversationId: awaited.get(rest.id) as string }

@@ -16,9 +16,11 @@ import type {
   RegisteredRunnerDto,
 } from '@application/dto/run.dto';
 import type { TaskTraceDto } from '@application/dto/task-trace.dto';
+import type { AttachmentContent } from '@application/ports/attachment-store.port';
 import { ListHarnessesQuery } from '@application/queries/list-harnesses.query';
 import { ListKeptWorkspacesQuery } from '@application/queries/list-kept-workspaces.query';
 import { PendingMessagesQuery } from '@application/queries/pending-messages.query';
+import { ReadRunAttachmentQuery } from '@application/queries/read-run-attachment.query';
 import { ReadRunnerTraceQuery } from '@application/queries/read-runner-trace.query';
 import { RunStopRequestedQuery } from '@application/queries/run-stop-requested.query';
 import {
@@ -31,6 +33,7 @@ import {
   Param,
   Post,
   Res,
+  StreamableFile,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
@@ -53,6 +56,7 @@ import {
   OpenPullRequestRequestDto,
   PendingMessageResponseDto,
   RegisterRunnerRequestDto,
+  RunAttachmentResponseDto,
 } from '@presentation/http/dto/runner.request.dto';
 import {
   ClaimedRunResponseDto,
@@ -192,8 +196,44 @@ export class RunnerController {
     >(new PendingMessagesQuery(runId));
 
     return waiting.map(
-      (each) => new PendingMessageResponseDto(each.position, each.body),
+      (each) =>
+        new PendingMessageResponseDto(
+          each.position,
+          each.body,
+          each.attachments.map(
+            (file) => new RunAttachmentResponseDto(file.id, file.path),
+          ),
+        ),
     );
+  }
+
+  @Get('runs/:runId/attachments/:attachmentId')
+  @ApiOperation({
+    operationId: 'readRunAttachment',
+    summary: 'A file the run’s task was given, to lay out in its workspace',
+  })
+  @ApiOkResponse({ description: 'The file, byte for byte' })
+  @ApiNotFoundResponse({
+    description: 'No such file, or not this runner’s run to read it for',
+  })
+  async attachment(
+    @Param('runId') runId: string,
+    @Param('attachmentId') attachmentId: string,
+    @CurrentRunner() runnerId: string,
+  ): Promise<StreamableFile> {
+    const content = await this.queryBus.execute<
+      ReadRunAttachmentQuery,
+      AttachmentContent | null
+    >(new ReadRunAttachmentQuery(runId, runnerId, attachmentId));
+
+    if (!content) {
+      throw new NotFoundException();
+    }
+
+    return new StreamableFile(content.bytes, {
+      type: content.contentType,
+      length: content.bytes.byteLength,
+    });
   }
 
   @Get('runs/:runId/trace/:taskId')

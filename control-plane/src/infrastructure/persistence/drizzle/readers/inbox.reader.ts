@@ -15,6 +15,8 @@ import type { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
 import type { DrizzleDatabase } from '@infrastructure/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@infrastructure/persistence/drizzle/drizzle.constants';
 import {
+  attachmentsFor,
+  attachmentsOf,
   briefingsFor,
   stationsPerLine,
   trailsFor,
@@ -98,6 +100,10 @@ export class DrizzleInboxReader implements InboxReaderPort {
       this.db,
       rows.map((row) => row.taskId),
     );
+    const attached = await attachmentsFor(
+      this.db,
+      rows.map((row) => row.taskId),
+    );
     const held = await stationsPerLine(
       this.db,
       rows.map((row) => row.lineId),
@@ -139,6 +145,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
           teamId: row.teamId,
           title: row.title,
           description: row.description,
+          attachments: attachmentsOf(attached, row.taskId).own,
           station: note.station,
           stationColor: note.stationColor,
           stationPosition: note.stationPosition,

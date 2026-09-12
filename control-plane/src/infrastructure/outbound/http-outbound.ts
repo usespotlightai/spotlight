@@ -1,3 +1,4 @@
+import { UpstreamRefusedError } from '@domain/exceptions/upstream-refused.error';
 import {
   type Bindings,
   holds,
@@ -37,10 +38,60 @@ export class HttpOutbound {
   }
 
   async run(request: RequestIR, against: Bindings): Promise<OutboundResult> {
+    const reply = await this.send(request, against);
+
+    if (!reply) {
+      return { ok: false, status: 0, response: null, capture: {} };
+    }
+
+    const response = await parse(reply);
+    const status = reply.status;
+    const beside: Bindings = { ...against, response, status };
+
+    const capture: Record<string, unknown> = {};
+    for (const each of request.capture) {
+      capture[each.name] = value(each.value, beside);
+    }
+
+    return { ok: succeeded(request, beside), status, response, capture };
+  }
+
+  async bytes(request: RequestIR, against: Bindings): Promise<Uint8Array> {
+    const reply = await this.send(request, against);
+
+    if (!reply) {
+      throw new UpstreamRefusedError(
+        'fetching a file',
+        'it names nowhere to fetch it from',
+      );
+    }
+
+    const beside: Bindings = {
+      ...against,
+      status: reply.status,
+      headers: Object.fromEntries(reply.headers),
+    };
+
+    if (!succeeded(request, beside)) {
+      await reply.body?.cancel();
+
+      throw new UpstreamRefusedError(
+        'fetching a file',
+        `the host answered ${reply.status} without it`,
+      );
+    }
+
+    return new Uint8Array(await reply.arrayBuffer());
+  }
+
+  private async send(
+    request: RequestIR,
+    against: Bindings,
+  ): Promise<Response | null> {
     const url = this.templated(request.url, against);
 
     if (!url) {
-      return { ok: false, status: 0, response: null, capture: {} };
+      return null;
     }
 
     this.egress.allow(url);
@@ -68,28 +119,11 @@ export class HttpOutbound {
       headers['content-type'] = 'application/json';
     }
 
-    const reply = await this.fetch(target, {
+    return this.fetch(target, {
       method: request.method,
       headers,
       body: body?.text,
     });
-
-    const response = await parse(reply);
-    const status = reply.status;
-    const beside: Bindings = { ...against, response, status };
-
-    const ok = request.expect?.success
-      ? holds(request.expect.success, beside)
-      : request.expect?.status
-        ? request.expect.status.includes(status)
-        : status >= 200 && status < 300;
-
-    const capture: Record<string, unknown> = {};
-    for (const each of request.capture) {
-      capture[each.name] = value(each.value, beside);
-    }
-
-    return { ok, status, response, capture };
   }
 
   private templated(held: Templated, against: Bindings): string | null {
@@ -166,6 +200,16 @@ export class HttpOutbound {
     }
   }
 }
+
+const succeeded = (request: RequestIR, beside: Bindings): boolean => {
+  const status = beside.status as number;
+
+  return request.expect?.success
+    ? holds(request.expect.success, beside)
+    : request.expect?.status
+      ? request.expect.status.includes(status)
+      : status >= 200 && status < 300;
+};
 
 const has = (headers: Record<string, string>, name: string): boolean =>
   Object.keys(headers).some((key) => key.toLowerCase() === name);

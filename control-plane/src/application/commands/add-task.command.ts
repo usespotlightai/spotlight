@@ -5,5 +5,6 @@ export class AddTaskCommand {
     readonly title: string,
     readonly description: string | null,
     readonly raisedBy: string,
+    readonly attachments: readonly string[] = [],
   ) {}
 }

@@ -1,4 +1,7 @@
-import type { Happened } from '@application/ports/webhook-source.port';
+import type {
+  Arriving,
+  Happened,
+} from '@application/ports/webhook-source.port';
 import type { DeclaredHappening } from '@domain/entities/declared-happening.entity';
 import { UpstreamRefusedError } from '@domain/exceptions/upstream-refused.error';
 import { Concerns } from '@domain/value-objects/concerns.vo';
@@ -12,8 +15,10 @@ import {
   value,
 } from '@infrastructure/integrations/expression';
 import type {
+  AttachesIR,
   EventIR,
   RaiseIR,
+  RequestIR,
 } from '@infrastructure/integrations/integration.compile';
 
 /**
@@ -24,6 +29,11 @@ const identity = async (
   _event: EventIR,
   against: Bindings,
 ): Promise<Bindings> => against;
+
+export type Fetching = (
+  request: RequestIR,
+  against: Bindings,
+) => Promise<Uint8Array>;
 
 /**
  * Reads the words a set of events raises off one delivery or poll response.
@@ -40,6 +50,7 @@ export const readEvents = async (
   against: Bindings,
   ourOwn: (against: Bindings) => boolean,
   enrich: (event: EventIR, against: Bindings) => Promise<Bindings> = identity,
+  fetching: Fetching | null = null,
 ): Promise<Happened[]> => {
   const raised: Happened[] = [];
 
@@ -60,7 +71,13 @@ export const readEvents = async (
           if (holds(event.when, per)) {
             const filled = await enrich(event, per);
             raised.push(
-              raiseFrom(event.raise, declared, filled, ourOwn(filled)),
+              raiseFrom(
+                event.raise,
+                declared,
+                filled,
+                ourOwn(filled),
+                fetching,
+              ),
             );
           }
         }
@@ -71,11 +88,42 @@ export const readEvents = async (
 
     if (holds(event.when, against)) {
       const filled = await enrich(event, against);
-      raised.push(raiseFrom(event.raise, declared, filled, ourOwn(filled)));
+      raised.push(
+        raiseFrom(event.raise, declared, filled, ourOwn(filled), fetching),
+      );
     }
   }
 
   return raised;
+};
+
+const arriving = (
+  attaches: AttachesIR,
+  against: Bindings,
+  fetching: Fetching,
+): Arriving[] => {
+  const files = value(attaches.each, against);
+
+  if (!Array.isArray(files)) {
+    return [];
+  }
+
+  return files.flatMap((file) => {
+    const per = { ...against, file: bound(file) };
+    const name = reads(attaches.name, per);
+    const size = attaches.size ? Number(value(attaches.size, per)) : Number.NaN;
+
+    return name
+      ? [
+          {
+            name,
+            contentType: attaches.type ? reads(attaches.type, per) : null,
+            size: Number.isFinite(size) ? size : null,
+            fetch: () => fetching(attaches.fetch, per),
+          },
+        ]
+      : [];
+  });
 };
 
 const raiseFrom = (
@@ -83,6 +131,7 @@ const raiseFrom = (
   declared: DeclaredHappening,
   against: Bindings,
   ourOwn: boolean,
+  fetching: Fetching | null,
 ): Happened => {
   // Every mark the delivery yields, each kept with whether a task is found by
   // it. Concerns — which task the word is about — is built from the finding
@@ -137,5 +186,9 @@ const raiseFrom = (
             marks,
           }
         : null,
+    attachments:
+      raise.attaches && fetching
+        ? arriving(raise.attaches, against, fetching)
+        : [],
   };
 };

@@ -1,8 +1,10 @@
 import { ReactToHappeningHandler } from '@application/commands/handlers/react-to-happening.handler';
 import { ReactToHappeningCommand } from '@application/commands/react-to-happening.command';
+import type { AttachmentStorePort } from '@application/ports/attachment-store.port';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { StoredDelivery } from '@application/ports/delivery-inbox.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
+import type { LoggerPort } from '@application/ports/logger.port';
 import type { MemberReaderPort } from '@application/ports/member-reader.port';
 import { SilentTaskNotifier } from '@application/ports/outbound-task-notifier.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
@@ -26,6 +28,7 @@ import {
 } from '@domain/services/built-in-lines';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
+import type { Attachment } from '@domain/value-objects/attachment.vo';
 import { Concerns } from '@domain/value-objects/concerns.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
@@ -54,6 +57,24 @@ const ids: IdGeneratorPort = { generate: () => 'task_new' };
 const members: MemberReaderPort = {
   listForTeam: async () => null,
   byEmail: async () => null,
+};
+
+const kept: Attachment[] = [];
+const files = {
+  grant: vi.fn(),
+  received: vi.fn(async () => []),
+  keep: vi.fn(async (_at, file: Attachment) => {
+    kept.push(file);
+  }),
+  link: vi.fn(),
+  open: vi.fn(),
+} satisfies AttachmentStorePort;
+
+const logger: LoggerPort = {
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
 };
 
 const MERGED = Happening.of('github.pull_request.merged');
@@ -230,12 +251,15 @@ const heard = (
     ids,
     members,
     silentAnnounce,
+    files,
+    logger,
   ).execute(new ReactToHappeningCommand(taken));
 
 describe('ReactToHappening', () => {
   beforeEach(() => {
     saved = undefined;
     dispatched.length = 0;
+    kept.length = 0;
   });
 
   it('takes the task to the station waiting for it', async () => {
@@ -337,6 +361,8 @@ describe('ReactToHappening', () => {
       ids,
       members,
       silentAnnounce,
+      files,
+      logger,
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(saved?.notes.map((each) => each.kind)).toEqual([
@@ -349,6 +375,78 @@ describe('ReactToHappening', () => {
     expect(saved?.notes[1]?.body.value).not.toContain('mentioned Spotlight');
     expect(saved?.awaitingReview).toBe(false);
     expect(dispatched).toHaveLength(1);
+  });
+
+  describe('a word carrying files', () => {
+    const asked = () =>
+      standing().askedAbout({
+        voice: Voice.station(),
+        station: StationName.of('Code Review'),
+        body: TaskNoteBody.of('What does the queue look like now?'),
+        at: NOW,
+      });
+
+    const replying = (
+      said: string | null,
+      fetch: () => Promise<Uint8Array>,
+    ): Happened => ({
+      happening: Happening.of('slack.message.replied'),
+      told: 'Replied in a Slack thread.',
+      spoken: true,
+      state: 'raised',
+      concerns: Concerns.of({
+        marks: [Mark.of('slack.thread', '1789022375.833389')],
+      }) as Concerns,
+      said: said ? Said.of({ body: said }) : null,
+      ourOwn: false,
+      opens: null,
+      attachments: [
+        { name: 'queue.png', contentType: 'image/png', size: 4, fetch },
+      ],
+    });
+
+    const react = (reply: Happened) =>
+      new ReactToHappeningHandler(
+        sourced([reply]),
+        tasks(asked()),
+        lines(),
+        dispatch,
+        transaction,
+        clock,
+        attending,
+        ids,
+        members,
+        silentAnnounce,
+        files,
+        logger,
+      ).execute(new ReactToHappeningCommand(taken));
+
+    it('takes a reply that is only a file as the answer, and keeps the file', async () => {
+      await react(replying(null, async () => new Uint8Array([1, 2, 3, 4])));
+
+      expect(saved?.notes.map((each) => each.kind)).toEqual([
+        'asked',
+        'answered',
+      ]);
+      expect(saved?.notes[1]?.body.value).toBe('Attached queue.png.');
+      expect(saved?.notes[1]?.attachments.map((each) => each.name)).toEqual([
+        'queue.png',
+      ]);
+      expect(kept.map((each) => each.size)).toEqual([4]);
+    });
+
+    it('leaves behind a file it cannot have, and still hears the words', async () => {
+      await react(
+        replying('Still stuck.', async () => {
+          throw new Error('files.slack.com answered 403');
+        }),
+      );
+
+      expect(saved?.notes[1]?.body.value).toBe('Still stuck.');
+      expect(saved?.notes[1]?.attachments).toEqual([]);
+      expect(kept).toEqual([]);
+      expect(logger.warn).toHaveBeenCalled();
+    });
   });
 
   // A build breaking answers nothing a station asked a person.
@@ -424,6 +522,8 @@ describe('ReactToHappening', () => {
       ids,
       members,
       silentAnnounce,
+      files,
+      logger,
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(saved).toBeUndefined();
@@ -466,6 +566,8 @@ describe('ReactToHappening', () => {
       ids,
       members,
       silentAnnounce,
+      files,
+      logger,
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(held.holding).not.toHaveBeenCalled();
@@ -492,6 +594,8 @@ describe('ReactToHappening', () => {
       ids,
       members,
       silentAnnounce,
+      files,
+      logger,
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(held.holding).toHaveBeenCalledWith(
@@ -570,6 +674,8 @@ describe('ReactToHappening', () => {
       ids,
       members,
       new AnnounceTaskEvents(notifier, held),
+      files,
+      logger,
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(held.add).toHaveBeenCalledTimes(1);
@@ -650,6 +756,8 @@ describe('ReactToHappening', () => {
       ids,
       { listForTeam: async () => null, byEmail },
       silentAnnounce,
+      files,
+      logger,
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(byEmail).toHaveBeenCalledWith(
@@ -723,6 +831,8 @@ describe('ReactToHappening', () => {
       ids,
       { listForTeam: async () => null, byEmail: async () => null },
       silentAnnounce,
+      files,
+      logger,
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(added?.assignee).toBeNull();
@@ -804,6 +914,8 @@ describe('ReactToHappening', () => {
       ids,
       members,
       silentAnnounce,
+      files,
+      logger,
     ).execute(new ReactToHappeningCommand(taken));
 
     expect(held.add).toHaveBeenCalledTimes(1);

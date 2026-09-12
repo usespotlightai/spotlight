@@ -6,6 +6,7 @@ import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { PersonReaderPort } from '@application/ports/person-reader.port';
+import type { FilesAtHand } from '@application/services/files-at-hand.service';
 import type { RaiseTask } from '@application/services/raise-task';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { UnknownAssemblyLineError } from '@domain/exceptions/unknown-assembly-line.error';
@@ -29,6 +30,7 @@ export class AddTaskHandler
     private readonly clock: ClockPort,
     private readonly raise: RaiseTask,
     private readonly people: PersonReaderPort,
+    private readonly files: FilesAtHand,
   ) {}
 
   async execute(command: AddTaskCommand): Promise<TaskDto> {
@@ -56,6 +58,11 @@ export class AddTaskHandler
 
     const standing = await this.tasks.placementsAt(stationId);
 
+    const attachments = await this.files.handedOver(
+      line.workspaceId,
+      command.attachments,
+    );
+
     const added = Task.add({
       workspaceId: line.workspaceId,
       stationId,
@@ -63,6 +70,7 @@ export class AddTaskHandler
       description: command.description
         ? TaskDescription.of(command.description)
         : null,
+      attachments,
       rank: Placement.atTheBack(standing),
       raisedBy,
       now: this.clock.now(),

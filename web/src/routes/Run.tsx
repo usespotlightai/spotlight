@@ -113,6 +113,7 @@ export function Run() {
 
   const footer = here ? (
     <RunComposer
+      slug={slug}
       teamId={teamId}
       runId={run.id}
       station={run.station?.name ?? 'the agent'}
@@ -145,7 +146,10 @@ export function Run() {
               viewerId={session?.user.id}
               opening={
                 said?.briefing ? (
-                  <RunBriefing briefing={said.briefing} />
+                  <RunBriefing
+                    briefing={said.briefing}
+                    attachments={said.attachments}
+                  />
                 ) : undefined
               }
               live={run.state === 'claimed' ? activity : undefined}
@@ -156,6 +160,7 @@ export function Run() {
               <RunOpening
                 run={run}
                 briefing={said?.briefing ?? null}
+                attachments={said?.attachments ?? []}
                 activity={activity}
               />
 

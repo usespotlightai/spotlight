@@ -1,6 +1,7 @@
 package control_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -191,6 +192,46 @@ func TestKeptAnswersWithWhatToHoldOnTo(t *testing.T) {
 	}
 	if len(keys) != 1 || keys[0] != "task_1-station_2" {
 		t.Errorf("kept %v", keys)
+	}
+}
+
+func TestAttachmentFetchesTheFileItself(t *testing.T) {
+	var asked, auth string
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		asked = r.URL.EscapedPath()
+		auth = r.Header.Get("Authorization")
+		_, _ = w.Write([]byte(`{"not": "decoded"`))
+	})
+
+	var fetched bytes.Buffer
+	if err := client.Attachment(context.Background(), "run_1", "att/1", &fetched); err != nil {
+		t.Fatalf("attachment: %v", err)
+	}
+
+	if asked != "/api/runs/run_1/attachments/att%2F1" {
+		t.Errorf("asked %q", asked)
+	}
+	if auth != "Bearer tok" {
+		t.Errorf("authorization %q", auth)
+	}
+	if fetched.String() != `{"not": "decoded"` {
+		t.Errorf("fetched %q", fetched.String())
+	}
+}
+
+func TestAttachmentThatIsNotThereWritesNothing(t *testing.T) {
+	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "no such attachment", http.StatusNotFound)
+	})
+
+	var fetched bytes.Buffer
+	err := client.Attachment(context.Background(), "run_1", "att_1", &fetched)
+
+	if err == nil || !strings.Contains(err.Error(), "404") {
+		t.Fatalf("expected a 404, got %v", err)
+	}
+	if fetched.Len() != 0 {
+		t.Errorf("wrote %q", fetched.String())
 	}
 }
 

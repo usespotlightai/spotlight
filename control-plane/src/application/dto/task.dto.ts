@@ -1,3 +1,5 @@
+import type { AttachmentDto } from '@application/dto/attachment.dto';
+
 export interface TaskNoteDto {
   // What identifies it: notes are appended and never reordered.
   readonly position: number;
@@ -20,6 +22,7 @@ export interface TaskDto {
   readonly stationId: string;
   readonly title: string;
   readonly description: string | null;
+  readonly attachments: readonly AttachmentDto[];
   readonly createdAt: string;
   readonly running: boolean;
   readonly awaitingReview: TaskReviewDto | null;

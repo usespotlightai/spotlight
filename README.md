@@ -11,9 +11,10 @@ Prerequisites:
 - [mkcert](https://github.com/FiloSottile/mkcert) — issues the locally-trusted certificate used for HTTPS
 
 ```bash
-# 1. Point the dev domain at your machine. Traefik routes by Host header,
-#    so the app is only reachable under this name.
-echo "127.0.0.1 app.dev.usespotlight.ai" | sudo tee -a /etc/hosts
+# 1. Point the dev domains at your machine. Traefik routes by Host header,
+#    so the app is only reachable under these names. The second is the
+#    attachments bucket, named the way AWS names one.
+echo "127.0.0.1 app.dev.usespotlight.ai files.dev.usespotlight.ai" | sudo tee -a /etc/hosts
 
 # 2. Trust a local CA (once, asks for your password), then issue the wildcard
 #    certificate Traefik serves. Certificates are gitignored, so each clone
@@ -31,6 +32,7 @@ docker compose up -d
 | https://app.dev.usespotlight.ai            | web — Vite dev server                       |
 | https://app.dev.usespotlight.ai/api        | control-plane — NestJS serves under the `/api` global prefix |
 | https://app.dev.usespotlight.ai/api/install.sh | control-plane — the runner installer (see below) |
+| https://files.dev.usespotlight.ai          | storage — the attachments bucket (MinIO); browsers upload straight to it |
 
 Source is bind-mounted into both containers, so edits on the host hot-reload
 without a rebuild. Plain HTTP redirects to HTTPS.
@@ -66,6 +68,45 @@ same way, at build time (`.docker/runner/Dockerfile`).
 
 The installer is served under `/api` like the rest of the control plane, so it
 needs no routing of its own: `curl -fsSL https://app.dev.usespotlight.ai/api/install.sh`.
+
+## Attachments
+
+Files put to a task are kept in an S3 bucket. A browser never sends them
+through the control plane: it asks for a signed address and uploads straight to
+the bucket, and the file only joins a task once its id is sent with one.
+
+Development runs MinIO under the bucket's own name — `files.dev.usespotlight.ai`
+for a bucket called `files` — so an upload there is addressed exactly as one
+against AWS. What a deployment sets:
+
+| Variable | Development | Staging & production |
+|---|---|---|
+| `S3_BUCKET` | `files` — and so the name it is served at | the bucket's name |
+| `S3_REGION` | `us-east-1` | the bucket's region |
+| `S3_ENDPOINT` | `http://storage:9000` | unset — AWS |
+| `S3_FORCE_PATH_STYLE` | `true` — one address serves every bucket | unset |
+| `S3_PUBLIC_ENDPOINT` | `https://dev.usespotlight.ai` | unset, or a CDN in front of the bucket |
+| `S3_PUBLIC_FORCE_PATH_STYLE` | unset — the bucket names itself in the host | unset |
+| `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | `spotlight` / `spotlight-storage` | the key pair for the bucket's user |
+
+The bucket itself needs three things, none of which this repository provisions:
+
+1. **Public access blocked.** Everything is read and written through signed
+   addresses that last fifteen minutes.
+2. **CORS**, so a browser may upload to it from the app:
+
+   ```json
+   [{ "AllowedOrigins": ["https://app.example.com"],
+      "AllowedMethods": ["PUT", "GET"],
+      "AllowedHeaders": ["content-type", "x-amz-meta-uploader", "x-amz-meta-name"],
+      "ExposeHeaders": [], "MaxAgeSeconds": 3000 }]
+   ```
+
+3. **A lifecycle rule** expiring objects under `workspaces/` that no task ever
+   claimed, since an upload nobody attaches is never read again.
+
+The key pair needs `s3:PutObject`, `s3:GetObject` and `s3:DeleteObject` on
+`arn:aws:s3:::<bucket>/workspaces/*` and nothing else.
 
 ## Schema changes
 

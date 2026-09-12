@@ -172,9 +172,21 @@ export type ClaimedRunResponseDto = {
   leaseExpiresAt: string;
 };
 
+export type RunAttachmentResponseDto = {
+  id: string;
+  /**
+   * Where in the workspace to put it
+   */
+  path: string;
+};
+
 export type PendingMessageResponseDto = {
   position: number;
   body: string;
+  /**
+   * Files to lay out before the words are given
+   */
+  attachments: Array<RunAttachmentResponseDto>;
 };
 
 export type StepLocationResponseDto = {
@@ -384,6 +396,16 @@ export type HarnessResponseDto = {
   efforts: Array<string>;
 };
 
+export type AttachmentResponseDto = {
+  id: string;
+  name: string;
+  contentType: string;
+  /**
+   * In bytes
+   */
+  size: number;
+};
+
 export type InboxStationResponseDto = {
   name: string;
   color: string;
@@ -418,6 +440,10 @@ export type InboxMessageResponseDto = {
    */
   runId: string | null;
   body: string;
+  /**
+   * The files handed over with it
+   */
+  attachments: Array<AttachmentResponseDto>;
   at: string;
   /**
    * Absent where the station said it rather than a person
@@ -434,6 +460,10 @@ export type InboxItemResponseDto = {
   teamId: string;
   title: string;
   description: string | null;
+  /**
+   * The files the task was raised with
+   */
+  attachments: Array<AttachmentResponseDto>;
   station: string;
   stationColor: string;
   /**
@@ -479,9 +509,13 @@ export type InboxItemResponseDto = {
 
 export type AnswerInboxItemRequestDto = {
   /**
-   * What the person says back. It joins the task’s trail.
+   * What the person says back. It joins the task’s trail. May be empty where files are attached.
    */
   body: string;
+  /**
+   * Uploads to attach, by the id each was granted
+   */
+  attachments?: Array<string>;
 };
 
 export type RunMarksResponseDto = {
@@ -526,6 +560,35 @@ export type RunJournalResponseDto = {
    * False for a run from before the agents spoke a protocol
    */
   readable: boolean;
+};
+
+export type GrantAttachmentUploadRequestDto = {
+  name: string;
+  /**
+   * Left out where the browser could not tell
+   */
+  contentType?: string;
+  /**
+   * In bytes, at most 25 MB
+   */
+  size: number;
+};
+
+export type AttachmentUploadResponseDto = {
+  /**
+   * What to attach it by, once it is uploaded
+   */
+  id: string;
+  /**
+   * Where to PUT the bytes. Good for a few minutes.
+   */
+  url: string;
+  /**
+   * Sent with the bytes, exactly as given
+   */
+  headers: {
+    [key: string]: string;
+  };
 };
 
 export type ActiveRunResponseDto = {
@@ -815,6 +878,10 @@ export type TaskResponseDto = {
    * Markdown
    */
   description: string | null;
+  /**
+   * The files it was raised with
+   */
+  attachments: Array<AttachmentResponseDto>;
   createdAt: string;
   /**
    * A run is under way
@@ -929,6 +996,10 @@ export type RunConversationResponseDto = {
   taskId: string;
   title: string;
   description: string | null;
+  /**
+   * The files the task was raised with
+   */
+  attachments: Array<AttachmentResponseDto>;
   station: RunStationResponseDto | null;
   createdAt: string;
   /**
@@ -944,9 +1015,13 @@ export type RunConversationResponseDto = {
 
 export type SayToRunRequestDto = {
   /**
-   * Reaches the agent when its current turn ends
+   * Reaches the agent when its current turn ends. May be empty where files are attached.
    */
   body: string;
+  /**
+   * Uploads to attach, by the id each was granted
+   */
+  attachments?: Array<string>;
 };
 
 export type TaskRunResponseDto = {
@@ -973,6 +1048,10 @@ export type AddTaskRequestDto = {
    * Markdown. Left out or blank for a task with nothing said.
    */
   description?: string | null;
+  /**
+   * Uploads to attach, by the id each was granted
+   */
+  attachments?: Array<string>;
 };
 
 export type AnalyseTracesRequestDto = {
@@ -1303,6 +1382,34 @@ export type PendingMessagesResponses = {
 
 export type PendingMessagesResponse = PendingMessagesResponses[keyof PendingMessagesResponses];
 
+export type ReadRunAttachmentData = {
+  body?: never;
+  path: {
+    runId: string;
+    attachmentId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/attachments/{attachmentId}';
+};
+
+export type ReadRunAttachmentErrors = {
+  /**
+   * Missing or wrong enrollment token
+   */
+  401: unknown;
+  /**
+   * No such file, or not this runner’s run to read it for
+   */
+  404: unknown;
+};
+
+export type ReadRunAttachmentResponses = {
+  /**
+   * The file, byte for byte
+   */
+  200: unknown;
+};
+
 export type ReadRunTraceData = {
   body?: never;
   path: {
@@ -1594,6 +1701,62 @@ export type ReadTaskJournalResponses = {
 };
 
 export type ReadTaskJournalResponse = ReadTaskJournalResponses[keyof ReadTaskJournalResponses];
+
+export type GrantAttachmentUploadData = {
+  body: GrantAttachmentUploadRequestDto;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/attachments';
+};
+
+export type GrantAttachmentUploadErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+  /**
+   * Too large to attach, or nowhere to keep it
+   */
+  422: unknown;
+};
+
+export type GrantAttachmentUploadResponses = {
+  201: AttachmentUploadResponseDto;
+};
+
+export type GrantAttachmentUploadResponse = GrantAttachmentUploadResponses[keyof GrantAttachmentUploadResponses];
+
+export type ReadAttachmentData = {
+  body?: never;
+  path: {
+    slug: string;
+    attachmentId: string;
+  };
+  query?: {
+    /**
+     * Saved rather than shown, where set
+     */
+    download?: unknown;
+  };
+  url: '/workspaces/{slug}/attachments/{attachmentId}';
+};
+
+export type ReadAttachmentErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such file for this caller
+   */
+  404: unknown;
+};
 
 export type ListRunnersData = {
   body?: never;

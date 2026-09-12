@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"slices"
@@ -36,6 +37,7 @@ type Journal interface {
 	Trace(ctx context.Context, runID, taskID string) (json.RawMessage, error)
 	Said(ctx context.Context, runID string) ([]protocol.Said, error)
 	Delivered(ctx context.Context, runID string, upTo int) error
+	Attachment(ctx context.Context, runID, attachmentID string, into io.Writer) error
 }
 
 const (
@@ -134,6 +136,14 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
+	// Before the handover, so the agent owns these with the rest of the
+	// workspace. Work naming a file it cannot have is not worth starting.
+	for _, attachment := range run.Spec.Attachments {
+		if err := fetch(ctx, opts.Journal, run.ID, space, nil, attachment); err != nil {
+			return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+		}
+	}
+
 	// Before the handover, so the agent owns this along with the rest of the
 	// workspace and the harness can write its own state into it.
 	state, err := space.State()
@@ -220,7 +230,11 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
-	exitCode, stopped := work(ctx, harness, sessionID, run, journal, opts.Journal, log)
+	attached := func(ctx context.Context, attachment protocol.Attachment) error {
+		return fetch(ctx, opts.Journal, run.ID, space, opts.AgentUser, attachment)
+	}
+
+	exitCode, stopped := work(ctx, harness, sessionID, run, journal, opts.Journal, attached, log)
 
 	if err := lifecycle.reach(AgentExited); err != nil {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
@@ -316,6 +330,7 @@ func work(
 	run protocol.Run,
 	journal *journalWriter,
 	lease Journal,
+	attached func(context.Context, protocol.Attachment) error,
 	log *slog.Logger,
 ) (int, bool) {
 	renewing, stopRenewing := context.WithCancel(ctx)
@@ -378,7 +393,7 @@ func work(
 			return 1, false
 		}
 
-		said, upTo := waiting(ctx, lease, run.ID, log)
+		said, upTo := waiting(ctx, lease, run.ID, attached, log)
 		if said == "" {
 			return 0, false
 		}
@@ -439,6 +454,7 @@ func waiting(
 	ctx context.Context,
 	lease Journal,
 	runID string,
+	attached func(context.Context, protocol.Attachment) error,
 	log *slog.Logger,
 ) (string, int) {
 	said, err := lease.Said(ctx, runID)
@@ -452,10 +468,33 @@ func waiting(
 
 	bodies := make([]string, 0, len(said))
 	for _, each := range said {
+		for _, attachment := range each.Attachments {
+			if err := attached(ctx, attachment); err != nil {
+				log.Warn("could not fetch what was attached", "error", err)
+			}
+		}
 		bodies = append(bodies, each.Body)
 	}
 
 	return strings.Join(bodies, "\n\n"), said[len(said)-1].Position
+}
+
+func fetch(
+	ctx context.Context,
+	journal Journal,
+	runID string,
+	space *workspace.Workspace,
+	owner *account.User,
+	attachment protocol.Attachment,
+) error {
+	err := space.Receive(attachment.Path, owner, func(into io.Writer) error {
+		return journal.Attachment(ctx, runID, attachment.ID, into)
+	})
+	if err != nil {
+		return fmt.Errorf("fetch attachment %s: %w", attachment.ID, err)
+	}
+
+	return nil
 }
 
 // renew keeps the lease alive and watches its answer for a stop, calling onStop

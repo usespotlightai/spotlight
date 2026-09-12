@@ -4,6 +4,7 @@ import { AssigneePicker } from '@/components/features/board/task/AssigneePicker'
 import { StationSelect } from '@/components/features/board/task/StationSelect';
 import { TaskActions } from '@/components/features/board/task/TaskActions';
 import { TaskActivity } from '@/components/features/runs/TaskActivity';
+import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import {
   type BreadcrumbSegment,
@@ -122,6 +123,8 @@ export function Task() {
             ) : (
               <p className="text-muted-foreground text-sm">No description</p>
             )}
+
+            <AttachmentTiles attachments={task.attachments} />
 
             <div className="pt-4">
               <TaskActivity slug={slug} teamId={teamId} taskId={task.id} />

@@ -1,11 +1,13 @@
 import { AddTaskCommand } from '@application/commands/add-task.command';
 import { AddTaskHandler } from '@application/commands/handlers/add-task.handler';
 import { UseCaseFault } from '@application/errors/use-case.fault';
+import type { AttachmentStorePort } from '@application/ports/attachment-store.port';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { PersonReaderPort } from '@application/ports/person-reader.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import { TaskBriefing } from '@application/rendering/task-briefing';
+import { FilesAtHand } from '@application/services/files-at-hand.service';
 import { RaiseTask } from '@application/services/raise-task';
 import type { TaskDispatching } from '@application/services/task-dispatch';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
@@ -16,6 +18,8 @@ import type { TaskRepository } from '@domain/repositories/task.repository';
 import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
+import { Attachment } from '@domain/value-objects/attachment.vo';
+import type { AttachmentId } from '@domain/value-objects/attachment-id.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
@@ -108,6 +112,23 @@ const lines = (found: AssemblyLine | null = line()) =>
     withRole: vi.fn(async () => null),
   }) satisfies AssemblyLineRepository;
 
+const files = new FilesAtHand({ find: vi.fn(async () => null) }, {
+  grant: vi.fn(),
+  received: vi.fn(async (_at, given: readonly AttachmentId[]) =>
+    given.map((id) =>
+      Attachment.of({
+        id: id.value,
+        name: 'queue.png',
+        contentType: 'image/png',
+        size: 4096,
+      }),
+    ),
+  ),
+  keep: vi.fn(),
+  link: vi.fn(),
+  open: vi.fn(),
+} satisfies AttachmentStorePort);
+
 const addTask = (
   command: AddTaskCommand,
   board: AssemblyLineRepository = lines(),
@@ -119,6 +140,7 @@ const addTask = (
     clock,
     new RaiseTask(tasks(), dispatch(), transaction),
     people,
+    files,
   ).execute(command);
 
 beforeEach(() => {
@@ -147,6 +169,7 @@ describe('AddTaskHandler', () => {
       stationId: 'station_1',
       title: 'Fix the queue',
       description: null,
+      attachments: [],
       createdAt: raised.toISOString(),
       rank: added?.rank.value,
       // Dispatched the moment it was raised, so it is already being worked.
@@ -186,6 +209,24 @@ describe('AddTaskHandler', () => {
     );
 
     expect(added?.description?.value).toBe('## Steps\n\nGo.');
+  });
+
+  it('attaches what the raiser uploaded, and tells the agent where it is', async () => {
+    await addTask(
+      new AddTaskCommand(
+        'line_1',
+        'station_1',
+        'Fix the queue',
+        null,
+        'user_1',
+        ['file_1'],
+      ),
+    );
+
+    expect(added?.attachments.map((each) => each.id.value)).toEqual(['file_1']);
+    expect(dispatched[0]?.brief).toContain(
+      '- `.spotlight/attachments/file_1/queue.png` (image/png, 4 KB)',
+    );
   });
 
   it('hands the task to a runner as soon as it is raised', async () => {

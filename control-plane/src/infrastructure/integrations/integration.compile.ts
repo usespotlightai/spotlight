@@ -113,6 +113,15 @@ export interface RaiseIR {
     value: Expression;
     finds: boolean;
   }[];
+  readonly attaches: AttachesIR | null;
+}
+
+export interface AttachesIR {
+  readonly each: Expression;
+  readonly name: Expression;
+  readonly type: Expression | null;
+  readonly size: Expression | null;
+  readonly fetch: RequestIR;
 }
 
 /** A call whose captures join the bindings before a word is raised. */
@@ -441,6 +450,25 @@ class Compiler {
         ) as Expression,
         finds: mark.find,
       })),
+      attaches: raise.attaches
+        ? {
+            each: this.expression(
+              raise.attaches.each,
+              `${at}.attaches.each`,
+            ) as Expression,
+            name: this.expression(
+              raise.attaches.name,
+              `${at}.attaches.name`,
+            ) as Expression,
+            type: raise.attaches.type
+              ? this.expression(raise.attaches.type, `${at}.attaches.type`)
+              : null,
+            size: raise.attaches.size
+              ? this.expression(raise.attaches.size, `${at}.attaches.size`)
+              : null,
+            fetch: this.request(raise.attaches.fetch, `${at}.attaches.fetch`),
+          }
+        : null,
     };
   }
 }

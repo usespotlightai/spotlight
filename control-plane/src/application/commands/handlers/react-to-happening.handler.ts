@@ -1,9 +1,11 @@
 import type { ReactToHappeningCommand } from '@application/commands/react-to-happening.command';
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
+import type { AttachmentStorePort } from '@application/ports/attachment-store.port';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { StoredDelivery } from '@application/ports/delivery-inbox.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
+import type { LoggerPort } from '@application/ports/logger.port';
 import type { MemberReaderPort } from '@application/ports/member-reader.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import type { AnnounceTaskEvents } from '@application/services/announce-task-events';
@@ -39,6 +41,8 @@ export class ReactToHappeningHandler
     ids: IdGeneratorPort,
     members: MemberReaderPort,
     announce: AnnounceTaskEvents,
+    files: AttachmentStorePort,
+    logger: LoggerPort,
   ) {
     this.reactions = new ReactToHappenings(
       tasks,
@@ -49,6 +53,8 @@ export class ReactToHappeningHandler
       ids,
       members,
       announce,
+      files,
+      logger,
     );
   }
 

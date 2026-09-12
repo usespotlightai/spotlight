@@ -3,7 +3,8 @@ import {
   NOTE_KINDS,
   NOTE_VOICES,
 } from '@application/dto/inbox.dto';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { AttachmentResponseDto } from '@presentation/http/dto/attachment.response.dto';
 
 export class InboxAuthorResponseDto {
   @ApiProperty({ example: 'b7f3c1d9-2a48-4e6b-9c05-7d1e3f8a2b64' })
@@ -65,6 +66,13 @@ export class InboxMessageResponseDto {
   @ApiProperty({ example: 'Reproduced on restart. Needs a spec.' })
   readonly body: string;
 
+  @ApiProperty({
+    type: AttachmentResponseDto,
+    isArray: true,
+    description: 'The files handed over with it',
+  })
+  readonly attachments: readonly AttachmentResponseDto[];
+
   @ApiProperty({ example: '2026-08-28T21:15:00.000Z' })
   readonly at: string;
 
@@ -85,6 +93,7 @@ export class InboxMessageResponseDto {
     stationPosition: number,
     runId: string | null,
     body: string,
+    attachments: readonly AttachmentResponseDto[],
     at: string,
     author: InboxAuthorResponseDto | null,
   ) {
@@ -97,6 +106,7 @@ export class InboxMessageResponseDto {
     this.stationPosition = stationPosition;
     this.runId = runId;
     this.body = body;
+    this.attachments = attachments;
     this.at = at;
     this.author = author;
   }
@@ -137,6 +147,13 @@ export class InboxItemResponseDto {
 
   @ApiProperty({ nullable: true, type: String })
   readonly description: string | null;
+
+  @ApiProperty({
+    type: AttachmentResponseDto,
+    isArray: true,
+    description: 'The files the task was raised with',
+  })
+  readonly attachments: readonly AttachmentResponseDto[];
 
   @ApiProperty({ example: 'Implementation' })
   readonly station: string;
@@ -210,6 +227,7 @@ export class InboxItemResponseDto {
     teamId: string,
     title: string,
     description: string | null,
+    attachments: readonly AttachmentResponseDto[],
     station: string,
     stationColor: string,
     stationPosition: number,
@@ -230,6 +248,7 @@ export class InboxItemResponseDto {
     this.teamId = teamId;
     this.title = title;
     this.description = description;
+    this.attachments = attachments;
     this.station = station;
     this.stationColor = stationColor;
     this.stationPosition = stationPosition;
@@ -250,7 +269,15 @@ export class InboxItemResponseDto {
 export class AnswerInboxItemRequestDto {
   @ApiProperty({
     example: 'Drain the queue before retrying, and cap it at 500.',
-    description: 'What the person says back. It joins the task’s trail.',
+    description:
+      'What the person says back. It joins the task’s trail. May be empty where files are attached.',
   })
   readonly body!: string;
+
+  @ApiPropertyOptional({
+    type: String,
+    isArray: true,
+    description: 'Uploads to attach, by the id each was granted',
+  })
+  readonly attachments?: string[];
 }

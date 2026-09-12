@@ -9,6 +9,7 @@ import { InvalidTaskTransitionError } from '@domain/exceptions/invalid-task-tran
 import { ContinuityKey } from '@domain/services/continuity-key';
 import type { Conversation } from '@domain/services/conversations';
 import { anyUnread } from '@domain/services/unread';
+import type { Attachment } from '@domain/value-objects/attachment.vo';
 import { Branch } from '@domain/value-objects/branch.vo';
 import { Continuity } from '@domain/value-objects/continuity.vo';
 import type { HarnessSession } from '@domain/value-objects/harness-session.vo';
@@ -50,6 +51,7 @@ export interface Saying {
   readonly voice: Voice;
   readonly said?: Said | null;
   readonly form?: TaskNoteForm;
+  readonly attachments?: readonly Attachment[];
 }
 
 export class Task extends EventRecorder {
@@ -77,6 +79,7 @@ export class Task extends EventRecorder {
     readonly finishedAt: Date | null,
     /** The team member who owns the work, or nobody where it is unclaimed. */
     readonly assignee: UserId | null,
+    readonly attachments: readonly Attachment[],
     /** Which reading of this task it is. Written back against the same one. */
     readonly version: number = 0,
   ) {
@@ -88,6 +91,7 @@ export class Task extends EventRecorder {
     stationId: StationId;
     title: TaskTitle;
     description?: TaskDescription | null;
+    attachments?: readonly Attachment[];
     rank: TaskRank;
     /** Null where nobody raised it: a word from outside opened it, not a person. */
     raisedBy?: UserId | null;
@@ -116,6 +120,7 @@ export class Task extends EventRecorder {
       // A person who raises a task owns it from the start; one a word from
       // outside opened is owned by nobody until somebody takes it.
       raisedBy,
+      input.attachments ?? [],
     );
 
     task.record(new TaskOpened(task.id, task.workspaceId, task.stationId));
@@ -141,6 +146,7 @@ export class Task extends EventRecorder {
     marks?: readonly Mark[];
     finishedAt: Date | null;
     assignee?: UserId | null;
+    attachments?: readonly Attachment[];
     version?: number;
   }): Task {
     if (input.finishedAt !== null && input.currentRunId !== null) {
@@ -168,6 +174,7 @@ export class Task extends EventRecorder {
       input.marks ?? [],
       input.finishedAt,
       input.assignee ?? null,
+      input.attachments ?? [],
       input.version ?? 0,
     );
   }
@@ -439,6 +446,13 @@ export class Task extends EventRecorder {
     return this.trail.undelivered;
   }
 
+  get allAttachments(): readonly Attachment[] {
+    return [
+      ...this.attachments,
+      ...this.notes.flatMap((note) => note.attachments),
+    ];
+  }
+
   deliveredUpTo(position: NotePosition, at: Date): Task {
     let place = -1;
 
@@ -540,6 +554,7 @@ export class Task extends EventRecorder {
       part.marks ?? this.marks,
       part.finishedAt !== undefined ? part.finishedAt : this.finishedAt,
       part.assignee !== undefined ? part.assignee : this.assignee,
+      this.attachments,
       // Carried, never raised here: moving it on is the writing's to do.
       this.version,
     );

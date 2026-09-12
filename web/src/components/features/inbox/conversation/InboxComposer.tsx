@@ -24,13 +24,14 @@ export function InboxComposer({
 
   return (
     <Composer
+      slug={slug}
       label={`Answer ${station}`}
       placeholder="Reply…"
       pending={answer.isPending}
       running={running && runId !== null}
       onStop={runId ? () => stop.mutate({ teamId, runId }) : undefined}
-      onSend={(body, sent) =>
-        answer.mutate({ slug, itemId, body }, { onSuccess: sent })
+      onSend={(body, attachments, sent) =>
+        answer.mutate({ slug, itemId, body, attachments }, { onSuccess: sent })
       }
     />
   );

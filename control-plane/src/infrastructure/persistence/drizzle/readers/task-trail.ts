@@ -1,4 +1,5 @@
 import { RunSpecContract } from '@application/contracts/run-spec.contract';
+import type { AttachmentSummary } from '@application/ports/attachment-reader.port';
 import type { InboxNote } from '@application/ports/inbox-reader.port';
 import type { RunReview } from '@application/ports/run-reader.port';
 import { owedIn, reviewsIn } from '@domain/services/conversations';
@@ -11,12 +12,72 @@ import { user } from '@infrastructure/persistence/drizzle/schemas/auth.schema';
 import { run } from '@infrastructure/persistence/drizzle/schemas/run.schema';
 import {
   task,
+  taskAttachment,
   taskNote,
 } from '@infrastructure/persistence/drizzle/schemas/task.schema';
 import { and, asc, count, eq, inArray } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 export const DEFAULT_STATION_COLOR = '#a3a8b0';
+
+export interface TaskAttachments {
+  readonly own: readonly AttachmentSummary[];
+  readonly said: ReadonlyMap<number, readonly AttachmentSummary[]>;
+}
+
+const NONE: TaskAttachments = { own: [], said: new Map() };
+
+interface Gathered {
+  own: AttachmentSummary[];
+  said: Map<number, AttachmentSummary[]>;
+}
+
+export const attachmentsOf = (
+  held: ReadonlyMap<string, TaskAttachments>,
+  taskId: string,
+): TaskAttachments => held.get(taskId) ?? NONE;
+
+export const attachmentsFor = async (
+  db: DrizzleDatabase,
+  taskIds: readonly string[],
+): Promise<Map<string, TaskAttachments>> => {
+  const held = new Map<string, Gathered>();
+  const named = [...new Set(taskIds)];
+
+  if (named.length === 0) {
+    return held;
+  }
+
+  const rows = await db
+    .select({
+      taskId: taskAttachment.taskId,
+      notePosition: taskAttachment.notePosition,
+      id: taskAttachment.id,
+      name: taskAttachment.name,
+      contentType: taskAttachment.contentType,
+      size: taskAttachment.size,
+    })
+    .from(taskAttachment)
+    .where(inArray(taskAttachment.taskId, named))
+    .orderBy(asc(taskAttachment.notePosition), asc(taskAttachment.place));
+
+  for (const { taskId, notePosition, ...file } of rows) {
+    const files: Gathered = held.get(taskId) ?? { own: [], said: new Map() };
+
+    if (notePosition === null) {
+      files.own.push(file);
+    } else {
+      files.said.set(notePosition, [
+        ...(files.said.get(notePosition) ?? []),
+        file,
+      ]);
+    }
+
+    held.set(taskId, files);
+  }
+
+  return held;
+};
 
 export const trailsFor = async (
   db: DrizzleDatabase,
@@ -30,6 +91,8 @@ export const trailsFor = async (
 
   // A note keeps the station's name, not its identity.
   const spoke = alias(station, 'spoke');
+
+  const attached = await attachmentsFor(db, taskIds);
 
   const rows = await db
     .select({
@@ -77,6 +140,8 @@ export const trailsFor = async (
       form: row.form,
       voice: row.voice,
       body: row.body,
+      attachments:
+        attachmentsOf(attached, row.taskId).said.get(row.position) ?? [],
       at: row.at,
       readAt: row.readAt,
       author: row.authorId

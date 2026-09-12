@@ -26,6 +26,7 @@ import type {
   AuthIR,
   EventIR,
   ReadableIntegration,
+  RequestIR,
   Templated,
 } from '@infrastructure/integrations/integration.compile';
 import type { JwksResolver } from '@infrastructure/integrations/jwks';
@@ -310,7 +311,17 @@ export class WebhookRuntime implements WebhookSourcePort {
       this.bindings(delivered),
       (against) => (mine ? holds(mine, against) : false),
       (event, against) => this.enriched(event, against),
+      this.outbound
+        ? (request, against) => this.fetched(request, against)
+        : null,
     );
+  }
+
+  private fetched(request: RequestIR, against: Bindings): Promise<Uint8Array> {
+    return (this.outbound as HttpOutbound).bytes(request, {
+      ...against,
+      secret: Object.fromEntries(this.secrets),
+    });
   }
 
   /**
