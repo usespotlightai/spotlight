@@ -1,4 +1,5 @@
 import type {
+  WorkspaceDetailDto,
   WorkspaceDto,
   WorkspaceListingDto,
 } from '@application/dto/workspace.dto';
@@ -23,12 +24,13 @@ export const WorkspaceMapper = {
     };
   },
 
-  detailToDto(detail: WorkspaceDetail): WorkspaceDto {
+  detailToDto(detail: WorkspaceDetail): WorkspaceDetailDto {
     return {
       id: detail.id,
       name: detail.name,
       slug: detail.slug,
       teams: detail.teams.map((team) => ({ id: team.id, name: team.name })),
+      role: detail.role,
     };
   },
 

@@ -1,19 +1,25 @@
 import { Button } from '@/components/ui/button';
-import { BOARD_VIEWS, type BoardView } from '@/lib/board';
 import { cn } from '@/lib/utils';
 
-type BoardViewsProps = {
-  current: BoardView;
-  onChange: (view: BoardView) => void;
+type View<T extends string> = {
+  readonly id: T;
+  readonly label: string;
 };
 
-export function BoardViews({ current, onChange }: BoardViewsProps) {
+type ViewPillsProps<T extends string> = {
+  views: readonly View<T>[];
+  current: T;
+  onChange: (view: T) => void;
+};
+
+export function ViewPills<T extends string>({
+  views,
+  current,
+  onChange,
+}: ViewPillsProps<T>) {
   return (
-    <div
-      data-slot="board-views"
-      className="flex h-10 shrink-0 items-center gap-1 px-3"
-    >
-      {BOARD_VIEWS.map((view) => (
+    <div className="flex h-10 shrink-0 items-center gap-1 px-3">
+      {views.map((view) => (
         <Button
           key={view.id}
           variant="outline"

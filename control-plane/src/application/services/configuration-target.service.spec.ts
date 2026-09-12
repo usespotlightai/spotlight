@@ -7,6 +7,7 @@ import { Repository } from '@domain/value-objects/repository.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { TeamKey } from '@domain/value-objects/team-key.vo';
 import { TeamName } from '@domain/value-objects/team-name.vo';
+import { TeamRole } from '@domain/value-objects/team-role.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -22,7 +23,7 @@ const team = (over: { kept?: string | null; moving?: string } = {}) =>
     workspaceId: WorkspaceId.of('ws_1'),
     key: TeamKey.of('platform'),
     name: TeamName.of('Platform'),
-    members: [{ userId: UserId.of('user_1'), role: 'owner' }],
+    members: [{ userId: UserId.of('user_1'), role: TeamRole.owner }],
     configRepository:
       over.kept === null ? null : Repository.of(over.kept ?? 'acme/kept'),
     movingConfigurationTo: over.moving ? Repository.of(over.moving) : null,

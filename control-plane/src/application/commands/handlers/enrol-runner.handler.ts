@@ -3,7 +3,7 @@ import type { EnrolledRunnerDto } from '@application/dto/run.dto';
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
-import type { RunnerTokenPort } from '@application/ports/runner-token.port';
+import type { TokenMintPort } from '@application/ports/token-mint.port';
 import { Runner } from '@domain/aggregates/runner.aggregate';
 import type { RunnerRepository } from '@domain/repositories/runner.repository';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
@@ -16,7 +16,7 @@ export class EnrolRunnerHandler
   constructor(
     private readonly runners: RunnerRepository,
     private readonly ids: IdGeneratorPort,
-    private readonly tokens: RunnerTokenPort,
+    private readonly tokens: TokenMintPort,
   ) {}
 
   async execute(command: EnrolRunnerCommand): Promise<EnrolledRunnerDto> {

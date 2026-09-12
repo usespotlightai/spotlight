@@ -10,6 +10,10 @@ export interface WorkspaceDto {
   readonly teams: readonly TeamDto[];
 }
 
+export interface WorkspaceDetailDto extends WorkspaceDto {
+  readonly role: string;
+}
+
 export interface WorkspaceListingDto {
   readonly id: string;
   readonly name: string;

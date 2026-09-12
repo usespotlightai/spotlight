@@ -1,9 +1,9 @@
-import { RunnerTokenService } from '@infrastructure/auth/runner-token.service';
+import { TokenMint } from '@infrastructure/auth/token-mint.service';
 import { describe, expect, it } from 'vitest';
 
-const tokens = new RunnerTokenService();
+const tokens = new TokenMint();
 
-describe('RunnerTokenService', () => {
+describe('TokenMint', () => {
   it('mints a token nobody could guess', () => {
     const { token } = tokens.mint();
 

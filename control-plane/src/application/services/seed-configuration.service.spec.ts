@@ -19,6 +19,7 @@ import { Repository } from '@domain/value-objects/repository.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { WorkspaceName } from '@domain/value-objects/workspace-name.vo';
+import { WorkspaceRole } from '@domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -53,7 +54,7 @@ const workspace = (connected = true) => {
     id: WorkspaceId.of('ws_1'),
     name: WorkspaceName.of('Acme'),
     slug: WorkspaceSlug.of('acme'),
-    members: [{ userId: UserId.of('user_1'), role: 'owner' }],
+    members: [{ userId: UserId.of('user_1'), role: WorkspaceRole.owner }],
     teams: [],
   });
 

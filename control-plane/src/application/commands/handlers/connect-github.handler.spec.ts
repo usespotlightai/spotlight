@@ -14,7 +14,7 @@ import { Connection } from '@domain/value-objects/connection.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { WorkspaceName } from '@domain/value-objects/workspace-name.vo';
-import type { WorkspaceRole } from '@domain/value-objects/workspace-role';
+import { WorkspaceRole } from '@domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -42,7 +42,7 @@ const connecting = (
     {
       findBySlug: vi.fn(async () =>
         over.workspace === undefined
-          ? acme([{ user: 'user_1', role: 'owner' }])
+          ? acme([{ user: 'user_1', role: WorkspaceRole.owner }])
           : over.workspace,
       ),
       save,
@@ -94,7 +94,7 @@ describe('ConnectGitHubHandler', () => {
   // Someone outside it is not told a workspace is there at all.
   it('answers with nothing where the caller is not of the workspace', async () => {
     const { handler, save } = connecting({
-      workspace: acme([{ user: 'someone-else', role: 'owner' }]),
+      workspace: acme([{ user: 'someone-else', role: WorkspaceRole.owner }]),
     });
 
     expect(await handler.execute(command())).toBeNull();
@@ -104,8 +104,8 @@ describe('ConnectGitHubHandler', () => {
   it('refuses a member who is neither owner nor admin', async () => {
     const { handler, save } = connecting({
       workspace: acme([
-        { user: 'owner_1', role: 'owner' },
-        { user: 'user_1', role: 'member' },
+        { user: 'owner_1', role: WorkspaceRole.owner },
+        { user: 'user_1', role: WorkspaceRole.member },
       ]),
     });
 
@@ -118,8 +118,8 @@ describe('ConnectGitHubHandler', () => {
   it('lets an admin connect one', async () => {
     const { handler, save } = connecting({
       workspace: acme([
-        { user: 'owner_1', role: 'owner' },
-        { user: 'user_1', role: 'admin' },
+        { user: 'owner_1', role: WorkspaceRole.owner },
+        { user: 'user_1', role: WorkspaceRole.admin },
       ]),
     });
 

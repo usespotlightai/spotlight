@@ -6,12 +6,12 @@ import { MoveTaskCommand } from '@application/commands/move-task.command';
 import { SayToRunCommand } from '@application/commands/say-to-run.command';
 import { StopRunCommand } from '@application/commands/stop-run.command';
 import type { StationDto } from '@application/dto/assembly-line.dto';
+import type { MemberDto } from '@application/dto/member.dto';
 import type { RunConversationDto } from '@application/dto/run-conversation.dto';
 import type { TaskDto } from '@application/dto/task.dto';
 import type { TaskRunDto, TeamRunDto } from '@application/dto/task-run.dto';
 import type { TaskTraceDto } from '@application/dto/task-trace.dto';
 import type { TeamTraceDto } from '@application/dto/team-trace.dto';
-import type { PersonSummary } from '@application/ports/person-reader.port';
 import type { AuthenticatedUser } from '@application/ports/session.port';
 import { FindStationQuery } from '@application/queries/find-station.query';
 import { ListMembersQuery } from '@application/queries/list-members.query';
@@ -480,7 +480,7 @@ export class TaskController {
   @Get('members')
   @ApiOperation({
     operationId: 'listMembers',
-    summary: 'List the team members a task can be assigned to',
+    summary: 'List the team’s members, what each is, and what may be set',
   })
   @ApiOkResponse({ type: MemberResponseDto, isArray: true })
   @ApiNotFoundResponse({ description: 'No such team for this caller' })
@@ -490,7 +490,7 @@ export class TaskController {
   ): Promise<MemberResponseDto[]> {
     const found = await this.queryBus.execute<
       ListMembersQuery,
-      PersonSummary[] | null
+      MemberDto[] | null
     >(new ListMembersQuery(teamId, user.id));
 
     if (!found) {

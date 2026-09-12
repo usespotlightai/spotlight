@@ -5,6 +5,7 @@ import { InvalidConfigurationMoveError } from '@domain/exceptions/invalid-config
 import { Repository } from '@domain/value-objects/repository.vo';
 import { TeamKey } from '@domain/value-objects/team-key.vo';
 import { TeamName } from '@domain/value-objects/team-name.vo';
+import { TeamRole } from '@domain/value-objects/team-role.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -25,7 +26,7 @@ const open = (name = 'Platform') => {
 
 describe('Team', () => {
   it('starts with whoever opened it as its owner', () => {
-    expect(open().members).toEqual([{ userId: OWNER, role: 'owner' }]);
+    expect(open().members).toEqual([{ userId: OWNER, role: TeamRole.owner }]);
   });
 
   it('belongs to the workspace it was opened in', () => {
@@ -62,7 +63,7 @@ describe('Team', () => {
         id: open().id,
         workspaceId: WORKSPACE,
         name: TeamName.of('Platform'),
-        members: [{ userId: OWNER, role: 'owner' }],
+        members: [{ userId: OWNER, role: TeamRole.owner }],
       }).pullEvents(),
     ).toEqual([]);
   });
@@ -202,7 +203,7 @@ describe('Team', () => {
           id: open().id,
           workspaceId: WORKSPACE,
           name: TeamName.of('Platform'),
-          members: [{ userId: OWNER, role: 'owner' }],
+          members: [{ userId: OWNER, role: TeamRole.owner }],
           configRepository: OLD,
           movingConfigurationTo: OLD,
         }),

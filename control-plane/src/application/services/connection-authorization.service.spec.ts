@@ -5,22 +5,21 @@ import type { WorkspaceRepository } from '@domain/repositories/workspace.reposit
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { WorkspaceName } from '@domain/value-objects/workspace-name.vo';
-import type { WorkspaceRole } from '@domain/value-objects/workspace-role';
+import { WorkspaceRole } from '@domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
 import { describe, expect, it, vi } from 'vitest';
 
-const acme = (role: WorkspaceRole = 'owner', user = 'user_1') =>
+const acme = (role: WorkspaceRole = WorkspaceRole.owner, user = 'user_1') =>
   Workspace.rehydrate({
     id: WorkspaceId.of('ws_1'),
     name: WorkspaceName.of('Acme'),
     slug: WorkspaceSlug.of('acme'),
-    members:
-      role === 'owner'
-        ? [{ userId: UserId.of(user), role: 'owner' }]
-        : [
-            { userId: UserId.of('owner_1'), role: 'owner' },
-            { userId: UserId.of(user), role },
-          ],
+    members: role.isOwner
+      ? [{ userId: UserId.of(user), role: WorkspaceRole.owner }]
+      : [
+          { userId: UserId.of('owner_1'), role: WorkspaceRole.owner },
+          { userId: UserId.of(user), role },
+        ],
     teams: [],
   });
 
@@ -55,17 +54,16 @@ describe('ConnectionAuthorization', () => {
   });
 
   it('hands an admin the workspace too', async () => {
-    const workspace = await asking({ workspace: acme('admin') }).connectableBy(
-      'team_1',
-      'user_1',
-    );
+    const workspace = await asking({
+      workspace: acme(WorkspaceRole.admin),
+    }).connectableBy('team_1', 'user_1');
 
     expect(workspace).not.toBeNull();
   });
 
   it('refuses a plain member', async () => {
     expect(
-      await asking({ workspace: acme('member') }).connectableBy(
+      await asking({ workspace: acme(WorkspaceRole.member) }).connectableBy(
         'team_1',
         'user_1',
       ),

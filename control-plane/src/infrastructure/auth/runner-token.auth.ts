@@ -1,8 +1,8 @@
 import type { RunnerAuthPort } from '@application/ports/runner-auth.port';
 import {
-  RUNNER_TOKEN,
-  type RunnerTokenPort,
-} from '@application/ports/runner-token.port';
+  TOKEN_MINT,
+  type TokenMintPort,
+} from '@application/ports/token-mint.port';
 import type { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { TokenHash } from '@domain/value-objects/token-hash.vo';
 import { DrizzleRunnerRepository } from '@infrastructure/persistence/drizzle/repositories/runner.repository';
@@ -17,7 +17,7 @@ import { Inject, Injectable } from '@nestjs/common';
 export class RunnerTokenAuth implements RunnerAuthPort {
   constructor(
     private readonly runners: DrizzleRunnerRepository,
-    @Inject(RUNNER_TOKEN) private readonly tokens: RunnerTokenPort,
+    @Inject(TOKEN_MINT) private readonly tokens: TokenMintPort,
   ) {}
 
   async identify(token: string | undefined): Promise<RunnerId | null> {

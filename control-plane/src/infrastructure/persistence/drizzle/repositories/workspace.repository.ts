@@ -1,4 +1,5 @@
 import { Workspace } from '@domain/aggregates/workspace.aggregate';
+import { WorkspaceMovedOnError } from '@domain/exceptions/workspace-moved-on.error';
 import { WorkspaceSlugTakenError } from '@domain/exceptions/workspace-slug-taken.error';
 import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
 import { Connection } from '@domain/value-objects/connection.vo';
@@ -6,6 +7,7 @@ import { TeamId } from '@domain/value-objects/team-id.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { WorkspaceName } from '@domain/value-objects/workspace-name.vo';
+import { WorkspaceRole } from '@domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
 import {
@@ -118,25 +120,38 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
       slug: WorkspaceSlug.of(found.slug),
       members: members.map((each) => ({
         userId: UserId.of(each.userId),
-        role: each.role,
+        role: WorkspaceRole.of(each.role),
       })),
       teams: teams.map((each) => TeamId.of(each.id)),
       connections: connections.map((each) =>
         Connection.of(each.source, each.externalId),
       ),
+      version: found.version,
     });
   }
 
-  /**
-   * Only what a workspace can be changed to say. Its members and teams are
-   * write-once at create, so save deliberately does not write them back.
-   */
   async save(saved: Workspace): Promise<void> {
     await this.context.run(async () => {
-      await this.context.db
+      const written = await this.context.db
         .update(workspace)
-        .set({ name: saved.name.value, slug: saved.slug.value })
-        .where(eq(workspace.id, saved.id.value));
+        .set({
+          name: saved.name.value,
+          slug: saved.slug.value,
+          version: saved.version + 1,
+        })
+        .where(
+          and(
+            eq(workspace.id, saved.id.value),
+            eq(workspace.version, saved.version),
+          ),
+        )
+        .returning({ id: workspace.id });
+
+      if (written.length === 0) {
+        throw new WorkspaceMovedOnError(saved.slug.value);
+      }
+
+      await this.writeMembers(saved);
 
       // Taken from whoever held it rather than refused: an identifier names
       // one workspace, and moving a connection to another is something
@@ -185,6 +200,35 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
     });
   }
 
+  private async writeMembers(saved: Workspace): Promise<void> {
+    const held = saved.members.map((member) => member.userId.value);
+
+    await this.context.db
+      .delete(workspaceMember)
+      .where(
+        and(
+          eq(workspaceMember.workspaceId, saved.id.value),
+          held.length > 0
+            ? notInArray(workspaceMember.userId, held)
+            : undefined,
+        ),
+      );
+
+    for (const member of saved.members) {
+      await this.context.db
+        .insert(workspaceMember)
+        .values({
+          workspaceId: saved.id.value,
+          userId: member.userId.value,
+          role: member.role.value,
+        })
+        .onConflictDoUpdate({
+          target: [workspaceMember.workspaceId, workspaceMember.userId],
+          set: { role: member.role.value },
+        });
+    }
+  }
+
   async add(added: Workspace): Promise<void> {
     try {
       await this.context.run(async () => {
@@ -198,7 +242,7 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
           added.members.map((member) => ({
             workspaceId: added.id.value,
             userId: member.userId.value,
-            role: member.role,
+            role: member.role.value,
           })),
         );
       });

@@ -1,22 +1,37 @@
 import { EventRecorder } from '@domain/aggregates/event-recorder';
 import { WorkspaceConnected } from '@domain/events/workspace-connected.event';
+import { WorkspaceMemberJoined } from '@domain/events/workspace-member-joined.event';
+import { WorkspaceMemberRoleChanged } from '@domain/events/workspace-member-role-changed.event';
 import { InconsistentStateError } from '@domain/exceptions/inconsistent-state.error';
+import { LastOwnerError } from '@domain/exceptions/last-owner.error';
 import { NotYoursToConnectError } from '@domain/exceptions/not-yours-to-connect.error';
+import { NotYoursToGiveError } from '@domain/exceptions/not-yours-to-give.error';
+import {
+  type RefusalToGive,
+  refusalToGive,
+  rolesGivable,
+  type Standing,
+} from '@domain/services/role-giving';
 import { Connection } from '@domain/value-objects/connection.vo';
 import type { TeamId } from '@domain/value-objects/team-id.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import type { WorkspaceName } from '@domain/value-objects/workspace-name.vo';
-import type { WorkspaceRole } from '@domain/value-objects/workspace-role';
+import { WorkspaceRole } from '@domain/value-objects/workspace-role.vo';
 import type { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
+
+const SAYING: Record<Exclude<RefusalToGive, 'last-owner'>, string> = {
+  'not-a-member': 'they are not of this workspace',
+  'not-yours-to-give': 'only an owner or an admin may set roles',
+  'not-below-you': 'they are not below you',
+  'your-own': 'your own is not yours to change',
+  'above-your-rank': 'nobody hands out a rank they do not hold',
+};
 
 export interface WorkspaceMember {
   readonly userId: UserId;
   readonly role: WorkspaceRole;
 }
-
-/** Connecting changes how every run in the workspace reaches out. */
-const MAY_CONNECT: readonly WorkspaceRole[] = ['owner', 'admin'];
 
 export class Workspace extends EventRecorder {
   private constructor(
@@ -28,6 +43,7 @@ export class Workspace extends EventRecorder {
     readonly teams: readonly TeamId[],
     /** Every host this workspace has been connected to, at most one each. */
     readonly connections: readonly Connection[],
+    readonly version: number = 0,
   ) {
     super();
   }
@@ -44,7 +60,7 @@ export class Workspace extends EventRecorder {
       input.id,
       input.name,
       input.slug,
-      [{ userId: input.owner, role: 'owner' }],
+      [{ userId: input.owner, role: WorkspaceRole.owner }],
       [input.firstTeam],
       // Connected afterwards, by whoever installs the App: a workspace is
       // worth having before it reaches anything.
@@ -59,11 +75,12 @@ export class Workspace extends EventRecorder {
     members: readonly WorkspaceMember[];
     teams: readonly TeamId[];
     connections?: readonly Connection[];
+    version?: number;
   }): Workspace {
     if (input.members.length === 0) {
       throw new InconsistentStateError('workspace', 'has no members at all');
     }
-    if (!input.members.some((member) => member.role === 'owner')) {
+    if (!input.members.some((member) => member.role.isOwner)) {
       throw new InconsistentStateError('workspace', 'has nobody who owns it');
     }
 
@@ -74,6 +91,7 @@ export class Workspace extends EventRecorder {
       input.members,
       input.teams,
       input.connections ?? [],
+      input.version ?? 0,
     );
   }
 
@@ -89,9 +107,7 @@ export class Workspace extends EventRecorder {
   }
 
   mayBeConnectedBy(userId: UserId): boolean {
-    const role = this.roleOf(userId);
-
-    return role !== null && MAY_CONNECT.includes(role);
+    return this.roleOf(userId)?.rankedAtLeast(WorkspaceRole.admin) ?? false;
   }
 
   connectionTo(source: string): Connection | null {
@@ -120,6 +136,7 @@ export class Workspace extends EventRecorder {
         ...this.connections.filter((each) => !each.isTo(connection.source)),
         connection,
       ],
+      this.version,
     );
 
     connected.record(new WorkspaceConnected(this.id, connection));
@@ -144,7 +161,86 @@ export class Workspace extends EventRecorder {
       this.members,
       this.teams,
       this.connections.filter((each) => !each.isTo(source)),
+      this.version,
     );
+  }
+
+  private isLastOwner(userId: UserId): boolean {
+    const owners = this.members.filter((each) => each.role.isOwner);
+
+    return owners.length === 1 && owners[0]?.userId.equals(userId) === true;
+  }
+
+  private standingBetween(target: UserId, by: UserId): Standing {
+    return {
+      mine: this.roleOf(by),
+      theirs: this.roleOf(target),
+      lastOwner: this.isLastOwner(target),
+      isSelf: target.equals(by),
+    };
+  }
+
+  rolesGivableTo(target: UserId, by: UserId): readonly WorkspaceRole[] {
+    return rolesGivable(this.standingBetween(target, by));
+  }
+
+  roleChangedTo(target: UserId, role: WorkspaceRole, by: UserId): Workspace {
+    const standing = this.standingBetween(target, by);
+    const refusal = refusalToGive(standing, role);
+
+    if (refusal === 'last-owner') {
+      throw new LastOwnerError();
+    }
+    if (refusal) {
+      throw new NotYoursToGiveError(SAYING[refusal]);
+    }
+
+    const was = standing.theirs;
+
+    if (!was || was.equals(role)) {
+      return this;
+    }
+
+    const changed = this.with({
+      members: this.members.map((each) =>
+        each.userId.equals(target) ? { userId: each.userId, role } : each,
+      ),
+    });
+
+    changed.record(
+      new WorkspaceMemberRoleChanged(this.id, target, was, role, by),
+    );
+
+    return changed;
+  }
+
+  joinedBy(userId: UserId, role: WorkspaceRole): Workspace {
+    if (this.holds(userId)) {
+      return this;
+    }
+
+    const joined = this.with({
+      members: [...this.members, { userId, role }],
+    });
+
+    joined.record(new WorkspaceMemberJoined(this.id, userId, role));
+
+    return joined;
+  }
+
+  private with(over: { members: readonly WorkspaceMember[] }): Workspace {
+    const next = new Workspace(
+      this.id,
+      this.name,
+      this.slug,
+      over.members,
+      this.teams,
+      this.connections,
+      this.version,
+    );
+    next.inheritEvents(this);
+
+    return next;
   }
 
   holdsTeam(teamId: TeamId): boolean {

@@ -844,6 +844,44 @@ export type RenameTeamRequestDto = {
   name: string;
 };
 
+export type InviteResponseDto = {
+  id: string;
+  email: string;
+  /**
+   * Who asked them.
+   */
+  invitedBy: string;
+  invitedAt: string;
+  expiresAt: string;
+};
+
+export type InviteToTeamRequestDto = {
+  /**
+   * Where the invitation is sent, and who may accept it.
+   */
+  email: string;
+};
+
+export type InviteOfferResponseDto = {
+  /**
+   * The address it was sent to, which is who may accept it.
+   */
+  email: string;
+  teamName: string;
+  workspaceName: string;
+  invitedBy: string;
+  /**
+   * Whether it is still worth following.
+   */
+  standing: 'open' | 'accepted' | 'revoked' | 'expired';
+};
+
+export type JoinedTeamResponseDto = {
+  workspaceSlug: string;
+  teamId: string;
+  teamName: string;
+};
+
 export type HappeningResponseDto = {
   happening: string;
   source: string;
@@ -1083,6 +1121,14 @@ export type MemberResponseDto = {
   id: string;
   name: string;
   image: string | null;
+  /**
+   * What they are in the workspace this team belongs to.
+   */
+  role: 'owner' | 'admin' | 'member';
+  /**
+   * What the caller may set them to, which is empty where that is not theirs to do. Worked out by the same rule the workspace enforces.
+   */
+  mayBeSetTo: Array<'owner' | 'admin' | 'member'>;
 };
 
 export type CreateWorkspaceRequestDto = {
@@ -1102,7 +1148,7 @@ export type TeamResponseDto = {
   name: string;
 };
 
-export type WorkspaceResponseDto = {
+export type CreatedWorkspaceResponseDto = {
   id: string;
   name: string;
   slug: string;
@@ -1113,6 +1159,24 @@ export type WorkspaceListingResponseDto = {
   id: string;
   name: string;
   slug: string;
+  role: 'owner' | 'admin' | 'member';
+};
+
+export type WorkspaceResponseDto = {
+  id: string;
+  name: string;
+  slug: string;
+  teams: Array<TeamResponseDto>;
+  /**
+   * What the caller is in this workspace.
+   */
+  role: 'owner' | 'admin' | 'member';
+};
+
+export type ChangeMemberRoleRequestDto = {
+  /**
+   * What they are to be in this workspace, which is what they may do in every team of it.
+   */
   role: 'owner' | 'admin' | 'member';
 };
 
@@ -2186,6 +2250,148 @@ export type RenameTeamResponses = {
 
 export type RenameTeamResponse = RenameTeamResponses[keyof RenameTeamResponses];
 
+export type ListInvitesData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/invites';
+};
+
+export type ListInvitesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+};
+
+export type ListInvitesResponses = {
+  200: Array<InviteResponseDto>;
+};
+
+export type ListInvitesResponse = ListInvitesResponses[keyof ListInvitesResponses];
+
+export type InviteToTeamData = {
+  body: InviteToTeamRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/invites';
+};
+
+export type InviteToTeamErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, or not yours to invite to
+   */
+  404: unknown;
+  /**
+   * They are already on this team
+   */
+  409: unknown;
+};
+
+export type InviteToTeamResponses = {
+  201: InviteResponseDto;
+};
+
+export type InviteToTeamResponse = InviteToTeamResponses[keyof InviteToTeamResponses];
+
+export type RevokeInviteData = {
+  body?: never;
+  path: {
+    teamId: string;
+    inviteId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/invites/{inviteId}';
+};
+
+export type RevokeInviteErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such invitation for this caller
+   */
+  404: unknown;
+};
+
+export type RevokeInviteResponses = {
+  /**
+   * The link no longer works
+   */
+  204: void;
+};
+
+export type RevokeInviteResponse = RevokeInviteResponses[keyof RevokeInviteResponses];
+
+export type ReadInviteData = {
+  body?: never;
+  path: {
+    token: string;
+  };
+  query?: never;
+  url: '/invites/{token}';
+};
+
+export type ReadInviteErrors = {
+  /**
+   * No invitation by that link
+   */
+  404: unknown;
+};
+
+export type ReadInviteResponses = {
+  200: InviteOfferResponseDto;
+};
+
+export type ReadInviteResponse = ReadInviteResponses[keyof ReadInviteResponses];
+
+export type AcceptInviteData = {
+  body?: never;
+  path: {
+    token: string;
+  };
+  query?: never;
+  url: '/invites/{token}/accept';
+};
+
+export type AcceptInviteErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * Signed in as somebody else
+   */
+  403: unknown;
+  /**
+   * No invitation by that link
+   */
+  404: unknown;
+  /**
+   * Already accepted, revoked or run out
+   */
+  409: unknown;
+};
+
+export type AcceptInviteResponses = {
+  200: JoinedTeamResponseDto;
+};
+
+export type AcceptInviteResponse = AcceptInviteResponses[keyof AcceptInviteResponses];
+
 export type ListHappeningsData = {
   body?: never;
   path: {
@@ -2640,7 +2846,7 @@ export type CreateWorkspaceErrors = {
 };
 
 export type CreateWorkspaceResponses = {
-  201: WorkspaceResponseDto;
+  201: CreatedWorkspaceResponseDto;
 };
 
 export type CreateWorkspaceResponse = CreateWorkspaceResponses[keyof CreateWorkspaceResponses];
@@ -2670,3 +2876,45 @@ export type GetWorkspaceResponses = {
 };
 
 export type GetWorkspaceResponse = GetWorkspaceResponses[keyof GetWorkspaceResponses];
+
+export type ChangeMemberRoleData = {
+  body: ChangeMemberRoleRequestDto;
+  path: {
+    slug: string;
+    userId: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/members/{userId}';
+};
+
+export type ChangeMemberRoleErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * Not yours to give
+   */
+  403: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+  /**
+   * It would leave nobody who owns it
+   */
+  409: unknown;
+  /**
+   * No such role
+   */
+  422: unknown;
+};
+
+export type ChangeMemberRoleResponses = {
+  /**
+   * That is what they are now
+   */
+  204: void;
+};
+
+export type ChangeMemberRoleResponse = ChangeMemberRoleResponses[keyof ChangeMemberRoleResponses];

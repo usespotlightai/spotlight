@@ -57,6 +57,7 @@ const ids: IdGeneratorPort = { generate: () => 'task_new' };
 const members: MemberReaderPort = {
   listForTeam: async () => null,
   byEmail: async () => null,
+  onTeam: async () => false,
 };
 
 const kept: Attachment[] = [];
@@ -754,7 +755,7 @@ describe('ReactToHappening', () => {
       clock,
       attending,
       ids,
-      { listForTeam: async () => null, byEmail },
+      { listForTeam: async () => null, byEmail, onTeam: async () => false },
       silentAnnounce,
       files,
       logger,
@@ -829,7 +830,11 @@ describe('ReactToHappening', () => {
       clock,
       attending,
       ids,
-      { listForTeam: async () => null, byEmail: async () => null },
+      {
+        listForTeam: async () => null,
+        byEmail: async () => null,
+        onTeam: async () => false,
+      },
       silentAnnounce,
       files,
       logger,

@@ -12,6 +12,7 @@ const acme: WorkspaceDetail = {
   name: 'Acme Inc.',
   slug: 'acme-inc',
   teams: [{ id: 'team_1', name: 'Acme Inc.' }],
+  role: 'owner',
 };
 
 const reader = (found: WorkspaceDetail | null): WorkspaceReaderPort => ({

@@ -33,6 +33,7 @@ docker compose up -d
 | https://app.dev.usespotlight.ai/api        | control-plane — NestJS serves under the `/api` global prefix |
 | https://app.dev.usespotlight.ai/api/install.sh | control-plane — the runner installer (see below) |
 | https://files.dev.usespotlight.ai          | storage — the attachments bucket (MinIO); browsers upload straight to it |
+| http://localhost:8025                      | mail — every message the control plane sends (Mailpit)      |
 
 Source is bind-mounted into both containers, so edits on the host hot-reload
 without a rebuild. Plain HTTP redirects to HTTPS.
@@ -107,6 +108,30 @@ The bucket itself needs three things, none of which this repository provisions:
 
 The key pair needs `s3:PutObject`, `s3:GetObject` and `s3:DeleteObject` on
 `arn:aws:s3:::<bucket>/workspaces/*` and nothing else.
+
+## Invitations
+
+Somebody is asked onto a team from Settings > Members. The invitation is an
+address and a link: the token in the link is hashed before it is stored, so the
+database holds a list of who was asked and nothing that opens anything. The
+link is followed, signed in as the address it was sent to, and accepting joins
+the team and the workspace it belongs to. It runs out after a fortnight, and
+asking again replaces the link rather than adding a second one.
+
+Sending needs an SMTP server, named in one variable:
+
+| Variable | Development | Staging & production |
+|---|---|---|
+| `SMTP_URL` | `smtp://mail:1025` — the Mailpit container | the provider's URL, as in `smtps://user:pass@smtp.example.com:465` |
+| `MAIL_FROM` | `Spotlight <noreply@dev.usespotlight.ai>` | an address the domain is allowed to send from |
+
+Development sends to Mailpit, which shows every message at
+<http://localhost:8025> and delivers none of them. Where `SMTP_URL` is unset
+nothing is sent at all: the message, link included, is written to the log, so a
+deployment that has not configured mail still leaves a trail of what it owed.
+
+Links point at `SPOTLIGHT_PUBLIC_URL`, or at `BETTER_AUTH_URL` where that is
+unset.
 
 ## Schema changes
 

@@ -9,13 +9,19 @@ import { ConfigurationMoveStarted } from '@domain/events/configuration-move-star
 import { ConfigurationMoved } from '@domain/events/configuration-moved.event';
 import type { DomainEvent } from '@domain/events/domain-event';
 import { HostConnected } from '@domain/events/host-connected.event';
+import { InviteAccepted } from '@domain/events/invite-accepted.event';
+import { InviteOffered } from '@domain/events/invite-offered.event';
+import { InviteRevoked } from '@domain/events/invite-revoked.event';
 import { RunAbandoned } from '@domain/events/run-abandoned.event';
 import { RunCompleted } from '@domain/events/run-completed.event';
 import { RunStopRequested } from '@domain/events/run-stop-requested.event';
 import { RunnerRevoked } from '@domain/events/runner-revoked.event';
 import { TaskFinished } from '@domain/events/task-finished.event';
 import { TeamCreated } from '@domain/events/team-created.event';
+import { TeamMemberJoined } from '@domain/events/team-member-joined.event';
 import { WorkspaceConnected } from '@domain/events/workspace-connected.event';
+import { WorkspaceMemberJoined } from '@domain/events/workspace-member-joined.event';
+import { WorkspaceMemberRoleChanged } from '@domain/events/workspace-member-role-changed.event';
 
 // Each event is handled in its own transaction; a handler that throws is logged and passed over, not retried.
 export class RoutingDispatcher implements DomainEventDispatcher {
@@ -82,6 +88,49 @@ export class RoutingDispatcher implements DomainEventDispatcher {
           'A team’s configuration moved',
         );
         return;
+      case 'invite.offered':
+        this.logger.debug(
+          { event: known.kind, teamId: known.teamId.value },
+          'Somebody was invited to a team',
+        );
+        return;
+      case 'invite.revoked':
+        this.logger.debug(
+          { event: known.kind, teamId: known.teamId.value },
+          'An invitation was taken back',
+        );
+        return;
+      case 'invite.accepted':
+        this.logger.debug(
+          { event: known.kind, teamId: known.teamId.value },
+          'An invitation was accepted',
+        );
+        return;
+      case 'workspace.member-joined':
+        this.logger.debug(
+          { event: known.kind, workspaceId: known.workspaceId.value },
+          'Somebody joined a workspace',
+        );
+        return;
+      case 'team.member-joined':
+        this.logger.debug(
+          { event: known.kind, teamId: known.teamId.value },
+          'Somebody joined a team',
+        );
+        return;
+      case 'workspace.member-role-changed':
+        this.logger.info(
+          {
+            event: known.kind,
+            workspaceId: known.workspaceId.value,
+            userId: known.userId.value,
+            was: known.was.value,
+            now: known.now.value,
+            by: known.by.value,
+          },
+          'Somebody’s role changed',
+        );
+        return;
       default:
         this.logger.warn(
           { event: event.kind },
@@ -92,6 +141,12 @@ export class RoutingDispatcher implements DomainEventDispatcher {
 }
 
 type Routable =
+  | InviteAccepted
+  | InviteOffered
+  | InviteRevoked
+  | TeamMemberJoined
+  | WorkspaceMemberJoined
+  | WorkspaceMemberRoleChanged
   | RunCompleted
   | RunAbandoned
   | RunStopRequested
