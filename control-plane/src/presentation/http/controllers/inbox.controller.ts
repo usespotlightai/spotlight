@@ -34,6 +34,7 @@ import {
   InboxStationResponseDto,
 } from '@presentation/http/dto/inbox.response.dto';
 import { RunJournalResponseDto } from '@presentation/http/dto/run-journal.response.dto';
+import { AttachmentHttpMapper } from '@presentation/http/mappers/attachment.http.mapper';
 import { RunJournalHttpMapper } from '@presentation/http/mappers/run-journal.http.mapper';
 
 @ApiTags('inbox')
@@ -74,6 +75,7 @@ export class InboxController {
           item.teamId,
           item.title,
           item.description,
+          item.attachments.map(AttachmentHttpMapper.toResponse),
           item.station,
           item.stationColor,
           item.stationPosition,
@@ -107,6 +109,7 @@ export class InboxController {
                 note.stationPosition,
                 note.runId,
                 note.body,
+                note.attachments.map(AttachmentHttpMapper.toResponse),
                 note.at,
                 note.author
                   ? new InboxAuthorResponseDto(
@@ -137,7 +140,12 @@ export class InboxController {
     @Body() body: AnswerInboxItemRequestDto,
   ): Promise<void> {
     await this.commandBus.execute(
-      new AnswerInboxItemCommand(itemId, user.id, body.body),
+      new AnswerInboxItemCommand(
+        itemId,
+        user.id,
+        body.body ?? '',
+        AttachmentHttpMapper.ids(body.attachments),
+      ),
     );
   }
 

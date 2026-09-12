@@ -7,6 +7,9 @@ const dto: TaskDto = {
   stationId: 'station_1',
   title: 'Fix the queue',
   description: '## Steps',
+  attachments: [
+    { id: 'file_1', name: 'queue.png', contentType: 'image/png', size: 4096 },
+  ],
   createdAt: '2026-08-28T09:15:00.000Z',
   running: true,
   awaitingReview: null,

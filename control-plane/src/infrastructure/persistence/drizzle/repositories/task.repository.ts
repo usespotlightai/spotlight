@@ -6,6 +6,7 @@ import type {
   TaskPlacement,
   TaskRepository,
 } from '@domain/repositories/task.repository';
+import { Attachment } from '@domain/value-objects/attachment.vo';
 import type { Concerns } from '@domain/value-objects/concerns.vo';
 import { HarnessSession } from '@domain/value-objects/harness-session.vo';
 import { Mark } from '@domain/value-objects/mark.vo';
@@ -33,6 +34,7 @@ import {
 import { factory } from '@infrastructure/persistence/drizzle/schemas/factory.schema';
 import {
   task,
+  taskAttachment,
   taskMark,
   taskNote,
 } from '@infrastructure/persistence/drizzle/schemas/task.schema';
@@ -42,9 +44,19 @@ import { alias } from 'drizzle-orm/pg-core';
 
 type Row = typeof task.$inferSelect;
 type NoteRow = typeof taskNote.$inferSelect;
+type AttachmentRow = typeof taskAttachment.$inferSelect;
 
-const toNote = (row: NoteRow): TaskNote =>
+const toAttachments = (
+  rows: readonly AttachmentRow[],
+  at: number | null,
+): Attachment[] =>
+  rows
+    .filter((row) => row.notePosition === at)
+    .map((row) => Attachment.rehydrate(row));
+
+const toNote = (row: NoteRow, attachments: AttachmentRow[]): TaskNote =>
   TaskNote.of({
+    attachments: toAttachments(attachments, row.position),
     station: StationName.of(row.station),
     body: TaskNoteBody.of(row.body),
     at: row.at,
@@ -57,8 +69,14 @@ const toNote = (row: NoteRow): TaskNote =>
     form: row.form,
   });
 
-const toTask = (row: Row, notes: NoteRow[], marks: MarkRow[] = []): Task =>
+const toTask = (
+  row: Row,
+  notes: NoteRow[],
+  attachments: AttachmentRow[],
+  marks: MarkRow[] = [],
+): Task =>
   Task.rehydrate({
+    attachments: toAttachments(attachments, null),
     id: TaskId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
     stationId: StationId.of(row.stationId),
@@ -68,7 +86,7 @@ const toTask = (row: Row, notes: NoteRow[], marks: MarkRow[] = []): Task =>
     currentRunId: row.currentRunId ? RunId.of(row.currentRunId) : null,
     sessionId: row.sessionId ? HarnessSession.of(row.sessionId) : null,
     runnerId: row.runnerId ? RunnerId.of(row.runnerId) : null,
-    notes: notes.map(toNote),
+    notes: notes.map((note) => toNote(note, attachments)),
     createdAt: row.createdAt,
     raisedAt: row.raisedAtStationId
       ? StationId.of(row.raisedAtStationId)
@@ -110,6 +128,7 @@ export class DrizzleTaskRepository implements TaskRepository, SetupLists {
     });
 
     await this.writeNotes(added);
+    await this.writeAttachments(added);
     await this.writeMarks(added);
   }
 
@@ -142,6 +161,7 @@ export class DrizzleTaskRepository implements TaskRepository, SetupLists {
     }
 
     await this.writeNotes(saved);
+    await this.writeAttachments(saved);
     await this.writeMarks(saved);
   }
 
@@ -198,12 +218,18 @@ export class DrizzleTaskRepository implements TaskRepository, SetupLists {
       return null;
     }
 
-    const [notes, marks] = await Promise.all([
+    const [notes, attachments, marks] = await Promise.all([
       this.notesFor([found.id]),
+      this.attachmentsFor([found.id]),
       this.marksFor(found.id),
     ]);
 
-    return toTask(found, notes.get(found.id) ?? [], marks);
+    return toTask(
+      found,
+      notes.get(found.id) ?? [],
+      attachments.get(found.id) ?? [],
+      marks,
+    );
   }
 
   async holding(
@@ -257,12 +283,18 @@ export class DrizzleTaskRepository implements TaskRepository, SetupLists {
       return null;
     }
 
-    const [notes, marks] = await Promise.all([
+    const [notes, attachments, marks] = await Promise.all([
       this.notesFor([found.id]),
+      this.attachmentsFor([found.id]),
       this.marksFor(found.id),
     ]);
 
-    return toTask(found, notes.get(found.id) ?? [], marks);
+    return toTask(
+      found,
+      notes.get(found.id) ?? [],
+      attachments.get(found.id) ?? [],
+      marks,
+    );
   }
 
   async remove(id: TaskId): Promise<void> {
@@ -276,9 +308,15 @@ export class DrizzleTaskRepository implements TaskRepository, SetupLists {
       .where(eq(task.stationId, stationId.value))
       .orderBy(task.rank);
 
-    const notes = await this.notesFor(found.map((each) => each.id));
+    const ids = found.map((each) => each.id);
+    const [notes, attachments] = await Promise.all([
+      this.notesFor(ids),
+      this.attachmentsFor(ids),
+    ]);
 
-    return found.map((each) => toTask(each, notes.get(each.id) ?? []));
+    return found.map((each) =>
+      toTask(each, notes.get(each.id) ?? [], attachments.get(each.id) ?? []),
+    );
   }
 
   async settingUpFor(teamId: TeamId): Promise<StandingSetup | null> {
@@ -332,11 +370,19 @@ export class DrizzleTaskRepository implements TaskRepository, SetupLists {
       .innerJoin(factory, eq(factory.id, assemblyLine.factoryId))
       .where(of ? and(open, of) : open);
 
-    const notes = await this.notesFor(found.map((each) => each.task.id));
+    const ids = found.map((each) => each.task.id);
+    const [notes, attachments] = await Promise.all([
+      this.notesFor(ids),
+      this.attachmentsFor(ids),
+    ]);
 
     return found.map((each) => ({
       teamId: TeamId.of(each.teamId),
-      task: toTask(each.task, notes.get(each.task.id) ?? []),
+      task: toTask(
+        each.task,
+        notes.get(each.task.id) ?? [],
+        attachments.get(each.task.id) ?? [],
+      ),
     }));
   }
 
@@ -355,6 +401,57 @@ export class DrizzleTaskRepository implements TaskRepository, SetupLists {
       standing.set(row.taskId, [...(standing.get(row.taskId) ?? []), row]);
       return standing;
     }, new Map<string, NoteRow[]>());
+  }
+
+  private async attachmentsFor(
+    taskIds: string[],
+  ): Promise<Map<string, AttachmentRow[]>> {
+    if (taskIds.length === 0) {
+      return new Map();
+    }
+
+    const rows = await this.context.db
+      .select()
+      .from(taskAttachment)
+      .where(inArray(taskAttachment.taskId, taskIds))
+      .orderBy(taskAttachment.notePosition, taskAttachment.place);
+
+    return rows.reduce((held, row) => {
+      held.set(row.taskId, [...(held.get(row.taskId) ?? []), row]);
+      return held;
+    }, new Map<string, AttachmentRow[]>());
+  }
+
+  private async writeAttachments(written: Task): Promise<void> {
+    const rows = [
+      ...written.attachments.map((each, place) => ({
+        each,
+        notePosition: null,
+        place,
+      })),
+      ...written.notes.flatMap((note, notePosition) =>
+        note.attachments.map((each, place) => ({ each, notePosition, place })),
+      ),
+    ];
+
+    if (rows.length === 0) {
+      return;
+    }
+
+    await this.context.db
+      .insert(taskAttachment)
+      .values(
+        rows.map(({ each, notePosition, place }) => ({
+          id: each.id.value,
+          taskId: written.id.value,
+          notePosition,
+          place,
+          name: each.name,
+          contentType: each.contentType,
+          size: each.size,
+        })),
+      )
+      .onConflictDoNothing({ target: taskAttachment.id });
   }
 
   /** A trail is added to and marked, never cut. */

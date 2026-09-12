@@ -1,8 +1,10 @@
 import { AnswerInboxItemCommand } from '@application/commands/answer-inbox-item.command';
 import { AnswerInboxItemHandler } from '@application/commands/handlers/answer-inbox-item.handler';
+import type { AttachmentStorePort } from '@application/ports/attachment-store.port';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import { ConversationAtHand } from '@application/services/conversation-at-hand.service';
+import { FilesAtHand } from '@application/services/files-at-hand.service';
 import type { TaskDispatching } from '@application/services/task-dispatch';
 import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
@@ -11,6 +13,8 @@ import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
+import { Attachment } from '@domain/value-objects/attachment.vo';
+import type { AttachmentId } from '@domain/value-objects/attachment-id.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
@@ -107,14 +111,35 @@ const dispatch: TaskDispatching = {
   dispatch: async () => RunId.of('run_2'),
 };
 
-const answer = (found: Task) =>
+const files = new FilesAtHand({ find: vi.fn(async () => null) }, {
+  grant: vi.fn(),
+  received: vi.fn(async (_at, given: readonly AttachmentId[]) =>
+    given.map((id) =>
+      Attachment.of({
+        id: id.value,
+        name: 'queue.png',
+        contentType: 'image/png',
+        size: 4096,
+      }),
+    ),
+  ),
+  keep: vi.fn(),
+  link: vi.fn(),
+  open: vi.fn(),
+} satisfies AttachmentStorePort);
+
+const answer = (
+  found: Task,
+  command = new AnswerInboxItemCommand('task_1:0', 'user_1', 'Cap it at 500.'),
+) =>
   new AnswerInboxItemHandler(
     new ConversationAtHand(tasks(found), lines()),
     tasks(found),
     dispatch,
     transaction,
     clock,
-  ).execute(new AnswerInboxItemCommand('task_1:0', 'user_1', 'Cap it at 500.'));
+    files,
+  ).execute(command);
 
 describe('AnswerInboxItem', () => {
   beforeEach(() => {
@@ -128,6 +153,17 @@ describe('AnswerInboxItem', () => {
     expect(last?.body.value).toBe('Cap it at 500.');
     expect(last?.voice.author?.value).toBe('user_1');
     expect(last?.station.value).toBe('Triage');
+  });
+
+  it('takes files alone as an answer, naming them in the trail', async () => {
+    await answer(
+      waiting(),
+      new AnswerInboxItemCommand('task_1:0', 'user_1', '  ', ['file_1']),
+    );
+
+    const last = saved?.notes[saved.notes.length - 1];
+    expect(last?.body.value).toBe('Attached queue.png.');
+    expect(last?.attachments.map((each) => each.id.value)).toEqual(['file_1']);
   });
 
   it('stops the task waiting and puts it back to work', async () => {

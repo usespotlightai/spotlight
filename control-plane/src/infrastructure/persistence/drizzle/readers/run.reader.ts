@@ -14,6 +14,8 @@ import type { UserId } from '@domain/value-objects/user-id.vo';
 import type { DrizzleDatabase } from '@infrastructure/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@infrastructure/persistence/drizzle/drizzle.constants';
 import {
+  attachmentsFor,
+  attachmentsOf,
   reviewsBy,
   stationsPerLine,
   trailsFor,
@@ -195,6 +197,7 @@ export class DrizzleRunReader implements RunReaderPort {
     }
 
     const trail = (await trailsFor(this.db, [found.taskId])).get(found.taskId);
+    const attached = await attachmentsFor(this.db, [found.taskId]);
     const held = await stationsPerLine(this.db, [found.stationLineId ?? '']);
     const told = trail ?? [];
     const said = turnOf(told, runId.value);
@@ -205,6 +208,7 @@ export class DrizzleRunReader implements RunReaderPort {
       taskId: found.taskId,
       title: found.title,
       description: found.description,
+      attachments: attachmentsOf(attached, found.taskId).own,
       station: worked({ ...found }, held),
       createdAt: found.createdAt,
       briefing: spec?.briefing ?? null,

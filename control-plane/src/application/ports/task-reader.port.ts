@@ -1,3 +1,4 @@
+import type { AttachmentSummary } from '@application/ports/attachment-reader.port';
 import type { PersonSummary } from '@application/ports/person-reader.port';
 import type { TeamId } from '@domain/value-objects/team-id.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
@@ -18,6 +19,7 @@ export interface TaskSummary {
   readonly stationId: string;
   readonly title: string;
   readonly description: string | null;
+  readonly attachments: readonly AttachmentSummary[];
   readonly createdAt: Date;
   readonly running: boolean;
   // Where the question is answered, and null where none is standing.

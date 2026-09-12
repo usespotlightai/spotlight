@@ -6,16 +6,22 @@ type AnswerInboxItemInput = {
   slug: string;
   itemId: string;
   body: string;
+  attachments: string[];
 };
 
 export function useAnswerInboxItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ slug, itemId, body }: AnswerInboxItemInput) => {
+    mutationFn: async ({
+      slug,
+      itemId,
+      body,
+      attachments,
+    }: AnswerInboxItemInput) => {
       await answerInboxItem({
         path: { slug, itemId },
-        body: { body },
+        body: { body, attachments },
         throwOnError: true,
       });
     },

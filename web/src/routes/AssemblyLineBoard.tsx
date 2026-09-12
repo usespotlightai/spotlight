@@ -88,7 +88,7 @@ export function AssemblyLineBoard() {
   ];
   const { trail, forward } = useTrail(base);
 
-  if (isPending) {
+  if (isPending || !slug) {
     return null;
   }
 
@@ -279,6 +279,7 @@ export function AssemblyLineBoard() {
       </div>
 
       <NewTaskDialog
+        slug={slug}
         open={adding !== null}
         onOpenChange={(next) => !next && setAdding(null)}
         lineName={line.name}

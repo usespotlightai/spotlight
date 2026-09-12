@@ -3,6 +3,7 @@ package session_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"os"
@@ -29,6 +30,7 @@ type journal struct {
 	// What a person has typed at the agent, handed over one batch per turn.
 	said      [][]protocol.Said
 	delivered []int
+	files     map[string]string
 }
 
 func (j *journal) AppendEvents(_ context.Context, _ string, events []protocol.Event) error {
@@ -90,6 +92,18 @@ func (j *journal) Delivered(_ context.Context, _ string, upTo int) error {
 	defer j.mu.Unlock()
 	j.delivered = append(j.delivered, upTo)
 	return nil
+}
+
+func (j *journal) Attachment(_ context.Context, _ string, id string, into io.Writer) error {
+	j.mu.Lock()
+	content, held := j.files[id]
+	j.mu.Unlock()
+
+	if !held {
+		return errors.New("404 Not Found: no such attachment")
+	}
+	_, err := io.WriteString(into, content)
+	return err
 }
 
 func (j *journal) typed(kind protocol.EventType) []protocol.Event {
@@ -212,14 +226,16 @@ process.stdin.on("data", (chunk) => {
 }
 
 type runOptions struct {
-	said       [][]protocol.Said
-	briefing   string
-	handover   []string
-	agentUser  *account.User
-	root       string
-	env        map[string]string
-	continuity protocol.Continuity
-	stopAfter  int
+	said        [][]protocol.Said
+	briefing    string
+	handover    []string
+	agentUser   *account.User
+	root        string
+	env         map[string]string
+	continuity  protocol.Continuity
+	stopAfter   int
+	attachments []protocol.Attachment
+	files       map[string]string
 }
 
 func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
@@ -230,15 +246,16 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 		adjust(&settings)
 	}
 
-	written := &journal{said: settings.said, stopAfter: settings.stopAfter}
+	written := &journal{said: settings.said, stopAfter: settings.stopAfter, files: settings.files}
 	err := session.Execute(context.Background(), protocol.Run{
 		ID: "run_1",
 		Spec: protocol.Spec{
-			Cwd:        "service",
-			Command:    protocol.Command{Executable: executable, Env: settings.env},
-			Briefing:   settings.briefing,
-			Handover:   protocol.Handover{Options: settings.handover},
-			Continuity: settings.continuity,
+			Cwd:         "service",
+			Command:     protocol.Command{Executable: executable, Env: settings.env},
+			Briefing:    settings.briefing,
+			Handover:    protocol.Handover{Options: settings.handover},
+			Continuity:  settings.continuity,
+			Attachments: settings.attachments,
 		},
 	}, session.Options{
 		WorkspaceRoot: settings.root,
@@ -554,6 +571,93 @@ func TestWhatAPersonSaysReachesTheAgentAsAnotherTurn(t *testing.T) {
 	}
 	if len(written.delivered) != 1 || written.delivered[0] != 3 {
 		t.Errorf("marked delivered %v, wanted [3]", written.delivered)
+	}
+}
+
+func reading(path string) string {
+	return `said = require("node:fs").readFileSync("../` + path + `", "utf8");`
+}
+
+func TestWhatWasAttachedIsThereBeforeTheAgentStarts(t *testing.T) {
+	const path = ".spotlight/attachments/att_1/notes.txt"
+
+	written := run(t, harness(t, reading(path), "end_turn"), func(o *runOptions) {
+		o.attachments = []protocol.Attachment{{ID: "att_1", Path: path}}
+		o.files = map[string]string{"att_1": "the notes"}
+	})
+
+	if heard := said(t, written); heard != "the notes" {
+		t.Errorf("the agent found %q", heard)
+	}
+}
+
+func TestARunWhoseAttachmentCannotBeFetchedFails(t *testing.T) {
+	written := &journal{}
+	err := session.Execute(context.Background(), protocol.Run{
+		ID: "run_1",
+		Spec: protocol.Spec{
+			Command: protocol.Command{Executable: harness(t, `said = "worked";`, "end_turn")},
+			Attachments: []protocol.Attachment{
+				{ID: "att_gone", Path: ".spotlight/attachments/att_gone/notes.txt"},
+			},
+		},
+	}, session.Options{
+		WorkspaceRoot: t.TempDir(),
+		Journal:       written,
+		Log:           slog.New(slog.NewTextHandler(io.Discard, nil)),
+		HookTimeout:   30 * time.Second,
+	})
+
+	if err == nil || !strings.Contains(err.Error(), "fetch attachment att_gone") {
+		t.Fatalf("expected the fetch to fail the run, got %v", err)
+	}
+	if written.done == nil || !written.done.Failed {
+		t.Fatalf("completion %+v", written.done)
+	}
+	if heard := said(t, written); heard != "" {
+		t.Errorf("the agent was started anyway and said %q", heard)
+	}
+}
+
+func TestWhatIsAttachedMidRunIsThereBeforeItsTurn(t *testing.T) {
+	const path = ".spotlight/attachments/att_2/log.txt"
+
+	written := run(t, harness(t, reading(path), "end_turn"), func(o *runOptions) {
+		o.said = [][]protocol.Said{{{
+			Position:    1,
+			Body:        "see " + path,
+			Attachments: []protocol.Attachment{{ID: "att_2", Path: path}},
+		}}}
+		o.files = map[string]string{"att_2": "the log"}
+	})
+
+	heard := said(t, written)
+	if !strings.HasSuffix(heard, "the log") {
+		t.Errorf("the second turn did not find the file: %q", heard)
+	}
+	if strings.HasPrefix(heard, "the log") {
+		t.Errorf("the file was there before anyone attached it: %q", heard)
+	}
+}
+
+func TestWordsAreDeliveredEvenWhenTheirAttachmentIsNot(t *testing.T) {
+	written := run(t, harness(t, `said = JSON.stringify(msg.params.prompt);`, "end_turn"),
+		func(o *runOptions) {
+			o.said = [][]protocol.Said{{{
+				Position:    2,
+				Body:        "see the log",
+				Attachments: []protocol.Attachment{{ID: "att_gone", Path: "log.txt"}},
+			}}}
+		})
+
+	if heard := said(t, written); !strings.Contains(heard, "see the log") {
+		t.Errorf("what the person said never arrived: %q", heard)
+	}
+	if len(written.delivered) != 1 || written.delivered[0] != 2 {
+		t.Errorf("marked delivered %v, wanted [2]", written.delivered)
+	}
+	if written.done == nil || written.done.Failed {
+		t.Errorf("completion %+v", written.done)
 	}
 }
 

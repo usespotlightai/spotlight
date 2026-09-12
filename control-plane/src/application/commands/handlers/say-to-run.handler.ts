@@ -2,6 +2,7 @@ import type { SayToRunCommand } from '@application/commands/say-to-run.command';
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
+import type { FilesAtHand } from '@application/services/files-at-hand.service';
 import { UnknownTaskError } from '@domain/exceptions/unknown-task.error';
 import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { RunRepository } from '@domain/repositories/run.repository';
@@ -25,27 +26,34 @@ export class SayToRunHandler
     private readonly tasks: TaskRepository,
     private readonly lines: AssemblyLineRepository,
     private readonly clock: ClockPort,
+    private readonly files: FilesAtHand,
   ) {}
 
   async execute(command: SayToRunCommand): Promise<void> {
     try {
+      const saidBy = UserId.of(command.saidBy);
       const run = await this.runs.findById(RunId.of(command.runId));
       const task = run?.taskId ? await this.tasks.find(run.taskId) : null;
 
-      if (!run?.stationId || !task?.assignedToThem(UserId.of(command.saidBy))) {
+      if (!run?.stationId || !task?.assignedToThem(saidBy)) {
         throw new UnknownTaskError(command.runId);
       }
 
       const line = await this.lines.holding(task.stationId);
       const station = line?.stationAt(task.stationId);
+      const attachments = await this.files.handedOver(
+        task.workspaceId,
+        command.attachments,
+      );
 
       await this.tasks.save(
         task.heard(
           {
             station: station?.name ?? StationName.unknown(),
-            body: TaskNoteBody.of(command.body),
+            body: TaskNoteBody.given(command.body, attachments),
             at: this.clock.now(),
-            voice: Voice.person(UserId.of(command.saidBy)),
+            voice: Voice.person(saidBy),
+            attachments,
           },
           run.stationId,
         ),

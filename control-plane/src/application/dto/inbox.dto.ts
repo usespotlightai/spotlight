@@ -1,3 +1,4 @@
+import type { AttachmentDto } from '@application/dto/attachment.dto';
 import {
   TASK_NOTE_FORMS,
   TASK_NOTE_KINDS,
@@ -24,6 +25,7 @@ export interface InboxMessageDto {
   readonly stationPosition: number;
   readonly runId: string | null;
   readonly body: string;
+  readonly attachments: readonly AttachmentDto[];
   readonly at: string;
   readonly author: InboxAuthorDto | null;
 }
@@ -40,6 +42,7 @@ export interface InboxItemDto {
   readonly teamId: string;
   readonly title: string;
   readonly description: string | null;
+  readonly attachments: readonly AttachmentDto[];
   readonly station: string;
   readonly stationColor: string;
   readonly stationPosition: number;

@@ -1,3 +1,4 @@
+import type { AttachmentSummary } from '@application/ports/attachment-reader.port';
 import type { InboxNote } from '@application/ports/inbox-reader.port';
 import type { ReviewState } from '@domain/services/conversations';
 import type { RunId } from '@domain/value-objects/run-id.vo';
@@ -43,6 +44,7 @@ export interface RunConversationSummary {
   readonly taskId: string;
   readonly title: string;
   readonly description: string | null;
+  readonly attachments: readonly AttachmentSummary[];
   readonly station: RunStationSummary | null;
   readonly createdAt: Date;
   // What the run was given, word for word, not the trail that went into it.

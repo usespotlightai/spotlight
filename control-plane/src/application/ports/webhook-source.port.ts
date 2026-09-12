@@ -53,12 +53,20 @@ export interface ConnectionEnded {
 
 export type Noticed = ConfigurationTouched | ConnectionEnded;
 
+export interface Arriving {
+  readonly name: string;
+  readonly contentType: string | null;
+  readonly size: number | null;
+  fetch(): Promise<Uint8Array>;
+}
+
 export interface Happened extends Word {
   readonly concerns: Concerns;
   /** What was said, where anything was: the note the station works from. */
   readonly said: Said | null;
   readonly ourOwn: boolean;
   readonly opens: OpensWith | null;
+  readonly attachments?: readonly Arriving[];
 }
 
 /**

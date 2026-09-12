@@ -1,20 +1,24 @@
 import type { ReactNode } from 'react';
-import { StationIcon } from '@/components/features/board/column/StationIcon';
-import { SaidCard } from '@/components/features/inbox/conversation/SaidCard';
+import { InboxAsked } from '@/components/features/inbox/conversation/InboxAsked';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
 import { RunBriefing } from '@/components/features/runs/RunBriefing';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
+import type { Attachment } from '@/lib/attachment';
 import type { TeamRun } from '@/lib/run';
-import { stationShare } from '@/lib/station';
 
 type RunOpeningProps = {
   run: TeamRun;
   briefing: string | null;
+  attachments: readonly Attachment[];
   activity?: ReactNode;
 };
 
-export function RunOpening({ run, briefing, activity }: RunOpeningProps) {
-  const station = run.station;
+export function RunOpening({
+  run,
+  briefing,
+  attachments,
+  activity,
+}: RunOpeningProps) {
   const scroller = useStickToBottom<HTMLDivElement>();
 
   return (
@@ -24,31 +28,14 @@ export function RunOpening({ run, briefing, activity }: RunOpeningProps) {
 
         <div className="mt-6">
           {briefing ? (
-            <RunBriefing briefing={briefing} />
+            <RunBriefing briefing={briefing} attachments={attachments} />
           ) : (
-            <SaidCard>
-              {station && (
-                <span className="flex items-center gap-1.5 text-muted-foreground text-xs">
-                  <StationIcon
-                    share={stationShare(station.position, station.count)}
-                    color={station.color}
-                  />
-                  {station.name}
-                </span>
-              )}
-
-              <div>
-                <h1 className="font-medium text-foreground text-sm leading-6">
-                  {run.taskTitle}
-                </h1>
-
-                {run.taskDescription && (
-                  <p className="whitespace-pre-wrap text-muted-foreground text-sm leading-6">
-                    {run.taskDescription}
-                  </p>
-                )}
-              </div>
-            </SaidCard>
+            <InboxAsked
+              station={run.station}
+              title={run.taskTitle}
+              description={run.taskDescription}
+              attachments={attachments}
+            />
           )}
         </div>
 

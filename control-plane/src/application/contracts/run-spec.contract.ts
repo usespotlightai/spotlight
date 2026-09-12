@@ -13,6 +13,14 @@ export const THROUGH_SPOTLIGHT = 'spotlight:repository';
 /** What a harness reads to know which trace its reporting belongs to. */
 export const TRACE_PARENT_VAR = 'TRACEPARENT';
 
+export interface AttachmentShape {
+  readonly id: string;
+  readonly path: string;
+}
+
+const outside = (path: string | undefined): boolean =>
+  path?.startsWith('/') === true || path?.includes('..') === true;
+
 /** What a runner is handed to carry a run out. */
 export interface RunSpecShape {
   readonly checkouts?: readonly CheckoutShape[];
@@ -33,6 +41,7 @@ export interface RunSpecShape {
   };
   /** What this run may reach for. Absent is none of them. */
   readonly tools?: readonly string[];
+  readonly attachments?: readonly AttachmentShape[];
 }
 
 /**
@@ -64,8 +73,16 @@ export const RunSpecContract = {
       }
       // A path reaching outside the workspace is one the runner would have to
       // refuse, so it is refused here instead.
-      if (checkout.path?.startsWith('/') || checkout.path?.includes('..')) {
+      if (outside(checkout.path)) {
         throw new InvalidRunSpecError('must keep a checkout in the workspace');
+      }
+    }
+
+    for (const attachment of parts.attachments ?? []) {
+      if (!attachment.path || outside(attachment.path)) {
+        throw new InvalidRunSpecError(
+          'must keep an attachment in the workspace',
+        );
       }
     }
 

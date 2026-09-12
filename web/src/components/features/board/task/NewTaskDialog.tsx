@@ -1,4 +1,6 @@
 import { type FormEvent, useState } from 'react';
+import { AttachButton } from '@/components/shared/attachment/AttachButton';
+import { PendingAttachments } from '@/components/shared/attachment/PendingAttachments';
 import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
@@ -11,9 +13,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
+import { useAttachments } from '@/hooks/useAttachments';
 import type { NewTask } from '@/lib/task';
 
 type NewTaskDialogProps = {
+  slug: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   lineName: string;
@@ -22,6 +26,7 @@ type NewTaskDialogProps = {
 };
 
 export function NewTaskDialog({
+  slug,
   open,
   onOpenChange,
   lineName,
@@ -32,22 +37,27 @@ export function NewTaskDialog({
   const [description, setDescription] = useState('');
   const [more, setMore] = useState(false);
   const [round, setRound] = useState(0);
+  const draft = useAttachments(slug);
+
+  const uncreatable = !title.trim() || draft.uploading;
 
   const forget = () => {
     setTitle('');
     setDescription('');
+    draft.clear();
     setRound((each) => each + 1);
   };
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (!title.trim()) {
+    if (uncreatable) {
       return;
     }
 
     onCreate({
       title: title.trim(),
       description: description.trim(),
+      attachments: draft.ids,
     });
 
     if (more) {
@@ -76,7 +86,7 @@ export function NewTaskDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={submit} className="contents">
+        <form onSubmit={submit} {...draft.handlers} className="contents">
           <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto">
             <AutoGrowTextarea
               autoFocus
@@ -97,24 +107,36 @@ export function NewTaskDialog({
               className="min-h-24 border-none bg-transparent p-0"
               placeholderClassName="top-0 left-0"
             />
+
+            <PendingAttachments
+              attachments={draft.attachments}
+              onRemove={draft.remove}
+            />
           </div>
 
           <DialogFooter className="items-center sm:justify-between">
-            <label
-              htmlFor="create-more"
-              className="flex select-none items-center gap-2 text-muted-foreground text-xs"
-            >
-              <Switch
-                id="create-more"
-                checked={more}
-                onCheckedChange={setMore}
-              />
-              Create more
-            </label>
+            <AttachButton
+              onAttach={draft.add}
+              className="rounded-full border-border text-muted-foreground"
+            />
 
-            <Button type="submit" size="sm" disabled={!title.trim()}>
-              Create task
-            </Button>
+            <div className="flex items-center gap-3">
+              <label
+                htmlFor="create-more"
+                className="flex select-none items-center gap-2 text-muted-foreground text-xs"
+              >
+                <Switch
+                  id="create-more"
+                  checked={more}
+                  onCheckedChange={setMore}
+                />
+                Create more
+              </label>
+
+              <Button type="submit" size="sm" disabled={uncreatable}>
+                Create task
+              </Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>

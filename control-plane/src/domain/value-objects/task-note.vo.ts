@@ -1,4 +1,5 @@
 import { unread } from '@domain/services/unread';
+import type { Attachment } from '@domain/value-objects/attachment.vo';
 import type { Remark } from '@domain/value-objects/remark.vo';
 import type { Said } from '@domain/value-objects/said.vo';
 import type { StationName } from '@domain/value-objects/station-name.vo';
@@ -39,6 +40,7 @@ export class TaskNote {
     // When it was handed to the agent working the task.
     readonly deliveredAt: Date | null,
     readonly form: TaskNoteForm,
+    readonly attachments: readonly Attachment[],
   ) {}
 
   static of(input: {
@@ -52,6 +54,7 @@ export class TaskNote {
     readAt?: Date | null;
     deliveredAt?: Date | null;
     form?: TaskNoteForm;
+    attachments?: readonly Attachment[];
   }): TaskNote {
     return new TaskNote(
       input.station,
@@ -64,6 +67,7 @@ export class TaskNote {
       input.readAt ?? null,
       input.deliveredAt ?? null,
       input.form ?? 'words',
+      input.attachments ?? [],
     );
   }
 
@@ -80,7 +84,11 @@ export class TaskNote {
       this.kind === other.kind &&
       sameMoment(this.readAt, other.readAt) &&
       sameMoment(this.deliveredAt, other.deliveredAt) &&
-      this.form === other.form
+      this.form === other.form &&
+      this.attachments.length === other.attachments.length &&
+      this.attachments.every((each, at) =>
+        each.equals(other.attachments[at] as Attachment),
+      )
     );
   }
 
@@ -132,6 +140,7 @@ export class TaskNote {
       part.readAt ?? this.readAt,
       part.deliveredAt ?? this.deliveredAt,
       this.form,
+      this.attachments,
     );
   }
 }

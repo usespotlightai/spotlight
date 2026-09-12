@@ -2,6 +2,7 @@ import type { PendingMessageDto } from '@application/dto/pending-message.dto';
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@application/ports/query-handler.port';
 import type { PendingMessagesQuery } from '@application/queries/pending-messages.query';
+import { Attached } from '@application/rendering/attached';
 import type { RunRepository } from '@domain/repositories/run.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { RunId } from '@domain/value-objects/run-id.vo';
@@ -29,7 +30,8 @@ export class PendingMessagesHandler
 
       return task.undelivered.map((note) => ({
         position: task.notes.indexOf(note),
-        body: note.body.value,
+        body: Attached.beside(note.body.value, note.attachments),
+        attachments: Attached.shapes(note.attachments),
       }));
     } catch (error) {
       rethrowAsFault(error);

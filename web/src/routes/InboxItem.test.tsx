@@ -49,6 +49,7 @@ const message = (over: Record<string, unknown> = {}) => ({
   body: 'Which queue should I drain?',
   at: '2026-08-29T12:00:00.000Z',
   author: null,
+  attachments: [],
   ...over,
 });
 
@@ -59,6 +60,7 @@ const item = (notes: unknown[], description: string | null = null) => [
     teamId: 'team_1',
     title: 'Fix the queue',
     description,
+    attachments: [],
     station: 'Implementation',
     stationColor: '#5c66d9',
     stationPosition: 2,
@@ -496,7 +498,12 @@ describe('InboxItem', () => {
     await person.click(screen.getByRole('button', { name: 'Send' }));
 
     expect(answer).toHaveBeenCalledWith(
-      { slug: 'acme', itemId: 'task_1:0', body: 'The retry queue.' },
+      {
+        slug: 'acme',
+        itemId: 'task_1:0',
+        body: 'The retry queue.',
+        attachments: [],
+      },
       expect.anything(),
     );
   });

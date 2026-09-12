@@ -68,6 +68,7 @@ import {
 } from '@presentation/http/dto/task-run.response.dto';
 import { TaskTraceResponseDto } from '@presentation/http/dto/task-trace.response.dto';
 import { TeamTraceResponseDto } from '@presentation/http/dto/team-trace.response.dto';
+import { AttachmentHttpMapper } from '@presentation/http/mappers/attachment.http.mapper';
 import { TaskHttpMapper } from '@presentation/http/mappers/task.http.mapper';
 import { TaskRunHttpMapper } from '@presentation/http/mappers/task-run.http.mapper';
 import { TaskTraceHttpMapper } from '@presentation/http/mappers/task-trace.http.mapper';
@@ -189,6 +190,7 @@ export class TaskController {
       found.taskId,
       found.title,
       found.description,
+      found.attachments.map(AttachmentHttpMapper.toResponse),
       found.station
         ? new RunStationResponseDto(
             found.station.name,
@@ -212,6 +214,7 @@ export class TaskController {
             note.stationPosition,
             note.runId,
             note.body,
+            note.attachments.map(AttachmentHttpMapper.toResponse),
             note.at,
             note.author
               ? new InboxAuthorResponseDto(
@@ -243,7 +246,12 @@ export class TaskController {
     @Body() body: SayToRunRequestDto,
   ): Promise<void> {
     await this.commandBus.execute(
-      new SayToRunCommand(runId, user.id, body.body),
+      new SayToRunCommand(
+        runId,
+        user.id,
+        body.body ?? '',
+        AttachmentHttpMapper.ids(body.attachments),
+      ),
     );
   }
 
@@ -374,6 +382,7 @@ export class TaskController {
         body.title,
         body.description ?? null,
         user.id,
+        AttachmentHttpMapper.ids(body.attachments),
       ),
     );
 

@@ -147,6 +147,22 @@ webhook:
         told: Somebody mentioned Spotlight in Slack.
         spoken: true
         say: '\${{ body.event.text.substring(body.event.text.indexOf(">") + 2).trim() }}'
+        # Files shared with the message, kept with the task. Reading them needs
+        # the app's files:read scope; without it Slack answers with its sign-in
+        # page instead of the file, which is what the expectation turns away.
+        attaches: &files
+          each: '\${{ has(body.event.files) ? body.event.files : [] }}'
+          name: '\${{ file.name }}'
+          type: '\${{ file.mimetype }}'
+          size: '\${{ file.size }}'
+          fetch:
+            method: GET
+            url: '\${{ file.url_private_download }}'
+            auth:
+              token:
+                secret: secret.SLACK_BOT_TOKEN
+            expect:
+              success: '\${{ status == 200 && !headers["content-type"].startsWith("text/html") }}'
         opens:
           onto: delivery
           # The mention text without the leading "@Spotlight", so the title
@@ -165,13 +181,16 @@ webhook:
             find: false
             value: '\${{ body.event.channel }}'
 
-    - when: '\${{ body.event.type == "message" && has(body.event.thread_ts) && !has(body.event.subtype) }}'
+    # A reply sharing a file is still a reply; every other subtype (an edit, a
+    # join, a bot's own message) is not somebody speaking.
+    - when: '\${{ body.event.type == "message" && has(body.event.thread_ts) && (!has(body.event.subtype) || body.event.subtype == "file_share") }}'
       raise:
         happening: slack.message.replied
         label: Replied in Slack
         told: Replied in a Slack thread.
         spoken: true
         say: '\${{ body.event.text }}'
+        attaches: *files
         marks:
           - kind: slack.thread
             value: '\${{ body.event.thread_ts }}'

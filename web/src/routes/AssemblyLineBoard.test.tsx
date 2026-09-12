@@ -79,6 +79,9 @@ vi.mock('@/hooks/api/useAddTask', () => ({
 vi.mock('@/hooks/api/useMoveTask', () => ({
   useMoveTask: () => ({ mutate: moved }),
 }));
+vi.mock('@/hooks/api/useUploadAttachment', () => ({
+  useUploadAttachment: () => ({ mutateAsync: vi.fn() }),
+}));
 
 const renderAt = (lineId: string) =>
   render(
@@ -169,7 +172,7 @@ describe('AssemblyLineBoard', () => {
       teamId: 'team_1',
       lineId: 'line_1',
       stationId: 'station_2',
-      task: { title: 'Write the spec', description: '' },
+      task: { title: 'Write the spec', description: '', attachments: [] },
     });
   });
 

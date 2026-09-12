@@ -50,6 +50,16 @@ export const envSchema = databaseSchema
     // These are the operator's apps, never a team's, so they live here and not
     // in any team's configuration. Empty means no host can be linked.
     OAUTH_CLIENTS: z.string().default('{}'),
+    S3_BUCKET: z.string().default(''),
+    S3_REGION: z.string().default('us-east-1'),
+    S3_ENDPOINT: z.url().optional(),
+    S3_PUBLIC_ENDPOINT: z.url().optional(),
+    S3_ACCESS_KEY_ID: z.string().optional(),
+    S3_SECRET_ACCESS_KEY: z.string().optional(),
+    // Whether the bucket is named in the path rather than the host: a store
+    // serving every bucket at one address needs it, a real bucket does not.
+    S3_FORCE_PATH_STYLE: z.stringbool().default(false),
+    S3_PUBLIC_FORCE_PATH_STYLE: z.stringbool().default(false),
     // Where the served install script lives in this image.
     SPOTLIGHT_INSTALLER_DIR: z.string().default('/opt/spotlight/installer'),
     LOG_LEVEL: z.enum(LOG_LEVELS).optional(),

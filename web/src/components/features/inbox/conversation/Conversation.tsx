@@ -212,6 +212,7 @@ export function Conversation({
             const head = turn.prompt ? (
               <PersonSaid
                 body={turn.prompt.body}
+                attachments={turn.prompt.attachments}
                 name={
                   turn.prompt.author?.id === viewerId
                     ? null

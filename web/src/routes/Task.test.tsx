@@ -9,6 +9,7 @@ const task = {
   stationId: 'station_1',
   title: 'Fix the queue',
   description: '## Steps\n\nReproduce, then fix.',
+  attachments: [],
   createdAt: '2026-08-04T09:15:00.000Z',
 };
 

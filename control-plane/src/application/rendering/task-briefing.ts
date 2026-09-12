@@ -1,3 +1,4 @@
+import { Attached } from '@application/rendering/attached';
 import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { OpenRemark, Task } from '@domain/aggregates/task.aggregate';
 import type { Station } from '@domain/entities/station.entity';
@@ -114,13 +115,15 @@ export const TaskBriefing = {
   brief(input: { task: Task; line: AssemblyLine }): string {
     const station = input.line.stationAt(input.task.stationId);
     const notes = input.task.notes.map(
-      (note) => `### ${note.station.value}\n\n${note.body.value}`,
+      (note) =>
+        `### ${note.station.value}\n\n${Attached.beside(note.body.value, note.attachments)}`,
     );
 
     return [
       station?.agentPrompt?.value,
       `## ${input.task.title.value}`,
       input.task.description?.value,
+      Attached.listed(input.task.attachments),
       notes.length > 0 ? ['## Already done', ...notes].join('\n\n') : null,
       workspaceOf(input.line),
       reaching(station),

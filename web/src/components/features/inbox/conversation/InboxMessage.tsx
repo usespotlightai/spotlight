@@ -5,6 +5,7 @@ import { InboxWork } from '@/components/features/inbox/conversation/InboxWork';
 import { PersonSaid } from '@/components/features/inbox/conversation/PersonSaid';
 import { SaidCard } from '@/components/features/inbox/conversation/SaidCard';
 import { SetupSteps } from '@/components/features/onboarding/SetupSteps';
+import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { useSession } from '@/hooks/api/useSession';
 import {
@@ -75,11 +76,17 @@ export function InboxMessage({
       // The same inset the held cards carry, so every card is one width and
       // the words inside them all line up with the plain text.
       <li data-note={message.position} className="-mx-3">
-        <SaidCard>
-          <p className="whitespace-pre-wrap text-foreground text-sm leading-6">
-            {message.body}
-          </p>
-        </SaidCard>
+        <div className="flex flex-col items-start gap-1.5">
+          <AttachmentTiles attachments={message.attachments} />
+
+          {message.body && (
+            <SaidCard>
+              <p className="whitespace-pre-wrap text-foreground text-sm leading-6">
+                {message.body}
+              </p>
+            </SaidCard>
+          )}
+        </div>
       </li>
     );
   }
@@ -89,6 +96,7 @@ export function InboxMessage({
       <li data-note={message.position} className={HELD_AT_TOP}>
         <PersonSaid
           body={message.body}
+          attachments={message.attachments}
           name={
             message.author && message.author.id !== session?.user.id
               ? message.author.name
@@ -135,6 +143,8 @@ export function InboxMessage({
           />
         </div>
       )}
+
+      <AttachmentTiles attachments={message.attachments} />
     </li>
   );
 }

@@ -115,6 +115,25 @@ export const taskNote = pgTable(
   ],
 );
 
+export const taskAttachment = pgTable(
+  'task_attachment',
+  {
+    id: text('id').primaryKey(),
+    taskId: text('task_id')
+      .notNull()
+      .references(() => task.id, { onDelete: 'cascade' }),
+    notePosition: integer('note_position'),
+    place: integer('place').notNull(),
+    name: text('name').notNull(),
+    contentType: text('content_type').notNull(),
+    size: integer('size').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('task_attachment_task_idx').on(table.taskId, table.notePosition),
+  ],
+);
+
 /**
  * Every handle the world outside knows a task by. Keyed by the handle rather
  * than by the task, because that is the direction a delivery asks in: it

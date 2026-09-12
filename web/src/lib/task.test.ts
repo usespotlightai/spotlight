@@ -6,6 +6,7 @@ const task = (id: string, stationId: string): Task => ({
   stationId,
   title: id,
   description: null,
+  attachments: [],
   createdAt: '2026-08-04T09:15:00.000Z',
   running: false,
   awaitingReview: null,

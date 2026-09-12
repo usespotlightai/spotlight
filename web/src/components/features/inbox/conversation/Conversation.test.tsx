@@ -41,6 +41,7 @@ const note = (
   body: `note ${position}`,
   at,
   author: null,
+  attachments: [],
 });
 
 const showing = (notes: ReturnType<typeof note>[]) =>

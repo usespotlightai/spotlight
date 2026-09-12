@@ -3,6 +3,7 @@ import { useSayToRun } from '@/hooks/api/useSayToRun';
 import { useStopRun } from '@/hooks/api/useStopRun';
 
 type RunComposerProps = {
+  slug: string;
   teamId: string;
   runId: string;
   station: string;
@@ -10,6 +11,7 @@ type RunComposerProps = {
 };
 
 export function RunComposer({
+  slug,
   teamId,
   runId,
   station,
@@ -20,13 +22,14 @@ export function RunComposer({
 
   return (
     <Composer
+      slug={slug}
       label={`Say something to ${station}`}
       placeholder="Say something…"
       pending={say.isPending}
       running={running}
       onStop={() => stop.mutate({ teamId, runId })}
-      onSend={(body, sent) =>
-        say.mutate({ teamId, runId, body }, { onSuccess: sent })
+      onSend={(body, attachments, sent) =>
+        say.mutate({ teamId, runId, body, attachments }, { onSuccess: sent })
       }
     />
   );

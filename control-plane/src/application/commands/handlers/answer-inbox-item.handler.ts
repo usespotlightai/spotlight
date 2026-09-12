@@ -4,6 +4,7 @@ import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import type { ConversationAtHand } from '@application/services/conversation-at-hand.service';
+import type { FilesAtHand } from '@application/services/files-at-hand.service';
 import type { TaskDispatching } from '@application/services/task-dispatch';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
@@ -23,6 +24,7 @@ export class AnswerInboxItemHandler
     private readonly dispatch: TaskDispatching,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
+    private readonly files: FilesAtHand,
   ) {}
 
   async execute(command: AnswerInboxItemCommand): Promise<void> {
@@ -33,11 +35,18 @@ export class AnswerInboxItemHandler
           command.answeredBy,
         );
 
+        const answeredBy = UserId.of(command.answeredBy);
+        const attachments = await this.files.handedOver(
+          task.workspaceId,
+          command.attachments,
+        );
+
         const answered = task.answered(item.from, {
           station,
-          body: TaskNoteBody.of(command.body),
+          body: TaskNoteBody.given(command.body, attachments),
           at: this.clock.now(),
-          voice: Voice.person(UserId.of(command.answeredBy)),
+          voice: Voice.person(answeredBy),
+          attachments,
         });
 
         // Nothing to start where one is already running, or where the station

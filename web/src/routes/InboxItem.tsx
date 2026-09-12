@@ -139,9 +139,17 @@ export function InboxItem() {
           }
           opening={
             carriesItsOwn ? undefined : item.briefing ? (
-              <RunBriefing briefing={item.briefing} />
+              <RunBriefing
+                briefing={item.briefing}
+                attachments={item.attachments}
+              />
             ) : (
-              <InboxAsked item={item} />
+              <InboxAsked
+                station={{ ...item.raisedAt, count: item.stationCount }}
+                title={item.title}
+                description={item.description}
+                attachments={item.attachments}
+              />
             )
           }
           footer={

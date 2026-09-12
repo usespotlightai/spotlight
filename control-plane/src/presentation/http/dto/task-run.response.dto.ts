@@ -2,7 +2,8 @@ import {
   REVIEW_STATE_NAMES,
   RUN_STATE_NAMES,
 } from '@application/dto/task-run.dto';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { AttachmentResponseDto } from '@presentation/http/dto/attachment.response.dto';
 import { InboxMessageResponseDto } from '@presentation/http/dto/inbox.response.dto';
 
 export class RunStationResponseDto {
@@ -55,6 +56,13 @@ export class RunConversationResponseDto {
   @ApiProperty({ nullable: true, type: String })
   readonly description: string | null;
 
+  @ApiProperty({
+    type: AttachmentResponseDto,
+    isArray: true,
+    description: 'The files the task was raised with',
+  })
+  readonly attachments: readonly AttachmentResponseDto[];
+
   @ApiProperty({ type: RunStationResponseDto, nullable: true })
   readonly station: RunStationResponseDto | null;
 
@@ -79,6 +87,7 @@ export class RunConversationResponseDto {
     taskId: string,
     title: string,
     description: string | null,
+    attachments: readonly AttachmentResponseDto[],
     station: RunStationResponseDto | null,
     createdAt: string,
     briefing: string | null,
@@ -89,6 +98,7 @@ export class RunConversationResponseDto {
     this.taskId = taskId;
     this.title = title;
     this.description = description;
+    this.attachments = attachments;
     this.station = station;
     this.createdAt = createdAt;
     this.briefing = briefing;
@@ -100,9 +110,17 @@ export class RunConversationResponseDto {
 export class SayToRunRequestDto {
   @ApiProperty({
     example: 'Cap the retries at 500 while you are in there.',
-    description: 'Reaches the agent when its current turn ends',
+    description:
+      'Reaches the agent when its current turn ends. May be empty where files are attached.',
   })
   readonly body!: string;
+
+  @ApiPropertyOptional({
+    type: String,
+    isArray: true,
+    description: 'Uploads to attach, by the id each was granted',
+  })
+  readonly attachments?: string[];
 }
 
 export class TaskRunResponseDto {

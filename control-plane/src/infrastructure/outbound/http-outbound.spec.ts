@@ -1,4 +1,5 @@
 import { EgressRefusedError } from '@domain/exceptions/egress-refused.error';
+import { UpstreamRefusedError } from '@domain/exceptions/upstream-refused.error';
 import {
   compileIntegration,
   type RequestIR,
@@ -177,5 +178,76 @@ actions:
     expect((init.headers as Record<string, string>).authorization).toBe(
       'Bearer xoxb-live',
     );
+  });
+
+  describe('fetching a file', () => {
+    const FILE = `
+version: 1
+integration: demo
+actions:
+  fetch:
+    request:
+      method: GET
+      url: '\${{ file.url }}'
+      auth:
+        token:
+          secret: secret.TOKEN
+      expect:
+        success: '\${{ status == 200 && !headers["content-type"].startsWith("text/html") }}'
+`;
+
+    const fetching = (): RequestIR => {
+      const read = compileIntegration('.spotlight/integrations/demo.yml', FILE);
+
+      if (!read.ok) {
+        throw new Error(read.problems.map((each) => each.reason).join(', '));
+      }
+
+      return read.readable.actions.get('fetch') as RequestIR;
+    };
+
+    const named = {
+      file: { url: 'https://files.slack.com/files-pri/T1-F1/queue.png' },
+      secret: { TOKEN: 'xoxb-1' },
+    };
+
+    const answering = (body: BodyInit, type: string) =>
+      vi.fn(
+        async () =>
+          new Response(body, {
+            status: 200,
+            headers: { 'content-type': type },
+          }),
+      );
+
+    it('hands the bytes back whole, wearing the token', async () => {
+      const fetch = answering(new Uint8Array([1, 2, 3]), 'image/png');
+
+      await expect(
+        new HttpOutbound(['slack.com'], fetch).bytes(fetching(), named),
+      ).resolves.toEqual(new Uint8Array([1, 2, 3]));
+
+      const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+      expect((init.headers as Record<string, string>).authorization).toBe(
+        'Bearer xoxb-1',
+      );
+    });
+
+    it('refuses a page standing in for the file', async () => {
+      const fetch = answering(
+        '<html>Sign in</html>',
+        'text/html; charset=utf-8',
+      );
+
+      await expect(
+        new HttpOutbound(['slack.com'], fetch).bytes(fetching(), named),
+      ).rejects.toThrow(UpstreamRefusedError);
+    });
+
+    it('refuses a host the deployment does not allow', async () => {
+      await expect(
+        new HttpOutbound(['github.com'], vi.fn()).bytes(fetching(), named),
+      ).rejects.toThrow(EgressRefusedError);
+    });
   });
 });

@@ -176,6 +176,15 @@ const raiseSchema = z.object({
     .optional(),
   branch: expression.optional(),
   marks: z.array(markSchema).default([]),
+  attaches: z
+    .object({
+      each: expression,
+      name: expression,
+      type: expression.optional(),
+      size: expression.optional(),
+      fetch: requestSchema,
+    })
+    .optional(),
 });
 
 const eventSchema = z.object({

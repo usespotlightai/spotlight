@@ -5,6 +5,7 @@ import {
   TaskResponseDto,
   TaskReviewResponseDto,
 } from '@presentation/http/dto/task.response.dto';
+import { AttachmentHttpMapper } from '@presentation/http/mappers/attachment.http.mapper';
 
 export const TaskHttpMapper = {
   toResponse(dto: TaskDto): TaskResponseDto {
@@ -13,6 +14,7 @@ export const TaskHttpMapper = {
       dto.stationId,
       dto.title,
       dto.description,
+      dto.attachments.map(AttachmentHttpMapper.toResponse),
       dto.createdAt,
       dto.running,
       dto.awaitingReview

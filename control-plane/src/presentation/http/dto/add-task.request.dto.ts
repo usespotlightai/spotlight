@@ -12,4 +12,11 @@ export class AddTaskRequestDto {
     description: 'Markdown. Left out or blank for a task with nothing said.',
   })
   readonly description?: string | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    isArray: true,
+    description: 'Uploads to attach, by the id each was granted',
+  })
+  readonly attachments?: string[];
 }

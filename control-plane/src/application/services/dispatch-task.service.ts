@@ -7,6 +7,7 @@ import {
 import type { HarnessLaunchPort } from '@application/ports/harness-launch.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { TraceParentPort } from '@application/ports/trace-parent.port';
+import { Attached } from '@application/rendering/attached';
 import { TaskBriefing } from '@application/rendering/task-briefing';
 import type { TaskDispatching } from '@application/services/task-dispatch';
 import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
@@ -23,6 +24,7 @@ import { RunSpec } from '@domain/value-objects/run-spec.vo';
 /** Named as Spotlight serves it: no host address ever reaches a runner. */
 const written = (
   order: RunOrder,
+  task: Task,
   command: HarnessCommand,
   briefing: string,
   naming: string,
@@ -38,6 +40,7 @@ const written = (
     handover: { options: order.options, noteLimit: order.noteLimit },
     continuity: order.continuity.told(),
     tools: order.tools,
+    attachments: Attached.shapes(task.allAttachments),
   });
 
 export class DispatchTask implements TaskDispatching {
@@ -85,7 +88,7 @@ export class DispatchTask implements TaskDispatching {
       stationId: order.stationId,
       targetRunner: order.pinnedTo,
       spec: RunSpec.of(
-        written(order, command, briefing, this.tracing.for(task.id, id)),
+        written(order, task, command, briefing, this.tracing.for(task.id, id)),
       ),
     });
 

@@ -13,6 +13,7 @@ import { DeleteTaskCommand } from '@application/commands/delete-task.command';
 import { DeliverSaidCommand } from '@application/commands/deliver-said.command';
 import { FinishOAuth2ConnectionCommand } from '@application/commands/finish-oauth2-connection.command';
 import { ForgetSecretCommand } from '@application/commands/forget-secret.command';
+import { GrantAttachmentUploadCommand } from '@application/commands/grant-attachment-upload.command';
 import { AcceptDeliveryHandler } from '@application/commands/handlers/accept-delivery.handler';
 import { AddTaskHandler } from '@application/commands/handlers/add-task.handler';
 import { AnalyseTraceHandler } from '@application/commands/handlers/analyse-trace.handler';
@@ -30,6 +31,7 @@ import { DeleteTaskHandler } from '@application/commands/handlers/delete-task.ha
 import { DeliverSaidHandler } from '@application/commands/handlers/deliver-said.handler';
 import { EnqueueRunHandler } from '@application/commands/handlers/enqueue-run.handler';
 import { EnrolRunnerHandler } from '@application/commands/handlers/enrol-runner.handler';
+import { GrantAttachmentUploadHandler } from '@application/commands/handlers/grant-attachment-upload.handler';
 import { MoveConfigurationHandler } from '@application/commands/handlers/move-configuration.handler';
 import { MoveTaskHandler } from '@application/commands/handlers/move-task.handler';
 import {
@@ -83,6 +85,14 @@ import { ReleaseHeldRuns } from '@application/events/handlers/release-held-runs.
 import { SettleOnConnection } from '@application/events/handlers/settle-on-connection.handler';
 import { RoutingDispatcher } from '@application/events/routing.dispatcher';
 import { ASSEMBLY_LINE_READER } from '@application/ports/assembly-line-reader.port';
+import {
+  ATTACHMENT_READER,
+  type AttachmentReaderPort,
+} from '@application/ports/attachment-reader.port';
+import {
+  ATTACHMENT_STORE,
+  type AttachmentStorePort,
+} from '@application/ports/attachment-store.port';
 import { CLOCK, type ClockPort } from '@application/ports/clock.port';
 import {
   CONFIGURED_SOURCES,
@@ -220,7 +230,9 @@ import { ListTeamTracesHandler } from '@application/queries/handlers/list-team-t
 import { ListWorkspacesHandler } from '@application/queries/handlers/list-workspaces.handler';
 import { OnboardingHandler } from '@application/queries/handlers/onboarding.handler';
 import { PendingMessagesHandler } from '@application/queries/handlers/pending-messages.handler';
+import { ReadAttachmentHandler } from '@application/queries/handlers/read-attachment.handler';
 import { ConfigurationHandler } from '@application/queries/handlers/read-configuration.handler';
+import { ReadRunAttachmentHandler } from '@application/queries/handlers/read-run-attachment.handler';
 import { ReadRunConversationHandler } from '@application/queries/handlers/read-run-conversation.handler';
 import { ReadRunEventsHandler } from '@application/queries/handlers/read-run-events.handler';
 import { ReadRunnerTraceHandler } from '@application/queries/handlers/read-runner-trace.handler';
@@ -243,7 +255,9 @@ import { ListTeamTracesQuery } from '@application/queries/list-team-traces.query
 import { ListWorkspacesQuery } from '@application/queries/list-workspaces.query';
 import { OnboardingQuery } from '@application/queries/onboarding.query';
 import { PendingMessagesQuery } from '@application/queries/pending-messages.query';
+import { ReadAttachmentQuery } from '@application/queries/read-attachment.query';
 import { ConfigurationQuery } from '@application/queries/read-configuration.query';
+import { ReadRunAttachmentQuery } from '@application/queries/read-run-attachment.query';
 import { ReadRunConversationQuery } from '@application/queries/read-run-conversation.query';
 import { ReadRunEventsQuery } from '@application/queries/read-run-events.query';
 import { ReadRunnerTraceQuery } from '@application/queries/read-runner-trace.query';
@@ -259,6 +273,7 @@ import { ConfigurationTarget } from '@application/services/configuration-target.
 import { ConnectionAuthorization } from '@application/services/connection-authorization.service';
 import { ConversationAtHand } from '@application/services/conversation-at-hand.service';
 import { DispatchTask } from '@application/services/dispatch-task.service';
+import { FilesAtHand } from '@application/services/files-at-hand.service';
 import { HeldConfiguration } from '@application/services/held-configuration.service';
 import { ProposeLineChange } from '@application/services/propose-line-change.service';
 import { RaiseTask } from '@application/services/raise-task';
@@ -339,6 +354,7 @@ import { DRIZZLE } from '@infrastructure/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
 import { DrizzleModule } from '@infrastructure/persistence/drizzle/drizzle.module';
 import { DrizzleAssemblyLineReader } from '@infrastructure/persistence/drizzle/readers/assembly-line.reader';
+import { DrizzleAttachmentReader } from '@infrastructure/persistence/drizzle/readers/attachment.reader';
 import { DrizzleInboxReader } from '@infrastructure/persistence/drizzle/readers/inbox.reader';
 import { DrizzleKeptWorkspaceReader } from '@infrastructure/persistence/drizzle/readers/kept-workspace.reader';
 import { DrizzleMemberReader } from '@infrastructure/persistence/drizzle/readers/member.reader';
@@ -365,6 +381,7 @@ import { DrizzleTeamConfiguration } from '@infrastructure/persistence/drizzle/re
 import { DrizzleTeamSecrets } from '@infrastructure/persistence/drizzle/repositories/team-secrets.repository';
 import { DrizzleWorkspaceRepository } from '@infrastructure/persistence/drizzle/repositories/workspace.repository';
 import { SecretCipher } from '@infrastructure/secrets/secret.cipher';
+import { S3AttachmentStore } from '@infrastructure/storage/s3-attachment.store';
 import { InMemoryRunStream } from '@infrastructure/streaming/in-memory-run-stream';
 import { SystemClock } from '@infrastructure/time/system-clock';
 import { HashedTraceParent } from '@infrastructure/tracing/hashed-trace-parent';
@@ -380,6 +397,7 @@ import {
 import { CqrsModule } from '@nestjs/cqrs';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AssemblyLineController } from '@presentation/http/controllers/assembly-line.controller';
+import { AttachmentController } from '@presentation/http/controllers/attachment.controller';
 import { ConfigurationController } from '@presentation/http/controllers/configuration.controller';
 import { GitController } from '@presentation/http/controllers/git.controller';
 import { GitHubConnectionController } from '@presentation/http/controllers/github-connection.controller';
@@ -421,6 +439,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     RunnerController,
     HarnessController,
     InboxController,
+    AttachmentController,
     InstallController,
     RunnerFleetController,
     GitController,
@@ -458,6 +477,20 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     { provide: KEPT_WORKSPACE_READER, useClass: DrizzleKeptWorkspaceReader },
     { provide: RUN_JOURNAL_READER, useClass: DrizzleRunJournalReader },
     { provide: TEAM_TRACE_READER, useClass: DrizzleTeamTraceReader },
+    { provide: ATTACHMENT_READER, useClass: DrizzleAttachmentReader },
+    {
+      provide: ATTACHMENT_STORE,
+      inject: [ENV],
+      useFactory: (env: Env) => new S3AttachmentStore(env),
+    },
+    {
+      provide: FilesAtHand,
+      inject: [ATTACHMENT_READER, ATTACHMENT_STORE],
+      useFactory: (
+        attachments: AttachmentReaderPort,
+        files: AttachmentStorePort,
+      ) => new FilesAtHand(attachments, files),
+    },
     DrizzleRunDigests,
     // One adapter, asked for by whichever half of the record is wanted: the
     // read side must not be handed something that can write.
@@ -920,6 +953,8 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         ID_GENERATOR,
         MEMBER_READER,
         AnnounceTaskEvents,
+        ATTACHMENT_STORE,
+        LOGGER,
       ],
       useFactory: (
         tasks: DrizzleTaskRepository,
@@ -930,6 +965,8 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
         ids: IdGeneratorPort,
         members: MemberReaderPort,
         announce: AnnounceTaskEvents,
+        files: AttachmentStorePort,
+        logger: LoggerPort,
       ) =>
         new ReactToHappenings(
           tasks,
@@ -940,6 +977,8 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
           ids,
           members,
           announce,
+          files,
+          logger,
         ),
     },
 
@@ -1281,6 +1320,16 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     ...bindQueryHandler(ReadRunConversationQuery, ReadRunConversationHandler, [
       RUN_READER,
     ]),
+    ...bindQueryHandler(ReadAttachmentQuery, ReadAttachmentHandler, [
+      WORKSPACE_READER,
+      ATTACHMENT_READER,
+      ATTACHMENT_STORE,
+    ]),
+    ...bindQueryHandler(ReadRunAttachmentQuery, ReadRunAttachmentHandler, [
+      DrizzleRunRepository,
+      ATTACHMENT_READER,
+      ATTACHMENT_STORE,
+    ]),
     ...bindQueryHandler(PendingMessagesQuery, PendingMessagesHandler, [
       DrizzleRunRepository,
       DrizzleTaskRepository,
@@ -1346,7 +1395,14 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       CLOCK,
       RaiseTask,
       PERSON_READER,
+      FilesAtHand,
     ]),
+
+    ...bindCommandHandler(
+      GrantAttachmentUploadCommand,
+      GrantAttachmentUploadHandler,
+      [WORKSPACE_READER, ATTACHMENT_STORE, ID_GENERATOR],
+    ),
 
     ...bindCommandHandler(AnalyseTraceCommand, AnalyseTraceHandler, [
       DrizzleTaskRepository,
@@ -1368,7 +1424,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       TASK_DISPATCH,
       TRANSACTION,
       CLOCK,
-      AttendToNotices,
+      FilesAtHand,
     ]),
 
     ...bindCommandHandler(SetSecretCommand, SetSecretHandler, [
@@ -1468,6 +1524,8 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       ID_GENERATOR,
       MEMBER_READER,
       AnnounceTaskEvents,
+      ATTACHMENT_STORE,
+      LOGGER,
     ]),
 
     ...bindCommandHandler(ReadInboxItemCommand, ReadInboxItemHandler, [
@@ -1503,6 +1561,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       DrizzleTaskRepository,
       DrizzleAssemblyLineRepository,
       CLOCK,
+      FilesAtHand,
     ]),
     ...bindCommandHandler(StopRunCommand, StopRunHandler, [
       DrizzleRunRepository,

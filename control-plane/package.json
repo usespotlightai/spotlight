@@ -26,6 +26,8 @@
     "auth:generate": "auth generate --config scripts/auth-config.ts --output src/infrastructure/persistence/drizzle/schemas/auth.schema.ts -y"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1131.0",
+    "@aws-sdk/s3-request-presigner": "^3.1131.0",
     "@marcbachmann/cel-js": "^8.0.0",
     "@nestjs/common": "^11.2.1",
     "@nestjs/core": "^11.2.1",

@@ -220,44 +220,45 @@ func (c *Client) Complete(ctx context.Context, runID string, done protocol.Compl
 	return nil
 }
 
+func (c *Client) Attachment(
+	ctx context.Context, runID, attachmentID string, into io.Writer,
+) error {
+	path := fmt.Sprintf(
+		"/api/runs/%s/attachments/%s",
+		url.PathEscape(runID), url.PathEscape(attachmentID),
+	)
+
+	response, err := c.send(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return fmt.Errorf("fetch an attachment: %w", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode >= 300 {
+		return fmt.Errorf("fetch an attachment: %w", refused(http.MethodGet, path, response))
+	}
+
+	if _, err := io.Copy(into, response.Body); err != nil {
+		return fmt.Errorf("fetch an attachment: %s %s: %w", http.MethodGet, path, err)
+	}
+
+	return nil
+}
+
 func (c *Client) do(ctx context.Context, method, path string, in, out any) error {
 	_, err := c.request(ctx, method, path, in, out)
 	return err
 }
 
 func (c *Client) request(ctx context.Context, method, path string, in, out any) (int, error) {
-	var body io.Reader
-	if in != nil {
-		encoded, err := json.Marshal(in)
-		if err != nil {
-			return 0, err
-		}
-		body = bytes.NewReader(encoded)
-	}
-
-	request, err := http.NewRequestWithContext(ctx, method, c.base.JoinPath(path).String(), body)
-	if err != nil {
-		return 0, err
-	}
-	// The token is the runner's own, so it says which runner is calling. There
-	// is no separate header to claim an identity with.
-	request.Header.Set("Authorization", "Bearer "+c.token)
-	if in != nil {
-		request.Header.Set("Content-Type", "application/json")
-	}
-
-	response, err := c.http.Do(request)
+	response, err := c.send(ctx, method, path, in)
 	if err != nil {
 		return 0, err
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode >= 300 {
-		detail, _ := io.ReadAll(io.LimitReader(response.Body, 1024))
-		return response.StatusCode, fmt.Errorf(
-			"%s %s: %s: %s",
-			method, path, response.Status, strings.TrimSpace(string(detail)),
-		)
+		return response.StatusCode, refused(method, path, response)
 	}
 
 	if out != nil && response.StatusCode != http.StatusNoContent {
@@ -267,4 +268,36 @@ func (c *Client) request(ctx context.Context, method, path string, in, out any) 
 	}
 
 	return response.StatusCode, nil
+}
+
+func (c *Client) send(ctx context.Context, method, path string, in any) (*http.Response, error) {
+	var body io.Reader
+	if in != nil {
+		encoded, err := json.Marshal(in)
+		if err != nil {
+			return nil, err
+		}
+		body = bytes.NewReader(encoded)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, method, c.base.JoinPath(path).String(), body)
+	if err != nil {
+		return nil, err
+	}
+	// The token is the runner's own, so it says which runner is calling. There
+	// is no separate header to claim an identity with.
+	request.Header.Set("Authorization", "Bearer "+c.token)
+	if in != nil {
+		request.Header.Set("Content-Type", "application/json")
+	}
+
+	return c.http.Do(request)
+}
+
+func refused(method, path string, response *http.Response) error {
+	detail, _ := io.ReadAll(io.LimitReader(response.Body, 1024))
+	return fmt.Errorf(
+		"%s %s: %s: %s",
+		method, path, response.Status, strings.TrimSpace(string(detail)),
+	)
 }
