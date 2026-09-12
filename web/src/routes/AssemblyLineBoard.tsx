@@ -10,12 +10,12 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router';
-import { BoardViews } from '@/components/features/board/BoardViews';
 import { StationSection } from '@/components/features/board/column/StationSection';
 import { SelectionBar } from '@/components/features/board/SelectionBar';
 import { NewTaskDialog } from '@/components/features/board/task/NewTaskDialog';
 import { TaskPreview } from '@/components/features/board/task/TaskPreview';
 import { TaskRow } from '@/components/features/board/task/TaskRow';
+import { ViewPills } from '@/components/shared/ViewPills';
 import {
   type BreadcrumbSegment,
   Breadcrumbs,
@@ -116,7 +116,8 @@ export function AssemblyLineBoard() {
     <TrailContext value={forward}>
       <PageHeader title={<Breadcrumbs segments={trail} />} />
 
-      <BoardViews
+      <ViewPills
+        views={BOARD_VIEWS}
         current={view}
         onChange={(next) => {
           setParams({ view: next });
