@@ -96,7 +96,12 @@ export class DrizzleWorkspaceReader implements WorkspaceReaderPort {
     userId: UserId,
   ): Promise<WorkspaceDetail | null> {
     const [found] = await this.db
-      .select({ id: workspace.id, name: workspace.name, slug: workspace.slug })
+      .select({
+        id: workspace.id,
+        name: workspace.name,
+        slug: workspace.slug,
+        role: workspaceMember.role,
+      })
       .from(workspace)
       .innerJoin(
         workspaceMember,

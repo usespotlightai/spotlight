@@ -23,9 +23,11 @@ import { Repository } from '@domain/value-objects/repository.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { TeamKey } from '@domain/value-objects/team-key.vo';
 import { TeamName } from '@domain/value-objects/team-name.vo';
+import { TeamRole } from '@domain/value-objects/team-role.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { WorkspaceName } from '@domain/value-objects/workspace-name.vo';
+import { WorkspaceRole } from '@domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -34,7 +36,7 @@ const TEAM = Team.rehydrate({
   workspaceId: WorkspaceId.of('ws_1'),
   key: TeamKey.of('platform'),
   name: TeamName.of('Platform'),
-  members: [{ userId: UserId.of('user_1'), role: 'owner' }],
+  members: [{ userId: UserId.of('user_1'), role: TeamRole.owner }],
   configRepository: Repository.of('acme/old'),
 });
 
@@ -45,7 +47,7 @@ const acme = (connected = true) =>
     id: WorkspaceId.of('ws_1'),
     name: WorkspaceName.of('Acme'),
     slug: WorkspaceSlug.of('acme'),
-    members: [{ userId: UserId.of('user_1'), role: 'owner' }],
+    members: [{ userId: UserId.of('user_1'), role: WorkspaceRole.owner }],
     teams: [TEAM.id],
     connections: connected ? [Connection.of('github', '158883204')] : [],
   });

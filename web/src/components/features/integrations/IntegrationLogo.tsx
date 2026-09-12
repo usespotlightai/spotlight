@@ -11,7 +11,7 @@ interface Logo {
 
 const logos: Record<string, Logo> = {
   linear: siLinear,
-  sentry: siSentry,
+  sentry: { ...siSentry, hex: 'EA54AD' },
   grafana: siGrafana,
   pagerduty: siPagerduty,
 };

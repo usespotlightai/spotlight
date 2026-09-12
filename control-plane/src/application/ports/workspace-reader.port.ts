@@ -1,11 +1,11 @@
 import type { UserId } from '@domain/value-objects/user-id.vo';
-import type { WorkspaceRole } from '@domain/value-objects/workspace-role';
+import type { WorkspaceRoleName } from '@domain/value-objects/workspace-role.vo';
 
 export interface WorkspaceListing {
   readonly id: string;
   readonly name: string;
   readonly slug: string;
-  readonly role: WorkspaceRole;
+  readonly role: WorkspaceRoleName;
 }
 
 export interface TeamSummary {
@@ -18,6 +18,7 @@ export interface WorkspaceDetail {
   readonly name: string;
   readonly slug: string;
   readonly teams: readonly TeamSummary[];
+  readonly role: WorkspaceRoleName;
 }
 
 export const WORKSPACE_READER = Symbol('WORKSPACE_READER');

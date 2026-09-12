@@ -1,7 +1,7 @@
 import { EnrolRunnerHandler } from '@application/commands/handlers/enrol-runner.handler';
 import type { EnrolRunnerCommand } from '@application/commands/runner.commands';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
-import type { RunnerTokenPort } from '@application/ports/runner-token.port';
+import type { TokenMintPort } from '@application/ports/token-mint.port';
 import type { Runner } from '@domain/aggregates/runner.aggregate';
 import type { RunnerRepository } from '@domain/repositories/runner.repository';
 import { describe, expect, it, vi } from 'vitest';
@@ -16,7 +16,7 @@ const enrolling = () => {
     } as IdGeneratorPort,
     {
       mint: () => ({ token: 'tok', hash: 'a'.repeat(64) }),
-    } as unknown as RunnerTokenPort,
+    } as unknown as TokenMintPort,
   );
 
   return { handler, add };

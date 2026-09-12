@@ -2,13 +2,14 @@ import { EventRecorder } from '@domain/aggregates/event-recorder';
 import { ConfigurationMoveStarted } from '@domain/events/configuration-move-started.event';
 import { ConfigurationMoved } from '@domain/events/configuration-moved.event';
 import { TeamCreated } from '@domain/events/team-created.event';
+import { TeamMemberJoined } from '@domain/events/team-member-joined.event';
 import { InconsistentStateError } from '@domain/exceptions/inconsistent-state.error';
 import { InvalidConfigurationMoveError } from '@domain/exceptions/invalid-configuration-move.error';
 import type { Repository } from '@domain/value-objects/repository.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { TeamKey } from '@domain/value-objects/team-key.vo';
 import type { TeamName } from '@domain/value-objects/team-name.vo';
-import type { TeamRole } from '@domain/value-objects/team-role';
+import { TeamRole } from '@domain/value-objects/team-role.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 
@@ -51,7 +52,7 @@ export class Team extends EventRecorder {
       input.workspaceId,
       input.key ?? TeamKey.from(input.name.value),
       input.name,
-      [{ userId: input.owner, role: 'owner' }],
+      [{ userId: input.owner, role: TeamRole.owner }],
       null,
       null,
     );
@@ -73,7 +74,7 @@ export class Team extends EventRecorder {
     if (input.members.length === 0) {
       throw new InconsistentStateError('team', 'has no members at all');
     }
-    if (!input.members.some((member) => member.role === 'owner')) {
+    if (!input.members.some((member) => member.role.isOwner)) {
       throw new InconsistentStateError('team', 'has nobody who owns it');
     }
     if (
@@ -99,6 +100,20 @@ export class Team extends EventRecorder {
 
   holds(userId: UserId): boolean {
     return this.members.some((each) => each.userId.equals(userId));
+  }
+
+  joinedBy(userId: UserId, role: TeamRole): Team {
+    if (this.holds(userId)) {
+      return this;
+    }
+
+    const joined = this.reshaped({
+      members: [...this.members, { userId, role }],
+    });
+
+    joined.record(new TeamMemberJoined(this.id, userId, role));
+
+    return joined;
   }
 
   /**
@@ -191,7 +206,10 @@ export class Team extends EventRecorder {
   /** What was recorded before a change is still owed after it. */
   private reshaped(
     over: Partial<
-      Pick<Team, 'name' | 'configRepository' | 'movingConfigurationTo'>
+      Pick<
+        Team,
+        'name' | 'members' | 'configRepository' | 'movingConfigurationTo'
+      >
     >,
   ): Team {
     const next = new Team(
@@ -199,7 +217,7 @@ export class Team extends EventRecorder {
       this.workspaceId,
       this.key,
       over.name ?? this.name,
-      this.members,
+      over.members ?? this.members,
       over.configRepository !== undefined
         ? over.configRepository
         : this.configRepository,

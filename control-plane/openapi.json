@@ -1703,6 +1703,212 @@
         ]
       }
     },
+    "/teams/{teamId}/invites": {
+      "get": {
+        "operationId": "listInvites",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "team_1",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InviteResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team for this caller"
+          }
+        },
+        "summary": "List the invitations this team is still waiting on",
+        "tags": [
+          "invites"
+        ]
+      },
+      "post": {
+        "operationId": "inviteToTeam",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "team_1",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteToTeamRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team, or not yours to invite to"
+          },
+          "409": {
+            "description": "They are already on this team"
+          }
+        },
+        "summary": "Invite somebody onto this team by email",
+        "tags": [
+          "invites"
+        ]
+      }
+    },
+    "/teams/{teamId}/invites/{inviteId}": {
+      "delete": {
+        "operationId": "revokeInvite",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "team_1",
+              "type": "string"
+            }
+          },
+          {
+            "name": "inviteId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The link no longer works"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such invitation for this caller"
+          }
+        },
+        "summary": "Take an invitation back, so its link stops working",
+        "tags": [
+          "invites"
+        ]
+      }
+    },
+    "/invites/{token}": {
+      "get": {
+        "operationId": "readInvite",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteOfferResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No invitation by that link"
+          }
+        },
+        "summary": "Read what an invitation link offers",
+        "tags": [
+          "invites"
+        ]
+      }
+    },
+    "/invites/{token}/accept": {
+      "post": {
+        "operationId": "acceptInvite",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JoinedTeamResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "Signed in as somebody else"
+          },
+          "404": {
+            "description": "No invitation by that link"
+          },
+          "409": {
+            "description": "Already accepted, revoked or run out"
+          }
+        },
+        "summary": "Take up an invitation, joining the team it was sent for",
+        "tags": [
+          "invites"
+        ]
+      }
+    },
     "/workspaces/{slug}/happenings": {
       "get": {
         "operationId": "listHappenings",
@@ -2417,7 +2623,7 @@
             "description": "No such team for this caller"
           }
         },
-        "summary": "List the team members a task can be assigned to",
+        "summary": "List the team’s members, what each is, and what may be set",
         "tags": [
           "tasks"
         ]
@@ -2443,7 +2649,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WorkspaceResponseDto"
+                  "$ref": "#/components/schemas/CreatedWorkspaceResponseDto"
                 }
               }
             }
@@ -2523,6 +2729,65 @@
           }
         },
         "summary": "Read one workspace the caller belongs to",
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
+    "/workspaces/{slug}/members/{userId}": {
+      "patch": {
+        "description": "Roles are given downwards: an owner may set anyone’s, an admin only those of people they outrank, and nobody may hand out a rank they do not hold. The last owner keeps the workspace.",
+        "operationId": "changeMemberRole",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme-inc",
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeMemberRoleRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "That is what they are now"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "Not yours to give"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          },
+          "409": {
+            "description": "It would leave nobody who owns it"
+          },
+          "422": {
+            "description": "No such role"
+          }
+        },
+        "summary": "Set what somebody is in this workspace",
         "tags": [
           "workspaces"
         ]
@@ -4694,6 +4959,114 @@
           "name"
         ]
       },
+      "InviteResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13"
+          },
+          "email": {
+            "type": "string",
+            "example": "ada@example.com"
+          },
+          "invitedBy": {
+            "type": "string",
+            "description": "Who asked them.",
+            "example": "Leon Liang"
+          },
+          "invitedAt": {
+            "type": "string",
+            "example": "2026-09-12T09:00:00.000Z"
+          },
+          "expiresAt": {
+            "type": "string",
+            "example": "2026-09-26T09:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "invitedBy",
+          "invitedAt",
+          "expiresAt"
+        ]
+      },
+      "InviteToTeamRequestDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Where the invitation is sent, and who may accept it.",
+            "example": "ada@example.com"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "InviteOfferResponseDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "The address it was sent to, which is who may accept it.",
+            "example": "ada@example.com"
+          },
+          "teamName": {
+            "type": "string",
+            "example": "Platform"
+          },
+          "workspaceName": {
+            "type": "string",
+            "example": "Acme"
+          },
+          "invitedBy": {
+            "type": "string",
+            "example": "Leon Liang"
+          },
+          "standing": {
+            "type": "string",
+            "description": "Whether it is still worth following.",
+            "enum": [
+              "open",
+              "accepted",
+              "revoked",
+              "expired"
+            ],
+            "example": "open"
+          }
+        },
+        "required": [
+          "email",
+          "teamName",
+          "workspaceName",
+          "invitedBy",
+          "standing"
+        ]
+      },
+      "JoinedTeamResponseDto": {
+        "type": "object",
+        "properties": {
+          "workspaceSlug": {
+            "type": "string",
+            "example": "acme"
+          },
+          "teamId": {
+            "type": "string",
+            "example": "team_1"
+          },
+          "teamName": {
+            "type": "string",
+            "example": "Platform"
+          }
+        },
+        "required": [
+          "workspaceSlug",
+          "teamId",
+          "teamName"
+        ]
+      },
       "HappeningResponseDto": {
         "type": "object",
         "properties": {
@@ -5397,12 +5770,40 @@
           "image": {
             "type": "string",
             "nullable": true
+          },
+          "role": {
+            "type": "string",
+            "description": "What they are in the workspace this team belongs to.",
+            "example": "member",
+            "enum": [
+              "owner",
+              "admin",
+              "member"
+            ]
+          },
+          "mayBeSetTo": {
+            "type": "array",
+            "description": "What the caller may set them to, which is empty where that is not theirs to do. Worked out by the same rule the workspace enforces.",
+            "example": [
+              "admin",
+              "member"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "owner",
+                "admin",
+                "member"
+              ]
+            }
           }
         },
         "required": [
           "id",
           "name",
-          "image"
+          "image",
+          "role",
+          "mayBeSetTo"
         ]
       },
       "CreateWorkspaceRequestDto": {
@@ -5449,7 +5850,7 @@
           "name"
         ]
       },
-      "WorkspaceResponseDto": {
+      "CreatedWorkspaceResponseDto": {
         "type": "object",
         "properties": {
           "id": {
@@ -5507,6 +5908,64 @@
           "id",
           "name",
           "slug",
+          "role"
+        ]
+      },
+      "WorkspaceResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "5f1c2f0e-6e0a-4a1e-9a4a-0f6d2c1b8e77"
+          },
+          "name": {
+            "type": "string",
+            "example": "Acme Inc."
+          },
+          "slug": {
+            "type": "string",
+            "example": "acme-inc"
+          },
+          "teams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamResponseDto"
+            }
+          },
+          "role": {
+            "type": "string",
+            "description": "What the caller is in this workspace.",
+            "example": "owner",
+            "enum": [
+              "owner",
+              "admin",
+              "member"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "teams",
+          "role"
+        ]
+      },
+      "ChangeMemberRoleRequestDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "description": "What they are to be in this workspace, which is what they may do in every team of it.",
+            "example": "admin",
+            "enum": [
+              "owner",
+              "admin",
+              "member"
+            ]
+          }
+        },
+        "required": [
           "role"
         ]
       }

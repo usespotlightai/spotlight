@@ -60,6 +60,8 @@ export const envSchema = databaseSchema
     // serving every bucket at one address needs it, a real bucket does not.
     S3_FORCE_PATH_STYLE: z.stringbool().default(false),
     S3_PUBLIC_FORCE_PATH_STYLE: z.stringbool().default(false),
+    SMTP_URL: z.string().min(1).optional(),
+    MAIL_FROM: z.string().min(1).default('Spotlight <noreply@usespotlight.ai>'),
     // Where the served install script lives in this image.
     SPOTLIGHT_INSTALLER_DIR: z.string().default('/opt/spotlight/installer'),
     LOG_LEVEL: z.enum(LOG_LEVELS).optional(),

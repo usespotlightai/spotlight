@@ -13,7 +13,7 @@ export class TeamResponseDto {
   }
 }
 
-export class WorkspaceResponseDto {
+export class CreatedWorkspaceResponseDto {
   @ApiProperty({ example: '5f1c2f0e-6e0a-4a1e-9a4a-0f6d2c1b8e77' })
   readonly id: string;
 
@@ -36,6 +36,41 @@ export class WorkspaceResponseDto {
     this.name = name;
     this.slug = slug;
     this.teams = teams;
+  }
+}
+
+export class WorkspaceResponseDto {
+  @ApiProperty({ example: '5f1c2f0e-6e0a-4a1e-9a4a-0f6d2c1b8e77' })
+  readonly id: string;
+
+  @ApiProperty({ example: 'Acme Inc.' })
+  readonly name: string;
+
+  @ApiProperty({ example: 'acme-inc' })
+  readonly slug: string;
+
+  @ApiProperty({ type: TeamResponseDto, isArray: true })
+  readonly teams: TeamResponseDto[];
+
+  @ApiProperty({
+    description: 'What the caller is in this workspace.',
+    example: 'owner',
+    enum: ['owner', 'admin', 'member'],
+  })
+  readonly role: string;
+
+  constructor(
+    id: string,
+    name: string,
+    slug: string,
+    teams: TeamResponseDto[],
+    role: string,
+  ) {
+    this.id = id;
+    this.name = name;
+    this.slug = slug;
+    this.teams = teams;
+    this.role = role;
   }
 }
 

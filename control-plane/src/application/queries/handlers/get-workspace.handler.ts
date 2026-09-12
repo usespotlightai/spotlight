@@ -1,4 +1,4 @@
-import type { WorkspaceDto } from '@application/dto/workspace.dto';
+import type { WorkspaceDetailDto } from '@application/dto/workspace.dto';
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import { WorkspaceMapper } from '@application/mappers/workspace.mapper';
 import type { QueryHandlerPort } from '@application/ports/query-handler.port';
@@ -8,11 +8,11 @@ import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
 
 export class GetWorkspaceHandler
-  implements QueryHandlerPort<GetWorkspaceQuery, WorkspaceDto | null>
+  implements QueryHandlerPort<GetWorkspaceQuery, WorkspaceDetailDto | null>
 {
   constructor(private readonly workspaces: WorkspaceReaderPort) {}
 
-  async execute(query: GetWorkspaceQuery): Promise<WorkspaceDto | null> {
+  async execute(query: GetWorkspaceQuery): Promise<WorkspaceDetailDto | null> {
     try {
       const slug = WorkspaceSlug.of(query.slug);
 

@@ -1,8 +1,9 @@
-import { TEAM_ROLES } from '@domain/value-objects/team-role';
-import { WORKSPACE_ROLES } from '@domain/value-objects/workspace-role';
+import { TEAM_ROLES } from '@domain/value-objects/team-role.vo';
+import { WORKSPACE_ROLES } from '@domain/value-objects/workspace-role.vo';
 import { user } from '@infrastructure/persistence/drizzle/schemas/auth.schema';
 import {
   index,
+  integer,
   jsonb,
   pgEnum,
   pgTable,
@@ -19,6 +20,7 @@ export const workspace = pgTable('workspace', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
+  version: integer('version').default(0).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at')
     .defaultNow()
@@ -170,3 +172,33 @@ export const teamConfig = pgTable('team_config', {
     .notNull(),
   readAt: timestamp('read_at').defaultNow().notNull(),
 });
+
+export const teamInvite = pgTable(
+  'team_invite',
+  {
+    id: text('id').primaryKey(),
+    teamId: text('team_id')
+      .notNull()
+      .references(() => team.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspace.id, { onDelete: 'cascade' }),
+    email: text('email').notNull(),
+    role: teamRole('role').notNull(),
+    tokenHash: text('token_hash').notNull().unique(),
+    invitedBy: text('invited_by')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    invitedAt: timestamp('invited_at').defaultNow().notNull(),
+    expiresAt: timestamp('expires_at').notNull(),
+    acceptedAt: timestamp('accepted_at'),
+    acceptedBy: text('accepted_by').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    revokedAt: timestamp('revoked_at'),
+  },
+  (table) => [
+    uniqueIndex('team_invite_team_email_idx').on(table.teamId, table.email),
+    index('team_invite_workspace_idx').on(table.workspaceId),
+  ],
+);

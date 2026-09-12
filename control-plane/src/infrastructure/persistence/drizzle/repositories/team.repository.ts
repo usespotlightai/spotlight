@@ -4,6 +4,7 @@ import { Repository } from '@domain/value-objects/repository.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { TeamKey } from '@domain/value-objects/team-key.vo';
 import { TeamName } from '@domain/value-objects/team-name.vo';
+import { TeamRole } from '@domain/value-objects/team-role.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
@@ -12,7 +13,7 @@ import {
   teamMember,
 } from '@infrastructure/persistence/drizzle/schemas/workspace.schema';
 import { Injectable } from '@nestjs/common';
-import { and, eq, inArray, isNull, or } from 'drizzle-orm';
+import { and, eq, inArray, isNull, notInArray, or } from 'drizzle-orm';
 
 interface Row {
   readonly id: string;
@@ -36,24 +37,50 @@ export class DrizzleTeamRepository implements TeamRepository {
           added.members.map((member) => ({
             teamId: added.id.value,
             userId: member.userId.value,
-            role: member.role,
+            role: member.role.value,
           })),
         );
       }
     });
   }
 
-  /** Only what a team can be changed to say. Its members go their own way. */
   async save(saved: Team): Promise<void> {
-    await this.context.db
-      .update(team)
-      .set({
-        key: saved.key.value,
-        name: saved.name.value,
-        configRepository: saved.configRepository?.value ?? null,
-        configMovingTo: saved.movingConfigurationTo?.value ?? null,
-      })
-      .where(eq(team.id, saved.id.value));
+    await this.context.run(async () => {
+      await this.context.db
+        .update(team)
+        .set({
+          key: saved.key.value,
+          name: saved.name.value,
+          configRepository: saved.configRepository?.value ?? null,
+          configMovingTo: saved.movingConfigurationTo?.value ?? null,
+        })
+        .where(eq(team.id, saved.id.value));
+
+      const held = saved.members.map((member) => member.userId.value);
+
+      await this.context.db
+        .delete(teamMember)
+        .where(
+          and(
+            eq(teamMember.teamId, saved.id.value),
+            held.length > 0 ? notInArray(teamMember.userId, held) : undefined,
+          ),
+        );
+
+      for (const member of saved.members) {
+        await this.context.db
+          .insert(teamMember)
+          .values({
+            teamId: saved.id.value,
+            userId: member.userId.value,
+            role: member.role.value,
+          })
+          .onConflictDoUpdate({
+            target: [teamMember.teamId, teamMember.userId],
+            set: { role: member.role.value },
+          });
+      }
+    });
   }
 
   async find(id: TeamId): Promise<Team | null> {
@@ -145,7 +172,7 @@ export class DrizzleTeamRepository implements TeamRepository {
           .filter((member) => member.teamId === row.id)
           .map((member) => ({
             userId: UserId.of(member.userId),
-            role: member.role,
+            role: TeamRole.of(member.role),
           })),
         configRepository: row.configRepository
           ? Repository.of(row.configRepository)

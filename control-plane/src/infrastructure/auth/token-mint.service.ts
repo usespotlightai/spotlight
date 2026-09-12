@@ -1,8 +1,8 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type {
   MintedToken,
-  RunnerTokenPort,
-} from '@application/ports/runner-token.port';
+  TokenMintPort,
+} from '@application/ports/token-mint.port';
 import { Injectable } from '@nestjs/common';
 
 const BYTES = 32;
@@ -13,7 +13,7 @@ const BYTES = 32;
  * indexed read.
  */
 @Injectable()
-export class RunnerTokenService implements RunnerTokenPort {
+export class TokenMint implements TokenMintPort {
   mint(): MintedToken {
     const token = randomBytes(BYTES).toString('base64url');
     return { token, hash: this.hash(token) };

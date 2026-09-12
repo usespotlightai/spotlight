@@ -11,6 +11,7 @@ import { WorkspaceSlugTakenError } from '@domain/exceptions/workspace-slug-taken
 import type { TeamRepository } from '@domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
 import { UserId } from '@domain/value-objects/user-id.vo';
+import { WorkspaceRole } from '@domain/value-objects/workspace-role.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const ids = (): IdGeneratorPort => {
@@ -79,7 +80,7 @@ describe('CreateWorkspaceHandler', () => {
     await handle();
 
     expect(added?.members).toEqual([
-      { userId: UserId.of('user_1'), role: 'owner' },
+      { userId: UserId.of('user_1'), role: WorkspaceRole.owner },
     ]);
     expect(added?.teams).toHaveLength(1);
   });

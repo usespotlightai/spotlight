@@ -1,10 +1,12 @@
 import { AcceptDeliveryCommand } from '@application/commands/accept-delivery.command';
+import { AcceptInviteCommand } from '@application/commands/accept-invite.command';
 import { AddTaskCommand } from '@application/commands/add-task.command';
 import { AnalyseTraceCommand } from '@application/commands/analyse-trace.command';
 import { AnswerInboxItemCommand } from '@application/commands/answer-inbox-item.command';
 import { AnswerRemarkCommand } from '@application/commands/answer-remark.command';
 import { AssignTaskCommand } from '@application/commands/assign-task.command';
 import { BeginOAuth2ConnectionCommand } from '@application/commands/begin-oauth2-connection.command';
+import { ChangeMemberRoleCommand } from '@application/commands/change-member-role.command';
 import { ChooseToolsCommand } from '@application/commands/choose-tools.command';
 import { ConnectGitHubCommand } from '@application/commands/connect-github.command';
 import { CreateWorkspaceCommand } from '@application/commands/create-workspace.command';
@@ -15,12 +17,14 @@ import { FinishOAuth2ConnectionCommand } from '@application/commands/finish-oaut
 import { ForgetSecretCommand } from '@application/commands/forget-secret.command';
 import { GrantAttachmentUploadCommand } from '@application/commands/grant-attachment-upload.command';
 import { AcceptDeliveryHandler } from '@application/commands/handlers/accept-delivery.handler';
+import { AcceptInviteHandler } from '@application/commands/handlers/accept-invite.handler';
 import { AddTaskHandler } from '@application/commands/handlers/add-task.handler';
 import { AnalyseTraceHandler } from '@application/commands/handlers/analyse-trace.handler';
 import { AnswerInboxItemHandler } from '@application/commands/handlers/answer-inbox-item.handler';
 import { AnswerRemarkHandler } from '@application/commands/handlers/answer-remark.handler';
 import { AppendRunEventsHandler } from '@application/commands/handlers/append-run-events.handler';
 import { AssignTaskHandler } from '@application/commands/handlers/assign-task.handler';
+import { ChangeMemberRoleHandler } from '@application/commands/handlers/change-member-role.handler';
 import { ChooseToolsHandler } from '@application/commands/handlers/choose-tools.handler';
 import { ClaimRunHandler } from '@application/commands/handlers/claim-run.handler';
 import { CompleteRunHandler } from '@application/commands/handlers/complete-run.handler';
@@ -32,6 +36,7 @@ import { DeliverSaidHandler } from '@application/commands/handlers/deliver-said.
 import { EnqueueRunHandler } from '@application/commands/handlers/enqueue-run.handler';
 import { EnrolRunnerHandler } from '@application/commands/handlers/enrol-runner.handler';
 import { GrantAttachmentUploadHandler } from '@application/commands/handlers/grant-attachment-upload.handler';
+import { InviteToTeamHandler } from '@application/commands/handlers/invite-to-team.handler';
 import { MoveConfigurationHandler } from '@application/commands/handlers/move-configuration.handler';
 import { MoveTaskHandler } from '@application/commands/handlers/move-task.handler';
 import {
@@ -46,6 +51,7 @@ import { ReadInboxItemHandler } from '@application/commands/handlers/read-inbox-
 import { RegisterRunnerHandler } from '@application/commands/handlers/register-runner.handler';
 import { RenameTeamHandler } from '@application/commands/handlers/rename-team.handler';
 import { RenewLeaseHandler } from '@application/commands/handlers/renew-lease.handler';
+import { RevokeInviteHandler } from '@application/commands/handlers/revoke-invite.handler';
 import { RevokeRunnerHandler } from '@application/commands/handlers/revoke-runner.handler';
 import { SayToRunHandler } from '@application/commands/handlers/say-to-run.handler';
 import { SetLineRepositoriesHandler } from '@application/commands/handlers/set-line-repositories.handler';
@@ -55,6 +61,7 @@ import {
 } from '@application/commands/handlers/set-secret.handler';
 import { SetUpLinesHandler } from '@application/commands/handlers/set-up-lines.handler';
 import { StopRunHandler } from '@application/commands/handlers/stop-run.handler';
+import { InviteToTeamCommand } from '@application/commands/invite-to-team.command';
 import { MoveConfigurationCommand } from '@application/commands/move-configuration.command';
 import { MoveTaskCommand } from '@application/commands/move-task.command';
 import { OpenPullRequestCommand } from '@application/commands/open-pull-request.command';
@@ -63,6 +70,7 @@ import { ReactToHappeningCommand } from '@application/commands/react-to-happenin
 import { ReadConfigurationCommand } from '@application/commands/read-configuration.command';
 import { ReadInboxItemCommand } from '@application/commands/read-inbox-item.command';
 import { RenameTeamCommand } from '@application/commands/rename-team.command';
+import { RevokeInviteCommand } from '@application/commands/revoke-invite.command';
 import {
   AppendRunEventsCommand,
   ClaimRunCommand,
@@ -135,6 +143,8 @@ import {
   INTEGRATION_READER,
   type IntegrationReaderPort,
 } from '@application/ports/integration-reader.port';
+import { INVITE_MAIL } from '@application/ports/invite-mail.port';
+import { INVITE_READER } from '@application/ports/invite-reader.port';
 import { KEPT_WORKSPACE_READER } from '@application/ports/kept-workspace-reader.port';
 import {
   LINE_READER,
@@ -190,7 +200,6 @@ import {
   RUNNER_REVOCATION,
   type RunnerRevocationPort,
 } from '@application/ports/runner-revocation.port';
-import { RUNNER_TOKEN } from '@application/ports/runner-token.port';
 import { RUNNER_TRACE_READER } from '@application/ports/runner-trace-reader.port';
 import { STARTER_TOOLS } from '@application/ports/starter-tools.port';
 import { TASK_READER } from '@application/ports/task-reader.port';
@@ -199,6 +208,7 @@ import {
   type TeamSecretsPort,
 } from '@application/ports/team-secrets.port';
 import { TEAM_TRACE_READER } from '@application/ports/team-trace-reader.port';
+import { TOKEN_MINT } from '@application/ports/token-mint.port';
 import {
   TRACE_PARENT,
   type TraceParentPort,
@@ -219,6 +229,7 @@ import { ListAssemblyLinesHandler } from '@application/queries/handlers/list-ass
 import { ListHappeningsHandler } from '@application/queries/handlers/list-happenings.handler';
 import { ListHarnessesHandler } from '@application/queries/handlers/list-harnesses.handler';
 import { ListInboxHandler } from '@application/queries/handlers/list-inbox.handler';
+import { ListInvitesHandler } from '@application/queries/handlers/list-invites.handler';
 import { ListKeptWorkspacesHandler } from '@application/queries/handlers/list-kept-workspaces.handler';
 import { ListMembersHandler } from '@application/queries/handlers/list-members.handler';
 import { ListRepositoriesHandler } from '@application/queries/handlers/list-repositories.handler';
@@ -232,6 +243,7 @@ import { OnboardingHandler } from '@application/queries/handlers/onboarding.hand
 import { PendingMessagesHandler } from '@application/queries/handlers/pending-messages.handler';
 import { ReadAttachmentHandler } from '@application/queries/handlers/read-attachment.handler';
 import { ConfigurationHandler } from '@application/queries/handlers/read-configuration.handler';
+import { ReadInviteHandler } from '@application/queries/handlers/read-invite.handler';
 import { ReadRunAttachmentHandler } from '@application/queries/handlers/read-run-attachment.handler';
 import { ReadRunConversationHandler } from '@application/queries/handlers/read-run-conversation.handler';
 import { ReadRunEventsHandler } from '@application/queries/handlers/read-run-events.handler';
@@ -244,6 +256,7 @@ import { ListAssemblyLinesQuery } from '@application/queries/list-assembly-lines
 import { ListHappeningsQuery } from '@application/queries/list-happenings.query';
 import { ListHarnessesQuery } from '@application/queries/list-harnesses.query';
 import { ListInboxQuery } from '@application/queries/list-inbox.query';
+import { ListInvitesQuery } from '@application/queries/list-invites.query';
 import { ListKeptWorkspacesQuery } from '@application/queries/list-kept-workspaces.query';
 import { ListMembersQuery } from '@application/queries/list-members.query';
 import { ListRepositoriesQuery } from '@application/queries/list-repositories.query';
@@ -257,6 +270,7 @@ import { OnboardingQuery } from '@application/queries/onboarding.query';
 import { PendingMessagesQuery } from '@application/queries/pending-messages.query';
 import { ReadAttachmentQuery } from '@application/queries/read-attachment.query';
 import { ConfigurationQuery } from '@application/queries/read-configuration.query';
+import { ReadInviteQuery } from '@application/queries/read-invite.query';
 import { ReadRunAttachmentQuery } from '@application/queries/read-run-attachment.query';
 import { ReadRunConversationQuery } from '@application/queries/read-run-conversation.query';
 import { ReadRunEventsQuery } from '@application/queries/read-run-events.query';
@@ -305,7 +319,7 @@ import {
 } from '@domain/repositories/host-connection.repository';
 import { AuthenticationModule } from '@infrastructure/auth/auth.module';
 import { RunnerTokenAuth } from '@infrastructure/auth/runner-token.auth';
-import { RunnerTokenService } from '@infrastructure/auth/runner-token.service';
+import { TokenMint } from '@infrastructure/auth/token-mint.service';
 import { ENV } from '@infrastructure/config/config.constants';
 import { ConfigModule } from '@infrastructure/config/config.module';
 import type { Env } from '@infrastructure/config/env.schema';
@@ -346,6 +360,10 @@ import { ScheduleWorker } from '@infrastructure/integrations/schedule.worker';
 import { WorkOffPolls } from '@infrastructure/integrations/work-off-polls';
 import { GracefulShutdown } from '@infrastructure/lifecycle/graceful-shutdown';
 import { LoggingModule } from '@infrastructure/logging/logging.module';
+import { InviteByMail } from '@infrastructure/mail/invite.mail';
+import type { MailTransport } from '@infrastructure/mail/mail.transport';
+import { SmtpMail } from '@infrastructure/mail/smtp.transport';
+import { WrittenDownMail } from '@infrastructure/mail/written-down.mail';
 import { Egress } from '@infrastructure/outbound/egress';
 import { HttpOutbound } from '@infrastructure/outbound/http-outbound';
 import { OutboundTaskNotifier } from '@infrastructure/outbound/outbound-task.notifier';
@@ -356,6 +374,7 @@ import { DrizzleModule } from '@infrastructure/persistence/drizzle/drizzle.modul
 import { DrizzleAssemblyLineReader } from '@infrastructure/persistence/drizzle/readers/assembly-line.reader';
 import { DrizzleAttachmentReader } from '@infrastructure/persistence/drizzle/readers/attachment.reader';
 import { DrizzleInboxReader } from '@infrastructure/persistence/drizzle/readers/inbox.reader';
+import { DrizzleInviteReader } from '@infrastructure/persistence/drizzle/readers/invite.reader';
 import { DrizzleKeptWorkspaceReader } from '@infrastructure/persistence/drizzle/readers/kept-workspace.reader';
 import { DrizzleMemberReader } from '@infrastructure/persistence/drizzle/readers/member.reader';
 import { DrizzlePersonReader } from '@infrastructure/persistence/drizzle/readers/person.reader';
@@ -372,6 +391,7 @@ import { DrizzleDeliveryInbox } from '@infrastructure/persistence/drizzle/reposi
 import { DrizzleFactoryRepository } from '@infrastructure/persistence/drizzle/repositories/factory.repository';
 import { DrizzleHostConnections } from '@infrastructure/persistence/drizzle/repositories/host-connections.repository';
 import { DrizzleIntegrationCursors } from '@infrastructure/persistence/drizzle/repositories/integration-cursors.repository';
+import { DrizzleInviteRepository } from '@infrastructure/persistence/drizzle/repositories/invite.repository';
 import { DrizzleRunRepository } from '@infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleRunDigests } from '@infrastructure/persistence/drizzle/repositories/run-digest.repository';
 import { DrizzleRunnerRepository } from '@infrastructure/persistence/drizzle/repositories/runner.repository';
@@ -406,6 +426,10 @@ import { HarnessController } from '@presentation/http/controllers/harness.contro
 import { HealthController } from '@presentation/http/controllers/health.controller';
 import { InboxController } from '@presentation/http/controllers/inbox.controller';
 import { InstallController } from '@presentation/http/controllers/install.controller';
+import {
+  InviteController,
+  TeamInviteController,
+} from '@presentation/http/controllers/invite.controller';
 import { OAuth2ConnectionController } from '@presentation/http/controllers/oauth2-connection.controller';
 import { RepositoryController } from '@presentation/http/controllers/repository.controller';
 import { RunController } from '@presentation/http/controllers/run.controller';
@@ -448,6 +472,8 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     OAuth2ConnectionController,
     ConfigurationController,
     TeamController,
+    TeamInviteController,
+    InviteController,
     HappeningController,
     WebhookController,
     TaskController,
@@ -464,11 +490,13 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     DrizzleFactoryRepository,
     DrizzleAssemblyLineRepository,
     DrizzleTaskRepository,
+    DrizzleInviteRepository,
     { provide: WORKSPACE_READER, useClass: DrizzleWorkspaceReader },
     { provide: ASSEMBLY_LINE_READER, useClass: DrizzleAssemblyLineReader },
     { provide: PERSON_READER, useClass: DrizzlePersonReader },
     { provide: TASK_READER, useClass: DrizzleTaskReader },
     { provide: MEMBER_READER, useClass: DrizzleMemberReader },
+    { provide: INVITE_READER, useClass: DrizzleInviteReader },
     { provide: INBOX_READER, useClass: DrizzleInboxReader },
     { provide: RUN_READER, useClass: DrizzleRunReader },
     { provide: RUNNER_TRACE_READER, useClass: DrizzleRunnerTraceReader },
@@ -501,13 +529,24 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     { provide: ID_GENERATOR, useClass: CryptoIdGenerator },
     { provide: CLOCK, useClass: SystemClock },
     { provide: STARTER_TOOLS, useClass: KnownTools },
-    RunnerTokenService,
-    { provide: RUNNER_TOKEN, useClass: RunnerTokenService },
+    TokenMint,
+    { provide: TOKEN_MINT, useClass: TokenMint },
     { provide: RUNNER_AUTH, useClass: RunnerTokenAuth },
     {
       provide: RUNNER_REVOCATION,
       inject: [DrizzleRunRepository],
       useFactory: (runs: DrizzleRunRepository) => new ReleaseHeldRuns(runs),
+    },
+
+    {
+      provide: INVITE_MAIL,
+      inject: [ENV, LOGGER],
+      useFactory: (env: Env, logger: LoggerPort) => {
+        const transport: MailTransport =
+          SmtpMail.configured(env) ?? new WrittenDownMail(logger);
+
+        return new InviteByMail(transport, env);
+      },
     },
 
     {
@@ -1312,6 +1351,11 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     ]),
     ...bindQueryHandler(ListTasksQuery, ListTasksHandler, [TASK_READER]),
     ...bindQueryHandler(ListMembersQuery, ListMembersHandler, [MEMBER_READER]),
+    ...bindQueryHandler(ListInvitesQuery, ListInvitesHandler, [INVITE_READER]),
+    ...bindQueryHandler(ReadInviteQuery, ReadInviteHandler, [
+      INVITE_READER,
+      TOKEN_MINT,
+    ]),
     ...bindQueryHandler(ListTaskRunsQuery, ListTaskRunsHandler, [RUN_READER]),
     ...bindQueryHandler(ListTeamRunsQuery, ListTeamRunsHandler, [RUN_READER]),
     ...bindQueryHandler(FindStationQuery, FindStationHandler, [
@@ -1480,6 +1524,36 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
       ConnectionAuthorization,
       DrizzleTeamRepository,
     ]),
+    ...bindCommandHandler(InviteToTeamCommand, InviteToTeamHandler, [
+      ConnectionAuthorization,
+      DrizzleTeamRepository,
+      DrizzleInviteRepository,
+      MEMBER_READER,
+      PERSON_READER,
+      TOKEN_MINT,
+      INVITE_MAIL,
+      ID_GENERATOR,
+      CLOCK,
+      DOMAIN_EVENT_DISPATCHER,
+    ]),
+    ...bindCommandHandler(RevokeInviteCommand, RevokeInviteHandler, [
+      ConnectionAuthorization,
+      DrizzleInviteRepository,
+      CLOCK,
+      DOMAIN_EVENT_DISPATCHER,
+    ]),
+    ...bindCommandHandler(ChangeMemberRoleCommand, ChangeMemberRoleHandler, [
+      DrizzleWorkspaceRepository,
+      DOMAIN_EVENT_DISPATCHER,
+    ]),
+    ...bindCommandHandler(AcceptInviteCommand, AcceptInviteHandler, [
+      DrizzleInviteRepository,
+      DrizzleTeamRepository,
+      DrizzleWorkspaceRepository,
+      TOKEN_MINT,
+      DOMAIN_EVENT_DISPATCHER,
+      CLOCK,
+    ]),
     ...bindCommandHandler(ChooseToolsCommand, ChooseToolsHandler, [
       DrizzleWorkspaceRepository,
       WORKSPACE_READER,
@@ -1604,7 +1678,7 @@ import { RunnerGuard } from '@presentation/http/guards/runner.guard';
     ...bindCommandHandler(EnrolRunnerCommand, EnrolRunnerHandler, [
       DrizzleRunnerRepository,
       ID_GENERATOR,
-      RUNNER_TOKEN,
+      TOKEN_MINT,
     ]),
     ...bindCommandHandler(RegisterRunnerCommand, RegisterRunnerHandler, [
       DrizzleRunnerRepository,

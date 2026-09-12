@@ -20,6 +20,8 @@ x-control-plane-env: &control-plane-env
   S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-spotlight-storage}
   # The shared OAuth2 apps, per host, as JSON
   OAUTH_CLIENTS: ${OAUTH_CLIENTS:-}
+  SMTP_URL: ${SMTP_URL:-smtp://mail:1025}
+  MAIL_FROM: ${MAIL_FROM:-Spotlight <noreply@dev.usespotlight.ai>}
   LOG_LEVEL: ${LOG_LEVEL:-debug}
 
 x-runner-env: &runner-env
@@ -177,6 +179,24 @@ services:
       - runner-2-workspaces:/workspaces
       - runner-2-agent:/home/agent
 
+  mail:
+    build:
+      context: .
+      dockerfile: .docker/mail/Dockerfile
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "/mailpit", "readyz" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    ports:
+      - "8025:8025"
+    volumes:
+      - mail-data:/data
+    environment:
+      MP_DATABASE: /data/mailpit.db
+      MP_MAX_MESSAGES: "500"
+
   storage:
     build:
       context: .
@@ -245,3 +265,4 @@ volumes:
   node-modules-control-plane:
   db-data:
   storage-data:
+  mail-data:

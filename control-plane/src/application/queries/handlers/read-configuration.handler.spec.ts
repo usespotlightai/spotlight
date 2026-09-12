@@ -24,6 +24,7 @@ import { SourceKey } from '@domain/value-objects/source-key.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { TeamKey } from '@domain/value-objects/team-key.vo';
 import { TeamName } from '@domain/value-objects/team-name.vo';
+import { TeamRole } from '@domain/value-objects/team-role.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -82,7 +83,7 @@ const asking = (
           workspaceId: WorkspaceId.of('ws_1'),
           key: TeamKey.of('platform'),
           name: TeamName.of('Platform'),
-          members: [{ userId: UserId.of('user_1'), role: 'owner' }],
+          members: [{ userId: UserId.of('user_1'), role: TeamRole.owner }],
           configRepository: over.kept ? Repository.of(over.kept) : null,
           movingConfigurationTo: over.moving
             ? Repository.of(over.moving)
