@@ -4,6 +4,11 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "deleteOutDir": true,
-    "assets": [{ "include": "infrastructure/skills/built-in/**/*.md", "watchAssets": true }]
+    "assets": [
+      {
+        "include": "infrastructure/skills/built-in/**/*.md",
+        "watchAssets": true
+      }
+    ]
   }
 }

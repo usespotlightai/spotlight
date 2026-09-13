@@ -124,12 +124,7 @@
               "options": {
                 "patterns": [
                   {
-                    "group": [
-                      "**",
-                      "!@domain/**",
-                      "!./**",
-                      "!vitest"
-                    ],
+                    "group": ["**", "!@domain/**", "!./**", "!vitest"],
                     "message": "The domain layer depends on nothing but itself. Anything else belongs in an outer layer."
                   }
                 ]
