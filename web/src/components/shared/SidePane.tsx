@@ -11,8 +11,6 @@ export interface PaneConfig {
   label: string;
 }
 
-// Keep mounted with `open` false through the close animation so it leaves
-// rather than vanishes.
 export function SidePane({
   pane,
   open,

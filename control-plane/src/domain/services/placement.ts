@@ -1,11 +1,6 @@
 import type { TaskPlacement } from '@domain/repositories/task.repository';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 
-/**
- * Where a task lands among those already standing at a station. The order is
- * the board's, so the rules for joining it are the domain's rather than each
- * caller's.
- */
 export const Placement = {
   atTheTop(standing: readonly TaskPlacement[]): TaskRank {
     return Placement.below(standing, null);

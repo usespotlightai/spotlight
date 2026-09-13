@@ -23,7 +23,6 @@ export class ServerFaultFilter extends BaseExceptionFilter {
   }
 
   override catch(exception: HttpException, host: ArgumentsHost): void {
-    // 4xx are the client's problem and the access line already records them.
     if (exception.getStatus() >= HttpStatus.INTERNAL_SERVER_ERROR) {
       const request = host.switchToHttp().getRequest<LoggableRequest>();
 

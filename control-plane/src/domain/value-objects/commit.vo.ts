@@ -1,12 +1,7 @@
 import { InvalidIdentifierError } from '@domain/exceptions/invalid-identifier.error';
 
-/** What a host names a commit: hexadecimal, and never shorter than a prefix. */
 const SHAPE = /^[0-9a-f]{7,64}$/;
 
-/**
- * Configuration is read at a commit rather than a branch, so what was read is
- * a fact afterwards rather than something that moved under it.
- */
 export class Commit {
   private readonly kind = 'commit';
 

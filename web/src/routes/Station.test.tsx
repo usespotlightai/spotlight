@@ -14,6 +14,7 @@ const line = {
       position: 0,
       color: '#a3a8b0',
       kind: 'backlog',
+      skills: [],
     },
     {
       id: 'station_1',
@@ -21,6 +22,7 @@ const line = {
       position: 1,
       color: '#93a1b5',
       kind: 'work',
+      skills: [],
     },
     {
       id: 'station_2',
@@ -30,6 +32,7 @@ const line = {
       harness: 'claude-code',
       agentPrompt: '## Role\n\n- Sort the queue\n- Ask when unsure',
       kind: 'work',
+      skills: ['our-migrations', 'grafana-dashboards'],
     },
     {
       id: 'station_3',
@@ -37,13 +40,14 @@ const line = {
       position: 3,
       color: '#a3a8b0',
       kind: 'completed',
+      skills: [],
     },
   ],
   repositories: ['usespotlightai/spotlight'],
 };
 
-vi.mock('@/hooks/api/useAssemblyLines', () => ({
-  useAssemblyLines: () => ({ data: [line], isPending: false }),
+vi.mock('@/hooks/api/useLines', () => ({
+  useLines: () => ({ data: [line], isPending: false }),
 }));
 
 const customised = vi.fn();
@@ -79,6 +83,14 @@ vi.mock('@/hooks/api/useHarnesses', () => ({
 vi.mock('@/hooks/api/useRepositories', () => ({
   useRepositories: () => ({
     data: [{ fullName: 'usespotlightai/spotlight' }, { fullName: 'acme/web' }],
+  }),
+}));
+vi.mock('@/hooks/api/useTeamSkills', () => ({
+  useTeamSkills: () => ({
+    data: {
+      repository: 'acme/config',
+      skills: [{ key: 'our-migrations' }, { key: 'grafana-dashboards' }],
+    },
   }),
 }));
 vi.mock('@/hooks/api/useRunners', () => ({
@@ -341,6 +353,65 @@ describe('Station', () => {
       repositories: ['usespotlightai/spotlight', 'acme/web'],
     });
     expect(customised).not.toHaveBeenCalled();
+  });
+
+  it('proposes the team’s own skills picked for the station', async () => {
+    const user = userEvent.setup();
+    renderAt('station_1');
+
+    await user.click(screen.getByLabelText('Skills'));
+    await screen.findByRole('menu');
+    await user.click(
+      screen.getByRole('menuitemcheckbox', { name: 'our-migrations' }),
+    );
+    await propose();
+
+    expect(customised).toHaveBeenCalledWith({
+      teamId: 'team_1',
+      lineId: 'line_1',
+      stationId: 'station_1',
+      changes: { skills: ['our-migrations'] },
+    });
+  });
+
+  it('proposes the skills left once one the station has is un-picked', async () => {
+    const user = userEvent.setup();
+    renderAt('station_2');
+
+    await user.click(screen.getByLabelText('Skills'));
+    await screen.findByRole('menu');
+    await user.click(
+      screen.getByRole('menuitemcheckbox', { name: 'our-migrations' }),
+    );
+    await propose();
+
+    expect(customised).toHaveBeenCalledWith({
+      teamId: 'team_1',
+      lineId: 'line_1',
+      stationId: 'station_2',
+      changes: { skills: ['grafana-dashboards'] },
+    });
+  });
+
+  it('leaves the skills out of a proposal that does not change them', async () => {
+    const user = userEvent.setup();
+    renderAt('station_2');
+
+    await user.type(screen.getByLabelText('Station name'), ' out');
+    await propose();
+
+    expect(customised).toHaveBeenCalledWith({
+      teamId: 'team_1',
+      lineId: 'line_1',
+      stationId: 'station_2',
+      changes: { name: 'Spec out' },
+    });
+  });
+
+  it('offers the backlog no skills', () => {
+    renderAt('station_0');
+
+    expect(screen.queryByLabelText('Skills')).not.toBeInTheDocument();
   });
 
   it('proposes an emptied harness, so the station holds its work', async () => {

@@ -1,9 +1,9 @@
 {
   "openapi": "3.0.0",
   "paths": {
-    "/teams/{teamId}/assembly-lines": {
+    "/teams/{teamId}/lines": {
       "get": {
-        "operationId": "listAssemblyLines",
+        "operationId": "listLines",
         "parameters": [
           {
             "name": "teamId",
@@ -23,7 +23,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/AssemblyLineResponseDto"
+                    "$ref": "#/components/schemas/LineResponseDto"
                   }
                 }
               }
@@ -36,13 +36,13 @@
             "description": "No such team for this caller"
           }
         },
-        "summary": "List a team’s assembly lines, each with its stations in order",
+        "summary": "List a team’s lines, each with its stations in order",
         "tags": [
-          "assembly-lines"
+          "lines"
         ]
       }
     },
-    "/teams/{teamId}/assembly-lines/{lineId}/stations/{stationId}": {
+    "/teams/{teamId}/lines/{lineId}/stations/{stationId}": {
       "patch": {
         "operationId": "customiseStation",
         "parameters": [
@@ -107,11 +107,11 @@
         },
         "summary": "Change what a station is called, says, runs on and tells its agent",
         "tags": [
-          "assembly-lines"
+          "lines"
         ]
       }
     },
-    "/teams/{teamId}/assembly-lines/{lineId}/repositories": {
+    "/teams/{teamId}/lines/{lineId}/repositories": {
       "patch": {
         "operationId": "setLineRepositories",
         "parameters": [
@@ -167,7 +167,7 @@
         },
         "summary": "Set the repositories a line, and so its every station, works in",
         "tags": [
-          "assembly-lines"
+          "lines"
         ]
       }
     },
@@ -281,7 +281,7 @@
             "description": "No such run for this caller"
           }
         },
-        "summary": "Watch a run’s terminal, catching up on what was missed first",
+        "summary": "Watch a run’s journal, catching up on what was missed first",
         "tags": [
           "runs"
         ]
@@ -633,16 +633,25 @@
         ]
       }
     },
-    "/runs/{runId}/pull-request": {
+    "/runs/{runId}/tools/{tool}": {
       "post": {
-        "description": "Opened under Spotlight’s own credential. Nothing that reaches GitHub is ever sent to a runner.",
-        "operationId": "openPullRequest",
+        "description": "The input and the answer are the tool’s own. Only for a tool the run was given; any credential it needs is added by Spotlight, never sent by the run.",
+        "operationId": "useTool",
         "parameters": [
           {
             "name": "runId",
             "required": true,
             "in": "path",
             "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tool",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "pull-request",
               "type": "string"
             }
           }
@@ -652,7 +661,12 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/OpenPullRequestRequestDto"
+                "type": "object",
+                "additionalProperties": true,
+                "example": {
+                  "title": "Fix the queue",
+                  "body": "What it does."
+                }
               }
             }
           }
@@ -663,16 +677,31 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OpenedPullRequestResponseDto"
+                  "$ref": "#/components/schemas/ToolAnswerResponseDto"
                 }
               }
             }
           },
           "401": {
             "description": "Missing or wrong enrollment token"
+          },
+          "403": {
+            "description": "The run was not given this tool"
+          },
+          "404": {
+            "description": "No such run, station or tool for this runner"
+          },
+          "409": {
+            "description": "The run works no task to use it on"
+          },
+          "422": {
+            "description": "What the agent handed the tool is not what it takes"
+          },
+          "502": {
+            "description": "The integration the tool calls refused"
           }
         },
-        "summary": "Open a pull request for the branch this task was worked on",
+        "summary": "Do what a tool the run was given does",
         "tags": [
           "runners"
         ]
@@ -1314,7 +1343,7 @@
             "description": "No such team for this caller"
           }
         },
-        "summary": "What this team listens to, and what is wrong with it",
+        "summary": "What this team listens to, and where it reads that from",
         "tags": [
           "configuration"
         ]
@@ -1479,7 +1508,7 @@
             "description": "No such team for this caller"
           }
         },
-        "summary": "What this team still needs, and the tools it may choose",
+        "summary": "What this team still needs, and the integrations it may choose",
         "tags": [
           "configuration"
         ]
@@ -1533,9 +1562,9 @@
         ]
       }
     },
-    "/teams/{teamId}/configuration/tools": {
+    "/teams/{teamId}/configuration/integrations": {
       "post": {
-        "operationId": "chooseTools",
+        "operationId": "chooseIntegrations",
         "parameters": [
           {
             "name": "teamId",
@@ -1552,7 +1581,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ChooseToolsRequestDto"
+                "$ref": "#/components/schemas/ChooseIntegrationsRequestDto"
               }
             }
           }
@@ -1571,19 +1600,28 @@
           "401": {
             "description": "No valid session"
           },
+          "403": {
+            "description": "Not an owner or admin, and an integration needs secrets"
+          },
           "404": {
             "description": "No such team, or nowhere to write it yet"
+          },
+          "409": {
+            "description": "The team’s vault does not open with the key Spotlight holds"
+          },
+          "422": {
+            "description": "A secret an integration needs was not given"
           }
         },
-        "summary": "Write and remove configuration for the tools this team uses",
+        "summary": "Write and remove configuration for the integrations this team uses",
         "tags": [
           "configuration"
         ]
       }
     },
-    "/teams/{teamId}/configuration/secrets": {
+    "/teams/{teamId}/configuration/vault/key": {
       "post": {
-        "operationId": "setSecret",
+        "operationId": "revealVaultKey",
         "parameters": [
           {
             "name": "teamId",
@@ -1595,68 +1633,31 @@
             }
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetSecretRequestDto"
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VaultKeyResponseDto"
+                }
               }
             }
-          }
-        },
-        "responses": {
-          "204": {
-            "description": "Set"
           },
           "401": {
             "description": "No valid session"
           },
-          "404": {
-            "description": "No such team, or not yours to set one on"
-          }
-        },
-        "summary": "Set a secret this team’s integrations verify with",
-        "tags": [
-          "configuration"
-        ]
-      }
-    },
-    "/teams/{teamId}/configuration/secrets/{name}": {
-      "delete": {
-        "operationId": "forgetSecret",
-        "parameters": [
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "team_1",
-              "type": "string"
-            }
-          },
-          {
-            "name": "name",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "LINEAR_WEBHOOK_SECRET",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Forgotten"
-          },
-          "401": {
-            "description": "No valid session"
+          "403": {
+            "description": "Not an owner or admin of this team"
           },
           "404": {
-            "description": "No such team, or not yours to change"
+            "description": "No such team for this caller"
+          },
+          "409": {
+            "description": "The key Spotlight holds for this team cannot be read"
           }
         },
-        "summary": "Forget a secret, so nothing verifies with it again",
+        "summary": "Reveal the key this team’s secrets are encrypted with, issuing it the first time",
         "tags": [
           "configuration"
         ]
@@ -2348,7 +2349,7 @@
         ]
       }
     },
-    "/teams/{teamId}/assembly-lines/{lineId}/stations/{stationId}/tasks": {
+    "/teams/{teamId}/lines/{lineId}/stations/{stationId}/tasks": {
       "post": {
         "operationId": "addTask",
         "parameters": [
@@ -2465,7 +2466,7 @@
         ]
       }
     },
-    "/teams/{teamId}/assembly-lines/{lineId}/tasks/{taskId}/move": {
+    "/teams/{teamId}/lines/{lineId}/tasks/{taskId}/move": {
       "post": {
         "operationId": "moveTask",
         "parameters": [
@@ -2525,7 +2526,7 @@
             "description": "No such task or station for this caller"
           }
         },
-        "summary": "Move a task to another station on the same assembly line",
+        "summary": "Move a task to another station on the same line",
         "tags": [
           "tasks"
         ]
@@ -2792,6 +2793,44 @@
           "workspaces"
         ]
       }
+    },
+    "/teams/{teamId}/skills": {
+      "get": {
+        "operationId": "listTeamSkills",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "team_1",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamSkillsResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team for this caller"
+          }
+        },
+        "summary": "The skills this team defines in its configuration repository",
+        "tags": [
+          "skills"
+        ]
+      }
     }
   },
   "info": {
@@ -2814,6 +2853,11 @@
           "id": {
             "type": "string",
             "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80"
+          },
+          "key": {
+            "type": "string",
+            "example": "triage",
+            "description": "What the station is called in its line file, and what a run hands a task on to it by"
           },
           "name": {
             "type": "string",
@@ -2866,10 +2910,21 @@
               "completed"
             ],
             "description": "The ends of the line: a backlog is where a task waits before anything works it, and completed is where it lands once its pull request is merged"
+          },
+          "skills": {
+            "example": [
+              "our-migrations"
+            ],
+            "description": "The team’s own skills given to a run here",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
           "id",
+          "key",
           "name",
           "position",
           "color",
@@ -2878,7 +2933,8 @@
           "model",
           "effort",
           "agentPrompt",
-          "kind"
+          "kind",
+          "skills"
         ]
       },
       "ReactionResponseDto": {
@@ -2905,12 +2961,17 @@
           "to"
         ]
       },
-      "AssemblyLineResponseDto": {
+      "LineResponseDto": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string",
             "example": "7b2c9e14-3a5d-4c8f-b6e1-9d0a2f7c5b43"
+          },
+          "key": {
+            "type": "string",
+            "example": "delivery",
+            "description": "What the line is called in its file"
           },
           "name": {
             "type": "string",
@@ -2941,6 +3002,7 @@
         },
         "required": [
           "id",
+          "key",
           "name",
           "stations",
           "reactions",
@@ -2993,6 +3055,16 @@
             "maxLength": 20000,
             "nullable": true,
             "description": "Markdown, handed to the agent that works this station"
+          },
+          "skills": {
+            "example": [
+              "our-migrations"
+            ],
+            "description": "The team’s own skills given to a run here, by the folder each is defined in",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -3051,9 +3123,8 @@
           },
           "spec": {
             "type": "object",
-            "description": "Handed to the runner untouched: checkouts and cwd. The command is filled in from the harness, so it is not given here.",
+            "description": "Handed to the runner untouched: checkouts, briefing, handover and continuity. The command is filled in from the harness, so it is not given here.",
             "example": {
-              "cwd": "service",
               "checkouts": [
                 {
                   "remote": "https://github.com/org/service",
@@ -3156,11 +3227,6 @@
       "RegisterRunnerRequestDto": {
         "type": "object",
         "properties": {
-          "capacity": {
-            "type": "number",
-            "example": 1,
-            "description": "What the runner advertises. The control plane grants work."
-          },
           "harnesses": {
             "description": "The harnesses the runner found installed, each with the models it discovered. What is on a machine is a fact about that machine, so the machine is what says it.",
             "items": {
@@ -3195,16 +3261,11 @@
           "spec": {
             "type": "object",
             "description": "Opaque to the control plane, meaningful to the hook"
-          },
-          "leaseExpiresAt": {
-            "type": "string",
-            "example": "2026-08-23T18:01:00.000Z"
           }
         },
         "required": [
           "id",
-          "spec",
-          "leaseExpiresAt"
+          "spec"
         ]
       },
       "RunAttachmentResponseDto": {
@@ -3607,12 +3668,7 @@
           },
           "data": {
             "type": "string",
-            "description": "Terminal bytes, base64"
-          },
-          "offset": {
-            "type": "number",
-            "example": 0,
-            "description": "Position in the recording"
+            "description": "One session update as the agent reported it, JSON, base64"
           }
         },
         "required": [
@@ -3635,39 +3691,35 @@
           "events"
         ]
       },
-      "OpenPullRequestRequestDto": {
+      "ToolAnswerResponseDto": {
         "type": "object",
         "properties": {
-          "title": {
-            "type": "string",
-            "example": "Fix the queue"
-          },
-          "body": {
-            "type": "string",
+          "output": {
+            "description": "What the tool answered, shaped as the tool shapes it",
+            "example": "https://github.com/acme/api/pull/9",
             "nullable": true,
-            "description": "Markdown, shown as the pull request description"
-          },
-          "repository": {
-            "type": "string",
-            "example": "api",
-            "nullable": true,
-            "description": "Which of the line’s repositories to open against, by name. Left out where the line works only one."
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "object"
+              },
+              {
+                "type": "array",
+                "items": {}
+              }
+            ]
           }
         },
         "required": [
-          "title"
-        ]
-      },
-      "OpenedPullRequestResponseDto": {
-        "type": "object",
-        "properties": {
-          "url": {
-            "type": "string",
-            "example": "https://github.com/acme/widgets/pull/7"
-          }
-        },
-        "required": [
-          "url"
+          "output"
         ]
       },
       "AnswerRemarkRequestDto": {
@@ -3698,8 +3750,8 @@
         "properties": {
           "next": {
             "type": "string",
-            "example": "Spec",
-            "description": "The station to pass the task to, or \"review\" to ask a person. A name this line does not know is treated as a question for a person."
+            "example": "code-review",
+            "description": "The key of the station to pass the task to, as in code-review; \"review\" to ask a person; or \"done\" to close the task where it stands. Anything this line does not know is treated as a question for a person."
           },
           "note": {
             "type": "string",
@@ -4225,11 +4277,6 @@
                 "$ref": "#/components/schemas/RunSpentResponseDto"
               }
             ]
-          },
-          "readable": {
-            "type": "boolean",
-            "example": true,
-            "description": "False for a run from before the agents spoke a protocol"
           }
         },
         "required": [
@@ -4237,8 +4284,7 @@
           "attempt",
           "steps",
           "spans",
-          "marks",
-          "readable"
+          "marks"
         ]
       },
       "GrantAttachmentUploadRequestDto": {
@@ -4446,41 +4492,6 @@
           "url"
         ]
       },
-      "ConfiguredSecretResponseDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "example": "LINEAR_WEBHOOK_SECRET"
-          },
-          "set": {
-            "type": "boolean",
-            "description": "Whether the workspace has set it. Never its value.",
-            "example": true
-          }
-        },
-        "required": [
-          "name",
-          "set"
-        ]
-      },
-      "ConfiguredHappeningResponseDto": {
-        "type": "object",
-        "properties": {
-          "happening": {
-            "type": "string",
-            "example": "linear.issue.completed"
-          },
-          "label": {
-            "type": "string",
-            "example": "Issue completed"
-          }
-        },
-        "required": [
-          "happening",
-          "label"
-        ]
-      },
       "ConfiguredConnectionResponseDto": {
         "type": "object",
         "properties": {
@@ -4506,22 +4517,10 @@
             "type": "string",
             "example": "Linear"
           },
-          "deliverTo": {
+          "path": {
             "type": "string",
-            "description": "Where this host should be told to send its deliveries",
-            "example": "/api/webhooks/w/acme/linear"
-          },
-          "secrets": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ConfiguredSecretResponseDto"
-            }
-          },
-          "happenings": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ConfiguredHappeningResponseDto"
-            }
+            "description": "The file in the configuration repository it is written in",
+            "example": ".spotlight/integrations/linear.yml"
           },
           "connectable": {
             "type": "boolean",
@@ -4542,33 +4541,9 @@
         "required": [
           "source",
           "name",
-          "deliverTo",
-          "secrets",
-          "happenings",
+          "path",
           "connectable",
           "connection"
-        ]
-      },
-      "ConfigProblemResponseDto": {
-        "type": "object",
-        "properties": {
-          "path": {
-            "type": "string",
-            "example": ".spotlight/integrations/linear.yml"
-          },
-          "at": {
-            "type": "string",
-            "example": "happenings.0.when"
-          },
-          "reason": {
-            "type": "string",
-            "example": "must be an expression"
-          }
-        },
-        "required": [
-          "path",
-          "at",
-          "reason"
         ]
       },
       "ConfigurationResponseDto": {
@@ -4585,20 +4560,10 @@
             "nullable": true,
             "example": "a1b2c3d"
           },
-          "readAt": {
-            "type": "string",
-            "nullable": true
-          },
           "integrations": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ConfiguredIntegrationResponseDto"
-            }
-          },
-          "problems": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ConfigProblemResponseDto"
             }
           },
           "readsFrom": {
@@ -4617,9 +4582,7 @@
         "required": [
           "repository",
           "sha",
-          "readAt",
           "integrations",
-          "problems",
           "readsFrom",
           "movingTo"
         ]
@@ -4687,7 +4650,7 @@
               "github",
               "repository",
               "configuration",
-              "tools"
+              "integrations"
             ],
             "example": "runner"
           },
@@ -4725,7 +4688,7 @@
           },
           "name": {
             "type": "string",
-            "example": "Software Delivery"
+            "example": "Delivery"
           },
           "harness": {
             "type": "string",
@@ -4761,7 +4724,7 @@
           "repositories"
         ]
       },
-      "KnownToolResponseDto": {
+      "KnownIntegrationResponseDto": {
         "type": "object",
         "properties": {
           "source": {
@@ -4776,21 +4739,28 @@
             "type": "string",
             "example": "Move a task on when its issue is done."
           },
-          "secretCalled": {
-            "type": "string",
-            "example": "the signing secret on the webhook you create"
+          "secrets": {
+            "description": "The secrets its starting file reads, by name",
+            "example": [
+              "LINEAR_WEBHOOK_SECRET"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
-          "chosen": {
-            "type": "boolean",
-            "description": "Whether this team already listens to it"
+          "deliverTo": {
+            "type": "string",
+            "description": "Where this integration should be told to send its deliveries",
+            "example": "https://hooks.usespotlight.ai/api/webhooks/w/acme/t/platform/linear"
           }
         },
         "required": [
           "source",
           "name",
           "summary",
-          "secretCalled",
-          "chosen"
+          "secrets",
+          "deliverTo"
         ]
       },
       "OnboardingResponseDto": {
@@ -4830,10 +4800,10 @@
               "$ref": "#/components/schemas/OnboardingLineResponseDto"
             }
           },
-          "tools": {
+          "integrations": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/KnownToolResponseDto"
+              "$ref": "#/components/schemas/KnownIntegrationResponseDto"
             }
           }
         },
@@ -4844,7 +4814,7 @@
           "configRepository",
           "repositoryOwner",
           "lines",
-          "tools"
+          "integrations"
         ]
       },
       "SetUpLineRequestDto": {
@@ -4898,7 +4868,7 @@
           "lines"
         ]
       },
-      "ChooseToolsRequestDto": {
+      "ChooseIntegrationsRequestDto": {
         "type": "object",
         "properties": {
           "sources": {
@@ -4921,29 +4891,33 @@
             "items": {
               "type": "string"
             }
+          },
+          "secrets": {
+            "type": "object",
+            "description": "The secrets the chosen integrations read, by name. Spotlight encrypts them into the team’s vault",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "example": {
+              "LINEAR_WEBHOOK_SECRET": "lin_wh_..."
+            }
           }
         },
         "required": [
           "sources"
         ]
       },
-      "SetSecretRequestDto": {
+      "VaultKeyResponseDto": {
         "type": "object",
         "properties": {
-          "name": {
+          "key": {
             "type": "string",
-            "description": "What the configuration calls it. Never its value.",
-            "example": "LINEAR_WEBHOOK_SECRET"
-          },
-          "value": {
-            "type": "string",
-            "description": "Written once and never read back out of Spotlight.",
-            "example": "whsec_..."
+            "description": "The passphrase that opens .spotlight/secrets.vault, as in age -d .spotlight/secrets.vault",
+            "example": "Gk3qVb8Rz2mJwYtR9cH4nLpZ6sA1eGuFoKiMxBy7TwQ"
           }
         },
         "required": [
-          "name",
-          "value"
+          "key"
         ]
       },
       "RenameTeamRequestDto": {
@@ -5729,7 +5703,7 @@
           "stationId": {
             "type": "string",
             "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80",
-            "description": "The station to move the task to, on the same assembly line"
+            "description": "The station to move the task to, on the same line"
           },
           "afterTaskId": {
             "type": "string",
@@ -5967,6 +5941,50 @@
         },
         "required": [
           "role"
+        ]
+      },
+      "TeamSkillResponseDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "grafana-dashboards"
+          },
+          "description": {
+            "type": "string",
+            "example": "Reading this team’s dashboards."
+          },
+          "path": {
+            "type": "string",
+            "example": ".spotlight/skills/grafana-dashboards",
+            "description": "Its folder in the configuration repository"
+          }
+        },
+        "required": [
+          "key",
+          "description",
+          "path"
+        ]
+      },
+      "TeamSkillsResponseDto": {
+        "type": "object",
+        "properties": {
+          "repository": {
+            "type": "string",
+            "example": "acme/config",
+            "nullable": true,
+            "description": "Where the skills were read from"
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamSkillResponseDto"
+            }
+          }
+        },
+        "required": [
+          "repository",
+          "skills"
         ]
       }
     }

@@ -2,11 +2,7 @@ import type { RunOutcomes } from '@application/services/run-outcomes';
 import type { RunAbandoned } from '@domain/events/run-abandoned.event';
 import type { RunCompleted } from '@domain/events/run-completed.event';
 
-/**
- * What a finished run means to more than one part of the system: where the
- * task goes next, and what the run came to. Told in order, because handing the
- * task on is the part that must not be held up by anything else.
- */
+// Order matters: handing the task on runs first and must not be held up by the rest.
 export class RunOutcomesFanOut implements RunOutcomes {
   private readonly told: readonly RunOutcomes[];
 

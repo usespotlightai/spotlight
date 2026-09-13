@@ -18,8 +18,6 @@ describe('WebhookSources', () => {
     expect(sources.find('sentry')?.key).toBe('sentry');
   });
 
-  // A delivery to a source nobody registered is nobody's to act on, and
-  // guessing which was meant would act on the wrong host's word.
   it('finds nothing for a source nobody registered', () => {
     expect(WebhookSources.of([source('github')]).find('sentry')).toBeNull();
   });
@@ -28,8 +26,6 @@ describe('WebhookSources', () => {
     expect(WebhookSources.of([source('github')]).find('')).toBeNull();
   });
 
-  // Asked when something wants a source, not before: what is registered is
-  // only settled once everything has been put together.
   it('asks for its sources no sooner than it is asked itself', () => {
     let asked = 0;
     const sources = new WebhookSources(() => {

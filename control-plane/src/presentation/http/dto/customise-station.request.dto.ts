@@ -53,4 +53,13 @@ export class CustomiseStationRequestDto {
     description: 'Markdown, handed to the agent that works this station',
   })
   readonly agentPrompt?: string | null;
+
+  @ApiPropertyOptional({
+    example: ['our-migrations'],
+    isArray: true,
+    type: String,
+    description:
+      'The team’s own skills given to a run here, by the folder each is defined in',
+  })
+  readonly skills?: string[];
 }

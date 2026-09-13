@@ -10,8 +10,6 @@ import (
 	"usespotlight.ai/runner/internal/protocol"
 )
 
-// onPath puts a runnable file where LookPath will find it, and answers with
-// its name.
 func onPath(t *testing.T, name string) string {
 	t.Helper()
 
@@ -36,8 +34,6 @@ func TestReportsWhatIsThere(t *testing.T) {
 	}
 }
 
-// A harness the control plane knows about but this machine does not have is
-// simply left out: the runner says what it has, not what it was asked about.
 func TestLeavesOutWhatIsNotThere(t *testing.T) {
 	onPath(t, "here")
 
@@ -51,8 +47,6 @@ func TestLeavesOutWhatIsNotThere(t *testing.T) {
 	}
 }
 
-// A discovery command's stdout is read a model id per line: the first token of
-// each line, when it looks like an id. Headers and decorations are left out.
 func TestDiscoversModelsFromTheCommand(t *testing.T) {
 	dir := t.TempDir()
 	script := filepath.Join(dir, "lister")
@@ -60,7 +54,7 @@ func TestDiscoversModelsFromTheCommand(t *testing.T) {
 		"echo 'Available models:'\n" +
 		"echo 'sonnet-4.5'\n" +
 		"echo 'gpt-5   (default)'\n" +
-		"echo 'sonnet-4.5'\n" + // a repeat is reported once
+		"echo 'sonnet-4.5'\n" +
 		"echo 'GARBAGE'\n"
 	if err := os.WriteFile(script, []byte(body), 0o755); err != nil {
 		t.Fatal(err)
@@ -86,8 +80,6 @@ func TestDiscoversModelsFromTheCommand(t *testing.T) {
 	}
 }
 
-// A harness with no discovery command, or one that fails, simply reports no
-// models: the control plane falls back to what it knows.
 func TestReportsNoModelsWithoutDiscovery(t *testing.T) {
 	executable := onPath(t, "bare")
 
@@ -106,8 +98,6 @@ func TestNothingAskedAboutIsNothingReported(t *testing.T) {
 	}
 }
 
-// The runner reads no meaning into the list, so a malformed entry is skipped
-// rather than guessed at.
 func TestSkipsAnEntryThatNamesNothing(t *testing.T) {
 	onPath(t, "here")
 

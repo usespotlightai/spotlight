@@ -23,7 +23,6 @@ import { WorkspaceConnected } from '@domain/events/workspace-connected.event';
 import { WorkspaceMemberJoined } from '@domain/events/workspace-member-joined.event';
 import { WorkspaceMemberRoleChanged } from '@domain/events/workspace-member-role-changed.event';
 
-// Each event is handled in its own transaction; a handler that throws is logged and passed over, not retried.
 export class RoutingDispatcher implements DomainEventDispatcher {
   constructor(
     private readonly outcomes: RunOutcomes,
@@ -48,7 +47,6 @@ export class RoutingDispatcher implements DomainEventDispatcher {
   }
 
   private async route(event: DomainEvent): Promise<void> {
-    // Its kind is its identity; the union narrows it back to a typed event.
     const known = event as Routable;
 
     switch (known.kind) {
@@ -63,26 +61,21 @@ export class RoutingDispatcher implements DomainEventDispatcher {
       case 'runner.revoked':
         return this.revocation.onRunnerRevoked(known);
       case 'task.finished':
-        // No subscriber yet; recorded for the trail only.
         this.logger.debug({ event: known.kind }, 'A task finished');
         return;
       case 'run.stop_requested':
-        // No subscriber; the runner acts on it by asking, not by being told.
         this.logger.debug({ event: known.kind }, 'A run was asked to stop');
         return;
       case 'host.connected':
-        // No subscriber yet; recorded for the trail only.
         this.logger.debug({ event: known.kind }, 'A host was connected');
         return;
       case 'team.configuration-move-started':
-        // No subscriber yet; recorded for the trail only.
         this.logger.debug(
           { event: known.kind, teamId: known.teamId.value },
           'A team started moving its configuration',
         );
         return;
       case 'team.configuration-moved':
-        // No subscriber yet; recorded for the trail only.
         this.logger.debug(
           { event: known.kind, teamId: known.teamId.value },
           'A team’s configuration moved',

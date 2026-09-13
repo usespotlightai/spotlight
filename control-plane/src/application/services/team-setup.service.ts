@@ -9,15 +9,9 @@ import { GitHubInstallation } from '@domain/value-objects/github-installation.vo
 import type { TeamId } from '@domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 
-/**
- * What a team has and has not got. More than the list needs: where
- * configuration is kept and which tools are listened to are shown to a
- * person, and the list only asks whether there are any.
- */
 export interface TeamFacts {
   readonly hasRunner: boolean;
   readonly connectedToGitHub: boolean;
-  /** The GitHub installation this team works through, where it has one. */
   readonly installation: GitHubInstallation | null;
   readonly configRepository: string | null;
   readonly hasConfiguration: boolean;
@@ -29,17 +23,9 @@ export const asSetupState = (facts: TeamFacts): SetupState => ({
   connectedToGitHub: facts.connectedToGitHub,
   hasRepository: facts.configRepository !== null,
   hasConfiguration: facts.hasConfiguration,
-  listensToATool: facts.listening.length > 0,
+  listensToAnIntegration: facts.listening.length > 0,
 });
 
-/**
- * Where a team stands on the list it was opened with, read in one place so
- * the list shown and the list counted cannot disagree.
- *
- * Loads what holds the answers rather than anything kept ready: a team's
- * whole configuration is read to find out whether it listens to anything.
- * Worth knowing before asking this anywhere hotter than opening a page.
- */
 export class TeamSetup {
   constructor(
     private readonly connections: WorkspaceConnections,

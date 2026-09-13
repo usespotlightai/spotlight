@@ -50,8 +50,6 @@ export class GitHubConnectionController {
       string | null
     >(new ConnectGitHubCommand(slug, user.id, body.installationId));
 
-    // Null rather than thrown, so a workspace someone cannot see is not told
-    // apart from one that is not there.
     if (connected === null) {
       throw new NotFoundException();
     }

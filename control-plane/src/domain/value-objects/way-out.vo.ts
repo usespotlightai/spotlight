@@ -1,6 +1,5 @@
 import type { StationId } from '@domain/value-objects/station-id.vo';
 
-/** How work leaves a station, besides being put to a person. */
 export class WayOut {
   private constructor(
     readonly stations: readonly StationId[],

@@ -96,8 +96,12 @@ const working = (state: PollState = { cursor: null, ranAt: null }) => {
         }),
     } as unknown as FactoryRepository,
     {
-      resolve: async (_team: unknown, name: { value: string }) =>
-        name.value === 'LINEAR_TOKEN' ? 'lin_1' : null,
+      resolveAll: async (_team: unknown, names: readonly { value: string }[]) =>
+        Object.fromEntries(
+          names
+            .filter((name) => name.value === 'LINEAR_TOKEN')
+            .map((name) => [name.value, 'lin_1']),
+        ),
     } as unknown as TeamSecretsPort,
     {
       read: async () => state,
@@ -188,7 +192,12 @@ describe('WorkOffPolls', () => {
             teamId: TEAM,
           }),
       } as unknown as FactoryRepository,
-      { resolve: async () => 'lin_1' } as unknown as TeamSecretsPort,
+      {
+        resolveAll: async (
+          _team: unknown,
+          names: readonly { value: string }[],
+        ) => Object.fromEntries(names.map((name) => [name.value, 'lin_1'])),
+      } as unknown as TeamSecretsPort,
       {
         read: async () => ({ cursor: 'ENG-0', ranAt: null }),
         saved,
@@ -203,8 +212,6 @@ describe('WorkOffPolls', () => {
     await failing.workOff();
 
     expect(react).not.toHaveBeenCalled();
-    // The poll is still marked run at the same cursor, so it retries next time
-    // it is due rather than hammering the host every tick.
     expect(saved).toHaveBeenCalledWith(TEAM, 'linear', 'ENG-0', NOW);
   });
 });

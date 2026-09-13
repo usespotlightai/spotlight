@@ -1,14 +1,14 @@
 import { Navigate, useParams } from 'react-router';
-import { useAssemblyLines } from '@/hooks/api/useAssemblyLines';
+import { useLines } from '@/hooks/api/useLines';
 import {
-  assemblyLinePath,
   FALLBACK_TEAM_SECTION_ID,
+  linePath,
   teamSectionPath,
 } from '@/lib/team';
 
 export function TeamIndex() {
   const { slug, teamId } = useParams();
-  const { data: lines, isPending } = useAssemblyLines(teamId);
+  const { data: lines, isPending } = useLines(teamId);
 
   if (!slug || !teamId || isPending) {
     return null;
@@ -21,7 +21,7 @@ export function TeamIndex() {
       replace
       to={
         first
-          ? assemblyLinePath(slug, teamId, first.id)
+          ? linePath(slug, teamId, first.id)
           : teamSectionPath(slug, teamId, FALLBACK_TEAM_SECTION_ID)
       }
     />

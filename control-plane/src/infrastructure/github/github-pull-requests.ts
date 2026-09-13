@@ -9,11 +9,11 @@ import {
   type RepositoryAccessPort,
 } from '@application/ports/repository-access.port';
 import { UpstreamRefusedError } from '@domain/exceptions/upstream-refused.error';
+import type { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import type { Repository } from '@domain/value-objects/repository.vo';
 import { answered, call, sending } from '@infrastructure/github/github.rest';
 import { Inject, Injectable } from '@nestjs/common';
 
-/** An ordinary file, which is all Spotlight ever writes. */
 const FILE = '100644';
 
 const NOT_FOUND = 404;
@@ -54,7 +54,6 @@ export class GitHubPullRequests implements PullRequestPort {
     const token = await this.tokenFor(proposal);
     const into = await this.defaultBranch(proposal.repository, token);
 
-    // Branched from where it will be merged, so the diff is only ours.
     const from = await this.headOf(proposal.repository, into, token);
 
     if (!from) {
@@ -64,26 +63,41 @@ export class GitHubPullRequests implements PullRequestPort {
       );
     }
 
-    // Written on top of the branch where one is already open, so proposing
-    // again amends the pull request rather than losing what it carried.
     const standing = await this.headOf(
       proposal.repository,
       proposal.branch,
       token,
     );
 
-    const commit = await this.commit(proposal, token, standing ?? from);
+    const already = standing
+      ? await this.pullRequestFor(proposal, token, into)
+      : null;
+
+    const commit = await this.commit(
+      proposal,
+      token,
+      already && standing ? standing : from,
+    );
 
     await this.pointBranchAt(proposal, token, commit, standing !== null);
-
-    // A branch already open has a pull request already open with it. GitHub
-    // refuses a second, and the first now carries the new commit anyway.
-    const already = await this.pullRequestFor(proposal, token, into);
 
     return already ?? this.pullRequest(proposal, token, into);
   }
 
-  /** One commit holding every file, so the branch is never half written. */
+  async openFor(
+    installation: GitHubInstallation,
+    repository: Repository,
+    branch: string,
+  ): Promise<OpenedPullRequestDto | null> {
+    const { password: token } = await this.access.credential(installation);
+
+    return this.pullRequestFor(
+      { repository, branch },
+      token,
+      await this.defaultBranch(repository, token),
+    );
+  }
+
   private async commit(
     proposal: PullRequestProposal,
     token: string,
@@ -160,7 +174,7 @@ export class GitHubPullRequests implements PullRequestPort {
     const response = standing
       ? await call(`${at}/git/refs/heads/${proposal.branch}`, token, {
           method: 'PATCH',
-          body: JSON.stringify({ sha: commit }),
+          body: JSON.stringify({ sha: commit, force: true }),
         })
       : await call(
           `${at}/git/refs`,
@@ -174,7 +188,6 @@ export class GitHubPullRequests implements PullRequestPort {
     );
   }
 
-  /** Where a branch stands, or nothing where the repository has no such one. */
   private async headOf(
     repository: Repository,
     branch: string,
@@ -205,7 +218,7 @@ export class GitHubPullRequests implements PullRequestPort {
   }
 
   private async pullRequestFor(
-    proposal: PullRequestProposal,
+    proposal: Pick<PullRequestProposal, 'repository' | 'branch'>,
     token: string,
     into: string,
   ): Promise<OpenedPullRequestDto | null> {

@@ -20,10 +20,6 @@ const LEASE_DURATION_MS = 60_000;
 
 const MAX_ATTEMPTS = 3;
 
-/**
- * One unit of work a runner claims. A runner reporting nothing for a lease's
- * length is indistinguishable from one that died, so both requeue the run.
- */
 export class Run extends EventRecorder {
   private constructor(
     readonly id: RunId,
@@ -31,7 +27,6 @@ export class Run extends EventRecorder {
     readonly harness: HarnessId,
     readonly priority: RunPriority,
     readonly taskId: TaskId | null,
-    // A task moves on; the station a run worked does not.
     readonly stationId: StationId | null,
     readonly spec: RunSpec,
     readonly targetRunner: RunnerId | null,
@@ -40,7 +35,6 @@ export class Run extends EventRecorder {
     readonly leaseExpiresAt: Date | null,
     readonly result: RunOutcome | null,
     readonly attempt: number,
-    // When a person asked the run to stop; null until they do.
     readonly stopRequestedAt: Date | null,
   ) {
     super();
@@ -133,7 +127,6 @@ export class Run extends EventRecorder {
     }
   }
 
-  /** Which row gets here is the queue's problem, settled in the database. */
   claim(by: RunnerId, now: Date): Run {
     if (this.state !== 'queued') {
       throw new InvalidRunTransitionError(
@@ -180,7 +173,6 @@ export class Run extends EventRecorder {
     return abandoned;
   }
 
-  /** Queued again, on a fresh attempt so its telling is not taken for the last. */
   private backOnTheQueue(): Run {
     return this.with({
       state: 'queued',
@@ -190,7 +182,6 @@ export class Run extends EventRecorder {
     });
   }
 
-  /** Whatever its lease says: waiting it out abandons the work for that long. */
   release(): Run {
     if (this.state !== 'claimed') {
       throw new InvalidRunTransitionError(
@@ -234,11 +225,6 @@ export class Run extends EventRecorder {
     return ended;
   }
 
-  /**
-   * A person asks the run to stop. Only a claimed run can be, and asking twice
-   * changes nothing. This is not the end of the run: the runner sees the
-   * request, ends the work, and completes it.
-   */
   requestStop(now: Date): Run {
     if (this.state !== 'claimed') {
       throw new InvalidRunTransitionError(

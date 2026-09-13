@@ -14,8 +14,6 @@ export function RunBriefing({ briefing, attachments }: RunBriefingProps) {
   const [open, setOpen] = useState(false);
   const text = useRef<HTMLParagraphElement>(null);
 
-  // Folding it away leaves whatever was scrolled to, which is not where it
-  // begins: a prompt read from its middle says nothing.
   const toggle = () => {
     if (open && text.current) {
       text.current.scrollTop = 0;
@@ -35,9 +33,6 @@ export function RunBriefing({ briefing, attachments }: RunBriefingProps) {
           }
           className="group/briefing relative block w-full text-left outline-none"
         >
-          {/* Held at the top, the whole of it would cover the work it asked
-              for. Cut short and faded until it is asked for, scrolled after:
-              it never takes more of the view than this. */}
           <p
             ref={text}
             className={cn(

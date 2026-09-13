@@ -31,7 +31,6 @@ describe('WorkspaceRegistration', () => {
     expect(workspace.slug.value).toBe('acme-inc');
   });
 
-  // Neither is worth having without the other, so both are made together.
   it('opens it with a team belonging to it', async () => {
     const { workspace, firstTeam } = await register(registry(false));
 
@@ -39,7 +38,6 @@ describe('WorkspaceRegistration', () => {
     expect(firstTeam.workspaceId).toEqual(workspace.id);
   });
 
-  // The workspace's name is the workspace's. A person names the team.
   it('takes the team name it was given rather than the workspace name', async () => {
     const { firstTeam } = await register(registry(false), 'Payments');
 
@@ -47,7 +45,6 @@ describe('WorkspaceRegistration', () => {
     expect(firstTeam.key.value).toBe('payments');
   });
 
-  // A team opened is the team's own news.
   it('has the team say it was opened', async () => {
     const { firstTeam } = await register(registry(false));
 

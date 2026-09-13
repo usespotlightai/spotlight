@@ -40,8 +40,6 @@ export class ListRepositoriesHandler
         ),
       );
 
-      // Connected to nothing is not the same as not found: the workspace is
-      // there, and there is simply nothing yet to raise a task against.
       return installation ? await this.catalog.list(installation) : [];
     } catch (error) {
       rethrowAsFault(error);

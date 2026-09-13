@@ -22,8 +22,6 @@ describe('rethrowAsFault', () => {
     expect(fault.kind).toBe('invalid-input');
   });
 
-  // Losing this leaves the caller a 500 and no idea what to do about it: the
-  // reason is the whole value of the failure.
   it('carries what an upstream refused, and why', () => {
     const fault = thrown(
       new UpstreamRefusedError(

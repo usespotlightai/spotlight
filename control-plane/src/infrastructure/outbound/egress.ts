@@ -1,11 +1,6 @@
 import { EgressRefusedError } from '@domain/exceptions/egress-refused.error';
 
-/**
- * The deployment's outbound allowlist, as a gate any outbound call passes
- * through. A templated URL — or an OAuth2 token endpoint — carries real secrets,
- * so where Spotlight may reach is the deployment's to say, never a config
- * author's. Empty allows nothing.
- */
+// Hosts are the deployment's to allow, never a config author's.
 export class Egress {
   private readonly allowed: readonly string[];
 

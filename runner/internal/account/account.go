@@ -9,23 +9,16 @@ import (
 	"syscall"
 )
 
-// User is the account the agent runs as. A separate account is what makes the
-// separation real: the runner's environment, token and files stop being
-// readable through /proc or the filesystem, not just absent from what the
-// agent is handed.
+// A separate account keeps the runner's env, token and files unreadable via /proc.
 type User struct {
 	UID uint32
 	GID uint32
-	// An agent CLI reads its configuration from HOME and runs commands through
-	// SHELL, so an agent given neither is refused by its own tools.
+	// Agent CLIs refuse to work without HOME and SHELL.
 	Name  string
 	Home  string
 	Shell string
 }
 
-// LookupUser resolves the account the agent should run as. An empty name runs
-// it as the runner, which is all an unprivileged host can do: dropping to
-// another user needs root.
 func LookupUser(name string) (*User, error) {
 	if name == "" {
 		return nil, nil
@@ -61,8 +54,6 @@ func LookupUser(name string) (*User, error) {
 	}, nil
 }
 
-// SysProcAttr drops a process to this account, in its own process group so
-// the whole tree can be signalled at once.
 func (u *User) SysProcAttr() *syscall.SysProcAttr {
 	if u == nil {
 		return nil
@@ -73,11 +64,8 @@ func (u *User) SysProcAttr() *syscall.SysProcAttr {
 	}
 }
 
-// DefaultShell is what an account with none recorded is given. Something has
-// to answer, or every command the agent runs fails before it starts.
 const DefaultShell = "/bin/sh"
 
-// shellOf reads the account's login shell, which os/user does not carry.
 func shellOf(name string) string {
 	passwd, err := os.ReadFile("/etc/passwd")
 	if err != nil {

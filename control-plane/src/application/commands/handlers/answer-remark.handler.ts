@@ -7,7 +7,7 @@ import type { RunAtHand } from '@application/services/run-at-hand.service';
 import { InvalidTaskTransitionError } from '@domain/exceptions/invalid-task-transition.error';
 import { NoGitHubInstallationError } from '@domain/exceptions/no-github-installation.error';
 import { NoRepositoryError } from '@domain/exceptions/no-repository.error';
-import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
+import type { LineRepository } from '@domain/repositories/line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import type { WorkspaceConnections } from '@domain/repositories/workspace.repository';
 import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
@@ -22,7 +22,7 @@ export class AnswerRemarkHandler
   constructor(
     private readonly held: RunAtHand,
     private readonly tasks: TaskRepository,
-    private readonly lines: AssemblyLineRepository,
+    private readonly lines: LineRepository,
     private readonly workspaces: WorkspaceConnections,
     private readonly remarks: RemarksPort,
     private readonly clock: ClockPort,
@@ -41,8 +41,6 @@ export class AnswerRemarkHandler
         throw new NoRepositoryError();
       }
 
-      // The run speaks for where it was dispatched from. A task that has
-      // moved on is somebody else's to answer for.
       if (!run.stationId || !task.stationId.equals(run.stationId)) {
         throw new InvalidTaskTransitionError(
           'has moved on from there, so there is nothing left to answer for',
@@ -62,9 +60,7 @@ export class AnswerRemarkHandler
         throw new NoGitHubInstallationError();
       }
 
-      // Sent before it is written down: a remark answered in the trail but
-      // never on the pull request would be answered nowhere that matters.
-      // Answering twice says the same thing, which the host is told to skip.
+      // Post to the host before recording, so the trail never holds an answer the pull request lacks.
       await this.remarks.answer({
         installation,
         repository,

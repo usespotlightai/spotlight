@@ -15,7 +15,6 @@ describe('SecretName', () => {
     expect(SecretName.of('A_B').equals(SecretName.of('A_C'))).toBe(false);
   });
 
-  // One spelling per secret, so configuration naming it cannot miss by case.
   it('refuses anything but capitals, digits and underscores', () => {
     for (const named of ['linear', 'Linear_Secret', 'A-B', 'A B', '', '1A']) {
       expect(() => SecretName.of(named)).toThrow(InvalidIdentifierError);

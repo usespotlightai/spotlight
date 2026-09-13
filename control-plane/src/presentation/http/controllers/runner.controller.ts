@@ -1,6 +1,5 @@
 import { AnswerRemarkCommand } from '@application/commands/answer-remark.command';
 import { DeliverSaidCommand } from '@application/commands/deliver-said.command';
-import { OpenPullRequestCommand } from '@application/commands/open-pull-request.command';
 import {
   AppendRunEventsCommand,
   ClaimRunCommand,
@@ -8,14 +7,15 @@ import {
   RegisterRunnerCommand,
   RenewLeaseCommand,
 } from '@application/commands/runner.commands';
+import { UseToolCommand } from '@application/commands/use-tool.command';
 import type { HarnessDto } from '@application/dto/harness.dto';
 import type { PendingMessageDto } from '@application/dto/pending-message.dto';
-import type { OpenedPullRequestDto } from '@application/dto/pull-request.dto';
 import type {
   ClaimedRunDto,
   RegisteredRunnerDto,
 } from '@application/dto/run.dto';
 import type { TaskTraceDto } from '@application/dto/task-trace.dto';
+import type { ToolAnswerDto } from '@application/dto/tool-answer.dto';
 import type { AttachmentContent } from '@application/ports/attachment-store.port';
 import { ListHarnessesQuery } from '@application/queries/list-harnesses.query';
 import { ListKeptWorkspacesQuery } from '@application/queries/list-kept-workspaces.query';
@@ -37,12 +37,18 @@ import {
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
+  ApiBadGatewayResponse,
+  ApiBody,
+  ApiConflictResponse,
+  ApiForbiddenResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiTags,
   ApiUnauthorizedResponse,
+  ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { CurrentRunner } from '@presentation/http/decorators/current-runner.decorator';
 import { RunnerOnly } from '@presentation/http/decorators/runner-only.decorator';
@@ -53,24 +59,19 @@ import {
   AppendRunEventsRequestDto,
   CompleteRunRequestDto,
   DeliverSaidRequestDto,
-  OpenPullRequestRequestDto,
   PendingMessageResponseDto,
   RegisterRunnerRequestDto,
   RunAttachmentResponseDto,
 } from '@presentation/http/dto/runner.request.dto';
 import {
   ClaimedRunResponseDto,
-  OpenedPullRequestResponseDto,
   RegisteredRunnerResponseDto,
   RenewLeaseResponseDto,
+  ToolAnswerResponseDto,
 } from '@presentation/http/dto/runner.response.dto';
 import { TaskTraceResponseDto } from '@presentation/http/dto/task-trace.response.dto';
 import { TaskTraceHttpMapper } from '@presentation/http/mappers/task-trace.http.mapper';
 
-/**
- * Only what setting an empty answer needs. Typed structurally, since the
- * presentation layer may not import the framework's own response.
- */
 interface Answerable {
   status(code: number): unknown;
 }
@@ -174,11 +175,7 @@ export class RunnerController {
       return undefined;
     }
 
-    return new ClaimedRunResponseDto(
-      claimed.id,
-      claimed.spec,
-      claimed.leaseExpiresAt,
-    );
+    return new ClaimedRunResponseDto(claimed.id, claimed.spec);
   }
 
   @Get('runs/:runId/messages')
@@ -315,34 +312,48 @@ export class RunnerController {
     );
   }
 
-  @Post('runs/:runId/pull-request')
+  @Post('runs/:runId/tools/:tool')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    operationId: 'openPullRequest',
-    summary: 'Open a pull request for the branch this task was worked on',
+    operationId: 'useTool',
+    summary: 'Do what a tool the run was given does',
     description:
-      'Opened under Spotlight\u2019s own credential. Nothing that reaches ' +
-      'GitHub is ever sent to a runner.',
+      'The input and the answer are the tool\u2019s own. Only for a tool the ' +
+      'run was given; any credential it needs is added by Spotlight, never ' +
+      'sent by the run.',
   })
-  @ApiOkResponse({ type: OpenedPullRequestResponseDto })
-  async openPullRequest(
+  @ApiParam({ name: 'tool', example: 'pull-request' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      additionalProperties: true,
+      example: { title: 'Fix the queue', body: 'What it does.' },
+    },
+  })
+  @ApiOkResponse({ type: ToolAnswerResponseDto })
+  @ApiForbiddenResponse({ description: 'The run was not given this tool' })
+  @ApiNotFoundResponse({
+    description: 'No such run, station or tool for this runner',
+  })
+  @ApiConflictResponse({ description: 'The run works no task to use it on' })
+  @ApiUnprocessableEntityResponse({
+    description: 'What the agent handed the tool is not what it takes',
+  })
+  @ApiBadGatewayResponse({
+    description: 'The integration the tool calls refused',
+  })
+  async useTool(
     @Param('runId') runId: string,
+    @Param('tool') tool: string,
     @CurrentRunner() runnerId: string,
-    @Body() body: OpenPullRequestRequestDto,
-  ): Promise<OpenedPullRequestResponseDto> {
-    const opened = await this.commandBus.execute<
-      OpenPullRequestCommand,
-      OpenedPullRequestDto
-    >(
-      new OpenPullRequestCommand(
-        runId,
-        runnerId,
-        body.title,
-        body.body ?? '',
-        body.repository ?? null,
-      ),
-    );
+    @Body() input: Record<string, unknown>,
+  ): Promise<ToolAnswerResponseDto> {
+    const answered = await this.commandBus.execute<
+      UseToolCommand,
+      ToolAnswerDto
+    >(new UseToolCommand(runId, runnerId, tool, input ?? {}));
 
-    return new OpenedPullRequestResponseDto(opened.url);
+    return new ToolAnswerResponseDto(answered.output);
   }
 
   @Post('runs/:runId/remark')

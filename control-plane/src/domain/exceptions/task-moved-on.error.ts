@@ -1,7 +1,3 @@
-/**
- * Somebody else wrote this task between it being read and being written, so
- * what was decided was decided against a task that no longer stands.
- */
 export class TaskMovedOnError extends Error {
   readonly violation = 'conflict' as const;
 

@@ -43,7 +43,6 @@ const digest = (over: Partial<RunOutcome> = {}): RunOutcome => ({
 });
 
 describe('TeamTraceMapper', () => {
-  // A task worked three times was paid for three times.
   it('adds up what every run of the task cost', () => {
     const dto = TeamTraceMapper.toDto(
       summary({ runIds: [RunId.of('run_1'), RunId.of('run_2')], runs: 2 }),
@@ -59,8 +58,6 @@ describe('TeamTraceMapper', () => {
     expect(dto.currency).toBe('USD');
   });
 
-  // A harness that never says what it cost leaves nothing to add up, which is
-  // not the same as having cost nothing.
   it('says nothing about cost where nothing was reported', () => {
     const dto = TeamTraceMapper.toDto(
       summary(),
@@ -79,7 +76,6 @@ describe('TeamTraceMapper', () => {
     expect(dto.cost).toBeNull();
   });
 
-  // What a reader waited through, not what the agents spoke for.
   it('takes the trace from the first run to the last', () => {
     expect(TeamTraceMapper.toDto(summary(), new Map()).ms).toBe(143_000);
   });

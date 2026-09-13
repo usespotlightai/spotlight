@@ -91,7 +91,7 @@ describe('StopRunHandler', () => {
   });
 
   it('refuses to stop a run that is no longer being worked', async () => {
-    const ended = claimedRun().release(); // back on the queue, not claimed
+    const ended = claimedRun().release();
     const { handler, save } = stopping(ended, taskAssignedTo('user_1'));
 
     await expect(

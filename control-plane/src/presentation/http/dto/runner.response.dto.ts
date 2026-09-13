@@ -1,5 +1,25 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+export class ToolAnswerResponseDto {
+  @ApiProperty({
+    description: 'What the tool answered, shaped as the tool shapes it',
+    example: 'https://github.com/acme/api/pull/9',
+    nullable: true,
+    oneOf: [
+      { type: 'string' },
+      { type: 'number' },
+      { type: 'boolean' },
+      { type: 'object' },
+      { type: 'array', items: {} },
+    ],
+  })
+  readonly output: unknown;
+
+  constructor(output: unknown) {
+    this.output = output;
+  }
+}
+
 export class RegisteredRunnerResponseDto {
   @ApiProperty({ example: '3fd46417-95af-4c8b-9a3d-2b7e5f0c1d84' })
   readonly runnerId: string;
@@ -18,13 +38,9 @@ export class ClaimedRunResponseDto {
   })
   readonly spec: unknown;
 
-  @ApiProperty({ example: '2026-08-23T18:01:00.000Z' })
-  readonly leaseExpiresAt: string;
-
-  constructor(id: string, spec: unknown, leaseExpiresAt: string) {
+  constructor(id: string, spec: unknown) {
     this.id = id;
     this.spec = spec;
-    this.leaseExpiresAt = leaseExpiresAt;
   }
 }
 
@@ -67,14 +83,5 @@ export class RenewLeaseResponseDto {
 
   constructor(stop: boolean) {
     this.stop = stop;
-  }
-}
-
-export class OpenedPullRequestResponseDto {
-  @ApiProperty({ example: 'https://github.com/acme/widgets/pull/7' })
-  readonly url: string;
-
-  constructor(url: string) {
-    this.url = url;
   }
 }

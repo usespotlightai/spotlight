@@ -48,7 +48,7 @@ export class RunStreamController {
   @Sse(':runId/stream')
   @ApiOperation({
     operationId: 'streamRun',
-    summary: 'Watch a run’s terminal, catching up on what was missed first',
+    summary: 'Watch a run’s journal, catching up on what was missed first',
   })
   @ApiParam({ name: 'runId' })
   @ApiProduces('text/event-stream')
@@ -85,9 +85,7 @@ export class RunStreamController {
         subscriber.next({ id: String(event.seq), data: event });
       };
 
-      // Subscribed here, and before the backlog is read: inside the
-      // observable so teardown is guaranteed, and before the read so nothing
-      // reported while it is in flight falls between the two.
+      // Subscribe before reading the backlog so no event falls between the two.
       const detach = this.stream.subscribe(runId, (event) => {
         if (replaying) {
           buffered.push(event);

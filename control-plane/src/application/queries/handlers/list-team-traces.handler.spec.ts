@@ -62,8 +62,6 @@ describe('ListTeamTracesHandler', () => {
     asked = [];
   });
 
-  // Reading a trace must not write one: the digests are worked out when a run
-  // ends, and this only asks for what was worked out then.
   it('asks only for what the runs it is reporting on came to', async () => {
     await handler([trace('task_1', ['run_1', 'run_2'])]).execute(
       new ListTeamTracesQuery('team_1', 'user_1', new Date(0)),

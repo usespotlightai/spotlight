@@ -8,8 +8,6 @@ describe('PullRequestUrl', () => {
     expect(url.repository?.value).toBe('acme/api');
   });
 
-  // A remark is answered against whatever repository the work landed in, and
-  // that is read back from here rather than kept a second time on the task.
   it('reads it whatever the host', () => {
     const url = PullRequestUrl.of('https://git.example.com/acme/web/pull/12');
 

@@ -8,7 +8,6 @@ describe('ContinuityKey', () => {
     ).toBe('task_1-station_2');
   });
 
-  // Runs at one station share what the last one left; moving on does not.
   it('is the same for every run while the task stands there', () => {
     const here = ContinuityKey.for({
       taskId: 'task_1',

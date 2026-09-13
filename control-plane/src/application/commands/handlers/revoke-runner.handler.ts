@@ -37,10 +37,3 @@ export class RevokeRunnerHandler
     }
   }
 }
-
-/**
- * How long a claim is held open before answering empty. The runner polls in a
- * tight loop, so holding the request here is what keeps it off the database.
- */
-const _POLL_TIMEOUT_MS = 10_000;
-const _POLL_INTERVAL_MS = 500;

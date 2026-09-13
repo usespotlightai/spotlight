@@ -21,13 +21,11 @@ type SetupStepsProps = {
   resolved: boolean;
 };
 
-/** The application's pill controls: round, flat, one radius winning the merge. */
 const CONTROL = 'rounded-full px-3.5 shadow-none';
 
-/** Named by the step, so one renamed on the way here stops compiling. */
 const CALLS: Partial<Record<SetupStepResponseDto['key'], string>> = {
   runner: 'Enrol one',
-  tools: 'Choose them',
+  integrations: 'Choose them',
 };
 
 type StepProps = {
@@ -39,14 +37,10 @@ type StepProps = {
 function Step({ step, action, disabled }: StepProps) {
   const [expanded, setExpanded] = useState(false);
 
-  // A done step folds its control away to keep the list tidy; clicking it opens
-  // the control again, so a choice already made can still be revised.
   const revisable = step.done && Boolean(action);
   const showAction = !step.done || expanded;
 
-  // Clipping lets the height animate, but an open control's popup has to spill
-  // out, so clipping is dropped once it has finished opening and put back the
-  // moment it begins to close.
+  // Unclipped once open so popups can spill out; clipped again as it starts to close.
   const [clipped, setClipped] = useState(!showAction);
   if (!showAction && !clipped) {
     setClipped(true);
@@ -112,8 +106,7 @@ function Step({ step, action, disabled }: StepProps) {
             }}
           >
             <div className={cn('min-h-0', clipped && 'overflow-hidden')}>
-              {/* inert reaches every control inside — links, buttons, the
-                  selects — however deep, which a disabled prop could not. */}
+              {/* inert disables every nested control, which a disabled prop cannot. */}
               <div
                 className={cn('pt-2', disabled && 'opacity-50')}
                 inert={disabled}
@@ -128,11 +121,6 @@ function Step({ step, action, disabled }: StepProps) {
   );
 }
 
-/**
- * The standing list a team opens with, shown as the things it names. What
- * each step is and whether it is done come from the list itself; what is
- * left here is how to go and take one. The note's own words are the fallback.
- */
 export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
   const { slug } = useParams();
   const here = useLocation();

@@ -13,11 +13,6 @@ import { TaskId } from '@domain/value-objects/task-id.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 
-/**
- * Gives a task to a team member, or takes it back to unclaimed. Only a member
- * may hand it out, and only a member may be handed it: work stays inside the
- * team that owns the line.
- */
 export class AssignTaskHandler
   implements CommandHandlerPort<AssignTaskCommand, TaskDto>
 {
@@ -40,8 +35,7 @@ export class AssignTaskHandler
     return await this.transaction.run(async () => {
       const team = await this.teams.find(TeamId.of(command.teamId));
 
-      // A team the viewer is not on is turned away exactly like one that is
-      // not there, so asking tells nobody what a team holds.
+      // Same error as a missing task, so non-members learn nothing about the team.
       if (!team?.holds(UserId.of(command.viewerId))) {
         throw new UnknownTaskError(command.taskId);
       }
@@ -56,8 +50,7 @@ export class AssignTaskHandler
 
       const task = await this.tasks.find(TaskId.of(command.taskId));
 
-      // The task has to be one of this team's, or a member could reach a task
-      // by naming it under a team that does not hold it.
+      // Stops a member reaching another team's task by id.
       if (!task?.workspaceId.equals(team.workspaceId)) {
         throw new UnknownTaskError(command.taskId);
       }

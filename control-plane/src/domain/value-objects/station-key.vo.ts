@@ -1,13 +1,10 @@
 import { InvalidIdentifierError } from '@domain/exceptions/invalid-identifier.error';
+import { DONE, REVIEW } from '@domain/value-objects/handover-word';
+import {
+  areWords,
+  LONGEST_WORDS,
+} from '@domain/value-objects/identifier-shapes';
 
-/** A word a person types in a file and reads in a diff, so: lowercase, dashed. */
-const SHAPE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-const LONGEST = 64;
-
-/**
- * What a station is called in the file. Matched on when configuration is read
- * again, so an edited station is the same station and its tasks stay put.
- */
 export class StationKey {
   private readonly kind = 'station-key';
 
@@ -16,26 +13,21 @@ export class StationKey {
   static of(raw: string): StationKey {
     const named = raw.trim();
 
-    if (!SHAPE.test(named) || named.length > LONGEST) {
+    if (!areWords(named)) {
       throw new InvalidIdentifierError(
         'station key',
-        `is lowercase words joined by dashes, at most ${LONGEST} characters, as in code-review`,
+        `is lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, as in code-review`,
+      );
+    }
+
+    if (named === REVIEW || named === DONE) {
+      throw new InvalidIdentifierError(
+        'station key',
+        `is never ${named}, which a run says to reach a person or to finish`,
       );
     }
 
     return new StationKey(named);
-  }
-
-  static from(name: string): StationKey {
-    const slugged = name
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, LONGEST)
-      .replace(/-+$/g, '');
-
-    return StationKey.of(slugged);
   }
 
   equals(other: StationKey): boolean {

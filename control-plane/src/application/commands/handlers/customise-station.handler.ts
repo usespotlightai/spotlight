@@ -2,12 +2,13 @@ import type { CustomiseStationCommand } from '@application/commands/customise-st
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { OpenedPullRequestDto } from '@application/ports/pull-request.port';
-import type { ProposeLineChange } from '@application/services/propose-line-change.service';
-import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import type { ProposeConfigurationChange } from '@application/services/propose-configuration-change.service';
+import type { Line } from '@domain/aggregates/line.aggregate';
 import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import { Effort } from '@domain/value-objects/effort.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@domain/value-objects/harness-model.vo';
+import { SkillKey } from '@domain/value-objects/skill-key.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationDescription } from '@domain/value-objects/station-description.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
@@ -16,26 +17,22 @@ import { StationName } from '@domain/value-objects/station-name.vo';
 const told = <T>(raw: string | null, make: (value: string) => T): T | null =>
   raw === null ? null : make(raw);
 
-/** A station edit, proposed to the configuration repository as a pull request. */
 export class CustomiseStationHandler
   implements
     CommandHandlerPort<CustomiseStationCommand, OpenedPullRequestDto | null>
 {
-  constructor(private readonly proposals: ProposeLineChange) {}
+  constructor(private readonly proposals: ProposeConfigurationChange) {}
 
   async execute(
     command: CustomiseStationCommand,
   ): Promise<OpenedPullRequestDto | null> {
     try {
-      return await this.proposals.propose({
+      return await this.proposals.proposeLine({
         teamId: command.teamId,
         viewerId: command.viewerId,
         lineId: command.lineId,
         change: (base) => applied(base, command),
-        describe: (edited) => ({
-          title: 'Update Spotlight configuration',
-          body: bodyFor(edited, command),
-        }),
+        describe: (edited) => summaryOf(edited, command),
       });
     } catch (error) {
       rethrowAsFault(error);
@@ -43,13 +40,18 @@ export class CustomiseStationHandler
   }
 }
 
-const applied = (
-  line: AssemblyLine,
-  command: CustomiseStationCommand,
-): AssemblyLine => {
+const applied = (line: Line, command: CustomiseStationCommand): Line => {
   const stationId = StationId.of(command.stationId);
-  const { name, color, description, harness, model, effort, agentPrompt } =
-    command.changes;
+  const {
+    name,
+    color,
+    description,
+    harness,
+    model,
+    effort,
+    agentPrompt,
+    skills,
+  } = command.changes;
   let edited = line;
 
   if (name !== undefined) {
@@ -64,20 +66,13 @@ const applied = (
       told(description, StationDescription.of),
     );
   }
-  // The harness and its model are one choice: whichever the edit names, the
-  // other is taken from where the station already stands, and set together.
   if (harness !== undefined || model !== undefined) {
-    const standing = line.stationAt(stationId);
-    const nextHarness =
-      harness !== undefined ? told(harness, HarnessId.of) : standing?.harness;
-    const nextModel =
-      model !== undefined ? told(model, HarnessModel.of) : standing?.model;
-
-    edited = edited.runStationOn(
-      stationId,
-      nextHarness ?? null,
-      nextModel ?? null,
-    );
+    edited = edited.changeStationHarness(stationId, {
+      ...(harness !== undefined
+        ? { harness: told(harness, HarnessId.of) }
+        : {}),
+      ...(model !== undefined ? { model: told(model, HarnessModel.of) } : {}),
+    });
   }
   if (effort !== undefined) {
     edited = edited.setStationEffort(stationId, told(effort, Effort.of));
@@ -86,6 +81,13 @@ const applied = (
     edited = edited.instructStation(
       stationId,
       told(agentPrompt, AgentPrompt.of),
+    );
+  }
+
+  if (skills !== undefined) {
+    edited = edited.giveStationSkills(
+      stationId,
+      skills.map((each) => SkillKey.of(each)),
     );
   }
 
@@ -100,19 +102,14 @@ const WORDS: Record<string, string> = {
   model: 'model',
   effort: 'effort',
   agentPrompt: 'agent prompt',
+  skills: 'skills',
 };
 
-const bodyFor = (
-  line: AssemblyLine,
-  command: CustomiseStationCommand,
-): string => {
+const summaryOf = (line: Line, command: CustomiseStationCommand): string => {
   const station = line.stationAt(StationId.of(command.stationId));
   const changed = Object.keys(command.changes)
     .map((each) => WORDS[each] ?? each)
     .join(', ');
 
-  return [
-    `Changes to the ${station?.name.value ?? 'station'} station on the ${line.name.value} line: ${changed}.`,
-    'The board changes when this is merged and read back — nothing here takes effect on its own.',
-  ].join('\n\n');
+  return `Changes to the ${station?.name.value ?? 'station'} station on the ${line.name.value} line: ${changed}.`;
 };

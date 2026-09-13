@@ -1,17 +1,31 @@
 import { DeclaredHappening } from '@domain/entities/declared-happening.entity';
+import {
+  DeclaredTool,
+  type ToolInputType,
+} from '@domain/entities/declared-tool.entity';
 import { Integration } from '@domain/entities/integration.entity';
 import { ConfigurationProblem } from '@domain/value-objects/configuration-problem.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
+import { SECRET_NAME_SHAPE } from '@domain/value-objects/identifier-shapes';
 import { LineRole } from '@domain/value-objects/line-role.vo';
 import { MarkKind } from '@domain/value-objects/mark-kind.vo';
 import { SecretName } from '@domain/value-objects/secret-name.vo';
 import { SourceKey } from '@domain/value-objects/source-key.vo';
 import { StationKey } from '@domain/value-objects/station-key.vo';
+import { Tool } from '@domain/value-objects/tool.vo';
 import {
   compile as compileExpression,
   type Expression,
   ExpressionError,
+  type NamedType,
+  type SchemaFields,
+  type Scope,
 } from '@infrastructure/integrations/expression';
+import {
+  orderedTypes,
+  refusedHints,
+  type Shape,
+} from '@infrastructure/integrations/hints';
 import {
   type AuthFile,
   type EventFile,
@@ -23,18 +37,29 @@ import {
   secretOf,
   written,
 } from '@infrastructure/integrations/integration.schema';
+import {
+  ACTING,
+  ADDRESSING,
+  answered,
+  attaching,
+  capturing,
+  DEFAULTING,
+  DELIVERED,
+  iterating,
+  LINKED,
+  MARKING,
+  POLLED,
+  POLLING,
+  requesting,
+  withInputs,
+} from '@infrastructure/integrations/scopes';
+import {
+  PIECE,
+  type Structured,
+  type Templated,
+} from '@infrastructure/integrations/templating';
 import { CronTime } from 'cron';
 import { parse as parseYaml } from 'yaml';
-
-// ── The Integration IR: what the runtimes execute. Expressions are compiled
-// here so a bad one is a problem with the file, not a delivery that fails at
-// midnight; the domain has the last word on the vocabulary. ─────────────────
-
-/** A value that is a literal, or an expression evaluated per delivery/call. */
-export interface Templated {
-  readonly literal: string | null;
-  readonly expression: Expression | null;
-}
 
 export interface Freshness {
   readonly at: Expression;
@@ -86,7 +111,7 @@ export interface RequestIR {
   readonly url: Templated;
   readonly query: readonly { name: string; value: Templated }[];
   readonly headers: readonly { name: string; value: Templated }[];
-  readonly body: Templated | null;
+  readonly body: Structured | null;
   readonly auth: AuthIR | null;
   readonly expect: {
     readonly success: Expression | null;
@@ -104,7 +129,6 @@ export interface RaiseIR {
     readonly at: string | null;
     readonly title: Expression;
     readonly description: Expression | null;
-    /** The email of the member to assign the opened task to, where one matches. */
     readonly assignBy: { readonly email: Expression } | null;
   } | null;
   readonly branch: Expression | null;
@@ -124,14 +148,12 @@ export interface AttachesIR {
   readonly fetch: RequestIR;
 }
 
-/** A call whose captures join the bindings before a word is raised. */
 export interface LookupIR {
   readonly request: RequestIR;
   readonly capture: readonly { name: string; value: Expression }[];
 }
 
 export interface EventIR {
-  /** A list, one word raised per item; each item bound as `item`. */
   readonly forEach: Expression | null;
   readonly when: Expression;
   readonly lookup: LookupIR | null;
@@ -152,18 +174,14 @@ export interface WebhookIR {
 }
 
 export interface PollIR {
-  /** How often to poll, in seconds. */
   readonly every: number;
   readonly request: RequestIR;
-  /** What to remember of the response, to poll from next time. */
   readonly cursor: Expression | null;
   readonly events: readonly EventIR[];
 }
 
 export interface ScheduleIR {
-  /** A five- or six-field cron expression, checked when the file is read. */
   readonly cron: string;
-  /** The action to run when it comes round; one of the file's own. */
   readonly action: string;
 }
 
@@ -172,7 +190,6 @@ export interface ConnectionIR {
     readonly authorize: string;
     readonly token: string;
     readonly scopes: readonly string[];
-    /** Read against the token response, for a name a person recognises. */
     readonly identity: Expression | null;
   } | null;
   readonly manual: { readonly secrets: readonly string[] } | null;
@@ -186,7 +203,22 @@ export interface OnBindingIR {
   readonly mark: readonly { kind: MarkKind; value: Expression }[];
 }
 
-/** The whole integration, compiled. Named ReadableIntegration for its readers. */
+interface ToolInputIR {
+  readonly name: string;
+  readonly type: ToolInputType;
+  readonly description: string | null;
+  readonly required: boolean;
+  readonly default: Templated | null;
+  readonly piped: boolean;
+}
+
+interface ToolIR {
+  readonly name: string;
+  readonly action: string;
+  readonly inputs: readonly ToolInputIR[];
+  readonly output: Expression | null;
+}
+
 export interface ReadableIntegration {
   readonly integration: Integration;
   readonly webhook: WebhookIR | null;
@@ -195,35 +227,82 @@ export interface ReadableIntegration {
   readonly connection: ConnectionIR | null;
   readonly actions: ReadonlyMap<string, RequestIR>;
   readonly on: readonly OnBindingIR[];
+  readonly tools: ReadonlyMap<string, ToolIR>;
 }
 
 export type Compiled =
-  | { readonly ok: true; readonly readable: ReadableIntegration }
+  | {
+      readonly ok: true;
+      readonly readable: ReadableIntegration;
+      readonly warnings: readonly ConfigurationProblem[];
+    }
   | { readonly ok: false; readonly problems: readonly ConfigurationProblem[] };
 
 const reasoned = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
-const SECRET_IN = /secret\.([A-Z][A-Z0-9_]{0,63})/g;
+const AS_CEL: Record<ToolInputType, string> = {
+  string: 'string',
+  number: 'dyn',
+  boolean: 'bool',
+};
 
-/** Every team secret a piece of text reads, so the runtime resolves just those. */
+const SECRET_IN = new RegExp(`secret\\.(${SECRET_NAME_SHAPE})`, 'g');
+
 const secretsIn = (text: string): string[] =>
   [...text.matchAll(SECRET_IN)].map((match) => match[1] as string);
 
+const doubted = (doubt: string, scope: Scope): string =>
+  doubt.startsWith('Unknown variable')
+    ? `does not check: ${doubt}. Here it may read ${scope.names.join(', ')}`
+    : `does not check: ${doubt}`;
+
 class Compiler {
   readonly problems: ConfigurationProblem[] = [];
+  readonly warnings: ConfigurationProblem[] = [];
   readonly secrets = new Set<string>();
+  private readonly typedScopes = new WeakMap<Scope, Scope>();
 
-  constructor(private readonly path: string) {}
+  constructor(
+    private readonly path: string,
+    private readonly types: readonly NamedType[] = [],
+    private readonly hinting = false,
+  ) {}
 
-  /** One expression, named by where in the file it sits. */
-  expression(held: string, at: string): Expression | null {
+  private typed(scope: Scope): Scope {
+    if (this.types.length === 0) {
+      return scope;
+    }
+
+    const held = this.typedScopes.get(scope) ?? scope.typed(this.types);
+    this.typedScopes.set(scope, held);
+
+    return held;
+  }
+
+  expression(held: string, at: string, scope: Scope): Expression | null {
     for (const name of secretsIn(held)) {
       this.secrets.add(name);
     }
 
     try {
-      return compileExpression(written(held));
+      const compiled = compileExpression(written(held), {
+        scope: this.typed(scope),
+        at,
+      });
+
+      if (compiled.doubt) {
+        this.warnings.push(
+          ConfigurationProblem.of({
+            path: this.path,
+            at,
+            reason: doubted(compiled.doubt, scope),
+            severity: 'warning',
+          }),
+        );
+      }
+
+      return compiled;
     } catch (error) {
       this.problems.push(
         ConfigurationProblem.of({
@@ -238,28 +317,85 @@ class Compiler {
     }
   }
 
-  /** A literal is kept as it is; an expression is compiled like any other. */
-  templated(held: string, at: string): Templated {
-    return isExpression(held)
-      ? { literal: null, expression: this.expression(held, at) }
-      : { literal: held, expression: null };
+  templated(held: string, at: string, scope: Scope): Templated {
+    if (isExpression(held)) {
+      const whole = this.expression(held, at, scope);
+
+      return { parts: whole ? [whole] : [] };
+    }
+
+    const parts: (string | Expression)[] = [];
+    let from = 0;
+
+    for (const found of held.matchAll(PIECE)) {
+      const start = found.index ?? 0;
+
+      if (start > from) {
+        parts.push(held.slice(from, start));
+      }
+
+      const piece = this.expression(found[0], at, scope);
+      if (piece) {
+        parts.push(piece);
+      }
+
+      from = start + found[0].length;
+    }
+
+    if (from < held.length || parts.length === 0) {
+      parts.push(held.slice(from));
+    }
+
+    return { parts };
+  }
+
+  structured(held: unknown, at: string, scope: Scope): Structured {
+    if (typeof held === 'string') {
+      return { kind: 'templated', templated: this.templated(held, at, scope) };
+    }
+
+    if (Array.isArray(held)) {
+      return {
+        kind: 'list',
+        items: held.map((each, index) =>
+          this.structured(each, `${at}.${index}`, scope),
+        ),
+      };
+    }
+
+    if (held !== null && typeof held === 'object') {
+      return {
+        kind: 'map',
+        entries: Object.entries(held).map(([key, each]) => ({
+          key,
+          value: this.structured(each, `${at}.${key}`, scope),
+        })),
+      };
+    }
+
+    return {
+      kind: 'value',
+      value:
+        typeof held === 'number' || typeof held === 'boolean' ? held : null,
+    };
   }
 
   freshness(
     freshness: { at: string; within: string } | undefined,
     at: string,
+    scope: Scope,
   ): Freshness | null {
     if (!freshness) {
       return null;
     }
 
     return {
-      at: this.expression(freshness.at, `${at}.at`) as Expression,
+      at: this.expression(freshness.at, `${at}.at`, scope) as Expression,
       within: Number.parseInt(freshness.within, 10),
     };
   }
 
-  auth(auth: AuthFile, at: string): AuthIR {
+  auth(auth: AuthFile, at: string, scope: Scope): AuthIR {
     if (auth.hmac) {
       this.secrets.add(secretOf(auth.hmac.secret));
 
@@ -268,12 +404,16 @@ class Compiler {
         algorithm: auth.hmac.algorithm,
         secret: secretOf(auth.hmac.secret),
         signed: auth.hmac.signed
-          ? this.expression(auth.hmac.signed, `${at}.hmac.signed`)
+          ? this.expression(auth.hmac.signed, `${at}.hmac.signed`, scope)
           : null,
         encoding: auth.hmac.encoding,
         prefix: auth.hmac.prefix,
         header: auth.hmac.header ?? null,
-        freshness: this.freshness(auth.hmac.freshness, `${at}.hmac.freshness`),
+        freshness: this.freshness(
+          auth.hmac.freshness,
+          `${at}.hmac.freshness`,
+          scope,
+        ),
       };
     }
 
@@ -291,8 +431,16 @@ class Compiler {
     if (auth.basic) {
       return {
         kind: 'basic',
-        username: this.templated(auth.basic.username, `${at}.basic.username`),
-        password: this.templated(auth.basic.password, `${at}.basic.password`),
+        username: this.templated(
+          auth.basic.username,
+          `${at}.basic.username`,
+          scope,
+        ),
+        password: this.templated(
+          auth.basic.password,
+          `${at}.basic.password`,
+          scope,
+        ),
       };
     }
 
@@ -300,15 +448,20 @@ class Compiler {
       return {
         kind: 'asymmetric',
         algorithm: auth.asymmetric.algorithm,
-        key: this.templated(auth.asymmetric.key, `${at}.asymmetric.key`),
+        key: this.templated(auth.asymmetric.key, `${at}.asymmetric.key`, scope),
         signed: auth.asymmetric.signed
-          ? this.expression(auth.asymmetric.signed, `${at}.asymmetric.signed`)
+          ? this.expression(
+              auth.asymmetric.signed,
+              `${at}.asymmetric.signed`,
+              scope,
+            )
           : null,
         encoding: auth.asymmetric.encoding,
         header: auth.asymmetric.header ?? null,
         freshness: this.freshness(
           auth.asymmetric.freshness,
           `${at}.asymmetric.freshness`,
+          scope,
         ),
       };
     }
@@ -326,31 +479,49 @@ class Compiler {
     return { kind: 'oauth2' };
   }
 
-  request(request: RequestFile, at: string): RequestIR {
+  request(request: RequestFile, at: string, scope: Scope): RequestIR {
+    const replied =
+      this.hinting && request.response
+        ? answered(scope).and({
+            response: { schema: request.response as SchemaFields },
+          })
+        : answered(scope);
+
     return {
       method: request.method,
-      url: this.templated(request.url, `${at}.url`),
+      url: this.templated(request.url, `${at}.url`, scope),
       query: Object.entries(request.query).map(([name, value]) => ({
         name,
-        value: this.templated(value, `${at}.query.${name}`),
+        value: this.templated(value, `${at}.query.${name}`, scope),
       })),
       headers: Object.entries(request.headers).map(([name, value]) => ({
         name,
-        value: this.templated(value, `${at}.headers.${name}`),
+        value: this.templated(value, `${at}.headers.${name}`, scope),
       })),
-      body: request.body ? this.templated(request.body, `${at}.body`) : null,
-      auth: request.auth ? this.auth(request.auth, `${at}.auth`) : null,
+      body:
+        request.body !== undefined
+          ? this.structured(request.body, `${at}.body`, scope)
+          : null,
+      auth: request.auth ? this.auth(request.auth, `${at}.auth`, scope) : null,
       expect: request.expect
         ? {
             success: request.expect.success
-              ? this.expression(request.expect.success, `${at}.expect.success`)
+              ? this.expression(
+                  request.expect.success,
+                  `${at}.expect.success`,
+                  replied,
+                )
               : null,
             status: request.expect.status ?? null,
           }
         : null,
       capture: Object.entries(request.capture ?? {}).map(([name, value]) => ({
         name,
-        value: this.expression(value, `${at}.capture.${name}`) as Expression,
+        value: this.expression(
+          value,
+          `${at}.capture.${name}`,
+          replied,
+        ) as Expression,
       })),
     };
   }
@@ -360,6 +531,7 @@ class Compiler {
     where: string,
     source: SourceKey,
     sourceName: string,
+    trigger: Scope,
   ): EventIR {
     if (
       !source.raises({ source: Happening.of(event.raise.happening).source })
@@ -384,16 +556,21 @@ class Compiler {
       );
     }
 
+    const each = event.forEach ? iterating(trigger) : trigger;
+    const looked = requesting(each);
+    const kept = Object.keys(event.lookup?.capture ?? {});
+
     return {
       forEach: event.forEach
-        ? this.expression(event.forEach, `${where}.forEach`)
+        ? this.expression(event.forEach, `${where}.forEach`, trigger)
         : null,
-      when: this.expression(event.when, `${where}.when`) as Expression,
+      when: this.expression(event.when, `${where}.when`, each) as Expression,
       lookup: event.lookup
         ? {
             request: this.request(
               event.lookup.request,
               `${where}.lookup.request`,
+              looked,
             ),
             capture: Object.entries(event.lookup.capture).map(
               ([name, value]) => ({
@@ -401,20 +578,23 @@ class Compiler {
                 value: this.expression(
                   value,
                   `${where}.lookup.capture.${name}`,
+                  answered(looked),
                 ) as Expression,
               }),
             ),
           }
         : null,
-      raise: this.raise(event.raise, `${where}.raise`),
+      raise: this.raise(event.raise, `${where}.raise`, capturing(each, kept)),
     };
   }
 
-  raise(raise: RaiseFile, at: string): RaiseIR {
+  raise(raise: RaiseFile, at: string, scope: Scope): RaiseIR {
+    const carried = attaching(scope);
+
     return {
       happening: raise.happening,
       spoken: raise.spoken,
-      say: raise.say ? this.expression(raise.say, `${at}.say`) : null,
+      say: raise.say ? this.expression(raise.say, `${at}.say`, scope) : null,
       opens: raise.opens
         ? {
             onto: raise.opens.onto,
@@ -422,11 +602,13 @@ class Compiler {
             title: this.expression(
               raise.opens.title,
               `${at}.opens.title`,
+              scope,
             ) as Expression,
             description: raise.opens.description
               ? this.expression(
                   raise.opens.description,
                   `${at}.opens.description`,
+                  scope,
                 )
               : null,
             assignBy: raise.opens.assignBy
@@ -434,19 +616,21 @@ class Compiler {
                   email: this.expression(
                     raise.opens.assignBy.email,
                     `${at}.opens.assignBy.email`,
+                    scope,
                   ) as Expression,
                 }
               : null,
           }
         : null,
       branch: raise.branch
-        ? this.expression(raise.branch, `${at}.branch`)
+        ? this.expression(raise.branch, `${at}.branch`, scope)
         : null,
       marks: raise.marks.map((mark, index) => ({
         kind: MarkKind.of(mark.kind),
         value: this.expression(
           mark.value,
           `${at}.marks.${index}.value`,
+          scope,
         ) as Expression,
         finds: mark.find,
       })),
@@ -455,18 +639,32 @@ class Compiler {
             each: this.expression(
               raise.attaches.each,
               `${at}.attaches.each`,
+              scope,
             ) as Expression,
             name: this.expression(
               raise.attaches.name,
               `${at}.attaches.name`,
+              carried,
             ) as Expression,
             type: raise.attaches.type
-              ? this.expression(raise.attaches.type, `${at}.attaches.type`)
+              ? this.expression(
+                  raise.attaches.type,
+                  `${at}.attaches.type`,
+                  carried,
+                )
               : null,
             size: raise.attaches.size
-              ? this.expression(raise.attaches.size, `${at}.attaches.size`)
+              ? this.expression(
+                  raise.attaches.size,
+                  `${at}.attaches.size`,
+                  carried,
+                )
               : null,
-            fetch: this.request(raise.attaches.fetch, `${at}.attaches.fetch`),
+            fetch: this.request(
+              raise.attaches.fetch,
+              `${at}.attaches.fetch`,
+              requesting(carried),
+            ),
           }
         : null,
     };
@@ -507,33 +705,64 @@ export const compileIntegration = (path: string, text: string): Compiled => {
   }
 
   const file = read.data;
-  const compiler = new Compiler(path);
+  const hintWarnings = hintProblemsOf(path, file);
+  const hinting = hintWarnings.length === 0;
+  const typeOrder = orderedTypes(file.types as Record<string, Shape>).order;
+  const compiler = new Compiler(
+    path,
+    hinting
+      ? typeOrder.map(
+          (name): NamedType => [name, file.types[name] as SchemaFields],
+        )
+      : [],
+    hinting,
+  );
+  compiler.warnings.push(...hintWarnings);
+
+  const delivered =
+    hinting && file.webhook?.shape
+      ? DELIVERED.and({ body: { schema: file.webhook.shape as SchemaFields } })
+      : DELIVERED;
+  const polled =
+    hinting && file.poll?.shape
+      ? POLLED.and({ body: { schema: file.poll.shape as SchemaFields } })
+      : POLLED;
   const source = SourceKey.of(file.integration);
 
   const webhook: WebhookIR | null = file.webhook
     ? {
-        verify: compiler.auth(file.webhook.verify, 'webhook.verify'),
+        verify: compiler.auth(file.webhook.verify, 'webhook.verify', delivered),
         respond: file.webhook.respond
           ? {
               when: compiler.expression(
                 file.webhook.respond.when,
                 'webhook.respond.when',
+                delivered,
               ) as Expression,
               body: compiler.expression(
                 file.webhook.respond.body,
                 'webhook.respond.body',
+                delivered,
               ) as Expression,
             }
           : null,
         mine: file.webhook.mine
-          ? compiler.expression(file.webhook.mine, 'webhook.mine')
+          ? compiler.expression(file.webhook.mine, 'webhook.mine', delivered)
           : null,
         route: file.webhook.route
-          ? compiler.expression(file.webhook.route.by, 'webhook.route.by')
+          ? compiler.expression(
+              file.webhook.route.by,
+              'webhook.route.by',
+              delivered,
+            )
           : null,
         parse: file.webhook.parse,
         delivery: file.webhook.delivery
-          ? compiler.expression(file.webhook.delivery, 'webhook.delivery')
+          ? compiler.expression(
+              file.webhook.delivery,
+              'webhook.delivery',
+              delivered,
+            )
           : null,
         events: file.webhook.events.map((event, at) =>
           compiler.event(
@@ -541,6 +770,7 @@ export const compileIntegration = (path: string, text: string): Compiled => {
             `webhook.events.${at}`,
             source,
             file.integration,
+            delivered,
           ),
         ),
       }
@@ -549,22 +779,91 @@ export const compileIntegration = (path: string, text: string): Compiled => {
   const poll: PollIR | null = file.poll
     ? {
         every: Number.parseInt(file.poll.every, 10),
-        request: compiler.request(file.poll.request, 'poll.request'),
+        request: compiler.request(file.poll.request, 'poll.request', POLLING),
         cursor: file.poll.cursor
-          ? compiler.expression(file.poll.cursor, 'poll.cursor')
+          ? compiler.expression(file.poll.cursor, 'poll.cursor', polled)
           : null,
         events: file.poll.events.map((event, at) =>
-          compiler.event(event, `poll.events.${at}`, source, file.integration),
+          compiler.event(
+            event,
+            `poll.events.${at}`,
+            source,
+            file.integration,
+            polled,
+          ),
         ),
       }
     : null;
+
+  const inputsOf = new Map<string, Record<string, string>>();
+  for (const tool of Object.values(file.tools)) {
+    const held = inputsOf.get(tool.does) ?? {};
+    for (const [name, input] of Object.entries(tool.inputs)) {
+      const type = AS_CEL[input.type];
+      held[name] =
+        held[name] === undefined || held[name] === type ? type : 'dyn';
+    }
+    inputsOf.set(tool.does, held);
+  }
 
   const actions = new Map<string, RequestIR>();
   for (const [name, action] of Object.entries(file.actions)) {
     actions.set(
       name,
-      compiler.request(action.request, `actions.${name}.request`),
+      compiler.request(
+        action.request,
+        `actions.${name}.request`,
+        inputsOf.has(name)
+          ? withInputs(ACTING, inputsOf.get(name) ?? {})
+          : ACTING,
+      ),
     );
+  }
+
+  const tools = new Map<string, ToolIR>();
+  for (const [name, tool] of Object.entries(file.tools)) {
+    const at = `tools.${name}`;
+
+    if (!actions.has(tool.does)) {
+      compiler.problems.push(
+        ConfigurationProblem.of({
+          path,
+          at: `${at}.does`,
+          reason: `names an action "${tool.does}" that is not defined`,
+        }),
+      );
+    }
+
+    const inputs = inputsOf.get(tool.does) ?? {};
+
+    tools.set(name, {
+      name,
+      action: tool.does,
+      inputs: Object.entries(tool.inputs).map(([input, declared]) => ({
+        name: input,
+        type: declared.type,
+        description: declared.description ?? null,
+        required: declared.required,
+        piped: declared.piped,
+        default:
+          declared.default !== undefined
+            ? compiler.templated(
+                declared.default,
+                `${at}.inputs.${input}.default`,
+                DEFAULTING,
+              )
+            : null,
+      })),
+      output: tool.output
+        ? compiler.expression(
+            tool.output,
+            `${at}.output`,
+            answered(withInputs(ACTING, inputs)).and({
+              capture: 'map<string, dyn>',
+            }),
+          )
+        : null,
+    });
   }
 
   const connection: ConnectionIR | null = file.connection
@@ -578,6 +877,7 @@ export const compileIntegration = (path: string, text: string): Compiled => {
                 ? compiler.expression(
                     file.connection.oauth2.identity,
                     'connection.oauth2.identity',
+                    LINKED,
                   )
                 : null,
             }
@@ -597,8 +897,6 @@ export const compileIntegration = (path: string, text: string): Compiled => {
   let schedule: ScheduleIR | null = null;
   if (file.schedule) {
     try {
-      // Reading the cron is how it is checked: a bad one is a problem with the
-      // file, not a job that never wakes.
       new CronTime(file.schedule.cron);
       schedule = { cron: file.schedule.cron, action: file.schedule.do };
     } catch (error) {
@@ -651,6 +949,7 @@ export const compileIntegration = (path: string, text: string): Compiled => {
         value: compiler.expression(
           value,
           `on.${event}.to.${name}`,
+          ADDRESSING,
         ) as Expression,
       })),
       routes: new Map(Object.entries(binding.routes)),
@@ -659,23 +958,39 @@ export const compileIntegration = (path: string, text: string): Compiled => {
         value: compiler.expression(
           mark.value,
           `on.${event}.mark.${index}.value`,
+          MARKING,
         ) as Expression,
       })),
     };
   });
 
   if (compiler.problems.length > 0) {
-    return { ok: false, problems: compiler.problems };
+    return {
+      ok: false,
+      problems: [...compiler.problems, ...compiler.warnings],
+    };
   }
 
-  // The domain has the last word on whether these are a vocabulary. What it
-  // refuses comes back as a problem with the file, because that is what it is.
   try {
     const integration = Integration.of({
       source,
       name: file.name,
       connects: connection?.oauth2 !== null && connection?.oauth2 !== undefined,
       credentials: [...compiler.secrets].map((name) => SecretName.of(name)),
+      offers: [...tools.values()].map((tool) =>
+        DeclaredTool.of({
+          tool: Tool.offeredBy(source, tool.name),
+          description: file.tools[tool.name]?.description ?? '',
+          inputs: tool.inputs.map((input) => ({
+            name: input.name,
+            type: input.type,
+            description: input.description,
+            required: input.required,
+            defaulted: input.default !== null,
+            piped: input.piped,
+          })),
+        }),
+      ),
       declares: [
         ...(file.webhook?.events ?? []),
         ...(file.poll?.events ?? []),
@@ -709,7 +1024,9 @@ export const compileIntegration = (path: string, text: string): Compiled => {
         connection,
         actions,
         on,
+        tools,
       },
+      warnings: compiler.warnings,
     };
   } catch (error) {
     return {
@@ -720,7 +1037,70 @@ export const compileIntegration = (path: string, text: string): Compiled => {
           at: 'the file',
           reason: reasoned(error),
         }),
+        ...compiler.warnings,
       ],
     };
   }
+};
+
+const hintProblemsOf = (
+  path: string,
+  file: ReturnType<typeof integrationSchema.parse>,
+): ConfigurationProblem[] => {
+  const known = new Set(Object.keys(file.types));
+  const shapes: [Shape, string][] = [
+    ...Object.entries(file.types).map(([name, shape]): [Shape, string] => [
+      shape as Shape,
+      `types.${name}`,
+    ]),
+    ...(file.webhook?.shape
+      ? [[file.webhook.shape as Shape, 'webhook.shape'] as [Shape, string]]
+      : []),
+    ...(file.poll?.shape
+      ? [[file.poll.shape as Shape, 'poll.shape'] as [Shape, string]]
+      : []),
+    ...(file.poll?.request.response
+      ? [
+          [file.poll.request.response as Shape, 'poll.request.response'] as [
+            Shape,
+            string,
+          ],
+        ]
+      : []),
+    ...Object.entries(file.actions).flatMap(([name, action]) =>
+      action.request.response
+        ? [
+            [
+              action.request.response as Shape,
+              `actions.${name}.request.response`,
+            ] as [Shape, string],
+          ]
+        : [],
+    ),
+  ];
+
+  const refused = shapes.flatMap(([shape, at]) =>
+    refusedHints(shape, at, known),
+  );
+  const { cycle } = orderedTypes(file.types as Record<string, Shape>);
+
+  return [
+    ...refused,
+    ...(cycle
+      ? [
+          {
+            at: `types.${cycle}`,
+            reason:
+              'names itself, however far round, which a check cannot follow',
+          },
+        ]
+      : []),
+  ].map((each) =>
+    ConfigurationProblem.of({
+      path,
+      at: each.at,
+      reason: each.reason,
+      severity: 'warning',
+    }),
+  );
 };

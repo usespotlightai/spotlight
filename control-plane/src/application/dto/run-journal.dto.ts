@@ -65,5 +65,4 @@ export interface RunJournalDto {
   readonly ms: number | null;
   readonly marks: RunMarksDto;
   readonly spent: RunSpentDto | null;
-  readonly readable: boolean;
 }

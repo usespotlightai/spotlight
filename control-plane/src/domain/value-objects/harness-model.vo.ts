@@ -2,11 +2,6 @@ import { InvalidHarnessModelError } from '@domain/exceptions/invalid-harness-mod
 
 const MAX_LENGTH = 60;
 
-/**
- * Which model a harness answers with. Stored on a station as an opaque id, the
- * way a harness is: what the id means is the harness's business, not the
- * domain's. A station carries one only where a harness works it.
- */
 export class HarnessModel {
   private constructor(readonly value: string) {}
 

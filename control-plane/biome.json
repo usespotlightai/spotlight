@@ -128,7 +128,6 @@
                       "**",
                       "!@domain/**",
                       "!./**",
-                      "!../**",
                       "!vitest"
                     ],
                     "message": "The domain layer depends on nothing but itself. Anything else belongs in an outer layer."
@@ -155,7 +154,6 @@
                       "!@application/**",
                       "!@domain/**",
                       "!./**",
-                      "!../**",
                       "!vitest"
                     ],
                     "message": "The application layer may only depend on the domain. For anything external, define a port under application/ports and let infrastructure implement it."
@@ -182,7 +180,6 @@
                       "!@presentation/**",
                       "!@application/**",
                       "!./**",
-                      "!../**",
                       "!@nestjs/**",
                       "!rxjs",
                       "!vitest"

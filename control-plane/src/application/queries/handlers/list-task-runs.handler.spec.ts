@@ -88,8 +88,6 @@ describe('ListTaskRunsHandler', () => {
     expect(found?.updatedAt).toBe('2026-08-28T16:33:25.712Z');
   });
 
-  // A run that never reached the runner has no exit code, and saying zero
-  // would read as success.
   it('keeps a missing exit code missing', async () => {
     const { runs } = reading([summary({ state: 'queued', exitCode: null })]);
 

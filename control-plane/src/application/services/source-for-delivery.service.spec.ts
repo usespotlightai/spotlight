@@ -63,8 +63,6 @@ describe('SourceForDelivery', () => {
       ).toBeNull();
     });
 
-    // A host at the shared door speaks for every workspace at once, so a
-    // workspace's own files are none of its business.
     it('does not reach a team’s own hosts', async () => {
       const { sources, find } = asking(['github'], ['linear']);
 
@@ -127,8 +125,6 @@ describe('SourceForDelivery', () => {
       ).toBeNull();
     });
 
-    // Otherwise a file could take deliveries meant for the host Spotlight
-    // was written for, and read them with its own rules.
     it('refuses a file claiming the name of a host Spotlight has', async () => {
       const { sources, find } = asking(['github'], ['github']);
 

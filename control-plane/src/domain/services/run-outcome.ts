@@ -1,7 +1,6 @@
 import type { Money } from '@domain/value-objects/money.vo';
 import { faulted } from '@domain/value-objects/step-status';
 
-/** What a run's journal says it did, in the terms an outcome is read from. */
 export interface Worked {
   readonly ms: number | null;
   readonly statuses: readonly (string | null)[];
@@ -10,10 +9,6 @@ export interface Worked {
   readonly cost: Money | null;
 }
 
-/**
- * What a run came to, once its journal has been read for the last time. Cheap
- * to keep and expensive to work out again, which is why it is kept.
- */
 export interface RunOutcome {
   readonly ms: number | null;
   readonly steps: number;
@@ -23,7 +18,6 @@ export interface RunOutcome {
   readonly cost: Money | null;
 }
 
-/** What a run, or several, came to between them. */
 export interface Spent {
   readonly steps: number;
   readonly faults: number;
@@ -38,12 +32,6 @@ const addable = (all: Money | null, each: Money | null): Money | null => {
   return all.currency === each.currency ? all.plus(each) : null;
 };
 
-/**
- * A task worked three times was paid for three times. Where two runs were
- * counted in different currencies there is nothing true to say about the sum,
- * so it says nothing: adding them would say something false, and refusing to
- * answer would lose the rest of the reading with it.
- */
 export const together = (outcomes: readonly RunOutcome[]): Spent =>
   outcomes.reduce<Spent>(
     (all, each) => ({

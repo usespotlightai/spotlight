@@ -2,15 +2,8 @@ import { useEffect } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router';
 import { useConnectGitHub } from '@/hooks/api/useConnectGitHub';
 import { whenceFrom } from '@/lib/github';
-import { teamSectionPath } from '@/lib/team';
+import { settingsPath } from '@/lib/team';
 
-/**
- * Where GitHub sends somebody back to after they install the App.
- *
- * The App has one setup URL for every workspace, so this reads which one they
- * left from out of the state it sent them away with, tells the control-plane
- * the installation number, and puts them back where they were.
- */
 export function GitHubInstalled() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
@@ -31,21 +24,17 @@ export function GitHubInstalled() {
     }
 
     void navigate(
-      whence.from ??
-        teamSectionPath(whence.slug, whence.teamId, 'integrations'),
+      whence.from ?? settingsPath(whence.slug, whence.teamId, 'integrations'),
       { replace: true },
     );
   }, [connected, navigate, whence]);
 
-  // Nothing to go back to, so back to the beginning.
   if (!whence) {
     return <Navigate to="/" replace />;
   }
 
-  // Back where they left, and where that is not known, the page that says
-  // what a team is still listening to.
   const back =
-    whence.from ?? teamSectionPath(whence.slug, whence.teamId, 'integrations');
+    whence.from ?? settingsPath(whence.slug, whence.teamId, 'integrations');
 
   return (
     <main className="flex min-h-svh items-center justify-center px-4">

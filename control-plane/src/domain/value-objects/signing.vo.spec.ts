@@ -19,7 +19,6 @@ describe('Signing', () => {
     expect(signing().secret).toEqual(SECRET);
   });
 
-  // A host and a file may case a header differently and mean the same one.
   it('keeps the header in one case, so either side may write it in any', () => {
     expect(signing().header).toBe('linear-signature');
     expect(signing({ header: 'X-Hub-Signature-256' }).header).toBe(
@@ -32,7 +31,6 @@ describe('Signing', () => {
     expect(signing({ encoding: 'base64' }).encoding).toBe('base64');
   });
 
-  // Some hosts write `sha256=` in front of the digest, and some do not.
   it('carries whatever the host writes in front of the digest', () => {
     expect(signing().prefix).toBe('');
     expect(signing({ prefix: 'sha256=' }).prefix).toBe('sha256=');

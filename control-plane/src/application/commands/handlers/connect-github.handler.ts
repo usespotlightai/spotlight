@@ -21,7 +21,6 @@ export class ConnectGitHubHandler
     private readonly events: DomainEventDispatcher,
   ) {}
 
-  /** The workspace connected, or null where this person has no such one. */
   async execute(command: ConnectGitHubCommand): Promise<string | null> {
     try {
       const by = UserId.of(command.viewerId);
@@ -32,21 +31,16 @@ export class ConnectGitHubHandler
           WorkspaceSlug.of(command.slug),
         );
 
-        // Someone outside it is not told a workspace is there at all.
         if (!workspace?.holds(by)) {
           return null;
         }
 
-        // The workspace says whether this is theirs to connect, and refuses
-        // before anything is asked of GitHub on their behalf.
         const connected = workspace.connectedTo(
           Connection.of(GitHubInstallation.SOURCE, installation.value),
           by,
         );
 
-        // Asked of GitHub, not taken from the request: an installation number
-        // is a guess anyone could make, and the wrong one would hand this
-        // workspace somebody else's repositories.
+        // Verified with GitHub: a client-supplied installation id could expose another account's repositories.
         const held = await this.identity.administers(by, installation);
 
         if (held === 'does-not') {
@@ -55,8 +49,6 @@ export class ConnectGitHubHandler
           );
         }
 
-        // Refused either way, but said as what it is. A question GitHub would
-        // not answer is not an answer of no.
         if (held === 'cannot-tell') {
           throw new NotYoursToConnectError(
             'GitHub would not say whether that installation is yours. Sign in again, and if it keeps happening the sign-in is not authorised to list App installations.',

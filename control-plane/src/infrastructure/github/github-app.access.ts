@@ -11,15 +11,12 @@ import { Inject, Injectable } from '@nestjs/common';
 
 const API = 'https://api.github.com';
 
-/** Renewed before it lapses, so a clone never starts on a token about to die. */
 const RENEW_BEFORE_MS = 60_000;
 
 type Minted = { token: string; expiresAt: number };
 
 @Injectable()
 export class GitHubAppAccess implements RepositoryAccessPort {
-  // Held per installation: one workspace's token opens nothing of another's,
-  // so they cannot share a slot.
   readonly #held = new Map<string, Minted>();
 
   constructor(@Inject(ENV) private readonly env: Env) {}

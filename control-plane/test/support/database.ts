@@ -6,7 +6,6 @@ import * as schema from '@infrastructure/persistence/drizzle/schemas';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Client, Pool } from 'pg';
 
-/** A database of its own with the real migrations run into it, dropped after. */
 export interface TestDatabase {
   readonly db: DrizzleDatabase;
   close(): Promise<void>;

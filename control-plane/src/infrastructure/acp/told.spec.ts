@@ -12,7 +12,6 @@ const chunk = (sessionUpdate: string, text: string) =>
 
 const clock = (at: number) => new Date(2026, 7, 29, 12, 0, at);
 
-// A second apart, so how long a step took is something a test can say.
 const read = (...data: (string | null)[]) => {
   const told = new Told();
   data.forEach((each, at) => {
@@ -21,14 +20,12 @@ const read = (...data: (string | null)[]) => {
   return told;
 };
 
-/** Nothing a tool reached for, which is most of what an agent does. */
 const nowhere = { locations: [], given: null, returned: null, change: null };
 
 const withoutTime = (told: Told) =>
   told.steps().map(({ ms, startedAt, ...step }) => step);
 
 describe('Told', () => {
-  // An agent speaks in fragments; what is worth reading is the whole thing.
   it('puts the chunks of one thing said back together', () => {
     const told = read(
       chunk('agent_message_chunk', 'Reproduced '),
@@ -56,7 +53,6 @@ describe('Told', () => {
     expect(told.steps().map((step) => step.kind)).toEqual(['thought', 'said']);
   });
 
-  // How long it spoke for is the difference between thinking and stalling.
   it('says how long each thing took, and the run as a whole', () => {
     const told = read(
       chunk('agent_thought_chunk', 'Weighing it.'),
@@ -68,7 +64,6 @@ describe('Told', () => {
     expect(told.ms()).toBe(2_000);
   });
 
-  // A list of steps can be read; only one with a clock on it can be laid out.
   it('says when each step began', () => {
     const told = read(
       chunk('agent_thought_chunk', 'Weighing it.'),
@@ -85,7 +80,6 @@ describe('Told', () => {
     expect(new Told().ms()).toBeNull();
   });
 
-  // A tool is announced pending and answered later, which is one thing done.
   it('folds a tool and how it went into one step', () => {
     const told = read(
       sent({
@@ -134,8 +128,6 @@ describe('Told', () => {
     ]);
   });
 
-  // A command is announced as "Terminal" and only says what it was when it
-  // answers, which is also where what it printed arrives.
   it('takes the command and its output from the answer', () => {
     const told = read(
       sent({
@@ -170,7 +162,6 @@ describe('Told', () => {
     ]);
   });
 
-  // A tool answers in markdown; what is wanted is what the fence holds.
   it('takes the answer out of the code fence it arrives in', () => {
     const told = read(
       sent({ sessionUpdate: 'tool_call', toolCallId: 'b3', title: 'Terminal' }),
@@ -207,8 +198,6 @@ describe('Told', () => {
     expect(told.steps()[0]?.detail).toHaveLength(4_000);
   });
 
-  // Which file a step reached is the difference between reading a run and
-  // being able to go to where it went.
   it('keeps where a tool reached, down to the line', () => {
     const told = read(
       sent({
@@ -274,7 +263,6 @@ describe('Told', () => {
     });
   });
 
-  // A plan that keeps changing is worth seeing change, so each one is kept.
   it('reads what the agent said it meant to do', () => {
     const told = read(
       sent({
@@ -294,7 +282,6 @@ describe('Told', () => {
     );
   });
 
-  // Nothing else in the system has ever been able to say what a run cost.
   it('keeps what the run spent', () => {
     const told = read(
       sent({
@@ -320,23 +307,10 @@ describe('Told', () => {
     );
 
     expect(told.steps()).toEqual([]);
-    expect(told.readable).toBe(true);
-  });
-
-  // Runs from before the agents spoke a protocol left terminal bytes.
-  it('says so when what it was given is not a protocol at all', () => {
-    const bytes = `${String.fromCharCode(27)}[?25h`;
-    const told = read(Buffer.from(bytes).toString('base64'));
-
-    expect(told.readable).toBe(false);
-    expect(told.steps()).toEqual([]);
   });
 
   describe('what happened around the agent', () => {
-    // A hook is the deployment's code and prints plain text. Read as an
-    // agent's update it is not a protocol at all, which used to condemn the
-    // whole run as unreadable.
-    it('keeps a hook as its own step without condemning the run', () => {
+    it('keeps a hook as its own step', () => {
       const told = new Told(clock(0));
       told.take({
         type: 'output',
@@ -355,10 +329,8 @@ describe('Told', () => {
       expect(hook?.kind).toBe('hook');
       expect(hook?.text).toBe('prepare');
       expect(hook?.detail).toBe('Cloning into workspace…');
-      // It began when the run did: a hook is only written down once it ends.
       expect(hook?.ms).toBe(4_000);
       expect(said?.kind).toBe('said');
-      expect(told.readable).toBe(true);
     });
 
     it('says where the run turned from preparing to working', () => {

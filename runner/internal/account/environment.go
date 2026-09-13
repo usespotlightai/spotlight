@@ -5,14 +5,9 @@ import (
 	"strings"
 )
 
-// runnerOnly are the variables the agent must never inherit, including the
-// runner's control plane token: an agent with a shell can read its own
-// environment. What the agent is meant to have is passed in the spec instead,
-// so every variable it sees under this prefix was granted on purpose.
+// Never inherited: the agent can read its own env, and the runner's token is here.
 const runnerOnly = "SPOTLIGHT_"
 
-// theRunners are the variables that describe whoever started the runner. An
-// agent running as its own account must be told about that account instead.
 var theRunners = []string{"HOME=", "USER=", "LOGNAME=", "SHELL="}
 
 func Environment(extra map[string]string, as *User) []string {
@@ -38,8 +33,7 @@ func Environment(extra map[string]string, as *User) []string {
 		)
 	}
 
-	// A container carries no SHELL of its own, and an agent CLI that finds
-	// none refuses to run anything at all.
+	// Containers carry no SHELL, and agent CLIs refuse to run without one.
 	if as == nil && os.Getenv("SHELL") == "" {
 		env = append(env, "SHELL="+DefaultShell)
 	}

@@ -9,6 +9,5 @@ export interface RunnerRepository {
 
   find(id: RunnerId): Promise<Runner | null>;
 
-  /** The runner holding this token hash, live or revoked. */
   findByTokenHash(hash: TokenHash): Promise<Runner | null>;
 }

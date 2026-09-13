@@ -1,15 +1,10 @@
 import { compileLine } from '@infrastructure/integrations/line.compile';
 import { describe, expect, it } from 'vitest';
 
-/**
- * A line names the repositories a run on it works in. They are cloned into the
- * workspace side by side, so each has to name a distinct directory, and each
- * has to be a repository at all.
- */
 const LINE = (repositories: string) => `
 version: 1
 key: delivery
-name: Software Delivery
+name: Delivery
 repositories:
 ${repositories}
 stations:
@@ -19,8 +14,8 @@ stations:
   - key: build
     name: Build
     harness: dev
-  - key: done
-    name: Done
+  - key: completed
+    name: Completed
     kind: completed
 `;
 
@@ -47,13 +42,13 @@ describe('the repositories a line works', () => {
       `
 version: 1
 key: delivery
-name: Software Delivery
+name: Delivery
 stations:
   - key: backlog
     name: Backlog
     kind: backlog
-  - key: done
-    name: Done
+  - key: completed
+    name: Completed
     kind: completed
 `,
     );
@@ -74,7 +69,6 @@ stations:
     }
   });
 
-  // The name is the directory each is cloned into, so two of one name collide.
   it('refuses two repositories that share a name', () => {
     const read = compiled('  - acme/api\n  - other/api');
 

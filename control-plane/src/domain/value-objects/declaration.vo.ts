@@ -1,8 +1,5 @@
-import type { StationName } from '@domain/value-objects/station-name.vo';
-
-export const REVIEW = 'review';
-
-export const DONE = 'done';
+import { DONE, REVIEW } from '@domain/value-objects/handover-word';
+import type { StationKey } from '@domain/value-objects/station-key.vo';
 
 export class Declaration {
   private constructor(
@@ -25,8 +22,8 @@ export class Declaration {
     return this.next === '' || this.next.toLowerCase() === REVIEW;
   }
 
-  names(station: StationName): boolean {
-    return station.value.toLowerCase() === this.next.toLowerCase();
+  names(key: StationKey): boolean {
+    return key.value.toLowerCase() === this.next.toLowerCase();
   }
 
   equals(other: Declaration): boolean {

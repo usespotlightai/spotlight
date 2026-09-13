@@ -38,8 +38,6 @@ export class RunnerGuard implements CanActivate {
       throw new UnauthorizedException();
     }
 
-    // The token said which runner this is. Handlers read it from here rather
-    // than from anything the caller could have chosen.
     request.runnerId = runner.value;
 
     return true;

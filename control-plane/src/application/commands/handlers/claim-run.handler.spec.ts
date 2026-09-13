@@ -55,8 +55,6 @@ const claiming = () =>
   );
 
 describe('ClaimRunHandler', () => {
-  // The runner reads the spec straight off the wire. Handing it the value
-  // object instead of what it holds leaves the runner with no command to run.
   it('hands the runner the spec itself, not the wrapper around it', async () => {
     const claimed = await claiming().execute(new ClaimRunCommand('runner_1'));
 

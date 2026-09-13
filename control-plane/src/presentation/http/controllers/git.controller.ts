@@ -37,10 +37,6 @@ interface Outgoing {
   end(): void;
 }
 
-/**
- * The runner authenticates as itself; what reaches GitHub belongs to the
- * control plane, so no repository credential lives on the machine.
- */
 @ApiExcludeController()
 @Controller('git/:runId/:repo')
 @RunnerOnly()

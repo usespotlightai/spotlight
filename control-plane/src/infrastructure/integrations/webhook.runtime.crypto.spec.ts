@@ -33,8 +33,6 @@ const EVENT = `
 
 const raw = (body: unknown) => Buffer.from(JSON.stringify(body));
 
-// ── ed25519 (Discord's scheme) ──────────────────────────────────────────────
-
 describe('verifying an ed25519 signature', () => {
   const { publicKey, privateKey } = generateKeyPairSync('ed25519');
   const der = publicKey.export({ type: 'spki', format: 'der' });
@@ -93,8 +91,6 @@ ${EVENT}`;
   });
 });
 
-// ── rsa-sha256 ───────────────────────────────────────────────────────────────
-
 describe('verifying an rsa-sha256 signature', () => {
   const { publicKey, privateKey } = generateKeyPairSync('rsa', {
     modulusLength: 2048,
@@ -134,8 +130,6 @@ ${EVENT}`;
     ).toBe(true);
   });
 });
-
-// ── JWT (Jira Connect's scheme) ──────────────────────────────────────────────
 
 describe('verifying a JWT against a JWKS', () => {
   const { publicKey, privateKey } = generateKeyPairSync('rsa', {

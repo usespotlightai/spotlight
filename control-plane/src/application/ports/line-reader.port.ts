@@ -1,22 +1,49 @@
-import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
-import type { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
-import type { ConfigurationProblem } from '@domain/value-objects/configuration-problem.vo';
-import type { LinePlan } from '@domain/value-objects/line-plan.vo';
+import type { StationKind } from '@domain/entities/station.entity';
+import type { TeamId } from '@domain/value-objects/team-id.vo';
+import type { UserId } from '@domain/value-objects/user-id.vo';
+
+export interface StationSummary {
+  readonly id: string;
+  readonly key: string;
+  readonly name: string;
+  readonly position: number;
+  readonly color: string;
+  readonly description: string | null;
+  readonly harness: string | null;
+  readonly model: string | null;
+  readonly effort: string | null;
+  readonly agentPrompt: string | null;
+  readonly kind: StationKind;
+  readonly skills: readonly string[];
+}
+
+export interface ReactionSummary {
+  readonly happening: string;
+  readonly from: string | null;
+  readonly to: string;
+}
+
+export interface LineDetail {
+  readonly id: string;
+  readonly key: string;
+  readonly name: string;
+  readonly stations: readonly StationSummary[];
+  readonly reactions: readonly ReactionSummary[];
+  readonly repositories: readonly string[];
+}
 
 export const LINE_READER = Symbol('LINE_READER');
 
-export interface ReadLines {
-  readonly plans: readonly LinePlan[];
-  readonly problems: readonly ConfigurationProblem[];
-}
-
-/**
- * Turns the files a workspace keeps into the lines they describe. What the
- * files are written in is this port's business; the application asks what a
- * workspace's lines should be, and gets the domain's own words back.
- */
 export interface LineReaderPort {
-  read(files: readonly ConfigurationFile[]): ReadLines;
+  listForTeamMember(
+    teamId: TeamId,
+    userId: UserId,
+  ): Promise<LineDetail[] | null>;
 
-  write(line: AssemblyLine): ConfigurationFile;
+  stationFor(
+    teamId: TeamId,
+    userId: UserId,
+    lineId: string,
+    stationId: string,
+  ): Promise<StationSummary | null>;
 }

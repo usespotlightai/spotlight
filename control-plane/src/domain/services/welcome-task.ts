@@ -15,12 +15,6 @@ const TITLE = 'Set up your team';
 const DESCRIPTION =
   'A few quick steps will get everything ready for your team to start working with Spotlight.';
 
-/**
- * What a team is told the moment it is opened, in the inbox of whoever opened
- * it. A task rather than a screen of its own, because that is what Spotlight
- * already has for a thing waiting on a person. The words it carries are the
- * caller's; which steps there are is not.
- */
 export const welcomeTask = (input: {
   workspaceId: WorkspaceId;
   teamId: TeamId;
@@ -44,8 +38,6 @@ export const welcomeTask = (input: {
     station: input.station,
     body: input.saying,
     at: input.now,
-    // Nobody's run said this. The board did, the way it does when it moves
-    // something without a person touching it.
     voice: Voice.station(),
     form: 'setup',
   });

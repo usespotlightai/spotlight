@@ -12,10 +12,8 @@ import { faulted } from '@domain/value-objects/step-status';
 
 export type NodeKind = 'run' | 'phase' | 'step' | 'span';
 
-/** What a row is: the agent working, the overhead around it, or a fault. */
 export type Tone = 'agent' | 'overhead' | 'failed';
 
-/** One run of a task, and whatever its journal has to say about it. */
 export interface WorkedRun {
   readonly id: RunId;
   readonly station: StationName | null;
@@ -34,15 +32,12 @@ export interface TraceNode {
   readonly from: Date;
   readonly to: Date;
   readonly tone: Tone;
-  // What was recorded about it, for whoever opens the row. A step and a span
-  // can both be set: where they describe the same call they are drawn as one.
   readonly step: JournalStep | null;
   readonly span: RunSpan | null;
   readonly cost: Money | null;
   readonly children: readonly TraceNode[];
 }
 
-/** Every run that worked one task, laid against one clock. */
 export interface Trace {
   readonly from: Date | null;
   readonly to: Date | null;
@@ -61,8 +56,6 @@ const toneOf = (step: JournalStep): Tone => {
     return 'failed';
   }
 
-  // A hook is the deployment's own code, and a plan is the agent talking about
-  // work rather than doing it. Neither is the run getting on with it.
   return step.kind === 'hook' || step.kind === 'planned' ? 'overhead' : 'agent';
 };
 
@@ -89,7 +82,6 @@ const nodeOfStep = (step: JournalStep, id: string): TraceNode => ({
   children: [],
 });
 
-/** `claude_code.llm_request` reads as `llm_request`. */
 const plainly = (name: string): string => name.split('.').slice(-1)[0] ?? name;
 
 const nodeOfSpan = (
@@ -99,8 +91,6 @@ const nodeOfSpan = (
 ): TraceNode => ({
   id: `span:${span.id}`,
   kind: 'span',
-  // What the agent called the tool says more than what the harness called the
-  // span, where both are describing the same call.
   name: step ? step.text : plainly(span.name),
   from: span.startedAt,
   to: ending(span.startedAt, span.ms),
@@ -121,10 +111,6 @@ const overlaps = (one: Stretch, other: Stretch): boolean =>
 
 const isToolSpan = (span: RunSpan): boolean => span.name.endsWith('.tool');
 
-/**
- * What it is, and the stretch it covers. The thing itself and not a copy of
- * it: pairing hands back the very step the journal held.
- */
 const stretched = <T extends { startedAt: Date; ms: number }>(
   held: T,
 ): Stretch & { held: T } => ({
@@ -133,15 +119,7 @@ const stretched = <T extends { startedAt: Date; ms: number }>(
   to: at(held.startedAt) + Math.max(held.ms, 0),
 });
 
-/**
- * A harness that reports on itself describes the same tool call the protocol
- * already described. Drawn twice they are two rows for one thing, so they are
- * paired: earliest span to the earliest tool step it overlaps, in time order.
- *
- * Paired on time rather than on name: what a harness calls its attributes is
- * its own business and changes between releases, while when a thing happened
- * is not open to interpretation.
- */
+// Paired by time, not by harness attribute names, which change between releases.
 export const paired = (
   spans: readonly RunSpan[],
   steps: readonly JournalStep[],
@@ -180,7 +158,6 @@ const nested = (
   const roots: RunSpan[] = [];
 
   for (const span of spans) {
-    // A parent outside this run's journal is no parent we can draw under.
     if (span.parentId && held.has(span.parentId)) {
       under.set(span.parentId, [...(under.get(span.parentId) ?? []), span]);
     } else {
@@ -205,15 +182,9 @@ interface Phase {
   readonly name: string;
   readonly from: Date;
   readonly to: Date;
-  // Whether this is the stretch the agent itself worked, rather than the
-  // deployment's own code around it.
   readonly worked: boolean;
 }
 
-/**
- * Where a run turned from being prepared, to working, to publishing what came
- * of it. Only the stretches the journal can actually vouch for are drawn.
- */
 const phasesOf = (run: WorkedRun, journal: RunJournal): Phase[] => {
   const marks = journal.marks;
   const closed = marks.endedAt ?? run.endedAt;
@@ -230,8 +201,6 @@ const phasesOf = (run: WorkedRun, journal: RunJournal): Phase[] => {
   }
 
   if (marks.spokeFrom && marks.spokeTo) {
-    // The one stretch the harness itself is answerable for, and so the deepest
-    // row worth naming it on.
     phases.push({
       id: `${run.id.value}:turn`,
       name: `Turn · ${run.harness.value}`,
@@ -257,11 +226,6 @@ const phasesOf = (run: WorkedRun, journal: RunJournal): Phase[] => {
 const runName = (run: WorkedRun): string =>
   `${run.station?.value ?? 'Run'}${run.attempt > 1 ? ` · attempt ${run.attempt}` : ''}`;
 
-/**
- * One run, and everything that happened inside it. Steps and spans are laid
- * into whichever phase holds them, so what a phase cost is the sum of what is
- * drawn beneath it rather than a number of its own.
- */
 const runNode = (run: WorkedRun): TraceNode => {
   const journal = run.journal;
   const steps = journal?.steps ?? [];
@@ -327,10 +291,6 @@ const counted = (
     { rows: 0, faults: 0 },
   );
 
-/**
- * Every run that worked one task, as one trace. The task is the trace and not
- * the run, because a task that came back from review is the interesting one.
- */
 export const traceOf = (runs: readonly WorkedRun[]): Trace => {
   const roots = [...runs]
     .map(runNode)

@@ -7,13 +7,13 @@ import type { CommandHandlerPort } from '@application/ports/command-handler.port
 import type { PersonReaderPort } from '@application/ports/person-reader.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import type { TaskDispatching } from '@application/services/task-dispatch';
-import { UnknownAssemblyLineError } from '@domain/exceptions/unknown-assembly-line.error';
+import { UnknownLineError } from '@domain/exceptions/unknown-line.error';
 import { UnknownStationError } from '@domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@domain/exceptions/unknown-task.error';
-import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
+import type { LineRepository } from '@domain/repositories/line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { Placement } from '@domain/services/placement';
-import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
+import { LineId } from '@domain/value-objects/line-id.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
@@ -25,7 +25,7 @@ export class MoveTaskHandler
 {
   constructor(
     private readonly tasks: TaskRepository,
-    private readonly lines: AssemblyLineRepository,
+    private readonly lines: LineRepository,
     private readonly transaction: TransactionPort,
     private readonly dispatch: TaskDispatching,
     private readonly clock: ClockPort,
@@ -44,10 +44,10 @@ export class MoveTaskHandler
     const stationId = StationId.of(command.stationId);
 
     return await this.transaction.run(async () => {
-      const line = await this.lines.find(AssemblyLineId.of(command.lineId));
+      const line = await this.lines.find(LineId.of(command.lineId));
 
       if (!line) {
-        throw new UnknownAssemblyLineError(command.lineId);
+        throw new UnknownLineError(command.lineId);
       }
 
       const task = await this.tasks.find(TaskId.of(command.taskId));
@@ -83,9 +83,7 @@ export class MoveTaskHandler
       const stayed = task.stationId.equals(stationId);
       const moved = stayed
         ? task.reorderTo(rank)
-        : // Moved by hand is still a move, and what a person was owed where
-          // it stood, they are owed no longer.
-          task.moveTo(
+        : task.moveTo(
             station,
             rank,
             {

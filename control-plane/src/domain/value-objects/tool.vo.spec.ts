@@ -33,3 +33,22 @@ describe('Tool', () => {
     expect(Tool.of('pull-request').equals(Tool.of('deploy'))).toBe(false);
   });
 });
+
+describe('a tool named for its integration', () => {
+  it('is one tool, and says which integration and name it is', () => {
+    const tool = Tool.of('linear.comment');
+
+    expect(tool.integration).toBe('linear');
+    expect(tool.name).toBe('comment');
+  });
+
+  it('comes from no integration where it is one of Spotlight’s own', () => {
+    expect(Tool.of('pull-request').integration).toBeNull();
+    expect(Tool.of('pull-request').name).toBe('pull-request');
+  });
+
+  it('is named for one integration, not several', () => {
+    expect(() => Tool.of('linear.issue.comment')).toThrow();
+    expect(() => Tool.of('.comment')).toThrow();
+  });
+});

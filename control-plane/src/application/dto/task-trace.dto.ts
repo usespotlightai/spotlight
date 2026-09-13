@@ -4,7 +4,6 @@ import type {
 } from '@application/dto/run-journal.dto';
 import type { NodeKind, Tone } from '@application/read-models/trace-of';
 
-/** One row of a trace, and everything hanging beneath it. */
 export interface TraceNodeDto {
   readonly id: string;
   readonly kind: NodeKind;

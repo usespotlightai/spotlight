@@ -13,11 +13,10 @@ type CustomiseStationInput = {
     model?: string | null;
     effort?: string | null;
     agentPrompt?: string | null;
+    skills?: string[];
   };
 };
 
-/** Git-first: opens/updates a pull request and returns it; the board is not
- *  changed here, so nothing is invalidated. */
 export function useCustomiseStation() {
   return useMutation({
     mutationFn: async ({

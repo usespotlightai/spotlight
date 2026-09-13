@@ -6,8 +6,8 @@ import { Workspace } from '@/routes/Workspace';
 
 vi.mock('@/hooks/api/useWorkspace', () => ({ useWorkspace: vi.fn() }));
 
-vi.mock('@/hooks/api/useAssemblyLines', () => ({
-  useAssemblyLines: () => ({
+vi.mock('@/hooks/api/useLines', () => ({
+  useLines: () => ({
     data: [{ id: 'line_1', name: 'Default', stations: [] }],
     isPending: false,
   }),
@@ -20,10 +20,6 @@ vi.mock('@/hooks/api/useSignOut', () => ({
 }));
 vi.mock('@/hooks/api/useWorkspaces', () => ({
   useWorkspaces: () => ({ data: [], isPending: false }),
-}));
-vi.mock('@/hooks/api/useConfiguration', () => ({
-  configurationKeys: { forWorkspace: () => ['configuration'] },
-  useConfiguration: () => ({ data: { problems: [] } }),
 }));
 vi.mock('@/hooks/api/useInbox', () => ({
   inboxKeys: { forWorkspace: () => ['inbox'] },

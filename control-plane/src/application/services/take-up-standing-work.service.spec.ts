@@ -1,16 +1,18 @@
 import { TakeUpStandingWork } from '@application/services/take-up-standing-work.service';
 import type { TaskDispatching } from '@application/services/task-dispatch';
-import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import { Line } from '@domain/aggregates/line.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { Station } from '@domain/entities/station.entity';
 import type { TaskRepository } from '@domain/repositories/task.repository';
-import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
-import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { LineId } from '@domain/value-objects/line-id.vo';
+import { LineKey } from '@domain/value-objects/line-key.vo';
+import { LineName } from '@domain/value-objects/line-name.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
+import { StationKey } from '@domain/value-objects/station-key.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskNote } from '@domain/value-objects/task-note.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
@@ -24,6 +26,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const at = (name: string, harness = HarnessId.of('dev')) =>
   Station.of({
     id: StationId.of('station_1'),
+    key: StationKey.of(name.toLowerCase().split(' ').join('-')),
     name: StationName.of(name),
     position: 1,
     color: StationColor.of('#a3a8b0'),
@@ -31,10 +34,9 @@ const at = (name: string, harness = HarnessId.of('dev')) =>
   });
 
 const worked = at('Triage');
-// A station of its own: two sharing an id would make the line ambiguous
-// about which one it holds.
 const nobody = Station.of({
   id: StationId.of('station_0'),
+  key: StationKey.of('holding'),
   name: StationName.of('Holding'),
   position: 1,
   color: StationColor.of('#a3a8b0'),
@@ -69,6 +71,7 @@ const dispatch = { dispatch: dispatched } as unknown as TaskDispatching;
 const ends = (id: string, name: string, position: number) =>
   Station.of({
     id: StationId.of(id),
+    key: StationKey.of(name.toLowerCase().split(' ').join('-')),
     name: StationName.of(name),
     position,
     color: StationColor.of('#a3a8b0'),
@@ -77,11 +80,12 @@ const ends = (id: string, name: string, position: number) =>
 
 const takeUp = (station: Station) =>
   new TakeUpStandingWork(tasks, dispatch).takeUp({
-    line: AssemblyLine.of({
-      id: AssemblyLineId.of('line_1'),
+    line: Line.of({
+      id: LineId.of('line_1'),
       workspaceId: WorkspaceId.of('ws_1'),
       factoryId: FactoryId.of('factory_1'),
-      name: AssemblyLineName.of('Default'),
+      key: LineKey.of('default'),
+      name: LineName.of('Default'),
       stations: [
         ends('backlog_1', 'Backlog', 0),
         station,
@@ -105,7 +109,6 @@ describe('TakeUpStandingWork', () => {
     expect(saved[0]?.currentRunId?.value).toBe('run_1');
   });
 
-  // A station nothing works holds what it is given, which is what a backlog is.
   it('starts nothing at a station nothing works', async () => {
     await takeUp(nobody);
 
@@ -120,7 +123,6 @@ describe('TakeUpStandingWork', () => {
     expect(dispatched).not.toHaveBeenCalled();
   });
 
-  // Waiting on a person is not idle: starting it again would talk over them.
   it('leaves a task waiting on a person alone', async () => {
     standing = [
       waiting().askedAbout(

@@ -8,52 +8,6 @@ import {
 } from '@application/dto/onboarding.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class ConfigProblemResponseDto {
-  @ApiProperty({ example: '.spotlight/integrations/linear.yml' })
-  readonly path: string;
-
-  @ApiProperty({ example: 'happenings.0.when' })
-  readonly at: string;
-
-  @ApiProperty({ example: 'must be an expression' })
-  readonly reason: string;
-
-  constructor(path: string, at: string, reason: string) {
-    this.path = path;
-    this.at = at;
-    this.reason = reason;
-  }
-}
-
-export class ConfiguredHappeningResponseDto {
-  @ApiProperty({ example: 'linear.issue.completed' })
-  readonly happening: string;
-
-  @ApiProperty({ example: 'Issue completed' })
-  readonly label: string;
-
-  constructor(happening: string, label: string) {
-    this.happening = happening;
-    this.label = label;
-  }
-}
-
-export class ConfiguredSecretResponseDto {
-  @ApiProperty({ example: 'LINEAR_WEBHOOK_SECRET' })
-  readonly name: string;
-
-  @ApiProperty({
-    description: 'Whether the workspace has set it. Never its value.',
-    example: true,
-  })
-  readonly set: boolean;
-
-  constructor(name: string, set: boolean) {
-    this.name = name;
-    this.set = set;
-  }
-}
-
 export class ConfiguredConnectionResponseDto {
   @ApiProperty({
     description: 'What the host calls the team, where it says; null otherwise',
@@ -75,16 +29,10 @@ export class ConfiguredIntegrationResponseDto {
   readonly name: string;
 
   @ApiProperty({
-    description: 'Where this host should be told to send its deliveries',
-    example: '/api/webhooks/w/acme/linear',
+    description: 'The file in the configuration repository it is written in',
+    example: '.spotlight/integrations/linear.yml',
   })
-  readonly deliverTo: string;
-
-  @ApiProperty({ type: ConfiguredSecretResponseDto, isArray: true })
-  readonly secrets: readonly ConfiguredSecretResponseDto[];
-
-  @ApiProperty({ type: ConfiguredHappeningResponseDto, isArray: true })
-  readonly happenings: readonly ConfiguredHappeningResponseDto[];
+  readonly path: string;
 
   @ApiProperty({
     description: 'Whether this host is linked by authorizing a connection',
@@ -102,17 +50,13 @@ export class ConfiguredIntegrationResponseDto {
   constructor(
     source: string,
     name: string,
-    deliverTo: string,
-    secrets: readonly ConfiguredSecretResponseDto[],
-    happenings: readonly ConfiguredHappeningResponseDto[],
+    path: string,
     connectable: boolean,
     connection: ConfiguredConnectionResponseDto | null,
   ) {
     this.source = source;
     this.name = name;
-    this.deliverTo = deliverTo;
-    this.secrets = secrets;
-    this.happenings = happenings;
+    this.path = path;
     this.connectable = connectable;
     this.connection = connection;
   }
@@ -130,14 +74,8 @@ export class ConfigurationResponseDto {
   @ApiProperty({ nullable: true, type: String, example: 'a1b2c3d' })
   readonly sha: string | null;
 
-  @ApiProperty({ nullable: true, type: String })
-  readonly readAt: string | null;
-
   @ApiProperty({ type: ConfiguredIntegrationResponseDto, isArray: true })
   readonly integrations: readonly ConfiguredIntegrationResponseDto[];
-
-  @ApiProperty({ type: ConfigProblemResponseDto, isArray: true })
-  readonly problems: readonly ConfigProblemResponseDto[];
 
   @ApiProperty({
     description:
@@ -160,17 +98,13 @@ export class ConfigurationResponseDto {
   constructor(
     repository: string | null,
     sha: string | null,
-    readAt: string | null,
     integrations: readonly ConfiguredIntegrationResponseDto[],
-    problems: readonly ConfigProblemResponseDto[],
     readsFrom: string | null,
     movingTo: string | null,
   ) {
     this.repository = repository;
     this.sha = sha;
-    this.readAt = readAt;
     this.integrations = integrations;
-    this.problems = problems;
     this.readsFrom = readsFrom;
     this.movingTo = movingTo;
   }
@@ -218,21 +152,7 @@ export class MovedConfigurationResponseDto {
   }
 }
 
-export class SetSecretRequestDto {
-  @ApiProperty({
-    description: 'What the configuration calls it. Never its value.',
-    example: 'LINEAR_WEBHOOK_SECRET',
-  })
-  readonly name!: string;
-
-  @ApiProperty({
-    description: 'Written once and never read back out of Spotlight.',
-    example: 'whsec_...',
-  })
-  readonly value!: string;
-}
-
-export class KnownToolResponseDto {
+export class KnownIntegrationResponseDto {
   @ApiProperty({ example: 'linear' })
   readonly source: string;
 
@@ -242,31 +162,37 @@ export class KnownToolResponseDto {
   @ApiProperty({ example: 'Move a task on when its issue is done.' })
   readonly summary: string;
 
-  @ApiProperty({ example: 'the signing secret on the webhook you create' })
-  readonly secretCalled: string;
+  @ApiProperty({
+    description: 'The secrets its starting file reads, by name',
+    example: ['LINEAR_WEBHOOK_SECRET'],
+    isArray: true,
+    type: String,
+  })
+  readonly secrets: readonly string[];
 
-  @ApiProperty({ description: 'Whether this team already listens to it' })
-  readonly chosen: boolean;
+  @ApiProperty({
+    description: 'Where this integration should be told to send its deliveries',
+    example:
+      'https://hooks.usespotlight.ai/api/webhooks/w/acme/t/platform/linear',
+  })
+  readonly deliverTo: string;
 
   constructor(
     source: string,
     name: string,
     summary: string,
-    secretCalled: string,
-    chosen: boolean,
+    secrets: readonly string[],
+    deliverTo: string,
   ) {
     this.source = source;
     this.name = name;
     this.summary = summary;
-    this.secretCalled = secretCalled;
-    this.chosen = chosen;
+    this.secrets = secrets;
+    this.deliverTo = deliverTo;
   }
 }
 
-/** One thing on the list a team is opened with. */
 export class SetupStepResponseDto {
-  // Named, so a caller showing a step its own way is held to the steps there
-  // are rather than to a string it hopes matches.
   @ApiProperty({
     description: 'Which step this is',
     enum: SETUP_STEP_KEYS,
@@ -311,7 +237,7 @@ export class OnboardingLineResponseDto {
   @ApiProperty({ example: 'delivery' })
   readonly key: string;
 
-  @ApiProperty({ example: 'Software Delivery' })
+  @ApiProperty({ example: 'Delivery' })
   readonly name: string;
 
   @ApiProperty({ nullable: true, type: String, example: 'claude-code' })
@@ -376,8 +302,8 @@ export class OnboardingResponseDto {
   @ApiProperty({ type: OnboardingLineResponseDto, isArray: true })
   readonly lines: readonly OnboardingLineResponseDto[];
 
-  @ApiProperty({ type: KnownToolResponseDto, isArray: true })
-  readonly tools: readonly KnownToolResponseDto[];
+  @ApiProperty({ type: KnownIntegrationResponseDto, isArray: true })
+  readonly integrations: readonly KnownIntegrationResponseDto[];
 
   constructor(
     steps: readonly SetupStepResponseDto[],
@@ -386,7 +312,7 @@ export class OnboardingResponseDto {
     configRepository: string | null,
     repositoryOwner: string | null,
     lines: readonly OnboardingLineResponseDto[],
-    tools: readonly KnownToolResponseDto[],
+    integrations: readonly KnownIntegrationResponseDto[],
   ) {
     this.steps = steps;
     this.installUrl = installUrl;
@@ -394,7 +320,7 @@ export class OnboardingResponseDto {
     this.configRepository = configRepository;
     this.repositoryOwner = repositoryOwner;
     this.lines = lines;
-    this.tools = tools;
+    this.integrations = integrations;
   }
 }
 
@@ -424,7 +350,7 @@ export class SetUpLinesRequestDto {
   readonly lines!: SetUpLineRequestDto[];
 }
 
-export class ChooseToolsRequestDto {
+export class ChooseIntegrationsRequestDto {
   @ApiProperty({
     description: 'The hosts this team uses, by the name each is known by',
     example: ['linear', 'sentry'],
@@ -440,6 +366,15 @@ export class ChooseToolsRequestDto {
     type: String,
   })
   readonly dropped?: string[];
+
+  @ApiPropertyOptional({
+    description:
+      'The secrets the chosen integrations read, by name. Spotlight encrypts them into the team’s vault',
+    type: 'object',
+    additionalProperties: { type: 'string' },
+    example: { LINEAR_WEBHOOK_SECRET: 'lin_wh_...' },
+  })
+  readonly secrets?: Record<string, string>;
 }
 
 export class PinConfigurationRequestDto {
@@ -451,4 +386,17 @@ export class PinConfigurationRequestDto {
     type: String,
   })
   readonly repository!: string | null;
+}
+
+export class VaultKeyResponseDto {
+  @ApiProperty({
+    description:
+      'The passphrase that opens .spotlight/secrets.vault, as in age -d .spotlight/secrets.vault',
+    example: 'Gk3qVb8Rz2mJwYtR9cH4nLpZ6sA1eGuFoKiMxBy7TwQ',
+  })
+  readonly key: string;
+
+  constructor(key: string) {
+    this.key = key;
+  }
 }

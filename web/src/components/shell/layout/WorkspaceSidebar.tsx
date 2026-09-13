@@ -28,29 +28,30 @@ export function WorkspaceSidebar({ workspace }: WorkspaceSidebarProps) {
       </div>
 
       <nav className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pt-2">
-        <SidebarLink
-          to={inboxPath(workspace.slug)}
-          icon={Inbox}
-          trailing={
-            unseen.length > 0 ? (
-              <p className="text-xs">{unseen.length}</p>
-            ) : null
-          }
-        >
-          Inbox
-        </SidebarLink>
+        <div className="flex flex-col gap-0.5">
+          <SidebarLink
+            to={inboxPath(workspace.slug)}
+            icon={Inbox}
+            trailing={
+              unseen.length > 0 ? (
+                <p className="text-xs">{unseen.length}</p>
+              ) : null
+            }
+          >
+            Inbox
+          </SidebarLink>
+          <SidebarLink
+            to={runnersPath(workspace.slug)}
+            icon={Server}
+            trailing={
+              <p className="text-xs">{runners && reachableCount(runners)}</p>
+            }
+          >
+            Runners
+          </SidebarLink>
+        </div>
 
         <TeamNav slug={workspace.slug} teams={workspace.teams} />
-
-        <SidebarLink
-          to={runnersPath(workspace.slug)}
-          icon={Server}
-          trailing={
-            <p className="text-xs">{runners && reachableCount(runners)}</p>
-          }
-        >
-          Runners
-        </SidebarLink>
       </nav>
     </>
   );

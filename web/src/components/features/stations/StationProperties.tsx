@@ -1,28 +1,29 @@
-import { EffortSelect } from '@/components/features/stations/EffortSelect';
 import { HarnessSelect } from '@/components/features/stations/HarnessSelect';
-import { ModelSelect } from '@/components/features/stations/ModelSelect';
+import { ModelEffortSelect } from '@/components/features/stations/ModelEffortSelect';
 import { RepositoriesSelect } from '@/components/features/stations/RepositoriesSelect';
+import { SkillsSelect } from '@/components/features/stations/SkillsSelect';
 
 type StationPropertiesProps = {
   slug: string | undefined;
-  /** Absent where nothing runs at this station. */
+  teamId?: string;
+  skills?: readonly string[];
+  onSkills?: (skills: string[]) => void;
   harness?: string;
   onHarness?: (harness: string) => void;
-  /** Which model the harness answers with. Absent where nothing runs. */
   model?: string;
   onModel?: (model: string) => void;
-  /** How hard the harness is told to think. Absent where nothing runs. */
   effort?: string;
   onEffort?: (effort: string) => void;
-  /** Said in place of a harness, where there is nothing to run. */
   note?: string;
-  /** The line's repositories, edited here for every station on it. */
   repositories: readonly string[];
   onRepositories: (repositories: string[]) => void;
 };
 
 export function StationProperties({
   slug,
+  teamId,
+  skills,
+  onSkills,
   harness,
   onHarness,
   model,
@@ -43,17 +44,29 @@ export function StationProperties({
 
           <HarnessSelect value={harness} onChange={onHarness} />
 
-          {harness && model !== undefined && onModel ? (
-            <ModelSelect harness={harness} value={model} onChange={onModel} />
-          ) : null}
-
-          {harness && effort !== undefined && onEffort ? (
-            <EffortSelect
+          {harness &&
+          model !== undefined &&
+          onModel &&
+          effort !== undefined &&
+          onEffort ? (
+            <ModelEffortSelect
               harness={harness}
-              value={effort}
-              onChange={onEffort}
+              model={model}
+              onModel={onModel}
+              effort={effort}
+              onEffort={onEffort}
             />
           ) : null}
+        </section>
+      ) : null}
+
+      {skills !== undefined && onSkills ? (
+        <section className="flex flex-col gap-1">
+          <h2 className="px-2 font-medium text-muted-foreground text-xs">
+            Skills
+          </h2>
+
+          <SkillsSelect teamId={teamId} value={skills} onChange={onSkills} />
         </section>
       ) : null}
 

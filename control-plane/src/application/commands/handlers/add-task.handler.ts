@@ -9,12 +9,12 @@ import type { PersonReaderPort } from '@application/ports/person-reader.port';
 import type { FilesAtHand } from '@application/services/files-at-hand.service';
 import type { RaiseTask } from '@application/services/raise-task';
 import { Task } from '@domain/aggregates/task.aggregate';
-import { UnknownAssemblyLineError } from '@domain/exceptions/unknown-assembly-line.error';
+import { UnknownLineError } from '@domain/exceptions/unknown-line.error';
 import { UnknownStationError } from '@domain/exceptions/unknown-station.error';
-import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
+import type { LineRepository } from '@domain/repositories/line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { Placement } from '@domain/services/placement';
-import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
+import { LineId } from '@domain/value-objects/line-id.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { TaskDescription } from '@domain/value-objects/task-description.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
@@ -25,7 +25,7 @@ export class AddTaskHandler
 {
   constructor(
     private readonly tasks: TaskRepository,
-    private readonly lines: AssemblyLineRepository,
+    private readonly lines: LineRepository,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly raise: RaiseTask,
@@ -45,10 +45,10 @@ export class AddTaskHandler
     const stationId = StationId.of(command.stationId);
     const raisedBy = UserId.of(command.raisedBy);
 
-    const line = await this.lines.find(AssemblyLineId.of(command.lineId));
+    const line = await this.lines.find(LineId.of(command.lineId));
 
     if (!line) {
-      throw new UnknownAssemblyLineError(command.lineId);
+      throw new UnknownLineError(command.lineId);
     }
     const station = line.stationAt(stationId);
 
@@ -79,7 +79,6 @@ export class AddTaskHandler
 
     const raised = await this.raise.raise({ task: added, line });
 
-    // The raiser owns what they raised, so they are the assignee too.
     const person = await this.people.find(raisedBy);
 
     return TaskMapper.taskToDto(

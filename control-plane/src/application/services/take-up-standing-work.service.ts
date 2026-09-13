@@ -1,6 +1,6 @@
 import type { StandingWork } from '@application/services/standing-work';
 import type { TaskDispatching } from '@application/services/task-dispatch';
-import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import type { Line } from '@domain/aggregates/line.aggregate';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import type { StationId } from '@domain/value-objects/station-id.vo';
 
@@ -14,7 +14,7 @@ export class TakeUpStandingWork implements StandingWork {
     line,
     stationId,
   }: {
-    line: AssemblyLine;
+    line: Line;
     stationId: StationId;
   }): Promise<void> {
     if (!line.stationAt(stationId)?.harness) {

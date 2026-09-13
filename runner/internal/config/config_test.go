@@ -9,8 +9,6 @@ import (
 	"usespotlight.ai/runner/internal/config"
 )
 
-// setRequired clears every SPOTLIGHT_ var first, so the tests do not pick up
-// whatever the surrounding environment happens to set.
 func setRequired(t *testing.T) {
 	t.Helper()
 
@@ -22,7 +20,6 @@ func setRequired(t *testing.T) {
 		t.Setenv(name, "")
 	}
 
-	// A path that does not exist, so a real config on this machine never leaks in.
 	t.Setenv("SPOTLIGHT_CONFIG", filepath.Join(t.TempDir(), "runner.env"))
 
 	t.Setenv("SPOTLIGHT_URL", "https://spotlight.test")

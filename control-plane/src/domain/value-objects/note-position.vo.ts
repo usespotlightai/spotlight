@@ -1,6 +1,5 @@
 import { InvalidNotePositionError } from '@domain/exceptions/invalid-note-position.error';
 
-/** Where a note stands in a task's trail. Notes are appended, never reordered. */
 export class NotePosition {
   private constructor(readonly value: number) {}
 

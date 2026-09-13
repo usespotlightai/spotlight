@@ -18,7 +18,6 @@ export function CodeDiff({
   path: string | null;
   before: string;
   after: string;
-  /** Drops the bordered box so the caller's own padding frames the code. */
   flush?: boolean;
 }) {
   const name = path ?? 'file';
@@ -30,9 +29,7 @@ export function CodeDiff({
     [name, before, after],
   );
 
-  // A FileDiff mounted before Shiki has the theme and language paints a blank
-  // pre and never repaints itself, so hold it back until the highlighter is
-  // ready, then mount it with everything in hand.
+  // A FileDiff mounted before Shiki is ready paints blank and never repaints.
   useEffect(() => {
     let alive = true;
     setReady(false);
@@ -66,16 +63,7 @@ export function CodeDiff({
             disableFileHeader: true,
             overflow: 'wrap',
             theme: THEME,
-            // The panel is narrow and the diff sets its own size inside a shadow
-            // root, where nothing outside it can reach. Flush drops the file's
-            // top and bottom padding and clears the base background, which
-            // otherwise show as a dark band above the first line and below the
-            // last; the panel behind shows through instead, and the per-line
-            // add/delete tints keep their own colours.
-            // color-scheme: inherit so the diff follows the app's `.dark` class
-            // rather than the library's own `light dark`, which tracks the OS.
-            // Flush drops the file padding and base background that would
-            // otherwise show as dark bands above and below the code.
+            // Shadow-root CSS: inherit color-scheme to follow the app's .dark class, not the OS.
             unsafeCSS: `:host { color-scheme: inherit; font-size: 11px; line-height: 1.5;${
               flush ? ' --diffs-gap-block: 0; --diffs-bg: transparent;' : ''
             } }`,

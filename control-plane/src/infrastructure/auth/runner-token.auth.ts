@@ -8,11 +8,6 @@ import { TokenHash } from '@domain/value-objects/token-hash.vo';
 import { DrizzleRunnerRepository } from '@infrastructure/persistence/drizzle/repositories/runner.repository';
 import { Inject, Injectable } from '@nestjs/common';
 
-/**
- * Looks the bearer token up by its hash. A revoked runner is found but not
- * admitted, so revoking takes effect on the next request rather than whenever
- * the runner happens to restart.
- */
 @Injectable()
 export class RunnerTokenAuth implements RunnerAuthPort {
   constructor(

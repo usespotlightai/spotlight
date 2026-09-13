@@ -34,7 +34,6 @@ describe('EnrolRunnerHandler', () => {
     });
   });
 
-  // The token is shown once and never again, so it is not what was written.
   it('keeps only the hash of it', async () => {
     const { handler, add } = enrolling();
 

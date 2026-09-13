@@ -26,7 +26,6 @@ integration: linear
 webhook:
 ${VERIFY}${EVENTS}`;
 
-/** The same file with the verify block left out, as somebody forgetting it. */
 const WITHOUT_VERIFY = `version: 1
 integration: linear
 webhook:
@@ -90,8 +89,6 @@ describe('compiling an integration', () => {
       ).toBeGreaterThan(1);
     });
 
-    // An unsigned endpoint takes anybody's word for what happened, and what
-    // happens next is an agent running on it.
     it('refuses a webhook that would verify nothing', () => {
       expect(complaining(WITHOUT_VERIFY, 'webhook.verify')).not.toHaveLength(0);
     });
@@ -129,8 +126,6 @@ describe('compiling an integration', () => {
       ).toHaveLength(1);
     });
 
-    // A file raising another host's words would have stations waiting on
-    // something this source never says.
     it('refuses a word named for another source', () => {
       const [problem] = complaining(
         WHOLE.replace('linear.issue.completed', 'github.issue.completed'),
@@ -159,7 +154,6 @@ describe('compiling an integration', () => {
       ).toHaveLength(1);
     });
 
-    // A word about nothing is a file somebody is still writing.
     it('refuses a rule that could never find a task', () => {
       const text = WHOLE.split('\n')
         .filter(
@@ -471,5 +465,322 @@ webhook:
 
       expect(problems(onlyAmbient)).not.toHaveLength(0);
     });
+  });
+
+  describe('an expression that does not check against what it may read', () => {
+    const warnings = (text: string) => {
+      const read = compileIntegration(PATH, text);
+
+      return read.ok
+        ? read.warnings
+        : read.problems.filter((each) => each.isWarning);
+    };
+
+    const BINDING = `${WHOLE}actions:
+  post:
+    request:
+      method: POST
+      url: https://hooks.example.com/post
+      body: '\${{ {"text": ask.body, "thread": target.thread} }}'
+on:
+  task.asked:
+    do: post
+    to:
+      thread: \${{ task.marks["slack.thread"] }}
+`;
+
+    it('has nothing to say about one that reads only what is there', () => {
+      expect(warnings(BINDING)).toEqual([]);
+    });
+
+    it('warns about a misspelled field, and still compiles', () => {
+      const text = BINDING.replace('task.marks', 'task.makrs');
+      const read = compileIntegration(PATH, text);
+
+      expect(read.ok).toBe(true);
+      expect(warnings(text)).toHaveLength(1);
+      expect(warnings(text)[0]?.at).toBe('on.task.asked.to.thread');
+      expect(warnings(text)[0]?.reason).toMatch(/No such key: makrs/);
+    });
+
+    it('tells a name that is not there what may be read instead', () => {
+      const [warning] = warnings(BINDING.replace('ask.body', 'asked.body'));
+
+      expect(warning?.at).toBe('actions.post.request.body');
+      expect(warning?.reason).toMatch(/Unknown variable: asked/);
+      expect(warning?.reason).toMatch(/ask, connection, secret, target, task/);
+    });
+
+    it('lets a rule that walks a list read each item, and nothing else', () => {
+      const list = WHOLE.replace(
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: the file's own expression syntax
+        '    - when: ${{ body.type == "Issue" }}',
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: the file's own expression syntax
+        '    - forEach: ${{ body.issues }}\n      when: ${{ item.done }}',
+      );
+
+      expect(warnings(list)).toEqual([]);
+      expect(warnings(WHOLE.replace('body.type', 'item.type'))).toHaveLength(1);
+    });
+
+    it('warns about a raised word reading a name no lookup kept', () => {
+      expect(
+        warnings(
+          WHOLE.replace(
+            // biome-ignore lint/suspicious/noTemplateCurlyInString: the file's own expression syntax
+            'value: ${{ body.data.identifier }}',
+            // biome-ignore lint/suspicious/noTemplateCurlyInString: the file's own expression syntax
+            'value: ${{ email }}',
+          ),
+        ),
+      ).toHaveLength(1);
+    });
+  });
+});
+
+describe('a request written out', () => {
+  const ACTION = `version: 1
+integration: demo
+actions:
+  post:
+    request:
+      method: POST
+      url: https://hooks.example.com/\${{ target.channel }}/messages
+      headers:
+        authorization: Bearer \${{ secret.DEMO_TOKEN }}
+      body:
+        text: '\${{ ask.body }}'
+        thread: '\${{ target.thread }}'
+        unfurl: false
+        tags: [queue, '\${{ task.line }}']
+`;
+
+  const request = (text: string) => {
+    const read = compileIntegration(PATH, text);
+
+    return read.ok ? read.readable.actions.get('post') : undefined;
+  };
+
+  it('reads each piece into a string, around the text it sits in', () => {
+    expect(request(ACTION)?.url.parts).toHaveLength(3);
+    expect(request(ACTION)?.headers[0]?.value.parts).toHaveLength(2);
+  });
+
+  it('collects a secret read inside a string', () => {
+    const read = compileIntegration(PATH, ACTION);
+
+    expect(
+      read.ok &&
+        read.readable.integration.credentials.map((each) => each.value),
+    ).toEqual(['DEMO_TOKEN']);
+  });
+
+  it('keeps a body written as a map as the map it is', () => {
+    const body = request(ACTION)?.body;
+
+    expect(body?.kind).toBe('map');
+    expect(
+      body?.kind === 'map' && body.entries.map((each) => each.key),
+    ).toEqual(['text', 'thread', 'unfurl', 'tags']);
+  });
+
+  it('checks each piece of the body where it sits', () => {
+    const read = compileIntegration(
+      PATH,
+      ACTION.replace('ask.body', 'ask.boddy'),
+    );
+
+    expect(read.ok && read.warnings.map((each) => each.at)).toEqual([
+      'actions.post.request.body.text',
+    ]);
+  });
+});
+
+describe('the tools an integration offers', () => {
+  const OFFERING = `version: 1
+integration: linear
+actions:
+  comment:
+    request:
+      method: POST
+      url: https://api.linear.app/graphql
+      auth:
+        token:
+          secret: secret.LINEAR_API_KEY
+      body:
+        query: 'mutation($id: String!, $body: String!) { commentCreate(input: { issueId: $id, body: $body }) { comment { url } } }'
+        variables:
+          id: '\${{ inputs.issue }}'
+          body: '\${{ inputs.body }}'
+      capture:
+        url: '\${{ response.data.commentCreate.comment.url }}'
+tools:
+  comment:
+    does: comment
+    description: Comment on the Linear issue this task came from.
+    inputs:
+      issue:
+        default: '\${{ task.marks["linear.issue"] }}'
+      body:
+        required: true
+        piped: true
+    output: '\${{ capture.url }}'
+`;
+
+  const read = (text: string) => compileIntegration(PATH, text);
+
+  it('offers each as a tool named for the integration, with what it takes', () => {
+    const compiled = read(OFFERING);
+    const offered = compiled.ok
+      ? compiled.readable.integration.offers.find(
+          (each) => each.tool.value === 'linear.comment',
+        )
+      : undefined;
+
+    expect(compiled.ok && compiled.warnings).toEqual([]);
+    expect(offered?.description).toBe(
+      'Comment on the Linear issue this task came from.',
+    );
+    expect(
+      offered?.inputs.map((each) => [
+        each.name,
+        each.required,
+        each.defaulted,
+        each.piped,
+      ]),
+    ).toEqual([
+      ['issue', false, true, false],
+      ['body', true, false, true],
+    ]);
+  });
+
+  it('keeps the action it runs, and what it answers with', () => {
+    const compiled = read(OFFERING);
+    const tool = compiled.ok
+      ? compiled.readable.tools.get('comment')
+      : undefined;
+
+    expect(tool?.action).toBe('comment');
+    expect(tool?.output).not.toBeNull();
+    expect(tool?.inputs[0]?.default?.parts).toHaveLength(1);
+  });
+
+  it('checks what an action reads of its tools’ inputs', () => {
+    const compiled = read(OFFERING.replace('inputs.body', 'inputs.bdy'));
+
+    expect(compiled.ok && compiled.warnings.map((each) => each.at)).toEqual([
+      'actions.comment.request.body.variables.body',
+    ]);
+  });
+
+  it('refuses a tool whose action is not defined', () => {
+    expect(
+      complaining(
+        OFFERING.replace('does: comment', 'does: missing'),
+        'tools.comment.does',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('refuses a tool that does not say what it is for', () => {
+    expect(
+      problems(
+        OFFERING.replace(
+          '    description: Comment on the Linear issue this task came from.\n',
+          '',
+        ),
+      ).map((each) => each.at),
+    ).toContain('tools.comment.description');
+  });
+});
+
+describe('type hints', () => {
+  const HINTED = `version: 1
+integration: linear
+types:
+  Issue:
+    identifier: string
+    assignee: User
+    labels: list<string>
+  User:
+    email: string
+webhook:
+  verify:
+    hmac:
+      secret: secret.LINEAR_WEBHOOK_SECRET
+      header: linear-signature
+  shape:
+    type: string
+    data: Issue
+  events:
+    - when: \${{ body.type == "Issue" && "bug" in body.data.labels }}
+      raise:
+        happening: linear.issue.completed
+        marks:
+          - kind: linear.issue
+            value: \${{ body.data.identifier }}
+actions:
+  assignee:
+    request:
+      method: GET
+      url: https://api.linear.app/assignee
+      response:
+        data:
+          user: User
+      capture:
+        email: '\${{ response.data.user.email }}'
+`;
+
+  const warnings = (text: string) => {
+    const read = compileIntegration(PATH, text);
+
+    return read.ok
+      ? read.warnings
+      : read.problems.filter((each) => each.isWarning);
+  };
+
+  it('has nothing to say where what is read is what the hints say, in whatever order they are written', () => {
+    expect(warnings(HINTED)).toEqual([]);
+  });
+
+  it('finds a misspelling of what a delivery’s shape says, where it is written', () => {
+    const [warning] = warnings(
+      HINTED.replace('body.data.identifier', 'body.data.identifer'),
+    );
+
+    expect(warning?.at).toBe('webhook.events.0.raise.marks.0.value');
+    expect(warning?.reason).toMatch(/No such key: identifer/);
+  });
+
+  it('finds a misspelling of what a response is said to be', () => {
+    expect(
+      warnings(
+        HINTED.replace('response.data.user.email', 'response.data.user.emial'),
+      ).map((each) => each.at),
+    ).toEqual(['actions.assignee.request.capture.email']);
+  });
+
+  it('says a type it does not know, and checks nothing against the hints', () => {
+    const text = HINTED.replace('email: string', 'email: strng').replace(
+      'body.data.identifier',
+      'body.data.identifer',
+    );
+
+    expect(warnings(text).map((each) => each.at)).toEqual(['types.User.email']);
+  });
+
+  it('says where types name each other round', () => {
+    expect(
+      warnings(
+        HINTED.replace('email: string', 'email: string\n    boss: Issue'),
+      ).map((each) => each.at),
+    ).toContain('types.Issue');
+  });
+
+  it('still compiles a file whose hints are wrong', () => {
+    expect(
+      compileIntegration(PATH, HINTED.replace('email: string', 'email: strng'))
+        .ok,
+    ).toBe(true);
   });
 });

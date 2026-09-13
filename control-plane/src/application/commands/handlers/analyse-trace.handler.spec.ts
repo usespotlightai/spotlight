@@ -7,22 +7,24 @@ import type { PersonReaderPort } from '@application/ports/person-reader.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import { RaiseTask } from '@application/services/raise-task';
 import type { TaskDispatching } from '@application/services/task-dispatch';
-import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import { Line } from '@domain/aggregates/line.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import type { Team } from '@domain/aggregates/team.aggregate';
 import { Station } from '@domain/entities/station.entity';
-import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
+import type { LineRepository } from '@domain/repositories/line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import type { TeamRepository } from '@domain/repositories/team.repository';
 import { Placement } from '@domain/services/placement';
-import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
-import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { LineId } from '@domain/value-objects/line-id.vo';
+import { LineKey } from '@domain/value-objects/line-key.vo';
+import { LineName } from '@domain/value-objects/line-name.vo';
 import { LineRole } from '@domain/value-objects/line-role.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
+import { StationKey } from '@domain/value-objects/station-key.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
@@ -38,15 +40,17 @@ const requester = { id: 'user_1', name: 'Ada', image: null };
 const people: PersonReaderPort = { find: async () => requester };
 
 const improvementLine = () =>
-  AssemblyLine.of({
-    id: AssemblyLineId.of('line_improve'),
+  Line.of({
+    id: LineId.of('line_improve'),
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
-    name: AssemblyLineName.of('Factory Improvement'),
+    key: LineKey.of('default'),
+    name: LineName.of('Factory'),
     role: LineRole.IMPROVEMENT,
     stations: [
       Station.of({
         id: StationId.of('station_0'),
+        key: StationKey.of('backlog'),
         name: StationName.of('Backlog'),
         position: 0,
         color: StationColor.of('#a3a8b0'),
@@ -54,6 +58,7 @@ const improvementLine = () =>
       }),
       Station.of({
         id: StationId.of('station_analysis'),
+        key: StationKey.of('analysis'),
         name: StationName.of('Analysis'),
         position: 1,
         color: StationColor.of('#9b8cf0'),
@@ -61,6 +66,7 @@ const improvementLine = () =>
       }),
       Station.of({
         id: StationId.of('station_2'),
+        key: StationKey.of('completed'),
         name: StationName.of('Completed'),
         position: 2,
         color: StationColor.of('#a3a8b0'),
@@ -102,9 +108,10 @@ const tasks = (found: Task | null) =>
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
     holding: vi.fn(async () => null),
+    countsAt: vi.fn(async () => new Map()),
   }) satisfies TaskRepository;
 
-const lines = (ofTeam: AssemblyLine[]) =>
+const lines = (ofTeam: Line[]) =>
   ({
     add: vi.fn(),
     save: vi.fn(),
@@ -116,7 +123,7 @@ const lines = (ofTeam: AssemblyLine[]) =>
       async (_team, role) =>
         ofTeam.find((each) => each.role?.equals(role)) ?? null,
     ),
-  }) satisfies AssemblyLineRepository;
+  }) satisfies LineRepository;
 
 const dispatch: TaskDispatching = {
   dispatch: async () => RunId.of('run_1'),
@@ -124,7 +131,7 @@ const dispatch: TaskDispatching = {
 
 const handler = (over: {
   found?: Task | null;
-  ofTeam?: AssemblyLine[];
+  ofTeam?: Line[];
   holds?: boolean;
 }) =>
   new AnalyseTraceHandler(
@@ -151,7 +158,6 @@ describe('AnalyseTraceHandler', () => {
     expect(created?.title).toBe('Analyse trace: Fix the queue');
     expect(created?.description).toContain('spotlight trace --task task_orig');
     expect(created?.assignee).toEqual(requester);
-    // At the line's entry — the first station work is done at.
     expect(added?.stationId).toEqual(StationId.of('station_analysis'));
     expect(added?.workspaceId).toEqual(WorkspaceId.of('ws_1'));
   });

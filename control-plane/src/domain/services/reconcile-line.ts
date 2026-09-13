@@ -1,7 +1,7 @@
-import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import { Line } from '@domain/aggregates/line.aggregate';
 import { Station } from '@domain/entities/station.entity';
-import type { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
 import type { FactoryId } from '@domain/value-objects/factory-id.vo';
+import type { LineId } from '@domain/value-objects/line-id.vo';
 import type { LinePlan } from '@domain/value-objects/line-plan.vo';
 import { Reaction } from '@domain/value-objects/reaction.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
@@ -9,37 +9,27 @@ import type { StationKey } from '@domain/value-objects/station-key.vo';
 import { WayOut } from '@domain/value-objects/way-out.vo';
 import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 
-/** Naming them is the point: a silent refusal is nothing to act on. */
 export interface Stranded {
   readonly key: string;
   readonly name: string;
   readonly tasks: number;
 }
 
-/** How many tasks stand at each station, by the station's own identifier. */
 export type TasksStanding = ReadonlyMap<string, number>;
 
 export interface LineIdentity {
-  readonly id: AssemblyLineId;
+  readonly id: LineId;
   readonly workspaceId: WorkspaceId;
   readonly factoryId: FactoryId;
 }
 
 export type Reconciled =
-  | { readonly ok: true; readonly line: AssemblyLine }
+  | { readonly ok: true; readonly line: Line }
   | { readonly ok: false; readonly stranded: readonly Stranded[] };
 
-/**
- * A station is matched by its key and a match keeps its identity, so renaming
- * or moving one leaves every task where it stood.
- *
- * Removing is the exception: one nobody stands at goes quietly, one with
- * tasks at it stops the whole plan.
- */
 export const reconcileLine = (input: {
-  standing: AssemblyLine;
+  standing: Line;
   plan: LinePlan;
-  /** Data rather than a question: nothing here reaches for a repository. */
   tasksStanding: TasksStanding;
   newId: () => string;
 }): Reconciled => {
@@ -82,18 +72,15 @@ export const openLine = (input: {
   identity: LineIdentity;
   plan: LinePlan;
   newId: () => string;
-}): AssemblyLine =>
-  assemble(input.identity, input.plan, () => null, input.newId);
+}): Line => assemble(input.identity, input.plan, () => null, input.newId);
 
 const assemble = (
   identity: LineIdentity,
   plan: LinePlan,
-  /** The identity a station already had, kept so its tasks are not stranded. */
   kept: (key: string) => StationId | null,
   newId: () => string,
-): AssemblyLine => {
-  // Every station has an identity before any of them names another, because
-  // where work passes to is written as keys and has to resolve to all of them.
+): Line => {
+  // Assign every id first: passes-to keys may resolve to any station.
   const idOf = new Map<string, StationId>(
     plan.stations.map((each) => [
       each.key.value,
@@ -101,7 +88,7 @@ const assemble = (
     ]),
   );
 
-  const at = (key: StationKey): StationId | null => idOf.get(key.value) ?? null;
+  const at = (key: StationKey): StationId => idOf.get(key.value) as StationId;
 
   const stations = plan.stations.map((planned, position) =>
     Station.of({
@@ -117,16 +104,15 @@ const assemble = (
       effort: planned.effort,
       agentPrompt: planned.agentPrompt,
       tools: planned.tools,
+      skills: planned.skills,
       wayOut: WayOut.of({
-        stations: planned.passesTo
-          .map((each) => at(each))
-          .filter((each): each is StationId => each !== null),
+        stations: planned.passesTo.map((each) => at(each)),
         ends: planned.ends,
       }),
     }),
   );
 
-  return AssemblyLine.of({
+  return Line.of({
     id: identity.id,
     workspaceId: identity.workspaceId,
     factoryId: identity.factoryId,
@@ -135,15 +121,12 @@ const assemble = (
     role: plan.role,
     repositories: plan.repositories,
     stations,
-    reactions: plan.reactions
-      .map((planned) => {
-        const to = at(planned.to);
-        const from = planned.from ? at(planned.from) : null;
-
-        return to
-          ? Reaction.of({ happening: planned.happening, from, to })
-          : null;
-      })
-      .filter((each): each is Reaction => each !== null),
+    reactions: plan.reactions.map((planned) =>
+      Reaction.of({
+        happening: planned.happening,
+        from: planned.from ? at(planned.from) : null,
+        to: at(planned.to),
+      }),
+    ),
   });
 };

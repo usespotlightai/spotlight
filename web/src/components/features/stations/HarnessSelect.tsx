@@ -1,4 +1,5 @@
-import { Box, ChevronsUpDown } from 'lucide-react';
+import { ChevronsUpDown } from 'lucide-react';
+import { HarnessLogo } from '@/components/features/stations/HarnessLogo';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,7 +28,7 @@ export function HarnessSelect({ value, onChange }: HarnessSelectProps) {
         aria-label="Harness"
         className="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent"
       >
-        <Box className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+        <HarnessLogo harness={chosen?.id} />
         <span
           className={cn(
             'truncate',
@@ -55,6 +56,7 @@ export function HarnessSelect({ value, onChange }: HarnessSelectProps) {
 
           {(harnesses ?? []).map((harness) => (
             <DropdownMenuRadioItem key={harness.id} value={harness.id}>
+              <HarnessLogo harness={harness.id} />
               <span className="truncate">{harness.name}</span>
             </DropdownMenuRadioItem>
           ))}

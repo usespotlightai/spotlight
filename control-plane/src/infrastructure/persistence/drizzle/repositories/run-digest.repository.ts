@@ -15,7 +15,6 @@ import {
 import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, eq, inArray, isNull, type SQL } from 'drizzle-orm';
 
-/** How many runs are read into memory at once while catching up. */
 const AT_A_TIME = 25;
 
 const chunked = <T>(all: readonly T[], size: number): T[][] => {
@@ -48,7 +47,6 @@ export class DrizzleRunDigests
     await this.write();
   }
 
-  /** Every finished run without a digest, of those the filter admits. */
   private async write(only?: SQL): Promise<void> {
     const owed = await this.db
       .select({ id: run.id, attempt: run.attempt })
@@ -102,8 +100,6 @@ export class DrizzleRunDigests
       const reading = readings.get(`${id}:${attempt}`) ?? new Told();
       const spent = reading.spent();
 
-      // What a run came to is the domain's reckoning, not this table's: all
-      // that happens here is reading the journal and keeping the answer.
       const outcome = outcomeOf({
         ms: reading.ms(),
         statuses: reading.steps().map((step) => step.status),
@@ -122,7 +118,6 @@ export class DrizzleRunDigests
         size: outcome.size,
         cost: outcome.cost?.amount ?? null,
         currency: outcome.cost?.currency ?? null,
-        readable: reading.readable,
       };
     });
 
@@ -130,8 +125,6 @@ export class DrizzleRunDigests
       return;
     }
 
-    // A run finishing while its history is being caught up would otherwise
-    // collide here, and the two would have written the same thing anyway.
     await this.db.insert(runDigest).values(rows).onConflictDoNothing();
   }
 
@@ -155,7 +148,6 @@ export class DrizzleRunDigests
       })
       .from(runDigest)
       .where(inArray(runDigest.runId, ids))
-      // A retried run has a digest per attempt; the last is what it came to.
       .orderBy(asc(runDigest.attempt));
 
     return new Map(

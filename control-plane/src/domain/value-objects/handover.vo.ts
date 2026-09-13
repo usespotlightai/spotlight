@@ -5,7 +5,6 @@ interface Said {
   readonly body: TaskNoteBody;
 }
 
-/** Only a pass names a station: a person and an ending have nowhere to be. */
 export type Handover =
   | (Said & { readonly kind: 'review' })
   | (Said & { readonly kind: 'done' })

@@ -17,8 +17,6 @@ import type { HostConnectionRepository } from '@domain/repositories/host-connect
 import { HostGrant } from '@domain/value-objects/host-grant.vo';
 import { describe, expect, it, vi } from 'vitest';
 
-// The role logic lives in ConnectionAuthorization, tested there; here it is only
-// whether the gate opens.
 const authorizing = (allowed: boolean) =>
   ({
     connectableBy: vi.fn(async () => (allowed ? ({} as Workspace) : null)),
@@ -75,7 +73,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
     );
     const landingFor = vi.fn(
       async () =>
-        'https://app.example/w/acme/team/team_1/integrations?connected=slack',
+        'https://app.example/w/acme/team/team_1/settings/integrations?connected=slack',
     );
 
     const handler = new FinishOAuth2ConnectionHandler(
@@ -113,7 +111,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
       'host.connected',
     );
     expect(to).toBe(
-      'https://app.example/w/acme/team/team_1/integrations?connected=slack',
+      'https://app.example/w/acme/team/team_1/settings/integrations?connected=slack',
     );
   });
 

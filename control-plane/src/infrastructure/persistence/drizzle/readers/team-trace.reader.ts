@@ -13,11 +13,11 @@ import type { UserId } from '@domain/value-objects/user-id.vo';
 import type { DrizzleDatabase } from '@infrastructure/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@infrastructure/persistence/drizzle/drizzle.constants';
 import { stationsPerLine } from '@infrastructure/persistence/drizzle/readers/task-trail';
-import {
-  assemblyLine,
-  station,
-} from '@infrastructure/persistence/drizzle/schemas/assembly-line.schema';
 import { factory } from '@infrastructure/persistence/drizzle/schemas/factory.schema';
+import {
+  line,
+  station,
+} from '@infrastructure/persistence/drizzle/schemas/line.schema';
 import { run } from '@infrastructure/persistence/drizzle/schemas/run.schema';
 import {
   task,
@@ -30,7 +30,6 @@ import { alias } from 'drizzle-orm/pg-core';
 
 const ranAt = alias(station, 'ran_at');
 
-/** Enough of a briefing or an answer to tell one row from another. */
 const PREVIEW_LIMIT = 300;
 
 const shortened = (text: string | null | undefined): string | null => {
@@ -60,11 +59,11 @@ export class DrizzleTeamTraceReader implements TeamTraceReaderPort {
         ranName: ranAt.name,
         ranColor: ranAt.color,
         ranPosition: ranAt.position,
-        ranLineId: ranAt.assemblyLineId,
+        ranLineId: ranAt.lineId,
         standsName: station.name,
         standsColor: station.color,
         standsPosition: station.position,
-        standsLineId: station.assemblyLineId,
+        standsLineId: station.lineId,
       })
       .from(run)
       .innerJoin(
@@ -76,8 +75,8 @@ export class DrizzleTeamTraceReader implements TeamTraceReaderPort {
       )
       .innerJoin(task, eq(task.id, run.taskId))
       .innerJoin(station, eq(station.id, task.stationId))
-      .innerJoin(assemblyLine, eq(assemblyLine.id, station.assemblyLineId))
-      .innerJoin(factory, eq(factory.id, assemblyLine.factoryId))
+      .innerJoin(line, eq(line.id, station.lineId))
+      .innerJoin(factory, eq(factory.id, line.factoryId))
       .leftJoin(ranAt, eq(ranAt.id, run.stationId))
       .where(and(eq(factory.teamId, teamId.value), gte(run.createdAt, since)))
       .orderBy(desc(run.createdAt));
@@ -88,8 +87,6 @@ export class DrizzleTeamTraceReader implements TeamTraceReaderPort {
       return [];
     }
 
-    // What a station said when it handed the task on, which is the nearest
-    // thing a run has to an answer.
     const said = await this.db
       .select({ runId: taskNote.runId, body: taskNote.body })
       .from(taskNote)
@@ -103,7 +100,6 @@ export class DrizzleTeamTraceReader implements TeamTraceReaderPort {
 
     const answers = new Map(said.map((each) => [each.runId, each.body]));
 
-    // A position means nothing without knowing how many the line holds.
     const held = await stationsPerLine(
       this.db,
       worked.flatMap((row) =>
@@ -135,12 +131,10 @@ export class DrizzleTeamTraceReader implements TeamTraceReaderPort {
     const traces = new Map<string, TeamTraceSummary>();
     const passed = new Map<string, Map<string, TraceStation>>();
 
-    // Rows arrive newest first, so the first of a task is its latest run: the
-    // one whose station, state and answer the trace is read by.
+    // Rows arrive newest first, so the first row of a task is its latest run.
     for (const row of worked) {
       const taskId = row.taskId as string;
 
-      // Every station that has run it, once each, however many runs it took.
       const ran = stationOf(
         row.ranName,
         row.ranColor,
@@ -187,8 +181,6 @@ export class DrizzleTeamTraceReader implements TeamTraceReaderPort {
     }
 
     return [...traces.values()].map((trace) => {
-      // Where it stands belongs in the row of marks too: a task that has
-      // finished is standing somewhere no run ever worked.
       const marks = new Map(passed.get(trace.taskId.value) ?? []);
       if (trace.station) {
         marks.set(trace.station.name.value, trace.station);

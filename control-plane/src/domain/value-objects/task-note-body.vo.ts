@@ -16,8 +16,6 @@ export class TaskNoteBody {
     return new TaskNoteBody(trimmed);
   }
 
-  /** A person's own words, where there are any; the source's generic
-   *  description of the event only where nobody said anything. */
   static heard(told: string, said: Said | null): TaskNoteBody {
     const spoken = [said?.place, said?.body].filter(Boolean).join('\n');
 

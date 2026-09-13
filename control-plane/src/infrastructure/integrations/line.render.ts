@@ -1,15 +1,9 @@
-import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import type { Line } from '@domain/aggregates/line.aggregate';
 import type { Station } from '@domain/entities/station.entity';
 import type { StationId } from '@domain/value-objects/station-id.vo';
 import { stringify } from 'yaml';
 
-/**
- * What Spotlight writes has to be what Spotlight can read, or the board and
- * the repository drift apart on the first edit. That has a test.
- *
- * Identifiers a person never typed stay out: the key names a station here.
- */
-export const renderLine = (line: AssemblyLine): string => {
+export const renderLine = (line: Line): string => {
   const keyOf = (stationId: StationId): string | null =>
     line.stations.find((each) => each.id.equals(stationId))?.key.value ?? null;
 
@@ -39,8 +33,6 @@ export const renderLine = (line: AssemblyLine): string => {
       stations,
       ...(reactions.length > 0 ? { reactions } : {}),
     },
-    // Long prompts are the point of the file, so they are written as blocks
-    // rather than as one unreadable quoted line.
     { lineWidth: 0, blockQuote: 'literal' },
   );
 };
@@ -65,6 +57,9 @@ const written = (
     ...(station.agentPrompt ? { prompt: station.agentPrompt.value } : {}),
     ...(station.tools.length > 0
       ? { tools: station.tools.map((each) => each.value) }
+      : {}),
+    ...(station.skills.length > 0
+      ? { skills: station.skills.map((each) => each.value) }
       : {}),
     ...(passesTo.length > 0 ? { passesTo } : {}),
     ...(station.wayOut.ends ? { ends: true } : {}),

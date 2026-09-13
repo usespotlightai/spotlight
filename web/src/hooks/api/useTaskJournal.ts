@@ -5,7 +5,6 @@ export const journalKeys = {
   forTask: (taskId?: string) => ['journal', taskId ?? null] as const,
 };
 
-/** What the runs did, read only for the item someone has open. */
 export function useTaskJournal(
   slug: string | undefined,
   taskId: string | undefined,

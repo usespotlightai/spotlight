@@ -11,18 +11,12 @@ export function InboxWork({ journals }: { journals: readonly RunJournal[] }) {
   const [open, setOpen] = useState(false);
 
   const steps = journals.flatMap((each) => each.steps);
-  const unreadable = journals.some((each) => !each.readable);
 
   if (steps.length === 0) {
-    return unreadable ? (
-      <p className="py-1.5 text-muted-foreground text-xs">
-        This run left terminal output, from before the agents spoke a protocol.
-      </p>
-    ) : null;
+    return null;
   }
 
   const attempts = journals.length;
-  // Summed, because a retried run is several journals for one message.
   const ms = journals.reduce((all, each) => all + (each.ms ?? 0), 0);
   const spent = journals.map((each) => each.spent).filter(Boolean)[0];
 
@@ -66,11 +60,8 @@ export function InboxWork({ journals }: { journals: readonly RunJournal[] }) {
           open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
         )}
       >
-        {/* The grid item carries no padding of its own: a box of height zero
-            with padding is not a box of height zero. */}
+        {/* No padding here: a padded box cannot collapse to zero height. */}
         <div className="min-h-0 overflow-hidden">
-          {/* A long run scrolls within itself rather than shoving the
-              conversation down, its edges fading to say there is more. */}
           <FadingScroll className="max-h-[min(18rem,50dvh)]">
             <ol className="flex flex-col gap-px pt-1">
               {steps.map((step, at) => (

@@ -4,21 +4,22 @@ import type { OutboundTaskNotifierPort } from '@application/ports/outbound-task-
 import { SilentTaskNotifier } from '@application/ports/outbound-task-notifier.port';
 import { AnnounceTaskEvents } from '@application/services/announce-task-events';
 import type { TaskDispatching } from '@application/services/task-dispatch';
-import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import { Line } from '@domain/aggregates/line.aggregate';
 import { Run } from '@domain/aggregates/run.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { Station } from '@domain/entities/station.entity';
 import type { RunAbandoned } from '@domain/events/run-abandoned.event';
 import { RunCompleted } from '@domain/events/run-completed.event';
-import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
+import type { LineRepository } from '@domain/repositories/line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
-import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
-import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { Declaration } from '@domain/value-objects/declaration.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { HandoverReport } from '@domain/value-objects/handover-report.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { HarnessSession } from '@domain/value-objects/harness-session.vo';
+import { LineId } from '@domain/value-objects/line-id.vo';
+import { LineKey } from '@domain/value-objects/line-key.vo';
+import { LineName } from '@domain/value-objects/line-name.vo';
 import { Mark } from '@domain/value-objects/mark.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { RunOutcome } from '@domain/value-objects/run-outcome.vo';
@@ -26,11 +27,13 @@ import { RunSpec } from '@domain/value-objects/run-spec.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
+import { StationKey } from '@domain/value-objects/station-key.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
+import { WayOut } from '@domain/value-objects/way-out.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -45,32 +48,40 @@ const aSpec = (executable = 'sh') =>
 const NOW = new Date('2026-08-28T12:00:00.000Z');
 const clock: ClockPort = { now: () => NOW, sleep: async () => {} };
 
-const at = (id: string, name: string, position: number, harness?: HarnessId) =>
+const at = (
+  id: string,
+  name: string,
+  position: number,
+  harness?: HarnessId,
+  ends = false,
+) =>
   Station.of({
     id: StationId.of(id),
+    key: StationKey.of(name.toLowerCase().split(' ').join('-')),
     name: StationName.of(name),
     position,
     color: StationColor.of('#a3a8b0'),
     harness,
+    wayOut: WayOut.of({ ends }),
     kind:
       position === 0 ? 'backlog' : name === 'Completed' ? 'completed' : 'work',
   });
 
 const line = () =>
-  AssemblyLine.of({
-    id: AssemblyLineId.of('line_1'),
+  Line.of({
+    id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
-    name: AssemblyLineName.of('Default'),
+    key: LineKey.of('default'),
+    name: LineName.of('Default'),
     stations: [
       at('station_0', 'Backlog', 0),
-      at('station_1', 'Triage', 1, HarnessId.of('dev')),
+      at('station_1', 'Triage', 1, HarnessId.of('dev'), true),
       at('station_2', 'Spec', 2, HarnessId.of('dev')),
       at('station_3', 'Completed', 3),
     ],
   });
 
-// Held by a run from the start: a task cannot be handed to a second one.
 const task = (held = 'run_1') =>
   Task.add({
     workspaceId: WorkspaceId.of('ws_1'),
@@ -82,7 +93,6 @@ const task = (held = 'run_1') =>
     newId: () => 'task_1',
   }).handedTo(RunId.of(held));
 
-// Long enough after NOW that a lease has lapsed.
 const LATER = new Date(NOW.getTime() + 120_000);
 
 const queued = (taskId: string | null = 'task_1') =>
@@ -106,14 +116,12 @@ const run = (failed: boolean, said: HandoverReport = HandoverReport.none()) => {
     );
 };
 
-// A run a person stopped: it completes, but its outcome says so.
 const stoppedRun = () => {
   const runner = RunnerId.of('runner_1');
 
   return queued().claim(runner, NOW).complete(runner, RunOutcome.stopped(0));
 };
 
-// Claimed and left unreported until there are no attempts left.
 const givenUp = () => {
   const runner = RunnerId.of('runner_1');
   let ended = queued();
@@ -136,6 +144,7 @@ const tasks = (found: Task | null = task()) =>
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
     holding: vi.fn(async () => null),
+    countsAt: vi.fn(async () => new Map()),
   }) satisfies TaskRepository;
 
 const lines = () =>
@@ -147,7 +156,7 @@ const lines = () =>
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
     withRole: vi.fn(async () => null),
-  }) satisfies AssemblyLineRepository;
+  }) satisfies LineRepository;
 
 const dispatch: TaskDispatching = {
   dispatch: async () => RunId.of('run_2'),
@@ -268,9 +277,6 @@ describe('HandOver', () => {
     expect(saved?.sessionId).toBeNull();
   });
 
-  // The ask save moves the task on; a mark the notifier hands back must land on
-  // the task read back after it, not the copy we still held — otherwise the
-  // second save writes over a stale version and the whole hand-over rolls back.
   it('records a returned mark onto the task read back, not the stale copy', async () => {
     const saves: Task[] = [];
     const moved = task().markedBy(Mark.of('test.moved-on', 'yes'));

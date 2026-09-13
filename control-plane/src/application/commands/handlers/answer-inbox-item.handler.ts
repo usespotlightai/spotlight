@@ -11,10 +11,6 @@ import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { Voice } from '@domain/value-objects/voice.vo';
 
-/**
- * A person answers, and the work carries on: the answer joins the trail and a
- * run picks it up at the same station, taking up the same conversation.
- */
 export class AnswerInboxItemHandler
   implements CommandHandlerPort<AnswerInboxItemCommand, void>
 {
@@ -49,8 +45,6 @@ export class AnswerInboxItemHandler
           attachments,
         });
 
-        // Nothing to start where one is already running, or where the station
-        // has nothing to work it.
         const runId =
           line?.stationAt(task.stationId) && !answered.currentRunId
             ? await this.dispatch.dispatch({ task: answered, line })

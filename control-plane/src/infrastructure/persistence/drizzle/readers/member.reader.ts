@@ -24,7 +24,6 @@ export class DrizzleMemberReader implements MemberReaderPort {
     teamId: TeamId,
     viewerId: UserId,
   ): Promise<TeamRoster | null> {
-    // Whoever asks has to be able to see the team at all, the same way its
     const [visible] = await this.db
       .select({
         workspaceId: team.workspaceId,

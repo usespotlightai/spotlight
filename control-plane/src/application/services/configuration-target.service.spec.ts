@@ -41,8 +41,6 @@ const targeting = (appliedRepo: string | null) => {
 
 describe('ConfigurationTarget', () => {
   describe('where a team’s changes are written', () => {
-    // Reading takes where it keeps it outright, so writing does too: the two
-    // cannot disagree about which repository it is.
     it('writes where the team keeps its configuration, over where it was last read', async () => {
       const into = await targeting('acme/applied').of(workspace(), team());
 

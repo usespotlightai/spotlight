@@ -10,8 +10,6 @@ import (
 	"usespotlight.ai/runner/internal/otel"
 )
 
-// taken collects what the collector handed back, from whichever goroutine an
-// export arrived on.
 type taken struct {
 	mu    sync.Mutex
 	spans []json.RawMessage
@@ -58,7 +56,6 @@ const twoSpans = `{"resourceSpans":[{"scopeSpans":[{"spans":[
 	{"name":"claude_code.tool","spanId":"a2"}
 ]}]}]}`
 
-// The journal records what was said, not what the runner understood of it.
 func TestKeepsEachSpanAsItArrived(t *testing.T) {
 	seen := &taken{}
 	served := collector(t, seen)
@@ -82,8 +79,6 @@ func TestKeepsEachSpanAsItArrived(t *testing.T) {
 	if first.Name != "claude_code.llm_request" {
 		t.Errorf("kept %q, wanted the span's own name", first.Name)
 	}
-	// What the runner cannot read is what the control plane most wants: which
-	// model answered. It survives only if the span is carried whole.
 	if len(first.Attributes) != 1 || first.Attributes[0].Key != "gen_ai.request.model" {
 		t.Errorf("lost the span's attributes: %s", spans[0])
 	}
@@ -103,8 +98,6 @@ func TestWalksEveryResourceAndScope(t *testing.T) {
 	}
 }
 
-// An exporter that is refused may drop what it was holding, and a run is worth
-// more than its telemetry.
 func TestAcceptsWhatItCannotRead(t *testing.T) {
 	seen := &taken{}
 	served := collector(t, seen)

@@ -15,16 +15,12 @@ describe('HashedTraceParent', () => {
     );
   });
 
-  // A run tried again must name itself the same way, or its second attempt
-  // lands somewhere its first cannot be found.
   it('says the same thing every time it is asked', () => {
     expect(naming.for(TaskId.of('task_1'), RunId.of('run_1'))).toBe(
       naming.for(TaskId.of('task_1'), RunId.of('run_1')),
     );
   });
 
-  // Every run that worked one task belongs in one trace; each still needs to
-  // be told apart inside it.
   it('gives a task’s runs one trace and a span each', () => {
     const [, trace, span] = parts('task_1', 'run_1');
     const [, sameTrace, otherSpan] = parts('task_1', 'run_2');

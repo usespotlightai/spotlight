@@ -16,11 +16,6 @@ const hex = (of: string, bytes: number): string =>
     .digest('hex')
     .slice(0, bytes * 2);
 
-/**
- * Derives the name from the ids themselves, so nothing has to be stored or
- * remembered: a run tried a second time names itself exactly as it did the
- * first, from another process, on another machine.
- */
 @Injectable()
 export class HashedTraceParent implements TraceParentPort {
   for(taskId: TaskId, runId: RunId): string {

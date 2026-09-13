@@ -15,8 +15,6 @@ describe('TaskTitle', () => {
     expect(() => TaskTitle.of('x'.repeat(201))).toThrow(InvalidTaskTitleError);
   });
 
-  // A host's own title is display text: cut to fit rather than dropping the
-  // task it would have named.
   it('clamps a title from outside to fit, rather than refusing it', () => {
     const clamped = TaskTitle.clamp('x'.repeat(500));
 

@@ -13,7 +13,7 @@ import type { AnnounceTaskEvents } from '@application/services/announce-task-eve
 import type { TaskDispatching } from '@application/services/task-dispatch';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { InvalidAttachmentError } from '@domain/exceptions/invalid-attachment.error';
-import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
+import type { LineRepository } from '@domain/repositories/line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { Placement } from '@domain/services/placement';
 import { type Outcome, ReactionFor } from '@domain/services/reaction-for';
@@ -33,16 +33,10 @@ const spoken = (
     ? Said.of({ body: TaskNoteBody.given('', attachments).value })
     : null);
 
-/**
- * What a word from outside does to the board: it finds the task it concerns and
- * lets the line say what becomes of it, or opens the one task a word nobody has
- * one for calls for. Shared by every trigger — a webhook delivery or a poll —
- * so a word means the same thing however it arrived.
- */
 export class ReactToHappenings implements HappeningReactionsPort {
   constructor(
     private readonly tasks: TaskRepository,
-    private readonly lines: AssemblyLineRepository,
+    private readonly lines: LineRepository,
     private readonly dispatch: TaskDispatching,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
@@ -53,15 +47,13 @@ export class ReactToHappenings implements HappeningReactionsPort {
     private readonly logger: LoggerPort,
   ) {}
 
-  /** Each word in its own transaction; one that fails does not undo the rest. */
   async react(
     workspaceId: WorkspaceId,
     teamId: string,
     happenings: readonly Happened[],
   ): Promise<void> {
     for (const happened of happenings) {
-      // Fetched before the word is reckoned with rather than during it, so a
-      // host slow to hand a file over never holds a task while it does.
+      // Fetched outside the transaction so a slow host never holds the task while it downloads.
       const attachments = await this.kept(
         workspaceId,
         happened.attachments ?? [],
@@ -146,8 +138,6 @@ export class ReactToHappenings implements HappeningReactionsPort {
       return;
     }
 
-    // Asked of the task rather than assumed: work owed to a person is not
-    // work to start, however loudly the world knocks.
     const runId = heard.idle
       ? await this.dispatch.dispatch({ task: heard, line })
       : null;
@@ -180,8 +170,6 @@ export class ReactToHappenings implements HappeningReactionsPort {
 
     const { line, opening } = chosen;
 
-    // Assigned to whoever the delivery named by email, where a member has it;
-    // left unassigned otherwise, so a name we cannot place loses nothing.
     const assignee = happened.opens.assignEmail
       ? await this.members.byEmail(workspaceId, happened.opens.assignEmail)
       : null;

@@ -53,6 +53,7 @@ const tasks = (found: Task | null = task()) =>
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
     holding: vi.fn(async () => null),
+    countsAt: vi.fn(async () => new Map()),
   }) satisfies TaskRepository;
 
 const teams = (found: Team | null = team()) =>

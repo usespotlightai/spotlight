@@ -19,7 +19,6 @@ import { Said } from '@domain/value-objects/said.vo';
 import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { WebhookSource } from '@infrastructure/webhooks/webhook-source.decorator';
 
-/** The little of GitHub's delivery that Spotlight reads. */
 interface Delivery {
   readonly action?: unknown;
   readonly installation?: { readonly id?: unknown };
@@ -65,7 +64,6 @@ interface Remark {
 const text = (value: unknown): string | null =>
   typeof value === 'string' && value.trim().length > 0 ? value : null;
 
-/** A run's own comment is not news: acting on it would start another run. */
 const at = (value: unknown): number | null =>
   typeof value === 'number' && Number.isInteger(value) ? value : null;
 
@@ -84,7 +82,6 @@ const remarked = (remark: Remark | undefined): Said | null =>
       })
     : null;
 
-/** GitHub numbers an installation, and sends it on every App delivery. */
 const named = (value: unknown): GitHubInstallation | null =>
   typeof value === 'number' || typeof value === 'string'
     ? GitHubInstallation.of(String(value))
@@ -113,10 +110,8 @@ const raised = (input: {
   spoken: input.spoken ?? false,
 });
 
-/** Where a workspace keeps what it tells Spotlight about itself. */
 const UNDER = '.spotlight/';
 
-/** Everything the reading below can raise, and nothing it cannot. */
 const MERGED = raised({
   key: 'github.pull_request.merged',
   label: 'Pull request merged',
@@ -177,8 +172,6 @@ export class GitHubSource implements WebhookSourcePort {
   }
 
   delivery(delivered: Delivered): string {
-    // GitHub names every delivery. The hash is for nothing in particular:
-    // without one, the same word twice would be worked twice.
     return (
       headed(delivered.headers, 'x-github-delivery') ??
       createHash('sha256')
@@ -197,18 +190,12 @@ export class GitHubSource implements WebhookSourcePort {
       : null;
   }
 
-  /**
-   * What a delivery said about the workspace rather than about a task: a
-   * configuration file that moved, or the installation itself going away.
-   */
   noticed(delivered: Delivered): readonly Noticed[] {
     const event = headed(delivered.headers, 'x-github-event');
     const body = (delivered.body ?? {}) as Delivery;
     const repository = text(body.repository?.full_name);
     const branch = text(body.repository?.default_branch);
 
-    // Uninstalled, or every repository taken off it, which reaches Spotlight
-    // the same way and leaves it able to read nothing either way.
     if (event === 'installation' && body.action === 'deleted') {
       const installation = named(body.installation?.id);
 
@@ -272,7 +259,7 @@ export class GitHubSource implements WebhookSourcePort {
       marks: opened ? [Mark.pullRequest(PullRequestUrl.of(opened))] : [],
     });
 
-    // Refused rather than dropped, so the host sends it again.
+    // Thrown rather than dropped, so the host redelivers.
     if (!concerns) {
       throw new UpstreamRefusedError(
         `reading a ${event} delivery`,
@@ -284,13 +271,10 @@ export class GitHubSource implements WebhookSourcePort {
       happening: raising.happening,
       told: raising.told,
       spoken: raising.spoken,
-      // Everything GitHub raises here happens once. Nothing it says clears
-      // itself again later, the way an alert does.
       state: 'raised',
       concerns,
       said: remarked(delivered.comment) ?? remarked(delivered.review),
       ourOwn: byUs(delivered),
-      // GitHub answers work that already has a task; it opens none of its own.
       opens: null,
     };
   }
@@ -300,7 +284,6 @@ export class GitHubSource implements WebhookSourcePort {
     delivered: Delivery,
   ): HappeningDeclaration | null {
     if (event === 'pull_request' && delivered.action === 'closed') {
-      // Closed and merged are separate facts.
       return delivered.pull_request?.merged === true ? MERGED : CLOSED_UNMERGED;
     }
 

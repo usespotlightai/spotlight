@@ -2,7 +2,6 @@ export class EnrolRunnerCommand {
   constructor(readonly name: string) {}
 }
 
-/** One harness a runner found, with the models it discovered it can answer with. */
 export interface RegisteredHarness {
   readonly id: string;
   readonly models: readonly string[];
@@ -11,7 +10,6 @@ export interface RegisteredHarness {
 export class RegisterRunnerCommand {
   constructor(
     readonly runnerId: string,
-    /** What the runner found installed, each with the models it advertises. */
     readonly harnesses: readonly RegisteredHarness[],
   ) {}
 }
@@ -37,7 +35,6 @@ export interface AppendedEvent {
   readonly at: string;
   readonly message?: string;
   readonly data?: string;
-  readonly offset?: number;
 }
 
 export class AppendRunEventsCommand {
@@ -57,7 +54,6 @@ export class CompleteRunCommand {
     readonly message?: string,
     readonly declared?: { next?: string; note?: string } | null,
     readonly sessionId?: string | null,
-    /** A person stopped the run rather than the agent finishing it. */
     readonly stopped: boolean = false,
   ) {}
 }
@@ -67,7 +63,6 @@ export class EnqueueRunCommand {
     readonly workspaceId: string,
     readonly harness: string,
     readonly spec: unknown,
-    /** Null lets any runner that has the harness take it. */
     readonly targetRunnerId: string | null = null,
   ) {}
 }

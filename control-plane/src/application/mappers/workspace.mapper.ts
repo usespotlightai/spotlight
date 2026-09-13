@@ -11,7 +11,6 @@ import type { Team } from '@domain/aggregates/team.aggregate';
 import type { Workspace } from '@domain/aggregates/workspace.aggregate';
 
 export const WorkspaceMapper = {
-  /** Its teams are their own aggregates, so whoever has them passes them. */
   toDto(workspace: Workspace, teams: readonly Team[]): WorkspaceDto {
     return {
       id: workspace.id.value,

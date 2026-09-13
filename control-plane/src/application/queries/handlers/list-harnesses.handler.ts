@@ -8,10 +8,6 @@ import type { RunnerReaderPort } from '@application/ports/runner-reader.port';
 import type { ListHarnessesQuery } from '@application/queries/list-harnesses.query';
 import { HarnessModel } from '@domain/value-objects/harness-model.vo';
 
-/**
- * Harnesses are compiled in; their models are not — a runner discovers and
- * advertises the real list, and that is all the board offers.
- */
 export class ListHarnessesHandler
   implements QueryHandlerPort<ListHarnessesQuery, HarnessDto[]>
 {

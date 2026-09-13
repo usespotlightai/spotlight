@@ -44,13 +44,18 @@ const holding = (
   files: ConfigurationFile[] | null,
   secrets: Record<string, string> = {},
 ) => {
-  const resolve = vi.fn(
-    async (_workspaceId: unknown, name: { value: string }) =>
-      secrets[name.value] ?? null,
+  const resolveAll = vi.fn(
+    async (_teamId: unknown, names: readonly { value: string }[]) =>
+      Object.fromEntries(
+        names.flatMap((name) => {
+          const value = secrets[name.value];
+          return value ? [[name.value, value]] : [];
+        }),
+      ),
   );
 
   return {
-    resolve,
+    resolveAll,
     sources: new ConfiguredSources(
       {
         findFor: vi.fn(async () =>
@@ -66,7 +71,7 @@ const holding = (
         ),
         save: vi.fn(),
       } as unknown as TeamConfigurationRepository,
-      { resolve } as unknown as TeamSecretsPort,
+      { resolveAll } as unknown as TeamSecretsPort,
       new IntegrationReader(),
       { keys: async () => new Map() },
       new HttpOutbound([]),
@@ -97,20 +102,18 @@ describe('ConfiguredSources', () => {
   });
 
   it('hands each one the secret the file names', async () => {
-    const { sources, resolve } = holding(
+    const { sources, resolveAll } = holding(
       [at('.spotlight/integrations/linear.yml', linear())],
       { LINEAR_WEBHOOK_SECRET: 'whsec_1' },
     );
 
     await sources.all(TEAM);
 
-    expect(resolve).toHaveBeenCalledWith(
-      TEAM.teamId,
+    expect(resolveAll).toHaveBeenCalledWith(TEAM.teamId, [
       expect.objectContaining({ value: 'LINEAR_WEBHOOK_SECRET' }),
-    );
+    ]);
   });
 
-  // An integration half configured takes nobody's word for what happened.
   it('builds one that verifies nothing where no secret is set', async () => {
     const { sources } = holding([
       at('.spotlight/integrations/linear.yml', linear()),
@@ -134,8 +137,6 @@ describe('ConfiguredSources', () => {
     expect(await sources.find(TEAM, 'linear')).toBeNull();
   });
 
-  // A file that will not compile is not a source; its problems were written
-  // down when it was read, and are what the workspace is shown instead.
   it('builds nothing from a file that will not read', async () => {
     const { sources } = holding([
       at('.spotlight/integrations/broken.yml', 'version: 2'),

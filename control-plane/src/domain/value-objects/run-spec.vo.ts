@@ -31,7 +31,6 @@ const samePart = (a: unknown, b: unknown): boolean => {
   );
 };
 
-/** Carried whole and unread: what is in them is the runner's business. */
 export class RunSpec {
   private constructor(private readonly parts: RunSpecParts) {}
 
@@ -40,7 +39,7 @@ export class RunSpec {
       throw new InvalidRunSpecError('must be described');
     }
 
-    // Copied so a later change to the caller's object cannot reach in here.
+    // Defensive copy: the caller's object must not mutate this one.
     return new RunSpec({ ...parts });
   }
 
@@ -50,14 +49,12 @@ export class RunSpec {
     }
 
     try {
-      // The same non-empty invariant as of(); an empty bag is nothing stored.
       return RunSpec.of(raw as RunSpecParts);
     } catch {
       return null;
     }
   }
 
-  /** The whole of it, for whoever has to write it down or send it on. */
   get value(): RunSpecParts {
     return { ...this.parts };
   }

@@ -76,8 +76,6 @@ export function Run() {
         ]
       : []),
   ];
-  // A run owns two crumbs: the task it is of, and its station — both shown
-  // however it was reached.
   const { trail, forward } = useTrail(base, 2);
 
   if (isPending || !slug || !teamId) {
@@ -94,7 +92,6 @@ export function Run() {
     );
   }
 
-  // Only while the task is still where this run was dispatched from.
   const here = run.station?.name === said?.station?.name;
 
   const item = said && {

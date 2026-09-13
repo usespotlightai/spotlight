@@ -153,9 +153,6 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
 
       await this.writeMembers(saved);
 
-      // Taken from whoever held it rather than refused: an identifier names
-      // one workspace, and moving a connection to another is something
-      // people do on purpose.
       for (const connection of saved.connections) {
         await this.context.db
           .delete(workspaceConnection)
@@ -168,7 +165,6 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
           );
       }
 
-      // What the workspace no longer says it reaches, it no longer reaches.
       await this.context.db.delete(workspaceConnection).where(
         and(
           eq(workspaceConnection.workspaceId, saved.id.value),

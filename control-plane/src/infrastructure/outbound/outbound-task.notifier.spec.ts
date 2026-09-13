@@ -1,10 +1,10 @@
 import type { TeamSecretsPort } from '@application/ports/team-secrets.port';
 import type { WorkspaceReaderPort } from '@application/ports/workspace-reader.port';
-import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import type { Factory } from '@domain/aggregates/factory.aggregate';
+import type { Line } from '@domain/aggregates/line.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
-import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { FactoryRepository } from '@domain/repositories/factory.repository';
+import type { LineRepository } from '@domain/repositories/line.repository';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
 import { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
@@ -113,8 +113,8 @@ const asked = (marks: Mark[] = []) => {
 const line = {
   factoryId: FactoryId.of('factory_1'),
   key: { value: 'delivery' },
-  stationAt: () => ({ name: { value: 'Triage' } }),
-} as unknown as AssemblyLine;
+  stationAt: () => ({ name: { value: 'Triage' }, key: { value: 'triage' } }),
+} as unknown as Line;
 
 const notifying = (
   reply: OutboundResult = {
@@ -129,7 +129,7 @@ const notifying = (
   );
 
   const notifier = new OutboundTaskNotifier(
-    { holding: vi.fn(async () => line) } as unknown as AssemblyLineRepository,
+    { holding: vi.fn(async () => line) } as unknown as LineRepository,
     {
       find: vi.fn(
         async () => ({ teamId: TeamId.of('team_1') }) as unknown as Factory,
@@ -144,8 +144,13 @@ const notifying = (
     } as unknown as TeamConfigurationRepository,
     new IntegrationReader(),
     {
-      resolve: vi.fn(async (_team: unknown, name: { value: string }) =>
-        name.value === 'SLACK_BOT_TOKEN' ? 'xoxb-1' : null,
+      resolveAll: vi.fn(
+        async (_team: unknown, names: readonly { value: string }[]) =>
+          Object.fromEntries(
+            names
+              .filter((name) => name.value === 'SLACK_BOT_TOKEN')
+              .map((name) => [name.value, 'xoxb-1']),
+          ),
       ),
     } as unknown as TeamSecretsPort,
     { run } as unknown as HttpOutbound,
@@ -213,8 +218,6 @@ describe('OutboundTaskNotifier', () => {
     expect(await notifier.notify(asked(), 'task.asked')).toEqual([]);
   });
 
-  // The event chooses the binding: task.opened runs its acknowledge action,
-  // and an event nothing binds runs nothing at all.
   it('runs the binding for the event it is given', async () => {
     const { notifier, run } = notifying();
     const opened = asked([

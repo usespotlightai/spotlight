@@ -19,7 +19,6 @@ describe('ConfigurationFile', () => {
     expect(file.isUnder('.spotlight/integrations')).toBe(false);
   });
 
-  // A directory whose name merely begins the same way is another directory.
   it('is not under a directory that only reads like one', () => {
     expect(
       ConfigurationFile.of('.spotlightly/a.yml', '').isUnder('.spotlight'),
@@ -32,11 +31,10 @@ describe('ConfigurationFile', () => {
     expect(ConfigurationFile.of('a.txt', '').isYaml).toBe(false);
   });
 
-  // A path climbing out of the repository is not one anybody wrote.
   it('refuses a path that is not within the repository', () => {
     for (const path of [
       '/etc/passwd',
-      '../secrets.yml',
+      '../secrets.vault',
       '.spotlight/../../x',
     ]) {
       expect(() => ConfigurationFile.of(path, '')).toThrow(

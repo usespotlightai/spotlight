@@ -33,7 +33,6 @@ vi.mock('@/hooks/api/useHarnesses', () => ({
   }),
 }));
 
-/** The list as the control plane hands it over, which is what this shows. */
 const STEPS = [
   {
     key: 'runner',
@@ -45,13 +44,13 @@ const STEPS = [
     key: 'github',
     title: 'Install the GitHub App',
     description: 'So Spotlight can read and write.',
-    where: '/w/acme/team/team_1/integrations',
+    where: '/w/acme/team/team_1/settings/integrations',
   },
   {
     key: 'repository',
     title: 'Choose a repository',
     description: 'Where this team works.',
-    where: '/w/acme/team/team_1/integrations',
+    where: '/w/acme/team/team_1/settings/integrations',
   },
   {
     key: 'configuration',
@@ -60,10 +59,10 @@ const STEPS = [
     where: null,
   },
   {
-    key: 'tools',
-    title: 'Choose your tools',
+    key: 'integrations',
+    title: 'Choose your integrations',
     description: 'What this team listens to.',
-    where: '/w/acme/team/team_1/integrations',
+    where: '/w/acme/team/team_1/settings/integrations',
   },
 ];
 
@@ -79,12 +78,12 @@ const onboarding = (
   lines: [
     {
       key: 'delivery',
-      name: 'Software Delivery',
+      name: 'Delivery',
       harness: null,
       repositories: [],
     },
   ],
-  tools: [{ source: 'linear', chosen: false }],
+  integrations: [{ source: 'linear' }],
   ...over,
 });
 
@@ -127,7 +126,6 @@ describe('SetupSteps', () => {
       'href',
       '/w/acme/runners',
     );
-    // Carrying the page it was clicked from, so that is where GitHub returns.
     expect(
       screen.getByRole('link', { name: 'Install on GitHub' }),
     ).toHaveAttribute(
@@ -140,12 +138,10 @@ describe('SetupSteps', () => {
     );
     expect(screen.getByRole('link', { name: 'Choose them' })).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/integrations',
+      '/w/acme/team/team_1/settings/integrations',
     );
   });
 
-  // A done step folds its control behind a toggle, while the next, unfinished
-  // step still shows its own to go and take.
   it('folds a done step away, keeping the next one open', () => {
     onboardingState.data = onboarding({}, ['runner']);
     showing();
@@ -158,7 +154,6 @@ describe('SetupSteps', () => {
     ).toBeInTheDocument();
   });
 
-  // Nothing to link to, so the step stands without a control.
   it('shows no install control where GitHub would not say', () => {
     onboardingState.data = onboarding({ installUrl: null });
     showing();
@@ -169,7 +164,6 @@ describe('SetupSteps', () => {
     expect(screen.getByText('Install the GitHub App')).toBeInTheDocument();
   });
 
-  // Shown apart, the opening reads as something the person wrote.
   it('carries the opening rather than leaving it to stand alone', () => {
     onboardingState.data = onboarding();
     showing();
@@ -184,20 +178,18 @@ describe('SetupSteps', () => {
     ).toBeInTheDocument();
   });
 
-  it('folds the tools step away once one is chosen', () => {
-    onboardingState.data = onboarding({}, ['tools']);
+  it('folds the integrations step away once one is chosen', () => {
+    onboardingState.data = onboarding({}, ['integrations']);
     showing();
 
     expect(
-      screen.getByRole('button', { name: /Choose your tools/ }),
+      screen.getByRole('button', { name: /Choose your integrations/ }),
     ).toHaveAttribute('aria-expanded', 'false');
-    // Collapsed, not gone: the control is still there to revise.
     expect(
       screen.getByRole('link', { name: 'Choose them' }),
     ).toBeInTheDocument();
   });
 
-  // Where the standing cannot be read, the note still says what it said.
   it('falls back to the words it was written with', () => {
     onboardingState.data = undefined;
     showing();
@@ -205,8 +197,6 @@ describe('SetupSteps', () => {
     expect(screen.getByText(BODY)).toBeInTheDocument();
   });
 
-  // Left to the rule that guesses, the pull request lands wherever sorts
-  // first, which is nobody's choice.
   it('lets a person say which repository the setup goes in', async () => {
     onboardingState.data = onboarding({ connectedToGitHub: true });
     showing();
@@ -214,11 +204,9 @@ describe('SetupSteps', () => {
     await userEvent.type(screen.getByLabelText('Repository'), 'config');
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
-    // Owner is shown, not typed, so what is sent is the two put together.
     expect(pin).toHaveBeenCalledWith('acme/config');
   });
 
-  // Naming one that is not there yet is how a person asks for it.
   it("takes a name that is on nobody's list", async () => {
     onboardingState.data = onboarding({ connectedToGitHub: true });
     showing();
@@ -231,7 +219,6 @@ describe('SetupSteps', () => {
     expect(pin).toHaveBeenCalledWith('acme/brand-new');
   });
 
-  // Half a name would make half a repository.
   it('says nothing until it is confirmed', async () => {
     onboardingState.data = onboarding({ connectedToGitHub: true });
     showing();
@@ -248,8 +235,6 @@ describe('SetupSteps', () => {
     expect(screen.queryByLabelText('Repository')).not.toBeInTheDocument();
   });
 
-  // A done step folds its control away to keep the list tidy, and clicking it
-  // opens the control again so the choice can still be revised.
   it('folds a done step’s control away until it is clicked', async () => {
     onboardingState.data = onboarding(
       { connectedToGitHub: true, configRepository: 'acme/config' },
@@ -268,14 +253,12 @@ describe('SetupSteps', () => {
     expect(screen.getByLabelText('Repository')).toHaveValue('config');
   });
 
-  // Narrowed by what is typed, so the list is the ones still worth picking.
   it('suggests the repositories that match what is typed', async () => {
     onboardingState.data = onboarding({ connectedToGitHub: true });
     showing();
 
     await userEvent.type(screen.getByLabelText('Repository'), 'conf');
 
-    // The owner is already shown, so a suggestion reads as the name alone.
     expect(screen.getByRole('button', { name: 'config' })).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'api' }),
@@ -295,7 +278,6 @@ describe('SetupSteps', () => {
     expect(pin).toHaveBeenCalledWith('acme/config');
   });
 
-  // Nothing is written until a repository is chosen to write it into.
   it('offers no line setup before a repository is chosen', () => {
     onboardingState.data = onboarding({ connectedToGitHub: true });
     showing();
@@ -312,7 +294,7 @@ describe('SetupSteps', () => {
       lines: [
         {
           key: 'delivery',
-          name: 'Software Delivery',
+          name: 'Delivery',
           harness: 'claude-code',
           repositories: ['acme/api'],
         },
@@ -320,7 +302,7 @@ describe('SetupSteps', () => {
     });
     showing();
 
-    expect(screen.getByText('Software Delivery')).toBeInTheDocument();
+    expect(screen.getByText('Delivery')).toBeInTheDocument();
     await userEvent.click(
       screen.getByRole('button', { name: /Open pull request/ }),
     );
@@ -336,9 +318,6 @@ describe('SetupSteps', () => {
     ]);
   });
 
-  // The improvement line works on the factory's own configuration, so it opens
-  // already working in the configuration repository, while delivery stays the
-  // person's to choose.
   it('starts the improvement line working in the configuration repository', async () => {
     onboardingState.data = onboarding({
       connectedToGitHub: true,
@@ -346,13 +325,13 @@ describe('SetupSteps', () => {
       lines: [
         {
           key: 'delivery',
-          name: 'Software Delivery',
+          name: 'Delivery',
           harness: null,
           repositories: [],
         },
         {
-          key: 'factory-improvement',
-          name: 'Factory Improvement',
+          key: 'factory',
+          name: 'Factory',
           harness: null,
           repositories: [],
         },
@@ -373,7 +352,7 @@ describe('SetupSteps', () => {
         repositories: [],
       },
       {
-        key: 'factory-improvement',
+        key: 'factory',
         harness: null,
         model: null,
         effort: null,
@@ -385,7 +364,7 @@ describe('SetupSteps', () => {
   it('locks every control once the item is resolved', () => {
     onboardingState.data = onboarding(
       { connectedToGitHub: true, configRepository: 'acme/config' },
-      ['runner', 'github', 'repository', 'configuration', 'tools'],
+      ['runner', 'github', 'repository', 'configuration', 'integrations'],
     );
     showing(true);
 
@@ -401,7 +380,6 @@ describe('SetupSteps', () => {
     expect(install.closest('[inert]')).toBeNull();
   });
 
-  // A name nobody has is still a name, and the list simply goes away.
   it('suggests nothing where nothing matches', async () => {
     onboardingState.data = onboarding({ connectedToGitHub: true });
     showing();

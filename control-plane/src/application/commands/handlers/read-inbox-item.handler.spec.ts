@@ -4,7 +4,7 @@ import { UseCaseFault } from '@application/errors/use-case.fault';
 import type { ClockPort } from '@application/ports/clock.port';
 import { ConversationAtHand } from '@application/services/conversation-at-hand.service';
 import { Task } from '@domain/aggregates/task.aggregate';
-import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
+import type { LineRepository } from '@domain/repositories/line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { NotePosition } from '@domain/value-objects/note-position.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
@@ -49,6 +49,7 @@ const tasks = (found: Task | null) =>
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
     holding: vi.fn(async () => null),
+    countsAt: vi.fn(async () => new Map()),
   }) satisfies TaskRepository;
 
 const lines = () =>
@@ -60,7 +61,7 @@ const lines = () =>
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
     withRole: vi.fn(async () => null),
-  }) satisfies AssemblyLineRepository;
+  }) satisfies LineRepository;
 
 const read = (found: Task | null, by = 'user_1') => {
   const repository = tasks(found);

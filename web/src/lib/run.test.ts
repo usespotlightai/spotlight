@@ -9,7 +9,6 @@ import {
   working,
 } from '@/lib/run';
 
-// Local, because a calendar day is read off the reader's own clock.
 const NOW = new Date(2026, 7, 30, 12, 0, 0);
 
 const on = (days: number, hour = 12) =>
@@ -27,7 +26,6 @@ describe('aged', () => {
     expect(aged(on(0))).toBe('Today');
   });
 
-  // The point of counting calendar days: this morning is still today.
   it('reads the small hours of this morning as today', () => {
     expect(aged(on(0, 0))).toBe('Today');
   });
@@ -36,12 +34,10 @@ describe('aged', () => {
     expect(aged(on(1))).toBe('Yesterday');
   });
 
-  // Under 24 hours, yet the date on the calendar has turned.
   it('reads last night as yesterday', () => {
     expect(aged(on(1, 23))).toBe('Yesterday');
   });
 
-  // Over 24 hours, yet the calendar has turned only once.
   it('reads early yesterday as yesterday', () => {
     expect(aged(on(1, 1))).toBe('Yesterday');
   });
@@ -99,7 +95,6 @@ describe('byAge', () => {
   });
 });
 
-// The states the control plane actually uses: a run being worked is claimed.
 describe('working', () => {
   const run = (state: Run['state'], exitCode: number | null = null) =>
     ({ state, exitCode }) as Run;

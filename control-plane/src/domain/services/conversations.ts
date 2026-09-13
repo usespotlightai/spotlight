@@ -42,7 +42,6 @@ export const conversationsOf = (
   return cut;
 };
 
-/** Owed while nobody has answered, settled once someone has or it moved on. */
 export type ReviewState = 'owed' | 'settled';
 
 export interface Review {
@@ -58,7 +57,6 @@ const settledAfter = <T extends { kind: TaskNoteKind }>(
     .slice(at + 1)
     .some((later) => later.kind === 'answered' || later.kind === 'passed');
 
-/** Which conversation a note at this place belongs to, if any still does. */
 export const holding = (cut: readonly Conversation[], at: number) =>
   cut.find((each) => each.from <= at && (each.to === null || at <= each.to));
 
@@ -75,8 +73,6 @@ export const reviewsIn = <
       return;
     }
 
-    // An ask inside an open conversation joins it rather than opening one,
-    // so anywhere else would name an inbox item nobody has.
     const conversation = holding(cut, at);
 
     if (conversation) {
@@ -104,7 +100,6 @@ export const awaitsAPerson = <T extends { kind: TaskNoteKind }>(
   return asked !== -1 && !settledAfter(notes, asked);
 };
 
-/** What every link to an inbox item is worked out from. */
 export const owedIn = <T extends { kind: TaskNoteKind }>(
   notes: readonly T[],
 ): Conversation | null => {
@@ -118,7 +113,6 @@ export const owedIn = <T extends { kind: TaskNoteKind }>(
   return last && stillOpen(last) ? last : null;
 };
 
-/** What it was answering is its briefing, which the run itself keeps. */
 export const turnOf = <T extends { runId: string | null }>(
   notes: readonly T[],
   runId: string,

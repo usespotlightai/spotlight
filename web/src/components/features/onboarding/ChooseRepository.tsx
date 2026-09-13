@@ -8,17 +8,11 @@ import { cn } from '@/lib/utils';
 type ChooseRepositoryProps = {
   slug: string | undefined;
   teamId: string | undefined;
-  /** The account repositories are named under, fixed so only the name is typed. */
   owner: string | null;
   chosen: string | null;
-  /** Squarer than a control standing on its own, so a row of them settles. */
   controlClassName?: string;
 };
 
-/**
- * Which repository a team works in: one of the ones the App can already see,
- * or a name for one that is not there yet. Pinned when confirmed.
- */
 export function ChooseRepository({
   slug,
   teamId,
@@ -57,8 +51,6 @@ export function ChooseRepository({
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="submit"
-          // Emptying it is how a choice is taken off, so an empty field is only
-          // nothing to say where nothing was chosen.
           disabled={pin.isPending || (wanted === '' && !chosen)}
           className={cn(buttonVariants({ size: 'sm' }), controlClassName)}
         >

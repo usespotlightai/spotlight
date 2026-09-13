@@ -8,7 +8,6 @@ import { RunnerName } from '@domain/value-objects/runner-name.vo';
 import { TokenHash } from '@domain/value-objects/token-hash.vo';
 import { describe, expect, it } from 'vitest';
 
-/** One installed harness, with any models it advertises. */
 const has = (id: string, ...models: string[]) => ({
   id: HarnessId.of(id),
   models: models.map(HarnessModel.of),
@@ -27,8 +26,6 @@ const enrolled = () =>
   });
 
 describe('Runner', () => {
-  // What is installed is a fact about the machine, and the machine has not
-  // spoken yet.
   it('knows of no harnesses before it has ever connected', () => {
     const runner = enrolled();
 
@@ -46,8 +43,6 @@ describe('Runner', () => {
     ]);
   });
 
-  // What each harness can answer with is the machine's to say too, kept with
-  // the harness it belongs to.
   it('records the models a harness advertises', () => {
     const runner = enrolled().reports([
       has('claude-code', 'claude-sonnet-5', 'claude-opus-4-8'),
@@ -58,8 +53,6 @@ describe('Runner', () => {
     ).toEqual(['claude-sonnet-5', 'claude-opus-4-8']);
   });
 
-  // A machine that loses a tool says so by not mentioning it, so what it
-  // reports replaces what it said before rather than adding to it.
   it('takes the latest word as the whole truth', () => {
     const runner = enrolled()
       .reports([has('claude-code'), has('other')])
@@ -102,8 +95,6 @@ describe('Runner', () => {
     expect(enrolled().pullEvents()).toHaveLength(0);
   });
 
-  // What a change raised belongs to the runner that change made, so the one
-  // it was made from still says nothing happened.
   it('leaves the runner it was revoked from untouched', () => {
     const runner = enrolled();
     runner.revoke(NOW);

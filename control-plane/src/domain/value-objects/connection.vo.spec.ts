@@ -30,8 +30,6 @@ describe('Connection', () => {
     ).toBe(false);
   });
 
-  // Two hosts numbering their own installations from one would otherwise
-  // collide, and a delivery would come home to the wrong workspace.
   it('is not the same connection as one to another host', () => {
     expect(
       Connection.of('github', '42').equals(Connection.of('linear', '42')),
@@ -46,7 +44,6 @@ describe('Connection', () => {
     expect(() => Connection.of('', '42')).toThrow(InvalidIdentifierError);
   });
 
-  // An empty identifier would be worn by every workspace that had none.
   it('refuses a connection that names nothing', () => {
     expect(() => Connection.of('github', '  ')).toThrow(InvalidIdentifierError);
   });

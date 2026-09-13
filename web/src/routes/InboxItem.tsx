@@ -46,8 +46,7 @@ export function InboxItem() {
 
   useRunStream(item?.runId ?? undefined, Boolean(item?.working), bump);
 
-  // Keyed by the conversation's state, not the item: an ask arriving while it
-  // is open makes it unread again.
+  // Keyed by id and note count, so a new ask on an open item marks it unread again.
   const seen = useRef<string | null>(null);
 
   useEffect(() => {
@@ -91,8 +90,6 @@ export function InboxItem() {
     );
   }
 
-  // A note that shows itself carries the opening too. Shown above it, the
-  // opening reads as something the person wrote, which nobody did.
   const carriesItsOwn = item.notes[0]?.form === 'setup';
 
   return (

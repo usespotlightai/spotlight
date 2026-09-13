@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest';
 
 const AT = Date.UTC(2026, 7, 29, 12, 0, 0);
 
-/** Nanoseconds, which is what the wire counts in. */
 const nanos = (ms: number): string => `${BigInt(ms) * 1_000_000n}`;
 
 const exported = (span: Record<string, unknown>): Journalled => ({
@@ -45,7 +44,6 @@ describe('Reported', () => {
     });
   });
 
-  // Which model answered is the one thing the protocol could never say.
   it('keeps what a span said about itself, whatever it said', () => {
     const [span] = read({
       ...call,
@@ -88,7 +86,6 @@ describe('Reported', () => {
     expect(fine[0]?.failed).toBe(false);
   });
 
-  // A harness exports in batches, so a span still running has no end yet.
   it('gives an unfinished span no length rather than a negative one', () => {
     const [span] = read({ ...call, endTimeUnixNano: undefined }).spans();
 
@@ -101,8 +98,6 @@ describe('Reported', () => {
     expect(span?.parentId).toBeNull();
   });
 
-  // There is nothing to draw for either, and a run is worth more than its
-  // telemetry: neither is an error.
   it('passes over a span with no identity or no beginning', () => {
     expect(read({ ...call, spanId: undefined }).spans()).toEqual([]);
     expect(read({ ...call, startTimeUnixNano: undefined }).spans()).toEqual([]);

@@ -13,10 +13,8 @@ const REFRESH = 'https://github.com/login/oauth/access_token';
 const PROVIDER = 'github';
 const PER_PAGE = 100;
 
-/** As many installations as one person is ever an administrator of. */
 const MAX_PAGES = 5;
 
-/** A token this close to expiry is refreshed rather than risked on a call. */
 const SKEW_MS = 60_000;
 
 interface Listed {
@@ -39,9 +37,7 @@ interface Refreshed {
 }
 
 export class GitHubIdentity implements GitHubIdentityPort {
-  // The root connection, not the caller's transaction: refreshing a single-use
-  // token has to hold whether or not the connection it was asked for goes on to
-  // commit, or the next attempt is left with a token GitHub has already spent.
+  // Root connection, not the caller's transaction: a spent refresh must persist.
   constructor(
     private readonly db: DrizzleDatabase,
     private readonly clientId: string,
@@ -54,8 +50,6 @@ export class GitHubIdentity implements GitHubIdentityPort {
   ): Promise<Administers> {
     const token = await this.tokenFor(userId);
 
-    // Signed in through something other than GitHub, or a token that has gone
-    // and could not be renewed. Nobody was asked, so nothing is known.
     if (!token) {
       return 'cannot-tell';
     }
@@ -74,12 +68,9 @@ export class GitHubIdentity implements GitHubIdentityPort {
       }
     }
 
-    // More pages than anyone has. Read as far as this and no further, so
-    // nothing beyond it was looked at rather than found to be absent.
     return 'cannot-tell';
   }
 
-  /** A token good to use now: the one on file, or one refreshed in its place. */
   private async tokenFor(userId: UserId): Promise<string | null> {
     const [held] = await this.db
       .select({
@@ -101,8 +92,6 @@ export class GitHubIdentity implements GitHubIdentityPort {
       return held.token;
     }
 
-    // Expired, but a refresh token mints another without a person signing in.
-    // Where there is none, the stale token is left for GitHub to turn away.
     return held.refresh ? this.refresh(held as Held) : held.token;
   }
 
@@ -156,7 +145,6 @@ export class GitHubIdentity implements GitHubIdentityPort {
     return body.access_token;
   }
 
-  /** The ids on one page, or null where GitHub would not answer at all. */
   private async page(token: string, page: number): Promise<string[] | null> {
     const response = await fetch(
       `${API}/user/installations?per_page=${PER_PAGE}&page=${page}`,

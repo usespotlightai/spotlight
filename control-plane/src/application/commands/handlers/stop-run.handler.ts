@@ -9,12 +9,6 @@ import type { TaskRepository } from '@domain/repositories/task.repository';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 
-/**
- * A person stops the agent working a run. Only whoever the task is assigned to
- * may stop it, and only while it is still theirs to stop. The request is
- * recorded on the run; the runner reads it on its next lease renewal and ends
- * the work.
- */
 export class StopRunHandler
   implements CommandHandlerPort<StopRunCommand, void>
 {

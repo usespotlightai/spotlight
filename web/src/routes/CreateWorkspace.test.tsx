@@ -106,7 +106,6 @@ describe('CreateWorkspace', () => {
     expect(submit).toBeEnabled();
   });
 
-  // Nothing is created by naming the workspace. The team is asked for first.
   it('asks for the team name before creating anything', async () => {
     const user = userEvent.setup();
     renderPage();
@@ -137,7 +136,6 @@ describe('CreateWorkspace', () => {
     ).toBeEnabled();
   });
 
-  // Going back keeps what was typed: it is one flow, not two forms.
   it('holds on to the workspace name when stepped back', async () => {
     const user = userEvent.setup();
     renderPage();
@@ -190,7 +188,6 @@ describe('CreateWorkspace', () => {
     ).toBeDisabled();
   });
 
-  // Opening the team leaves a note there saying what it still needs.
   it('lands in the inbox', async () => {
     const user = userEvent.setup();
     renderPage();

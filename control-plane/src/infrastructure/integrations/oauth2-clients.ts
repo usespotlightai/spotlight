@@ -1,6 +1,5 @@
 import { z } from 'zod';
 
-/** One host's shared app: the credentials Spotlight authenticates the app with. */
 export interface OAuth2Client {
   readonly id: string;
   readonly secret: string;
@@ -11,11 +10,6 @@ const clientsSchema = z.record(
   z.object({ id: z.string().min(1), secret: z.string().min(1) }),
 );
 
-/**
- * The deployment's shared OAuth2 apps, read once from the environment. Adding a
- * host is adding its app here — a name, an id, and a secret — with no code. A
- * malformed value is refused loudly at boot rather than failing a link later.
- */
 export class OAuth2Clients {
   private constructor(
     private readonly bySource: ReadonlyMap<string, OAuth2Client>,

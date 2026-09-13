@@ -7,8 +7,8 @@ import { ConversationId } from '@domain/value-objects/conversation-id.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';
 import type { TaskNoteKind } from '@domain/value-objects/task-note.vo';
 import type { DrizzleDatabase } from '@infrastructure/persistence/drizzle/drizzle.client';
-import { station } from '@infrastructure/persistence/drizzle/schemas/assembly-line.schema';
 import { user } from '@infrastructure/persistence/drizzle/schemas/auth.schema';
+import { station } from '@infrastructure/persistence/drizzle/schemas/line.schema';
 import { run } from '@infrastructure/persistence/drizzle/schemas/run.schema';
 import {
   task,
@@ -89,7 +89,6 @@ export const trailsFor = async (
     return trail;
   }
 
-  // A note keeps the station's name, not its identity.
   const spoke = alias(station, 'spoke');
 
   const attached = await attachmentsFor(db, taskIds);
@@ -117,10 +116,7 @@ export const trailsFor = async (
     .innerJoin(station, eq(station.id, task.stationId))
     .leftJoin(
       spoke,
-      and(
-        eq(spoke.assemblyLineId, station.assemblyLineId),
-        eq(spoke.name, taskNote.station),
-      ),
+      and(eq(spoke.lineId, station.lineId), eq(spoke.name, taskNote.station)),
     )
     .leftJoin(user, eq(user.id, taskNote.authorId))
     .where(inArray(taskNote.taskId, [...taskIds]))
@@ -132,7 +128,6 @@ export const trailsFor = async (
     told.push({
       position: row.position,
       station: row.station,
-      // Renamed or removed since, it answers to nothing and takes the grey.
       stationColor: row.stationColor ?? DEFAULT_STATION_COLOR,
       stationPosition: row.stationPosition ?? 0,
       runId: row.runId,
@@ -171,10 +166,10 @@ export const stationsPerLine = async (
   }
 
   const rows = await db
-    .select({ lineId: station.assemblyLineId, held: count() })
+    .select({ lineId: station.lineId, held: count() })
     .from(station)
-    .where(inArray(station.assemblyLineId, named))
-    .groupBy(station.assemblyLineId);
+    .where(inArray(station.lineId, named))
+    .groupBy(station.lineId);
 
   for (const row of rows) {
     held.set(row.lineId, row.held);

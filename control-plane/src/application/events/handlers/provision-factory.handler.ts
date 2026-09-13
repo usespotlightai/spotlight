@@ -1,12 +1,14 @@
 import type { ClockPort } from '@application/ports/clock.port';
 import type { FactoryProvisioningPort } from '@application/ports/factory-provisioning.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
+import type { TransactionPort } from '@application/ports/transaction.port';
 import { listed } from '@application/services/setup-steps';
-import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Factory } from '@domain/aggregates/factory.aggregate';
+import { Line } from '@domain/aggregates/line.aggregate';
+import type { Workspace } from '@domain/aggregates/workspace.aggregate';
 import type { TeamCreated } from '@domain/events/team-created.event';
-import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { FactoryRepository } from '@domain/repositories/factory.repository';
+import type { LineRepository } from '@domain/repositories/line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import type { WorkspaceFinding } from '@domain/repositories/workspace.repository';
 import { BUILT_IN_LINES } from '@domain/services/built-in-lines';
@@ -18,14 +20,13 @@ import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 export class ProvisionFactory implements FactoryProvisioningPort {
   constructor(
     private readonly factories: FactoryRepository,
-    private readonly lines: AssemblyLineRepository,
+    private readonly lines: LineRepository,
     private readonly ids: IdGeneratorPort,
     private readonly tasks: TaskRepository,
     private readonly clock: ClockPort,
     private readonly workspaces: WorkspaceFinding,
-    /** What a line's worked stations start running on, so a team with a runner
-     *  can begin the moment its lines are open. */
     private readonly harness: HarnessId,
+    private readonly transaction: TransactionPort,
   ) {}
 
   async onTeamCreated(event: TeamCreated): Promise<void> {
@@ -35,6 +36,13 @@ export class ProvisionFactory implements FactoryProvisioningPort {
       return;
     }
 
+    await this.transaction.run(() => this.provision(event, workspace));
+  }
+
+  private async provision(
+    event: TeamCreated,
+    workspace: Workspace,
+  ): Promise<void> {
     const opened = Factory.open({
       id: FactoryId.of(this.ids.generate()),
       workspaceId: event.workspaceId,
@@ -44,19 +52,19 @@ export class ProvisionFactory implements FactoryProvisioningPort {
     await this.factories.add(opened);
 
     const lines = BUILT_IN_LINES.map((line) => {
-      const built = AssemblyLine.open({
+      const built = Line.open({
         workspaceId: event.workspaceId,
         factoryId: opened.id,
         line,
         newId: () => this.ids.generate(),
       });
 
-      // Every station where work is done starts on the default harness; a
-      // backlog and an end run nothing, so they are left worked by none. The
-      // model is left unset, so each runs on the harness's default until a team
-      // chooses one during setup.
       return built.worked.reduce(
-        (each, station) => each.runStationOn(station.id, this.harness, null),
+        (each, station) =>
+          each.changeStationHarness(station.id, {
+            harness: this.harness,
+            model: null,
+          }),
         built,
       );
     });
@@ -65,8 +73,6 @@ export class ProvisionFactory implements FactoryProvisioningPort {
       await this.lines.add(line);
     }
 
-    // The welcome task lands where work first enters the line a team delivers
-    // on — the first line it was opened with.
     const [delivery] = lines;
     const first = delivery?.stations[0];
 

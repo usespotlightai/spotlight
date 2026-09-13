@@ -16,8 +16,6 @@ describe('SourceKey', () => {
     expect(linear.raises(Happening.of('github.checks.failed'))).toBe(false);
   });
 
-  // It is a segment of an address and the first part of every word it raises,
-  // and both would read ambiguously with a stop or a slash in it.
   it('refuses anything but one lowercase word', () => {
     for (const named of ['GitHub', 'git hub', 'git.hub', 'git/hub', '', '-']) {
       expect(() => SourceKey.of(named)).toThrow(InvalidIdentifierError);

@@ -11,7 +11,6 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     // better-auth reads the raw request body itself.
     bodyParser: false,
-    // Holds Nest's own boot logs until the pino logger is installed below.
     bufferLogs: true,
   });
   app.useLogger(app.get(Logger));

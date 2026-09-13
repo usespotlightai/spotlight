@@ -1,16 +1,12 @@
 import { createSign } from 'node:crypto';
 import type { Env } from '@infrastructure/config/env.schema';
 
-/** GitHub refuses a token minted more than ten minutes ahead of its clock. */
+// GitHub refuses a token minted more than ten minutes ahead of its clock.
 const JWT_LIFETIME_SECONDS = 540;
 
 const base64url = (value: Buffer | string): string =>
   Buffer.from(value).toString('base64url');
 
-/**
- * The App speaking as itself rather than as one of its installations. Used to
- * mint installation tokens, and to ask GitHub what the App is called.
- */
 export const assertionFor = (env: Env): string => {
   const issued = Math.floor(Date.now() / 1000);
   const claims = {

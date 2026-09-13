@@ -13,7 +13,6 @@ import * as schema from '@infrastructure/persistence/drizzle/schemas';
 
 const NOW = new Date('2026-01-02T03:04:05.000Z');
 
-/** A team as it stands the moment it is opened, list and all. */
 export const openTeam = async (
   db: DrizzleDatabase,
   tasks: DrizzleTaskRepository,
@@ -48,13 +47,18 @@ export const openTeam = async (
     .values({ id: factoryId, workspaceId, teamId });
 
   const lineId = randomUUID();
-  await db
-    .insert(schema.assemblyLine)
-    .values({ id: lineId, workspaceId, factoryId, name: 'Default' });
+  await db.insert(schema.line).values({
+    id: lineId,
+    workspaceId,
+    factoryId,
+    key: 'default',
+    name: 'Default',
+  });
 
   await db.insert(schema.station).values({
     id: stationId,
-    assemblyLineId: lineId,
+    lineId: lineId,
+    key: 'backlog',
     name: 'Backlog',
     position: 0,
   });

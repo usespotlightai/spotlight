@@ -4,8 +4,8 @@ import type { TeamSecretsPort } from '@application/ports/team-secrets.port';
 import type { WorkspaceReaderPort } from '@application/ports/workspace-reader.port';
 import type { Task } from '@domain/aggregates/task.aggregate';
 import { INTEGRATIONS_UNDER } from '@domain/aggregates/team-configuration.aggregate';
-import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
 import type { FactoryRepository } from '@domain/repositories/factory.repository';
+import type { LineRepository } from '@domain/repositories/line.repository';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
 import { ConversationId } from '@domain/value-objects/conversation-id.vo';
 import { Mark } from '@domain/value-objects/mark.vo';
@@ -18,25 +18,17 @@ import type {
 import type { IntegrationReader } from '@infrastructure/integrations/integration.reader';
 import type { OAuth2Access } from '@infrastructure/integrations/oauth2-access';
 import type { HttpOutbound } from '@infrastructure/outbound/http-outbound';
+import { taskBinding } from '@infrastructure/outbound/task-bindings';
 
-/** What to carry when a task is put to a person with nothing written — a review
- *  with only a pull request, say — so the thread still learns one is waiting
- *  rather than the host refusing an empty message. */
 const waiting = (station: string, link: string | null): string => {
   const where = station ? ` at ${station}` : '';
 
   return `A task${where} is waiting on you.${link ? ` ${link}` : ''}`;
 };
 
-/**
- * Carries what happens to a task out to wherever the team's integration says.
- * Generic throughout: it derives a target from the task's marks and the
- * binding's routes, runs the action bound to the event, and wears back whatever
- * the action captured — no host, and no one event, is named here.
- */
 export class OutboundTaskNotifier implements OutboundTaskNotifierPort {
   constructor(
-    private readonly lines: AssemblyLineRepository,
+    private readonly lines: LineRepository,
     private readonly factories: FactoryRepository,
     private readonly configurations: TeamConfigurationRepository,
     private readonly reader: IntegrationReader,
@@ -74,13 +66,8 @@ export class OutboundTaskNotifier implements OutboundTaskNotifierPort {
       return [];
     }
 
-    const station = line.stationAt(task.stationId)?.name.value ?? '';
-    const context = {
-      line: line.key.value,
-      station,
-      marks: marksOf(task),
-    };
-    const ask = await this.asking(task, station);
+    const context = taskBinding(task, line);
+    const ask = await this.asking(task, context.station);
 
     const kept: Mark[] = [];
     for (const readable of bound) {
@@ -98,9 +85,6 @@ export class OutboundTaskNotifier implements OutboundTaskNotifierPort {
     return kept;
   }
 
-  /** The question a task holds, where it holds one: what a binding whose action
-   *  answers a person writes into the thread. Empty for an event that is not a
-   *  question — an opening acknowledgement carries its own words instead. */
   private async asking(
     task: Task,
     station: string,
@@ -151,14 +135,16 @@ export class OutboundTaskNotifier implements OutboundTaskNotifierPort {
       }
     }
 
-    // Nowhere to post is not a failure — the team routes this line nowhere.
     if (!target.channel && !target.thread) {
       return [];
     }
 
-    const secret = await this.resolved(readable, teamId);
-    // A team that authenticates by its connection has the living token wear in;
-    // an action that does not use one pays no visit to the connection store.
+    const secret = {
+      ...(await this.secrets.resolveAll(
+        teamId,
+        readable.integration.credentials,
+      )),
+    };
     const connection =
       action.auth?.kind === 'oauth2'
         ? await this.oauth2.token(teamId, readable)
@@ -211,30 +197,4 @@ export class OutboundTaskNotifier implements OutboundTaskNotifierPort {
 
     return kept;
   }
-
-  private async resolved(
-    readable: ReadableIntegration,
-    teamId: TeamId,
-  ): Promise<Record<string, string>> {
-    const secret: Record<string, string> = {};
-
-    for (const name of readable.integration.credentials) {
-      const value = await this.secrets.resolve(teamId, name);
-      if (value !== null) {
-        secret[name.value] = value;
-      }
-    }
-
-    return secret;
-  }
 }
-
-const marksOf = (task: Task): Record<string, string> => {
-  const marks: Record<string, string> = {};
-
-  for (const mark of task.marks) {
-    marks[mark.kind] = mark.value;
-  }
-
-  return marks;
-};

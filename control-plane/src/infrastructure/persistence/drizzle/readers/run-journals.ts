@@ -9,12 +9,6 @@ import {
 } from '@infrastructure/persistence/drizzle/schemas/run.schema';
 import { asc, eq, inArray } from 'drizzle-orm';
 
-/**
- * The events of every run that worked a task, assembled into one journal per
- * attempt. It authorizes nothing: the caller decides who may read a task, and
- * this reads it. Shared so the trace one reader draws is the trace another
- * does.
- */
 export async function journalsOfTask(
   db: DrizzleDatabase,
   taskId: TaskId,
@@ -29,8 +23,6 @@ export async function journalsOfTask(
     return [];
   }
 
-  // Every entry, not only the agent's: what the run was doing before it started
-  // talking is where a slow prepare hides.
   const told = await db
     .select({
       runId: runEvent.runId,
@@ -66,8 +58,6 @@ export async function journalsOfTask(
       data: row.data,
     };
 
-    // What the agent said, and what the harness said of itself. Two
-    // vocabularies, kept apart until something means to read both.
     reading.told.take(event);
     reading.reported.take(event);
     journals.set(at, reading);
@@ -84,7 +74,6 @@ export async function journalsOfTask(
       ms: reading.told.ms(),
       marks: reading.told.marks(),
       spent: reading.told.spent(),
-      readable: reading.told.readable,
     };
   });
 }

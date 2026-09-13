@@ -1,9 +1,11 @@
 import { EgressRefusedError } from '@domain/exceptions/egress-refused.error';
 import { UpstreamRefusedError } from '@domain/exceptions/upstream-refused.error';
+import { ExpressionFailedError } from '@infrastructure/integrations/expression';
 import {
   compileIntegration,
   type RequestIR,
 } from '@infrastructure/integrations/integration.compile';
+import { KnownIntegrations } from '@infrastructure/integrations/known-integrations';
 import { HttpOutbound } from '@infrastructure/outbound/http-outbound';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -126,6 +128,30 @@ actions:
     expect((await out.run(action(), against)).ok).toBe(false);
   });
 
+  it('sends nothing where the body cannot be read, and says where', async () => {
+    const fetch = replying({ ok: true });
+    const out = new HttpOutbound(['slack.com'], fetch);
+
+    await expect(out.run(action(), { ...against, ask: {} })).rejects.toThrow(
+      new ExpressionFailedError(
+        'actions.post-message.request.body',
+        '',
+        'No such key: body',
+      ).message,
+    );
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('sends nothing where a header cannot be read', async () => {
+    const fetch = replying({ ok: true });
+    const out = new HttpOutbound(['slack.com'], fetch);
+
+    await expect(
+      out.run(action(), { ...against, secret: {} }),
+    ).rejects.toBeInstanceOf(ExpressionFailedError);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it('refuses a host the deployment did not allow', async () => {
     const fetch = replying({ ok: true });
     const out = new HttpOutbound(['example.com'], fetch);
@@ -140,7 +166,6 @@ actions:
     const fetch = replying({ ok: true, ts: '1' });
     const out = new HttpOutbound(['slack.com'], fetch);
 
-    // api.slack.com would be allowed by the slack.com entry.
     await out.run(action(), against);
     expect(fetch).toHaveBeenCalled();
   });
@@ -249,5 +274,115 @@ actions:
         new HttpOutbound(['github.com'], vi.fn()).bytes(fetching(), named),
       ).rejects.toThrow(EgressRefusedError);
     });
+  });
+});
+
+describe('HttpOutbound, a request written out', () => {
+  const WRITTEN = `
+version: 1
+integration: demo
+actions:
+  post:
+    request:
+      method: POST
+      url: https://slack.com/api/\${{ target.method }}
+      headers:
+        authorization: Bearer \${{ secret.TOKEN }}
+      body:
+        channel: '\${{ target.channel }}'
+        text: 'Asked at \${{ ask.station }}: \${{ ask.body }}'
+        attempt: '\${{ 1 + 1 }}'
+        unfurl: false
+`;
+
+  const written = (text = WRITTEN, name = 'post') => {
+    const read = compileIntegration('.spotlight/integrations/demo.yml', text);
+
+    if (!read.ok) {
+      throw new Error(read.problems.map((each) => each.reason).join(', '));
+    }
+
+    return read.readable.actions.get(name) as RequestIR;
+  };
+
+  const asked = {
+    ask: { body: 'The queue is stuck.', station: 'Triage' },
+    target: {
+      channel: 'C0DELIVERY',
+      thread: '170.5',
+      method: 'chat.postMessage',
+    },
+    secret: { TOKEN: 'xoxb-1', SLACK_BOT_TOKEN: 'xoxb-1' },
+    task: {
+      marks: { 'git.pull-request': 'https://github.com/acme/api/pull/9' },
+    },
+  };
+
+  it('sends the structure the file wrote, each piece read in', async () => {
+    const fetch = replying({ ok: true });
+
+    await new HttpOutbound(['slack.com'], fetch).run(written(), asked);
+
+    const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('https://slack.com/api/chat.postMessage');
+    expect((init.headers as Record<string, string>).authorization).toBe(
+      'Bearer xoxb-1',
+    );
+    expect(JSON.parse(init.body as string)).toEqual({
+      channel: 'C0DELIVERY',
+      text: 'Asked at Triage: The queue is stuck.',
+      attempt: 2,
+      unfurl: false,
+    });
+  });
+
+  it('sends nothing where a piece of the body cannot be read, and says where', async () => {
+    const fetch = replying({ ok: true });
+
+    await expect(
+      new HttpOutbound(['slack.com'], fetch).run(written(), {
+        ...asked,
+        ask: { station: 'Triage' },
+      }),
+    ).rejects.toThrow(/actions\.post\.request\.body\.text/);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('sends the Slack starter’s acknowledgement and pull request as Slack reads them', async () => {
+    const slack = new KnownIntegrations().fileFor('slack') as string;
+    const fetch = replying({ ok: true });
+    const out = new HttpOutbound(['slack.com'], fetch);
+
+    await out.run(written(slack, 'acknowledge'), asked);
+    await out.run(written(slack, 'share-pull-request'), asked);
+
+    const sent = fetch.mock.calls.map((call) => {
+      const [, init] = call as unknown as [string, RequestInit];
+      return {
+        authorization: (init.headers as Record<string, string>).authorization,
+        body: JSON.parse(init.body as string),
+      };
+    });
+    expect(sent).toEqual([
+      {
+        authorization: 'Bearer xoxb-1',
+        body: {
+          channel: 'C0DELIVERY',
+          thread_ts: '170.5',
+          text: 'Got it. I’ve opened a task for this and I’ll follow up here.'.replaceAll(
+            '’',
+            "'",
+          ),
+        },
+      },
+      {
+        authorization: 'Bearer xoxb-1',
+        body: {
+          channel: 'C0DELIVERY',
+          thread_ts: '170.5',
+          text: "I've opened a pull request for this: https://github.com/acme/api/pull/9",
+        },
+      },
+    ]);
   });
 });

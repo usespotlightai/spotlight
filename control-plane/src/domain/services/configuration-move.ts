@@ -9,14 +9,9 @@ export type ConfigurationMove =
       readonly team: Team;
       readonly files: readonly ConfigurationFile[];
     }
-  /** Somebody's own configuration is read as it is, never written over. */
   | { readonly kind: 'adopted'; readonly team: Team }
   | { readonly kind: 'repointed'; readonly team: Team };
 
-/**
- * What is carried is what the team kept at its last reading, since that is
- * what it runs on today.
- */
 export const moveConfiguration = (input: {
   readonly team: Team;
   readonly current: TeamConfiguration | null;
@@ -41,11 +36,6 @@ export const moveConfiguration = (input: {
   return { kind: 'carried', team: moving, files };
 };
 
-/**
- * A move under way lands once the repository it is going to holds
- * configuration of its own, which is the pull request carrying it merging.
- * Until then the team comes back exactly as it was given.
- */
 export const landConfigurationMove = (
   team: Team,
   destinationHolds: boolean,

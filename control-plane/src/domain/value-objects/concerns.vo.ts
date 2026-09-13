@@ -2,14 +2,6 @@ import { Branch } from '@domain/value-objects/branch.vo';
 import type { Mark } from '@domain/value-objects/mark.vo';
 import type { TaskId } from '@domain/value-objects/task-id.vo';
 
-/**
- * Which task something out in the world is about, in whatever terms that
- * corner of the world has. A branch names the task outright; everything else
- * names a handle the task is known by, and the handle has to be looked up.
- *
- * A source says what it saw and nothing about how to find it, so adding a
- * host means minting a kind of mark, not teaching this how to search.
- */
 export class Concerns {
   private constructor(
     readonly taskId: TaskId | null,

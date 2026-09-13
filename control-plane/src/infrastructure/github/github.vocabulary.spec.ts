@@ -14,15 +14,8 @@ const source = new GitHubSource(
 
 const raised = source.happenings.map((each) => each.happening.value);
 
-/**
- * The line and the source name the same words in two places, and nothing at
- * compile time makes them agree. A station waiting for a word its source
- * never raises would simply never react, and say nothing about why.
- */
 describe('the words the built-in lines wait for', () => {
   it('are all words the GitHub source actually raises', () => {
-    // A line may watch for words other sources raise; only the ones GitHub
-    // owns are the ones GitHub has to raise.
     const fromGitHub = BUILT_IN_REACTIONS.filter(
       (each) => each.happening.source === source.key,
     ).map((each) => each.happening.value);
@@ -40,13 +33,11 @@ describe('the words the built-in lines wait for', () => {
   });
 });
 
-// A station telling its agent to run a command it has not been given would
-// reach nothing: the runner raises only what the run was handed.
 describe('what the built-in line tells its agents', () => {
   it('names no tool in a prompt that the station does not have', () => {
     for (const opening of BUILT_IN_STATIONS) {
       const prompt = opening.agentPrompt?.value ?? '';
-      const named = BUILT_IN_TOOLS.map((each) => each.tool)
+      const named = BUILT_IN_TOOLS.map((each) => each.declared.tool)
         .filter((tool) => prompt.includes(`spotlight ${tool.value}`))
         .map((tool) => tool.value);
       const held = opening.tools.map((tool) => tool.value);
@@ -56,7 +47,7 @@ describe('what the built-in line tells its agents', () => {
   });
 
   it('gives every tool it hands out to a station that exists here', () => {
-    const known = BUILT_IN_TOOLS.map((each) => each.tool.value);
+    const known = BUILT_IN_TOOLS.map((each) => each.declared.tool.value);
 
     for (const opening of BUILT_IN_STATIONS) {
       for (const tool of opening.tools) {
@@ -80,7 +71,6 @@ describe('the words the GitHub source declares', () => {
     }
   });
 
-  // What a person says needs what they said; what the world reports does not.
   it('count a comment and a review as a person speaking, and nothing else', () => {
     expect(
       source.happenings

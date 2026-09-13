@@ -9,7 +9,6 @@ import {
 import type { NotePosition } from '@domain/value-objects/note-position.vo';
 import type { TaskNote } from '@domain/value-objects/task-note.vo';
 
-/** Everything a task has been told and has said, only ever added to. */
 export class Trail {
   private constructor(readonly notes: readonly TaskNote[]) {}
 

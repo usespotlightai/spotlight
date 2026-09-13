@@ -41,15 +41,6 @@ export class DrizzleRunRepository implements RunRepository {
     });
   }
 
-  /**
-   * Which row to pick is left to the database. `FOR UPDATE SKIP LOCKED` stops
-   * two runners asking at the same moment from both winning, and sends the
-   * second to the next run instead of queueing behind one it will never get.
-   *
-   * What being claimed means is decided by the aggregate: the row is locked,
-   * handed over, and written back in the same transaction.
-   */
-  /** A run wanting a harness no runner reported having simply waits. */
   async claimNext(
     harnesses: readonly HarnessId[],
     by: RunnerId,
@@ -159,19 +150,11 @@ export class DrizzleRunRepository implements RunRepository {
           at: event.at,
           message: event.message ?? null,
           data: event.data ?? null,
-          offset: event.offset ?? null,
         })),
       )
-      // A retried batch must not double the journal. The sequence the runner
-      // assigned says which is which.
       .onConflictDoNothing();
   }
 
-  /**
-   * Finds the runs whose lease has lapsed and lets each one requeue itself.
-   * The query narrows the candidates and `Run.lapsed` decides, so the rule is
-   * stated once instead of twice.
-   */
   async requeueLapsed(now: Date): Promise<Run[]> {
     return this.context.run(async () => {
       const candidates = await this.context.db
@@ -197,11 +180,7 @@ export class DrizzleRunRepository implements RunRepository {
   }
 }
 
-/**
- * A raw statement bypasses the ORM's conversion and drizzle's pg parsers hand
- * back timestamps as strings, while the typed query path returns Dates. This
- * copes with both.
- */
+// Raw sql returns timestamps as strings; the typed query path returns Dates.
 const asDate = (value: Date | string | null): Date | null => {
   if (value === null || value === undefined) {
     return null;

@@ -13,11 +13,6 @@ import type { Repository } from '@domain/value-objects/repository.vo';
 import { answered, call } from '@infrastructure/github/github.rest';
 import { Inject, Injectable } from '@nestjs/common';
 
-/**
- * What Spotlight will read of a repository. Configuration is written by hand
- * and read on every change, so these are generous for anything a person would
- * write and firm about anything nobody would.
- */
 const MOST_FILES = 200;
 const LONGEST_FILE = 256 * 1024;
 
@@ -30,7 +25,6 @@ interface Entry {
 
 interface Tree {
   readonly tree?: readonly Entry[];
-  /** GitHub gives up on very large repositories rather than paginating. */
   readonly truncated?: boolean;
 }
 
@@ -83,7 +77,6 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
       token,
     );
 
-    // Nothing there is an answer, not a failure: configuration is optional.
     if (response.status === NOT_FOUND) {
       return null;
     }
@@ -93,7 +86,6 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
       `GitHub would not read ${path} from ${reading.repository.value}`,
     );
 
-    // A directory asked for as a file answers with a list, which is not one.
     if (found.type !== 'file') {
       return null;
     }
@@ -121,7 +113,6 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
       `GitHub would not list ${reading.repository.value} at ${reading.ref}`,
     );
 
-    // Reading half a directory would look like configuration somebody deleted.
     if (tree.truncated) {
       throw new UpstreamRefusedError(
         `reading ${root} from ${reading.repository.value}`,
@@ -150,8 +141,7 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
       this.refuseIfTooLong(entry.path, entry.size ?? 0);
     }
 
-    // One at a time: a directory of configuration is a handful of files, and
-    // asking for all of them at once is how an installation loses its rate.
+    // Sequential on purpose, to spare the installation's rate limit.
     const read: RepositoryFile[] = [];
 
     for (const entry of beneath) {

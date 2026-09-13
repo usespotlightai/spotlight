@@ -4,12 +4,12 @@ import type {
 } from '@application/ports/repository-git.port';
 import { CarryGitCall } from '@application/services/carry-git-call.service';
 import { RunAtHand } from '@application/services/run-at-hand.service';
-import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import type { Line } from '@domain/aggregates/line.aggregate';
 import { Run } from '@domain/aggregates/run.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { InvalidRunTransitionError } from '@domain/exceptions/invalid-run-transition.error';
 import { UnknownRunError } from '@domain/exceptions/unknown-run.error';
-import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
+import type { LineRepository } from '@domain/repositories/line.repository';
 import type { RunRepository } from '@domain/repositories/run.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import type { WorkspaceConnections } from '@domain/repositories/workspace.repository';
@@ -49,15 +49,14 @@ const task = () =>
     newId: () => 'task_1',
   });
 
-/** Enough of a line for the gateway: which repositories it works. */
-const lineWorking = (repositories: readonly string[]): AssemblyLine => {
+const lineWorking = (repositories: readonly string[]): Line => {
   const held = repositories.map((each) => Repository.of(each));
 
   return {
     repositories: held,
     repositoryNamed: (name: string) =>
       held.find((each) => each.name === name) ?? null,
-  } as unknown as AssemblyLine;
+  } as unknown as Line;
 };
 
 const enqueued = () =>
@@ -89,7 +88,7 @@ const carrying = (
 
   const lines = {
     holding: vi.fn(async () => lineWorking(repositories)),
-  } as unknown as AssemblyLineRepository;
+  } as unknown as LineRepository;
 
   const service = new CarryGitCall(
     new RunAtHand(
@@ -119,8 +118,6 @@ describe('CarryGitCall', () => {
     );
   });
 
-  // The whole point of proxying: a runner reaches what it is working on, and
-  // nothing else anyone else is working on.
   it('refuses a runner that does not hold the run', async () => {
     const { service, git } = carrying(claimedBy('runner_1'), task());
 

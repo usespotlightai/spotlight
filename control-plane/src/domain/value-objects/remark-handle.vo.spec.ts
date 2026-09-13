@@ -9,7 +9,6 @@ describe('RemarkHandle', () => {
     expect(RemarkHandle.of('c3')).toEqual(NotePosition.of(3));
   });
 
-  // Typed from a briefing by an agent, so it is read forgivingly.
   it('reads one however it was typed', () => {
     expect(RemarkHandle.of(' C12 ')).toEqual(NotePosition.of(12));
   });

@@ -9,7 +9,6 @@ export class ConfigurationMoved implements DomainEvent {
   constructor(
     readonly workspaceId: WorkspaceId,
     readonly teamId: TeamId,
-    /** Null where it was read by the fallback rule rather than kept anywhere. */
     readonly from: Repository | null,
     readonly to: Repository,
   ) {}

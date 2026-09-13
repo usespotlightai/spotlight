@@ -39,9 +39,7 @@ export class Workspace extends EventRecorder {
     readonly name: WorkspaceName,
     readonly slug: WorkspaceSlug,
     readonly members: readonly WorkspaceMember[],
-    /** Its teams, by identity: each is its own to load and to change. */
     readonly teams: readonly TeamId[],
-    /** Every host this workspace has been connected to, at most one each. */
     readonly connections: readonly Connection[],
     readonly version: number = 0,
   ) {
@@ -53,7 +51,6 @@ export class Workspace extends EventRecorder {
     name: WorkspaceName;
     slug: WorkspaceSlug;
     owner: UserId;
-    /** The team it opens with, made alongside it and belonging to it. */
     firstTeam: TeamId;
   }): Workspace {
     return new Workspace(
@@ -62,8 +59,6 @@ export class Workspace extends EventRecorder {
       input.slug,
       [{ userId: input.owner, role: WorkspaceRole.owner }],
       [input.firstTeam],
-      // Connected afterwards, by whoever installs the App: a workspace is
-      // worth having before it reaches anything.
       [],
     );
   }
@@ -95,7 +90,6 @@ export class Workspace extends EventRecorder {
     );
   }
 
-  /** What this person is here, or nothing where they are not of it at all. */
   roleOf(userId: UserId): WorkspaceRole | null {
     return (
       this.members.find((each) => each.userId.equals(userId))?.role ?? null
@@ -110,15 +104,22 @@ export class Workspace extends EventRecorder {
     return this.roleOf(userId)?.rankedAtLeast(WorkspaceRole.admin) ?? false;
   }
 
+  maySealSecretsBy(userId: UserId): boolean {
+    return this.mayBeConnectedBy(userId);
+  }
+
+  mayRevealVaultKeyBy(userId: UserId): boolean {
+    return this.mayBeConnectedBy(userId);
+  }
+
+  mayProposeConfigurationBy(userId: UserId): boolean {
+    return this.holds(userId);
+  }
+
   connectionTo(source: string): Connection | null {
     return this.connections.find((each) => each.isTo(source)) ?? null;
   }
 
-  /**
-   * Reconnected as readily as connected: an App uninstalled and put back on
-   * is a new installation, and the old number opens nothing. One host at a
-   * time, so connecting again replaces rather than adds.
-   */
   connectedTo(connection: Connection, by: UserId): Workspace {
     if (!this.mayBeConnectedBy(by)) {
       throw new NotYoursToConnectError(
@@ -144,11 +145,7 @@ export class Workspace extends EventRecorder {
     return connected;
   }
 
-  /**
-   * The host let go of, because the host said so. Nobody's permission is
-   * asked: an installation somebody removed on GitHub is gone whether or not
-   * the person who removed it could have removed it from here.
-   */
+  // No permission check: the host has already removed the installation.
   disconnectedFrom(source: string): Workspace {
     if (!this.connectionTo(source)) {
       return this;

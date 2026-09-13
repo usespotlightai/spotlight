@@ -1,13 +1,7 @@
 import { InvalidIdentifierError } from '@domain/exceptions/invalid-identifier.error';
 
-/** Named by its source first, the way a happening is, and for the reason. */
 const SHAPE = /^[a-z0-9]+(\.[a-z0-9][a-z0-9_-]*)+$/;
 
-/**
- * A kind of handle the world outside knows a task by: a pull request address,
- * an issue key, an alert fingerprint. The kind is what makes two handles that
- * happen to read alike different things.
- */
 export class MarkKind {
   private readonly of = 'mark-kind';
 

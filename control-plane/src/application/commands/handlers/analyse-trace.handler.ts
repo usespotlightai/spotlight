@@ -10,12 +10,12 @@ import type {
   PersonSummary,
 } from '@application/ports/person-reader.port';
 import type { RaiseTask } from '@application/services/raise-task';
-import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import type { Line } from '@domain/aggregates/line.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import type { Team } from '@domain/aggregates/team.aggregate';
 import type { Station } from '@domain/entities/station.entity';
 import { NotATeamMemberError } from '@domain/exceptions/not-a-team-member.error';
-import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
+import type { LineRepository } from '@domain/repositories/line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import type { TeamRepository } from '@domain/repositories/team.repository';
 import { Placement } from '@domain/services/placement';
@@ -26,7 +26,6 @@ import { TaskTitle } from '@domain/value-objects/task-title.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 
-/** Points a task at the trace to study; how to study it is the station's own. */
 const analysisNote = (trace: string, traceOf: string): string =>
   `Analyse the run trace for **${trace}** (task \`${traceOf}\`).
 
@@ -37,7 +36,7 @@ export class AnalyseTraceHandler
 {
   constructor(
     private readonly tasks: TaskRepository,
-    private readonly lines: AssemblyLineRepository,
+    private readonly lines: LineRepository,
     private readonly teams: TeamRepository,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
@@ -61,8 +60,6 @@ export class AnalyseTraceHandler
       throw new NotATeamMemberError();
     }
 
-    // Analysis is the improvement line's work; where a team has no such line,
-    // there is nowhere to open it.
     const line = await this.lines.withRole(team.id, LineRole.IMPROVEMENT);
     const entry = line?.entry ?? null;
 
@@ -95,14 +92,13 @@ export class AnalyseTraceHandler
   private async analyseOne(input: {
     traceOf: TaskId;
     team: Team;
-    line: AssemblyLine;
+    line: Line;
     entry: Station;
     requester: UserId;
     person: PersonSummary | null;
   }): Promise<TaskDto | null> {
     const traced = await this.tasks.find(input.traceOf);
 
-    // Only a trace of this team's own work.
     if (!traced?.workspaceId.equals(input.team.workspaceId)) {
       return null;
     }

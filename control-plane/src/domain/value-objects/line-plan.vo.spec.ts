@@ -1,8 +1,9 @@
 import { InvalidLinePlanError } from '@domain/exceptions/invalid-line-plan.error';
-import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
 import { LineKey } from '@domain/value-objects/line-key.vo';
+import { LineName } from '@domain/value-objects/line-name.vo';
 import { LinePlan, type StationPlan } from '@domain/value-objects/line-plan.vo';
+import { Repository } from '@domain/value-objects/repository.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationKey } from '@domain/value-objects/station-key.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
@@ -24,18 +25,41 @@ const station = (
   effort: null,
   agentPrompt: null,
   tools: [],
+  skills: [],
   passesTo: [],
   ends: false,
   ...over,
 });
 
+const backlog = (over: Partial<StationPlan> = {}) =>
+  station('backlog', { kind: 'backlog', ...over });
+
+const completed = (over: Partial<StationPlan> = {}) =>
+  station('completed', { kind: 'completed', ...over });
+
 const plan = (over: Partial<Parameters<typeof LinePlan.of>[0]> = {}) =>
   LinePlan.of({
     key: LineKey.of('default'),
-    name: AssemblyLineName.of('Default'),
-    stations: [station('backlog'), station('review')],
+    name: LineName.of('Default'),
+    stations: [
+      backlog({ passesTo: [StationKey.of('code-review')] }),
+      station('code-review', { ends: true }),
+      completed(),
+    ],
     ...over,
   });
+
+const refusal = (make: () => unknown): InvalidLinePlanError => {
+  try {
+    make();
+  } catch (error) {
+    if (error instanceof InvalidLinePlanError) {
+      return error;
+    }
+    throw error;
+  }
+  throw new Error('was not refused');
+};
 
 describe('LinePlan', () => {
   it('describes a line, its stations and what words do to a task', () => {
@@ -44,42 +68,122 @@ describe('LinePlan', () => {
         {
           happening: MERGED,
           from: null,
-          to: StationKey.of('review'),
+          to: StationKey.of('completed'),
         },
       ],
+      repositories: [Repository.of('acme/api')],
     });
 
     expect(held.key.value).toBe('default');
-    expect(held.stations).toHaveLength(2);
+    expect(held.stations.map((each) => each.key.value)).toEqual([
+      'backlog',
+      'code-review',
+      'completed',
+    ]);
     expect(held.reactions).toHaveLength(1);
+    expect(held.role).toBeNull();
+    expect(held.repositories.map((each) => each.value)).toEqual(['acme/api']);
   });
 
-  // A line with nowhere to stand is not a line.
   it('refuses one describing no stations at all', () => {
-    expect(() => plan({ stations: [] })).toThrow(InvalidLinePlanError);
+    const refused = refusal(() => plan({ stations: [] }));
+
+    expect(refused.message).toMatch(/at least one/);
+    expect(refused.at).toBe('stations');
   });
 
-  // The second would quietly never be reached.
   it('refuses one naming a station twice', () => {
-    expect(() =>
-      plan({ stations: [station('review'), station('review')] }),
-    ).toThrow(/twice/);
-  });
-
-  // Written as keys, so they have to land on stations the plan describes.
-  it('refuses work passing to a station it does not describe', () => {
     expect(() =>
       plan({
         stations: [
-          station('backlog', { passesTo: [StationKey.of('nowhere')] }),
-          station('review'),
+          backlog(),
+          station('code-review'),
+          station('code-review'),
+          completed(),
         ],
       }),
-    ).toThrow(/not a station on it/);
+    ).toThrow(/two are named code-review/);
+  });
+
+  it('refuses one that does not open with its backlog', () => {
+    expect(() =>
+      plan({ stations: [station('code-review'), backlog(), completed()] }),
+    ).toThrow(/open with their backlog/);
+    expect(() =>
+      plan({ stations: [station('code-review'), completed()] }),
+    ).toThrow(/one backlog, but hold 0/);
+  });
+
+  it('refuses one that does not close with completed', () => {
+    expect(() =>
+      plan({ stations: [backlog(), completed(), station('code-review')] }),
+    ).toThrow(/close with completed/);
+    expect(() =>
+      plan({ stations: [backlog(), station('code-review')] }),
+    ).toThrow(/one completed, but hold 0/);
+  });
+
+  it('refuses work passing on from where the line ends', () => {
+    const refused = refusal(() =>
+      plan({
+        stations: [
+          backlog(),
+          station('code-review'),
+          completed({ passesTo: [StationKey.of('code-review')] }),
+        ],
+      }),
+    );
+
+    expect(refused.message).toMatch(/completed hands on somewhere/);
+    expect(refused.at).toBe('stations.2.passesTo');
+  });
+
+  it('refuses a station handing work on to itself', () => {
+    const refused = refusal(() =>
+      plan({
+        stations: [
+          backlog(),
+          station('code-review', {
+            passesTo: [StationKey.of('code-review')],
+          }),
+          completed(),
+        ],
+      }),
+    );
+
+    expect(refused.message).toMatch(/hand on to themselves/);
+    expect(refused.at).toBe('stations.1.passesTo');
+  });
+
+  it('refuses work passing to a station it does not describe', () => {
+    const refused = refusal(() =>
+      plan({
+        stations: [
+          backlog({ passesTo: [StationKey.of('nowhere')] }),
+          station('code-review'),
+          completed(),
+        ],
+      }),
+    );
+
+    expect(refused.message).toMatch(/station work is done at/);
+    expect(refused.at).toBe('stations.0.passesTo');
+  });
+
+  it('refuses work passing to a station nobody works', () => {
+    expect(() =>
+      plan({
+        stations: [
+          backlog({ passesTo: [StationKey.of('completed')] }),
+          station('code-review'),
+          completed(),
+        ],
+      }),
+    ).toThrow(/station work is done at/);
   });
 
   it('refuses a word taking a task to a station it does not describe', () => {
-    expect(() =>
+    const refused = refusal(() =>
       plan({
         reactions: [
           {
@@ -89,34 +193,54 @@ describe('LinePlan', () => {
           },
         ],
       }),
-    ).toThrow(/not a station on it/);
+    );
+
+    expect(refused.message).toMatch(/to a station on the line/);
+    expect(refused.at).toBe('reactions.0.to');
   });
 
   it('refuses a word waiting at a station it does not describe', () => {
-    expect(() =>
+    const refused = refusal(() =>
       plan({
         reactions: [
           {
             happening: MERGED,
             from: StationKey.of('nowhere'),
-            to: StationKey.of('review'),
+            to: StationKey.of('code-review'),
           },
         ],
       }),
-    ).toThrow(/not a station on it/);
+    );
+
+    expect(refused.message).toMatch(/at a station on the line/);
+    expect(refused.at).toBe('reactions.0.from');
+  });
+
+  it('refuses two stations waiting for the same word from the same place', () => {
+    const refused = refusal(() =>
+      plan({
+        reactions: [
+          { happening: MERGED, from: null, to: StationKey.of('code-review') },
+          { happening: MERGED, from: null, to: StationKey.of('completed') },
+        ],
+      }),
+    );
+
+    expect(refused.message).toMatch(/two wait for/);
+    expect(refused.at).toBe('reactions.1');
+  });
+
+  it('refuses repositories it could not work in', () => {
+    const repository = Repository.of('acme/api');
+    const refused = refusal(() =>
+      plan({ repositories: [repository, repository] }),
+    );
+
+    expect(refused.at).toBe('repositories');
   });
 
   it('says whether it names a station at all', () => {
-    expect(plan().names(StationKey.of('review'))).toBe(true);
+    expect(plan().names(StationKey.of('code-review'))).toBe(true);
     expect(plan().names(StationKey.of('nowhere'))).toBe(false);
-  });
-
-  it('says which of the ones standing it no longer describes', () => {
-    const dropped = plan().drops([
-      { key: StationKey.of('review') },
-      { key: StationKey.of('handover') },
-    ]);
-
-    expect(dropped.map((each) => each.value)).toEqual(['handover']);
   });
 });

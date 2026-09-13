@@ -35,8 +35,6 @@ describe('GracefulShutdown', () => {
     expect(closeAllConnections).not.toHaveBeenCalled();
   });
 
-  // A terminal being watched never closes on its own, and closing the server
-  // waits for every open connection.
   it('cuts what is still connected once the grace is up', () => {
     const closeAllConnections = vi.fn();
     const { shutdown } = shuttingDown({ closeAllConnections });
@@ -67,7 +65,6 @@ describe('GracefulShutdown', () => {
     expect(logger.info).not.toHaveBeenCalled();
   });
 
-  // An older server, or one that is not Node's own.
   it('does nothing where the server cannot cut its connections', () => {
     const { shutdown, logger } = shuttingDown({});
 

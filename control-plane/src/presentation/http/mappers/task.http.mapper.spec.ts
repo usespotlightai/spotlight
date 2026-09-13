@@ -24,8 +24,6 @@ const dto: TaskDto = {
 };
 
 describe('TaskHttpMapper', () => {
-  // A mapper that names its fields one by one drops a new one silently, and
-  // has twice. Counted rather than named, so the next one cannot slip through.
   it('carries every field a task has, whatever gets added later', () => {
     const response = TaskHttpMapper.toResponse(dto);
 

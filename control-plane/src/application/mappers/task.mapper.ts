@@ -40,7 +40,6 @@ export const TaskMapper = {
     };
   },
 
-  /** The aggregate holds only an identity, so the caller resolves the rest. */
   taskToDto(
     task: Task,
     raisedBy: TaskPersonDto | null,

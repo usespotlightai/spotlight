@@ -4,12 +4,6 @@ import { cn } from '@/lib/utils';
 
 const LEAST_WIDTH = 0.4;
 
-/**
- * Room kept clear to the right of every lane, wide enough for the longest a
- * length and a cost read together. Bars stop at the edge of it, so a bar that
- * runs the whole trace still has somewhere to print what it took. Shared with
- * the scale above them: two numbers that have to agree are one number.
- */
 export const LABEL_ROOM = 128;
 
 const fills: Record<string, string> = {
@@ -21,14 +15,10 @@ const fills: Record<string, string> = {
 export function TraceBar({ node, trace }: { node: TraceNode; trace: Trace }) {
   const { left, width } = laidOut(node, trace);
 
-  // What is drawn, not what was measured: a bar held open to stay hittable
-  // would otherwise have its length printed on top of it.
   const drawn = Math.max(width, LEAST_WIDTH);
 
   return (
     <div
-      // Drawn, not touched: the lane lets a click through to the row beneath,
-      // so picking a row does not depend on hitting its name.
       className="pointer-events-none relative min-w-0 flex-1 self-stretch"
       style={{ marginRight: LABEL_ROOM }}
     >

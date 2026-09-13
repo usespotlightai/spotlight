@@ -8,7 +8,6 @@ import pinoHttp, { type HttpLogger, type Options } from 'pino-http';
 
 const REQUEST_ID_HEADER = 'x-request-id';
 
-/** W3C trace-context: `<version>-<32 hex trace id>-<16 hex span id>-<flags>`. */
 const TRACEPARENT = /^[\da-f]{2}-([\da-f]{32})-[\da-f]{16}-[\da-f]{2}$/;
 const NIL_TRACE_ID = '0'.repeat(32);
 
@@ -20,19 +19,12 @@ function traceIdOf(req: IncomingMessage): string | undefined {
   return traceId && traceId !== NIL_TRACE_ID ? traceId : undefined;
 }
 
-/**
- * Anything listed here is replaced by `[redacted]` before it reaches a log
- * sink. Sessions are cookie-based, so the default request serializer, which
- * logs every header, would write valid session tokens to disk on every
- * request.
- */
 const REDACT_PATHS = [
   'req.headers.cookie',
   'req.headers.authorization',
   'res.headers["set-cookie"]',
 ];
 
-/** Liveness probes run every 10s and would drown out real traffic. */
 const IGNORED_PATHS = ['/api/health'];
 
 type LoggerEnv = Pick<Env, 'NODE_ENV' | 'LOG_LEVEL'>;
@@ -84,8 +76,6 @@ function buildOptions(env: LoggerEnv): Options {
         }
       : undefined,
 
-    // Binds `reqId` to the per-request logger so application logs carry the id
-    // instead of repeating the whole serialized request on every line.
     quietReqLogger: true,
   };
 }
@@ -106,9 +96,7 @@ export function buildLogging(
 
   return {
     params: {
-      // nestjs-pino defaults to `*`, which the global prefix turns into
-      // `/api/{*path}`. That matches `/api/anything` but not a bare `/api`, so
-      // `/` is listed to cover the prefix itself.
+      // nestjs-pino's default `*` becomes `/api/{*path}`, which misses a bare `/api`.
       forRoutes: [
         { path: '/', method: RequestMethod.ALL },
         { path: '{*path}', method: RequestMethod.ALL },

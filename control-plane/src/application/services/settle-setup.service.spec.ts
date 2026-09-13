@@ -100,7 +100,6 @@ describe('SettleSetup', () => {
     expect(task.notes[task.notes.length - 1]?.kind).toBe('passed');
   });
 
-  // Settling is not finishing, and a run that took the task up still holds it.
   it('leaves the task otherwise exactly as it stands', async () => {
     const working = list().handedTo(
       RunId.of('123e4567-e89b-42d3-a456-426614174009'),
@@ -180,7 +179,6 @@ describe('SettleSetup', () => {
     expect(logger.warn).toHaveBeenCalled();
   });
 
-  // Whatever brought us here still happened, so nothing here undoes it.
   it('says so and carries on where a list will not settle', async () => {
     const { service, tasks, logger } = settling();
     (tasks.save as ReturnType<typeof vi.fn>).mockRejectedValue(

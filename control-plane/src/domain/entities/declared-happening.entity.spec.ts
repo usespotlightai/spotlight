@@ -22,7 +22,6 @@ describe('DeclaredHappening', () => {
     expect(declaring().told).toBe('The issue was moved to Done.');
   });
 
-  // What the world reports tells itself; only a person answers what was asked.
   it('is the world reporting unless it says otherwise', () => {
     expect(declaring().spoken).toBe(false);
     expect(declaring({ spoken: true }).spoken).toBe(true);
@@ -38,8 +37,6 @@ describe('DeclaredHappening', () => {
     expect(() => declaring({ label: '' })).toThrow(InvalidIdentifierError);
   });
 
-  // A word about nothing could never reach a task, so nothing would come of
-  // raising it. Better said here than wondered about later.
   it('refuses one that could never find a task', () => {
     expect(() => declaring({ finds: [], findsByBranch: false })).toThrow(
       /could find a task/,

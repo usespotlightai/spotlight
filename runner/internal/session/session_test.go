@@ -20,14 +20,11 @@ import (
 )
 
 type journal struct {
-	mu       sync.Mutex
-	events   []protocol.Event
-	renewals int
-	done     *protocol.Completion
-	// stopAfter makes lease renewals report a stop once this many have been
-	// asked for; 0 never does.
+	mu        sync.Mutex
+	events    []protocol.Event
+	renewals  int
+	done      *protocol.Completion
 	stopAfter int
-	// What a person has typed at the agent, handed over one batch per turn.
 	said      [][]protocol.Said
 	delivered []int
 	files     map[string]string
@@ -54,10 +51,10 @@ func (j *journal) Complete(_ context.Context, _ string, done protocol.Completion
 	return nil
 }
 
-func (j *journal) OpenPullRequest(
-	_ context.Context, _ string, _ protocol.PullRequest,
-) (string, error) {
-	return "https://github.com/acme/widgets/pull/1", nil
+func (j *journal) UseTool(
+	_ context.Context, _ string, _ string, _ json.RawMessage,
+) (json.RawMessage, error) {
+	return json.RawMessage(`{"output":"https://github.com/acme/widgets/pull/1"}`), nil
 }
 
 func (j *journal) AnswerRemark(
@@ -72,8 +69,6 @@ func (j *journal) Trace(
 	return nil, nil
 }
 
-// Said hands back one batch per call, so a fake can end the run by running
-// out rather than by saying the same thing for ever.
 func (j *journal) Said(context.Context, string) ([]protocol.Said, error) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
@@ -129,15 +124,6 @@ func prepareHook(t *testing.T, body string) string {
 	return path
 }
 
-/*
-harness writes a stand-in that speaks ACP and does whatever the test needs
-when it is prompted.
-
-`doing` is JavaScript run at prompt time, with `sessionId` in scope; `stopReason`
-is how the turn ends. It answers session/load for one id and refuses every other
-the way a harness does, so resuming can be tested both ways. Tests are written
-against the protocol rather than against any one agent.
-*/
 func harness(t *testing.T, doing string, stopReason string) string {
 	t.Helper()
 
@@ -187,8 +173,6 @@ process.stdin.on("data", (chunk) => {
 	return path
 }
 
-// stalling speaks ACP but never finishes a turn, so a run on it ends only when
-// it is stopped from the console.
 func stalling(t *testing.T) string {
 	t.Helper()
 
@@ -235,6 +219,7 @@ type runOptions struct {
 	continuity  protocol.Continuity
 	stopAfter   int
 	attachments []protocol.Attachment
+	skills      []protocol.SkillFile
 	files       map[string]string
 }
 
@@ -250,19 +235,19 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 	err := session.Execute(context.Background(), protocol.Run{
 		ID: "run_1",
 		Spec: protocol.Spec{
-			Cwd:         "service",
 			Command:     protocol.Command{Executable: executable, Env: settings.env},
 			Briefing:    settings.briefing,
 			Handover:    protocol.Handover{Options: settings.handover},
 			Continuity:  settings.continuity,
 			Attachments: settings.attachments,
+			Skills:      settings.skills,
 		},
 	}, session.Options{
 		WorkspaceRoot: settings.root,
 		Journal:       written,
 		Log:           slog.New(slog.NewTextHandler(io.Discard, nil)),
 		AgentUser:     settings.agentUser,
-		PrepareHook:   prepareHook(t, "mkdir service"),
+		PrepareHook:   prepareHook(t, "true"),
 		HookTimeout:   30 * time.Second,
 	})
 	if err != nil {
@@ -272,7 +257,6 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 	return written
 }
 
-// said gathers the text out of the session updates the journal kept.
 func said(t *testing.T, written *journal) string {
 	t.Helper()
 
@@ -308,8 +292,6 @@ func TestTakesARunFromNothingToAnOutcome(t *testing.T) {
 	}
 }
 
-// The journal is a record of what the agent said, kept whole, so a reader can
-// render it rather than replay it.
 func TestKeepsWhatTheAgentSaidAsItSaidIt(t *testing.T) {
 	written := run(t, harness(t, `said = "structured";`, "end_turn"))
 
@@ -337,8 +319,6 @@ func TestEventsAreNumberedWithoutGaps(t *testing.T) {
 	}
 }
 
-// A turn that ends any other way is the agent saying it would not or could
-// not, which is a failed run rather than a finished one.
 func TestATurnThatEndsBadlyIsReportedAsFailed(t *testing.T) {
 	written := run(t, harness(t, `said = "refused";`, "refusal"))
 
@@ -347,8 +327,6 @@ func TestATurnThatEndsBadlyIsReportedAsFailed(t *testing.T) {
 	}
 }
 
-// Stopping a run from the console ends a turn that would otherwise run on, and
-// the run is reported stopped rather than failed.
 func TestARunStoppedFromTheConsoleFinishesAsStopped(t *testing.T) {
 	written := run(t, stalling(t), func(o *runOptions) { o.stopAfter = 1 })
 
@@ -363,8 +341,6 @@ func TestARunStoppedFromTheConsoleFinishesAsStopped(t *testing.T) {
 	}
 }
 
-// A turn cut short to steer it is not a failure: what the person said is taken
-// up as the next turn, and the run carries on to finish.
 func TestASteeredTurnIsTakenUpNotFailed(t *testing.T) {
 	written := run(t, harness(t, `said = "working";`, "cancelled"),
 		func(o *runOptions) {
@@ -402,8 +378,6 @@ func TestARunThatCannotStartIsStillReported(t *testing.T) {
 	}
 }
 
-// The agent is given its own account, and an agent CLI reads its
-// configuration from HOME and runs commands through SHELL.
 func TestTheAgentIsGivenItsOwnAccount(t *testing.T) {
 	if os.Getuid() != 0 {
 		t.Skip("dropping to another user needs root")
@@ -434,8 +408,6 @@ func TestTheAgentIsGivenItsOwnAccount(t *testing.T) {
 	}
 }
 
-// The declaration channel is not the harness's: any agent that can run a
-// command can hand a task on, whatever protocol it speaks.
 func TestWhatTheAgentDeclaresReachesTheCompletion(t *testing.T) {
 	declaring := `execSync(` + "`" +
 		`${process.env.SPOTLIGHT_HANDOVER_URL ? "" : "no url"} node -e '
@@ -456,8 +428,6 @@ func TestWhatTheAgentDeclaresReachesTheCompletion(t *testing.T) {
 	}
 }
 
-// A briefing is what the agent is asked to work on, and it reaches the agent
-// as a prompt rather than as an argument.
 func TestTheBriefingReachesTheAgent(t *testing.T) {
 	written := run(t, harness(t, `said = msg.params.prompt[0].text;`, "end_turn"),
 		func(o *runOptions) { o.briefing = "## Fix the queue" })
@@ -502,8 +472,6 @@ func TestOpensAFreshSessionWhenTheHarnessHasForgotten(t *testing.T) {
 	}
 }
 
-// Reported even when nothing was inherited: it is what the next run needs, and
-// the runner will not remember it.
 func TestReportsTheSessionItOpened(t *testing.T) {
 	written := run(t, harness(t, `said = "worked";`, "end_turn"))
 
@@ -535,11 +503,6 @@ func TestStillDisposesOfAWorkspaceNobodyAskedToKeep(t *testing.T) {
 	}
 }
 
-/*
-The catalogue says where a harness keeps its state; the runner says only where
-the durable directory is. Expanding the one into the other is what keeps every
-harness's own vocabulary out of the runner.
-*/
 func TestExpandsTheStateDirectoryIntoWhatTheHarnessIsTold(t *testing.T) {
 	root := t.TempDir()
 
@@ -555,8 +518,6 @@ func TestExpandsTheStateDirectoryIntoWhatTheHarnessIsTold(t *testing.T) {
 	}
 }
 
-// A person typing at an agent mid-work is the point of a run staying open: the
-// words reach it as another turn in the same session, not as a second run.
 func TestWhatAPersonSaysReachesTheAgentAsAnotherTurn(t *testing.T) {
 	written := run(t, harness(t, `said = JSON.stringify(msg.params.prompt);`, "end_turn"),
 		func(o *runOptions) {
@@ -575,7 +536,7 @@ func TestWhatAPersonSaysReachesTheAgentAsAnotherTurn(t *testing.T) {
 }
 
 func reading(path string) string {
-	return `said = require("node:fs").readFileSync("../` + path + `", "utf8");`
+	return `said = require("node:fs").readFileSync("` + path + `", "utf8");`
 }
 
 func TestWhatWasAttachedIsThereBeforeTheAgentStarts(t *testing.T) {
@@ -661,12 +622,59 @@ func TestWordsAreDeliveredEvenWhenTheirAttachmentIsNot(t *testing.T) {
 	}
 }
 
-// Nothing said is the ordinary case, and must not cost a second turn.
 func TestARunEndsWhenNobodyHasSaidAnything(t *testing.T) {
 	written := run(t, harness(t, `said = "worked";`, "end_turn"),
 		func(o *runOptions) { o.briefing = "the only thing" })
 
 	if len(written.delivered) != 0 {
 		t.Errorf("marked delivered %v, wanted nothing", written.delivered)
+	}
+}
+
+func TestSkillsAreLaidBeforeTheAgentStarts(t *testing.T) {
+	const path = ".claude/skills/spotlight-handover/SKILL.md"
+
+	written := run(t, harness(t, reading(path), "end_turn"), func(o *runOptions) {
+		o.skills = []protocol.SkillFile{{Path: path, Text: "how to hand over"}}
+	})
+
+	if heard := said(t, written); heard != "how to hand over" {
+		t.Errorf("the agent found %q", heard)
+	}
+}
+
+func TestAKeptWorkspaceHoldsOnlyTheSkillsThisRunWasGiven(t *testing.T) {
+	root := t.TempDir()
+
+	handingOver := protocol.SkillFile{Path: ".claude/skills/spotlight-handover/SKILL.md", Text: "how to hand over"}
+	migrating := protocol.SkillFile{Path: ".claude/skills/our-migrations/SKILL.md", Text: "how we migrate"}
+	example := protocol.SkillFile{Path: ".claude/skills/our-migrations/examples/add-column.md", Text: "add it"}
+	opening := protocol.SkillFile{Path: ".claude/skills/spotlight-pull-request/SKILL.md", Text: "how to open one"}
+
+	kept := func(skills ...protocol.SkillFile) func(*runOptions) {
+		return func(o *runOptions) {
+			o.root = root
+			o.continuity = protocol.Continuity{Key: "task_1", Keep: true}
+			o.skills = skills
+		}
+	}
+
+	run(t, harness(t, `said = "worked";`, "end_turn"), kept(handingOver, migrating, example, opening))
+	written := run(t, harness(t, reading(".claude/skills/our-migrations/SKILL.md"), "end_turn"), kept(handingOver, migrating))
+
+	if heard := said(t, written); heard != "how we migrate" {
+		t.Errorf("the agent found %q", heard)
+	}
+
+	space := filepath.Join(root, "task_1")
+	for _, laid := range []string{handingOver.Path, migrating.Path} {
+		if _, err := os.Stat(filepath.Join(space, laid)); err != nil {
+			t.Errorf("%s is gone: %v", laid, err)
+		}
+	}
+	for _, dropped := range []string{".claude/skills/our-migrations/examples", ".claude/skills/spotlight-pull-request"} {
+		if _, err := os.Lstat(filepath.Join(space, dropped)); !os.IsNotExist(err) {
+			t.Errorf("%s is still there: %v", dropped, err)
+		}
 	}
 }

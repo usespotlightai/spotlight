@@ -8,7 +8,6 @@ import { inboundDelivery } from '@infrastructure/persistence/drizzle/schemas/del
 import { Injectable } from '@nestjs/common';
 import { and, asc, eq, sql } from 'drizzle-orm';
 
-/** Long enough to say what went wrong, short enough not to be a payload. */
 const REASON_LIMIT = 1_000;
 
 @Injectable()
@@ -16,8 +15,6 @@ export class DrizzleDeliveryInbox implements DeliveryInboxPort {
   constructor(private readonly context: DrizzleContext) {}
 
   async accept(delivered: StoredDelivery): Promise<boolean> {
-    // The insert is the check: only one writer wins the row, so a host
-    // sending the same word twice is taken in once.
     const written = await this.context.db
       .insert(inboundDelivery)
       .values({
@@ -42,8 +39,6 @@ export class DrizzleDeliveryInbox implements DeliveryInboxPort {
       .where(eq(inboundDelivery.state, 'pending'))
       .orderBy(asc(inboundDelivery.receivedAt))
       .limit(1)
-      // Skipped rather than waited on: another worker holding a row is
-      // working it, and there is other work to be getting on with.
       .for('update', { skipLocked: true });
 
     if (!found) {
@@ -85,7 +80,6 @@ export class DrizzleDeliveryInbox implements DeliveryInboxPort {
       .where(this.theOne(delivered));
   }
 
-  /** One delivery, named the whole way: a host, a door, and what it called it. */
   private theOne(delivered: StoredDelivery) {
     return and(
       eq(inboundDelivery.source, delivered.source),

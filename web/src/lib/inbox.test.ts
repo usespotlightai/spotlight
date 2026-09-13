@@ -36,7 +36,6 @@ describe('shownAt', () => {
 });
 
 describe('spentOn', () => {
-  // A cent is where rounding starts hiding what a run actually cost.
   it('keeps enough of a small cost to still be a number', () => {
     expect(spentOn(0.0042)).toBe('$0.0042');
     expect(spentOn(7.3269)).toBe('$7.33');

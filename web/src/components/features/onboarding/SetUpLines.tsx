@@ -1,8 +1,7 @@
 import { GitPullRequest } from 'lucide-react';
 import { useState } from 'react';
-import { EffortSelect } from '@/components/features/stations/EffortSelect';
 import { HarnessSelect } from '@/components/features/stations/HarnessSelect';
-import { ModelSelect } from '@/components/features/stations/ModelSelect';
+import { ModelEffortSelect } from '@/components/features/stations/ModelEffortSelect';
 import { RepositoriesSelect } from '@/components/features/stations/RepositoriesSelect';
 import { Button } from '@/components/ui/button';
 import { useSetUpLines } from '@/hooks/api/useSetUpLines';
@@ -24,11 +23,8 @@ type Assignment = {
   repositories: string[];
 };
 
-/** The line that improves the factory, which opens its work against the config. */
-const IMPROVEMENT = 'factory-improvement';
+const IMPROVEMENT = 'factory';
 
-/** What a line starts out working in: its own repositories, or the config
- *  repository for the improvement line, which has nowhere else to work. */
 const reposFor = (
   line: OnboardingLineResponseDto,
   configRepository: string | null,
@@ -56,7 +52,6 @@ const seededFrom = (
     ]),
   );
 
-/** What the lines amount to, so a fresh read of the same choices re-seeds. */
 const signatureOf = (
   lines: readonly OnboardingLineResponseDto[],
   configRepository: string | null,
@@ -68,11 +63,6 @@ const signatureOf = (
     )
     .join('|')}`;
 
-/**
- * Each line's harness and repositories, chosen the way the station page chooses
- * them, then written down in one pull request. Nothing is written until Set up
- * is pressed, so the choices are made first.
- */
 export function SetUpLines({
   slug,
   teamId,
@@ -96,8 +86,6 @@ export function SetUpLines({
   const assign = (key: string, change: Partial<Assignment>) =>
     setAssignments((all) => ({ ...all, [key]: { ...all[key], ...change } }));
 
-  // Model and effort are per harness, so choosing one clears both back to the
-  // new harness's own defaults.
   const chooseHarness = (key: string, harness: string) =>
     assign(key, { harness, model: '', effort: '' });
 
@@ -124,18 +112,13 @@ export function SetUpLines({
               onChange={(harness) => chooseHarness(line.key, harness)}
             />
             {assignments[line.key]?.harness ? (
-              <>
-                <ModelSelect
-                  harness={assignments[line.key]?.harness ?? ''}
-                  value={assignments[line.key]?.model ?? ''}
-                  onChange={(model) => assign(line.key, { model })}
-                />
-                <EffortSelect
-                  harness={assignments[line.key]?.harness ?? ''}
-                  value={assignments[line.key]?.effort ?? ''}
-                  onChange={(effort) => assign(line.key, { effort })}
-                />
-              </>
+              <ModelEffortSelect
+                harness={assignments[line.key]?.harness ?? ''}
+                model={assignments[line.key]?.model ?? ''}
+                onModel={(model) => assign(line.key, { model })}
+                effort={assignments[line.key]?.effort ?? ''}
+                onEffort={(effort) => assign(line.key, { effort })}
+              />
             ) : null}
             <RepositoriesSelect
               slug={slug}

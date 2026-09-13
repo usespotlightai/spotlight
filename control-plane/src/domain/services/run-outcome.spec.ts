@@ -59,8 +59,6 @@ describe('together', () => {
     expect(spent.faults).toBe(3);
   });
 
-  // A sum of two currencies would say something false, and refusing to answer
-  // at all would lose the rest of the reading with it.
   it('says nothing about a cost counted two different ways', () => {
     const spent = together([
       outcome(Money.of(1, 'USD'), 2),

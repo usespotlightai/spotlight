@@ -20,11 +20,11 @@ import {
   stationsPerLine,
   trailsFor,
 } from '@infrastructure/persistence/drizzle/readers/task-trail';
-import {
-  assemblyLine,
-  station,
-} from '@infrastructure/persistence/drizzle/schemas/assembly-line.schema';
 import { factory } from '@infrastructure/persistence/drizzle/schemas/factory.schema';
+import {
+  line,
+  station,
+} from '@infrastructure/persistence/drizzle/schemas/line.schema';
 import { run } from '@infrastructure/persistence/drizzle/schemas/run.schema';
 import { task } from '@infrastructure/persistence/drizzle/schemas/task.schema';
 import { workspaceMember } from '@infrastructure/persistence/drizzle/schemas/workspace.schema';
@@ -76,7 +76,7 @@ export class DrizzleRunReader implements RunReaderPort {
         stationName: ranAt.name,
         stationColor: ranAt.color,
         stationPosition: ranAt.position,
-        stationLineId: ranAt.assemblyLineId,
+        stationLineId: ranAt.lineId,
       })
       .from(run)
       .innerJoin(
@@ -124,7 +124,7 @@ export class DrizzleRunReader implements RunReaderPort {
         stationName: ranAt.name,
         stationColor: ranAt.color,
         stationPosition: ranAt.position,
-        stationLineId: ranAt.assemblyLineId,
+        stationLineId: ranAt.lineId,
       })
       .from(run)
       .innerJoin(
@@ -136,8 +136,8 @@ export class DrizzleRunReader implements RunReaderPort {
       )
       .innerJoin(task, eq(task.id, run.taskId))
       .innerJoin(station, eq(station.id, task.stationId))
-      .innerJoin(assemblyLine, eq(assemblyLine.id, station.assemblyLineId))
-      .innerJoin(factory, eq(factory.id, assemblyLine.factoryId))
+      .innerJoin(line, eq(line.id, station.lineId))
+      .innerJoin(factory, eq(factory.id, line.factoryId))
       .leftJoin(ranAt, eq(ranAt.id, run.stationId))
       .where(eq(factory.teamId, teamId.value))
       .orderBy(desc(run.createdAt));
@@ -177,7 +177,7 @@ export class DrizzleRunReader implements RunReaderPort {
         stationName: ranAt.name,
         stationColor: ranAt.color,
         stationPosition: ranAt.position,
-        stationLineId: ranAt.assemblyLineId,
+        stationLineId: ranAt.lineId,
       })
       .from(run)
       .innerJoin(

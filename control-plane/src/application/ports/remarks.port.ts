@@ -9,7 +9,6 @@ export interface RemarkAnswer {
   readonly pullRequest: PullRequestUrl;
   readonly remark: Remark;
   readonly body: string;
-  // Resolving the thread as well as answering it, where the host has threads.
   readonly resolve: boolean;
 }
 

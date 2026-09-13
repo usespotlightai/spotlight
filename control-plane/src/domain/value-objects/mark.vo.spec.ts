@@ -27,7 +27,6 @@ describe('Mark', () => {
     ).toBe(true);
   });
 
-  // A pull request numbered 7 and an issue numbered 7 are not each other.
   it('is not the same mark as one of another kind holding the same value', () => {
     expect(
       Mark.of('linear.issue', '7').equals(Mark.of('sentry.fingerprint', '7')),
@@ -41,7 +40,6 @@ describe('Mark', () => {
     );
   });
 
-  // A handle of nothing would be worn by every task that had none either.
   it('refuses a handle that names nothing', () => {
     expect(() => Mark.of('linear.issue', '   ')).toThrow(
       InvalidIdentifierError,

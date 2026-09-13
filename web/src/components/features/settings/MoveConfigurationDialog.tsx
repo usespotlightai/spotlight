@@ -32,8 +32,7 @@ export function MoveConfigurationDialog({
   const move = useMoveConfiguration(teamId);
   const [named, setNamed] = useState('');
 
-  // Cleared once the dialog has finished animating out, so the form does not
-  // flip back to empty while it is still on screen.
+  // Reset after the close animation, or the form flips back to empty mid-animation.
   const forget = () => {
     setNamed('');
     move.reset();

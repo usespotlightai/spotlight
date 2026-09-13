@@ -14,7 +14,7 @@ import { Inject, Injectable } from '@nestjs/common';
 
 const GITHUB = 'https://github.com';
 
-/** What git needs carried upstream. The caller's own authorization is not. */
+// Never forward the caller's own authorization upstream.
 const FORWARDED = [
   'content-type',
   'content-encoding',
@@ -65,8 +65,7 @@ export class GitHubGitTransport implements RepositoryGitPort {
           `${credential.username}:${credential.password}`,
         ).toString('base64')}`,
       },
-      // Piped rather than read: a packfile is as large as the history it
-      // carries, and Node will not stream one without the duplex mode.
+      // Streamed: packfiles can be huge, and Node needs duplex: 'half' to stream.
       ...(call.body
         ? {
             body: Readable.toWeb(

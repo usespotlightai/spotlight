@@ -40,20 +40,16 @@ describe('Integration', () => {
     ).toBe('Linear');
   });
 
-  // A host may only act (post messages) and raise nothing at all.
   it('allows one that raises no words', () => {
     expect(integration([]).declares).toHaveLength(0);
   });
 
-  // A file raising another host's words would have stations waiting on
-  // something this source never says.
   it('refuses a word belonging to another source', () => {
     expect(() => integration([declared('github.issue.completed')])).toThrow(
       /another source's word/,
     );
   });
 
-  // The second would never be reached, and nothing would say why.
   it('refuses one that says a word twice', () => {
     expect(() =>
       integration([

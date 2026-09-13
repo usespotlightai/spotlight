@@ -74,6 +74,7 @@ export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
                   <RunRow
                     key={run.id}
                     run={run}
+                    gutter
                     to={runPath(slug, teamId, run.id)}
                     taskTitle={run.taskTitle}
                     reviewTo={

@@ -18,10 +18,8 @@ import { stationShare } from '@/lib/station';
 
 type InboxMessageProps = {
   message: Message;
-  // How many stations the line holds, which a place is a share of.
   stationCount: number;
   worked: readonly RunJournal[];
-  // Whose team it is, for a note that shows that team's own standing.
   teamId: string | undefined;
   about: Conversing['about'];
   resolved: Conversing['resolved'];
@@ -39,10 +37,6 @@ export function InboxMessage({
   const navigate = useNavigate();
   const written = useRef<HTMLDivElement>(null);
 
-  // A link in a note goes to a page of this application like any other link
-  // in it, rather than out through the browser and back again. Listened for
-  // rather than handled in the markup, because what carries the link is text
-  // somebody wrote and not an element this renders.
   useEffect(() => {
     const held = written.current;
 
@@ -73,8 +67,6 @@ export function InboxMessage({
 
   if (message.voice === 'world') {
     return (
-      // The same inset the held cards carry, so every card is one width and
-      // the words inside them all line up with the plain text.
       <li data-note={message.position} className="-mx-3">
         <div className="flex flex-col items-start gap-1.5">
           <AttachmentTiles attachments={message.attachments} />
@@ -111,8 +103,6 @@ export function InboxMessage({
 
   return (
     <li data-note={message.position} className="flex flex-col gap-1.5">
-      {/* Where a station said it, it says which. Spotlight speaking for
-          itself stands under no station's name. */}
       {!shows && (
         <span className="flex items-center gap-1.5 text-muted-foreground text-xs">
           <StationIcon

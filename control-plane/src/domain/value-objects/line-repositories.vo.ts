@@ -2,13 +2,6 @@ import { DuplicateRepositoryError } from '@domain/exceptions/duplicate-repositor
 import { NoRepositoryError } from '@domain/exceptions/no-repository.error';
 import type { Repository } from '@domain/value-objects/repository.vo';
 
-/**
- * The repositories a line works in, held together so what is true of them
- * together is true here rather than wherever they happen to be read.
- *
- * A name is the directory a repository is cloned into and the key it is
- * reached by, so two of one name would collide: that cannot be constructed.
- */
 export class LineRepositories {
   private constructor(private readonly repositories: readonly Repository[]) {}
 
@@ -41,12 +34,6 @@ export class LineRepositories {
     return this.repositories.find((each) => each.name === name) ?? null;
   }
 
-  /**
-   * Which repository a pull request opens against. The agent names one where
-   * the line works several; where it works exactly one, that is the only
-   * answer and naming it is not asked of the agent; where it works none, there
-   * is nothing to open.
-   */
   opening(name: string | null): Repository {
     if (name) {
       const named = this.named(name);

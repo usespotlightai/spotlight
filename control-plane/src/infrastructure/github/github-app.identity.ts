@@ -7,11 +7,6 @@ import { Inject, Injectable } from '@nestjs/common';
 
 const API = 'https://api.github.com';
 
-/**
- * Where this App is installed from, asked of GitHub rather than configured.
- * An App's slug is settled when it is created and does not change, so it is
- * asked for once and held.
- */
 @Injectable()
 export class GitHubAppIdentity implements GitHubAppPort {
   #slug: string | null = null;

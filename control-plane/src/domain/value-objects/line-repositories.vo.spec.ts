@@ -15,8 +15,6 @@ describe('LineRepositories', () => {
     ]);
   });
 
-  // The name is the directory each is cloned into and the key it is reached
-  // by, so two of one name cannot be constructed, whatever the owner.
   it('refuses two repositories that share a name', () => {
     expect(() => of('acme/api', 'other/api')).toThrow(DuplicateRepositoryError);
   });
@@ -55,7 +53,6 @@ describe('LineRepositories', () => {
       );
     });
 
-    // A domain error, never a runner detail: the remedy is phrased elsewhere.
     it('says nothing of any CLI flag', () => {
       let message = '';
       try {

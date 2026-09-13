@@ -1,45 +1,52 @@
+import { DeclaredTool } from '@domain/entities/declared-tool.entity';
+import { OPENING_PULL_REQUESTS } from '@domain/services/built-in-skills';
+import type { SkillKey } from '@domain/value-objects/skill-key.vo';
 import { Tool } from '@domain/value-objects/tool.vo';
 
-/**
- * A tool as a run is told about it. The instructions are what the agent
- * reads, so they are written to be acted on rather than to describe.
- */
-export interface ToolDeclaration {
-  readonly tool: Tool;
-  readonly label: string;
-  readonly instructions: string;
+interface BuiltInTool {
+  readonly skill: SkillKey;
+  readonly declared: DeclaredTool;
 }
 
 export const PULL_REQUEST = Tool.of('pull-request');
 
-const OPENING = `## Opening a pull request
-
-Run this, from anywhere in the workspace:
-
-\`\`\`
-spotlight pull-request --title "<what it does>" --body "<the detail>"
-\`\`\`
-
-Spotlight opens it for the branch this task was worked on, and answers with
-its address. You cannot reach the host yourself, and do not need to: what it
-takes to open one never leaves Spotlight.
-
-A long body is easier piped in, as \`spotlight pull-request --title "…" < body.md\`.
-
-One task has one pull request. Asking again where one is already open answers
-with the one that is there rather than opening another.`;
-
-/**
- * What Spotlight itself can do for a run. A repository will be able to say
- * what else it has, and these will read the same way when it does.
- */
-export const BUILT_IN_TOOLS: readonly ToolDeclaration[] = [
+export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
   {
-    tool: PULL_REQUEST,
-    label: 'Open a pull request',
-    instructions: OPENING,
+    skill: OPENING_PULL_REQUESTS,
+    declared: DeclaredTool.of({
+      tool: PULL_REQUEST,
+      description:
+        'Open a pull request for the branch this task was worked on.',
+      inputs: [
+        {
+          name: 'title',
+          type: 'string',
+          description: 'What it does',
+          required: true,
+          defaulted: false,
+          piped: false,
+        },
+        {
+          name: 'body',
+          type: 'string',
+          description: 'The detail, as Markdown',
+          required: false,
+          defaulted: false,
+          piped: true,
+        },
+        {
+          name: 'repository',
+          type: 'string',
+          description:
+            'Which of the line’s repositories, where it works several',
+          required: false,
+          defaulted: false,
+          piped: false,
+        },
+      ],
+    }),
   },
 ];
 
-export const toolNamed = (tool: Tool): ToolDeclaration | null =>
-  BUILT_IN_TOOLS.find((each) => each.tool.equals(tool)) ?? null;
+export const builtInTool = (tool: Tool): BuiltInTool | null =>
+  BUILT_IN_TOOLS.find((each) => each.declared.tool.equals(tool)) ?? null;

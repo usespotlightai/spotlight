@@ -3,10 +3,6 @@ import { NotePosition } from '@domain/value-objects/note-position.vo';
 
 const SHAPE = /^c(\d+)$/;
 
-/**
- * What an agent calls a remark when answering one. Short enough to type from
- * a briefing, and worked out from where the note sits rather than stored.
- */
 export const RemarkHandle = {
   for(position: NotePosition): string {
     return `c${position.value}`;

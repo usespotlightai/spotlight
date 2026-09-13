@@ -1,6 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
-/** How long an authorization may sit half-done before the state goes stale. */
 const LIVES_MS = 10 * 60 * 1000;
 
 interface Payload {
@@ -10,23 +9,13 @@ interface Payload {
   readonly exp: number;
 }
 
-/**
- * What a verified state carries: which team is linking which host, and who was
- * allowed to start it. The callback re-checks `by` may still connect, so the
- * signed state is the whole authorization, not merely proof one once happened.
- */
+// The callback must re-check that `by` may still connect.
 export interface OAuth2Intent {
   readonly teamId: string;
   readonly source: string;
   readonly by: string;
 }
 
-/**
- * The `state` carried through an OAuth2 round trip: who is linking which host
- * for which team, signed so the callback can trust it without a session, and
- * dated so a link begun and abandoned cannot be finished much later. Signed with
- * the same secret the deployment signs sessions with.
- */
 export class OAuth2State {
   constructor(
     private readonly secret: string,

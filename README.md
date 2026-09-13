@@ -81,8 +81,9 @@ Beyond `.env`:
 |---|---|
 | `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` | session signing; public app URL |
 | `SPOTLIGHT_PUBLIC_URL` | base for install script and invite links; defaults to `BETTER_AUTH_URL` |
-| `SPOTLIGHT_SECRETS_KEY` | seals workspace secrets; losing it loses them (`openssl rand -base64 32`) |
-| `OUTBOUND_ALLOWED_HOSTS` | comma-separated hosts integrations may call; empty allows none |
+| `SPOTLIGHT_WEBHOOK_URL` | base for integrations' delivery URLs; defaults to `SPOTLIGHT_PUBLIC_URL`, then `BETTER_AUTH_URL` |
+| `SPOTLIGHT_SECRETS_KEY` | seals each team's vault key and host connection tokens in the database; losing it leaves vaults readable only with a key a team kept (`openssl rand -base64 32`) |
+| `OUTBOUND_ALLOWED_HOSTS` | comma-separated hosts integrations and their tools may call; empty allows none (`compose.yml` defaults it to `slack.com`) |
 | `OAUTH_CLIENTS` | shared OAuth2 apps as JSON, e.g. `{"slack":{"id":"…","secret":"…"}}` |
 
 ### Attachments

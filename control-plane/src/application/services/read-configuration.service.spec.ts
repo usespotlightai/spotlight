@@ -3,23 +3,42 @@ import type { DomainEventDispatcher } from '@application/ports/domain-event-disp
 import type { IntegrationReaderPort } from '@application/ports/integration-reader.port';
 import type { RepositoryCatalogPort } from '@application/ports/repository-catalog.port';
 import type { RepositoryContentsPort } from '@application/ports/repository-contents.port';
+import type {
+  SkillFolder,
+  SkillReaderPort,
+} from '@application/ports/skill-reader.port';
+import {
+  VaultProblems,
+  type VaultRefusal,
+} from '@application/rendering/vault-problems';
 import type { ApplyLines } from '@application/services/apply-lines.service';
 import { ConfigurationTarget } from '@application/services/configuration-target.service';
 import { HeldConfiguration } from '@application/services/held-configuration.service';
 import { ReadConfiguration } from '@application/services/read-configuration.service';
+import type { TeamVault } from '@application/services/team-vault.service';
 import { Team } from '@domain/aggregates/team.aggregate';
 import type { TeamConfiguration } from '@domain/aggregates/team-configuration.aggregate';
 import { Workspace } from '@domain/aggregates/workspace.aggregate';
+import { Skill } from '@domain/entities/skill.entity';
 import { ConfigurationMoved } from '@domain/events/configuration-moved.event';
 import type { TeamRepository } from '@domain/repositories/team.repository';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
 import { ConfigurationProblem } from '@domain/value-objects/configuration-problem.vo';
 import { Connection } from '@domain/value-objects/connection.vo';
+import { LineKey } from '@domain/value-objects/line-key.vo';
+import { LineName } from '@domain/value-objects/line-name.vo';
+import { LinePlan } from '@domain/value-objects/line-plan.vo';
 import { Repository } from '@domain/value-objects/repository.vo';
+import { SecretName } from '@domain/value-objects/secret-name.vo';
+import { SkillKey } from '@domain/value-objects/skill-key.vo';
+import { StationColor } from '@domain/value-objects/station-color.vo';
+import { StationKey } from '@domain/value-objects/station-key.vo';
+import { StationName } from '@domain/value-objects/station-name.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { TeamKey } from '@domain/value-objects/team-key.vo';
 import { TeamName } from '@domain/value-objects/team-name.vo';
 import { TeamRole } from '@domain/value-objects/team-role.vo';
+import { Tool } from '@domain/value-objects/tool.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { WorkspaceName } from '@domain/value-objects/workspace-name.vo';
@@ -64,11 +83,14 @@ const CONFIG = { path: '.spotlight/config.yml', text: 'version: 1' };
 const reading = (
   over: {
     catalog?: readonly string[];
-    /** Which repositories hold anything under the configuration directory. */
     holding?: readonly string[];
     files?: readonly { path: string; text: string }[];
     problems?: readonly ConfigurationProblem[];
+    skillProblems?: readonly ConfigurationProblem[];
+    skills?: readonly SkillFolder[];
+    sealing?: VaultRefusal;
     strandings?: readonly ConfigurationProblem[];
+    plans?: readonly LinePlan[];
     head?: string | null;
   } = {},
 ) => {
@@ -93,9 +115,15 @@ const reading = (
     integrations: [],
     problems: over.problems ?? [],
   }));
+  const readSkills = vi.fn((_files: readonly { path: string }[]) => ({
+    skills: over.skills ?? [],
+    problems: over.skillProblems ?? [],
+  }));
   const apply = vi.fn(
-    async (_teamId: unknown, _files: readonly { path: string }[]) =>
-      over.strandings ?? [],
+    async (_teamId: unknown, _files: readonly { path: string }[]) => ({
+      plans: over.plans ?? [],
+      problems: over.strandings ?? [],
+    }),
   );
 
   const saved = vi.fn(async (_team: Team) => {});
@@ -110,6 +138,13 @@ const reading = (
     new ConfigurationTarget(config),
     new HeldConfiguration(contents),
     { read } as unknown as IntegrationReaderPort,
+    { read: readSkills } as unknown as SkillReaderPort,
+    {
+      read: vi.fn(async () => ({
+        names: [],
+        refusal: over.sealing ?? null,
+      })),
+    } as unknown as TeamVault,
     { apply } as unknown as ApplyLines,
     { save: saved } as unknown as TeamRepository,
     config,
@@ -118,12 +153,145 @@ const reading = (
     { forTeam: settling } as never,
   );
 
-  return { service, config, contents, read, apply, settling, saved, dispatch };
+  return {
+    service,
+    config,
+    contents,
+    read,
+    readSkills,
+    apply,
+    settling,
+    saved,
+    dispatch,
+  };
 };
 
 const settling = vi.fn(async () => {});
 
 describe('ReadConfiguration', () => {
+  it('warns of a skill whose secrets the vault lacks, and of a tool it brings that nothing offers', async () => {
+    const { service } = reading({
+      files: [CONFIG, { path: '.spotlight/secrets.vault', text: 'sealed' }],
+      skills: [
+        {
+          skill: Skill.defined({
+            key: SkillKey.of('grafana-dashboards'),
+            description: 'Reading dashboards.',
+            instructions: 'Search them.',
+            secrets: [
+              {
+                name: SecretName.of('GRAFANA_TOKEN'),
+                description: 'Read-only token',
+              },
+            ],
+            tools: [Tool.of('grafana.search')],
+          }),
+          files: [
+            { path: 'SKILL.md', text: '---\nname: grafana-dashboards\n---\n' },
+          ],
+        },
+      ],
+    });
+
+    const read = await service.read(workspace(), TEAM);
+
+    expect(read?.problems.map((each) => each.at)).toEqual([
+      'secrets.GRAFANA_TOKEN',
+      'tools.0',
+    ]);
+  });
+
+  it('warns of a skill that writes a secret into any file a run reads', async () => {
+    const { service } = reading({
+      skills: [
+        {
+          skill: Skill.defined({
+            key: SkillKey.of('grafana-dashboards'),
+            description: 'Reading dashboards.',
+            instructions: 'Search them.',
+          }),
+          files: [
+            { path: 'SKILL.md', text: '---\nname: grafana-dashboards\n---\n' },
+            {
+              path: 'examples/search.md',
+              text: `curl -H "Authorization: \${{ secrets.GRAFANA_TOKEN }}"`,
+            },
+          ],
+        },
+      ],
+    });
+
+    const read = await service.read(workspace(), TEAM);
+
+    expect(
+      read?.problems.map((each) => `${each.path} ${each.at}: ${each.reason}`),
+    ).toEqual([
+      '.spotlight/skills/grafana-dashboards/SKILL.md the file: writes a secret into what a run reads, and a run is never given one: reach for it through a tool instead',
+    ]);
+  });
+
+  it('warns of what a line gives that the team neither offers nor keeps, where it is written', async () => {
+    const plan = LinePlan.of({
+      key: LineKey.of('default'),
+      name: LineName.of('Default'),
+      stations: [
+        {
+          key: StationKey.of('backlog'),
+          name: StationName.of('Backlog'),
+          kind: 'backlog',
+          color: StationColor.of('#a3a8b0'),
+          description: null,
+          harness: null,
+          model: null,
+          effort: null,
+          agentPrompt: null,
+          tools: [],
+          skills: [],
+          passesTo: [],
+          ends: false,
+        },
+        {
+          key: StationKey.of('implementation'),
+          name: StationName.of('Implementation'),
+          kind: 'work',
+          color: StationColor.of('#a3a8b0'),
+          description: null,
+          harness: null,
+          model: null,
+          effort: null,
+          agentPrompt: null,
+          tools: [Tool.of('linear.close')],
+          skills: [SkillKey.of('frontend')],
+          passesTo: [],
+          ends: false,
+        },
+        {
+          key: StationKey.of('completed'),
+          name: StationName.of('Completed'),
+          kind: 'completed',
+          color: StationColor.of('#a3a8b0'),
+          description: null,
+          harness: null,
+          model: null,
+          effort: null,
+          agentPrompt: null,
+          tools: [],
+          skills: [],
+          passesTo: [],
+          ends: false,
+        },
+      ],
+    });
+    const { service } = reading({ plans: [plan] });
+
+    const read = await service.read(workspace(), TEAM);
+
+    expect(read?.problems.map((each) => `${each.path} ${each.at}`)).toEqual([
+      '.spotlight/lines/default.yml stations.1.tools.0',
+      '.spotlight/lines/default.yml stations.1.skills.0',
+    ]);
+  });
+
   it('reads it and writes down what was found', async () => {
     const { service, config } = reading();
 
@@ -143,8 +311,6 @@ describe('ReadConfiguration', () => {
     expect(written.readAt).toBe(NOW);
   });
 
-  // Two steps at once: the setup pull request is merged when its files can be
-  // read, and the tools chosen are the ones those files listen to.
   it('looks at whether that was the last step', async () => {
     const { service, settling } = reading();
 
@@ -153,7 +319,6 @@ describe('ReadConfiguration', () => {
     expect(settling).toHaveBeenCalled();
   });
 
-  // Read at a commit rather than a branch, so what was read is a fact after.
   it('reads it at the commit the repository stands at', async () => {
     const { service, contents } = reading();
 
@@ -176,8 +341,6 @@ describe('ReadConfiguration', () => {
       expect(contents.under).toHaveBeenCalledTimes(1);
     });
 
-    // Stable rather than clever, so the answer does not change under a
-    // workspace that never chose one.
     it('takes the first connected one holding any, where nobody pinned', async () => {
       const { service } = reading({
         catalog: ['acme/empty', 'acme/api', 'acme/also'],
@@ -215,8 +378,6 @@ describe('ReadConfiguration', () => {
     });
   });
 
-  // Each reader gets its own directory, or every line reads as a broken
-  // integration and every integration as a broken line.
   it('gives each reader only its own directory', async () => {
     const integration = {
       path: '.spotlight/integrations/linear.yml',
@@ -235,7 +396,6 @@ describe('ReadConfiguration', () => {
     expect(readFiles.map((each) => each.path)).toEqual([integration.path]);
     expect(appliedFiles.map((each) => each.path)).toEqual([line.path]);
 
-    // What is written down is still the whole tree, so a delivery can read it.
     const [written] = (config.save as never as { mock: { calls: unknown[][] } })
       .mock.calls[0] as [TeamConfiguration];
 
@@ -243,6 +403,50 @@ describe('ReadConfiguration', () => {
       integration.path,
       line.path,
     ]);
+  });
+
+  it('reads the skills among every file, and writes down what is wrong with them', async () => {
+    const skill = {
+      path: '.spotlight/skills/ours/SKILL.md',
+      text: '# Ours',
+    };
+    const broken = ConfigurationProblem.of({
+      path: skill.path,
+      at: 'the file',
+      reason: 'opens with no frontmatter',
+    });
+    const { service, readSkills, config } = reading({
+      files: [CONFIG, skill],
+      skillProblems: [broken],
+    });
+
+    expect((await service.read(workspace(), TEAM))?.problems).toEqual([broken]);
+    expect(
+      (readSkills.mock.calls[0]?.[0] ?? []).map((each) => each.path),
+    ).toEqual([CONFIG.path, skill.path]);
+
+    const [written] = (config.save as never as { mock: { calls: unknown[][] } })
+      .mock.calls[0] as [TeamConfiguration];
+
+    expect(written.problems).toEqual([broken]);
+  });
+
+  it('writes down a secrets vault Spotlight cannot open', async () => {
+    const vault = {
+      path: '.spotlight/secrets.vault',
+      text: '-----BEGIN AGE ENCRYPTED FILE-----',
+    };
+    const { service } = reading({
+      files: [CONFIG, vault],
+      sealing: { because: 'not-for-this-key' },
+    });
+
+    expect((await service.read(workspace(), TEAM))?.problems).toEqual([
+      VaultProblems.problem({ because: 'not-for-this-key' }),
+    ]);
+    expect(VaultProblems.problem({ because: 'not-for-this-key' }).path).toBe(
+      vault.path,
+    );
   });
 
   describe('a move under way', () => {
@@ -283,7 +487,6 @@ describe('ReadConfiguration', () => {
   });
 
   describe('what is wrong with it', () => {
-    // Told about while looking at it, rather than at midnight.
     it('writes down what would not read, and answers with it', async () => {
       const broken = ConfigurationProblem.of({
         path: '.spotlight/integrations/linear.yml',
@@ -317,7 +520,6 @@ describe('ReadConfiguration', () => {
       ]);
     });
 
-    // A file that will not read leaves the last one that did still running.
     it('writes the files down even where some of them would not read', async () => {
       const { service, config } = reading({
         problems: [

@@ -8,16 +8,11 @@ import type { RunnerId } from '@domain/value-objects/runner-id.vo';
 import type { RunnerName } from '@domain/value-objects/runner-name.vo';
 import type { TokenHash } from '@domain/value-objects/token-hash.vo';
 
-/** One harness a runner found, with the models it advertises for it. */
 export interface InstalledHarness {
   readonly id: HarnessId;
   readonly models: readonly HarnessModel[];
 }
 
-/**
- * Name and token are decided at enrolment; what harnesses it has, and what each
- * can answer with, is the machine's to say.
- */
 export class Runner extends EventRecorder {
   private constructor(
     readonly id: RunnerId,
@@ -75,7 +70,6 @@ export class Runner extends EventRecorder {
     return this.lastSeenAt !== null;
   }
 
-  /** The harnesses it has, by id — what a run is matched against. */
   get harnesses(): readonly HarnessId[] {
     return this.installed.map((each) => each.id);
   }
@@ -84,21 +78,18 @@ export class Runner extends EventRecorder {
     return this.installed.find((each) => each.id.equals(harness))?.models ?? [];
   }
 
-  /** Reported on every registration, so restarting corrects the record. */
   reports(installed: readonly InstalledHarness[]): Runner {
     this.refuseRevoked();
 
     return this.with({ installed: [...installed] });
   }
 
-  /** Every call says so, not just the first: silence stops it being counted on. */
   seen(now: Date): Runner {
     this.refuseRevoked();
 
     return this.with({ lastSeenAt: now });
   }
 
-  /** Retires the token. Whatever it was holding is no longer being served. */
   revoke(now: Date): Runner {
     if (this.revoked) {
       return this;

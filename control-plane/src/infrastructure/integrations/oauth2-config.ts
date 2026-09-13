@@ -4,11 +4,6 @@ import type { TeamId } from '@domain/value-objects/team-id.vo';
 import type { ConnectionIR } from '@infrastructure/integrations/integration.compile';
 import type { IntegrationReader } from '@infrastructure/integrations/integration.reader';
 
-/**
- * The endpoints a team links one host through, read out of its configuration.
- * Shared by beginning a link, finishing one, and keeping its tokens fresh, so
- * they all read the same file the same way.
- */
 export async function oauth2Of(
   configurations: TeamConfigurationRepository,
   reader: IntegrationReader,

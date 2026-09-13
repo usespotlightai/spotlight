@@ -2,7 +2,6 @@ import { Webhook } from 'lucide-react';
 import { siGrafana, siLinear, siPagerduty, siSentry } from 'simple-icons';
 import { cn } from '@/lib/utils';
 
-/** Just enough of an icon to draw it: its name, its colour, and its shape. */
 interface Logo {
   readonly title: string;
   readonly hex: string;
@@ -16,10 +15,6 @@ const logos: Record<string, Logo> = {
   pagerduty: siPagerduty,
 };
 
-/**
- * A host's own mark where it has one. Anything a team wrote itself is a
- * webhook and nothing more, so it gets the plain one rather than a guess.
- */
 export function IntegrationLogo({
   source,
   className,
@@ -27,8 +22,6 @@ export function IntegrationLogo({
   source: string;
   className?: string;
 }) {
-  // Slack's mark is four colours, not one, so it is its own rather than a
-  // monochrome path like the rest.
   if (source === 'slack') {
     return <SlackMark className={cn('size-5 shrink-0', className)} />;
   }
@@ -50,7 +43,6 @@ export function IntegrationLogo({
       aria-label={logo.title}
       viewBox="0 0 24 24"
       className={cn('size-5 shrink-0', className)}
-      // Their own colour: a logo that is not its colour is a different logo.
       fill={`#${logo.hex}`}
     >
       <path d={logo.path} />
@@ -58,7 +50,6 @@ export function IntegrationLogo({
   );
 }
 
-/** The Slack mark in its four brand colours. */
 function SlackMark({ className }: { className?: string }) {
   return (
     <svg

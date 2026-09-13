@@ -1,4 +1,4 @@
-import type { Station } from '@domain/entities/station.entity';
+import type { Line, PassRefusal } from '@domain/aggregates/line.aggregate';
 import type { Declaration } from '@domain/value-objects/declaration.vo';
 import { Handover } from '@domain/value-objects/handover.vo';
 import type { RunOutcome } from '@domain/value-objects/run-outcome.vo';
@@ -8,25 +8,40 @@ import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 const spoken = (declaration: Declaration, fallback: string) =>
   TaskNoteBody.of(declaration.note === '' ? fallback : declaration.note);
 
+const REFUSED: Record<PassRefusal, (key: string) => string> = {
+  'standing-there': (key) =>
+    `The run asked for "${key}", where the task already stands.`,
+  'nothing-runs': (key) =>
+    `The run asked for "${key}", where nothing runs to take the task up.`,
+  'no-way': (key) =>
+    `The run asked for "${key}", which work does not pass to from where the task stands.`,
+};
+
 export const HandoverFor = {
   declared(
     declaration: Declaration,
-    stations: readonly Station[],
-    standingAt?: StationId,
+    line: Line | null,
+    standingAt: StationId,
   ): Handover {
-    if (declaration.saysItIsDone()) {
-      return Handover.done(spoken(declaration, 'The work is done.'));
-    }
-
     if (declaration.asksForReview()) {
       return Handover.review(
         spoken(declaration, 'The run asked for someone to look at this.'),
       );
     }
 
-    const named = stations.find((each) => declaration.names(each.name));
+    if (declaration.saysItIsDone()) {
+      return line?.endsAt(standingAt)
+        ? Handover.done(spoken(declaration, 'The work is done.'))
+        : Handover.review(
+            TaskNoteBody.of(
+              'The run said the work is done, and the line does not end where the task stands.',
+            ),
+          );
+    }
 
-    if (!named) {
+    const named = line?.stations.find((each) => declaration.names(each.key));
+
+    if (!line || !named) {
       return Handover.review(
         TaskNoteBody.of(
           `The run asked for "${declaration.next}", which is not a station on this line.`,
@@ -34,22 +49,11 @@ export const HandoverFor = {
       );
     }
 
-    // Handing a task back to where it already stands moves nothing and
-    // starts the same work again. The run had its turn and decided nothing,
-    // so a person decides instead.
-    if (standingAt && named.id.equals(standingAt)) {
-      return Handover.review(
-        TaskNoteBody.of(
-          `The run asked for "${named.name.value}", where the task already stands.`,
-        ),
-      );
-    }
+    const refused = line.refusalToPass(standingAt, named);
 
-    if (!named.harness) {
+    if (refused) {
       return Handover.review(
-        TaskNoteBody.of(
-          `The run asked for "${named.name.value}", where nothing runs to take the task up.`,
-        ),
+        TaskNoteBody.of(REFUSED[refused](named.key.value)),
       );
     }
 
@@ -89,10 +93,6 @@ export const HandoverFor = {
     );
   },
 
-  /**
-   * A person stopped the run, so the task comes back to them rather than
-   * advancing on whatever the halted work had done so far.
-   */
   stopped(): Handover {
     return Handover.review(
       TaskNoteBody.of('Stopped from the console. It is back with you.'),

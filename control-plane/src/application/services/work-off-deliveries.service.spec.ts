@@ -89,8 +89,6 @@ describe('WorkOffDeliveries', () => {
     expect(worked).toEqual(['d_1', 'd_2']);
   });
 
-  // A delivery that cannot be worked is a row to look at, not a webhook the
-  // host was told nothing about.
   it('keeps a delivery that would not be worked, and says why', async () => {
     const { service, worked, failed } = working([waiting('d_1')], async () => {
       throw new Error('the line was read in pieces');

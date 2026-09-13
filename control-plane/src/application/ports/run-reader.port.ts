@@ -7,7 +7,6 @@ import type { TaskId } from '@domain/value-objects/task-id.vo';
 import type { TeamId } from '@domain/value-objects/team-id.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
 
-/** A run that ended by putting its task to a person rather than passing it on. */
 export interface RunReview {
   readonly state: ReviewState;
   readonly conversationId: string;
@@ -28,7 +27,6 @@ export interface TaskRunSummary {
   readonly startedAt: Date;
   readonly updatedAt: Date;
   readonly harness: string;
-  // Absent on a run dispatched before this was recorded, or to no station.
   readonly station: RunStationSummary | null;
   readonly review: RunReview | null;
 }
@@ -47,7 +45,6 @@ export interface RunConversationSummary {
   readonly attachments: readonly AttachmentSummary[];
   readonly station: RunStationSummary | null;
   readonly createdAt: Date;
-  // What the run was given, word for word, not the trail that went into it.
   readonly briefing: string | null;
   readonly working: boolean;
   readonly notes: readonly InboxNote[];

@@ -1,11 +1,11 @@
-import { GitPullRequest, RefreshCw } from 'lucide-react';
-import { useState } from 'react';
 import { useParams } from 'react-router';
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { AgentPromptField } from '@/components/features/stations/AgentPromptField';
 import { StationColorPicker } from '@/components/features/stations/StationColorPicker';
 import { StationProperties } from '@/components/features/stations/StationProperties';
 import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
+import { ProposedPullRequest } from '@/components/shared/ProposedPullRequest';
+import { RereadConfigurationButton } from '@/components/shared/RereadConfigurationButton';
 import {
   type BreadcrumbSegment,
   Breadcrumbs,
@@ -17,14 +17,15 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { useRereadConfiguration } from '@/hooks/api/useConfiguration';
 import { useCustomiseStation } from '@/hooks/api/useCustomiseStation';
 import { useSetLineRepositories } from '@/hooks/api/useSetLineRepositories';
 import { useStation } from '@/hooks/api/useStation';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { useReseeded } from '@/hooks/useReseeded';
 import { useStationEdits } from '@/hooks/useStationEdits';
+import { sameMembers } from '@/lib/members';
 import { stationShare } from '@/lib/station';
-import { assemblyLinePath, teamPath } from '@/lib/team';
+import { linePath, teamPath } from '@/lib/team';
 import { useTrail } from '@/lib/trail';
 
 export function Station() {
@@ -34,18 +35,14 @@ export function Station() {
   const { edits, change } = useStationEdits(station);
   const customise = useCustomiseStation();
   const setRepositories = useSetLineRepositories();
-  const reread = useRereadConfiguration(teamId);
 
-  // The line's repositories are edited from the station too; kept locally and
-  // re-seeded when the line changes, the way station edits are.
-  const [reposOf, setReposOf] = useState(line?.id);
-  const [repos, setRepos] = useState<string[]>(
+  const [repos, setRepos] = useReseeded(line?.id, () =>
     line ? [...line.repositories] : [],
   );
-  if (line && line.id !== reposOf) {
-    setReposOf(line.id);
-    setRepos([...line.repositories]);
-  }
+
+  const [skills, setSkills] = useReseeded(station?.id, () =>
+    station ? [...station.skills] : [],
+  );
 
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
 
@@ -65,7 +62,7 @@ export function Station() {
             label: line.name,
             to:
               slug && teamId && lineId
-                ? assemblyLinePath(slug, teamId, lineId)
+                ? linePath(slug, teamId, lineId)
                 : undefined,
           },
         ]
@@ -84,7 +81,7 @@ export function Station() {
         <PageHeader title="Station not found" />
         <div className="flex min-h-0 flex-1 items-center justify-center p-8">
           <p className="text-muted-foreground text-sm">
-            This assembly line has no station at that address.
+            This line has no station at that address.
           </p>
         </div>
       </>
@@ -93,7 +90,6 @@ export function Station() {
 
   const ends = station.kind !== 'work';
 
-  // What differs from the merged board, field by field.
   const changed: NonNullable<
     Parameters<typeof customise.mutate>[0]
   >['changes'] = {};
@@ -118,12 +114,11 @@ export function Station() {
   if (!ends && edits.agentPrompt !== (station.agentPrompt ?? '')) {
     changed.agentPrompt = edits.agentPrompt || null;
   }
+  if (!ends && !sameMembers(skills, station.skills)) {
+    changed.skills = skills;
+  }
 
-  // Repositories belong to the line, not the station, so they travel as their
-  // own proposal into the same rolling pull request.
-  const reposChanged =
-    repos.length !== line.repositories.length ||
-    repos.some((each) => !line.repositories.includes(each));
+  const reposChanged = !sameMembers(repos, line.repositories);
 
   const stationChanged = Object.keys(changed).length > 0;
   const dirty = stationChanged || reposChanged;
@@ -160,16 +155,7 @@ export function Station() {
         title={<Breadcrumbs segments={trail} />}
         actions={
           <>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => reread.mutate()}
-              disabled={reread.isPending}
-              className="rounded-full bg-card shadow-none"
-            >
-              <RefreshCw className="size-3.5" aria-hidden />
-              {reread.isPending ? 'Reading…' : 'Read again'}
-            </Button>
+            <RereadConfigurationButton teamId={teamId} />
 
             <Button
               size="sm"
@@ -186,21 +172,10 @@ export function Station() {
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-8 py-8">
           {proposedUrl && !dirty && (
-            <a
-              href={proposedUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-2 rounded-lg border-[0.5px] border-border bg-card px-3 py-2 text-sm outline-none transition-colors hover:bg-accent"
-            >
-              <GitPullRequest
-                className="size-4 shrink-0 text-muted-foreground"
-                aria-hidden
-              />
-              <span className="text-foreground">
-                Changes proposed. The board updates once this pull request is
-                merged.
-              </span>
-            </a>
+            <ProposedPullRequest url={proposedUrl}>
+              Changes proposed. The board updates once this pull request is
+              merged.
+            </ProposedPullRequest>
           )}
 
           {proposeError && (
@@ -268,6 +243,7 @@ export function Station() {
 
             <StationProperties
               slug={slug}
+              teamId={teamId}
               repositories={repos}
               onRepositories={setRepos}
               {...(ends
@@ -279,13 +255,14 @@ export function Station() {
                   }
                 : {
                     harness: edits.harness,
-                    // Model and effort are per harness; changing it clears both.
                     onHarness: (harness: string) =>
                       change({ harness, model: '', effort: '' }),
                     model: edits.model,
                     onModel: (model: string) => change({ model }),
                     effort: edits.effort,
                     onEffort: (effort: string) => change({ effort }),
+                    skills,
+                    onSkills: setSkills,
                   })}
             />
           </div>

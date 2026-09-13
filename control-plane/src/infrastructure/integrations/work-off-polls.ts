@@ -18,12 +18,6 @@ import type { IntegrationReader } from '@infrastructure/integrations/integration
 import type { OAuth2Access } from '@infrastructure/integrations/oauth2-access';
 import type { HttpOutbound } from '@infrastructure/outbound/http-outbound';
 
-/**
- * Runs each team's due polls: fetches from the host with the cursor it last
- * kept, reads the response for words the same way a webhook would, and reacts
- * to them on the board. What it asks for and what it keeps are the file's; the
- * fetching, the schedule, and the correlation are generic.
- */
 export class WorkOffPolls {
   constructor(
     private readonly configurations: TeamConfigurationRepository,
@@ -75,8 +69,7 @@ export class WorkOffPolls {
       return;
     }
 
-    // Whatever happens, the poll is marked run, so a host that errors is tried
-    // again next time it is due rather than every tick.
+    // Mark the poll run even on error, so a failing host is not retried every tick.
     let cursor = state.cursor;
 
     try {
@@ -138,15 +131,11 @@ export class WorkOffPolls {
     readable: ReadableIntegration,
     teamId: TeamId,
   ): Promise<Record<string, string>> {
-    const secret: Record<string, string> = {};
-
-    for (const name of readable.integration.credentials) {
-      const value = await this.secrets.resolve(teamId, name);
-      if (value !== null) {
-        secret[name.value] = value;
-      }
-    }
-
-    return secret;
+    return {
+      ...(await this.secrets.resolveAll(
+        teamId,
+        readable.integration.credentials,
+      )),
+    };
   }
 }

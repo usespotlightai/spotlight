@@ -4,7 +4,6 @@ export interface RunEventView {
   readonly at: string;
   readonly message?: string;
   readonly data?: string;
-  readonly offset?: number;
 }
 
 export const RUN_STREAM = Symbol('RUN_STREAM');

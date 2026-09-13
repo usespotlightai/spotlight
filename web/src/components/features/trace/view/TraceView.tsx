@@ -99,8 +99,6 @@ export function TraceView({ trace }: TraceViewProps) {
         <div className="flex min-w-0 flex-1 flex-col">
           <div
             ref={names.paneRef}
-            // Nothing here sets a floor on how narrow it may go, so the panel
-            // beside it can take the width it is dragged to.
             className="relative min-h-0 min-w-0 flex-1"
             style={{ '--names': `${names.width}px` } as CSSProperties}
           >
@@ -151,8 +149,6 @@ export function TraceView({ trace }: TraceViewProps) {
                       <span
                         key={tick}
                         className="absolute inset-y-0 w-[0.5px] bg-border"
-                        // The last one hangs off the right edge if it is placed
-                        // from the left, so it is placed from the right.
                         style={
                           tick === 1 ? { right: 0 } : { left: `${tick * 100}%` }
                         }
@@ -179,9 +175,6 @@ export function TraceView({ trace }: TraceViewProps) {
               )}
             </div>
 
-            {/* The names have no element of their own — every row draws its
-                own — so the grip is given one to hang from, outside the
-                scroll so it fades against the height that is actually seen. */}
             <div
               className="pointer-events-none absolute inset-y-0 left-0"
               style={{ width: 'var(--names)' }}

@@ -7,11 +7,7 @@ export interface RepositoryCredential {
 
 export const REPOSITORY_ACCESS = Symbol('REPOSITORY_ACCESS');
 
-/**
- * Nothing this answers with is ever sent to a runner. A credential is minted
- * for one installation, so a workspace can only ever be given what opens its
- * own repositories.
- */
 export interface RepositoryAccessPort {
+  // Never send this credential to a runner.
   credential(installation: GitHubInstallation): Promise<RepositoryCredential>;
 }

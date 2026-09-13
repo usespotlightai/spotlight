@@ -43,7 +43,6 @@ describe('TeamConfiguration', () => {
     expect(held.problems).toHaveLength(1);
   });
 
-  // Two would leave which of them is running to whatever order they arrived.
   it('refuses to hold one path twice', () => {
     expect(() =>
       read({ files: [file('a.yml'), file('a.yml', 'version: 2')] }),
@@ -55,7 +54,18 @@ describe('TeamConfiguration', () => {
     expect(read({ problems: [problem('x.yml')] }).isWhole).toBe(false);
   });
 
-  // Nothing written yet is not the same as nothing reading.
+  it('is whole where all that was said is a warning', () => {
+    const warning = ConfigurationProblem.of({
+      path: 'x.yml',
+      at: 'on.task.asked.to.thread',
+      reason: 'does not check',
+      severity: 'warning',
+    });
+
+    expect(read({ problems: [warning] }).isWhole).toBe(true);
+    expect(read({ problems: [warning, problem('x.yml')] }).isWhole).toBe(false);
+  });
+
   it('is empty where nothing of Spotlight’s was written', () => {
     expect(read({ files: [file('README.md')] }).isEmpty).toBe(true);
     expect(read().isEmpty).toBe(false);
@@ -95,8 +105,6 @@ describe('TeamConfiguration', () => {
   });
 
   describe('whether it is newer than another reading', () => {
-    // A repository that moved is a reason to read again; one that has not
-    // is not.
     it('supersedes a reading of another commit', () => {
       expect(read({ commit: 'e4f5a6b' }).supersedes(read())).toBe(true);
     });

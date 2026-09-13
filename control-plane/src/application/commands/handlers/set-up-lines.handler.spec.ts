@@ -3,10 +3,10 @@ import { SetUpLinesCommand } from '@application/commands/set-up-lines.command';
 import type { ConnectionAuthorization } from '@application/services/connection-authorization.service';
 import type { SeedConfiguration } from '@application/services/seed-configuration.service';
 import type { SettleSetup } from '@application/services/settle-setup.service';
-import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import { Line } from '@domain/aggregates/line.aggregate';
 import { Team } from '@domain/aggregates/team.aggregate';
 import { Workspace } from '@domain/aggregates/workspace.aggregate';
-import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
+import type { LineRepository } from '@domain/repositories/line.repository';
 import type { TeamRepository } from '@domain/repositories/team.repository';
 import {
   BUILT_IN_LINES,
@@ -28,7 +28,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const line = (key: string) => {
   let next = 0;
-  return AssemblyLine.open({
+  return Line.open({
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
     line: { ...(BUILT_IN_LINES[0] as LineOpening), key: LineKey.of(key) },
@@ -56,9 +56,8 @@ const workspace = () =>
   });
 
 const setting = (over: { allowed?: boolean; configured?: boolean } = {}) => {
-  // What is handed to the seed to render; the board itself is never written.
-  const rendered: AssemblyLine[][] = [];
-  const seed = vi.fn(async (_ws, _into, lines: readonly AssemblyLine[]) => {
+  const rendered: Line[][] = [];
+  const seed = vi.fn(async (_ws, _into, lines: readonly Line[]) => {
     rendered.push([...lines]);
     return { url: 'https://github.com/acme/config/pull/1' };
   });
@@ -87,7 +86,7 @@ const setting = (over: { allowed?: boolean; configured?: boolean } = {}) => {
     {
       ofTeam: vi.fn(async () => [line('delivery')]),
       save,
-    } as unknown as AssemblyLineRepository,
+    } as unknown as LineRepository,
     { seed } as unknown as SeedConfiguration,
     { forTeam: settling } as unknown as SettleSetup,
   );
@@ -133,7 +132,6 @@ describe('SetUpLinesHandler', () => {
       ),
     ).toBe(true);
     expect(seed).toHaveBeenCalledTimes(1);
-    // Git-first: the board is not written; it takes the change on merge.
     expect(save).not.toHaveBeenCalled();
   });
 

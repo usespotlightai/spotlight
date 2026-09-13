@@ -33,8 +33,6 @@ describe('Team', () => {
     expect(open().workspaceId).toEqual(WORKSPACE);
   });
 
-  // The key is what appears in a repository and in a webhook address, and
-  // neither is a place for a generated identifier.
   it('takes a key from its name where nobody wrote one', () => {
     expect(open('Platform Engineering').key.value).toBe('platform-engineering');
     expect(
@@ -48,7 +46,6 @@ describe('Team', () => {
     ).toBe('core');
   });
 
-  // A team opened is the team's own news; what follows is somebody else's.
   it('says it was opened', () => {
     const [raised, ...rest] = open().pullEvents();
 
@@ -84,7 +81,6 @@ describe('Team', () => {
       expect(pinned.configRepository?.value).toBe('acme/api');
     });
 
-    // The files already written stay where they were; reading begins anew.
     it('moves to another place once it has somewhere', () => {
       const moved = open()
         .keepsConfigurationIn(Repository.of('acme/api'))

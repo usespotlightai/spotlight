@@ -12,11 +12,6 @@ import { TeamId } from '@domain/value-objects/team-id.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
 
-/**
- * Reads a workspace's configuration afresh, because somebody asked or because
- * the repository holding it moved. Answers with what was found, problems and
- * all: a file that will not read is something to be shown, not thrown.
- */
 export class ReadConfigurationHandler
   implements CommandHandlerPort<ReadConfigurationCommand, Read | null>
 {
@@ -34,7 +29,6 @@ export class ReadConfigurationHandler
         UserId.of(command.viewerId),
       );
 
-      // Someone outside it is not told a team is there at all.
       if (!team) {
         return null;
       }

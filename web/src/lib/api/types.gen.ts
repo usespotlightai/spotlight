@@ -6,6 +6,10 @@ export type ClientOptions = {
 
 export type StationResponseDto = {
   id: string;
+  /**
+   * What the station is called in its line file, and what a run hands a task on to it by
+   */
+  key: string;
   name: string;
   /**
    * Left to right across the board
@@ -36,6 +40,10 @@ export type StationResponseDto = {
    * The ends of the line: a backlog is where a task waits before anything works it, and completed is where it lands once its pull request is merged
    */
   kind: 'backlog' | 'work' | 'completed';
+  /**
+   * The team’s own skills given to a run here
+   */
+  skills: Array<string>;
 };
 
 export type ReactionResponseDto = {
@@ -47,8 +55,12 @@ export type ReactionResponseDto = {
   to: string;
 };
 
-export type AssemblyLineResponseDto = {
+export type LineResponseDto = {
   id: string;
+  /**
+   * What the line is called in its file
+   */
+  key: string;
   name: string;
   stations: Array<StationResponseDto>;
   reactions: Array<ReactionResponseDto>;
@@ -81,6 +93,10 @@ export type CustomiseStationRequestDto = {
    * Markdown, handed to the agent that works this station
    */
   agentPrompt?: string | null;
+  /**
+   * The team’s own skills given to a run here, by the folder each is defined in
+   */
+  skills?: Array<string>;
 };
 
 export type ProposedResponseDto = {
@@ -104,7 +120,7 @@ export type EnqueueRunRequestDto = {
    */
   harness: string;
   /**
-   * Handed to the runner untouched: checkouts and cwd. The command is filled in from the harness, so it is not given here.
+   * Handed to the runner untouched: checkouts, briefing, handover and continuity. The command is filled in from the harness, so it is not given here.
    */
   spec: {
     [key: string]: unknown;
@@ -148,10 +164,6 @@ export type KeptWorkspacesResponseDto = {
 
 export type RegisterRunnerRequestDto = {
   /**
-   * What the runner advertises. The control plane grants work.
-   */
-  capacity?: number;
-  /**
    * The harnesses the runner found installed, each with the models it discovered. What is on a machine is a fact about that machine, so the machine is what says it.
    */
   harnesses?: Array<Array<unknown>>;
@@ -169,7 +181,6 @@ export type ClaimedRunResponseDto = {
   spec: {
     [key: string]: unknown;
   };
-  leaseExpiresAt: string;
 };
 
 export type RunAttachmentResponseDto = {
@@ -310,33 +321,22 @@ export type RunEventRequestDto = {
   at: string;
   message?: string;
   /**
-   * Terminal bytes, base64
+   * One session update as the agent reported it, JSON, base64
    */
   data?: string;
-  /**
-   * Position in the recording
-   */
-  offset?: number;
 };
 
 export type AppendRunEventsRequestDto = {
   events: Array<RunEventRequestDto>;
 };
 
-export type OpenPullRequestRequestDto = {
-  title: string;
+export type ToolAnswerResponseDto = {
   /**
-   * Markdown, shown as the pull request description
+   * What the tool answered, shaped as the tool shapes it
    */
-  body?: string | null;
-  /**
-   * Which of the line’s repositories to open against, by name. Left out where the line works only one.
-   */
-  repository?: string | null;
-};
-
-export type OpenedPullRequestResponseDto = {
-  url: string;
+  output: string | number | boolean | {
+    [key: string]: unknown;
+  } | Array<unknown> | null;
 };
 
 export type AnswerRemarkRequestDto = {
@@ -353,7 +353,7 @@ export type AnswerRemarkRequestDto = {
 
 export type DeclaredOutcomeDto = {
   /**
-   * The station to pass the task to, or "review" to ask a person. A name this line does not know is treated as a question for a person.
+   * The key of the station to pass the task to, as in code-review; "review" to ask a person; or "done" to close the task where it stands. Anything this line does not know is treated as a question for a person.
    */
   next: string;
   /**
@@ -556,10 +556,6 @@ export type RunJournalResponseDto = {
   ms?: number | null;
   marks: RunMarksResponseDto;
   spent?: RunSpentResponseDto | null;
-  /**
-   * False for a run from before the agents spoke a protocol
-   */
-  readable: boolean;
 };
 
 export type GrantAttachmentUploadRequestDto = {
@@ -656,19 +652,6 @@ export type OAuth2StartResponseDto = {
   url: string;
 };
 
-export type ConfiguredSecretResponseDto = {
-  name: string;
-  /**
-   * Whether the workspace has set it. Never its value.
-   */
-  set: boolean;
-};
-
-export type ConfiguredHappeningResponseDto = {
-  happening: string;
-  label: string;
-};
-
 export type ConfiguredConnectionResponseDto = {
   /**
    * What the host calls the team, where it says; null otherwise
@@ -682,11 +665,9 @@ export type ConfiguredIntegrationResponseDto = {
   source: string;
   name: string;
   /**
-   * Where this host should be told to send its deliveries
+   * The file in the configuration repository it is written in
    */
-  deliverTo: string;
-  secrets: Array<ConfiguredSecretResponseDto>;
-  happenings: Array<ConfiguredHappeningResponseDto>;
+  path: string;
   /**
    * Whether this host is linked by authorizing a connection
    */
@@ -697,21 +678,13 @@ export type ConfiguredIntegrationResponseDto = {
   connection: ConfiguredConnectionResponseDto | null;
 };
 
-export type ConfigProblemResponseDto = {
-  path: string;
-  at: string;
-  reason: string;
-};
-
 export type ConfigurationResponseDto = {
   /**
    * The repository last read from.
    */
   repository: string | null;
   sha: string | null;
-  readAt: string | null;
   integrations: Array<ConfiguredIntegrationResponseDto>;
-  problems: Array<ConfigProblemResponseDto>;
   /**
    * Where this team reads its configuration from: where it keeps it, or else where it was last found.
    */
@@ -751,7 +724,7 @@ export type SetupStepResponseDto = {
   /**
    * Which step this is
    */
-  key: 'runner' | 'github' | 'repository' | 'configuration' | 'tools';
+  key: 'runner' | 'github' | 'repository' | 'configuration' | 'integrations';
   title: string;
   description: string;
   /**
@@ -770,15 +743,18 @@ export type OnboardingLineResponseDto = {
   repositories: Array<string>;
 };
 
-export type KnownToolResponseDto = {
+export type KnownIntegrationResponseDto = {
   source: string;
   name: string;
   summary: string;
-  secretCalled: string;
   /**
-   * Whether this team already listens to it
+   * The secrets its starting file reads, by name
    */
-  chosen: boolean;
+  secrets: Array<string>;
+  /**
+   * Where this integration should be told to send its deliveries
+   */
+  deliverTo: string;
 };
 
 export type OnboardingResponseDto = {
@@ -800,7 +776,7 @@ export type OnboardingResponseDto = {
    */
   repositoryOwner: string | null;
   lines: Array<OnboardingLineResponseDto>;
-  tools: Array<KnownToolResponseDto>;
+  integrations: Array<KnownIntegrationResponseDto>;
 };
 
 export type SetUpLineRequestDto = {
@@ -815,7 +791,7 @@ export type SetUpLinesRequestDto = {
   lines: Array<SetUpLineRequestDto>;
 };
 
-export type ChooseToolsRequestDto = {
+export type ChooseIntegrationsRequestDto = {
   /**
    * The hosts this team uses, by the name each is known by
    */
@@ -824,17 +800,19 @@ export type ChooseToolsRequestDto = {
    * The hosts it no longer uses, whose files the change removes
    */
   dropped?: Array<string>;
+  /**
+   * The secrets the chosen integrations read, by name. Spotlight encrypts them into the team’s vault
+   */
+  secrets?: {
+    [key: string]: string;
+  };
 };
 
-export type SetSecretRequestDto = {
+export type VaultKeyResponseDto = {
   /**
-   * What the configuration calls it. Never its value.
+   * The passphrase that opens .spotlight/secrets.vault, as in age -d .spotlight/secrets.vault
    */
-  name: string;
-  /**
-   * Written once and never read back out of Spotlight.
-   */
-  value: string;
+  key: string;
 };
 
 export type RenameTeamRequestDto = {
@@ -1101,7 +1079,7 @@ export type AnalyseTracesRequestDto = {
 
 export type MoveTaskRequestDto = {
   /**
-   * The station to move the task to, on the same assembly line
+   * The station to move the task to, on the same line
    */
   stationId: string;
   /**
@@ -1180,16 +1158,33 @@ export type ChangeMemberRoleRequestDto = {
   role: 'owner' | 'admin' | 'member';
 };
 
-export type ListAssemblyLinesData = {
+export type TeamSkillResponseDto = {
+  key: string;
+  description: string;
+  /**
+   * Its folder in the configuration repository
+   */
+  path: string;
+};
+
+export type TeamSkillsResponseDto = {
+  /**
+   * Where the skills were read from
+   */
+  repository: string | null;
+  skills: Array<TeamSkillResponseDto>;
+};
+
+export type ListLinesData = {
   body?: never;
   path: {
     teamId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/assembly-lines';
+  url: '/teams/{teamId}/lines';
 };
 
-export type ListAssemblyLinesErrors = {
+export type ListLinesErrors = {
   /**
    * No valid session
    */
@@ -1200,11 +1195,11 @@ export type ListAssemblyLinesErrors = {
   404: unknown;
 };
 
-export type ListAssemblyLinesResponses = {
-  200: Array<AssemblyLineResponseDto>;
+export type ListLinesResponses = {
+  200: Array<LineResponseDto>;
 };
 
-export type ListAssemblyLinesResponse = ListAssemblyLinesResponses[keyof ListAssemblyLinesResponses];
+export type ListLinesResponse = ListLinesResponses[keyof ListLinesResponses];
 
 export type CustomiseStationData = {
   body: CustomiseStationRequestDto;
@@ -1214,7 +1209,7 @@ export type CustomiseStationData = {
     stationId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/assembly-lines/{lineId}/stations/{stationId}';
+  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}';
 };
 
 export type CustomiseStationErrors = {
@@ -1245,7 +1240,7 @@ export type SetLineRepositoriesData = {
     lineId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/assembly-lines/{lineId}/repositories';
+  url: '/teams/{teamId}/lines/{lineId}/repositories';
 };
 
 export type SetLineRepositoriesErrors = {
@@ -1567,27 +1562,50 @@ export type AppendRunEventsResponses = {
 
 export type AppendRunEventsResponse = AppendRunEventsResponses[keyof AppendRunEventsResponses];
 
-export type OpenPullRequestData = {
-  body: OpenPullRequestRequestDto;
+export type UseToolData = {
+  body: {
+    [key: string]: unknown;
+  };
   path: {
     runId: string;
+    tool: string;
   };
   query?: never;
-  url: '/runs/{runId}/pull-request';
+  url: '/runs/{runId}/tools/{tool}';
 };
 
-export type OpenPullRequestErrors = {
+export type UseToolErrors = {
   /**
    * Missing or wrong enrollment token
    */
   401: unknown;
+  /**
+   * The run was not given this tool
+   */
+  403: unknown;
+  /**
+   * No such run, station or tool for this runner
+   */
+  404: unknown;
+  /**
+   * The run works no task to use it on
+   */
+  409: unknown;
+  /**
+   * What the agent handed the tool is not what it takes
+   */
+  422: unknown;
+  /**
+   * The integration the tool calls refused
+   */
+  502: unknown;
 };
 
-export type OpenPullRequestResponses = {
-  200: OpenedPullRequestResponseDto;
+export type UseToolResponses = {
+  200: ToolAnswerResponseDto;
 };
 
-export type OpenPullRequestResponse = OpenPullRequestResponses[keyof OpenPullRequestResponses];
+export type UseToolResponse = UseToolResponses[keyof UseToolResponses];
 
 export type AnswerRemarkData = {
   body: AnswerRemarkRequestDto;
@@ -2136,90 +2154,77 @@ export type SetUpLinesResponses = {
 
 export type SetUpLinesResponse = SetUpLinesResponses[keyof SetUpLinesResponses];
 
-export type ChooseToolsData = {
-  body: ChooseToolsRequestDto;
+export type ChooseIntegrationsData = {
+  body: ChooseIntegrationsRequestDto;
   path: {
     teamId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/configuration/tools';
+  url: '/teams/{teamId}/configuration/integrations';
 };
 
-export type ChooseToolsErrors = {
+export type ChooseIntegrationsErrors = {
   /**
    * No valid session
    */
   401: unknown;
+  /**
+   * Not an owner or admin, and an integration needs secrets
+   */
+  403: unknown;
   /**
    * No such team, or nowhere to write it yet
    */
   404: unknown;
+  /**
+   * The team’s vault does not open with the key Spotlight holds
+   */
+  409: unknown;
+  /**
+   * A secret an integration needs was not given
+   */
+  422: unknown;
 };
 
-export type ChooseToolsResponses = {
+export type ChooseIntegrationsResponses = {
   200: ProposedResponseDto;
 };
 
-export type ChooseToolsResponse = ChooseToolsResponses[keyof ChooseToolsResponses];
+export type ChooseIntegrationsResponse = ChooseIntegrationsResponses[keyof ChooseIntegrationsResponses];
 
-export type SetSecretData = {
-  body: SetSecretRequestDto;
-  path: {
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/configuration/secrets';
-};
-
-export type SetSecretErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such team, or not yours to set one on
-   */
-  404: unknown;
-};
-
-export type SetSecretResponses = {
-  /**
-   * Set
-   */
-  204: void;
-};
-
-export type SetSecretResponse = SetSecretResponses[keyof SetSecretResponses];
-
-export type ForgetSecretData = {
+export type RevealVaultKeyData = {
   body?: never;
   path: {
     teamId: string;
-    name: string;
   };
   query?: never;
-  url: '/teams/{teamId}/configuration/secrets/{name}';
+  url: '/teams/{teamId}/configuration/vault/key';
 };
 
-export type ForgetSecretErrors = {
+export type RevealVaultKeyErrors = {
   /**
    * No valid session
    */
   401: unknown;
   /**
-   * No such team, or not yours to change
+   * Not an owner or admin of this team
+   */
+  403: unknown;
+  /**
+   * No such team for this caller
    */
   404: unknown;
-};
-
-export type ForgetSecretResponses = {
   /**
-   * Forgotten
+   * The key Spotlight holds for this team cannot be read
    */
-  204: void;
+  409: unknown;
 };
 
-export type ForgetSecretResponse = ForgetSecretResponses[keyof ForgetSecretResponses];
+export type RevealVaultKeyResponses = {
+  200: VaultKeyResponseDto;
+};
+
+export type RevealVaultKeyResponse = RevealVaultKeyResponses[keyof RevealVaultKeyResponses];
 
 export type RenameTeamData = {
   body: RenameTeamRequestDto;
@@ -2676,7 +2681,7 @@ export type AddTaskData = {
     stationId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/assembly-lines/{lineId}/stations/{stationId}/tasks';
+  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/tasks';
 };
 
 export type AddTaskErrors = {
@@ -2730,7 +2735,7 @@ export type MoveTaskData = {
     taskId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/assembly-lines/{lineId}/tasks/{taskId}/move';
+  url: '/teams/{teamId}/lines/{lineId}/tasks/{taskId}/move';
 };
 
 export type MoveTaskErrors = {
@@ -2918,3 +2923,29 @@ export type ChangeMemberRoleResponses = {
 };
 
 export type ChangeMemberRoleResponse = ChangeMemberRoleResponses[keyof ChangeMemberRoleResponses];
+
+export type ListTeamSkillsData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/skills';
+};
+
+export type ListTeamSkillsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+};
+
+export type ListTeamSkillsResponses = {
+  200: TeamSkillsResponseDto;
+};
+
+export type ListTeamSkillsResponse = ListTeamSkillsResponses[keyof ListTeamSkillsResponses];

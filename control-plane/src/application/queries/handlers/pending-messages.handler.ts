@@ -7,10 +7,6 @@ import type { RunRepository } from '@domain/repositories/run.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { RunId } from '@domain/value-objects/run-id.vo';
 
-/**
- * What a person has said to the agent working this run and no run has taken
- * up yet. Read by the runner between turns.
- */
 export class PendingMessagesHandler
   implements QueryHandlerPort<PendingMessagesQuery, PendingMessageDto[]>
 {

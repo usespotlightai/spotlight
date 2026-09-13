@@ -72,7 +72,6 @@ describe('ConnectGitHubHandler', () => {
     );
   });
 
-  // Connecting is worth hearing: what follows from it is dispatched after.
   it('dispatches that the workspace was connected', async () => {
     const { handler, events } = connecting();
 
@@ -91,7 +90,6 @@ describe('ConnectGitHubHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  // Someone outside it is not told a workspace is there at all.
   it('answers with nothing where the caller is not of the workspace', async () => {
     const { handler, save } = connecting({
       workspace: acme([{ user: 'someone-else', role: WorkspaceRole.owner }]),
@@ -128,8 +126,6 @@ describe('ConnectGitHubHandler', () => {
     expect(save).toHaveBeenCalledTimes(1);
   });
 
-  // The number is a guess anyone could make, so holding it is asked of
-  // GitHub rather than taken from whoever sent it.
   it('refuses an installation the caller does not administer', async () => {
     const { handler, save } = connecting({ administers: 'does-not' });
 
@@ -139,8 +135,6 @@ describe('ConnectGitHubHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  // A question GitHub would not answer is not an answer of no, and saying so
-  // is what stops somebody hunting a permission problem they do not have.
   it('refuses, saying so, where GitHub would not answer at all', async () => {
     const { handler, save } = connecting({ administers: 'cannot-tell' });
 

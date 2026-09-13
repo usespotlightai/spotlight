@@ -1,43 +1,45 @@
 import type { StationKind } from '@domain/entities/station.entity';
 import { PULL_REQUEST } from '@domain/services/built-in-tools';
 import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
-import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
 import { LineKey } from '@domain/value-objects/line-key.vo';
+import { LineName } from '@domain/value-objects/line-name.vo';
 import { LineRole } from '@domain/value-objects/line-role.vo';
 import type { Repository } from '@domain/value-objects/repository.vo';
+import type { SkillKey } from '@domain/value-objects/skill-key.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
+import { StationKey } from '@domain/value-objects/station-key.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import type { Tool } from '@domain/value-objects/tool.vo';
 
 export interface StationOpening {
+  readonly key: StationKey;
   readonly name: StationName;
   readonly color: StationColor;
   readonly kind: StationKind;
   readonly agentPrompt: AgentPrompt | null;
-  readonly passesTo: readonly string[];
+  readonly passesTo: readonly StationKey[];
   readonly tools: readonly Tool[];
+  readonly skills?: readonly SkillKey[];
   readonly ends: boolean;
 }
 
-/** A word from outside, and where on a line it takes a task. */
 export interface ReactionOpening {
   readonly happening: Happening;
-  /** Named rather than identified: the stations do not exist yet. */
-  readonly to: string;
+  readonly to: StationKey;
 }
 
 export interface LineOpening {
   readonly key: LineKey;
-  readonly name: AssemblyLineName;
+  readonly name: LineName;
   readonly role: LineRole | null;
   readonly stations: readonly StationOpening[];
   readonly reactions: readonly ReactionOpening[];
-  /** The repositories a run on this line works in, all cloned side by side. */
   readonly repositories: readonly Repository[];
 }
 
 const opening = (input: {
+  key: string;
   name: string;
   color: string;
   prompt?: string;
@@ -46,11 +48,12 @@ const opening = (input: {
   tools?: readonly Tool[];
   ends?: boolean;
 }): StationOpening => ({
+  key: StationKey.of(input.key),
   name: StationName.of(input.name),
   color: StationColor.of(input.color),
   kind: input.kind ?? 'work',
   agentPrompt: input.prompt ? AgentPrompt.of(input.prompt) : null,
-  passesTo: input.passesTo ?? [],
+  passesTo: (input.passesTo ?? []).map((each) => StationKey.of(each)),
   tools: input.tools ?? [],
   ends: input.ends ?? false,
 });
@@ -193,39 +196,44 @@ With the pull request open, the task is finished: hand on to \`done\`.`;
 
 const DELIVERY_STATIONS: readonly StationOpening[] = [
   opening({
+    key: 'backlog',
     name: 'Backlog',
     color: '#a3a8b0',
     kind: 'backlog',
-    passesTo: ['Triage'],
+    passesTo: ['triage'],
   }),
   opening({
+    key: 'triage',
     name: 'Triage',
     color: '#93a1b5',
     prompt: TRIAGE,
-    passesTo: ['Spec', 'Implementation'],
+    passesTo: ['spec', 'implementation'],
   }),
   opening({
+    key: 'spec',
     name: 'Spec',
     color: '#5c66d9',
     prompt: SPEC,
-    passesTo: ['Implementation'],
+    passesTo: ['implementation'],
   }),
   opening({
+    key: 'implementation',
     name: 'Implementation',
     color: '#edc12b',
     prompt: IMPLEMENTATION,
-    passesTo: ['Code Review'],
+    passesTo: ['code-review'],
   }),
   opening({
+    key: 'code-review',
     name: 'Code Review',
     color: '#56b98d',
     prompt: CODE_REVIEW,
-    passesTo: ['Implementation'],
+    passesTo: ['implementation'],
     ends: true,
-    // The one station on this line that opens pull requests.
     tools: [PULL_REQUEST],
   }),
   opening({
+    key: 'completed',
     name: 'Completed',
     color: '#a3a8b0',
     kind: 'completed',
@@ -234,78 +242,74 @@ const DELIVERY_STATIONS: readonly StationOpening[] = [
 
 const IMPROVEMENT_STATIONS: readonly StationOpening[] = [
   opening({
+    key: 'backlog',
     name: 'Backlog',
     color: '#a3a8b0',
     kind: 'backlog',
-    passesTo: ['Analysis'],
+    passesTo: ['analysis'],
   }),
   opening({
+    key: 'analysis',
     name: 'Analysis',
     color: '#9b8cf0',
     prompt: ANALYSIS,
-    passesTo: ['Implementation'],
+    passesTo: ['implementation'],
   }),
   opening({
+    key: 'implementation',
     name: 'Implementation',
     color: '#edc12b',
     prompt: IMPROVE,
-    passesTo: ['Code Review'],
+    passesTo: ['code-review'],
   }),
   opening({
+    key: 'code-review',
     name: 'Code Review',
     color: '#56b98d',
     prompt: IMPROVE_REVIEW,
-    passesTo: ['Implementation'],
+    passesTo: ['implementation'],
     ends: true,
     tools: [PULL_REQUEST],
   }),
   opening({
+    key: 'completed',
     name: 'Completed',
     color: '#a3a8b0',
     kind: 'completed',
   }),
 ];
 
-/**
- * How a line answers a word about a task it already holds. Each applies
- * wherever the task stands, and reaches only the line whose task the word is
- * about, so two lines carrying the same rules never contend for one word.
- */
 const GITHUB_REACTIONS: readonly ReactionOpening[] = [
-  // A broken build is not a comment to weigh: it is work.
-  { happening: Happening.of('github.checks.failed'), to: 'Implementation' },
-  // What a reviewer says is weighed at review before it becomes work.
+  {
+    happening: Happening.of('github.checks.failed'),
+    to: StationKey.of('implementation'),
+  },
   {
     happening: Happening.of('github.pull_request.commented'),
-    to: 'Code Review',
+    to: StationKey.of('code-review'),
   },
   {
     happening: Happening.of('github.pull_request.changes-requested'),
-    to: 'Code Review',
+    to: StationKey.of('code-review'),
   },
-  // Merged is the end of the line, whoever pressed the button.
-  { happening: Happening.of('github.pull_request.merged'), to: 'Completed' },
+  {
+    happening: Happening.of('github.pull_request.merged'),
+    to: StationKey.of('completed'),
+  },
 ];
 
-/**
- * The lines a team is opened with: delivery, where a product is built, and
- * factory improvement, where the factory studies its own runs and improves
- * them. A team may describe more of its own; these are the ones it starts with.
- */
 export const BUILT_IN_LINES: readonly LineOpening[] = [
   {
     key: LineKey.of('delivery'),
-    name: AssemblyLineName.of('Software Delivery'),
+    name: LineName.of('Delivery'),
     role: LineRole.DELIVERY,
     stations: DELIVERY_STATIONS,
     reactions: GITHUB_REACTIONS,
-    // A team says which repositories its delivery line works in through its
-    // configuration; it starts with none until it does.
     repositories: [],
   },
   {
-    key: LineKey.of('factory-improvement'),
-    name: AssemblyLineName.of('Factory Improvement'),
+    key: LineKey.of('factory'),
+    name: LineName.of('Factory'),
     role: LineRole.IMPROVEMENT,
     stations: IMPROVEMENT_STATIONS,
     reactions: GITHUB_REACTIONS,

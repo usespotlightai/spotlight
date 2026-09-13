@@ -40,7 +40,6 @@ describe('GitHubAppIdentity', () => {
     expect(init.headers.authorization).toMatch(/^Bearer ey/);
   });
 
-  // A slug is settled when the App is created and does not change.
   it('asks once and remembers', async () => {
     const fetching = answering({ slug: 'spotlight-dev' });
     vi.stubGlobal('fetch', fetching);
@@ -52,7 +51,6 @@ describe('GitHubAppIdentity', () => {
     expect(fetching).toHaveBeenCalledTimes(1);
   });
 
-  // Onboarding is read on every visit, and a link is not worth failing over.
   it('answers null where GitHub refuses', async () => {
     vi.stubGlobal('fetch', answering({}, false));
 

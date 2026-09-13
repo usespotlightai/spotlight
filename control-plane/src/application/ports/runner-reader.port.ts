@@ -18,12 +18,7 @@ export const RUNNER_READER = Symbol('RUNNER_READER');
 export interface RunnerReaderPort {
   listAll(): Promise<RunnerSummary[]>;
 
-  /**
-   * Whether any runner has reached us and has not been taken away. Enrolling
-   * one writes a row and mints a token, and neither of those is a machine.
-   */
   anyConnected(): Promise<boolean>;
 
-  /** The models any live runner advertises, by harness id, in first-seen order. */
   advertisedModels(): Promise<ReadonlyMap<string, readonly string[]>>;
 }

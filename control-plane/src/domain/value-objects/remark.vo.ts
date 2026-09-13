@@ -1,9 +1,5 @@
 import { InvalidRemarkError } from '@domain/exceptions/invalid-remark.error';
 
-/**
- * What the host calls something said on a pull request. Opaque here: it is
- * handed back to the host to answer, never read.
- */
 export class Remark {
   private constructor(readonly value: string) {}
 

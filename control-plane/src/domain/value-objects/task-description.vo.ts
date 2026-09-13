@@ -20,7 +20,6 @@ export class TaskDescription {
     return new TaskDescription(trimmed);
   }
 
-  /** A description from outside, cut to fit rather than refused. */
   static clamp(raw: string): TaskDescription {
     const trimmed = raw.trim();
 

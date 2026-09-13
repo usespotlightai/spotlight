@@ -1,4 +1,3 @@
-/** Null where the full name sits under some other owner. */
 export const nameUnder = (
   owner: string | null,
   fullName: string,

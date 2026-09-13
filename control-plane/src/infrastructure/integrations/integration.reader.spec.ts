@@ -46,14 +46,10 @@ describe('IntegrationReader', () => {
     ).toHaveLength(1);
   });
 
-  // Which of a repository's files are a team's integrations is the
-  // configuration's to say. This reads what it is handed.
   it('reads every file it is given, wherever it came from', () => {
     expect(reading([at('somewhere/else.yml')]).integrations).toHaveLength(1);
   });
 
-  // A file that will not read is one integration missing and a problem to
-  // show, while everything beside it goes on working.
   it('keeps reading past a file that will not', () => {
     const read = reading([
       at('.spotlight/teams/platform/integrations/broken.yml', 'version: 2'),
@@ -69,7 +65,6 @@ describe('IntegrationReader', () => {
     );
   });
 
-  // Two files claiming one host is a workspace that has to choose.
   it('lets the first by path keep a host two files claim', () => {
     const read = reading([
       at('.spotlight/teams/platform/integrations/a-linear.yml'),

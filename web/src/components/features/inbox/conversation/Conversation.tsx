@@ -30,11 +30,6 @@ const turnsOf = (item: Conversing): Turn[] => {
   return cut;
 };
 
-/**
- * Which notes are worth a time above them: the ones that do not read the same
- * as the mark already standing. A note raised with the conversation it opens
- * carries the same moment as the conversation, and one of them is enough.
- */
 const marksIn = (item: Conversing): Set<number> => {
   let standing = openedAt(item.createdAt);
   const marked = new Set<number>();
@@ -53,12 +48,6 @@ const marksIn = (item: Conversing): Set<number> => {
 
 const CLOSE = 80;
 
-/**
- * How long the conversation has to stop growing before a move through it is
- * worth watching. Everything above this is the page assembling itself — the
- * bodies filling in, the journal landing — and animating that only draws the
- * eye to a position the reader never held.
- */
 const SETTLING_MS = 250;
 
 const put = (
@@ -75,7 +64,6 @@ const put = (
       box.scrollTop
     : box.scrollHeight;
 
-  // A move that never happened raises no scroll to catch.
   return box.scrollTop !== was;
 };
 
@@ -105,10 +93,7 @@ export function Conversation({
   const held = useRef<number | null>(null);
   const ours = useRef(false);
 
-  // Watching the content rather than the message count: a message is not its
-  // final height when it mounts, and a scroll measured before that lands short.
-  // Laid out rather than merely effected, so the first painted frame is already
-  // in place instead of showing the top and then leaving it.
+  // Layout effect on content size: messages grow after mount, and the first paint must already be in place.
   // biome-ignore lint/correctness/useExhaustiveDependencies: the item is what starts the conversation over, though the effect reads only the nodes
   useLayoutEffect(() => {
     const box = scroller.current;
@@ -125,8 +110,6 @@ export function Conversation({
     let settled = false;
     let quiet: ReturnType<typeof setTimeout>;
 
-    // Each growth pushes the moment of stillness back, so the conversation is
-    // settled only once it has actually stopped moving.
     const stirred = () => {
       settled = false;
       clearTimeout(quiet);
@@ -139,7 +122,6 @@ export function Conversation({
     const grew = new ResizeObserver(() => {
       stirred();
 
-      // The markdown above it mounts late, so it is put back.
       if (held.current !== null) {
         ours.current = put(box, inside, held.current) || ours.current;
         return;
@@ -151,8 +133,6 @@ export function Conversation({
 
       const foot = box.scrollHeight - box.clientHeight;
 
-      // Further than a screenful is the conversation settling into place
-      // rather than growing, and gliding through it is only a long wait.
       const far = foot - box.scrollTop > box.clientHeight;
       const stillness = window.matchMedia?.(
         '(prefers-reduced-motion: reduce)',
@@ -162,9 +142,7 @@ export function Conversation({
       const was = box.scrollTop;
       box.scrollTo({ top: foot, behavior: cut ? 'auto' : 'smooth' });
 
-      // A cut lands at once and raises the one scroll it has to answer for.
-      // A glide raises them the whole way down and cannot be spoken for by a
-      // single flag, so it is left to be read as the reader's own.
+      // Smooth scrolling fires scroll events all the way down, so only an instant jump can be flagged as ours.
       if (cut) {
         ours.current = box.scrollTop !== was || ours.current;
       }
@@ -184,7 +162,6 @@ export function Conversation({
       return;
     }
 
-    // Only the reader's own scroll gives up the note.
     if (ours.current) {
       ours.current = false;
       return;
@@ -270,8 +247,6 @@ export function Conversation({
 
                   {at === all.length - 1 &&
                     (live ? (
-                      // Its own list of steps, so it hangs in a row of its own
-                      // rather than nesting a list straight inside this one.
                       <li>{live}</li>
                     ) : (
                       item.working && (
@@ -290,8 +265,6 @@ export function Conversation({
         </div>
       </div>
 
-      {/* The panel's own ground, which is what the work fades into rather
-          than stopping at an edge. */}
       <div className="relative shrink-0 bg-surface">
         <div
           aria-hidden

@@ -14,7 +14,6 @@ import { Inject, Injectable } from '@nestjs/common';
 const API = 'https://api.github.com';
 const PER_PAGE = 100;
 
-/** As many as one installation is ever given, and then some. */
 const MAX_PAGES = 10;
 
 interface Listed {
@@ -49,16 +48,7 @@ export class GitHubRepositoryCatalog implements RepositoryCatalogPort {
     );
   }
 
-  /**
-   * Made under the owner the name gives, with a first commit so it has a
-   * branch to write against. Private, because a repository somebody named in
-   * passing is not one they meant to publish.
-   *
-   * The App needs organisation Administration write to do this. Without it
-   * GitHub refuses, and that refusal is the answer rather than an exception:
-   * naming a repository that cannot be made is a thing to be told about, not
-   * a fault.
-   */
+  // Needs the App's organisation Administration write permission.
   async create(
     installation: GitHubInstallation,
     repository: Repository,

@@ -1,18 +1,11 @@
 import { InvalidRunOutcomeError } from '@domain/exceptions/invalid-run-outcome.error';
 
-/**
- * How a run ended: the code the harness exited with, whether the runner judged
- * it a failure, and anything it said about why. `failed` is the runner's own
- * verdict, not read off the exit code — a run can exit cleanly and still be
- * failed, or the other way round.
- */
+// `failed` is the runner's verdict, independent of the exit code.
 export class RunOutcome {
   private constructor(
     readonly exitCode: number,
     readonly failed: boolean,
     readonly message: string | null,
-    // A person stopped the run: not a failure, but distinct from a run that
-    // finished on its own, so what happens to the task next can tell them apart.
     readonly stopped: boolean = false,
   ) {}
 

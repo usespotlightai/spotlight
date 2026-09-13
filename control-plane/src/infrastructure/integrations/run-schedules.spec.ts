@@ -22,7 +22,6 @@ import { describe, expect, it, vi } from 'vitest';
 const NOW = new Date('2026-09-07T09:00:00.000Z');
 const TEAM = TeamId.of('team_1');
 
-// Fires at the top of every hour.
 const SCHEDULE = `
 version: 1
 integration: linear
@@ -62,7 +61,10 @@ const working = (state: PollState, now: Date = NOW) => {
   const schedules = new RunSchedules(
     { all: async () => [config()] } as unknown as TeamConfigurationRepository,
     new IntegrationReader(),
-    { resolve: async () => 'lin_1' } as unknown as TeamSecretsPort,
+    {
+      resolveAll: async (_team: unknown, names: readonly { value: string }[]) =>
+        Object.fromEntries(names.map((name) => [name.value, 'lin_1'])),
+    } as unknown as TeamSecretsPort,
     {
       read: async () => state,
       saved,
@@ -87,7 +89,6 @@ describe('RunSchedules', () => {
   });
 
   it('runs the action when the cron has come round', async () => {
-    // Last run at 08:00, now 09:00 — the 09:00 fire is due.
     const { schedules, run, saved } = working({
       cursor: null,
       ranAt: new Date('2026-09-07T08:00:00.000Z'),
@@ -100,7 +101,6 @@ describe('RunSchedules', () => {
   });
 
   it('leaves a schedule alone until its cron comes round', async () => {
-    // Last run at 09:00, now 09:30 — the next fire (10:00) is not yet due.
     const { schedules, run, saved } = working(
       { cursor: null, ranAt: new Date('2026-09-07T09:00:00.000Z') },
       new Date('2026-09-07T09:30:00.000Z'),
@@ -113,7 +113,6 @@ describe('RunSchedules', () => {
   });
 
   it('fires once for a schedule that fell behind, not once per missed hour', async () => {
-    // Last run yesterday; many hourly fires were missed, but it runs once.
     const { schedules, run } = working({
       cursor: null,
       ranAt: new Date('2026-09-06T08:00:00.000Z'),

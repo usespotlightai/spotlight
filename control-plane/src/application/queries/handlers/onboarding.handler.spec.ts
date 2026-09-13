@@ -1,4 +1,5 @@
 import type { GitHubAppPort } from '@application/ports/github-app.port';
+import type { IntegrationReaderPort } from '@application/ports/integration-reader.port';
 import type { WorkspaceReaderPort } from '@application/ports/workspace-reader.port';
 import { OnboardingHandler } from '@application/queries/handlers/onboarding.handler';
 import { OnboardingQuery } from '@application/queries/onboarding.query';
@@ -8,6 +9,7 @@ import type {
 } from '@application/services/team-setup.service';
 import { SETUP_STEPS } from '@domain/services/setup-list';
 import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
+import { SecretName } from '@domain/value-objects/secret-name.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 type LineStub = {
@@ -25,9 +27,9 @@ type Given = {
   installUrl?: string | null;
   owner?: string | null;
   lines?: readonly LineStub[];
+  withFile?: boolean;
 };
 
-/** A line as the repository hands it back, only what the handler reads of it. */
 const asLine = (line: LineStub) => ({
   key: { value: line.key },
   name: { value: line.name },
@@ -54,13 +56,16 @@ const nothing: TeamFacts = {
 
 const handler = (given: Given = {}) => {
   const workspaces = {
-    findTeamForMember: vi
-      .fn()
-      .mockResolvedValue(
-        given.member === false
-          ? null
-          : { teamId: 'team_1', workspaceId: 'ws_1', slug: 'acme' },
-      ),
+    findTeamForMember: vi.fn().mockResolvedValue(
+      given.member === false
+        ? null
+        : {
+            teamId: 'team_1',
+            workspaceId: 'ws_1',
+            slug: 'acme',
+            teamKey: 'platform',
+          },
+    ),
   } as unknown as WorkspaceReaderPort;
 
   const setup = {
@@ -82,17 +87,35 @@ const handler = (given: Given = {}) => {
     ofTeam: vi.fn().mockResolvedValue((given.lines ?? []).map(asLine)),
   } as never;
 
-  return new OnboardingHandler(workspaces, setup, app, lines, {
-    all: () => [
-      {
-        source: 'linear',
-        name: 'Linear',
-        summary: 'Move a task on when its issue is done.',
-        secretCalled: 'the signing secret',
-      },
-    ],
-    fileFor: () => null,
-  });
+  return new OnboardingHandler(
+    workspaces,
+    setup,
+    app,
+    lines,
+    {
+      all: () => [
+        {
+          source: 'linear',
+          name: 'Linear',
+          summary: 'Move a task on when its issue is done.',
+        },
+      ],
+      fileFor: () =>
+        given.withFile ? 'version: 1\nintegration: linear\n' : null,
+    },
+    {
+      read: () => ({
+        integrations: [
+          { credentials: [SecretName.of('LINEAR_WEBHOOK_SECRET')] },
+        ],
+        problems: [],
+      }),
+    } as unknown as IntegrationReaderPort,
+    {
+      of: (slug: string, teamKey: string, source: string) =>
+        `https://hooks.example.com/api/webhooks/w/${slug}/t/${teamKey}/${source}`,
+    },
+  );
 };
 
 const read = (given: Given = {}) =>
@@ -118,15 +141,15 @@ describe('OnboardingHandler', () => {
       lines: [
         {
           key: 'delivery',
-          name: 'Software Delivery',
+          name: 'Delivery',
           harness: 'claude-code',
           model: 'claude-sonnet-5',
           effort: 'high',
           repositories: ['acme/api'],
         },
         {
-          key: 'factory-improvement',
-          name: 'Factory Improvement',
+          key: 'factory',
+          name: 'Factory',
           harness: null,
           repositories: [],
         },
@@ -136,15 +159,15 @@ describe('OnboardingHandler', () => {
     expect(onboarding?.lines).toEqual([
       {
         key: 'delivery',
-        name: 'Software Delivery',
+        name: 'Delivery',
         harness: 'claude-code',
         model: 'claude-sonnet-5',
         effort: 'high',
         repositories: ['acme/api'],
       },
       {
-        key: 'factory-improvement',
-        name: 'Factory Improvement',
+        key: 'factory',
+        name: 'Factory',
         harness: null,
         model: null,
         effort: null,
@@ -163,15 +186,15 @@ describe('OnboardingHandler', () => {
   it('is done choosing tools once it is listening to one', async () => {
     const onboarding = await read({ facts: { listening: ['linear'] } });
 
-    expect(step(onboarding, 'tools')?.done).toBe(true);
+    expect(step(onboarding, 'integrations')?.done).toBe(true);
   });
 
   it('says where each step is taken, for the team asking', async () => {
     const onboarding = await read();
 
     expect(step(onboarding, 'runner')?.where).toBe('/w/acme/runners');
-    expect(step(onboarding, 'tools')?.where).toBe(
-      '/w/acme/team/team_1/integrations',
+    expect(step(onboarding, 'integrations')?.where).toBe(
+      '/w/acme/team/team_1/settings/integrations',
     );
   });
 
@@ -186,7 +209,6 @@ describe('OnboardingHandler', () => {
     });
   });
 
-  // A link is worth having and not worth failing over.
   it('still answers where GitHub would not say what the App is called', async () => {
     await expect(read({ installUrl: null })).resolves.toMatchObject({
       installUrl: null,
@@ -196,16 +218,21 @@ describe('OnboardingHandler', () => {
   it('offers the tools a team can be listening to', async () => {
     const onboarding = await read();
 
-    expect(onboarding?.tools.map((each) => each.source)).toContain('linear');
-    expect(onboarding?.tools.every((each) => !each.chosen)).toBe(true);
+    expect(onboarding?.integrations.map((each) => each.source)).toContain(
+      'linear',
+    );
   });
 
-  it('ticks off the tools it is already listening to', async () => {
-    const onboarding = await read({ facts: { listening: ['linear'] } });
+  it('says which secrets each tool reads, and where its host delivers', async () => {
+    const onboarding = await read({ withFile: true });
+    const linear = onboarding?.integrations.find(
+      (each) => each.source === 'linear',
+    );
 
-    expect(
-      onboarding?.tools.find((each) => each.source === 'linear')?.chosen,
-    ).toBe(true);
+    expect(linear?.secrets).toEqual(['LINEAR_WEBHOOK_SECRET']);
+    expect(linear?.deliverTo).toBe(
+      'https://hooks.example.com/api/webhooks/w/acme/t/platform/linear',
+    );
   });
 
   it('names the account repositories are under, so only the name is typed', async () => {

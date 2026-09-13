@@ -38,7 +38,6 @@ async function request(
     await new Promise<void>((resolve) => server.listen(0, resolve));
     const { port } = server.address() as AddressInfo;
     await fetch(`http://127.0.0.1:${port}${path}`, { headers });
-    // The completion line is written on the response's `finish` event.
     await new Promise((resolve) => setImmediate(resolve));
   } finally {
     await new Promise((resolve) => server.close(resolve));

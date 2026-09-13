@@ -21,8 +21,6 @@ const TEAM = Team.rehydrate({
   members: [{ userId: UserId.of('user_1'), role: TeamRole.owner }],
 });
 
-// Who may rename lives in ConnectionAuthorization, tested there; here it is only
-// whether the gate opens.
 const renaming = (over: { allowed?: boolean; team?: null } = {}) => {
   const save = vi.fn(async () => {});
 

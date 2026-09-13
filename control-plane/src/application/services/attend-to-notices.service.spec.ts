@@ -43,7 +43,6 @@ const attending = (
   };
 };
 
-/** The connection whoever held it can no longer reach anything through. */
 const ENDED: Noticed = {
   kind: 'connection-ended',
   source: 'github',
@@ -68,7 +67,6 @@ const holding = (workspace: Workspace | null) => {
   };
 };
 
-/** A team that reads from that repository, which is what a push finds. */
 const team = (id: string) => ({
   id: { value: id },
   workspaceId: { value: 'ws_1' },
@@ -103,8 +101,6 @@ describe('AttendToNotices', () => {
     expect(teams.readingFrom).not.toHaveBeenCalled();
   });
 
-  // A host is not to be told to send its push again because a file in it
-  // would not parse. The problems are written down where they can be seen.
   it('does not fail the delivery when reading goes wrong', async () => {
     const { attend, configuration } = attending([team('team_1')], () => {
       throw new Error('GitHub would not answer');
@@ -126,8 +122,6 @@ describe('AttendToNotices', () => {
     expect(logger.error).toHaveBeenCalled();
   });
 
-  // Removed on GitHub is removed here: what a workspace holds for it is a key
-  // to a door that is no longer there.
   it('lets go of a connection the host ended', async () => {
     const disconnectedFrom = vi.fn(() => 'let go');
     const { attend, workspaces } = holding({

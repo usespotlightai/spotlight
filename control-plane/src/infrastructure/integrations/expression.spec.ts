@@ -2,8 +2,12 @@ import {
   bound,
   compile,
   ExpressionError,
+  ExpressionFailedError,
   holds,
   reads,
+  required,
+  requiredText,
+  Scope,
 } from '@infrastructure/integrations/expression';
 import { describe, expect, it } from 'vitest';
 
@@ -21,8 +25,6 @@ describe('compiling an expression', () => {
     expect(compile('body.data.identifier').evaluate(delivery)).toBe('ENG-42');
   });
 
-  // A file nobody can parse is a problem with the file, found when it is
-  // read, rather than a delivery that fails at midnight.
   it('refuses one that will not parse', () => {
     expect(() => compile('body.data. ==')).toThrow(ExpressionError);
     expect(() => compile('   ')).toThrow(/is empty/);
@@ -58,9 +60,6 @@ describe('whether an expression holds', () => {
     ).toBe(true);
   });
 
-  // A host sends every event it has, and most say nothing this asked about.
-  // CEL throws on a missing key rather than reading it as absent, so a rule
-  // written for one shape of delivery meets another and does not match.
   it('does not hold where the delivery has no such field', () => {
     expect(
       holds(compile('body.data.state.name == "Done"'), {
@@ -90,7 +89,6 @@ describe('what an expression reads', () => {
     expect(reads(compile('headers["linear-delivery"]'), delivery)).toBe('d_1');
   });
 
-  // CEL counts in bigints; a host that numbers something is still naming it.
   it('reads a number as the name it is', () => {
     expect(reads(compile('42'), delivery)).toBe('42');
   });
@@ -100,8 +98,6 @@ describe('what an expression reads', () => {
     expect(reads(compile('""'), delivery)).toBeNull();
   });
 
-  // A handle is one thing, not a structure. Reading an object as text would
-  // put "[object Object]" where an identifier belongs.
   it('reads nothing where the value is not a single thing', () => {
     expect(reads(compile('body.data'), delivery)).toBeNull();
     expect(reads(compile('body.data.labels'), delivery)).toBeNull();
@@ -120,8 +116,6 @@ describe('binding a delivery', () => {
     expect((held.b as Record<string, unknown>).c).toBe('x');
   });
 
-  // The library refuses a reserved name itself. This makes it true of the
-  // data too, so it stays true of whatever reads the delivery next.
   it('drops the names that reach past a plain object', () => {
     const held = bound(
       JSON.parse('{"__proto__":{"polluted":true},"ok":1}'),
@@ -136,7 +130,6 @@ describe('binding a delivery', () => {
     expect(Object.getPrototypeOf(bound({ a: 1 }))).toBeNull();
   });
 
-  // CEL cannot loop, but it can walk a list, and the list comes from outside.
   it('refuses a delivery nested deeper than anyone would read', () => {
     let deep: Record<string, unknown> = { end: true };
     for (let at = 0; at < 40; at += 1) {
@@ -158,5 +151,85 @@ describe('binding a delivery', () => {
     );
 
     expect(() => bound(wide)).toThrow(/more than can be read/);
+  });
+});
+
+describe('checking an expression against what it may read', () => {
+  const scope = Scope.of({
+    body: 'dyn',
+    task: { schema: { line: 'string', marks: 'map<string, string>' } },
+  });
+
+  it('has no doubt about one that reads only what is there', () => {
+    expect(compile('task.marks["linear.issue"]', { scope }).doubt).toBeNull();
+    expect(compile('body.anything.at.all', { scope }).doubt).toBeNull();
+  });
+
+  it('doubts one that misspells a field Spotlight shapes', () => {
+    expect(compile('task.lnie', { scope }).doubt).toMatch(/No such key: lnie/);
+  });
+
+  it('doubts one that names something not there at all', () => {
+    expect(compile('tsak.line', { scope }).doubt).toMatch(
+      /Unknown variable: tsak/,
+    );
+  });
+
+  it('doubts one that could never evaluate', () => {
+    expect(compile('task.line + 1', { scope }).doubt).toMatch(
+      /no such overload/,
+    );
+  });
+
+  it('still reads one it doubts, the way it always read', () => {
+    const doubted = compile('ask.body', { scope });
+
+    expect(doubted.doubt).not.toBeNull();
+    expect(reads(doubted, { ask: { body: 'The queue is stuck.' } })).toBe(
+      'The queue is stuck.',
+    );
+  });
+
+  it('reads a map that mixes what it holds', () => {
+    const mixed = compile('{"channel": body.channel, "text": "Got it."}', {
+      scope,
+    });
+
+    expect(mixed.doubt).toBeNull();
+    expect(mixed.evaluate({ body: bound({ channel: 'C1' }) })).toEqual({
+      channel: 'C1',
+      text: 'Got it.',
+    });
+  });
+
+  it('remembers where in the file it is written', () => {
+    expect(compile('body.x', { scope, at: 'actions.post.body' }).at).toBe(
+      'actions.post.body',
+    );
+    expect(compile('body.x').at).toBeNull();
+  });
+});
+
+describe('what a call cannot be made without', () => {
+  const at = 'actions.post-message.request.body';
+
+  it('is what the expression evaluates to', () => {
+    expect(required(compile('body.type', { at }), delivery)).toBe('Issue');
+    expect(requiredText(compile('body.data.identifier'), delivery)).toBe(
+      'ENG-42',
+    );
+  });
+
+  it('throws, naming where it is written, where it cannot be read', () => {
+    const failing = () =>
+      required(compile('body.data.missing', { at }), delivery);
+
+    expect(failing).toThrow(ExpressionFailedError);
+    expect(failing).toThrow(`${at}: No such key: missing`);
+  });
+
+  it('is nothing, not a failure, where it plainly reads as nothing', () => {
+    expect(requiredText(compile('""'), delivery)).toBeNull();
+    expect(requiredText(compile('body.data'), delivery)).toBeNull();
   });
 });

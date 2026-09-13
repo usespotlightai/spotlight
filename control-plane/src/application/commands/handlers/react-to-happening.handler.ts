@@ -13,17 +13,9 @@ import type { AttendToNotices } from '@application/services/attend-to-notices.se
 import { ReactToHappenings } from '@application/services/react-to-happenings.service';
 import type { SourceForDelivery } from '@application/services/source-for-delivery.service';
 import type { TaskDispatching } from '@application/services/task-dispatch';
-import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
+import type { LineRepository } from '@domain/repositories/line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 
-/**
- * Word came in about a task, and the line said what to do with it. A word
- * about a task nobody here has, or one nowhere waits for, is not an error:
- * the host tells us about everything it knows of.
- *
- * The reacting itself is a service, so a poll reaches the board the same way a
- * delivery does; this reads the delivery and hands the words over.
- */
 export class ReactToHappeningHandler
   implements CommandHandlerPort<ReactToHappeningCommand, void>
 {
@@ -32,11 +24,10 @@ export class ReactToHappeningHandler
   constructor(
     private readonly sources: SourceForDelivery,
     tasks: TaskRepository,
-    lines: AssemblyLineRepository,
+    lines: LineRepository,
     dispatch: TaskDispatching,
     transaction: TransactionPort,
     clock: ClockPort,
-    /** What the delivery said about the workspace, rather than about a task. */
     private readonly notices: AttendToNotices,
     ids: IdGeneratorPort,
     members: MemberReaderPort,
@@ -58,10 +49,6 @@ export class ReactToHappeningHandler
     );
   }
 
-  /**
-   * Worked after the host has been answered, so nothing here is racing a
-   * timeout. Taking the delivery in is what made it ours, and only once.
-   */
   async execute(command: ReactToHappeningCommand): Promise<void> {
     try {
       const stored: StoredDelivery = command.delivered;
@@ -82,11 +69,9 @@ export class ReactToHappeningHandler
         raw: null,
       };
 
-      // Attended to before anything else: a delivery may be saying that what
-      // Spotlight reads a workspace's words by has just changed.
+      // Notices first: they may change how this workspace's words are read.
       await this.notices.attend(source.noticed?.(delivered) ?? []);
 
-      // What Spotlight itself did is not news to Spotlight.
       const news = (await source.read(delivered)).filter(
         (each) => !each.ourOwn,
       );
@@ -95,8 +80,6 @@ export class ReactToHappeningHandler
         return;
       }
 
-      // Whose word this is, before anything is looked up on it. A host
-      // speaking for nobody here reaches no task.
       const workspaceId = await source.routes(delivered);
 
       if (!workspaceId) {

@@ -9,10 +9,6 @@ import type { RunRepository } from '@domain/repositories/run.repository';
 import type { RunnerRepository } from '@domain/repositories/runner.repository';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 
-/**
- * How long a claim is held open before answering empty. The runner polls in a
- * tight loop, so holding the request here is what keeps it off the database.
- */
 const POLL_TIMEOUT_MS = 10_000;
 const POLL_INTERVAL_MS = 500;
 
@@ -37,12 +33,8 @@ export class ClaimRunHandler
         );
       }
 
-      // The poll doubles as the heartbeat. A runner that stops asking stops
-      // being counted on.
       await this.runners.save(asking.seen(this.clock.now()));
 
-      // Once per claim, not per attempt. A runner whose host died leaves a run
-      // held until its lease lapses, and somebody has to notice.
       const givenUp = await this.runs.requeueLapsed(this.clock.now());
 
       await this.events.dispatch(
@@ -62,9 +54,6 @@ export class ClaimRunHandler
           return {
             id: claimed.id.value,
             spec: claimed.spec.value,
-            leaseExpiresAt: (
-              claimed.leaseExpiresAt ?? this.clock.now()
-            ).toISOString(),
           };
         }
 
