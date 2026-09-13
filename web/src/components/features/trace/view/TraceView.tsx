@@ -10,7 +10,7 @@ import { rowsOf, type Trace, type TraceNode } from '@/lib/trace';
 import { cn } from '@/lib/utils';
 
 // Matches the pane's close animation so it stays mounted until that finishes.
-const LEAVING = 240;
+const LEAVING = 150;
 
 const NAMES_PANE = {
   property: '--names',
@@ -189,7 +189,14 @@ export function TraceView({ trace }: TraceViewProps) {
           </div>
         </div>
 
-        {held && <SpanDetail node={held} open={chosen !== null} ref={panel} />}
+        {held && (
+          <SpanDetail
+            node={held}
+            open={chosen !== null}
+            duration={LEAVING}
+            ref={panel}
+          />
+        )}
       </div>
     </div>
   );

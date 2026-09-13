@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { armor, Decrypter, Encrypter } from 'age-encryption';
+import { parse, stringify } from 'yaml';
 
 export type Secrets = Readonly<Record<string, string>>;
 
@@ -7,7 +8,8 @@ export const WORK_FACTOR = 10;
 
 export const NOT_AGE = 'is not an ASCII-armored age file';
 export const NOT_FOR_THIS_KEY = 'does not open with the vault key';
-export const NOT_SECRETS = 'does not hold a JSON object of secrets';
+export const NOT_SECRETS =
+  'does not hold a map of secret names to their values';
 
 const WRONG_KEY = "no identity matched any of the file's recipients";
 
@@ -40,7 +42,7 @@ const secretsOf = (text: string): Secrets => {
   let read: unknown;
 
   try {
-    read = JSON.parse(text);
+    read = parse(text, { schema: 'failsafe' });
   } catch {
     throw new VaultError('not-secrets');
   }
@@ -101,6 +103,6 @@ export const sealVault = async (
   const plain = Object.fromEntries(names.map((name) => [name, secrets[name]]));
 
   return armor.encode(
-    await encrypter.encrypt(`${JSON.stringify(plain, null, 2)}\n`),
+    await encrypter.encrypt(stringify(plain, { lineWidth: 0 })),
   );
 };

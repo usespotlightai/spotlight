@@ -25,10 +25,12 @@ const DETAIL_PANE: PaneConfig = {
 export function SpanDetail({
   node,
   open,
+  duration,
   ref,
 }: {
   node: TraceNode;
   open: boolean;
+  duration?: number;
   ref?: Ref<HTMLElement>;
 }) {
   const { step } = node;
@@ -51,7 +53,7 @@ export function SpanDetail({
   }));
 
   return (
-    <SidePane pane={DETAIL_PANE} open={open} ref={ref}>
+    <SidePane pane={DETAIL_PANE} open={open} duration={duration} ref={ref}>
       <div className="flex h-full flex-col gap-5 overflow-y-auto px-4 py-4 scrollbar-hide">
         <DetailHeader node={node} />
 

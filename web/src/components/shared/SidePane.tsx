@@ -14,11 +14,13 @@ export interface PaneConfig {
 export function SidePane({
   pane,
   open,
+  duration = 240,
   ref,
   children,
 }: {
   pane: PaneConfig;
   open: boolean;
+  duration?: number;
   ref?: Ref<HTMLElement>;
   children: ReactNode;
 }) {
@@ -44,7 +46,12 @@ export function SidePane({
           ref.current = node;
         }
       }}
-      style={{ '--detail-w': `${width}px` } as CSSProperties}
+      style={
+        {
+          '--detail-w': `${width}px`,
+          animationDuration: `${duration}ms`,
+        } as CSSProperties
+      }
       {...openState}
       className={cn(
         'relative w-[var(--detail-w)] shrink-0',
@@ -54,7 +61,10 @@ export function SidePane({
     >
       <aside
         {...openState}
-        style={{ width: 'calc(var(--detail-w) - 16px)' }}
+        style={{
+          width: 'calc(var(--detail-w) - 16px)',
+          animationDuration: `${duration}ms`,
+        }}
         className={cn(
           'absolute inset-y-2 right-2 flex flex-col overflow-hidden rounded-lg border-[0.5px] border-border bg-card shadow-pane',
           'data-open:[animation:detail-open_240ms_ease-in-out]',

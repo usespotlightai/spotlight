@@ -8,7 +8,7 @@ import {
   VaultError,
   WORK_FACTOR,
 } from '@infrastructure/secrets/age-vault';
-import { armor, Encrypter } from 'age-encryption';
+import { armor, Decrypter, Encrypter } from 'age-encryption';
 import { describe, expect, it } from 'vitest';
 
 const SECRETS = {
@@ -24,6 +24,13 @@ WHdjazQKK+F/7/cJQQX8lv29ErsMZ1rPvJQ0sTS5x1gZpfsv5X5bP/YbQFuzHNDK
 cj7MlP3sKymLTGPEy3HpBahajZbyOkapoTGqJq7NUjF/Tg==
 -----END AGE ENCRYPTED FILE-----
 `;
+
+const sealed = async (text: string): Promise<string> => {
+  const encrypter = new Encrypter();
+  encrypter.setPassphrase('k');
+  encrypter.setScryptWorkFactor(WORK_FACTOR);
+  return armor.encode(await encrypter.encrypt(text));
+};
 
 describe('the age vault', () => {
   it('opens with the vault key it was encrypted with, and no other', async () => {
@@ -50,13 +57,48 @@ describe('the age vault', () => {
     expect(header).toMatch(new RegExp(`-> scrypt \\S+ ${WORK_FACTOR}\\n`));
   });
 
-  it('holds its secrets as JSON, sorted by name', async () => {
-    const vault = await sealVault({ B_SECRET: '2', A_SECRET: '1' }, 'k');
+  it('holds its secrets as YAML, sorted by name', async () => {
+    const vault = await sealVault({ B_SECRET: 'two', A_SECRET: '1' }, 'k');
+    const decrypter = new Decrypter();
+    decrypter.addPassphrase('k');
+
+    await expect(decrypter.decrypt(armor.decode(vault), 'text')).resolves.toBe(
+      'A_SECRET: "1"\nB_SECRET: two\n',
+    );
+  });
+
+  it('reads a vault written by hand exactly as its values were typed', async () => {
+    const vault = await sealed(
+      [
+        '# rotated in September',
+        'FLAG: yes',
+        'PIN: 0123',
+        'NOTHING: null',
+        'KEY: |',
+        '  -----BEGIN KEY-----',
+        '  abc',
+        '  -----END KEY-----',
+      ].join('\n'),
+    );
 
     await expect(openVault(vault, 'k')).resolves.toEqual({
-      A_SECRET: '1',
-      B_SECRET: '2',
+      FLAG: 'yes',
+      PIN: '0123',
+      NOTHING: 'null',
+      KEY: '-----BEGIN KEY-----\nabc\n-----END KEY-----\n',
     });
+  });
+
+  it('keeps every value whole when written back', async () => {
+    const held = {
+      LONG: `${'word '.repeat(40)}end`,
+      PIN: '0123',
+      KEY: '-----BEGIN KEY-----\nabc\n-----END KEY-----\n',
+    };
+
+    await expect(openVault(await sealVault(held, 'k'), 'k')).resolves.toEqual(
+      held,
+    );
   });
 
   it('refuses what is not an armored age file', async () => {
@@ -75,12 +117,15 @@ describe('the age vault', () => {
   });
 
   it('refuses an age file that holds something other than secrets', async () => {
-    const encrypter = new Encrypter();
-    encrypter.setPassphrase('k');
-    encrypter.setScryptWorkFactor(WORK_FACTOR);
-    const vault = armor.encode(await encrypter.encrypt('["not", "secrets"]'));
-
-    await expect(openVault(vault, 'k')).rejects.toThrow(NOT_SECRETS);
+    await expect(
+      openVault(await sealed('- not\n- secrets\n'), 'k'),
+    ).rejects.toThrow(NOT_SECRETS);
+    await expect(
+      openVault(await sealed('NESTED:\n  TOKEN: x\n'), 'k'),
+    ).rejects.toThrow(NOT_SECRETS);
+    await expect(
+      openVault(await sealed('TOKEN: [unclosed'), 'k'),
+    ).rejects.toThrow(NOT_SECRETS);
   });
 
   it('says why a vault does not open, by reason', async () => {
