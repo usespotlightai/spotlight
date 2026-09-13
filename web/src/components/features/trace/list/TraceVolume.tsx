@@ -12,7 +12,7 @@ import type { Traced } from '@/lib/trace-list';
 import { type Bucket, bucketed, spanned } from '@/lib/trace-list';
 import { cn } from '@/lib/utils';
 
-const HEIGHT = 132;
+const HEIGHT = 180;
 
 const NUDGE = { x: 14, y: 12 };
 
