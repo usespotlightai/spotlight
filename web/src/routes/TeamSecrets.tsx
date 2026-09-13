@@ -22,7 +22,7 @@ export function TeamSecrets() {
         <SettingsRow
           label="Vault key"
           leading={<RowIcon icon={KeyRound} />}
-          description="Keep it secret"
+          description="Decrypts the secrets in your configuration repository"
         >
           <VaultKeyField teamId={teamId} />
         </SettingsRow>
