@@ -183,7 +183,7 @@ export function TraceVolume({
             <XAxis
               dataKey="from"
               tickLine={false}
-              axisLine={false}
+              axisLine={{ stroke: 'var(--border)' }}
               minTickGap={32}
               tickFormatter={(at: number) => tickOf(at, spanMs)}
               tick={<DateTick spanMs={spanMs} />}
