@@ -1,13 +1,13 @@
-import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import { Line } from '@domain/aggregates/line.aggregate';
 import {
   BUILT_IN_LINES,
   type LineOpening,
 } from '@domain/services/built-in-lines';
 import { reconcileLine } from '@domain/services/reconcile-line';
-import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
 import { LineKey } from '@domain/value-objects/line-key.vo';
+import { LineName } from '@domain/value-objects/line-name.vo';
 import { LinePlan, type StationPlan } from '@domain/value-objects/line-plan.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import type { StationId } from '@domain/value-objects/station-id.vo';
@@ -21,7 +21,7 @@ const MERGED = Happening.of('github.pull_request.merged');
 const standing = () => {
   let next = 0;
 
-  return AssemblyLine.open({
+  return Line.open({
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
     line: BUILT_IN_LINES[0] as LineOpening,
@@ -43,13 +43,13 @@ const station = (
   effort: null,
   agentPrompt: null,
   tools: [],
+  skills: [],
   passesTo: [],
   ends: false,
   ...over,
 });
 
-/** The same line the built-in one describes, station for station. */
-const asStanding = (line: AssemblyLine): LinePlan =>
+const asStanding = (line: Line): LinePlan =>
   LinePlan.of({
     key: line.key,
     name: line.name,
@@ -60,7 +60,6 @@ const asStanding = (line: AssemblyLine): LinePlan =>
       ),
   });
 
-/** The same plan with one thing about it changed. */
 const like = (
   plan: LinePlan,
   over: Partial<Parameters<typeof LinePlan.of>[0]>,
@@ -105,8 +104,6 @@ describe('reconciling a line with the plan describing it', () => {
     );
   });
 
-  // The whole point. A task stands at a station by an identifier nobody
-  // writes down; editing the file must not hand it a different one.
   it('leaves a renamed station the same station it was', () => {
     const line = standing();
     const [first] = [...line.stations].sort(
@@ -186,7 +183,6 @@ describe('reconciling a line with the plan describing it', () => {
     );
   });
 
-  // The alternative is deciding on somebody's behalf where their work went.
   it('refuses to remove a station with tasks standing at it', () => {
     const line = standing();
     const plan = asStanding(line);
@@ -224,7 +220,6 @@ describe('reconciling a line with the plan describing it', () => {
     );
   });
 
-  // Written as keys, so they have to land on the identities just assigned.
   it('resolves where work passes to, including to a new station', () => {
     const line = standing();
     const plan = asStanding(line);
@@ -275,7 +270,7 @@ describe('reconciling a line with the plan describing it', () => {
     const { result } = reconciling(
       like(asStanding(line), {
         key: LineKey.of('release'),
-        name: AssemblyLineName.of('Release'),
+        name: LineName.of('Release'),
       }),
       line,
     );

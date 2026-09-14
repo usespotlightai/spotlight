@@ -58,17 +58,18 @@ describe('GitHubInstalled', () => {
     });
   });
 
-  // Where nobody said, the page that says what a team is listening to.
   it('falls back to the integrations page', () => {
     connectState.isSuccess = true;
     renderAt('?installation_id=42&state=acme%3Ateam_1');
 
-    expect(navigate).toHaveBeenCalledWith('/w/acme/team/team_1/integrations', {
-      replace: true,
-    });
+    expect(navigate).toHaveBeenCalledWith(
+      '/w/acme/team/team_1/settings/integrations',
+      {
+        replace: true,
+      },
+    );
   });
 
-  // Somebody without rights on the organisation asks an owner instead.
   it('connects nothing when the App was only requested', () => {
     renderAt('?setup_action=request&installation_id=42&state=acme%3Ateam_1');
 

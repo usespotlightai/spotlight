@@ -1,11 +1,9 @@
 import type { IntegrationReaderPort } from '@application/ports/integration-reader.port';
-import type { TeamSecretsPort } from '@application/ports/team-secrets.port';
 import type { WorkspaceReaderPort } from '@application/ports/workspace-reader.port';
 import { ConfigurationHandler } from '@application/queries/handlers/read-configuration.handler';
 import { ConfigurationQuery } from '@application/queries/read-configuration.query';
 import { Team } from '@domain/aggregates/team.aggregate';
 import { TeamConfiguration } from '@domain/aggregates/team-configuration.aggregate';
-import { DeclaredHappening } from '@domain/entities/declared-happening.entity';
 import { Integration } from '@domain/entities/integration.entity';
 import type {
   HostConnectionRepository,
@@ -15,9 +13,6 @@ import type { TeamRepository } from '@domain/repositories/team.repository';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
 import { Commit } from '@domain/value-objects/commit.vo';
 import { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
-import { ConfigurationProblem } from '@domain/value-objects/configuration-problem.vo';
-import { Happening } from '@domain/value-objects/happening.vo';
-import { MarkKind } from '@domain/value-objects/mark-kind.vo';
 import { Repository } from '@domain/value-objects/repository.vo';
 import { SecretName } from '@domain/value-objects/secret-name.vo';
 import { SourceKey } from '@domain/value-objects/source-key.vo';
@@ -37,22 +32,13 @@ const integration = (connects = false) =>
     name: 'Linear',
     connects,
     credentials: [SecretName.of('LINEAR_WEBHOOK_SECRET')],
-    declares: [
-      DeclaredHappening.of({
-        happening: Happening.of('linear.issue.completed'),
-        label: 'Issue completed',
-        told: 'Done.',
-        finds: [MarkKind.of('linear.issue')],
-      }),
-    ],
+    declares: [],
   });
 
 const asking = (
   over: {
     workspace?: null;
     applied?: boolean;
-    problems?: readonly ConfigurationProblem[];
-    held?: readonly string[];
     linked?: readonly HostConnectionSummary[];
     connects?: boolean;
     kept?: string;
@@ -105,7 +91,6 @@ const asking = (
                   'version: 1',
                 ),
               ],
-              problems: over.problems ?? [],
               readAt: READ_AT,
             }),
       ),
@@ -117,14 +102,6 @@ const asking = (
         problems: [],
       }),
     } as unknown as IntegrationReaderPort,
-    {
-      held: vi.fn(async () =>
-        (over.held ?? ['LINEAR_WEBHOOK_SECRET']).map((name) => ({
-          name,
-          setAt: READ_AT,
-        })),
-      ),
-    } as unknown as TeamSecretsPort,
     {
       held: vi.fn(async () => over.linked ?? []),
     } as unknown as HostConnectionRepository,
@@ -138,7 +115,6 @@ describe('ConfigurationHandler', () => {
 
     expect(read?.repository).toBe('acme/api');
     expect(read?.sha).toBe('a1b2c3d');
-    expect(read?.readAt).toBe(READ_AT.toISOString());
     expect(read?.integrations).toHaveLength(1);
   });
 
@@ -171,31 +147,12 @@ describe('ConfigurationHandler', () => {
     });
   });
 
-  // What a person copies into the host, so it has to be there to copy.
-  it('says where each host should send its deliveries', async () => {
+  it('says which file each host is written in', async () => {
     const read = await asking().execute(query());
 
-    expect(read?.integrations[0]?.deliverTo).toBe(
-      '/api/webhooks/w/acme/t/platform/linear',
+    expect(read?.integrations[0]?.path).toBe(
+      '.spotlight/integrations/linear.yml',
     );
-  });
-
-  it('names every word the host can raise', async () => {
-    const read = await asking().execute(query());
-
-    expect(read?.integrations[0]?.happenings).toEqual([
-      { happening: 'linear.issue.completed', label: 'Issue completed' },
-    ]);
-  });
-
-  // Named rather than shown, and only whether there is one at all.
-  it('names the secret without ever giving it back', async () => {
-    const read = await asking().execute(query());
-
-    expect(read?.integrations[0]?.secrets).toEqual([
-      { name: 'LINEAR_WEBHOOK_SECRET', set: true },
-    ]);
-    expect(JSON.stringify(read)).not.toContain('whsec');
   });
 
   it('says a host is not connected where it links but the team has not', async () => {
@@ -220,27 +177,6 @@ describe('ConfigurationHandler', () => {
     expect(read?.integrations[0]?.connectable).toBe(false);
   });
 
-  it('says when a host is waiting on a secret nobody set', async () => {
-    const read = await asking({ held: [] }).execute(query());
-
-    expect(read?.integrations[0]?.secrets).toEqual([
-      { name: 'LINEAR_WEBHOOK_SECRET', set: false },
-    ]);
-  });
-
-  it('carries what is wrong with the files', async () => {
-    const broken = ConfigurationProblem.of({
-      path: 'x.yml',
-      at: 'the file',
-      reason: 'is not YAML',
-    });
-    const read = await asking({ problems: [broken] }).execute(query());
-
-    expect(read?.problems).toEqual([
-      { path: broken.path, at: broken.at, reason: broken.reason },
-    ]);
-  });
-
   it('says nothing has been read yet where nothing has', async () => {
     const read = await asking({ applied: false }).execute(query());
 
@@ -249,13 +185,10 @@ describe('ConfigurationHandler', () => {
       readsFrom: null,
       movingTo: null,
       sha: null,
-      readAt: null,
       integrations: [],
-      problems: [],
     });
   });
 
-  // Someone outside it is not told a workspace is there at all.
   it('answers with nothing where the team is not the caller’s', async () => {
     expect(await asking({ workspace: null }).execute(query())).toBeNull();
   });

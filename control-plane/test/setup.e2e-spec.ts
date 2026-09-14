@@ -24,7 +24,7 @@ const DONE = {
   connectedToGitHub: true,
   hasRepository: true,
   hasConfiguration: true,
-  listensToATool: true,
+  listensToAnIntegration: true,
 };
 
 let held: TestDatabase;
@@ -71,8 +71,6 @@ describe('the setup lists a team still has standing', () => {
     );
   });
 
-  // Settling closes the conversation and does nothing else, so a query
-  // looking anywhere but the trail would hand this straight back.
   it('leaves a settled one out', async () => {
     const { teamId, list } = await openTeam('fallon');
 
@@ -88,7 +86,6 @@ describe('the setup lists a team still has standing', () => {
     ).not.toContain(teamId.value);
   });
 
-  // One workspace's lists are nobody else's business.
   it('keeps to the workspace it is asked about', async () => {
     const mine = await openTeam('hendricks');
     const theirs = await openTeam('sarah');
@@ -103,7 +100,6 @@ describe('the setup lists a team still has standing', () => {
     );
   });
 
-  // Answering settles nothing: the list is still the thing being talked about.
   it('keeps one somebody answered', async () => {
     const { teamId, list } = await openTeam('root');
 
@@ -136,10 +132,6 @@ describe('the setup lists a team still has standing', () => {
   });
 });
 
-/**
- * What the whole of it is for, read the way the inbox reads it: a list with
- * nothing left on it stops being something a person owes an answer to.
- */
 describe('the inbox item a setup list stands as', () => {
   const inbox = () =>
     new ListInboxHandler(new DrizzleInboxReader(db)).execute(
@@ -175,11 +167,6 @@ describe('the inbox item a setup list stands as', () => {
   });
 });
 
-/**
- * What "start a runner" is answered by. Against a real database because the
- * answer is a where clause, and a row nothing ever reached looks exactly like
- * a team that has a runner until something says it does not.
- */
 describe('whether a team has a runner', () => {
   const runners = () => new DrizzleRunnerReader(db);
 
@@ -208,7 +195,6 @@ describe('whether a team has a runner', () => {
     await expect(runners().anyConnected()).resolves.toBe(false);
   });
 
-  // Enrolling writes a row and mints a token. Neither of those is a machine.
   it('has none where the only one has never checked in', async () => {
     await enrol({ lastSeenAt: null });
 

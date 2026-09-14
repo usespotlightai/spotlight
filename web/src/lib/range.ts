@@ -3,11 +3,6 @@ export interface Range {
   readonly short: string;
   readonly label: string;
   readonly minutes: number;
-  /**
-   * How long one bar of the chart stands for. Set per range rather than held
-   * constant: a month of half hours is a thousand bars too thin to read, and
-   * an hour of them is six.
-   */
   readonly bucketMinutes: number;
 }
 

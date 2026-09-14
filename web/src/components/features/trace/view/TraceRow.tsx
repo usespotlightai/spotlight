@@ -18,10 +18,6 @@ type TraceRowProps = {
   onToggle: (id: string) => void;
 };
 
-/**
- * Held against re-rendering: a trace is hundreds of rows, and it is told what
- * to call rather than given a new closure each time, so the guard holds.
- */
 export const TraceRow = memo(function TraceRow({
   node,
   depth,
@@ -41,8 +37,6 @@ export const TraceRow = memo(function TraceRow({
     >
       <div
         className="flex min-w-0 shrink-0 items-center gap-1 pr-3"
-        // The width is read from the lane rather than passed in, so dragging
-        // the names wider is a repaint and not four hundred re-renders.
         style={{ width: 'var(--names)', paddingLeft: depth * INDENT + 8 }}
       >
         {holding > 0 ? (

@@ -31,7 +31,6 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
       .from(runner)
       .where(isNull(runner.revokedAt));
 
-    // First runner to name a model fixes its place; later ones only add.
     const byHarness = new Map<string, string[]>();
 
     for (const row of rows) {

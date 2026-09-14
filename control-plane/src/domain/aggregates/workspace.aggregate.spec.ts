@@ -78,8 +78,6 @@ describe('Workspace', () => {
       );
     });
 
-    // An App uninstalled and put back on is a new installation, and the old
-    // number opens nothing.
     it('takes a second connection to one host over the first', () => {
       const connected = build()
         .connectedTo(GITHUB, OWNER)
@@ -88,8 +86,6 @@ describe('Workspace', () => {
       expect(connected.connections).toEqual([REINSTALLED]);
     });
 
-    // Two hosts are two connections: connecting one says nothing about the
-    // other, and a workspace may well reach both.
     it('keeps a connection to another host when one is replaced', () => {
       const elsewhere = Connection.of('linear', 'team_9');
       const connected = build()
@@ -116,7 +112,6 @@ describe('Workspace', () => {
       ).toEqual(GITHUB);
     });
 
-    // Connecting changes how every run in the workspace reaches out.
     it('refuses a member who is neither owner nor admin', () => {
       expect(() =>
         withMember(WorkspaceRole.member).connectedTo(
@@ -130,6 +125,49 @@ describe('Workspace', () => {
       expect(() => build().connectedTo(GITHUB, UserId.of('stranger'))).toThrow(
         NotYoursToConnectError,
       );
+    });
+  });
+
+  describe('what a person may do with its configuration and secrets', () => {
+    const OWNER = UserId.of('user_1');
+    const ADMIN = UserId.of('user_2');
+    const MEMBER = UserId.of('user_3');
+    const STRANGER = UserId.of('stranger');
+
+    const workspace = Workspace.rehydrate({
+      id: WorkspaceId.of('ws_1'),
+      name: WorkspaceName.of('Acme Inc.'),
+      slug: WorkspaceSlug.of('acme-inc'),
+      members: [
+        { userId: OWNER, role: WorkspaceRole.owner },
+        { userId: ADMIN, role: WorkspaceRole.admin },
+        { userId: MEMBER, role: WorkspaceRole.member },
+      ],
+      teams: [FIRST_TEAM],
+    });
+
+    it('lets an owner or an admin seal secrets, and nobody else', () => {
+      expect(workspace.maySealSecretsBy(OWNER)).toBe(true);
+      expect(workspace.maySealSecretsBy(ADMIN)).toBe(true);
+      expect(workspace.maySealSecretsBy(MEMBER)).toBe(false);
+      expect(workspace.maySealSecretsBy(STRANGER)).toBe(false);
+    });
+
+    it('reveals the vault key to an owner or an admin, and nobody else', () => {
+      expect(workspace.mayRevealVaultKeyBy(OWNER)).toBe(true);
+      expect(workspace.mayRevealVaultKeyBy(ADMIN)).toBe(true);
+      expect(workspace.mayRevealVaultKeyBy(MEMBER)).toBe(false);
+      expect(workspace.mayRevealVaultKeyBy(STRANGER)).toBe(false);
+    });
+
+    it('lets anybody of it propose a change to its configuration', () => {
+      expect(workspace.mayProposeConfigurationBy(OWNER)).toBe(true);
+      expect(workspace.mayProposeConfigurationBy(ADMIN)).toBe(true);
+      expect(workspace.mayProposeConfigurationBy(MEMBER)).toBe(true);
+    });
+
+    it('lets nobody outside it propose a change to its configuration', () => {
+      expect(workspace.mayProposeConfigurationBy(STRANGER)).toBe(false);
     });
   });
 
@@ -176,7 +214,6 @@ describe('Workspace', () => {
       ).toBeNull();
     });
 
-    // Removed on GitHub is removed, whoever did the removing.
     it('asks nobody for permission', () => {
       expect(() => connected().disconnectedFrom('github')).not.toThrow();
     });

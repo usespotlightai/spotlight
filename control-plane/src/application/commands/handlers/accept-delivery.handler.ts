@@ -4,11 +4,6 @@ import type { CommandHandlerPort } from '@application/ports/command-handler.port
 import type { DeliveryInboxPort } from '@application/ports/delivery-inbox.port';
 import type { SourceForDelivery } from '@application/services/source-for-delivery.service';
 
-/**
- * All that happens while the host is still waiting. Nothing here reads the
- * delivery beyond asking its source what to call it, so a host is answered
- * in the time it takes to write one row.
- */
 export class AcceptDeliveryHandler
   implements CommandHandlerPort<AcceptDeliveryCommand, void>
 {
@@ -26,8 +21,6 @@ export class AcceptDeliveryHandler
         teamKey: command.teamKey,
       });
 
-      // The guard has already had this source vouch for the delivery, so one
-      // it does not know cannot reach here.
       if (!source) {
         return;
       }

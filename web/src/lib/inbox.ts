@@ -11,8 +11,6 @@ export type InboxMessage = InboxMessageResponseDto;
 export type Conversing = {
   readonly id: string;
   readonly teamId: string | undefined;
-  // What was asked, where a note carries the opening rather than standing
-  // under it.
   readonly about?: {
     readonly title: string;
     readonly description: string | null;
@@ -84,12 +82,7 @@ export const openedAt = (at: string): string => {
   return `${day} ${time}`;
 };
 
-/**
- * What holds a person's words at the top while the work below them scrolls
- * past. It has to sit on the element the conversation lays out directly — a
- * box only travels within its parent's, and a wrapper hugging the card has
- * nowhere to travel. The inset is what the card's own padding cancels.
- */
+/** Sticky only works on the element the conversation lays out directly, not a wrapper. */
 export const HELD_AT_TOP =
   'sticky top-0 z-10 -mx-3 bg-surface pt-2 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-6 after:bg-gradient-to-b after:from-surface after:to-transparent';
 

@@ -66,7 +66,6 @@ export const RunJournalMapper = {
         cost: journal.spent.cost?.amount ?? null,
         currency: journal.spent.cost?.currency ?? null,
       },
-      readable: journal.readable,
     };
   },
 };

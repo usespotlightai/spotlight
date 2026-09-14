@@ -73,7 +73,6 @@ export const RunJournalHttpMapper = {
             journal.spent.currency,
           )
         : null,
-      journal.readable,
     );
   },
 };

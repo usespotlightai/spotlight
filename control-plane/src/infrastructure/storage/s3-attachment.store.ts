@@ -57,8 +57,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
   constructor(env: Env) {
     const shared = {
       region: env.S3_REGION,
-      // A signed address would otherwise carry a checksum taken before there
-      // were any bytes, which S3 refuses when the browser's differ.
+      // Otherwise presigned URLs carry a pre-upload checksum that S3 rejects.
       requestChecksumCalculation: 'WHEN_REQUIRED' as const,
       responseChecksumValidation: 'WHEN_REQUIRED' as const,
       credentials:
@@ -107,7 +106,6 @@ export class S3AttachmentStore implements AttachmentStorePort {
       }),
       {
         expiresIn: SIGNED_FOR,
-        // Signed rather than trusted: a larger file breaks the signature.
         signableHeaders: new Set(['content-type', 'content-length']),
         unhoistableHeaders: new Set(Object.keys(headers)),
       },
@@ -176,8 +174,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
   ): Promise<string> {
     this.refuseWithoutABucket();
 
-    // Anything a browser does not draw as a picture is handed over to be
-    // saved: a page opened from the store would run as whatever it claims.
+    // Non-images (and SVG) download rather than render, so they cannot run as pages.
     const shown =
       wanted === 'shown' && file.image && file.contentType !== 'image/svg+xml';
 

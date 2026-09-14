@@ -20,7 +20,6 @@ export class TaskTitle {
     return new TaskTitle(trimmed);
   }
 
-  /** A title from outside, cut to fit rather than refused: it is display text. */
   static clamp(raw: string): TaskTitle {
     const trimmed = raw.trim();
 

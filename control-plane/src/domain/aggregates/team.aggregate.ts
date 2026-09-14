@@ -21,18 +21,11 @@ export interface TeamMember {
 export class Team extends EventRecorder {
   private constructor(
     readonly id: TeamId,
-    /** Whose it is. A team belongs to one workspace and never moves. */
     readonly workspaceId: WorkspaceId,
     readonly key: TeamKey,
     readonly name: TeamName,
     readonly members: readonly TeamMember[],
-    /** Null where nobody chose, and then the fallback rule applies. */
     readonly configRepository: Repository | null,
-    /**
-     * Where its configuration is on its way to, with a pull request carrying it
-     * open there. Null where nothing is moving. Reading stays where it is until
-     * the move lands, so a pull request nobody has merged changes nothing.
-     */
     readonly movingConfigurationTo: Repository | null,
   ) {
     super();
@@ -116,30 +109,14 @@ export class Team extends EventRecorder {
     return joined;
   }
 
-  /**
-   * Where it reads its configuration from: where it keeps it, or else wherever
-   * the fallback rule last found it.
-   */
   configurationReadFrom(lastRead: Repository | null): Repository | null {
     return this.configRepository ?? lastRead;
   }
 
-  /**
-   * Where a change to its configuration is written. While a move is under way
-   * that is where it is going, so an edit made meanwhile lands in the pull
-   * request carrying it rather than somewhere about to be left behind.
-   */
   configurationWrittenTo(lastRead: Repository | null): Repository | null {
     return this.movingConfigurationTo ?? this.configurationReadFrom(lastRead);
   }
 
-  /**
-   * Where a team keeps its configuration, said outright. Said with another
-   * place, or with none, moves it without carrying anything: the files already
-   * written stay in the old repository, and reading begins from the new. A move
-   * under way is given up, since this choice is made over it. Saying the same
-   * place again is no change.
-   */
   keepsConfigurationIn(repository: Repository | null): Team {
     return this.reshaped({
       configRepository: repository,
@@ -147,7 +124,6 @@ export class Team extends EventRecorder {
     });
   }
 
-  /** Starting the same move again is no change. */
   movesConfigurationTo(
     destination: Repository,
     lastRead: Repository | null,
@@ -203,7 +179,6 @@ export class Team extends EventRecorder {
     return this.id.equals(other.id);
   }
 
-  /** What was recorded before a change is still owed after it. */
   private reshaped(
     over: Partial<
       Pick<

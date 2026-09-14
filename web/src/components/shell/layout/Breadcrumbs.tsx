@@ -6,11 +6,7 @@ import { Shortened } from '@/components/shell/layout/Shortened';
 
 const LABEL_WIDTH = 256;
 
-/**
- * Serialisable on purpose: a breadcrumb travels in navigation state so a page
- * can show the trail it was reached by, and a React node would not survive the
- * trip. The avatar is named rather than drawn, and built here from the name.
- */
+/** Must stay serialisable: crumbs travel in navigation state. */
 export type BreadcrumbSegment = {
   label: string;
   avatar?: string;

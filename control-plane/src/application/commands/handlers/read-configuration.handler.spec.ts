@@ -95,7 +95,6 @@ describe('ReadConfigurationHandler', () => {
     expect(read).not.toHaveBeenCalled();
   });
 
-  // Someone outside it is not told a workspace is there at all.
   it('answers with nothing where the caller is not of the team', async () => {
     const { handler, read } = reading({ team: null });
 

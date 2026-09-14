@@ -9,7 +9,7 @@ const nothing: SetupState = {
   connectedToGitHub: false,
   hasRepository: false,
   hasConfiguration: false,
-  listensToATool: false,
+  listensToAnIntegration: false,
 };
 
 describe('listed', () => {
@@ -22,7 +22,6 @@ describe('listed', () => {
     );
   });
 
-  // The one step nobody can be sent to: it is done here, on the setup task.
   it('leaves a step with nowhere to go as words', () => {
     expect(listed(AT)).toContain('4. Set up your lines.');
   });
@@ -48,8 +47,8 @@ describe('shownFor', () => {
     expect(shown.find((each) => each.key === 'runner')?.where).toBe(
       '/w/acme/runners',
     );
-    expect(shown.find((each) => each.key === 'tools')?.where).toBe(
-      '/w/acme/team/team_1/integrations',
+    expect(shown.find((each) => each.key === 'integrations')?.where).toBe(
+      '/w/acme/team/team_1/settings/integrations',
     );
     expect(
       shown.find((each) => each.key === 'configuration')?.where,

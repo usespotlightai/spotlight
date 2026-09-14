@@ -16,7 +16,7 @@ import (
 func tracing(t *testing.T, trace protocol.Trace) {
 	t.Helper()
 
-	server, err := declare.Serve([]string{"Spec"}, 0, nil, nil)
+	server, err := declare.Serve([]string{"spec"}, 0, nil)
 	if err != nil {
 		t.Fatalf("serve: %v", err)
 	}
@@ -62,7 +62,6 @@ func TestTraceWritesTheWholeTraceToAFile(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 
-	// The receipt names the file and the counts, and nothing heavy.
 	got := out.String()
 	for _, want := range []string{path, "2 nodes", "1 faults"} {
 		if !strings.Contains(got, want) {
@@ -73,7 +72,6 @@ func TestTraceWritesTheWholeTraceToAFile(t *testing.T) {
 		t.Fatalf("the receipt leaked trace detail: %q", got)
 	}
 
-	// The file carries the whole trace, heavy fields and all.
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read the file: %v", err)
@@ -95,7 +93,6 @@ func TestTraceDefaultsToATempFile(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 
-	// The path is on the receipt; the file it names exists and is JSON.
 	field := strings.Fields(out.String())
 	var path string
 	for _, word := range field {

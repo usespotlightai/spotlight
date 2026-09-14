@@ -1,28 +1,32 @@
 import { SetLineRepositoriesHandler } from '@application/commands/handlers/set-line-repositories.handler';
 import { SetLineRepositoriesCommand } from '@application/commands/set-line-repositories.command';
 import { UseCaseFault } from '@application/errors/use-case.fault';
-import type { ProposeLineChange } from '@application/services/propose-line-change.service';
-import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import type { ProposeConfigurationChange } from '@application/services/propose-configuration-change.service';
+import { Line } from '@domain/aggregates/line.aggregate';
 import { Station } from '@domain/entities/station.entity';
-import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
-import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
+import { LineId } from '@domain/value-objects/line-id.vo';
+import { LineKey } from '@domain/value-objects/line-key.vo';
+import { LineName } from '@domain/value-objects/line-name.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
+import { StationKey } from '@domain/value-objects/station-key.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const line = () =>
-  AssemblyLine.of({
-    id: AssemblyLineId.of('line_1'),
+  Line.of({
+    id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
-    name: AssemblyLineName.of('Default'),
+    key: LineKey.of('default'),
+    name: LineName.of('Default'),
     repositories: [],
     stations: [
       Station.of({
         id: StationId.of('station_0'),
+        key: StationKey.of('backlog'),
         name: StationName.of('Backlog'),
         position: 0,
         color: StationColor.of('#a3a8b0'),
@@ -30,6 +34,7 @@ const line = () =>
       }),
       Station.of({
         id: StationId.of('station_1'),
+        key: StationKey.of('completed'),
         name: StationName.of('Completed'),
         position: 1,
         color: StationColor.of('#a3a8b0'),
@@ -38,22 +43,21 @@ const line = () =>
     ],
   });
 
-// The stub runs the change callback so the resulting edit can be inspected.
 const setting = () => {
-  let edited: AssemblyLine | undefined;
+  let edited: Line | undefined;
 
   const proposals = {
-    propose: vi.fn(
+    proposeLine: vi.fn(
       async (change: {
-        change: (base: AssemblyLine) => AssemblyLine;
-        describe: (line: AssemblyLine) => unknown;
+        change: (base: Line) => Line;
+        describe: (line: Line) => unknown;
       }) => {
         edited = change.change(line());
         change.describe(edited);
         return { url: 'https://github.com/acme/api/pull/9' };
       },
     ),
-  } as unknown as ProposeLineChange;
+  } as unknown as ProposeConfigurationChange;
 
   const handler = new SetLineRepositoriesHandler(proposals);
 
@@ -77,7 +81,7 @@ describe('SetLineRepositoriesHandler', () => {
     await expect(edit.run(['acme/api', 'acme/web'])).resolves.toEqual({
       url: 'https://github.com/acme/api/pull/9',
     });
-    expect(edit.proposals.propose).toHaveBeenCalledWith(
+    expect(edit.proposals.proposeLine).toHaveBeenCalledWith(
       expect.objectContaining({
         teamId: 'team_1',
         viewerId: 'user_1',

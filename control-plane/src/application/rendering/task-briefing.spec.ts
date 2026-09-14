@@ -1,31 +1,35 @@
 import { TaskBriefing } from '@application/rendering/task-briefing';
-import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import { Line } from '@domain/aggregates/line.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
+import { Skill } from '@domain/entities/skill.entity';
 import { Station } from '@domain/entities/station.entity';
+import {
+  HANDING_OVER,
+  OPENING_PULL_REQUESTS,
+} from '@domain/services/built-in-skills';
 import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
-import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
-import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { Attachment } from '@domain/value-objects/attachment.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { LineId } from '@domain/value-objects/line-id.vo';
+import { LineKey } from '@domain/value-objects/line-key.vo';
+import { LineName } from '@domain/value-objects/line-name.vo';
 import { Said } from '@domain/value-objects/said.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
+import { StationKey } from '@domain/value-objects/station-key.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskDescription } from '@domain/value-objects/task-description.vo';
 import { TaskNote } from '@domain/value-objects/task-note.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
-import { Tool } from '@domain/value-objects/tool.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { Voice } from '@domain/value-objects/voice.vo';
 import { WayOut } from '@domain/value-objects/way-out.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
-// A task carrying a trail, built the way the repository builds one: the
-// aggregate writes its own notes, so nothing may hand it any.
 const withNotes = (task: Task, ...notes: TaskNote[]) =>
   Task.rehydrate({
     id: task.id,
@@ -56,6 +60,7 @@ const at = (
 ) =>
   Station.of({
     id: StationId.of(id),
+    key: StationKey.of(name.toLowerCase()),
     name: StationName.of(name),
     position,
     color: StationColor.of('#93a1b5'),
@@ -66,11 +71,10 @@ const at = (
 
 const triage = () => at('station_1', 'Triage', 0, undefined, ['station_2']);
 
-// The line a briefing is read out of, since where a task stands and what it
-// may be handed on to are both the line's to answer.
 const ends = (id: string, name: string, position: number) =>
   Station.of({
     id: StationId.of(id),
+    key: StationKey.of(name.toLowerCase()),
     name: StationName.of(name),
     position,
     color: StationColor.of('#a3a8b0'),
@@ -80,6 +84,7 @@ const ends = (id: string, name: string, position: number) =>
 const atPlace = (station: Station, position: number) =>
   Station.of({
     id: station.id,
+    key: station.key,
     name: station.name,
     position,
     color: station.color,
@@ -89,14 +94,16 @@ const atPlace = (station: Station, position: number) =>
     kind: station.kind,
     wayOut: station.wayOut,
     tools: station.tools,
+    skills: station.skills,
   });
 
 const held = (...stations: Station[]) =>
-  AssemblyLine.of({
-    id: AssemblyLineId.of('line_1'),
+  Line.of({
+    id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
-    name: AssemblyLineName.of('Default'),
+    key: LineKey.of('default'),
+    name: LineName.of('Default'),
     stations: [
       ends('station_0', 'Backlog', 0),
       ...stations.map((each, place) => atPlace(each, place + 1)),
@@ -116,10 +123,28 @@ const task = (stationId: string, description?: TaskDescription) =>
     newId: () => 'task_1',
   });
 
+const HANDOVER_SAYS = 'How to write the note, as the handover skill says it.';
+const PULL_REQUEST_SAYS = 'How to open one, as the pull-request skill says it.';
+
+const shipped = [
+  Skill.shipped({
+    key: HANDING_OVER,
+    description: 'Handing over.',
+    instructions: HANDOVER_SAYS,
+  }),
+  Skill.shipped({
+    key: OPENING_PULL_REQUESTS,
+    description: 'Opening pull requests.',
+    instructions: PULL_REQUEST_SAYS,
+  }),
+];
+
 const brief = (station: Station, worked?: Task) =>
   TaskBriefing.brief({
     task: worked ?? task(station.id.value),
     line: held(station, at('station_2', 'Spec', 1)),
+    skills: shipped,
+    listedIn: null,
   });
 
 describe('TaskBriefing', () => {
@@ -205,7 +230,9 @@ describe('TaskBriefing', () => {
     const briefing = brief(triage());
 
     expect(briefing).toContain('spotlight handover --next');
-    expect(briefing).toContain('names a station to pass the task to: "Spec"');
+    expect(briefing).toContain(
+      'names a station to pass the task to, by its key: "spec" (Spec)',
+    );
   });
 
   it('says how to close work only where the station may close it', () => {
@@ -223,24 +250,20 @@ describe('TaskBriefing', () => {
   });
 
   it('does not offer an ending among the stations', () => {
-    expect(brief(triage())).not.toContain('"Spec", "done"');
+    expect(brief(triage())).not.toContain('(Spec), "done"');
   });
 
   it('does not offer a person among the stations', () => {
     const briefing = brief(triage());
 
-    expect(briefing).not.toContain('"Spec", "review"');
+    expect(briefing).not.toContain('(Spec), "review"');
     expect(briefing).toContain('That is not a station');
   });
 
-  // Handing a task back to where it stands moves nothing and starts the same
-  // work again, so the station it is at is never offered.
   it('does not offer the station the task is standing at', () => {
-    expect(brief(triage())).not.toContain('"Triage"');
+    expect(brief(triage())).not.toContain('"triage"');
   });
 
-  // An agent at a terminal nobody is watching will wait forever for an answer
-  // that is never coming.
   it('tells the agent to ask through the handover, not the terminal', () => {
     const briefing = brief(triage());
 
@@ -252,42 +275,42 @@ describe('TaskBriefing', () => {
     expect(brief(triage())).toContain('puts the task in front of a person');
   });
 
-  describe('what the station can reach for', () => {
-    const reaching = (...tools: string[]) =>
-      at('station_1', 'Triage', 0, undefined, ['station_2']).reaches(
-        tools.map(Tool.of),
-      );
+  describe('the skills a run is given', () => {
+    const listed = (station: Station) =>
+      TaskBriefing.brief({
+        task: task(station.id.value),
+        line: held(station, at('station_2', 'Spec', 1)),
+        skills: shipped,
+        listedIn: '.spotlight/skills',
+      });
 
-    it('says how to use a tool the station has', () => {
-      expect(brief(reaching('pull-request'))).toContain(
-        'spotlight pull-request --title',
-      );
+    it('pastes no skill in, and lists none, where the harness reads them itself', () => {
+      const briefing = brief(triage());
+
+      expect(briefing).not.toContain(HANDOVER_SAYS);
+      expect(briefing).not.toContain(PULL_REQUEST_SAYS);
+      expect(briefing).not.toContain('## Skills');
     });
 
-    // What it is not told about, it cannot reach for: the runner raises only
-    // what the run was given.
-    it('says nothing of a tool the station does not have', () => {
-      expect(brief(triage())).not.toContain('spotlight pull-request');
+    it('lists each where it is laid, by what it is for, where the harness does not read them', () => {
+      const briefing = listed(triage());
+
+      expect(briefing).toContain('## Skills');
+      expect(briefing).toContain(
+        '- `.spotlight/skills/spotlight-handover/SKILL.md` — Handing over.',
+      );
+      expect(briefing).not.toContain(HANDOVER_SAYS);
     });
 
-    it('says nothing of a tool nobody here provides', () => {
-      expect(() => brief(reaching('teleport'))).not.toThrow();
-      expect(brief(reaching('teleport'))).not.toContain('teleport');
-    });
-
-    it('keeps the station’s own instructions above what it can reach for', () => {
-      const briefing = brief(
-        at(
-          'station_1',
-          'Triage',
-          0,
-          AgentPrompt.of('## Role\n\nSort the queue.'),
-          ['station_2'],
-        ).reaches([Tool.of('pull-request')]),
+    it('keeps the station’s own instructions above the skills it lists', () => {
+      const briefing = listed(
+        at('station_1', 'Triage', 0, AgentPrompt.of('## Role\n\nSort it.'), [
+          'station_2',
+        ]),
       );
 
-      expect(briefing.indexOf('Sort the queue.')).toBeLessThan(
-        briefing.indexOf('spotlight pull-request'),
+      expect(briefing.indexOf('Sort it.')).toBeLessThan(
+        briefing.indexOf('## Skills'),
       );
     });
   });
@@ -327,21 +350,17 @@ describe('TaskBriefing', () => {
       expect(briefing).toContain('- `c1` — compose.yml:22 — pin this.');
     });
 
-    // Read from what was said, not sliced back out of how it reads: the
-    // sentence a note opens with has been reworded more than once.
     it('lists where and what without reading the note back', () => {
       const briefing = brief(triage(), reviewed());
 
       expect(briefing).not.toContain('The pull request was commented on. —');
     });
 
-    // An example naming a remark that is not open is an example that fails.
     it('shows the command with a handle that is actually open', () => {
       expect(brief(triage(), reviewed())).toContain('spotlight reply --to c1');
       expect(brief(triage(), reviewed())).not.toContain('--to c0');
     });
 
-    // A merge names nothing to answer, so it is not offered as though it did.
     it('leaves out what was said nowhere answerable', () => {
       expect(brief(triage(), reviewed())).not.toContain('`c0`');
     });

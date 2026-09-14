@@ -1,26 +1,20 @@
-import {
-  createCipheriv,
-  createDecipheriv,
-  randomBytes,
-  timingSafeEqual,
-} from 'node:crypto';
+import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 
 const ALGORITHM = 'aes-256-gcm';
 const KEY_BYTES = 32;
 const IV_BYTES = 12;
 const TAG_BYTES = 16;
 
-/**
- * Written into the envelope so a key that is rotated later can be told from
- * one that was never right. Nothing reads a version it does not know.
- */
 const VERSION = 'v1';
 
-/**
- * AES-256-GCM, so a row edited in the database fails to open rather than
- * opening as something else. The key is the deployment's, and is the one
- * thing here that must not be in the database.
- */
+export class UnopenedSecretError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'UnopenedSecretError';
+  }
+}
+
+// The key is the deployment's and must never be stored in the database.
 export class SecretCipher {
   private readonly key: Buffer;
 
@@ -36,7 +30,6 @@ export class SecretCipher {
     this.key = given;
   }
 
-  /** `v1.<iv>.<tag>.<secret>`, each part base64, which is what a row holds. */
   seal(plain: string): string {
     const iv = randomBytes(IV_BYTES);
     const cipher = createCipheriv(ALGORITHM, this.key, iv);
@@ -57,17 +50,17 @@ export class SecretCipher {
   open(envelope: string): string {
     const [version, iv, tag, sealed] = envelope.split('.');
 
-    // The sealed part may be empty where the secret was; the envelope around
-    // it may not. Reading emptiness as a missing envelope would have this
-    // refuse to open something it had sealed itself.
+    // An empty secret seals to an empty part; only a missing part is refused.
     if (version !== VERSION || !iv || !tag || sealed === undefined) {
-      throw new Error('That secret was not sealed by this Spotlight');
+      throw new UnopenedSecretError(
+        'That secret was not sealed by this Spotlight',
+      );
     }
 
     const given = Buffer.from(tag, 'base64');
 
     if (given.length !== TAG_BYTES) {
-      throw new Error('That secret has been tampered with');
+      throw new UnopenedSecretError('That secret has been tampered with');
     }
 
     const decipher = createDecipheriv(
@@ -78,20 +71,15 @@ export class SecretCipher {
 
     decipher.setAuthTag(given);
 
-    return Buffer.concat([
-      decipher.update(Buffer.from(sealed, 'base64')),
-      decipher.final(),
-    ]).toString('utf8');
-  }
-
-  /**
-   * Whether two envelopes hold the same secret, without opening either where
-   * they are the same length. Used to leave a row alone when nothing changed.
-   */
-  static same(one: string, other: string): boolean {
-    const left = Buffer.from(one);
-    const right = Buffer.from(other);
-
-    return left.length === right.length && timingSafeEqual(left, right);
+    try {
+      return Buffer.concat([
+        decipher.update(Buffer.from(sealed, 'base64')),
+        decipher.final(),
+      ]).toString('utf8');
+    } catch {
+      throw new UnopenedSecretError(
+        'That secret was sealed with another key, or has been tampered with',
+      );
+    }
   }
 }

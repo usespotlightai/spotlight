@@ -5,14 +5,6 @@ import type { TeamRepository } from '@domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@domain/repositories/workspace.repository';
 import { Repository } from '@domain/value-objects/repository.vo';
 
-/**
- * What a delivery said about a team rather than about a task: a repository it
- * reads configuration from has moved, or the host it reached them through is
- * gone.
- *
- * Nothing here fails a delivery. A host is not told to send its push again
- * because a file in it would not parse.
- */
 export class AttendToNotices {
   constructor(
     private readonly teams: TeamRepository,
@@ -40,11 +32,6 @@ export class AttendToNotices {
     }
   }
 
-  /**
-   * The connection dropped, so nothing goes on believing Spotlight can reach
-   * a host it cannot. Found by what the host called it rather than by which
-   * workspace: an installation removed is removed from whoever held it.
-   */
   private async letGoOf(source: string, externalId: string): Promise<void> {
     const workspaceId = await this.workspaces.withConnection(
       source,
@@ -65,8 +52,6 @@ export class AttendToNotices {
   private async readFor(named: string): Promise<void> {
     const repository = Repository.of(named);
 
-    // Whoever reads this repository reads it because it is theirs to read:
-    // a push tells us a repository moved, not whose configuration it holds.
     for (const team of await this.teams.readingFrom(repository)) {
       const workspace = await this.workspaces.find(team.workspaceId);
 

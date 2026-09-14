@@ -1,33 +1,28 @@
-import { RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 import { GitHubIntegration } from '@/components/features/integrations/GitHubIntegration';
 import { IntegrationCard } from '@/components/features/integrations/IntegrationCard';
+import { SecretsPrompt } from '@/components/features/integrations/SecretsPrompt';
 import { SettingsPage } from '@/components/features/settings/SettingsPage';
+import { ProposedPullRequest } from '@/components/shared/ProposedPullRequest';
+import { RereadConfigurationButton } from '@/components/shared/RereadConfigurationButton';
 import { Button } from '@/components/ui/button';
+import { useConfiguration } from '@/hooks/api/useConfiguration';
 import {
-  useConfiguration,
-  useRereadConfiguration,
-} from '@/hooks/api/useConfiguration';
-import { useChooseTools, useOnboarding } from '@/hooks/api/useOnboarding';
+  useChooseIntegrations,
+  useOnboarding,
+} from '@/hooks/api/useOnboarding';
+import { messageOf } from '@/lib/error';
 import { shownTogether } from '@/lib/integrations';
 
-/**
- * What this team listens to, and what it could. Written down or not, a host
- * is one card, and the change between them is a pull request.
- */
 export function TeamIntegrations() {
   const { slug, teamId } = useParams();
   const { data: onboarding, isPending: loadingOnboarding } =
     useOnboarding(teamId);
   const { data: configuration, isPending: loadingConfiguration } =
     useConfiguration(teamId);
-  const reread = useRereadConfiguration(teamId);
-  const choose = useChooseTools(teamId);
+  const choose = useChooseIntegrations(teamId);
 
-  // Coming back from authorizing a host is a fresh page load, so the
-  // configuration is read anew on its own; all that is left is to take the
-  // marker off the URL so a later refresh is plain.
   const [params, setParams] = useSearchParams();
   const connected = params.get('connected');
   useEffect(() => {
@@ -43,19 +38,15 @@ export function TeamIntegrations() {
     );
   }, [connected, setParams]);
 
-  /**
-   * What this team has asked for, against what its repository holds. Kept
-   * after the pull request is opened: what was asked for is not true until
-   * somebody merges it, and the card says so until the next read shows it.
-   */
   const [wanted, setWanted] = useState<ReadonlyMap<string, boolean>>(new Map());
+  const [prompting, setPrompting] = useState(false);
 
   if (loadingOnboarding || loadingConfiguration || !teamId) {
     return null;
   }
 
   const shown = shownTogether(
-    onboarding?.tools ?? [],
+    onboarding?.integrations ?? [],
     configuration?.integrations ?? [],
   );
 
@@ -75,6 +66,24 @@ export function TeamIntegrations() {
   const sources = asked.filter(([, on]) => on).map(([source]) => source);
   const dropped = asked.filter(([, on]) => !on).map(([source]) => source);
   const changed = sources.length + dropped.length;
+
+  const needingSecrets = (onboarding?.integrations ?? []).filter(
+    (integration) =>
+      sources.includes(integration.source) && integration.secrets.length > 0,
+  );
+
+  const failed = choose.error
+    ? messageOf(choose.error, 'The pull request could not be opened.')
+    : null;
+
+  const openPullRequest = () => {
+    if (needingSecrets.length > 0) {
+      setPrompting(true);
+      return;
+    }
+
+    choose.mutate({ sources, dropped });
+  };
 
   return (
     <SettingsPage
@@ -106,27 +115,28 @@ export function TeamIntegrations() {
           </h2>
 
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => reread.mutate()}
-              disabled={reread.isPending}
-              className="rounded-full bg-card shadow-none"
-            >
-              <RefreshCw className="size-3.5" aria-hidden />
-              {reread.isPending ? 'Reading…' : 'Read again'}
-            </Button>
+            <RereadConfigurationButton teamId={teamId} />
 
             <Button
               size="sm"
               disabled={changed === 0 || choose.isPending}
-              onClick={() => choose.mutate({ sources, dropped })}
+              onClick={openPullRequest}
               className="rounded-full shadow-none"
             >
               {choose.isPending ? 'Opening…' : 'Open pull request'}
             </Button>
           </div>
         </div>
+
+        {!prompting && failed && (
+          <p className="text-destructive text-sm">{failed}</p>
+        )}
+
+        {choose.data?.url && (
+          <ProposedPullRequest url={choose.data.url}>
+            Merge the pull request to apply the change.
+          </ProposedPullRequest>
+        )}
 
         {configuration?.repository && (
           <p className="text-muted-foreground text-xs">
@@ -145,12 +155,28 @@ export function TeamIntegrations() {
               key={each.source}
               shown={each}
               teamId={teamId}
+              repository={configuration?.repository ?? null}
               selected={selected(each.source)}
               onToggle={() => toggle(each.source)}
             />
           ))}
         </div>
       </section>
+
+      {prompting && (
+        <SecretsPrompt
+          integrations={needingSecrets}
+          onOpenChange={setPrompting}
+          pending={choose.isPending}
+          error={failed}
+          onSubmit={(secrets) =>
+            choose.mutate(
+              { sources, dropped, secrets },
+              { onSuccess: () => setPrompting(false) },
+            )
+          }
+        />
+      )}
     </SettingsPage>
   );
 }

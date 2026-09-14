@@ -4,7 +4,6 @@ import type { TeamId } from '@domain/value-objects/team-id.vo';
 import type { UserId } from '@domain/value-objects/user-id.vo';
 
 export interface TaskNoteSummary {
-  // What identifies it: notes are appended and never reordered.
   readonly position: number;
   readonly station: string;
   readonly body: string;
@@ -22,7 +21,6 @@ export interface TaskSummary {
   readonly attachments: readonly AttachmentSummary[];
   readonly createdAt: Date;
   readonly running: boolean;
-  // Where the question is answered, and null where none is standing.
   readonly awaitingReview: TaskReviewSummary | null;
   readonly pullRequest: string | null;
   readonly note: TaskNoteSummary | null;

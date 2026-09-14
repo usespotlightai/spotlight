@@ -1,14 +1,16 @@
+import { InvalidLinePlanError } from '@domain/exceptions/invalid-line-plan.error';
 import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
-import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { ConfigurationProblem } from '@domain/value-objects/configuration-problem.vo';
 import { Effort } from '@domain/value-objects/effort.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@domain/value-objects/harness-model.vo';
 import { LineKey } from '@domain/value-objects/line-key.vo';
+import { LineName } from '@domain/value-objects/line-name.vo';
 import { LinePlan } from '@domain/value-objects/line-plan.vo';
 import { LineRole } from '@domain/value-objects/line-role.vo';
 import { Repository } from '@domain/value-objects/repository.vo';
+import { SkillKey } from '@domain/value-objects/skill-key.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationDescription } from '@domain/value-objects/station-description.vo';
 import { StationKey } from '@domain/value-objects/station-key.vo';
@@ -24,7 +26,6 @@ export type CompiledLine =
 const reasoned = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
-/** The colour a station is painted where the file does not say. */
 const PLAIN = '#a3a8b0';
 
 export const compileLine = (path: string, text: string): CompiledLine => {
@@ -61,58 +62,12 @@ export const compileLine = (path: string, text: string): CompiledLine => {
   }
 
   const file = read.data;
+  const repositories: Repository[] = [];
   const problems: ConfigurationProblem[] = [];
-  const keys = new Set(file.stations.map((each) => each.key));
-
-  // A station named twice would have the second quietly never reached.
-  if (keys.size !== file.stations.length) {
-    problems.push(
-      ConfigurationProblem.of({
-        path,
-        at: 'stations',
-        reason: 'names one station twice, and each is named once',
-      }),
-    );
-  }
-
-  for (const [at, station] of file.stations.entries()) {
-    for (const to of station.passesTo) {
-      if (!keys.has(to)) {
-        problems.push(
-          ConfigurationProblem.of({
-            path,
-            at: `stations.${at}.passesTo`,
-            reason: `names ${to}, which is not a station on this line`,
-          }),
-        );
-      }
-    }
-  }
-
-  for (const [at, reaction] of file.reactions.entries()) {
-    for (const [where, named] of [
-      ['to', reaction.to],
-      ['from', reaction.from],
-    ] as const) {
-      if (named && !keys.has(named)) {
-        problems.push(
-          ConfigurationProblem.of({
-            path,
-            at: `reactions.${at}.${where}`,
-            reason: `names ${named}, which is not a station on this line`,
-          }),
-        );
-      }
-    }
-  }
-
-  const names = new Set<string>();
 
   for (const [at, named] of file.repositories.entries()) {
-    let repository: Repository;
-
     try {
-      repository = Repository.of(named);
+      repositories.push(Repository.of(named));
     } catch (error) {
       problems.push(
         ConfigurationProblem.of({
@@ -121,35 +76,19 @@ export const compileLine = (path: string, text: string): CompiledLine => {
           reason: reasoned(error),
         }),
       );
-      continue;
     }
-
-    // The name is the directory a repository is cloned into and the key it is
-    // reached by, so two sharing one would collide.
-    if (names.has(repository.name)) {
-      problems.push(
-        ConfigurationProblem.of({
-          path,
-          at: `repositories.${at}`,
-          reason: `names ${repository.name} a second time, and each is cloned into a directory of its own name`,
-        }),
-      );
-    }
-    names.add(repository.name);
   }
 
   if (problems.length > 0) {
     return { ok: false, problems };
   }
 
-  // The domain has the last word on whether this is a plan at all. What it
-  // refuses comes back as a problem with the file, because that is what it is.
   try {
     return {
       ok: true,
       line: LinePlan.of({
         key: LineKey.of(file.key),
-        name: AssemblyLineName.of(file.name),
+        name: LineName.of(file.name),
         stations: file.stations.map((station) => ({
           key: StationKey.of(station.key),
           name: StationName.of(station.name),
@@ -163,6 +102,7 @@ export const compileLine = (path: string, text: string): CompiledLine => {
           effort: station.effort ? Effort.of(station.effort) : null,
           agentPrompt: station.prompt ? AgentPrompt.of(station.prompt) : null,
           tools: station.tools.map((each) => Tool.of(each)),
+          skills: station.skills.map((each) => SkillKey.of(each)),
           passesTo: station.passesTo.map((each) => StationKey.of(each)),
           ends: station.ends,
         })),
@@ -172,7 +112,7 @@ export const compileLine = (path: string, text: string): CompiledLine => {
           to: StationKey.of(reaction.to),
         })),
         role: file.role ? LineRole.of(file.role) : null,
-        repositories: file.repositories.map((each) => Repository.of(each)),
+        repositories,
       }),
     };
   } catch (error) {
@@ -181,7 +121,7 @@ export const compileLine = (path: string, text: string): CompiledLine => {
       problems: [
         ConfigurationProblem.of({
           path,
-          at: 'the file',
+          at: error instanceof InvalidLinePlanError ? error.at : 'the file',
           reason: reasoned(error),
         }),
       ],

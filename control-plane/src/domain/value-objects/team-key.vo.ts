@@ -1,13 +1,10 @@
 import { InvalidIdentifierError } from '@domain/exceptions/invalid-identifier.error';
+import {
+  areWords,
+  LONGEST_WORDS,
+  wordsFrom,
+} from '@domain/value-objects/identifier-shapes';
 
-/** A word a person types in a URL and reads in a path: lowercase, dashed. */
-const SHAPE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-const LONGEST = 64;
-
-/**
- * What a team is called in a webhook address, which is no place for a
- * generated id.
- */
 export class TeamKey {
   private readonly kind = 'team-key';
 
@@ -16,10 +13,10 @@ export class TeamKey {
   static of(raw: string): TeamKey {
     const named = raw.trim();
 
-    if (!SHAPE.test(named) || named.length > LONGEST) {
+    if (!areWords(named)) {
       throw new InvalidIdentifierError(
         'team key',
-        `is lowercase words joined by dashes, at most ${LONGEST} characters, as in platform`,
+        `is lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, as in platform`,
       );
     }
 
@@ -27,15 +24,7 @@ export class TeamKey {
   }
 
   static from(name: string): TeamKey {
-    return TeamKey.of(
-      name
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-        .slice(0, LONGEST)
-        .replace(/-+$/g, ''),
-    );
+    return TeamKey.of(wordsFrom(name));
   }
 
   equals(other: TeamKey): boolean {

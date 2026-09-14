@@ -1,9 +1,5 @@
 import { InvalidMoneyError } from '@domain/exceptions/invalid-money.error';
 
-/**
- * An amount and what it is counted in. Neither says anything alone, and a sum
- * of two currencies says something false, so they are held together.
- */
 export class Money {
   private constructor(
     readonly amount: number,
@@ -24,7 +20,6 @@ export class Money {
     return new Money(amount, counted);
   }
 
-  /** Most runs say nothing about what they cost, and that is not an error. */
   static maybe(
     amount: number | null | undefined,
     currency: string | null | undefined,

@@ -11,7 +11,6 @@ export interface AtHand {
   readonly task: Task | null;
 }
 
-/** Everything a runner may reach on a run's behalf is decided here. */
 export class RunAtHand {
   constructor(
     private readonly runs: RunRepository,

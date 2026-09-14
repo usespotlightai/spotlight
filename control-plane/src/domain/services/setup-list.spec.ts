@@ -19,7 +19,7 @@ const done: SetupState = {
   connectedToGitHub: true,
   hasRepository: true,
   hasConfiguration: true,
-  listensToATool: true,
+  listensToAnIntegration: true,
 };
 
 const nothing: SetupState = {
@@ -27,7 +27,7 @@ const nothing: SetupState = {
   connectedToGitHub: false,
   hasRepository: false,
   hasConfiguration: false,
-  listensToATool: false,
+  listensToAnIntegration: false,
 };
 
 const NOW = new Date('2026-01-02T03:04:05.000Z');
@@ -47,7 +47,6 @@ const note = (
   });
 
 describe('the setup list', () => {
-  // A step waiting on nothing of its own is one nobody can ever tick off.
   it.each(Object.keys(done) as (keyof SetupState)[])(
     'has one step and only one waiting on %s',
     (fact) => {
@@ -90,7 +89,6 @@ describe('settling', () => {
     expect(settling([note('asked', 'setup')], nothing, NOW)).toBeNull();
   });
 
-  // Answering does not close it.
   it('still settles one somebody has answered', () => {
     expect(
       settling([note('asked', 'setup'), note('answered')], done, NOW),
@@ -107,7 +105,6 @@ describe('settling', () => {
     expect(settling([note('asked')], done, NOW)).toBeNull();
   });
 
-  // What is open now is somebody else's conversation.
   it('settles nothing where what is open is not the list', () => {
     expect(
       settling(

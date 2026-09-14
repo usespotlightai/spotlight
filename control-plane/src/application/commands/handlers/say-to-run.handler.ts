@@ -4,7 +4,7 @@ import type { ClockPort } from '@application/ports/clock.port';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { FilesAtHand } from '@application/services/files-at-hand.service';
 import { UnknownTaskError } from '@domain/exceptions/unknown-task.error';
-import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
+import type { LineRepository } from '@domain/repositories/line.repository';
 import type { RunRepository } from '@domain/repositories/run.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { RunId } from '@domain/value-objects/run-id.vo';
@@ -13,18 +13,13 @@ import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { Voice } from '@domain/value-objects/voice.vo';
 
-/**
- * A person says something to the agent working a run. The run names the
- * station it was dispatched from, and the task refuses anything said to a
- * station it has since left.
- */
 export class SayToRunHandler
   implements CommandHandlerPort<SayToRunCommand, void>
 {
   constructor(
     private readonly runs: RunRepository,
     private readonly tasks: TaskRepository,
-    private readonly lines: AssemblyLineRepository,
+    private readonly lines: LineRepository,
     private readonly clock: ClockPort,
     private readonly files: FilesAtHand,
   ) {}

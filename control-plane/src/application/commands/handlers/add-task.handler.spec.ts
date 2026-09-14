@@ -10,21 +10,23 @@ import { TaskBriefing } from '@application/rendering/task-briefing';
 import { FilesAtHand } from '@application/services/files-at-hand.service';
 import { RaiseTask } from '@application/services/raise-task';
 import type { TaskDispatching } from '@application/services/task-dispatch';
-import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import { Line } from '@domain/aggregates/line.aggregate';
 import type { Task } from '@domain/aggregates/task.aggregate';
 import { Station } from '@domain/entities/station.entity';
-import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
+import type { LineRepository } from '@domain/repositories/line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
-import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
-import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { Attachment } from '@domain/value-objects/attachment.vo';
 import type { AttachmentId } from '@domain/value-objects/attachment-id.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { LineId } from '@domain/value-objects/line-id.vo';
+import { LineKey } from '@domain/value-objects/line-key.vo';
+import { LineName } from '@domain/value-objects/line-name.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
+import { StationKey } from '@domain/value-objects/station-key.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -35,14 +37,16 @@ const raised = new Date('2026-08-27T09:15:00.000Z');
 const clock: ClockPort = { now: () => raised, sleep: async () => {} };
 
 const line = () =>
-  AssemblyLine.of({
-    id: AssemblyLineId.of('line_1'),
+  Line.of({
+    id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
-    name: AssemblyLineName.of('Default'),
+    key: LineKey.of('default'),
+    name: LineName.of('Default'),
     stations: [
       Station.of({
         id: StationId.of('station_0'),
+        key: StationKey.of('backlog'),
         name: StationName.of('Backlog'),
         position: 0,
         color: StationColor.of('#a3a8b0'),
@@ -50,6 +54,7 @@ const line = () =>
       }),
       Station.of({
         id: StationId.of('station_1'),
+        key: StationKey.of('triage'),
         name: StationName.of('Triage'),
         position: 1,
         color: StationColor.of('#93a1b5'),
@@ -58,6 +63,7 @@ const line = () =>
       }),
       Station.of({
         id: StationId.of('station_2'),
+        key: StationKey.of('completed'),
         name: StationName.of('Completed'),
         position: 2,
         color: StationColor.of('#a3a8b0'),
@@ -78,7 +84,7 @@ const dispatch = (runId: string | null = 'run_1'): TaskDispatching => ({
     dispatched.push({
       harness: station.harness.value,
       priority: station.position,
-      brief: TaskBriefing.brief({ task, line }),
+      brief: TaskBriefing.brief({ task, line, skills: [], listedIn: null }),
     });
     return runId === null ? null : RunId.of(runId);
   },
@@ -97,11 +103,12 @@ const tasks = () =>
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
     holding: vi.fn(async () => null),
+    countsAt: vi.fn(async () => new Map()),
   }) satisfies TaskRepository;
 
 const transaction: TransactionPort = { run: (work) => work() };
 
-const lines = (found: AssemblyLine | null = line()) =>
+const lines = (found: Line | null = line()) =>
   ({
     add: vi.fn(),
     save: vi.fn(),
@@ -110,7 +117,7 @@ const lines = (found: AssemblyLine | null = line()) =>
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
     withRole: vi.fn(async () => null),
-  }) satisfies AssemblyLineRepository;
+  }) satisfies LineRepository;
 
 const files = new FilesAtHand({ find: vi.fn(async () => null) }, {
   grant: vi.fn(),
@@ -129,10 +136,7 @@ const files = new FilesAtHand({ find: vi.fn(async () => null) }, {
   open: vi.fn(),
 } satisfies AttachmentStorePort);
 
-const addTask = (
-  command: AddTaskCommand,
-  board: AssemblyLineRepository = lines(),
-) =>
+const addTask = (command: AddTaskCommand, board: LineRepository = lines()) =>
   new AddTaskHandler(
     tasks(),
     board,
@@ -172,12 +176,10 @@ describe('AddTaskHandler', () => {
       attachments: [],
       createdAt: raised.toISOString(),
       rank: added?.rank.value,
-      // Dispatched the moment it was raised, so it is already being worked.
       running: true,
       awaitingReview: null,
       pullRequest: null,
       raisedBy: raiser,
-      // The raiser owns what they raised.
       assignee: raiser,
       note: null,
     });

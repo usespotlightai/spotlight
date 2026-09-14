@@ -88,7 +88,6 @@ const renderItem = () =>
     </QueryClientProvider>,
   );
 
-// Switching item is a navigation, not a remount.
 function Switch({ to }: { to: string }) {
   const navigate = useNavigate();
   return (
@@ -113,7 +112,6 @@ describe('InboxItem', () => {
       {
         runId: 'run_1',
         attempt: 1,
-        readable: true,
         ms: 56_000,
         spent: {
           used: 12_173,
@@ -163,12 +161,11 @@ describe('InboxItem', () => {
     expect(screen.getByText('total 0')).toBeInTheDocument();
   });
 
-  it('shows nothing where a run left no readable journal', () => {
+  it('shows nothing where a run left no steps', () => {
     journal.mockReturnValue([
       {
         runId: 'run_1',
         attempt: 1,
-        readable: true,
         ms: null,
         spent: null,
         steps: [],

@@ -56,7 +56,7 @@ func TestTheHookRunsInTheWorkspace(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 
-	// macOS resolves /var through a symlink, so compare what it leads to.
+	// macOS resolves /var through a symlink.
 	want, _ := filepath.EvalSymlinks(dir)
 	got, _ := filepath.EvalSymlinks(strings.TrimSpace(out))
 	if got != want {
@@ -88,7 +88,6 @@ func TestAFailingHookExplainsItself(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error")
 	}
-	// The hook's output is the only explanation a failed checkout has.
 	if !strings.Contains(out, "could not reach the forge") {
 		t.Errorf("output %q", out)
 	}

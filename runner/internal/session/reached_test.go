@@ -6,8 +6,6 @@ import (
 	"usespotlight.ai/runner/internal/protocol"
 )
 
-// A run may work several repositories. Each is served under its own path, so
-// the control plane can tell which one a git call is for.
 func TestReachedServesEachRepositoryUnderItsOwnPath(t *testing.T) {
 	checkouts := []protocol.Checkout{
 		{Remote: protocol.ThroughSpotlight, Path: "api", Branch: "spotlight/task_1"},
@@ -24,8 +22,6 @@ func TestReachedServesEachRepositoryUnderItsOwnPath(t *testing.T) {
 	}
 }
 
-// A remote that is not the stand-in is the hook's to make sense of, so it is
-// left exactly as it came.
 func TestReachedLeavesAnyOtherRemoteAlone(t *testing.T) {
 	checkouts := []protocol.Checkout{
 		{Remote: "https://example.com/acme/api.git", Path: "api"},

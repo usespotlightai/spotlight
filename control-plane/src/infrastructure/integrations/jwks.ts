@@ -1,10 +1,5 @@
 import { createPublicKey, type KeyObject } from 'node:crypto';
 
-/**
- * The public keys a host publishes, by key id, for verifying a JWT it signed.
- * Fetched from the host and cached: a JWKS turns over rarely, and a delivery
- * must not wait on a network round trip it made a moment ago.
- */
 export interface JwksResolver {
   keys(url: string): Promise<ReadonlyMap<string, KeyObject>>;
 }
@@ -16,7 +11,6 @@ interface Held {
   readonly keys: ReadonlyMap<string, KeyObject>;
 }
 
-/** A JWKS a host answered with, kept for a while so most deliveries need none. */
 export class JwksCache implements JwksResolver {
   private readonly held = new Map<string, Held>();
 
@@ -57,13 +51,11 @@ export class JwksCache implements JwksResolver {
             createPublicKey({ key: jwk as JsonWebKey, format: 'jwk' }),
           );
         } catch {
-          // A key that will not read is one Spotlight cannot verify by, which
-          // is a delivery refused, not a source that breaks.
+          // An unreadable key is skipped, so its deliveries are refused.
         }
       }
     } catch {
-      // An unreachable JWKS leaves nothing to verify by, so verification fails
-      // closed until the host is reachable again.
+      // An unreachable JWKS yields no keys, so verification fails closed.
     }
 
     return keys;

@@ -9,11 +9,6 @@ import { cn } from '@/lib/utils';
 
 const FADE = '1.5rem';
 
-/**
- * A scroll box that fades whichever edge still has content beyond it, so a
- * capped list reads as continuing rather than cut off. The fade is a mask on
- * the content, so it sits on any background and needs no matching colour.
- */
 export function FadingScroll({
   className,
   children,
@@ -46,8 +41,6 @@ export function FadingScroll({
 
     measure();
 
-    // The content growing or the viewport changing both move the edges, so
-    // both are watched, not only the reader's own scroll.
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     for (const child of el.children) {
@@ -61,8 +54,6 @@ export function FadingScroll({
     };
   }, [measure]);
 
-  // Solid at an edge with nothing past it, transparent where it can still
-  // scroll — so only the edge worth fading fades.
   const top = edges.up ? 'transparent' : '#000';
   const bottom = edges.down ? 'transparent' : '#000';
   const mask = `linear-gradient(to bottom, ${top} 0, #000 ${FADE}, #000 calc(100% - ${FADE}), ${bottom} 100%)`;

@@ -21,8 +21,6 @@ export const attachmentPath = (slug: string, attachmentId: string): string =>
 export const downloadPath = (slug: string, attachmentId: string): string =>
   `${attachmentPath(slug, attachmentId)}?download=1`;
 
-// What a browser draws in an <img>. Anything else is a file to download, even
-// where it is an image: a thumbnail that never draws only reads as broken.
 const DRAWN = new Set([
   'image/png',
   'image/jpeg',

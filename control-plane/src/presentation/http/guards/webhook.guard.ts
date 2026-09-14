@@ -16,9 +16,7 @@ interface DeliveredRequest {
   readonly headers: Record<string, string | string[] | undefined>;
   readonly body?: unknown;
   readonly params?: Record<string, string>;
-  /** Written here for the controller, which would otherwise look it up twice. */
   deliveredTo?: { workspaceId: string; teamId: string };
-  /** A handshake to echo instead of taking the delivery in, when the host asks. */
   answered?: string | null;
 }
 
@@ -35,8 +33,6 @@ export class WebhookGuard implements CanActivate {
     const slug = request.params?.slug;
     const teamKey = request.params?.teamKey;
 
-    // The door says whose it is. A team nobody here has is turned away
-    // exactly like a bad signature, so knocking tells you nothing.
     const at =
       slug && teamKey
         ? await this.workspaces.identifyTeam(slug, teamKey)
@@ -57,14 +53,12 @@ export class WebhookGuard implements CanActivate {
       raw: request.rawBody ?? null,
     };
 
-    // A source nobody registered is turned away the same way a bad signature
-    // is, so posting at the door tells you nothing about what is behind it.
+    // Unknown teams and sources fail like bad signatures, revealing nothing.
     if (!(await source?.verifies(delivered))) {
       throw new UnauthorizedException();
     }
 
     request.deliveredTo = at ?? { workspaceId: '', teamId: '' };
-    // A handshake is answered from the delivery, not taken in as work.
     request.answered = source?.answer?.(delivered) ?? null;
 
     return true;

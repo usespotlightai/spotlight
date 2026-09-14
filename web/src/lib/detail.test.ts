@@ -51,8 +51,6 @@ describe('shaped', () => {
     ]);
   });
 
-  // Terminal output and prose are not shapes, and pretending they are would
-  // read worse than leaving them as they were written.
   it('says nothing of what was never a shape', () => {
     expect(shaped('sh: vitest: command not found')).toBeNull();
     expect(shaped('"just a string"')).toBeNull();
@@ -71,8 +69,6 @@ describe('askedOf and answeredBy', () => {
     expect(answeredBy(held)?.body).toBe('ok');
   });
 
-  // A row named for its kind rather than its words leaves the words with
-  // nowhere else to be read.
   it('reads what was said as the answer, where the row only says it spoke', () => {
     const held = node({
       id: 'b',
@@ -96,7 +92,6 @@ describe('askedOf and answeredBy', () => {
 });
 
 describe('holdings', () => {
-  // What a run or a phase is worth reading for: it has no words of its own.
   it('counts what sits beneath a row, by sort, however deep', () => {
     const held = holdings(
       node({

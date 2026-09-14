@@ -1,10 +1,6 @@
 import { InvalidIdentifierError } from '@domain/exceptions/invalid-identifier.error';
 import type { SecretName } from '@domain/value-objects/secret-name.vo';
 
-/**
- * How a host signs: an HMAC over a base string, or a shared `token` sent whole
- * in a header. Named so a file has to say which.
- */
 export const SIGNING_SCHEMES = [
   'hmac-sha256',
   'hmac-sha1',
@@ -18,18 +14,13 @@ export const SIGNING_ENCODINGS = ['hex', 'base64'] as const;
 
 export type SigningEncoding = (typeof SIGNING_ENCODINGS)[number];
 
-/**
- * How a host proves a delivery is its own. There is no way to express that it
- * does not: an unsigned door takes anybody's word, and an agent runs on it.
- */
+// Deliberately no unsigned option: agents act on whatever a delivery says.
 export class Signing {
   private constructor(
     readonly scheme: SigningScheme,
     readonly header: string,
-    /** Never the secret itself. */
     readonly secret: SecretName,
     readonly encoding: SigningEncoding,
-    /** Some hosts write `sha256=` in front of the digest, and some do not. */
     readonly prefix: string,
   ) {}
 

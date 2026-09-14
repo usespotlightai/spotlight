@@ -11,7 +11,6 @@ import {
 import type { DiscoveryService } from '@nestjs/core';
 import { describe, expect, it } from 'vitest';
 
-/** A host wearing the mark, as one written here would be. */
 const sourceOf = (named: string) => {
   @WebhookSource()
   class Marked implements WebhookSourcePort {
@@ -45,14 +44,12 @@ const discovering = (
 ): DiscoveryService =>
   ({ getProviders: () => providers }) as unknown as DiscoveryService;
 
-/** Provided as a class: the container knows it by the class itself. */
 const asClass = (named: string) => {
   const Marked = sourceOf(named);
 
   return { metatype: Marked, instance: new Marked() };
 };
 
-/** Provided by a factory: the container knows it only by the factory. */
 const byFactory = (named: string) => {
   const Marked = sourceOf(named);
 
@@ -68,15 +65,12 @@ describe('markedSources', () => {
     expect(sources.map((each) => each.key)).toEqual(['github', 'sentry']);
   });
 
-  // A source built by a factory is registered under the factory, and the
-  // factory wears nothing. Looking there and no further would find none.
   it('holds one the container was given a factory for', () => {
     const sources = markedSources(discovering([byFactory('github')]));
 
     expect(sources.map((each) => each.key)).toEqual(['github']);
   });
 
-  // Most of what the container holds is not a host we listen to.
   it('holds nothing else the container happens to have', () => {
     const sources = markedSources(
       discovering([
@@ -88,7 +82,6 @@ describe('markedSources', () => {
     expect(sources.map((each) => each.key)).toEqual(['github']);
   });
 
-  // A provider Nest has not built yet is not one to hand a delivery to.
   it('passes over a provider with nothing behind it', () => {
     const { metatype } = asClass('github');
 

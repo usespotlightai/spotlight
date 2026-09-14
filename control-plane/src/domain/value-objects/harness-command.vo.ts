@@ -10,9 +10,7 @@ export class HarnessCommand {
   static of(input: {
     executable: string;
     args?: readonly string[];
-    // What this harness needs telling, such as where it may keep its own state
-    // between runs. A value may name a runner directory as
-    // `${SPOTLIGHT_STATE_DIR}`, which only the runner can expand.
+    // `${SPOTLIGHT_STATE_DIR}` in values is expanded only by the runner.
     env?: Readonly<Record<string, string>>;
   }): HarnessCommand {
     const executable = input.executable.trim();
@@ -26,11 +24,6 @@ export class HarnessCommand {
     });
   }
 
-  /**
-   * `also` is what only the caller knows, such as which run this is for.
-   * Merged here rather than onto the result, so what a harness is told stays
-   * this object's to say.
-   */
   started(also: Readonly<Record<string, string>> = {}): {
     executable: string;
     args: readonly string[];

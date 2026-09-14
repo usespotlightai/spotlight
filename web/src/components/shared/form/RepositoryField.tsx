@@ -3,24 +3,18 @@ import { useId, useState } from 'react';
 import { useRepositories } from '@/hooks/api/useRepositories';
 import { nameUnder } from '@/lib/repository';
 
-/** The same popup the menus wear, so one control does not read as two. */
 const POPUP =
   'absolute top-full right-0 left-0 z-50 mt-1.5 max-h-64 origin-top animate-in overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 fade-in-0 zoom-in-95 slide-in-from-top-1';
 
 type RepositoryFieldProps = {
   slug: string | undefined;
   owner: string | null;
-  /** The name typed, without the owner. */
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
   autoFocus?: boolean;
 };
 
-/**
- * What is typed narrows the list rather than being checked against it, so a
- * name nobody has yet is still a name.
- */
 export function RepositoryField({
   slug,
   owner,
@@ -63,8 +57,6 @@ export function RepositoryField({
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
-          // Late enough that a press on the list is heard first, which is what
-          // makes clicking one of them choose it.
           onBlur={() => setOpen(false)}
           onKeyDown={(event) => event.key === 'Escape' && setOpen(false)}
           disabled={disabled}
@@ -86,8 +78,7 @@ export function RepositoryField({
             <li key={name}>
               <button
                 type="button"
-                // Chosen before the field is left, or the list would be gone by
-                // the time the press landed.
+                // mousedown fires before the input's blur closes the list.
                 onMouseDown={(event) => {
                   event.preventDefault();
                   onChange(name);

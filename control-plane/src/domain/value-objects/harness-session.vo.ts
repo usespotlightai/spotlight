@@ -2,11 +2,6 @@ import { InvalidHarnessSessionError } from '@domain/exceptions/invalid-harness-s
 
 const MAX_LENGTH = 200;
 
-/**
- * What a harness called a conversation. It is the harness's name for it, not
- * ours: the control plane carries it so a later run can ask for the same
- * conversation, and reads nothing into it beyond being something to hand back.
- */
 export class HarnessSession {
   private constructor(readonly value: string) {}
 

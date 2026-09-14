@@ -1,32 +1,32 @@
 import { Attached } from '@application/rendering/attached';
-import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import type { Line } from '@domain/aggregates/line.aggregate';
 import type { OpenRemark, Task } from '@domain/aggregates/task.aggregate';
-import type { Station } from '@domain/entities/station.entity';
-import { toolNamed } from '@domain/services/built-in-tools';
-import { DONE, REVIEW } from '@domain/value-objects/declaration.vo';
+import { SKILL_FILE } from '@domain/aggregates/team-configuration.aggregate';
+import type { Skill } from '@domain/entities/skill.entity';
+import { DONE, REVIEW } from '@domain/value-objects/handover-word';
 import { RemarkHandle } from '@domain/value-objects/remark-handle.vo';
 import type { StationId } from '@domain/value-objects/station-id.vo';
 
-const closing = (line: AssemblyLine, stationId: StationId): string => {
+const closing = (line: Line, stationId: StationId): string => {
   const offered = line.optionsFrom(stationId);
-  // Listing the words that are not places is what makes an agent reach for
-  // one meaning a place.
   const named = offered
-    .map((each) => each.value)
-    .filter((each) => each !== REVIEW && each !== DONE)
-    .map((each) => `"${each}"`)
+    .flatMap((each) =>
+      each.station
+        ? [`"${each.station.key.value}" (${each.station.name.value})`]
+        : [],
+    )
     .join(', ');
 
   return [
     '## When you are done',
     'Run this, from anywhere in the workspace:',
     '```\nspotlight handover --next "…" --note "…"\n```',
-    `\`--next\` names a station to pass the task to: ${named}. Name somewhere else and the command refuses it and tells you what would have worked, so read what it says and run it again.`,
+    `\`--next\` names a station to pass the task to, by its key: ${named}. Name somewhere else and the command refuses it and tells you what would have worked, so read what it says and run it again.`,
     `To put the task in front of a person instead of a station, use \`--next "${REVIEW}"\`. That is not a station — it is a person, whatever any station is called — and it is what to use whenever you are unsure.`,
-    offered.some((each) => each.value === DONE)
+    offered.some((each) => each.kind === 'done')
       ? `Where the work is finished and nothing follows it, use \`--next "${DONE}"\`. That closes the task where it stands: nobody is asked anything, and no station takes it up again. Use it only when there is genuinely nothing left, not to get out of naming somewhere.`
       : null,
-    '`--note` is what the next station, or the person, needs to know. Keep it short: it is read as instructions, not as a log. A long one is easier piped in, as `spotlight handover --next "…" < note.md`.',
+    '`--note` is what the next station, or the person, needs to know.',
     'Running nothing puts the task in front of a person.',
     'Nobody is watching this terminal. If you need a decision, a missing detail, or an answer before you can finish, do not ask here and wait: hand the task over with `--next "' +
       REVIEW +
@@ -36,11 +36,6 @@ const closing = (line: AssemblyLine, stationId: StationId): string => {
     .join('\n\n');
 };
 
-/**
- * What the pull request is still waiting to hear back on. Named here rather
- * than in the note, so a person reading the trail is not shown a handle only
- * an agent has any use for.
- */
 const answering = (task: Task): string | null => {
   const open = task.openRemarks;
 
@@ -58,7 +53,6 @@ const answering = (task: Task): string | null => {
       .join(' — '),
   );
 
-  // Named from what is actually open, so the example is a command that works.
   const one = RemarkHandle.for((open[0] as OpenRemark).at);
 
   return [
@@ -73,21 +67,24 @@ const answering = (task: Task): string | null => {
   ].join('\n\n');
 };
 
-/**
- * How to use what this station has. Told about here and nowhere else: a
- * station without the tool is not told about it, and what it does not know
- * about it cannot reach for.
- */
-const reaching = (station: Station | null): string | null => {
-  const told = (station?.tools ?? [])
-    .map((each) => toolNamed(each)?.instructions)
-    .filter((each): each is string => Boolean(each));
+const listing = (
+  skills: readonly Skill[],
+  listedIn: string | null,
+): string | null =>
+  listedIn && skills.length > 0
+    ? [
+        '## Skills',
+        'These are in the workspace. Read one when you reach for what it is about:',
+        skills
+          .map(
+            (each) =>
+              `- \`${listedIn}/${each.key.value}/${SKILL_FILE}\` — ${each.description}`,
+          )
+          .join('\n'),
+      ].join('\n\n')
+    : null;
 
-  return told.length > 0 ? told.join('\n\n') : null;
-};
-
-/** Tells the agent which repositories are checked out, and to pick which apply. */
-const workspaceOf = (line: AssemblyLine): string | null => {
+const workspaceOf = (line: Line): string | null => {
   const repositories = line.repositories.all;
 
   if (repositories.length === 0) {
@@ -112,7 +109,12 @@ const workspaceOf = (line: AssemblyLine): string | null => {
 };
 
 export const TaskBriefing = {
-  brief(input: { task: Task; line: AssemblyLine }): string {
+  brief(input: {
+    task: Task;
+    line: Line;
+    skills: readonly Skill[];
+    listedIn: string | null;
+  }): string {
     const station = input.line.stationAt(input.task.stationId);
     const notes = input.task.notes.map(
       (note) =>
@@ -126,7 +128,7 @@ export const TaskBriefing = {
       Attached.listed(input.task.attachments),
       notes.length > 0 ? ['## Already done', ...notes].join('\n\n') : null,
       workspaceOf(input.line),
-      reaching(station),
+      listing(input.skills, input.listedIn),
       answering(input.task),
       closing(input.line, input.task.stationId),
     ]

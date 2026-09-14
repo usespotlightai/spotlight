@@ -1,13 +1,11 @@
 import { Remark } from '@domain/value-objects/remark.vo';
 
-/** What was said about a task, and where in the code it was said about. */
 export class Said {
   private constructor(
     readonly body: string,
     readonly path: string | null,
     readonly from: number | null,
     readonly to: number | null,
-    // Absent where the host named nothing to answer, as a merge names nothing.
     readonly remark: Remark | null,
   ) {}
 
@@ -32,7 +30,6 @@ export class Said {
       : null;
   }
 
-  /** Kept whole on a note, so nothing has to read it back out of prose. */
   get parts(): {
     body: string;
     path: string | null;
@@ -61,7 +58,6 @@ export class Said {
     );
   }
 
-  /** Where it was said about, if anywhere: a file, and the line in it. */
   get place(): string | null {
     if (!this.path) {
       return null;

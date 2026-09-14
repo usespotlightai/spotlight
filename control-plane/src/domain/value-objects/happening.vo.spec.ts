@@ -20,7 +20,6 @@ describe('Happening', () => {
     expect(Happening.of('sentry.alert.firing').source).toBe('sentry');
   });
 
-  // A word nobody's source claims would be a station waiting on nothing.
   it.each(['', '   ', 'merged', 'github.', '.merged', 'github..merged'])(
     'refuses %o, which names no source',
     (raw) => {
@@ -51,7 +50,6 @@ describe('Happening', () => {
     ).toBe(true);
   });
 
-  // Two hosts raising the same idea raise two words, never quietly one.
   it('is not the same word as another source’s', () => {
     expect(
       Happening.of('github.checks.failed').equals(

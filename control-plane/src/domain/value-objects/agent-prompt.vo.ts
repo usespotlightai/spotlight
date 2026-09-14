@@ -5,8 +5,7 @@ const MAX_LENGTH = 20_000;
 export class AgentPrompt {
   private constructor(readonly value: string) {}
 
-  /** Markdown, kept as written: only the outer whitespace goes, because the
-   *  blank lines inside it are what separate one instruction from the next. */
+  // Trim outer whitespace only: inner blank lines separate instructions.
   static of(raw: string): AgentPrompt {
     const trimmed = raw.trim();
 

@@ -5,12 +5,14 @@ import { HarnessModel } from '@domain/value-objects/harness-model.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationDescription } from '@domain/value-objects/station-description.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
+import { StationKey } from '@domain/value-objects/station-key.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { describe, expect, it } from 'vitest';
 
 const station = () =>
   Station.of({
     id: StationId.of('station_1'),
+    key: StationKey.of('triage'),
     name: StationName.of('Triage'),
     position: 0,
     color: StationColor.of('#a3a8b0'),

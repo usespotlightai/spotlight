@@ -2,27 +2,43 @@ import {
   RunSpecContract,
   type RunSpecShape,
 } from '@application/contracts/run-spec.contract';
-import type { HarnessLaunchPort } from '@application/ports/harness-launch.port';
+import type { BuiltInSkillsPort } from '@application/ports/built-in-skills.port';
+import type {
+  HarnessLaunchPort,
+  SkillsHome,
+} from '@application/ports/harness-launch.port';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
+import type { SkillFolder } from '@application/ports/skill-reader.port';
 import { DispatchTask } from '@application/services/dispatch-task.service';
-import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import type { TeamIntegrations } from '@application/services/team-integrations.service';
+import type { TeamSkills } from '@application/services/team-skills.service';
+import { Line } from '@domain/aggregates/line.aggregate';
 import type { Run } from '@domain/aggregates/run.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
+import { DeclaredTool } from '@domain/entities/declared-tool.entity';
 import { Harness } from '@domain/entities/harness.entity';
+import { Skill } from '@domain/entities/skill.entity';
 import { Station } from '@domain/entities/station.entity';
 import type { HarnessRepository } from '@domain/repositories/harness.repository';
 import type { RunRepository } from '@domain/repositories/run.repository';
-import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
-import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
+import {
+  HANDING_OVER,
+  OPENING_PULL_REQUESTS,
+} from '@domain/services/built-in-skills';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { HarnessCommand } from '@domain/value-objects/harness-command.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { HarnessName } from '@domain/value-objects/harness-name.vo';
 import { HarnessSession } from '@domain/value-objects/harness-session.vo';
+import { LineId } from '@domain/value-objects/line-id.vo';
+import { LineKey } from '@domain/value-objects/line-key.vo';
+import { LineName } from '@domain/value-objects/line-name.vo';
 import { Repository } from '@domain/value-objects/repository.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
+import { SkillKey } from '@domain/value-objects/skill-key.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
+import { StationKey } from '@domain/value-objects/station-key.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
@@ -50,7 +66,13 @@ const harnesses: HarnessRepository = {
   named: (id: HarnessId) => (id.equals(DEV.id) ? DEV : null),
 };
 
+let skillsHome: SkillsHome = {
+  directory: '.claude/skills',
+  readByHarness: true,
+};
+
 const launch: HarnessLaunchPort = {
+  skillsFor: () => skillsHome,
   commandFor: (id, chosen) =>
     id.equals(DEV.id)
       ? HarnessCommand.of({
@@ -68,9 +90,11 @@ const at = (
   position: number,
   harness?: HarnessId,
   passesTo: string[] = [],
+  gives: { tools?: string[]; skills?: SkillKey[] } = {},
 ) =>
   Station.of({
     id: StationId.of(id),
+    key: StationKey.of(name.toLowerCase()),
     name: StationName.of(name),
     position,
     color: StationColor.of('#a3a8b0'),
@@ -78,16 +102,19 @@ const at = (
     wayOut: WayOut.of({ stations: passesTo.map(StationId.of) }),
     kind:
       position === 0 ? 'backlog' : name === 'Completed' ? 'completed' : 'work',
+    tools: (gives.tools ?? []).map((each) => Tool.of(each)),
+    skills: gives.skills ?? [],
   });
 
-// Connected backlog → Triage → Spec, so a station's depth from the backlog is
-// its distance along the flow: Triage 1, Spec 2. That depth is its priority.
 const stations = [
   at('station_1', 'Backlog', 0, undefined, ['station_2']),
   at('station_2', 'Triage', 1, DEV.id, ['station_3']),
   at('station_3', 'Spec', 2, DEV.id),
   at('station_4', 'Completed', 3),
 ];
+
+const triage = (gives: { tools?: string[]; skills?: SkillKey[] }) =>
+  at('station_2', 'Triage', 1, DEV.id, ['station_3'], gives);
 
 const task = (stationId: string) =>
   Task.add({
@@ -111,16 +138,69 @@ const runs = {
 const ids: IdGeneratorPort = { generate: () => 'run_1' };
 
 const held = (changed?: Station, repositories: string[] = []) =>
-  AssemblyLine.of({
-    id: AssemblyLineId.of('line_1'),
+  Line.of({
+    id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
-    name: AssemblyLineName.of('Default'),
+    key: LineKey.of('default'),
+    name: LineName.of('Default'),
     repositories: repositories.map((each) => Repository.of(each)),
     stations: changed
       ? stations.map((each) => (each.equals(changed) ? changed : each))
       : stations,
   });
+
+const SHIPPED_SKILLS: SkillFolder[] = [
+  {
+    skill: Skill.shipped({
+      key: HANDING_OVER,
+      description: 'Handing a task on.',
+      instructions: 'Run spotlight handover.',
+    }),
+    files: [
+      { path: 'SKILL.md', text: `---\nname: ${HANDING_OVER.value}\n---\n` },
+    ],
+  },
+  {
+    skill: Skill.shipped({
+      key: OPENING_PULL_REQUESTS,
+      description: 'Opening a pull request.',
+      instructions: 'Run spotlight pull-request.',
+    }),
+    files: [
+      {
+        path: 'SKILL.md',
+        text: `---\nname: ${OPENING_PULL_REQUESTS.value}\n---\n`,
+      },
+    ],
+  },
+];
+
+const SHIPPED: BuiltInSkillsPort = {
+  named: (key) =>
+    SHIPPED_SKILLS.find((each) => each.skill.key.equals(key)) ?? null,
+};
+
+let offeredTools: DeclaredTool[] = [];
+let offeredAsked = 0;
+
+const integrations = {
+  offered: async () => {
+    offeredAsked += 1;
+    return offeredTools;
+  },
+} as unknown as TeamIntegrations;
+
+let keptSkills: SkillFolder[] = [];
+
+const teamSkills = {
+  readyAt: async (_line: Line, station: Station) =>
+    keptSkills.filter((each) =>
+      station.skills.some((key) => key.equals(each.skill.key)),
+    ),
+} as unknown as TeamSkills;
+
+const toolsGiven = (run?: Run) => RunSpecContract.toolsGiven(run?.spec.value);
 
 const tracing = {
   for: (taskId: { value: string }, runId: { value: string }) =>
@@ -128,7 +208,16 @@ const tracing = {
 };
 
 const dispatch = (station: Station, standing?: Task, repositories?: string[]) =>
-  new DispatchTask(runs, ids, harnesses, launch, tracing).dispatch({
+  new DispatchTask(
+    runs,
+    ids,
+    harnesses,
+    launch,
+    tracing,
+    SHIPPED,
+    teamSkills,
+    integrations,
+  ).dispatch({
     task: standing ?? task(station.id.value),
     line: held(station, repositories),
   });
@@ -139,8 +228,6 @@ describe('DispatchTask', () => {
   });
 
   describe('the codebases a run works in', () => {
-    // The runner resolves this to an address of its own. A remote that
-    // reached GitHub would need a credential written down beside it.
     it('names each of the line’s repositories through Spotlight, never GitHub', async () => {
       const station = stations[1] as Station;
 
@@ -155,7 +242,6 @@ describe('DispatchTask', () => {
       ]);
     });
 
-    // A run may work several: each is cloned into a directory of its own name.
     it('checks out every repository the line works, side by side', async () => {
       const station = stations[1] as Station;
 
@@ -190,21 +276,16 @@ describe('DispatchTask', () => {
     expect(queued[0]?.harness.value).toBe(DEV.id.value);
   });
 
-  // A station naming no harness is how work is held back: the Backlog keeps
-  // tasks precisely because nothing works it.
-  // The runner raises only what the run was handed, so a station's tools
-  // have to reach the spec or the agent is told about something that is not
-  // there to reach.
   it('hands the run what its station may reach for', async () => {
-    await dispatch((stations[1] as Station).reaches([Tool.of('pull-request')]));
+    await dispatch(triage({ tools: ['pull-request'] }));
 
-    expect(queued[0]?.spec.value).toMatchObject({ tools: ['pull-request'] });
+    expect(toolsGiven(queued[0])).toEqual(['pull-request']);
   });
 
   it('hands a station with no tools none', async () => {
     await dispatch(stations[1] as Station);
 
-    expect(queued[0]?.spec.value).toMatchObject({ tools: [] });
+    expect(toolsGiven(queued[0])).toEqual([]);
   });
 
   it('queues nothing for a station nothing works', async () => {
@@ -212,30 +293,26 @@ describe('DispatchTask', () => {
     expect(queued).toHaveLength(0);
   });
 
-  // Queueing for a harness Spotlight cannot start would strand the task on
-  // the queue instead of at the station, where a person can see it.
   it('queues nothing for a harness it no longer knows', async () => {
-    const station = at('station_9', 'Odd', 1, HarnessId.of('long-gone'));
+    const station = at('station_2', 'Triage', 1, HarnessId.of('long-gone'), [
+      'station_3',
+    ]);
 
     expect(await dispatch(station)).toBeNull();
     expect(queued).toHaveLength(0);
   });
 
-  // Downstream first, so a task already under way finishes before another is
-  // started behind it.
   it('gives a run the standing of the station it serves', async () => {
     await dispatch(stations[2] as Station);
 
     expect(queued[0]?.priority.value).toBe(2);
   });
 
-  // The runner refuses a word that is not on this list, so it has to hold
-  // every station the briefing offers, and a person besides.
   it('tells the runner what the agent may hand over to', async () => {
     await dispatch(stations[1] as Station);
 
     expect(written(queued[0])).toMatchObject({
-      handover: { options: ['Spec', 'review'] },
+      handover: { options: ['spec', 'review'] },
     });
   });
 
@@ -243,18 +320,16 @@ describe('DispatchTask', () => {
     await dispatch(stations[1] as Station);
 
     expect(written(queued[0])).toMatchObject({
-      handover: { options: expect.not.arrayContaining(['Backlog']) },
+      handover: { options: expect.not.arrayContaining(['backlog']) },
     });
   });
 
-  // Handing a task back to where it stands moves nothing and starts the same
-  // work again. The runner refuses the word, so the agent is told at once.
   it('does not let the agent hand the task to its own station', async () => {
     await dispatch(stations[1] as Station);
 
     const spec = written(queued[0]);
 
-    expect(spec.handover.options).not.toContain('Triage');
+    expect(spec.handover.options).not.toContain('triage');
   });
 
   it('runs the harness the way the harness has to be started', async () => {
@@ -266,8 +341,6 @@ describe('DispatchTask', () => {
     expect(spec.command.args).toEqual([...DEV_ARGS]);
   });
 
-  // What to start and what to ask of it are different things: the briefing is
-  // put to the agent as a prompt, not smuggled in on a command line.
   it('briefs the agent in the same words it gives the runner', async () => {
     await dispatch(stations[1] as Station);
 
@@ -341,5 +414,192 @@ describe('DispatchTask', () => {
       expect(queued[0]?.targetRunner).toBeNull();
       expect(continuityOf(0).sessionId).toBeUndefined();
     });
+  });
+});
+
+describe('DispatchTask, the skills a run is given', () => {
+  const laid = () => (written(queued[0]).skills ?? []).map((each) => each.path);
+
+  beforeEach(() => {
+    queued = [];
+    skillsHome = { directory: '.claude/skills', readByHarness: true };
+    keptSkills = [];
+  });
+
+  it('lays the handover skill where the harness reads skills, and lists none', async () => {
+    await dispatch(stations[1] as Station);
+
+    expect(laid()).toEqual(['.claude/skills/spotlight-handover/SKILL.md']);
+    expect(written(queued[0]).skills?.[0]?.text).toContain(
+      'name: spotlight-handover',
+    );
+    expect(written(queued[0]).briefing).not.toContain('## Skills');
+  });
+
+  it('lays a tool’s skill only for a station given the tool', async () => {
+    await dispatch(triage({ tools: ['pull-request'] }));
+
+    expect(laid()).toEqual([
+      '.claude/skills/spotlight-handover/SKILL.md',
+      '.claude/skills/spotlight-pull-request/SKILL.md',
+    ]);
+  });
+
+  it('lists the skills in the briefing where the harness does not read them', async () => {
+    skillsHome = { directory: '.spotlight/skills', readByHarness: false };
+
+    await dispatch(stations[1] as Station);
+
+    expect(laid()).toEqual(['.spotlight/skills/spotlight-handover/SKILL.md']);
+    expect(written(queued[0]).briefing).toContain(
+      '- `.spotlight/skills/spotlight-handover/SKILL.md` — Handing a task on.',
+    );
+  });
+});
+
+describe('DispatchTask, the team’s own skills', () => {
+  const laid = () => (written(queued[0]).skills ?? []).map((each) => each.path);
+  const OURS = SkillKey.of('our-migrations');
+
+  beforeEach(() => {
+    queued = [];
+    skillsHome = { directory: '.claude/skills', readByHarness: true };
+    offeredTools = [];
+    offeredAsked = 0;
+    keptSkills = [
+      {
+        skill: Skill.defined({
+          key: OURS,
+          description: 'Writing a migration here.',
+          instructions: 'Generate it.',
+        }),
+        files: [
+          { path: 'SKILL.md', text: '---\nname: our-migrations\n---\n' },
+          { path: 'examples/add-column.md', text: 'Add it.' },
+        ],
+      },
+    ];
+  });
+
+  it('lays each one a station names, whole, after Spotlight’s', async () => {
+    await dispatch(triage({ skills: [OURS] }));
+
+    expect(laid()).toEqual([
+      '.claude/skills/spotlight-handover/SKILL.md',
+      '.claude/skills/our-migrations/SKILL.md',
+      '.claude/skills/our-migrations/examples/add-column.md',
+    ]);
+  });
+
+  it('gives the run the tools a skill it lays brings, and the skill of each of Spotlight’s', async () => {
+    keptSkills = [
+      {
+        skill: Skill.defined({
+          key: OURS,
+          description: 'Writing a migration here.',
+          instructions: 'Generate it, then open a pull request.',
+          tools: [Tool.of('grafana.search'), Tool.of('pull-request')],
+        }),
+        files: [{ path: 'SKILL.md', text: `---\nname: ${OURS.value}\n---\n` }],
+      },
+    ];
+    offeredTools = [
+      DeclaredTool.of({
+        tool: Tool.of('grafana.search'),
+        description: 'Search the dashboards.',
+      }),
+    ];
+
+    await dispatch(triage({ skills: [OURS] }));
+
+    expect(toolsGiven(queued[0])).toEqual(['grafana.search', 'pull-request']);
+    expect(
+      (written(queued[0]).manifest ?? []).map((each) => each.name),
+    ).toEqual(['grafana.search', 'pull-request']);
+    expect(laid()).toEqual([
+      '.claude/skills/spotlight-handover/SKILL.md',
+      '.claude/skills/spotlight-pull-request/SKILL.md',
+      '.claude/skills/our-migrations/SKILL.md',
+    ]);
+  });
+
+  it('leaves out one the team no longer keeps', async () => {
+    keptSkills = [];
+
+    await dispatch(triage({ skills: [OURS] }));
+
+    expect(laid()).toEqual(['.claude/skills/spotlight-handover/SKILL.md']);
+  });
+});
+
+describe('DispatchTask, the tools a run is told about', () => {
+  const manifest = () => written(queued[0]).manifest ?? [];
+
+  beforeEach(() => {
+    queued = [];
+    offeredTools = [];
+    offeredAsked = 0;
+  });
+
+  it('describes Spotlight’s own tools, and what they take, without reading the team’s', async () => {
+    await dispatch(triage({ tools: ['pull-request'] }));
+
+    expect(manifest().map((each) => each.name)).toEqual(['pull-request']);
+    expect(manifest()[0]?.inputs.map((each) => each.name)).toEqual([
+      'title',
+      'body',
+      'repository',
+    ]);
+    expect(offeredAsked).toBe(0);
+  });
+
+  it('describes a tool a team’s integration offers, where the station names it', async () => {
+    offeredTools = [
+      DeclaredTool.of({
+        tool: Tool.of('linear.comment'),
+        description: 'Comment on the issue.',
+        inputs: [
+          {
+            name: 'body',
+            type: 'string',
+            description: null,
+            required: true,
+            defaulted: false,
+            piped: true,
+          },
+        ],
+      }),
+      DeclaredTool.of({
+        tool: Tool.of('linear.close'),
+        description: 'Close the issue.',
+      }),
+    ];
+
+    await dispatch(triage({ tools: ['pull-request', 'linear.comment'] }));
+
+    expect(manifest().map((each) => each.name)).toEqual([
+      'pull-request',
+      'linear.comment',
+    ]);
+    expect(manifest()[1]).toEqual({
+      name: 'linear.comment',
+      description: 'Comment on the issue.',
+      inputs: [
+        {
+          name: 'body',
+          type: 'string',
+          required: true,
+          defaulted: false,
+          piped: true,
+        },
+      ],
+    });
+  });
+
+  it('leaves out a tool nothing describes', async () => {
+    await dispatch(triage({ tools: ['linear.missing'] }));
+
+    expect(manifest()).toEqual([]);
+    expect(toolsGiven(queued[0])).toEqual([]);
   });
 });

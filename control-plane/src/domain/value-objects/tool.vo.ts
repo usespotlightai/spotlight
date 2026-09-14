@@ -1,12 +1,9 @@
 import { InvalidIdentifierError } from '@domain/exceptions/invalid-identifier.error';
+import { WORDS } from '@domain/value-objects/identifier-shapes';
+import type { SourceKey } from '@domain/value-objects/source-key.vo';
 
-const SHAPE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const SHAPE = new RegExp(`^${WORDS}(\\.${WORDS})?$`);
 
-/**
- * Something a run may reach for beyond the words that end it. A station says
- * which of these it has, and a run is told about those and no others: an
- * agent reaches for what it was told about, and nothing else answers.
- */
 export class Tool {
   private constructor(readonly value: string) {}
 
@@ -16,11 +13,29 @@ export class Tool {
     if (!SHAPE.test(trimmed)) {
       throw new InvalidIdentifierError(
         'tool',
-        'is lower case words joined by dashes, as in pull-request',
+        'is lower case words joined by dashes, as in pull-request, or named for the integration it comes from, as in linear.comment',
       );
     }
 
     return new Tool(trimmed);
+  }
+
+  static offeredBy(source: SourceKey, name: string): Tool {
+    return Tool.of(`${source.value}.${name}`);
+  }
+
+  isOfferedBy(source: SourceKey): boolean {
+    return this.integration === source.value;
+  }
+
+  get integration(): string | null {
+    const at = this.value.indexOf('.');
+
+    return at === -1 ? null : this.value.slice(0, at);
+  }
+
+  get name(): string {
+    return this.value.slice(this.value.indexOf('.') + 1);
   }
 
   equals(other: Tool): boolean {

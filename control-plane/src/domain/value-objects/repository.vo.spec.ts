@@ -15,8 +15,6 @@ describe('Repository', () => {
     expect(Repository.of('acme/widgets.git').value).toBe('acme/widgets');
   });
 
-  // The name reaches a URL the control plane builds, so anything that could
-  // steer that URL somewhere else is refused here rather than escaped later.
   it('refuses what is not one repository', () => {
     for (const raw of [
       'spotlight',

@@ -200,7 +200,6 @@ describe('TraceView', () => {
 
     expect(screen.getByText('Model')).toBeInTheDocument();
     expect(screen.getByText('claude-opus-5')).toBeInTheDocument();
-    // Said once: what the header promotes, the table below leaves out.
     expect(screen.queryByText('gen_ai.request.model')).not.toBeInTheDocument();
   });
 
@@ -211,7 +210,6 @@ describe('TraceView', () => {
     await user.click(screen.getByRole('button', { name: 'llm_request' }));
 
     expect(screen.getByText('gen_ai.request.temperature')).toBeInTheDocument();
-    // Values are shown as what they are: a reported attribute is a string.
     expect(screen.getByText('"0.7"')).toBeInTheDocument();
   });
 
@@ -237,7 +235,6 @@ describe('TraceView', () => {
 
     await user.click(document.body);
 
-    // It is kept for as long as it takes to be seen leaving.
     await waitForElementToBeRemoved(() =>
       screen.queryByText('sh: vitest: command not found'),
     );

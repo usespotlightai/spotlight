@@ -16,11 +16,11 @@ import {
   reviewsBy,
   stationsPerLine,
 } from '@infrastructure/persistence/drizzle/readers/task-trail';
-import {
-  assemblyLine,
-  station,
-} from '@infrastructure/persistence/drizzle/schemas/assembly-line.schema';
 import { factory } from '@infrastructure/persistence/drizzle/schemas/factory.schema';
+import {
+  line,
+  station,
+} from '@infrastructure/persistence/drizzle/schemas/line.schema';
 import { run } from '@infrastructure/persistence/drizzle/schemas/run.schema';
 import { task } from '@infrastructure/persistence/drizzle/schemas/task.schema';
 import { Inject, Injectable } from '@nestjs/common';
@@ -51,8 +51,8 @@ export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
       .select({ teamId: factory.teamId })
       .from(task)
       .innerJoin(station, eq(station.id, task.stationId))
-      .innerJoin(assemblyLine, eq(assemblyLine.id, station.assemblyLineId))
-      .innerJoin(factory, eq(factory.id, assemblyLine.factoryId))
+      .innerJoin(line, eq(line.id, station.lineId))
+      .innerJoin(factory, eq(factory.id, line.factoryId))
       .where(eq(task.id, taskId.value))
       .limit(1);
 
@@ -72,7 +72,7 @@ export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
         stationName: ranAt.name,
         stationColor: ranAt.color,
         stationPosition: ranAt.position,
-        stationLineId: ranAt.assemblyLineId,
+        stationLineId: ranAt.lineId,
       })
       .from(run)
       .leftJoin(ranAt, eq(ranAt.id, run.stationId))

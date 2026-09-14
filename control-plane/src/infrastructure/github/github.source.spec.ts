@@ -26,7 +26,6 @@ const delivered = (
   raw: null,
 });
 
-/** Every App delivery names its installation, so every fixture does too. */
 const reading = {
   read: async (event: string | undefined, payload: Record<string, unknown>) =>
     (
@@ -223,7 +222,6 @@ describe('GitHubSource', () => {
       ).toBe('d_1');
     });
 
-    // Without one, the same word twice would be worked twice.
     it('falls back to the body, so an unnamed one is still the same one', async () => {
       const body = Buffer.from('{"action":"closed"}');
       const once = events.delivery({ headers: {}, body: {}, raw: body });
@@ -266,14 +264,12 @@ describe('GitHubSource', () => {
       ).toHaveLength(1);
     });
 
-    // Somebody's ordinary work, which this has no opinion about.
     it('notices nothing where the push touched nothing of ours', async () => {
       expect(
         events.noticed(pushed({ commits: [{ modified: ['src/main.ts'] }] })),
       ).toEqual([]);
     });
 
-    // What is on the default branch is what the workspace has agreed to.
     it('notices nothing on a branch it does not read from', async () => {
       expect(events.noticed(pushed({ ref: 'refs/heads/topic' }))).toEqual([]);
     });
@@ -288,7 +284,6 @@ describe('GitHubSource', () => {
       expect(events.noticed(pushed({ repository: {} }))).toEqual([]);
     });
 
-    // Uninstalled on GitHub, so what the workspace holds for it opens nothing.
     it('notices an installation that was removed', async () => {
       expect(
         events.noticed(
@@ -306,7 +301,6 @@ describe('GitHubSource', () => {
       ]);
     });
 
-    // Installed, suspended, given another repository: still reachable.
     it('notices nothing of an installation that is still there', async () => {
       expect(
         events.noticed(
@@ -335,7 +329,6 @@ describe('GitHubSource', () => {
       expect(found).toEqual(WorkspaceId.of('ws_1'));
     });
 
-    // Not an App delivery, so there is nobody here it could be speaking for.
     it('routes a delivery that names no installation nowhere', async () => {
       expect(
         await events.routes(delivered('pull_request', { action: 'closed' })),

@@ -35,7 +35,6 @@ const answered = (nodes: unknown[]) => ({
   },
 });
 
-// What each call was asked to do, in order, so a test can say what happened.
 let asked: { url: string; body: unknown }[] = [];
 let replies: unknown[] = [];
 
@@ -106,8 +105,6 @@ describe('GitHubRemarks', () => {
     expect(named('resolveReviewThread')).toHaveLength(0);
   });
 
-  // A run that answered and then failed to write it down must not answer
-  // again on the thread.
   it('says nothing twice where the same answer already stands', async () => {
     replies = [
       answered([

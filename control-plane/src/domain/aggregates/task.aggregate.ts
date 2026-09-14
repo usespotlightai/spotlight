@@ -37,13 +37,11 @@ import type { UserId } from '@domain/value-objects/user-id.vo';
 import type { Voice } from '@domain/value-objects/voice.vo';
 import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 
-/** One thing the world said that nobody has answered, and where it sits. */
 export interface OpenRemark {
   readonly at: NotePosition;
   readonly said: Said;
 }
 
-/** The task says what a note did, so no caller may write one that lies. */
 export interface Saying {
   readonly station: StationName;
   readonly body: TaskNoteBody;
@@ -63,8 +61,6 @@ export class Task extends EventRecorder {
     readonly description: TaskDescription | null,
     readonly rank: TaskRank,
     readonly currentRunId: RunId | null,
-    // The conversation it was last worked in. It belongs to one stay at one
-    // station: moving on drops it, because the note is what travels.
     readonly sessionId: HarnessSession | null,
     readonly runnerId: RunnerId | null,
     readonly notes: readonly TaskNote[],
@@ -72,15 +68,10 @@ export class Task extends EventRecorder {
     readonly raisedAt: StationId | null,
     readonly raisedBy: UserId | null,
     readonly pullRequest: PullRequestUrl | null,
-    // Every handle the world outside knows it by, so a delivery naming one
-    // of them finds it without anybody adding a way to look it up.
     readonly marks: readonly Mark[],
-    // When the line last had nothing further to do with it.
     readonly finishedAt: Date | null,
-    /** The team member who owns the work, or nobody where it is unclaimed. */
     readonly assignee: UserId | null,
     readonly attachments: readonly Attachment[],
-    /** Which reading of this task it is. Written back against the same one. */
     readonly version: number = 0,
   ) {
     super();
@@ -93,7 +84,6 @@ export class Task extends EventRecorder {
     description?: TaskDescription | null;
     attachments?: readonly Attachment[];
     rank: TaskRank;
-    /** Null where nobody raised it: a word from outside opened it, not a person. */
     raisedBy?: UserId | null;
     now: Date;
     newId: () => string;
@@ -117,8 +107,6 @@ export class Task extends EventRecorder {
       null,
       [],
       null,
-      // A person who raises a task owns it from the start; one a word from
-      // outside opened is owned by nobody until somebody takes it.
       raisedBy,
       input.attachments ?? [],
     );
@@ -179,12 +167,6 @@ export class Task extends EventRecorder {
     );
   }
 
-  /**
-   * Landing at the end of the line is what finishes a task. A person moving
-   * unclaimed work out of the backlog into a worked station takes it up — the
-   * station kinds are the line's to say, so they are handed in; the rule of who
-   * owns it now is the task's.
-   */
   moveTo(
     into: Station,
     rank: TaskRank,
@@ -223,20 +205,14 @@ export class Task extends EventRecorder {
     return this.with({ rank });
   }
 
-  /** Given to a team member to own. Reassigning replaces whoever held it. */
   assignedTo(userId: UserId): Task {
     return this.with({ assignee: userId });
   }
 
-  /** Owned by nobody again. */
   unassigned(): Task {
     return this.with({ assignee: null });
   }
 
-  /**
-   * Taken up by whoever moved it into active work, but only where nobody held
-   * it: claiming unclaimed work, never taking it from the person who owns it.
-   */
   claimedBy(userId: UserId): Task {
     return this.assignee ? this : this.with({ assignee: userId });
   }
@@ -245,7 +221,6 @@ export class Task extends EventRecorder {
     return Branch.for(this.id);
   }
 
-  /** Opened once: asking again keeps the one already open. */
   openedAt(url: PullRequestUrl): Task {
     if (this.pullRequest) {
       return this;
@@ -259,10 +234,6 @@ export class Task extends EventRecorder {
     return opened;
   }
 
-  /**
-   * Known by one more handle. Worn once however often it is given, so a host
-   * repeating itself leaves the task exactly as it found it.
-   */
   markedBy(mark: Mark): Task {
     return this.marks.some((each) => each.equals(mark))
       ? this
@@ -273,7 +244,6 @@ export class Task extends EventRecorder {
     return this.currentRunId !== null;
   }
 
-  /** Read from the trail, because a conversation is only what was said. */
   get awaitingReview(): boolean {
     return this.trail.awaitsAPerson;
   }
@@ -286,7 +256,6 @@ export class Task extends EventRecorder {
     return this.finishedAt !== null;
   }
 
-  /** Only a person's word is aimed at one station, so only that one names it. */
   heard(saying: Saying, at: StationId | null = null): Task {
     if (at && !this.stationId.equals(at)) {
       throw new InvalidTaskTransitionError(
@@ -297,10 +266,6 @@ export class Task extends EventRecorder {
     return this.with(this.spoke(saying, 'said'));
   }
 
-  /**
-   * What was open closes and nothing else moves. Not the same as being done
-   * with it: a run already working it still holds it.
-   */
   settled(saying: Saying): Task {
     if (!this.trail.open) {
       throw new InvalidTaskTransitionError(
@@ -311,7 +276,6 @@ export class Task extends EventRecorder {
     return this.with(this.spoke(saying, 'passed'));
   }
 
-  /** Nothing further to do here: it settles what was open and stands still. */
   finishedHere(saying: Saying): Task {
     const finished = this.with({
       currentRunId: null,
@@ -345,7 +309,6 @@ export class Task extends EventRecorder {
     return this.with({ sessionId, runnerId });
   }
 
-  /** Pinned only where there is a conversation to go back for. */
   continuity(): Continuity {
     return Continuity.of({
       key: ContinuityKey.for({
@@ -357,7 +320,6 @@ export class Task extends EventRecorder {
     });
   }
 
-  /** Their inbox item. */
   private get trail(): Trail {
     return Trail.of(this.notes);
   }
@@ -382,7 +344,6 @@ export class Task extends EventRecorder {
     return anyUnread(this.conversationAt(from));
   }
 
-  /** A conversation is read whole: it is one conversation. */
   read(from: NotePosition, at: Date): Task {
     const read = new Set(this.conversationAt(from));
 
@@ -405,7 +366,6 @@ export class Task extends EventRecorder {
     return conversation;
   }
 
-  /** What the world said that the line has not answered, oldest first. */
   get openRemarks(): readonly OpenRemark[] {
     return this.notes.flatMap((note, at) =>
       note.open && note.said
@@ -414,7 +374,6 @@ export class Task extends EventRecorder {
     );
   }
 
-  /** The one rule for what may be answered, so nothing outside re-states it. */
   remarkAt(at: NotePosition): Remark {
     const remark = this.notes[at.value]?.open
       ? this.notes[at.value]?.remark
@@ -429,7 +388,6 @@ export class Task extends EventRecorder {
     return remark;
   }
 
-  /** The station answers the world where the world spoke, not in the trail. */
   repliedTo(at: NotePosition, saying: Saying): Task {
     this.remarkAt(at);
 
@@ -476,8 +434,6 @@ export class Task extends EventRecorder {
 
     const asked = this.with({
       currentRunId: null,
-      // Put to a person is put to an owner: whoever it is already assigned to,
-      // or else whoever raised it. An inbox is the assignee's.
       assignee: this.assignee ?? this.raisedBy,
       ...this.spoke(saying, 'asked'),
     });
@@ -494,7 +450,6 @@ export class Task extends EventRecorder {
     return asked;
   }
 
-  /** It stays where it is, so the run that follows takes the conversation up. */
   answered(from: NotePosition, saying: Saying): Task {
     if (this.openConversation?.from !== from.value) {
       throw new InvalidTaskTransitionError(
@@ -513,7 +468,6 @@ export class Task extends EventRecorder {
     }
   }
 
-  /** A word the station did not speak is work, so it unfinishes the task. */
   private spoke(
     saying: Saying,
     kind: TaskNoteKind,
@@ -555,7 +509,6 @@ export class Task extends EventRecorder {
       part.finishedAt !== undefined ? part.finishedAt : this.finishedAt,
       part.assignee !== undefined ? part.assignee : this.assignee,
       this.attachments,
-      // Carried, never raised here: moving it on is the writing's to do.
       this.version,
     );
 

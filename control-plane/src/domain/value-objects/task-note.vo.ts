@@ -8,17 +8,10 @@ import type { Voice } from '@domain/value-objects/voice.vo';
 
 export const TASK_NOTE_KINDS = ['asked', 'passed', 'answered', 'said'] as const;
 
-/** What a note did: put the task to a person, settled it, or said a thing. */
 export type TaskNoteKind = (typeof TASK_NOTE_KINDS)[number];
 
 export const TASK_NOTE_FORMS = ['words', 'setup', 'settled'] as const;
 
-/**
- * What a note shows, which is not what it did. Almost everything is words.
- * A 'setup' is the standing list a team opens with, and is shown as the
- * things it names rather than as a paragraph about them. A 'settled' closes
- * that list and shows nothing.
- */
 export type TaskNoteForm = (typeof TASK_NOTE_FORMS)[number];
 
 const sameMoment = (a: Date | null, b: Date | null): boolean =>
@@ -30,14 +23,10 @@ export class TaskNote {
     readonly body: TaskNoteBody,
     readonly at: Date,
     readonly voice: Voice,
-    // What the world said, kept as it was said rather than only as it reads.
     readonly said: Said | null,
-    // When the line answered that remark, so it is not answered twice.
     readonly answeredAt: Date | null,
-    // An 'asked' opens a conversation a person owns; a 'passed' closes it.
     readonly kind: TaskNoteKind,
     readonly readAt: Date | null,
-    // When it was handed to the agent working the task.
     readonly deliveredAt: Date | null,
     readonly form: TaskNoteForm,
     readonly attachments: readonly Attachment[],
@@ -96,7 +85,6 @@ export class TaskNote {
     return unread(this);
   }
 
-  /** A person speaking and the world happening both interrupt a run. */
   get undelivered(): boolean {
     return (
       this.kind === 'said' && !this.voice.isStation && this.deliveredAt === null
@@ -107,7 +95,6 @@ export class TaskNote {
     return this.said?.remark ?? null;
   }
 
-  /** Answerable while the world said it somewhere and nobody has answered. */
   get open(): boolean {
     return this.remark !== null && this.answeredAt === null;
   }

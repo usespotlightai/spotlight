@@ -8,6 +8,5 @@ export interface KeptWorkspace {
 export const KEPT_WORKSPACE_READER = Symbol('KEPT_WORKSPACE_READER');
 
 export interface KeptWorkspaceReaderPort {
-  /** Tasks pinned to this runner with a conversation still worth taking up. */
   listFor(runnerId: RunnerId): Promise<KeptWorkspace[]>;
 }

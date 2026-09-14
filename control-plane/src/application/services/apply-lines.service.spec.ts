@@ -1,19 +1,19 @@
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
-import type { LineReaderPort } from '@application/ports/line-reader.port';
+import type { LineConfigReaderPort } from '@application/ports/line-config-reader.port';
+import type { TransactionPort } from '@application/ports/transaction.port';
 import { ApplyLines } from '@application/services/apply-lines.service';
-import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
 import { Factory } from '@domain/aggregates/factory.aggregate';
-import type { Task } from '@domain/aggregates/task.aggregate';
-import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
+import { Line } from '@domain/aggregates/line.aggregate';
 import type { FactoryRepository } from '@domain/repositories/factory.repository';
+import type { LineRepository } from '@domain/repositories/line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import {
   BUILT_IN_LINES,
   type LineOpening,
 } from '@domain/services/built-in-lines';
-import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { LineKey } from '@domain/value-objects/line-key.vo';
+import { LineName } from '@domain/value-objects/line-name.vo';
 import { LinePlan, type StationPlan } from '@domain/value-objects/line-plan.vo';
 import { LineRole } from '@domain/value-objects/line-role.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
@@ -29,7 +29,7 @@ const TEAM = TeamId.of('team_1');
 const line = () => {
   let next = 0;
 
-  return AssemblyLine.open({
+  return Line.open({
     workspaceId: WORKSPACE,
     factoryId: FactoryId.of('factory_1'),
     line: BUILT_IN_LINES[0] as LineOpening,
@@ -48,12 +48,12 @@ const station = (key: string): StationPlan => ({
   effort: null,
   agentPrompt: null,
   tools: [],
+  skills: [],
   passesTo: [],
   ends: false,
 });
 
-/** The plan that describes the line exactly as it already stands. */
-const asStanding = (held: AssemblyLine): LinePlan =>
+const asStanding = (held: Line): LinePlan =>
   LinePlan.of({
     key: held.key,
     name: held.name,
@@ -66,7 +66,6 @@ const asStanding = (held: AssemblyLine): LinePlan =>
       })),
   });
 
-/** The same plan with one thing about it changed. */
 const like = (
   plan: LinePlan,
   over: Partial<Parameters<typeof LinePlan.of>[0]>,
@@ -82,10 +81,10 @@ const like = (
 const applying = (
   plans: readonly LinePlan[],
   over: {
-    standing?: readonly AssemblyLine[];
+    standing?: readonly Line[];
     problems?: readonly { path: string; at: string; reason: string }[];
     tasks?: Record<string, number>;
-    held?: AssemblyLine;
+    held?: Line;
   } = {},
 ) => {
   const held = over.held ?? line();
@@ -100,7 +99,7 @@ const applying = (
     add,
     find: vi.fn(),
     holding: vi.fn(),
-  } as unknown as AssemblyLineRepository;
+  } as unknown as LineRepository;
 
   const factories = {
     add: vi.fn(),
@@ -115,21 +114,24 @@ const applying = (
   } satisfies FactoryRepository;
 
   const tasks = {
-    standingAt: vi.fn(async (stationId: { value: string }) => {
-      const key = held.stations.find(
-        (each) => each.id.value === stationId.value,
-      )?.key.value;
-
-      return new Array(over.tasks?.[key ?? ''] ?? 0).fill(
-        null,
-      ) as unknown as Task[];
-    }),
+    countsAt: vi.fn(
+      async (stationIds: readonly { value: string }[]) =>
+        new Map(
+          stationIds.map((stationId) => [
+            stationId.value,
+            over.tasks?.[
+              held.stations.find((each) => each.id.value === stationId.value)
+                ?.key.value ?? ''
+            ] ?? 0,
+          ]),
+        ),
+    ),
   } as unknown as TaskRepository;
 
   const reader = {
     read: () => ({ plans, problems: over.problems ?? [] }),
     write: () => ({ path: '', text: '' }),
-  } as unknown as LineReaderPort;
+  } as unknown as LineConfigReaderPort;
 
   let next = 100;
   const ids = {
@@ -137,7 +139,9 @@ const applying = (
   } as unknown as IdGeneratorPort;
 
   return {
-    apply: new ApplyLines(lines, factories, tasks, reader, ids),
+    apply: new ApplyLines(lines, factories, tasks, reader, ids, {
+      run: (work) => work(),
+    } satisfies TransactionPort),
     save,
     add,
     held,
@@ -148,26 +152,25 @@ describe('ApplyLines', () => {
   it('makes the line say what the file says', async () => {
     const held = line();
     const { apply, save } = applying(
-      [like(asStanding(held), { name: AssemblyLineName.of('Renamed') })],
+      [like(asStanding(held), { name: LineName.of('Renamed') })],
       { held },
     );
 
-    expect(await apply.apply(TEAM, [])).toEqual([]);
+    expect((await apply.apply(TEAM, [])).problems).toEqual([]);
     expect(save).toHaveBeenCalledTimes(1);
 
-    const [written] = save.mock.calls[0] as never as [AssemblyLine];
+    const [written] = save.mock.calls[0] as never as [Line];
 
     expect(written.name.value).toBe('Renamed');
   });
 
-  // The whole point: editing a file must not move anybody's work.
   it('leaves every station the station it was', async () => {
     const held = line();
     const { apply, save } = applying([asStanding(held)], { held });
 
     await apply.apply(TEAM, []);
 
-    const [written] = save.mock.calls[0] as never as [AssemblyLine];
+    const [written] = save.mock.calls[0] as never as [Line];
 
     for (const each of written.stations) {
       expect(each.id.value).toBe(
@@ -176,7 +179,6 @@ describe('ApplyLines', () => {
     }
   });
 
-  // The alternative is deciding on somebody's behalf where their work went.
   it('changes nothing where the plan would strand somebody’s work', async () => {
     const held = line();
     const plan = asStanding(held);
@@ -187,7 +189,7 @@ describe('ApplyLines', () => {
       { held, tasks: { [going]: 2 } },
     );
 
-    const problems = await apply.apply(TEAM, []);
+    const { problems } = await apply.apply(TEAM, []);
 
     expect(save).not.toHaveBeenCalled();
     expect(problems).toHaveLength(1);
@@ -195,7 +197,6 @@ describe('ApplyLines', () => {
     expect(problems[0]?.path).toBe('.spotlight/lines/delivery.yml');
   });
 
-  // A line a file names and the workspace does not have is opened from it.
   it('opens a line the workspace does not have from its file', async () => {
     const held = line();
     const { apply, add, save } = applying(
@@ -203,17 +204,16 @@ describe('ApplyLines', () => {
       { held },
     );
 
-    expect(await apply.apply(TEAM, [])).toEqual([]);
+    expect((await apply.apply(TEAM, [])).problems).toEqual([]);
     expect(save).not.toHaveBeenCalled();
     expect(add).toHaveBeenCalledTimes(1);
 
-    const [opened] = add.mock.calls[0] as never as [AssemblyLine];
+    const [opened] = add.mock.calls[0] as never as [Line];
 
     expect(opened.key).toEqual(LineKey.of('release'));
     expect(opened.factoryId).toEqual(held.factoryId);
   });
 
-  // A role names one line: two files claiming it settle nothing between them.
   it('opens neither of two lines that claim the same role', async () => {
     const held = line();
     const base = asStanding(held);
@@ -226,7 +226,7 @@ describe('ApplyLines', () => {
       { held },
     );
 
-    const problems = await apply.apply(TEAM, []);
+    const { problems } = await apply.apply(TEAM, []);
 
     expect(add).not.toHaveBeenCalled();
     expect(problems.map((each) => each.path).sort()).toEqual([
@@ -236,12 +236,11 @@ describe('ApplyLines', () => {
     expect(problems[0]?.reason).toMatch(/role "improvement"/);
   });
 
-  // Configuration says what a workspace has, not what it may not have.
   it('leaves a line no file mentions alone', async () => {
     const held = line();
     const { apply, save } = applying([], { held });
 
-    expect(await apply.apply(TEAM, [])).toEqual([]);
+    expect((await apply.apply(TEAM, [])).problems).toEqual([]);
     expect(save).not.toHaveBeenCalled();
   });
 
@@ -255,7 +254,7 @@ describe('ApplyLines', () => {
 
     const { apply } = applying([], { held, problems: [broken] });
 
-    expect(await apply.apply(TEAM, [])).toEqual([broken]);
+    expect((await apply.apply(TEAM, [])).problems).toEqual([broken]);
   });
 
   it('gives a station nobody had before an identity of its own', async () => {
@@ -277,7 +276,7 @@ describe('ApplyLines', () => {
 
     await apply.apply(TEAM, []);
 
-    const [written] = save.mock.calls[0] as never as [AssemblyLine];
+    const [written] = save.mock.calls[0] as never as [Line];
 
     expect(
       written.stations.find((each) => each.key.value === 'handover')?.id.value,

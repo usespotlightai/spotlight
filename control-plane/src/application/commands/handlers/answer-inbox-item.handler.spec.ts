@@ -6,20 +6,22 @@ import type { TransactionPort } from '@application/ports/transaction.port';
 import { ConversationAtHand } from '@application/services/conversation-at-hand.service';
 import { FilesAtHand } from '@application/services/files-at-hand.service';
 import type { TaskDispatching } from '@application/services/task-dispatch';
-import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import { Line } from '@domain/aggregates/line.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { Station } from '@domain/entities/station.entity';
-import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
+import type { LineRepository } from '@domain/repositories/line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
-import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
-import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { Attachment } from '@domain/value-objects/attachment.vo';
 import type { AttachmentId } from '@domain/value-objects/attachment-id.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { LineId } from '@domain/value-objects/line-id.vo';
+import { LineKey } from '@domain/value-objects/line-key.vo';
+import { LineName } from '@domain/value-objects/line-name.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
+import { StationKey } from '@domain/value-objects/station-key.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
@@ -34,14 +36,16 @@ const clock: ClockPort = { now: () => NOW, sleep: async () => {} };
 const transaction: TransactionPort = { run: async (work) => work() };
 
 const line = () =>
-  AssemblyLine.of({
-    id: AssemblyLineId.of('line_1'),
+  Line.of({
+    id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
-    name: AssemblyLineName.of('Default'),
+    key: LineKey.of('default'),
+    name: LineName.of('Default'),
     stations: [
       Station.of({
         id: StationId.of('station_0'),
+        key: StationKey.of('backlog'),
         name: StationName.of('Backlog'),
         position: 0,
         color: StationColor.of('#a3a8b0'),
@@ -49,6 +53,7 @@ const line = () =>
       }),
       Station.of({
         id: StationId.of('station_1'),
+        key: StationKey.of('triage'),
         name: StationName.of('Triage'),
         position: 1,
         color: StationColor.of('#a3a8b0'),
@@ -56,6 +61,7 @@ const line = () =>
       }),
       Station.of({
         id: StationId.of('station_2'),
+        key: StationKey.of('completed'),
         name: StationName.of('Completed'),
         position: 2,
         color: StationColor.of('#a3a8b0'),
@@ -64,7 +70,6 @@ const line = () =>
     ],
   });
 
-// Put to a person first: there is nothing to answer otherwise.
 const waiting = () =>
   Task.add({
     workspaceId: WorkspaceId.of('ws_1'),
@@ -94,6 +99,7 @@ const tasks = (found: Task) =>
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
     holding: vi.fn(async () => found),
+    countsAt: vi.fn(async () => new Map()),
   }) satisfies TaskRepository;
 
 const lines = () =>
@@ -105,7 +111,7 @@ const lines = () =>
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
     withRole: vi.fn(async () => null),
-  }) satisfies AssemblyLineRepository;
+  }) satisfies LineRepository;
 
 const dispatch: TaskDispatching = {
   dispatch: async () => RunId.of('run_2'),
@@ -173,14 +179,12 @@ describe('AnswerInboxItem', () => {
     expect(saved?.currentRunId).toEqual(RunId.of('run_2'));
   });
 
-  // Answering twice should not start a second run alongside the first.
   it('starts nothing where a run is already working it', async () => {
     await answer(waiting().handedTo(RunId.of('run_1')));
 
     expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
   });
 
-  // Nothing was put to anyone, so there is nothing an answer could be to.
   it('refuses to answer a task nobody was asked about', async () => {
     const untouched = Task.add({
       workspaceId: WorkspaceId.of('ws_1'),

@@ -17,23 +17,23 @@ import type { AttendToNotices } from '@application/services/attend-to-notices.se
 import { SourceForDelivery } from '@application/services/source-for-delivery.service';
 import type { TaskDispatching } from '@application/services/task-dispatch';
 import { WebhookSources } from '@application/services/webhook-sources.service';
-import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import { Line } from '@domain/aggregates/line.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { Station } from '@domain/entities/station.entity';
-import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
+import type { LineRepository } from '@domain/repositories/line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import {
   BUILT_IN_LINES,
   type LineOpening,
 } from '@domain/services/built-in-lines';
-import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
-import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import type { Attachment } from '@domain/value-objects/attachment.vo';
 import { Concerns } from '@domain/value-objects/concerns.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { Happening } from '@domain/value-objects/happening.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { LineId } from '@domain/value-objects/line-id.vo';
 import { LineKey } from '@domain/value-objects/line-key.vo';
+import { LineName } from '@domain/value-objects/line-name.vo';
 import { LineRole } from '@domain/value-objects/line-role.vo';
 import { Mark } from '@domain/value-objects/mark.vo';
 import { Reaction } from '@domain/value-objects/reaction.vo';
@@ -41,6 +41,7 @@ import { RunId } from '@domain/value-objects/run-id.vo';
 import { Said } from '@domain/value-objects/said.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
+import { StationKey } from '@domain/value-objects/station-key.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
@@ -91,6 +92,7 @@ const at = (
 ) =>
   Station.of({
     id: StationId.of(id),
+    key: StationKey.of(name.toLowerCase().split(' ').join('-')),
     name: StationName.of(name),
     position,
     color: StationColor.of('#a3a8b0'),
@@ -106,11 +108,12 @@ const sends = (happening: Happening, to: string, from?: string) =>
   });
 
 const line = () =>
-  AssemblyLine.of({
-    id: AssemblyLineId.of('line_1'),
+  Line.of({
+    id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
-    name: AssemblyLineName.of('Default'),
+    key: LineKey.of('default'),
+    name: LineName.of('Default'),
     stations: [
       at('station_0', 'Backlog', 0, 'backlog'),
       at('station_1', 'Implementation', 1),
@@ -150,6 +153,7 @@ const tasks = (found: Task | null) =>
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
     holding: vi.fn(async () => found),
+    countsAt: vi.fn(async () => new Map()),
   }) satisfies TaskRepository;
 
 const lines = () =>
@@ -161,9 +165,8 @@ const lines = () =>
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
     withRole: vi.fn(async () => null),
-  }) satisfies AssemblyLineRepository;
+  }) satisfies LineRepository;
 
-/** Nothing here is about the workspace, so nothing is attended to. */
 const attending = {
   attend: async () => {},
 } as unknown as AttendToNotices;
@@ -175,13 +178,11 @@ const dispatch: TaskDispatching = {
   },
 };
 
-// A no-op announce for the reactions that are not about being announced.
 const silentAnnounce = new AnnounceTaskEvents(
   new SilentTaskNotifier(),
   tasks(null),
 );
 
-/** A host that says what it carried, whose it is, and what to call it. */
 const sourced = (
   carried: readonly Happened[],
   over: { workspaceId?: string | null; delivery?: string } = {},
@@ -203,7 +204,6 @@ const sourced = (
     { find: async () => null, all: async () => [] },
   );
 
-/** A delivery already taken in: what the worker hands the handler. */
 const taken: StoredDelivery = {
   source: 'github',
   workspaceId: '',
@@ -222,7 +222,6 @@ const news = (
 ): Happened => ({
   happening,
   told: `The pull request was ${happening.value.split('.').pop()}.`,
-  // Only what a person says needs anything said with it.
   spoken: happening.equals(COMMENTED) || happening.equals(CHANGES_REQUESTED),
   state: 'raised',
   concerns: Concerns.of({ branch: 'spotlight/task_1' }) as Concerns,
@@ -277,7 +276,6 @@ describe('ReactToHappening', () => {
     expect(saved?.currentRunId).toEqual(RunId.of('run_2'));
   });
 
-  // A comment while it stands at review is still news, and still worth a run.
   it('leaves a task where it stands when that is where it belongs', async () => {
     await heard(COMMENTED, standing(), 'This retries forever.');
 
@@ -287,8 +285,6 @@ describe('ReactToHappening', () => {
     expect(dispatched).toHaveLength(1);
   });
 
-  // Written down as it was said, not only as it reads: what the agent is
-  // told to answer, and what it answers with, both come from this.
   it('keeps what the world said on the note, whole', async () => {
     await heard(COMMENTED, standing(), 'pin this to a version.');
 
@@ -300,16 +296,12 @@ describe('ReactToHappening', () => {
     expect(note?.open).toBe(true);
   });
 
-  // The machinery for telling a live agent something already exists: what a
-  // person says waits to be delivered, and so does this.
   it('waits to be handed to the agent already working the task', async () => {
     await heard(COMMENTED, standing().handedTo(RunId.of('run_1')), 'Look.');
 
     expect(saved?.undelivered.map((each) => each.kind)).toEqual(['said']);
   });
 
-  // A reviewer replying on the pull request is the answer the station was
-  // waiting for, so the work carries on rather than sitting in an inbox.
   it('takes a reviewer’s word as the answer a person was owed', async () => {
     const asked = standing().askedAbout({
       voice: Voice.station(),
@@ -328,8 +320,6 @@ describe('ReactToHappening', () => {
     expect(dispatched).toHaveLength(1);
   });
 
-  // A reply in a thread, that this line routes with no rule, still answers the
-  // question the task was waiting on: the owed conversation says where it goes.
   it('takes an unruled spoken word as the answer a task was owed', async () => {
     const asked = standing().askedAbout({
       voice: Voice.station(),
@@ -450,7 +440,6 @@ describe('ReactToHappening', () => {
     });
   });
 
-  // A build breaking answers nothing a station asked a person.
   it('leaves a person owed where the world merely reports itself', async () => {
     const asked = standing().askedAbout({
       voice: Voice.station(),
@@ -466,7 +455,6 @@ describe('ReactToHappening', () => {
     expect(dispatched).toHaveLength(0);
   });
 
-  // Its comments arrive on their own, carrying what was actually said.
   it('says nothing of a review submitted with nothing written on it', async () => {
     await heard(COMMENTED, standing(), null);
 
@@ -507,8 +495,6 @@ describe('ReactToHappening', () => {
     expect(dispatched).toHaveLength(1);
   });
 
-  // Our own comment on our own pull request would start a run that comments
-  // again, and so on.
   it('says nothing about what Spotlight itself did', async () => {
     await new ReactToHappeningHandler(
       sourced([news(COMMENTED, 'Opened by the agent.', true)], {
@@ -548,8 +534,6 @@ describe('ReactToHappening', () => {
     expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
   });
 
-  // The App is installed by whoever likes; being installed somewhere is not
-  // being anyone's here.
   it('says nothing for an installation no workspace has claimed', async () => {
     const held = tasks(standing());
 
@@ -576,8 +560,6 @@ describe('ReactToHappening', () => {
     expect(dispatched).toHaveLength(0);
   });
 
-  // Whatever a delivery names, it may only name it within its own workspace:
-  // a branch or a pull request address is not proof of whose task it is.
   it('looks for the task only in the workspace the word came from', async () => {
     const held = tasks(standing());
 
@@ -605,14 +587,12 @@ describe('ReactToHappening', () => {
     );
   });
 
-  // A word about work nobody here has, onto a role a line holds: the line
-  // opens one at its entry, marked so the words that follow find it.
   it('opens a task on a line the word opens onto', async () => {
     const ISSUE_CREATED = Happening.of('linear.issue.created');
     const issueMark = Mark.of('linear.issue', 'ISS-1');
 
     let next = 0;
-    const opening = AssemblyLine.open({
+    const opening = Line.open({
       workspaceId: WorkspaceId.of('ws_1'),
       factoryId: FactoryId.of('factory_1'),
       line: BUILT_IN_LINES[0] as LineOpening,
@@ -630,8 +610,8 @@ describe('ReactToHappening', () => {
       remove: vi.fn(),
       standingAt: vi.fn(async () => []),
       placementsAt: vi.fn(async () => []),
-      // Nobody here is working this yet.
       holding: vi.fn(async () => null),
+      countsAt: vi.fn(async () => new Map()),
     } satisfies TaskRepository;
 
     const running = {
@@ -642,7 +622,7 @@ describe('ReactToHappening', () => {
       ofWorkspace: vi.fn(async () => [opening]),
       ofTeam: vi.fn(async () => []),
       withRole: vi.fn(async () => null),
-    } satisfies AssemblyLineRepository;
+    } satisfies LineRepository;
 
     const filed: Happened = {
       happening: ISSUE_CREATED,
@@ -682,21 +662,17 @@ describe('ReactToHappening', () => {
     expect(held.add).toHaveBeenCalledTimes(1);
     expect(added?.stationId).toEqual(entry.id);
     expect(added?.marks.some((each) => each.equals(issueMark))).toBe(true);
-    // The task is named and described by what the source read, not its handle.
     expect(added?.title.value).toBe('Drain the retry queue');
     expect(added?.description?.value).toBe('It loops forever.');
-    // Opening the task records the event that a bound host acknowledges.
     expect(notifier.notify).toHaveBeenCalledWith(added, 'task.opened');
   });
 
-  // A word that named who it is from, by email, opens the task assigned to the
-  // member who has it — so it lands in that person's inbox.
   it('assigns an opened task to the member matched by email', async () => {
     const ISSUE_CREATED = Happening.of('linear.issue.created');
     const issueMark = Mark.of('linear.issue', 'ISS-1');
 
     let next = 0;
-    const opening = AssemblyLine.open({
+    const opening = Line.open({
       workspaceId: WorkspaceId.of('ws_1'),
       factoryId: FactoryId.of('factory_1'),
       line: BUILT_IN_LINES[0] as LineOpening,
@@ -714,6 +690,7 @@ describe('ReactToHappening', () => {
       standingAt: vi.fn(async () => []),
       placementsAt: vi.fn(async () => []),
       holding: vi.fn(async () => null),
+      countsAt: vi.fn(async () => new Map()),
     } satisfies TaskRepository;
 
     const running = {
@@ -724,7 +701,7 @@ describe('ReactToHappening', () => {
       ofWorkspace: vi.fn(async () => [opening]),
       ofTeam: vi.fn(async () => []),
       withRole: vi.fn(async () => null),
-    } satisfies AssemblyLineRepository;
+    } satisfies LineRepository;
 
     const byEmail = vi.fn(async () => UserId.of('user_9'));
 
@@ -773,7 +750,7 @@ describe('ReactToHappening', () => {
     const issueMark = Mark.of('linear.issue', 'ISS-1');
 
     let next = 0;
-    const opening = AssemblyLine.open({
+    const opening = Line.open({
       workspaceId: WorkspaceId.of('ws_1'),
       factoryId: FactoryId.of('factory_1'),
       line: BUILT_IN_LINES[0] as LineOpening,
@@ -791,6 +768,7 @@ describe('ReactToHappening', () => {
       standingAt: vi.fn(async () => []),
       placementsAt: vi.fn(async () => []),
       holding: vi.fn(async () => null),
+      countsAt: vi.fn(async () => new Map()),
     } satisfies TaskRepository;
 
     const running = {
@@ -801,7 +779,7 @@ describe('ReactToHappening', () => {
       ofWorkspace: vi.fn(async () => [opening]),
       ofTeam: vi.fn(async () => []),
       withRole: vi.fn(async () => null),
-    } satisfies AssemblyLineRepository;
+    } satisfies LineRepository;
 
     const filed: Happened = {
       happening: ISSUE_CREATED,
@@ -843,27 +821,24 @@ describe('ReactToHappening', () => {
     expect(added?.assignee).toBeNull();
   });
 
-  // The handle names one task. Two lines sharing the role it opens onto do not
-  // each take a copy: one opens, chosen by key, and the other is left alone.
   it('opens one task where two lines share the role it opens onto', async () => {
     const ISSUE_CREATED = Happening.of('linear.issue.created');
     const issueMark = Mark.of('linear.issue', 'ISS-1');
 
     const delivery = (key: string) => {
       let next = 0;
-      return AssemblyLine.open({
+      return Line.open({
         workspaceId: WorkspaceId.of('ws_1'),
         factoryId: FactoryId.of('factory_1'),
         line: {
           ...(BUILT_IN_LINES[0] as LineOpening),
           key: LineKey.of(key),
-          name: AssemblyLineName.of(key),
+          name: LineName.of(key),
         },
         newId: () => `${key}_${++next}`,
       });
     };
 
-    // Given back in the order that would open the wrong one without a rule.
     const second = delivery('delivery-b');
     const first = delivery('delivery-a');
 
@@ -878,6 +853,7 @@ describe('ReactToHappening', () => {
       standingAt: vi.fn(async () => []),
       placementsAt: vi.fn(async () => []),
       holding: vi.fn(async () => null),
+      countsAt: vi.fn(async () => new Map()),
     } satisfies TaskRepository;
 
     const running = {
@@ -888,7 +864,7 @@ describe('ReactToHappening', () => {
       ofWorkspace: vi.fn(async () => [second, first]),
       ofTeam: vi.fn(async () => []),
       withRole: vi.fn(async () => null),
-    } satisfies AssemblyLineRepository;
+    } satisfies LineRepository;
 
     const filed: Happened = {
       happening: ISSUE_CREATED,

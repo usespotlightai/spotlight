@@ -35,8 +35,6 @@ export const TeamTraceMapper = {
       runs: summary.runs,
       input: summary.input,
       output: summary.output,
-      // What the task took from first run to last, which is what a reader
-      // waited through, rather than the sum of what the agents spoke for.
       ms: summary.endedAt.getTime() - summary.startedAt.getTime(),
       steps: spent.steps,
       faults: spent.faults,

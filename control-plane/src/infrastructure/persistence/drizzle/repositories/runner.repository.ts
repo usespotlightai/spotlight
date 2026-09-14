@@ -15,7 +15,6 @@ import { eq } from 'drizzle-orm';
 
 type Row = typeof runner.$inferSelect;
 
-// Installed ids and advertised models: two columns of one aggregate fact.
 const toRunner = (row: Row): Runner =>
   Runner.rehydrate({
     id: RunnerId.of(row.id),

@@ -1,5 +1,8 @@
 import { randomBytes } from 'node:crypto';
-import { SecretCipher } from '@infrastructure/secrets/secret.cipher';
+import {
+  SecretCipher,
+  UnopenedSecretError,
+} from '@infrastructure/secrets/secret.cipher';
 import { describe, expect, it } from 'vitest';
 
 const KEY = randomBytes(32).toString('base64');
@@ -20,7 +23,6 @@ describe('SecretCipher', () => {
     }
   });
 
-  // Two rows holding one secret should not look alike in the database.
   it('seals the same secret differently every time', () => {
     const cipher = new SecretCipher(KEY);
 
@@ -34,15 +36,12 @@ describe('SecretCipher', () => {
     );
   });
 
-  // A stolen database is rows nobody can read, which is the whole point.
   it('will not open what another key sealed', () => {
     const sealed = new SecretCipher(OTHER).seal('whsec_abc123');
 
     expect(() => new SecretCipher(KEY).open(sealed)).toThrow();
   });
 
-  // GCM, so a row edited in the database fails rather than opening as
-  // something else.
   it('will not open a secret that has been tampered with', () => {
     const cipher = new SecretCipher(KEY);
     const [version, iv, tag, sealed] = cipher.seal('whsec_abc123').split('.');
@@ -62,11 +61,10 @@ describe('SecretCipher', () => {
     expect(() => cipher.open('v1..')).toThrow(/not sealed/);
   });
 
-  it('tells one sealed secret from another without opening either', () => {
-    const cipher = new SecretCipher(KEY);
-    const sealed = cipher.seal('same');
+  it('will not open what another key sealed', () => {
+    const sealed = new SecretCipher(KEY).seal('whsec_abc123');
+    const other = new SecretCipher(Buffer.alloc(32, 9).toString('base64'));
 
-    expect(SecretCipher.same(sealed, sealed)).toBe(true);
-    expect(SecretCipher.same(sealed, cipher.seal('other'))).toBe(false);
+    expect(() => other.open(sealed)).toThrow(UnopenedSecretError);
   });
 });

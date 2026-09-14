@@ -27,8 +27,6 @@ describe('ListKeptWorkspaces', () => {
     expect(keys).toEqual(['task_1-station_2', 'task_2-station_3']);
   });
 
-  // A runner holding nothing worth returning for should be told so plainly,
-  // not left to guess: everything it has can go.
   it('answers with nothing when there is nothing to return for', async () => {
     expect(await answer([])).toEqual([]);
   });

@@ -16,8 +16,6 @@ export class RenameTeamHandler
 
   async execute(command: RenameTeamCommand): Promise<boolean> {
     try {
-      // Someone outside the team is not told it is there at all, and only an
-      // owner or admin may rename it.
       if (
         !(await this.authorization.connectableBy(
           command.teamId,

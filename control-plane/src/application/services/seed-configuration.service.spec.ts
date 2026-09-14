@@ -1,11 +1,10 @@
-import type { LineReaderPort } from '@application/ports/line-reader.port';
+import type { LineConfigReaderPort } from '@application/ports/line-config-reader.port';
 import type { RepositoryContentsPort } from '@application/ports/repository-contents.port';
 import { ConfigurationTarget } from '@application/services/configuration-target.service';
 import { HeldConfiguration } from '@application/services/held-configuration.service';
 import { SeedConfiguration } from '@application/services/seed-configuration.service';
 import type { WriteConfiguration } from '@application/services/write-configuration.service';
-import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
-import { CONFIGURATION_BRANCH } from '@domain/aggregates/team-configuration.aggregate';
+import { Line } from '@domain/aggregates/line.aggregate';
 import { Workspace } from '@domain/aggregates/workspace.aggregate';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
 import {
@@ -23,8 +22,7 @@ import { WorkspaceRole } from '@domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
 import { describe, expect, it, vi } from 'vitest';
 
-/** A reader as the port describes one. The real renderer has its own test. */
-const reader: LineReaderPort = {
+const reader: LineConfigReaderPort = {
   read: () => ({ plans: [], problems: [] }),
   write: (each) =>
     ConfigurationFile.of(
@@ -41,7 +39,7 @@ const INTO = Repository.of('acme/api');
 const line = () => {
   let next = 0;
 
-  return AssemblyLine.open({
+  return Line.open({
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
     line: BUILT_IN_LINES[0] as LineOpening,
@@ -102,10 +100,9 @@ describe('SeedConfiguration', () => {
 
     const [into, writing] = writeInto.mock.calls[0] as never as [
       { repository: Repository },
-      { branch: string; title: string; files: ConfigurationFile[] },
+      { title: string; files: ConfigurationFile[] },
     ];
     expect(into.repository).toEqual(INTO);
-    expect(writing.branch).toBe(CONFIGURATION_BRANCH);
     expect(writing.title).toBe('Set up Spotlight');
     expect(writing.files.map((each) => each.path)).toEqual([
       '.spotlight/lines/delivery.yml',
@@ -113,7 +110,6 @@ describe('SeedConfiguration', () => {
     expect(writing.files[0]?.text).toContain('version: 1');
   });
 
-  // Opening a pull request over somebody's own files is not a welcome.
   it('writes nothing where the repository already has configuration', async () => {
     const { service, writeInto } = seeding({
       already: [{ path: '.spotlight/lines/delivery.yml', text: 'version: 1' }],

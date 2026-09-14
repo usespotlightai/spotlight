@@ -4,7 +4,6 @@ import { TaskId } from '@domain/value-objects/task-id.vo';
 
 const AT = ':';
 
-/** A task can need someone more than once, so it takes the note as well. */
 export class ConversationId {
   private constructor(
     readonly taskId: TaskId,
@@ -21,7 +20,7 @@ export class ConversationId {
     }
   }
 
-  // A task id is opaque, so the note comes off the end.
+  // Task ids are opaque and may contain the separator, so split from the end.
   static parse(value: string): ConversationId {
     const at = value.lastIndexOf(AT);
 

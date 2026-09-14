@@ -47,7 +47,6 @@ interface Thread {
   };
 }
 
-/** The number the host knows a pull request by, which its address ends in. */
 const numbered = (url: string): number => {
   const last = Number(url.trim().split('/').pop());
 
@@ -71,8 +70,6 @@ export class GitHubRemarks implements RemarksPort {
     );
     const thread = await this.holding(answer, token);
 
-    // Said on the pull request rather than on a line of it: there is no
-    // thread to reply within, and none to resolve either.
     if (!thread) {
       if (answer.resolve) {
         throw new UpstreamRefusedError(
@@ -84,8 +81,6 @@ export class GitHubRemarks implements RemarksPort {
       return this.comment(answer, token);
     }
 
-    // Saying the same thing twice is saying it once: a run that answered and
-    // then failed to write it down must not answer again on the thread.
     const already = thread.comments.nodes.some(
       (each) => each.body.trim() === answer.body.trim(),
     );

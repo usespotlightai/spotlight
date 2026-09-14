@@ -15,7 +15,6 @@ describe('TaskDescription', () => {
     );
   });
 
-  // A host's own description is kept: cut to fit rather than dropping the task.
   it('clamps a description from outside to fit, rather than refusing it', () => {
     expect(TaskDescription.clamp('x'.repeat(30_000)).value).toHaveLength(
       20_000,

@@ -14,7 +14,6 @@ describe('Commit', () => {
     expect(Commit.of('A1B2C3D').value).toBe('a1b2c3d');
   });
 
-  // A person reads the first few and no more.
   it('shows the few characters anybody actually reads', () => {
     expect(Commit.of(FULL).short).toBe('a1b2c3d');
   });

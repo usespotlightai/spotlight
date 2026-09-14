@@ -102,7 +102,6 @@ describe('TeamSetup', () => {
     });
   });
 
-  // A row is not a machine, whether never reached or taken away.
   it('has no runner where nothing has checked in', async () => {
     await expect(read({ runner: false })).resolves.toMatchObject({
       hasRunner: false,
@@ -132,7 +131,7 @@ describe('asSetupState', () => {
       connectedToGitHub: true,
       hasRepository: true,
       hasConfiguration: true,
-      listensToATool: true,
+      listensToAnIntegration: true,
     });
   });
 
@@ -146,6 +145,6 @@ describe('asSetupState', () => {
         hasConfiguration: false,
         listening: [],
       }),
-    ).toMatchObject({ hasRepository: false, listensToATool: false });
+    ).toMatchObject({ hasRepository: false, listensToAnIntegration: false });
   });
 });

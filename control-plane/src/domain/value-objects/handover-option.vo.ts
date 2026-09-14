@@ -1,23 +1,31 @@
-import { DONE, REVIEW } from '@domain/value-objects/declaration.vo';
+import { DONE, REVIEW } from '@domain/value-objects/handover-word';
+import type { StationKey } from '@domain/value-objects/station-key.vo';
 import type { StationName } from '@domain/value-objects/station-name.vo';
 
-/** One thing a run may say when it hands the task over. */
-export class HandoverOption {
-  private constructor(readonly value: string) {}
+interface OfferedStation {
+  readonly key: StationKey;
+  readonly name: StationName;
+}
 
-  static station(name: StationName): HandoverOption {
-    return new HandoverOption(name.value);
+export class HandoverOption {
+  private constructor(
+    readonly kind: 'station' | 'review' | 'done',
+    readonly station: OfferedStation | null,
+  ) {}
+
+  static station(key: StationKey, name: StationName): HandoverOption {
+    return new HandoverOption('station', { key, name });
   }
 
   static review(): HandoverOption {
-    return new HandoverOption(REVIEW);
+    return new HandoverOption('review', null);
   }
 
   static done(): HandoverOption {
-    return new HandoverOption(DONE);
+    return new HandoverOption('done', null);
   }
 
-  equals(other: HandoverOption): boolean {
-    return this.value === other.value;
+  get word(): string {
+    return this.station?.key.value ?? (this.kind === 'done' ? DONE : REVIEW);
   }
 }

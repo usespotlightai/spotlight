@@ -28,8 +28,6 @@ describe('DeliveryWorker', () => {
     expect(work.workOff).toHaveBeenCalledTimes(1);
   });
 
-  // A turn that outlasts the interval must not have another start beside it,
-  // or two would race for the same deliveries.
   it('lets one turn finish before another starts', async () => {
     const { holding, release } = held();
     const { worker, work } = turning(async () => {
@@ -55,8 +53,6 @@ describe('DeliveryWorker', () => {
     expect(work.workOff).toHaveBeenCalledTimes(2);
   });
 
-  // A delivery caught mid-turn is left as it was taken in, and worked by
-  // whoever comes up next.
   it('starts no new turn once it is going down', async () => {
     const { worker, work } = turning(async () => 1);
 
@@ -66,7 +62,6 @@ describe('DeliveryWorker', () => {
     expect(work.workOff).not.toHaveBeenCalled();
   });
 
-  // The inbox stops moving if a turn is ever allowed to end the schedule.
   it('says what went wrong and takes its next turn anyway', async () => {
     let turns = 0;
     const { worker, logger } = turning(async () => {

@@ -34,10 +34,7 @@ export class AuthCoreModule {}
       inject: [AUTH, LOGGING],
       useFactory: (auth: AppAuth, logging: Logging) => ({
         auth,
-        // A run's journal arrives in batches of terminal output, which is far
-        // larger than anything else posted here. Sized so a whole run through
-        // never meets it, and only a runaway does.
-        // GitHub signs the bytes it sent, which the webhook checks.
+        // rawBody for GitHub signatures; limit sized for journal batches.
         bodyParser: { rawBody: true, json: { limit: JOURNAL_LIMIT } },
         middleware: (req, res, next) => logging.httpLogger(req, res, next),
       }),

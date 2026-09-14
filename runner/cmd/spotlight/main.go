@@ -1,6 +1,3 @@
-// Command spotlight is what an agent working a run uses to talk back to
-// Spotlight. It runs in the agent's own terminal, so anything it has to say is
-// said where the agent will read it.
 package main
 
 import (
@@ -26,9 +23,10 @@ func main() {
 
 const usage = `usage:
   spotlight handover --next <where> [--note <text>]
-  spotlight pull-request --title <text> [--body <text>] [--repository <name>]
   spotlight reply --to <handle> [--body <text>] [--resolve]
-  spotlight trace --task <id> [--out <path>]`
+  spotlight trace --task <id> [--out <path>]
+  spotlight tools
+  spotlight <tool> [--<input> <value>...]   as spotlight linear comment --body "..."`
 
 func run(args []string, in io.Reader, out io.Writer) error {
 	if len(args) == 0 {
@@ -38,21 +36,17 @@ func run(args []string, in io.Reader, out io.Writer) error {
 	switch args[0] {
 	case "handover":
 		return handover(args[1:], in, out)
-	case "pull-request":
-		return pullRequest(args[1:], in, out)
 	case "reply":
 		return reply(args[1:], in, out)
 	case "trace":
 		return traceCmd(args[1:], out)
+	case "tools":
+		return listTools(out)
 	default:
-		return fmt.Errorf("no such command %q\n%s", args[0], usage)
+		return useTool(args, in, out)
 	}
 }
 
-// prose is a flag's value, or what was piped in where the flag is left off or
-// names stdin explicitly ("-" or "/dev/stdin"). Piping a heredoc while writing
-// --note /dev/stdin is a natural shell idiom; honouring it keeps the pipe from
-// being recorded as the literal path.
 func prose(value string, in io.Reader) (string, error) {
 	if value != "" && value != "-" && value != "/dev/stdin" {
 		return value, nil
@@ -81,8 +75,6 @@ func handover(args []string, in io.Reader, out io.Writer) error {
 		return fmt.Errorf("--next is required\n%s", usage)
 	}
 
-	// A note is prose and often long, so it may be piped in rather than
-	// fought through shell quoting.
 	noted, err := prose(*note, in)
 	if err != nil {
 		return fmt.Errorf("read the note: %w", err)
@@ -99,10 +91,12 @@ func handover(args []string, in io.Reader, out io.Writer) error {
 		return err
 	}
 
-	// "Handed over to review" reads as a station on a line that has one.
-	if strings.EqualFold(said, declare.Review) {
+	switch {
+	case strings.EqualFold(said, declare.Review):
 		fmt.Fprintln(out, "Put to a person. The task waits here until someone answers.")
-	} else {
+	case strings.EqualFold(said, declare.Done):
+		fmt.Fprintln(out, "Closed where it stands.")
+	default:
 		fmt.Fprintf(out, "Handed over to %s.\n", said)
 	}
 
@@ -125,7 +119,6 @@ func reply(args []string, in io.Reader, out io.Writer) error {
 		return fmt.Errorf("--to is required\n%s", usage)
 	}
 
-	// As with a note, an answer is prose and may be piped in.
 	answered, err := prose(*body, in)
 	if err != nil {
 		return fmt.Errorf("read the answer: %w", err)
@@ -163,61 +156,6 @@ func reply(args []string, in io.Reader, out io.Writer) error {
 	return nil
 }
 
-func pullRequest(args []string, in io.Reader, out io.Writer) error {
-	flags := flag.NewFlagSet("pull-request", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
-
-	title := flags.String("title", "", "what to call it")
-	body := flags.String("body", "", "what it does, as markdown")
-	repository := flags.String(
-		"repository", "", "which repository, by name, where the line works several",
-	)
-
-	if err := flags.Parse(args); err != nil {
-		return fmt.Errorf("%s", usage)
-	}
-
-	if strings.TrimSpace(*title) == "" {
-		return fmt.Errorf("--title is required\n%s", usage)
-	}
-
-	// As with a note, the description is prose and may be piped in.
-	described, err := prose(*body, in)
-	if err != nil {
-		return fmt.Errorf("read the description: %w", err)
-	}
-	*body = described
-
-	endpoint, token := os.Getenv(declare.URLVar), os.Getenv(declare.TokenVar)
-	if endpoint == "" || token == "" {
-		return fmt.Errorf("no run to open one for: spotlight runs inside a Spotlight workspace")
-	}
-
-	asked, err := json.Marshal(protocol.PullRequest{
-		Title:      *title,
-		Body:       *body,
-		Repository: strings.TrimSpace(*repository),
-	})
-	if err != nil {
-		return err
-	}
-
-	answered, err := post(
-		strings.TrimSuffix(endpoint, "/")+declare.PullRequestPath, token, asked)
-	if err != nil {
-		return err
-	}
-
-	var opened protocol.Opened
-	if err := json.Unmarshal([]byte(answered), &opened); err != nil {
-		return fmt.Errorf("Spotlight answered with %q", answered)
-	}
-
-	fmt.Fprintf(out, "Opened %s\n", opened.URL)
-
-	return nil
-}
-
 func say(endpoint, token string, spoken protocol.Outcome) (string, error) {
 	body, err := json.Marshal(spoken)
 	if err != nil {
@@ -231,8 +169,6 @@ func say(endpoint, token string, spoken protocol.Outcome) (string, error) {
 	return spoken.Next, nil
 }
 
-// post carries one thing the agent said and answers with whatever Spotlight
-// said back, which on a refusal is the reason.
 func post(url, token string, body []byte) (string, error) {
 	request, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {

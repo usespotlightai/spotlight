@@ -12,6 +12,7 @@ export class CustomiseStationCommand {
       readonly model?: string | null;
       readonly effort?: string | null;
       readonly agentPrompt?: string | null;
+      readonly skills?: readonly string[];
     },
   ) {}
 }

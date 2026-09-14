@@ -1,11 +1,6 @@
 import type { Declaration } from '@domain/value-objects/declaration.vo';
 import type { HarnessSession } from '@domain/value-objects/harness-session.vo';
 
-/**
- * What a runner said as it finished a run: the handover the agent declared, if
- * it declared one, and the harness session to resume it from. Either may be
- * absent — a run can end without a word.
- */
 export class HandoverReport {
   private constructor(
     readonly declared: Declaration | null,

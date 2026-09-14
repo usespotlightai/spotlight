@@ -1,4 +1,4 @@
-import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import { Line } from '@domain/aggregates/line.aggregate';
 import { linePath } from '@domain/aggregates/team-configuration.aggregate';
 import {
   BUILT_IN_LINES,
@@ -7,20 +7,16 @@ import {
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@domain/value-objects/harness-model.vo';
+import { SkillKey } from '@domain/value-objects/skill-key.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { compileLine } from '@infrastructure/integrations/line.compile';
 import { renderLine } from '@infrastructure/integrations/line.render';
 import { describe, expect, it } from 'vitest';
 
-/**
- * The line Spotlight opens a workspace with, which is what the pull request
- * on installing carries. If this cannot be read back, nothing else in the
- * configuration story stands up.
- */
 const built = () => {
   let next = 0;
 
-  return AssemblyLine.open({
+  return Line.open({
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
     line: BUILT_IN_LINES[0] as LineOpening,
@@ -28,7 +24,7 @@ const built = () => {
   });
 };
 
-const readBack = (line: AssemblyLine) => {
+const readBack = (line: Line) => {
   const read = compileLine(linePath(line.key.value), renderLine(line));
 
   if (!read.ok) {
@@ -72,7 +68,6 @@ describe('writing a line out and reading it back', () => {
     }
   });
 
-  // The prompts are the longest thing in the file and the easiest to mangle.
   it('keeps every agent prompt exactly as it was written', () => {
     const line = built();
     const read = readBack(line);
@@ -120,7 +115,28 @@ describe('writing a line out and reading it back', () => {
     }
   });
 
-  // Written as keys rather than identifiers, so they have to resolve back.
+  it('keeps the team’s own skills each station names', () => {
+    const standing = built();
+    const station = standing.worked[0];
+
+    if (!station) {
+      throw new Error('the built-in line has no station that runs');
+    }
+
+    const line = standing.giveStationSkills(station.id, [
+      SkillKey.of('grafana-dashboards'),
+      SkillKey.of('our-migrations'),
+    ]);
+    const written = readBack(line).stations.find((each) =>
+      each.key.equals(station.key),
+    );
+
+    expect(written?.skills.map((each) => each.value)).toEqual([
+      'grafana-dashboards',
+      'our-migrations',
+    ]);
+  });
+
   it('keeps where work may go from each station', () => {
     const line = built();
     const read = readBack(line);
@@ -157,8 +173,6 @@ describe('writing a line out and reading it back', () => {
     }
   });
 
-  // The second pass has to be identical, or the board and the repository
-  // drift a little further apart on every edit.
   it('writes the same file the second time round', () => {
     const line = built();
     const once = renderLine(line);

@@ -33,7 +33,6 @@ export function ContextDonut({ used, size }: ContextDonutProps) {
         strokeWidth="2.5"
         strokeLinecap="round"
         strokeDasharray={`${share * CIRCUMFERENCE} ${CIRCUMFERENCE}`}
-        // Near full is worth noticing; anything else is just how it went.
         className={share > 0.85 ? 'text-destructive' : 'text-muted-foreground'}
       />
     </svg>

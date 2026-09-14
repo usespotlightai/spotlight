@@ -27,11 +27,11 @@ import { UserId } from '@domain/value-objects/user-id.vo';
 import { Voice } from '@domain/value-objects/voice.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
-import {
-  assemblyLine,
-  station,
-} from '@infrastructure/persistence/drizzle/schemas/assembly-line.schema';
 import { factory } from '@infrastructure/persistence/drizzle/schemas/factory.schema';
+import {
+  line,
+  station,
+} from '@infrastructure/persistence/drizzle/schemas/line.schema';
 import {
   task,
   taskAttachment,
@@ -132,11 +132,6 @@ export class DrizzleTaskRepository implements TaskRepository, SetupLists {
     await this.writeMarks(added);
   }
 
-  /**
-   * Written against the version it was read at. Everything here is written,
-   * not just what the writer touched, so the second of two writers answering
-   * one reading would carry the first one's changes away.
-   */
   async save(saved: Task): Promise<void> {
     const written = await this.context.db
       .update(task)
@@ -165,12 +160,7 @@ export class DrizzleTaskRepository implements TaskRepository, SetupLists {
     await this.writeMarks(saved);
   }
 
-  /**
-   * Added and never taken away here: a handle the world has used once may be
-   * used again, and a task that stopped wearing one would simply go missing
-   * the next time its host mentioned it. Taken from whoever wore it before,
-   * because a handle names one task.
-   */
+  // Marks are only added or reassigned, never removed: a used handle may recur.
   private async writeMarks(written: Task): Promise<void> {
     for (const mark of written.marks) {
       await this.context.db
@@ -236,9 +226,6 @@ export class DrizzleTaskRepository implements TaskRepository, SetupLists {
     workspaceId: WorkspaceId,
     concerns: Concerns,
   ): Promise<Task | null> {
-    // A branch names the task outright. Anything else is a handle somebody
-    // out there uses, and the same question whichever host used it: which
-    // task here wears this. Nothing below knows which host asked.
     const named = concerns.taskId
       ? eq(task.id, concerns.taskId.value)
       : undefined;
@@ -276,7 +263,6 @@ export class DrizzleTaskRepository implements TaskRepository, SetupLists {
         ),
       )
       .limit(1)
-      // A burst about one task is written one at a time.
       .for('update');
 
     if (!found) {
@@ -299,6 +285,30 @@ export class DrizzleTaskRepository implements TaskRepository, SetupLists {
 
   async remove(id: TaskId): Promise<void> {
     await this.context.db.delete(task).where(eq(task.id, id.value));
+  }
+
+  async countsAt(
+    stationIds: readonly StationId[],
+  ): Promise<ReadonlyMap<string, number>> {
+    if (stationIds.length === 0) {
+      return new Map();
+    }
+
+    const rows = await this.context.db
+      .select({
+        stationId: task.stationId,
+        standing: sql<number>`count(*)::int`,
+      })
+      .from(task)
+      .where(
+        inArray(
+          task.stationId,
+          stationIds.map((each) => each.value),
+        ),
+      )
+      .groupBy(task.stationId);
+
+    return new Map(rows.map((row) => [row.stationId, Number(row.standing)]));
   }
 
   async standingAt(stationId: StationId): Promise<Task[]> {
@@ -335,11 +345,6 @@ export class DrizzleTaskRepository implements TaskRepository, SetupLists {
     return this.standingSetups();
   }
 
-  /**
-   * Still standing means what the domain means by it: no note closed the
-   * conversation the list opened. Anything else here would be a second
-   * opinion on when a list is done with.
-   */
   private async standingSetups(
     of?: ReturnType<typeof eq>,
   ): Promise<StandingSetup[]> {
@@ -366,8 +371,8 @@ export class DrizzleTaskRepository implements TaskRepository, SetupLists {
         and(eq(taskNote.taskId, task.id), eq(taskNote.form, 'setup')),
       )
       .innerJoin(station, eq(station.id, task.stationId))
-      .innerJoin(assemblyLine, eq(assemblyLine.id, station.assemblyLineId))
-      .innerJoin(factory, eq(factory.id, assemblyLine.factoryId))
+      .innerJoin(line, eq(line.id, station.lineId))
+      .innerJoin(factory, eq(factory.id, line.factoryId))
       .where(of ? and(open, of) : open);
 
     const ids = found.map((each) => each.task.id);
@@ -454,7 +459,6 @@ export class DrizzleTaskRepository implements TaskRepository, SetupLists {
       .onConflictDoNothing({ target: taskAttachment.id });
   }
 
-  /** A trail is added to and marked, never cut. */
   private async writeNotes(saved: Task): Promise<void> {
     if (saved.notes.length === 0) {
       return;

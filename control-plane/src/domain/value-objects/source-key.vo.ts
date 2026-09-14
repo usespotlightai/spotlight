@@ -1,13 +1,7 @@
 import { InvalidIdentifierError } from '@domain/exceptions/invalid-identifier.error';
 
-/** One word: it is a path segment and the first part of every word raised. */
 const SHAPE = /^[a-z0-9]+$/;
 
-/**
- * The name a host is addressed by. Everything a source has is filed under it:
- * the words it raises, where a workspace reaches it, and the door its
- * deliveries arrive at.
- */
 export class SourceKey {
   private readonly kind = 'source-key';
 

@@ -2,10 +2,6 @@ import { InvalidRunnerNameError } from '@domain/exceptions/invalid-runner-name.e
 
 const MAX_LENGTH = 60;
 
-/**
- * What a person calls a runner. Distinct from RunnerId, which is the identity
- * the control plane assigns and nobody types.
- */
 export class RunnerName {
   private readonly kind = 'runner-name' as const;
 

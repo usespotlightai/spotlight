@@ -5,6 +5,7 @@ x-control-plane-env: &control-plane-env
   DATABASE_URL: ${DATABASE_URL:-postgres://postgres:postgres@db:5432/postgres}
   BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-xj4/EgMfb/oOOX54xSnrKiCToESDSWJIy4mLF5Sxlo/IUzvEd/hJDh9VT2kqsyeo}
   BETTER_AUTH_URL: ${BETTER_AUTH_URL:-https://app.dev.usespotlight.ai}
+  SPOTLIGHT_WEBHOOK_URL: ${SPOTLIGHT_WEBHOOK_URL:-https://app-dev.usespotlight.ai}
   SPOTLIGHT_SECRETS_KEY: ${SPOTLIGHT_SECRETS_KEY:-3h+HUYiFyqYwqtMg1AXtsVO1pTcSprmLnsjvI18ksco=}
   GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
   GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}

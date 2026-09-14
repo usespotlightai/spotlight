@@ -9,11 +9,6 @@ import { WORKSPACE_URL_PREFIX } from '@/lib/workspace';
 
 type Step = 'workspace' | 'team';
 
-/**
- * Naming the workspace, then naming the team it opens with. Two steps rather
- * than two fields on one form, because the second question only makes sense
- * once the first is answered, and neither exists until both are.
- */
 export function CreateWorkspace() {
   const nameId = useId();
   const slugId = useId();
@@ -28,7 +23,6 @@ export function CreateWorkspace() {
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [teamName, setTeamName] = useState('');
-  // The URL follows the name until edited by hand. Emptying it hands it back.
   const [slugTakenOver, setSlugTakenOver] = useState(false);
 
   const onNameChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -57,8 +51,6 @@ export function CreateWorkspace() {
       { name: name.trim(), slug: slugify(slug), teamName: teamName.trim() },
       {
         onSuccess: (workspace) => {
-          // Straight to the inbox, where opening the team has left a note
-          // saying what it still needs.
           void navigate(inboxPath(workspace.slug), { replace: true });
         },
       },
@@ -150,8 +142,6 @@ export function CreateWorkspace() {
                   name="teamName"
                   type="text"
                   required
-                  // The step it belongs to has just appeared, so this is where
-                  // somebody is looking.
                   // biome-ignore lint/a11y/noAutofocus: the step just changed under the cursor
                   autoFocus
                   autoComplete="off"

@@ -4,8 +4,8 @@ import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TeamNav } from '@/components/shell/layout/TeamNav';
 
-vi.mock('@/hooks/api/useAssemblyLines', () => ({
-  useAssemblyLines: () => ({
+vi.mock('@/hooks/api/useLines', () => ({
+  useLines: () => ({
     data: [{ id: 'line_1', name: 'Default', stations: [] }],
     isPending: false,
   }),
@@ -32,10 +32,16 @@ const panels = () =>
   Array.from(document.querySelectorAll('[data-slot="team-sections"]'));
 
 const lineGroups = () =>
-  Array.from(document.querySelectorAll('[data-slot="assembly-lines"]'));
+  Array.from(document.querySelectorAll('[data-slot="lines"]'));
 
 const linesRow = (index: number) =>
-  screen.getAllByRole('button', { name: /Assembly lines/ })[index];
+  screen.getAllByRole('button', { name: /Lines/ })[index];
+
+const settingsGroups = () =>
+  Array.from(document.querySelectorAll('[data-slot="settings"]'));
+
+const settingsRow = (index: number) =>
+  screen.getAllByRole('button', { name: /Settings/ })[index];
 
 beforeEach(() => {
   localStorage.clear();
@@ -72,7 +78,7 @@ describe('TeamNav', () => {
     expect(panels()[1]?.querySelector('ul')).not.toHaveAttribute('inert');
   });
 
-  it('groups a team’s assembly lines under a row of their own', () => {
+  it('groups a team’s lines under a row of their own', () => {
     renderNav();
 
     expect(lineGroups()).toHaveLength(teams.length);
@@ -104,6 +110,44 @@ describe('TeamNav', () => {
     renderNav();
 
     expect(linesRow(0)).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('groups a team’s settings under a row of their own', () => {
+    renderNav();
+
+    expect(settingsGroups()).toHaveLength(teams.length);
+    expect(settingsRow(0)).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getAllByRole('link', { name: 'General' })[0]).toHaveAttribute(
+      'href',
+      '/w/acme-inc/team/team_1/settings/general',
+    );
+    expect(
+      screen.getAllByRole('link', { name: 'Integrations' })[0],
+    ).toHaveAttribute('href', '/w/acme-inc/team/team_1/settings/integrations');
+    expect(screen.getAllByRole('link', { name: 'Secrets' })[0]).toHaveAttribute(
+      'href',
+      '/w/acme-inc/team/team_1/settings/secrets',
+    );
+  });
+
+  it('links each team’s skills as a section of its own', () => {
+    renderNav();
+
+    expect(screen.getAllByRole('link', { name: 'Skills' })[0]).toHaveAttribute(
+      'href',
+      '/w/acme-inc/team/team_1/skills',
+    );
+  });
+
+  it('closes a team’s settings without touching its lines', async () => {
+    const user = userEvent.setup();
+    renderNav();
+
+    await user.click(settingsRow(0) as HTMLElement);
+
+    expect(settingsRow(0)).toHaveAttribute('aria-expanded', 'false');
+    expect(settingsGroups()[0]?.querySelector('ul')).toHaveAttribute('inert');
+    expect(linesRow(0)).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('only opens and closes, leaving the page where it is', () => {

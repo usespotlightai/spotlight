@@ -56,7 +56,6 @@ const journal = (part: Partial<RunJournal> = {}): RunJournal => ({
     endedAt: at(60_000),
   },
   spent: null,
-  readable: true,
   ...part,
 });
 
@@ -76,8 +75,6 @@ const names = (nodes: readonly { name: string }[]) =>
   nodes.map((node) => node.name);
 
 describe('traceOf', () => {
-  // The task is the trace, not the run: a task that came back from review is
-  // the interesting one, and its second run belongs beside its first.
   it('holds every run that worked the task', () => {
     const trace = traceOf([
       worked({
@@ -103,8 +100,6 @@ describe('traceOf', () => {
     ]);
   });
 
-  // Where a stretch cannot be vouched for it is not drawn: a run that never
-  // reached its agent has no turn to show.
   it('draws only the phases the journal can account for', () => {
     const trace = traceOf([
       worked({
@@ -171,8 +166,6 @@ describe('traceOf', () => {
     expect(trace.faults).toBe(1);
   });
 
-  // A hook is the deployment's code and a plan is talk about work: neither is
-  // the run getting on with it, and both recede.
   it('tells the agent’s own work from the overhead around it', () => {
     const trace = traceOf([
       worked({
@@ -201,8 +194,6 @@ describe('traceOf', () => {
   });
 
   describe('where the harness reports on itself', () => {
-    // The protocol and the harness describe the same tool call. Two rows for
-    // one thing is the whole risk in merging them.
     it('draws one row where a span and a step are the same call', () => {
       const trace = traceOf([
         worked({
@@ -217,7 +208,6 @@ describe('traceOf', () => {
 
       const turn = trace.roots[0]?.children[1];
       expect(turn?.children).toHaveLength(1);
-      // The agent's name for the tool beats the harness's name for the span.
       expect(turn?.children[0]?.name).toBe('npm test');
       expect(turn?.children[0]?.span?.id).toBe('s1');
       expect(turn?.children[0]?.step?.text).toBe('npm test');
@@ -294,8 +284,6 @@ describe('traceOf', () => {
       expect(names(turn?.children[0]?.children ?? [])).toEqual(['llm_request']);
     });
 
-    // The parent may be a span this run never exported, or one the runner
-    // never took. It is still a row worth drawing.
     it('draws a span whose parent is nowhere to be found', () => {
       const trace = traceOf([
         worked({
@@ -327,8 +315,6 @@ describe('traceOf', () => {
     });
   });
 
-  // Nothing is missing on a harness that says nothing about itself; there are
-  // only fewer rows than there would otherwise be.
   it('reads a run whose harness reported nothing', () => {
     const trace = traceOf([
       worked({

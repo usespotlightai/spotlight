@@ -127,9 +127,7 @@ export class DrizzleTeamRepository implements TeamRepository {
         .where(
           or(
             eq(team.configRepository, repository.value),
-            // One moving there reads it to learn whether its move has landed.
             eq(team.configMovingTo, repository.value),
-            // One that pinned nothing may be reading it by the fallback rule.
             isNull(team.configRepository),
           ),
         ),

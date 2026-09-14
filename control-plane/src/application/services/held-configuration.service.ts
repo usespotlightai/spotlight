@@ -10,14 +10,9 @@ export interface Holding {
   readonly files: readonly ConfigurationFile[];
 }
 
-/**
- * Asked one way, so "already holds configuration" means the same thing to
- * reading, seeding and moving.
- */
 export class HeldConfiguration {
   constructor(private readonly contents: RepositoryContentsPort) {}
 
-  /** Null where the repository has no branch to read at. */
   async at(target: ConfigurationRepo): Promise<Holding | null> {
     const sha = await this.contents.headOf(
       target.installation,

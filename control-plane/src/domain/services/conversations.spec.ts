@@ -27,14 +27,12 @@ describe('conversationsOf', () => {
     expect(trail('asked', 'answered')).toEqual([{ from: 0, to: null }]);
   });
 
-  // Asked, answered, asked again: still one thing owed, not two.
   it('takes a follow-up as the same conversation carrying on', () => {
     expect(trail('asked', 'answered', 'asked')).toEqual([
       { from: 0, to: null },
     ]);
   });
 
-  // What was settled stays settled; needing someone again is a new thing.
   it('opens a second one only after the first has closed', () => {
     expect(trail('asked', 'passed', 'asked')).toEqual([
       { from: 0, to: 1 },
@@ -140,7 +138,6 @@ describe('reviewsIn', () => {
     ]);
   });
 
-  // The whole point of the inbox: once a person answers, nothing is owed.
   it('settles as soon as a person answers, before the task moves on', () => {
     expect([...reviewsIn([said('asked', 'run_1'), said('answered')])]).toEqual([
       ['run_1', { from: 0, state: 'settled' }],
@@ -181,7 +178,6 @@ describe('awaitsAPerson', () => {
     expect(awaitsAPerson([said('asked'), said('answered')])).toBe(false);
   });
 
-  // Moving a task by hand closes what was asked where it stood.
   it('stops waiting once the task moved on', () => {
     expect(awaitsAPerson([said('asked'), said('passed')])).toBe(false);
   });
@@ -219,7 +215,6 @@ describe('turnOf', () => {
     ]);
   });
 
-  // What it was answering is its briefing, not the note before it.
   it('leaves out what the run before it said', () => {
     expect(turnOf(trail, 'run_3').map((each) => each.body)).not.toContain(
       'spec said',
@@ -238,7 +233,6 @@ describe('turnOf', () => {
     ]);
   });
 
-  // A run that has not spoken still shows what has been typed at it.
   it('takes what follows the last run where it has said nothing', () => {
     expect(turnOf(trail.slice(0, 4), 'run_3').map((each) => each.body)).toEqual(
       ['typed at implementation'],

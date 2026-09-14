@@ -24,12 +24,10 @@ import { AllowAnonymous } from '@presentation/http/decorators/allow-anonymous.de
 import { CurrentUser } from '@presentation/http/decorators/current-user.decorator';
 import { OAuth2StartResponseDto } from '@presentation/http/dto/oauth2-start.response.dto';
 
-/** Only the redirect is needed here; typed rather than pulling in the platform. */
 interface Redirectable {
   redirect(url: string): void;
 }
 
-/** Where a person is sent when a link cannot be finished, on the app's origin. */
 const WENT_WRONG = '/?integration=failed';
 
 @ApiTags('integrations')
@@ -67,9 +65,7 @@ export class OAuth2ConnectionController {
     return new OAuth2StartResponseDto(url);
   }
 
-  // No session: the host sends the person back, and the signed state is what
-  // stands in for one. A fixed path, so it is the one URL the shared app is
-  // registered to return to.
+  // Fixed path: it is the redirect URI registered with the shared OAuth apps.
   @Get('integrations/oauth/callback')
   @AllowAnonymous()
   @ApiExcludeEndpoint()

@@ -14,13 +14,6 @@ import type { OAuth2Access } from '@infrastructure/integrations/oauth2-access';
 import type { HttpOutbound } from '@infrastructure/outbound/http-outbound';
 import { CronTime } from 'cron';
 
-/**
- * Runs each team's schedules: when a cron comes round, it runs the action the
- * file names, with that team's secrets. What runs and when is the file's; the
- * clock, the catching-up, and the running are generic. A schedule that has
- * fallen behind fires once and moves on — a host is not owed the deliveries it
- * slept through.
- */
 export class RunSchedules {
   constructor(
     private readonly configurations: TeamConfigurationRepository,
@@ -58,8 +51,7 @@ export class RunSchedules {
     const key = `${readable.integration.source.value}:schedule`;
     const state = await this.cursors.read(teamId, key);
 
-    // First sight of a schedule sets its clock going from now, so a deploy does
-    // not fire every schedule at once for the time it was not watching.
+    // First sight starts the clock, so a deploy does not fire every schedule at once.
     if (!state.ranAt) {
       await this.cursors.saved(teamId, key, null, now);
       return;
@@ -93,7 +85,6 @@ export class RunSchedules {
   ): Promise<void> {
     const request = readable.actions.get(schedule.action);
 
-    // The compiler refuses a schedule whose action is undefined, so this holds.
     if (!request) {
       return;
     }
@@ -124,15 +115,11 @@ export class RunSchedules {
     readable: ReadableIntegration,
     teamId: TeamId,
   ): Promise<Record<string, string>> {
-    const secret: Record<string, string> = {};
-
-    for (const name of readable.integration.credentials) {
-      const value = await this.secrets.resolve(teamId, name);
-      if (value !== null) {
-        secret[name.value] = value;
-      }
-    }
-
-    return secret;
+    return {
+      ...(await this.secrets.resolveAll(
+        teamId,
+        readable.integration.credentials,
+      )),
+    };
   }
 }

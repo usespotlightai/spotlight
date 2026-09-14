@@ -11,10 +11,6 @@ import type { HostConnectionRepository } from '@domain/repositories/host-connect
 import { SourceKey } from '@domain/value-objects/source-key.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 
-/**
- * Begins a team's OAuth2 link to a host, once it is settled that the person may.
- * What comes back is where to send them.
- */
 export class BeginOAuth2ConnectionHandler
   implements CommandHandlerPort<BeginOAuth2ConnectionCommand, string | null>
 {
@@ -45,12 +41,7 @@ export class BeginOAuth2ConnectionHandler
   }
 }
 
-/**
- * Finishes the link when the host sends the person back. The signed state names
- * who began it, and that person is asked once more whether they may connect —
- * the invariant is answered where the connection is written, not only where it
- * was begun. Then the link is made, saved, and announced.
- */
+// Re-authorizes on callback: who may connect is checked where the connection is written, not only where it began.
 export class FinishOAuth2ConnectionHandler
   implements CommandHandlerPort<FinishOAuth2ConnectionCommand, string | null>
 {

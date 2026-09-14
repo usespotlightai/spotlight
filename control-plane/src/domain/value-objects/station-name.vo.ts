@@ -22,15 +22,11 @@ export class StationName {
     return new StationName(trimmed);
   }
 
-  /** For a note whose station the line no longer holds. */
   static unknown(): StationName {
     return StationName.of('Unknown');
   }
 
-  /**
-   * What was already written, read back. A page that shows history must not
-   * fall over on a row that predates the rule it would be held to now.
-   */
+  // Lenient: stored rows may predate the current rules.
   static maybe(raw: string | null | undefined): StationName | null {
     try {
       return raw ? StationName.of(raw) : null;

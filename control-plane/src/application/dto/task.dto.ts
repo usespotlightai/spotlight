@@ -1,7 +1,6 @@
 import type { AttachmentDto } from '@application/dto/attachment.dto';
 
 export interface TaskNoteDto {
-  // What identifies it: notes are appended and never reordered.
   readonly position: number;
   readonly station: string;
   readonly body: string;

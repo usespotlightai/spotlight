@@ -3,8 +3,6 @@ import { TaskId } from '@domain/value-objects/task-id.vo';
 
 const UNDER = 'spotlight/';
 
-/** One branch per task, named after it: anything carrying one says whose
- *  work it is about, which is how a check suite finds its task. */
 export class Branch {
   private constructor(readonly value: string) {}
 

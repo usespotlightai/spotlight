@@ -28,10 +28,6 @@ afterAll(async () => {
   await held?.close();
 });
 
-/**
- * The board is where work stands. A setup list is a team's onboarding, kept in
- * the inbox rather than shown as a card, so it is left out of what the board reads.
- */
 describe('the tasks the board reads for a team', () => {
   it('leaves the setup list out but keeps ordinary work', async () => {
     const { owner, workspaceId, teamId, stationId } = await openTeam(

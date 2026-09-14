@@ -68,7 +68,6 @@ describe('GitHubRepositoryContents', () => {
       expect(called[0]).toContain('/contents/.spotlight/config.yml?ref=main');
     });
 
-    // A repository without configuration is the ordinary case, not a fault.
     it('reads nothing where the repository holds none', async () => {
       serving(() => answering(404, { message: 'Not Found' }));
 
@@ -77,7 +76,6 @@ describe('GitHubRepositoryContents', () => {
       ).toBeNull();
     });
 
-    // A directory answers with a listing, which is not a file.
     it('reads nothing where the path names a directory', async () => {
       serving(() => answering(200, { type: 'dir' }));
 
@@ -138,7 +136,6 @@ describe('GitHubRepositoryContents', () => {
       expect(found[0]?.text).toBe('body of b1');
     });
 
-    // Everything else in the repository is none of Spotlight's business.
     it('reads nothing outside the directory it was asked for', async () => {
       serving(routed);
 
@@ -163,7 +160,6 @@ describe('GitHubRepositoryContents', () => {
       );
     });
 
-    // Half a directory would read as configuration somebody had deleted.
     it('refuses a listing GitHub had to cut short', async () => {
       serving(() => answering(200, { truncated: true, tree: [] }));
 

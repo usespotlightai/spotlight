@@ -12,15 +12,8 @@ import { oauth2Of } from '@infrastructure/integrations/oauth2-config';
 import type { OAuth2Exchange } from '@infrastructure/integrations/oauth2-exchange';
 import type { OAuth2State } from '@infrastructure/integrations/oauth2-state';
 
-/** Where the callback route sits, the same URL the shared app is registered with. */
 const CALLBACK_PATH = '/integrations/oauth/callback';
 
-/**
- * The OAuth2 protocol made of the generic pieces: the file says which endpoints
- * a host links through, the deployment's app says who Spotlight is to it, and
- * the signed state carries who is linking which host across the round trip.
- * Nothing here names a host, decides who may link, or writes a connection down.
- */
 export class OAuth2Linking implements OAuth2LinkingPort {
   constructor(
     private readonly configurations: TeamConfigurationRepository,
@@ -110,10 +103,8 @@ export class OAuth2Linking implements OAuth2LinkingPort {
       ? await this.workspaces.slugOf(factory.workspaceId.value)
       : null;
 
-    // Back to where a person began, if we can name it; the app's front door if
-    // not. Either way with the host named, so the page can say it worked.
     const where = slug
-      ? `${this.base}/w/${slug}/team/${teamId}/integrations`
+      ? `${this.base}/w/${slug}/team/${teamId}/settings/integrations`
       : `${this.base}`;
 
     return `${where}?connected=${encodeURIComponent(source)}`;

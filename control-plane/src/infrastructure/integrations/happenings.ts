@@ -21,10 +21,6 @@ import type {
   RequestIR,
 } from '@infrastructure/integrations/integration.compile';
 
-/**
- * A word matched, with the bindings it matched against, so a caller may fill
- * them out — reading what a delivery only names — before the word is raised.
- */
 const identity = async (
   _event: EventIR,
   against: Bindings,
@@ -35,15 +31,6 @@ export type Fetching = (
   against: Bindings,
 ) => Promise<Uint8Array>;
 
-/**
- * Reads the words a set of events raises off one delivery or poll response.
- * Shared by every trigger, so `forEach`, `when`, marks, and `opens` mean the
- * same whether a webhook delivered the body or a poll fetched it.
- *
- * Where a matched event has more to fetch than the delivery carried — an email
- * behind a user id, say — `enrich` gets a chance to add it to the bindings
- * before the word is raised. Triggers that cannot fetch (a poll) leave it out.
- */
 export const readEvents = async (
   events: readonly EventIR[],
   declaring: (happening: string) => DeclaredHappening | null,
@@ -133,9 +120,6 @@ const raiseFrom = (
   ourOwn: boolean,
   fetching: Fetching | null,
 ): Happened => {
-  // Every mark the delivery yields, each kept with whether a task is found by
-  // it. Concerns — which task the word is about — is built from the finding
-  // marks alone; the opened task still wears them all, ambient ones included.
   const marked = raise.marks
     .map((mark) => {
       const read = reads(mark.value, against);

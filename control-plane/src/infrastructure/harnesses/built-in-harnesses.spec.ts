@@ -9,7 +9,6 @@ const known = new BuiltInHarnesses();
 const claude = HarnessId.of('claude-code');
 const cursor = HarnessId.of('cursor');
 
-/** A catalogue entry by id, so a test reads what a harness is described by. */
 const entry = (id: string) => known.catalogue().find((each) => each.id === id);
 
 describe('the harnesses Spotlight knows', () => {
@@ -32,15 +31,12 @@ describe('the harnesses Spotlight knows', () => {
     expect(known.named(cursor)?.name.value).toBe('Cursor CLI');
   });
 
-  // The runner is told what to look for on its PATH, so an entry with no
-  // executable is a harness nobody can ever be found to have.
   it('says what to look for on a machine', () => {
     for (const each of known.catalogue()) {
       expect(each.executable.trim()).not.toBe('');
     }
   });
 
-  // Models are not compiled in; each harness says how a runner lists them.
   it('gives each harness a way to discover its models', () => {
     for (const each of known.catalogue()) {
       expect(each.discovery.length).toBeGreaterThan(0);
@@ -78,8 +74,6 @@ describe('the harnesses Spotlight knows', () => {
     expect(started?.args).toEqual(['acp', '--model', 'gpt-5[effort=high]']);
   });
 
-  // Cursor carries effort on the model, so with no model there is nowhere to
-  // put it and it is simply left off.
   it('leaves Cursor’s effort off when no model is chosen', () => {
     const started = known
       .commandFor(cursor, { model: null, effort: Effort.of('high') })
@@ -102,3 +96,25 @@ describe('the harnesses Spotlight knows', () => {
 });
 
 const null_ = () => ({ model: null, effort: null });
+
+describe('where a harness finds skills', () => {
+  const harnesses = new BuiltInHarnesses();
+
+  it('lays them where Claude Code reads project skills itself', () => {
+    expect(harnesses.skillsFor(HarnessId.of('claude-code'))).toEqual({
+      directory: '.claude/skills',
+      readByHarness: true,
+    });
+  });
+
+  it('lays them beside Spotlight’s own for a harness not known to read them', () => {
+    expect(harnesses.skillsFor(HarnessId.of('cursor'))).toEqual({
+      directory: '.spotlight/skills',
+      readByHarness: false,
+    });
+  });
+
+  it('says nothing for a harness it does not know', () => {
+    expect(harnesses.skillsFor(HarnessId.of('teleport'))).toBeNull();
+  });
+});

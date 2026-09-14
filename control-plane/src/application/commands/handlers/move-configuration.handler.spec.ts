@@ -67,7 +67,6 @@ const moving = (
     team?: null;
     connected?: boolean;
     provisioned?: Provisioned;
-    /** What the destination already holds, or null where it has no branch. */
     destination?: { path: string; text: string }[] | null;
     current?: null;
   } = {},

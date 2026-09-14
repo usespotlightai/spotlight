@@ -36,7 +36,6 @@ export class DrizzleHostConnections implements HostConnectionRepository {
   }
 
   async save(connection: HostConnection): Promise<void> {
-    // Sealed before the statement, so nothing that logs a query holds a token.
     const accessToken = this.cipher.seal(connection.accessToken);
     const refreshToken = connection.refreshToken
       ? this.cipher.seal(connection.refreshToken)
@@ -56,8 +55,7 @@ export class DrizzleHostConnections implements HostConnectionRepository {
       })
       .onConflictDoUpdate({
         target: [oauth2Connection.teamId, oauth2Connection.source],
-        // connectedAt is left as it was: a renewal is the same link kept alive,
-        // not a new connecting.
+        // connectedAt deliberately untouched: a renewal is not a new connection.
         set: {
           accessToken,
           refreshToken,
@@ -69,8 +67,6 @@ export class DrizzleHostConnections implements HostConnectionRepository {
   }
 
   async held(teamId: TeamId): Promise<readonly HostConnectionSummary[]> {
-    // Only the columns a person may see. No token is read, so none is opened
-    // to say which hosts a team has linked.
     const rows = await this.context.db
       .select({
         source: oauth2Connection.source,

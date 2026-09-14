@@ -28,8 +28,6 @@ const TEAM = Team.rehydrate({
   members: [{ userId: UserId.of('user_1'), role: TeamRole.owner }],
 });
 
-// The workspace the authorization hands back — it carries the connection the
-// seeding needs.
 const acme = () =>
   Workspace.rehydrate({
     id: WorkspaceId.of('ws_1'),
@@ -40,8 +38,6 @@ const acme = () =>
     connections: [Connection.of('github', '158883204')],
   });
 
-// Who may pin lives in ConnectionAuthorization, tested there; here it is only
-// whether the gate opens.
 const pinning = (over: { allowed?: boolean; team?: null } = {}) => {
   const save = vi.fn(async () => {});
   const settling = vi.fn(async () => {});
@@ -89,7 +85,6 @@ describe('PinConfigurationHandler', () => {
     expect(settling).toHaveBeenCalled();
   });
 
-  // Left unchosen, the rule that guesses applies again.
   it('takes the choice off again', async () => {
     const { handler, save } = pinning();
 

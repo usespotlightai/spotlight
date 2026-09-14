@@ -12,7 +12,6 @@ describe('unread', () => {
     expect(unread({ kind: 'asked', readAt: at })).toBe(false);
   });
 
-  // A station being told something is not a person being asked something.
   it('is nothing a station was told, read or not', () => {
     expect(unread({ kind: 'passed', readAt: null })).toBe(false);
     expect(unread({ kind: 'answered', readAt: null })).toBe(false);

@@ -17,12 +17,6 @@ export class RegisteredHarnessRequestDto {
 
 export class RegisterRunnerRequestDto {
   @ApiPropertyOptional({
-    example: 1,
-    description: 'What the runner advertises. The control plane grants work.',
-  })
-  readonly capacity?: number;
-
-  @ApiPropertyOptional({
     type: [RegisteredHarnessRequestDto],
     isArray: true,
     description:
@@ -46,11 +40,10 @@ export class RunEventRequestDto {
   @ApiPropertyOptional()
   readonly message?: string;
 
-  @ApiPropertyOptional({ description: 'Terminal bytes, base64' })
+  @ApiPropertyOptional({
+    description: 'One session update as the agent reported it, JSON, base64',
+  })
   readonly data?: string;
-
-  @ApiPropertyOptional({ example: 0, description: 'Position in the recording' })
-  readonly offset?: number;
 }
 
 export class AppendRunEventsRequestDto {
@@ -60,9 +53,9 @@ export class AppendRunEventsRequestDto {
 
 export class DeclaredOutcomeDto {
   @ApiProperty({
-    example: 'Spec',
+    example: 'code-review',
     description:
-      'The station to pass the task to, or "review" to ask a person. A name this line does not know is treated as a question for a person.',
+      'The key of the station to pass the task to, as in code-review; "review" to ask a person; or "done" to close the task where it stands. Anything this line does not know is treated as a question for a person.',
   })
   readonly next!: string;
 
@@ -111,10 +104,10 @@ export class EnqueueRunRequestDto {
 
   @ApiProperty({
     description:
-      'Handed to the runner untouched: checkouts and cwd. The command is ' +
-      'filled in from the harness, so it is not given here.',
+      'Handed to the runner untouched: checkouts, briefing, handover and ' +
+      'continuity. The command is filled in from the harness, so it is not ' +
+      'given here.',
     example: {
-      cwd: 'service',
       checkouts: [
         { remote: 'https://github.com/org/service', path: 'service' },
       ],
@@ -192,26 +185,4 @@ export class AnswerRemarkRequestDto {
     description: 'Resolve the thread as well as answering it',
   })
   readonly resolve?: boolean;
-}
-
-export class OpenPullRequestRequestDto {
-  @ApiProperty({ example: 'Fix the queue' })
-  readonly title!: string;
-
-  @ApiPropertyOptional({
-    nullable: true,
-    type: String,
-    description: 'Markdown, shown as the pull request description',
-  })
-  readonly body?: string | null;
-
-  @ApiPropertyOptional({
-    example: 'api',
-    nullable: true,
-    type: String,
-    description:
-      'Which of the line’s repositories to open against, by name. Left out ' +
-      'where the line works only one.',
-  })
-  readonly repository?: string | null;
 }

@@ -8,6 +8,7 @@ import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { Said } from '@domain/value-objects/said.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
+import { StationKey } from '@domain/value-objects/station-key.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskDescription } from '@domain/value-objects/task-description.vo';
 import { TaskNote } from '@domain/value-objects/task-note.vo';
@@ -19,8 +20,6 @@ import { Voice } from '@domain/value-objects/voice.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
-// A task carrying a trail, built the way the repository builds one: the
-// aggregate writes its own notes, so nothing may hand it any.
 const withNotes = (task: Task, ...notes: TaskNote[]) =>
   Task.rehydrate({
     id: task.id,
@@ -57,6 +56,7 @@ const NOW = new Date('2026-08-29T12:00:00.000Z');
 const at = (id: string, name = 'Spec', kind: 'work' | 'completed' = 'work') =>
   Station.of({
     id: StationId.of(id),
+    key: StationKey.of(id.replace('_', '-')),
     name: StationName.of(name),
     position: kind === 'completed' ? 9 : 2,
     color: StationColor.of('#a3a8b0'),
@@ -167,8 +167,6 @@ describe('Task', () => {
     ]);
   });
 
-  // Moving by hand is something that happened to the task, so it is written
-  // down — and it is what closes a conversation a person was owed.
   it('carries what was said across a move, and records the move', () => {
     const worked = withNotes(
       added(),
@@ -226,8 +224,6 @@ describe('Task, what it is doing', () => {
     expect(task.idle).toBe(false);
   });
 
-  // Waiting on a person is not idle either: taking it up again would talk
-  // over them.
   it('is not idle while it waits on a person', () => {
     const task = raised().askedAbout(asked());
 
@@ -249,8 +245,6 @@ describe('Task, what it is doing', () => {
       expect(worked.runnerId).toEqual(runner);
     });
 
-    // The inbox round trip is the whole point: a person answers and the work
-    // picks up mid-thought rather than beginning again.
     it('survives being put to a person', () => {
       const asked = added().workedIn(session, runner).askedAbout(saying);
 
@@ -259,8 +253,6 @@ describe('Task, what it is doing', () => {
       expect(asked.awaitingReview).toBe(true);
     });
 
-    // What the next station inherits is the note. Carrying the conversation
-    // would make the note decoration.
     it('is left behind when the task is passed on', () => {
       const passed = added()
         .workedIn(session, runner)
@@ -290,13 +282,10 @@ describe('Task, what it is doing', () => {
       expect(carried.pinnedTo).toEqual(runner);
     });
 
-    // Nothing to go back for, so anything may take it and the queue stays even.
     it('pins nothing when there is no conversation to return to', () => {
       expect(added().continuity().pinnedTo).toBeNull();
     });
 
-    // What makes the inbox round trip work: the answer leaves the task where
-    // it is, so the run that follows takes up the same conversation.
     it('survives a person answering what it was waiting on', () => {
       const answered = added()
         .workedIn(session, runner)
@@ -320,8 +309,6 @@ describe('Task, what it is doing', () => {
     });
   });
 
-  // Read from the trail, so nothing can say it is waiting on a person when
-  // the trail says they already answered.
   describe('waiting on a person', () => {
     it('waits from the asking until they answer', () => {
       const asked = added().askedAbout(saying);
@@ -342,8 +329,6 @@ describe('Task, what it is doing', () => {
   });
 
   describe('what a person is owed', () => {
-    // The task says what each note did, so nothing outside it can write a
-    // note that means something the task never did.
     it('owes nobody until it is put to someone', () => {
       expect(added().openConversation).toBeNull();
     });
@@ -391,8 +376,6 @@ describe('Task, what it is doing', () => {
       expect(added().assignedToThem(UserId.of('user_1'))).toBe(true);
     });
 
-    // Putting it to a person makes it theirs, so an inbox is never left with
-    // no one to reach: with nobody assigned it falls back to whoever raised it.
     it('falls back to the raiser when a person is asked and none is set', () => {
       const asked = added().unassigned().askedAbout(saying);
 
@@ -474,7 +457,6 @@ describe('Task, what it is doing', () => {
 
   describe('saying something to the agent working it', () => {
     const here = StationId.of('station_1');
-    // A person's, because a station's own words never wait on itself.
     const aloud = { ...saying, voice: Voice.person(UserId.of('user_1')) };
 
     it('joins the trail where the task still stands', () => {
@@ -504,7 +486,6 @@ describe('Task, what it is doing', () => {
       );
     });
 
-    // Only what a person said to an agent ever waits to be handed over.
     it('leaves what a station said out of what is undelivered', () => {
       expect(added().askedAbout(saying).undelivered).toHaveLength(0);
     });
@@ -540,7 +521,6 @@ describe('Task, what it is doing', () => {
       expect(replied.notes[1]?.voice.isStation).toBe(true);
     });
 
-    // Its own answer is not work to hand itself.
     it('leaves what it said back out of what is undelivered', () => {
       const replied = added()
         .heard(spoken)
@@ -565,15 +545,12 @@ describe('Task, what it is doing', () => {
   });
 
   describe('what it refuses', () => {
-    // Every one of these was a rule living in a handler, or nowhere.
     it('will not be put to a person twice over', () => {
       expect(() => added().askedAbout(saying).askedAbout(saying)).toThrow(
         InvalidTaskTransitionError,
       );
     });
 
-    // Settling closes what is open. With nothing open there is nothing to
-    // close, and a 'passed' nobody asked for is a trail that reads wrong.
     it('will not settle what nothing opened', () => {
       expect(() => added().settled(saying)).toThrow(InvalidTaskTransitionError);
     });
@@ -590,8 +567,6 @@ describe('Task, what it is doing', () => {
       ).toThrow(InvalidTaskTransitionError);
     });
 
-    // Handing it back where it stands moves nothing and starts the same work
-    // again, which is a loop rather than progress.
     it('will not be passed to the station it already stands at', () => {
       expect(() =>
         added().moveTo(at('station_1'), TaskRank.of('m'), saying),
@@ -618,7 +593,6 @@ describe('Task, what it is doing', () => {
       ).toThrow(InvalidTaskTransitionError);
     });
 
-    // What the line is done with, the world can hand back to it.
     it('is finished once a run has nothing further to do with it', () => {
       const ended = added().finishedHere(saying);
 

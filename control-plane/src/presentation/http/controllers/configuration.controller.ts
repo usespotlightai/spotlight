@@ -1,13 +1,13 @@
-import { ChooseToolsCommand } from '@application/commands/choose-tools.command';
-import { ForgetSecretCommand } from '@application/commands/forget-secret.command';
+import { ChooseIntegrationsCommand } from '@application/commands/choose-integrations.command';
 import { MoveConfigurationCommand } from '@application/commands/move-configuration.command';
 import { PinConfigurationCommand } from '@application/commands/pin-configuration.command';
 import { ReadConfigurationCommand } from '@application/commands/read-configuration.command';
-import { SetSecretCommand } from '@application/commands/set-secret.command';
+import { RevealVaultKeyCommand } from '@application/commands/reveal-vault-key.command';
 import { SetUpLinesCommand } from '@application/commands/set-up-lines.command';
 import type {
   ConfigurationDto,
   ConfigurationMoveDto,
+  VaultKeyDto,
 } from '@application/dto/configuration.dto';
 import type { OnboardingDto } from '@application/dto/onboarding.dto';
 import type { OpenedPullRequestDto } from '@application/ports/pull-request.port';
@@ -18,8 +18,8 @@ import type { Read } from '@application/services/read-configuration.service';
 import {
   Body,
   Controller,
-  Delete,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   NotFoundException,
@@ -28,6 +28,8 @@ import {
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
+  ApiConflictResponse,
+  ApiForbiddenResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -35,58 +37,41 @@ import {
   ApiParam,
   ApiTags,
   ApiUnauthorizedResponse,
+  ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '@presentation/http/decorators/current-user.decorator';
 import {
-  ChooseToolsRequestDto,
-  ConfigProblemResponseDto,
+  ChooseIntegrationsRequestDto,
   ConfigurationResponseDto,
   ConfiguredConnectionResponseDto,
-  ConfiguredHappeningResponseDto,
   ConfiguredIntegrationResponseDto,
-  ConfiguredSecretResponseDto,
-  KnownToolResponseDto,
+  KnownIntegrationResponseDto,
   MoveConfigurationRequestDto,
   MovedConfigurationResponseDto,
   OnboardingLineResponseDto,
   OnboardingResponseDto,
   PinConfigurationRequestDto,
   ProposedResponseDto,
-  SetSecretRequestDto,
   SetUpLinesRequestDto,
   SetupStepResponseDto,
+  VaultKeyResponseDto,
 } from '@presentation/http/dto/configuration.response.dto';
 
 const shown = (read: ConfigurationDto): ConfigurationResponseDto =>
   new ConfigurationResponseDto(
     read.repository,
     read.sha,
-    read.readAt,
     read.integrations.map(
       (each) =>
         new ConfiguredIntegrationResponseDto(
           each.source,
           each.name,
-          each.deliverTo,
-          each.secrets.map(
-            (secret) =>
-              new ConfiguredSecretResponseDto(secret.name, secret.set),
-          ),
-          each.happenings.map(
-            (raising) =>
-              new ConfiguredHappeningResponseDto(
-                raising.happening,
-                raising.label,
-              ),
-          ),
+          each.path,
           each.connectable,
           each.connection
             ? new ConfiguredConnectionResponseDto(each.connection.handle)
             : null,
         ),
-    ),
-    read.problems.map(
-      (each) => new ConfigProblemResponseDto(each.path, each.at, each.reason),
     ),
     read.readsFrom,
     read.movingTo,
@@ -104,7 +89,7 @@ export class ConfigurationController {
   @Get()
   @ApiOperation({
     operationId: 'readConfiguration',
-    summary: 'What this team listens to, and what is wrong with it',
+    summary: 'What this team listens to, and where it reads that from',
   })
   @ApiParam({ name: 'teamId', example: 'team_1' })
   @ApiOkResponse({ type: ConfigurationResponseDto })
@@ -125,10 +110,6 @@ export class ConfigurationController {
     return shown(read);
   }
 
-  /**
-   * Reads it again from the repository. Ordinarily a push does this; asking
-   * is for when somebody would rather not wait, or wants to know why.
-   */
   @Post('reread')
   @ApiOperation({
     operationId: 'rereadConfiguration',
@@ -155,11 +136,6 @@ export class ConfigurationController {
     return this.read(teamId, user);
   }
 
-  /**
-   * Says which repository this team reads its configuration from. Worth
-   * saying rather than leaving to the rule that guesses, once a workspace
-   * has more than one team.
-   */
   @Post('repository')
   @ApiOperation({
     operationId: 'pinConfigurationRepository',
@@ -219,7 +195,7 @@ export class ConfigurationController {
   @Get('onboarding')
   @ApiOperation({
     operationId: 'readOnboarding',
-    summary: 'What this team still needs, and the tools it may choose',
+    summary: 'What this team still needs, and the integrations it may choose',
   })
   @ApiParam({ name: 'teamId', example: 'team_1' })
   @ApiOkResponse({ type: OnboardingResponseDto })
@@ -263,24 +239,19 @@ export class ConfigurationController {
             each.repositories,
           ),
       ),
-      read.tools.map(
+      read.integrations.map(
         (each) =>
-          new KnownToolResponseDto(
+          new KnownIntegrationResponseDto(
             each.source,
             each.name,
             each.summary,
-            each.secretCalled,
-            each.chosen,
+            each.secrets,
+            each.deliverTo,
           ),
       ),
     );
   }
 
-  /**
-   * Sets each line's harness and repositories, then writes them down as the
-   * pull request that opens this team's configuration. The choices are made
-   * before anything is written; nothing changes until the pull request merges.
-   */
   @Post('setup')
   @ApiOperation({
     operationId: 'setUpLines',
@@ -320,35 +291,45 @@ export class ConfigurationController {
     return new ProposedResponseDto(opened.url);
   }
 
-  /**
-   * Writes a starting file for each host this team says it uses, and takes
-   * away the file of each it no longer does. What comes back is a pull
-   * request, not a team already listening.
-   */
-  @Post('tools')
+  @Post('integrations')
   @ApiOperation({
-    operationId: 'chooseTools',
-    summary: 'Write and remove configuration for the tools this team uses',
+    operationId: 'chooseIntegrations',
+    summary:
+      'Write and remove configuration for the integrations this team uses',
   })
   @ApiParam({ name: 'teamId', example: 'team_1' })
   @ApiOkResponse({ type: ProposedResponseDto })
   @ApiNotFoundResponse({
     description: 'No such team, or nowhere to write it yet',
   })
-  async chooseTools(
+  @ApiForbiddenResponse({
+    description: 'Not an owner or admin, and an integration needs secrets',
+  })
+  @ApiConflictResponse({
+    description: 'The team’s vault does not open with the key Spotlight holds',
+  })
+  @ApiUnprocessableEntityResponse({
+    description: 'A secret an integration needs was not given',
+  })
+  async chooseIntegrations(
     @Param('teamId') teamId: string,
-    @Body() body: ChooseToolsRequestDto,
+    @Body() body: ChooseIntegrationsRequestDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<ProposedResponseDto> {
     const opened = await this.commandBus.execute<
-      ChooseToolsCommand,
+      ChooseIntegrationsCommand,
       OpenedPullRequestDto | null
     >(
-      new ChooseToolsCommand(
+      new ChooseIntegrationsCommand(
         teamId,
         body.sources ?? [],
         user.id,
         body.dropped ?? [],
+        Object.fromEntries(
+          Object.entries(body.secrets ?? {}).filter(
+            (entry): entry is [string, string] => typeof entry[1] === 'string',
+          ),
+        ),
       ),
     );
 
@@ -359,59 +340,34 @@ export class ConfigurationController {
     return new ProposedResponseDto(opened.url);
   }
 
-  /**
-   * Sets what a workspace's configuration may name but must not hold.
-   * Written once: nothing here or anywhere else gives it back.
-   */
-  @Post('secrets')
+  @Post('vault/key')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
   @ApiOperation({
-    operationId: 'setSecret',
-    summary: 'Set a secret this team’s integrations verify with',
+    operationId: 'revealVaultKey',
+    summary:
+      'Reveal the key this team’s secrets are encrypted with, issuing it the first time',
   })
   @ApiParam({ name: 'teamId', example: 'team_1' })
-  @ApiNoContentResponse({ description: 'Set' })
-  @ApiNotFoundResponse({
-    description: 'No such team, or not yours to set one on',
+  @ApiOkResponse({ type: VaultKeyResponseDto })
+  @ApiNotFoundResponse({ description: 'No such team for this caller' })
+  @ApiForbiddenResponse({ description: 'Not an owner or admin of this team' })
+  @ApiConflictResponse({
+    description: 'The key Spotlight holds for this team cannot be read',
   })
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async setSecret(
+  async revealVaultKey(
     @Param('teamId') teamId: string,
-    @Body() body: SetSecretRequestDto,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<void> {
-    const set = await this.commandBus.execute<SetSecretCommand, boolean>(
-      new SetSecretCommand(teamId, body.name, body.value, user.id),
-    );
+  ): Promise<VaultKeyResponseDto> {
+    const revealed = await this.commandBus.execute<
+      RevealVaultKeyCommand,
+      VaultKeyDto | null
+    >(new RevealVaultKeyCommand(teamId, user.id));
 
-    if (!set) {
+    if (!revealed) {
       throw new NotFoundException();
     }
-  }
 
-  @Delete('secrets/:name')
-  @ApiOperation({
-    operationId: 'forgetSecret',
-    summary: 'Forget a secret, so nothing verifies with it again',
-  })
-  @ApiParam({ name: 'teamId', example: 'team_1' })
-  @ApiParam({ name: 'name', example: 'LINEAR_WEBHOOK_SECRET' })
-  @ApiNoContentResponse({ description: 'Forgotten' })
-  @ApiNotFoundResponse({
-    description: 'No such team, or not yours to change',
-  })
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async forgetSecret(
-    @Param('teamId') teamId: string,
-    @Param('name') name: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ): Promise<void> {
-    const forgotten = await this.commandBus.execute<
-      ForgetSecretCommand,
-      boolean
-    >(new ForgetSecretCommand(teamId, name, user.id));
-
-    if (!forgotten) {
-      throw new NotFoundException();
-    }
+    return new VaultKeyResponseDto(revealed.key);
   }
 }

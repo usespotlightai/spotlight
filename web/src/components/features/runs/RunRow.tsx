@@ -6,6 +6,7 @@ import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { type Run, reviewInk, standing } from '@/lib/run';
 import { since } from '@/lib/runner';
 import { stationShare } from '@/lib/station';
+import { cn } from '@/lib/utils';
 
 type RunRowProps = {
   run: Run;
@@ -13,11 +14,26 @@ type RunRowProps = {
   taskTitle?: string | null;
   reviewTo?: string;
   inTrail?: boolean;
+  gutter?: boolean;
 };
 
-export function RunRow({ run, to, taskTitle, reviewTo, inTrail }: RunRowProps) {
+export function RunRow({
+  run,
+  to,
+  taskTitle,
+  reviewTo,
+  inTrail,
+  gutter,
+}: RunRowProps) {
   return (
-    <li className="relative flex h-9 min-w-0 items-center gap-2 rounded-md px-2 text-sm transition-colors hover:bg-accent">
+    <li
+      className={cn(
+        'relative flex h-9 min-w-0 items-center gap-2 rounded-md text-sm transition-colors hover:bg-accent',
+        gutter ? 'px-3' : 'px-2',
+      )}
+    >
+      {gutter && <span className="w-4 shrink-0" aria-hidden />}
+
       {run.station ? (
         <StationIcon
           share={stationShare(run.station.position, run.station.count)}
@@ -58,9 +74,6 @@ export function RunRow({ run, to, taskTitle, reviewTo, inTrail }: RunRowProps) {
           <span className="text-muted-foreground text-xs">{standing(run)}</span>
         )}
 
-        {/* Held to a width, or a shorter age pulls the pill beside it out of
-            line with the rows above. The same width the board holds, so the
-            two lists share one right-hand edge. */}
         <span className="w-20 shrink-0 text-right text-muted-foreground text-xs tabular-nums">
           {since(run.startedAt)}
         </span>

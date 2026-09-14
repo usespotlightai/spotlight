@@ -1,17 +1,40 @@
+import type { ToolInputType } from '@domain/entities/declared-tool.entity';
 import { InvalidRunSpecError } from '@domain/exceptions/invalid-run-spec.error';
 
-/** The remote is where Spotlight serves it; the runner resolves it locally. */
 export interface CheckoutShape {
   readonly remote: string;
   readonly path?: string;
   readonly branch?: string;
 }
 
-/** Reached through Spotlight, at whatever address the runner is listening on. */
 export const THROUGH_SPOTLIGHT = 'spotlight:repository';
 
-/** What a harness reads to know which trace its reporting belongs to. */
 export const TRACE_PARENT_VAR = 'TRACEPARENT';
+
+interface ToolInputManifestShape {
+  readonly name: string;
+  readonly type: ToolInputType;
+  readonly description?: string;
+  readonly required: boolean;
+  readonly defaulted: boolean;
+  readonly piped: boolean;
+}
+
+export interface ToolManifestShape {
+  readonly name: string;
+  readonly description: string;
+  readonly inputs: readonly ToolInputManifestShape[];
+}
+
+export const SKILL_FOLDER_LIMITS = {
+  files: 50,
+  characters: 512 * 1024,
+} as const;
+
+export interface SkillFileShape {
+  readonly path: string;
+  readonly text: string;
+}
 
 export interface AttachmentShape {
   readonly id: string;
@@ -21,7 +44,6 @@ export interface AttachmentShape {
 const outside = (path: string | undefined): boolean =>
   path?.startsWith('/') === true || path?.includes('..') === true;
 
-/** What a runner is handed to carry a run out. */
 export interface RunSpecShape {
   readonly checkouts?: readonly CheckoutShape[];
   readonly command: {
@@ -39,16 +61,11 @@ export interface RunSpecShape {
     readonly sessionId?: string;
     readonly keep: boolean;
   };
-  /** What this run may reach for. Absent is none of them. */
-  readonly tools?: readonly string[];
+  readonly manifest?: readonly ToolManifestShape[];
   readonly attachments?: readonly AttachmentShape[];
+  readonly skills?: readonly SkillFileShape[];
 }
 
-/**
- * How a run is written down for a runner. It is an agreement with something
- * outside this process, so it is checked here rather than trusted: what the
- * work is stays the domain's, and how it crosses the wire stays this.
- */
 export const RunSpecContract = {
   of(parts: RunSpecShape): RunSpecShape {
     if (parts.briefing.trim().length === 0) {
@@ -71,10 +88,14 @@ export const RunSpecContract = {
       if (checkout.remote.trim().length === 0) {
         throw new InvalidRunSpecError('must say where a checkout comes from');
       }
-      // A path reaching outside the workspace is one the runner would have to
-      // refuse, so it is refused here instead.
       if (outside(checkout.path)) {
         throw new InvalidRunSpecError('must keep a checkout in the workspace');
+      }
+    }
+
+    for (const skill of parts.skills ?? []) {
+      if (!skill.path || outside(skill.path)) {
+        throw new InvalidRunSpecError('must keep a skill in the workspace');
       }
     }
 
@@ -89,10 +110,6 @@ export const RunSpecContract = {
     return parts;
   },
 
-  /**
-   * A spec a caller handed in, where nothing about it is guaranteed. The
-   * command is not theirs to give: how to start a harness is Spotlight's.
-   */
   ordered(raw: unknown, command: RunSpecShape['command']): RunSpecShape {
     const given = raw as Partial<RunSpecShape> | null;
 
@@ -116,7 +133,10 @@ export const RunSpecContract = {
     });
   },
 
-  /** A spec read back from storage, where nothing guarantees its shape. */
+  toolsGiven(raw: unknown): readonly string[] {
+    return (RunSpecContract.from(raw)?.manifest ?? []).map((each) => each.name);
+  },
+
   from(raw: unknown): RunSpecShape | null {
     const parts = raw as Partial<RunSpecShape> | null;
 

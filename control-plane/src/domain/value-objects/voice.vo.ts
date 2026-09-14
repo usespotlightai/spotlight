@@ -6,7 +6,6 @@ export const VOICES = ['station', 'person', 'world'] as const;
 
 export type SpokenBy = (typeof VOICES)[number];
 
-/** Who spoke, which is not what they did, and what identifies them. */
 export class Voice {
   private constructor(
     readonly by: SpokenBy,
@@ -14,7 +13,6 @@ export class Voice {
     readonly run: RunId | null,
   ) {}
 
-  /** The run that ended saying it, or nobody where the board moved a task. */
   static station(run: RunId | null = null): Voice {
     return new Voice('station', null, run);
   }
@@ -27,7 +25,6 @@ export class Voice {
     return new Voice('world', null, null);
   }
 
-  /** Read back from storage, where any of the three may be a lie. */
   static of(input: {
     by: string;
     author?: string | null;

@@ -21,7 +21,12 @@ export function parseEnv(): Env {
   return parsed(envSchema.safeParse(process.env));
 }
 
-/** What a migration is run with, which is a database and nothing else. */
+export const publicUrlOf = (env: Env): string =>
+  env.SPOTLIGHT_PUBLIC_URL ?? env.BETTER_AUTH_URL;
+
+export const webhookUrlOf = (env: Env): string =>
+  env.SPOTLIGHT_WEBHOOK_URL ?? publicUrlOf(env);
+
 export function parseDatabaseEnv(): DatabaseEnv {
   return parsed(databaseSchema.safeParse(process.env));
 }

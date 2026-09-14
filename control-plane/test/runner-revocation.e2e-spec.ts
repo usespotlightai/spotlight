@@ -55,7 +55,6 @@ beforeAll(async () => {
     state: 'claimed',
     spec: { command: 'noop' },
     claimedBy: enrolled.runnerId,
-    // Nowhere near lapsing: the point is that revoking does not wait for it.
     leaseExpiresAt: new Date(Date.now() + 5 * 60_000),
   });
 });
@@ -79,7 +78,6 @@ describe('Revoking a runner', () => {
     expect(after.state).toBe('queued');
     expect(after.claimedBy).toBeNull();
     expect(after.leaseExpiresAt).toBeNull();
-    // A fresh attempt, so the retry's journal does not collide with the first.
     expect(after.attempt).toBe(2);
   });
 

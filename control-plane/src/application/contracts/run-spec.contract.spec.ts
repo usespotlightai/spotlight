@@ -35,8 +35,6 @@ describe('RunSpecContract.of', () => {
     ).toThrow(InvalidRunSpecError);
   });
 
-  // The runner clones into whatever a checkout names, so a path leaving the
-  // workspace is refused where it is written, not where it is carried out.
   it('refuses a checkout that reaches outside the workspace', () => {
     for (const path of ['/etc', '../elsewhere', 'a/../../b']) {
       expect(() =>
@@ -57,8 +55,6 @@ describe('RunSpecContract.of', () => {
 });
 
 describe('RunSpecContract.ordered', () => {
-  // How to start a harness is Spotlight's, so whatever a caller says about it
-  // is replaced rather than trusted.
   it('runs what Spotlight says, not what the caller asked for', () => {
     const spec = RunSpecContract.ordered(
       {

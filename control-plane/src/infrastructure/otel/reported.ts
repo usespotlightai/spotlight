@@ -4,10 +4,6 @@ import type {
 } from '@application/contracts/run-journal.contract';
 import { decoded, type Journalled } from '@infrastructure/journal/journalled';
 
-/**
- * One span as the harness exported it. Nothing outside this file knows what
- * OpenTelemetry looks like: what leaves it is spans in Spotlight's own shape.
- */
 interface Exported {
   spanId?: string;
   parentSpanId?: string;
@@ -21,7 +17,6 @@ interface Exported {
   }[];
 }
 
-/** Nanoseconds, as a string when they will not survive a JSON number. */
 const nanos = (raw: string | number | undefined): bigint | null => {
   if (raw === undefined || raw === null || raw === '') {
     return null;
@@ -36,7 +31,6 @@ const nanos = (raw: string | number | undefined): bigint | null => {
 
 const NS_PER_MS = 1_000_000n;
 
-/** An attribute's value is wrapped in whichever type it turned out to be. */
 const plainly = (value: Record<string, unknown> | undefined): string | null => {
   if (!value) {
     return null;
@@ -47,8 +41,6 @@ const plainly = (value: Record<string, unknown> | undefined): string | null => {
       continue;
     }
     if (typeof held === 'object') {
-      // An array or a map of its own. Kept as it reads rather than walked:
-      // this is a vocabulary that changes between releases.
       return JSON.stringify(held);
     }
     return String(held);
@@ -63,19 +55,9 @@ const said = (span: Exported): SpanAttribute[] =>
     return each?.key && value !== null ? [{ name: each.key, value }] : [];
   });
 
-/**
- * Two is the error code in the specification, and the only one worth telling
- * apart: unset and ok both mean nothing went wrong.
- */
 const wentWrong = (span: Exported): boolean =>
   span.status?.code === 2 || span.status?.code === 'STATUS_CODE_ERROR';
 
-/**
- * Reads one run's spans, of the harnesses that report any. Ordered as the
- * journal has them, which is the order they were exported in rather than the
- * order they happened: a span is written down when it ends, and nesting is
- * what the ids are for.
- */
 export class Reported {
   #spans: RunSpan[] = [];
 
@@ -94,8 +76,6 @@ export class Reported {
     const from = nanos(sent.startTimeUnixNano);
     const to = nanos(sent.endTimeUnixNano);
 
-    // A span with no identity cannot be hung anywhere, and one with no start
-    // cannot be laid against a clock. Either way there is nothing to draw.
     if (!sent.spanId || from === null) {
       return;
     }

@@ -17,6 +17,7 @@ import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import {
   type Bindings,
   bound,
+  ExpressionFailedError,
   holds,
   reads,
   value,
@@ -27,12 +28,14 @@ import type {
   EventIR,
   ReadableIntegration,
   RequestIR,
-  Templated,
 } from '@infrastructure/integrations/integration.compile';
 import type { JwksResolver } from '@infrastructure/integrations/jwks';
+import {
+  type Templated,
+  textOf,
+} from '@infrastructure/integrations/templating';
 import type { HttpOutbound } from '@infrastructure/outbound/http-outbound';
 
-/** The SPKI wrapper for a raw 32-byte ed25519 public key. */
 const ED25519_SPKI = Buffer.from('302a300506032b6570032100', 'hex');
 
 const headed = (headers: WebhookHeaders, name: string): string | undefined => {
@@ -43,21 +46,13 @@ const headed = (headers: WebhookHeaders, name: string): string | undefined => {
 
 const DIGEST = { sha256: 'sha256', sha1: 'sha1', sha512: 'sha512' } as const;
 
-/**
- * A host driven entirely by its compiled config: it verifies, answers a
- * handshake, names a delivery, and reads words off it by the file's expressions
- * and the generic primitives beside them. There is no host-specific code here —
- * a new host is a new file, not a new class.
- */
 export class WebhookRuntime implements WebhookSourcePort {
   constructor(
     private readonly readable: ReadableIntegration,
     private readonly workspaceId: WorkspaceId,
-    /** The values of the secrets the file names, by name; absent where unset. */
     private readonly secrets: ReadonlyMap<string, string>,
     private readonly now: () => number = () => Date.now(),
     private readonly jwks: JwksResolver | null = null,
-    /** Makes an event's `lookup` call, where one is named; none, where not. */
     private readonly outbound: HttpOutbound | null = null,
   ) {}
 
@@ -98,7 +93,6 @@ export class WebhookRuntime implements WebhookSourcePort {
         return this.asymmetric(auth, delivered);
       case 'jwt':
         return this.jwt(auth, delivered);
-      // basic and oauth2 are credentials for outbound, not ways to be verified.
       default:
         return false;
     }
@@ -125,8 +119,6 @@ export class WebhookRuntime implements WebhookSourcePort {
       return false;
     }
 
-    // The body as it arrived, unless a base is named (Slack signs
-    // `v0:<timestamp>:<body>`, not the body alone).
     const material = auth.signed
       ? Buffer.from(reads(auth.signed, this.bindings(delivered)) ?? '')
       : Buffer.from(delivered.raw as Uint8Array);
@@ -260,16 +252,9 @@ export class WebhookRuntime implements WebhookSourcePort {
   }
 
   private templated(held: Templated, delivered: Delivered): string | null {
-    if (held.literal !== null) {
-      return held.literal;
-    }
-
-    return held.expression
-      ? reads(held.expression, this.bindings(delivered))
-      : null;
+    return textOf(held, this.bindings(delivered));
   }
 
-  /** A handshake, answered from the delivery: the body the host wants echoed. */
   answer(delivered: Delivered): string | null {
     const respond = this.readable.webhook?.respond;
 
@@ -295,10 +280,7 @@ export class WebhookRuntime implements WebhookSourcePort {
     );
   }
 
-  /** The door it arrived at said whose it was; nothing is looked up. */
   async routes(): Promise<WorkspaceId | null> {
-    // route.by (shared-door resolution by a connection) is a later primitive;
-    // a team-addressed door already knows whose delivery this is.
     return this.workspaceId;
   }
 
@@ -324,21 +306,26 @@ export class WebhookRuntime implements WebhookSourcePort {
     });
   }
 
-  /**
-   * A matched event's `lookup` filled in: the call is made, and what it says to
-   * keep joins the bindings. Where there is no lookup, or no way to make it, the
-   * bindings are left as they came — a name that cannot be filled is not fatal.
-   */
   private async enriched(event: EventIR, against: Bindings): Promise<Bindings> {
     if (!event.lookup || !this.outbound) {
       return against;
     }
 
     const secret = Object.fromEntries(this.secrets);
-    const result = await this.outbound.run(event.lookup.request, {
-      ...against,
-      secret,
-    });
+    let result: Awaited<ReturnType<HttpOutbound['run']>>;
+
+    try {
+      result = await this.outbound.run(event.lookup.request, {
+        ...against,
+        secret,
+      });
+    } catch (error) {
+      if (error instanceof ExpressionFailedError) {
+        return against;
+      }
+
+      throw error;
+    }
 
     if (!result.ok) {
       return against;
@@ -378,6 +365,5 @@ const equal = (a: string, b: string): boolean => {
   return one.length === two.length && timingSafeEqual(one, two);
 };
 
-/** A JWT `aud` is one string or a list; the wanted audience must be among it. */
 const within = (aud: unknown, wanted: string): boolean =>
   Array.isArray(aud) ? aud.includes(wanted) : aud === wanted;

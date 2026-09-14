@@ -9,7 +9,6 @@ import { Inject, Injectable } from '@nestjs/common';
 export class InstallerAssets implements InstallerAssetsPort {
   constructor(@Inject(ENV) private readonly env: Env) {}
 
-  // Read on each request, so an edit to the script shows up without a restart.
   script(): string {
     const template = readFileSync(
       join(this.env.SPOTLIGHT_INSTALLER_DIR, 'install.sh'),

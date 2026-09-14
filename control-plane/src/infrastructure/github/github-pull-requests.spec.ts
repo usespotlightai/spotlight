@@ -37,7 +37,6 @@ const answering = (status: number, body: unknown) => ({
   json: async () => body,
 });
 
-/** The repository as GitHub would answer for it, branch by branch. */
 const repository = (over: { open?: boolean; branch?: boolean } = {}) =>
   vi.stubGlobal('fetch', async (url: string, init: RequestInit = {}) => {
     sent.push({
@@ -85,7 +84,6 @@ const repository = (over: { open?: boolean; branch?: boolean } = {}) =>
 const asked = (fragment: string) =>
   sent.filter((each) => each.url.includes(fragment));
 
-/** The last of them, which is the one a sequence of calls ends on. */
 const lastly = (fragment: string): Sent | undefined => {
   const all = asked(fragment);
 
@@ -125,7 +123,6 @@ describe('GitHubPullRequests', () => {
       expect(asked('/git/trees')[0]?.body.tree).toHaveLength(2);
     });
 
-    // Branched from where it will be merged, so the diff is only ours.
     it('branches from the branch it will be merged into', async () => {
       repository();
 
@@ -146,7 +143,6 @@ describe('GitHubPullRequests', () => {
       expect(made?.body.ref).toBe('refs/heads/spotlight/config');
     });
 
-    // Proposing twice should amend what is open, not collide with it.
     it('writes on top of a branch that is already standing', async () => {
       repository({ branch: true, open: true });
 
@@ -154,6 +150,19 @@ describe('GitHubPullRequests', () => {
 
       expect(asked('/git/commits')[0]?.body.parents).toEqual(['branch_sha']);
       expect(asked('/git/refs/heads/')[0]?.method).toBe('PATCH');
+    });
+
+    it('starts again from the branch it merges into once the pull request on its branch has merged', async () => {
+      repository({ branch: true, open: false });
+
+      expect(await new GitHubPullRequests(access).propose(proposal)).toEqual({
+        url: 'https://github.com/acme/api/pull/9',
+      });
+      expect(asked('/git/commits')[0]?.body.parents).toEqual(['base_sha']);
+      expect(asked('/git/trees')[0]?.body.base_tree).toBe('base_sha');
+      const [moved] = asked('/git/refs/heads/');
+      expect(moved?.method).toBe('PATCH');
+      expect(moved?.body.force).toBe(true);
     });
 
     it('answers with the pull request already open rather than a second', async () => {
@@ -187,6 +196,32 @@ describe('GitHubPullRequests', () => {
     });
   });
 
+  describe('the pull request open on a branch', () => {
+    it('is the one GitHub has open for it', async () => {
+      repository({ open: true });
+
+      expect(
+        await new GitHubPullRequests(access).openFor(
+          proposal.installation,
+          proposal.repository,
+          'spotlight/config',
+        ),
+      ).toEqual({ url: 'https://github.com/acme/api/pull/3' });
+    });
+
+    it('is none where GitHub has none open', async () => {
+      repository({ open: false });
+
+      expect(
+        await new GitHubPullRequests(access).openFor(
+          proposal.installation,
+          proposal.repository,
+          'spotlight/config',
+        ),
+      ).toBeNull();
+    });
+  });
+
   describe('opening one for a branch a run pushed', () => {
     it('opens it against the default branch', async () => {
       repository();
@@ -204,7 +239,6 @@ describe('GitHubPullRequests', () => {
       expect(lastly('/pulls')?.body.base).toBe('trunk');
     });
 
-    // A run has already pushed it; nothing here writes a commit.
     it('writes no commit of its own', async () => {
       repository();
 

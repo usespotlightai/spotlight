@@ -36,8 +36,8 @@ vi.mock('@/hooks/api/useAssignTask', () => ({
 vi.mock('@/hooks/api/useRepositories', () => ({
   useRepositories: () => ({ data: [] }),
 }));
-vi.mock('@/hooks/api/useAssemblyLines', () => ({
-  useAssemblyLines: () => ({
+vi.mock('@/hooks/api/useLines', () => ({
+  useLines: () => ({
     data: [
       {
         id: 'line_1',

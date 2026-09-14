@@ -42,6 +42,7 @@ export class DrizzleTeamConfiguration implements TeamConfigurationRepository {
         path: each.path,
         at: each.at,
         reason: each.reason,
+        severity: each.severity,
       })),
       readAt: configuration.readAt,
     };

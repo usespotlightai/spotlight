@@ -1,13 +1,8 @@
 import { InvalidIdentifierError } from '@domain/exceptions/invalid-identifier.error';
+import { SECRET_NAME_SHAPE } from '@domain/value-objects/identifier-shapes';
 
-/** Named the way the environment names things, because that is what it reads as. */
-const SHAPE = /^[A-Z][A-Z0-9_]{0,63}$/;
+const SHAPE = new RegExp(`^${SECRET_NAME_SHAPE}$`);
 
-/**
- * What a workspace calls one of its secrets. The name is all Spotlight ever
- * shows: configuration refers to a secret by it, and what it stands for is
- * held apart from the configuration that names it.
- */
 export class SecretName {
   private constructor(readonly value: string) {}
 

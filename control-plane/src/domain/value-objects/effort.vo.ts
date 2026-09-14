@@ -1,6 +1,5 @@
 import { InvalidEffortError } from '@domain/exceptions/invalid-effort.error';
 
-/** How hard a harness is told to think, from faster to smarter. */
 export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
 
 export type EffortLevel = (typeof EFFORTS)[number];

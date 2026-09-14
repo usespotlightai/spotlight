@@ -25,11 +25,7 @@ export type { DrizzleDatabase };
 export class DrizzleModule implements OnApplicationShutdown {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
-  /**
-   * Last of all, and deliberately: destroy hooks run before the server has
-   * stopped answering, and a pool closed under a request in flight turns it
-   * into a fault the caller did nothing to deserve.
-   */
+  // On shutdown, not destroy: destroy hooks run while requests are still served.
   async onApplicationShutdown(): Promise<void> {
     await this.pool.end();
   }

@@ -6,10 +6,6 @@ import type { ListHappeningsQuery } from '@application/queries/list-happenings.q
 import type { WebhookSources } from '@application/services/webhook-sources.service';
 import { UserId } from '@domain/value-objects/user-id.vo';
 
-/**
- * Everything a station here could be set to wait for. Asked of the sources
- * rather than of a list somebody has to remember to update.
- */
 export class ListHappeningsHandler
   implements QueryHandlerPort<ListHappeningsQuery, HappeningDto[] | null>
 {

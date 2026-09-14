@@ -97,8 +97,6 @@ describe('WebhookGuard', () => {
     );
   });
 
-  // Told apart from a bad signature nowhere the caller can see, so posting at
-  // the door says nothing about what is behind it.
   it('turns away a source nobody registered, the same way', async () => {
     const { guard, context } = asking(
       delivered({ params: { source: 'sentry' } }),

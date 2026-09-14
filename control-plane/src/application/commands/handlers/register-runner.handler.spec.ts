@@ -78,8 +78,6 @@ describe('RegisterRunnerHandler', () => {
     await expect(handler.execute(register)).rejects.toThrow(UseCaseFault);
   });
 
-  // Enrolling writes a row and mints a token. This is the moment there is a
-  // machine.
   it('looks at every list once something first checks in', async () => {
     const { handler, wherever } = registering();
 

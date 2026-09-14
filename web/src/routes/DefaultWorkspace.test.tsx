@@ -45,7 +45,6 @@ describe('DefaultWorkspace', () => {
     } as never);
 
     renderIndex();
-
     expect(screen.queryByText('workspace page')).not.toBeInTheDocument();
     expect(screen.queryByText('workspace setup')).not.toBeInTheDocument();
   });

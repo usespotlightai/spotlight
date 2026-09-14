@@ -126,7 +126,6 @@ export class SpanAttributeResponseDto {
   }
 }
 
-/** What a harness reported of its own workings, where it reports anything. */
 export class RunSpanResponseDto {
   @ApiProperty({ example: '8889c15027e46e76' })
   readonly id: string;
@@ -168,7 +167,6 @@ export class RunSpanResponseDto {
   }
 }
 
-/** Where a run turned from being prepared, to worked, to finished. */
 export class RunMarksResponseDto {
   @ApiProperty({ nullable: true, type: String })
   readonly startedAt: string | null;
@@ -261,12 +259,6 @@ export class RunJournalResponseDto {
   @ApiPropertyOptional({ type: RunSpentResponseDto, nullable: true })
   readonly spent: RunSpentResponseDto | null;
 
-  @ApiProperty({
-    example: true,
-    description: 'False for a run from before the agents spoke a protocol',
-  })
-  readonly readable: boolean;
-
   constructor(
     runId: string,
     attempt: number,
@@ -275,7 +267,6 @@ export class RunJournalResponseDto {
     ms: number | null,
     marks: RunMarksResponseDto,
     spent: RunSpentResponseDto | null,
-    readable: boolean,
   ) {
     this.runId = runId;
     this.attempt = attempt;
@@ -284,6 +275,5 @@ export class RunJournalResponseDto {
     this.ms = ms;
     this.marks = marks;
     this.spent = spent;
-    this.readable = readable;
   }
 }

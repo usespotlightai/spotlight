@@ -21,11 +21,11 @@ import {
   stationsPerLine,
   trailsFor,
 } from '@infrastructure/persistence/drizzle/readers/task-trail';
-import {
-  assemblyLine,
-  station,
-} from '@infrastructure/persistence/drizzle/schemas/assembly-line.schema';
 import { factory } from '@infrastructure/persistence/drizzle/schemas/factory.schema';
+import {
+  line,
+  station,
+} from '@infrastructure/persistence/drizzle/schemas/line.schema';
 import { task } from '@infrastructure/persistence/drizzle/schemas/task.schema';
 import {
   workspace,
@@ -60,7 +60,6 @@ export class DrizzleInboxReader implements InboxReaderPort {
       return null;
     }
 
-    // Raised before this was recorded, it falls back to where it stands.
     const raised = alias(station, 'raised');
 
     const rows = await this.db
@@ -69,7 +68,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
         teamId: factory.teamId,
         title: task.title,
         description: task.description,
-        lineId: assemblyLine.id,
+        lineId: line.id,
         raisedStation: raised.name,
         raisedColor: raised.color,
         raisedPosition: raised.position,
@@ -81,10 +80,9 @@ export class DrizzleInboxReader implements InboxReaderPort {
       })
       .from(task)
       .innerJoin(station, eq(station.id, task.stationId))
-      .innerJoin(assemblyLine, eq(assemblyLine.id, station.assemblyLineId))
-      .innerJoin(factory, eq(factory.id, assemblyLine.factoryId))
+      .innerJoin(line, eq(line.id, station.lineId))
+      .innerJoin(factory, eq(factory.id, line.factoryId))
       .leftJoin(raised, eq(raised.id, task.raisedAtStationId))
-      // An inbox is one person's, not the workspace's: whoever it is assigned to.
       .where(
         and(
           eq(task.workspaceId, visible.id),
@@ -109,8 +107,6 @@ export class DrizzleInboxReader implements InboxReaderPort {
       rows.map((row) => row.lineId),
     );
 
-    // A conversation opens with what its own station was given, which is the
-    // run that asked.
     const given = await briefingsFor(
       this.db,
       [...trail.values()].flatMap((told) =>
@@ -123,7 +119,6 @@ export class DrizzleInboxReader implements InboxReaderPort {
     for (const row of rows) {
       const told = trail.get(row.taskId) ?? [];
 
-      // Where the conversations are is the domain's to say, not a reader's.
       for (const conversation of conversationsOf(
         told.map((each) => each.kind),
       )) {
@@ -163,8 +158,6 @@ export class DrizzleInboxReader implements InboxReaderPort {
           createdAt: row.createdAt,
           askedAt: last?.at ?? note.at,
           resolved: !stillOpen(conversation),
-          // Two facts, not one: the task has a run, and this is the
-          // conversation still waiting for it.
           working: stillOpen(conversation) && row.working !== null,
           runId: stillOpen(conversation) ? row.working : null,
           unread: anyUnread(notes),
@@ -174,7 +167,6 @@ export class DrizzleInboxReader implements InboxReaderPort {
       }
     }
 
-    // Newest first: an inbox that buries what arrived reads as empty.
     return items.sort((one, other) => +other.askedAt - +one.askedAt);
   }
 }

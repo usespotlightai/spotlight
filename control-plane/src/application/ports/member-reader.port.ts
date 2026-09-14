@@ -19,11 +19,7 @@ export interface TeamRoster {
 export interface MemberReaderPort {
   listForTeam(teamId: TeamId, viewerId: UserId): Promise<TeamRoster | null>;
 
-  /**
-   * A member of the workspace by their email, case-insensitively, or null where
-   * none has it. Asked without a viewer: it is Spotlight matching an outside
-   * name to a person, not a person reading the roster.
-   */
+  // Not viewer-scoped: matches an outside email to a member, not for reading the roster.
   byEmail(workspaceId: WorkspaceId, email: string): Promise<UserId | null>;
 
   onTeam(teamId: TeamId, email: string): Promise<boolean>;

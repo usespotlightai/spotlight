@@ -166,7 +166,6 @@ export class InboxController {
     await this.commandBus.execute(new ReadInboxItemCommand(itemId, user.id));
   }
 
-  // Every run that worked the task, which is more than any one conversation.
   @Get('tasks/:taskId/journal')
   @ApiOperation({
     operationId: 'readTaskJournal',

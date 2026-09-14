@@ -54,7 +54,6 @@ describe('OAuth2State', () => {
       by: 'user_1',
     });
 
-    // Eleven minutes later — past the ten-minute life.
     const later = new OAuth2State('a-secret', () => AT + 11 * 60 * 1000);
 
     expect(later.open(token)).toBeNull();

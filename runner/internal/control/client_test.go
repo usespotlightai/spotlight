@@ -93,7 +93,7 @@ func TestClaimReturnsTheRun(t *testing.T) {
 			return
 		}
 		claimPath = r.URL.Path
-		_ = json.NewEncoder(w).Encode(protocol.Run{ID: "run_1", Spec: protocol.Spec{Cwd: "service"}})
+		_ = json.NewEncoder(w).Encode(protocol.Run{ID: "run_1"})
 	})
 
 	if err := client.Register(context.Background(), protocol.Registration{}); err != nil {
@@ -235,8 +235,6 @@ func TestAttachmentThatIsNotThereWritesNothing(t *testing.T) {
 	}
 }
 
-// The difference that matters: a control plane that cannot answer must not
-// read as one saying to keep nothing, or a sweep would take everything.
 func TestKeptFailsRatherThanAnsweringEmpty(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -249,5 +247,46 @@ func TestKeptFailsRatherThanAnsweringEmpty(t *testing.T) {
 	}
 	if keys != nil {
 		t.Errorf("a failed request answered with %v", keys)
+	}
+}
+
+func TestUseToolCarriesTheInputWholeAndAnswersWithWhatCameBack(t *testing.T) {
+	var path, carried string
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		body := new(bytes.Buffer)
+		_, _ = body.ReadFrom(r.Body)
+		carried = body.String()
+		_, _ = w.Write([]byte(`{"url":"https://github.com/acme/widgets/pull/7"}`))
+	})
+
+	answer, err := client.UseTool(
+		context.Background(), "run_1", "pull-request",
+		json.RawMessage(`{"title":"Fix the queue"}`),
+	)
+	if err != nil {
+		t.Fatalf("use tool: %v", err)
+	}
+
+	if path != "/api/runs/run_1/tools/pull-request" {
+		t.Errorf("path %q, want the tool named in it", path)
+	}
+	if carried != `{"title":"Fix the queue"}` {
+		t.Errorf("carried %s, want the input whole", carried)
+	}
+	if strings.TrimSpace(string(answer)) != `{"url":"https://github.com/acme/widgets/pull/7"}` {
+		t.Errorf("answer %s, want what came back whole", answer)
+	}
+}
+
+func TestUseToolSaysWhichToolTheControlPlaneRefused(t *testing.T) {
+	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, `{"message":"pull-request needs a title"}`, http.StatusUnprocessableEntity)
+	})
+
+	_, err := client.UseTool(context.Background(), "run_1", "pull-request", json.RawMessage(`{}`))
+
+	if err == nil || !strings.Contains(err.Error(), "use pull-request") {
+		t.Fatalf("err = %v, want it to name the tool", err)
 	}
 }

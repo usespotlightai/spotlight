@@ -4,7 +4,6 @@ const SEPARATOR = '/';
 const MAX_LENGTH = 100;
 const SHAPE = /^[A-Za-z0-9._-]+$/;
 
-/** Spotlight holds the name; what opens it never leaves the control plane. */
 export class Repository {
   private constructor(
     readonly owner: string,

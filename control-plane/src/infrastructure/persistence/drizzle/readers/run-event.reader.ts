@@ -52,7 +52,6 @@ export class DrizzleRunEventReader implements RunEventReaderPort {
         at: runEvent.at,
         message: runEvent.message,
         data: runEvent.data,
-        offset: runEvent.offset,
       })
       .from(runEvent)
       .where(
@@ -71,7 +70,6 @@ export class DrizzleRunEventReader implements RunEventReaderPort {
       at: row.at.toISOString(),
       message: row.message ?? undefined,
       data: row.data ?? undefined,
-      offset: row.offset ?? undefined,
     }));
   }
 }

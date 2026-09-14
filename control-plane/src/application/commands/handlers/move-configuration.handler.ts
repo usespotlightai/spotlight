@@ -9,7 +9,6 @@ import type { HeldConfiguration } from '@application/services/held-configuration
 import type { RepositoryProvisioning } from '@application/services/repository-provisioning.service';
 import type { SettleSetup } from '@application/services/settle-setup.service';
 import type { WriteConfiguration } from '@application/services/write-configuration.service';
-import { CONFIGURATION_BRANCH } from '@domain/aggregates/team-configuration.aggregate';
 import { NoGitHubInstallationError } from '@domain/exceptions/no-github-installation.error';
 import { UpstreamRefusedError } from '@domain/exceptions/upstream-refused.error';
 import type { TeamRepository } from '@domain/repositories/team.repository';
@@ -22,20 +21,12 @@ const TITLE = 'Move Spotlight configuration here';
 
 const BODY = `This pull request carries your team's current Spotlight
 configuration into this repository — its lines, the harness that works each one,
-the repositories they work in, and the tools it listens to.
+the repositories they work in, and the integrations it listens to.
 
 Spotlight goes on reading the repository it reads today until this merges.
 Merging is what makes this the place it reads from.`;
 
-/**
- * Run outside-in — make the repository, open the pull request, then save the
- * team — so a move that could not reach its destination leaves nothing behind.
- * Each step converges on a retry: making skips a repository that is there,
- * proposing amends the open branch, and starting the same move again is no
- * change.
- *
- * Only an owner or admin may, since it decides what an agent is told to do.
- */
+// Outside-in (repository, pull request, then team) so a failed move leaves nothing behind; each step is safe to retry.
 export class MoveConfigurationHandler
   implements
     CommandHandlerPort<MoveConfigurationCommand, ConfigurationMoveDto | null>
@@ -106,7 +97,6 @@ export class MoveConfigurationHandler
           ? {
               kind: 'carried',
               pullRequest: await this.writing.writeInto(target, {
-                branch: CONFIGURATION_BRANCH,
                 title: TITLE,
                 body: BODY,
                 files: move.files,

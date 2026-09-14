@@ -5,7 +5,6 @@ import type {
 
 export const GIT_GATEWAY = Symbol('GIT_GATEWAY');
 
-/** Which repository this reaches is settled behind it, named by `repo`. */
 export interface GitGatewayPort {
   carry(
     runId: string,

@@ -29,7 +29,6 @@ export interface InboxNote {
   readonly readAt: Date | null;
 }
 
-/** One station, named the way every other reader names one. */
 export interface InboxStation {
   readonly name: string;
   readonly color: string;
@@ -37,7 +36,6 @@ export interface InboxStation {
 }
 
 export interface InboxItemSummary {
-  // A task can need someone more than once, so the note names it too.
   readonly id: string;
   readonly taskId: string;
   readonly teamId: string;
@@ -56,8 +54,6 @@ export interface InboxItemSummary {
   readonly working: boolean;
   readonly runId: string | null;
   readonly unread: boolean;
-  // What the station that opened it was given. A conversation begins with the
-  // prompt its own station received, not with the one the task started on.
   readonly briefing: string | null;
   readonly notes: readonly InboxNote[];
 }
@@ -65,7 +61,6 @@ export interface InboxItemSummary {
 export const INBOX_READER = Symbol('INBOX_READER');
 
 export interface InboxReaderPort {
-  /** Theirs alone, newest first, answered ones included. */
   listForWorkspaceMember(
     slug: WorkspaceSlug,
     userId: UserId,

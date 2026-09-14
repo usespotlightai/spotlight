@@ -11,18 +11,18 @@ import {
   Breadcrumbs,
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
-import { useAssemblyLines } from '@/hooks/api/useAssemblyLines';
 import { useDeleteTask } from '@/hooks/api/useDeleteTask';
+import { useLines } from '@/hooks/api/useLines';
 import { useMoveTask } from '@/hooks/api/useMoveTask';
 import { useTasks } from '@/hooks/api/useTasks';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
-import { assemblyLinePath, teamPath } from '@/lib/team';
+import { linePath, teamPath } from '@/lib/team';
 import { TrailContext, useTrail } from '@/lib/trail';
 
 export function Task() {
   const { slug, teamId, taskId } = useParams();
   const { data: workspace } = useWorkspace(slug);
-  const { data: lines } = useAssemblyLines(teamId);
+  const { data: lines } = useLines(teamId);
   const { data: tasks, isPending } = useTasks(teamId);
   const moveTask = useMoveTask();
   const deleteTask = useDeleteTask();
@@ -49,10 +49,7 @@ export function Task() {
       ? [
           {
             label: line.name,
-            to:
-              slug && teamId
-                ? assemblyLinePath(slug, teamId, line.id)
-                : undefined,
+            to: slug && teamId ? linePath(slug, teamId, line.id) : undefined,
           },
         ]
       : []),
@@ -95,7 +92,7 @@ export function Task() {
                   onSuccess: () =>
                     void navigate(
                       slug && line
-                        ? assemblyLinePath(slug, teamId, line.id)
+                        ? linePath(slug, teamId, line.id)
                         : teamPath(slug ?? '', teamId),
                     ),
                 },

@@ -16,7 +16,7 @@ const dotOf = (runner: Runner) => {
 
 export function RunnerCard({ runner, harnesses }: RunnerCardProps) {
   return (
-    <li className="flex flex-col gap-5 rounded-lg border border-border bg-card p-3">
+    <li className="flex min-h-36 flex-col justify-between gap-5 rounded-lg border border-border bg-card p-4">
       <div className="flex flex-col gap-1">
         <div className="flex min-w-0 items-center gap-2">
           <h3 className="truncate font-medium text-foreground text-sm">

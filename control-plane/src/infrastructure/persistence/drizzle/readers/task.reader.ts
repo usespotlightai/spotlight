@@ -12,12 +12,12 @@ import {
   attachmentsOf,
   awaitedReviewsFor,
 } from '@infrastructure/persistence/drizzle/readers/task-trail';
-import {
-  assemblyLine,
-  station,
-} from '@infrastructure/persistence/drizzle/schemas/assembly-line.schema';
 import { user } from '@infrastructure/persistence/drizzle/schemas/auth.schema';
 import { factory } from '@infrastructure/persistence/drizzle/schemas/factory.schema';
+import {
+  line,
+  station,
+} from '@infrastructure/persistence/drizzle/schemas/line.schema';
 import {
   task,
   taskNote,
@@ -30,10 +30,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
-/** A second seat at the user table, so a task's assignee joins beside its raiser. */
 const assigneeUser = alias(user, 'assignee_user');
 
-/** The setup note, joined only to leave its task out: a list is not board work. */
 const setupNote = alias(taskNote, 'setup_note');
 
 @Injectable()
@@ -79,8 +77,8 @@ export class DrizzleTaskReader implements TaskReaderPort {
       })
       .from(task)
       .innerJoin(station, eq(station.id, task.stationId))
-      .innerJoin(assemblyLine, eq(assemblyLine.id, station.assemblyLineId))
-      .innerJoin(factory, eq(factory.id, assemblyLine.factoryId))
+      .innerJoin(line, eq(line.id, station.lineId))
+      .innerJoin(factory, eq(factory.id, line.factoryId))
       .leftJoin(user, eq(user.id, task.raisedById))
       .leftJoin(assigneeUser, eq(assigneeUser.id, task.assigneeId))
       .leftJoin(

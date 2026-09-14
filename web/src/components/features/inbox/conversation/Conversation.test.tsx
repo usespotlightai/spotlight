@@ -64,21 +64,19 @@ const showing = (notes: ReturnType<typeof note>[]) =>
   );
 
 describe('Conversation', () => {
-  // A note raised with the conversation it opens carries the same moment.
   it('marks one moment once', () => {
     showing([note(0, AT)]);
 
     expect(screen.getAllByText(openedAt(AT))).toHaveLength(1);
   });
 
-  // Spotlight speaking for itself stands under no station's name.
   it('names no station over a note that shows itself', () => {
     onboardingState.data = {
       steps: [],
       connectedToGitHub: false,
       configRepository: null,
       installUrl: null,
-      tools: [],
+      integrations: [],
     };
     showing([{ ...note(0, AT), form: 'setup' }]);
 
@@ -92,7 +90,6 @@ describe('Conversation', () => {
     expect(screen.getByText('Backlog')).toBeInTheDocument();
   });
 
-  // A mark stands where the line moved on, and only where it reads anew.
   it('marks a later moment of its own', () => {
     showing([note(0, AT), note(1, LATER, 'Implementation')]);
 

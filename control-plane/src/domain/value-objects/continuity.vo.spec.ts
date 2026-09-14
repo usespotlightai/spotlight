@@ -24,8 +24,6 @@ describe('Continuity', () => {
     });
   });
 
-  // Absent rather than null: the runner opens a new session for either, but a
-  // spec that says nothing is easier to read than one saying nothing twice.
   it('says nothing about a conversation there is none of', () => {
     expect(
       Continuity.of({ key: 'task_1-station_2' }).told(),

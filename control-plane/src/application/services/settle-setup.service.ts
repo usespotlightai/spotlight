@@ -14,14 +14,6 @@ import { settling } from '@domain/services/setup-list';
 import type { TeamId } from '@domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 
-/**
- * Settles the list a team was opened with, once nothing is left on it. Every
- * step is taken somewhere else, so each of those places says so here.
- *
- * Called outside whatever wrote the step, and nothing here throws: a step
- * that has landed does not come undone because the list could not be settled
- * after it, and what was missed is looked at again next time.
- */
 export class SettleSetup {
   constructor(
     private readonly lists: SetupLists,
@@ -46,7 +38,6 @@ export class SettleSetup {
     );
   }
 
-  /** After something no one workspace owns, and at startup for what was missed. */
   async wherever(): Promise<void> {
     await this.looking('everywhere', async () =>
       this.each(await this.lists.settingUp()),
@@ -84,13 +75,10 @@ export class SettleSetup {
         await this.lists.save(task.settled(saying));
       }
     } catch (error) {
-      // Somebody wrote the task while this was deciding: theirs stands, and
-      // the next look settles whatever is left.
       if (error instanceof TaskMovedOnError) {
         return;
       }
 
-      // A rule broken here, which looking again will not mend.
       if (error instanceof InvalidTaskTransitionError) {
         this.logger.error(
           { err: error, teamId: teamId.value },

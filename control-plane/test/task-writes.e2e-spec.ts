@@ -19,7 +19,7 @@ const DONE = {
   connectedToGitHub: true,
   hasRepository: true,
   hasConfiguration: true,
-  listensToATool: true,
+  listensToAnIntegration: true,
 };
 
 let held: TestDatabase;
@@ -36,11 +36,6 @@ afterAll(async () => {
   await held?.close();
 });
 
-/**
- * A task is saved whole rather than field by field, so a writer working from
- * an older reading writes its own idea of it over what somebody else put
- * there.
- */
 describe('writing a task somebody else has written', () => {
   const opened = async () => {
     const { list } = await openTeam(db, tasks, `nolan-${randomUUID()}`);

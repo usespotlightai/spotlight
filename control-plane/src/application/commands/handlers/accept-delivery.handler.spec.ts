@@ -12,7 +12,6 @@ import { SourceForDelivery } from '@application/services/source-for-delivery.ser
 import { WebhookSources } from '@application/services/webhook-sources.service';
 import { describe, expect, it, vi } from 'vitest';
 
-/** Names a delivery the way GitHub does: by what the host called it. */
 const github = {
   key: 'github',
   happenings: [],
@@ -78,8 +77,6 @@ describe('AcceptDeliveryHandler', () => {
     ]);
   });
 
-  // A host retries, and a person can ask it to send the same word again.
-  // Taking it in is what makes it ours, and the inbox says so only once.
   it('offers the same delivery to the inbox under one name', async () => {
     const { handler, inbox } = accepting();
 

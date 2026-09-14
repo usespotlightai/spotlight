@@ -34,7 +34,6 @@ const journal = (steps: JournalStep[]): RunJournal =>
       spokeTo: null,
       endedAt: null,
     },
-    readable: true,
   }) as RunJournal;
 
 describe('RunChanges', () => {
@@ -65,7 +64,6 @@ describe('RunChanges', () => {
     const file = screen.getByRole('button', { name: /a\.ts/ });
     expect(file).toHaveAttribute('aria-pressed', 'false');
 
-    // The panel is closed until a file is picked.
     expect(
       screen.queryByRole('button', { name: 'Close diff' }),
     ).not.toBeInTheDocument();

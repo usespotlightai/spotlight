@@ -13,7 +13,6 @@ import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@domain/value-objects/harness-model.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 
-/** A reported model id becomes a value, skipping any the domain would refuse. */
 const modelsOf = (ids: readonly string[]): HarnessModel[] =>
   ids.flatMap((id) => {
     try {
@@ -23,10 +22,6 @@ const modelsOf = (ids: readonly string[]): HarnessModel[] =>
     }
   });
 
-/**
- * A runner checking in. Its identity comes from the token it presented, so a
- * restart lands on the record it already had instead of making another one.
- */
 export class RegisterRunnerHandler
   implements CommandHandlerPort<RegisterRunnerCommand, RegisteredRunnerDto>
 {
@@ -52,7 +47,7 @@ export class RegisterRunnerHandler
         models: modelsOf(each.models),
       }));
 
-      // Asked before it checks in, because afterwards one always has.
+      // Asked before saving, since afterwards a runner is always connected.
       const wasNone = !(await this.enrolled.anyConnected());
 
       await this.transaction.run(async () => {
@@ -61,8 +56,6 @@ export class RegisterRunnerHandler
         );
       });
 
-      // The step no team takes alone: the first machine to reach us takes it
-      // for all of them. Not waited on — a runner is here to work.
       if (wasNone) {
         void this.settling.wherever();
       }

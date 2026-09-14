@@ -5,7 +5,7 @@ import { DeleteTaskCommand } from '@application/commands/delete-task.command';
 import { MoveTaskCommand } from '@application/commands/move-task.command';
 import { SayToRunCommand } from '@application/commands/say-to-run.command';
 import { StopRunCommand } from '@application/commands/stop-run.command';
-import type { StationDto } from '@application/dto/assembly-line.dto';
+import type { StationDto } from '@application/dto/line.dto';
 import type { MemberDto } from '@application/dto/member.dto';
 import type { RunConversationDto } from '@application/dto/run-conversation.dto';
 import type { TaskDto } from '@application/dto/task.dto';
@@ -74,10 +74,8 @@ import { TaskRunHttpMapper } from '@presentation/http/mappers/task-run.http.mapp
 import { TaskTraceHttpMapper } from '@presentation/http/mappers/task-trace.http.mapper';
 import { TeamTraceHttpMapper } from '@presentation/http/mappers/team-trace.http.mapper';
 
-/** A month, where the caller did not say. Long enough to have something. */
 const A_MONTH = 30 * 24 * 60 * 60 * 1000;
 
-/** A moment that cannot be read is no instruction at all, so it is ignored. */
 const asked = (since: string | undefined): Date => {
   const at = since ? new Date(since) : null;
 
@@ -344,7 +342,7 @@ export class TaskController {
     );
   }
 
-  @Post('assembly-lines/:lineId/stations/:stationId/tasks')
+  @Post('lines/:lineId/stations/:stationId/tasks')
   @ApiOperation({
     operationId: 'addTask',
     summary: 'Add a task to a station',
@@ -408,10 +406,10 @@ export class TaskController {
     return created.map((task) => TaskHttpMapper.toResponse(task));
   }
 
-  @Post('assembly-lines/:lineId/tasks/:taskId/move')
+  @Post('lines/:lineId/tasks/:taskId/move')
   @ApiOperation({
     operationId: 'moveTask',
-    summary: 'Move a task to another station on the same assembly line',
+    summary: 'Move a task to another station on the same line',
   })
   @ApiParam({ name: 'lineId', example: '7b2c9e14-3a5d-4c8f-b6e1-9d0a2f7c5b43' })
   @ApiParam({

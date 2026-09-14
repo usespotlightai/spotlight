@@ -6,18 +6,20 @@ import type { PersonReaderPort } from '@application/ports/person-reader.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
 import { TaskBriefing } from '@application/rendering/task-briefing';
 import type { TaskDispatching } from '@application/services/task-dispatch';
-import { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import { Line } from '@domain/aggregates/line.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { Station } from '@domain/entities/station.entity';
-import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
+import type { LineRepository } from '@domain/repositories/line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
-import { AssemblyLineId } from '@domain/value-objects/assembly-line-id.vo';
-import { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import { FactoryId } from '@domain/value-objects/factory-id.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
+import { LineId } from '@domain/value-objects/line-id.vo';
+import { LineKey } from '@domain/value-objects/line-key.vo';
+import { LineName } from '@domain/value-objects/line-name.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
+import { StationKey } from '@domain/value-objects/station-key.vo';
 import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
@@ -30,6 +32,7 @@ const transaction: TransactionPort = { run: (work) => work() };
 const at = (id: string, name: string, position: number, harness?: HarnessId) =>
   Station.of({
     id: StationId.of(id),
+    key: StationKey.of(name.toLowerCase().split(' ').join('-')),
     name: StationName.of(name),
     position,
     color: StationColor.of('#a3a8b0'),
@@ -39,11 +42,12 @@ const at = (id: string, name: string, position: number, harness?: HarnessId) =>
   });
 
 const line = () =>
-  AssemblyLine.of({
-    id: AssemblyLineId.of('line_1'),
+  Line.of({
+    id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     factoryId: FactoryId.of('factory_1'),
-    name: AssemblyLineName.of('Default'),
+    key: LineKey.of('default'),
+    name: LineName.of('Default'),
     stations: [
       at('station_1', 'Backlog', 0),
       at('station_2', 'Triage', 1, HarnessId.of('dev')),
@@ -74,7 +78,7 @@ const dispatch = (runId: string | null = 'run_1'): TaskDispatching => ({
     dispatched.push({
       harness: station.harness.value,
       priority: station.position,
-      brief: TaskBriefing.brief({ task, line }),
+      brief: TaskBriefing.brief({ task, line, skills: [], listedIn: null }),
     });
     return runId === null ? null : RunId.of(runId);
   },
@@ -93,9 +97,10 @@ const tasks = (found: Task | null = standing()) =>
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
     holding: vi.fn(async () => null),
+    countsAt: vi.fn(async () => new Map()),
   }) satisfies TaskRepository;
 
-const lines = (found: AssemblyLine | null = line()) =>
+const lines = (found: Line | null = line()) =>
   ({
     add: vi.fn(),
     save: vi.fn(),
@@ -104,7 +109,7 @@ const lines = (found: AssemblyLine | null = line()) =>
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
     withRole: vi.fn(async () => null),
-  }) satisfies AssemblyLineRepository;
+  }) satisfies LineRepository;
 
 const clock: ClockPort = {
   now: () => new Date('2026-08-29T12:00:00.000Z'),
@@ -117,7 +122,7 @@ const people: PersonReaderPort = {
 
 const move = (
   stationId: string,
-  board: AssemblyLineRepository = lines(),
+  board: LineRepository = lines(),
   held: TaskRepository = tasks(),
 ) =>
   new MoveTaskHandler(
@@ -199,7 +204,6 @@ describe('MoveTaskHandler', () => {
     await expect(move('station_1', lines(null))).rejects.toThrow(UseCaseFault);
   });
 
-  // Backlog is station_1; Triage (station_2) is the first active station.
   it('gives unclaimed work to whoever moves it from the backlog into active', async () => {
     await move('station_2', lines(), tasks(standing('station_1').unassigned()));
 
@@ -215,7 +219,6 @@ describe('MoveTaskHandler', () => {
   });
 
   it('assigns nobody when the move is not out of the backlog', async () => {
-    // The default task stands at Triage; moving it to Completed is not a claim.
     await move('station_3', lines(), tasks(standing('station_2').unassigned()));
 
     expect(saved?.assignee).toBeNull();

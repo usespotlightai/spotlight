@@ -11,11 +11,6 @@ import type { WorkspaceSlug } from '@domain/value-objects/workspace-slug.vo';
 export class WorkspaceRegistration {
   constructor(private readonly slugs: WorkspaceSlugRegistry) {}
 
-  /**
-   * A workspace and the team it opens with, made together because neither is
-   * worth having without the other: a workspace with no team has nowhere to
-   * put work, and a team with no workspace belongs to nobody.
-   */
   async register(input: {
     id: WorkspaceId;
     name: WorkspaceName;

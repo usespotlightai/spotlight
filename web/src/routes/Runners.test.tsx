@@ -63,8 +63,6 @@ describe('Runners', () => {
     expect(screen.getByText(/Reported nothing it can run/)).toBeInTheDocument();
   });
 
-  // A machine with everything installed should not push the row wide with a
-  // list nobody reads to the end.
   it('names the first few harnesses and counts the rest', () => {
     fleet.mockReturnValue([
       runner({ harnesses: ['claude-code', 'other', 'third', 'fourth'] }),

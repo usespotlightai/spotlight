@@ -2,13 +2,15 @@ import { UpstreamRefusedError } from '@domain/exceptions/upstream-refused.error'
 import {
   type Bindings,
   holds,
-  reads,
   value,
 } from '@infrastructure/integrations/expression';
-import type {
-  RequestIR,
-  Templated,
-} from '@infrastructure/integrations/integration.compile';
+import type { RequestIR } from '@infrastructure/integrations/integration.compile';
+import {
+  asJson,
+  requiredTextOf,
+  requiredValueOf,
+  type Templated,
+} from '@infrastructure/integrations/templating';
 import { Egress } from '@infrastructure/outbound/egress';
 
 export interface OutboundResult {
@@ -20,13 +22,6 @@ export interface OutboundResult {
 
 type Fetch = typeof globalThis.fetch;
 
-/**
- * The one outbound primitive: a templated HTTP call. It reads the URL, headers,
- * and body off the integration's expressions, refuses any host the deployment
- * did not allow, makes the call, and reads back what the file said to keep.
- * There is nothing host-specific here — Slack, Discord, or a plain webhook are
- * all this call with different expressions.
- */
 export class HttpOutbound {
   private readonly egress: Egress;
 
@@ -127,11 +122,7 @@ export class HttpOutbound {
   }
 
   private templated(held: Templated, against: Bindings): string | null {
-    if (held.literal !== null) {
-      return held.literal;
-    }
-
-    return held.expression ? reads(held.expression, against) : null;
+    return requiredTextOf(held, against);
   }
 
   private body(
@@ -142,23 +133,16 @@ export class HttpOutbound {
       return undefined;
     }
 
-    if (request.body.literal !== null) {
-      return { text: request.body.literal, json: false };
-    }
-
-    const read = request.body.expression
-      ? value(request.body.expression, against)
-      : null;
+    const read = requiredValueOf(request.body, against);
 
     if (read === null || read === undefined) {
       return undefined;
     }
 
-    // Anything but a string is JSON-encoded and flagged as such: a host not
-    // told it is JSON reads the body as form data and finds no fields.
+    // A host not told the body is JSON reads it as form data and finds no fields.
     return typeof read === 'string'
       ? { text: read, json: false }
-      : { text: JSON.stringify(read), json: true };
+      : { text: asJson(read), json: true };
   }
 
   private authorize(
@@ -175,8 +159,6 @@ export class HttpOutbound {
     const secrets = (against.secret ?? {}) as Record<string, string>;
 
     if (auth.kind === 'oauth2') {
-      // The caller resolves the team's connection and hands the living access
-      // token in; this primitive only wears it. Nothing host-specific here.
       const token = against.connection;
       if (typeof token === 'string' && token !== '') {
         headers.authorization = `Bearer ${token}`;

@@ -3,10 +3,6 @@ import type { ConfigurationRepo } from '@application/services/configuration-targ
 
 export type Provisioned = 'held' | 'made' | 'refused';
 
-/**
- * A name nobody has yet is a repository to create rather than a mistake.
- * Whether the host refusing is a failure is the caller's to decide.
- */
 export class RepositoryProvisioning {
   constructor(private readonly catalog: RepositoryCatalogPort) {}
 

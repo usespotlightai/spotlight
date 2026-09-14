@@ -1,6 +1,5 @@
 import { InvalidRunPriorityError } from '@domain/exceptions/invalid-run-priority.error';
 
-/** Where a run sits in the queue against the others: higher is claimed first. */
 export class RunPriority {
   private constructor(readonly value: number) {}
 

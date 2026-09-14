@@ -16,8 +16,6 @@ describe('ConversationId', () => {
     expect(ConversationId.parse(id.value).equals(id)).toBe(true);
   });
 
-  // Ids are opaque, and one holding a colon would take the task apart in the
-  // wrong place if the task were read off the front.
   it('reads the note off the end, whatever the task id holds', () => {
     const id = ConversationId.parse('urn:task:7:2');
 

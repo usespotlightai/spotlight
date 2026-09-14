@@ -9,12 +9,6 @@ import type { TeamRepository } from '@domain/repositories/team.repository';
 import { Repository } from '@domain/value-objects/repository.vo';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 
-/**
- * Worth saying rather than leaving to the fallback scan: two teams that chose
- * nothing land on the same repository and read each other's files.
- *
- * The workspace says who may, because it decides what an agent is told to do.
- */
 export class PinConfigurationHandler
   implements CommandHandlerPort<PinConfigurationCommand, boolean>
 {
@@ -28,8 +22,6 @@ export class PinConfigurationHandler
 
   async execute(command: PinConfigurationCommand): Promise<boolean> {
     try {
-      // Someone outside the team is not told it is there at all; only an owner
-      // or admin may choose its repository. The workspace comes back to seed on.
       const workspace = await this.authorization.connectableBy(
         command.teamId,
         command.viewerId,
@@ -49,10 +41,6 @@ export class PinConfigurationHandler
         ? Repository.of(command.repository)
         : null;
 
-      // Only the repository is readied here; what to write into it is chosen
-      // and written later, when the lines are set up. Nothing is thrown where
-      // the host will not make it: seeding finds nothing to write against,
-      // which is what the team is shown.
       const target = repository ? this.target.at(workspace, repository) : null;
 
       if (target) {

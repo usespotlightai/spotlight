@@ -5,7 +5,6 @@ export interface Told {
   readonly readAt: Date | null;
 }
 
-/** Stated here because the inbox reads a different shape than the task. */
 export const unread = (note: Told): boolean =>
   note.kind === 'asked' && note.readAt === null;
 

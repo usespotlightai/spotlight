@@ -11,7 +11,6 @@ import type { Egress } from '@infrastructure/outbound/egress';
 
 type Fetch = typeof globalThis.fetch;
 
-/** The token endpoint's answer, as much of it as anyone here reads. */
 interface TokenResponse {
   access_token?: string;
   refresh_token?: string;
@@ -19,13 +18,6 @@ interface TokenResponse {
   scope?: string;
 }
 
-/**
- * The two calls that turn an authorization into tokens and keep them fresh: the
- * code for the first tokens, and a refresh token for the next. Both are ordinary
- * OAuth2, so there is nothing host-specific here — a host that speaks OAuth2 is
- * this call with its own endpoint. The token endpoint is a real egress with the
- * client secret in it, so it passes the same allowlist every outbound call does.
- */
 export class OAuth2Exchange {
   constructor(
     private readonly egress: Egress,

@@ -1,16 +1,16 @@
-import { parse } from '@marcbachmann/cel-js';
+import { Environment } from '@marcbachmann/cel-js';
 
-/**
- * Every one of these bounds the work an expression can ask for: CEL cannot
- * loop, but it can walk a list, and the list comes from outside.
- */
 const MOST_DEPTH = 24;
 const MOST_NODES = 20_000;
 const MOST_KEYS = 512;
 const LONGEST_EXPRESSION = 2_000;
 
-/** Names that reach past a plain object in JavaScript, whatever CEL thinks. */
 const RESERVED = new Set(['__proto__', 'constructor', 'prototype']);
+
+const PERMISSIVE = new Environment({
+  unlistedVariablesAreDyn: true,
+  homogeneousAggregateLiterals: false,
+});
 
 export class ExpressionError extends Error {
   readonly violation = 'invalid' as const;
@@ -21,28 +21,99 @@ export class ExpressionError extends Error {
   }
 }
 
-/** What an expression is evaluated against: one delivery, and nothing else. */
+export class ExpressionFailedError extends Error {
+  readonly violation = 'invalid' as const;
+
+  constructor(
+    readonly at: string | null,
+    readonly source: string,
+    readonly reason: string,
+  ) {
+    super(`${at ?? source}: ${reason}`);
+    this.name = 'ExpressionFailedError';
+  }
+}
+
 export type Bindings = Readonly<Record<string, unknown>>;
+
+export type SchemaFields = { readonly [field: string]: string | SchemaFields };
+
+export type Declared = string | { readonly schema: SchemaFields };
+
+export type NamedType = readonly [name: string, fields: SchemaFields];
+
+export class Scope {
+  private held: Environment | null = null;
+
+  private constructor(
+    private readonly declared: Readonly<Record<string, Declared>>,
+    private readonly types: readonly NamedType[] = [],
+  ) {}
+
+  static of(declared: Readonly<Record<string, Declared>>): Scope {
+    return new Scope(declared);
+  }
+
+  and(more: Readonly<Record<string, Declared>>): Scope {
+    return new Scope({ ...this.declared, ...more }, this.types);
+  }
+
+  typed(types: readonly NamedType[]): Scope {
+    return new Scope(this.declared, types);
+  }
+
+  get names(): readonly string[] {
+    return Object.keys(this.declared).sort();
+  }
+
+  get environment(): Environment {
+    if (!this.held) {
+      const environment = new Environment({
+        unlistedVariablesAreDyn: false,
+        homogeneousAggregateLiterals: false,
+      });
+
+      for (const [name, fields] of this.types) {
+        environment.registerType({ name, schema: fields });
+      }
+
+      for (const [name, declared] of Object.entries(this.declared)) {
+        if (typeof declared === 'string') {
+          environment.registerVariable(name, declared);
+        } else {
+          environment.registerVariable({ name, schema: declared.schema });
+        }
+      }
+
+      this.held = environment;
+    }
+
+    return this.held;
+  }
+}
 
 export interface Expression {
   readonly source: string;
-  /** Throws where the delivery has nothing at the path the expression names. */
+  readonly at: string | null;
+  readonly doubt: string | null;
   evaluate(against: Bindings): unknown;
 }
 
-/**
- * Parsed once, when configuration is read, so an expression nobody can parse
- * is a problem with the file rather than a delivery that fails at midnight.
- */
-export const compile = (source: string): Expression => {
+const firstLine = (error: unknown, otherwise: string): string =>
+  error instanceof Error
+    ? (error.message.split('\n')[0] ?? otherwise)
+    : otherwise;
+
+export const compile = (
+  source: string,
+  within: { readonly scope?: Scope; readonly at?: string } = {},
+): Expression => {
   const written = source.trim();
 
   if (written.length === 0) {
     throw new ExpressionError(source, 'is empty');
   }
 
-  // A long expression is not dangerous so much as unreadable, and the bound
-  // is what keeps parsing itself cheap.
   if (written.length > LONGEST_EXPRESSION) {
     throw new ExpressionError(
       written.slice(0, 40),
@@ -53,27 +124,32 @@ export const compile = (source: string): Expression => {
   let evaluator: (context: Bindings) => unknown;
 
   try {
-    evaluator = parse(written) as unknown as (context: Bindings) => unknown;
+    evaluator = PERMISSIVE.parse(written) as unknown as (
+      context: Bindings,
+    ) => unknown;
   } catch (error) {
-    throw new ExpressionError(
-      written,
-      error instanceof Error
-        ? (error.message.split('\n')[0] ?? 'will not parse')
-        : 'will not parse',
-    );
+    throw new ExpressionError(written, firstLine(error, 'will not parse'));
+  }
+
+  let doubt: string | null = null;
+
+  if (within.scope) {
+    const checked = within.scope.environment.check(written);
+
+    if (!checked.valid) {
+      doubt = firstLine(checked.error, 'does not check');
+    }
   }
 
   return {
     source: written,
+    at: within.at ?? null,
+    doubt,
     evaluate: (against: Bindings) => evaluator(against),
   };
 };
 
-/**
- * Anything not plainly true is false, including what could not be evaluated:
- * CEL throws on a missing key, so a rule written for one shape of delivery
- * meets another and simply does not match.
- */
+// CEL throws on a missing key, which must read as no match.
 export const holds = (expression: Expression, against: Bindings): boolean => {
   try {
     return expression.evaluate(against) === true;
@@ -82,32 +158,26 @@ export const holds = (expression: Expression, against: Bindings): boolean => {
   }
 };
 
-/**
- * What an expression reads out of a delivery, as text. Null where it names
- * nothing there, which is how a source says it recognised no such thing.
- */
+const asText = (read: unknown): string | null => {
+  if (read === null || read === undefined || read === '') {
+    return null;
+  }
+
+  // CEL yields bigints; a numbered id is still an identifier.
+  return typeof read === 'object' ? null : String(read);
+};
+
 export const reads = (
   expression: Expression,
   against: Bindings,
 ): string | null => {
   try {
-    const read = expression.evaluate(against);
-
-    if (read === null || read === undefined || read === '') {
-      return null;
-    }
-
-    // CEL counts in bigints, and a host that numbers something is naming it.
-    return typeof read === 'object' ? null : String(read);
+    return asText(expression.evaluate(against));
   } catch {
     return null;
   }
 };
 
-/**
- * What an expression evaluates to, whole: a map for a request body, a scalar
- * for a header. Null where it names nothing there or could not be evaluated.
- */
 export const value = (expression: Expression, against: Bindings): unknown => {
   try {
     const read = expression.evaluate(against);
@@ -118,11 +188,29 @@ export const value = (expression: Expression, against: Bindings): unknown => {
   }
 };
 
-/**
- * Plain values on objects that inherit nothing. CEL refuses a reserved name
- * itself; this makes it true of the data, so it stays true of whatever reads
- * the delivery next.
- */
+export const required = (
+  expression: Expression,
+  against: Bindings,
+): unknown => {
+  try {
+    const read = expression.evaluate(against);
+
+    return read === undefined ? null : read;
+  } catch (error) {
+    throw new ExpressionFailedError(
+      expression.at,
+      expression.source,
+      firstLine(error, 'could not be read'),
+    );
+  }
+};
+
+export const requiredText = (
+  expression: Expression,
+  against: Bindings,
+): string | null => asText(required(expression, against));
+
+// CEL only rejects reserved names in expressions; strip them from data too.
 export const bound = (value: unknown): unknown => {
   let nodes = 0;
 

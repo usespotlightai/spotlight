@@ -12,12 +12,6 @@ import { StationName } from '@domain/value-objects/station-name.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 
-/**
- * What a task's runs came to, laid against one clock. Assembling it here and
- * not in whatever is drawing it means every reader of a trace reads the same
- * one: what a phase is, and when a span and a step are the same call, is not
- * for a client to decide.
- */
 export class ReadTaskTraceHandler
   implements QueryHandlerPort<ReadTaskTraceQuery, TaskTraceDto | null>
 {

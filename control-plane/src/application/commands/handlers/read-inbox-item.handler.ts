@@ -5,7 +5,6 @@ import type { CommandHandlerPort } from '@application/ports/command-handler.port
 import type { ConversationAtHand } from '@application/services/conversation-at-hand.service';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 
-/** Nobody else hears about the task, so to them it reads as not being there. */
 export class ReadInboxItemHandler
   implements CommandHandlerPort<ReadInboxItemCommand, void>
 {

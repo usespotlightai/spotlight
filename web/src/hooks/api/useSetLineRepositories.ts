@@ -7,8 +7,6 @@ type SetLineRepositoriesInput = {
   repositories: string[];
 };
 
-/** Git-first: opens/updates a pull request setting the line's repositories and
- *  returns it; the board is not changed here, so nothing is invalidated. */
 export function useSetLineRepositories() {
   return useMutation({
     mutationFn: async ({

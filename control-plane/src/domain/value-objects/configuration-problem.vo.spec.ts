@@ -21,10 +21,21 @@ describe('ConfigurationProblem', () => {
     expect(problem({ at: '' }).at).toBe('the file');
   });
 
-  // One that says something is wrong and leaves the reader no better off is
-  // worse than none at all.
   it('refuses one that says nothing to act on', () => {
     expect(() => problem({ reason: '   ' })).toThrow(InvalidIdentifierError);
+  });
+
+  it('is an error unless it is said to be a warning', () => {
+    expect(problem().severity).toBe('error');
+    expect(problem().isWarning).toBe(false);
+    expect(
+      ConfigurationProblem.of({
+        path: 'x.yml',
+        at: 'on.task.asked.to.thread',
+        reason: 'does not check',
+        severity: 'warning',
+      }).isWarning,
+    ).toBe(true);
   });
 
   it('says which file it is in', () => {

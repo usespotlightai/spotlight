@@ -6,13 +6,7 @@ const marked = (candidate: unknown): boolean =>
   typeof candidate === 'function' &&
   Reflect.getMetadata(WEBHOOK_SOURCE, candidate) === true;
 
-/**
- * Found by the mark they wear rather than a list kept beside them, so there
- * is no second place to add a host to.
- *
- * Looked for on what was built rather than what it was built with: a source
- * made by a factory is registered under the factory, which wears nothing.
- */
+// Checks metatype too: factory-built providers are registered under the factory.
 export const markedSources = (
   discovery: DiscoveryService,
 ): readonly WebhookSourcePort[] =>

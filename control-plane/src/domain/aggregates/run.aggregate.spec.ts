@@ -140,7 +140,6 @@ describe('Run', () => {
     expect(again.state).toBe('queued');
     expect(again.claimedBy).toBeNull();
     expect(again.leaseExpiresAt).toBeNull();
-    // The next telling is not a duplicate of the one that was cut short.
     expect(again.attempt).toBe(2);
   });
 

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { assemblyLineKeys } from '@/hooks/api/useAssemblyLines';
+import { lineKeys } from '@/hooks/api/useLines';
 import { readConfiguration, rereadConfiguration } from '@/lib/api';
 
 export const configurationKeys = {
@@ -20,7 +20,6 @@ export function useConfiguration(teamId: string | undefined) {
   });
 }
 
-/** Reads it from the repository again, for when somebody would rather not wait. */
 export function useRereadConfiguration(teamId: string | undefined) {
   const queryClient = useQueryClient();
 
@@ -34,9 +33,8 @@ export function useRereadConfiguration(teamId: string | undefined) {
     },
     onSuccess: (data) => {
       queryClient.setQueryData(configurationKeys.forTeam(teamId), data);
-      // Re-reading may have changed the lines, which the board reads.
       queryClient.invalidateQueries({
-        queryKey: assemblyLineKeys.forTeam(teamId),
+        queryKey: lineKeys.forTeam(teamId),
       });
     },
   });

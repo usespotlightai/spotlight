@@ -7,11 +7,7 @@ import { Injectable } from '@nestjs/common';
 
 const BYTES = 32;
 
-/**
- * Tokens are random, not chosen, so a single SHA-256 is enough: there is no
- * low-entropy secret to make expensive to guess, and lookup has to be a single
- * indexed read.
- */
+// Plain SHA-256 suffices for random tokens and keeps lookup one indexed read.
 @Injectable()
 export class TokenMint implements TokenMintPort {
   mint(): MintedToken {

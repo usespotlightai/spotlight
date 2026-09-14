@@ -8,19 +8,8 @@ import type { OAuth2Clients } from '@infrastructure/integrations/oauth2-clients'
 import { oauth2Of } from '@infrastructure/integrations/oauth2-config';
 import type { OAuth2Exchange } from '@infrastructure/integrations/oauth2-exchange';
 
-/**
- * How far ahead of expiry a token is renewed. Comfortably longer than the worker
- * ticks, so a token is renewed a tick or more before it is ever needed and the
- * calls that authenticate with it never have to.
- */
 const AHEAD_MS = 5 * 60 * 1000;
 
-/**
- * Keeps every team's host tokens fresh: renews each connection whose token is
- * near its end and can be renewed, so authenticating an outbound call is only
- * ever a read. What it renews and where it renews from are the file's; the
- * clock and the keeping are generic.
- */
 export class RefreshConnections {
   constructor(
     private readonly connections: HostConnectionRepository,

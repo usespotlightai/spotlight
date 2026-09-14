@@ -9,12 +9,6 @@ import { WebhookRuntime } from '@infrastructure/integrations/webhook.runtime';
 import type { HttpOutbound } from '@infrastructure/outbound/http-outbound';
 import { describe, expect, it, vi } from 'vitest';
 
-/**
- * Slack drives the same generic runtime as any host: the primitives — an HMAC
- * over a named base, a freshness window, a handshake, a self-echo guard — are
- * what let its quirks live in a file rather than in code. This is the only
- * place Slack is named in this layer, and it doubles as the reference file.
- */
 const SIGNING = 'slack_signing_secret';
 const WORKSPACE = WorkspaceId.of('ws_1');
 const NOW = 1_700_000_000;
@@ -194,9 +188,6 @@ describe('the Slack webhook runtime', () => {
       ]);
     });
 
-    // The channel is ambient — shared by every mention there — so it is kept
-    // off the concerns a task is found by, but still worn by the task it opens
-    // so a reply can be routed back.
     it('wears an ambient mark without finding a task by it', async () => {
       const [read] = await runtime().read(delivered(mention));
 

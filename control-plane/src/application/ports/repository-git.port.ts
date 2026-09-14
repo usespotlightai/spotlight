@@ -17,7 +17,6 @@ export interface GitAnswer {
 
 export const REPOSITORY_GIT = Symbol('REPOSITORY_GIT');
 
-/** Under the control plane's own credential, which the adapter holds. */
 export interface RepositoryGitPort {
   call(
     installation: GitHubInstallation,

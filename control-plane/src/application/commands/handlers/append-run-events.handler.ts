@@ -32,7 +32,6 @@ export class AppendRunEventsHandler
           at: new Date(event.at),
           message: event.message,
           data: event.data,
-          offset: event.offset,
         })),
       );
       this.stream.publish(
@@ -43,7 +42,6 @@ export class AppendRunEventsHandler
           at: event.at,
           message: event.message,
           data: event.data,
-          offset: event.offset,
         })),
       );
     } catch (error) {

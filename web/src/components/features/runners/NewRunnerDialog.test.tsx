@@ -52,8 +52,6 @@ describe('NewRunnerDialog', () => {
     });
   });
 
-  // The token is shown once. Enrolling the first runner fills the fleet list,
-  // and a dialog rendered inside the empty state used to unmount with it.
   it('shows the token once enrolled, and keeps showing it', async () => {
     enrol.mutate = vi.fn((_input, options) =>
       options.onSuccess({ id: 'r1', name: 'Laptop', token: 'a-secret-token' }),
@@ -69,9 +67,6 @@ describe('NewRunnerDialog', () => {
     expect(screen.getByRole('button', { name: 'Copy token' })).toBeVisible();
   });
 
-  // The reset waits for the close animation to finish, so that the token is
-  // not swapped back to the empty form while the dialog is still on screen.
-  // Reopening has to start clean all the same.
   it('forgets the token once the dialog has closed', async () => {
     enrol.mutate = vi.fn((_input, options) =>
       options.onSuccess({ id: 'r1', name: 'Laptop', token: 'a-secret-token' }),

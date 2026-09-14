@@ -17,9 +17,6 @@ const workspace = WorkspaceId.of('ws_1');
 const station = StationId.of('station_1');
 
 describe('the task events a team may bind to', () => {
-  // The vocabulary is the events the aggregate records, by kind. If a new
-  // bindable event is added, its kind belongs in the one list — this keeps the
-  // two from drifting into a binding that never fires.
   it('names exactly the kinds of the events the aggregate records for it', () => {
     const bindable = [
       new TaskOpened(task, workspace, station),

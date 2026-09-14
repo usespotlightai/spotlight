@@ -45,8 +45,6 @@ export class RunController {
     @Body() body: EnqueueRunRequestDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<EnqueuedRunResponseDto> {
-    // Asked through the same reader the rest of the app uses, so a caller
-    // cannot queue work into a workspace they cannot see.
     const workspace = await this.queryBus.execute<
       GetWorkspaceQuery,
       WorkspaceDto | null

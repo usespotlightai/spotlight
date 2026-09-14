@@ -1,7 +1,8 @@
 import { ProvisionFactory } from '@application/events/handlers/provision-factory.handler';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
-import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import type { TransactionPort } from '@application/ports/transaction.port';
 import type { Factory } from '@domain/aggregates/factory.aggregate';
+import type { Line } from '@domain/aggregates/line.aggregate';
 import type { Task } from '@domain/aggregates/task.aggregate';
 import { Workspace } from '@domain/aggregates/workspace.aggregate';
 import { TeamCreated } from '@domain/events/team-created.event';
@@ -23,7 +24,7 @@ const ids = (): IdGeneratorPort => {
 };
 
 let opened: Factory | undefined;
-let seeded: AssemblyLine[] = [];
+let seeded: Line[] = [];
 let raised: Task | undefined;
 
 const delivery = BUILT_IN_LINES[0];
@@ -40,7 +41,7 @@ const provision = () =>
       find: vi.fn(async () => null),
     },
     {
-      add: vi.fn(async (line: AssemblyLine) => {
+      add: vi.fn(async (line: Line) => {
         seeded.push(line);
       }),
       save: vi.fn(),
@@ -69,6 +70,7 @@ const provision = () =>
       ),
     } satisfies WorkspaceFinding,
     HarnessId.of('claude-code'),
+    { run: (work) => work() } satisfies TransactionPort,
   ).onTeamCreated(
     new TeamCreated(
       WorkspaceId.of('ws_1'),
@@ -113,8 +115,6 @@ describe('ProvisionFactory', () => {
     );
   });
 
-  // A team with a runner can begin the moment its lines are open: every
-  // station where work is done is already worked by the default harness.
   it('opens every worked station on the default harness, and the rest on none', async () => {
     await provision();
 
@@ -134,10 +134,9 @@ describe('ProvisionFactory', () => {
       line.role?.equals(LineRole.IMPROVEMENT),
     );
 
-    expect(improvement?.name.value).toBe('Factory Improvement');
+    expect(improvement?.name.value).toBe('Factory');
   });
 
-  // An inbox is one person's, and this is the person who opened the team.
   it('puts the welcome in the inbox of whoever opened it', async () => {
     await provision();
 
@@ -151,14 +150,12 @@ describe('ProvisionFactory', () => {
     expect(raised?.stationId).toEqual(seeded[0]?.stations[0]?.id);
   });
 
-  // An 'asked' with nothing after it is what an inbox item is made of.
   it('leaves it waiting on a person', async () => {
     await provision();
 
     expect(raised?.notes.map((each) => each.kind)).toEqual(['asked']);
   });
 
-  // Each step is done somewhere, and the message links straight there.
   it('links each step to where it happens', async () => {
     await provision();
 
@@ -166,7 +163,7 @@ describe('ProvisionFactory', () => {
 
     expect(body).toContain('[Start a runner](/w/acme/runners)');
     expect(body).toContain(
-      '[Install the GitHub App](/w/acme/team/team_1/integrations)',
+      '[Install the GitHub App](/w/acme/team/team_1/settings/integrations)',
     );
   });
 });

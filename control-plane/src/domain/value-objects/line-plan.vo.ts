@@ -1,21 +1,27 @@
 import type { StationKind } from '@domain/entities/station.entity';
 import { InvalidLinePlanError } from '@domain/exceptions/invalid-line-plan.error';
+import {
+  reactionsRefused,
+  stationsRefused,
+} from '@domain/services/line-layout';
+import { skillsRefused, toolsRefused } from '@domain/services/station-gives';
 import type { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
-import type { AssemblyLineName } from '@domain/value-objects/assembly-line-name.vo';
 import type { Effort } from '@domain/value-objects/effort.vo';
 import type { Happening } from '@domain/value-objects/happening.vo';
 import type { HarnessId } from '@domain/value-objects/harness-id.vo';
 import type { HarnessModel } from '@domain/value-objects/harness-model.vo';
 import type { LineKey } from '@domain/value-objects/line-key.vo';
+import type { LineName } from '@domain/value-objects/line-name.vo';
+import { LineRepositories } from '@domain/value-objects/line-repositories.vo';
 import type { LineRole } from '@domain/value-objects/line-role.vo';
 import type { Repository } from '@domain/value-objects/repository.vo';
+import type { SkillKey } from '@domain/value-objects/skill-key.vo';
 import type { StationColor } from '@domain/value-objects/station-color.vo';
 import type { StationDescription } from '@domain/value-objects/station-description.vo';
 import type { StationKey } from '@domain/value-objects/station-key.vo';
 import type { StationName } from '@domain/value-objects/station-name.vo';
 import type { Tool } from '@domain/value-objects/tool.vo';
 
-/** Named by its key rather than an identifier nobody typed. */
 export interface StationPlan {
   readonly key: StationKey;
   readonly name: StationName;
@@ -27,83 +33,91 @@ export interface StationPlan {
   readonly effort: Effort | null;
   readonly agentPrompt: AgentPrompt | null;
   readonly tools: readonly Tool[];
+  readonly skills: readonly SkillKey[];
   readonly passesTo: readonly StationKey[];
   readonly ends: boolean;
 }
 
 export interface ReactionPlan {
   readonly happening: Happening;
-  /** Where the task must be standing. Null is wherever it is. */
   readonly from: StationKey | null;
   readonly to: StationKey;
 }
 
-/**
- * A line as somebody described it. Whole on its own terms or not a plan:
- * every station named once, and everywhere it points landing on one it
- * describes.
- */
 export class LinePlan {
   private constructor(
     readonly key: LineKey,
-    readonly name: AssemblyLineName,
+    readonly name: LineName,
     readonly stations: readonly StationPlan[],
     readonly reactions: readonly ReactionPlan[],
-    /** What the line is for, where the factory routes work by purpose. */
     readonly role: LineRole | null,
-    /** The repositories a run on this line works in. */
     readonly repositories: readonly Repository[],
   ) {}
 
   static of(input: {
     key: LineKey;
-    name: AssemblyLineName;
+    name: LineName;
     stations: readonly StationPlan[];
     reactions?: readonly ReactionPlan[];
     role?: LineRole | null;
     repositories?: readonly Repository[];
   }): LinePlan {
     const reactions = input.reactions ?? [];
-    const keys = input.stations.map((each) => each.key.value);
+    const laid = stationsRefused(
+      input.stations.map((each) => ({
+        key: each.key.value,
+        name: each.name.value,
+        kind: each.kind,
+        passesTo: each.passesTo.map((to) => to.value),
+      })),
+    );
 
-    // A line with nowhere to stand is not a line.
-    if (input.stations.length === 0) {
+    if (laid) {
       throw new InvalidLinePlanError(
         input.key.value,
-        'describes no stations at all',
+        `has stations that ${laid.reason}`,
+        laid.at,
       );
     }
 
-    // The second would quietly never be reached.
-    if (new Set(keys).size !== keys.length) {
+    for (const [at, station] of input.stations.entries()) {
+      const refused =
+        skillsRefused(station.skills) ?? toolsRefused(station.tools);
+
+      if (refused) {
+        throw new InvalidLinePlanError(
+          input.key.value,
+          `has ${station.key.value}, which ${refused}`,
+          `stations.${at}`,
+        );
+      }
+    }
+
+    const reacting = reactionsRefused(
+      reactions.map((each) => ({
+        happening: each.happening.value,
+        from: each.from?.value ?? null,
+        to: each.to.value,
+      })),
+      new Set(input.stations.map((each) => each.key.value)),
+    );
+
+    if (reacting) {
       throw new InvalidLinePlanError(
         input.key.value,
-        'names one station twice, and each is named once',
+        `has reactions that ${reacting.reason}`,
+        reacting.at,
       );
     }
 
-    const named = new Set(keys);
-
-    for (const station of input.stations) {
-      for (const to of station.passesTo) {
-        if (!named.has(to.value)) {
-          throw new InvalidLinePlanError(
-            input.key.value,
-            `has ${station.key.value} passing work to ${to.value}, which is not a station on it`,
-          );
-        }
-      }
-    }
-
-    for (const reaction of reactions) {
-      for (const each of [reaction.to, reaction.from]) {
-        if (each && !named.has(each.value)) {
-          throw new InvalidLinePlanError(
-            input.key.value,
-            `sends ${reaction.happening.value} to ${each.value}, which is not a station on it`,
-          );
-        }
-      }
+    try {
+      LineRepositories.of(input.repositories ?? []);
+    } catch (error) {
+      throw new InvalidLinePlanError(
+        input.key.value,
+        `works in repositories that ${error instanceof Error ? error.message : String(error)}`,
+        'repositories',
+      );
     }
 
     return new LinePlan(
@@ -118,14 +132,5 @@ export class LinePlan {
 
   names(key: StationKey): boolean {
     return this.stations.some((each) => each.key.equals(key));
-  }
-
-  /** Those the line standing has that this no longer describes. */
-  drops(
-    standing: readonly { readonly key: StationKey }[],
-  ): readonly StationKey[] {
-    return standing
-      .filter((each) => !this.names(each.key))
-      .map((each) => each.key);
   }
 }

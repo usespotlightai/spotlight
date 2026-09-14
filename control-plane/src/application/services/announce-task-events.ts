@@ -3,12 +3,6 @@ import type { Task } from '@domain/aggregates/task.aggregate';
 import { isBindableTaskEvent } from '@domain/events/bindable-task-events';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 
-/**
- * Where a task's recorded events become word carried out of Spotlight. A
- * handler that has just saved a task hands it here rather than knowing which
- * events a host cares about: this pulls the events, carries each bindable one
- * to the notifier, and records any marks a host wants kept.
- */
 export class AnnounceTaskEvents {
   constructor(
     private readonly notifier: OutboundTaskNotifierPort,
@@ -24,8 +18,7 @@ export class AnnounceTaskEvents {
       const kept = await this.notifier.notify(task, event.kind);
 
       if (kept.length > 0) {
-        // The save that announced this moved the task on, so the marks land on
-        // the copy read back, not the one still in hand.
+        // Re-read: the announcing save moved the task on, so saving the copy in hand would be stale.
         const held = await this.tasks.find(task.id);
 
         if (held) {

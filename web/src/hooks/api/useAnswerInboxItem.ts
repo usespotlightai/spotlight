@@ -26,8 +26,6 @@ export function useAnswerInboxItem() {
       });
     },
 
-    // The answer puts the task back to work, so it leaves the inbox: what the
-    // list shows next is the server's to say.
     onSuccess: (_answer, { slug }) =>
       queryClient.invalidateQueries({
         queryKey: inboxKeys.forWorkspace(slug),

@@ -5,7 +5,6 @@ export interface RegisteredRunnerDto {
 export interface ClaimedRunDto {
   readonly id: string;
   readonly spec: unknown;
-  readonly leaseExpiresAt: string;
 }
 
 export interface EnqueuedRunDto {
@@ -18,6 +17,5 @@ export interface EnqueuedRunDto {
 export interface EnrolledRunnerDto {
   readonly runnerId: string;
   readonly name: string;
-  /** Shown once. Nothing can recover it after this response. */
   readonly token: string;
 }

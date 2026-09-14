@@ -2,11 +2,11 @@ import type { ClockPort } from '@application/ports/clock.port';
 import type { AnnounceTaskEvents } from '@application/services/announce-task-events';
 import type { RunOutcomes } from '@application/services/run-outcomes';
 import type { TaskDispatching } from '@application/services/task-dispatch';
-import type { AssemblyLine } from '@domain/aggregates/assembly-line.aggregate';
+import type { Line } from '@domain/aggregates/line.aggregate';
 import type { Task } from '@domain/aggregates/task.aggregate';
 import type { RunAbandoned } from '@domain/events/run-abandoned.event';
 import type { RunCompleted } from '@domain/events/run-completed.event';
-import type { AssemblyLineRepository } from '@domain/repositories/assembly-line.repository';
+import type { LineRepository } from '@domain/repositories/line.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import { HandoverFor } from '@domain/services/handover-for';
 import { Placement } from '@domain/services/placement';
@@ -19,13 +19,13 @@ import { Voice } from '@domain/value-objects/voice.vo';
 
 interface Standing {
   readonly task: Task;
-  readonly line: AssemblyLine | null;
+  readonly line: Line | null;
 }
 
 export class HandOver implements RunOutcomes {
   constructor(
     private readonly tasks: TaskRepository,
-    private readonly lines: AssemblyLineRepository,
+    private readonly lines: LineRepository,
     private readonly dispatch: TaskDispatching,
     private readonly clock: ClockPort,
     private readonly announce: AnnounceTaskEvents,
@@ -42,11 +42,7 @@ export class HandOver implements RunOutcomes {
     const handover = event.result.stopped
       ? HandoverFor.stopped()
       : event.declared && !event.result.failed
-        ? HandoverFor.declared(
-            event.declared,
-            line?.stations ?? [],
-            task.stationId,
-          )
+        ? HandoverFor.declared(event.declared, line, task.stationId)
         : HandoverFor.outcome(event.result);
 
     const worked = event.session
@@ -72,17 +68,12 @@ export class HandOver implements RunOutcomes {
     );
   }
 
-  /**
-   * Saves the task, then carries whatever it now announces — a question put to
-   * a person, say — out to wherever the team binds it. A direct call, not a
-   * dispatch: the run-event dispatcher already holds this handler.
-   */
+  // Called directly, not dispatched: the run-event dispatcher is already running this handler.
   private async saved(task: Task): Promise<void> {
     await this.tasks.save(task);
     await this.announce.of(task);
   }
 
-  /** Nothing to do for a task another run has since taken up. */
   private async waiting(
     runId: RunId,
     taskId: TaskId | null,
@@ -102,7 +93,7 @@ export class HandOver implements RunOutcomes {
   private async applied(
     handover: Handover,
     task: Task,
-    line: AssemblyLine | null,
+    line: Line | null,
     run: RunId,
   ): Promise<Task> {
     const standing = line?.stationAt(task.stationId);
