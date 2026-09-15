@@ -1,16 +1,14 @@
+import { useParams } from 'react-router';
 import { SettingsPage } from '@/components/features/settings/SettingsPage';
 import { SettingsSection } from '@/components/features/settings/SettingsSection';
 import { TeamSkillRow } from '@/components/features/skills/TeamSkillRow';
 import { useTeamSkills } from '@/hooks/api/useTeamSkills';
 
-type TeamSkillsProps = {
-  teamId: string;
-};
-
-export function TeamSkills({ teamId }: TeamSkillsProps) {
+export function TeamSkills() {
+  const { teamId } = useParams();
   const { data, isPending, isError } = useTeamSkills(teamId);
 
-  if (isPending) {
+  if (!teamId || isPending) {
     return null;
   }
 

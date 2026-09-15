@@ -2,7 +2,6 @@ import { InvalidTokenHashError } from '@domain/exceptions/invalid-token-hash.err
 
 const SHA_256_HEX = /^[0-9a-f]{64}$/;
 
-// The raw token is never stored.
 export class TokenHash {
   private constructor(readonly value: string) {}
 

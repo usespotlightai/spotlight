@@ -1,7 +1,6 @@
 import { createSign } from 'node:crypto';
 import type { Env } from '@infrastructure/config/env.schema';
 
-// GitHub refuses a token minted more than ten minutes ahead of its clock.
 const JWT_LIFETIME_SECONDS = 540;
 
 const base64url = (value: Buffer | string): string =>

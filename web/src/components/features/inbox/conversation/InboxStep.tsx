@@ -46,7 +46,6 @@ export function InboxStep({
   live = false,
 }: {
   step: JournalStep;
-  /** A settled run's steps never shimmer, even ones stuck at 'pending'. */
   live?: boolean;
 }) {
   const [open, setOpen] = useState(false);

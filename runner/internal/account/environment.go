@@ -33,7 +33,6 @@ func Environment(extra map[string]string, as *User) []string {
 		)
 	}
 
-	// Containers carry no SHELL, and agent CLIs refuse to run without one.
 	if as == nil && os.Getenv("SHELL") == "" {
 		env = append(env, "SHELL="+DefaultShell)
 	}

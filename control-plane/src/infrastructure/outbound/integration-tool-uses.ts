@@ -32,10 +32,12 @@ export class IntegrationToolUses implements IntegrationToolsPort {
     private readonly oauth2: OAuth2Access,
   ) {}
 
-  async reach(
-    tool: Tool,
-    { task, line }: ToolContext,
-  ): Promise<ReachableTool | null> {
+  async reach(tool: Tool, context: ToolContext): Promise<ReachableTool | null> {
+    if (context.kind !== 'task') {
+      return null;
+    }
+
+    const { task, line } = context;
     const read = await this.readableFor(line);
     const readable = read?.integrations.find((each) =>
       tool.isOfferedBy(each.integration.source),

@@ -259,7 +259,6 @@ export class GitHubSource implements WebhookSourcePort {
       marks: opened ? [Mark.pullRequest(PullRequestUrl.of(opened))] : [],
     });
 
-    // Thrown rather than dropped, so the host redelivers.
     if (!concerns) {
       throw new UpstreamRefusedError(
         `reading a ${event} delivery`,

@@ -10,6 +10,7 @@ import type { TaskRepository } from '@domain/repositories/task.repository';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { RunSpec } from '@domain/value-objects/run-spec.vo';
+import { RunSubject } from '@domain/value-objects/run-subject.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';
@@ -32,8 +33,7 @@ const claimedRun = () =>
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('claude-code'),
     spec,
-    taskId: TaskId.of('task_1'),
-    stationId: StationId.of('station_1'),
+    subject: RunSubject.task(TaskId.of('task_1'), StationId.of('station_1')),
   }).claim(RunnerId.of('runner_1'), NOW);
 
 const taskAssignedTo = (userId: string) =>

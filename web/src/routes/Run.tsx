@@ -7,6 +7,7 @@ import { RunActivity } from '@/components/features/runs/RunActivity';
 import { RunBriefing } from '@/components/features/runs/RunBriefing';
 import { RunComposer } from '@/components/features/runs/RunComposer';
 import { RunOpening } from '@/components/features/runs/RunOpening';
+import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import {
   type BreadcrumbSegment,
   Breadcrumbs,
@@ -113,6 +114,7 @@ export function Run() {
       slug={slug}
       teamId={teamId}
       runId={run.id}
+      taskId={said?.taskId}
       station={run.station?.name ?? 'the agent'}
       running={run.state === 'claimed'}
     />
@@ -161,16 +163,7 @@ export function Run() {
                 activity={activity}
               />
 
-              <div className="relative shrink-0 bg-surface">
-                <div
-                  aria-hidden
-                  className="pointer-events-none absolute inset-x-0 bottom-full h-10 bg-gradient-to-t from-surface to-transparent"
-                />
-
-                <div className="mx-auto w-full max-w-3xl px-8 pt-2 pb-6">
-                  <div className="-mx-3">{footer}</div>
-                </div>
-              </div>
+              <ComposerFooter>{footer}</ComposerFooter>
             </>
           )}
         </ChangesPanel>

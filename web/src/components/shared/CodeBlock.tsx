@@ -15,7 +15,6 @@ export function CodeBlock({
 }) {
   const [commandHtml, setCommandHtml] = useState<string | null>(null);
 
-  // Shiki paints nothing until the grammar and themes load, so show the raw command until ready.
   useEffect(() => {
     if (!command) {
       setCommandHtml(null);
@@ -31,7 +30,6 @@ export function CodeBlock({
     })
       .then((hl) => {
         if (alive) {
-          // defaultColor: false emits --shiki-light/--shiki-dark vars that index.css switches per theme.
           setCommandHtml(
             hl.codeToHtml(command, {
               lang: 'shellscript',

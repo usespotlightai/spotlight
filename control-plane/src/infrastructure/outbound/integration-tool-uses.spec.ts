@@ -122,6 +122,7 @@ const using = (
 
   const reaching = (tool: string, marked = true) =>
     tools.reach(Tool.of(tool), {
+      kind: 'task',
       task: task(marked),
       line,
     } as unknown as ToolContext);

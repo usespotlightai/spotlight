@@ -55,7 +55,6 @@ func register(args []string, in io.Reader, out io.Writer) error {
 		return err
 	}
 
-	// Long enough for each harness's model discovery to finish.
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 

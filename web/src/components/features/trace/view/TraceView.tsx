@@ -4,12 +4,12 @@ import { SpanDetail } from '@/components/features/trace/view/SpanDetail';
 import { LABEL_ROOM } from '@/components/features/trace/view/TraceBar';
 import { TraceRow } from '@/components/features/trace/view/TraceRow';
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
+import { useLingering } from '@/hooks/useLingering';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
 import { took } from '@/lib/inbox';
-import { rowsOf, type Trace, type TraceNode } from '@/lib/trace';
+import { rowsOf, type Trace } from '@/lib/trace';
 import { cn } from '@/lib/utils';
 
-// Matches the pane's close animation so it stays mounted until that finishes.
 const LEAVING = 150;
 
 const NAMES_PANE = {
@@ -55,21 +55,7 @@ export function TraceView({ trace }: TraceViewProps) {
 
   const chosen = rows.find((row) => row.node.id === picked)?.node ?? null;
 
-  const [held, setHeld] = useState<TraceNode | null>(null);
-
-  useEffect(() => {
-    if (chosen) {
-      setHeld(chosen);
-      return;
-    }
-
-    if (held === null) {
-      return;
-    }
-
-    const timer = setTimeout(() => setHeld(null), LEAVING);
-    return () => clearTimeout(timer);
-  }, [chosen, held]);
+  const held = useLingering(chosen, LEAVING);
 
   const whole = Math.max(trace.ms, 0);
 

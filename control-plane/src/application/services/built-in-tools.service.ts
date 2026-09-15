@@ -8,9 +8,9 @@ import type { ToolInputs } from '@domain/value-objects/tool-inputs.vo';
 
 export const BUILT_IN_TOOL_USES = Symbol('BUILT_IN_TOOL_USES');
 
-export interface BuiltInToolUse {
+export interface BuiltInToolUse<C extends ToolContext = ToolContext> {
   readonly tool: Tool;
-  call(context: ToolContext, inputs: ToolInputs): Promise<unknown>;
+  call(context: C, inputs: ToolInputs): Promise<unknown>;
 }
 
 export class BuiltInTools {
@@ -28,7 +28,7 @@ export class BuiltInTools {
     const built = builtInTool(tool);
     const use = this.uses.find((each) => each.tool.equals(tool));
 
-    return built && use
+    return built && use && built.worksOn === context.kind
       ? {
           declared: built.declared,
           defaultFor: () => undefined,

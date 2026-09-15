@@ -1,4 +1,3 @@
-// Keeps a trailing dash, or the field cannot be typed into.
 export function sanitizeSlug(value: string): string {
   return value
     .normalize('NFKD')

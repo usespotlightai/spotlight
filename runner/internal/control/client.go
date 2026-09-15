@@ -1,4 +1,3 @@
-// Package control is outbound-only HTTP, so it works through an egress proxy.
 package control
 
 import (
@@ -34,8 +33,7 @@ func New(baseURL, token string) (*Client, error) {
 	return &Client{
 		base:  base,
 		token: token,
-		// Above the claim long-poll; per-request contexts set the real deadlines.
-		http: &http.Client{Timeout: 2 * time.Minute},
+		http:  &http.Client{Timeout: 2 * time.Minute},
 	}, nil
 }
 
@@ -171,7 +169,6 @@ func (c *Client) AppendEvents(ctx context.Context, runID string, events []protoc
 		return nil
 	}
 
-	// Wrapped so batch-level fields can be added without breaking older runners.
 	batch := struct {
 		Events []protocol.Event `json:"events"`
 	}{Events: events}

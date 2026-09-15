@@ -188,7 +188,6 @@ process.stdin.on("data", (chunk) => {
     const msg = JSON.parse(line);
     if (msg.method === "initialize") send({ jsonrpc: "2.0", id: msg.id, result: { protocolVersion: 1 } });
     if (msg.method === "session/new") send({ jsonrpc: "2.0", id: msg.id, result: { sessionId: "session_opened" } });
-    // session/prompt is left unanswered: the turn runs until the run is stopped.
   }
 });
 `

@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { connectGitHub } from '@/lib/api';
 
-// A query, not a mutation on mount: the redirect page mounts more than once.
 export function useConnectGitHub(
   slug: string | undefined,
   installationId: string | null,

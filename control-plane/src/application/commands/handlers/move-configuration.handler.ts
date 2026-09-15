@@ -26,7 +26,6 @@ the repositories they work in, and the integrations it listens to.
 Spotlight goes on reading the repository it reads today until this merges.
 Merging is what makes this the place it reads from.`;
 
-// Outside-in (repository, pull request, then team) so a failed move leaves nothing behind; each step is safe to retry.
 export class MoveConfigurationHandler
   implements
     CommandHandlerPort<MoveConfigurationCommand, ConfigurationMoveDto | null>

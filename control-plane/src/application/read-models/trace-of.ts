@@ -119,7 +119,6 @@ const stretched = <T extends { startedAt: Date; ms: number }>(
   to: at(held.startedAt) + Math.max(held.ms, 0),
 });
 
-// Paired by time, not by harness attribute names, which change between releases.
 export const paired = (
   spans: readonly RunSpan[],
   steps: readonly JournalStep[],

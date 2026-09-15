@@ -17,7 +17,6 @@ const held: HeldAttachment = {
   contentType: 'image/png',
   size: 4096,
   workspaceId: 'ws_1',
-  taskId: 'task_1',
 };
 
 const store = () =>

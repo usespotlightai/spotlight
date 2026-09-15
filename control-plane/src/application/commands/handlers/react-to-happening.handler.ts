@@ -69,7 +69,6 @@ export class ReactToHappeningHandler
         raw: null,
       };
 
-      // Notices first: they may change how this workspace's words are read.
       await this.notices.attend(source.noticed?.(delivered) ?? []);
 
       const news = (await source.read(delivered)).filter(

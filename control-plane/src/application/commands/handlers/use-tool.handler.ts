@@ -5,20 +5,17 @@ import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { IntegrationToolsPort } from '@application/ports/integration-tools.port';
 import type { BuiltInTools } from '@application/services/built-in-tools.service';
-import type { RunAtHand } from '@application/services/run-at-hand.service';
-import { ToolNeedsTaskError } from '@domain/exceptions/tool-needs-task.error';
+import type { RunWorks } from '@application/services/run-works.service';
+import { ToolNeedsWorkError } from '@domain/exceptions/tool-needs-work.error';
 import { ToolNotGivenError } from '@domain/exceptions/tool-not-given.error';
-import { UnknownStationError } from '@domain/exceptions/unknown-station.error';
 import { UnknownToolError } from '@domain/exceptions/unknown-tool.error';
-import type { LineRepository } from '@domain/repositories/line.repository';
 import { Tool } from '@domain/value-objects/tool.vo';
 
 export class UseToolHandler
   implements CommandHandlerPort<UseToolCommand, ToolAnswerDto>
 {
   constructor(
-    private readonly held: RunAtHand,
-    private readonly lines: LineRepository,
+    private readonly works: RunWorks,
     private readonly builtIns: BuiltInTools,
     private readonly integrationTools: IntegrationToolsPort,
   ) {}
@@ -26,7 +23,7 @@ export class UseToolHandler
   async execute(command: UseToolCommand): Promise<ToolAnswerDto> {
     try {
       const tool = Tool.of(command.tool);
-      const { run, task } = await this.held.heldBy(
+      const { run, work } = await this.works.heldBy(
         command.runId,
         command.runnerId,
       );
@@ -35,18 +32,11 @@ export class UseToolHandler
         throw new ToolNotGivenError(tool.value);
       }
 
-      if (!task) {
-        throw new ToolNeedsTaskError(tool.value);
+      if (!work) {
+        throw new ToolNeedsWorkError(tool.value);
       }
 
-      const stationId = run.stationId ?? task.stationId;
-      const line = await this.lines.holding(stationId);
-
-      if (!line) {
-        throw new UnknownStationError(stationId.value);
-      }
-
-      const context = { run, task, line };
+      const context = await work.toolContext();
       const reachable = tool.integration
         ? await this.integrationTools.reach(tool, context)
         : this.builtIns.reach(tool, context);

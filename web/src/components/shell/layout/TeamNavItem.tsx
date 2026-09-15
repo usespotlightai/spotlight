@@ -4,16 +4,17 @@ import { InitialAvatar } from '@/components/shared/avatar/InitialAvatar';
 import { Disclosure } from '@/components/shell/layout/Disclosure';
 import { SidebarGroup } from '@/components/shell/layout/SidebarGroup';
 import { SidebarLink } from '@/components/shell/layout/SidebarLink';
+import { TeamSectionLink } from '@/components/shell/layout/TeamSectionLink';
 import { useLines } from '@/hooks/api/useLines';
 import { useTasks } from '@/hooks/api/useTasks';
 import { useCollapsed } from '@/hooks/useCollapsed';
 import {
   linePath,
+  SECTIONS_ABOVE_LINES,
+  SECTIONS_BELOW_LINES,
   SETTINGS_PAGES,
   settingsPath,
-  TEAM_SECTIONS,
   type Team,
-  teamSectionPath,
 } from '@/lib/team';
 import { cn } from '@/lib/utils';
 
@@ -77,6 +78,15 @@ export function TeamNavItem({
       </button>
 
       <Disclosure open={expanded} slot="team-sections">
+        {SECTIONS_ABOVE_LINES.map((section) => (
+          <TeamSectionLink
+            key={section.id}
+            slug={slug}
+            teamId={team.id}
+            section={section}
+          />
+        ))}
+
         <SidebarGroup
           label="Lines"
           icon={Package}
@@ -97,17 +107,14 @@ export function TeamNavItem({
           ))}
         </SidebarGroup>
 
-        {TEAM_SECTIONS.map((section) => (
-          <li key={section.id}>
-            <SidebarLink
-              to={teamSectionPath(slug, team.id, section.id)}
-              icon={section.icon}
-              className="pl-8"
-              active={section.id === 'observability' && Boolean(atTrace)}
-            >
-              {section.label}
-            </SidebarLink>
-          </li>
+        {SECTIONS_BELOW_LINES.map((section) => (
+          <TeamSectionLink
+            key={section.id}
+            slug={slug}
+            teamId={team.id}
+            section={section}
+            active={section.id === 'observability' && Boolean(atTrace)}
+          />
         ))}
 
         <SidebarGroup

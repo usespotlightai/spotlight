@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 
-/** Refetch cadence while a run keeps talking: twice the runner's ~200ms flush. */
 const EVERY_MS = 500;
 
 export function useRunStream(
@@ -23,7 +22,6 @@ export function useRunStream(
       },
     );
 
-    // Throttled, not debounced: a debounce never fires while events keep coming.
     let pending = false;
     let ticker: ReturnType<typeof setInterval> | undefined;
 
@@ -49,8 +47,6 @@ export function useRunStream(
         }
       }, EVERY_MS);
     };
-
-    // Left open on error: EventSource reconnects itself and resends the last event id.
 
     return () => {
       clearInterval(ticker);

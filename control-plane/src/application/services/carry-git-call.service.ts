@@ -4,15 +4,13 @@ import type {
   GitCall,
   RepositoryGitPort,
 } from '@application/ports/repository-git.port';
-import type { RunAtHand } from '@application/services/run-at-hand.service';
-import type { LineRepository } from '@domain/repositories/line.repository';
+import type { RunWorks } from '@application/services/run-works.service';
 import type { WorkspaceConnections } from '@domain/repositories/workspace.repository';
 import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 
 export class CarryGitCall implements GitGatewayPort {
   constructor(
-    private readonly held: RunAtHand,
-    private readonly lines: LineRepository,
+    private readonly works: RunWorks,
     private readonly workspaces: WorkspaceConnections,
     private readonly git: RepositoryGitPort,
   ) {}
@@ -23,22 +21,16 @@ export class CarryGitCall implements GitGatewayPort {
     repo: string,
     call: GitCall,
   ): Promise<GitAnswer | null> {
-    const { run, task } = await this.held.heldBy(runId, runnerId);
+    const { work } = await this.works.heldBy(runId, runnerId);
+    const repository = work ? await work.repositoryNamed(repo) : null;
 
-    if (!task || !run.stationId) {
-      return null;
-    }
-
-    const line = await this.lines.holding(run.stationId);
-    const repository = line?.repositoryNamed(repo) ?? null;
-
-    if (!repository) {
+    if (!work || !repository) {
       return null;
     }
 
     const installation = GitHubInstallation.from(
       await this.workspaces.connectionTo(
-        task.workspaceId,
+        work.workspaceId,
         GitHubInstallation.SOURCE,
       ),
     );

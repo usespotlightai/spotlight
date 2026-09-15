@@ -7,7 +7,6 @@ import { Injectable } from '@nestjs/common';
 
 const BYTES = 32;
 
-// Plain SHA-256 suffices for random tokens and keeps lookup one indexed read.
 @Injectable()
 export class TokenMint implements TokenMintPort {
   mint(): MintedToken {

@@ -26,7 +26,6 @@ export class StationName {
     return StationName.of('Unknown');
   }
 
-  // Lenient: stored rows may predate the current rules.
   static maybe(raw: string | null | undefined): StationName | null {
     try {
       return raw ? StationName.of(raw) : null;

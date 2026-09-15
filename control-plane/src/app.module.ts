@@ -7,6 +7,13 @@ import { AnswerRemarkCommand } from '@application/commands/answer-remark.command
 import { AssignTaskCommand } from '@application/commands/assign-task.command';
 import { BeginOAuth2ConnectionCommand } from '@application/commands/begin-oauth2-connection.command';
 import { ChangeMemberRoleCommand } from '@application/commands/change-member-role.command';
+import {
+  AcceptProposalCommand,
+  DismissProposalCommand,
+  SayInChatCommand,
+  StartChatCommand,
+  StopChatCommand,
+} from '@application/commands/chat.commands';
 import { ChooseIntegrationsCommand } from '@application/commands/choose-integrations.command';
 import { ConnectGitHubCommand } from '@application/commands/connect-github.command';
 import { CreateWorkspaceCommand } from '@application/commands/create-workspace.command';
@@ -17,6 +24,7 @@ import { FinishOAuth2ConnectionCommand } from '@application/commands/finish-oaut
 import { GrantAttachmentUploadCommand } from '@application/commands/grant-attachment-upload.command';
 import { AcceptDeliveryHandler } from '@application/commands/handlers/accept-delivery.handler';
 import { AcceptInviteHandler } from '@application/commands/handlers/accept-invite.handler';
+import { AcceptProposalHandler } from '@application/commands/handlers/accept-proposal.handler';
 import { AddTaskHandler } from '@application/commands/handlers/add-task.handler';
 import { AnalyseTraceHandler } from '@application/commands/handlers/analyse-trace.handler';
 import { AnswerInboxItemHandler } from '@application/commands/handlers/answer-inbox-item.handler';
@@ -32,6 +40,7 @@ import { CreateWorkspaceHandler } from '@application/commands/handlers/create-wo
 import { CustomiseStationHandler } from '@application/commands/handlers/customise-station.handler';
 import { DeleteTaskHandler } from '@application/commands/handlers/delete-task.handler';
 import { DeliverSaidHandler } from '@application/commands/handlers/deliver-said.handler';
+import { DismissProposalHandler } from '@application/commands/handlers/dismiss-proposal.handler';
 import { EnqueueRunHandler } from '@application/commands/handlers/enqueue-run.handler';
 import { EnrolRunnerHandler } from '@application/commands/handlers/enrol-runner.handler';
 import { GrantAttachmentUploadHandler } from '@application/commands/handlers/grant-attachment-upload.handler';
@@ -52,9 +61,12 @@ import { RenewLeaseHandler } from '@application/commands/handlers/renew-lease.ha
 import { RevealVaultKeyHandler } from '@application/commands/handlers/reveal-vault-key.handler';
 import { RevokeInviteHandler } from '@application/commands/handlers/revoke-invite.handler';
 import { RevokeRunnerHandler } from '@application/commands/handlers/revoke-runner.handler';
+import { SayInChatHandler } from '@application/commands/handlers/say-in-chat.handler';
 import { SayToRunHandler } from '@application/commands/handlers/say-to-run.handler';
 import { SetLineRepositoriesHandler } from '@application/commands/handlers/set-line-repositories.handler';
 import { SetUpLinesHandler } from '@application/commands/handlers/set-up-lines.handler';
+import { StartChatHandler } from '@application/commands/handlers/start-chat.handler';
+import { StopChatHandler } from '@application/commands/handlers/stop-chat.handler';
 import { StopRunHandler } from '@application/commands/handlers/stop-run.handler';
 import { UseToolHandler } from '@application/commands/handlers/use-tool.handler';
 import { InviteToTeamCommand } from '@application/commands/invite-to-team.command';
@@ -82,6 +94,8 @@ import { SetLineRepositoriesCommand } from '@application/commands/set-line-repos
 import { SetUpLinesCommand } from '@application/commands/set-up-lines.command';
 import { StopRunCommand } from '@application/commands/stop-run.command';
 import { UseToolCommand } from '@application/commands/use-tool.command';
+import { ChatOutcomes } from '@application/events/handlers/chat-outcomes.handler';
+import { CreateTaskFromProposal } from '@application/events/handlers/create-task-from-proposal.handler';
 import { DigestRun } from '@application/events/handlers/digest-run.handler';
 import { HandOver } from '@application/events/handlers/hand-over.handler';
 import { ProvisionFactory } from '@application/events/handlers/provision-factory.handler';
@@ -100,6 +114,7 @@ import {
   BUILT_IN_SKILLS,
   type BuiltInSkillsPort,
 } from '@application/ports/built-in-skills.port';
+import { CHAT_READER } from '@application/ports/chat-reader.port';
 import { CLOCK, type ClockPort } from '@application/ports/clock.port';
 import {
   CONFIGURED_SOURCES,
@@ -231,10 +246,16 @@ import {
   WORKSPACE_READER,
   type WorkspaceReaderPort,
 } from '@application/ports/workspace-reader.port';
+import {
+  ListChatsQuery,
+  ReadChatJournalQuery,
+  ReadChatQuery,
+} from '@application/queries/chat.queries';
 import { FindStationQuery } from '@application/queries/find-station.query';
 import { GetWorkspaceQuery } from '@application/queries/get-workspace.query';
 import { FindStationHandler } from '@application/queries/handlers/find-station.handler';
 import { GetWorkspaceHandler } from '@application/queries/handlers/get-workspace.handler';
+import { ListChatsHandler } from '@application/queries/handlers/list-chats.handler';
 import { ListHappeningsHandler } from '@application/queries/handlers/list-happenings.handler';
 import { ListHarnessesHandler } from '@application/queries/handlers/list-harnesses.handler';
 import { ListInboxHandler } from '@application/queries/handlers/list-inbox.handler';
@@ -252,6 +273,8 @@ import { ListWorkspacesHandler } from '@application/queries/handlers/list-worksp
 import { OnboardingHandler } from '@application/queries/handlers/onboarding.handler';
 import { PendingMessagesHandler } from '@application/queries/handlers/pending-messages.handler';
 import { ReadAttachmentHandler } from '@application/queries/handlers/read-attachment.handler';
+import { ReadChatHandler } from '@application/queries/handlers/read-chat.handler';
+import { ReadChatJournalHandler } from '@application/queries/handlers/read-chat-journal.handler';
 import { ConfigurationHandler } from '@application/queries/handlers/read-configuration.handler';
 import { ReadInviteHandler } from '@application/queries/handlers/read-invite.handler';
 import { ReadRunAttachmentHandler } from '@application/queries/handlers/read-run-attachment.handler';
@@ -300,15 +323,22 @@ import {
   type BuiltInToolUse,
 } from '@application/services/built-in-tools.service';
 import { CarryGitCall } from '@application/services/carry-git-call.service';
+import { ChatAtHand } from '@application/services/chat-at-hand.service';
+import {
+  CHAT_DISPATCH,
+  type ChatDispatching,
+} from '@application/services/chat-dispatch';
 import { ConfigurationTarget } from '@application/services/configuration-target.service';
 import { ConnectionAuthorization } from '@application/services/connection-authorization.service';
 import { ConversationAtHand } from '@application/services/conversation-at-hand.service';
+import { DispatchChat } from '@application/services/dispatch-chat.service';
 import { DispatchTask } from '@application/services/dispatch-task.service';
 import { FilesAtHand } from '@application/services/files-at-hand.service';
 import { HeldConfiguration } from '@application/services/held-configuration.service';
 import { OpenPullRequest } from '@application/services/open-pull-request.service';
 import { PendingConfiguration } from '@application/services/pending-configuration.service';
 import { ProposeConfigurationChange } from '@application/services/propose-configuration-change.service';
+import { ProposeTaskToolUse } from '@application/services/propose-task.tool-use';
 import { PullRequestToolUse } from '@application/services/pull-request.tool-use';
 import { RaiseTask } from '@application/services/raise-task';
 import { ReactToHappenings } from '@application/services/react-to-happenings.service';
@@ -320,6 +350,7 @@ import {
   type RunOutcomes,
 } from '@application/services/run-outcomes';
 import { RunOutcomesFanOut } from '@application/services/run-outcomes.fan-out';
+import { RunWorks } from '@application/services/run-works.service';
 import { SeedConfiguration } from '@application/services/seed-configuration.service';
 import { SettleSetup } from '@application/services/settle-setup.service';
 import { SourceForDelivery } from '@application/services/source-for-delivery.service';
@@ -401,6 +432,7 @@ import { DRIZZLE } from '@infrastructure/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
 import { DrizzleModule } from '@infrastructure/persistence/drizzle/drizzle.module';
 import { DrizzleAttachmentReader } from '@infrastructure/persistence/drizzle/readers/attachment.reader';
+import { DrizzleChatReader } from '@infrastructure/persistence/drizzle/readers/chat.reader';
 import { DrizzleInboxReader } from '@infrastructure/persistence/drizzle/readers/inbox.reader';
 import { DrizzleInviteReader } from '@infrastructure/persistence/drizzle/readers/invite.reader';
 import { DrizzleKeptWorkspaceReader } from '@infrastructure/persistence/drizzle/readers/kept-workspace.reader';
@@ -415,6 +447,7 @@ import { DrizzleRunnerTraceReader } from '@infrastructure/persistence/drizzle/re
 import { DrizzleTaskReader } from '@infrastructure/persistence/drizzle/readers/task.reader';
 import { DrizzleTeamTraceReader } from '@infrastructure/persistence/drizzle/readers/team-trace.reader';
 import { DrizzleWorkspaceReader } from '@infrastructure/persistence/drizzle/readers/workspace.reader';
+import { DrizzleChatRepository } from '@infrastructure/persistence/drizzle/repositories/chat.repository';
 import { DrizzleDeliveryInbox } from '@infrastructure/persistence/drizzle/repositories/delivery-inbox.repository';
 import { DrizzleFactoryRepository } from '@infrastructure/persistence/drizzle/repositories/factory.repository';
 import { DrizzleHostConnections } from '@infrastructure/persistence/drizzle/repositories/host-connections.repository';
@@ -450,6 +483,7 @@ import {
 import { CqrsModule } from '@nestjs/cqrs';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AttachmentController } from '@presentation/http/controllers/attachment.controller';
+import { ChatController } from '@presentation/http/controllers/chat.controller';
 import { ConfigurationController } from '@presentation/http/controllers/configuration.controller';
 import { GitController } from '@presentation/http/controllers/git.controller';
 import { GitHubConnectionController } from '@presentation/http/controllers/github-connection.controller';
@@ -512,6 +546,7 @@ import { WebhookDeliveryAddresses } from '@presentation/http/webhook-delivery-ad
     HappeningController,
     WebhookController,
     TaskController,
+    ChatController,
     WorkspaceController,
     SkillController,
   ],
@@ -527,6 +562,8 @@ import { WebhookDeliveryAddresses } from '@presentation/http/webhook-delivery-ad
     DrizzleLineRepository,
     DrizzleTaskRepository,
     DrizzleInviteRepository,
+    DrizzleChatRepository,
+    { provide: CHAT_READER, useClass: DrizzleChatReader },
     { provide: WORKSPACE_READER, useClass: DrizzleWorkspaceReader },
     { provide: LINE_READER, useClass: DrizzleLineReader },
     { provide: PERSON_READER, useClass: DrizzlePersonReader },
@@ -1230,19 +1267,77 @@ import { WebhookDeliveryAddresses } from '@presentation/http/webhook-delivery-ad
     },
 
     {
-      provide: GIT_GATEWAY,
+      provide: RunWorks,
       inject: [
-        RunAtHand,
+        DrizzleRunRepository,
+        DrizzleTaskRepository,
+        DrizzleChatRepository,
         DrizzleLineRepository,
-        DrizzleWorkspaceRepository,
-        REPOSITORY_GIT,
       ],
       useFactory: (
-        held: RunAtHand,
+        runs: DrizzleRunRepository,
+        tasks: DrizzleTaskRepository,
+        chats: DrizzleChatRepository,
         lines: DrizzleLineRepository,
+      ) => new RunWorks(runs, tasks, chats, lines),
+    },
+
+    {
+      provide: GIT_GATEWAY,
+      inject: [RunWorks, DrizzleWorkspaceRepository, REPOSITORY_GIT],
+      useFactory: (
+        works: RunWorks,
         workspaces: DrizzleWorkspaceRepository,
         git: RepositoryGitPort,
-      ) => new CarryGitCall(held, lines, workspaces, git),
+      ) => new CarryGitCall(works, workspaces, git),
+    },
+
+    {
+      provide: ChatAtHand,
+      inject: [DrizzleChatRepository],
+      useFactory: (chats: DrizzleChatRepository) => new ChatAtHand(chats),
+    },
+
+    {
+      provide: CHAT_DISPATCH,
+      inject: [
+        DrizzleRunRepository,
+        ID_GENERATOR,
+        HARNESS_LAUNCH,
+        TRACE_PARENT,
+        DrizzleTeamRepository,
+        DrizzleLineRepository,
+        CLOCK,
+      ],
+      useFactory: (
+        runs: DrizzleRunRepository,
+        ids: IdGeneratorPort,
+        launch: HarnessLaunchPort,
+        tracing: TraceParentPort,
+        teams: DrizzleTeamRepository,
+        lines: DrizzleLineRepository,
+        clock: ClockPort,
+      ) => new DispatchChat(runs, ids, launch, tracing, teams, lines, clock),
+    },
+
+    {
+      provide: CreateTaskFromProposal,
+      inject: [
+        DrizzleChatRepository,
+        DrizzleLineRepository,
+        DrizzleTaskRepository,
+        RaiseTask,
+        ID_GENERATOR,
+        CLOCK,
+      ],
+      useFactory: (
+        chats: DrizzleChatRepository,
+        lines: DrizzleLineRepository,
+        tasks: DrizzleTaskRepository,
+        raise: RaiseTask,
+        ids: IdGeneratorPort,
+        clock: ClockPort,
+      ) => new CreateTaskFromProposal(chats, lines, tasks, raise, ids, clock),
     },
 
     BuiltInHarnesses,
@@ -1378,6 +1473,8 @@ import { WebhookDeliveryAddresses } from '@presentation/http/webhook-delivery-ad
         CLOCK,
         RUN_DIGEST_WRITER,
         AnnounceTaskEvents,
+        DrizzleChatRepository,
+        CHAT_DISPATCH,
       ],
       useFactory: (
         tasks: DrizzleTaskRepository,
@@ -1386,9 +1483,12 @@ import { WebhookDeliveryAddresses } from '@presentation/http/webhook-delivery-ad
         clock: ClockPort,
         digests: RunDigestWriterPort,
         announce: AnnounceTaskEvents,
+        chats: DrizzleChatRepository,
+        chatDispatch: ChatDispatching,
       ) =>
         new RunOutcomesFanOut(
           new HandOver(tasks, lines, dispatch, clock, announce),
+          new ChatOutcomes(chats, chatDispatch),
           new DigestRun(digests),
         ),
     },
@@ -1438,6 +1538,7 @@ import { WebhookDeliveryAddresses } from '@presentation/http/webhook-delivery-ad
         FACTORY_PROVISIONING,
         RUNNER_REVOCATION,
         SettleOnConnection,
+        CreateTaskFromProposal,
         TRANSACTION,
         LOGGER,
       ],
@@ -1446,6 +1547,7 @@ import { WebhookDeliveryAddresses } from '@presentation/http/webhook-delivery-ad
         provisioning: FactoryProvisioningPort,
         revocation: RunnerRevocationPort,
         settling: SettleOnConnection,
+        acceptances: CreateTaskFromProposal,
         transaction: TransactionPort,
         logger: LoggerPort,
       ) =>
@@ -1454,6 +1556,7 @@ import { WebhookDeliveryAddresses } from '@presentation/http/webhook-delivery-ad
           provisioning,
           revocation,
           settling,
+          acceptances,
           transaction,
           logger,
         ),
@@ -1485,13 +1588,19 @@ import { WebhookDeliveryAddresses } from '@presentation/http/webhook-delivery-ad
       ATTACHMENT_STORE,
     ]),
     ...bindQueryHandler(ReadRunAttachmentQuery, ReadRunAttachmentHandler, [
-      DrizzleRunRepository,
-      ATTACHMENT_READER,
+      RunWorks,
       ATTACHMENT_STORE,
     ]),
     ...bindQueryHandler(PendingMessagesQuery, PendingMessagesHandler, [
-      DrizzleRunRepository,
-      DrizzleTaskRepository,
+      RunWorks,
+    ]),
+    ...bindQueryHandler(ListChatsQuery, ListChatsHandler, [
+      WORKSPACE_READER,
+      CHAT_READER,
+    ]),
+    ...bindQueryHandler(ReadChatQuery, ReadChatHandler, [CHAT_READER]),
+    ...bindQueryHandler(ReadChatJournalQuery, ReadChatJournalHandler, [
+      RUN_JOURNAL_READER,
     ]),
     ...bindQueryHandler(RunStopRequestedQuery, RunStopRequestedHandler, [
       DrizzleRunRepository,
@@ -1752,9 +1861,20 @@ import { WebhookDeliveryAddresses } from '@presentation/http/webhook-delivery-ad
     },
     {
       provide: BUILT_IN_TOOL_USES,
-      inject: [OpenPullRequest],
-      useFactory: (opening: OpenPullRequest): readonly BuiltInToolUse[] => [
+      inject: [
+        OpenPullRequest,
+        DrizzleChatRepository,
+        DOMAIN_EVENT_DISPATCHER,
+        CLOCK,
+      ],
+      useFactory: (
+        opening: OpenPullRequest,
+        chats: DrizzleChatRepository,
+        events: DomainEventDispatcher,
+        clock: ClockPort,
+      ): readonly BuiltInToolUse[] => [
         new PullRequestToolUse(opening),
+        new ProposeTaskToolUse(chats, events, clock),
       ],
     },
     {
@@ -1790,10 +1910,46 @@ import { WebhookDeliveryAddresses } from '@presentation/http/webhook-delivery-ad
         ),
     },
     ...bindCommandHandler(UseToolCommand, UseToolHandler, [
-      RunAtHand,
-      DrizzleLineRepository,
+      RunWorks,
       BuiltInTools,
       INTEGRATION_TOOLS,
+    ]),
+    ...bindCommandHandler(StartChatCommand, StartChatHandler, [
+      WORKSPACE_READER,
+      DrizzleChatRepository,
+      FilesAtHand,
+      CHAT_DISPATCH,
+      HARNESS_LAUNCH,
+      ID_GENERATOR,
+      CLOCK,
+      TRANSACTION,
+      DOMAIN_EVENT_DISPATCHER,
+    ]),
+    ...bindCommandHandler(SayInChatCommand, SayInChatHandler, [
+      ChatAtHand,
+      DrizzleChatRepository,
+      FilesAtHand,
+      CHAT_DISPATCH,
+      CLOCK,
+      TRANSACTION,
+    ]),
+    ...bindCommandHandler(StopChatCommand, StopChatHandler, [
+      ChatAtHand,
+      DrizzleRunRepository,
+      CLOCK,
+      DOMAIN_EVENT_DISPATCHER,
+    ]),
+    ...bindCommandHandler(AcceptProposalCommand, AcceptProposalHandler, [
+      ChatAtHand,
+      DrizzleChatRepository,
+      CLOCK,
+      DOMAIN_EVENT_DISPATCHER,
+    ]),
+    ...bindCommandHandler(DismissProposalCommand, DismissProposalHandler, [
+      ChatAtHand,
+      DrizzleChatRepository,
+      CLOCK,
+      DOMAIN_EVENT_DISPATCHER,
     ]),
     ...bindCommandHandler(AnswerRemarkCommand, AnswerRemarkHandler, [
       RunAtHand,
@@ -1818,8 +1974,7 @@ import { WebhookDeliveryAddresses } from '@presentation/http/webhook-delivery-ad
     ]),
 
     ...bindCommandHandler(DeliverSaidCommand, DeliverSaidHandler, [
-      DrizzleRunRepository,
-      DrizzleTaskRepository,
+      RunWorks,
       CLOCK,
     ]),
 

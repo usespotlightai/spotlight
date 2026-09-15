@@ -14,7 +14,6 @@ export interface StoredDelivery {
 }
 
 export interface DeliveryInboxPort {
-  // Claims once: true the first time a delivery is offered, false ever after.
   accept(delivered: StoredDelivery): Promise<boolean>;
 
   // Held for the caller's transaction, so concurrent workers never take the same delivery.

@@ -32,7 +32,6 @@ export function MoveConfigurationDialog({
   const move = useMoveConfiguration(teamId);
   const [named, setNamed] = useState('');
 
-  // Reset after the close animation, or the form flips back to empty mid-animation.
   const forget = () => {
     setNamed('');
     move.reset();

@@ -50,13 +50,9 @@ export class JwksCache implements JwksResolver {
             jwk.kid,
             createPublicKey({ key: jwk as JsonWebKey, format: 'jwk' }),
           );
-        } catch {
-          // An unreadable key is skipped, so its deliveries are refused.
-        }
+        } catch {}
       }
-    } catch {
-      // An unreachable JWKS yields no keys, so verification fails closed.
-    }
+    } catch {}
 
     return keys;
   }

@@ -205,6 +205,8 @@ const toolsGiven = (run?: Run) => RunSpecContract.toolsGiven(run?.spec.value);
 const tracing = {
   for: (taskId: { value: string }, runId: { value: string }) =>
     `trace:${taskId.value}:${runId.value}`,
+  forChat: (chatId: { value: string }, runId: { value: string }) =>
+    `trace:${chatId.value}:${runId.value}`,
 };
 
 const dispatch = (station: Station, standing?: Task, repositories?: string[]) =>

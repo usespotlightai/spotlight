@@ -80,7 +80,6 @@ const assemble = (
   kept: (key: string) => StationId | null,
   newId: () => string,
 ): Line => {
-  // Assign every id first: passes-to keys may resolve to any station.
   const idOf = new Map<string, StationId>(
     plan.stations.map((each) => [
       each.key.value,

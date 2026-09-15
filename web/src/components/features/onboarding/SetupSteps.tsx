@@ -40,7 +40,6 @@ function Step({ step, action, disabled }: StepProps) {
   const revisable = step.done && Boolean(action);
   const showAction = !step.done || expanded;
 
-  // Unclipped once open so popups can spill out; clipped again as it starts to close.
   const [clipped, setClipped] = useState(!showAction);
   if (!showAction && !clipped) {
     setClipped(true);
@@ -106,7 +105,6 @@ function Step({ step, action, disabled }: StepProps) {
             }}
           >
             <div className={cn('min-h-0', clipped && 'overflow-hidden')}>
-              {/* inert disables every nested control, which a disabled prop cannot. */}
               <div
                 className={cn('pt-2', disabled && 'opacity-50')}
                 inert={disabled}

@@ -1,4 +1,5 @@
 import type { RunJournal } from '@application/contracts/run-journal.contract';
+import type { ChatId } from '@domain/value-objects/chat-id.vo';
 import type { TaskId } from '@domain/value-objects/task-id.vo';
 import { Told } from '@infrastructure/acp/told';
 import { Reported } from '@infrastructure/otel/reported';
@@ -7,16 +8,30 @@ import {
   run,
   runEvent,
 } from '@infrastructure/persistence/drizzle/schemas/run.schema';
-import { asc, eq, inArray } from 'drizzle-orm';
+import { asc, eq, inArray, type SQL } from 'drizzle-orm';
 
-export async function journalsOfTask(
+export function journalsOfTask(
   db: DrizzleDatabase,
   taskId: TaskId,
+): Promise<RunJournal[]> {
+  return journalsOf(db, eq(run.taskId, taskId.value));
+}
+
+export function journalsOfChat(
+  db: DrizzleDatabase,
+  chatId: ChatId,
+): Promise<RunJournal[]> {
+  return journalsOf(db, eq(run.chatId, chatId.value));
+}
+
+async function journalsOf(
+  db: DrizzleDatabase,
+  which: SQL,
 ): Promise<RunJournal[]> {
   const runs = await db
     .select({ id: run.id, attempt: run.attempt, createdAt: run.createdAt })
     .from(run)
-    .where(eq(run.taskId, taskId.value))
+    .where(which)
     .orderBy(asc(run.createdAt));
 
   if (runs.length === 0) {

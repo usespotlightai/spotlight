@@ -1,4 +1,4 @@
-import { Binoculars, Play, SquareMousePointer } from 'lucide-react';
+import { Binoculars, MousePointer2, Play } from 'lucide-react';
 import type { ComponentType } from 'react';
 
 export type Team = {
@@ -12,13 +12,18 @@ type TeamSectionDefinition = {
   readonly icon: ComponentType<{ className?: string }>;
 };
 
-export const TEAM_SECTIONS = [
-  { id: 'runs', label: 'Runs', icon: Play },
-  { id: 'observability', label: 'Observability', icon: Binoculars },
-  { id: 'skills', label: 'Skills', icon: SquareMousePointer },
+export const SECTIONS_ABOVE_LINES = [
+  { id: 'agent', label: 'Agent', icon: MousePointer2 },
 ] as const satisfies readonly TeamSectionDefinition[];
 
-type TeamSection = (typeof TEAM_SECTIONS)[number];
+export const SECTIONS_BELOW_LINES = [
+  { id: 'runs', label: 'Runs', icon: Play },
+  { id: 'observability', label: 'Observability', icon: Binoculars },
+] as const satisfies readonly TeamSectionDefinition[];
+
+const TEAM_SECTIONS = [...SECTIONS_ABOVE_LINES, ...SECTIONS_BELOW_LINES];
+
+export type TeamSection = (typeof TEAM_SECTIONS)[number];
 
 type TeamSectionId = TeamSection['id'];
 
@@ -36,7 +41,7 @@ export const teamSectionPath = (
 export const SETTINGS_PAGES = [
   { id: 'general', label: 'General' },
   { id: 'integrations', label: 'Integrations' },
-  { id: 'secrets', label: 'Secrets' },
+  { id: 'skills', label: 'Skills' },
 ] as const;
 
 type SettingsPageId = (typeof SETTINGS_PAGES)[number]['id'];

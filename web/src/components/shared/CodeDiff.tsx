@@ -63,7 +63,6 @@ export function CodeDiff({
             disableFileHeader: true,
             overflow: 'wrap',
             theme: THEME,
-            // Shadow-root CSS: inherit color-scheme to follow the app's .dark class, not the OS.
             unsafeCSS: `:host { color-scheme: inherit; font-size: 11px; line-height: 1.5;${
               flush ? ' --diffs-gap-block: 0; --diffs-bg: transparent;' : ''
             } }`,

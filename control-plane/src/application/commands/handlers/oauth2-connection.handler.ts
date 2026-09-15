@@ -41,7 +41,6 @@ export class BeginOAuth2ConnectionHandler
   }
 }
 
-// Re-authorizes on callback: who may connect is checked where the connection is written, not only where it began.
 export class FinishOAuth2ConnectionHandler
   implements CommandHandlerPort<FinishOAuth2ConnectionCommand, string | null>
 {

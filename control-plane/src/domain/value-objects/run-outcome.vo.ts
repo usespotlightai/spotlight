@@ -1,6 +1,5 @@
 import { InvalidRunOutcomeError } from '@domain/exceptions/invalid-run-outcome.error';
 
-// `failed` is the runner's verdict, independent of the exit code.
 export class RunOutcome {
   private constructor(
     readonly exitCode: number,

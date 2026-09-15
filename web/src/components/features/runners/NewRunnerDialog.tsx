@@ -25,7 +25,6 @@ export function NewRunnerDialog({ open, onOpenChange }: NewRunnerDialogProps) {
   const [enrolled, setEnrolled] = useState<Enrolled | null>(null);
   const enrol = useEnrolRunner();
 
-  // Reset after the close animation, or the token flips back to the form mid-animation.
   const forget = () => {
     setName('');
     setEnrolled(null);

@@ -15,6 +15,23 @@ const configuration = vi.fn();
 const onboarding = vi.fn();
 const move = vi.fn();
 const moved = vi.fn();
+const revealed = vi.fn();
+
+vi.mock('@/hooks/api/useRevealVaultKey', async () => {
+  const { useState } = await import('react');
+
+  return {
+    useRevealVaultKey: () => {
+      const [asked, setAsked] = useState(false);
+
+      return {
+        ...(asked ? revealed() : { data: undefined, isError: false }),
+        isPending: false,
+        mutate: () => setAsked(true),
+      };
+    },
+  };
+});
 
 vi.mock('@/hooks/api/useWorkspace', () => ({
   useWorkspace: () => ({ data: workspace() }),
@@ -137,6 +154,7 @@ beforeEach(() => {
   });
   invites.mockReturnValue([]);
   moved.mockReturnValue({ isSuccess: false, data: undefined });
+  revealed.mockReturnValue({ data: { key: 'the-vault-key' }, isError: false });
   rename.mockReset();
   move.mockReset();
   invite.mockReset();
@@ -417,6 +435,44 @@ describe('TeamGeneral', () => {
     expect(
       screen.getByText('Connect GitHub to choose one.'),
     ).toBeInTheDocument();
+  });
+
+  it('keeps the vault key hidden until it is revealed', async () => {
+    showing();
+
+    expect(screen.queryByText('the-vault-key')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Reveal' }));
+
+    expect(await screen.findByText('the-vault-key')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Copy the vault key' }),
+    ).toBeInTheDocument();
+  });
+
+  it('tells somebody who is no owner or admin the vault key is not theirs to see', async () => {
+    revealed.mockReturnValue({ data: null, isError: false });
+    showing();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Reveal' }));
+
+    expect(
+      screen.getByText('Only owners and admins can see the vault key.'),
+    ).toBeInTheDocument();
+  });
+
+  it('says the vault key could not be loaded when revealing it fails otherwise', async () => {
+    revealed.mockReturnValue({ data: undefined, isError: true });
+    showing();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Reveal' }));
+
+    expect(
+      screen.getByText('The vault key could not be loaded. Try again.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Only owners and admins can see the vault key.'),
+    ).not.toBeInTheDocument();
   });
 
   it('renders nothing until the team is known', () => {

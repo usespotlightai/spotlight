@@ -15,9 +15,18 @@ const NONE = 'none';
 type HarnessSelectProps = {
   value: string;
   onChange: (harness: string) => void;
+  allowNone?: boolean;
+  readOnly?: boolean;
+  className?: string;
 };
 
-export function HarnessSelect({ value, onChange }: HarnessSelectProps) {
+export function HarnessSelect({
+  value,
+  onChange,
+  allowNone = true,
+  readOnly = false,
+  className,
+}: HarnessSelectProps) {
   const { data: harnesses } = useHarnesses();
 
   const chosen = harnesses?.find((harness) => harness.id === value);
@@ -26,7 +35,11 @@ export function HarnessSelect({ value, onChange }: HarnessSelectProps) {
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Harness"
-        className="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent"
+        disabled={readOnly}
+        className={cn(
+          'flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent',
+          className,
+        )}
       >
         <HarnessLogo harness={chosen?.id} />
         <span
@@ -37,10 +50,12 @@ export function HarnessSelect({ value, onChange }: HarnessSelectProps) {
         >
           {chosen?.name ?? 'Nobody'}
         </span>
-        <ChevronsUpDown
-          className="ml-auto size-3 shrink-0 text-muted-foreground"
-          aria-hidden
-        />
+        {!readOnly && (
+          <ChevronsUpDown
+            className="ml-auto size-3 shrink-0 text-muted-foreground"
+            aria-hidden
+          />
+        )}
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="start" sideOffset={6} className="min-w-52">
@@ -50,9 +65,11 @@ export function HarnessSelect({ value, onChange }: HarnessSelectProps) {
             onChange(String(next) === NONE ? '' : String(next))
           }
         >
-          <DropdownMenuRadioItem value={NONE}>
-            <span className="truncate text-muted-foreground">Nobody</span>
-          </DropdownMenuRadioItem>
+          {allowNone && (
+            <DropdownMenuRadioItem value={NONE}>
+              <span className="truncate text-muted-foreground">Nobody</span>
+            </DropdownMenuRadioItem>
+          )}
 
           {(harnesses ?? []).map((harness) => (
             <DropdownMenuRadioItem key={harness.id} value={harness.id}>

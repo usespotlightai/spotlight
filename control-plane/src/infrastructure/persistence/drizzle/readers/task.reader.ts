@@ -136,7 +136,6 @@ export class DrizzleTaskReader implements TaskReaderPort {
     );
   }
 
-  // Newest first, so the first one seen for a task is the one that stands.
   private async latestNotes(
     taskIds: string[],
   ): Promise<Map<string, TaskNoteSummary>> {

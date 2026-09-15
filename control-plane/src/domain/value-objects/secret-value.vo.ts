@@ -1,4 +1,3 @@
-// Whitespace is preserved, so only a wholly blank value counts as absent.
 export class SecretValue {
   private constructor(readonly value: string) {}
 

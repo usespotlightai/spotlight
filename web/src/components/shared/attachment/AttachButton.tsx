@@ -5,12 +5,14 @@ import { Button } from '@/components/ui/button';
 type AttachButtonProps = {
   onAttach: (files: File[]) => void;
   disabled?: boolean;
+  label?: string;
   className?: string;
 };
 
 export function AttachButton({
   onAttach,
   disabled,
+  label,
   className,
 }: AttachButtonProps) {
   const picker = useRef<HTMLInputElement>(null);
@@ -20,13 +22,14 @@ export function AttachButton({
       <Button
         type="button"
         variant="ghost"
-        size="icon-sm"
+        size={label ? 'sm' : 'icon-sm'}
         className={className}
         disabled={disabled}
         onClick={() => picker.current?.click()}
         aria-label="Attach files"
       >
         <Paperclip className="size-3.5" />
+        {label}
       </Button>
 
       <input
@@ -36,7 +39,6 @@ export function AttachButton({
         hidden
         onChange={(event) => {
           onAttach(Array.from(event.target.files ?? []));
-          // Emptied, so picking the same file again is still a change.
           event.target.value = '';
         }}
       />

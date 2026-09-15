@@ -17,6 +17,8 @@ type CheckboxSelectProps = {
   none: string;
   many: (count: number) => string;
   empty: string;
+  readOnly?: boolean;
+  className?: string;
 };
 
 export function CheckboxSelect({
@@ -28,6 +30,8 @@ export function CheckboxSelect({
   none,
   many,
   empty,
+  readOnly = false,
+  className,
 }: CheckboxSelectProps) {
   const toggle = (option: string, checked: boolean) =>
     onChange(
@@ -45,7 +49,11 @@ export function CheckboxSelect({
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={label}
-        className="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent"
+        disabled={readOnly}
+        className={cn(
+          'flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent',
+          className,
+        )}
       >
         <Icon className="size-3.5 shrink-0 text-muted-foreground" />
         <span
@@ -56,10 +64,12 @@ export function CheckboxSelect({
         >
           {shown}
         </span>
-        <ChevronsUpDown
-          className="ml-auto size-3 shrink-0 text-muted-foreground"
-          aria-hidden
-        />
+        {!readOnly && (
+          <ChevronsUpDown
+            className="ml-auto size-3 shrink-0 text-muted-foreground"
+            aria-hidden
+          />
+        )}
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="start" sideOffset={6} className="min-w-52">

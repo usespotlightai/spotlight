@@ -43,7 +43,6 @@ func discover(ctx context.Context, command []string) []string {
 	within, cancel := context.WithTimeout(ctx, discoveryTimeout)
 	defer cancel()
 
-	// Inherits the runner's env, so listing runs under the harness's own credentials.
 	out, err := exec.CommandContext(within, command[0], command[1:]...).Output()
 	if err != nil {
 		return nil

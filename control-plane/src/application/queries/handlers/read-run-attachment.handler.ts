@@ -1,21 +1,17 @@
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
-import type { AttachmentReaderPort } from '@application/ports/attachment-reader.port';
 import type {
   AttachmentContent,
   AttachmentStorePort,
 } from '@application/ports/attachment-store.port';
 import type { QueryHandlerPort } from '@application/ports/query-handler.port';
 import type { ReadRunAttachmentQuery } from '@application/queries/read-run-attachment.query';
-import type { RunRepository } from '@domain/repositories/run.repository';
-import { Attachment } from '@domain/value-objects/attachment.vo';
-import { RunId } from '@domain/value-objects/run-id.vo';
+import type { RunWorks } from '@application/services/run-works.service';
 
 export class ReadRunAttachmentHandler
   implements QueryHandlerPort<ReadRunAttachmentQuery, AttachmentContent | null>
 {
   constructor(
-    private readonly runs: RunRepository,
-    private readonly attachments: AttachmentReaderPort,
+    private readonly works: RunWorks,
     private readonly files: AttachmentStorePort,
   ) {}
 
@@ -23,20 +19,18 @@ export class ReadRunAttachmentHandler
     query: ReadRunAttachmentQuery,
   ): Promise<AttachmentContent | null> {
     try {
-      const [run, held] = await Promise.all([
-        this.runs.findById(RunId.of(query.runId)),
-        this.attachments.find(query.attachmentId),
-      ]);
+      const worked = await this.works.of(query.runId);
+      const work = worked?.work;
 
-      if (
-        !run?.taskId ||
-        run.claimedBy?.value !== query.runnerId ||
-        held?.taskId !== run.taskId.value
-      ) {
+      if (!work || worked.run.claimedBy?.value !== query.runnerId) {
         return null;
       }
 
-      return await this.files.open(run.workspaceId, Attachment.rehydrate(held));
+      const attachment = work.gave(query.attachmentId);
+
+      return attachment
+        ? await this.files.open(work.workspaceId, attachment)
+        : null;
     } catch (error) {
       rethrowAsFault(error);
     }

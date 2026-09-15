@@ -9,8 +9,8 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
     isPending: false,
   }),
 }));
-vi.mock('@/components/features/skills/TeamSkills', () => ({
-  TeamSkills: () => <p>The team’s skills</p>,
+vi.mock('@/components/features/agent/AgentChats', () => ({
+  AgentChats: () => <p>The team’s chats</p>,
 }));
 vi.mock('@/components/features/runs/TeamRuns', () => ({
   TeamRuns: () => <p>The team’s runs</p>,
@@ -36,13 +36,13 @@ beforeEach(() => {
 });
 
 describe('TeamSection', () => {
-  it('shows the team’s skills under a Skills breadcrumb', () => {
-    renderAt('skills');
+  it('opens the team’s chats with its agent under an Agent breadcrumb', () => {
+    renderAt('agent');
 
     expect(
-      screen.getByRole('heading', { name: /Platform\s*Skills/ }),
+      screen.getByRole('heading', { name: /Platform\s*Agent/ }),
     ).toBeInTheDocument();
-    expect(screen.getByText('The team’s skills')).toBeInTheDocument();
+    expect(screen.getByText('The team’s chats')).toBeInTheDocument();
   });
 
   it('sends a section it does not know on to the runs', async () => {

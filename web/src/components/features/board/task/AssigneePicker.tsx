@@ -82,7 +82,6 @@ export function AssigneePicker({
         </DropdownMenuTrigger>
       ) : (
         <DropdownMenuTrigger
-          // Keep a click on the picker from starting a drag on the row.
           onPointerDown={(event) => event.stopPropagation()}
           aria-label={label}
           className={cn(
