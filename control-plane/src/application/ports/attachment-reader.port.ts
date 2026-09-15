@@ -9,7 +9,6 @@ export interface AttachmentSummary {
 
 export interface HeldAttachment extends AttachmentSummary {
   readonly workspaceId: string;
-  readonly taskId: string;
 }
 
 export interface AttachmentReaderPort {

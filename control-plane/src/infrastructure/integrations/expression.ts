@@ -149,7 +149,6 @@ export const compile = (
   };
 };
 
-// CEL throws on a missing key, which must read as no match.
 export const holds = (expression: Expression, against: Bindings): boolean => {
   try {
     return expression.evaluate(against) === true;
@@ -163,7 +162,6 @@ const asText = (read: unknown): string | null => {
     return null;
   }
 
-  // CEL yields bigints; a numbered id is still an identifier.
   return typeof read === 'object' ? null : String(read);
 };
 

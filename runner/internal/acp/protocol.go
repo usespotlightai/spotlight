@@ -4,7 +4,6 @@ import "encoding/json"
 
 const Version = 1
 
-// Offer only what is answered, so the agent never asks for a terminal.
 type Capabilities struct {
 	Fs FsCapabilities `json:"fs"`
 }

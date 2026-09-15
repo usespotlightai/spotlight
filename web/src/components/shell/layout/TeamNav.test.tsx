@@ -124,18 +124,23 @@ describe('TeamNav', () => {
     expect(
       screen.getAllByRole('link', { name: 'Integrations' })[0],
     ).toHaveAttribute('href', '/w/acme-inc/team/team_1/settings/integrations');
-    expect(screen.getAllByRole('link', { name: 'Secrets' })[0]).toHaveAttribute(
-      'href',
-      '/w/acme-inc/team/team_1/settings/secrets',
-    );
-  });
-
-  it('links each team’s skills as a section of its own', () => {
-    renderNav();
-
     expect(screen.getAllByRole('link', { name: 'Skills' })[0]).toHaveAttribute(
       'href',
-      '/w/acme-inc/team/team_1/skills',
+      '/w/acme-inc/team/team_1/settings/skills',
+    );
+    expect(
+      screen.queryByRole('link', { name: 'Secrets' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('links each team’s agent first, above its lines', () => {
+    renderNav();
+
+    const agent = screen.getAllByRole('link', { name: 'Agent' })[0];
+    expect(agent).toHaveAttribute('href', '/w/acme-inc/team/team_1/agent');
+    expect(panels()[0]?.querySelector('a')).toBe(agent);
+    expect(agent?.compareDocumentPosition(linesRow(0) as HTMLElement)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
     );
   });
 

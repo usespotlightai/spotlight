@@ -4,7 +4,9 @@ import type { FactoryProvisioningPort } from '@application/ports/factory-provisi
 import type { LoggerPort } from '@application/ports/logger.port';
 import type { RunnerRevocationPort } from '@application/ports/runner-revocation.port';
 import type { TransactionPort } from '@application/ports/transaction.port';
+import type { ProposalAcceptances } from '@application/services/proposal-acceptances';
 import type { RunOutcomes } from '@application/services/run-outcomes';
+import { ChatStarted } from '@domain/events/chat-started.event';
 import { ConfigurationMoveStarted } from '@domain/events/configuration-move-started.event';
 import { ConfigurationMoved } from '@domain/events/configuration-moved.event';
 import type { DomainEvent } from '@domain/events/domain-event';
@@ -12,11 +14,14 @@ import { HostConnected } from '@domain/events/host-connected.event';
 import { InviteAccepted } from '@domain/events/invite-accepted.event';
 import { InviteOffered } from '@domain/events/invite-offered.event';
 import { InviteRevoked } from '@domain/events/invite-revoked.event';
+import { ProposalAccepted } from '@domain/events/proposal-accepted.event';
+import { ProposalDismissed } from '@domain/events/proposal-dismissed.event';
 import { RunAbandoned } from '@domain/events/run-abandoned.event';
 import { RunCompleted } from '@domain/events/run-completed.event';
 import { RunStopRequested } from '@domain/events/run-stop-requested.event';
 import { RunnerRevoked } from '@domain/events/runner-revoked.event';
 import { TaskFinished } from '@domain/events/task-finished.event';
+import { TaskProposed } from '@domain/events/task-proposed.event';
 import { TeamCreated } from '@domain/events/team-created.event';
 import { TeamMemberJoined } from '@domain/events/team-member-joined.event';
 import { WorkspaceConnected } from '@domain/events/workspace-connected.event';
@@ -29,6 +34,7 @@ export class RoutingDispatcher implements DomainEventDispatcher {
     private readonly provisioning: FactoryProvisioningPort,
     private readonly revocation: RunnerRevocationPort,
     private readonly settling: SettleOnConnection,
+    private readonly acceptances: ProposalAcceptances,
     private readonly transaction: TransactionPort,
     private readonly logger: LoggerPort,
   ) {}
@@ -60,6 +66,16 @@ export class RoutingDispatcher implements DomainEventDispatcher {
         return this.settling.onWorkspaceConnected(known);
       case 'runner.revoked':
         return this.revocation.onRunnerRevoked(known);
+      case 'chat.proposal-accepted':
+        return this.acceptances.onProposalAccepted(known);
+      case 'chat.started':
+      case 'chat.task-proposed':
+      case 'chat.proposal-dismissed':
+        this.logger.debug(
+          { event: known.kind, chatId: known.chatId.value },
+          'A chat moved on',
+        );
+        return;
       case 'task.finished':
         this.logger.debug({ event: known.kind }, 'A task finished');
         return;
@@ -148,5 +164,9 @@ type Routable =
   | HostConnected
   | RunnerRevoked
   | TaskFinished
+  | ChatStarted
+  | TaskProposed
+  | ProposalAccepted
+  | ProposalDismissed
   | ConfigurationMoveStarted
   | ConfigurationMoved;

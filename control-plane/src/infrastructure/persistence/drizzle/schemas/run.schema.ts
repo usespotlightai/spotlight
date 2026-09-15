@@ -44,6 +44,7 @@ export const run = pgTable(
     harness: text('harness').notNull(),
     priority: integer('priority').default(0).notNull(),
     taskId: text('task_id'),
+    chatId: text('chat_id'),
     stationId: text('station_id').references(() => station.id, {
       onDelete: 'set null',
     }),
@@ -76,6 +77,7 @@ export const run = pgTable(
     index('run_target_idx').on(table.targetRunnerId),
     index('run_lease_idx').on(table.leaseExpiresAt),
     index('run_workspace_idx').on(table.workspaceId),
+    index('run_chat_idx').on(table.chatId),
   ],
 );
 

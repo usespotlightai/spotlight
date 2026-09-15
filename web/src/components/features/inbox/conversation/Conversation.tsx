@@ -3,6 +3,7 @@ import { InboxMessage } from '@/components/features/inbox/conversation/InboxMess
 import { InboxWorking } from '@/components/features/inbox/conversation/InboxWorking';
 import { PersonSaid } from '@/components/features/inbox/conversation/PersonSaid';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
+import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import {
   type Conversing,
   HELD_AT_TOP,
@@ -93,7 +94,6 @@ export function Conversation({
   const held = useRef<number | null>(null);
   const ours = useRef(false);
 
-  // Layout effect on content size: messages grow after mount, and the first paint must already be in place.
   // biome-ignore lint/correctness/useExhaustiveDependencies: the item is what starts the conversation over, though the effect reads only the nodes
   useLayoutEffect(() => {
     const box = scroller.current;
@@ -142,7 +142,6 @@ export function Conversation({
       const was = box.scrollTop;
       box.scrollTo({ top: foot, behavior: cut ? 'auto' : 'smooth' });
 
-      // Smooth scrolling fires scroll events all the way down, so only an instant jump can be flagged as ours.
       if (cut) {
         ours.current = box.scrollTop !== was || ours.current;
       }
@@ -265,16 +264,7 @@ export function Conversation({
         </div>
       </div>
 
-      <div className="relative shrink-0 bg-surface">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-full h-10 bg-gradient-to-t from-surface to-transparent"
-        />
-
-        <div className="mx-auto w-full max-w-3xl px-8 pt-2 pb-6">
-          <div className="-mx-3">{footer}</div>
-        </div>
-      </div>
+      <ComposerFooter>{footer}</ComposerFooter>
     </>
   );
 }

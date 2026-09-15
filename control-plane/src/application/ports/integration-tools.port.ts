@@ -1,3 +1,4 @@
+import type { Chat } from '@domain/aggregates/chat.aggregate';
 import type { Line } from '@domain/aggregates/line.aggregate';
 import type { Run } from '@domain/aggregates/run.aggregate';
 import type { Task } from '@domain/aggregates/task.aggregate';
@@ -10,11 +11,21 @@ import type { ToolInputs } from '@domain/value-objects/tool-inputs.vo';
 
 export const INTEGRATION_TOOLS = Symbol('INTEGRATION_TOOLS');
 
-export interface ToolContext {
+export interface TaskToolContext {
+  readonly kind: 'task';
   readonly run: Run;
   readonly task: Task;
   readonly line: Line;
 }
+
+export interface ChatToolContext {
+  readonly kind: 'chat';
+  readonly run: Run;
+  readonly chat: Chat;
+  readonly lines: readonly Line[];
+}
+
+export type ToolContext = TaskToolContext | ChatToolContext;
 
 export interface ReachableTool {
   readonly declared: DeclaredTool;

@@ -1109,6 +1109,108 @@ export type MemberResponseDto = {
   mayBeSetTo: Array<'owner' | 'admin' | 'member'>;
 };
 
+export type ChatSummaryResponseDto = {
+  id: string;
+  title: string;
+  harness: string;
+  model: string | null;
+  effort: string | null;
+  repositories: Array<string>;
+  createdAt: string;
+  updatedAt: string;
+  /**
+   * The agent is answering now
+   */
+  working: boolean;
+};
+
+export type StartChatRequestDto = {
+  /**
+   * The harness to talk to
+   */
+  harness: string;
+  /**
+   * The harness’s default where left out
+   */
+  model?: string | null;
+  /**
+   * The harness’s default where left out
+   */
+  effort?: string | null;
+  /**
+   * Checked out for the agent to read
+   */
+  repositories?: Array<string>;
+  /**
+   * What opens the chat. May be empty where files are attached.
+   */
+  body: string;
+  /**
+   * Uploads to attach, by the id each was granted
+   */
+  attachments?: Array<string>;
+};
+
+export type ChatProposalResponseDto = {
+  lineId: string;
+  lineName: string | null;
+  stationId: string;
+  stationName: string | null;
+  stationColor: string | null;
+  title: string;
+  description: string | null;
+  state: 'open' | 'accepted' | 'created' | 'dismissed';
+  /**
+   * The task it became, once created
+   */
+  taskId: string | null;
+};
+
+export type ChatMessageResponseDto = {
+  position: number;
+  kind: 'said' | 'proposed';
+  body: string;
+  at: string;
+  author: InboxAuthorResponseDto | null;
+  /**
+   * The run that proposed it
+   */
+  runId: string | null;
+  attachments: Array<AttachmentResponseDto>;
+  proposal: ChatProposalResponseDto | null;
+};
+
+export type ChatResponseDto = {
+  id: string;
+  title: string;
+  harness: string;
+  model: string | null;
+  effort: string | null;
+  repositories: Array<string>;
+  createdAt: string;
+  updatedAt: string;
+  /**
+   * The agent is answering now
+   */
+  working: boolean;
+  /**
+   * The run answering now
+   */
+  runId: string | null;
+  messages: Array<ChatMessageResponseDto>;
+};
+
+export type SayInChatRequestDto = {
+  /**
+   * May be empty where files are attached.
+   */
+  body: string;
+  /**
+   * Uploads to attach, by the id each was granted
+   */
+  attachments?: Array<string>;
+};
+
 export type CreateWorkspaceRequestDto = {
   name: string;
   /**
@@ -2807,6 +2909,250 @@ export type ListMembersResponses = {
 };
 
 export type ListMembersResponse = ListMembersResponses[keyof ListMembersResponses];
+
+export type ListChatsData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/chats';
+};
+
+export type ListChatsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+};
+
+export type ListChatsResponses = {
+  200: Array<ChatSummaryResponseDto>;
+};
+
+export type ListChatsResponse = ListChatsResponses[keyof ListChatsResponses];
+
+export type StartChatData = {
+  body: StartChatRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/chats';
+};
+
+export type StartChatErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+  /**
+   * An unknown harness, model, effort or repository
+   */
+  422: unknown;
+};
+
+export type StartChatResponses = {
+  201: ChatResponseDto;
+};
+
+export type StartChatResponse = StartChatResponses[keyof StartChatResponses];
+
+export type ReadChatData = {
+  body?: never;
+  path: {
+    teamId: string;
+    chatId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/chats/{chatId}';
+};
+
+export type ReadChatErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+};
+
+export type ReadChatResponses = {
+  200: ChatResponseDto;
+};
+
+export type ReadChatResponse = ReadChatResponses[keyof ReadChatResponses];
+
+export type ReadChatJournalData = {
+  body?: never;
+  path: {
+    teamId: string;
+    chatId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/chats/{chatId}/journal';
+};
+
+export type ReadChatJournalErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+};
+
+export type ReadChatJournalResponses = {
+  200: Array<RunJournalResponseDto>;
+};
+
+export type ReadChatJournalResponse = ReadChatJournalResponses[keyof ReadChatJournalResponses];
+
+export type SayInChatData = {
+  body: SayInChatRequestDto;
+  path: {
+    teamId: string;
+    chatId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/chats/{chatId}/messages';
+};
+
+export type SayInChatErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+};
+
+export type SayInChatResponses = {
+  /**
+   * The agent hears it
+   */
+  204: void;
+};
+
+export type SayInChatResponse = SayInChatResponses[keyof SayInChatResponses];
+
+export type StopChatData = {
+  body?: never;
+  path: {
+    teamId: string;
+    chatId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/chats/{chatId}/stop';
+};
+
+export type StopChatErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+  /**
+   * The agent is not answering
+   */
+  409: unknown;
+};
+
+export type StopChatResponses = {
+  /**
+   * The agent was asked to stop
+   */
+  204: void;
+};
+
+export type StopChatResponse = StopChatResponses[keyof StopChatResponses];
+
+export type AcceptProposalData = {
+  body?: never;
+  path: {
+    teamId: string;
+    chatId: string;
+    position: number;
+  };
+  query?: never;
+  url: '/teams/{teamId}/chats/{chatId}/proposals/{position}/acceptance';
+};
+
+export type AcceptProposalErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+  /**
+   * The proposal is already settled
+   */
+  409: unknown;
+};
+
+export type AcceptProposalResponses = {
+  /**
+   * The task is being created
+   */
+  204: void;
+};
+
+export type AcceptProposalResponse = AcceptProposalResponses[keyof AcceptProposalResponses];
+
+export type DismissProposalData = {
+  body?: never;
+  path: {
+    teamId: string;
+    chatId: string;
+    position: number;
+  };
+  query?: never;
+  url: '/teams/{teamId}/chats/{chatId}/proposals/{position}/dismissal';
+};
+
+export type DismissProposalErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+  /**
+   * The proposal is already settled
+   */
+  409: unknown;
+};
+
+export type DismissProposalResponses = {
+  /**
+   * The proposal was dismissed
+   */
+  204: void;
+};
+
+export type DismissProposalResponse = DismissProposalResponses[keyof DismissProposalResponses];
 
 export type ListWorkspacesData = {
   body?: never;

@@ -39,7 +39,6 @@ export class RunSpec {
       throw new InvalidRunSpecError('must be described');
     }
 
-    // Defensive copy: the caller's object must not mutate this one.
     return new RunSpec({ ...parts });
   }
 

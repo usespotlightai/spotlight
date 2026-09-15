@@ -27,7 +27,6 @@ export interface WorkspaceRepository
   extends WorkspaceSlugRegistry,
     WorkspaceConnections,
     WorkspaceFinding {
-  // Throws WorkspaceSlugTakenError if the slug was claimed since isTaken.
   add(workspace: Workspace): Promise<void>;
 
   save(workspace: Workspace): Promise<void>;

@@ -88,7 +88,6 @@ func (c *Client) told(method string, params json.RawMessage) {
 	})
 }
 
-// Every request gets a reply, even a refusal: an unanswered one stalls the agent.
 func (c *Client) asked(id json.RawMessage, method string, params json.RawMessage) {
 	switch method {
 	case "session/request_permission":

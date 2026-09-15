@@ -4,13 +4,15 @@ import { RunCompleted } from '@domain/events/run-completed.event';
 import { RunStopRequested } from '@domain/events/run-stop-requested.event';
 import { InconsistentStateError } from '@domain/exceptions/inconsistent-state.error';
 import { InvalidRunTransitionError } from '@domain/exceptions/invalid-run-transition.error';
+import type { ChatId } from '@domain/value-objects/chat-id.vo';
 import { HandoverReport } from '@domain/value-objects/handover-report.vo';
 import type { HarnessId } from '@domain/value-objects/harness-id.vo';
-import { RunId } from '@domain/value-objects/run-id.vo';
+import type { RunId } from '@domain/value-objects/run-id.vo';
 import { RunOutcome } from '@domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@domain/value-objects/run-priority.vo';
 import type { RunSpec } from '@domain/value-objects/run-spec.vo';
 import type { RunState } from '@domain/value-objects/run-state';
+import type { RunSubject } from '@domain/value-objects/run-subject.vo';
 import type { RunnerId } from '@domain/value-objects/runner-id.vo';
 import type { StationId } from '@domain/value-objects/station-id.vo';
 import type { TaskId } from '@domain/value-objects/task-id.vo';
@@ -26,8 +28,7 @@ export class Run extends EventRecorder {
     readonly workspaceId: WorkspaceId,
     readonly harness: HarnessId,
     readonly priority: RunPriority,
-    readonly taskId: TaskId | null,
-    readonly stationId: StationId | null,
+    readonly subject: RunSubject | null,
     readonly spec: RunSpec,
     readonly targetRunner: RunnerId | null,
     readonly state: RunState,
@@ -45,8 +46,7 @@ export class Run extends EventRecorder {
     workspaceId: WorkspaceId;
     harness: HarnessId;
     priority?: RunPriority;
-    taskId?: TaskId | null;
-    stationId?: StationId | null;
+    subject?: RunSubject | null;
     spec: RunSpec;
     targetRunner?: RunnerId | null;
   }): Run {
@@ -55,8 +55,7 @@ export class Run extends EventRecorder {
       input.workspaceId,
       input.harness,
       input.priority ?? RunPriority.normal,
-      input.taskId ?? null,
-      input.stationId ?? null,
+      input.subject ?? null,
       input.spec,
       input.targetRunner ?? null,
       'queued',
@@ -73,8 +72,7 @@ export class Run extends EventRecorder {
     workspaceId: WorkspaceId;
     harness: HarnessId;
     priority: RunPriority;
-    taskId: TaskId | null;
-    stationId: StationId | null;
+    subject: RunSubject | null;
     spec: RunSpec;
     targetRunner: RunnerId | null;
     state: RunState;
@@ -91,8 +89,7 @@ export class Run extends EventRecorder {
       input.workspaceId,
       input.harness,
       input.priority,
-      input.taskId,
-      input.stationId,
+      input.subject,
       input.spec,
       input.targetRunner,
       input.state,
@@ -125,6 +122,18 @@ export class Run extends EventRecorder {
         'is queued yet still held by a runner',
       );
     }
+  }
+
+  get taskId(): TaskId | null {
+    return this.subject?.taskId ?? null;
+  }
+
+  get stationId(): StationId | null {
+    return this.subject?.stationId ?? null;
+  }
+
+  get chatId(): ChatId | null {
+    return this.subject?.chatId ?? null;
   }
 
   claim(by: RunnerId, now: Date): Run {
@@ -168,7 +177,7 @@ export class Run extends EventRecorder {
       result: RunOutcome.abandoned(reason),
     });
 
-    abandoned.record(new RunAbandoned(this.id, this.taskId, this.attempt));
+    abandoned.record(new RunAbandoned(this.id, this.subject, this.attempt));
 
     return abandoned;
   }
@@ -214,7 +223,7 @@ export class Run extends EventRecorder {
     ended.record(
       new RunCompleted(
         this.id,
-        this.taskId,
+        this.subject,
         outcome,
         by,
         said.declared ?? null,
@@ -238,7 +247,7 @@ export class Run extends EventRecorder {
 
     const stopping = this.with({ stopRequestedAt: now });
 
-    stopping.record(new RunStopRequested(this.id, this.taskId, now));
+    stopping.record(new RunStopRequested(this.id, this.subject, now));
 
     return stopping;
   }
@@ -272,8 +281,7 @@ export class Run extends EventRecorder {
       this.workspaceId,
       this.harness,
       this.priority,
-      this.taskId,
-      this.stationId,
+      this.subject,
       this.spec,
       this.targetRunner,
       part.state ?? this.state,

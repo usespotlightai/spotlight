@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { TeamSkills } from '@/components/features/skills/TeamSkills';
+import { TeamSkills } from '@/routes/TeamSkills';
 
 const skills = vi.fn();
 const failed = vi.fn();
@@ -19,7 +20,17 @@ const GRAFANA = {
   path: '.spotlight/skills/grafana-dashboards',
 };
 
-const showing = () => render(<TeamSkills teamId="team_1" />);
+const showing = () =>
+  render(
+    <MemoryRouter initialEntries={['/w/acme/team/team_1/settings/skills']}>
+      <Routes>
+        <Route
+          path="/w/:slug/team/:teamId/settings/skills"
+          element={<TeamSkills />}
+        />
+      </Routes>
+    </MemoryRouter>,
+  );
 
 beforeEach(() => {
   skills.mockReturnValue({ repository: 'acme/config', skills: [GRAFANA] });

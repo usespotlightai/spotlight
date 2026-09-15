@@ -145,7 +145,6 @@ export class Workspace extends EventRecorder {
     return connected;
   }
 
-  // No permission check: the host has already removed the installation.
   disconnectedFrom(source: string): Workspace {
     if (!this.connectionTo(source)) {
       return this;

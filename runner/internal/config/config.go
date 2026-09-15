@@ -50,7 +50,6 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("read %s: %w", Path(), err)
 	}
-	// An unset compose variable expands to blank, so blank falls to the file.
 	get := func(key string) string {
 		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
 			return value

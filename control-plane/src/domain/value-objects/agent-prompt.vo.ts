@@ -5,7 +5,6 @@ const MAX_LENGTH = 20_000;
 export class AgentPrompt {
   private constructor(readonly value: string) {}
 
-  // Trim outer whitespace only: inner blank lines separate instructions.
   static of(raw: string): AgentPrompt {
     const trimmed = raw.trim();
 

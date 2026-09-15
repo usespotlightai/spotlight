@@ -3,27 +3,32 @@ import type {
   RepositoryGitPort,
 } from '@application/ports/repository-git.port';
 import { CarryGitCall } from '@application/services/carry-git-call.service';
-import { RunAtHand } from '@application/services/run-at-hand.service';
+import { RunWorks } from '@application/services/run-works.service';
+import { Chat } from '@domain/aggregates/chat.aggregate';
 import type { Line } from '@domain/aggregates/line.aggregate';
 import { Run } from '@domain/aggregates/run.aggregate';
 import { Task } from '@domain/aggregates/task.aggregate';
 import { InvalidRunTransitionError } from '@domain/exceptions/invalid-run-transition.error';
 import { UnknownRunError } from '@domain/exceptions/unknown-run.error';
+import type { ChatRepository } from '@domain/repositories/chat.repository';
 import type { LineRepository } from '@domain/repositories/line.repository';
 import type { RunRepository } from '@domain/repositories/run.repository';
 import type { TaskRepository } from '@domain/repositories/task.repository';
 import type { WorkspaceConnections } from '@domain/repositories/workspace.repository';
+import { ChatId } from '@domain/value-objects/chat-id.vo';
 import { Connection } from '@domain/value-objects/connection.vo';
 import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { Repository } from '@domain/value-objects/repository.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { RunSpec } from '@domain/value-objects/run-spec.vo';
+import { RunSubject } from '@domain/value-objects/run-subject.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';
 import { TaskRank } from '@domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@domain/value-objects/task-title.vo';
+import { TeamId } from '@domain/value-objects/team-id.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -49,6 +54,18 @@ const task = () =>
     newId: () => 'task_1',
   });
 
+const chat = () =>
+  Chat.start({
+    id: 'chat_1',
+    workspaceId: WorkspaceId.of('ws_1'),
+    teamId: TeamId.of('team_1'),
+    startedBy: UserId.of('user_1'),
+    harness: HarnessId.of('dev'),
+    repositories: [Repository.of('acme/planning')],
+    body: 'Plan the queue.',
+    now: NOW,
+  });
+
 const lineWorking = (repositories: readonly string[]): Line => {
   const held = repositories.map((each) => Repository.of(each));
 
@@ -59,13 +76,17 @@ const lineWorking = (repositories: readonly string[]): Line => {
   } as unknown as Line;
 };
 
-const enqueued = () =>
+const enqueued = (
+  subject: RunSubject = RunSubject.task(
+    TaskId.of('task_1'),
+    StationId.of('station_1'),
+  ),
+) =>
   Run.enqueue({
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
-    taskId: TaskId.of('task_1'),
-    stationId: StationId.of('station_1'),
+    subject,
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
@@ -74,8 +95,8 @@ const enqueued = () =>
     }),
   });
 
-const claimedBy = (runner: string) =>
-  enqueued().claim(RunnerId.of(runner), NOW);
+const claimedBy = (runner: string, subject?: RunSubject) =>
+  enqueued(subject).claim(RunnerId.of(runner), NOW);
 
 const carrying = (
   run: Run | null,
@@ -86,16 +107,15 @@ const carrying = (
     call: vi.fn(async () => ({ status: 200, headers: {}, body: null })),
   };
 
-  const lines = {
-    holding: vi.fn(async () => lineWorking(repositories)),
-  } as unknown as LineRepository;
-
   const service = new CarryGitCall(
-    new RunAtHand(
+    new RunWorks(
       { findById: vi.fn(async () => run) } as unknown as RunRepository,
       { find: vi.fn(async () => held) } as unknown as TaskRepository,
+      { find: vi.fn(async () => chat()) } as unknown as ChatRepository,
+      {
+        holding: vi.fn(async () => lineWorking(repositories)),
+      } as unknown as LineRepository,
     ),
-    lines,
     {
       connectionTo: vi.fn(async () => Connection.of('github', '42')),
     } as unknown as WorkspaceConnections,
@@ -114,6 +134,21 @@ describe('CarryGitCall', () => {
     expect(git.call).toHaveBeenCalledWith(
       GitHubInstallation.of('42'),
       Repository.of('acme/widgets'),
+      call,
+    );
+  });
+
+  it('carries a chat’s call to a repository the chat was given', async () => {
+    const { service, git } = carrying(
+      claimedBy('runner_1', RunSubject.chat(ChatId.of('chat_1'))),
+      null,
+    );
+
+    await service.carry('run_1', 'runner_1', 'planning', call);
+
+    expect(git.call).toHaveBeenCalledWith(
+      GitHubInstallation.of('42'),
+      Repository.of('acme/planning'),
       call,
     );
   });

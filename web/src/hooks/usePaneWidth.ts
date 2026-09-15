@@ -56,7 +56,6 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
   const last = useRef(width);
   const held = useRef<T | null>(null);
 
-  // Cursor set on the document, or it flickers to a caret and text selects mid-drag.
   useEffect(() => {
     if (!resizing) {
       return;

@@ -44,7 +44,6 @@ func Run(ctx context.Context, spec Spec) (string, error) {
 	command.Stdin = bytes.NewReader(payload)
 	command.Env = environment(spec.Env)
 
-	// Kill the whole group: a shell's children otherwise hold the pipe past the timeout.
 	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	command.Cancel = func() error {
 		return syscall.Kill(-command.Process.Pid, syscall.SIGKILL)

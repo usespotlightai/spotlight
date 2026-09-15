@@ -15,10 +15,12 @@ export class ListKeptWorkspacesHandler
       const held = await this.kept.listFor(RunnerId.of(query.runnerId));
 
       return held.map((each) =>
-        ContinuityKey.for({
-          taskId: each.taskId,
-          stationId: each.stationId,
-        }),
+        'chatId' in each
+          ? ContinuityKey.forChat(each.chatId)
+          : ContinuityKey.for({
+              taskId: each.taskId,
+              stationId: each.stationId,
+            }),
       );
     } catch (error) {
       rethrowAsFault(error);

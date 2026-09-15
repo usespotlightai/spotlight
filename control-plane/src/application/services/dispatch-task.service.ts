@@ -28,6 +28,7 @@ import type { HarnessCommand } from '@domain/value-objects/harness-command.vo';
 import type { RunId } from '@domain/value-objects/run-id.vo';
 import { RunId as RunIdOf } from '@domain/value-objects/run-id.vo';
 import { RunSpec } from '@domain/value-objects/run-spec.vo';
+import { RunSubject } from '@domain/value-objects/run-subject.vo';
 
 // No host address may ever reach a runner; remotes are named as Spotlight serves them.
 const written = (
@@ -129,8 +130,7 @@ export class DispatchTask implements TaskDispatching {
       workspaceId: task.workspaceId,
       harness: order.harness.id,
       priority: order.priority,
-      taskId: task.id,
-      stationId: order.stationId,
+      subject: RunSubject.task(task.id, order.stationId),
       targetRunner: order.pinnedTo,
       spec: RunSpec.of(
         written(

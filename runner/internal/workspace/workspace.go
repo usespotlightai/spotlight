@@ -11,7 +11,6 @@ type Workspace struct {
 }
 
 func Create(root, key string) (*Workspace, error) {
-	// Traversable but not listable: no enumerating other runs' workspaces.
 	if err := os.MkdirAll(root, 0o711); err != nil {
 		return nil, fmt.Errorf("create workspace root: %w", err)
 	}
@@ -35,9 +34,7 @@ func (w *Workspace) State() (string, error) {
 	return dir, nil
 }
 
-// Everything the runner keeps lives outside this tree.
 func (w *Workspace) GiveTo(uid, gid uint32) error {
-	// An existing root is often 0700; without o+x the agent cannot reach its workspace.
 	if err := os.Chmod(filepath.Dir(w.Dir), 0o711); err != nil {
 		return fmt.Errorf("make workspace root traversable: %w", err)
 	}

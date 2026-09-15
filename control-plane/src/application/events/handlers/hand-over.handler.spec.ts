@@ -24,6 +24,7 @@ import { Mark } from '@domain/value-objects/mark.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { RunOutcome } from '@domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@domain/value-objects/run-spec.vo';
+import { RunSubject } from '@domain/value-objects/run-subject.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { StationColor } from '@domain/value-objects/station-color.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
@@ -100,7 +101,7 @@ const queued = (taskId: string | null = 'task_1') =>
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
-    taskId: taskId ? TaskId.of(taskId) : null,
+    subject: taskId ? RunSubject.task(TaskId.of(taskId), null) : null,
     spec: aSpec(),
   });
 

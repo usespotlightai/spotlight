@@ -10,7 +10,6 @@ export class HarnessCommand {
   static of(input: {
     executable: string;
     args?: readonly string[];
-    // `${SPOTLIGHT_STATE_DIR}` in values is expanded only by the runner.
     env?: Readonly<Record<string, string>>;
   }): HarnessCommand {
     const executable = input.executable.trim();

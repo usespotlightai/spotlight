@@ -29,7 +29,6 @@ export class WorkOffDeliveries implements DeliveryWorkPort {
         await this.reacting.execute(new ReactToHappeningCommand(waiting));
         await this.inbox.worked(waiting);
       } catch (error) {
-        // Deliberately not retried: a failed delivery stays as a row to inspect.
         await this.inbox.failed(waiting, because(error));
       }
 

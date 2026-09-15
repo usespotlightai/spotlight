@@ -1,4 +1,4 @@
-import type { ToolContext } from '@application/ports/integration-tools.port';
+import type { TaskToolContext } from '@application/ports/integration-tools.port';
 import type { OpenPullRequest } from '@application/services/open-pull-request.service';
 import { PullRequestToolUse } from '@application/services/pull-request.tool-use';
 import { InvalidToolInputError } from '@domain/exceptions/invalid-tool-input.error';
@@ -9,10 +9,11 @@ import { describe, expect, it } from 'vitest';
 type PullRequestAsked = Parameters<OpenPullRequest['open']>[2];
 
 const CONTEXT = {
+  kind: 'task',
   run: { id: 'run_1' },
   task: { id: 'task_1' },
   line: { id: 'line_1' },
-} as unknown as ToolContext;
+} as unknown as TaskToolContext;
 
 const using = () => {
   const asked: { task: unknown; line: unknown; asked: PullRequestAsked }[] = [];

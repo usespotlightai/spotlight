@@ -21,6 +21,9 @@ type ModelEffortSelectProps = {
   onModel: (model: string) => void;
   effort: string;
   onEffort: (effort: string) => void;
+  readOnly?: boolean;
+  iconless?: boolean;
+  className?: string;
 };
 
 const chosen = (next: unknown) =>
@@ -32,6 +35,9 @@ export function ModelEffortSelect({
   onModel,
   effort,
   onEffort,
+  readOnly = false,
+  iconless = false,
+  className,
 }: ModelEffortSelectProps) {
   const { data: harnesses } = useHarnesses();
 
@@ -47,13 +53,19 @@ export function ModelEffortSelect({
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Model and effort"
-        disabled={models.length === 0 && efforts.length === 0}
-        className="flex h-7 w-full min-w-0 items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent disabled:pointer-events-none disabled:opacity-50"
+        disabled={readOnly || (models.length === 0 && efforts.length === 0)}
+        className={cn(
+          'flex h-7 w-full min-w-0 items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent disabled:pointer-events-none disabled:opacity-50',
+          readOnly && 'disabled:opacity-100',
+          className,
+        )}
       >
-        <CodeXml
-          className="size-3.5 shrink-0 text-muted-foreground"
-          aria-hidden
-        />
+        {!iconless && (
+          <CodeXml
+            className="size-3.5 shrink-0 text-muted-foreground"
+            aria-hidden
+          />
+        )}
         {allDefault ? (
           <span className="truncate text-muted-foreground">Default</span>
         ) : (
@@ -76,10 +88,12 @@ export function ModelEffortSelect({
             {effort || 'Default'}
           </span>
         )}
-        <ChevronsUpDown
-          className="ml-auto size-3 shrink-0 text-muted-foreground"
-          aria-hidden
-        />
+        {!readOnly && (
+          <ChevronsUpDown
+            className="ml-auto size-3 shrink-0 text-muted-foreground"
+            aria-hidden
+          />
+        )}
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="start" sideOffset={6} className="min-w-56">

@@ -27,7 +27,6 @@ export class WebhookSources {
   }
 
   private get byKey(): ReadonlyMap<string, WebhookSourcePort> {
-    // Resolved lazily: sources are only all registered once the app is assembled.
     this.#byKey ??= new Map(this.registered().map((each) => [each.key, each]));
 
     return this.#byKey;

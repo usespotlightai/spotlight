@@ -131,7 +131,6 @@ export class DrizzleTeamTraceReader implements TeamTraceReaderPort {
     const traces = new Map<string, TeamTraceSummary>();
     const passed = new Map<string, Map<string, TraceStation>>();
 
-    // Rows arrive newest first, so the first row of a task is its latest run.
     for (const row of worked) {
       const taskId = row.taskId as string;
 

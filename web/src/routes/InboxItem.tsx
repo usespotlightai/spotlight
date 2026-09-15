@@ -46,7 +46,6 @@ export function InboxItem() {
 
   useRunStream(item?.runId ?? undefined, Boolean(item?.working), bump);
 
-  // Keyed by id and note count, so a new ask on an open item marks it unread again.
   const seen = useRef<string | null>(null);
 
   useEffect(() => {
@@ -160,6 +159,7 @@ export function InboxItem() {
               <InboxComposer
                 slug={slug}
                 itemId={item.id}
+                taskId={item.taskId}
                 station={item.station}
                 teamId={item.teamId}
                 runId={item.runId}

@@ -56,7 +56,6 @@ func TestTheHookRunsInTheWorkspace(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 
-	// macOS resolves /var through a symlink.
 	want, _ := filepath.EvalSymlinks(dir)
 	got, _ := filepath.EvalSymlinks(strings.TrimSpace(out))
 	if got != want {

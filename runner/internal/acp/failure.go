@@ -2,7 +2,6 @@ package acp
 
 import "errors"
 
-// A harness answers session/load for a session it does not hold with this code.
 const CodeNotFound = -32002
 
 type Failure struct {

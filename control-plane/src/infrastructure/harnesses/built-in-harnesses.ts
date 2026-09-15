@@ -67,7 +67,6 @@ const CLAUDE_CODE: Definition = {
     OTEL_EXPORTER_OTLP_PROTOCOL: 'http/json',
     // biome-ignore lint/suspicious/noTemplateCurlyInString: expanded by the runner
     OTEL_EXPORTER_OTLP_ENDPOINT: '${SPOTLIGHT_TELEMETRY_URL}',
-    // Batched exports still held when the harness exits are lost.
     OTEL_TRACES_EXPORT_INTERVAL: '1000',
   },
 };

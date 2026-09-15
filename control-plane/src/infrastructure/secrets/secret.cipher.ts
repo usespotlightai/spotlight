@@ -50,7 +50,6 @@ export class SecretCipher {
   open(envelope: string): string {
     const [version, iv, tag, sealed] = envelope.split('.');
 
-    // An empty secret seals to an empty part; only a missing part is refused.
     if (version !== VERSION || !iv || !tag || sealed === undefined) {
       throw new UnopenedSecretError(
         'That secret was not sealed by this Spotlight',

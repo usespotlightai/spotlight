@@ -27,7 +27,6 @@ const NAME = 'name';
 const keyOf = (workspaceId: WorkspaceId, id: AttachmentId): string =>
   `workspaces/${workspaceId.value}/attachments/${id.value}`;
 
-/** Metadata is ASCII only, and a file name is anything a person typed. */
 const encoded = (name: string): string => encodeURIComponent(name);
 
 const decoded = (held: string | undefined, fallback: string): string => {

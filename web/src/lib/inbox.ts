@@ -82,7 +82,6 @@ export const openedAt = (at: string): string => {
   return `${day} ${time}`;
 };
 
-/** Sticky only works on the element the conversation lays out directly, not a wrapper. */
 export const HELD_AT_TOP =
   'sticky top-0 z-10 -mx-3 bg-surface pt-2 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-6 after:bg-gradient-to-b after:from-surface after:to-transparent';
 

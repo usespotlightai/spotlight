@@ -47,7 +47,6 @@ export class RegisterRunnerHandler
         models: modelsOf(each.models),
       }));
 
-      // Asked before saving, since afterwards a runner is always connected.
       const wasNone = !(await this.enrolled.anyConnected());
 
       await this.transaction.run(async () => {

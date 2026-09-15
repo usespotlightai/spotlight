@@ -35,7 +35,6 @@ export class AssignTaskHandler
     return await this.transaction.run(async () => {
       const team = await this.teams.find(TeamId.of(command.teamId));
 
-      // Same error as a missing task, so non-members learn nothing about the team.
       if (!team?.holds(UserId.of(command.viewerId))) {
         throw new UnknownTaskError(command.taskId);
       }

@@ -1,4 +1,3 @@
-// Package otel is a per-run loopback-only OTLP/HTTP collector.
 package otel
 
 import (
@@ -68,7 +67,6 @@ type export struct {
 	} `json:"resourceSpans"`
 }
 
-// Accept everything: a refused exporter may drop what it was holding.
 func taking(record Recorder) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -100,7 +98,6 @@ func taking(record Recorder) http.Handler {
 	})
 }
 
-// OTLP exporters retry anything that is not a decodable body.
 func answer(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

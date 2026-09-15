@@ -54,7 +54,6 @@ export class Line {
     const named = input.line.stations;
     const ids = named.map(() => StationId.of(input.newId()));
 
-    // The openings name each other, so the ids exist before any station does.
     const at = (key: StationKey): StationId => {
       const found = named.findIndex((each) => each.key.equals(key));
 
@@ -418,7 +417,6 @@ export class Line {
     const depth = new Map<string, number>([[this.backlog.id.value, 0]]);
     const queue: Station[] = [this.backlog];
 
-    // Breadth-first so rework loops never deepen a station past its shortest path.
     while (queue.length > 0) {
       const station = queue.shift() as Station;
       const here = depth.get(station.id.value) as number;

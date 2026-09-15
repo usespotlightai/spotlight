@@ -17,7 +17,6 @@ export class StationColor {
     return new StationColor(normalised);
   }
 
-  // Lenient: stored rows may predate the current rules.
   static maybe(raw: string | null | undefined): StationColor | null {
     try {
       return raw ? StationColor.of(raw) : null;

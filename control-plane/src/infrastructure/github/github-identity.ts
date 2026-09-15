@@ -118,7 +118,6 @@ export class GitHubIdentity implements GitHubIdentityPort {
       return null;
     }
 
-    // GitHub reports a spent refresh token as a body, not a status.
     const body = (await response.json()) as Refreshed;
 
     if (body.error || !body.access_token) {

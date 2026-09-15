@@ -1,4 +1,5 @@
 export * from './auth.schema';
+export * from './chat.schema';
 export * from './delivery.schema';
 export * from './factory.schema';
 export * from './integration.schema';

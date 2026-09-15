@@ -16,7 +16,6 @@ const HEIGHT = 180;
 
 const NUDGE = { x: 14, y: 12 };
 
-// Exact width the tooltip flip relies on: the longest bucket label (180px) plus padding.
 const TOOLTIP_WIDTH = 208;
 
 const TOP_ROOM = 8;
@@ -108,7 +107,6 @@ export function TraceVolume({
   traces: readonly Traced[];
   range: string;
 }) {
-  // Date.now() on every hover render would shift every bucket, and the axis with it.
   const { buckets, spanMs } = useMemo(() => {
     const shown = windowOf(range);
 
@@ -128,7 +126,6 @@ export function TraceVolume({
     return null;
   }
 
-  // Follows the pointer; Recharts' own positioning snaps to the bar and eases, which lags.
   const following = () => {
     if (!at) {
       return undefined;
@@ -160,14 +157,12 @@ export function TraceVolume({
         ))}
       </div>
 
-      {/* Recharts layers are focusable, so hide the focus ring on click but keep focus-visible. */}
       <div ref={held} className="[&_*:focus:not(:focus-visible)]:outline-none">
         <ResponsiveContainer width="100%" height={HEIGHT}>
           <BarChart
             data={buckets}
             barGap={0}
             margin={{ top: TOP_ROOM, right: 8, bottom: 0, left: 8 }}
-            // Recharts' state carries the bar's coordinate, not the pointer's.
             onMouseMove={(_, event) => {
               const box = held.current?.getBoundingClientRect();
 

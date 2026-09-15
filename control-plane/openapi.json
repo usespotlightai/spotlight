@@ -2630,6 +2630,382 @@
         ]
       }
     },
+    "/teams/{teamId}/chats": {
+      "get": {
+        "operationId": "listChats",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChatSummaryResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team for this caller"
+          }
+        },
+        "summary": "The chats the caller has started with the team’s agent, latest first",
+        "tags": [
+          "chats"
+        ]
+      },
+      "post": {
+        "operationId": "startChat",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartChatRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team for this caller"
+          },
+          "422": {
+            "description": "An unknown harness, model, effort or repository"
+          }
+        },
+        "summary": "Start planning with the team’s agent",
+        "tags": [
+          "chats"
+        ]
+      }
+    },
+    "/teams/{teamId}/chats/{chatId}": {
+      "get": {
+        "operationId": "readChat",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "chatId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such chat for this caller"
+          }
+        },
+        "summary": "A chat, with everything said and proposed in it",
+        "tags": [
+          "chats"
+        ]
+      }
+    },
+    "/teams/{teamId}/chats/{chatId}/journal": {
+      "get": {
+        "operationId": "readChatJournal",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "chatId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RunJournalResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such chat for this caller"
+          }
+        },
+        "summary": "What the agent did and said in each run of a chat",
+        "tags": [
+          "chats"
+        ]
+      }
+    },
+    "/teams/{teamId}/chats/{chatId}/messages": {
+      "post": {
+        "operationId": "sayInChat",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "chatId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SayInChatRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "The agent hears it"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such chat for this caller"
+          }
+        },
+        "summary": "Say something to the agent in a chat",
+        "tags": [
+          "chats"
+        ]
+      }
+    },
+    "/teams/{teamId}/chats/{chatId}/stop": {
+      "post": {
+        "operationId": "stopChat",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "chatId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The agent was asked to stop"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such chat for this caller"
+          },
+          "409": {
+            "description": "The agent is not answering"
+          }
+        },
+        "summary": "Stop the agent answering in a chat",
+        "tags": [
+          "chats"
+        ]
+      }
+    },
+    "/teams/{teamId}/chats/{chatId}/proposals/{position}/acceptance": {
+      "post": {
+        "operationId": "acceptProposal",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "chatId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "position",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The task is being created"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such chat for this caller"
+          },
+          "409": {
+            "description": "The proposal is already settled"
+          }
+        },
+        "summary": "Accept a task the agent proposed, so it is created",
+        "tags": [
+          "chats"
+        ]
+      }
+    },
+    "/teams/{teamId}/chats/{chatId}/proposals/{position}/dismissal": {
+      "post": {
+        "operationId": "dismissProposal",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "chatId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "position",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The proposal was dismissed"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such chat for this caller"
+          },
+          "409": {
+            "description": "The proposal is already settled"
+          }
+        },
+        "summary": "Turn down a task the agent proposed",
+        "tags": [
+          "chats"
+        ]
+      }
+    },
     "/workspaces": {
       "post": {
         "operationId": "createWorkspace",
@@ -5778,6 +6154,333 @@
           "image",
           "role",
           "mayBeSetTo"
+        ]
+      },
+      "ChatSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "0b8f5e2c-4d1a-4b7e-9c3f-6a2d8e1f5b90"
+          },
+          "title": {
+            "type": "string",
+            "example": "Let’s plan how retries should back off."
+          },
+          "harness": {
+            "type": "string",
+            "example": "claude-code"
+          },
+          "model": {
+            "type": "string",
+            "nullable": true,
+            "example": "claude-opus-5"
+          },
+          "effort": {
+            "type": "string",
+            "nullable": true,
+            "example": "high"
+          },
+          "repositories": {
+            "example": [
+              "acme/api"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "example": "2026-09-14T09:00:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "example": "2026-09-14T09:05:00.000Z"
+          },
+          "working": {
+            "type": "boolean",
+            "example": true,
+            "description": "The agent is answering now"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "harness",
+          "model",
+          "effort",
+          "repositories",
+          "createdAt",
+          "updatedAt",
+          "working"
+        ]
+      },
+      "StartChatRequestDto": {
+        "type": "object",
+        "properties": {
+          "harness": {
+            "type": "string",
+            "example": "claude-code",
+            "description": "The harness to talk to"
+          },
+          "model": {
+            "type": "string",
+            "nullable": true,
+            "example": "claude-opus-5",
+            "description": "The harness’s default where left out"
+          },
+          "effort": {
+            "type": "string",
+            "nullable": true,
+            "example": "high",
+            "description": "The harness’s default where left out"
+          },
+          "repositories": {
+            "example": [
+              "acme/api"
+            ],
+            "description": "Checked out for the agent to read",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "body": {
+            "type": "string",
+            "example": "Let’s plan how retries should back off.",
+            "description": "What opens the chat. May be empty where files are attached."
+          },
+          "attachments": {
+            "description": "Uploads to attach, by the id each was granted",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "harness",
+          "body"
+        ]
+      },
+      "ChatProposalResponseDto": {
+        "type": "object",
+        "properties": {
+          "lineId": {
+            "type": "string",
+            "example": "7b2c9e14-3a5d-4c8f-b6e1-9d0a2f7c5b43"
+          },
+          "lineName": {
+            "type": "string",
+            "nullable": true,
+            "example": "Default"
+          },
+          "stationId": {
+            "type": "string",
+            "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80"
+          },
+          "stationName": {
+            "type": "string",
+            "nullable": true,
+            "example": "Implementation"
+          },
+          "stationColor": {
+            "type": "string",
+            "nullable": true,
+            "example": "#edc12b"
+          },
+          "title": {
+            "type": "string",
+            "example": "Back off retries exponentially"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "accepted",
+              "created",
+              "dismissed"
+            ],
+            "example": "open"
+          },
+          "taskId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The task it became, once created"
+          }
+        },
+        "required": [
+          "lineId",
+          "lineName",
+          "stationId",
+          "stationName",
+          "stationColor",
+          "title",
+          "description",
+          "state",
+          "taskId"
+        ]
+      },
+      "ChatMessageResponseDto": {
+        "type": "object",
+        "properties": {
+          "position": {
+            "type": "number",
+            "example": 0
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "said",
+              "proposed"
+            ],
+            "example": "said"
+          },
+          "body": {
+            "type": "string",
+            "example": "Let’s plan how retries should back off."
+          },
+          "at": {
+            "type": "string",
+            "example": "2026-09-14T09:00:00.000Z"
+          },
+          "author": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InboxAuthorResponseDto"
+              }
+            ]
+          },
+          "runId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The run that proposed it"
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttachmentResponseDto"
+            }
+          },
+          "proposal": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChatProposalResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "position",
+          "kind",
+          "body",
+          "at",
+          "author",
+          "runId",
+          "attachments",
+          "proposal"
+        ]
+      },
+      "ChatResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "0b8f5e2c-4d1a-4b7e-9c3f-6a2d8e1f5b90"
+          },
+          "title": {
+            "type": "string",
+            "example": "Let’s plan how retries should back off."
+          },
+          "harness": {
+            "type": "string",
+            "example": "claude-code"
+          },
+          "model": {
+            "type": "string",
+            "nullable": true,
+            "example": "claude-opus-5"
+          },
+          "effort": {
+            "type": "string",
+            "nullable": true,
+            "example": "high"
+          },
+          "repositories": {
+            "example": [
+              "acme/api"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "example": "2026-09-14T09:00:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "example": "2026-09-14T09:05:00.000Z"
+          },
+          "working": {
+            "type": "boolean",
+            "example": true,
+            "description": "The agent is answering now"
+          },
+          "runId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The run answering now"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatMessageResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "harness",
+          "model",
+          "effort",
+          "repositories",
+          "createdAt",
+          "updatedAt",
+          "working",
+          "runId",
+          "messages"
+        ]
+      },
+      "SayInChatRequestDto": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "example": "Split it into two tasks.",
+            "description": "May be empty where files are attached."
+          },
+          "attachments": {
+            "description": "Uploads to attach, by the id each was granted",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "body"
         ]
       },
       "CreateWorkspaceRequestDto": {

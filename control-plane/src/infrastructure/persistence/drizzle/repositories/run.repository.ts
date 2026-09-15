@@ -4,11 +4,13 @@ import type {
   RunEventRecord,
   RunRepository,
 } from '@domain/repositories/run.repository';
+import { ChatId } from '@domain/value-objects/chat-id.vo';
 import { HarnessId } from '@domain/value-objects/harness-id.vo';
 import { RunId } from '@domain/value-objects/run-id.vo';
 import { RunOutcome } from '@domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@domain/value-objects/run-priority.vo';
 import { RunSpec } from '@domain/value-objects/run-spec.vo';
+import { RunSubject } from '@domain/value-objects/run-subject.vo';
 import { RunnerId } from '@domain/value-objects/runner-id.vo';
 import { StationId } from '@domain/value-objects/station-id.vo';
 import { TaskId } from '@domain/value-objects/task-id.vo';
@@ -35,6 +37,7 @@ export class DrizzleRunRepository implements RunRepository {
       priority: added.priority.value,
       taskId: added.taskId?.value ?? null,
       stationId: added.stationId?.value ?? null,
+      chatId: added.chatId?.value ?? null,
       state: added.state,
       spec: added.spec.value,
       targetRunnerId: added.targetRunner?.value ?? null,
@@ -60,11 +63,14 @@ export class DrizzleRunRepository implements RunRepository {
           harness,
           priority,
           task_id           AS "taskId",
+          station_id        AS "stationId",
+          chat_id           AS "chatId",
           state,
           spec,
           target_runner_id  AS "targetRunnerId",
           claimed_by        AS "claimedBy",
           lease_expires_at  AS "leaseExpiresAt",
+          stop_requested_at AS "stopRequestedAt",
           exit_code         AS "exitCode",
           message,
           attempt
@@ -207,8 +213,11 @@ const toRun = (row: Row): Run =>
     workspaceId: WorkspaceId.of(row.workspaceId),
     harness: HarnessId.of(row.harness),
     priority: RunPriority.of(row.priority),
-    taskId: row.taskId ? TaskId.of(row.taskId) : null,
-    stationId: row.stationId ? StationId.of(row.stationId) : null,
+    subject: RunSubject.rehydrate({
+      taskId: row.taskId ? TaskId.of(row.taskId) : null,
+      stationId: row.stationId ? StationId.of(row.stationId) : null,
+      chatId: row.chatId ? ChatId.of(row.chatId) : null,
+    }),
     spec: specOf(row),
     targetRunner: row.targetRunnerId ? RunnerId.of(row.targetRunnerId) : null,
     state: row.state,

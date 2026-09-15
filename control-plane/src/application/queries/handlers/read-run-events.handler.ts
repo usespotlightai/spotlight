@@ -5,7 +5,6 @@ import type { RunEventView } from '@application/ports/run-stream.port';
 import type { ReadRunEventsQuery } from '@application/queries/read-run-events.query';
 import { RunId } from '@domain/value-objects/run-id.vo';
 
-// Bounded by bytes, not only entries: one entry can run to kilobytes and every reconnecting viewer replays them.
 const MOST_TO_REPLAY_BYTES = 256 * 1024;
 const MOST_TO_REPLAY_ENTRIES = 400;
 

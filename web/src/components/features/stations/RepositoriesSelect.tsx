@@ -6,12 +6,16 @@ type RepositoriesSelectProps = {
   slug: string | undefined;
   value: readonly string[];
   onChange: (repositories: string[]) => void;
+  readOnly?: boolean;
+  className?: string;
 };
 
 export function RepositoriesSelect({
   slug,
   value,
   onChange,
+  readOnly,
+  className,
 }: RepositoriesSelectProps) {
   const { data: available } = useRepositories(slug);
 
@@ -29,6 +33,8 @@ export function RepositoriesSelect({
       none="No repositories"
       many={(count) => `${count} repositories`}
       empty="No repositories to choose from"
+      readOnly={readOnly}
+      className={className}
     />
   );
 }
