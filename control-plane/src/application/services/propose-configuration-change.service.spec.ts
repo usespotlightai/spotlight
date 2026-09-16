@@ -1,3 +1,7 @@
+import {
+  linePath,
+  stationPath,
+} from '@application/contracts/configuration-layout.contract';
 import type {
   LineConfigReaderPort,
   ReadLines,
@@ -20,10 +24,6 @@ import type {
 } from '@application/services/write-configuration.service';
 import { Line } from '@domain/aggregates/line.aggregate';
 import type { Team } from '@domain/aggregates/team.aggregate';
-import {
-  linePath,
-  stationPath,
-} from '@domain/aggregates/team-configuration.aggregate';
 import { Workspace } from '@domain/aggregates/workspace.aggregate';
 import { Station } from '@domain/entities/station.entity';
 import { PendingLineUnreadableError } from '@domain/exceptions/pending-line-unreadable.error';
@@ -146,10 +146,10 @@ const fileReader = {
     }),
     problems: [],
   }),
-  write: (each: Line) => {
+  write: (each: Line, over: readonly ConfigurationFile[] = []) => {
     const text = `line ${writtenPlans.size + 1}`;
     writtenPlans.set(text, planOf(each));
-    return [
+    const files = [
       ConfigurationFile.of(linePath(each.key.value), text),
       ...each.stations.map((station) =>
         ConfigurationFile.of(
@@ -158,6 +158,14 @@ const fileReader = {
         ),
       ),
     ];
+    const writing = new Set(files.map((file) => file.path));
+
+    return {
+      files,
+      removes: over
+        .filter((file) => !writing.has(file.path))
+        .map((file) => file.path),
+    };
   },
 } satisfies LineConfigReaderPort;
 
@@ -200,7 +208,8 @@ const proposing = (over: Over = {}) => {
 
   const reader = {
     read: over.read ?? ((files) => fileReader.read(files)),
-    write: (each: Line) => fileReader.write(each),
+    write: (each: Line, standing?: readonly ConfigurationFile[]) =>
+      fileReader.write(each, standing),
   } satisfies LineConfigReaderPort;
 
   const target = {
@@ -306,7 +315,7 @@ describe('ProposeConfigurationChange', () => {
         ),
       );
       const { service, written } = proposing({
-        held: { onBranch: true, files: onBranch },
+        held: { onBranch: true, files: onBranch.files },
       });
 
       await service.proposeLine(
@@ -329,7 +338,7 @@ describe('ProposeConfigurationChange', () => {
           onBranch: true,
           files: fileReader
             .write(line())
-            .map((each) =>
+            .files.map((each) =>
               ConfigurationFile.of(
                 each.path.replace('/default/', '/another/'),
                 each.text,
@@ -392,7 +401,7 @@ describe('ProposeConfigurationChange', () => {
         read: () => ({
           plans: [
             {
-              ...renderedLine(fileReader.write(line())[0]),
+              ...renderedLine(fileReader.write(line()).files[0]),
               stations: [],
             } as unknown as LinePlan,
           ],
@@ -414,7 +423,7 @@ describe('ProposeConfigurationChange', () => {
         ),
       );
       const { service, written } = proposing({
-        held: { onBranch: false, files: onHead },
+        held: { onBranch: false, files: onHead.files },
       });
 
       await service.proposeLine(
@@ -429,7 +438,7 @@ describe('ProposeConfigurationChange', () => {
       ).toBe('Triage');
     });
 
-    it('takes away the station files the line no longer has', async () => {
+    it('takes away what writing the line leaves behind in its folder', async () => {
       const { service, written } = proposing({
         held: {
           onBranch: false,
@@ -456,6 +465,7 @@ describe('ProposeConfigurationChange', () => {
 
       expect(written[0]?.writing.removes).toEqual([
         '.spotlight/lines/default/stations/gone.md',
+        '.spotlight/lines/default/README.md',
       ]);
     });
 

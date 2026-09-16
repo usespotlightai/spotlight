@@ -1,11 +1,9 @@
+import { SECRETS_VAULT } from '@application/contracts/configuration-layout.contract';
 import type {
   VaultOpening,
   VaultSealingPort,
 } from '@application/ports/vault-sealing.port';
-import {
-  SECRETS_VAULT,
-  TeamConfiguration,
-} from '@domain/aggregates/team-configuration.aggregate';
+import { TeamConfiguration } from '@domain/aggregates/team-configuration.aggregate';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
 import type {
   VaultKeyLookup,

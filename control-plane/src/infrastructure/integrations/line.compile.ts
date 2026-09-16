@@ -4,8 +4,9 @@ import {
   linePath,
   STATIONS_UNDER,
   stationPath,
-} from '@domain/aggregates/team-configuration.aggregate';
+} from '@application/contracts/configuration-layout.contract';
 import { InvalidLinePlanError } from '@domain/exceptions/invalid-line-plan.error';
+import type { LinePart } from '@domain/services/line-layout';
 import { AgentPrompt } from '@domain/value-objects/agent-prompt.vo';
 import type { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
 import { ConfigurationProblem } from '@domain/value-objects/configuration-problem.vo';
@@ -159,6 +160,23 @@ const compileStation = (
   };
 };
 
+const placed = (
+  folder: string,
+  part: LinePart,
+): { readonly path: string; readonly at: string } => {
+  switch (part.of) {
+    case 'station':
+      return { path: stationPath(folder, part.station), at: part.field };
+    case 'reaction':
+      return {
+        path: linePath(folder),
+        at: `reactions.${part.place}${part.field ? `.${part.field}` : ''}`,
+      };
+    default:
+      return { path: linePath(folder), at: part.field ?? 'the file' };
+  }
+};
+
 export const compileLine = (
   folder: string,
   files: readonly ConfigurationFile[],
@@ -280,20 +298,15 @@ export const compileLine = (
       problems: warnings,
     };
   } catch (error) {
-    const at = error instanceof InvalidLinePlanError ? error.at : 'the file';
-    const withinStation = /^stations\.(\d+)(?:\.(.+))?$/.exec(at);
-    const station = withinStation
-      ? file.stations[Number(withinStation[1])]
-      : undefined;
+    const where = placed(
+      folder,
+      error instanceof InvalidLinePlanError
+        ? error.part
+        : { of: 'line', field: null },
+    );
 
     return failed([
-      station
-        ? refused(
-            stationPath(folder, station),
-            withinStation?.[2] ?? 'the file',
-            reasoned(error),
-          )
-        : refused(path, at, reasoned(error)),
+      refused(where.path, where.at, reasoned(error)),
       ...warnings,
     ]);
   }

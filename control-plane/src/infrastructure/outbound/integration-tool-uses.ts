@@ -1,3 +1,4 @@
+import { integrationFilesIn } from '@application/contracts/configuration-layout.contract';
 import type {
   IntegrationToolsPort,
   ReachableTool,
@@ -5,7 +6,6 @@ import type {
 } from '@application/ports/integration-tools.port';
 import type { TeamSecretsPort } from '@application/ports/team-secrets.port';
 import type { Line } from '@domain/aggregates/line.aggregate';
-import { INTEGRATIONS_UNDER } from '@domain/aggregates/team-configuration.aggregate';
 import { UpstreamRefusedError } from '@domain/exceptions/upstream-refused.error';
 import type { FactoryRepository } from '@domain/repositories/factory.repository';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
@@ -120,7 +120,7 @@ export class IntegrationToolUses implements IntegrationToolsPort {
 
     return {
       teamId: factory.teamId,
-      integrations: this.reader.readable(applied.under(INTEGRATIONS_UNDER))
+      integrations: this.reader.readable(integrationFilesIn(applied.files))
         .integrations,
     };
   }

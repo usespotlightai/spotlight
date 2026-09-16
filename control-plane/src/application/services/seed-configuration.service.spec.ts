@@ -24,14 +24,17 @@ import { describe, expect, it, vi } from 'vitest';
 
 const reader: LineConfigReaderPort = {
   read: () => ({ plans: [], problems: [] }),
-  write: (each) => [
-    ConfigurationFile.of(
-      `.spotlight/lines/${each.key.value}/line.yml`,
-      `version: 1
+  write: (each) => ({
+    files: [
+      ConfigurationFile.of(
+        `.spotlight/lines/${each.key.value}/line.yml`,
+        `version: 1
 name: ${each.name.value}
 `,
-    ),
-  ],
+      ),
+    ],
+    removes: [],
+  }),
 };
 
 const INTO = Repository.of('acme/api');

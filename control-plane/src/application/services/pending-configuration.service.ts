@@ -1,7 +1,7 @@
+import { CONFIGURATION_BRANCH } from '@application/contracts/configuration-layout.contract';
 import type { PullRequestPort } from '@application/ports/pull-request.port';
 import type { RepositoryContentsPort } from '@application/ports/repository-contents.port';
 import type { ConfigurationRepo } from '@application/services/configuration-target.service';
-import { CONFIGURATION_BRANCH } from '@domain/aggregates/team-configuration.aggregate';
 import { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
 
 export interface HeldFiles {

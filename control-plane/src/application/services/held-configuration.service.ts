@@ -1,6 +1,6 @@
+import { KEPT_UNDER } from '@application/contracts/configuration-layout.contract';
 import type { RepositoryContentsPort } from '@application/ports/repository-contents.port';
 import type { ConfigurationRepo } from '@application/services/configuration-target.service';
-import { KEPT_UNDER } from '@domain/aggregates/team-configuration.aggregate';
 import { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
 import type { Repository } from '@domain/value-objects/repository.vo';
 

@@ -1,8 +1,6 @@
 ARG GO_VERSION=1.26
 
-# Debian (glibc) rather than Alpine (musl): the cursor-agent CLI ships a
-# glibc-built binary that will not relocate against musl, and there is no musl
-# build of it. Claude Code, Node and the Go toolchain are all happy here too.
+# Not Alpine: cursor-agent ships only a glibc binary.
 FROM golang:${GO_VERSION}-bookworm AS deps
 WORKDIR /app
 
@@ -14,9 +12,6 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 RUN useradd -m -u 2000 -s /bin/bash agent
 RUN npm install -g @anthropic-ai/claude-code @zed-industries/claude-agent-acp
-# Cursor CLI ships as a binary from its own installer, not npm. Install it into
-# a world-readable prefix and link it onto the PATH, so the agent account the
-# harness runs as finds `cursor-agent` the same way it finds claude-agent-acp.
 RUN mkdir -p /opt/cursor \
     && HOME=/opt/cursor bash -c 'curl https://cursor.com/install -fsS | bash' \
     && ln -sf /opt/cursor/.local/bin/cursor-agent /usr/local/bin/cursor-agent \
@@ -41,9 +36,6 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/* \
     && useradd -m -u 2000 -s /bin/bash agent
-# Cursor CLI ships as a binary from its own installer, not npm. Install it into
-# a world-readable prefix and link it onto the PATH, so the agent account the
-# harness runs as finds `cursor-agent` the same way it finds claude-agent-acp.
 RUN mkdir -p /opt/cursor \
     && HOME=/opt/cursor bash -c 'curl https://cursor.com/install -fsS | bash' \
     && ln -sf /opt/cursor/.local/bin/cursor-agent /usr/local/bin/cursor-agent \

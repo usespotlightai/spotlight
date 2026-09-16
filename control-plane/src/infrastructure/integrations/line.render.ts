@@ -1,8 +1,8 @@
-import type { Line } from '@domain/aggregates/line.aggregate';
 import {
   linePath,
   stationPath,
-} from '@domain/aggregates/team-configuration.aggregate';
+} from '@application/contracts/configuration-layout.contract';
+import type { Line } from '@domain/aggregates/line.aggregate';
 import type { Station } from '@domain/entities/station.entity';
 import { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
 import type { StationId } from '@domain/value-objects/station-id.vo';

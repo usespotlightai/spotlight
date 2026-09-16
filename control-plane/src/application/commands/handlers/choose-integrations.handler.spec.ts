@@ -1,5 +1,6 @@
 import { ChooseIntegrationsCommand } from '@application/commands/choose-integrations.command';
 import { ChooseIntegrationsHandler } from '@application/commands/handlers/choose-integrations.handler';
+import { SECRETS_VAULT } from '@application/contracts/configuration-layout.contract';
 import type { IntegrationReaderPort } from '@application/ports/integration-reader.port';
 import type { PendingConfiguration } from '@application/services/pending-configuration.service';
 import type {
@@ -9,7 +10,6 @@ import type {
 import type { TeamVault } from '@application/services/team-vault.service';
 import type { Writing } from '@application/services/write-configuration.service';
 import type { Team } from '@domain/aggregates/team.aggregate';
-import { SECRETS_VAULT } from '@domain/aggregates/team-configuration.aggregate';
 import type { Workspace } from '@domain/aggregates/workspace.aggregate';
 import { UnopenableVaultError } from '@domain/exceptions/unopenable-vault.error';
 import { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';

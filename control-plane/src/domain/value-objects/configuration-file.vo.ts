@@ -27,10 +27,6 @@ export class ConfigurationFile {
     );
   }
 
-  get isYaml(): boolean {
-    return /\.ya?ml$/.test(this.path);
-  }
-
   equals(other: ConfigurationFile): boolean {
     return this.path === other.path && this.text === other.text;
   }

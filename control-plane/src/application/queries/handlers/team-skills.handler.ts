@@ -1,10 +1,10 @@
+import { skillFolder } from '@application/contracts/configuration-layout.contract';
 import type { TeamSkillsDto } from '@application/dto/skills.dto';
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@application/ports/query-handler.port';
 import type { SkillReaderPort } from '@application/ports/skill-reader.port';
 import type { WorkspaceReaderPort } from '@application/ports/workspace-reader.port';
 import type { TeamSkillsQuery } from '@application/queries/team-skills.query';
-import { skillFolder } from '@domain/aggregates/team-configuration.aggregate';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
 import { TeamId } from '@domain/value-objects/team-id.vo';
 import { UserId } from '@domain/value-objects/user-id.vo';

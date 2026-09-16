@@ -1,3 +1,4 @@
+import { lineFolder } from '@application/contracts/configuration-layout.contract';
 import type { IdGeneratorPort } from '@application/ports/id-generator.port';
 import type { LineConfigReaderPort } from '@application/ports/line-config-reader.port';
 import type { OpenedPullRequestDto } from '@application/ports/pull-request.port';
@@ -17,10 +18,6 @@ import type {
 import type { WriteConfiguration } from '@application/services/write-configuration.service';
 import type { Line } from '@domain/aggregates/line.aggregate';
 import type { Team } from '@domain/aggregates/team.aggregate';
-import {
-  lineFolder,
-  STATIONS_UNDER,
-} from '@domain/aggregates/team-configuration.aggregate';
 import type { Workspace } from '@domain/aggregates/workspace.aggregate';
 import { PendingLineUnreadableError } from '@domain/exceptions/pending-line-unreadable.error';
 import { UnknownLineError } from '@domain/exceptions/unknown-line.error';
@@ -58,24 +55,6 @@ export interface ConfigurationChange {
     readonly removes?: readonly string[];
   }>;
 }
-
-const replaced = (
-  line: Line,
-  held: readonly ConfigurationFile[],
-  written: readonly ConfigurationFile[],
-): readonly string[] => {
-  const writing = new Set(written.map((each) => each.path));
-  const stations = `${lineFolder(line.key.value)}/${STATIONS_UNDER}`;
-
-  return held
-    .filter(
-      (each) =>
-        !writing.has(each.path) &&
-        each.isUnder(stations) &&
-        each.path.endsWith('.md'),
-    )
-    .map((each) => each.path);
-};
 
 export class ProposeConfigurationChange {
   constructor(
@@ -137,13 +116,12 @@ export class ProposeConfigurationChange {
 
     const held = await this.pending.under(into, lineFolder(line.key.value));
     const edited = change.change(this.standing(line, held));
-    const files = this.reader.write(edited);
+    const written = this.reader.write(edited, held.files);
 
     return this.writing.writeInto(into, {
       title: LINE_PROPOSAL_TITLE,
       body: lineProposalBody(change.describe(edited)),
-      files,
-      removes: replaced(edited, held.files, files),
+      ...written,
     });
   }
 

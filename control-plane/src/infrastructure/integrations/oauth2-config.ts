@@ -1,4 +1,4 @@
-import { INTEGRATIONS_UNDER } from '@domain/aggregates/team-configuration.aggregate';
+import { integrationFilesIn } from '@application/contracts/configuration-layout.contract';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
 import type { TeamId } from '@domain/value-objects/team-id.vo';
 import type { ConnectionIR } from '@infrastructure/integrations/integration.compile';
@@ -16,7 +16,7 @@ export async function oauth2Of(
     return null;
   }
 
-  for (const readable of reader.readable(applied.under(INTEGRATIONS_UNDER))
+  for (const readable of reader.readable(integrationFilesIn(applied.files))
     .integrations) {
     const oauth2 = readable.connection?.oauth2;
 

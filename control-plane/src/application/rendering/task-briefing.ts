@@ -1,7 +1,7 @@
+import { SKILL_FILE } from '@application/contracts/configuration-layout.contract';
 import { Attached } from '@application/rendering/attached';
 import type { Line } from '@domain/aggregates/line.aggregate';
 import type { OpenRemark, Task } from '@domain/aggregates/task.aggregate';
-import { SKILL_FILE } from '@domain/aggregates/team-configuration.aggregate';
 import type { Skill } from '@domain/entities/skill.entity';
 import { DONE, REVIEW } from '@domain/value-objects/handover-word';
 import { RemarkHandle } from '@domain/value-objects/remark-handle.vo';

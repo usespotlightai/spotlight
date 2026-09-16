@@ -1,9 +1,13 @@
+import {
+  LINES_UNDER,
+  stationsFolder,
+} from '@application/contracts/configuration-layout.contract';
 import type {
   LineConfigReaderPort,
   ReadLines,
+  WrittenLine,
 } from '@application/ports/line-config-reader.port';
 import type { Line } from '@domain/aggregates/line.aggregate';
-import { LINES_UNDER } from '@domain/aggregates/team-configuration.aggregate';
 import type { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
 import { ConfigurationProblem } from '@domain/value-objects/configuration-problem.vo';
 import type { LinePlan } from '@domain/value-objects/line-plan.vo';
@@ -52,7 +56,21 @@ export class LineConfigReader implements LineConfigReaderPort {
     return { plans, problems };
   }
 
-  write(line: Line): readonly ConfigurationFile[] {
-    return renderLine(line);
+  write(line: Line, over: readonly ConfigurationFile[] = []): WrittenLine {
+    const files = renderLine(line);
+    const writing = new Set(files.map((each) => each.path));
+    const stations = stationsFolder(line.key.value);
+
+    return {
+      files,
+      removes: over
+        .filter(
+          (each) =>
+            each.isUnder(stations) &&
+            each.path.endsWith('.md') &&
+            !writing.has(each.path),
+        )
+        .map((each) => each.path),
+    };
   }
 }

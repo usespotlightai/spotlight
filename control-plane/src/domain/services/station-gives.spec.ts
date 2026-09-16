@@ -40,7 +40,10 @@ const laid = (key: string, over: Partial<StationPlan> = {}): StationPlan => ({
   ...over,
 });
 
-const planned = (over: { tools?: string[]; skills?: string[] }) =>
+const planned = (over: {
+  tools?: readonly string[];
+  skills?: readonly string[];
+}) =>
   LinePlan.of({
     key: LineKey.of('delivery'),
     name: LineName.of('Delivery'),
@@ -99,16 +102,27 @@ describe('what a station gives', () => {
     );
   });
 
-  it('is refused at the station that gives it', () => {
-    let refused: unknown;
+  it('is refused at the station that gives it, and at what it gives', () => {
+    const refusedFor = (given: Parameters<typeof planned>[0]) => {
+      try {
+        planned(given);
+      } catch (error) {
+        return error;
+      }
+    };
 
-    try {
-      planned({ skills: ['frontend', 'frontend'] });
-    } catch (error) {
-      refused = error;
+    for (const [given, field] of [
+      [{ skills: ['frontend', 'frontend'] }, 'skills'],
+      [{ tools: ['pull-request', 'pull-request'] }, 'tools'],
+    ] as const) {
+      const refused = refusedFor(given);
+
+      expect(refused).toBeInstanceOf(InvalidLinePlanError);
+      expect((refused as InvalidLinePlanError).part).toEqual({
+        of: 'station',
+        station: 'implementation',
+        field,
+      });
     }
-
-    expect(refused).toBeInstanceOf(InvalidLinePlanError);
-    expect((refused as InvalidLinePlanError).at).toBe('stations.1');
   });
 });

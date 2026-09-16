@@ -28,12 +28,6 @@ describe('ConfigurationFile', () => {
     ).toBe(false);
   });
 
-  it('says whether it is written in YAML', () => {
-    expect(ConfigurationFile.of('a.yml', '').isYaml).toBe(true);
-    expect(ConfigurationFile.of('a.yaml', '').isYaml).toBe(true);
-    expect(ConfigurationFile.of('a.txt', '').isYaml).toBe(false);
-  });
-
   it('refuses a path that is not within the repository', () => {
     for (const path of [
       '/etc/passwd',

@@ -9,7 +9,6 @@ export const stateFor = ({ slug, teamId, from }: Whence): string =>
     .join(':')
     .replace(/:$/, '');
 
-/** Untrusted input from GitHub's query string: only same-site paths pass. */
 export const somewhereHere = (path: string | undefined): string | null =>
   path && /^\/(?!\/)/.test(path) && !path.includes('\\') ? path : null;
 

@@ -1,4 +1,8 @@
 import type { ChooseIntegrationsCommand } from '@application/commands/choose-integrations.command';
+import {
+  integrationPath,
+  SECRETS_VAULT,
+} from '@application/contracts/configuration-layout.contract';
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@application/ports/command-handler.port';
 import type { IntegrationReaderPort } from '@application/ports/integration-reader.port';
@@ -11,10 +15,6 @@ import type {
 } from '@application/services/propose-configuration-change.service';
 import { starterSecrets } from '@application/services/starter-secrets';
 import type { TeamVault } from '@application/services/team-vault.service';
-import {
-  integrationPath,
-  SECRETS_VAULT,
-} from '@domain/aggregates/team-configuration.aggregate';
 import { MissingSecretsError } from '@domain/exceptions/missing-secrets.error';
 import { NotYoursToSealSecretsError } from '@domain/exceptions/not-yours-to-seal-secrets.error';
 import { NowhereToKeepSecretsError } from '@domain/exceptions/nowhere-to-keep-secrets.error';

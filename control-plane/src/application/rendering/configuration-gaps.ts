@@ -3,7 +3,7 @@ import {
   SECRETS_VAULT,
   skillFile,
   stationPath,
-} from '@domain/aggregates/team-configuration.aggregate';
+} from '@application/contracts/configuration-layout.contract';
 import type {
   SecretMissing,
   SecretWritten,

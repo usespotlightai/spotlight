@@ -27,7 +27,7 @@ export const moveConfiguration = (input: {
     return { kind: 'adopted', team: moving.finishesMovingConfiguration() };
   }
 
-  const files = input.current?.kept ?? [];
+  const files = input.current?.files ?? [];
 
   if (files.length === 0) {
     return { kind: 'repointed', team: moving.finishesMovingConfiguration() };

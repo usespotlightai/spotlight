@@ -74,10 +74,8 @@ describe('moveConfiguration', () => {
       ).toEqual([LINE.path]);
     });
 
-    it('carries only what is Spotlight’s to read', () => {
-      const move = moving({
-        current: reading([LINE, ConfigurationFile.of('README.md', '# Acme')]),
-      });
+    it('carries every file it read', () => {
+      const move = moving({ current: reading([LINE]) });
 
       expect(
         move.kind === 'carried' && move.files.map((each) => each.path),

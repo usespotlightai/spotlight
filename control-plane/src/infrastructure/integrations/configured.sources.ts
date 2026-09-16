@@ -1,10 +1,10 @@
+import { integrationFilesIn } from '@application/contracts/configuration-layout.contract';
 import type {
   ConfiguredSourcesPort,
   OfTeam,
 } from '@application/ports/configured-sources.port';
 import type { TeamSecretsPort } from '@application/ports/team-secrets.port';
 import type { WebhookSourcePort } from '@application/ports/webhook-source.port';
-import { INTEGRATIONS_UNDER } from '@domain/aggregates/team-configuration.aggregate';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
 import type { IntegrationReader } from '@infrastructure/integrations/integration.reader';
 import type { JwksResolver } from '@infrastructure/integrations/jwks';
@@ -35,7 +35,7 @@ export class ConfiguredSources implements ConfiguredSourcesPort {
 
     const built: WebhookSourcePort[] = [];
 
-    const mine = applied.under(INTEGRATIONS_UNDER);
+    const mine = integrationFilesIn(applied.files);
 
     for (const readable of this.reader.readable(mine).integrations) {
       const secrets = new Map(

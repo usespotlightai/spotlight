@@ -158,6 +158,38 @@ describe('LineConfigReader', () => {
     });
   });
 
+  it('places a problem with a reaction in line.yml, at that reaction', () => {
+    const read = reading([
+      ...folder('delivery').filter((each) => !each.path.endsWith('line.yml')),
+      ConfigurationFile.of(
+        '.spotlight/lines/delivery/line.yml',
+        `${LINE}  - happening: github.checks.failed\n    to: nowhere\n`,
+      ),
+    ]);
+
+    expect(read.problems[0]).toMatchObject({
+      path: '.spotlight/lines/delivery/line.yml',
+      at: 'reactions.1.to',
+    });
+  });
+
+  it('places a problem with what a station gives in that station’s file', () => {
+    const read = reading([
+      ...folder('delivery').filter(
+        (each) => !each.path.endsWith('code-review.md'),
+      ),
+      ConfigurationFile.of(
+        '.spotlight/lines/delivery/stations/code-review.md',
+        '---\nname: Code Review\nends: true\ntools: [pull-request, pull-request]\n---\n',
+      ),
+    ]);
+
+    expect(read.problems[0]).toMatchObject({
+      path: '.spotlight/lines/delivery/stations/code-review.md',
+      at: 'tools',
+    });
+  });
+
   it('warns of a station file the line does not list, and reads the line anyway', () => {
     const read = reading([
       ...folder('delivery'),
@@ -176,8 +208,33 @@ describe('LineConfigReader', () => {
   });
 
   describe('writing one back', () => {
+    it('takes away the station files the line no longer has, and nothing else', () => {
+      const written = new LineConfigReader().write(line(), [
+        ConfigurationFile.of('.spotlight/lines/delivery/line.yml', 'x'),
+        ConfigurationFile.of(
+          '.spotlight/lines/delivery/stations/triage.md',
+          'x',
+        ),
+        ConfigurationFile.of('.spotlight/lines/delivery/stations/gone.md', 'x'),
+        ConfigurationFile.of(
+          '.spotlight/lines/delivery/stations/notes.txt',
+          'x',
+        ),
+        ConfigurationFile.of('.spotlight/lines/delivery/README.md', 'x'),
+        ConfigurationFile.of('.spotlight/lines/other/stations/gone.md', 'x'),
+      ]);
+
+      expect(written.removes).toEqual([
+        '.spotlight/lines/delivery/stations/gone.md',
+      ]);
+    });
+
+    it('takes nothing away where nothing stands yet', () => {
+      expect(new LineConfigReader().write(line()).removes).toEqual([]);
+    });
+
     it('writes it where that line is read from', () => {
-      expect(new LineConfigReader().write(line())[0]?.path).toBe(
+      expect(new LineConfigReader().write(line()).files[0]?.path).toBe(
         '.spotlight/lines/delivery/line.yml',
       );
     });
@@ -185,7 +242,7 @@ describe('LineConfigReader', () => {
     it('writes something it can read back itself', () => {
       const reader = new LineConfigReader();
 
-      const read = reader.read([...reader.write(line())]);
+      const read = reader.read([...reader.write(line()).files]);
 
       expect(read.problems).toEqual([]);
       expect(read.plans[0]?.stations.map((each) => each.key.value)).toEqual(

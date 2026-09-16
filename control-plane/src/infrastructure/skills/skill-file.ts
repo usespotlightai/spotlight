@@ -1,9 +1,9 @@
+import { SKILL_FILE } from '@application/contracts/configuration-layout.contract';
 import { SKILL_FOLDER_LIMITS } from '@application/contracts/run-spec.contract';
 import type {
   SkillFile,
   SkillFolder,
 } from '@application/ports/skill-reader.port';
-import { SKILL_FILE } from '@domain/aggregates/team-configuration.aggregate';
 import { Skill, type SkillSecret } from '@domain/entities/skill.entity';
 import { InvalidSkillError } from '@domain/exceptions/invalid-skill.error';
 import { SecretName } from '@domain/value-objects/secret-name.vo';

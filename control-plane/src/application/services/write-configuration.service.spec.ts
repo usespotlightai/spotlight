@@ -1,9 +1,9 @@
+import { CONFIGURATION_BRANCH } from '@application/contracts/configuration-layout.contract';
 import type {
   PullRequestPort,
   PullRequestProposal,
 } from '@application/ports/pull-request.port';
 import { WriteConfiguration } from '@application/services/write-configuration.service';
-import { CONFIGURATION_BRANCH } from '@domain/aggregates/team-configuration.aggregate';
 import { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
 import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import { Repository } from '@domain/value-objects/repository.vo';

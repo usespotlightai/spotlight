@@ -1,10 +1,10 @@
+import { integrationFilesIn } from '@application/contracts/configuration-layout.contract';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { HappeningReactionsPort } from '@application/ports/happening-reactions.port';
 import type { IntegrationCursorsPort } from '@application/ports/integration-cursors.port';
 import type { LoggerPort } from '@application/ports/logger.port';
 import type { TeamSecretsPort } from '@application/ports/team-secrets.port';
 import type { Factory } from '@domain/aggregates/factory.aggregate';
-import { INTEGRATIONS_UNDER } from '@domain/aggregates/team-configuration.aggregate';
 import type { FactoryRepository } from '@domain/repositories/factory.repository';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
 import type { TeamId } from '@domain/value-objects/team-id.vo';
@@ -37,7 +37,7 @@ export class WorkOffPolls {
 
     for (const applied of await this.configurations.all()) {
       const readables = this.reader
-        .readable(applied.under(INTEGRATIONS_UNDER))
+        .readable(integrationFilesIn(applied.files))
         .integrations.filter((each) => each.poll);
 
       for (const readable of readables) {
