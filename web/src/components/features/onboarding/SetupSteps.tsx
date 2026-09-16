@@ -3,21 +3,22 @@ import { type ReactNode, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { ChooseRepository } from '@/components/features/onboarding/ChooseRepository';
 import { SetUpLines } from '@/components/features/onboarding/SetUpLines';
+import {
+  SetupAbout,
+  type SetupAboutProps,
+} from '@/components/features/onboarding/SetupAbout';
+import { SetupStepsSkeleton } from '@/components/features/onboarding/SetupStepsSkeleton';
 import { buttonVariants } from '@/components/ui/button';
 import { useOnboarding } from '@/hooks/api/useOnboarding';
 import type { SetupStepResponseDto } from '@/lib/api/types.gen';
 import { installUrlFor } from '@/lib/github';
+import { loading } from '@/lib/query';
 import { cn } from '@/lib/utils';
-
-type About = {
-  readonly title: string;
-  readonly description: string | null;
-};
 
 type SetupStepsProps = {
   teamId: string;
   body: string;
-  about: About | undefined;
+  about: SetupAboutProps | undefined;
   resolved: boolean;
 };
 
@@ -122,10 +123,11 @@ function Step({ step, action, disabled }: StepProps) {
 export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
   const { slug } = useParams();
   const here = useLocation();
-  const { data: onboarding, isPending } = useOnboarding(teamId);
+  const query = useOnboarding(teamId);
+  const onboarding = query.data;
 
-  if (slug && isPending) {
-    return null;
+  if (slug && loading(query)) {
+    return <SetupStepsSkeleton about={about} />;
   }
 
   if (!onboarding || !slug) {
@@ -201,17 +203,7 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
   return (
     <div className="flex flex-col gap-4">
       {about && (
-        <div>
-          <h1 className="font-medium text-foreground text-sm leading-6">
-            {about.title}
-          </h1>
-
-          {about.description && (
-            <p className="text-muted-foreground text-sm leading-6">
-              {about.description}
-            </p>
-          )}
-        </div>
+        <SetupAbout title={about.title} description={about.description} />
       )}
 
       <ul className="flex flex-col gap-3">
