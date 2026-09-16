@@ -2630,6 +2630,336 @@
         ]
       }
     },
+    "/teams/{teamId}/labels": {
+      "get": {
+        "operationId": "listLabels",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LabelResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team for this caller"
+          }
+        },
+        "summary": "List the team's labels",
+        "tags": [
+          "labels"
+        ]
+      },
+      "post": {
+        "operationId": "createLabel",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLabelRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabelResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team for this caller"
+          }
+        },
+        "summary": "Create a label for a team",
+        "tags": [
+          "labels"
+        ]
+      }
+    },
+    "/teams/{teamId}/labels/{labelId}/name": {
+      "put": {
+        "operationId": "renameLabel",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "labelId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameLabelRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabelResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such label for this caller"
+          }
+        },
+        "summary": "Rename a label",
+        "tags": [
+          "labels"
+        ]
+      }
+    },
+    "/teams/{teamId}/labels/{labelId}/colour": {
+      "put": {
+        "operationId": "recolourLabel",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "labelId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecolourLabelRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabelResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such label for this caller"
+          }
+        },
+        "summary": "Change the colour of a label",
+        "tags": [
+          "labels"
+        ]
+      }
+    },
+    "/teams/{teamId}/labels/{labelId}": {
+      "delete": {
+        "operationId": "deleteLabel",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "labelId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The label is gone"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such label for this caller"
+          }
+        },
+        "summary": "Delete a label from a team",
+        "tags": [
+          "labels"
+        ]
+      }
+    },
+    "/teams/{teamId}/tasks/{taskId}/labels/{labelId}": {
+      "post": {
+        "operationId": "labelTask",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "labelId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The label is on the task"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such task or label for this caller"
+          }
+        },
+        "summary": "Attach a label to a task",
+        "tags": [
+          "labels"
+        ]
+      },
+      "delete": {
+        "operationId": "unlabelTask",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "labelId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The label is off the task"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such task or label for this caller"
+          }
+        },
+        "summary": "Remove a label from a task",
+        "tags": [
+          "labels"
+        ]
+      }
+    },
     "/teams/{teamId}/chats": {
       "get": {
         "operationId": "listChats",
@@ -5480,6 +5810,28 @@
           "image"
         ]
       },
+      "TaskLabelResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "f2b1c9d4-3e57-4a80-9c62-1d8e5f0a7b34"
+          },
+          "name": {
+            "type": "string",
+            "example": "Bug"
+          },
+          "colour": {
+            "type": "string",
+            "example": "#e11d48"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "colour"
+        ]
+      },
       "TaskNoteResponseDto": {
         "type": "object",
         "properties": {
@@ -5575,6 +5927,13 @@
               }
             ]
           },
+          "labels": {
+            "description": "The labels attached to this task",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskLabelResponseDto"
+            }
+          },
           "note": {
             "nullable": true,
             "description": "The last thing said about this task, and where it was said",
@@ -5598,6 +5957,7 @@
           "pullRequest",
           "raisedBy",
           "assignee",
+          "labels",
           "note"
         ]
       },
@@ -6154,6 +6514,77 @@
           "image",
           "role",
           "mayBeSetTo"
+        ]
+      },
+      "LabelResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "f2b1c9d4-3e57-4a80-9c62-1d8e5f0a7b34"
+          },
+          "teamId": {
+            "type": "string",
+            "example": "team_platform"
+          },
+          "name": {
+            "type": "string",
+            "example": "Bug"
+          },
+          "colour": {
+            "type": "string",
+            "example": "#e11d48",
+            "description": "Six digit hex colour"
+          }
+        },
+        "required": [
+          "id",
+          "teamId",
+          "name",
+          "colour"
+        ]
+      },
+      "CreateLabelRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Bug"
+          },
+          "colour": {
+            "type": "string",
+            "example": "#e11d48",
+            "description": "Six digit hex colour"
+          }
+        },
+        "required": [
+          "name",
+          "colour"
+        ]
+      },
+      "RenameLabelRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Feature"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "RecolourLabelRequestDto": {
+        "type": "object",
+        "properties": {
+          "colour": {
+            "type": "string",
+            "example": "#7c3aed",
+            "description": "Six digit hex colour"
+          }
+        },
+        "required": [
+          "colour"
         ]
       },
       "ChatSummaryResponseDto": {

@@ -16,6 +16,12 @@ export interface TaskReviewDto {
   readonly conversationId: string;
 }
 
+export interface TaskLabelDto {
+  readonly id: string;
+  readonly name: string;
+  readonly colour: string;
+}
+
 export interface TaskDto {
   readonly id: string;
   readonly stationId: string;
@@ -29,4 +35,5 @@ export interface TaskDto {
   readonly note: TaskNoteDto | null;
   readonly raisedBy: TaskPersonDto | null;
   readonly assignee: TaskPersonDto | null;
+  readonly labels: readonly TaskLabelDto[];
 }

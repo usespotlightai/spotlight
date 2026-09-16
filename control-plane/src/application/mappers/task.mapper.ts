@@ -1,4 +1,4 @@
-import type { TaskDto, TaskPersonDto } from '@application/dto/task.dto';
+import type { TaskDto, TaskLabelDto, TaskPersonDto } from '@application/dto/task.dto';
 import type { TaskSummary } from '@application/ports/task-reader.port';
 import type { Task } from '@domain/aggregates/task.aggregate';
 import { ConversationId } from '@domain/value-objects/conversation-id.vo';
@@ -30,6 +30,7 @@ export const TaskMapper = {
       pullRequest: summary.pullRequest,
       raisedBy: summary.raisedBy,
       assignee: summary.assignee,
+      labels: summary.labels,
       note: summary.note
         ? {
             position: summary.note.position,
@@ -44,6 +45,7 @@ export const TaskMapper = {
     task: Task,
     raisedBy: TaskPersonDto | null,
     assignee: TaskPersonDto | null,
+    labels: readonly TaskLabelDto[] = [],
   ): TaskDto {
     const last = task.notes[task.notes.length - 1];
 
@@ -64,6 +66,7 @@ export const TaskMapper = {
       pullRequest: task.pullRequest?.value ?? null,
       raisedBy,
       assignee,
+      labels,
       note: last
         ? {
             position: task.notes.length - 1,

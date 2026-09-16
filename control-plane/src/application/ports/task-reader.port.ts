@@ -13,6 +13,12 @@ export interface TaskReviewSummary {
   readonly conversationId: string;
 }
 
+export interface TaskLabelSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly colour: string;
+}
+
 export interface TaskSummary {
   readonly id: string;
   readonly stationId: string;
@@ -26,6 +32,7 @@ export interface TaskSummary {
   readonly note: TaskNoteSummary | null;
   readonly raisedBy: PersonSummary | null;
   readonly assignee: PersonSummary | null;
+  readonly labels: readonly TaskLabelSummary[];
 }
 
 export const TASK_READER = Symbol('TASK_READER');

@@ -2,6 +2,7 @@ import { GitPullRequest } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
 import { NotFound } from '@/components/features/board/NotFound';
 import { AssigneePicker } from '@/components/features/board/task/AssigneePicker';
+import { LabelPicker } from '@/components/features/board/task/LabelPicker';
 import { StationSelect } from '@/components/features/board/task/StationSelect';
 import { TaskActions } from '@/components/features/board/task/TaskActions';
 import { TaskSkeleton } from '@/components/features/board/task/TaskSkeleton';
@@ -166,6 +167,8 @@ export function Task() {
               {teamId && (
                 <AssigneePicker teamId={teamId} task={task} variant="row" />
               )}
+
+              {teamId && <LabelPicker teamId={teamId} task={task} />}
 
               {task.pullRequest && (
                 <a

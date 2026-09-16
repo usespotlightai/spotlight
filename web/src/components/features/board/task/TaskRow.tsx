@@ -94,7 +94,7 @@ export function TaskRow({
           className="-mr-1.5"
         />
 
-        <span className="flex min-w-0 flex-1 pl-1.5">
+        <span className="flex min-w-0 flex-1 items-center gap-1.5 pl-1.5">
           <TrailLink
             to={to}
             draggable={false}
@@ -102,6 +102,16 @@ export function TaskRow({
           >
             {task.title}
           </TrailLink>
+
+          {task.labels.map((label) => (
+            <span
+              key={label.id}
+              className="hidden shrink-0 rounded-full px-1.5 py-0.5 text-[10px] leading-none text-white sm:inline-flex"
+              style={{ backgroundColor: label.colour }}
+            >
+              {label.name}
+            </span>
+          ))}
         </span>
 
         <TaskState task={task} reviewTo={reviewTo} />

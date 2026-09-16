@@ -1,6 +1,12 @@
 import { AcceptDeliveryCommand } from '@application/commands/accept-delivery.command';
 import { AcceptInviteCommand } from '@application/commands/accept-invite.command';
 import { AddTaskCommand } from '@application/commands/add-task.command';
+import { CreateLabelCommand } from '@application/commands/create-label.command';
+import { DeleteLabelCommand } from '@application/commands/delete-label.command';
+import { LabelTaskCommand } from '@application/commands/label-task.command';
+import { RecolourLabelCommand } from '@application/commands/recolour-label.command';
+import { RenameLabelCommand } from '@application/commands/rename-label.command';
+import { UnlabelTaskCommand } from '@application/commands/unlabel-task.command';
 import { AnalyseTraceCommand } from '@application/commands/analyse-trace.command';
 import { AnswerInboxItemCommand } from '@application/commands/answer-inbox-item.command';
 import { AnswerRemarkCommand } from '@application/commands/answer-remark.command';
@@ -26,6 +32,12 @@ import { AcceptDeliveryHandler } from '@application/commands/handlers/accept-del
 import { AcceptInviteHandler } from '@application/commands/handlers/accept-invite.handler';
 import { AcceptProposalHandler } from '@application/commands/handlers/accept-proposal.handler';
 import { AddTaskHandler } from '@application/commands/handlers/add-task.handler';
+import { CreateLabelHandler } from '@application/commands/handlers/create-label.handler';
+import { DeleteLabelHandler } from '@application/commands/handlers/delete-label.handler';
+import { LabelTaskHandler } from '@application/commands/handlers/label-task.handler';
+import { RecolourLabelHandler } from '@application/commands/handlers/recolour-label.handler';
+import { RenameLabelHandler } from '@application/commands/handlers/rename-label.handler';
+import { UnlabelTaskHandler } from '@application/commands/handlers/unlabel-task.handler';
 import { AnalyseTraceHandler } from '@application/commands/handlers/analyse-trace.handler';
 import { AnswerInboxItemHandler } from '@application/commands/handlers/answer-inbox-item.handler';
 import { AnswerRemarkHandler } from '@application/commands/handlers/answer-remark.handler';
@@ -266,6 +278,7 @@ import { ListMembersHandler } from '@application/queries/handlers/list-members.h
 import { ListRepositoriesHandler } from '@application/queries/handlers/list-repositories.handler';
 import { ListRunnersHandler } from '@application/queries/handlers/list-runners.handler';
 import { ListTaskRunsHandler } from '@application/queries/handlers/list-task-runs.handler';
+import { ListLabelsHandler } from '@application/queries/handlers/list-labels.handler';
 import { ListTasksHandler } from '@application/queries/handlers/list-tasks.handler';
 import { ListTeamRunsHandler } from '@application/queries/handlers/list-team-runs.handler';
 import { ListTeamTracesHandler } from '@application/queries/handlers/list-team-traces.handler';
@@ -296,6 +309,7 @@ import { ListMembersQuery } from '@application/queries/list-members.query';
 import { ListRepositoriesQuery } from '@application/queries/list-repositories.query';
 import { ListRunnersQuery } from '@application/queries/list-runners.query';
 import { ListTaskRunsQuery } from '@application/queries/list-task-runs.query';
+import { ListLabelsQuery } from '@application/queries/list-labels.query';
 import { ListTasksQuery } from '@application/queries/list-tasks.query';
 import { ListTeamRunsQuery } from '@application/queries/list-team-runs.query';
 import { ListTeamTracesQuery } from '@application/queries/list-team-traces.query';
@@ -457,6 +471,7 @@ import { DrizzleLineRepository } from '@infrastructure/persistence/drizzle/repos
 import { DrizzleRunRepository } from '@infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleRunDigests } from '@infrastructure/persistence/drizzle/repositories/run-digest.repository';
 import { DrizzleRunnerRepository } from '@infrastructure/persistence/drizzle/repositories/runner.repository';
+import { DrizzleLabelRepository } from '@infrastructure/persistence/drizzle/repositories/label.repository';
 import { DrizzleTaskRepository } from '@infrastructure/persistence/drizzle/repositories/task.repository';
 import { DrizzleTeamRepository } from '@infrastructure/persistence/drizzle/repositories/team.repository';
 import { DrizzleTeamConfiguration } from '@infrastructure/persistence/drizzle/repositories/team-configuration.repository';
@@ -504,6 +519,7 @@ import { RunStreamController } from '@presentation/http/controllers/run-stream.c
 import { RunnerController } from '@presentation/http/controllers/runner.controller';
 import { RunnerFleetController } from '@presentation/http/controllers/runner-fleet.controller';
 import { SkillController } from '@presentation/http/controllers/skill.controller';
+import { LabelController } from '@presentation/http/controllers/label.controller';
 import { TaskController } from '@presentation/http/controllers/task.controller';
 import { TeamController } from '@presentation/http/controllers/team.controller';
 import { WebhookController } from '@presentation/http/controllers/webhook.controller';
@@ -546,6 +562,7 @@ import { WebhookDeliveryAddresses } from '@presentation/http/webhook-delivery-ad
     HappeningController,
     WebhookController,
     TaskController,
+    LabelController,
     ChatController,
     WorkspaceController,
     SkillController,
@@ -561,6 +578,7 @@ import { WebhookDeliveryAddresses } from '@presentation/http/webhook-delivery-ad
     DrizzleFactoryRepository,
     DrizzleLineRepository,
     DrizzleTaskRepository,
+    DrizzleLabelRepository,
     DrizzleInviteRepository,
     DrizzleChatRepository,
     { provide: CHAT_READER, useClass: DrizzleChatReader },
@@ -1991,6 +2009,44 @@ import { WebhookDeliveryAddresses } from '@presentation/http/webhook-delivery-ad
       DrizzleTeamRepository,
       TRANSACTION,
       PERSON_READER,
+    ]),
+
+    ...bindCommandHandler(CreateLabelCommand, CreateLabelHandler, [
+      DrizzleLabelRepository,
+      DrizzleTeamRepository,
+      ID_GENERATOR,
+    ]),
+
+    ...bindCommandHandler(RenameLabelCommand, RenameLabelHandler, [
+      DrizzleLabelRepository,
+      DrizzleTeamRepository,
+    ]),
+
+    ...bindCommandHandler(RecolourLabelCommand, RecolourLabelHandler, [
+      DrizzleLabelRepository,
+      DrizzleTeamRepository,
+    ]),
+
+    ...bindCommandHandler(DeleteLabelCommand, DeleteLabelHandler, [
+      DrizzleLabelRepository,
+      DrizzleTeamRepository,
+    ]),
+
+    ...bindCommandHandler(LabelTaskCommand, LabelTaskHandler, [
+      DrizzleLabelRepository,
+      DrizzleTaskRepository,
+      DrizzleTeamRepository,
+    ]),
+
+    ...bindCommandHandler(UnlabelTaskCommand, UnlabelTaskHandler, [
+      DrizzleLabelRepository,
+      DrizzleTaskRepository,
+      DrizzleTeamRepository,
+    ]),
+
+    ...bindQueryHandler(ListLabelsQuery, ListLabelsHandler, [
+      DrizzleLabelRepository,
+      DrizzleTeamRepository,
     ]),
 
     ...bindCommandHandler(CustomiseStationCommand, CustomiseStationHandler, [

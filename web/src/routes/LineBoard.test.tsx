@@ -58,6 +58,7 @@ const standing = [
     title: 'Fix the queue',
     description: null,
     createdAt: '2026-08-04T09:15:00.000Z',
+    labels: [],
   },
   {
     id: 'task_2',
@@ -65,6 +66,7 @@ const standing = [
     title: 'Sort the inbox',
     description: null,
     createdAt: '2026-08-05T09:15:00.000Z',
+    labels: [],
   },
   {
     id: 'task_3',
@@ -72,6 +74,7 @@ const standing = [
     title: 'Drain the backlog',
     description: null,
     createdAt: '2026-08-06T09:15:00.000Z',
+    labels: [],
   },
   {
     id: 'task_4',
@@ -79,6 +82,7 @@ const standing = [
     title: 'Groom the idea',
     description: null,
     createdAt: '2026-08-07T09:15:00.000Z',
+    labels: [],
   },
 ];
 
@@ -105,6 +109,9 @@ vi.mock('@/hooks/api/useMoveTask', () => ({
 }));
 vi.mock('@/hooks/api/useUploadAttachment', () => ({
   useUploadAttachment: () => ({ mutateAsync: vi.fn() }),
+}));
+vi.mock('@/hooks/api/useLabels', () => ({
+  useLabels: () => ({ data: [] }),
 }));
 
 const renderAt = (lineId: string) =>

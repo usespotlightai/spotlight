@@ -21,6 +21,7 @@ const standing: TaskSummary[] = [
     pullRequest: null,
     raisedBy: null,
     assignee: null,
+    labels: [],
     note: null,
   },
   {
@@ -35,6 +36,7 @@ const standing: TaskSummary[] = [
     pullRequest: null,
     raisedBy: null,
     assignee: null,
+    labels: [],
     note: null,
   },
 ];

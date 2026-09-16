@@ -1,10 +1,12 @@
 import type { QueryClient } from '@tanstack/react-query';
+import { labelKeys } from '@/hooks/api/useLabels';
 import { lineKeys } from '@/hooks/api/useLines';
 import { memberKeys } from '@/hooks/api/useMembers';
 import { taskRunKeys } from '@/hooks/api/useTaskRuns';
 import { taskKeys } from '@/hooks/api/useTasks';
 import { workspaceKeys } from '@/hooks/api/useWorkspaces';
 import type {
+  LabelResponseDto,
   LineResponseDto,
   MemberResponseDto,
   RunStationResponseDto,
@@ -84,6 +86,11 @@ const MEMBERS: MemberResponseDto[] = [
   { ...MAYA, role: 'member', mayBeSetTo: [] },
 ];
 
+export const LABELS: LabelResponseDto[] = [
+  { id: 'label_bug', teamId: TEAM_ID, name: 'Bug', colour: '#e11d48' },
+  { id: 'label_feature', teamId: TEAM_ID, name: 'Feature', colour: '#7c3aed' },
+];
+
 const task = (
   over: Partial<TaskResponseDto> & {
     id: string;
@@ -99,6 +106,7 @@ const task = (
   pullRequest: null,
   raisedBy: SAM,
   assignee: null,
+  labels: [],
   note: null,
   ...over,
 });
@@ -124,6 +132,7 @@ export const TASKS: TaskResponseDto[] = [
     stationId: 'station_implementation',
     running: true,
     assignee: MAYA,
+    labels: [LABELS[0]],
     createdAt: hoursAgo(30),
     description:
       'Webhook deliveries have been failing since the queue worker was redeployed on Friday.\n\n- Find the retry queues holding jobs that never ran\n- Replay what can still be delivered\n- Stop retrying endpoints that answer `410 Gone`',
@@ -221,6 +230,7 @@ export const seedBoard = (client: QueryClient) => {
   client.setQueryData(taskKeys.forTeam(TEAM_ID), TASKS);
   client.setQueryData(memberKeys.forTeam(TEAM_ID), MEMBERS);
   client.setQueryData(taskRunKeys.forTask(TASK_ID), RUNS);
+  client.setQueryData(labelKeys.forTeam(TEAM_ID), LABELS);
 };
 
 export const emptyBoard = (client: QueryClient) => {
@@ -228,6 +238,7 @@ export const emptyBoard = (client: QueryClient) => {
   client.setQueryData(lineKeys.forTeam(TEAM_ID), LINES);
   client.setQueryData(taskKeys.forTeam(TEAM_ID), []);
   client.setQueryData(memberKeys.forTeam(TEAM_ID), MEMBERS);
+  client.setQueryData(labelKeys.forTeam(TEAM_ID), LABELS);
 };
 
 export const failBoard = (client: QueryClient) => {

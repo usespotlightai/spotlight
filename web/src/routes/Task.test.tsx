@@ -11,6 +11,7 @@ const task = {
   description: '## Steps\n\nReproduce, then fix.',
   attachments: [],
   createdAt: '2026-08-04T09:15:00.000Z',
+  labels: [],
 };
 
 const worked = vi.fn((): unknown[] => []);
@@ -66,6 +67,15 @@ vi.mock('@/hooks/api/useTaskRuns', () => ({
 }));
 vi.mock('@/hooks/api/useTaskJournal', () => ({
   useTaskJournal: () => ({ data: journalled() }),
+}));
+vi.mock('@/hooks/api/useLabels', () => ({
+  useLabels: () => ({ data: [] }),
+}));
+vi.mock('@/hooks/api/useLabelTask', () => ({
+  useLabelTask: () => ({ mutate: vi.fn() }),
+}));
+vi.mock('@/hooks/api/useUnlabelTask', () => ({
+  useUnlabelTask: () => ({ mutate: vi.fn() }),
 }));
 
 vi.mock('@/hooks/api/useWorkspace', () => ({

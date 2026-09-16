@@ -181,6 +181,7 @@ describe('AddTaskHandler', () => {
       pullRequest: null,
       raisedBy: raiser,
       assignee: raiser,
+      labels: [],
       note: null,
     });
   });

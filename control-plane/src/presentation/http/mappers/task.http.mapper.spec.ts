@@ -16,6 +16,7 @@ const dto: TaskDto = {
   pullRequest: null,
   raisedBy: { id: 'user_1', name: 'Ada', image: null },
   assignee: null,
+  labels: [],
   note: {
     position: 0,
     station: 'Implementation',

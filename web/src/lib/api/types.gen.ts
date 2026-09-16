@@ -880,6 +880,12 @@ export type TaskPersonResponseDto = {
   image: string | null;
 };
 
+export type TaskLabelResponseDto = {
+  id: string;
+  name: string;
+  colour: string;
+};
+
 export type TaskNoteResponseDto = {
   position: number;
   station: string;
@@ -919,6 +925,10 @@ export type TaskResponseDto = {
    * The team member who owns the work, or nobody where unclaimed
    */
   assignee: TaskPersonResponseDto | null;
+  /**
+   * The labels attached to this task
+   */
+  labels: Array<TaskLabelResponseDto>;
   /**
    * The last thing said about this task, and where it was said
    */
@@ -1107,6 +1117,35 @@ export type MemberResponseDto = {
    * What the caller may set them to, which is empty where that is not theirs to do. Worked out by the same rule the workspace enforces.
    */
   mayBeSetTo: Array<'owner' | 'admin' | 'member'>;
+};
+
+export type LabelResponseDto = {
+  id: string;
+  teamId: string;
+  name: string;
+  /**
+   * Six digit hex colour
+   */
+  colour: string;
+};
+
+export type CreateLabelRequestDto = {
+  name: string;
+  /**
+   * Six digit hex colour
+   */
+  colour: string;
+};
+
+export type RenameLabelRequestDto = {
+  name: string;
+};
+
+export type RecolourLabelRequestDto = {
+  /**
+   * Six digit hex colour
+   */
+  colour: string;
 };
 
 export type ChatSummaryResponseDto = {
@@ -2909,6 +2948,204 @@ export type ListMembersResponses = {
 };
 
 export type ListMembersResponse = ListMembersResponses[keyof ListMembersResponses];
+
+export type ListLabelsData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/labels';
+};
+
+export type ListLabelsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+};
+
+export type ListLabelsResponses = {
+  200: Array<LabelResponseDto>;
+};
+
+export type ListLabelsResponse = ListLabelsResponses[keyof ListLabelsResponses];
+
+export type CreateLabelData = {
+  body: CreateLabelRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/labels';
+};
+
+export type CreateLabelErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+};
+
+export type CreateLabelResponses = {
+  201: LabelResponseDto;
+};
+
+export type CreateLabelResponse = CreateLabelResponses[keyof CreateLabelResponses];
+
+export type RenameLabelData = {
+  body: RenameLabelRequestDto;
+  path: {
+    teamId: string;
+    labelId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/labels/{labelId}/name';
+};
+
+export type RenameLabelErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such label for this caller
+   */
+  404: unknown;
+};
+
+export type RenameLabelResponses = {
+  200: LabelResponseDto;
+};
+
+export type RenameLabelResponse = RenameLabelResponses[keyof RenameLabelResponses];
+
+export type RecolourLabelData = {
+  body: RecolourLabelRequestDto;
+  path: {
+    teamId: string;
+    labelId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/labels/{labelId}/colour';
+};
+
+export type RecolourLabelErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such label for this caller
+   */
+  404: unknown;
+};
+
+export type RecolourLabelResponses = {
+  200: LabelResponseDto;
+};
+
+export type RecolourLabelResponse = RecolourLabelResponses[keyof RecolourLabelResponses];
+
+export type DeleteLabelData = {
+  body?: never;
+  path: {
+    teamId: string;
+    labelId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/labels/{labelId}';
+};
+
+export type DeleteLabelErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such label for this caller
+   */
+  404: unknown;
+};
+
+export type DeleteLabelResponses = {
+  /**
+   * The label is gone
+   */
+  204: void;
+};
+
+export type DeleteLabelResponse = DeleteLabelResponses[keyof DeleteLabelResponses];
+
+export type UnlabelTaskData = {
+  body?: never;
+  path: {
+    teamId: string;
+    taskId: string;
+    labelId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/labels/{labelId}';
+};
+
+export type UnlabelTaskErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task or label for this caller
+   */
+  404: unknown;
+};
+
+export type UnlabelTaskResponses = {
+  /**
+   * The label is off the task
+   */
+  204: void;
+};
+
+export type UnlabelTaskResponse = UnlabelTaskResponses[keyof UnlabelTaskResponses];
+
+export type LabelTaskData = {
+  body?: never;
+  path: {
+    teamId: string;
+    taskId: string;
+    labelId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/labels/{labelId}';
+};
+
+export type LabelTaskErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task or label for this caller
+   */
+  404: unknown;
+};
+
+export type LabelTaskResponses = {
+  /**
+   * The label is on the task
+   */
+  204: void;
+};
+
+export type LabelTaskResponse = LabelTaskResponses[keyof LabelTaskResponses];
 
 export type ListChatsData = {
   body?: never;

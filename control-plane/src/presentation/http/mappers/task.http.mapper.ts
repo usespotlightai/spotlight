@@ -1,5 +1,6 @@
 import type { TaskDto } from '@application/dto/task.dto';
 import {
+  TaskLabelResponseDto,
   TaskNoteResponseDto,
   TaskPersonResponseDto,
   TaskResponseDto,
@@ -35,6 +36,9 @@ export const TaskHttpMapper = {
             dto.assignee.image,
           )
         : null,
+      (dto.labels ?? []).map(
+        (l) => new TaskLabelResponseDto(l.id, l.name, l.colour),
+      ),
       dto.note
         ? new TaskNoteResponseDto(
             dto.note.position,

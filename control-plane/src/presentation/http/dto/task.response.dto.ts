@@ -1,6 +1,23 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { AttachmentResponseDto } from '@presentation/http/dto/attachment.response.dto';
 
+export class TaskLabelResponseDto {
+  @ApiProperty({ example: 'f2b1c9d4-3e57-4a80-9c62-1d8e5f0a7b34' })
+  readonly id: string;
+
+  @ApiProperty({ example: 'Bug' })
+  readonly name: string;
+
+  @ApiProperty({ example: '#e11d48' })
+  readonly colour: string;
+
+  constructor(id: string, name: string, colour: string) {
+    this.id = id;
+    this.name = name;
+    this.colour = colour;
+  }
+}
+
 export class TaskNoteResponseDto {
   @ApiProperty({ example: 0 })
   readonly position: number;
@@ -112,6 +129,13 @@ export class TaskResponseDto {
   readonly assignee: TaskPersonResponseDto | null;
 
   @ApiProperty({
+    type: TaskLabelResponseDto,
+    isArray: true,
+    description: 'The labels attached to this task',
+  })
+  readonly labels: readonly TaskLabelResponseDto[];
+
+  @ApiProperty({
     type: TaskNoteResponseDto,
     nullable: true,
     description: 'The last thing said about this task, and where it was said',
@@ -130,6 +154,7 @@ export class TaskResponseDto {
     pullRequest: string | null,
     raisedBy: TaskPersonResponseDto | null,
     assignee: TaskPersonResponseDto | null,
+    labels: readonly TaskLabelResponseDto[],
     note: TaskNoteResponseDto | null,
   ) {
     this.id = id;
@@ -143,6 +168,7 @@ export class TaskResponseDto {
     this.pullRequest = pullRequest;
     this.raisedBy = raisedBy;
     this.assignee = assignee;
+    this.labels = labels;
     this.note = note;
   }
 }

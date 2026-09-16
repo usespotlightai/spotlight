@@ -3,6 +3,14 @@ import {
   DragOverlay,
   defaultDropAnimationSideEffects,
 } from '@dnd-kit/core';
+import { Check, Tag } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   SortableContext,
   verticalListSortingStrategy,
@@ -28,6 +36,7 @@ import {
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useAddTask } from '@/hooks/api/useAddTask';
+import { useLabels } from '@/hooks/api/useLabels';
 import { useLines } from '@/hooks/api/useLines';
 import { useMoveTask } from '@/hooks/api/useMoveTask';
 import { useTasks } from '@/hooks/api/useTasks';
@@ -58,7 +67,9 @@ export function LineBoard() {
   const tasks = useTasks(teamId);
   const addTask = useAddTask();
   const moveTask = useMoveTask();
+  const labels = useLabels(teamId);
   const [selected, setSelected] = useState<readonly string[]>([]);
+  const [labelFilter, setLabelFilter] = useState<readonly string[]>([]);
   const [params, setParams] = useSearchParams();
   const inUrl = params.get('view');
   const view: BoardView = BOARD_VIEWS.some((each) => each.id === inUrl)
@@ -71,7 +82,11 @@ export function LineBoard() {
   }, [view]);
 
   const line = lines.data?.find((candidate) => candidate.id === lineId);
-  const standing = tasks.data ?? [];
+  const standing = (tasks.data ?? []).filter(
+    (task) =>
+      labelFilter.length === 0 ||
+      task.labels.some((l) => labelFilter.includes(l.id)),
+  );
 
   const drag = useBoardDrag({
     teamId,
@@ -154,14 +169,64 @@ export function LineBoard() {
         actions={<RereadConfigurationButton teamId={teamId} />}
       />
 
-      <ViewPills
-        views={BOARD_VIEWS}
-        current={view}
-        onChange={(next) => {
-          setParams({ view: next });
-          setSelected([]);
-        }}
-      />
+      <div className="flex items-center gap-2">
+        <ViewPills
+          views={BOARD_VIEWS}
+          current={view}
+          onChange={(next) => {
+            setParams({ view: next });
+            setSelected([]);
+          }}
+        />
+
+        {(labels.data ?? []).length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label="Filter by label"
+              data-active={labelFilter.length > 0}
+              className="flex h-8 items-center gap-1.5 rounded-full border bg-card px-3 text-sm shadow-xs outline-none transition-colors hover:bg-muted data-[active=true]:border-foreground/40 data-[active=true]:bg-muted"
+            >
+              <Tag className="size-3.5 shrink-0" aria-hidden />
+              Labels
+              {labelFilter.length > 0 && (
+                <span className="flex size-4 items-center justify-center rounded-full bg-foreground text-[10px] text-background">
+                  {labelFilter.length}
+                </span>
+              )}
+            </DropdownMenuTrigger>
+
+            <DropdownMenuContent align="start" className="w-44">
+              <DropdownMenuGroup>
+                {(labels.data ?? []).map((label) => (
+                  <DropdownMenuItem
+                    key={label.id}
+                    closeOnClick={false}
+                    onClick={() =>
+                      setLabelFilter((current) =>
+                        current.includes(label.id)
+                          ? current.filter((each) => each !== label.id)
+                          : [...current, label.id],
+                      )
+                    }
+                  >
+                    <span
+                      className="size-3 shrink-0 rounded-full"
+                      style={{ backgroundColor: label.colour }}
+                      aria-hidden
+                    />
+                    <span className="flex-1 truncate text-foreground">
+                      {label.name}
+                    </span>
+                    {labelFilter.includes(label.id) && (
+                      <Check className="size-4 text-foreground" aria-hidden />
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
 
       {!line || loading(tasks) ? (
         <BoardSkeleton />

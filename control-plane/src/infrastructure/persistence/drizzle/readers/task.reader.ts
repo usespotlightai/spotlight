@@ -1,4 +1,5 @@
 import type {
+  TaskLabelSummary,
   TaskNoteSummary,
   TaskReaderPort,
   TaskSummary,
@@ -14,6 +15,10 @@ import {
 } from '@infrastructure/persistence/drizzle/readers/task-trail';
 import { user } from '@infrastructure/persistence/drizzle/schemas/auth.schema';
 import { factory } from '@infrastructure/persistence/drizzle/schemas/factory.schema';
+import {
+  label,
+  taskLabel,
+} from '@infrastructure/persistence/drizzle/schemas/label.schema';
 import {
   line,
   station,
@@ -88,16 +93,12 @@ export class DrizzleTaskReader implements TaskReaderPort {
       .where(and(eq(factory.teamId, teamId.value), isNull(setupNote.taskId)))
       .orderBy(task.rank);
 
-    const [notes, awaited, attached] = await Promise.all([
-      this.latestNotes(rows.map((row) => row.id)),
-      awaitedReviewsFor(
-        this.db,
-        rows.map((row) => row.id),
-      ),
-      attachmentsFor(
-        this.db,
-        rows.map((row) => row.id),
-      ),
+    const taskIds = rows.map((row) => row.id);
+    const [notes, awaited, attached, labelsByTask] = await Promise.all([
+      this.latestNotes(taskIds),
+      awaitedReviewsFor(this.db, taskIds),
+      attachmentsFor(this.db, taskIds),
+      this.labelsForTasks(taskIds),
     ]);
 
     return rows.map(
@@ -131,9 +132,37 @@ export class DrizzleTaskReader implements TaskReaderPort {
               image: assigneeImage,
             }
           : null,
+        labels: labelsByTask.get(rest.id) ?? [],
         note: notes.get(rest.id) ?? null,
       }),
     );
+  }
+
+  private async labelsForTasks(
+    taskIds: string[],
+  ): Promise<Map<string, TaskLabelSummary[]>> {
+    if (taskIds.length === 0) {
+      return new Map();
+    }
+
+    const rows = await this.db
+      .select({
+        taskId: taskLabel.taskId,
+        id: label.id,
+        name: label.name,
+        colour: label.colour,
+      })
+      .from(label)
+      .innerJoin(taskLabel, eq(taskLabel.labelId, label.id))
+      .where(inArray(taskLabel.taskId, taskIds));
+
+    return rows.reduce((map, row) => {
+      map.set(row.taskId, [
+        ...(map.get(row.taskId) ?? []),
+        { id: row.id, name: row.name, colour: row.colour },
+      ]);
+      return map;
+    }, new Map<string, TaskLabelSummary[]>());
   }
 
   private async latestNotes(
