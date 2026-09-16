@@ -2,11 +2,7 @@ import type { QueryClient } from '@tanstack/react-query';
 import { gitHubKeys } from '@/hooks/api/useConnectGitHub';
 import { lineKeys } from '@/hooks/api/useLines';
 import { workspaceKeys } from '@/hooks/api/useWorkspaces';
-import type {
-  LineResponseDto,
-  WorkspaceListingResponseDto,
-  WorkspaceResponseDto,
-} from '@/lib/api';
+import type { LineResponseDto, WorkspaceListingResponseDto } from '@/lib/api';
 import { failQuery } from '@/stories/failQuery';
 import { SLUG } from '@/stories/fixtures/runners';
 
@@ -20,14 +16,6 @@ const LISTING: WorkspaceListingResponseDto[] = [
   { id: 'workspace_acme', name: 'Acme', slug: SLUG, role: 'owner' },
   { id: 'workspace_side', name: 'Side project', slug: 'side', role: 'member' },
 ];
-
-const WORKSPACE: WorkspaceResponseDto = {
-  id: 'workspace_acme',
-  name: 'Acme',
-  slug: SLUG,
-  role: 'owner',
-  teams: [{ id: TEAM_ID, name: 'Platform' }],
-};
 
 const LINES: LineResponseDto[] = [
   {
@@ -48,12 +36,6 @@ export const emptyWorkspaces = (client: QueryClient) =>
 
 export const failWorkspaces = (client: QueryClient) =>
   failQuery(client, workspaceKeys.all);
-
-export const seedTeams = (client: QueryClient) =>
-  client.setQueryData(workspaceKeys.detail(SLUG), WORKSPACE);
-
-export const emptyTeams = (client: QueryClient) =>
-  client.setQueryData(workspaceKeys.detail(SLUG), { ...WORKSPACE, teams: [] });
 
 export const seedLines = (client: QueryClient) =>
   client.setQueryData(lineKeys.forTeam(TEAM_ID), LINES);

@@ -104,7 +104,7 @@ const using = (
     } as unknown as FactoryRepository,
     {
       findFor: vi.fn(async () => ({
-        under: () => [
+        files: [
           ConfigurationFile.of('.spotlight/integrations/linear.yml', LINEAR),
         ],
       })),

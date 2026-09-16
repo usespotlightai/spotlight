@@ -1,8 +1,8 @@
+import { integrationFilesIn } from '@application/contracts/configuration-layout.contract';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { IntegrationCursorsPort } from '@application/ports/integration-cursors.port';
 import type { LoggerPort } from '@application/ports/logger.port';
 import type { TeamSecretsPort } from '@application/ports/team-secrets.port';
-import { INTEGRATIONS_UNDER } from '@domain/aggregates/team-configuration.aggregate';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
 import type { TeamId } from '@domain/value-objects/team-id.vo';
 import type {
@@ -31,7 +31,7 @@ export class RunSchedules {
 
     for (const applied of await this.configurations.all()) {
       const readables = this.reader
-        .readable(applied.under(INTEGRATIONS_UNDER))
+        .readable(integrationFilesIn(applied.files))
         .integrations.filter((each) => each.schedule);
 
       for (const readable of readables) {

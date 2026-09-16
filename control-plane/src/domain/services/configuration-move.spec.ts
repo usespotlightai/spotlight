@@ -22,7 +22,7 @@ const OLD = Repository.of('acme/old');
 const NEW = Repository.of('acme/new');
 
 const LINE = ConfigurationFile.of(
-  '.spotlight/lines/delivery.yml',
+  '.spotlight/lines/delivery/line.yml',
   'version: 1',
 );
 
@@ -74,10 +74,8 @@ describe('moveConfiguration', () => {
       ).toEqual([LINE.path]);
     });
 
-    it('carries only what is Spotlight’s to read', () => {
-      const move = moving({
-        current: reading([LINE, ConfigurationFile.of('README.md', '# Acme')]),
-      });
+    it('carries every file it read', () => {
+      const move = moving({ current: reading([LINE]) });
 
       expect(
         move.kind === 'carried' && move.files.map((each) => each.path),

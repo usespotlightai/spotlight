@@ -1,17 +1,16 @@
+import { SKILL_FILE } from '@application/contracts/configuration-layout.contract';
 import { SKILL_FOLDER_LIMITS } from '@application/contracts/run-spec.contract';
 import type {
   SkillFile,
   SkillFolder,
 } from '@application/ports/skill-reader.port';
-import { SKILL_FILE } from '@domain/aggregates/team-configuration.aggregate';
 import { Skill, type SkillSecret } from '@domain/entities/skill.entity';
 import { InvalidSkillError } from '@domain/exceptions/invalid-skill.error';
 import { SecretName } from '@domain/value-objects/secret-name.vo';
 import { SkillKey } from '@domain/value-objects/skill-key.vo';
 import { Tool } from '@domain/value-objects/tool.vo';
+import { splitFrontmatter } from '@infrastructure/markdown/frontmatter';
 import { parse as parseYaml } from 'yaml';
-
-const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)([\s\S]*)$/;
 
 type SkillOrigin = 'defined' | 'shipped';
 
@@ -67,7 +66,7 @@ const secretsIn = (key: SkillKey, raw: unknown): SkillSecret[] => {
 };
 
 const readSkill = (key: SkillKey, text: string, origin: SkillOrigin): Skill => {
-  const matched = FRONTMATTER.exec(text);
+  const matched = splitFrontmatter(text);
 
   if (!matched) {
     throw new InvalidSkillError(
@@ -79,7 +78,7 @@ const readSkill = (key: SkillKey, text: string, origin: SkillOrigin): Skill => {
   let front: unknown;
 
   try {
-    front = parseYaml(matched[1] as string);
+    front = parseYaml(matched.front);
   } catch (error) {
     throw new InvalidSkillError(
       key.value,
@@ -102,7 +101,7 @@ const readSkill = (key: SkillKey, text: string, origin: SkillOrigin): Skill => {
   const input = {
     key,
     description: typeof description === 'string' ? description : '',
-    instructions: matched[2] as string,
+    instructions: matched.body,
     secrets: secretsIn(key, secrets),
     tools: toolsIn(key, tools),
   };

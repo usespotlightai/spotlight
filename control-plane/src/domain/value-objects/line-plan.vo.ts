@@ -76,19 +76,24 @@ export class LinePlan {
       throw new InvalidLinePlanError(
         input.key.value,
         `has stations that ${laid.reason}`,
-        laid.at,
+        laid.part,
       );
     }
 
-    for (const [at, station] of input.stations.entries()) {
-      const refused =
-        skillsRefused(station.skills) ?? toolsRefused(station.tools);
+    for (const station of input.stations) {
+      const skills = skillsRefused(station.skills);
+      const tools = toolsRefused(station.tools);
+      const refused = skills ?? tools;
 
       if (refused) {
         throw new InvalidLinePlanError(
           input.key.value,
           `has ${station.key.value}, which ${refused}`,
-          `stations.${at}`,
+          {
+            of: 'station',
+            station: station.key.value,
+            field: skills ? 'skills' : 'tools',
+          },
         );
       }
     }
@@ -106,7 +111,7 @@ export class LinePlan {
       throw new InvalidLinePlanError(
         input.key.value,
         `has reactions that ${reacting.reason}`,
-        reacting.at,
+        reacting.part,
       );
     }
 
@@ -116,7 +121,7 @@ export class LinePlan {
       throw new InvalidLinePlanError(
         input.key.value,
         `works in repositories that ${error instanceof Error ? error.message : String(error)}`,
-        'repositories',
+        { of: 'line', field: 'repositories' },
       );
     }
 

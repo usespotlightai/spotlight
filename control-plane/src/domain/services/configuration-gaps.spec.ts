@@ -98,13 +98,23 @@ describe('configuration gaps', () => {
 
   it('finds each tool a station gives that nothing offers, where it is written', () => {
     expect(stationToolsUnoffered([PLAN], [])).toEqual([
-      { line: PLAN.key, station: 1, tool: Tool.of('linear.close'), at: 1 },
+      {
+        line: PLAN.key,
+        station: StationKey.of('implementation'),
+        tool: Tool.of('linear.close'),
+        at: 1,
+      },
     ]);
   });
 
   it('finds each skill a station names that the team does not define, where it is written', () => {
     expect(stationSkillsUndefined([PLAN], [GRAFANA])).toEqual([
-      { line: PLAN.key, station: 1, skill: SkillKey.of('frontend'), at: 1 },
+      {
+        line: PLAN.key,
+        station: StationKey.of('implementation'),
+        skill: SkillKey.of('frontend'),
+        at: 1,
+      },
     ]);
   });
 });

@@ -10,8 +10,13 @@ export interface ReadLines {
   readonly problems: readonly ConfigurationProblem[];
 }
 
+export interface WrittenLine {
+  readonly files: readonly ConfigurationFile[];
+  readonly removes: readonly string[];
+}
+
 export interface LineConfigReaderPort {
   read(files: readonly ConfigurationFile[]): ReadLines;
 
-  write(line: Line): ConfigurationFile;
+  write(line: Line, over?: readonly ConfigurationFile[]): WrittenLine;
 }

@@ -194,7 +194,7 @@ describe('ApplyLines', () => {
     expect(save).not.toHaveBeenCalled();
     expect(problems).toHaveLength(1);
     expect(problems[0]?.reason).toMatch(/2 standing there/);
-    expect(problems[0]?.path).toBe('.spotlight/lines/delivery.yml');
+    expect(problems[0]?.path).toBe('.spotlight/lines/delivery/line.yml');
   });
 
   it('opens a line the workspace does not have from its file', async () => {
@@ -230,8 +230,8 @@ describe('ApplyLines', () => {
 
     expect(add).not.toHaveBeenCalled();
     expect(problems.map((each) => each.path).sort()).toEqual([
-      '.spotlight/lines/one.yml',
-      '.spotlight/lines/two.yml',
+      '.spotlight/lines/one/line.yml',
+      '.spotlight/lines/two/line.yml',
     ]);
     expect(problems[0]?.reason).toMatch(/role "improvement"/);
   });
@@ -247,7 +247,7 @@ describe('ApplyLines', () => {
   it('carries through what the reader could not read', async () => {
     const held = line();
     const broken = {
-      path: '.spotlight/lines/broken.yml',
+      path: '.spotlight/lines/broken/line.yml',
       at: 'the file',
       reason: 'is not YAML',
     };

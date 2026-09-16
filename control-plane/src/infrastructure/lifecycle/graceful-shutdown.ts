@@ -2,7 +2,6 @@ import type { LoggerPort } from '@application/ports/logger.port';
 import { type BeforeApplicationShutdown, Injectable } from '@nestjs/common';
 import type { HttpAdapterHost } from '@nestjs/core';
 
-// Below the usual 10s a container gets before it is killed.
 export const GRACE_MS = 5_000;
 
 @Injectable()

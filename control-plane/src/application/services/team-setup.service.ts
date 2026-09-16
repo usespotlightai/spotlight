@@ -1,6 +1,6 @@
+import { integrationFilesIn } from '@application/contracts/configuration-layout.contract';
 import type { IntegrationReaderPort } from '@application/ports/integration-reader.port';
 import type { RunnerReaderPort } from '@application/ports/runner-reader.port';
-import { INTEGRATIONS_UNDER } from '@domain/aggregates/team-configuration.aggregate';
 import type { TeamRepository } from '@domain/repositories/team.repository';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
 import type { WorkspaceConnections } from '@domain/repositories/workspace.repository';
@@ -51,7 +51,7 @@ export class TeamSetup {
       hasConfiguration: applied !== null,
       listening: applied
         ? this.integrations
-            .read(applied.under(INTEGRATIONS_UNDER))
+            .read(integrationFilesIn(applied.files))
             .integrations.map((each) => each.source.value)
         : [],
     };

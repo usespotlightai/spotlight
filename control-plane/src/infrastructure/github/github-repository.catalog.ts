@@ -48,7 +48,6 @@ export class GitHubRepositoryCatalog implements RepositoryCatalogPort {
     );
   }
 
-  // Needs the App's organisation Administration write permission.
   async create(
     installation: GitHubInstallation,
     repository: Repository,

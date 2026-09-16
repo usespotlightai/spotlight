@@ -1,9 +1,9 @@
+import { CONFIGURATION_BRANCH } from '@application/contracts/configuration-layout.contract';
 import type {
   OpenedPullRequestDto,
   PullRequestPort,
 } from '@application/ports/pull-request.port';
 import type { ConfigurationRepo } from '@application/services/configuration-target.service';
-import { CONFIGURATION_BRANCH } from '@domain/aggregates/team-configuration.aggregate';
 import type { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
 
 export interface Writing {

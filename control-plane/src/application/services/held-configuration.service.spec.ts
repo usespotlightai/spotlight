@@ -9,7 +9,10 @@ const TARGET = {
   repository: Repository.of('acme/api'),
 };
 
-const CONFIG = { path: '.spotlight/lines/delivery.yml', text: 'version: 1' };
+const CONFIG = {
+  path: '.spotlight/lines/delivery/line.yml',
+  text: 'version: 1',
+};
 
 const holding = (
   over: { head?: string | null; files?: { path: string; text: string }[] } = {},

@@ -34,7 +34,6 @@ export class AuthCoreModule {}
       inject: [AUTH, LOGGING],
       useFactory: (auth: AppAuth, logging: Logging) => ({
         auth,
-        // rawBody for GitHub signatures; limit sized for journal batches.
         bodyParser: { rawBody: true, json: { limit: JOURNAL_LIMIT } },
         middleware: (req, res, next) => logging.httpLogger(req, res, next),
       }),

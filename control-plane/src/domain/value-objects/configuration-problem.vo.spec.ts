@@ -40,6 +40,6 @@ describe('ConfigurationProblem', () => {
 
   it('says which file it is in', () => {
     expect(problem().isIn('.spotlight/integrations/linear.yml')).toBe(true);
-    expect(problem().isIn('.spotlight/lines/default.yml')).toBe(false);
+    expect(problem().isIn('.spotlight/lines/default/line.yml')).toBe(false);
   });
 });

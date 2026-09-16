@@ -1,4 +1,4 @@
-import { linePath } from '@domain/aggregates/team-configuration.aggregate';
+import { linePath } from '@application/contracts/configuration-layout.contract';
 import type { RoleClaimedTwice } from '@domain/services/line-roles';
 import type { Stranded } from '@domain/services/reconcile-line';
 import { ConfigurationProblem } from '@domain/value-objects/configuration-problem.vo';

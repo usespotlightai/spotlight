@@ -1,12 +1,12 @@
+import {
+  SKILL_FILE,
+  SKILLS_UNDER,
+} from '@application/contracts/configuration-layout.contract';
 import type {
   ReadSkills,
   SkillFolder,
   SkillReaderPort,
 } from '@application/ports/skill-reader.port';
-import {
-  SKILL_FILE,
-  SKILLS_UNDER,
-} from '@domain/aggregates/team-configuration.aggregate';
 import { InvalidIdentifierError } from '@domain/exceptions/invalid-identifier.error';
 import { InvalidSkillError } from '@domain/exceptions/invalid-skill.error';
 import type { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';

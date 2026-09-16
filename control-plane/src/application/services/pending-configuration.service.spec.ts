@@ -1,10 +1,10 @@
+import { CONFIGURATION_BRANCH } from '@application/contracts/configuration-layout.contract';
 import type { PullRequestPort } from '@application/ports/pull-request.port';
 import type {
   Reading,
   RepositoryContentsPort,
 } from '@application/ports/repository-contents.port';
 import { PendingConfiguration } from '@application/services/pending-configuration.service';
-import { CONFIGURATION_BRANCH } from '@domain/aggregates/team-configuration.aggregate';
 import { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
 import { GitHubInstallation } from '@domain/value-objects/github-installation.vo';
 import { Repository } from '@domain/value-objects/repository.vo';
@@ -15,7 +15,7 @@ const INTO = {
   repository: Repository.of('acme/api'),
 };
 
-const PATH = '.spotlight/lines/default.yml';
+const PATH = '.spotlight/lines/default/line.yml';
 
 const pending = (
   over: {
@@ -34,7 +34,12 @@ const pending = (
       const text = refs[reading.ref];
       return text === undefined ? null : { path: reading.path, text };
     },
-    under: async () => [],
+    under: async (reading: Reading) => {
+      const text = refs[reading.ref];
+      return text === undefined
+        ? []
+        : [{ path: `${reading.path}/delivery/line.yml`, text }];
+    },
   } satisfies RepositoryContentsPort;
   const pullRequests = {
     openFor: async (
@@ -100,6 +105,36 @@ describe('PendingConfiguration', () => {
       await expect(
         pending({ refs: {} }).fileAt(INTO, PATH),
       ).resolves.toBeNull();
+    });
+  });
+
+  describe('the files under a folder', () => {
+    const LINES = '.spotlight/lines';
+
+    it('are the branch’s, whole, while a pull request is open', async () => {
+      await expect(pending().under(INTO, LINES)).resolves.toEqual({
+        onBranch: true,
+        files: [
+          ConfigurationFile.of(`${LINES}/delivery/line.yml`, 'on the branch'),
+        ],
+      });
+    });
+
+    it('are the live head’s where no pull request is open', async () => {
+      await expect(
+        pending({ open: false }).under(INTO, LINES),
+      ).resolves.toEqual({
+        onBranch: false,
+        files: [
+          ConfigurationFile.of(`${LINES}/delivery/line.yml`, 'at the head'),
+        ],
+      });
+    });
+
+    it('are none where the repository has no head yet', async () => {
+      await expect(
+        pending({ open: false, head: null }).under(INTO, LINES),
+      ).resolves.toEqual({ onBranch: false, files: [] });
     });
   });
 });

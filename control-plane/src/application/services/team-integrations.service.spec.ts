@@ -1,8 +1,8 @@
+import { INTEGRATIONS_UNDER } from '@application/contracts/configuration-layout.contract';
 import type { IntegrationReaderPort } from '@application/ports/integration-reader.port';
 import { TeamIntegrations } from '@application/services/team-integrations.service';
 import type { Line } from '@domain/aggregates/line.aggregate';
 import type { TeamConfiguration } from '@domain/aggregates/team-configuration.aggregate';
-import { INTEGRATIONS_UNDER } from '@domain/aggregates/team-configuration.aggregate';
 import type { DeclaredTool } from '@domain/entities/declared-tool.entity';
 import type { FactoryRepository } from '@domain/repositories/factory.repository';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
@@ -23,7 +23,7 @@ const integrations = (
   const files = [
     ConfigurationFile.of(LINEAR, 'linear'),
     ConfigurationFile.of(SLACK, 'slack'),
-    ConfigurationFile.of('.spotlight/lines/delivery.yml', 'line'),
+    ConfigurationFile.of('.spotlight/lines/delivery/line.yml', 'line'),
   ];
 
   const factories = {
@@ -36,8 +36,7 @@ const integrations = (
       over.configured === false
         ? null
         : ({
-            under: (folder: string) =>
-              files.filter((each) => each.path.startsWith(`${folder}/`)),
+            files,
           } as unknown as TeamConfiguration),
   } as unknown as TeamConfigurationRepository;
 

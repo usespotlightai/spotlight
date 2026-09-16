@@ -89,7 +89,7 @@ describe('LinePlan', () => {
     const refused = refusal(() => plan({ stations: [] }));
 
     expect(refused.message).toMatch(/at least one/);
-    expect(refused.at).toBe('stations');
+    expect(refused.part).toEqual({ of: 'line', field: 'stations' });
   });
 
   it('refuses one naming a station twice', () => {
@@ -135,7 +135,11 @@ describe('LinePlan', () => {
     );
 
     expect(refused.message).toMatch(/completed hands on somewhere/);
-    expect(refused.at).toBe('stations.2.passesTo');
+    expect(refused.part).toEqual({
+      of: 'station',
+      station: 'completed',
+      field: 'passesTo',
+    });
   });
 
   it('refuses a station handing work on to itself', () => {
@@ -152,7 +156,11 @@ describe('LinePlan', () => {
     );
 
     expect(refused.message).toMatch(/hand on to themselves/);
-    expect(refused.at).toBe('stations.1.passesTo');
+    expect(refused.part).toEqual({
+      of: 'station',
+      station: 'code-review',
+      field: 'passesTo',
+    });
   });
 
   it('refuses work passing to a station it does not describe', () => {
@@ -167,7 +175,11 @@ describe('LinePlan', () => {
     );
 
     expect(refused.message).toMatch(/station work is done at/);
-    expect(refused.at).toBe('stations.0.passesTo');
+    expect(refused.part).toEqual({
+      of: 'station',
+      station: 'backlog',
+      field: 'passesTo',
+    });
   });
 
   it('refuses work passing to a station nobody works', () => {
@@ -196,7 +208,7 @@ describe('LinePlan', () => {
     );
 
     expect(refused.message).toMatch(/to a station on the line/);
-    expect(refused.at).toBe('reactions.0.to');
+    expect(refused.part).toEqual({ of: 'reaction', place: 0, field: 'to' });
   });
 
   it('refuses a word waiting at a station it does not describe', () => {
@@ -213,7 +225,7 @@ describe('LinePlan', () => {
     );
 
     expect(refused.message).toMatch(/at a station on the line/);
-    expect(refused.at).toBe('reactions.0.from');
+    expect(refused.part).toEqual({ of: 'reaction', place: 0, field: 'from' });
   });
 
   it('refuses two stations waiting for the same word from the same place', () => {
@@ -227,7 +239,7 @@ describe('LinePlan', () => {
     );
 
     expect(refused.message).toMatch(/two wait for/);
-    expect(refused.at).toBe('reactions.1');
+    expect(refused.part).toEqual({ of: 'reaction', place: 1, field: null });
   });
 
   it('refuses repositories it could not work in', () => {
@@ -236,7 +248,7 @@ describe('LinePlan', () => {
       plan({ repositories: [repository, repository] }),
     );
 
-    expect(refused.at).toBe('repositories');
+    expect(refused.part).toEqual({ of: 'line', field: 'repositories' });
   });
 
   it('says whether it names a station at all', () => {

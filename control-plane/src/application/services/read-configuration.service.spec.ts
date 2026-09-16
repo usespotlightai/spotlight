@@ -287,8 +287,8 @@ describe('ReadConfiguration', () => {
     const read = await service.read(workspace(), TEAM);
 
     expect(read?.problems.map((each) => `${each.path} ${each.at}`)).toEqual([
-      '.spotlight/lines/default.yml stations.1.tools.0',
-      '.spotlight/lines/default.yml stations.1.skills.0',
+      '.spotlight/lines/default/stations/implementation.md tools.0',
+      '.spotlight/lines/default/stations/implementation.md skills.0',
     ]);
   });
 
@@ -383,7 +383,10 @@ describe('ReadConfiguration', () => {
       path: '.spotlight/integrations/linear.yml',
       text: 'source: linear',
     };
-    const line = { path: '.spotlight/lines/default.yml', text: 'key: default' };
+    const line = {
+      path: '.spotlight/lines/default/line.yml',
+      text: 'key: default',
+    };
     const { service, read, apply, config } = reading({
       files: [integration, line],
     });
@@ -509,7 +512,7 @@ describe('ReadConfiguration', () => {
 
     it('carries what could not be applied without stranding work', async () => {
       const stranded = ConfigurationProblem.of({
-        path: '.spotlight/lines/default.yml',
+        path: '.spotlight/lines/default/line.yml',
         at: 'stations',
         reason: 'would remove Code Review (2 standing there)',
       });

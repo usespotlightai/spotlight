@@ -137,7 +137,7 @@ const notifying = (
     } as unknown as FactoryRepository,
     {
       findFor: vi.fn(async () => ({
-        under: () => [
+        files: [
           ConfigurationFile.of('.spotlight/integrations/slack.yml', SLACK),
         ],
       })),

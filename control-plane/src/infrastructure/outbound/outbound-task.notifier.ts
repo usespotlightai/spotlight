@@ -1,9 +1,9 @@
+import { integrationFilesIn } from '@application/contracts/configuration-layout.contract';
 import type { LoggerPort } from '@application/ports/logger.port';
 import type { OutboundTaskNotifierPort } from '@application/ports/outbound-task-notifier.port';
 import type { TeamSecretsPort } from '@application/ports/team-secrets.port';
 import type { WorkspaceReaderPort } from '@application/ports/workspace-reader.port';
 import type { Task } from '@domain/aggregates/task.aggregate';
-import { INTEGRATIONS_UNDER } from '@domain/aggregates/team-configuration.aggregate';
 import type { FactoryRepository } from '@domain/repositories/factory.repository';
 import type { LineRepository } from '@domain/repositories/line.repository';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
@@ -57,7 +57,7 @@ export class OutboundTaskNotifier implements OutboundTaskNotifierPort {
     }
 
     const bound = this.reader
-      .readable(applied.under(INTEGRATIONS_UNDER))
+      .readable(integrationFilesIn(applied.files))
       .integrations.filter((each) =>
         each.on.some((binding) => binding.event === event),
       );

@@ -28,7 +28,7 @@ const read = (
     teamId: TEAM,
     repository: Repository.of(over.repository ?? 'acme/api'),
     commit: Commit.of(over.commit ?? 'a1b2c3d'),
-    files: over.files ?? [file('.spotlight/lines/default.yml')],
+    files: over.files ?? [file('.spotlight/lines/default/line.yml')],
     problems: over.problems,
     readAt: READ_AT,
   });
@@ -66,33 +66,9 @@ describe('TeamConfiguration', () => {
     expect(read({ problems: [warning, problem('x.yml')] }).isWhole).toBe(false);
   });
 
-  it('is empty where nothing of Spotlight’s was written', () => {
-    expect(read({ files: [file('README.md')] }).isEmpty).toBe(true);
+  it('is empty where nothing was written', () => {
+    expect(read({ files: [] }).isEmpty).toBe(true);
     expect(read().isEmpty).toBe(false);
-  });
-
-  it('keeps only what is Spotlight’s to read', () => {
-    const held = read({
-      files: [file('README.md'), file('.spotlight/lines/default.yml')],
-    });
-
-    expect(held.kept.map((each) => each.path)).toEqual([
-      '.spotlight/lines/default.yml',
-    ]);
-  });
-
-  it('finds those beneath one directory of it', () => {
-    const held = read({
-      files: [
-        file('.spotlight/lines/default.yml'),
-        file('.spotlight/integrations/linear.yml'),
-        file('.spotlight/lines/notes.txt'),
-      ],
-    });
-
-    expect(held.under('.spotlight/lines').map((each) => each.path)).toEqual([
-      '.spotlight/lines/default.yml',
-    ]);
   });
 
   it('says what is wrong with one file in particular', () => {

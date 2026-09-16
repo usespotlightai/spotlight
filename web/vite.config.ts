@@ -3,15 +3,12 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     allowedHosts: ['.dev.usespotlight.ai'],
     watch: {
-      // Docker Desktop's file sharing syncs contents into the container but
-      // stops delivering inotify events after a while, so the watcher goes
-      // deaf and edits stop reloading. Polling is the reliable path.
+      // Docker Desktop stops delivering inotify events into the container.
       usePolling: true,
       interval: 300,
     },

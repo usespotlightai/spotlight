@@ -34,9 +34,7 @@ const read = (given: Given = {}) => {
   } as unknown as WorkspaceConnections;
 
   const configurations = {
-    findFor: vi
-      .fn()
-      .mockResolvedValue(given.applied ? { under: () => [] } : null),
+    findFor: vi.fn().mockResolvedValue(given.applied ? { files: [] } : null),
   } as unknown as TeamConfigurationRepository;
 
   const integrations = {

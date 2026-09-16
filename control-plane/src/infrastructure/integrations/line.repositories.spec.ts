@@ -1,26 +1,38 @@
+import { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
 import { compileLine } from '@infrastructure/integrations/line.compile';
 import { describe, expect, it } from 'vitest';
 
+const STATIONS = [
+  ConfigurationFile.of(
+    '.spotlight/lines/delivery/stations/backlog.md',
+    '---\nname: Backlog\nkind: backlog\n---\n',
+  ),
+  ConfigurationFile.of(
+    '.spotlight/lines/delivery/stations/build.md',
+    '---\nname: Build\nharness: dev\n---\n',
+  ),
+  ConfigurationFile.of(
+    '.spotlight/lines/delivery/stations/completed.md',
+    '---\nname: Completed\nkind: completed\n---\n',
+  ),
+];
+
 const LINE = (repositories: string) => `
 version: 1
-key: delivery
 name: Delivery
 repositories:
 ${repositories}
-stations:
-  - key: backlog
-    name: Backlog
-    kind: backlog
-  - key: build
-    name: Build
-    harness: dev
-  - key: completed
-    name: Completed
-    kind: completed
+stations: [backlog, build, completed]
 `;
 
 const compiled = (repositories: string) =>
-  compileLine('.spotlight/lines/delivery.yml', LINE(repositories));
+  compileLine('delivery', [
+    ConfigurationFile.of(
+      '.spotlight/lines/delivery/line.yml',
+      LINE(repositories),
+    ),
+    ...STATIONS,
+  ]);
 
 describe('the repositories a line works', () => {
   it('reads each one it names', () => {
@@ -37,21 +49,13 @@ describe('the repositories a line works', () => {
   });
 
   it('reads a line that names none', () => {
-    const read = compileLine(
-      '.spotlight/lines/delivery.yml',
-      `
-version: 1
-key: delivery
-name: Delivery
-stations:
-  - key: backlog
-    name: Backlog
-    kind: backlog
-  - key: completed
-    name: Completed
-    kind: completed
-`,
-    );
+    const read = compileLine('delivery', [
+      ConfigurationFile.of(
+        '.spotlight/lines/delivery/line.yml',
+        'version: 1\nname: Delivery\nstations: [backlog, build, completed]\n',
+      ),
+      ...STATIONS,
+    ]);
 
     if (!read.ok) {
       throw new Error(read.problems.map((each) => each.reason).join(', '));

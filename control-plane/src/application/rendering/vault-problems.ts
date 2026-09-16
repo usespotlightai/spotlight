@@ -1,4 +1,4 @@
-import { SECRETS_VAULT } from '@domain/aggregates/team-configuration.aggregate';
+import { SECRETS_VAULT } from '@application/contracts/configuration-layout.contract';
 import { ConfigurationProblem } from '@domain/value-objects/configuration-problem.vo';
 
 export interface VaultRefusal {

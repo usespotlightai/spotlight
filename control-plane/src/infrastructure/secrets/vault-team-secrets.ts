@@ -1,3 +1,4 @@
+import { sealedVaultIn } from '@application/contracts/configuration-layout.contract';
 import type { TeamSecretsPort } from '@application/ports/team-secrets.port';
 import type { VaultSealingPort } from '@application/ports/vault-sealing.port';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
@@ -32,7 +33,8 @@ export class VaultTeamSecrets implements TeamSecretsPort {
   }
 
   private async applied(teamId: TeamId): Promise<VaultSecrets> {
-    const vault = (await this.configurations.findFor(teamId))?.vault;
+    const applied = await this.configurations.findFor(teamId);
+    const vault = applied ? sealedVaultIn(applied.files) : null;
     const lookup = vault ? await this.keys.of(teamId) : null;
     const opening =
       vault && lookup?.kind === 'held'

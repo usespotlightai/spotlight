@@ -1,3 +1,7 @@
+import {
+  linePath,
+  stationPath,
+} from '@application/contracts/configuration-layout.contract';
 import type {
   LineConfigReaderPort,
   ReadLines,
@@ -20,7 +24,6 @@ import type {
 } from '@application/services/write-configuration.service';
 import { Line } from '@domain/aggregates/line.aggregate';
 import type { Team } from '@domain/aggregates/team.aggregate';
-import { linePath } from '@domain/aggregates/team-configuration.aggregate';
 import { Workspace } from '@domain/aggregates/workspace.aggregate';
 import { Station } from '@domain/entities/station.entity';
 import { PendingLineUnreadableError } from '@domain/exceptions/pending-line-unreadable.error';
@@ -143,16 +146,32 @@ const fileReader = {
     }),
     problems: [],
   }),
-  write: (each: Line) => {
+  write: (each: Line, over: readonly ConfigurationFile[] = []) => {
     const text = `line ${writtenPlans.size + 1}`;
     writtenPlans.set(text, planOf(each));
-    return ConfigurationFile.of(linePath(each.key.value), text);
+    const files = [
+      ConfigurationFile.of(linePath(each.key.value), text),
+      ...each.stations.map((station) =>
+        ConfigurationFile.of(
+          stationPath(each.key.value, station.key.value),
+          station.name.value,
+        ),
+      ),
+    ];
+    const writing = new Set(files.map((file) => file.path));
+
+    return {
+      files,
+      removes: over
+        .filter((file) => !writing.has(file.path))
+        .map((file) => file.path),
+    };
   },
 } satisfies LineConfigReaderPort;
 
 interface Over {
   lines?: readonly Line[];
-  branchFile?: ConfigurationFile | null;
+  held?: { onBranch: boolean; files: readonly ConfigurationFile[] };
   member?: boolean;
   workspace?: boolean;
   team?: boolean;
@@ -189,7 +208,8 @@ const proposing = (over: Over = {}) => {
 
   const reader = {
     read: over.read ?? ((files) => fileReader.read(files)),
-    write: (each: Line) => fileReader.write(each),
+    write: (each: Line, standing?: readonly ConfigurationFile[]) =>
+      fileReader.write(each, standing),
   } satisfies LineConfigReaderPort;
 
   const target = {
@@ -204,8 +224,10 @@ const proposing = (over: Over = {}) => {
   } as unknown as WriteConfiguration;
 
   const pending = {
-    onBranch: async (_into: ConfigurationRepo, path: string) =>
-      over.branchFile && over.branchFile.path === path ? over.branchFile : null,
+    under: async (_into: ConfigurationRepo, path: string) => ({
+      onBranch: over.held?.onBranch ?? false,
+      files: (over.held?.files ?? []).filter((each) => each.isUnder(path)),
+    }),
   } as unknown as PendingConfiguration;
 
   let generated = 0;
@@ -273,8 +295,12 @@ describe('ProposeConfigurationChange', () => {
         'Changes to the Intake station.',
       );
       expect(written[0]?.writing.files.map((each) => each.path)).toEqual([
-        '.spotlight/lines/default.yml',
+        '.spotlight/lines/default/line.yml',
+        '.spotlight/lines/default/stations/backlog.md',
+        '.spotlight/lines/default/stations/triage.md',
+        '.spotlight/lines/default/stations/completed.md',
       ]);
+      expect(written[0]?.writing.removes).toEqual([]);
       expect(
         stationPlanned(renderedLine(written[0]?.writing.files[0]), 'triage')
           ?.name.value,
@@ -288,7 +314,9 @@ describe('ProposeConfigurationChange', () => {
           StationName.of('Intake'),
         ),
       );
-      const { service, written } = proposing({ branchFile: onBranch });
+      const { service, written } = proposing({
+        held: { onBranch: true, files: onBranch.files },
+      });
 
       await service.proposeLine(
         lineChange((base) =>
@@ -305,7 +333,19 @@ describe('ProposeConfigurationChange', () => {
     });
 
     it('edits the line as Spotlight holds it where the branch has no copy of it', async () => {
-      const { service, written } = proposing({ branchFile: null });
+      const { service, written } = proposing({
+        held: {
+          onBranch: true,
+          files: fileReader
+            .write(line())
+            .files.map((each) =>
+              ConfigurationFile.of(
+                each.path.replace('/default/', '/another/'),
+                each.text,
+              ),
+            ),
+        },
+      });
 
       await service.proposeLine(
         lineChange((base) =>
@@ -323,15 +363,20 @@ describe('ProposeConfigurationChange', () => {
 
     it('refuses, and writes nothing, where the branch’s copy of the line does not read', async () => {
       const { service, written } = proposing({
-        branchFile: ConfigurationFile.of(
-          '.spotlight/lines/default.yml',
-          'not: [a line',
-        ),
+        held: {
+          onBranch: true,
+          files: [
+            ConfigurationFile.of(
+              '.spotlight/lines/default/line.yml',
+              'not: [a line',
+            ),
+          ],
+        },
         read: () => ({
           plans: [],
           problems: [
             ConfigurationProblem.of({
-              path: '.spotlight/lines/default.yml',
+              path: '.spotlight/lines/default/line.yml',
               at: 'the file',
               reason: 'is not YAML',
             }),
@@ -347,11 +392,16 @@ describe('ProposeConfigurationChange', () => {
 
     it('refuses, and writes nothing, where the branch’s copy cannot be made into the line', async () => {
       const { service, written } = proposing({
-        branchFile: ConfigurationFile.of('.spotlight/lines/default.yml', 'x'),
+        held: {
+          onBranch: true,
+          files: [
+            ConfigurationFile.of('.spotlight/lines/default/line.yml', 'x'),
+          ],
+        },
         read: () => ({
           plans: [
             {
-              ...renderedLine(fileReader.write(line())),
+              ...renderedLine(fileReader.write(line()).files[0]),
               stations: [],
             } as unknown as LinePlan,
           ],
@@ -363,6 +413,60 @@ describe('ProposeConfigurationChange', () => {
         PendingLineUnreadableError,
       );
       expect(written).toEqual([]);
+    });
+
+    it('edits the line as Spotlight holds it where no pull request is open', async () => {
+      const onHead = fileReader.write(
+        line().renameStation(
+          StationId.of('station_1'),
+          StationName.of('Intake'),
+        ),
+      );
+      const { service, written } = proposing({
+        held: { onBranch: false, files: onHead.files },
+      });
+
+      await service.proposeLine(
+        lineChange((base) =>
+          base.repaintStation(StationId.of('station_1'), TEAL),
+        ),
+      );
+
+      expect(
+        stationPlanned(renderedLine(written[0]?.writing.files[0]), 'triage')
+          ?.name.value,
+      ).toBe('Triage');
+    });
+
+    it('takes away what writing the line leaves behind in its folder', async () => {
+      const { service, written } = proposing({
+        held: {
+          onBranch: false,
+          files: [
+            ConfigurationFile.of('.spotlight/lines/default/line.yml', 'x'),
+            ConfigurationFile.of(
+              '.spotlight/lines/default/stations/triage.md',
+              'x',
+            ),
+            ConfigurationFile.of(
+              '.spotlight/lines/default/stations/gone.md',
+              'x',
+            ),
+            ConfigurationFile.of('.spotlight/lines/default/README.md', 'x'),
+            ConfigurationFile.of(
+              '.spotlight/lines/other/stations/gone.md',
+              'x',
+            ),
+          ],
+        },
+      });
+
+      await service.proposeLine(lineChange());
+
+      expect(written[0]?.writing.removes).toEqual([
+        '.spotlight/lines/default/stations/gone.md',
+        '.spotlight/lines/default/README.md',
+      ]);
     });
 
     it('refuses where the line does not exist, or another team runs it', async () => {

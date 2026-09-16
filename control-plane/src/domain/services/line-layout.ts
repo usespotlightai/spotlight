@@ -14,10 +14,40 @@ interface LaidReaction {
   readonly to: string;
 }
 
+export type LinePart =
+  | {
+      readonly of: 'line';
+      readonly field: 'stations' | 'repositories' | null;
+    }
+  | {
+      readonly of: 'station';
+      readonly station: string;
+      readonly field: 'passesTo' | 'tools' | 'skills';
+    }
+  | {
+      readonly of: 'reaction';
+      readonly place: number;
+      readonly field: 'to' | 'from' | null;
+    };
+
 interface LayoutRefusal {
   readonly reason: string;
-  readonly at: string;
+  readonly part: LinePart;
 }
+
+const STATIONS: LinePart = { of: 'line', field: 'stations' };
+
+const handingOn = (station: LaidStation): LinePart => ({
+  of: 'station',
+  station: station.key,
+  field: 'passesTo',
+});
+
+const reactionAt = (place: number, field: 'to' | 'from' | null): LinePart => ({
+  of: 'reaction',
+  place,
+  field,
+});
 
 const keyed = (value: string) => ({
   value,
@@ -28,7 +58,7 @@ export const stationsRefused = (
   stations: readonly LaidStation[],
 ): LayoutRefusal | null => {
   if (stations.length === 0) {
-    return { reason: 'must number at least one', at: 'stations' };
+    return { reason: 'must number at least one', part: STATIONS };
   }
 
   const twice = repeatedIn(stations.map((each) => keyed(each.key)));
@@ -36,7 +66,7 @@ export const stationsRefused = (
   if (twice) {
     return {
       reason: `must each be named once, but two are named ${twice.value}`,
-      at: 'stations',
+      part: STATIONS,
     };
   }
 
@@ -45,14 +75,14 @@ export const stationsRefused = (
   if (backlogs.length !== 1) {
     return {
       reason: `must hold one backlog, but hold ${backlogs.length}`,
-      at: 'stations',
+      part: STATIONS,
     };
   }
   if (stations[0]?.kind !== 'backlog') {
     return {
       reason:
         'must open with their backlog, which is where a task waits to start',
-      at: 'stations',
+      part: STATIONS,
     };
   }
 
@@ -61,13 +91,13 @@ export const stationsRefused = (
   if (ends.length !== 1) {
     return {
       reason: `must hold one completed, but hold ${ends.length}`,
-      at: 'stations',
+      part: STATIONS,
     };
   }
   if (stations[stations.length - 1]?.kind !== 'completed') {
     return {
       reason: 'must close with completed, which is where a merged task lands',
-      at: 'stations',
+      part: STATIONS,
     };
   }
 
@@ -75,11 +105,11 @@ export const stationsRefused = (
     stations.filter((each) => each.kind === 'work').map((each) => each.key),
   );
 
-  for (const [at, station] of stations.entries()) {
+  for (const station of stations) {
     if (station.kind === 'completed' && station.passesTo.length > 0) {
       return {
         reason: 'must end where they end, but completed hands on somewhere',
-        at: `stations.${at}.passesTo`,
+        part: handingOn(station),
       };
     }
 
@@ -87,13 +117,13 @@ export const stationsRefused = (
       if (to === station.key) {
         return {
           reason: `must not hand on to themselves, but ${station.name} does`,
-          at: `stations.${at}.passesTo`,
+          part: handingOn(station),
         };
       }
       if (!worked.has(to)) {
         return {
           reason: `must hand on to a station work is done at, but ${station.name} does not`,
-          at: `stations.${at}.passesTo`,
+          part: handingOn(station),
         };
       }
     }
@@ -112,13 +142,13 @@ export const reactionsRefused = (
     if (!stationKeys.has(reaction.to)) {
       return {
         reason: `must send "${reaction.happening}" to a station on the line`,
-        at: `reactions.${at}.to`,
+        part: reactionAt(at, 'to'),
       };
     }
     if (reaction.from !== null && !stationKeys.has(reaction.from)) {
       return {
         reason: `must wait for "${reaction.happening}" at a station on the line`,
-        at: `reactions.${at}.from`,
+        part: reactionAt(at, 'from'),
       };
     }
 
@@ -127,7 +157,7 @@ export const reactionsRefused = (
     if (claimed.has(standing)) {
       return {
         reason: `must send a happening to one station, but two wait for "${reaction.happening}"`,
-        at: `reactions.${at}`,
+        part: reactionAt(at, null),
       };
     }
     claimed.add(standing);

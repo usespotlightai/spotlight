@@ -1,11 +1,11 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { SKILL_FILE } from '@application/contracts/configuration-layout.contract';
 import type { BuiltInSkillsPort } from '@application/ports/built-in-skills.port';
 import type {
   SkillFile,
   SkillFolder,
 } from '@application/ports/skill-reader.port';
-import { SKILL_FILE } from '@domain/aggregates/team-configuration.aggregate';
 import { BUILT_IN_SKILL_KEYS } from '@domain/services/built-in-skills';
 import type { SkillKey } from '@domain/value-objects/skill-key.vo';
 import { readSkillFolder } from '@infrastructure/skills/skill-file';

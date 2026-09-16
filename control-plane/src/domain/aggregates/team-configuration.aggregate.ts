@@ -3,35 +3,7 @@ import type { Commit } from '@domain/value-objects/commit.vo';
 import type { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
 import type { ConfigurationProblem } from '@domain/value-objects/configuration-problem.vo';
 import type { Repository } from '@domain/value-objects/repository.vo';
-import { SealedVault } from '@domain/value-objects/sealed-vault.vo';
-import type { SkillKey } from '@domain/value-objects/skill-key.vo';
 import type { TeamId } from '@domain/value-objects/team-id.vo';
-
-export const KEPT_UNDER = '.spotlight';
-
-export const INTEGRATIONS_UNDER = `${KEPT_UNDER}/integrations`;
-
-export const LINES_UNDER = `${KEPT_UNDER}/lines`;
-
-export const SKILLS_UNDER = `${KEPT_UNDER}/skills`;
-
-export const SECRETS_VAULT = `${KEPT_UNDER}/secrets.vault`;
-
-export const CONFIGURATION_BRANCH = 'spotlight/configuration';
-
-export const linePath = (lineKey: string): string =>
-  `${LINES_UNDER}/${lineKey}.yml`;
-
-export const integrationPath = (source: string): string =>
-  `${INTEGRATIONS_UNDER}/${source}.yml`;
-
-export const skillFolder = (key: SkillKey): string =>
-  `${SKILLS_UNDER}/${key.value}`;
-
-export const SKILL_FILE = 'SKILL.md';
-
-export const skillFile = (key: SkillKey): string =>
-  `${skillFolder(key)}/${SKILL_FILE}`;
 
 export class TeamConfiguration {
   private constructor(
@@ -74,21 +46,7 @@ export class TeamConfiguration {
   }
 
   get isEmpty(): boolean {
-    return this.kept.length === 0;
-  }
-
-  get kept(): readonly ConfigurationFile[] {
-    return this.files.filter((each) => each.isUnder(KEPT_UNDER));
-  }
-
-  get vault(): SealedVault | null {
-    const file = this.files.find((each) => each.path === SECRETS_VAULT);
-
-    return file ? SealedVault.of(file.text) : null;
-  }
-
-  under(directory: string): readonly ConfigurationFile[] {
-    return this.files.filter((each) => each.isUnder(directory) && each.isYaml);
+    return this.files.length === 0;
   }
 
   problemsIn(path: string): readonly ConfigurationProblem[] {

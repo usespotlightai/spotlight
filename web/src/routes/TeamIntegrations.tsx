@@ -182,6 +182,15 @@ export function TeamIntegrations() {
               </ProposedPullRequest>
             )}
 
+            {loading(configuration) && (
+              <p className="flex items-center gap-1 text-muted-foreground text-xs">
+                Read from
+                <SkeletonLine className="w-40" />
+                at
+                <SkeletonLine className="w-12" />
+              </p>
+            )}
+
             {configuration.data?.repository && (
               <p className="text-muted-foreground text-xs">
                 Read from{' '}

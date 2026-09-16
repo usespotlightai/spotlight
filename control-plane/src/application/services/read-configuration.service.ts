@@ -1,3 +1,8 @@
+import {
+  INTEGRATIONS_UNDER,
+  LINES_UNDER,
+  sealedVaultIn,
+} from '@application/contracts/configuration-layout.contract';
 import type { ClockPort } from '@application/ports/clock.port';
 import type { DomainEventDispatcher } from '@application/ports/domain-event-dispatcher.port';
 import type { IntegrationReaderPort } from '@application/ports/integration-reader.port';
@@ -14,11 +19,7 @@ import type {
 import type { SettleSetup } from '@application/services/settle-setup.service';
 import type { TeamVault } from '@application/services/team-vault.service';
 import type { Team } from '@domain/aggregates/team.aggregate';
-import {
-  INTEGRATIONS_UNDER,
-  LINES_UNDER,
-  TeamConfiguration,
-} from '@domain/aggregates/team-configuration.aggregate';
+import { TeamConfiguration } from '@domain/aggregates/team-configuration.aggregate';
 import type { Workspace } from '@domain/aggregates/workspace.aggregate';
 import type { TeamRepository } from '@domain/repositories/team.repository';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
@@ -91,9 +92,8 @@ export class ReadConfiguration {
       files: holding.files,
       readAt: this.clock.now(),
     });
-    const vault = reading.vault
-      ? await this.vault.read(team.id, reading.vault)
-      : null;
+    const sealed = sealedVaultIn(reading.files);
+    const vault = sealed ? await this.vault.read(team.id, sealed) : null;
 
     const lines = await this.lines.apply(team.id, lineFiles);
 

@@ -1,10 +1,10 @@
+import { integrationFilesIn } from '@application/contracts/configuration-layout.contract';
 import type { ConfigurationDto } from '@application/dto/configuration.dto';
 import { rethrowAsFault } from '@application/errors/rethrow-as-fault';
 import type { IntegrationReaderPort } from '@application/ports/integration-reader.port';
 import type { QueryHandlerPort } from '@application/ports/query-handler.port';
 import type { WorkspaceReaderPort } from '@application/ports/workspace-reader.port';
 import type { ConfigurationQuery } from '@application/queries/read-configuration.query';
-import { INTEGRATIONS_UNDER } from '@domain/aggregates/team-configuration.aggregate';
 import type { HostConnectionRepository } from '@domain/repositories/host-connection.repository';
 import type { TeamRepository } from '@domain/repositories/team.repository';
 import type { TeamConfigurationRepository } from '@domain/repositories/team-configuration.repository';
@@ -52,13 +52,11 @@ export class ConfigurationHandler
         };
       }
 
-      const read = applied
-        .under(INTEGRATIONS_UNDER)
-        .flatMap((file) =>
-          this.integrations
-            .read([file])
-            .integrations.map((each) => ({ each, path: file.path })),
-        );
+      const read = integrationFilesIn(applied.files).flatMap((file) =>
+        this.integrations
+          .read([file])
+          .integrations.map((each) => ({ each, path: file.path })),
+      );
       const linked = new Map(
         (await this.connections.held(TeamId.of(team.teamId))).map((each) => [
           each.source,
