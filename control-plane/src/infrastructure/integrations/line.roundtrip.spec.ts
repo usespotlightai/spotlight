@@ -1,5 +1,4 @@
 import { Line } from '@domain/aggregates/line.aggregate';
-import { linePath } from '@domain/aggregates/team-configuration.aggregate';
 import {
   BUILT_IN_LINES,
   type LineOpening,
@@ -25,7 +24,7 @@ const built = () => {
 };
 
 const readBack = (line: Line) => {
-  const read = compileLine(linePath(line.key.value), renderLine(line));
+  const read = compileLine(line.key.value, renderLine(line));
 
   if (!read.ok) {
     throw new Error(
@@ -173,16 +172,35 @@ describe('writing a line out and reading it back', () => {
     }
   });
 
-  it('writes the same file the second time round', () => {
+  it('writes the same files the second time round', () => {
     const line = built();
     const once = renderLine(line);
-    const read = compileLine(linePath('default'), once);
+    const read = compileLine(line.key.value, once);
 
-    expect(read.ok).toBe(true);
-    expect(renderLine(line)).toBe(once);
+    expect(read.ok && read.problems).toEqual([]);
+    expect(renderLine(line)).toEqual(once);
   });
 
-  it('writes it where that line is read from', () => {
-    expect(linePath('default')).toBe('.spotlight/lines/default.yml');
+  it('writes the line to its folder, and each station to a file of its own', () => {
+    expect(renderLine(built()).map((each) => each.path)).toEqual([
+      '.spotlight/lines/delivery/line.yml',
+      '.spotlight/lines/delivery/stations/backlog.md',
+      '.spotlight/lines/delivery/stations/triage.md',
+      '.spotlight/lines/delivery/stations/spec.md',
+      '.spotlight/lines/delivery/stations/implementation.md',
+      '.spotlight/lines/delivery/stations/code-review.md',
+      '.spotlight/lines/delivery/stations/completed.md',
+    ]);
+  });
+
+  it('writes a station’s prompt as the body below its frontmatter', () => {
+    const triage = renderLine(built()).find((each) =>
+      each.path.endsWith('/triage.md'),
+    );
+
+    expect(triage?.text).toMatch(
+      /^---\nname: Triage\n[\s\S]*\n---\n\n## Triage\n/,
+    );
+    expect(triage?.text).not.toMatch(/prompt:/);
   });
 });

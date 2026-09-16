@@ -28,7 +28,7 @@ const read = (
     teamId: TEAM,
     repository: Repository.of(over.repository ?? 'acme/api'),
     commit: Commit.of(over.commit ?? 'a1b2c3d'),
-    files: over.files ?? [file('.spotlight/lines/default.yml')],
+    files: over.files ?? [file('.spotlight/lines/default/line.yml')],
     problems: over.problems,
     readAt: READ_AT,
   });
@@ -73,25 +73,25 @@ describe('TeamConfiguration', () => {
 
   it('keeps only what is Spotlight’s to read', () => {
     const held = read({
-      files: [file('README.md'), file('.spotlight/lines/default.yml')],
+      files: [file('README.md'), file('.spotlight/lines/default/line.yml')],
     });
 
     expect(held.kept.map((each) => each.path)).toEqual([
-      '.spotlight/lines/default.yml',
+      '.spotlight/lines/default/line.yml',
     ]);
   });
 
   it('finds those beneath one directory of it', () => {
     const held = read({
       files: [
-        file('.spotlight/lines/default.yml'),
+        file('.spotlight/lines/default/line.yml'),
         file('.spotlight/integrations/linear.yml'),
         file('.spotlight/lines/notes.txt'),
       ],
     });
 
     expect(held.under('.spotlight/lines').map((each) => each.path)).toEqual([
-      '.spotlight/lines/default.yml',
+      '.spotlight/lines/default/line.yml',
     ]);
   });
 

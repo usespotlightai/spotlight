@@ -1,15 +1,23 @@
 import type { Line } from '@domain/aggregates/line.aggregate';
+import {
+  linePath,
+  stationPath,
+} from '@domain/aggregates/team-configuration.aggregate';
 import type { Station } from '@domain/entities/station.entity';
+import { ConfigurationFile } from '@domain/value-objects/configuration-file.vo';
 import type { StationId } from '@domain/value-objects/station-id.vo';
+import { joinFrontmatter } from '@infrastructure/markdown/frontmatter';
 import { stringify } from 'yaml';
 
-export const renderLine = (line: Line): string => {
+const YAML = { lineWidth: 0, blockQuote: 'literal' } as const;
+
+export const renderLine = (line: Line): readonly ConfigurationFile[] => {
   const keyOf = (stationId: StationId): string | null =>
     line.stations.find((each) => each.id.equals(stationId))?.key.value ?? null;
 
-  const stations = [...line.stations]
-    .sort((one, other) => one.position - other.position)
-    .map((station) => written(station, keyOf));
+  const stations = [...line.stations].sort(
+    (one, other) => one.position - other.position,
+  );
 
   const reactions = line.reactions.map((reaction) => {
     const from = reaction.from ? keyOf(reaction.from) : null;
@@ -21,20 +29,33 @@ export const renderLine = (line: Line): string => {
     };
   });
 
-  return stringify(
-    {
-      version: 1,
-      key: line.key.value,
-      name: line.name.value,
-      ...(line.role ? { role: line.role.value } : {}),
-      ...(line.repositories.all.length > 0
-        ? { repositories: line.repositories.all.map((each) => each.value) }
-        : {}),
-      stations,
-      ...(reactions.length > 0 ? { reactions } : {}),
-    },
-    { lineWidth: 0, blockQuote: 'literal' },
-  );
+  return [
+    ConfigurationFile.of(
+      linePath(line.key.value),
+      stringify(
+        {
+          version: 1,
+          name: line.name.value,
+          ...(line.role ? { role: line.role.value } : {}),
+          ...(line.repositories.all.length > 0
+            ? { repositories: line.repositories.all.map((each) => each.value) }
+            : {}),
+          stations: stations.map((each) => each.key.value),
+          ...(reactions.length > 0 ? { reactions } : {}),
+        },
+        YAML,
+      ),
+    ),
+    ...stations.map((station) =>
+      ConfigurationFile.of(
+        stationPath(line.key.value, station.key.value),
+        joinFrontmatter({
+          front: stringify(written(station, keyOf), YAML),
+          body: station.agentPrompt?.value ?? '',
+        }),
+      ),
+    ),
+  ];
 };
 
 const written = (
@@ -46,15 +67,13 @@ const written = (
     .filter((each): each is string => each !== null);
 
   return {
-    key: station.key.value,
     name: station.name.value,
-    kind: station.kind,
+    ...(station.kind !== 'work' ? { kind: station.kind } : {}),
     color: station.color.value,
     ...(station.description ? { description: station.description.value } : {}),
     ...(station.harness ? { harness: station.harness.value } : {}),
     ...(station.model ? { model: station.model.value } : {}),
     ...(station.effort ? { effort: station.effort.value } : {}),
-    ...(station.agentPrompt ? { prompt: station.agentPrompt.value } : {}),
     ...(station.tools.length > 0
       ? { tools: station.tools.map((each) => each.value) }
       : {}),

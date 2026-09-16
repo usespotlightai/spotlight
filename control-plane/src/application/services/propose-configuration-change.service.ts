@@ -10,11 +10,17 @@ import type {
   ConfigurationRepo,
   ConfigurationTarget,
 } from '@application/services/configuration-target.service';
-import type { PendingConfiguration } from '@application/services/pending-configuration.service';
+import type {
+  HeldFiles,
+  PendingConfiguration,
+} from '@application/services/pending-configuration.service';
 import type { WriteConfiguration } from '@application/services/write-configuration.service';
 import type { Line } from '@domain/aggregates/line.aggregate';
 import type { Team } from '@domain/aggregates/team.aggregate';
-import { linePath } from '@domain/aggregates/team-configuration.aggregate';
+import {
+  lineFolder,
+  STATIONS_UNDER,
+} from '@domain/aggregates/team-configuration.aggregate';
 import type { Workspace } from '@domain/aggregates/workspace.aggregate';
 import { PendingLineUnreadableError } from '@domain/exceptions/pending-line-unreadable.error';
 import { UnknownLineError } from '@domain/exceptions/unknown-line.error';
@@ -52,6 +58,24 @@ export interface ConfigurationChange {
     readonly removes?: readonly string[];
   }>;
 }
+
+const replaced = (
+  line: Line,
+  held: readonly ConfigurationFile[],
+  written: readonly ConfigurationFile[],
+): readonly string[] => {
+  const writing = new Set(written.map((each) => each.path));
+  const stations = `${lineFolder(line.key.value)}/${STATIONS_UNDER}`;
+
+  return held
+    .filter(
+      (each) =>
+        !writing.has(each.path) &&
+        each.isUnder(stations) &&
+        each.path.endsWith('.md'),
+    )
+    .map((each) => each.path);
+};
 
 export class ProposeConfigurationChange {
   constructor(
@@ -111,12 +135,15 @@ export class ProposeConfigurationChange {
       return null;
     }
 
-    const edited = change.change(await this.standing(line, into));
+    const held = await this.pending.under(into, lineFolder(line.key.value));
+    const edited = change.change(this.standing(line, held));
+    const files = this.reader.write(edited);
 
     return this.writing.writeInto(into, {
       title: LINE_PROPOSAL_TITLE,
       body: lineProposalBody(change.describe(edited)),
-      files: [this.reader.write(edited)],
+      files,
+      removes: replaced(edited, held.files, files),
     });
   }
 
@@ -141,14 +168,12 @@ export class ProposeConfigurationChange {
       : null;
   }
 
-  private async standing(found: Line, into: ConfigurationRepo): Promise<Line> {
-    const file = await this.pending.onBranch(into, linePath(found.key.value));
-
-    if (!file) {
+  private standing(found: Line, held: HeldFiles): Line {
+    if (!held.onBranch || held.files.length === 0) {
       return found;
     }
 
-    const read = this.reader.read([file]);
+    const read = this.reader.read(held.files);
     const [plan] = read.plans;
 
     if (!plan) {

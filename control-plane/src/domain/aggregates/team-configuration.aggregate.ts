@@ -19,8 +19,18 @@ export const SECRETS_VAULT = `${KEPT_UNDER}/secrets.vault`;
 
 export const CONFIGURATION_BRANCH = 'spotlight/configuration';
 
+export const LINE_FILE = 'line.yml';
+
+export const STATIONS_UNDER = 'stations';
+
+export const lineFolder = (lineKey: string): string =>
+  `${LINES_UNDER}/${lineKey}`;
+
 export const linePath = (lineKey: string): string =>
-  `${LINES_UNDER}/${lineKey}.yml`;
+  `${lineFolder(lineKey)}/${LINE_FILE}`;
+
+export const stationPath = (lineKey: string, stationKey: string): string =>
+  `${lineFolder(lineKey)}/${STATIONS_UNDER}/${stationKey}.md`;
 
 export const integrationPath = (source: string): string =>
   `${INTEGRATIONS_UNDER}/${source}.yml`;

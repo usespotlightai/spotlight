@@ -23,7 +23,7 @@ const integrations = (
   const files = [
     ConfigurationFile.of(LINEAR, 'linear'),
     ConfigurationFile.of(SLACK, 'slack'),
-    ConfigurationFile.of('.spotlight/lines/delivery.yml', 'line'),
+    ConfigurationFile.of('.spotlight/lines/delivery/line.yml', 'line'),
   ];
 
   const factories = {

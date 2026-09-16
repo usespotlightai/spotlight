@@ -13,5 +13,5 @@ export interface ReadLines {
 export interface LineConfigReaderPort {
   read(files: readonly ConfigurationFile[]): ReadLines;
 
-  write(line: Line): ConfigurationFile;
+  write(line: Line): readonly ConfigurationFile[];
 }

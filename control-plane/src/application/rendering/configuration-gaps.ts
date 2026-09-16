@@ -1,8 +1,8 @@
 import {
   integrationPath,
-  linePath,
   SECRETS_VAULT,
   skillFile,
+  stationPath,
 } from '@domain/aggregates/team-configuration.aggregate';
 import type {
   SecretMissing,
@@ -50,8 +50,8 @@ export const ConfigurationGaps = {
 
   stationToolUnoffered(gap: StationToolUnoffered): ConfigurationProblem {
     return ConfigurationProblem.of({
-      path: linePath(gap.line.value),
-      at: `stations.${gap.station}.tools.${gap.at}`,
+      path: stationPath(gap.line.value, gap.station.value),
+      at: `tools.${gap.at}`,
       reason: unoffered('gives', gap.tool),
       severity: 'warning',
     });
@@ -59,8 +59,8 @@ export const ConfigurationGaps = {
 
   stationSkillUndefined(gap: StationSkillUndefined): ConfigurationProblem {
     return ConfigurationProblem.of({
-      path: linePath(gap.line.value),
-      at: `stations.${gap.station}.skills.${gap.at}`,
+      path: stationPath(gap.line.value, gap.station.value),
+      at: `skills.${gap.at}`,
       reason: `names ${gap.skill.value}, and the team defines no such skill: add ${skillFile(gap.skill)}, or take it away`,
       severity: 'warning',
     });

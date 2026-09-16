@@ -17,7 +17,9 @@ const INTO = {
 const WRITING = {
   title: 'Update Spotlight configuration',
   body: 'body',
-  files: [ConfigurationFile.of('.spotlight/lines/delivery.yml', 'version: 1')],
+  files: [
+    ConfigurationFile.of('.spotlight/lines/delivery/line.yml', 'version: 1'),
+  ],
 };
 
 const writing = () => {
@@ -47,7 +49,9 @@ describe('WriteConfiguration', () => {
         title: WRITING.title,
         body: WRITING.body,
         message: WRITING.title,
-        files: [{ path: '.spotlight/lines/delivery.yml', text: 'version: 1' }],
+        files: [
+          { path: '.spotlight/lines/delivery/line.yml', text: 'version: 1' },
+        ],
         removes: [],
       },
     ]);

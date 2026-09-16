@@ -40,7 +40,7 @@ const TEAM = Team.rehydrate({
   configRepository: Repository.of('acme/old'),
 });
 
-const LINE = { path: '.spotlight/lines/delivery.yml', text: 'a: b' };
+const LINE = { path: '.spotlight/lines/delivery/line.yml', text: 'a: b' };
 
 const acme = (connected = true) =>
   Workspace.rehydrate({

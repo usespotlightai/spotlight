@@ -4,9 +4,12 @@ import { describe, expect, it } from 'vitest';
 
 describe('ConfigurationFile', () => {
   it('holds where it is and what it says', () => {
-    const file = ConfigurationFile.of('.spotlight/lines/default.yml', 'a: 1');
+    const file = ConfigurationFile.of(
+      '.spotlight/lines/default/line.yml',
+      'a: 1',
+    );
 
-    expect(file.path).toBe('.spotlight/lines/default.yml');
+    expect(file.path).toBe('.spotlight/lines/default/line.yml');
     expect(file.text).toBe('a: 1');
   });
 

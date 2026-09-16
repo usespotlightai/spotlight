@@ -33,7 +33,7 @@ export class SeedConfiguration {
     into: Repository,
     lines: readonly Line[],
   ): Promise<OpenedPullRequestDto | null> {
-    const files = lines.map((line) => this.reader.write(line));
+    const files = lines.flatMap((line) => this.reader.write(line));
 
     if (files.length === 0) {
       return null;

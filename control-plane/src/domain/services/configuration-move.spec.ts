@@ -22,7 +22,7 @@ const OLD = Repository.of('acme/old');
 const NEW = Repository.of('acme/new');
 
 const LINE = ConfigurationFile.of(
-  '.spotlight/lines/delivery.yml',
+  '.spotlight/lines/delivery/line.yml',
   'version: 1',
 );
 

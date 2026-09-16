@@ -4,6 +4,7 @@ import type { LineKey } from '@domain/value-objects/line-key.vo';
 import type { LinePlan } from '@domain/value-objects/line-plan.vo';
 import type { SecretName } from '@domain/value-objects/secret-name.vo';
 import type { SkillKey } from '@domain/value-objects/skill-key.vo';
+import type { StationKey } from '@domain/value-objects/station-key.vo';
 import type { Tool } from '@domain/value-objects/tool.vo';
 
 export interface SecretMissing {
@@ -23,14 +24,14 @@ export interface SkillToolUnoffered {
 
 export interface StationToolUnoffered {
   readonly line: LineKey;
-  readonly station: number;
+  readonly station: StationKey;
   readonly tool: Tool;
   readonly at: number;
 }
 
 export interface StationSkillUndefined {
   readonly line: LineKey;
-  readonly station: number;
+  readonly station: StationKey;
   readonly skill: SkillKey;
   readonly at: number;
 }
@@ -75,11 +76,11 @@ export const stationToolsUnoffered = (
   offered: readonly Tool[],
 ): StationToolUnoffered[] =>
   plans.flatMap((plan) =>
-    plan.stations.flatMap((station, index) =>
+    plan.stations.flatMap((station) =>
       station.tools.flatMap((tool, at) =>
         offers(offered, tool)
           ? []
-          : [{ line: plan.key, station: index, tool, at }],
+          : [{ line: plan.key, station: station.key, tool, at }],
       ),
     ),
   );
@@ -89,11 +90,11 @@ export const stationSkillsUndefined = (
   defined: readonly Skill[],
 ): StationSkillUndefined[] =>
   plans.flatMap((plan) =>
-    plan.stations.flatMap((station, index) =>
+    plan.stations.flatMap((station) =>
       station.skills.flatMap((skill, at) =>
         defined.some((each) => each.key.equals(skill))
           ? []
-          : [{ line: plan.key, station: index, skill, at }],
+          : [{ line: plan.key, station: station.key, skill, at }],
       ),
     ),
   );

@@ -24,14 +24,14 @@ import { describe, expect, it, vi } from 'vitest';
 
 const reader: LineConfigReaderPort = {
   read: () => ({ plans: [], problems: [] }),
-  write: (each) =>
+  write: (each) => [
     ConfigurationFile.of(
-      `.spotlight/lines/${each.key.value}.yml`,
+      `.spotlight/lines/${each.key.value}/line.yml`,
       `version: 1
-key: ${each.key.value}
 name: ${each.name.value}
 `,
     ),
+  ],
 };
 
 const INTO = Repository.of('acme/api');
@@ -105,14 +105,16 @@ describe('SeedConfiguration', () => {
     expect(into.repository).toEqual(INTO);
     expect(writing.title).toBe('Set up Spotlight');
     expect(writing.files.map((each) => each.path)).toEqual([
-      '.spotlight/lines/delivery.yml',
+      '.spotlight/lines/delivery/line.yml',
     ]);
     expect(writing.files[0]?.text).toContain('version: 1');
   });
 
   it('writes nothing where the repository already has configuration', async () => {
     const { service, writeInto } = seeding({
-      already: [{ path: '.spotlight/lines/delivery.yml', text: 'version: 1' }],
+      already: [
+        { path: '.spotlight/lines/delivery/line.yml', text: 'version: 1' },
+      ],
     });
 
     expect(await service.seed(workspace(), INTO, [line()])).toBeNull();

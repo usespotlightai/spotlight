@@ -114,7 +114,10 @@ describe('GitHubPullRequests', () => {
         ...proposal,
         files: [
           { path: '.spotlight/config.yml', text: 'version: 1\n' },
-          { path: '.spotlight/lines/default.yml', text: 'name: Default\n' },
+          {
+            path: '.spotlight/lines/default/line.yml',
+            text: 'name: Default\n',
+          },
         ],
       });
 
