@@ -8,10 +8,16 @@ export function useInvite(token: string | undefined) {
     enabled: Boolean(token),
     retry: false,
     queryFn: async () => {
-      const { data } = await readInvite({
+      const { data, response } = await readInvite({
         path: { token: token as string },
-        throwOnError: true,
       });
+
+      if (response?.status === 404) {
+        return null;
+      }
+      if (!data) {
+        throw new Error('Could not load the invitation');
+      }
       return data;
     },
   });

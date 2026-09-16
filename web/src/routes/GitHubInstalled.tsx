@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router';
 import { useConnectGitHub } from '@/hooks/api/useConnectGitHub';
 import { whenceFrom } from '@/lib/github';
+import { failed } from '@/lib/query';
 import { settingsPath } from '@/lib/team';
 
 export function GitHubInstalled() {
@@ -49,13 +50,14 @@ export function GitHubInstalled() {
               before Spotlight can read or write anything.
             </p>
           </>
-        ) : connect.isError ? (
+        ) : failed(connect) ? (
           <>
             <h1 className="font-medium text-foreground text-lg">
-              That did not connect
+              Something went wrong
             </h1>
-            <p role="alert" className="text-destructive text-sm leading-6">
-              {connect.error.message}
+            <p className="text-muted-foreground text-sm leading-6">
+              Please try again in a few minutes, or go back and install it again
+              from the team’s integrations.
             </p>
           </>
         ) : (
@@ -64,7 +66,7 @@ export function GitHubInstalled() {
           </p>
         )}
 
-        {(requested || connect.isError) && (
+        {(requested || failed(connect)) && (
           <button
             type="button"
             onClick={() => void navigate(back, { replace: true })}

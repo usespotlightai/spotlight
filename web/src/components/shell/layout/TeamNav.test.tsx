@@ -4,10 +4,13 @@ import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TeamNav } from '@/components/shell/layout/TeamNav';
 
+const lines = vi.fn();
+
 vi.mock('@/hooks/api/useLines', () => ({
   useLines: () => ({
-    data: [{ id: 'line_1', name: 'Default', stations: [] }],
-    isPending: false,
+    data: lines(),
+    isPending: lines() === undefined,
+    errorUpdateCount: 0,
   }),
 }));
 vi.mock('@/hooks/api/useTasks', () => ({
@@ -45,6 +48,7 @@ const settingsRow = (index: number) =>
 
 beforeEach(() => {
   localStorage.clear();
+  lines.mockReturnValue([{ id: 'line_1', name: 'Default', stations: [] }]);
 });
 
 describe('TeamNav', () => {
@@ -86,6 +90,18 @@ describe('TeamNav', () => {
       teams.length,
     );
     expect(linesRow(0)).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('shows no lines, and nothing in their place, while a team’s lines load', () => {
+    lines.mockReturnValue(undefined);
+
+    renderNav();
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Default' }),
+    ).not.toBeInTheDocument();
+    expect(linesRow(0)).toBeInTheDocument();
   });
 
   it('closes one team’s line group without touching the other', async () => {

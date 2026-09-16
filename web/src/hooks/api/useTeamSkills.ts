@@ -1,9 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { listTeamSkills } from '@/lib/api';
 
+export const teamSkillKeys = {
+  forTeam: (teamId?: string) => ['team-skills', teamId ?? null] as const,
+};
+
 export function useTeamSkills(teamId: string | undefined) {
   return useQuery({
-    queryKey: ['team-skills', teamId ?? null],
+    queryKey: teamSkillKeys.forTeam(teamId),
     enabled: Boolean(teamId),
     queryFn: async () => {
       const { data } = await listTeamSkills({

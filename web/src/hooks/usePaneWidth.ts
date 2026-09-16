@@ -41,9 +41,7 @@ const clampTo = (pane: Pane, width: number) =>
 const remember = (pane: Pane, width: number) => {
   try {
     localStorage.setItem(pane.storageKey, String(width));
-  } catch {
-    // a browser that refuses storage still resizes, it just forgets
-  }
+  } catch {}
 };
 
 export function usePaneWidth<T extends HTMLElement = HTMLElement>(

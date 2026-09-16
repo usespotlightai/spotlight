@@ -33,16 +33,33 @@ vi.mock('@/hooks/api/useRevealVaultKey', async () => {
   };
 });
 
+const settingsFailing = vi.fn();
+const membersFailing = vi.fn();
+const refetchSettings = vi.fn();
+const refetchMembers = vi.fn();
+
+const query = (
+  data: unknown,
+  failing = false,
+  refetch: () => void = vi.fn(),
+) => ({
+  data,
+  isPending: data === undefined,
+  errorUpdateCount: failing ? 1 : 0,
+  isFetching: false,
+  refetch,
+});
+
 vi.mock('@/hooks/api/useWorkspace', () => ({
-  useWorkspace: () => ({ data: workspace() }),
+  useWorkspace: () => query(workspace()),
 }));
 
 vi.mock('@/hooks/api/useMembers', () => ({
-  useMembers: () => ({ data: members() }),
+  useMembers: () => query(members(), membersFailing(), refetchMembers),
 }));
 
 vi.mock('@/hooks/api/useInvites', () => ({
-  useInvites: () => ({ data: invites() }),
+  useInvites: () => query(invites()),
 }));
 
 vi.mock('@/hooks/api/useInviteToTeam', () => ({
@@ -74,11 +91,12 @@ vi.mock('@/hooks/api/useRenameTeam', () => ({
 }));
 
 vi.mock('@/hooks/api/useConfiguration', () => ({
-  useConfiguration: () => ({ data: configuration() }),
+  useConfiguration: () =>
+    query(configuration(), settingsFailing(), refetchSettings),
 }));
 
 vi.mock('@/hooks/api/useOnboarding', () => ({
-  useOnboarding: () => ({ data: onboarding() }),
+  useOnboarding: () => query(onboarding(), settingsFailing(), refetchSettings),
 }));
 
 vi.mock('@/hooks/api/useRepositories', () => ({
@@ -155,6 +173,10 @@ beforeEach(() => {
   invites.mockReturnValue([]);
   moved.mockReturnValue({ isSuccess: false, data: undefined });
   revealed.mockReturnValue({ data: { key: 'the-vault-key' }, isError: false });
+  settingsFailing.mockReturnValue(false);
+  membersFailing.mockReturnValue(false);
+  refetchSettings.mockClear();
+  refetchMembers.mockClear();
   rename.mockReset();
   move.mockReset();
   invite.mockReset();
@@ -467,18 +489,90 @@ describe('TeamGeneral', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Reveal' }));
 
-    expect(
-      screen.getByText('The vault key could not be loaded. Try again.'),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'The vault key could not be loaded.',
+    );
     expect(
       screen.queryByText('Only owners and admins can see the vault key.'),
     ).not.toBeInTheDocument();
   });
 
-  it('renders nothing until the team is known', () => {
+  it('holds the shape of the team while it loads, keeping what never changes', () => {
     workspace.mockReturnValue(undefined);
+    configuration.mockReturnValue(undefined);
+    onboarding.mockReturnValue(undefined);
+    members.mockReturnValue(undefined);
+    invites.mockReturnValue(undefined);
+    showing();
+
+    expect(
+      screen.getByRole('status', { name: 'Loading the team name' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('status', {
+        name: 'Loading the configuration repository',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('status', { name: 'Loading the members' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Team name')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reveal' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Add a member' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('No one is on this team yet.'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders nothing where the workspace has no such team', () => {
+    workspace.mockReturnValue({ id: 'ws_1', slug: 'acme', teams: [] });
     const { container } = showing();
 
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('says the team’s settings could not be loaded, and tries again when asked', async () => {
+    configuration.mockReturnValue(undefined);
+    settingsFailing.mockReturnValue(true);
+    showing();
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'The team’s settings could not be loaded.',
+    );
+    expect(screen.queryByLabelText('Team name')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(refetchSettings).toHaveBeenCalled();
+  });
+
+  it('says the members could not be loaded, rather than that there are none, and tries again when asked', async () => {
+    members.mockReturnValue(undefined);
+    membersFailing.mockReturnValue(true);
+    showing();
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Members could not be loaded.',
+    );
+    expect(
+      screen.queryByText('No one is on this team yet.'),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(refetchMembers).toHaveBeenCalled();
+  });
+
+  it('offers to invite the first member where the team has none', async () => {
+    members.mockReturnValue([]);
+    showing();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Invite the first member' }),
+    );
+
+    expect(screen.getByLabelText('Email address')).toBeInTheDocument();
   });
 });

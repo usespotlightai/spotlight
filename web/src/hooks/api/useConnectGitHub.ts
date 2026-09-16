@@ -1,12 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
 import { connectGitHub } from '@/lib/api';
 
+export const gitHubKeys = {
+  connection: (slug?: string, installationId?: string | null) =>
+    ['github', 'connect', slug ?? null, installationId ?? null] as const,
+};
+
 export function useConnectGitHub(
   slug: string | undefined,
   installationId: string | null,
 ) {
   return useQuery({
-    queryKey: ['github', 'connect', slug ?? null, installationId],
+    queryKey: gitHubKeys.connection(slug, installationId),
     enabled: Boolean(slug) && Boolean(installationId),
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: Number.POSITIVE_INFINITY,

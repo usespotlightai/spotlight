@@ -1,14 +1,22 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Runners } from '@/routes/Runners';
 
 const fleet = vi.fn();
+const failing = vi.fn();
+const refetch = vi.fn();
 
 vi.mock('@/hooks/api/useRunners', () => ({
   runnerKeys: { all: ['runners'] },
-  useRunners: () => ({ data: fleet(), isPending: false }),
+  useRunners: () => ({
+    data: fleet(),
+    isPending: fleet() === undefined,
+    errorUpdateCount: failing() ? 1 : 0,
+    isFetching: false,
+    refetch,
+  }),
 }));
 
 vi.mock('@/hooks/api/useHarnesses', () => ({
@@ -46,6 +54,50 @@ const renderPage = () =>
   );
 
 describe('Runners', () => {
+  beforeEach(() => {
+    failing.mockReturnValue(false);
+    refetch.mockClear();
+  });
+
+  it('holds the shape of a runner while they load, keeping what never changes', () => {
+    fleet.mockReturnValue(undefined);
+
+    renderPage();
+
+    expect(
+      screen.getByRole('status', { name: 'Loading the runners' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Enrolled' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'New runner' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/No runner has registered/),
+    ).not.toBeInTheDocument();
+  });
+
+  it('says the runners could not be loaded, and tries again when asked', async () => {
+    const person = userEvent.setup();
+    fleet.mockReturnValue(undefined);
+    failing.mockReturnValue(true);
+
+    renderPage();
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Runners could not be loaded.',
+    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/No runner has registered/),
+    ).not.toBeInTheDocument();
+
+    await person.click(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(refetch).toHaveBeenCalled();
+  });
+
   it('says what each runner can run, not only that it is there', () => {
     fleet.mockReturnValue([runner()]);
 
@@ -55,12 +107,24 @@ describe('Runners', () => {
     expect(screen.getByText('Claude Code')).toBeInTheDocument();
   });
 
-  it('says when a runner reported nothing it can run', () => {
+  it('shows no harnesses where a runner reported none', () => {
     fleet.mockReturnValue([runner({ harnesses: [] })]);
 
     renderPage();
 
-    expect(screen.getByText(/Reported nothing it can run/)).toBeInTheDocument();
+    expect(screen.getByText('Laptop')).toBeInTheDocument();
+    expect(screen.queryByText('Claude Code')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Reported nothing/)).not.toBeInTheDocument();
+  });
+
+  it('marks each harness with its logo', () => {
+    fleet.mockReturnValue([runner({ harnesses: ['claude-code'] })]);
+
+    const { container } = renderPage();
+
+    expect(
+      container.querySelector('[data-harness="claude-code"]'),
+    ).toBeInTheDocument();
   });
 
   it('names the first few harnesses and counts the rest', () => {

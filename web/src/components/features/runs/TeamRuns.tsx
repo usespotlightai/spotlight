@@ -1,4 +1,10 @@
+import { Play } from 'lucide-react';
 import { RunRow } from '@/components/features/runs/RunRow';
+import { TeamRunsSkeleton } from '@/components/features/runs/TeamRunsSkeleton';
+import { CreateTaskLink } from '@/components/features/team/CreateTaskLink';
+import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { Notice } from '@/components/shared/Notice';
 import { ViewPills } from '@/components/shared/ViewPills';
 import { Disclosure } from '@/components/shell/layout/Disclosure';
 import { DisclosureRow } from '@/components/shell/layout/DisclosureRow';
@@ -6,6 +12,7 @@ import { useTeamRuns } from '@/hooks/api/useTeamRuns';
 import { useCollapsed } from '@/hooks/useCollapsed';
 import { useRemembered } from '@/hooks/useRemembered';
 import { inboxItemPath } from '@/lib/inbox';
+import { failed, loading } from '@/lib/query';
 import {
   asRunFilter,
   byAge,
@@ -20,39 +27,54 @@ const STORAGE_KEY = 'spotlight.collapsed-run-ages';
 const FILTER_KEY = 'spotlight.run-filter';
 
 export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
-  const { data: runs, isPending } = useTeamRuns(teamId);
+  const runs = useTeamRuns(teamId);
   const ages = useCollapsed(STORAGE_KEY);
   const [held, remember] = useRemembered(FILTER_KEY, FALLBACK_RUN_FILTER);
   const filter = asRunFilter(held);
 
-  if (isPending) {
-    return null;
-  }
-
-  const worked = runs ?? [];
-
-  if (worked.length === 0) {
+  if (failed(runs)) {
     return (
-      <div className="flex min-h-0 flex-1 items-center justify-center p-8">
-        <p className="text-muted-foreground text-sm">
-          Nothing has been run for this team yet.
-        </p>
-      </div>
+      <Notice>
+        <CouldNotLoad
+          what="Runs"
+          retrying={runs.isFetching}
+          onRetry={() => void runs.refetch()}
+        />
+      </Notice>
     );
   }
 
-  const shown = worked.filter((run) => inRunFilter(filter, run));
+  if (runs.data?.length === 0) {
+    return (
+      <Notice>
+        <EmptyState
+          icon={Play}
+          title="No runs yet"
+          action={<CreateTaskLink slug={slug} teamId={teamId} />}
+        >
+          A run starts when a station picks up a task. Create a task to put a
+          line to work.
+        </EmptyState>
+      </Notice>
+    );
+  }
+
+  const shown = (runs.data ?? []).filter((run) => inRunFilter(filter, run));
 
   return (
     <>
-      <ViewPills views={RUN_FILTERS} current={filter} onChange={remember} />
+      {!loading(runs) && (
+        <ViewPills views={RUN_FILTERS} current={filter} onChange={remember} />
+      )}
 
-      {shown.length === 0 ? (
-        <div className="flex min-h-0 flex-1 items-center justify-center p-8">
+      {loading(runs) ? (
+        <TeamRunsSkeleton />
+      ) : shown.length === 0 ? (
+        <Notice>
           <p className="text-muted-foreground text-sm">
             Nothing is awaiting review.
           </p>
-        </div>
+        </Notice>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto pb-1.5">
           {byAge(shown).map(([age, held], at) => (
