@@ -17,9 +17,18 @@ const worked = vi.fn((): unknown[] => []);
 const journalled = vi.fn((): unknown[] => []);
 const moved = vi.fn();
 const deleted = vi.fn();
+const listed = vi.fn();
+const failing = vi.fn();
+const refetch = vi.fn();
 
 vi.mock('@/hooks/api/useTasks', () => ({
-  useTasks: () => ({ data: [task], isPending: false }),
+  useTasks: () => ({
+    data: listed(),
+    isPending: listed() === undefined,
+    errorUpdateCount: failing() ? 1 : 0,
+    isFetching: false,
+    refetch,
+  }),
 }));
 vi.mock('@/hooks/api/useMoveTask', () => ({
   useMoveTask: () => ({ mutate: moved }),
@@ -49,6 +58,7 @@ vi.mock('@/hooks/api/useLines', () => ({
       },
     ],
     isPending: false,
+    errorUpdateCount: 0,
   }),
 }));
 vi.mock('@/hooks/api/useTaskRuns', () => ({
@@ -79,6 +89,9 @@ beforeEach(() => {
   moved.mockClear();
   deleted.mockClear();
   worked.mockReturnValue([]);
+  listed.mockReturnValue([task]);
+  failing.mockReturnValue(false);
+  refetch.mockClear();
 });
 
 const run = (over: Record<string, unknown> = {}) => ({
@@ -276,5 +289,53 @@ describe('Task', () => {
     expect(
       screen.getByRole('heading', { name: 'Task not found' }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open the team' })).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1',
+    );
+  });
+
+  it('holds the shape of a task while it loads, keeping what never changes', () => {
+    listed.mockReturnValue(undefined);
+
+    renderAt('task_1');
+
+    expect(
+      screen.getByRole('status', { name: 'Loading the task' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Properties' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Task not found' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('says the task could not be loaded, and tries again when asked', async () => {
+    const user = userEvent.setup();
+    listed.mockReturnValue(undefined);
+    failing.mockReturnValue(true);
+
+    renderAt('task_1');
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'The task could not be loaded.',
+    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  it('keeps the task up when a later refresh fails', () => {
+    failing.mockReturnValue(true);
+
+    renderAt('task_1');
+
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Fix the queue' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

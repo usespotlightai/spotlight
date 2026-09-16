@@ -1,5 +1,6 @@
 import { Eye } from 'lucide-react';
 import { CopyButton } from '@/components/shared/CopyButton';
+import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { ValueField } from '@/components/shared/ValueField';
 import { Button } from '@/components/ui/button';
 import { useRevealVaultKey } from '@/hooks/api/useRevealVaultKey';
@@ -23,16 +24,19 @@ export function VaultKeyField({ teamId }: VaultKeyFieldProps) {
 
   if (reveal.isError) {
     return (
-      <p className="text-muted-foreground text-sm">
-        The vault key could not be loaded. Try again.
-      </p>
+      <CouldNotLoad
+        what="The vault key"
+        retrying={reveal.isPending}
+        onRetry={() => reveal.mutate()}
+        className="items-end"
+      />
     );
   }
 
   const shown = reveal.data?.key;
 
   return (
-    <ValueField value={shown ?? HIDDEN} className="w-72">
+    <ValueField value={shown ?? HIDDEN} className="w-72 bg-surface">
       {shown ? (
         <CopyButton value={shown} label="Copy the vault key" />
       ) : (

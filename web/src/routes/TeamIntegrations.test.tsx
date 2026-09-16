@@ -11,13 +11,24 @@ const choose = vi.fn();
 const chosen = vi.fn();
 const connect = vi.fn();
 
+const failing = vi.fn();
+const refetch = vi.fn();
+
+const query = (data: unknown) => ({
+  data,
+  isPending: data === undefined,
+  errorUpdateCount: failing() ? 1 : 0,
+  isFetching: false,
+  refetch,
+});
+
 vi.mock('@/hooks/api/useConfiguration', () => ({
-  useConfiguration: () => ({ data: configuration(), isPending: false }),
+  useConfiguration: () => query(configuration()),
   useRereadConfiguration: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 vi.mock('@/hooks/api/useOnboarding', () => ({
-  useOnboarding: () => ({ data: onboarding(), isPending: false }),
+  useOnboarding: () => query(onboarding()),
   useChooseIntegrations: () => ({
     mutate: choose,
     isPending: false,
@@ -107,9 +118,67 @@ const showing = () =>
 
 beforeEach(() => {
   chosen.mockReturnValue({});
+  failing.mockReturnValue(false);
+  refetch.mockClear();
 });
 
 describe('TeamIntegrations', () => {
+  it('holds the shape of an integration while they load, keeping what never changes', () => {
+    onboarding.mockReturnValue(undefined);
+    configuration.mockReturnValue(undefined);
+    showing();
+
+    expect(
+      screen.getByRole('status', { name: 'Loading GitHub' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('status', { name: 'Loading the integrations' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Hosts' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Open pull request' }),
+    ).toBeDisabled();
+    expect(screen.queryByText(/No integrations yet/)).not.toBeInTheDocument();
+  });
+
+  it('shows GitHub once the team is known, while the hosts still load', () => {
+    onboarding.mockReturnValue(ready());
+    configuration.mockReturnValue(undefined);
+    showing();
+
+    expect(screen.queryByRole('status', { name: 'Loading GitHub' })).toBeNull();
+    expect(
+      screen.getByRole('status', { name: 'Loading the integrations' }),
+    ).toBeInTheDocument();
+  });
+
+  it('says the integrations could not be loaded, and tries again when asked', async () => {
+    onboarding.mockReturnValue(undefined);
+    configuration.mockReturnValue(undefined);
+    failing.mockReturnValue(true);
+    showing();
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Integrations could not be loaded.',
+    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(refetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('says so when there is no host to listen to, and links to where one is written', () => {
+    onboarding.mockReturnValue(ready({ integrations: [] }));
+    configuration.mockReturnValue(read());
+    showing();
+
+    expect(screen.getByText(/No integrations yet/)).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Open on GitHub' }),
+    ).toHaveAttribute('href', 'https://github.com/acme/api');
+  });
+
   it('offers the tools this team might use', () => {
     onboarding.mockReturnValue(ready());
     configuration.mockReturnValue(read());

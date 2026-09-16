@@ -1,10 +1,13 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router';
+import { AgentChatSkeleton } from '@/components/features/agent/AgentChatSkeleton';
 import { ChatComposer } from '@/components/features/agent/ChatComposer';
 import { ChatThread } from '@/components/features/agent/ChatThread';
 import { ProposalDetail } from '@/components/features/agent/ProposalDetail';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
+import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { PageNotice } from '@/components/shared/PageNotice';
 import {
   type BreadcrumbSegment,
   Breadcrumbs,
@@ -17,6 +20,7 @@ import { useRunStream } from '@/hooks/api/useRunStream';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useLingering } from '@/hooks/useLingering';
 import { newlyProposed } from '@/lib/chat';
+import { failed, loading } from '@/lib/query';
 import { teamPath, teamSectionPath } from '@/lib/team';
 import { TrailContext, useTrail } from '@/lib/trail';
 
@@ -24,8 +28,10 @@ const LEAVING = 240;
 
 export function AgentChat() {
   const { slug, teamId, chatId } = useParams();
-  const { data: chat, isError } = useChat(teamId, chatId);
-  const { data: journals } = useChatJournal(teamId, chatId);
+  const thread = useChat(teamId, chatId);
+  const chat = thread.data;
+  const journal = useChatJournal(teamId, chatId);
+  const journals = journal.data;
   const { data: workspace } = useWorkspace(slug);
   const queryClient = useQueryClient();
   const [opened, setOpened] = useState<{
@@ -94,46 +100,65 @@ export function AgentChat() {
     return null;
   }
 
+  if (loading(thread) || (chat && loading(journal))) {
+    return <AgentChatSkeleton />;
+  }
+
+  if (failed(thread)) {
+    return (
+      <PageNotice>
+        {missing(thread.error) ? (
+          <p className="text-muted-foreground text-sm">
+            There is no such chat for this team.
+          </p>
+        ) : (
+          <CouldNotLoad
+            what="The chat"
+            retrying={thread.isFetching}
+            onRetry={() => void thread.refetch()}
+          />
+        )}
+      </PageNotice>
+    );
+  }
+
+  if (!chat) {
+    return null;
+  }
+
   return (
     <TrailContext value={forward}>
       <div className="flex min-h-0 flex-1 flex-col">
         <PageHeader title={<Breadcrumbs segments={trail} />} />
 
-        {isError ? (
-          <div className="flex min-h-0 flex-1 items-center justify-center p-8">
-            <p className="text-muted-foreground text-sm">
-              There is no such chat for this team.
-            </p>
-          </div>
-        ) : (
-          chat && (
-            <ChatThread
-              chat={chat}
-              journals={journals ?? []}
-              openAt={openAt}
-              onOpen={toggle}
-              footer={
-                <ComposerFooter>
-                  <ChatComposer slug={slug} teamId={teamId} chat={chat} />
-                </ComposerFooter>
-              }
-              aside={
-                heldAt !== null &&
-                shown && (
-                  <ProposalDetail
-                    teamId={teamId}
-                    chatId={chat.id}
-                    position={heldAt}
-                    proposal={shown}
-                    open={openAt !== null}
-                    onClose={() => setOpened(null)}
-                  />
-                )
-              }
-            />
-          )
-        )}
+        <ChatThread
+          chat={chat}
+          journals={journals ?? []}
+          openAt={openAt}
+          onOpen={toggle}
+          footer={
+            <ComposerFooter>
+              <ChatComposer slug={slug} teamId={teamId} chat={chat} />
+            </ComposerFooter>
+          }
+          aside={
+            heldAt !== null &&
+            shown && (
+              <ProposalDetail
+                teamId={teamId}
+                chatId={chat.id}
+                position={heldAt}
+                proposal={shown}
+                open={openAt !== null}
+                onClose={() => setOpened(null)}
+              />
+            )
+          }
+        />
       </div>
     </TrailContext>
   );
 }
+
+const missing = (error: unknown): boolean =>
+  (error as { statusCode?: unknown } | null)?.statusCode === 404;

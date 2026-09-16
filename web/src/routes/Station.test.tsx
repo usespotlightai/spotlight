@@ -46,8 +46,18 @@ const line = {
   repositories: ['usespotlightai/spotlight'],
 };
 
+const lines = vi.fn();
+const failing = vi.fn();
+const refetch = vi.fn();
+
 vi.mock('@/hooks/api/useLines', () => ({
-  useLines: () => ({ data: [line], isPending: false }),
+  useLines: () => ({
+    data: lines(),
+    isPending: lines() === undefined,
+    errorUpdateCount: failing() ? 1 : 0,
+    isFetching: false,
+    refetch,
+  }),
 }));
 
 const customised = vi.fn();
@@ -127,6 +137,9 @@ const openHarnesses = async () => {
 };
 
 beforeEach(() => {
+  lines.mockReturnValue([line]);
+  failing.mockReturnValue(false);
+  refetch.mockClear();
   localStorage.clear();
   customised.mockClear();
   setRepositories.mockClear();
@@ -484,6 +497,41 @@ describe('Station', () => {
       stationId: 'station_1',
       changes: { color: '#db5b52' },
     });
+  });
+
+  it('holds the shape of the station while the line loads, keeping what never changes', () => {
+    lines.mockReturnValue(undefined);
+
+    renderAt('station_2');
+
+    expect(
+      screen.getByRole('status', { name: 'Loading the station' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Line Repositories' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Propose changes' }),
+    ).toBeDisabled();
+    expect(screen.queryByText('Station not found')).not.toBeInTheDocument();
+  });
+
+  it('says the station could not be loaded, and tries again when asked', async () => {
+    const user = userEvent.setup();
+    lines.mockReturnValue(undefined);
+    failing.mockReturnValue(true);
+
+    renderAt('station_2');
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'The station could not be loaded.',
+    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.queryByText('Station not found')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(refetch).toHaveBeenCalled();
   });
 
   it('says so when there is no station at that address', () => {

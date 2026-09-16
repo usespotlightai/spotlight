@@ -79,14 +79,19 @@ export function ModelEffortSelect({
           </span>
         )}
         {!allDefault && efforts.length > 0 && (
-          <span
-            className={cn(
-              'shrink-0',
-              effort ? 'text-foreground capitalize' : 'text-muted-foreground',
-            )}
-          >
-            {effort || 'Default'}
-          </span>
+          <>
+            <span aria-hidden className="-mx-1 shrink-0 text-muted-foreground">
+              ·
+            </span>
+            <span
+              className={cn(
+                'shrink-0',
+                effort ? 'text-foreground capitalize' : 'text-muted-foreground',
+              )}
+            >
+              {effort || 'Default'}
+            </span>
+          </>
         )}
         {!readOnly && (
           <ChevronsUpDown

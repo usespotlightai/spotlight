@@ -1,6 +1,14 @@
 import { type ChangeEvent, type SubmitEvent, useId, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useCreateWorkspace } from '@/hooks/api/useCreateWorkspace';
+import { FieldInput } from '@/components/shared/form/FieldInput';
+import { AuthScreen } from '@/components/shell/auth/AuthScreen';
+import { AuthTitle } from '@/components/shell/auth/AuthTitle';
+import { ErrorMessage } from '@/components/shell/auth/ErrorMessage';
+import { Button } from '@/components/ui/button';
+import {
+  useCreateWorkspace,
+  WorkspaceSlugTakenError,
+} from '@/hooks/api/useCreateWorkspace';
 import { useSession } from '@/hooks/api/useSession';
 import { useSignOut } from '@/hooks/api/useSignOut';
 import { inboxPath } from '@/lib/inbox';
@@ -63,9 +71,14 @@ export function CreateWorkspace() {
       ? namedWorkspace
       : teamName.trim() !== '' && !createWorkspace.isPending;
 
+  const failure =
+    createWorkspace.error instanceof WorkspaceSlugTakenError
+      ? 'That workspace URL is already taken. Go back and choose another.'
+      : 'Something went wrong. Please try again later.';
+
   return (
-    <div className="flex min-h-svh flex-col">
-      <header className="flex items-start justify-between gap-4 p-4">
+    <>
+      <header className="absolute inset-x-0 top-0 flex items-start justify-between gap-4 p-4">
         <button
           type="button"
           onClick={() => signOut.mutate()}
@@ -83,24 +96,28 @@ export function CreateWorkspace() {
         </p>
       </header>
 
-      <main className="flex flex-1 items-center justify-center px-4 pb-20">
-        <div className="flex w-72 flex-col gap-6">
-          <h1 className="text-center font-medium text-2xl text-foreground leading-tight tracking-tight">
-            {step === 'workspace' ? 'Create workspace' : 'Name your first team'}
-          </h1>
-          <p className="text-center text-muted-foreground text-sm">
-            {step === 'workspace'
-              ? 'A workspace is a shared environment your team works in.'
-              : `A team has its own board, its own repository and its own integrations. You can add more teams later.`}
-          </p>
+      <AuthScreen logo={false} className="w-72">
+        {step === 'workspace' ? (
+          <AuthTitle title="Create workspace" large>
+            A workspace is a shared environment your team works in.
+          </AuthTitle>
+        ) : (
+          <AuthTitle title="Name your first team" large>
+            A team has its own board, its own repository and its own
+            integrations.
+          </AuthTitle>
+        )}
 
-          <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+          {createWorkspace.isError && <ErrorMessage error={failure} />}
+
+          <div className="flex flex-col gap-2">
             {step === 'workspace' ? (
               <>
                 <label htmlFor={nameId} className="sr-only">
                   Workspace Name
                 </label>
-                <input
+                <FieldInput
                   id={nameId}
                   name="name"
                   type="text"
@@ -109,13 +126,13 @@ export function CreateWorkspace() {
                   placeholder="Workspace name"
                   value={name}
                   onChange={onNameChange}
-                  className="h-11 rounded-lg border-[0.5px] border-input bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border focus:border-ring"
+                  className="h-9 bg-card"
                 />
 
                 <label htmlFor={slugId} className="sr-only">
                   Workspace URL
                 </label>
-                <div className="flex h-11 items-center rounded-lg border-[0.5px] border-input bg-background pl-3 text-sm focus-within:border focus-within:border-ring">
+                <div className="flex h-9 items-center rounded-md border-[0.5px] border-border bg-card pl-2.5 text-sm focus-within:border-input">
                   <span id={prefixId} className="text-muted-foreground">
                     {WORKSPACE_URL_PREFIX}
                   </span>
@@ -128,7 +145,7 @@ export function CreateWorkspace() {
                     aria-describedby={prefixId}
                     value={slug}
                     onChange={onSlugChange}
-                    className="h-full min-w-0 flex-1 bg-transparent pr-3 text-foreground outline-none"
+                    className="h-full min-w-0 flex-1 bg-transparent pr-2.5 text-foreground outline-none"
                   />
                 </div>
               </>
@@ -137,39 +154,35 @@ export function CreateWorkspace() {
                 <label htmlFor={teamId} className="sr-only">
                   Team Name
                 </label>
-                <input
+                <FieldInput
                   id={teamId}
                   name="teamName"
                   type="text"
                   required
-                  // biome-ignore lint/a11y/noAutofocus: the step just changed under the cursor
                   autoFocus
                   autoComplete="off"
                   placeholder="Product"
                   value={teamName}
                   onChange={(event) => setTeamName(event.target.value)}
-                  className="h-11 rounded-lg border-[0.5px] border-input bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border focus:border-ring"
+                  className="h-9 bg-card"
                 />
               </>
             )}
+          </div>
 
-            {createWorkspace.isError && (
-              <p role="alert" className="text-center text-destructive text-sm">
-                {createWorkspace.error.message}
-              </p>
-            )}
-
-            <button
+          <div className="flex flex-col items-center gap-2">
+            <Button
               type="submit"
+              size="lg"
               disabled={!canSubmit}
-              className="h-11 rounded-full bg-primary font-medium text-primary-foreground text-sm outline-none transition-opacity hover:opacity-90 disabled:opacity-60"
+              className="rounded-full px-6"
             >
               {step === 'workspace'
                 ? 'Continue'
                 : createWorkspace.isPending
                   ? 'Creating workspace…'
                   : 'Create workspace'}
-            </button>
+            </Button>
 
             {step === 'team' && (
               <button
@@ -181,9 +194,9 @@ export function CreateWorkspace() {
                 Back
               </button>
             )}
-          </form>
-        </div>
-      </main>
-    </div>
+          </div>
+        </form>
+      </AuthScreen>
+    </>
   );
 }

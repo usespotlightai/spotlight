@@ -9,6 +9,7 @@ const session = vi.fn();
 const accept = vi.fn();
 const signIn = vi.fn();
 const navigate = vi.fn();
+const refetch = vi.fn();
 
 vi.mock('@/hooks/api/useInvite', () => ({
   useInvite: () => invite(),
@@ -60,7 +61,9 @@ const offered = (over: Record<string, unknown> = {}) => ({
     ...over,
   },
   isPending: false,
-  isError: false,
+  errorUpdateCount: 0,
+  isFetching: false,
+  refetch,
 });
 
 beforeEach(() => {
@@ -69,6 +72,7 @@ beforeEach(() => {
   accept.mockReset();
   signIn.mockReset();
   navigate.mockReset();
+  refetch.mockReset();
 });
 
 describe('AcceptInvite', () => {
@@ -85,12 +89,10 @@ describe('AcceptInvite', () => {
     ).toBeInTheDocument();
   });
 
-  it('asks somebody signed out to sign in as the person invited', async () => {
+  it('asks somebody signed out to sign in with GitHub', async () => {
     showing();
 
-    expect(
-      screen.getByText('Sign in as ada@example.com to accept.'),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/Sign in as/)).not.toBeInTheDocument();
 
     await userEvent.click(
       screen.getByRole('button', { name: 'Continue with GitHub' }),
@@ -157,9 +159,9 @@ describe('AcceptInvite', () => {
 
   it('says so when the link stands for no invitation', () => {
     invite.mockReturnValue({
-      data: undefined,
+      data: null,
       isPending: false,
-      isError: true,
+      errorUpdateCount: 0,
     });
     showing();
 
@@ -170,14 +172,45 @@ describe('AcceptInvite', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows nothing until the invitation has been read', () => {
+  it('shows nothing while the invitation is read', () => {
     invite.mockReturnValue({
       data: undefined,
       isPending: true,
-      isError: false,
+      errorUpdateCount: 0,
     });
     const { container } = showing();
 
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('shows nothing while the session is read', () => {
+    session.mockReturnValue({ data: null, isPending: true });
+    const { container } = showing();
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('says the invitation could not be loaded, and tries again when asked', async () => {
+    invite.mockReturnValue({
+      data: undefined,
+      isPending: false,
+      errorUpdateCount: 1,
+      isFetching: false,
+      refetch,
+    });
+    showing();
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'The invitation could not be loaded.',
+    );
+    expect(
+      screen.queryByRole('heading', {
+        name: 'This invitation link does not work',
+      }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(refetch).toHaveBeenCalled();
   });
 });

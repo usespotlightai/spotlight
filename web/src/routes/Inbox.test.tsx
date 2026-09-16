@@ -5,10 +5,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Inbox } from '@/routes/Inbox';
 
 const waiting = vi.fn();
+const failing = vi.fn();
+const refetch = vi.fn();
 
 vi.mock('@/hooks/api/useInbox', () => ({
   inboxKeys: { forWorkspace: () => ['inbox'] },
-  useInbox: () => ({ data: waiting(), isPending: false }),
+  useInbox: () => ({
+    data: waiting(),
+    isPending: waiting() === undefined,
+    errorUpdateCount: failing() ? 1 : 0,
+    isFetching: false,
+    refetch,
+  }),
 }));
 
 const item = (over: Record<string, unknown> = {}) => ({
@@ -58,6 +66,27 @@ describe('Inbox', () => {
   beforeEach(() => {
     localStorage.clear();
     waiting.mockReturnValue([item()]);
+    failing.mockReturnValue(false);
+    refetch.mockClear();
+  });
+
+  it('leaves the list blank when the inbox could not be loaded, even while it tries again', () => {
+    waiting.mockReturnValue(undefined);
+    failing.mockReturnValue(true);
+    renderAt('/w/acme/inbox');
+
+    expect(screen.getByRole('heading')).toHaveTextContent('Inbox');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('leaves the list blank when nothing is waiting', () => {
+    waiting.mockReturnValue([]);
+    renderAt('/w/acme/inbox');
+
+    expect(screen.getByRole('heading')).toHaveTextContent('Inbox');
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
   it('names the list, leaving the trail to the message beside it', () => {
@@ -65,6 +94,20 @@ describe('Inbox', () => {
 
     expect(screen.getByRole('heading')).toHaveTextContent('Inbox');
     expect(screen.getByRole('heading')).not.toHaveTextContent('Platform');
+  });
+
+  it('holds the shape of the list while it loads, beside the conversation', () => {
+    waiting.mockReturnValue(undefined);
+    renderAt('/w/acme/inbox/task_1%3A0');
+
+    expect(
+      screen.getByRole('status', { name: 'Loading the inbox' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('heading')).toHaveTextContent('Inbox');
+    expect(screen.getByText('the conversation')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Nothing is waiting on you.'),
+    ).not.toBeInTheDocument();
   });
 
   describe('what is still open', () => {

@@ -25,6 +25,7 @@ const owning = (count: number) =>
       slug: 'acme',
     })),
     isPending: false,
+    errorUpdateCount: 0,
   } as never);
 
 const renderAt = (path: string) =>
@@ -78,6 +79,7 @@ describe('RequireAuth', () => {
     mockWorkspaces.mockReturnValue({
       data: undefined,
       isPending: true,
+      errorUpdateCount: 0,
     } as never);
 
     renderAt('/');
@@ -110,5 +112,19 @@ describe('RequireAuth', () => {
     renderAt('/workspaces/new');
 
     expect(screen.getByText('workspace setup')).toBeInTheDocument();
+  });
+
+  it('does not send anyone to create a workspace when the list could not be loaded', () => {
+    signedIn();
+    mockWorkspaces.mockReturnValue({
+      data: undefined,
+      isPending: false,
+      errorUpdateCount: 1,
+    } as never);
+
+    renderAt('/');
+
+    expect(screen.getByText('protected page')).toBeInTheDocument();
+    expect(screen.queryByText('workspace setup')).not.toBeInTheDocument();
   });
 });

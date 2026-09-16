@@ -1,10 +1,13 @@
-import { HarnessPills } from '@/components/features/runners/HarnessPills';
+import {
+  HarnessPills,
+  type NamedHarness,
+} from '@/components/features/runners/HarnessPills';
 import { type Runner, seenAt, standing } from '@/lib/runner';
 import { cn } from '@/lib/utils';
 
 type RunnerCardProps = {
   runner: Runner;
-  harnesses: readonly string[];
+  harnesses: readonly NamedHarness[];
 };
 
 const dotOf = (runner: Runner) => {
@@ -17,7 +20,7 @@ const dotOf = (runner: Runner) => {
 export function RunnerCard({ runner, harnesses }: RunnerCardProps) {
   return (
     <li className="flex min-h-36 flex-col justify-between gap-5 rounded-lg border border-border bg-card p-4">
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <h3 className="truncate font-medium text-foreground text-sm">
             {runner.name}
@@ -32,7 +35,7 @@ export function RunnerCard({ runner, harnesses }: RunnerCardProps) {
           </span>
         </div>
 
-        <HarnessPills names={harnesses} />
+        <HarnessPills harnesses={harnesses} />
       </div>
 
       <p className="text-muted-foreground text-xs tabular-nums">

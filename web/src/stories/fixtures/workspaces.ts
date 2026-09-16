@@ -1,0 +1,68 @@
+import type { QueryClient } from '@tanstack/react-query';
+import { gitHubKeys } from '@/hooks/api/useConnectGitHub';
+import { lineKeys } from '@/hooks/api/useLines';
+import { workspaceKeys } from '@/hooks/api/useWorkspaces';
+import type {
+  LineResponseDto,
+  WorkspaceListingResponseDto,
+  WorkspaceResponseDto,
+} from '@/lib/api';
+import { failQuery } from '@/stories/failQuery';
+import { SLUG } from '@/stories/fixtures/runners';
+
+export { SLUG };
+
+export const TEAM_ID = 'team_platform';
+
+export const INSTALLATION_ID = '42';
+
+const LISTING: WorkspaceListingResponseDto[] = [
+  { id: 'workspace_acme', name: 'Acme', slug: SLUG, role: 'owner' },
+  { id: 'workspace_side', name: 'Side project', slug: 'side', role: 'member' },
+];
+
+const WORKSPACE: WorkspaceResponseDto = {
+  id: 'workspace_acme',
+  name: 'Acme',
+  slug: SLUG,
+  role: 'owner',
+  teams: [{ id: TEAM_ID, name: 'Platform' }],
+};
+
+const LINES: LineResponseDto[] = [
+  {
+    id: 'line_delivery',
+    key: 'delivery',
+    name: 'Delivery',
+    stations: [],
+    reactions: [],
+    repositories: [],
+  },
+];
+
+export const seedWorkspaces = (client: QueryClient) =>
+  client.setQueryData(workspaceKeys.all, LISTING);
+
+export const emptyWorkspaces = (client: QueryClient) =>
+  client.setQueryData(workspaceKeys.all, []);
+
+export const failWorkspaces = (client: QueryClient) =>
+  failQuery(client, workspaceKeys.all);
+
+export const seedTeams = (client: QueryClient) =>
+  client.setQueryData(workspaceKeys.detail(SLUG), WORKSPACE);
+
+export const emptyTeams = (client: QueryClient) =>
+  client.setQueryData(workspaceKeys.detail(SLUG), { ...WORKSPACE, teams: [] });
+
+export const seedLines = (client: QueryClient) =>
+  client.setQueryData(lineKeys.forTeam(TEAM_ID), LINES);
+
+export const emptyLines = (client: QueryClient) =>
+  client.setQueryData(lineKeys.forTeam(TEAM_ID), []);
+
+export const failLines = (client: QueryClient) =>
+  failQuery(client, lineKeys.forTeam(TEAM_ID));
+
+export const failConnection = (client: QueryClient) =>
+  failQuery(client, gitHubKeys.connection(SLUG, INSTALLATION_ID));

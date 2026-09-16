@@ -4,9 +4,12 @@ import { useParams, useSearchParams } from 'react-router';
 import { Conversation } from '@/components/features/inbox/conversation/Conversation';
 import { InboxAsked } from '@/components/features/inbox/conversation/InboxAsked';
 import { InboxComposer } from '@/components/features/inbox/conversation/InboxComposer';
+import { InboxItemSkeleton } from '@/components/features/inbox/InboxItemSkeleton';
 import { ChangesPanel } from '@/components/features/runs/ChangesPanel';
 import { RunActivity } from '@/components/features/runs/RunActivity';
 import { RunBriefing } from '@/components/features/runs/RunBriefing';
+import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { PageNotice } from '@/components/shared/PageNotice';
 import {
   type BreadcrumbSegment,
   Breadcrumbs,
@@ -19,6 +22,7 @@ import { useSession } from '@/hooks/api/useSession';
 import { journalKeys, useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { shownAt } from '@/lib/inbox';
+import { failed, loading } from '@/lib/query';
 import { taskPath } from '@/lib/task';
 import { teamPath } from '@/lib/team';
 import { useTrail } from '@/lib/trail';
@@ -26,9 +30,10 @@ import { useTrail } from '@/lib/trail';
 export function InboxItem() {
   const { slug, itemId } = useParams();
   const [params] = useSearchParams();
-  const { data: waiting } = useInbox(slug);
-  const item = waiting?.find((each) => each.id === itemId);
-  const { data: worked } = useTaskJournal(slug, item?.taskId);
+  const inbox = useInbox(slug);
+  const item = inbox.data?.find((each) => each.id === itemId);
+  const journal = useTaskJournal(slug, item?.taskId);
+  const worked = journal.data;
   const { data: session } = useSession();
   const { data: workspace } = useWorkspace(slug);
   const read = useReadInboxItem();
@@ -79,13 +84,29 @@ export function InboxItem() {
   ];
   const { trail } = useTrail(base);
 
+  if (loading(inbox) || (item && loading(journal))) {
+    return <InboxItemSkeleton />;
+  }
+
+  if (failed(inbox)) {
+    return (
+      <PageNotice>
+        <CouldNotLoad
+          what="The inbox"
+          retrying={inbox.isFetching}
+          onRetry={() => void inbox.refetch()}
+        />
+      </PageNotice>
+    );
+  }
+
   if (!item || !slug) {
     return (
-      <div className="flex min-h-0 flex-1 items-center justify-center p-8">
+      <PageNotice>
         <p className="text-muted-foreground text-sm">
           Nothing here is waiting on you any more.
         </p>
-      </div>
+      </PageNotice>
     );
   }
 

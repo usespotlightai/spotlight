@@ -48,7 +48,7 @@ describe('Login', () => {
     });
   });
 
-  it('renders the server error', async () => {
+  it('says sign-in failed in plain words rather than repeating the server', async () => {
     signInSocial.mockResolvedValue({
       data: null,
       error: { message: 'GitHub is not reachable', status: 502 },
@@ -60,9 +60,12 @@ describe('Login', () => {
       screen.getByRole('button', { name: 'Continue with GitHub' }),
     );
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'GitHub is not reachable',
+    const alert = await screen.findByRole('alert');
+
+    expect(alert).toHaveTextContent(
+      'We couldn’t sign you in. Please try again later.',
     );
+    expect(alert).not.toHaveTextContent('GitHub is not reachable');
   });
 
   it('offers no other way in', () => {

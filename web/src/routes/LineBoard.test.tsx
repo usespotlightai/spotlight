@@ -20,8 +20,18 @@ const line = {
 vi.mock('@/hooks/api/useRepositories', () => ({
   useRepositories: () => ({ data: [] }),
 }));
+const lined = vi.fn();
+const linesFailing = vi.fn();
+const refetchLines = vi.fn();
+
 vi.mock('@/hooks/api/useLines', () => ({
-  useLines: () => ({ data: [line], isPending: false }),
+  useLines: () => ({
+    data: lined(),
+    isPending: lined() === undefined,
+    errorUpdateCount: linesFailing() ? 1 : 0,
+    isFetching: false,
+    refetch: refetchLines,
+  }),
 }));
 vi.mock('@/hooks/api/useWorkspace', () => ({
   useWorkspace: () => ({
@@ -74,9 +84,18 @@ const standing = [
 
 const added = vi.fn();
 const moved = vi.fn();
+const listed = vi.fn();
+const tasksFailing = vi.fn();
+const refetchTasks = vi.fn();
 
 vi.mock('@/hooks/api/useTasks', () => ({
-  useTasks: () => ({ data: standing, isPending: false }),
+  useTasks: () => ({
+    data: listed(),
+    isPending: listed() === undefined,
+    errorUpdateCount: tasksFailing() ? 1 : 0,
+    isFetching: false,
+    refetch: refetchTasks,
+  }),
 }));
 vi.mock('@/hooks/api/useAddTask', () => ({
   useAddTask: () => ({ mutate: added }),
@@ -120,6 +139,97 @@ describe('LineBoard', () => {
     localStorage.clear();
     added.mockClear();
     moved.mockClear();
+    lined.mockReturnValue([line]);
+    linesFailing.mockReturnValue(false);
+    refetchLines.mockClear();
+    listed.mockReturnValue(standing);
+    tasksFailing.mockReturnValue(false);
+    refetchTasks.mockClear();
+  });
+
+  it('holds the shape of a station while the line loads, keeping what never changes', () => {
+    lined.mockReturnValue(undefined);
+
+    renderAt('line_1');
+
+    expect(
+      screen.getByRole('status', { name: 'Loading the line' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Read again' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Active' })).toBeInTheDocument();
+    expect(sections()).toHaveLength(0);
+    expect(
+      screen.queryByRole('heading', { name: 'Line not found' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('names the line while its tasks are still loading', () => {
+    listed.mockReturnValue(undefined);
+
+    renderAt('line_1');
+
+    expect(
+      screen.getByRole('status', { name: 'Loading the line' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /Platform\s*Default/ }),
+    ).toBeInTheDocument();
+  });
+
+  it('says the line could not be loaded, and tries again when asked', async () => {
+    const user = userEvent.setup();
+    lined.mockReturnValue(undefined);
+    linesFailing.mockReturnValue(true);
+
+    renderAt('line_1');
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'The line could not be loaded.',
+    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(refetchLines).toHaveBeenCalled();
+  });
+
+  it('says the tasks could not be loaded, and tries again when asked', async () => {
+    const user = userEvent.setup();
+    listed.mockReturnValue(undefined);
+    tasksFailing.mockReturnValue(true);
+
+    renderAt('line_1');
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'The tasks could not be loaded.',
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(refetchTasks).toHaveBeenCalled();
+  });
+
+  it('keeps the board up when a later refresh fails', () => {
+    tasksFailing.mockReturnValue(true);
+
+    renderAt('line_1');
+
+    expect(sections()).toHaveLength(4);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('shows only the stations when the line holds no tasks', () => {
+    listed.mockReturnValue([]);
+
+    renderAt('line_1');
+
+    expect(sections()).toHaveLength(4);
+    expect(screen.queryByText('No tasks')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Create a task' }),
+    ).not.toBeInTheDocument();
   });
 
   it('gives every station its own section, in board order', () => {
@@ -495,5 +605,9 @@ describe('LineBoard', () => {
     expect(
       screen.getByRole('heading', { name: 'Line not found' }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open the team' })).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1',
+    );
   });
 });

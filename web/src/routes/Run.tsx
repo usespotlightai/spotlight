@@ -6,8 +6,12 @@ import { ChangesPanel } from '@/components/features/runs/ChangesPanel';
 import { RunActivity } from '@/components/features/runs/RunActivity';
 import { RunBriefing } from '@/components/features/runs/RunBriefing';
 import { RunComposer } from '@/components/features/runs/RunComposer';
+import { RunEmpty } from '@/components/features/runs/RunEmpty';
 import { RunOpening } from '@/components/features/runs/RunOpening';
+import { RunSkeleton } from '@/components/features/runs/RunSkeleton';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
+import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { PageNotice } from '@/components/shared/PageNotice';
 import {
   type BreadcrumbSegment,
   Breadcrumbs,
@@ -22,6 +26,7 @@ import { useSession } from '@/hooks/api/useSession';
 import { journalKeys, useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { teamRunKeys, useTeamRuns } from '@/hooks/api/useTeamRuns';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { failed, loading } from '@/lib/query';
 import { working } from '@/lib/run';
 import { taskPath } from '@/lib/task';
 import { teamPath } from '@/lib/team';
@@ -29,10 +34,12 @@ import { TrailContext, useTrail } from '@/lib/trail';
 
 export function Run() {
   const { slug, teamId, runId } = useParams();
-  const { data: runs, isPending } = useTeamRuns(teamId);
-  const run = runs?.find((each) => each.id === runId);
-  const { data: said } = useRunConversation(teamId, runId);
-  const { data: worked } = useTaskJournal(slug, said?.taskId);
+  const runs = useTeamRuns(teamId);
+  const run = runs.data?.find((each) => each.id === runId);
+  const conversation = useRunConversation(teamId, runId);
+  const said = conversation.data;
+  const journal = useTaskJournal(slug, said?.taskId);
+  const worked = journal.data;
   const { data: session } = useSession();
   const { data: workspace } = useWorkspace(slug);
 
@@ -79,17 +86,42 @@ export function Run() {
   ];
   const { trail, forward } = useTrail(base, 2);
 
-  if (isPending || !slug || !teamId) {
+  if (!slug || !teamId) {
     return null;
+  }
+
+  if (
+    loading(runs) ||
+    (run && (loading(conversation) || (said && loading(journal))))
+  ) {
+    return <RunSkeleton />;
+  }
+
+  const lost = failed(runs)
+    ? runs
+    : run && failed(conversation)
+      ? conversation
+      : null;
+
+  if (lost) {
+    return (
+      <PageNotice>
+        <CouldNotLoad
+          what="The run"
+          retrying={lost.isFetching}
+          onRetry={() => void lost.refetch()}
+        />
+      </PageNotice>
+    );
   }
 
   if (!run) {
     return (
-      <div className="flex min-h-0 flex-1 items-center justify-center p-8">
+      <PageNotice>
         <p className="text-muted-foreground text-sm">
           There is no such run for this team.
         </p>
-      </div>
+      </PageNotice>
     );
   }
 
@@ -124,12 +156,15 @@ export function Run() {
     </p>
   );
 
+  const ran = (worked ?? []).filter((each) => each.runId === run.id);
+
+  const quiet =
+    !working(run) &&
+    !failed(journal) &&
+    ran.every((each) => each.steps.length === 0);
+
   const activity = run.station ? (
-    <RunActivity
-      journals={(worked ?? []).filter((each) => each.runId === run.id)}
-      working={working(run)}
-      station={run.station}
-    />
+    <RunActivity journals={ran} working={working(run)} station={run.station} />
   ) : null;
 
   return (
@@ -160,7 +195,13 @@ export function Run() {
                 run={run}
                 briefing={said?.briefing ?? null}
                 attachments={said?.attachments ?? []}
-                activity={activity}
+                activity={
+                  quiet ? (
+                    <RunEmpty slug={slug} teamId={teamId} run={run} />
+                  ) : (
+                    activity
+                  )
+                }
               />
 
               <ComposerFooter>{footer}</ComposerFooter>
