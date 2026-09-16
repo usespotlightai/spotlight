@@ -180,6 +180,7 @@ const TASKS: TaskResponseDto[] = [
     raisedBy: null,
     assignee: null,
     note: null,
+    labels: [],
   },
 ];
 
