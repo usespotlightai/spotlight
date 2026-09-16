@@ -5,7 +5,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SetupSteps } from '@/components/features/onboarding/SetupSteps';
 import { installUrlFor } from '@/lib/github';
 
-const onboardingState = { data: undefined as unknown };
+const onboardingState = {
+  data: undefined as unknown,
+  isPending: false,
+  errorUpdateCount: 0,
+};
 
 vi.mock('@/hooks/api/useOnboarding', () => ({
   useOnboarding: () => onboardingState,
@@ -113,11 +117,24 @@ const showing = (resolved = false) =>
   );
 
 beforeEach(() => {
+  onboardingState.isPending = false;
   pin.mockReset();
   setUp.mockReset();
 });
 
 describe('SetupSteps', () => {
+  it('holds the steps’ place while they load, under the heading it already has', () => {
+    onboardingState.data = undefined;
+    onboardingState.isPending = true;
+    showing();
+
+    expect(
+      screen.getByRole('status', { name: 'Loading the setup steps' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Set up your team')).toBeInTheDocument();
+    expect(screen.queryByText(BODY)).not.toBeInTheDocument();
+  });
+
   it('gives each step still to do a control of its own', () => {
     onboardingState.data = onboarding();
     showing();
