@@ -1,1 +1,0 @@
-ALTER TABLE "inbound_delivery" ADD COLUMN "claimed_at" timestamp;
