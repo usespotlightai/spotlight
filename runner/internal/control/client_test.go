@@ -290,3 +290,47 @@ func TestUseToolSaysWhichToolTheControlPlaneRefused(t *testing.T) {
 		t.Fatalf("err = %v, want it to name the tool", err)
 	}
 }
+
+func TestChangeStackChecksReadsWhatWaitsToBeChecked(t *testing.T) {
+	var seenPath string
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		seenPath = r.URL.Path
+		_, _ = w.Write([]byte(`{"waiting":true,"checks":[{"stackId":"s1","repository":null,"command":"go build ./...","steps":[{"id":"whole","patch":"diff"}]}]}`))
+	})
+
+	found, err := client.ChangeStackChecks(context.Background(), "run_1")
+	if err != nil {
+		t.Fatalf("checks: %v", err)
+	}
+
+	if seenPath != "/api/runs/run_1/change-stack-checks" {
+		t.Errorf("path %q", seenPath)
+	}
+	if !found.Waiting || len(found.Checks) != 1 || found.Checks[0].Repository != nil || found.Checks[0].Steps[0].ID != "whole" {
+		t.Errorf("found %+v", found)
+	}
+}
+
+func TestRecordChangeStackCheckPostsEachStep(t *testing.T) {
+	var seenPath string
+	var seen protocol.StackChecked
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		seenPath = r.URL.Path
+		_ = json.NewDecoder(r.Body).Decode(&seen)
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	err := client.RecordChangeStackCheck(context.Background(), "run_1", "s1", protocol.StackChecked{
+		Steps: []protocol.CheckedStep{{Step: "whole", Passed: true, Output: "ok", TookMs: 12}},
+	})
+	if err != nil {
+		t.Fatalf("record: %v", err)
+	}
+
+	if seenPath != "/api/runs/run_1/change-stack-checks/s1" {
+		t.Errorf("path %q", seenPath)
+	}
+	if len(seen.Steps) != 1 || !seen.Steps[0].Passed || seen.Skipped != "" {
+		t.Errorf("seen %+v", seen)
+	}
+}

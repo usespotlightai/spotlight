@@ -17,7 +17,7 @@ type WorkspaceSidebarProps = {
 };
 
 export function WorkspaceSidebar({ slug, workspace }: WorkspaceSidebarProps) {
-  const { data: runners } = useRunners();
+  const { data: runners } = useRunners(slug);
   const { data: waiting } = useInbox(slug);
   const unseen = waiting?.filter((each) => each.unread) ?? [];
 

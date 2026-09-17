@@ -12,6 +12,7 @@ import { InboxItem } from './routes/InboxItem.tsx';
 import { LineBoard } from './routes/LineBoard.tsx';
 import { Login } from './routes/Login.tsx';
 import { Run } from './routes/Run.tsx';
+import { RunChangeStack } from './routes/RunChangeStack.tsx';
 import { Runners } from './routes/Runners.tsx';
 import { Station } from './routes/Station.tsx';
 import { Task } from './routes/Task.tsx';
@@ -49,6 +50,7 @@ export default function App() {
             <Route path="tasks/:taskId" element={<Task />} />
             <Route path="observability/tasks/:taskId" element={<TaskTrace />} />
             <Route path="runs/:runId" element={<Run />} />
+            <Route path="runs/:runId/changes" element={<RunChangeStack />} />
             <Route path="agent/:chatId" element={<AgentChat />} />
             <Route path="settings">
               <Route index element={<Navigate to="general" replace />} />

@@ -1,0 +1,290 @@
+import type {
+  ChangeStackDraft,
+  ChangeStackDrafterPort,
+} from '@change-review/application/ports/change-stack-drafter.port';
+import type {
+  StackProblem,
+  StackProblemCode,
+} from '@change-review/domain/exceptions/invalid-change-stack.error';
+import type { DiffFacts } from '@change-review/domain/services/diff-facts';
+import type { Diff } from '@change-review/domain/value-objects/diff.vo';
+import {
+  COHORT_KINDS,
+  type ProposedCohort,
+} from '@change-review/domain/value-objects/stack-cohort.vo';
+import {
+  revisionOf,
+  type StackRevision,
+} from '@change-review/infrastructure/change-stacks/stack-revision';
+import { z } from 'zod';
+
+export const DEFAULT_MODEL = 'google/gemini-3.8-flash';
+
+const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
+
+const MOST_WAIT_MS = 10 * 60 * 1000;
+
+type Fetch = typeof globalThis.fetch;
+
+interface Completion {
+  readonly choices?: readonly {
+    readonly finish_reason?: string | null;
+    readonly message?: { readonly content?: string | null };
+  }[];
+  readonly error?: { readonly message?: string };
+}
+
+const MOST_OUTPUT = 32_000;
+
+const STACK = z.object({
+  cohorts: z.array(
+    z.object({
+      kind: z.enum(COHORT_KINDS),
+      title: z.string(),
+      intent: z.string(),
+      joinedBecause: z.string().nullable(),
+      layers: z.array(
+        z.object({
+          title: z.string(),
+          summary: z.string(),
+          dependsOn: z.array(
+            z.object({
+              layer: z.number().int(),
+              because: z.array(z.string()),
+            }),
+          ),
+          ranges: z.array(
+            z.object({
+              hunk: z.string(),
+              summary: z.string().nullable(),
+            }),
+          ),
+        }),
+      ),
+    }),
+  ),
+});
+
+const UNSUPPORTED = new Set(['$schema', 'minimum', 'maximum']);
+
+const portable = (schema: unknown): unknown =>
+  Array.isArray(schema)
+    ? schema.map(portable)
+    : schema && typeof schema === 'object'
+      ? Object.fromEntries(
+          Object.entries(schema)
+            .filter(([key]) => !UNSUPPORTED.has(key))
+            .map(([key, value]) => [key, portable(value)]),
+        )
+      : schema;
+
+export const STACK_SCHEMA = portable(z.toJSONSchema(STACK));
+
+const SYSTEM = `You organise a code change into a change stack, so a reviewer can understand a large diff in minutes instead of reading files in alphabetical order.
+
+A change stack has two levels:
+
+- Cohorts are independent pieces of work. Two changes belong to the same cohort when one exists to serve the other or both serve one purpose. Changes that merely look alike, sit in the same file, or follow the same pattern are not reasons to group them. When in doubt, split: a cohort that wrongly joins unrelated work misleads the reviewer, while two cohorts that could have been one cost little.
+- Layers are the ordered steps within one cohort, in the order a thoughtful senior engineer would walk someone through it: foundations first (schema, types, domain), then what builds on them (services, APIs), then what uses those (UI, wiring). A contract, the code implementing it and its tests belong in one layer, not three.
+
+Lockfiles, generated files, snapshots, whole-file renames and formatting-only changes have already been set aside, and Spotlight places them itself. Other changes that need no review of their own go in a cohort of kind "incidental". Everything else is kind "change".
+
+Spotlight has read the code and gives facts with each file and hunk. Treat them as fixed:
+
+- "uses": the hunk uses something another hunk defines, so it belongs in the same cohort, in the same layer or a later one.
+- "tests": the hunk tests the code in another hunk, so it belongs in the same cohort and the same layer as that code, in the latest layer where it tests several.
+- "moves code from": the hunk is code moved from another hunk, so the two belong in the same layer. Say in the layer's summary that it moves code.
+- A file marked "migration" belongs in layer 1 of its cohort.
+- "uses, unchanged": code the hunk uses that this diff leaves as it was. It links the hunk to nothing, but says which part of the codebase the hunk works with.
+- Hunks nothing connects are separate pieces of work. Join them in one cohort only when they plainly serve one purpose the code does not show, and then say why in the cohort's joinedBecause; otherwise leave joinedBecause null.
+
+The diff is split into hunks, each with an id such as h7. Rules the stack must keep:
+
+1. Place every hunk exactly once, as a range of one layer. Never invent a hunk id.
+2. A layer depends only on earlier layers of its own cohort, named by their 1-based position within that cohort. Cohorts never depend on each other.
+3. Every dependency names in "because" the symbols (types, functions, tables, routes, components) the later layer uses from the earlier one.
+4. Titles are short imperative phrases ("Add the invitation data model"). A cohort's intent and a layer's summary say what changed and why in one to three plain sentences.
+5. Give a range a summary only where the hunk does something a reviewer would not see at a glance; otherwise leave it null.
+
+Order cohorts by how much a reviewer needs to see them, most significant first, with incidental cohorts last.`;
+
+const described = (diff: Diff, facts: DiffFacts): string => {
+  const known = new Map(facts.hunks.map((each) => [each.hunk, each]));
+  const uses = (hunk: string) =>
+    facts.links
+      .filter((link) => link.from === hunk)
+      .map((link) =>
+        link.kind === 'moves'
+          ? `moves code from ${link.to}`
+          : `${link.kind} ${link.because.join(', ')} (in ${link.to})`,
+      );
+
+  return diff.files
+    .filter((file) =>
+      file.hunks.some((hunk) => !known.get(hunk.id)?.incidental),
+    )
+    .map((file) => {
+      const heading = [
+        `## ${file.path}`,
+        file.previousPath ? `(renamed from ${file.previousPath})` : null,
+        `[${[file.status, known.get(file.hunks[0]?.id ?? '')?.fileClass, file.binary ? 'binary' : null].filter(Boolean).join(', ')}]`,
+      ]
+        .filter(Boolean)
+        .join(' ');
+
+      const hunks = file.hunks
+        .filter((hunk) => !known.get(hunk.id)?.incidental)
+        .map((hunk) => {
+          const defines = known.get(hunk.id)?.defines ?? [];
+          const outside = known.get(hunk.id)?.outside ?? [];
+          const used = uses(hunk.id);
+
+          return [
+            `### ${hunk.id}`,
+            defines.length > 0 ? `defines: ${defines.join(', ')}` : null,
+            ...used,
+            outside.length > 0
+              ? `uses, unchanged: ${outside.join(', ')}`
+              : null,
+            hunk.patch || '(no lines to show)',
+          ]
+            .filter(Boolean)
+            .join('\n');
+        });
+
+      return [heading, ...hunks].join('\n');
+    })
+    .join('\n\n');
+};
+
+export const revised = (revision: StackRevision): string =>
+  [
+    `Spotlight checked every layer on its own, with the layers before it, by running \`${revision.command}\`. The whole change passes, but some layers do not. Fix each failing layer by moving the few changes it needs, most often a test, fixture or type its errors name, into it or an earlier layer. Keep every layer as small as it was and keep the same number of layers; join layers only where moving changes cannot make one build. Keep everything else as it was:`,
+    revision.stack
+      .map(
+        (cohort, c) =>
+          `cohort ${c + 1} "${cohort.title}": ${cohort.layers
+            .map(
+              (layer, l) =>
+                `layer ${l + 1} "${layer.title}" (${layer.hunks.join(', ')})`,
+            )
+            .join('; ')}`,
+      )
+      .join('\n'),
+    ...revision.failed.map((failure) =>
+      [
+        `cohort ${failure.cohort + 1}, layer ${failure.layer + 1} "${failure.title}" does not build with only the layers up to it. The check printed:`,
+        failure.output,
+        failure.named.length > 0
+          ? `The changed files its errors name:\n${failure.named
+              .map(
+                (file) =>
+                  `${file.path}: ${file.hunks
+                    .map((hunk) =>
+                      hunk.layer === null
+                        ? `${hunk.hunk} outside this cohort`
+                        : `${hunk.hunk} in layer ${hunk.layer + 1}`,
+                    )
+                    .join(', ')}`,
+              )
+              .join('\n')}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    ),
+  ].join('\n\n');
+
+const REMEDIES: Partial<Record<StackProblemCode, string>> = {
+  unconnected: 'split it, or give joinedBecause',
+  'joined-layers':
+    'move the few changes a failing layer needs instead, and join layers only where that cannot work',
+};
+
+export const told = (problem: StackProblem): string => {
+  const remedy = REMEDIES[problem.code];
+
+  return remedy ? `${problem.message}; ${remedy}` : problem.message;
+};
+
+export class OpenRouterChangeStackDrafter implements ChangeStackDrafterPort {
+  constructor(
+    private readonly apiKey: string | undefined,
+    private readonly model: string = DEFAULT_MODEL,
+    private readonly fetch: Fetch = globalThis.fetch,
+  ) {}
+
+  get available(): boolean {
+    return Boolean(this.apiKey);
+  }
+
+  async draft({
+    diff,
+    repository,
+    facts,
+    problems,
+    reordering,
+  }: ChangeStackDraft): Promise<readonly ProposedCohort[]> {
+    if (!this.apiKey) {
+      throw new Error('No OpenRouter API key is set for change stacks');
+    }
+
+    const revision = reordering ? revisionOf(reordering) : null;
+    const asked = [
+      repository ? `Repository: ${repository}` : null,
+      `The diff, as ${facts.hunks.filter((each) => !each.incidental).length} hunks to place:`,
+      described(diff, facts),
+      revision ? revised(revision) : null,
+      problems.length > 0
+        ? `A previous stack for this diff had these problems, so fix them:\n${problems.map((each) => `- ${told(each)}`).join('\n')}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+
+    const response = await this.fetch(ENDPOINT, {
+      method: 'POST',
+      signal: AbortSignal.timeout(MOST_WAIT_MS),
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
+        'X-Title': 'Spotlight',
+      },
+      body: JSON.stringify({
+        model: this.model,
+        max_tokens: MOST_OUTPUT,
+        messages: [
+          { role: 'system', content: SYSTEM },
+          { role: 'user', content: asked },
+        ],
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'change_stack',
+            strict: true,
+            schema: STACK_SCHEMA,
+          },
+        },
+        provider: { require_parameters: true },
+      }),
+    });
+
+    const answered = (await response.json().catch(() => ({}))) as Completion;
+
+    if (!response.ok) {
+      throw new Error(
+        `OpenRouter refused to draft: ${response.status} ${answered.error?.message ?? response.statusText}`,
+      );
+    }
+
+    const [choice] = answered.choices ?? [];
+
+    if (choice?.finish_reason !== 'stop' || !choice.message?.content) {
+      throw new Error(
+        `Drafting stopped early: ${choice?.finish_reason ?? answered.error?.message ?? 'no answer'}`,
+      );
+    }
+
+    return STACK.parse(JSON.parse(choice.message.content)).cohorts;
+  }
+}

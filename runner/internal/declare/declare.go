@@ -34,7 +34,7 @@ const RemarkPath = "/remark"
 
 const TracePath = "/trace"
 
-const mostInput = 1 << 20
+const mostInput = 8 << 20
 
 type Tooler func(ctx context.Context, name string, input json.RawMessage) (json.RawMessage, error)
 

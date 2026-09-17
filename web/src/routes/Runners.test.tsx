@@ -9,7 +9,10 @@ const failing = vi.fn();
 const refetch = vi.fn();
 
 vi.mock('@/hooks/api/useRunners', () => ({
-  runnerKeys: { all: ['runners'] },
+  runnerKeys: {
+    all: ['runners'],
+    forWorkspace: (slug?: string) => ['runners', slug ?? null],
+  },
   useRunners: () => ({
     data: fleet(),
     isPending: fleet() === undefined,

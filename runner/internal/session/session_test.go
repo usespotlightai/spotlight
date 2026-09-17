@@ -101,6 +101,14 @@ func (j *journal) Attachment(_ context.Context, _ string, id string, into io.Wri
 	return err
 }
 
+func (j *journal) ChangeStackChecks(context.Context, string) (protocol.StackChecks, error) {
+	return protocol.StackChecks{}, nil
+}
+
+func (j *journal) RecordChangeStackCheck(context.Context, string, string, protocol.StackChecked) error {
+	return nil
+}
+
 func (j *journal) typed(kind protocol.EventType) []protocol.Event {
 	j.mu.Lock()
 	defer j.mu.Unlock()
@@ -676,4 +684,72 @@ func TestAKeptWorkspaceHoldsOnlyTheSkillsThisRunWasGiven(t *testing.T) {
 			t.Errorf("%s is still there: %v", dropped, err)
 		}
 	}
+}
+
+func droppingAfterCancel(t *testing.T) string {
+	t.Helper()
+
+	script := `#!/usr/bin/env node
+const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
+let buffered = "";
+let prompts = 0;
+process.stdin.on("data", (chunk) => {
+  buffered += chunk.toString();
+  const lines = buffered.split("\n");
+  buffered = lines.pop();
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const msg = JSON.parse(line);
+    if (msg.method === "initialize") send({ jsonrpc: "2.0", id: msg.id, result: { protocolVersion: 1 } });
+    if (msg.method === "session/new") send({ jsonrpc: "2.0", id: msg.id, result: { sessionId: "session_opened" } });
+    if (msg.method === "session/prompt") {
+      prompts += 1;
+      if (prompts === 1) {
+        send({ jsonrpc: "2.0", id: msg.id, result: { stopReason: "cancelled" } });
+      } else if (prompts === 2) {
+        send({ jsonrpc: "2.0", id: msg.id, result: { stopReason: "end_turn" } });
+      } else {
+        send({ jsonrpc: "2.0", method: "session/update",
+               params: { update: { sessionUpdate: "agent_message_chunk",
+                                   content: { type: "text", text: "took up: " + msg.params.prompt[0].text } } } });
+        send({ jsonrpc: "2.0", id: msg.id, result: { stopReason: "end_turn" } });
+      }
+    }
+  }
+});
+`
+
+	dir, err := os.MkdirTemp("", "harness")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	if err := os.Chmod(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	path := filepath.Join(dir, "harness")
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestWhatWasSaidIsSaidAgainWhereTheHarnessLetsItGoUnread(t *testing.T) {
+	written := run(t, droppingAfterCancel(t), func(o *runOptions) {
+		o.said = [][]protocol.Said{
+			{{Position: 1, Body: "actually, do this instead"}},
+		}
+	})
+
+	if written.done == nil || written.done.Failed {
+		t.Fatalf("the run should finish: %+v", written.done)
+	}
+
+	for _, event := range written.typed(protocol.EventOutput) {
+		if strings.Contains(string(event.Data), "took up: actually, do this instead") {
+			return
+		}
+	}
+	t.Fatal("what the person said never reached the agent")
 }

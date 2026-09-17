@@ -134,3 +134,32 @@ type Said struct {
 	Body        string       `json:"body"`
 	Attachments []Attachment `json:"attachments,omitempty"`
 }
+
+type StackChecks struct {
+	Waiting bool         `json:"waiting"`
+	Checks  []StackCheck `json:"checks"`
+}
+
+type StackCheck struct {
+	StackID    string      `json:"stackId"`
+	Repository *string     `json:"repository"`
+	Command    string      `json:"command"`
+	Steps      []CheckStep `json:"steps"`
+}
+
+type CheckStep struct {
+	ID    string `json:"id"`
+	Patch string `json:"patch"`
+}
+
+type StackChecked struct {
+	Skipped string        `json:"skipped,omitempty"`
+	Steps   []CheckedStep `json:"steps,omitempty"`
+}
+
+type CheckedStep struct {
+	Step   string `json:"step"`
+	Passed bool   `json:"passed"`
+	Output string `json:"output"`
+	TookMs int64  `json:"tookMs"`
+}

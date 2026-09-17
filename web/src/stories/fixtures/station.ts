@@ -109,7 +109,7 @@ const REPOSITORIES: RepositoryResponseDto[] = [
 export const seedStation = (client: QueryClient) => {
   client.setQueryData(workspaceKeys.detail(SLUG), WORKSPACE);
   client.setQueryData(lineKeys.forTeam(TEAM_ID), LINES);
-  client.setQueryData(harnessKeys.all, HARNESSES);
+  client.setQueryData(harnessKeys.forWorkspace(SLUG), HARNESSES);
   client.setQueryData(repositoryKeys.forWorkspace(SLUG), REPOSITORIES);
   client.setQueryData(teamSkillKeys.forTeam(TEAM_ID), SKILLS);
 };

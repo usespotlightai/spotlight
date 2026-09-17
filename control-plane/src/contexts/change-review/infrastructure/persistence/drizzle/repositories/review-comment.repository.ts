@@ -1,0 +1,173 @@
+import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
+import { ChangedSinceReadError } from '@change-review/domain/exceptions/changed-since-read.error';
+import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
+import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
+import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
+import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
+import { reviewComment } from '@change-review/infrastructure/persistence/drizzle/schemas/review.schema';
+import { Inject, Injectable } from '@nestjs/common';
+import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import {
+  DOMAIN_EVENT_DISPATCHER,
+  type DomainEventDispatcher,
+} from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { and, asc, eq } from 'drizzle-orm';
+
+type Row = typeof reviewComment.$inferSelect;
+
+const toComment = (row: Row): ReviewComment =>
+  ReviewComment.rehydrate({
+    id: ReviewCommentId.of(row.id),
+    workspaceId: WorkspaceId.of(row.workspaceId),
+    taskId: TaskId.of(row.taskId),
+    anchor: ReviewAnchor.of({
+      path: row.path,
+      side: row.side,
+      line: row.line,
+      startLine: row.startLine,
+    }),
+    body: row.body,
+    author: {
+      userId: row.authorId ? UserId.of(row.authorId) : null,
+      login: row.authorLogin,
+      name: row.authorName,
+    },
+    replyTo: row.replyToId ? ReviewCommentId.of(row.replyToId) : null,
+    reviewId: row.reviewId ? ReviewId.of(row.reviewId) : null,
+    state: row.state,
+    github:
+      row.githubId !== null && row.githubUrl
+        ? { id: row.githubId, url: row.githubUrl }
+        : null,
+    sentBody: row.sentBody,
+    editPending: row.editPending,
+    editsAwaitingEcho: row.editsAwaitingEcho,
+    createdAt: row.createdAt,
+    editedAt: row.editedAt,
+    version: row.version,
+  });
+
+const toRow = (comment: ReviewComment): Row => ({
+  id: comment.id.value,
+  workspaceId: comment.workspaceId.value,
+  taskId: comment.taskId.value,
+  path: comment.anchor.path,
+  side: comment.anchor.side,
+  line: comment.anchor.line,
+  startLine: comment.anchor.startLine,
+  body: comment.body,
+  authorId: comment.author.userId?.value ?? null,
+  authorLogin: comment.author.login,
+  authorName: comment.author.name,
+  replyToId: comment.replyTo?.value ?? null,
+  reviewId: comment.reviewId?.value ?? null,
+  state: comment.state,
+  githubId: comment.github?.id ?? null,
+  githubUrl: comment.github?.url ?? null,
+  sentBody: comment.sentBody,
+  editPending: comment.editPending,
+  editsAwaitingEcho: [...comment.editsAwaitingEcho],
+  createdAt: comment.createdAt,
+  editedAt: comment.editedAt,
+  version: comment.version,
+});
+
+@Injectable()
+export class DrizzleReviewCommentRepository implements ReviewCommentRepository {
+  constructor(
+    private readonly context: DrizzleContext,
+    @Inject(DOMAIN_EVENT_DISPATCHER)
+    private readonly events: DomainEventDispatcher,
+  ) {}
+
+  async add(comment: ReviewComment): Promise<void> {
+    await this.context.run(async () => {
+      await this.context.db.insert(reviewComment).values(toRow(comment));
+      await this.events.dispatch(comment.pullEvents());
+    });
+  }
+
+  async save(comment: ReviewComment): Promise<void> {
+    await this.context.run(async () => {
+      await this.stored(comment);
+      await this.events.dispatch(comment.pullEvents());
+    });
+  }
+
+  private async stored(comment: ReviewComment): Promise<void> {
+    const { id, version, ...changed } = toRow(comment);
+
+    const written = await this.context.db
+      .update(reviewComment)
+      .set({ ...changed, version: version + 1 })
+      .where(and(eq(reviewComment.id, id), eq(reviewComment.version, version)))
+      .returning({ id: reviewComment.id });
+
+    if (written.length === 0) {
+      throw new ChangedSinceReadError('review comment', id);
+    }
+  }
+
+  async find(id: ReviewCommentId): Promise<ReviewComment | null> {
+    const [row] = await this.context.db
+      .select()
+      .from(reviewComment)
+      .where(eq(reviewComment.id, id.value))
+      .limit(1);
+
+    return row ? toComment(row) : null;
+  }
+
+  async onGitHub(
+    workspaceId: WorkspaceId,
+    githubId: number,
+  ): Promise<ReviewComment | null> {
+    const [row] = await this.context.db
+      .select()
+      .from(reviewComment)
+      .where(
+        and(
+          eq(reviewComment.workspaceId, workspaceId.value),
+          eq(reviewComment.githubId, githubId),
+        ),
+      )
+      .limit(1);
+
+    return row ? toComment(row) : null;
+  }
+
+  async draftsBy(taskId: TaskId, author: UserId): Promise<ReviewComment[]> {
+    const rows = await this.context.db
+      .select()
+      .from(reviewComment)
+      .where(
+        and(
+          eq(reviewComment.taskId, taskId.value),
+          eq(reviewComment.authorId, author.value),
+          eq(reviewComment.state, 'draft'),
+        ),
+      )
+      .orderBy(asc(reviewComment.createdAt));
+
+    return rows.map(toComment);
+  }
+
+  async ofTask(taskId: TaskId): Promise<ReviewComment[]> {
+    const rows = await this.context.db
+      .select()
+      .from(reviewComment)
+      .where(eq(reviewComment.taskId, taskId.value))
+      .orderBy(asc(reviewComment.createdAt));
+
+    return rows.map(toComment);
+  }
+
+  async removeForTask(taskId: TaskId): Promise<void> {
+    await this.context.db
+      .delete(reviewComment)
+      .where(eq(reviewComment.taskId, taskId.value));
+  }
+}

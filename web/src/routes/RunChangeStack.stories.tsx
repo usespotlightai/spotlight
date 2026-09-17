@@ -1,0 +1,93 @@
+import type { Meta, StoryObj } from '@storybook/react-vite';
+import { Route } from 'react-router';
+import { changeStackPath } from '@/lib/change-stack';
+import { RunChangeStack } from '@/routes/RunChangeStack';
+import {
+  checkedChangeStack,
+  checkingChangeStack,
+  draftingChangeStack,
+  emptyChangeStack,
+  failChangeStack,
+  reviewedChangeStack,
+  seedChangeStack,
+} from '@/stories/fixtures/change-stack';
+import { RUN_ID, SLUG, TEAM_ID } from '@/stories/fixtures/run';
+import { StoryPage } from '@/stories/StoryPage';
+
+const routes = (
+  <Route
+    path="/w/:slug/team/:teamId/runs/:runId/changes"
+    element={<RunChangeStack />}
+  />
+);
+
+const at = changeStackPath(SLUG, TEAM_ID, RUN_ID);
+
+const meta = {
+  title: 'Pages/Run change stack',
+} satisfies Meta;
+
+export default meta;
+
+type Story = StoryObj<typeof meta>;
+
+export const Loading: Story = {
+  render: () => <StoryPage at={at}>{routes}</StoryPage>,
+};
+
+export const Empty: Story = {
+  render: () => (
+    <StoryPage at={at} seed={emptyChangeStack}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const Failed: Story = {
+  name: 'Error',
+  render: () => (
+    <StoryPage at={at} seed={failChangeStack}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const WithData: Story = {
+  render: () => (
+    <StoryPage at={at} seed={seedChangeStack}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const Drafting: Story = {
+  render: () => (
+    <StoryPage at={at} seed={draftingChangeStack}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const Checked: Story = {
+  render: () => (
+    <StoryPage at={`${at}?layer=c1.l2`} seed={checkedChangeStack}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const Checking: Story = {
+  render: () => (
+    <StoryPage at={at} seed={checkingChangeStack}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const WithReview: Story = {
+  render: () => (
+    <StoryPage at={`${at}?layer=c1.l1`} seed={reviewedChangeStack}>
+      {routes}
+    </StoryPage>
+  ),
+};

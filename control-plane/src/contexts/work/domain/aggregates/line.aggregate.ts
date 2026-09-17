@@ -1,0 +1,502 @@
+import { EventRecorder } from '@shared-kernel/domain/aggregates/event-recorder';
+import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
+import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { Station } from '@work/domain/entities/station.entity';
+import { LineRepositoriesChanged } from '@work/domain/events/line-repositories-changed.event';
+import { StationHarnessChanged } from '@work/domain/events/station-harness-changed.event';
+import { StationRenamed } from '@work/domain/events/station-renamed.event';
+import { InvalidStationLayoutError } from '@work/domain/exceptions/invalid-station-layout.error';
+import { UnknownHappeningError } from '@work/domain/exceptions/unknown-happening.error';
+import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
+import type { LineOpening } from '@work/domain/services/built-in-lines';
+import { entryOf } from '@work/domain/services/line-entry';
+import {
+  reactionsRefused,
+  stationsRefused,
+} from '@work/domain/services/line-layout';
+import type { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
+import type { Effort } from '@work/domain/value-objects/effort.vo';
+import { HandoverOption } from '@work/domain/value-objects/handover-option.vo';
+import type { Happening } from '@work/domain/value-objects/happening.vo';
+import { LineId } from '@work/domain/value-objects/line-id.vo';
+import type { LineKey } from '@work/domain/value-objects/line-key.vo';
+import type { LineName } from '@work/domain/value-objects/line-name.vo';
+import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
+import type { LineRole } from '@work/domain/value-objects/line-role.vo';
+import { Reaction } from '@work/domain/value-objects/reaction.vo';
+import type { SkillKey } from '@work/domain/value-objects/skill-key.vo';
+import type { StationColor } from '@work/domain/value-objects/station-color.vo';
+import type { StationDescription } from '@work/domain/value-objects/station-description.vo';
+import { StationId } from '@work/domain/value-objects/station-id.vo';
+import type { StationKey } from '@work/domain/value-objects/station-key.vo';
+import type { StationName } from '@work/domain/value-objects/station-name.vo';
+import { WayOut } from '@work/domain/value-objects/way-out.vo';
+
+const sameOrBothNone = <T extends { equals(other: T): boolean }>(
+  a: T | null,
+  b: T | null,
+): boolean => (a === null || b === null ? a === b : a.equals(b));
+
+export type PassRefusal = 'standing-there' | 'nothing-runs' | 'no-way';
+
+export interface LineLayout {
+  readonly key: LineKey;
+  readonly name: LineName;
+  readonly stations: readonly Station[];
+  readonly reactions?: readonly Reaction[];
+  readonly role?: LineRole | null;
+  readonly repositories?: readonly Repository[];
+}
+
+interface LineIdentity {
+  readonly id: LineId;
+  readonly workspaceId: WorkspaceId;
+  readonly teamId: TeamId;
+}
+
+export class Line extends EventRecorder {
+  private constructor(
+    readonly id: LineId,
+    readonly workspaceId: WorkspaceId,
+    readonly teamId: TeamId,
+    readonly key: LineKey,
+    readonly name: LineName,
+    readonly stations: readonly Station[],
+    readonly reactions: readonly Reaction[],
+    readonly role: LineRole | null,
+    readonly repositories: LineRepositories,
+    readonly version: number,
+  ) {
+    super();
+  }
+
+  static open(input: {
+    workspaceId: WorkspaceId;
+    teamId: TeamId;
+    line: LineOpening;
+    newId: () => string;
+  }): Line {
+    const named = input.line.stations;
+    const ids = named.map(() => StationId.of(input.newId()));
+
+    const at = (key: StationKey): StationId => {
+      const found = named.findIndex((each) => each.key.equals(key));
+
+      if (found < 0) {
+        throw new InvalidStationLayoutError(
+          `must name one station "${key.value}", but name none`,
+        );
+      }
+
+      return ids[found] as StationId;
+    };
+
+    return Line.laidOut({
+      id: LineId.of(input.newId()),
+      workspaceId: input.workspaceId,
+      teamId: input.teamId,
+      key: input.line.key,
+      name: input.line.name,
+      role: input.line.role,
+      repositories: input.line.repositories,
+      stations: named.map((each, position) =>
+        Station.of({
+          id: ids[position] as StationId,
+          key: each.key,
+          name: each.name,
+          color: each.color,
+          position,
+          kind: each.kind,
+          agentPrompt: each.agentPrompt,
+          wayOut: WayOut.of({
+            stations: each.passesTo.map((to) => at(to)),
+            ends: each.ends,
+          }),
+          tools: each.tools,
+          skills: each.skills,
+        }),
+      ),
+      reactions: input.line.reactions.map((each) =>
+        Reaction.of({ happening: each.happening, to: at(each.to) }),
+      ),
+    });
+  }
+
+  static laidOut(input: LineIdentity & LineLayout): Line {
+    return Line.built(input, input, 0);
+  }
+
+  static rehydrate(
+    input: LineIdentity & LineLayout & { version?: number },
+  ): Line {
+    return Line.built(input, input, input.version ?? 0);
+  }
+
+  private static built(
+    identity: LineIdentity,
+    layout: LineLayout,
+    version: number,
+  ): Line {
+    const reactions = layout.reactions ?? [];
+
+    Line.guardPositionsAreContiguous(layout.stations);
+
+    const stations = [...layout.stations].sort(
+      (a, b) => a.position - b.position,
+    );
+    const keyOf = new Map(
+      stations.map((each) => [each.id.value, each.key.value]),
+    );
+    const laid = stationsRefused(
+      stations.map((each) => ({
+        key: each.key.value,
+        name: each.name.value,
+        kind: each.kind,
+        passesTo: each.wayOut.stations.map((to) => keyOf.get(to.value) ?? ''),
+      })),
+    );
+
+    if (laid) {
+      throw new InvalidStationLayoutError(laid.reason);
+    }
+
+    const reacting = reactionsRefused(
+      reactions.map((each) => ({
+        happening: each.happening.value,
+        from: each.from ? (keyOf.get(each.from.value) ?? '') : null,
+        to: keyOf.get(each.to.value) ?? '',
+      })),
+      new Set(keyOf.values()),
+    );
+
+    if (reacting) {
+      throw new InvalidStationLayoutError(reacting.reason);
+    }
+
+    return new Line(
+      identity.id,
+      identity.workspaceId,
+      identity.teamId,
+      layout.key,
+      layout.name,
+      stations,
+      reactions,
+      layout.role ?? null,
+      LineRepositories.of(layout.repositories ?? []),
+      version,
+    );
+  }
+
+  relaidAs(layout: LineLayout): Line {
+    return this.changed(layout);
+  }
+
+  private changed(part: Partial<LineLayout>): Line {
+    const next = Line.built(
+      this,
+      {
+        key: part.key ?? this.key,
+        name: part.name ?? this.name,
+        stations: part.stations ?? this.stations,
+        reactions: part.reactions ?? this.reactions,
+        role: part.role !== undefined ? part.role : this.role,
+        repositories: part.repositories ?? this.repositories.all,
+      },
+      this.version,
+    );
+
+    next.inheritEvents(this);
+    this.recordChangesInto(next);
+
+    return next;
+  }
+
+  private recordChangesInto(next: Line): void {
+    for (const after of next.stations) {
+      const before = this.stationAt(after.id);
+
+      if (!before) {
+        continue;
+      }
+
+      if (!before.name.equals(after.name)) {
+        next.record(
+          new StationRenamed(this.id, after.id, before.name, after.name),
+        );
+      }
+
+      if (
+        !sameOrBothNone(before.harness, after.harness) ||
+        !sameOrBothNone(before.model, after.model)
+      ) {
+        next.record(
+          new StationHarnessChanged(
+            this.id,
+            after.id,
+            after.harness,
+            after.model,
+          ),
+        );
+      }
+    }
+
+    if (!this.repositories.equals(next.repositories)) {
+      next.record(new LineRepositoriesChanged(this.id, next.repositories));
+    }
+  }
+
+  get harness(): HarnessId | null {
+    return this.entry?.harness ?? null;
+  }
+
+  repositoryNamed(name: string): Repository | null {
+    return this.repositories.named(name);
+  }
+
+  worksIn(repositories: readonly Repository[]): Line {
+    return this.changed({ repositories });
+  }
+
+  opening(name: string | null): Repository {
+    return this.repositories.opening(name);
+  }
+
+  runsOn(harness: HarnessId | null, model: HarnessModel | null): Line {
+    return this.changed({
+      stations: this.stations.map((each) =>
+        each.isWorked ? each.runsOn(harness, model) : each,
+      ),
+    });
+  }
+
+  thinksAt(effort: Effort | null): Line {
+    return this.changed({
+      stations: this.stations.map((each) =>
+        each.isWorked ? each.atEffort(effort) : each,
+      ),
+    });
+  }
+
+  renameStation(stationId: StationId, name: StationName): Line {
+    return this.withStation(stationId, (station) => station.rename(name));
+  }
+
+  repaintStation(stationId: StationId, color: StationColor): Line {
+    return this.withStation(stationId, (station) => station.repaint(color));
+  }
+
+  describeStation(
+    stationId: StationId,
+    description: StationDescription | null,
+  ): Line {
+    return this.withStation(stationId, (station) =>
+      station.describe(description),
+    );
+  }
+
+  changeStationHarness(
+    stationId: StationId,
+    change: { harness?: HarnessId | null; model?: HarnessModel | null },
+  ): Line {
+    return this.withStation(stationId, (station) =>
+      station.runsOn(
+        change.harness !== undefined ? change.harness : station.harness,
+        change.model !== undefined ? change.model : station.model,
+      ),
+    );
+  }
+
+  setStationEffort(stationId: StationId, effort: Effort | null): Line {
+    return this.withStation(stationId, (station) => station.atEffort(effort));
+  }
+
+  instructStation(stationId: StationId, agentPrompt: AgentPrompt | null): Line {
+    return this.withStation(stationId, (station) =>
+      station.instruct(agentPrompt),
+    );
+  }
+
+  giveStationSkills(stationId: StationId, skills: readonly SkillKey[]): Line {
+    return this.withStation(stationId, (station) =>
+      station.givesSkills(skills),
+    );
+  }
+
+  reactionTo(happening: Happening, standingAt: StationId): Reaction | null {
+    const applies = this.reactions.filter(
+      (each) => each.happening.equals(happening) && each.appliesAt(standingAt),
+    );
+
+    return applies.find((each) => !each.isEverywhere) ?? applies[0] ?? null;
+  }
+
+  reactsWith(
+    reactions: readonly Reaction[],
+    raised: readonly Happening[],
+  ): Line {
+    Line.guardEveryHappeningIsRaised(reactions, raised);
+
+    return this.changed({ reactions });
+  }
+
+  private static guardEveryHappeningIsRaised(
+    reactions: readonly Reaction[],
+    raised: readonly Happening[],
+  ): void {
+    const said = new Set(raised.map((each) => each.value));
+
+    for (const reaction of reactions) {
+      if (!said.has(reaction.happening.value)) {
+        throw new UnknownHappeningError(reaction.happening.value);
+      }
+    }
+  }
+
+  private withStation(
+    stationId: StationId,
+    change: (station: Station) => Station,
+  ): Line {
+    const target = this.stations.find((each) => each.id.equals(stationId));
+
+    if (!target) {
+      throw new UnknownStationError(stationId.value);
+    }
+
+    return this.changed({
+      stations: this.stations.map((each) =>
+        each.equals(target) ? change(each) : each,
+      ),
+    });
+  }
+
+  private static guardPositionsAreContiguous(
+    stations: readonly Station[],
+  ): void {
+    if (stations.length === 0) {
+      throw new InvalidStationLayoutError('must number at least one');
+    }
+
+    const positions = stations
+      .map((each) => each.position)
+      .sort((a, b) => a - b);
+
+    if (positions.some((position, index) => position !== index)) {
+      throw new InvalidStationLayoutError(
+        `must sit at positions 0 to ${stations.length - 1}, but sit at ${positions.join(', ')}`,
+      );
+    }
+  }
+
+  get completed(): Station {
+    const standing = this.stations.find((each) => each.isCompleted);
+
+    if (!standing) {
+      throw new InvalidStationLayoutError(
+        'must hold one completed, but hold 0',
+      );
+    }
+
+    return standing;
+  }
+
+  get backlog(): Station {
+    const standing = this.stations.find((each) => each.isBacklog);
+
+    if (!standing) {
+      throw new InvalidStationLayoutError('must hold one backlog, but hold 0');
+    }
+
+    return standing;
+  }
+
+  get worked(): readonly Station[] {
+    return this.stations.filter((each) => each.isWorked);
+  }
+
+  get entry(): Station | null {
+    return entryOf(this.stations);
+  }
+
+  stationAt(stationId: StationId): Station | null {
+    return this.stations.find((each) => each.id.equals(stationId)) ?? null;
+  }
+
+  holds(stationId: StationId): boolean {
+    return this.stationAt(stationId) !== null;
+  }
+
+  optionsFrom(stationId: StationId): readonly HandoverOption[] {
+    const from = this.stationAt(stationId);
+
+    return [
+      ...this.stations
+        .filter(
+          (station) => from && this.refusalToPass(from.id, station) === null,
+        )
+        .map((station) => HandoverOption.station(station.key, station.name)),
+      HandoverOption.review(),
+      ...(from?.wayOut.ends ? [HandoverOption.done()] : []),
+    ];
+  }
+
+  refusalToPass(from: StationId, to: Station): PassRefusal | null {
+    if (to.id.equals(from)) {
+      return 'standing-there';
+    }
+    if (!to.harness) {
+      return 'nothing-runs';
+    }
+    if (!this.stationAt(from)?.wayOut.leadsTo(to.id)) {
+      return 'no-way';
+    }
+    return null;
+  }
+
+  endsAt(stationId: StationId): boolean {
+    return this.stationAt(stationId)?.wayOut.ends ?? false;
+  }
+
+  depthOf(stationId: StationId): number {
+    return this.depths().get(stationId.value) ?? 0;
+  }
+
+  private depths(): ReadonlyMap<string, number> {
+    const byId = new Map(this.stations.map((each) => [each.id.value, each]));
+    const depth = new Map<string, number>([[this.backlog.id.value, 0]]);
+    const queue: Station[] = [this.backlog];
+
+    while (queue.length > 0) {
+      const station = queue.shift() as Station;
+      const here = depth.get(station.id.value) as number;
+
+      for (const to of station.wayOut.stations) {
+        const next = byId.get(to.value);
+
+        if (next && !depth.has(to.value)) {
+          depth.set(to.value, here + 1);
+          queue.push(next);
+        }
+      }
+    }
+
+    const reached = this.stations
+      .filter((each) => !each.isCompleted)
+      .map((each) => depth.get(each.id.value) ?? 0);
+    const last = Math.max(0, ...reached) + 1;
+
+    for (const station of this.stations) {
+      if (station.isCompleted) {
+        depth.set(station.id.value, last);
+      }
+    }
+
+    return depth;
+  }
+
+  equals(other: Line): boolean {
+    return this.id.equals(other.id);
+  }
+}

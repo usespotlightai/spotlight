@@ -1,13 +1,14 @@
 import { randomUUID } from 'node:crypto';
-import { TaskMovedOnError } from '@domain/exceptions/task-moved-on.error';
-import { settling } from '@domain/services/setup-list';
-import { RunId } from '@domain/value-objects/run-id.vo';
-import { StationName } from '@domain/value-objects/station-name.vo';
-import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
-import { Voice } from '@domain/value-objects/voice.vo';
-import type { DrizzleDatabase } from '@infrastructure/persistence/drizzle/drizzle.client';
-import type { DrizzleContext } from '@infrastructure/persistence/drizzle/drizzle.context';
-import { DrizzleTaskRepository } from '@infrastructure/persistence/drizzle/repositories/task.repository';
+import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { Task } from '@work/domain/aggregates/task.aggregate';
+import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
+import { settling } from '@work/domain/services/setup-list';
+import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
+import { Voice } from '@work/domain/value-objects/voice.vo';
+import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import { openTeam } from './support/team';
@@ -29,12 +30,17 @@ let tasks: DrizzleTaskRepository;
 beforeAll(async () => {
   held = await openDatabase('task_writes');
   db = held.db;
-  tasks = new DrizzleTaskRepository({ db } as unknown as DrizzleContext);
+  tasks = new DrizzleTaskRepository(new DrizzleContext(db), {
+    dispatch: async () => {},
+  });
 }, 60_000);
 
 afterAll(async () => {
   await held?.close();
 });
+
+const heldBy = (task: Task, runId: RunId): Task =>
+  Task.rehydrate({ ...task, currentRunId: runId });
 
 describe('writing a task somebody else has written', () => {
   const opened = async () => {
@@ -68,7 +74,7 @@ describe('writing a task somebody else has written', () => {
   it('refuses the second, rather than laying it over the first', async () => {
     const { one, other } = await opened();
 
-    await tasks.save(one.handedTo(RunId.of(randomUUID())));
+    await tasks.save(heldBy(one, RunId.of(randomUUID())));
 
     await expect(tasks.save(settled(other))).rejects.toBeInstanceOf(
       TaskMovedOnError,
@@ -79,7 +85,7 @@ describe('writing a task somebody else has written', () => {
     const { one, other } = await opened();
     const runId = RunId.of(randomUUID());
 
-    await tasks.save(one.handedTo(runId));
+    await tasks.save(heldBy(one, runId));
     await tasks.save(settled(other)).catch(() => {});
 
     const read = await tasks.find(one.id);
@@ -90,7 +96,7 @@ describe('writing a task somebody else has written', () => {
   it('takes the same change once it is read again', async () => {
     const { one, other } = await opened();
 
-    await tasks.save(one.handedTo(RunId.of(randomUUID())));
+    await tasks.save(heldBy(one, RunId.of(randomUUID())));
     await tasks.save(settled(other)).catch(() => {});
 
     const again = await tasks.find(one.id);
@@ -111,7 +117,7 @@ describe('writing a task somebody else has written', () => {
     await tasks.save(settled(one));
 
     await expect(
-      tasks.save(one.handedTo(RunId.of(randomUUID()))),
+      tasks.save(heldBy(one, RunId.of(randomUUID()))),
     ).rejects.toBeInstanceOf(TaskMovedOnError);
   });
 });

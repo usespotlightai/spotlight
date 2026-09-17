@@ -98,4 +98,12 @@ export const shownAt = (
 ): number | null =>
   notes.find((note) => runId && note.runId === runId)?.position ?? null;
 
-export const waitingOn = (item: InboxItem) => item.notes[item.notes.length - 1];
+export const previewOf = (item: InboxItem): string => {
+  const asked = item.notes[item.notes.length - 1];
+
+  if (!asked) {
+    return `Waiting at ${item.station}`;
+  }
+
+  return asked.form === 'setup' ? (item.description ?? '') : asked.body;
+};

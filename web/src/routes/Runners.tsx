@@ -19,7 +19,7 @@ const FLEET = 'grid gap-2 sm:grid-cols-2';
 
 export function Runners() {
   const { slug } = useParams();
-  const runners = useRunners();
+  const runners = useRunners(slug);
   const { data: harnesses } = useHarnesses();
   const [enrolling, setEnrolling] = useState(false);
 
@@ -46,7 +46,11 @@ export function Runners() {
         }
       />
 
-      <NewRunnerDialog open={enrolling} onOpenChange={setEnrolling} />
+      <NewRunnerDialog
+        slug={slug}
+        open={enrolling}
+        onOpenChange={setEnrolling}
+      />
 
       <SettingsPage
         title="Runners"

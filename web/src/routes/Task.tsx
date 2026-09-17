@@ -6,6 +6,7 @@ import { StationSelect } from '@/components/features/board/task/StationSelect';
 import { TaskActions } from '@/components/features/board/task/TaskActions';
 import { TaskSkeleton } from '@/components/features/board/task/TaskSkeleton';
 import { TaskActivity } from '@/components/features/runs/TaskActivity';
+import { TaskChangeStackLink } from '@/components/features/runs/TaskChangeStackLink';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
@@ -90,6 +91,11 @@ export function Task() {
     <TrailContext value={forward}>
       <PageHeader
         title={<Breadcrumbs segments={trail} />}
+        actions={
+          slug && teamId ? (
+            <TaskChangeStackLink slug={slug} teamId={teamId} taskId={task.id} />
+          ) : undefined
+        }
         trailing={
           <TaskActions
             title={task.title}

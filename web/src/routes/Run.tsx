@@ -5,6 +5,7 @@ import { Conversation } from '@/components/features/inbox/conversation/Conversat
 import { ChangesPanel } from '@/components/features/runs/ChangesPanel';
 import { RunActivity } from '@/components/features/runs/RunActivity';
 import { RunBriefing } from '@/components/features/runs/RunBriefing';
+import { RunChangeStackLink } from '@/components/features/runs/RunChangeStackLink';
 import { RunComposer } from '@/components/features/runs/RunComposer';
 import { RunEmpty } from '@/components/features/runs/RunEmpty';
 import { RunOpening } from '@/components/features/runs/RunOpening';
@@ -17,6 +18,7 @@ import {
   Breadcrumbs,
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
+import { changeStackKeys } from '@/hooks/api/useRunChangeStacks';
 import {
   runConversationKeys,
   useRunConversation,
@@ -54,6 +56,9 @@ export function Run() {
     });
     void queryClient.invalidateQueries({
       queryKey: teamRunKeys.forTeam(teamId),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: changeStackKeys.forRun(runId),
     });
   }, [queryClient, said?.taskId, runId, teamId]);
 
@@ -170,7 +175,12 @@ export function Run() {
   return (
     <TrailContext value={forward}>
       <div className="flex min-h-0 flex-1 flex-col">
-        <PageHeader title={<Breadcrumbs segments={trail} />} />
+        <PageHeader
+          title={<Breadcrumbs segments={trail} />}
+          actions={
+            <RunChangeStackLink slug={slug} teamId={teamId} runId={run.id} />
+          }
+        />
 
         <ChangesPanel>
           {item && item.notes.length > 0 ? (

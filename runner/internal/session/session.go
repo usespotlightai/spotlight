@@ -23,6 +23,7 @@ import (
 	"usespotlight.ai/runner/internal/hook"
 	"usespotlight.ai/runner/internal/otel"
 	"usespotlight.ai/runner/internal/protocol"
+	"usespotlight.ai/runner/internal/stackcheck"
 	"usespotlight.ai/runner/internal/workspace"
 )
 
@@ -36,7 +37,10 @@ type Journal interface {
 	Said(ctx context.Context, runID string) ([]protocol.Said, error)
 	Delivered(ctx context.Context, runID string, upTo int) error
 	Attachment(ctx context.Context, runID, attachmentID string, into io.Writer) error
+	stackcheck.Source
 }
+
+const changeStackTool = "change-stack"
 
 const (
 	flushEvery = 200 * time.Millisecond
@@ -101,6 +105,8 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
+	markBases(ctx, space.Dir, run.Spec.Checkouts, log)
+
 	cwd := space.Dir
 
 	for _, attachment := range run.Spec.Attachments {
@@ -149,10 +155,10 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	}
 	defer channel.Close()
 
-	channel.Tools(toolNames(run.Spec.Manifest), func(ctx context.Context, name string, input json.RawMessage) (json.RawMessage, error) {
+	channel.Tools(toolNames(agentTools(run.Spec.Manifest)), func(ctx context.Context, name string, input json.RawMessage) (json.RawMessage, error) {
 		return opts.Journal.UseTool(ctx, run.ID, name, input)
 	})
-	channel.Manifest(run.Spec.Manifest)
+	channel.Manifest(agentTools(run.Spec.Manifest))
 
 	channel.Traces(func(ctx context.Context, taskID string) (json.RawMessage, error) {
 		return opts.Journal.Trace(ctx, run.ID, taskID)
@@ -203,6 +209,8 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
+	opts.draftStacks(ctx, run, space.Dir, log)
+
 	declared := channel.Declared()
 	if declared == nil {
 		declared = space.Outcome()
@@ -240,11 +248,65 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		})
 	}
 
-	return opts.Journal.Complete(ctx, run.ID, protocol.Completion{
+	completed := opts.Journal.Complete(ctx, run.ID, protocol.Completion{
 		ExitCode:  exitCode,
 		Failed:    exitCode != 0,
 		Outcome:   declared,
 		SessionID: sessionID,
+	})
+
+	opts.checkStacks(ctx, run, space.Dir, log)
+
+	return completed
+}
+
+func agentTools(manifest []protocol.ToolManifest) []protocol.ToolManifest {
+	return slices.DeleteFunc(slices.Clone(manifest), func(tool protocol.ToolManifest) bool {
+		return tool.Name == changeStackTool
+	})
+}
+
+func (o Options) draftStacks(ctx context.Context, run protocol.Run, dir string, log *slog.Logger) {
+	if !slices.Contains(toolNames(run.Spec.Manifest), changeStackTool) {
+		return
+	}
+
+	checking := stackcheck.Options{Dir: dir, RunAs: o.AgentUser, Log: log}
+
+	for _, checkout := range run.Spec.Checkouts {
+		diff, err := checking.Diff(ctx, filepath.Join(dir, checkout.Path))
+		if err != nil {
+			log.Warn("could not diff a checkout for its change stack", "path", checkout.Path, "error", err)
+			continue
+		}
+		if diff == "" {
+			continue
+		}
+
+		input, err := json.Marshal(map[string]string{"diff": diff, "repository": checkout.Path})
+		if err != nil {
+			continue
+		}
+
+		if _, err := o.Journal.UseTool(ctx, run.ID, changeStackTool, input); err != nil {
+			log.Warn("could not draft a change stack", "path", checkout.Path, "error", err)
+			continue
+		}
+
+		log.Info("drafting a change stack", "path", checkout.Path)
+	}
+}
+
+func (o Options) checkStacks(ctx context.Context, run protocol.Run, dir string, log *slog.Logger) {
+	if len(run.Spec.Checkouts) == 0 || !slices.Contains(toolNames(run.Spec.Manifest), changeStackTool) {
+		return
+	}
+
+	stackcheck.Run(ctx, o.Journal, run.ID, stackcheck.Options{
+		Dir:       dir,
+		Checkouts: run.Spec.Checkouts,
+		RunAs:     o.AgentUser,
+		Log:       log,
 	})
 }
 
@@ -293,12 +355,15 @@ func work(
 	go stream(flushing, journal)
 
 	prompt := run.Spec.Briefing
+	steered, resaid := false, false
 
 	for {
 		turn, endTurn := context.WithCancel(ctx)
 		go steer(turn, harness, lease, sessionID, run.ID, log)
 
+		heard := 0
 		result, err := harness.Prompt(ctx, sessionID, prompt, func(update acp.Update) {
+			heard++
 			journal.append(protocol.Event{
 				Type: protocol.EventOutput,
 				Data: update.Raw,
@@ -318,6 +383,14 @@ func work(
 		}
 
 		log.Info("turn finished", "stopReason", result.StopReason)
+
+		// A harness can end the turn right after a cancel without reading the prompt at all.
+		if steered && !resaid && heard == 0 && result.StopReason == "end_turn" {
+			log.Info("the harness let what was said go unread; saying it again")
+			resaid = true
+			continue
+		}
+		steered, resaid = result.StopReason == "cancelled", false
 
 		if result.StopReason != "end_turn" &&
 			result.StopReason != "max_tokens" &&

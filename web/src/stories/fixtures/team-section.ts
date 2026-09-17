@@ -265,7 +265,7 @@ const TRACES: TeamTraceResponseDto[] = [
 export const seedTeam = (client: QueryClient) => {
   client.setQueryData(workspaceKeys.detail(SLUG), WORKSPACE);
   client.setQueryData(lineKeys.forTeam(TEAM_ID), LINES);
-  client.setQueryData(harnessKeys.all, HARNESSES);
+  client.setQueryData(harnessKeys.forWorkspace(SLUG), HARNESSES);
   client.setQueryData(repositoryKeys.forWorkspace(SLUG), [
     { fullName: 'acme/api' },
     { fullName: 'acme/worker' },

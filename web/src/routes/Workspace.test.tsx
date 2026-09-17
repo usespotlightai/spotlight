@@ -27,7 +27,10 @@ vi.mock('@/hooks/api/useInbox', () => ({
   useInbox: () => ({ data: [] }),
 }));
 vi.mock('@/hooks/api/useRunners', () => ({
-  runnerKeys: { all: ['runners'] },
+  runnerKeys: {
+    all: ['runners'],
+    forWorkspace: (slug?: string) => ['runners', slug ?? null],
+  },
   useRunners: () => ({
     isPending: false,
     errorUpdateCount: 0,

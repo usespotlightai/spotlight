@@ -1,12 +1,15 @@
 import 'dotenv/config';
-import { parseDatabaseEnv } from '@infrastructure/config/env';
+import { parseDatabaseEnv } from '@platform/config/env';
 import { defineConfig } from 'drizzle-kit';
 
 const env = parseDatabaseEnv();
 
 export default defineConfig({
   dialect: 'postgresql',
-  schema: './src/infrastructure/persistence/drizzle/schemas/index.ts',
+  schema: [
+    './src/platform/persistence/drizzle/schemas/*.schema.ts',
+    './src/contexts/*/infrastructure/persistence/drizzle/schemas/*.schema.ts',
+  ],
   out: './drizzle',
   migrations: {
     prefix: 'timestamp',

@@ -24,6 +24,8 @@ x-control-plane-env: &control-plane-env
   SMTP_URL: ${SMTP_URL:-smtp://mail:1025}
   MAIL_FROM: ${MAIL_FROM:-Spotlight <noreply@dev.usespotlight.ai>}
   LOG_LEVEL: ${LOG_LEVEL:-debug}
+  OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+  CHANGE_STACK_MODEL: ${CHANGE_STACK_MODEL:-google/gemini-3.8-flash}
 
 x-runner-env: &runner-env
   ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}

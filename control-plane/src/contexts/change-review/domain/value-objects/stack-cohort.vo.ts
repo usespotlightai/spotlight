@@ -1,0 +1,47 @@
+export const COHORT_KINDS = ['change', 'incidental'] as const;
+
+export type CohortKind = (typeof COHORT_KINDS)[number];
+
+export interface StackRange {
+  readonly hunk: string;
+  readonly summary: string | null;
+}
+
+export interface LayerDependency {
+  readonly layer: string;
+  readonly because: readonly string[];
+}
+
+export interface StackLayer {
+  readonly id: string;
+  readonly title: string;
+  readonly summary: string;
+  readonly dependsOn: readonly LayerDependency[];
+  readonly ranges: readonly StackRange[];
+}
+
+export interface StackCohort {
+  readonly id: string;
+  readonly kind: CohortKind;
+  readonly title: string;
+  readonly intent: string;
+  readonly layers: readonly StackLayer[];
+}
+
+export interface ProposedLayer {
+  readonly title: string;
+  readonly summary: string;
+  readonly dependsOn: readonly {
+    readonly layer: number;
+    readonly because: readonly string[];
+  }[];
+  readonly ranges: readonly StackRange[];
+}
+
+export interface ProposedCohort {
+  readonly kind: CohortKind;
+  readonly title: string;
+  readonly intent: string;
+  readonly joinedBecause?: string | null;
+  readonly layers: readonly ProposedLayer[];
+}

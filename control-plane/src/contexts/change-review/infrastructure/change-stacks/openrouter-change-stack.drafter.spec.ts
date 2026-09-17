@@ -1,0 +1,169 @@
+import { factsOf } from '@change-review/domain/services/diff-facts';
+import { GitDiffReader } from '@change-review/infrastructure/change-stacks/git-diff.reader';
+import {
+  DEFAULT_MODEL,
+  OpenRouterChangeStackDrafter,
+  revised,
+  told,
+} from '@change-review/infrastructure/change-stacks/openrouter-change-stack.drafter';
+import { PatternCodeReading } from '@change-review/infrastructure/change-stacks/pattern-code.reading';
+import { describe, expect, it } from 'vitest';
+
+const { diff: DIFF } = new GitDiffReader().read(
+  [
+    'diff --git a/src/invite.ts b/src/invite.ts',
+    '--- a/src/invite.ts',
+    '+++ b/src/invite.ts',
+    '@@ -1 +1 @@',
+    '-before',
+    '+export function invite() {}',
+  ].join('\n'),
+);
+
+const COHORTS = [
+  {
+    kind: 'change',
+    title: 'Invitations',
+    intent: 'Let admins invite people',
+    joinedBecause: null,
+    layers: [
+      {
+        title: 'Add invite',
+        summary: 'The function',
+        dependsOn: [],
+        ranges: [{ hunk: 'h1', summary: null }],
+      },
+    ],
+  },
+];
+
+const answering = (status: number, body: unknown) => {
+  const asked: { url: string; init: RequestInit }[] = [];
+  const fetch = (async (url: string, init: RequestInit) => {
+    asked.push({ url, init });
+    return new Response(JSON.stringify(body), { status });
+  }) as unknown as typeof globalThis.fetch;
+
+  return { asked, fetch };
+};
+
+const draft = (drafter: OpenRouterChangeStackDrafter) =>
+  drafter.draft({
+    diff: DIFF,
+    repository: 'web',
+    facts: factsOf(DIFF, new PatternCodeReading()),
+    problems: [{ code: 'shape', message: 'leaves h2 out' }],
+  });
+
+describe('told', () => {
+  it('tells the model how to mend a problem it can mend by itself', () => {
+    expect(told({ code: 'shape', message: 'leaves h2 out' })).toBe(
+      'leaves h2 out',
+    );
+    expect(
+      told({
+        code: 'unconnected',
+        message: 'cohort 1 joins changes the code does not connect (h1 | h2)',
+      }),
+    ).toBe(
+      'cohort 1 joins changes the code does not connect (h1 | h2); split it, or give joinedBecause',
+    );
+  });
+});
+
+describe('OpenRouterChangeStackDrafter', () => {
+  it('is unavailable without a key', async () => {
+    const drafter = new OpenRouterChangeStackDrafter('');
+
+    expect(drafter.available).toBe(false);
+    await expect(draft(drafter)).rejects.toThrow('No OpenRouter API key');
+  });
+
+  it('asks the model for a stack in the stack’s own shape, from providers that keep to it', async () => {
+    const { asked, fetch } = answering(200, {
+      choices: [
+        {
+          finish_reason: 'stop',
+          message: { content: JSON.stringify({ cohorts: COHORTS }) },
+        },
+      ],
+    });
+
+    const cohorts = await draft(
+      new OpenRouterChangeStackDrafter('or-key', DEFAULT_MODEL, fetch),
+    );
+
+    expect(cohorts).toEqual(COHORTS);
+    expect(asked[0]?.url).toBe('https://openrouter.ai/api/v1/chat/completions');
+    expect(
+      (asked[0]?.init.headers as Record<string, string> | undefined)
+        ?.Authorization,
+    ).toBe('Bearer or-key');
+
+    const body = JSON.parse(String(asked[0]?.init.body));
+    expect(body.model).toBe('google/gemini-3.8-flash');
+    expect(body.provider).toEqual({ require_parameters: true });
+    expect(body.response_format.json_schema.strict).toBe(true);
+    expect(JSON.stringify(body.response_format.json_schema.schema)).not.toMatch(
+      /minimum|maximum|\$schema/,
+    );
+    expect(body.messages[1].content).toContain('Repository: web');
+    expect(body.messages[1].content).toContain('- leaves h2 out');
+  });
+
+  it('says why OpenRouter refused', async () => {
+    const { fetch } = answering(402, {
+      error: { message: 'Insufficient credits' },
+    });
+
+    await expect(
+      draft(new OpenRouterChangeStackDrafter('or-key', DEFAULT_MODEL, fetch)),
+    ).rejects.toThrow('OpenRouter refused to draft: 402 Insufficient credits');
+  });
+
+  it('refuses an answer cut short', async () => {
+    const { fetch } = answering(200, {
+      choices: [{ finish_reason: 'length', message: { content: '{"coh' } }],
+    });
+
+    await expect(
+      draft(new OpenRouterChangeStackDrafter('or-key', DEFAULT_MODEL, fetch)),
+    ).rejects.toThrow('Drafting stopped early: length');
+  });
+});
+
+describe('revised', () => {
+  it('asks for the few changes a failing layer needs to move, with what the check printed and where the named files sit', () => {
+    const text = revised({
+      command: 'npx tsc --noEmit',
+      stack: [
+        {
+          title: 'Labels',
+          layers: [
+            { title: 'Task reads', hunks: ['h1'] },
+            { title: 'HTTP', hunks: ['h2'] },
+          ],
+        },
+      ],
+      failed: [
+        {
+          cohort: 0,
+          layer: 0,
+          title: 'Task reads',
+          output: 'mapper.spec.ts(5,7): error TS2741',
+          named: [
+            { path: 'src/mapper.spec.ts', hunks: [{ hunk: 'h2', layer: 1 }] },
+          ],
+        },
+      ],
+    });
+
+    expect(text).toContain('`npx tsc --noEmit`');
+    expect(text).toContain('moving the few changes it needs');
+    expect(text).toContain(
+      'cohort 1 "Labels": layer 1 "Task reads" (h1); layer 2 "HTTP" (h2)',
+    );
+    expect(text).toContain('cohort 1, layer 1 "Task reads" does not build');
+    expect(text).toContain('src/mapper.spec.ts: h2 in layer 2');
+  });
+});

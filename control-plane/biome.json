@@ -11,7 +11,7 @@
       "**",
       "!drizzle",
       "!openapi.json",
-      "!src/infrastructure/persistence/drizzle/schemas/auth.schema.ts",
+      "!src/contexts/identity/infrastructure/persistence/drizzle/schemas/auth.schema.ts",
       "!dist"
     ]
   },
@@ -115,27 +115,7 @@
       }
     },
     {
-      "includes": ["src/domain/**"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noRestrictedImports": {
-              "level": "error",
-              "options": {
-                "patterns": [
-                  {
-                    "group": ["**", "!@domain/**", "!./**", "!vitest"],
-                    "message": "The domain layer depends on nothing but itself. Anything else belongs in an outer layer."
-                  }
-                ]
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "includes": ["src/application/**"],
+      "includes": ["src/shared-kernel/domain/**"],
       "linter": {
         "rules": {
           "style": {
@@ -146,12 +126,11 @@
                   {
                     "group": [
                       "**",
-                      "!@application/**",
-                      "!@domain/**",
+                      "!@shared-kernel/domain/**",
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The application layer may only depend on the domain. For anything external, define a port under application/ports and let infrastructure implement it."
+                    "message": "The shared kernel’s domain holds identifiers and event plumbing, and depends on nothing else."
                   }
                 ]
               }
@@ -161,7 +140,55 @@
       }
     },
     {
-      "includes": ["src/presentation/**"],
+      "includes": ["src/shared-kernel/application/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["**", "!@shared-kernel/**", "!./**", "!vitest"],
+                    "message": "The shared kernel’s application layer holds the ports and faults every context shares, and depends only on the shared kernel."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/platform/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@work/**",
+                      "@identity/**",
+                      "@configuration/**",
+                      "@change-review/**",
+                      "@github/**",
+                      "@integrations/**",
+                      "@runners/**"
+                    ],
+                    "message": "The platform is technical plumbing shared by every context; it knows no bounded context."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/work/domain/**"],
       "linter": {
         "rules": {
           "style": {
@@ -172,14 +199,12 @@
                   {
                     "group": [
                       "**",
-                      "!@presentation/**",
-                      "!@application/**",
+                      "!@work/domain/**",
+                      "!@shared-kernel/domain/**",
                       "!./**",
-                      "!@nestjs/**",
-                      "!rxjs",
                       "!vitest"
                     ],
-                    "message": "The presentation layer may depend on the application layer and the HTTP framework, not on infrastructure or a concrete library. Depend on a port under application/ports instead. rxjs is allowed as part of the framework's surface: @Sse is typed to return an Observable and there is no other way to express one."
+                    "message": "Work’s domain depends on itself, the shared kernel’s domain, and the published language of other contexts."
                   }
                 ]
               }
@@ -189,7 +214,7 @@
       }
     },
     {
-      "includes": ["src/infrastructure/**"],
+      "includes": ["src/contexts/work/application/**"],
       "linter": {
         "rules": {
           "style": {
@@ -199,12 +224,2584 @@
                 "patterns": [
                   {
                     "group": [
-                      "@presentation/**",
-                      "@application/**",
-                      "!@application/ports/**",
-                      "!@application/contracts/**"
+                      "**",
+                      "!@work/domain/**",
+                      "!@work/application/**",
+                      "!@shared-kernel/**",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/ports/workspace-access.port",
+                      "!@identity/application/ports/team-directory.port",
+                      "!@identity/application/ports/workspace-reader.port",
+                      "!@identity/application/ports/person-reader.port",
+                      "!@identity/application/ports/member-reader.port",
+                      "!@identity/application/ports/linked-accounts.port",
+                      "!@identity/application/integration-events/*.integration-event",
+                      "!@configuration/application/ports/**",
+                      "!@configuration/application/contracts/**",
+                      "!@configuration/application/dto/**",
+                      "!@configuration/application/ports/integration-reader.port",
+                      "!@configuration/application/ports/integration-links.port",
+                      "!@configuration/application/integration-events/*.integration-event",
+                      "!@change-review/application/ports/**",
+                      "!@change-review/application/dto/**",
+                      "!@change-review/application/integration-events/*.integration-event",
+                      "!@github/application/ports/workspace-connections.port",
+                      "!@github/application/ports/repository-catalog.port",
+                      "!@github/application/ports/repository-contents.port",
+                      "!@github/application/ports/repository-git.port",
+                      "!@github/application/ports/pull-request.port",
+                      "!@github/application/ports/pull-request-comments.port",
+                      "!@github/application/ports/pull-request-reviews.port",
+                      "!@github/application/ports/remarks.port",
+                      "!@github/application/ports/github-app.port",
+                      "!@github/application/ports/github-webhooks.port",
+                      "!@github/application/dto/**",
+                      "!@github/application/integration-events/*.integration-event",
+                      "!@github/application/errors/no-github-installation.error",
+                      "!@integrations/application/dto/**",
+                      "!@integrations/application/integration-events/*.integration-event",
+                      "!@runners/application/ports/runner-reader.port",
+                      "!@runners/application/ports/runner-presence.port",
+                      "!@runners/application/ports/installer-assets.port",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/integration-events/*.integration-event",
+                      "!./**",
+                      "!vitest"
                     ],
-                    "message": "Infrastructure implements ports and writes the contracts they carry. It may import @application/ports and @application/contracts, but must not reach into the rest of the application layer or into presentation."
+                    "message": "Work’s application layer depends on its own domain, the shared kernel, and what other contexts publish. Reach anything else through a port under @work/application/ports."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/work/infrastructure/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@work/presentation/**",
+                      "@platform/http/**",
+                      "@work/application/**",
+                      "!@work/application/ports/**",
+                      "!@work/application/contracts/**",
+                      "!@work/application/dto/**",
+                      "@identity/**",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/ports/workspace-access.port",
+                      "!@identity/application/ports/team-directory.port",
+                      "!@identity/application/ports/workspace-reader.port",
+                      "!@identity/application/ports/person-reader.port",
+                      "!@identity/application/ports/member-reader.port",
+                      "!@identity/application/ports/linked-accounts.port",
+                      "!@identity/application/integration-events/*.integration-event",
+                      "@configuration/**",
+                      "!@configuration/application/ports/**",
+                      "!@configuration/application/contracts/**",
+                      "!@configuration/application/dto/**",
+                      "!@configuration/application/ports/integration-reader.port",
+                      "!@configuration/application/ports/integration-links.port",
+                      "!@configuration/application/integration-events/*.integration-event",
+                      "@change-review/**",
+                      "!@change-review/application/ports/**",
+                      "!@change-review/application/dto/**",
+                      "!@change-review/application/integration-events/*.integration-event",
+                      "@github/**",
+                      "!@github/application/ports/workspace-connections.port",
+                      "!@github/application/ports/repository-catalog.port",
+                      "!@github/application/ports/repository-contents.port",
+                      "!@github/application/ports/repository-git.port",
+                      "!@github/application/ports/pull-request.port",
+                      "!@github/application/ports/pull-request-comments.port",
+                      "!@github/application/ports/pull-request-reviews.port",
+                      "!@github/application/ports/remarks.port",
+                      "!@github/application/ports/github-app.port",
+                      "!@github/application/ports/github-webhooks.port",
+                      "!@github/application/dto/**",
+                      "!@github/application/integration-events/*.integration-event",
+                      "!@github/application/errors/no-github-installation.error",
+                      "@integrations/**",
+                      "!@integrations/application/dto/**",
+                      "!@integrations/application/integration-events/*.integration-event",
+                      "@runners/**",
+                      "!@runners/application/ports/runner-reader.port",
+                      "!@runners/application/ports/runner-presence.port",
+                      "!@runners/application/ports/installer-assets.port",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/integration-events/*.integration-event"
+                    ],
+                    "message": "Work’s infrastructure implements its own ports. It may not reach another context’s internals; take what it needs through a published port."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/work/presentation/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@work/infrastructure/**",
+                      "@platform/**",
+                      "!@platform/http/**",
+                      "@identity/**",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/ports/workspace-access.port",
+                      "!@identity/application/ports/team-directory.port",
+                      "!@identity/application/ports/workspace-reader.port",
+                      "!@identity/application/ports/person-reader.port",
+                      "!@identity/application/ports/member-reader.port",
+                      "!@identity/application/ports/linked-accounts.port",
+                      "!@identity/application/integration-events/*.integration-event",
+                      "@configuration/**",
+                      "!@configuration/application/ports/**",
+                      "!@configuration/application/contracts/**",
+                      "!@configuration/application/dto/**",
+                      "!@configuration/application/ports/integration-reader.port",
+                      "!@configuration/application/ports/integration-links.port",
+                      "!@configuration/application/integration-events/*.integration-event",
+                      "@change-review/**",
+                      "!@change-review/application/ports/**",
+                      "!@change-review/application/dto/**",
+                      "!@change-review/application/integration-events/*.integration-event",
+                      "@github/**",
+                      "!@github/application/ports/workspace-connections.port",
+                      "!@github/application/ports/repository-catalog.port",
+                      "!@github/application/ports/repository-contents.port",
+                      "!@github/application/ports/repository-git.port",
+                      "!@github/application/ports/pull-request.port",
+                      "!@github/application/ports/pull-request-comments.port",
+                      "!@github/application/ports/pull-request-reviews.port",
+                      "!@github/application/ports/remarks.port",
+                      "!@github/application/ports/github-app.port",
+                      "!@github/application/ports/github-webhooks.port",
+                      "!@github/application/dto/**",
+                      "!@github/application/integration-events/*.integration-event",
+                      "!@github/application/errors/no-github-installation.error",
+                      "@integrations/**",
+                      "!@integrations/application/dto/**",
+                      "!@integrations/application/integration-events/*.integration-event",
+                      "@runners/**",
+                      "!@runners/application/ports/runner-reader.port",
+                      "!@runners/application/ports/runner-presence.port",
+                      "!@runners/application/ports/installer-assets.port",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/integration-events/*.integration-event"
+                    ],
+                    "message": "Work’s presentation drives its own application layer, and uses other contexts only through what they publish."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/contexts/work/work.wiring.ts",
+        "src/contexts/work/work.module.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@identity/**",
+                      "!@identity/identity.module",
+                      "!@identity/identity.startup",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/ports/workspace-access.port",
+                      "!@identity/application/ports/team-directory.port",
+                      "!@identity/application/ports/workspace-reader.port",
+                      "!@identity/application/ports/person-reader.port",
+                      "!@identity/application/ports/member-reader.port",
+                      "!@identity/application/ports/linked-accounts.port",
+                      "!@identity/application/integration-events/*.integration-event",
+                      "@configuration/**",
+                      "!@configuration/configuration.module",
+                      "!@configuration/configuration.startup",
+                      "!@configuration/application/ports/**",
+                      "!@configuration/application/contracts/**",
+                      "!@configuration/application/dto/**",
+                      "!@configuration/application/ports/integration-reader.port",
+                      "!@configuration/application/ports/integration-links.port",
+                      "!@configuration/application/integration-events/*.integration-event",
+                      "@change-review/**",
+                      "!@change-review/change-review.module",
+                      "!@change-review/change-review.startup",
+                      "!@change-review/application/ports/**",
+                      "!@change-review/application/dto/**",
+                      "!@change-review/application/integration-events/*.integration-event",
+                      "@github/**",
+                      "!@github/github.module",
+                      "!@github/github.startup",
+                      "!@github/application/ports/workspace-connections.port",
+                      "!@github/application/ports/repository-catalog.port",
+                      "!@github/application/ports/repository-contents.port",
+                      "!@github/application/ports/repository-git.port",
+                      "!@github/application/ports/pull-request.port",
+                      "!@github/application/ports/pull-request-comments.port",
+                      "!@github/application/ports/pull-request-reviews.port",
+                      "!@github/application/ports/remarks.port",
+                      "!@github/application/ports/github-app.port",
+                      "!@github/application/ports/github-webhooks.port",
+                      "!@github/application/dto/**",
+                      "!@github/application/integration-events/*.integration-event",
+                      "!@github/application/errors/no-github-installation.error",
+                      "@integrations/**",
+                      "!@integrations/integrations.module",
+                      "!@integrations/integrations.startup",
+                      "!@integrations/application/dto/**",
+                      "!@integrations/application/integration-events/*.integration-event",
+                      "@runners/**",
+                      "!@runners/runners.module",
+                      "!@runners/runners.startup",
+                      "!@runners/application/ports/runner-reader.port",
+                      "!@runners/application/ports/runner-presence.port",
+                      "!@runners/application/ports/installer-assets.port",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/integration-events/*.integration-event"
+                    ],
+                    "message": "Work’s module wires its own parts to the platform, the shared kernel and to what other contexts publish; it never reaches their adapters or internals."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/identity/domain/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**",
+                      "!@identity/domain/**",
+                      "!@shared-kernel/domain/**",
+                      "!./**",
+                      "!vitest"
+                    ],
+                    "message": "Identity’s domain depends on itself, the shared kernel’s domain, and the published language of other contexts."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/identity/application/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**",
+                      "!@identity/domain/**",
+                      "!@identity/application/**",
+                      "!@shared-kernel/**",
+                      "!@work/application/contracts/line-layout.contract",
+                      "!@work/application/contracts/run-spec.contract",
+                      "!@work/application/ports/work-lookup.port",
+                      "!@work/application/ports/contributed-tools.port",
+                      "!@work/application/ports/configured-lines.port",
+                      "!@work/application/ports/happening-reactions.port",
+                      "!@work/application/ports/team-skills.port",
+                      "!@work/application/ports/built-in-skills.port",
+                      "!@work/application/ports/configuration-proposals.port",
+                      "!@work/application/ports/integration-tool-calls.port",
+                      "!@work/application/ports/task-notices.port",
+                      "!@work/application/ports/starter-integrations.port",
+                      "!@work/application/ports/delivery-addresses.port",
+                      "!@work/application/ports/configuration-status.port",
+                      "!@work/application/ports/team-integrations.port",
+                      "!@work/application/dto/ready-skill.dto",
+                      "!@work/application/dto/bound-task.dto",
+                      "!@work/application/integration-events/*.integration-event",
+                      "!@work/application/contracts/bindable-task-events.contract",
+                      "!@work/application/contracts/tools.contract",
+                      "!@work/application/contracts/happenings.contract",
+                      "!@work/application/ports/setup-settling.port",
+                      "!@configuration/application/ports/**",
+                      "!@configuration/application/contracts/**",
+                      "!@configuration/application/dto/**",
+                      "!@configuration/application/ports/integration-reader.port",
+                      "!@configuration/application/ports/integration-links.port",
+                      "!@configuration/application/integration-events/*.integration-event",
+                      "!@change-review/application/ports/**",
+                      "!@change-review/application/dto/**",
+                      "!@change-review/application/integration-events/*.integration-event",
+                      "!@github/application/ports/workspace-connections.port",
+                      "!@github/application/ports/repository-catalog.port",
+                      "!@github/application/ports/repository-contents.port",
+                      "!@github/application/ports/repository-git.port",
+                      "!@github/application/ports/pull-request.port",
+                      "!@github/application/ports/pull-request-comments.port",
+                      "!@github/application/ports/pull-request-reviews.port",
+                      "!@github/application/ports/remarks.port",
+                      "!@github/application/ports/github-app.port",
+                      "!@github/application/ports/github-webhooks.port",
+                      "!@github/application/dto/**",
+                      "!@github/application/integration-events/*.integration-event",
+                      "!@github/application/errors/no-github-installation.error",
+                      "!@integrations/application/dto/**",
+                      "!@integrations/application/integration-events/*.integration-event",
+                      "!@runners/application/ports/runner-reader.port",
+                      "!@runners/application/ports/runner-presence.port",
+                      "!@runners/application/ports/installer-assets.port",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/integration-events/*.integration-event",
+                      "!./**",
+                      "!vitest"
+                    ],
+                    "message": "Identity’s application layer depends on its own domain, the shared kernel, and what other contexts publish. Reach anything else through a port under @identity/application/ports."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/identity/infrastructure/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@identity/presentation/**",
+                      "@platform/http/**",
+                      "@identity/application/**",
+                      "!@identity/application/ports/**",
+                      "!@identity/application/contracts/**",
+                      "!@identity/application/dto/**",
+                      "@work/**",
+                      "!@work/application/contracts/line-layout.contract",
+                      "!@work/application/contracts/run-spec.contract",
+                      "!@work/application/ports/work-lookup.port",
+                      "!@work/application/ports/contributed-tools.port",
+                      "!@work/application/ports/configured-lines.port",
+                      "!@work/application/ports/happening-reactions.port",
+                      "!@work/application/ports/team-skills.port",
+                      "!@work/application/ports/built-in-skills.port",
+                      "!@work/application/ports/configuration-proposals.port",
+                      "!@work/application/ports/integration-tool-calls.port",
+                      "!@work/application/ports/task-notices.port",
+                      "!@work/application/ports/starter-integrations.port",
+                      "!@work/application/ports/delivery-addresses.port",
+                      "!@work/application/ports/configuration-status.port",
+                      "!@work/application/ports/team-integrations.port",
+                      "!@work/application/dto/ready-skill.dto",
+                      "!@work/application/dto/bound-task.dto",
+                      "!@work/application/integration-events/*.integration-event",
+                      "!@work/application/contracts/bindable-task-events.contract",
+                      "!@work/application/contracts/tools.contract",
+                      "!@work/application/contracts/happenings.contract",
+                      "!@work/application/ports/setup-settling.port",
+                      "@configuration/**",
+                      "!@configuration/application/ports/**",
+                      "!@configuration/application/contracts/**",
+                      "!@configuration/application/dto/**",
+                      "!@configuration/application/ports/integration-reader.port",
+                      "!@configuration/application/ports/integration-links.port",
+                      "!@configuration/application/integration-events/*.integration-event",
+                      "@change-review/**",
+                      "!@change-review/application/ports/**",
+                      "!@change-review/application/dto/**",
+                      "!@change-review/application/integration-events/*.integration-event",
+                      "@github/**",
+                      "!@github/application/ports/workspace-connections.port",
+                      "!@github/application/ports/repository-catalog.port",
+                      "!@github/application/ports/repository-contents.port",
+                      "!@github/application/ports/repository-git.port",
+                      "!@github/application/ports/pull-request.port",
+                      "!@github/application/ports/pull-request-comments.port",
+                      "!@github/application/ports/pull-request-reviews.port",
+                      "!@github/application/ports/remarks.port",
+                      "!@github/application/ports/github-app.port",
+                      "!@github/application/ports/github-webhooks.port",
+                      "!@github/application/dto/**",
+                      "!@github/application/integration-events/*.integration-event",
+                      "!@github/application/errors/no-github-installation.error",
+                      "@integrations/**",
+                      "!@integrations/application/dto/**",
+                      "!@integrations/application/integration-events/*.integration-event",
+                      "@runners/**",
+                      "!@runners/application/ports/runner-reader.port",
+                      "!@runners/application/ports/runner-presence.port",
+                      "!@runners/application/ports/installer-assets.port",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/integration-events/*.integration-event"
+                    ],
+                    "message": "Identity’s infrastructure implements its own ports. It may not reach another context’s internals; take what it needs through a published port."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/identity/presentation/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@identity/infrastructure/**",
+                      "@platform/**",
+                      "!@platform/http/**",
+                      "@work/**",
+                      "!@work/application/contracts/line-layout.contract",
+                      "!@work/application/contracts/run-spec.contract",
+                      "!@work/application/ports/work-lookup.port",
+                      "!@work/application/ports/contributed-tools.port",
+                      "!@work/application/ports/configured-lines.port",
+                      "!@work/application/ports/happening-reactions.port",
+                      "!@work/application/ports/team-skills.port",
+                      "!@work/application/ports/built-in-skills.port",
+                      "!@work/application/ports/configuration-proposals.port",
+                      "!@work/application/ports/integration-tool-calls.port",
+                      "!@work/application/ports/task-notices.port",
+                      "!@work/application/ports/starter-integrations.port",
+                      "!@work/application/ports/delivery-addresses.port",
+                      "!@work/application/ports/configuration-status.port",
+                      "!@work/application/ports/team-integrations.port",
+                      "!@work/application/dto/ready-skill.dto",
+                      "!@work/application/dto/bound-task.dto",
+                      "!@work/application/integration-events/*.integration-event",
+                      "!@work/application/contracts/bindable-task-events.contract",
+                      "!@work/application/contracts/tools.contract",
+                      "!@work/application/contracts/happenings.contract",
+                      "!@work/application/ports/setup-settling.port",
+                      "@configuration/**",
+                      "!@configuration/application/ports/**",
+                      "!@configuration/application/contracts/**",
+                      "!@configuration/application/dto/**",
+                      "!@configuration/application/ports/integration-reader.port",
+                      "!@configuration/application/ports/integration-links.port",
+                      "!@configuration/application/integration-events/*.integration-event",
+                      "@change-review/**",
+                      "!@change-review/application/ports/**",
+                      "!@change-review/application/dto/**",
+                      "!@change-review/application/integration-events/*.integration-event",
+                      "@github/**",
+                      "!@github/application/ports/workspace-connections.port",
+                      "!@github/application/ports/repository-catalog.port",
+                      "!@github/application/ports/repository-contents.port",
+                      "!@github/application/ports/repository-git.port",
+                      "!@github/application/ports/pull-request.port",
+                      "!@github/application/ports/pull-request-comments.port",
+                      "!@github/application/ports/pull-request-reviews.port",
+                      "!@github/application/ports/remarks.port",
+                      "!@github/application/ports/github-app.port",
+                      "!@github/application/ports/github-webhooks.port",
+                      "!@github/application/dto/**",
+                      "!@github/application/integration-events/*.integration-event",
+                      "!@github/application/errors/no-github-installation.error",
+                      "@integrations/**",
+                      "!@integrations/application/dto/**",
+                      "!@integrations/application/integration-events/*.integration-event",
+                      "@runners/**",
+                      "!@runners/application/ports/runner-reader.port",
+                      "!@runners/application/ports/runner-presence.port",
+                      "!@runners/application/ports/installer-assets.port",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/integration-events/*.integration-event"
+                    ],
+                    "message": "Identity’s presentation drives its own application layer, and uses other contexts only through what they publish."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/contexts/identity/identity.wiring.ts",
+        "src/contexts/identity/identity.module.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@work/**",
+                      "!@work/work.module",
+                      "!@work/work.startup",
+                      "!@work/application/contracts/line-layout.contract",
+                      "!@work/application/contracts/run-spec.contract",
+                      "!@work/application/ports/work-lookup.port",
+                      "!@work/application/ports/contributed-tools.port",
+                      "!@work/application/ports/configured-lines.port",
+                      "!@work/application/ports/happening-reactions.port",
+                      "!@work/application/ports/team-skills.port",
+                      "!@work/application/ports/built-in-skills.port",
+                      "!@work/application/ports/configuration-proposals.port",
+                      "!@work/application/ports/integration-tool-calls.port",
+                      "!@work/application/ports/task-notices.port",
+                      "!@work/application/ports/starter-integrations.port",
+                      "!@work/application/ports/delivery-addresses.port",
+                      "!@work/application/ports/configuration-status.port",
+                      "!@work/application/ports/team-integrations.port",
+                      "!@work/application/dto/ready-skill.dto",
+                      "!@work/application/dto/bound-task.dto",
+                      "!@work/application/integration-events/*.integration-event",
+                      "!@work/application/contracts/bindable-task-events.contract",
+                      "!@work/application/contracts/tools.contract",
+                      "!@work/application/contracts/happenings.contract",
+                      "!@work/application/ports/setup-settling.port",
+                      "@configuration/**",
+                      "!@configuration/configuration.module",
+                      "!@configuration/configuration.startup",
+                      "!@configuration/application/ports/**",
+                      "!@configuration/application/contracts/**",
+                      "!@configuration/application/dto/**",
+                      "!@configuration/application/ports/integration-reader.port",
+                      "!@configuration/application/ports/integration-links.port",
+                      "!@configuration/application/integration-events/*.integration-event",
+                      "@change-review/**",
+                      "!@change-review/change-review.module",
+                      "!@change-review/change-review.startup",
+                      "!@change-review/application/ports/**",
+                      "!@change-review/application/dto/**",
+                      "!@change-review/application/integration-events/*.integration-event",
+                      "@github/**",
+                      "!@github/github.module",
+                      "!@github/github.startup",
+                      "!@github/application/ports/workspace-connections.port",
+                      "!@github/application/ports/repository-catalog.port",
+                      "!@github/application/ports/repository-contents.port",
+                      "!@github/application/ports/repository-git.port",
+                      "!@github/application/ports/pull-request.port",
+                      "!@github/application/ports/pull-request-comments.port",
+                      "!@github/application/ports/pull-request-reviews.port",
+                      "!@github/application/ports/remarks.port",
+                      "!@github/application/ports/github-app.port",
+                      "!@github/application/ports/github-webhooks.port",
+                      "!@github/application/dto/**",
+                      "!@github/application/integration-events/*.integration-event",
+                      "!@github/application/errors/no-github-installation.error",
+                      "@integrations/**",
+                      "!@integrations/integrations.module",
+                      "!@integrations/integrations.startup",
+                      "!@integrations/application/dto/**",
+                      "!@integrations/application/integration-events/*.integration-event",
+                      "@runners/**",
+                      "!@runners/runners.module",
+                      "!@runners/runners.startup",
+                      "!@runners/application/ports/runner-reader.port",
+                      "!@runners/application/ports/runner-presence.port",
+                      "!@runners/application/ports/installer-assets.port",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/integration-events/*.integration-event"
+                    ],
+                    "message": "Identity’s module wires its own parts to the platform, the shared kernel and to what other contexts publish; it never reaches their adapters or internals."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/configuration/domain/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**",
+                      "!@configuration/domain/**",
+                      "!@shared-kernel/domain/**",
+                      "!./**",
+                      "!vitest"
+                    ],
+                    "message": "Configuration’s domain depends on itself, the shared kernel’s domain, and the published language of other contexts."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/configuration/application/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**",
+                      "!@configuration/domain/**",
+                      "!@configuration/application/**",
+                      "!@shared-kernel/**",
+                      "!@work/application/contracts/line-layout.contract",
+                      "!@work/application/contracts/run-spec.contract",
+                      "!@work/application/ports/work-lookup.port",
+                      "!@work/application/ports/contributed-tools.port",
+                      "!@work/application/ports/configured-lines.port",
+                      "!@work/application/ports/happening-reactions.port",
+                      "!@work/application/ports/team-skills.port",
+                      "!@work/application/ports/built-in-skills.port",
+                      "!@work/application/ports/configuration-proposals.port",
+                      "!@work/application/ports/integration-tool-calls.port",
+                      "!@work/application/ports/task-notices.port",
+                      "!@work/application/ports/starter-integrations.port",
+                      "!@work/application/ports/delivery-addresses.port",
+                      "!@work/application/ports/configuration-status.port",
+                      "!@work/application/ports/team-integrations.port",
+                      "!@work/application/dto/ready-skill.dto",
+                      "!@work/application/dto/bound-task.dto",
+                      "!@work/application/integration-events/*.integration-event",
+                      "!@work/application/contracts/bindable-task-events.contract",
+                      "!@work/application/contracts/tools.contract",
+                      "!@work/application/contracts/happenings.contract",
+                      "!@work/application/ports/setup-settling.port",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/ports/workspace-access.port",
+                      "!@identity/application/ports/team-directory.port",
+                      "!@identity/application/ports/workspace-reader.port",
+                      "!@identity/application/ports/person-reader.port",
+                      "!@identity/application/ports/member-reader.port",
+                      "!@identity/application/ports/linked-accounts.port",
+                      "!@identity/application/integration-events/*.integration-event",
+                      "!@change-review/application/ports/**",
+                      "!@change-review/application/dto/**",
+                      "!@change-review/application/integration-events/*.integration-event",
+                      "!@github/application/ports/workspace-connections.port",
+                      "!@github/application/ports/repository-catalog.port",
+                      "!@github/application/ports/repository-contents.port",
+                      "!@github/application/ports/repository-git.port",
+                      "!@github/application/ports/pull-request.port",
+                      "!@github/application/ports/pull-request-comments.port",
+                      "!@github/application/ports/pull-request-reviews.port",
+                      "!@github/application/ports/remarks.port",
+                      "!@github/application/ports/github-app.port",
+                      "!@github/application/ports/github-webhooks.port",
+                      "!@github/application/dto/**",
+                      "!@github/application/integration-events/*.integration-event",
+                      "!@github/application/errors/no-github-installation.error",
+                      "!@integrations/application/dto/**",
+                      "!@integrations/application/integration-events/*.integration-event",
+                      "!@runners/application/ports/runner-reader.port",
+                      "!@runners/application/ports/runner-presence.port",
+                      "!@runners/application/ports/installer-assets.port",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/integration-events/*.integration-event",
+                      "!./**",
+                      "!vitest"
+                    ],
+                    "message": "Configuration’s application layer depends on its own domain, the shared kernel, and what other contexts publish. Reach anything else through a port under @configuration/application/ports."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/configuration/infrastructure/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@configuration/presentation/**",
+                      "@platform/http/**",
+                      "@configuration/application/**",
+                      "!@configuration/application/ports/**",
+                      "!@configuration/application/contracts/**",
+                      "!@configuration/application/dto/**",
+                      "@work/**",
+                      "!@work/application/contracts/line-layout.contract",
+                      "!@work/application/contracts/run-spec.contract",
+                      "!@work/application/ports/work-lookup.port",
+                      "!@work/application/ports/contributed-tools.port",
+                      "!@work/application/ports/configured-lines.port",
+                      "!@work/application/ports/happening-reactions.port",
+                      "!@work/application/ports/team-skills.port",
+                      "!@work/application/ports/built-in-skills.port",
+                      "!@work/application/ports/configuration-proposals.port",
+                      "!@work/application/ports/integration-tool-calls.port",
+                      "!@work/application/ports/task-notices.port",
+                      "!@work/application/ports/starter-integrations.port",
+                      "!@work/application/ports/delivery-addresses.port",
+                      "!@work/application/ports/configuration-status.port",
+                      "!@work/application/ports/team-integrations.port",
+                      "!@work/application/dto/ready-skill.dto",
+                      "!@work/application/dto/bound-task.dto",
+                      "!@work/application/integration-events/*.integration-event",
+                      "!@work/application/contracts/bindable-task-events.contract",
+                      "!@work/application/contracts/tools.contract",
+                      "!@work/application/contracts/happenings.contract",
+                      "!@work/application/ports/setup-settling.port",
+                      "@identity/**",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/ports/workspace-access.port",
+                      "!@identity/application/ports/team-directory.port",
+                      "!@identity/application/ports/workspace-reader.port",
+                      "!@identity/application/ports/person-reader.port",
+                      "!@identity/application/ports/member-reader.port",
+                      "!@identity/application/ports/linked-accounts.port",
+                      "!@identity/application/integration-events/*.integration-event",
+                      "@change-review/**",
+                      "!@change-review/application/ports/**",
+                      "!@change-review/application/dto/**",
+                      "!@change-review/application/integration-events/*.integration-event",
+                      "@github/**",
+                      "!@github/application/ports/workspace-connections.port",
+                      "!@github/application/ports/repository-catalog.port",
+                      "!@github/application/ports/repository-contents.port",
+                      "!@github/application/ports/repository-git.port",
+                      "!@github/application/ports/pull-request.port",
+                      "!@github/application/ports/pull-request-comments.port",
+                      "!@github/application/ports/pull-request-reviews.port",
+                      "!@github/application/ports/remarks.port",
+                      "!@github/application/ports/github-app.port",
+                      "!@github/application/ports/github-webhooks.port",
+                      "!@github/application/dto/**",
+                      "!@github/application/integration-events/*.integration-event",
+                      "!@github/application/errors/no-github-installation.error",
+                      "@integrations/**",
+                      "!@integrations/application/dto/**",
+                      "!@integrations/application/integration-events/*.integration-event",
+                      "@runners/**",
+                      "!@runners/application/ports/runner-reader.port",
+                      "!@runners/application/ports/runner-presence.port",
+                      "!@runners/application/ports/installer-assets.port",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/integration-events/*.integration-event"
+                    ],
+                    "message": "Configuration’s infrastructure implements its own ports. It may not reach another context’s internals; take what it needs through a published port."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/configuration/presentation/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@configuration/infrastructure/**",
+                      "@platform/**",
+                      "!@platform/http/**",
+                      "@work/**",
+                      "!@work/application/contracts/line-layout.contract",
+                      "!@work/application/contracts/run-spec.contract",
+                      "!@work/application/ports/work-lookup.port",
+                      "!@work/application/ports/contributed-tools.port",
+                      "!@work/application/ports/configured-lines.port",
+                      "!@work/application/ports/happening-reactions.port",
+                      "!@work/application/ports/team-skills.port",
+                      "!@work/application/ports/built-in-skills.port",
+                      "!@work/application/ports/configuration-proposals.port",
+                      "!@work/application/ports/integration-tool-calls.port",
+                      "!@work/application/ports/task-notices.port",
+                      "!@work/application/ports/starter-integrations.port",
+                      "!@work/application/ports/delivery-addresses.port",
+                      "!@work/application/ports/configuration-status.port",
+                      "!@work/application/ports/team-integrations.port",
+                      "!@work/application/dto/ready-skill.dto",
+                      "!@work/application/dto/bound-task.dto",
+                      "!@work/application/integration-events/*.integration-event",
+                      "!@work/application/contracts/bindable-task-events.contract",
+                      "!@work/application/contracts/tools.contract",
+                      "!@work/application/contracts/happenings.contract",
+                      "!@work/application/ports/setup-settling.port",
+                      "@identity/**",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/ports/workspace-access.port",
+                      "!@identity/application/ports/team-directory.port",
+                      "!@identity/application/ports/workspace-reader.port",
+                      "!@identity/application/ports/person-reader.port",
+                      "!@identity/application/ports/member-reader.port",
+                      "!@identity/application/ports/linked-accounts.port",
+                      "!@identity/application/integration-events/*.integration-event",
+                      "@change-review/**",
+                      "!@change-review/application/ports/**",
+                      "!@change-review/application/dto/**",
+                      "!@change-review/application/integration-events/*.integration-event",
+                      "@github/**",
+                      "!@github/application/ports/workspace-connections.port",
+                      "!@github/application/ports/repository-catalog.port",
+                      "!@github/application/ports/repository-contents.port",
+                      "!@github/application/ports/repository-git.port",
+                      "!@github/application/ports/pull-request.port",
+                      "!@github/application/ports/pull-request-comments.port",
+                      "!@github/application/ports/pull-request-reviews.port",
+                      "!@github/application/ports/remarks.port",
+                      "!@github/application/ports/github-app.port",
+                      "!@github/application/ports/github-webhooks.port",
+                      "!@github/application/dto/**",
+                      "!@github/application/integration-events/*.integration-event",
+                      "!@github/application/errors/no-github-installation.error",
+                      "@integrations/**",
+                      "!@integrations/application/dto/**",
+                      "!@integrations/application/integration-events/*.integration-event",
+                      "@runners/**",
+                      "!@runners/application/ports/runner-reader.port",
+                      "!@runners/application/ports/runner-presence.port",
+                      "!@runners/application/ports/installer-assets.port",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/integration-events/*.integration-event"
+                    ],
+                    "message": "Configuration’s presentation drives its own application layer, and uses other contexts only through what they publish."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/contexts/configuration/configuration.wiring.ts",
+        "src/contexts/configuration/configuration.module.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@work/**",
+                      "!@work/work.module",
+                      "!@work/work.startup",
+                      "!@work/application/contracts/line-layout.contract",
+                      "!@work/application/contracts/run-spec.contract",
+                      "!@work/application/ports/work-lookup.port",
+                      "!@work/application/ports/contributed-tools.port",
+                      "!@work/application/ports/configured-lines.port",
+                      "!@work/application/ports/happening-reactions.port",
+                      "!@work/application/ports/team-skills.port",
+                      "!@work/application/ports/built-in-skills.port",
+                      "!@work/application/ports/configuration-proposals.port",
+                      "!@work/application/ports/integration-tool-calls.port",
+                      "!@work/application/ports/task-notices.port",
+                      "!@work/application/ports/starter-integrations.port",
+                      "!@work/application/ports/delivery-addresses.port",
+                      "!@work/application/ports/configuration-status.port",
+                      "!@work/application/ports/team-integrations.port",
+                      "!@work/application/dto/ready-skill.dto",
+                      "!@work/application/dto/bound-task.dto",
+                      "!@work/application/integration-events/*.integration-event",
+                      "!@work/application/contracts/bindable-task-events.contract",
+                      "!@work/application/contracts/tools.contract",
+                      "!@work/application/contracts/happenings.contract",
+                      "!@work/application/ports/setup-settling.port",
+                      "@identity/**",
+                      "!@identity/identity.module",
+                      "!@identity/identity.startup",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/ports/workspace-access.port",
+                      "!@identity/application/ports/team-directory.port",
+                      "!@identity/application/ports/workspace-reader.port",
+                      "!@identity/application/ports/person-reader.port",
+                      "!@identity/application/ports/member-reader.port",
+                      "!@identity/application/ports/linked-accounts.port",
+                      "!@identity/application/integration-events/*.integration-event",
+                      "@change-review/**",
+                      "!@change-review/change-review.module",
+                      "!@change-review/change-review.startup",
+                      "!@change-review/application/ports/**",
+                      "!@change-review/application/dto/**",
+                      "!@change-review/application/integration-events/*.integration-event",
+                      "@github/**",
+                      "!@github/github.module",
+                      "!@github/github.startup",
+                      "!@github/application/ports/workspace-connections.port",
+                      "!@github/application/ports/repository-catalog.port",
+                      "!@github/application/ports/repository-contents.port",
+                      "!@github/application/ports/repository-git.port",
+                      "!@github/application/ports/pull-request.port",
+                      "!@github/application/ports/pull-request-comments.port",
+                      "!@github/application/ports/pull-request-reviews.port",
+                      "!@github/application/ports/remarks.port",
+                      "!@github/application/ports/github-app.port",
+                      "!@github/application/ports/github-webhooks.port",
+                      "!@github/application/dto/**",
+                      "!@github/application/integration-events/*.integration-event",
+                      "!@github/application/errors/no-github-installation.error",
+                      "@integrations/**",
+                      "!@integrations/integrations.module",
+                      "!@integrations/integrations.startup",
+                      "!@integrations/application/dto/**",
+                      "!@integrations/application/integration-events/*.integration-event",
+                      "@runners/**",
+                      "!@runners/runners.module",
+                      "!@runners/runners.startup",
+                      "!@runners/application/ports/runner-reader.port",
+                      "!@runners/application/ports/runner-presence.port",
+                      "!@runners/application/ports/installer-assets.port",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/integration-events/*.integration-event"
+                    ],
+                    "message": "Configuration’s module wires its own parts to the platform, the shared kernel and to what other contexts publish; it never reaches their adapters or internals."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/change-review/domain/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**",
+                      "!@change-review/domain/**",
+                      "!@shared-kernel/domain/**",
+                      "!./**",
+                      "!vitest"
+                    ],
+                    "message": "Change Review’s domain depends on itself, the shared kernel’s domain, and the published language of other contexts."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/change-review/application/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**",
+                      "!@change-review/domain/**",
+                      "!@change-review/application/**",
+                      "!@shared-kernel/**",
+                      "!@work/application/contracts/line-layout.contract",
+                      "!@work/application/contracts/run-spec.contract",
+                      "!@work/application/ports/work-lookup.port",
+                      "!@work/application/ports/contributed-tools.port",
+                      "!@work/application/ports/configured-lines.port",
+                      "!@work/application/ports/happening-reactions.port",
+                      "!@work/application/ports/team-skills.port",
+                      "!@work/application/ports/built-in-skills.port",
+                      "!@work/application/ports/configuration-proposals.port",
+                      "!@work/application/ports/integration-tool-calls.port",
+                      "!@work/application/ports/task-notices.port",
+                      "!@work/application/ports/starter-integrations.port",
+                      "!@work/application/ports/delivery-addresses.port",
+                      "!@work/application/ports/configuration-status.port",
+                      "!@work/application/ports/team-integrations.port",
+                      "!@work/application/dto/ready-skill.dto",
+                      "!@work/application/dto/bound-task.dto",
+                      "!@work/application/integration-events/*.integration-event",
+                      "!@work/application/contracts/bindable-task-events.contract",
+                      "!@work/application/contracts/tools.contract",
+                      "!@work/application/contracts/happenings.contract",
+                      "!@work/application/ports/setup-settling.port",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/ports/workspace-access.port",
+                      "!@identity/application/ports/team-directory.port",
+                      "!@identity/application/ports/workspace-reader.port",
+                      "!@identity/application/ports/person-reader.port",
+                      "!@identity/application/ports/member-reader.port",
+                      "!@identity/application/ports/linked-accounts.port",
+                      "!@identity/application/integration-events/*.integration-event",
+                      "!@configuration/application/ports/**",
+                      "!@configuration/application/contracts/**",
+                      "!@configuration/application/dto/**",
+                      "!@configuration/application/ports/integration-reader.port",
+                      "!@configuration/application/ports/integration-links.port",
+                      "!@configuration/application/integration-events/*.integration-event",
+                      "!@github/application/ports/workspace-connections.port",
+                      "!@github/application/ports/repository-catalog.port",
+                      "!@github/application/ports/repository-contents.port",
+                      "!@github/application/ports/repository-git.port",
+                      "!@github/application/ports/pull-request.port",
+                      "!@github/application/ports/pull-request-comments.port",
+                      "!@github/application/ports/pull-request-reviews.port",
+                      "!@github/application/ports/remarks.port",
+                      "!@github/application/ports/github-app.port",
+                      "!@github/application/ports/github-webhooks.port",
+                      "!@github/application/dto/**",
+                      "!@github/application/integration-events/*.integration-event",
+                      "!@github/application/errors/no-github-installation.error",
+                      "!@integrations/application/dto/**",
+                      "!@integrations/application/integration-events/*.integration-event",
+                      "!@runners/application/ports/runner-reader.port",
+                      "!@runners/application/ports/runner-presence.port",
+                      "!@runners/application/ports/installer-assets.port",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/integration-events/*.integration-event",
+                      "!./**",
+                      "!vitest"
+                    ],
+                    "message": "Change Review’s application layer depends on its own domain, the shared kernel, and what other contexts publish. Reach anything else through a port under @change-review/application/ports."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/change-review/infrastructure/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@change-review/presentation/**",
+                      "@platform/http/**",
+                      "@change-review/application/**",
+                      "!@change-review/application/ports/**",
+                      "!@change-review/application/contracts/**",
+                      "!@change-review/application/dto/**",
+                      "@work/**",
+                      "!@work/application/contracts/line-layout.contract",
+                      "!@work/application/contracts/run-spec.contract",
+                      "!@work/application/ports/work-lookup.port",
+                      "!@work/application/ports/contributed-tools.port",
+                      "!@work/application/ports/configured-lines.port",
+                      "!@work/application/ports/happening-reactions.port",
+                      "!@work/application/ports/team-skills.port",
+                      "!@work/application/ports/built-in-skills.port",
+                      "!@work/application/ports/configuration-proposals.port",
+                      "!@work/application/ports/integration-tool-calls.port",
+                      "!@work/application/ports/task-notices.port",
+                      "!@work/application/ports/starter-integrations.port",
+                      "!@work/application/ports/delivery-addresses.port",
+                      "!@work/application/ports/configuration-status.port",
+                      "!@work/application/ports/team-integrations.port",
+                      "!@work/application/dto/ready-skill.dto",
+                      "!@work/application/dto/bound-task.dto",
+                      "!@work/application/integration-events/*.integration-event",
+                      "!@work/application/contracts/bindable-task-events.contract",
+                      "!@work/application/contracts/tools.contract",
+                      "!@work/application/contracts/happenings.contract",
+                      "!@work/application/ports/setup-settling.port",
+                      "@identity/**",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/ports/workspace-access.port",
+                      "!@identity/application/ports/team-directory.port",
+                      "!@identity/application/ports/workspace-reader.port",
+                      "!@identity/application/ports/person-reader.port",
+                      "!@identity/application/ports/member-reader.port",
+                      "!@identity/application/ports/linked-accounts.port",
+                      "!@identity/application/integration-events/*.integration-event",
+                      "@configuration/**",
+                      "!@configuration/application/ports/**",
+                      "!@configuration/application/contracts/**",
+                      "!@configuration/application/dto/**",
+                      "!@configuration/application/ports/integration-reader.port",
+                      "!@configuration/application/ports/integration-links.port",
+                      "!@configuration/application/integration-events/*.integration-event",
+                      "@github/**",
+                      "!@github/application/ports/workspace-connections.port",
+                      "!@github/application/ports/repository-catalog.port",
+                      "!@github/application/ports/repository-contents.port",
+                      "!@github/application/ports/repository-git.port",
+                      "!@github/application/ports/pull-request.port",
+                      "!@github/application/ports/pull-request-comments.port",
+                      "!@github/application/ports/pull-request-reviews.port",
+                      "!@github/application/ports/remarks.port",
+                      "!@github/application/ports/github-app.port",
+                      "!@github/application/ports/github-webhooks.port",
+                      "!@github/application/dto/**",
+                      "!@github/application/integration-events/*.integration-event",
+                      "!@github/application/errors/no-github-installation.error",
+                      "@integrations/**",
+                      "!@integrations/application/dto/**",
+                      "!@integrations/application/integration-events/*.integration-event",
+                      "@runners/**",
+                      "!@runners/application/ports/runner-reader.port",
+                      "!@runners/application/ports/runner-presence.port",
+                      "!@runners/application/ports/installer-assets.port",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/integration-events/*.integration-event"
+                    ],
+                    "message": "Change Review’s infrastructure implements its own ports. It may not reach another context’s internals; take what it needs through a published port."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/change-review/presentation/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@change-review/infrastructure/**",
+                      "@platform/**",
+                      "!@platform/http/**",
+                      "@work/**",
+                      "!@work/application/contracts/line-layout.contract",
+                      "!@work/application/contracts/run-spec.contract",
+                      "!@work/application/ports/work-lookup.port",
+                      "!@work/application/ports/contributed-tools.port",
+                      "!@work/application/ports/configured-lines.port",
+                      "!@work/application/ports/happening-reactions.port",
+                      "!@work/application/ports/team-skills.port",
+                      "!@work/application/ports/built-in-skills.port",
+                      "!@work/application/ports/configuration-proposals.port",
+                      "!@work/application/ports/integration-tool-calls.port",
+                      "!@work/application/ports/task-notices.port",
+                      "!@work/application/ports/starter-integrations.port",
+                      "!@work/application/ports/delivery-addresses.port",
+                      "!@work/application/ports/configuration-status.port",
+                      "!@work/application/ports/team-integrations.port",
+                      "!@work/application/dto/ready-skill.dto",
+                      "!@work/application/dto/bound-task.dto",
+                      "!@work/application/integration-events/*.integration-event",
+                      "!@work/application/contracts/bindable-task-events.contract",
+                      "!@work/application/contracts/tools.contract",
+                      "!@work/application/contracts/happenings.contract",
+                      "!@work/application/ports/setup-settling.port",
+                      "@identity/**",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/ports/workspace-access.port",
+                      "!@identity/application/ports/team-directory.port",
+                      "!@identity/application/ports/workspace-reader.port",
+                      "!@identity/application/ports/person-reader.port",
+                      "!@identity/application/ports/member-reader.port",
+                      "!@identity/application/ports/linked-accounts.port",
+                      "!@identity/application/integration-events/*.integration-event",
+                      "@configuration/**",
+                      "!@configuration/application/ports/**",
+                      "!@configuration/application/contracts/**",
+                      "!@configuration/application/dto/**",
+                      "!@configuration/application/ports/integration-reader.port",
+                      "!@configuration/application/ports/integration-links.port",
+                      "!@configuration/application/integration-events/*.integration-event",
+                      "@github/**",
+                      "!@github/application/ports/workspace-connections.port",
+                      "!@github/application/ports/repository-catalog.port",
+                      "!@github/application/ports/repository-contents.port",
+                      "!@github/application/ports/repository-git.port",
+                      "!@github/application/ports/pull-request.port",
+                      "!@github/application/ports/pull-request-comments.port",
+                      "!@github/application/ports/pull-request-reviews.port",
+                      "!@github/application/ports/remarks.port",
+                      "!@github/application/ports/github-app.port",
+                      "!@github/application/ports/github-webhooks.port",
+                      "!@github/application/dto/**",
+                      "!@github/application/integration-events/*.integration-event",
+                      "!@github/application/errors/no-github-installation.error",
+                      "@integrations/**",
+                      "!@integrations/application/dto/**",
+                      "!@integrations/application/integration-events/*.integration-event",
+                      "@runners/**",
+                      "!@runners/application/ports/runner-reader.port",
+                      "!@runners/application/ports/runner-presence.port",
+                      "!@runners/application/ports/installer-assets.port",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/integration-events/*.integration-event"
+                    ],
+                    "message": "Change Review’s presentation drives its own application layer, and uses other contexts only through what they publish."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/contexts/change-review/change-review.wiring.ts",
+        "src/contexts/change-review/change-review.module.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@work/**",
+                      "!@work/work.module",
+                      "!@work/work.startup",
+                      "!@work/application/contracts/line-layout.contract",
+                      "!@work/application/contracts/run-spec.contract",
+                      "!@work/application/ports/work-lookup.port",
+                      "!@work/application/ports/contributed-tools.port",
+                      "!@work/application/ports/configured-lines.port",
+                      "!@work/application/ports/happening-reactions.port",
+                      "!@work/application/ports/team-skills.port",
+                      "!@work/application/ports/built-in-skills.port",
+                      "!@work/application/ports/configuration-proposals.port",
+                      "!@work/application/ports/integration-tool-calls.port",
+                      "!@work/application/ports/task-notices.port",
+                      "!@work/application/ports/starter-integrations.port",
+                      "!@work/application/ports/delivery-addresses.port",
+                      "!@work/application/ports/configuration-status.port",
+                      "!@work/application/ports/team-integrations.port",
+                      "!@work/application/dto/ready-skill.dto",
+                      "!@work/application/dto/bound-task.dto",
+                      "!@work/application/integration-events/*.integration-event",
+                      "!@work/application/contracts/bindable-task-events.contract",
+                      "!@work/application/contracts/tools.contract",
+                      "!@work/application/contracts/happenings.contract",
+                      "!@work/application/ports/setup-settling.port",
+                      "@identity/**",
+                      "!@identity/identity.module",
+                      "!@identity/identity.startup",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/ports/workspace-access.port",
+                      "!@identity/application/ports/team-directory.port",
+                      "!@identity/application/ports/workspace-reader.port",
+                      "!@identity/application/ports/person-reader.port",
+                      "!@identity/application/ports/member-reader.port",
+                      "!@identity/application/ports/linked-accounts.port",
+                      "!@identity/application/integration-events/*.integration-event",
+                      "@configuration/**",
+                      "!@configuration/configuration.module",
+                      "!@configuration/configuration.startup",
+                      "!@configuration/application/ports/**",
+                      "!@configuration/application/contracts/**",
+                      "!@configuration/application/dto/**",
+                      "!@configuration/application/ports/integration-reader.port",
+                      "!@configuration/application/ports/integration-links.port",
+                      "!@configuration/application/integration-events/*.integration-event",
+                      "@github/**",
+                      "!@github/github.module",
+                      "!@github/github.startup",
+                      "!@github/application/ports/workspace-connections.port",
+                      "!@github/application/ports/repository-catalog.port",
+                      "!@github/application/ports/repository-contents.port",
+                      "!@github/application/ports/repository-git.port",
+                      "!@github/application/ports/pull-request.port",
+                      "!@github/application/ports/pull-request-comments.port",
+                      "!@github/application/ports/pull-request-reviews.port",
+                      "!@github/application/ports/remarks.port",
+                      "!@github/application/ports/github-app.port",
+                      "!@github/application/ports/github-webhooks.port",
+                      "!@github/application/dto/**",
+                      "!@github/application/integration-events/*.integration-event",
+                      "!@github/application/errors/no-github-installation.error",
+                      "@integrations/**",
+                      "!@integrations/integrations.module",
+                      "!@integrations/integrations.startup",
+                      "!@integrations/application/dto/**",
+                      "!@integrations/application/integration-events/*.integration-event",
+                      "@runners/**",
+                      "!@runners/runners.module",
+                      "!@runners/runners.startup",
+                      "!@runners/application/ports/runner-reader.port",
+                      "!@runners/application/ports/runner-presence.port",
+                      "!@runners/application/ports/installer-assets.port",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/integration-events/*.integration-event"
+                    ],
+                    "message": "Change Review’s module wires its own parts to the platform, the shared kernel and to what other contexts publish; it never reaches their adapters or internals."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/github/domain/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**",
+                      "!@github/domain/**",
+                      "!@shared-kernel/domain/**",
+                      "!./**",
+                      "!vitest"
+                    ],
+                    "message": "GitHub’s domain depends on itself, the shared kernel’s domain, and the published language of other contexts."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/github/application/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**",
+                      "!@github/domain/**",
+                      "!@github/application/**",
+                      "!@shared-kernel/**",
+                      "!@work/application/contracts/line-layout.contract",
+                      "!@work/application/contracts/run-spec.contract",
+                      "!@work/application/ports/work-lookup.port",
+                      "!@work/application/ports/contributed-tools.port",
+                      "!@work/application/ports/configured-lines.port",
+                      "!@work/application/ports/happening-reactions.port",
+                      "!@work/application/ports/team-skills.port",
+                      "!@work/application/ports/built-in-skills.port",
+                      "!@work/application/ports/configuration-proposals.port",
+                      "!@work/application/ports/integration-tool-calls.port",
+                      "!@work/application/ports/task-notices.port",
+                      "!@work/application/ports/starter-integrations.port",
+                      "!@work/application/ports/delivery-addresses.port",
+                      "!@work/application/ports/configuration-status.port",
+                      "!@work/application/ports/team-integrations.port",
+                      "!@work/application/dto/ready-skill.dto",
+                      "!@work/application/dto/bound-task.dto",
+                      "!@work/application/integration-events/*.integration-event",
+                      "!@work/application/contracts/bindable-task-events.contract",
+                      "!@work/application/contracts/tools.contract",
+                      "!@work/application/contracts/happenings.contract",
+                      "!@work/application/ports/setup-settling.port",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/ports/workspace-access.port",
+                      "!@identity/application/ports/team-directory.port",
+                      "!@identity/application/ports/workspace-reader.port",
+                      "!@identity/application/ports/person-reader.port",
+                      "!@identity/application/ports/member-reader.port",
+                      "!@identity/application/ports/linked-accounts.port",
+                      "!@identity/application/integration-events/*.integration-event",
+                      "!@configuration/application/ports/**",
+                      "!@configuration/application/contracts/**",
+                      "!@configuration/application/dto/**",
+                      "!@configuration/application/ports/integration-reader.port",
+                      "!@configuration/application/ports/integration-links.port",
+                      "!@configuration/application/integration-events/*.integration-event",
+                      "!@change-review/application/ports/**",
+                      "!@change-review/application/dto/**",
+                      "!@change-review/application/integration-events/*.integration-event",
+                      "!@integrations/application/dto/**",
+                      "!@integrations/application/integration-events/*.integration-event",
+                      "!@runners/application/ports/runner-reader.port",
+                      "!@runners/application/ports/runner-presence.port",
+                      "!@runners/application/ports/installer-assets.port",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/integration-events/*.integration-event",
+                      "!./**",
+                      "!vitest"
+                    ],
+                    "message": "GitHub’s application layer depends on its own domain, the shared kernel, and what other contexts publish. Reach anything else through a port under @github/application/ports."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/github/infrastructure/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@github/presentation/**",
+                      "@platform/http/**",
+                      "@github/application/**",
+                      "!@github/application/ports/**",
+                      "!@github/application/contracts/**",
+                      "!@github/application/dto/**",
+                      "@work/**",
+                      "!@work/application/contracts/line-layout.contract",
+                      "!@work/application/contracts/run-spec.contract",
+                      "!@work/application/ports/work-lookup.port",
+                      "!@work/application/ports/contributed-tools.port",
+                      "!@work/application/ports/configured-lines.port",
+                      "!@work/application/ports/happening-reactions.port",
+                      "!@work/application/ports/team-skills.port",
+                      "!@work/application/ports/built-in-skills.port",
+                      "!@work/application/ports/configuration-proposals.port",
+                      "!@work/application/ports/integration-tool-calls.port",
+                      "!@work/application/ports/task-notices.port",
+                      "!@work/application/ports/starter-integrations.port",
+                      "!@work/application/ports/delivery-addresses.port",
+                      "!@work/application/ports/configuration-status.port",
+                      "!@work/application/ports/team-integrations.port",
+                      "!@work/application/dto/ready-skill.dto",
+                      "!@work/application/dto/bound-task.dto",
+                      "!@work/application/integration-events/*.integration-event",
+                      "!@work/application/contracts/bindable-task-events.contract",
+                      "!@work/application/contracts/tools.contract",
+                      "!@work/application/contracts/happenings.contract",
+                      "!@work/application/ports/setup-settling.port",
+                      "@identity/**",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/ports/workspace-access.port",
+                      "!@identity/application/ports/team-directory.port",
+                      "!@identity/application/ports/workspace-reader.port",
+                      "!@identity/application/ports/person-reader.port",
+                      "!@identity/application/ports/member-reader.port",
+                      "!@identity/application/ports/linked-accounts.port",
+                      "!@identity/application/integration-events/*.integration-event",
+                      "@configuration/**",
+                      "!@configuration/application/ports/**",
+                      "!@configuration/application/contracts/**",
+                      "!@configuration/application/dto/**",
+                      "!@configuration/application/ports/integration-reader.port",
+                      "!@configuration/application/ports/integration-links.port",
+                      "!@configuration/application/integration-events/*.integration-event",
+                      "@change-review/**",
+                      "!@change-review/application/ports/**",
+                      "!@change-review/application/dto/**",
+                      "!@change-review/application/integration-events/*.integration-event",
+                      "@integrations/**",
+                      "!@integrations/application/dto/**",
+                      "!@integrations/application/integration-events/*.integration-event",
+                      "@runners/**",
+                      "!@runners/application/ports/runner-reader.port",
+                      "!@runners/application/ports/runner-presence.port",
+                      "!@runners/application/ports/installer-assets.port",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/integration-events/*.integration-event"
+                    ],
+                    "message": "GitHub’s infrastructure implements its own ports. It may not reach another context’s internals; take what it needs through a published port."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/github/presentation/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@github/infrastructure/**",
+                      "@platform/**",
+                      "!@platform/http/**",
+                      "@work/**",
+                      "!@work/application/contracts/line-layout.contract",
+                      "!@work/application/contracts/run-spec.contract",
+                      "!@work/application/ports/work-lookup.port",
+                      "!@work/application/ports/contributed-tools.port",
+                      "!@work/application/ports/configured-lines.port",
+                      "!@work/application/ports/happening-reactions.port",
+                      "!@work/application/ports/team-skills.port",
+                      "!@work/application/ports/built-in-skills.port",
+                      "!@work/application/ports/configuration-proposals.port",
+                      "!@work/application/ports/integration-tool-calls.port",
+                      "!@work/application/ports/task-notices.port",
+                      "!@work/application/ports/starter-integrations.port",
+                      "!@work/application/ports/delivery-addresses.port",
+                      "!@work/application/ports/configuration-status.port",
+                      "!@work/application/ports/team-integrations.port",
+                      "!@work/application/dto/ready-skill.dto",
+                      "!@work/application/dto/bound-task.dto",
+                      "!@work/application/integration-events/*.integration-event",
+                      "!@work/application/contracts/bindable-task-events.contract",
+                      "!@work/application/contracts/tools.contract",
+                      "!@work/application/contracts/happenings.contract",
+                      "!@work/application/ports/setup-settling.port",
+                      "@identity/**",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/ports/workspace-access.port",
+                      "!@identity/application/ports/team-directory.port",
+                      "!@identity/application/ports/workspace-reader.port",
+                      "!@identity/application/ports/person-reader.port",
+                      "!@identity/application/ports/member-reader.port",
+                      "!@identity/application/ports/linked-accounts.port",
+                      "!@identity/application/integration-events/*.integration-event",
+                      "@configuration/**",
+                      "!@configuration/application/ports/**",
+                      "!@configuration/application/contracts/**",
+                      "!@configuration/application/dto/**",
+                      "!@configuration/application/ports/integration-reader.port",
+                      "!@configuration/application/ports/integration-links.port",
+                      "!@configuration/application/integration-events/*.integration-event",
+                      "@change-review/**",
+                      "!@change-review/application/ports/**",
+                      "!@change-review/application/dto/**",
+                      "!@change-review/application/integration-events/*.integration-event",
+                      "@integrations/**",
+                      "!@integrations/application/dto/**",
+                      "!@integrations/application/integration-events/*.integration-event",
+                      "@runners/**",
+                      "!@runners/application/ports/runner-reader.port",
+                      "!@runners/application/ports/runner-presence.port",
+                      "!@runners/application/ports/installer-assets.port",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/integration-events/*.integration-event"
+                    ],
+                    "message": "GitHub’s presentation drives its own application layer, and uses other contexts only through what they publish."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/contexts/github/github.wiring.ts",
+        "src/contexts/github/github.module.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@work/**",
+                      "!@work/work.module",
+                      "!@work/work.startup",
+                      "!@work/application/contracts/line-layout.contract",
+                      "!@work/application/contracts/run-spec.contract",
+                      "!@work/application/ports/work-lookup.port",
+                      "!@work/application/ports/contributed-tools.port",
+                      "!@work/application/ports/configured-lines.port",
+                      "!@work/application/ports/happening-reactions.port",
+                      "!@work/application/ports/team-skills.port",
+                      "!@work/application/ports/built-in-skills.port",
+                      "!@work/application/ports/configuration-proposals.port",
+                      "!@work/application/ports/integration-tool-calls.port",
+                      "!@work/application/ports/task-notices.port",
+                      "!@work/application/ports/starter-integrations.port",
+                      "!@work/application/ports/delivery-addresses.port",
+                      "!@work/application/ports/configuration-status.port",
+                      "!@work/application/ports/team-integrations.port",
+                      "!@work/application/dto/ready-skill.dto",
+                      "!@work/application/dto/bound-task.dto",
+                      "!@work/application/integration-events/*.integration-event",
+                      "!@work/application/contracts/bindable-task-events.contract",
+                      "!@work/application/contracts/tools.contract",
+                      "!@work/application/contracts/happenings.contract",
+                      "!@work/application/ports/setup-settling.port",
+                      "@identity/**",
+                      "!@identity/identity.module",
+                      "!@identity/identity.startup",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/ports/workspace-access.port",
+                      "!@identity/application/ports/team-directory.port",
+                      "!@identity/application/ports/workspace-reader.port",
+                      "!@identity/application/ports/person-reader.port",
+                      "!@identity/application/ports/member-reader.port",
+                      "!@identity/application/ports/linked-accounts.port",
+                      "!@identity/application/integration-events/*.integration-event",
+                      "@configuration/**",
+                      "!@configuration/configuration.module",
+                      "!@configuration/configuration.startup",
+                      "!@configuration/application/ports/**",
+                      "!@configuration/application/contracts/**",
+                      "!@configuration/application/dto/**",
+                      "!@configuration/application/ports/integration-reader.port",
+                      "!@configuration/application/ports/integration-links.port",
+                      "!@configuration/application/integration-events/*.integration-event",
+                      "@change-review/**",
+                      "!@change-review/change-review.module",
+                      "!@change-review/change-review.startup",
+                      "!@change-review/application/ports/**",
+                      "!@change-review/application/dto/**",
+                      "!@change-review/application/integration-events/*.integration-event",
+                      "@integrations/**",
+                      "!@integrations/integrations.module",
+                      "!@integrations/integrations.startup",
+                      "!@integrations/application/dto/**",
+                      "!@integrations/application/integration-events/*.integration-event",
+                      "@runners/**",
+                      "!@runners/runners.module",
+                      "!@runners/runners.startup",
+                      "!@runners/application/ports/runner-reader.port",
+                      "!@runners/application/ports/runner-presence.port",
+                      "!@runners/application/ports/installer-assets.port",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/integration-events/*.integration-event"
+                    ],
+                    "message": "GitHub’s module wires its own parts to the platform, the shared kernel and to what other contexts publish; it never reaches their adapters or internals."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/integrations/domain/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**",
+                      "!@integrations/domain/**",
+                      "!@shared-kernel/domain/**",
+                      "!./**",
+                      "!vitest"
+                    ],
+                    "message": "Integrations’s domain depends on itself, the shared kernel’s domain, and the published language of other contexts."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/integrations/application/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**",
+                      "!@integrations/domain/**",
+                      "!@integrations/application/**",
+                      "!@shared-kernel/**",
+                      "!@work/application/contracts/line-layout.contract",
+                      "!@work/application/contracts/run-spec.contract",
+                      "!@work/application/ports/work-lookup.port",
+                      "!@work/application/ports/contributed-tools.port",
+                      "!@work/application/ports/configured-lines.port",
+                      "!@work/application/ports/happening-reactions.port",
+                      "!@work/application/ports/team-skills.port",
+                      "!@work/application/ports/built-in-skills.port",
+                      "!@work/application/ports/configuration-proposals.port",
+                      "!@work/application/ports/integration-tool-calls.port",
+                      "!@work/application/ports/task-notices.port",
+                      "!@work/application/ports/starter-integrations.port",
+                      "!@work/application/ports/delivery-addresses.port",
+                      "!@work/application/ports/configuration-status.port",
+                      "!@work/application/ports/team-integrations.port",
+                      "!@work/application/dto/ready-skill.dto",
+                      "!@work/application/dto/bound-task.dto",
+                      "!@work/application/integration-events/*.integration-event",
+                      "!@work/application/contracts/bindable-task-events.contract",
+                      "!@work/application/contracts/tools.contract",
+                      "!@work/application/contracts/happenings.contract",
+                      "!@work/application/ports/setup-settling.port",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/ports/workspace-access.port",
+                      "!@identity/application/ports/team-directory.port",
+                      "!@identity/application/ports/workspace-reader.port",
+                      "!@identity/application/ports/person-reader.port",
+                      "!@identity/application/ports/member-reader.port",
+                      "!@identity/application/ports/linked-accounts.port",
+                      "!@identity/application/integration-events/*.integration-event",
+                      "!@configuration/application/ports/**",
+                      "!@configuration/application/contracts/**",
+                      "!@configuration/application/dto/**",
+                      "!@configuration/application/ports/integration-reader.port",
+                      "!@configuration/application/ports/integration-links.port",
+                      "!@configuration/application/integration-events/*.integration-event",
+                      "!@change-review/application/ports/**",
+                      "!@change-review/application/dto/**",
+                      "!@change-review/application/integration-events/*.integration-event",
+                      "!@github/application/ports/workspace-connections.port",
+                      "!@github/application/ports/repository-catalog.port",
+                      "!@github/application/ports/repository-contents.port",
+                      "!@github/application/ports/repository-git.port",
+                      "!@github/application/ports/pull-request.port",
+                      "!@github/application/ports/pull-request-comments.port",
+                      "!@github/application/ports/pull-request-reviews.port",
+                      "!@github/application/ports/remarks.port",
+                      "!@github/application/ports/github-app.port",
+                      "!@github/application/ports/github-webhooks.port",
+                      "!@github/application/dto/**",
+                      "!@github/application/integration-events/*.integration-event",
+                      "!@github/application/errors/no-github-installation.error",
+                      "!@runners/application/ports/runner-reader.port",
+                      "!@runners/application/ports/runner-presence.port",
+                      "!@runners/application/ports/installer-assets.port",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/integration-events/*.integration-event",
+                      "!./**",
+                      "!vitest"
+                    ],
+                    "message": "Integrations’s application layer depends on its own domain, the shared kernel, and what other contexts publish. Reach anything else through a port under @integrations/application/ports."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/integrations/infrastructure/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@integrations/presentation/**",
+                      "@platform/http/**",
+                      "@integrations/application/**",
+                      "!@integrations/application/ports/**",
+                      "!@integrations/application/contracts/**",
+                      "!@integrations/application/dto/**",
+                      "@work/**",
+                      "!@work/application/contracts/line-layout.contract",
+                      "!@work/application/contracts/run-spec.contract",
+                      "!@work/application/ports/work-lookup.port",
+                      "!@work/application/ports/contributed-tools.port",
+                      "!@work/application/ports/configured-lines.port",
+                      "!@work/application/ports/happening-reactions.port",
+                      "!@work/application/ports/team-skills.port",
+                      "!@work/application/ports/built-in-skills.port",
+                      "!@work/application/ports/configuration-proposals.port",
+                      "!@work/application/ports/integration-tool-calls.port",
+                      "!@work/application/ports/task-notices.port",
+                      "!@work/application/ports/starter-integrations.port",
+                      "!@work/application/ports/delivery-addresses.port",
+                      "!@work/application/ports/configuration-status.port",
+                      "!@work/application/ports/team-integrations.port",
+                      "!@work/application/dto/ready-skill.dto",
+                      "!@work/application/dto/bound-task.dto",
+                      "!@work/application/integration-events/*.integration-event",
+                      "!@work/application/contracts/bindable-task-events.contract",
+                      "!@work/application/contracts/tools.contract",
+                      "!@work/application/contracts/happenings.contract",
+                      "!@work/application/ports/setup-settling.port",
+                      "@identity/**",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/ports/workspace-access.port",
+                      "!@identity/application/ports/team-directory.port",
+                      "!@identity/application/ports/workspace-reader.port",
+                      "!@identity/application/ports/person-reader.port",
+                      "!@identity/application/ports/member-reader.port",
+                      "!@identity/application/ports/linked-accounts.port",
+                      "!@identity/application/integration-events/*.integration-event",
+                      "@configuration/**",
+                      "!@configuration/application/ports/**",
+                      "!@configuration/application/contracts/**",
+                      "!@configuration/application/dto/**",
+                      "!@configuration/application/ports/integration-reader.port",
+                      "!@configuration/application/ports/integration-links.port",
+                      "!@configuration/application/integration-events/*.integration-event",
+                      "@change-review/**",
+                      "!@change-review/application/ports/**",
+                      "!@change-review/application/dto/**",
+                      "!@change-review/application/integration-events/*.integration-event",
+                      "@github/**",
+                      "!@github/application/ports/workspace-connections.port",
+                      "!@github/application/ports/repository-catalog.port",
+                      "!@github/application/ports/repository-contents.port",
+                      "!@github/application/ports/repository-git.port",
+                      "!@github/application/ports/pull-request.port",
+                      "!@github/application/ports/pull-request-comments.port",
+                      "!@github/application/ports/pull-request-reviews.port",
+                      "!@github/application/ports/remarks.port",
+                      "!@github/application/ports/github-app.port",
+                      "!@github/application/ports/github-webhooks.port",
+                      "!@github/application/dto/**",
+                      "!@github/application/integration-events/*.integration-event",
+                      "!@github/application/errors/no-github-installation.error",
+                      "@runners/**",
+                      "!@runners/application/ports/runner-reader.port",
+                      "!@runners/application/ports/runner-presence.port",
+                      "!@runners/application/ports/installer-assets.port",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/integration-events/*.integration-event"
+                    ],
+                    "message": "Integrations’s infrastructure implements its own ports. It may not reach another context’s internals; take what it needs through a published port."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/integrations/presentation/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@integrations/infrastructure/**",
+                      "@platform/**",
+                      "!@platform/http/**",
+                      "@work/**",
+                      "!@work/application/contracts/line-layout.contract",
+                      "!@work/application/contracts/run-spec.contract",
+                      "!@work/application/ports/work-lookup.port",
+                      "!@work/application/ports/contributed-tools.port",
+                      "!@work/application/ports/configured-lines.port",
+                      "!@work/application/ports/happening-reactions.port",
+                      "!@work/application/ports/team-skills.port",
+                      "!@work/application/ports/built-in-skills.port",
+                      "!@work/application/ports/configuration-proposals.port",
+                      "!@work/application/ports/integration-tool-calls.port",
+                      "!@work/application/ports/task-notices.port",
+                      "!@work/application/ports/starter-integrations.port",
+                      "!@work/application/ports/delivery-addresses.port",
+                      "!@work/application/ports/configuration-status.port",
+                      "!@work/application/ports/team-integrations.port",
+                      "!@work/application/dto/ready-skill.dto",
+                      "!@work/application/dto/bound-task.dto",
+                      "!@work/application/integration-events/*.integration-event",
+                      "!@work/application/contracts/bindable-task-events.contract",
+                      "!@work/application/contracts/tools.contract",
+                      "!@work/application/contracts/happenings.contract",
+                      "!@work/application/ports/setup-settling.port",
+                      "@identity/**",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/ports/workspace-access.port",
+                      "!@identity/application/ports/team-directory.port",
+                      "!@identity/application/ports/workspace-reader.port",
+                      "!@identity/application/ports/person-reader.port",
+                      "!@identity/application/ports/member-reader.port",
+                      "!@identity/application/ports/linked-accounts.port",
+                      "!@identity/application/integration-events/*.integration-event",
+                      "@configuration/**",
+                      "!@configuration/application/ports/**",
+                      "!@configuration/application/contracts/**",
+                      "!@configuration/application/dto/**",
+                      "!@configuration/application/ports/integration-reader.port",
+                      "!@configuration/application/ports/integration-links.port",
+                      "!@configuration/application/integration-events/*.integration-event",
+                      "@change-review/**",
+                      "!@change-review/application/ports/**",
+                      "!@change-review/application/dto/**",
+                      "!@change-review/application/integration-events/*.integration-event",
+                      "@github/**",
+                      "!@github/application/ports/workspace-connections.port",
+                      "!@github/application/ports/repository-catalog.port",
+                      "!@github/application/ports/repository-contents.port",
+                      "!@github/application/ports/repository-git.port",
+                      "!@github/application/ports/pull-request.port",
+                      "!@github/application/ports/pull-request-comments.port",
+                      "!@github/application/ports/pull-request-reviews.port",
+                      "!@github/application/ports/remarks.port",
+                      "!@github/application/ports/github-app.port",
+                      "!@github/application/ports/github-webhooks.port",
+                      "!@github/application/dto/**",
+                      "!@github/application/integration-events/*.integration-event",
+                      "!@github/application/errors/no-github-installation.error",
+                      "@runners/**",
+                      "!@runners/application/ports/runner-reader.port",
+                      "!@runners/application/ports/runner-presence.port",
+                      "!@runners/application/ports/installer-assets.port",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/integration-events/*.integration-event"
+                    ],
+                    "message": "Integrations’s presentation drives its own application layer, and uses other contexts only through what they publish."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/contexts/integrations/integrations.wiring.ts",
+        "src/contexts/integrations/integrations.module.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@work/**",
+                      "!@work/work.module",
+                      "!@work/work.startup",
+                      "!@work/application/contracts/line-layout.contract",
+                      "!@work/application/contracts/run-spec.contract",
+                      "!@work/application/ports/work-lookup.port",
+                      "!@work/application/ports/contributed-tools.port",
+                      "!@work/application/ports/configured-lines.port",
+                      "!@work/application/ports/happening-reactions.port",
+                      "!@work/application/ports/team-skills.port",
+                      "!@work/application/ports/built-in-skills.port",
+                      "!@work/application/ports/configuration-proposals.port",
+                      "!@work/application/ports/integration-tool-calls.port",
+                      "!@work/application/ports/task-notices.port",
+                      "!@work/application/ports/starter-integrations.port",
+                      "!@work/application/ports/delivery-addresses.port",
+                      "!@work/application/ports/configuration-status.port",
+                      "!@work/application/ports/team-integrations.port",
+                      "!@work/application/dto/ready-skill.dto",
+                      "!@work/application/dto/bound-task.dto",
+                      "!@work/application/integration-events/*.integration-event",
+                      "!@work/application/contracts/bindable-task-events.contract",
+                      "!@work/application/contracts/tools.contract",
+                      "!@work/application/contracts/happenings.contract",
+                      "!@work/application/ports/setup-settling.port",
+                      "@identity/**",
+                      "!@identity/identity.module",
+                      "!@identity/identity.startup",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/ports/workspace-access.port",
+                      "!@identity/application/ports/team-directory.port",
+                      "!@identity/application/ports/workspace-reader.port",
+                      "!@identity/application/ports/person-reader.port",
+                      "!@identity/application/ports/member-reader.port",
+                      "!@identity/application/ports/linked-accounts.port",
+                      "!@identity/application/integration-events/*.integration-event",
+                      "@configuration/**",
+                      "!@configuration/configuration.module",
+                      "!@configuration/configuration.startup",
+                      "!@configuration/application/ports/**",
+                      "!@configuration/application/contracts/**",
+                      "!@configuration/application/dto/**",
+                      "!@configuration/application/ports/integration-reader.port",
+                      "!@configuration/application/ports/integration-links.port",
+                      "!@configuration/application/integration-events/*.integration-event",
+                      "@change-review/**",
+                      "!@change-review/change-review.module",
+                      "!@change-review/change-review.startup",
+                      "!@change-review/application/ports/**",
+                      "!@change-review/application/dto/**",
+                      "!@change-review/application/integration-events/*.integration-event",
+                      "@github/**",
+                      "!@github/github.module",
+                      "!@github/github.startup",
+                      "!@github/application/ports/workspace-connections.port",
+                      "!@github/application/ports/repository-catalog.port",
+                      "!@github/application/ports/repository-contents.port",
+                      "!@github/application/ports/repository-git.port",
+                      "!@github/application/ports/pull-request.port",
+                      "!@github/application/ports/pull-request-comments.port",
+                      "!@github/application/ports/pull-request-reviews.port",
+                      "!@github/application/ports/remarks.port",
+                      "!@github/application/ports/github-app.port",
+                      "!@github/application/ports/github-webhooks.port",
+                      "!@github/application/dto/**",
+                      "!@github/application/integration-events/*.integration-event",
+                      "!@github/application/errors/no-github-installation.error",
+                      "@runners/**",
+                      "!@runners/runners.module",
+                      "!@runners/runners.startup",
+                      "!@runners/application/ports/runner-reader.port",
+                      "!@runners/application/ports/runner-presence.port",
+                      "!@runners/application/ports/installer-assets.port",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/integration-events/*.integration-event"
+                    ],
+                    "message": "Integrations’s module wires its own parts to the platform, the shared kernel and to what other contexts publish; it never reaches their adapters or internals."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/runners/domain/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**",
+                      "!@runners/domain/**",
+                      "!@shared-kernel/domain/**",
+                      "!./**",
+                      "!vitest"
+                    ],
+                    "message": "Runner Fleet’s domain depends on itself, the shared kernel’s domain, and the published language of other contexts."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/runners/application/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**",
+                      "!@runners/domain/**",
+                      "!@runners/application/**",
+                      "!@shared-kernel/**",
+                      "!@work/application/contracts/line-layout.contract",
+                      "!@work/application/contracts/run-spec.contract",
+                      "!@work/application/ports/work-lookup.port",
+                      "!@work/application/ports/contributed-tools.port",
+                      "!@work/application/ports/configured-lines.port",
+                      "!@work/application/ports/happening-reactions.port",
+                      "!@work/application/ports/team-skills.port",
+                      "!@work/application/ports/built-in-skills.port",
+                      "!@work/application/ports/configuration-proposals.port",
+                      "!@work/application/ports/integration-tool-calls.port",
+                      "!@work/application/ports/task-notices.port",
+                      "!@work/application/ports/starter-integrations.port",
+                      "!@work/application/ports/delivery-addresses.port",
+                      "!@work/application/ports/configuration-status.port",
+                      "!@work/application/ports/team-integrations.port",
+                      "!@work/application/dto/ready-skill.dto",
+                      "!@work/application/dto/bound-task.dto",
+                      "!@work/application/integration-events/*.integration-event",
+                      "!@work/application/contracts/bindable-task-events.contract",
+                      "!@work/application/contracts/tools.contract",
+                      "!@work/application/contracts/happenings.contract",
+                      "!@work/application/ports/setup-settling.port",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/ports/workspace-access.port",
+                      "!@identity/application/ports/team-directory.port",
+                      "!@identity/application/ports/workspace-reader.port",
+                      "!@identity/application/ports/person-reader.port",
+                      "!@identity/application/ports/member-reader.port",
+                      "!@identity/application/ports/linked-accounts.port",
+                      "!@identity/application/integration-events/*.integration-event",
+                      "!@configuration/application/ports/**",
+                      "!@configuration/application/contracts/**",
+                      "!@configuration/application/dto/**",
+                      "!@configuration/application/ports/integration-reader.port",
+                      "!@configuration/application/ports/integration-links.port",
+                      "!@configuration/application/integration-events/*.integration-event",
+                      "!@change-review/application/ports/**",
+                      "!@change-review/application/dto/**",
+                      "!@change-review/application/integration-events/*.integration-event",
+                      "!@github/application/ports/workspace-connections.port",
+                      "!@github/application/ports/repository-catalog.port",
+                      "!@github/application/ports/repository-contents.port",
+                      "!@github/application/ports/repository-git.port",
+                      "!@github/application/ports/pull-request.port",
+                      "!@github/application/ports/pull-request-comments.port",
+                      "!@github/application/ports/pull-request-reviews.port",
+                      "!@github/application/ports/remarks.port",
+                      "!@github/application/ports/github-app.port",
+                      "!@github/application/ports/github-webhooks.port",
+                      "!@github/application/dto/**",
+                      "!@github/application/integration-events/*.integration-event",
+                      "!@github/application/errors/no-github-installation.error",
+                      "!@integrations/application/dto/**",
+                      "!@integrations/application/integration-events/*.integration-event",
+                      "!./**",
+                      "!vitest"
+                    ],
+                    "message": "Runner Fleet’s application layer depends on its own domain, the shared kernel, and what other contexts publish. Reach anything else through a port under @runners/application/ports."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/runners/infrastructure/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@runners/presentation/**",
+                      "@platform/http/**",
+                      "@runners/application/**",
+                      "!@runners/application/ports/**",
+                      "!@runners/application/contracts/**",
+                      "!@runners/application/dto/**",
+                      "@work/**",
+                      "!@work/application/contracts/line-layout.contract",
+                      "!@work/application/contracts/run-spec.contract",
+                      "!@work/application/ports/work-lookup.port",
+                      "!@work/application/ports/contributed-tools.port",
+                      "!@work/application/ports/configured-lines.port",
+                      "!@work/application/ports/happening-reactions.port",
+                      "!@work/application/ports/team-skills.port",
+                      "!@work/application/ports/built-in-skills.port",
+                      "!@work/application/ports/configuration-proposals.port",
+                      "!@work/application/ports/integration-tool-calls.port",
+                      "!@work/application/ports/task-notices.port",
+                      "!@work/application/ports/starter-integrations.port",
+                      "!@work/application/ports/delivery-addresses.port",
+                      "!@work/application/ports/configuration-status.port",
+                      "!@work/application/ports/team-integrations.port",
+                      "!@work/application/dto/ready-skill.dto",
+                      "!@work/application/dto/bound-task.dto",
+                      "!@work/application/integration-events/*.integration-event",
+                      "!@work/application/contracts/bindable-task-events.contract",
+                      "!@work/application/contracts/tools.contract",
+                      "!@work/application/contracts/happenings.contract",
+                      "!@work/application/ports/setup-settling.port",
+                      "@identity/**",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/ports/workspace-access.port",
+                      "!@identity/application/ports/team-directory.port",
+                      "!@identity/application/ports/workspace-reader.port",
+                      "!@identity/application/ports/person-reader.port",
+                      "!@identity/application/ports/member-reader.port",
+                      "!@identity/application/ports/linked-accounts.port",
+                      "!@identity/application/integration-events/*.integration-event",
+                      "@configuration/**",
+                      "!@configuration/application/ports/**",
+                      "!@configuration/application/contracts/**",
+                      "!@configuration/application/dto/**",
+                      "!@configuration/application/ports/integration-reader.port",
+                      "!@configuration/application/ports/integration-links.port",
+                      "!@configuration/application/integration-events/*.integration-event",
+                      "@change-review/**",
+                      "!@change-review/application/ports/**",
+                      "!@change-review/application/dto/**",
+                      "!@change-review/application/integration-events/*.integration-event",
+                      "@github/**",
+                      "!@github/application/ports/workspace-connections.port",
+                      "!@github/application/ports/repository-catalog.port",
+                      "!@github/application/ports/repository-contents.port",
+                      "!@github/application/ports/repository-git.port",
+                      "!@github/application/ports/pull-request.port",
+                      "!@github/application/ports/pull-request-comments.port",
+                      "!@github/application/ports/pull-request-reviews.port",
+                      "!@github/application/ports/remarks.port",
+                      "!@github/application/ports/github-app.port",
+                      "!@github/application/ports/github-webhooks.port",
+                      "!@github/application/dto/**",
+                      "!@github/application/integration-events/*.integration-event",
+                      "!@github/application/errors/no-github-installation.error",
+                      "@integrations/**",
+                      "!@integrations/application/dto/**",
+                      "!@integrations/application/integration-events/*.integration-event"
+                    ],
+                    "message": "Runner Fleet’s infrastructure implements its own ports. It may not reach another context’s internals; take what it needs through a published port."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/runners/presentation/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@runners/infrastructure/**",
+                      "@platform/**",
+                      "!@platform/http/**",
+                      "@work/**",
+                      "!@work/application/contracts/line-layout.contract",
+                      "!@work/application/contracts/run-spec.contract",
+                      "!@work/application/ports/work-lookup.port",
+                      "!@work/application/ports/contributed-tools.port",
+                      "!@work/application/ports/configured-lines.port",
+                      "!@work/application/ports/happening-reactions.port",
+                      "!@work/application/ports/team-skills.port",
+                      "!@work/application/ports/built-in-skills.port",
+                      "!@work/application/ports/configuration-proposals.port",
+                      "!@work/application/ports/integration-tool-calls.port",
+                      "!@work/application/ports/task-notices.port",
+                      "!@work/application/ports/starter-integrations.port",
+                      "!@work/application/ports/delivery-addresses.port",
+                      "!@work/application/ports/configuration-status.port",
+                      "!@work/application/ports/team-integrations.port",
+                      "!@work/application/dto/ready-skill.dto",
+                      "!@work/application/dto/bound-task.dto",
+                      "!@work/application/integration-events/*.integration-event",
+                      "!@work/application/contracts/bindable-task-events.contract",
+                      "!@work/application/contracts/tools.contract",
+                      "!@work/application/contracts/happenings.contract",
+                      "!@work/application/ports/setup-settling.port",
+                      "@identity/**",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/ports/workspace-access.port",
+                      "!@identity/application/ports/team-directory.port",
+                      "!@identity/application/ports/workspace-reader.port",
+                      "!@identity/application/ports/person-reader.port",
+                      "!@identity/application/ports/member-reader.port",
+                      "!@identity/application/ports/linked-accounts.port",
+                      "!@identity/application/integration-events/*.integration-event",
+                      "@configuration/**",
+                      "!@configuration/application/ports/**",
+                      "!@configuration/application/contracts/**",
+                      "!@configuration/application/dto/**",
+                      "!@configuration/application/ports/integration-reader.port",
+                      "!@configuration/application/ports/integration-links.port",
+                      "!@configuration/application/integration-events/*.integration-event",
+                      "@change-review/**",
+                      "!@change-review/application/ports/**",
+                      "!@change-review/application/dto/**",
+                      "!@change-review/application/integration-events/*.integration-event",
+                      "@github/**",
+                      "!@github/application/ports/workspace-connections.port",
+                      "!@github/application/ports/repository-catalog.port",
+                      "!@github/application/ports/repository-contents.port",
+                      "!@github/application/ports/repository-git.port",
+                      "!@github/application/ports/pull-request.port",
+                      "!@github/application/ports/pull-request-comments.port",
+                      "!@github/application/ports/pull-request-reviews.port",
+                      "!@github/application/ports/remarks.port",
+                      "!@github/application/ports/github-app.port",
+                      "!@github/application/ports/github-webhooks.port",
+                      "!@github/application/dto/**",
+                      "!@github/application/integration-events/*.integration-event",
+                      "!@github/application/errors/no-github-installation.error",
+                      "@integrations/**",
+                      "!@integrations/application/dto/**",
+                      "!@integrations/application/integration-events/*.integration-event"
+                    ],
+                    "message": "Runner Fleet’s presentation drives its own application layer, and uses other contexts only through what they publish."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/contexts/runners/runners.wiring.ts",
+        "src/contexts/runners/runners.module.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@work/**",
+                      "!@work/work.module",
+                      "!@work/work.startup",
+                      "!@work/application/contracts/line-layout.contract",
+                      "!@work/application/contracts/run-spec.contract",
+                      "!@work/application/ports/work-lookup.port",
+                      "!@work/application/ports/contributed-tools.port",
+                      "!@work/application/ports/configured-lines.port",
+                      "!@work/application/ports/happening-reactions.port",
+                      "!@work/application/ports/team-skills.port",
+                      "!@work/application/ports/built-in-skills.port",
+                      "!@work/application/ports/configuration-proposals.port",
+                      "!@work/application/ports/integration-tool-calls.port",
+                      "!@work/application/ports/task-notices.port",
+                      "!@work/application/ports/starter-integrations.port",
+                      "!@work/application/ports/delivery-addresses.port",
+                      "!@work/application/ports/configuration-status.port",
+                      "!@work/application/ports/team-integrations.port",
+                      "!@work/application/dto/ready-skill.dto",
+                      "!@work/application/dto/bound-task.dto",
+                      "!@work/application/integration-events/*.integration-event",
+                      "!@work/application/contracts/bindable-task-events.contract",
+                      "!@work/application/contracts/tools.contract",
+                      "!@work/application/contracts/happenings.contract",
+                      "!@work/application/ports/setup-settling.port",
+                      "@identity/**",
+                      "!@identity/identity.module",
+                      "!@identity/identity.startup",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/ports/workspace-access.port",
+                      "!@identity/application/ports/team-directory.port",
+                      "!@identity/application/ports/workspace-reader.port",
+                      "!@identity/application/ports/person-reader.port",
+                      "!@identity/application/ports/member-reader.port",
+                      "!@identity/application/ports/linked-accounts.port",
+                      "!@identity/application/integration-events/*.integration-event",
+                      "@configuration/**",
+                      "!@configuration/configuration.module",
+                      "!@configuration/configuration.startup",
+                      "!@configuration/application/ports/**",
+                      "!@configuration/application/contracts/**",
+                      "!@configuration/application/dto/**",
+                      "!@configuration/application/ports/integration-reader.port",
+                      "!@configuration/application/ports/integration-links.port",
+                      "!@configuration/application/integration-events/*.integration-event",
+                      "@change-review/**",
+                      "!@change-review/change-review.module",
+                      "!@change-review/change-review.startup",
+                      "!@change-review/application/ports/**",
+                      "!@change-review/application/dto/**",
+                      "!@change-review/application/integration-events/*.integration-event",
+                      "@github/**",
+                      "!@github/github.module",
+                      "!@github/github.startup",
+                      "!@github/application/ports/workspace-connections.port",
+                      "!@github/application/ports/repository-catalog.port",
+                      "!@github/application/ports/repository-contents.port",
+                      "!@github/application/ports/repository-git.port",
+                      "!@github/application/ports/pull-request.port",
+                      "!@github/application/ports/pull-request-comments.port",
+                      "!@github/application/ports/pull-request-reviews.port",
+                      "!@github/application/ports/remarks.port",
+                      "!@github/application/ports/github-app.port",
+                      "!@github/application/ports/github-webhooks.port",
+                      "!@github/application/dto/**",
+                      "!@github/application/integration-events/*.integration-event",
+                      "!@github/application/errors/no-github-installation.error",
+                      "@integrations/**",
+                      "!@integrations/integrations.module",
+                      "!@integrations/integrations.startup",
+                      "!@integrations/application/dto/**",
+                      "!@integrations/application/integration-events/*.integration-event"
+                    ],
+                    "message": "Runner Fleet’s module wires its own parts to the platform, the shared kernel and to what other contexts publish; it never reaches their adapters or internals."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/app.module.ts", "src/app.setup.ts", "src/main.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@work/**",
+                      "!@work/work.module",
+                      "!@work/work.startup",
+                      "!@work/application/contracts/line-layout.contract",
+                      "!@work/application/contracts/run-spec.contract",
+                      "!@work/application/ports/work-lookup.port",
+                      "!@work/application/ports/contributed-tools.port",
+                      "!@work/application/ports/configured-lines.port",
+                      "!@work/application/ports/happening-reactions.port",
+                      "!@work/application/ports/team-skills.port",
+                      "!@work/application/ports/built-in-skills.port",
+                      "!@work/application/ports/configuration-proposals.port",
+                      "!@work/application/ports/integration-tool-calls.port",
+                      "!@work/application/ports/task-notices.port",
+                      "!@work/application/ports/starter-integrations.port",
+                      "!@work/application/ports/delivery-addresses.port",
+                      "!@work/application/ports/configuration-status.port",
+                      "!@work/application/ports/team-integrations.port",
+                      "!@work/application/dto/ready-skill.dto",
+                      "!@work/application/dto/bound-task.dto",
+                      "!@work/application/integration-events/*.integration-event",
+                      "!@work/application/contracts/bindable-task-events.contract",
+                      "!@work/application/contracts/tools.contract",
+                      "!@work/application/contracts/happenings.contract",
+                      "!@work/application/ports/setup-settling.port",
+                      "@identity/**",
+                      "!@identity/identity.module",
+                      "!@identity/identity.startup",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/ports/workspace-access.port",
+                      "!@identity/application/ports/team-directory.port",
+                      "!@identity/application/ports/workspace-reader.port",
+                      "!@identity/application/ports/person-reader.port",
+                      "!@identity/application/ports/member-reader.port",
+                      "!@identity/application/ports/linked-accounts.port",
+                      "!@identity/application/integration-events/*.integration-event",
+                      "@configuration/**",
+                      "!@configuration/configuration.module",
+                      "!@configuration/configuration.startup",
+                      "!@configuration/application/ports/**",
+                      "!@configuration/application/contracts/**",
+                      "!@configuration/application/dto/**",
+                      "!@configuration/application/ports/integration-reader.port",
+                      "!@configuration/application/ports/integration-links.port",
+                      "!@configuration/application/integration-events/*.integration-event",
+                      "@change-review/**",
+                      "!@change-review/change-review.module",
+                      "!@change-review/change-review.startup",
+                      "!@change-review/application/ports/**",
+                      "!@change-review/application/dto/**",
+                      "!@change-review/application/integration-events/*.integration-event",
+                      "@github/**",
+                      "!@github/github.module",
+                      "!@github/github.startup",
+                      "!@github/application/ports/workspace-connections.port",
+                      "!@github/application/ports/repository-catalog.port",
+                      "!@github/application/ports/repository-contents.port",
+                      "!@github/application/ports/repository-git.port",
+                      "!@github/application/ports/pull-request.port",
+                      "!@github/application/ports/pull-request-comments.port",
+                      "!@github/application/ports/pull-request-reviews.port",
+                      "!@github/application/ports/remarks.port",
+                      "!@github/application/ports/github-app.port",
+                      "!@github/application/ports/github-webhooks.port",
+                      "!@github/application/dto/**",
+                      "!@github/application/integration-events/*.integration-event",
+                      "!@github/application/errors/no-github-installation.error",
+                      "@integrations/**",
+                      "!@integrations/integrations.module",
+                      "!@integrations/integrations.startup",
+                      "!@integrations/application/dto/**",
+                      "!@integrations/application/integration-events/*.integration-event",
+                      "@runners/**",
+                      "!@runners/runners.module",
+                      "!@runners/runners.startup",
+                      "!@runners/application/ports/runner-reader.port",
+                      "!@runners/application/ports/runner-presence.port",
+                      "!@runners/application/ports/installer-assets.port",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/integration-events/*.integration-event"
+                    ],
+                    "message": "The application root composes the context modules and uses only what they publish."
                   }
                 ]
               }

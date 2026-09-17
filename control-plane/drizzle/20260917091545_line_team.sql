@@ -1,0 +1,1 @@
+ALTER TABLE "line" ADD COLUMN "team_id" text;
