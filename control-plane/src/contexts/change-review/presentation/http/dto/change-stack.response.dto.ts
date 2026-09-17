@@ -80,25 +80,24 @@ export class StackRangeResponseDto {
   @ApiProperty({ example: 'h3', description: 'The hunk it places' })
   readonly hunk: string;
 
-  @ApiProperty({ nullable: true, type: String })
-  readonly summary: string | null;
-
-  constructor(hunk: string, summary: string | null) {
+  constructor(hunk: string) {
     this.hunk = hunk;
-    this.summary = summary;
   }
 }
 
-export class LayerDependencyResponseDto {
-  @ApiProperty({ example: 'c1.l1' })
-  readonly layer: string;
+export class FileNoteResponseDto {
+  @ApiProperty({ example: 'src/invite.ts' })
+  readonly path: string;
 
-  @ApiProperty({ type: String, isArray: true, example: ['Invitation'] })
-  readonly because: readonly string[];
+  @ApiProperty({
+    example: 'Adds the endpoint admins invite people through.',
+    description: 'What changed in the file for this layer, and why',
+  })
+  readonly note: string;
 
-  constructor(layer: string, because: readonly string[]) {
-    this.layer = layer;
-    this.because = because;
+  constructor(path: string, note: string) {
+    this.path = path;
+    this.note = note;
   }
 }
 
@@ -112,24 +111,29 @@ export class StackLayerResponseDto {
   @ApiProperty()
   readonly summary: string;
 
-  @ApiProperty({ type: LayerDependencyResponseDto, isArray: true })
-  readonly dependsOn: readonly LayerDependencyResponseDto[];
-
   @ApiProperty({ type: StackRangeResponseDto, isArray: true })
   readonly ranges: readonly StackRangeResponseDto[];
+
+  @ApiProperty({
+    type: FileNoteResponseDto,
+    isArray: true,
+    description:
+      'One note per file the layer touches; empty for incidental changes',
+  })
+  readonly notes: readonly FileNoteResponseDto[];
 
   constructor(
     id: string,
     title: string,
     summary: string,
-    dependsOn: readonly LayerDependencyResponseDto[],
     ranges: readonly StackRangeResponseDto[],
+    notes: readonly FileNoteResponseDto[],
   ) {
     this.id = id;
     this.title = title;
     this.summary = summary;
-    this.dependsOn = dependsOn;
     this.ranges = ranges;
+    this.notes = notes;
   }
 }
 
@@ -164,62 +168,6 @@ export class StackCohortResponseDto {
   }
 }
 
-export class CheckedLayerResponseDto {
-  @ApiProperty({ example: 'c1.l2', description: '"whole", or the layer' })
-  readonly step: string;
-
-  @ApiProperty()
-  readonly passed: boolean;
-
-  @ApiProperty({ description: 'The end of what the check printed' })
-  readonly output: string;
-
-  @ApiProperty({ example: 42_000 })
-  readonly tookMs: number;
-
-  constructor(step: string, passed: boolean, output: string, tookMs: number) {
-    this.step = step;
-    this.passed = passed;
-    this.output = output;
-    this.tookMs = tookMs;
-  }
-}
-
-export class StackCheckResponseDto {
-  @ApiProperty({ example: 'npx tsc --noEmit' })
-  readonly command: string;
-
-  @ApiProperty({ enum: STACK_CHECK_STATE_NAMES })
-  readonly state: 'waiting' | 'checked' | 'skipped';
-
-  @ApiProperty({ nullable: true, type: String })
-  readonly reason: string | null;
-
-  @ApiProperty({ nullable: true, type: CheckedLayerResponseDto })
-  readonly whole: CheckedLayerResponseDto | null;
-
-  @ApiProperty({
-    type: CheckedLayerResponseDto,
-    isArray: true,
-    description: 'Each layer checked with the layers before it',
-  })
-  readonly layers: readonly CheckedLayerResponseDto[];
-
-  constructor(
-    command: string,
-    state: 'waiting' | 'checked' | 'skipped',
-    reason: string | null,
-    whole: CheckedLayerResponseDto | null,
-    layers: readonly CheckedLayerResponseDto[],
-  ) {
-    this.command = command;
-    this.state = state;
-    this.reason = reason;
-    this.whole = whole;
-    this.layers = layers;
-  }
-}
-
 export class ChangeStackResponseDto {
   @ApiProperty()
   readonly id: string;
@@ -233,46 +181,31 @@ export class ChangeStackResponseDto {
   @ApiProperty({ nullable: true, type: String })
   readonly failure: string | null;
 
-  @ApiProperty()
-  readonly draftedAt: string;
-
-  @ApiProperty({ nullable: true, type: String })
-  readonly settledAt: string | null;
-
   @ApiProperty({ type: DiffFileResponseDto, isArray: true })
   readonly files: readonly DiffFileResponseDto[];
 
   @ApiProperty({ type: StackCohortResponseDto, isArray: true })
   readonly cohorts: readonly StackCohortResponseDto[];
 
-  @ApiProperty({
-    nullable: true,
-    type: StackCheckResponseDto,
-    description:
-      'Whether each layer builds on its own, where a check was named',
-  })
-  readonly check: StackCheckResponseDto | null;
+  @ApiProperty({ enum: [...STACK_CHECK_STATE_NAMES, null], nullable: true })
+  readonly checkState: 'waiting' | 'checked' | 'skipped' | null;
 
   constructor(
     id: string,
     repository: string | null,
     state: 'drafting' | 'ready' | 'failed',
     failure: string | null,
-    draftedAt: string,
-    settledAt: string | null,
     files: readonly DiffFileResponseDto[],
     cohorts: readonly StackCohortResponseDto[],
-    check: StackCheckResponseDto | null,
+    checkState: 'waiting' | 'checked' | 'skipped' | null,
   ) {
     this.id = id;
     this.repository = repository;
     this.state = state;
     this.failure = failure;
-    this.draftedAt = draftedAt;
-    this.settledAt = settledAt;
     this.files = files;
     this.cohorts = cohorts;
-    this.check = check;
+    this.checkState = checkState;
   }
 }
 
@@ -299,27 +232,37 @@ export class LatestChangeStackResponseDto {
   @ApiProperty({ enum: CHANGE_STACK_STATE_NAMES })
   readonly state: 'drafting' | 'ready' | 'failed';
 
-  @ApiProperty({ enum: STACK_CHECK_STATE_NAMES, nullable: true })
+  @ApiProperty({ enum: [...STACK_CHECK_STATE_NAMES, null], nullable: true })
   readonly checkState: 'waiting' | 'checked' | 'skipped' | null;
+
+  @ApiProperty({ example: 335, description: 'Lines added across the stack' })
+  readonly added: number;
+
+  @ApiProperty({ example: 11, description: 'Lines removed across the stack' })
+  readonly removed: number;
 
   constructor(
     runId: string,
     repository: string | null,
     state: 'drafting' | 'ready' | 'failed',
     checkState: 'waiting' | 'checked' | 'skipped' | null,
+    added: number,
+    removed: number,
   ) {
     this.runId = runId;
     this.repository = repository;
     this.state = state;
     this.checkState = checkState;
+    this.added = added;
+    this.removed = removed;
   }
 }
 
-export class TaskChangeStackResponseDto {
+export class NewestChangeStackResponseDto {
   @ApiProperty({
     nullable: true,
     type: LatestChangeStackResponseDto,
-    description: 'The newest change stack drafted for the task, if any',
+    description: 'The newest change stack drafted, if any',
   })
   readonly latest: LatestChangeStackResponseDto | null;
 

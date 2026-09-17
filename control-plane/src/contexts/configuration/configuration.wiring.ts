@@ -13,7 +13,10 @@ import {
   type AppliedConfigurationPort,
 } from '@configuration/application/ports/applied-configuration.port';
 import { CONFIGURATION_READER } from '@configuration/application/ports/configuration-reader.port';
-import { INTEGRATION_LINKS } from '@configuration/application/ports/integration-links.port';
+import {
+  INTEGRATION_LINKS,
+  type IntegrationLinksPort,
+} from '@configuration/application/ports/integration-links.port';
 import {
   INTEGRATION_READER,
   type IntegrationReaderPort,
@@ -46,7 +49,6 @@ import { ConfigurationHandler } from '@configuration/application/queries/handler
 import { TeamSkillsHandler } from '@configuration/application/queries/handlers/team-skills.handler';
 import { ConfigurationQuery } from '@configuration/application/queries/read-configuration.query';
 import { TeamSkillsQuery } from '@configuration/application/queries/team-skills.query';
-import { BuiltInSkills } from '@configuration/application/services/built-in-skills.service';
 import { ConfigurationNotices } from '@configuration/application/services/configuration-notices.service';
 import { ConfigurationProposals } from '@configuration/application/services/configuration-proposals.service';
 import { ConfigurationTarget } from '@configuration/application/services/configuration-target.service';
@@ -56,14 +58,16 @@ import { ProposeConfigurationChange } from '@configuration/application/services/
 import { ReadConfiguration } from '@configuration/application/services/read-configuration.service';
 import { RepositoryProvisioning } from '@configuration/application/services/repository-provisioning.service';
 import { TeamSecrets } from '@configuration/application/services/team-secrets.service';
-import { TeamSkills } from '@configuration/application/services/team-skills.service';
 import { TeamVault } from '@configuration/application/services/team-vault.service';
 import { WriteConfiguration } from '@configuration/application/services/write-configuration.service';
 import { CONFIGURATION_EVENT_TYPES } from '@configuration/domain/event-types';
+import { BuiltInSkills } from '@configuration/infrastructure/acl/built-in-skills.adapter';
 import { Lines } from '@configuration/infrastructure/acl/lines.adapter';
+import { TeamSkills } from '@configuration/infrastructure/acl/team-skills.adapter';
 import { Teams } from '@configuration/infrastructure/acl/teams.adapter';
 import { DrizzleAppliedConfigurationReader } from '@configuration/infrastructure/persistence/drizzle/readers/applied-configuration.reader';
 import { DrizzleConfigurationReader } from '@configuration/infrastructure/persistence/drizzle/readers/configuration.reader';
+import { DrizzleIntegrationLinks } from '@configuration/infrastructure/persistence/drizzle/readers/integration-links.reader';
 import { DrizzleConfigurationHome } from '@configuration/infrastructure/persistence/drizzle/repositories/configuration-home.repository';
 import { DrizzleTeamConfiguration } from '@configuration/infrastructure/persistence/drizzle/repositories/team-configuration.repository';
 import { AgeVaultSealing } from '@configuration/infrastructure/secrets/age-vault-sealing';
@@ -172,6 +176,7 @@ const adapters: Provider[] = [
   { provide: VAULT_SEALING, useFactory: () => new AgeVaultSealing() },
   { provide: SKILL_READER, useFactory: () => new TeamSkillFiles() },
   { provide: CONFIGURATION_READER, useClass: DrizzleConfigurationReader },
+  { provide: INTEGRATION_LINKS, useClass: DrizzleIntegrationLinks },
 ];
 
 const services: Provider[] = [
@@ -367,6 +372,7 @@ export const CONFIGURATION_PROVIDERS: readonly Provider[] = [
       SETUP_SETTLING,
       ConfigurationNotices,
       CONFIGURED_LINES,
+      INTEGRATION_LINKS,
     ],
     useFactory: (
       types: EventTypes,
@@ -374,9 +380,12 @@ export const CONFIGURATION_PROVIDERS: readonly Provider[] = [
       settling: SetupSettlingPort,
       notices: ConfigurationNotices,
       lines: ConfiguredLinesPort,
+      links: IntegrationLinksPort,
     ) => {
       types.register('configuration', CONFIGURATION_EVENT_TYPES);
-      subscribers.register(configurationSubscribers(settling, notices, lines));
+      subscribers.register(
+        configurationSubscribers(settling, notices, lines, links),
+      );
       return true;
     },
   },

@@ -44,6 +44,8 @@ export class ReadTaskChangeStackHandler
             repository: latest.repository,
             state: latest.state,
             checkState: latest.check?.state ?? null,
+            added: latest.added,
+            removed: latest.removed,
           }
         : null;
     } catch (error) {

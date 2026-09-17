@@ -19,7 +19,11 @@ const listed = (words: readonly string[]): string =>
     ? (words[0] ?? '')
     : `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`;
 
+const pathsOf = (diff: Diff, ranges: ProposedLayer['ranges']): Set<string> =>
+  new Set(ranges.flatMap((range) => diff.fileOf(range.hunk)?.path ?? []));
+
 const withoutHunks = (
+  diff: Diff,
   cohort: ProposedCohort,
   leaving: ReadonlySet<string>,
 ): ProposedCohort | null => {
@@ -29,7 +33,13 @@ const withoutHunks = (
     const ranges = layer.ranges.filter((range) => !leaving.has(range.hunk));
 
     if (ranges.length > 0) {
-      kept.push({ layer: { ...layer, ranges }, from: place + 1 });
+      const before = pathsOf(diff, layer.ranges);
+      const still = pathsOf(diff, ranges);
+      const notes = layer.notes.filter(
+        (each) => still.has(each.path) || !before.has(each.path),
+      );
+
+      kept.push({ layer: { ...layer, ranges, notes }, from: place + 1 });
     }
   });
 
@@ -60,7 +70,7 @@ export const arranged = (
   const leaving = new Set(incidental.map((each) => each.hunk));
 
   const cohorts = proposed.flatMap((cohort) => {
-    const kept = withoutHunks(cohort, leaving);
+    const kept = withoutHunks(diff, cohort, leaving);
     return kept ? [kept] : [];
   });
 
@@ -93,7 +103,8 @@ export const arranged = (
           dependsOn: [],
           ranges: [...incidental]
             .sort((a, b) => (order.get(a.hunk) ?? 0) - (order.get(b.hunk) ?? 0))
-            .map((each) => ({ hunk: each.hunk, summary: null })),
+            .map((each) => ({ hunk: each.hunk })),
+          notes: [],
         },
       ],
     },

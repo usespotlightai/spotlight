@@ -120,9 +120,7 @@ describe('RunChangeStack', () => {
   describe('while the stack drafts', () => {
     it('says what it is grouping', () => {
       given({
-        stacks: [
-          { ...INVITATIONS, state: 'drafting', settledAt: null, cohorts: [] },
-        ],
+        stacks: [{ ...INVITATIONS, state: 'drafting', cohorts: [] }],
       });
       renderAt();
 
@@ -165,17 +163,39 @@ describe('RunChangeStack', () => {
       });
 
       expect(
-        within(cohort)
+        within(within(cohort).getByRole('list'))
           .getAllByRole('button')
           .map((each) => each.textContent),
       ).toEqual([
-        '1Add the invitation data model1 file',
-        '2Add the invitation API and emails2 files · after 1',
-        '3Build the invite & members UI1 file · after 2',
+        '1Add the invitation data model1 file+11',
+        '2Add the invitation API and emails2 files+17',
+        '3Build the invite & members UI1 file+3−1',
       ]);
       expect(
         within(nav).getByRole('region', { name: 'Dependency bump' }),
       ).toBeInTheDocument();
+    });
+
+    it('folds a cohort away and back', async () => {
+      renderAt();
+
+      const cohort = screen.getByRole('region', { name: 'Team invitations' });
+      const heading = within(cohort).getByRole('button', {
+        name: /Team invitations/,
+      });
+
+      expect(heading).toHaveAttribute('aria-expanded', 'true');
+
+      await userEvent.click(heading);
+
+      expect(heading).toHaveAttribute('aria-expanded', 'false');
+      expect(
+        within(cohort).getByRole('list').closest('[inert]'),
+      ).not.toBeNull();
+
+      await userEvent.click(heading);
+
+      expect(heading).toHaveAttribute('aria-expanded', 'true');
     });
 
     it('opens on the first layer', () => {
@@ -189,7 +209,7 @@ describe('RunChangeStack', () => {
       ).toHaveAttribute('aria-current', 'step');
     });
 
-    it('shows a layer’s files, what it depends on, and why', () => {
+    it('shows a layer’s files and why they change', () => {
       renderAt('?layer=c1.l2');
 
       expect(
@@ -198,9 +218,9 @@ describe('RunChangeStack', () => {
         }),
       ).toBeInTheDocument();
 
-      const depends = screen.getByRole('region', { name: 'Depends on' });
-      expect(depends).toHaveTextContent('Add the invitation data model');
-      expect(within(depends).getByText('invitation')).toBeInTheDocument();
+      expect(
+        screen.queryByRole('region', { name: 'Depends on' }),
+      ).not.toBeInTheDocument();
 
       const files = screen.getByRole('region', {
         name: 'Files in this layer',
@@ -213,9 +233,10 @@ describe('RunChangeStack', () => {
         'control-plane/src/invitations/invitation.controller.ts',
         'control-plane/src/mail/invitation.mail.ts',
       ]);
+      const [controller] = within(files).getAllByRole('article');
       expect(
-        screen.getByText(
-          'Only admins may invite; anyone holding a token may accept.',
+        within(controller as HTMLElement).getByText(
+          'Adds the invite and accept endpoints. Only admins may invite; anyone holding a token may accept.',
         ),
       ).toBeInTheDocument();
     });
@@ -264,8 +285,9 @@ describe('RunChangeStack', () => {
       ).toBeInTheDocument();
 
       await userEvent.click(
-        within(screen.getByRole('region', { name: 'Depends on' })).getByRole(
+        within(screen.getByRole('navigation', { name: 'Layers' })).getByRole(
           'button',
+          { name: /Add the invitation API and emails/ },
         ),
       );
 

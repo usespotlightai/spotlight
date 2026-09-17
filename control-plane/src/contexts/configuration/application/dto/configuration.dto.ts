@@ -1,5 +1,8 @@
 import type { ConfigurationMove } from '@configuration/domain/services/configuration-move';
-import type { OpenedPullRequestDto } from '@github/application/dto/pull-request.dto';
+
+export interface CarriedPullRequestDto {
+  readonly url: string;
+}
 
 export interface ConfiguredIntegrationDto {
   readonly source: string;
@@ -24,7 +27,7 @@ export const CONFIGURATION_MOVE_KINDS = [
 ] as const satisfies readonly ConfigurationMove['kind'][];
 
 export type ConfigurationMoveDto =
-  | { readonly kind: 'carried'; readonly pullRequest: OpenedPullRequestDto }
+  | { readonly kind: 'carried'; readonly pullRequest: CarriedPullRequestDto }
   | { readonly kind: Exclude<ConfigurationMove['kind'], 'carried'> };
 
 export interface VaultKeyDto {

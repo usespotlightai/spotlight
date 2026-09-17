@@ -65,7 +65,10 @@ const layer = (
   title,
   summary: `${title}, in more words`,
   dependsOn,
-  ranges: hunks.map((each) => ({ hunk: each, summary: null })),
+  ranges: hunks.map((each) => ({ hunk: each })),
+  notes: [
+    ...new Set(hunks.flatMap((each) => DIFF.fileOf(each)?.path ?? [])),
+  ].map((path) => ({ path, note: 'Why it changes' })),
 });
 
 const invitations = (layers: ProposedLayer[]): ProposedCohort => ({

@@ -50,7 +50,11 @@ const stack = () =>
             title: `Layer ${at + 1}`,
             summary: 'A layer',
             dependsOn: [],
-            ranges: hunks.map((hunk) => ({ hunk, summary: null })),
+            ranges: hunks.map((hunk) => ({ hunk })),
+            notes: hunks.map((hunk) => ({
+              path: DIFF.fileOf(hunk)?.path ?? hunk,
+              note: 'Why it changes',
+            })),
           })),
         },
       ],

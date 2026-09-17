@@ -1,15 +1,14 @@
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useState } from 'react';
-import { LayerCheckNotice } from '@/components/features/changes/LayerCheckNotice';
-import { LayerDependencies } from '@/components/features/changes/LayerDependencies';
 import { LayerFileCard } from '@/components/features/changes/LayerFileCard';
 import { Button } from '@/components/ui/button';
 import {
   type ChangeStack,
   filesOf,
+  type LayerFile,
   type LocatedLayer,
-  layerCheckOf,
   layersOf,
+  linesOf,
 } from '@/lib/change-stack';
 
 type LayerDetailProps = {
@@ -18,20 +17,36 @@ type LayerDetailProps = {
   onPick: (layerId: string) => void;
 };
 
+const LINE_BUDGET = 1_500;
+
+const shownWithin = (
+  files: readonly LayerFile[],
+  budget: number,
+): ReadonlySet<string> => {
+  const collapsed = new Set<string>();
+  let shown = 0;
+
+  for (const placed of files) {
+    if (shown > budget) {
+      collapsed.add(placed.file.path);
+    }
+    shown += linesOf(placed.hunks);
+  }
+
+  return collapsed;
+};
+
 export function LayerDetail({ stack, located, onPick }: LayerDetailProps) {
-  const { cohort, layer, position } = located;
+  const { cohort, layer } = located;
   const layers = layersOf(stack);
   const at = layers.findIndex((each) => each.layer.id === layer.id);
   const previous = layers[at - 1];
   const next = layers[at + 1];
   const files = filesOf(stack, layer);
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(
-    () =>
-      new Set(
-        cohort.kind === 'incidental'
-          ? files.map((placed) => placed.file.path)
-          : [],
-      ),
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() =>
+    cohort.kind === 'incidental'
+      ? new Set(files.map((placed) => placed.file.path))
+      : shownWithin(files, LINE_BUDGET),
   );
   const allCollapsed =
     files.length > 0 &&
@@ -49,16 +64,9 @@ export function LayerDetail({ stack, located, onPick }: LayerDetailProps) {
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-8 py-8">
       <header className="flex flex-col gap-2">
-        <p className="text-faint text-xs">
-          {cohort.title} · Layer {position} of {cohort.layers.length}
-        </p>
         <h2 className="font-medium text-foreground text-lg">{layer.title}</h2>
         <p className="text-muted-foreground text-sm">{layer.summary}</p>
       </header>
-
-      <LayerCheckNotice check={layerCheckOf(stack, located)} />
-
-      <LayerDependencies stack={stack} layer={layer} onPick={onPick} />
 
       <section aria-label="Files in this layer" className="flex flex-col gap-3">
         {files.length > 1 && (

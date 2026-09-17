@@ -2,8 +2,8 @@ import type { AppliedConfigurationPort } from '@configuration/application/ports/
 import type { TeamSecretsPort } from '@configuration/application/ports/team-secrets.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { HostReach } from '@integrations/application/services/host-reach.service';
-import { TaskNotices } from '@integrations/application/services/task-notices.service';
 import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
+import { TaskNotices } from '@integrations/infrastructure/acl/task-notices.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-clients';

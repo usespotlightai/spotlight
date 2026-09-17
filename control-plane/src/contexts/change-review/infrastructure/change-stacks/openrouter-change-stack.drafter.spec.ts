@@ -31,7 +31,13 @@ const COHORTS = [
         title: 'Add invite',
         summary: 'The function',
         dependsOn: [],
-        ranges: [{ hunk: 'h1', summary: null }],
+        ranges: [{ hunk: 'h1' }],
+        files: [
+          {
+            path: 'src/invite.ts',
+            note: 'Adds the function that sends an invitation.',
+          },
+        ],
       },
     ],
   },
@@ -93,7 +99,25 @@ describe('OpenRouterChangeStackDrafter', () => {
       new OpenRouterChangeStackDrafter('or-key', DEFAULT_MODEL, fetch),
     );
 
-    expect(cohorts).toEqual(COHORTS);
+    expect(cohorts).toEqual([
+      {
+        ...COHORTS[0],
+        layers: [
+          {
+            title: 'Add invite',
+            summary: 'The function',
+            dependsOn: [],
+            ranges: [{ hunk: 'h1' }],
+            notes: [
+              {
+                path: 'src/invite.ts',
+                note: 'Adds the function that sends an invitation.',
+              },
+            ],
+          },
+        ],
+      },
+    ]);
     expect(asked[0]?.url).toBe('https://openrouter.ai/api/v1/chat/completions');
     expect(
       (asked[0]?.init.headers as Record<string, string> | undefined)
@@ -107,6 +131,18 @@ describe('OpenRouterChangeStackDrafter', () => {
     expect(JSON.stringify(body.response_format.json_schema.schema)).not.toMatch(
       /minimum|maximum|\$schema/,
     );
+    const layer =
+      body.response_format.json_schema.schema.properties.cohorts.items
+        .properties.layers.items;
+    expect(layer.required).toContain('files');
+    expect(layer.properties.ranges.items.required).toEqual(['hunk']);
+    expect(layer.properties.files.items.properties.note).toEqual({
+      type: 'string',
+    });
+    expect(layer.properties.files.items.required).toEqual(['path', 'note']);
+    expect(body.messages[0].content).toContain(
+      'exactly one entry in "files" for every file its ranges touch',
+    );
     expect(body.messages[1].content).toContain('Repository: web');
     expect(body.messages[1].content).toContain('- leaves h2 out');
   });
@@ -119,6 +155,30 @@ describe('OpenRouterChangeStackDrafter', () => {
     await expect(
       draft(new OpenRouterChangeStackDrafter('or-key', DEFAULT_MODEL, fetch)),
     ).rejects.toThrow('OpenRouter refused to draft: 402 Insufficient credits');
+  });
+
+  it('refuses an answer whose layers leave out their file notes', async () => {
+    const { fetch } = answering(200, {
+      choices: [
+        {
+          finish_reason: 'stop',
+          message: {
+            content: JSON.stringify({
+              cohorts: [
+                {
+                  ...COHORTS[0],
+                  layers: [{ ...COHORTS[0]?.layers[0], files: undefined }],
+                },
+              ],
+            }),
+          },
+        },
+      ],
+    });
+
+    await expect(
+      draft(new OpenRouterChangeStackDrafter('or-key', DEFAULT_MODEL, fetch)),
+    ).rejects.toThrow();
   });
 
   it('refuses an answer cut short', async () => {
@@ -160,6 +220,7 @@ describe('revised', () => {
 
     expect(text).toContain('`npx tsc --noEmit`');
     expect(text).toContain('moving the few changes it needs');
+    expect(text).toContain('a note on each file its ranges touch');
     expect(text).toContain(
       'cohort 1 "Labels": layer 1 "Task reads" (h1); layer 2 "HTTP" (h2)',
     );

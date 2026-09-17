@@ -68,6 +68,29 @@ export const patchRowsOf = (
   return rows;
 };
 
+export const tallyOf = (
+  files: readonly DiffFile[],
+): { added: number; removed: number } => {
+  let added = 0;
+  let removed = 0;
+
+  for (const file of files) {
+    for (const hunk of file.hunks) {
+      const [header = '', ...lines] = hunk.patch.split('\n');
+
+      for (const row of header ? patchRowsOf(header, lines) : []) {
+        if (row.sign === '+') {
+          added += 1;
+        } else if (row.sign === '-') {
+          removed += 1;
+        }
+      }
+    }
+  }
+
+  return { added, removed };
+};
+
 export const changedLinesOf = (
   hunk: DiffHunk,
 ): { added: number[]; removed: number[] } => {

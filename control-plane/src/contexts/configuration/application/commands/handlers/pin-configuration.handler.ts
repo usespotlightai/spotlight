@@ -3,8 +3,8 @@ import type { TeamsPort } from '@configuration/application/ports/teams.port';
 import type { ConfigurationTarget } from '@configuration/application/services/configuration-target.service';
 import type { RepositoryProvisioning } from '@configuration/application/services/repository-provisioning.service';
 import { ConfigurationHome } from '@configuration/domain/aggregates/configuration-home.aggregate';
+import { NoRepositoryConnectionError } from '@configuration/domain/exceptions/no-repository-connection.error';
 import type { ConfigurationHomeRepository } from '@configuration/domain/repositories/configuration-home.repository';
-import { NoGitHubInstallationError } from '@github/application/errors/no-github-installation.error';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
@@ -40,7 +40,7 @@ export class PinConfigurationHandler
         const target = this.target.at(team, repository);
 
         if (!target) {
-          throw new NoGitHubInstallationError();
+          throw new NoRepositoryConnectionError();
         }
 
         if ((await this.provisioning.ensure(target)) === 'refused') {

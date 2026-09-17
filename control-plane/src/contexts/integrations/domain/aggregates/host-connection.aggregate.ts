@@ -43,7 +43,9 @@ export class HostConnection extends EventRecorder {
       version: 0,
     });
 
-    connection.record(new HostConnected(input.teamId, input.source));
+    connection.record(
+      new HostConnected(input.teamId, input.source, input.grant.handle),
+    );
 
     return connection;
   }

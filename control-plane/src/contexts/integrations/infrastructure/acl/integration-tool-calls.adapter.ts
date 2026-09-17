@@ -2,6 +2,7 @@ import { integrationFilesIn } from '@configuration/application/contracts/configu
 import type { AppliedConfigurationPort } from '@configuration/application/ports/applied-configuration.port';
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
 import type { HostReach } from '@integrations/application/services/host-reach.service';
+import { BoundTaskMapper } from '@integrations/infrastructure/acl/bound-task.mapper';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
 import type {
@@ -23,7 +24,11 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
     const teamId = TeamId.of(task.teamId);
     const applied = await this.configurations.of(teamId);
     const reachable = applied
-      ? this.runtime.tool(integrationFilesIn(applied.files), tool, task)
+      ? this.runtime.tool(
+          integrationFilesIn(applied.files),
+          tool,
+          BoundTaskMapper.toBound(task),
+        )
       : null;
 
     if (!reachable) {

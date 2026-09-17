@@ -1,7 +1,11 @@
 import type { Skill } from '@configuration/domain/entities/skill.entity';
 import type { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
-import type { SkillFile } from '@work/application/dto/ready-skill.dto';
+
+export interface SkillFile {
+  readonly path: string;
+  readonly text: string;
+}
 
 export const SKILL_READER = Symbol('SKILL_READER');
 

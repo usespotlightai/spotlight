@@ -3299,7 +3299,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TaskChangeStackResponseDto"
+                  "$ref": "#/components/schemas/NewestChangeStackResponseDto"
                 }
               }
             }
@@ -7259,28 +7259,6 @@
           "hunks"
         ]
       },
-      "LayerDependencyResponseDto": {
-        "type": "object",
-        "properties": {
-          "layer": {
-            "type": "string",
-            "example": "c1.l1"
-          },
-          "because": {
-            "example": [
-              "Invitation"
-            ],
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "layer",
-          "because"
-        ]
-      },
       "StackRangeResponseDto": {
         "type": "object",
         "properties": {
@@ -7288,15 +7266,28 @@
             "type": "string",
             "example": "h3",
             "description": "The hunk it places"
-          },
-          "summary": {
-            "type": "string",
-            "nullable": true
           }
         },
         "required": [
-          "hunk",
-          "summary"
+          "hunk"
+        ]
+      },
+      "FileNoteResponseDto": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "example": "src/invite.ts"
+          },
+          "note": {
+            "type": "string",
+            "example": "Adds the endpoint admins invite people through.",
+            "description": "What changed in the file for this layer, and why"
+          }
+        },
+        "required": [
+          "path",
+          "note"
         ]
       },
       "StackLayerResponseDto": {
@@ -7313,16 +7304,17 @@
           "summary": {
             "type": "string"
           },
-          "dependsOn": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/LayerDependencyResponseDto"
-            }
-          },
           "ranges": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/StackRangeResponseDto"
+            }
+          },
+          "notes": {
+            "description": "One note per file the layer touches; empty for incidental changes",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileNoteResponseDto"
             }
           }
         },
@@ -7330,8 +7322,8 @@
           "id",
           "title",
           "summary",
-          "dependsOn",
-          "ranges"
+          "ranges",
+          "notes"
         ]
       },
       "StackCohortResponseDto": {
@@ -7370,77 +7362,6 @@
           "layers"
         ]
       },
-      "CheckedLayerResponseDto": {
-        "type": "object",
-        "properties": {
-          "step": {
-            "type": "string",
-            "example": "c1.l2",
-            "description": "\"whole\", or the layer"
-          },
-          "passed": {
-            "type": "boolean"
-          },
-          "output": {
-            "type": "string",
-            "description": "The end of what the check printed"
-          },
-          "tookMs": {
-            "type": "number",
-            "example": 42000
-          }
-        },
-        "required": [
-          "step",
-          "passed",
-          "output",
-          "tookMs"
-        ]
-      },
-      "StackCheckResponseDto": {
-        "type": "object",
-        "properties": {
-          "command": {
-            "type": "string",
-            "example": "npx tsc --noEmit"
-          },
-          "state": {
-            "type": "string",
-            "enum": [
-              "waiting",
-              "checked",
-              "skipped"
-            ]
-          },
-          "reason": {
-            "type": "string",
-            "nullable": true
-          },
-          "whole": {
-            "nullable": true,
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/CheckedLayerResponseDto"
-              }
-            ]
-          },
-          "layers": {
-            "description": "Each layer checked with the layers before it",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CheckedLayerResponseDto"
-            }
-          }
-        },
-        "required": [
-          "command",
-          "state",
-          "reason",
-          "whole",
-          "layers"
-        ]
-      },
       "ChangeStackResponseDto": {
         "type": "object",
         "properties": {
@@ -7463,13 +7384,6 @@
             "type": "string",
             "nullable": true
           },
-          "draftedAt": {
-            "type": "string"
-          },
-          "settledAt": {
-            "type": "string",
-            "nullable": true
-          },
           "files": {
             "type": "array",
             "items": {
@@ -7482,15 +7396,15 @@
               "$ref": "#/components/schemas/StackCohortResponseDto"
             }
           },
-          "check": {
-            "nullable": true,
-            "description": "Whether each layer builds on its own, where a check was named",
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/StackCheckResponseDto"
-              }
-            ]
+          "checkState": {
+            "type": "string",
+            "enum": [
+              "waiting",
+              "checked",
+              "skipped",
+              null
+            ],
+            "nullable": true
           }
         },
         "required": [
@@ -7498,11 +7412,9 @@
           "repository",
           "state",
           "failure",
-          "draftedAt",
-          "settledAt",
           "files",
           "cohorts",
-          "check"
+          "checkState"
         ]
       },
       "RunChangeStacksResponseDto": {
@@ -7544,24 +7456,37 @@
             "enum": [
               "waiting",
               "checked",
-              "skipped"
+              "skipped",
+              null
             ],
             "nullable": true
+          },
+          "added": {
+            "type": "number",
+            "example": 335,
+            "description": "Lines added across the stack"
+          },
+          "removed": {
+            "type": "number",
+            "example": 11,
+            "description": "Lines removed across the stack"
           }
         },
         "required": [
           "runId",
           "repository",
           "state",
-          "checkState"
+          "checkState",
+          "added",
+          "removed"
         ]
       },
-      "TaskChangeStackResponseDto": {
+      "NewestChangeStackResponseDto": {
         "type": "object",
         "properties": {
           "latest": {
             "nullable": true,
-            "description": "The newest change stack drafted for the task, if any",
+            "description": "The newest change stack drafted, if any",
             "type": "object",
             "allOf": [
               {

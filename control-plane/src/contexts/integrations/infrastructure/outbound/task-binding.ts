@@ -1,7 +1,7 @@
-import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
+import type { BoundTask } from '@integrations/application/ports/integration-runtime.port';
 
 export const taskBinding = (
-  task: BoundTaskDto,
+  task: BoundTask,
 ): {
   line: string;
   station: string;

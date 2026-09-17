@@ -16,6 +16,8 @@ export interface ChangeStackSummary {
   readonly state: ChangeStackDto['state'];
   readonly cohorts: readonly StackCohortDto[];
   readonly check: StackCheckDto | null;
+  readonly added: number;
+  readonly removed: number;
 }
 
 export interface PendingStackCheck {

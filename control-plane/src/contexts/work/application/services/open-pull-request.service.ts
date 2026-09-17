@@ -1,9 +1,9 @@
-import type { OpenedPullRequestDto } from '@github/application/dto/pull-request.dto';
 import type { PullRequestPort } from '@github/application/ports/pull-request.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { OpenedPullRequest } from '@work/application/dto/pull-request.dto';
 import { takeWornMarks } from '@work/application/services/worn-marks';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
@@ -35,7 +35,7 @@ export class OpenPullRequest {
   async open(
     target: PullRequestFor,
     asked: PullRequestAsked,
-  ): Promise<OpenedPullRequestDto> {
+  ): Promise<OpenedPullRequest> {
     const task = await this.found(target.taskId);
 
     if (task.pullRequest) {

@@ -9,7 +9,7 @@ import { CONTRIBUTED_TOOLS } from '@work/application/ports/contributed-tools.por
 import { WorkModule } from '@work/work.module';
 
 @Module({
-  imports: [WorkModule, IdentityModule, GitHubModule],
+  imports: [IdentityModule, GitHubModule, WorkModule],
   controllers: [...CHANGE_REVIEW_CONTROLLERS],
   providers: [...CHANGE_REVIEW_PROVIDERS],
   exports: [CONTRIBUTED_TOOLS],

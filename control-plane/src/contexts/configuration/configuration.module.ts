@@ -14,7 +14,7 @@ import { TEAM_SKILLS } from '@work/application/ports/team-skills.port';
 import { WorkModule } from '@work/work.module';
 
 @Module({
-  imports: [WorkModule, IdentityModule, GitHubModule],
+  imports: [IdentityModule, GitHubModule, WorkModule],
   controllers: [...CONFIGURATION_CONTROLLERS],
   providers: [...CONFIGURATION_PROVIDERS],
   exports: [

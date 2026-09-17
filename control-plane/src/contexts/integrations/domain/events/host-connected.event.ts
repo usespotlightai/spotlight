@@ -8,5 +8,6 @@ export class HostConnected implements DomainEvent {
   constructor(
     readonly teamId: TeamId,
     readonly source: SourceKey,
+    readonly handle: string | null,
   ) {}
 }

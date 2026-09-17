@@ -2,7 +2,6 @@ import {
   APPLIED_CONFIGURATION,
   AppliedConfigurationPort,
 } from '@configuration/application/ports/applied-configuration.port';
-import { INTEGRATION_LINKS } from '@configuration/application/ports/integration-links.port';
 import {
   INTEGRATION_READER,
   IntegrationReaderPort,
@@ -70,11 +69,9 @@ import {
 import { ListHappeningsHandler } from '@integrations/application/queries/handlers/list-happenings.handler';
 import { ListHappeningsQuery } from '@integrations/application/queries/list-happenings.query';
 import { HostReach } from '@integrations/application/services/host-reach.service';
-import { IntegrationToolCalls } from '@integrations/application/services/integration-tool-calls.service';
 import { RefreshConnections } from '@integrations/application/services/refresh-connections.service';
 import { RunSchedules } from '@integrations/application/services/run-schedules.service';
 import { SourceForDelivery } from '@integrations/application/services/source-for-delivery.service';
-import { TaskNotices } from '@integrations/application/services/task-notices.service';
 import { WebhookSources } from '@integrations/application/services/webhook-sources.service';
 import { WorkOffDeliveries } from '@integrations/application/services/work-off-deliveries.service';
 import { WorkOffPolls } from '@integrations/application/services/work-off-polls.service';
@@ -83,6 +80,8 @@ import {
   HOST_CONNECTIONS,
   HostConnectionRepository,
 } from '@integrations/domain/repositories/host-connection.repository';
+import { IntegrationToolCalls } from '@integrations/infrastructure/acl/integration-tool-calls.adapter';
+import { TaskNotices } from '@integrations/infrastructure/acl/task-notices.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { ConfiguredSources } from '@integrations/infrastructure/integrations/configured.sources';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
@@ -94,7 +93,6 @@ import { OAuth2Linking } from '@integrations/infrastructure/integrations/oauth2-
 import { OAuth2State } from '@integrations/infrastructure/integrations/oauth2-state';
 import { Egress } from '@integrations/infrastructure/outbound/egress';
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
-import { DrizzleIntegrationLinksReader } from '@integrations/infrastructure/persistence/drizzle/readers/integration-links.reader';
 import { DrizzleDeliveryInbox } from '@integrations/infrastructure/persistence/drizzle/repositories/delivery-inbox.repository';
 import { DrizzleHostConnections } from '@integrations/infrastructure/persistence/drizzle/repositories/host-connections.repository';
 import { DrizzleIntegrationCursors } from '@integrations/infrastructure/persistence/drizzle/repositories/integration-cursors.repository';
@@ -170,7 +168,6 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       reader: IntegrationReaderPort,
     ) => new TeamIntegrations(applied, reader),
   },
-  { provide: INTEGRATION_LINKS, useClass: DrizzleIntegrationLinksReader },
 
   {
     provide: INBOX_LINKS,

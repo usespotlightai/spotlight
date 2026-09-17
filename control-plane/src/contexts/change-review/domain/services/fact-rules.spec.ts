@@ -30,7 +30,8 @@ const layer = (hunks: string[]): ProposedLayer => ({
   title: 'A layer',
   summary: 'A layer',
   dependsOn: [],
-  ranges: hunks.map((each) => ({ hunk: each, summary: null })),
+  ranges: hunks.map((each) => ({ hunk: each })),
+  notes: [],
 });
 
 const cohort = (

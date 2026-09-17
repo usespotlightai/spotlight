@@ -5,7 +5,6 @@ import { Conversation } from '@/components/features/inbox/conversation/Conversat
 import { ChangesPanel } from '@/components/features/runs/ChangesPanel';
 import { RunActivity } from '@/components/features/runs/RunActivity';
 import { RunBriefing } from '@/components/features/runs/RunBriefing';
-import { RunChangeStackLink } from '@/components/features/runs/RunChangeStackLink';
 import { RunComposer } from '@/components/features/runs/RunComposer';
 import { RunEmpty } from '@/components/features/runs/RunEmpty';
 import { RunOpening } from '@/components/features/runs/RunOpening';
@@ -175,12 +174,7 @@ export function Run() {
   return (
     <TrailContext value={forward}>
       <div className="flex min-h-0 flex-1 flex-col">
-        <PageHeader
-          title={<Breadcrumbs segments={trail} />}
-          actions={
-            <RunChangeStackLink slug={slug} teamId={teamId} runId={run.id} />
-          }
-        />
+        <PageHeader title={<Breadcrumbs segments={trail} />} />
 
         <ChangesPanel>
           {item && item.notes.length > 0 ? (

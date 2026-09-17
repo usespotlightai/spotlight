@@ -16,6 +16,8 @@ const ANNOTATIONS =
   annotationOn('change-addition', '--diffs-addition-base') +
   annotationOn('change-deletion', '--diffs-deletion-base');
 
+const LINE_NUMBERS = ' [data-line-number-content] { min-width: 4ch; }';
+
 const GUTTER_UTILITY =
   ' [data-gutter-utility-slot] { left: 0 !important; right: 0 !important; justify-content: flex-end !important; z-index: 3; pointer-events: none; }';
 
@@ -28,5 +30,5 @@ export const diffOptions = (flush: boolean, gutter = false) =>
     theme: DIFF_THEME,
     unsafeCSS: `:host { color-scheme: inherit; font-size: 11px; line-height: 1.5; --diffs-selection-base: var(--primary);${
       flush ? ' --diffs-gap-block: 0; --diffs-bg: transparent;' : ''
-    } }${ANNOTATIONS}${gutter ? GUTTER_UTILITY : ''}`,
+    } }${LINE_NUMBERS}${ANNOTATIONS}${gutter ? GUTTER_UTILITY : ''}`,
   }) as const;

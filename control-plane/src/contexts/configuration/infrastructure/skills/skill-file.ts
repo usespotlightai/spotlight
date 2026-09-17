@@ -1,4 +1,5 @@
 import type {
+  SkillFile,
   SkillFolder,
   SkillOrigin,
 } from '@configuration/application/ports/skill-reader.port';
@@ -15,7 +16,6 @@ import {
   SKILL_FILE,
   SKILL_FOLDER_LIMITS,
 } from '@work/application/contracts/run-spec.contract';
-import { type SkillFile } from '@work/application/dto/ready-skill.dto';
 import { parse as parseYaml } from 'yaml';
 
 const toolsIn = (key: SkillKey, raw: unknown): ToolName[] => {

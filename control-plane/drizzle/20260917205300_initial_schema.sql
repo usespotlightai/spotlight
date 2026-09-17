@@ -106,6 +106,14 @@ CREATE TABLE "configuration_home" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "integration_link" (
+	"team_id" text NOT NULL,
+	"source" text NOT NULL,
+	"handle" text,
+	"linked_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "integration_link_team_id_source_pk" PRIMARY KEY("team_id","source")
+);
+--> statement-breakpoint
 CREATE TABLE "team_config" (
 	"team_id" text PRIMARY KEY NOT NULL,
 	"repository" text NOT NULL,

@@ -20,9 +20,7 @@ export const INVITATIONS: ChangeStackResponseDto = {
   repository: null,
   state: 'ready',
   failure: null,
-  draftedAt: minutesAgo(6),
-  settledAt: minutesAgo(5),
-  check: null,
+  checkState: null,
   files: [
     {
       path: 'control-plane/src/schemas/invitation.schema.ts',
@@ -160,12 +158,11 @@ export const INVITATIONS: ChangeStackResponseDto = {
           title: 'Add the invitation data model',
           summary:
             'A table for pending invitations, each with a unique token, the role it grants and when it expires.',
-          dependsOn: [],
-          ranges: [
+          ranges: [{ hunk: 'h1' }],
+          notes: [
             {
-              hunk: 'h1',
-              summary:
-                'The token is unique, so accepting looks an invitation up by token alone.',
+              path: 'control-plane/src/schemas/invitation.schema.ts',
+              note: 'Adds the invitation table. The token is unique, so accepting can look an invitation up by token alone.',
             },
           ],
         },
@@ -174,14 +171,16 @@ export const INVITATIONS: ChangeStackResponseDto = {
           title: 'Add the invitation API and emails',
           summary:
             'Endpoints to invite and to accept, the invitation email, and the admin-only permission gate.',
-          dependsOn: [{ layer: 'c1.l1', because: ['invitation'] }],
-          ranges: [
+          ranges: [{ hunk: 'h2' }, { hunk: 'h3' }],
+          notes: [
             {
-              hunk: 'h2',
-              summary:
-                'Only admins may invite; anyone holding a token may accept.',
+              path: 'control-plane/src/invitations/invitation.controller.ts',
+              note: 'Adds the invite and accept endpoints. Only admins may invite; anyone holding a token may accept.',
             },
-            { hunk: 'h3', summary: null },
+            {
+              path: 'control-plane/src/mail/invitation.mail.ts',
+              note: 'Adds the email an invited person receives, carrying the link that accepts the invitation.',
+            },
           ],
         },
         {
@@ -189,13 +188,13 @@ export const INVITATIONS: ChangeStackResponseDto = {
           title: 'Build the invite & members UI',
           summary:
             'Admins see an invite form on the members page, and everyone sees who is still to accept.',
-          dependsOn: [
+          ranges: [{ hunk: 'h4' }],
+          notes: [
             {
-              layer: 'c1.l2',
-              because: ['POST /teams/:teamId/invitations'],
+              path: 'web/src/routes/TeamMembers.tsx',
+              note: 'Shows admins the invite form on the members page, and lists invitations still waiting to be accepted.',
             },
           ],
-          ranges: [{ hunk: 'h4', summary: null }],
         },
       ],
     },
@@ -209,8 +208,8 @@ export const INVITATIONS: ChangeStackResponseDto = {
           id: 'c2.l1',
           title: 'Update the lockfile',
           summary: 'A patch release of zod, with no code depending on it.',
-          dependsOn: [],
-          ranges: [{ hunk: 'h5', summary: null }],
+          ranges: [{ hunk: 'h5' }],
+          notes: [],
         },
       ],
     },
@@ -225,52 +224,65 @@ const seedStacks = (
   client.setQueryData(changeStackKeys.forRun(RUN_ID), stacks);
 };
 
-export const checkedChangeStack = (client: QueryClient) =>
-  seedStacks(client, {
-    stacks: [
-      {
-        ...INVITATIONS,
-        check: {
-          command: 'npx tsc --noEmit',
-          state: 'checked',
-          reason: null,
-          whole: { step: 'whole', passed: true, output: '', tookMs: 41_000 },
-          layers: [
-            { step: 'c1.l1', passed: true, output: '', tookMs: 38_000 },
-            {
-              step: 'c1.l2',
-              passed: false,
-              output: [
-                "src/invitations/invitation.mail.ts(4,23): error TS2304: Cannot find name 'InvitationRole'.",
-                "src/invitations/invitations.controller.ts(18,5): error TS2339: Property 'invite' does not exist on type 'InvitationService'.",
-              ].join('\n'),
-              tookMs: 39_000,
-            },
-            { step: 'c1.l3', passed: true, output: '', tookMs: 41_000 },
-          ],
-        },
-      },
-    ],
-  });
-
-export const checkingChangeStack = (client: QueryClient) =>
-  seedStacks(client, {
-    stacks: [
-      {
-        ...INVITATIONS,
-        check: {
-          command: 'npx tsc --noEmit',
-          state: 'waiting',
-          reason: null,
-          whole: null,
-          layers: [],
-        },
-      },
-    ],
-  });
-
 export const seedChangeStack = (client: QueryClient) =>
   seedStacks(client, { stacks: [INVITATIONS] });
+
+const GENERATED_LINES = 1_400;
+
+const generated: ChangeStackResponseDto = {
+  ...INVITATIONS,
+  id: 'stack_generated',
+  files: [
+    ...INVITATIONS.files,
+    {
+      path: 'web/src/lib/api/types.gen.ts',
+      previousPath: null,
+      status: 'modified',
+      binary: false,
+      hunks: [
+        {
+          id: 'h6',
+          oldStart: 1,
+          oldLines: 0,
+          newStart: 1,
+          newLines: GENERATED_LINES,
+          patch: patch(
+            `@@ -1,0 +1,${GENERATED_LINES} @@`,
+            Array.from(
+              { length: GENERATED_LINES },
+              (_, at) => `+export type Generated${at} = { id: string };`,
+            ),
+          ),
+        },
+      ],
+    },
+  ],
+  cohorts: INVITATIONS.cohorts.map((cohort) =>
+    cohort.id === 'c1'
+      ? {
+          ...cohort,
+          layers: cohort.layers.map((layer) =>
+            layer.id === 'c1.l1'
+              ? {
+                  ...layer,
+                  ranges: [...layer.ranges, { hunk: 'h6', summary: null }],
+                  notes: [
+                    ...layer.notes,
+                    {
+                      path: 'web/src/lib/api/types.gen.ts',
+                      note: 'Regenerates the API client for the new endpoints.',
+                    },
+                  ],
+                }
+              : layer,
+          ),
+        }
+      : cohort,
+  ),
+};
+
+export const largeFileChangeStack = (client: QueryClient) =>
+  seedStacks(client, { stacks: [generated] });
 
 export const draftingChangeStack = (client: QueryClient) =>
   seedStacks(client, {
@@ -278,7 +290,6 @@ export const draftingChangeStack = (client: QueryClient) =>
       {
         ...INVITATIONS,
         state: 'drafting',
-        settledAt: null,
         cohorts: [],
       },
     ],

@@ -50,7 +50,11 @@ const layered = (layers: string[][]): ProposedCohort[] => [
       title: `Layer ${at + 1}`,
       summary: `Layer ${at + 1}`,
       dependsOn: [],
-      ranges: hunks.map((hunk) => ({ hunk, summary: null })),
+      ranges: hunks.map((hunk) => ({ hunk })),
+      notes: hunks.map((hunk) => ({
+        path: hunk === 'h1' ? 'schema.ts' : 'api.ts',
+        note: 'Why it changes',
+      })),
     })),
   },
 ];

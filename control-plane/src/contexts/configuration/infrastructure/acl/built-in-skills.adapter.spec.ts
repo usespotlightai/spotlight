@@ -1,9 +1,9 @@
 import type { ShippedSkillsPort } from '@configuration/application/ports/shipped-skills.port';
 import type { SkillFolder } from '@configuration/application/ports/skill-reader.port';
-import { BuiltInSkills } from '@configuration/application/services/built-in-skills.service';
 import { Skill } from '@configuration/domain/entities/skill.entity';
 import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import { ToolName } from '@configuration/domain/value-objects/tool-name.vo';
+import { BuiltInSkills } from '@configuration/infrastructure/acl/built-in-skills.adapter';
 import { describe, expect, it } from 'vitest';
 
 const HANDOVER: SkillFolder = {

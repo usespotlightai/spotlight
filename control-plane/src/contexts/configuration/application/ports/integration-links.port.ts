@@ -9,4 +9,6 @@ export interface IntegrationLink {
 
 export interface IntegrationLinksPort {
   heldBy(teamId: TeamId): Promise<readonly IntegrationLink[]>;
+
+  linked(teamId: TeamId, link: IntegrationLink): Promise<void>;
 }

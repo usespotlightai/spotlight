@@ -1,5 +1,5 @@
-import { ReadySkillMapper } from '@configuration/application/mappers/ready-skill.mapper';
 import type { ShippedSkillsPort } from '@configuration/application/ports/shipped-skills.port';
+import { ReadySkillMapper } from '@configuration/infrastructure/acl/ready-skill.mapper';
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
 import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
 

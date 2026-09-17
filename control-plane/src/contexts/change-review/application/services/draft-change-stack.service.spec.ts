@@ -103,7 +103,10 @@ const RUN = {
   workspaceId: WorkspaceId.of('workspace-1'),
 };
 
-const cohort = (hunks: string[]): ProposedCohort => ({
+const cohort = (
+  hunks: string[],
+  paths: string[] = ['schema.ts', 'api.ts'],
+): ProposedCohort => ({
   kind: 'change',
   title: 'Team invitations',
   intent: 'Let admins invite people',
@@ -113,7 +116,11 @@ const cohort = (hunks: string[]): ProposedCohort => ({
       title: 'Add invitations',
       summary: 'The table and the endpoint',
       dependsOn: [],
-      ranges: hunks.map((hunk) => ({ hunk, summary: null })),
+      ranges: hunks.map((hunk) => ({ hunk })),
+      notes: hunks.map((hunk) => ({
+        path: paths[Number(hunk.slice(1)) - 1] ?? hunk,
+        note: 'Why it changes',
+      })),
     },
   ],
 });
@@ -282,11 +289,15 @@ describe('DraftChangeStack', () => {
       LOCKFILE,
     );
 
-    const apart: ProposedCohort[] = [cohort(['h2']), cohort(['h1'])];
+    const LINKED_PATHS = ['src/invite.ts', 'src/routes.ts'];
+    const apart: ProposedCohort[] = [
+      cohort(['h2'], LINKED_PATHS),
+      cohort(['h1'], LINKED_PATHS),
+    ];
 
     it('hands the drafter the facts, and sets incidental changes aside itself', async () => {
       const { drafted, saved, asked } = drafting({
-        answers: [[cohort(['h1', 'h2'])]],
+        answers: [[cohort(['h1', 'h2'], LINKED_PATHS)]],
       });
 
       await drafted({ diff: LINKED, repository: null });
@@ -383,7 +394,7 @@ describe('DraftChangeStack', () => {
 
     it('drafts from the diff alone where the code cannot be parsed', async () => {
       const { drafted, saved, asked } = drafting({
-        answers: [[cohort(['h1', 'h2'])]],
+        answers: [[cohort(['h1', 'h2'], LINKED_PATHS)]],
         index: async () => {
           throw new Error('no grammar');
         },
@@ -415,13 +426,15 @@ describe('ReorderChangeStack', () => {
         title: 'Add the table',
         summary: 'The table',
         dependsOn: [],
-        ranges: [{ hunk: 'h1', summary: null }],
+        ranges: [{ hunk: 'h1' }],
+        notes: [{ path: 'schema.ts', note: 'Adds the table' }],
       },
       {
         title: 'Add the endpoint',
         summary: 'The endpoint',
         dependsOn: [],
-        ranges: [{ hunk: 'h2', summary: null }],
+        ranges: [{ hunk: 'h2' }],
+        notes: [{ path: 'api.ts', note: 'Adds the endpoint' }],
       },
     ],
   };

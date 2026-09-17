@@ -17,7 +17,7 @@ const marked = (stack: AnnouncedStack, layerId: string): string => {
 
   const checked = stack.check?.layers.find((each) => each.step === layerId);
 
-  return checked ? (checked.passed ? ' · builds' : ' · does not build') : '';
+  return checked && !checked.passed ? ' · does not build' : '';
 };
 
 export const ChangeStackComment = {

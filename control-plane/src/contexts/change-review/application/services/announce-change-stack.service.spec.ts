@@ -51,7 +51,8 @@ const ready = () =>
             title: 'Add labels',
             summary: 'Labels',
             dependsOn: [],
-            ranges: [{ hunk: 'h1', summary: null }],
+            ranges: [{ hunk: 'h1' }],
+            notes: [{ path: 'a.ts', note: 'Adds labels' }],
           },
         ],
       },
@@ -87,6 +88,8 @@ const announcing = (
           state: stack.state,
           cohorts: stack.cohorts,
           check: null,
+          added: 0,
+          removed: 0,
         };
       },
       ofRun: async () => [],

@@ -1,11 +1,11 @@
-import { LayerCheckMark } from '@/components/features/changes/LayerCheckMark';
-import type { LayerCheck, LocatedLayer } from '@/lib/change-stack';
+import { DiffTally } from '@/components/shared/DiffTally';
+import type { LocatedLayer } from '@/lib/change-stack';
 import { cn } from '@/lib/utils';
 
 type StackNavLayerProps = {
   located: LocatedLayer;
   files: number;
-  check: LayerCheck;
+  tally: { added: number; removed: number };
   active: boolean;
   onPick: (layerId: string) => void;
 };
@@ -13,7 +13,7 @@ type StackNavLayerProps = {
 export function StackNavLayer({
   located,
   files,
-  check,
+  tally,
   active,
   onPick,
 }: StackNavLayerProps) {
@@ -47,19 +47,10 @@ export function StackNavLayer({
             {located.layer.title}
           </span>
           <span className="flex items-center gap-1.5 text-faint text-xs">
-            <LayerCheckMark check={check} />
             <span>
               {files} {files === 1 ? 'file' : 'files'}
-              {located.layer.dependsOn.length > 0 &&
-                ` · after ${located.layer.dependsOn
-                  .map(
-                    (each) =>
-                      located.cohort.layers.findIndex(
-                        (layer) => layer.id === each.layer,
-                      ) + 1,
-                  )
-                  .join(', ')}`}
             </span>
+            <DiffTally added={tally.added} removed={tally.removed} />
           </span>
         </span>
       </button>

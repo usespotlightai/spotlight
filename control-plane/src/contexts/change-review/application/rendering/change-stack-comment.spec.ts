@@ -51,7 +51,13 @@ const checked = () =>
             title: at === 0 ? 'Add the label table' : 'Add the label API',
             summary: 'A layer',
             dependsOn: [],
-            ranges: hunks.map((hunk) => ({ hunk, summary: null })),
+            ranges: hunks.map((hunk) => ({ hunk })),
+            notes: [
+              {
+                path: at === 0 ? 'schema.ts' : 'api.ts',
+                note: 'Why it changes',
+              },
+            ],
           })),
         },
         {
@@ -63,7 +69,8 @@ const checked = () =>
               title: 'Update lockfiles',
               summary: 'Incidental',
               dependsOn: [],
-              ranges: [{ hunk: 'h3', summary: null }],
+              ranges: [{ hunk: 'h3' }],
+              notes: [],
             },
           ],
         },
@@ -81,7 +88,7 @@ const checked = () =>
     .keepLayers();
 
 describe('ChangeStackComment', () => {
-  it('links the stack and lists each layer with whether it builds', () => {
+  it('links the stack and marks each layer that does not build', () => {
     const stack = checked();
     const body = ChangeStackComment.of(
       {
@@ -101,7 +108,7 @@ describe('ChangeStackComment', () => {
       '[open the change stack in Spotlight](https://app.example/w/acme/team/t1/runs/run-1/changes)',
     );
     expect(body).toContain(
-      '**Task labels**\n1. Add the label table (1 change) · does not build\n2. Add the label API (1 change) · builds',
+      '**Task labels**\n1. Add the label table (1 change) · does not build\n2. Add the label API (1 change)',
     );
     expect(body).toContain('Set aside as incidental: Update lockfiles.');
     expect(body).toContain('checked on its own with `npx tsc --noEmit`');

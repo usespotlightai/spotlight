@@ -12,7 +12,22 @@ import type {
   ToolInputDeclaration,
   ToolInputValues,
 } from '@work/application/contracts/tools.contract';
-import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
+
+export interface BoundTaskWaiting {
+  readonly conversationId: string;
+  readonly said: string;
+}
+
+export interface BoundTask {
+  readonly taskId: string;
+  readonly workspaceId: string;
+  readonly teamId: string;
+  readonly line: string;
+  readonly station: string;
+  readonly stationKey: string;
+  readonly marks: Readonly<Record<string, string>>;
+  readonly waiting: BoundTaskWaiting | null;
+}
 
 export const INTEGRATION_RUNTIME = Symbol('INTEGRATION_RUNTIME');
 
@@ -48,7 +63,7 @@ export type Acted =
   | { readonly kind: 'nothing-to-do' };
 
 export interface TaskWord {
-  readonly task: BoundTaskDto;
+  readonly task: BoundTask;
   readonly ask: {
     readonly body: string;
     readonly link: string | null;
@@ -104,7 +119,7 @@ export interface IntegrationRuntimePort {
   tool(
     files: readonly ConfigurationFile[],
     tool: string,
-    task: BoundTaskDto,
+    task: BoundTask,
   ): ReachableTool | null;
 
   renew(

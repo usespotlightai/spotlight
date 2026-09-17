@@ -1,8 +1,8 @@
 import type { AppliedConfigurationPort } from '@configuration/application/ports/applied-configuration.port';
 import type { TeamSecretsPort } from '@configuration/application/ports/team-secrets.port';
 import { HostReach } from '@integrations/application/services/host-reach.service';
-import { IntegrationToolCalls } from '@integrations/application/services/integration-tool-calls.service';
 import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
+import { IntegrationToolCalls } from '@integrations/infrastructure/acl/integration-tool-calls.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-clients';

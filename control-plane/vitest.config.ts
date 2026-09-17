@@ -2,6 +2,19 @@ import { resolve } from 'node:path';
 import swc from 'unplugin-swc';
 import { defineConfig } from 'vitest/config';
 
+const E2E_ENV = {
+  DATABASE_URL:
+    process.env.DATABASE_URL ??
+    'postgres://postgres:postgres@localhost:5432/postgres',
+  GITHUB_CLIENT_ID: 'test-client-id',
+  GITHUB_CLIENT_SECRET: 'test-client-secret',
+  GITHUB_APP_ID: 'test-app-id',
+  GITHUB_APP_PRIVATE_KEY: 'test-private-key',
+  BETTER_AUTH_SECRET: 'test-better-auth-secret-not-a-real-one',
+  BETTER_AUTH_URL: 'http://localhost:3000',
+  SPOTLIGHT_SECRETS_KEY: 'S9+m23g9lI8X4VNFd0ayFXJH7P14Q3GZGsNvjCglc/Q=',
+};
+
 const shared = {
   plugins: [swc.vite({ module: { type: 'es6' } })],
   resolve: {
@@ -39,12 +52,7 @@ export default defineConfig({
           environment: 'node',
           include: ['test/**/*.e2e-spec.ts'],
           restoreMocks: true,
-          env: {
-            GITHUB_CLIENT_ID: 'test-client-id',
-            GITHUB_CLIENT_SECRET: 'test-client-secret',
-            GITHUB_APP_ID: 'test-app-id',
-            GITHUB_APP_PRIVATE_KEY: 'test-private-key',
-          },
+          env: E2E_ENV,
           testTimeout: 30_000,
           hookTimeout: 30_000,
         },

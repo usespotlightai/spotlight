@@ -29,7 +29,7 @@ export function ChangeStackSkeleton({ known }: { known: BreadcrumbSegment[] }) {
         >
           {COHORTS.map((layers) => (
             <div key={layers.join()} className="flex flex-col gap-2.5">
-              <div className="flex flex-col gap-1 px-2 text-xs">
+              <div className="flex flex-col gap-1.5 px-2 text-xs">
                 <SkeletonLine className="w-32" />
                 <SkeletonLine className="w-48" />
               </div>
@@ -49,7 +49,6 @@ export function ChangeStackSkeleton({ known }: { known: BreadcrumbSegment[] }) {
 
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-8 py-8">
           <div className="flex flex-col gap-2">
-            <SkeletonLine className="w-40 text-xs" />
             <SkeletonLine className="w-2/5 text-lg" />
             <SkeletonLine className="w-4/5 text-sm" />
           </div>

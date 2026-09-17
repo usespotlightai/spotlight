@@ -1,4 +1,5 @@
 import { KEPT_UNDER } from '@configuration/application/contracts/configuration-layout.contract';
+import type { IntegrationLinksPort } from '@configuration/application/ports/integration-links.port';
 import type { ConfigurationNotices } from '@configuration/application/services/configuration-notices.service';
 import type { ConfigurationMoveStarted } from '@configuration/domain/events/configuration-move-started.event';
 import type { ConfigurationMoved } from '@configuration/domain/events/configuration-moved.event';
@@ -9,9 +10,14 @@ import {
   type DefaultBranchPushedIntegrationEvent,
 } from '@github/application/integration-events/default-branch-pushed.integration-event';
 import {
+  HOST_CONNECTED,
+  type HostConnectedIntegrationEvent,
+} from '@integrations/application/integration-events/host-connected.integration-event';
+import {
   type DomainEventSubscriber,
   subscribing,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { LINES_UNDER } from '@work/application/contracts/line-layout.contract';
 import type { ConfiguredLinesPort } from '@work/application/ports/configured-lines.port';
@@ -24,6 +30,7 @@ export const configurationSubscribers = (
   settling: SetupSettlingPort,
   notices: ConfigurationNotices,
   lines: ConfiguredLinesPort,
+  links: IntegrationLinksPort,
 ): readonly DomainEventSubscriber[] => [
   subscribing<ConfigurationRead>(
     'configuration.apply-lines',
@@ -60,5 +67,14 @@ export const configurationSubscribers = (
         });
       }
     },
+  ),
+  subscribing<HostConnectedIntegrationEvent>(
+    'configuration.track-integration-link',
+    [HOST_CONNECTED],
+    (event) =>
+      links.linked(TeamId.of(event.teamId), {
+        source: event.source,
+        handle: event.handle,
+      }),
   ),
 ];

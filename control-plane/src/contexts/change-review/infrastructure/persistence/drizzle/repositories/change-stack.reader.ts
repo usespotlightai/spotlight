@@ -8,7 +8,7 @@ import type {
   RunStackChecks,
 } from '@change-review/application/ports/change-stack-reader.port';
 import { checkStepsOf } from '@change-review/domain/services/check-steps';
-import { Diff } from '@change-review/domain/value-objects/diff.vo';
+import { Diff, tallyOf } from '@change-review/domain/value-objects/diff.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import type { StackProgress } from '@change-review/domain/value-objects/stack-progress.vo';
 import { progressOf } from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.repository';
@@ -55,6 +55,7 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
         runId: changeStack.runId,
         repository: changeStack.repository,
         cohorts: changeStack.cohorts,
+        files: changeStack.files,
         ...PROGRESS,
       })
       .from(changeStack)
@@ -67,16 +68,22 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
       .orderBy(desc(changeStack.draftedAt))
       .limit(1);
 
-    return row
-      ? {
-          id: row.id,
-          runId: row.runId,
-          repository: row.repository,
-          state: row.state,
-          cohorts: row.cohorts,
-          check: checkOf(progressOf(row), now),
-        }
-      : null;
+    if (!row) {
+      return null;
+    }
+
+    const tally = tallyOf(row.files);
+
+    return {
+      id: row.id,
+      runId: row.runId,
+      repository: row.repository,
+      state: row.state,
+      cohorts: row.cohorts,
+      check: checkOf(progressOf(row), now),
+      added: tally.added,
+      removed: tally.removed,
+    };
   }
 
   async ofRun(runId: RunId, now: Date): Promise<ChangeStackDto[]> {

@@ -6,8 +6,8 @@ import { ListRunChangeStacksQuery } from '@change-review/application/queries/lis
 import { ReadTaskChangeStackQuery } from '@change-review/application/queries/read-task-change-stack.query';
 import {
   LatestChangeStackResponseDto,
+  NewestChangeStackResponseDto,
   RunChangeStacksResponseDto,
-  TaskChangeStackResponseDto,
 } from '@change-review/presentation/http/dto/change-stack.response.dto';
 import { ChangeStackHttpMapper } from '@change-review/presentation/http/mappers/change-stack.http.mapper';
 import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
@@ -60,23 +60,25 @@ export class ChangeStackController {
     summary: 'The newest change stack drafted for a task',
   })
   @ApiParam({ name: 'taskId', type: String })
-  @ApiOkResponse({ type: TaskChangeStackResponseDto })
+  @ApiOkResponse({ type: NewestChangeStackResponseDto })
   async taskChangeStack(
     @Param('taskId') taskId: string,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<TaskChangeStackResponseDto> {
+  ): Promise<NewestChangeStackResponseDto> {
     const latest = await this.queryBus.execute<
       ReadTaskChangeStackQuery,
       LatestChangeStackDto | null
     >(new ReadTaskChangeStackQuery(taskId, user.id));
 
-    return new TaskChangeStackResponseDto(
+    return new NewestChangeStackResponseDto(
       latest &&
         new LatestChangeStackResponseDto(
           latest.runId,
           latest.repository,
           latest.state,
           latest.checkState,
+          latest.added,
+          latest.removed,
         ),
     );
   }

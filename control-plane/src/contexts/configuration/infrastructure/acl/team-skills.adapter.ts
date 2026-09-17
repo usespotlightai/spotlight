@@ -1,7 +1,7 @@
-import { ReadySkillMapper } from '@configuration/application/mappers/ready-skill.mapper';
 import type { SkillReaderPort } from '@configuration/application/ports/skill-reader.port';
 import type { TeamSecretsPort } from '@configuration/application/ports/team-secrets.port';
 import type { TeamConfigurationRepository } from '@configuration/domain/repositories/team-configuration.repository';
+import { ReadySkillMapper } from '@configuration/infrastructure/acl/ready-skill.mapper';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
 import type { TeamSkillsPort } from '@work/application/ports/team-skills.port';

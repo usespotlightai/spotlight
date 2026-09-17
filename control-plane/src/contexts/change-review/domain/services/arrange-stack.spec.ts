@@ -75,7 +75,11 @@ const layer = (
   title,
   summary: title,
   dependsOn,
-  ranges: hunks.map((hunk) => ({ hunk, summary: null })),
+  ranges: hunks.map((hunk) => ({ hunk })),
+  notes: hunks.map((hunk) => ({
+    path: DIFF.fileOf(hunk)?.path ?? hunk,
+    note: `Why ${title} changes`,
+  })),
 });
 
 describe('arranged', () => {
@@ -100,6 +104,7 @@ describe('arranged', () => {
       'h2',
       'h4',
     ]);
+    expect(cohorts[1]?.layers[0]?.notes).toEqual([]);
   });
 
   it('takes incidental changes back out of the proposal, renumbering what depends on what', () => {
@@ -128,6 +133,23 @@ describe('arranged', () => {
     expect(cohort?.layers.map((each) => each.title)).toEqual(['Model', 'API']);
     expect(cohort?.layers[1]?.dependsOn).toEqual([
       { layer: 1, because: ['invitation'] },
+    ]);
+  });
+
+  it('drops the notes on files whose changes it sets aside', () => {
+    const proposed: ProposedCohort[] = [
+      {
+        kind: 'change',
+        title: 'Invitations',
+        intent: 'Invite people',
+        layers: [layer('Model', ['h1', 'h2'])],
+      },
+    ];
+
+    const [cohort] = arranged(DIFF, FACTS, proposed);
+
+    expect(cohort?.layers[0]?.notes).toEqual([
+      { path: 'src/schema.ts', note: 'Why Model changes' },
     ]);
   });
 

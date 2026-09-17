@@ -1287,25 +1287,30 @@ export type DiffFileResponseDto = {
   hunks: Array<DiffHunkResponseDto>;
 };
 
-export type LayerDependencyResponseDto = {
-  layer: string;
-  because: Array<string>;
-};
-
 export type StackRangeResponseDto = {
   /**
    * The hunk it places
    */
   hunk: string;
-  summary: string | null;
+};
+
+export type FileNoteResponseDto = {
+  path: string;
+  /**
+   * What changed in the file for this layer, and why
+   */
+  note: string;
 };
 
 export type StackLayerResponseDto = {
   id: string;
   title: string;
   summary: string;
-  dependsOn: Array<LayerDependencyResponseDto>;
   ranges: Array<StackRangeResponseDto>;
+  /**
+   * One note per file the layer touches; empty for incidental changes
+   */
+  notes: Array<FileNoteResponseDto>;
 };
 
 export type StackCohortResponseDto = {
@@ -1316,43 +1321,14 @@ export type StackCohortResponseDto = {
   layers: Array<StackLayerResponseDto>;
 };
 
-export type CheckedLayerResponseDto = {
-  /**
-   * "whole", or the layer
-   */
-  step: string;
-  passed: boolean;
-  /**
-   * The end of what the check printed
-   */
-  output: string;
-  tookMs: number;
-};
-
-export type StackCheckResponseDto = {
-  command: string;
-  state: 'waiting' | 'checked' | 'skipped';
-  reason: string | null;
-  whole: CheckedLayerResponseDto | null;
-  /**
-   * Each layer checked with the layers before it
-   */
-  layers: Array<CheckedLayerResponseDto>;
-};
-
 export type ChangeStackResponseDto = {
   id: string;
   repository: string | null;
   state: 'drafting' | 'ready' | 'failed';
   failure: string | null;
-  draftedAt: string;
-  settledAt: string | null;
   files: Array<DiffFileResponseDto>;
   cohorts: Array<StackCohortResponseDto>;
-  /**
-   * Whether each layer builds on its own, where a check was named
-   */
-  check: StackCheckResponseDto | null;
+  checkState: 'waiting' | 'checked' | 'skipped' | null;
 };
 
 export type RunChangeStacksResponseDto = {
@@ -1369,12 +1345,20 @@ export type LatestChangeStackResponseDto = {
   runId: string;
   repository: string | null;
   state: 'drafting' | 'ready' | 'failed';
-  checkState: 'waiting' | 'checked' | 'skipped';
+  checkState: 'waiting' | 'checked' | 'skipped' | null;
+  /**
+   * Lines added across the stack
+   */
+  added: number;
+  /**
+   * Lines removed across the stack
+   */
+  removed: number;
 };
 
-export type TaskChangeStackResponseDto = {
+export type NewestChangeStackResponseDto = {
   /**
-   * The newest change stack drafted for the task, if any
+   * The newest change stack drafted, if any
    */
   latest: LatestChangeStackResponseDto | null;
 };
@@ -3611,7 +3595,7 @@ export type ReadTaskChangeStackErrors = {
 };
 
 export type ReadTaskChangeStackResponses = {
-  200: TaskChangeStackResponseDto;
+  200: NewestChangeStackResponseDto;
 };
 
 export type ReadTaskChangeStackResponse = ReadTaskChangeStackResponses[keyof ReadTaskChangeStackResponses];

@@ -3,13 +3,13 @@ import type {
   SkillReaderPort,
 } from '@configuration/application/ports/skill-reader.port';
 import type { TeamSecretsPort } from '@configuration/application/ports/team-secrets.port';
-import { TeamSkills } from '@configuration/application/services/team-skills.service';
 import { TeamConfiguration } from '@configuration/domain/aggregates/team-configuration.aggregate';
 import { Skill } from '@configuration/domain/entities/skill.entity';
 import type { TeamConfigurationRepository } from '@configuration/domain/repositories/team-configuration.repository';
 import { Commit } from '@configuration/domain/value-objects/commit.vo';
 import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import { ToolName } from '@configuration/domain/value-objects/tool-name.vo';
+import { TeamSkills } from '@configuration/infrastructure/acl/team-skills.adapter';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';

@@ -1,10 +1,12 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ShippedSkillsPort } from '@configuration/application/ports/shipped-skills.port';
-import type { SkillFolder } from '@configuration/application/ports/skill-reader.port';
+import type {
+  SkillFile,
+  SkillFolder,
+} from '@configuration/application/ports/skill-reader.port';
 import { readSkillFolder } from '@configuration/infrastructure/skills/skill-file';
 import { SKILL_FILE } from '@work/application/contracts/run-spec.contract';
-import type { SkillFile } from '@work/application/dto/ready-skill.dto';
 
 const SHIPPED_SKILLS = join(__dirname, 'built-in');
 

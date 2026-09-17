@@ -86,7 +86,7 @@ export class WorkChangeStacks implements ChangeStackWorkPort {
           changeStackId: stack.id.value,
           runId: stack.runId.value,
           attempts: stack.work.attempts,
-          error,
+          err: error,
         },
         stack.state === 'drafting'
           ? 'Drafting a change stack'

@@ -6,11 +6,9 @@ import {
   drafting,
   filesOf,
   layerAt,
-  layerCheckOf,
   patchOf,
   settling,
   tallyOf,
-  tookFor,
 } from '@/lib/change-stack';
 
 const stack = (over: Partial<ChangeStack> = {}): ChangeStack => ({
@@ -18,9 +16,7 @@ const stack = (over: Partial<ChangeStack> = {}): ChangeStack => ({
   repository: null,
   state: 'ready',
   failure: null,
-  draftedAt: '2026-09-16T10:00:00Z',
-  settledAt: '2026-09-16T10:01:00Z',
-  check: null,
+  checkState: null,
   files: [
     {
       path: 'src/invite.ts',
@@ -75,18 +71,17 @@ const stack = (over: Partial<ChangeStack> = {}): ChangeStack => ({
           id: 'c1.l1',
           title: 'Add the invitation model',
           summary: 'The model',
-          dependsOn: [],
-          ranges: [{ hunk: 'h1', summary: 'The model itself' }],
+          ranges: [{ hunk: 'h1' }],
+          notes: [
+            { path: 'src/invite.ts', note: 'Adds the invitation model.' },
+          ],
         },
         {
           id: 'c1.l2',
           title: 'Mount the invitation routes',
           summary: 'The routes',
-          dependsOn: [{ layer: 'c1.l1', because: ['Invite'] }],
-          ranges: [
-            { hunk: 'h3', summary: null },
-            { hunk: 'h2', summary: null },
-          ],
+          ranges: [{ hunk: 'h3' }, { hunk: 'h2' }],
+          notes: [],
         },
       ],
     },
@@ -122,69 +117,9 @@ describe('currentStacks', () => {
 
 describe('settling', () => {
   it('keeps asking while a stack drafts or waits for its check', () => {
-    const waiting = {
-      command: 'npx tsc --noEmit',
-      state: 'waiting' as const,
-      reason: null,
-      whole: null,
-      layers: [],
-    };
-
-    expect(settling([stack({ check: waiting })])).toBe(true);
-    expect(settling([stack({ check: { ...waiting, state: 'checked' } })])).toBe(
-      false,
-    );
+    expect(settling([stack({ checkState: 'waiting' })])).toBe(true);
+    expect(settling([stack({ checkState: 'checked' })])).toBe(false);
     expect(settling([stack()])).toBe(false);
-  });
-});
-
-describe('layerCheckOf', () => {
-  const checked = stack({
-    check: {
-      command: 'npx tsc --noEmit',
-      state: 'checked',
-      reason: null,
-      whole: { step: 'whole', passed: true, output: '', tookMs: 10 },
-      layers: [
-        { step: 'c1.l1', passed: false, output: 'TS2304', tookMs: 2400 },
-      ],
-    },
-  });
-
-  it('says what the check found for the layer', () => {
-    expect(layerCheckOf(checked, layerAt(checked, 'c1.l1') as never)).toEqual({
-      state: 'failed',
-      command: 'npx tsc --noEmit',
-      output: 'TS2304',
-      tookMs: 2400,
-    });
-  });
-
-  it('says why a layer went unchecked, and nothing where no check was named', () => {
-    const skipped = stack({
-      check: {
-        command: 'go build ./...',
-        state: 'skipped',
-        reason: 'No runner checked the layers in time.',
-        whole: null,
-        layers: [],
-      },
-    });
-
-    expect(layerCheckOf(skipped, layerAt(skipped, 'c1.l2') as never)).toEqual({
-      state: 'skipped',
-      command: 'go build ./...',
-      reason: 'No runner checked the layers in time.',
-    });
-    expect(layerCheckOf(stack(), layerAt(stack(), 'c1.l1') as never)).toEqual({
-      state: 'none',
-    });
-  });
-
-  it('reads how long a check took', () => {
-    expect(tookFor(400)).toBe('1s');
-    expect(tookFor(41_000)).toBe('41s');
-    expect(tookFor(125_000)).toBe('2m 5s');
   });
 });
 
@@ -210,7 +145,15 @@ describe('filesOf', () => {
 
     expect(files).toHaveLength(1);
     expect(files[0]?.file.path).toBe('src/routes.ts');
-    expect(files[0]?.hunks.map((each) => each.hunk.id)).toEqual(['h2', 'h3']);
+    expect(files[0]?.hunks.map((each) => each.id)).toEqual(['h2', 'h3']);
+    expect(files[0]?.note).toBeNull();
+  });
+
+  it('gives each file the layer’s note on it', () => {
+    const [layer] = stack().cohorts[0]?.layers ?? [];
+    const [file] = filesOf(stack(), layer as never);
+
+    expect(file?.note).toBe('Adds the invitation model.');
   });
 });
 

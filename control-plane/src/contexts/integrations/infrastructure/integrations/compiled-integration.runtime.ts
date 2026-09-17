@@ -1,5 +1,6 @@
 import type {
   Acted,
+  BoundTask,
   HostRefusal,
   IntegrationRuntimePort,
   Polled,
@@ -35,7 +36,6 @@ import { taskBinding } from '@integrations/infrastructure/outbound/task-binding'
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 import type { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
 import type { MarkWorn } from '@work/application/contracts/happenings.contract';
-import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
 
 const SAID_AT_MOST = 500;
 
@@ -196,7 +196,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   tool(
     files: readonly ConfigurationFile[],
     tool: string,
-    task: BoundTaskDto,
+    task: BoundTask,
   ): ReachableTool | null {
     const readable = this.readable(files).find(
       (each) => each.integration.offered(tool) !== null,

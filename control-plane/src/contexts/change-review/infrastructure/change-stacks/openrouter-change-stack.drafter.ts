@@ -53,12 +53,8 @@ const STACK = z.object({
               because: z.array(z.string()),
             }),
           ),
-          ranges: z.array(
-            z.object({
-              hunk: z.string(),
-              summary: z.string().nullable(),
-            }),
-          ),
+          ranges: z.array(z.object({ hunk: z.string() })),
+          files: z.array(z.object({ path: z.string(), note: z.string() })),
         }),
       ),
     }),
@@ -104,7 +100,7 @@ The diff is split into hunks, each with an id such as h7. Rules the stack must k
 2. A layer depends only on earlier layers of its own cohort, named by their 1-based position within that cohort. Cohorts never depend on each other.
 3. Every dependency names in "because" the symbols (types, functions, tables, routes, components) the later layer uses from the earlier one.
 4. Titles are short imperative phrases ("Add the invitation data model"). A cohort's intent and a layer's summary say what changed and why in one to three plain sentences.
-5. Give a range a summary only where the hunk does something a reviewer would not see at a glance; otherwise leave it null.
+5. Give a layer exactly one entry in "files" for every file its ranges touch, and none for any other file. Its path is the file's path exactly as its ## heading gives it, and its note says in one or two plain sentences what changed in that file for this layer and why. A note never restates the path or the layer's summary.
 
 Order cohorts by how much a reviewer needs to see them, most significant first, with incidental cohorts last.`;
 
@@ -159,7 +155,7 @@ const described = (diff: Diff, facts: DiffFacts): string => {
 
 export const revised = (revision: StackRevision): string =>
   [
-    `Spotlight checked every layer on its own, with the layers before it, by running \`${revision.command}\`. The whole change passes, but some layers do not. Fix each failing layer by moving the few changes it needs, most often a test, fixture or type its errors name, into it or an earlier layer. Keep every layer as small as it was and keep the same number of layers; join layers only where moving changes cannot make one build. Keep everything else as it was:`,
+    `Spotlight checked every layer on its own, with the layers before it, by running \`${revision.command}\`. The whole change passes, but some layers do not. Fix each failing layer by moving the few changes it needs, most often a test, fixture or type its errors name, into it or an earlier layer. Keep every layer as small as it was and keep the same number of layers; join layers only where moving changes cannot make one build. Give every layer a note on each file its ranges touch once the changes have moved. Keep everything else as it was:`,
     revision.stack
       .map(
         (cohort, c) =>
@@ -285,6 +281,14 @@ export class OpenRouterChangeStackDrafter implements ChangeStackDrafterPort {
       );
     }
 
-    return STACK.parse(JSON.parse(choice.message.content)).cohorts;
+    return STACK.parse(JSON.parse(choice.message.content)).cohorts.map(
+      (cohort) => ({
+        ...cohort,
+        layers: cohort.layers.map(({ files, ...layer }) => ({
+          ...layer,
+          notes: files,
+        })),
+      }),
+    );
   }
 }

@@ -3,11 +3,10 @@ import { Route } from 'react-router';
 import { changeStackPath } from '@/lib/change-stack';
 import { RunChangeStack } from '@/routes/RunChangeStack';
 import {
-  checkedChangeStack,
-  checkingChangeStack,
   draftingChangeStack,
   emptyChangeStack,
   failChangeStack,
+  largeFileChangeStack,
   reviewedChangeStack,
   seedChangeStack,
 } from '@/stories/fixtures/change-stack';
@@ -60,25 +59,17 @@ export const WithData: Story = {
   ),
 };
 
+export const LargeFile: Story = {
+  render: () => (
+    <StoryPage at={`${at}?layer=c1.l1`} seed={largeFileChangeStack}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
 export const Drafting: Story = {
   render: () => (
     <StoryPage at={at} seed={draftingChangeStack}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const Checked: Story = {
-  render: () => (
-    <StoryPage at={`${at}?layer=c1.l2`} seed={checkedChangeStack}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const Checking: Story = {
-  render: () => (
-    <StoryPage at={at} seed={checkingChangeStack}>
       {routes}
     </StoryPage>
   ),

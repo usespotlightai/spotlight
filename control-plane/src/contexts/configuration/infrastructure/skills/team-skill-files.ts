@@ -1,6 +1,7 @@
 import { SKILLS_UNDER } from '@configuration/application/contracts/configuration-layout.contract';
 import type {
   ReadSkills,
+  SkillFile,
   SkillFolder,
   SkillOrigin,
   SkillReaderPort,
@@ -11,7 +12,6 @@ import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid
 import type { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { SKILL_FILE } from '@work/application/contracts/run-spec.contract';
-import { type SkillFile } from '@work/application/dto/ready-skill.dto';
 
 interface Read {
   readonly folder?: SkillFolder;

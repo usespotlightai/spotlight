@@ -46,7 +46,10 @@ export interface StackLayerDto {
   }[];
   readonly ranges: readonly {
     readonly hunk: string;
-    readonly summary: string | null;
+  }[];
+  readonly notes: readonly {
+    readonly path: string;
+    readonly note: string;
   }[];
 }
 
@@ -94,4 +97,6 @@ export interface LatestChangeStackDto {
   readonly repository: string | null;
   readonly state: (typeof CHANGE_STACK_STATE_NAMES)[number];
   readonly checkState: (typeof STACK_CHECK_STATE_NAMES)[number] | null;
+  readonly added: number;
+  readonly removed: number;
 }

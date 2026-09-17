@@ -61,7 +61,10 @@ const asking = (
         }),
       ),
     } satisfies ConfigurationReaderPort,
-    { heldBy: vi.fn(async () => over.linked ?? []) },
+    {
+      heldBy: vi.fn(async () => over.linked ?? []),
+      linked: vi.fn(async () => {}),
+    },
   );
 
 const query = () => new ConfigurationQuery('acme', 'user_1');

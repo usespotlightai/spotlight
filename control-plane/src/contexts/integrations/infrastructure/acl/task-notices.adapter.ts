@@ -2,10 +2,12 @@ import { integrationFilesIn } from '@configuration/application/contracts/configu
 import type { AppliedConfigurationPort } from '@configuration/application/ports/applied-configuration.port';
 import type { InboxLinksPort } from '@integrations/application/ports/inbox-links.port';
 import type {
+  BoundTask,
   IntegrationRuntimePort,
   TaskWord,
 } from '@integrations/application/ports/integration-runtime.port';
 import type { HostReach } from '@integrations/application/services/host-reach.service';
+import { BoundTaskMapper } from '@integrations/infrastructure/acl/bound-task.mapper';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { MarkWorn } from '@work/application/contracts/happenings.contract';
@@ -47,7 +49,8 @@ export class TaskNotices implements TaskNoticesPort {
       return [];
     }
 
-    const word: TaskWord = { task, ask: await this.asking(task) };
+    const bound = BoundTaskMapper.toBound(task);
+    const word: TaskWord = { task: bound, ask: await this.asking(bound) };
     const kept: MarkWorn[] = [];
 
     for (const integration of posting) {
@@ -86,7 +89,7 @@ export class TaskNotices implements TaskNoticesPort {
     return kept;
   }
 
-  private async asking(task: BoundTaskDto): Promise<TaskWord['ask']> {
+  private async asking(task: BoundTask): Promise<TaskWord['ask']> {
     const { station, waiting: open } = task;
 
     if (!open) {

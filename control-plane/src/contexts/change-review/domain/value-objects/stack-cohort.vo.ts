@@ -2,9 +2,15 @@ export const COHORT_KINDS = ['change', 'incidental'] as const;
 
 export type CohortKind = (typeof COHORT_KINDS)[number];
 
+export const needsFileNotes = (kind: CohortKind): boolean => kind === 'change';
+
 export interface StackRange {
   readonly hunk: string;
-  readonly summary: string | null;
+}
+
+export interface FileNote {
+  readonly path: string;
+  readonly note: string;
 }
 
 export interface LayerDependency {
@@ -18,6 +24,7 @@ export interface StackLayer {
   readonly summary: string;
   readonly dependsOn: readonly LayerDependency[];
   readonly ranges: readonly StackRange[];
+  readonly notes: readonly FileNote[];
 }
 
 export interface StackCohort {
@@ -36,6 +43,7 @@ export interface ProposedLayer {
     readonly because: readonly string[];
   }[];
   readonly ranges: readonly StackRange[];
+  readonly notes: readonly FileNote[];
 }
 
 export interface ProposedCohort {

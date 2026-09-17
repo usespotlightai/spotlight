@@ -17,6 +17,7 @@ export const INTEGRATIONS_PUBLICATIONS = [
       kind: HOST_CONNECTED,
       teamId: event.teamId.value,
       source: event.source.value,
+      handle: event.handle,
     }),
   ),
   publishing<HostRenewalRefused>(

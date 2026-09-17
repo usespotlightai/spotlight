@@ -6,10 +6,10 @@ import type { HeldConfiguration } from '@configuration/application/services/held
 import type { RepositoryProvisioning } from '@configuration/application/services/repository-provisioning.service';
 import type { WriteConfiguration } from '@configuration/application/services/write-configuration.service';
 import { ConfigurationHome } from '@configuration/domain/aggregates/configuration-home.aggregate';
+import { NoRepositoryConnectionError } from '@configuration/domain/exceptions/no-repository-connection.error';
 import type { ConfigurationHomeRepository } from '@configuration/domain/repositories/configuration-home.repository';
 import type { TeamConfigurationRepository } from '@configuration/domain/repositories/team-configuration.repository';
 import { moveConfiguration } from '@configuration/domain/services/configuration-move';
-import { NoGitHubInstallationError } from '@github/application/errors/no-github-installation.error';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
@@ -56,7 +56,7 @@ export class MoveConfigurationHandler
       const target = this.target.at(team, destination);
 
       if (!target) {
-        throw new NoGitHubInstallationError();
+        throw new NoRepositoryConnectionError();
       }
 
       if ((await this.provisioning.ensure(target)) === 'refused') {

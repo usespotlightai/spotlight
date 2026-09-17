@@ -1,4 +1,3 @@
-import { INTEGRATION_LINKS } from '@configuration/application/ports/integration-links.port';
 import { INTEGRATION_READER } from '@configuration/application/ports/integration-reader.port';
 import { ConfigurationModule } from '@configuration/configuration.module';
 import { GitHubModule } from '@github/github.module';
@@ -19,16 +18,15 @@ import { WorkModule } from '@work/work.module';
 @Module({
   imports: [
     DiscoveryModule,
-    WorkModule,
     IdentityModule,
-    ConfigurationModule,
     GitHubModule,
+    WorkModule,
+    ConfigurationModule,
   ],
   controllers: [...INTEGRATIONS_CONTROLLERS],
   providers: [...INTEGRATIONS_PROVIDERS],
   exports: [
     TEAM_INTEGRATIONS,
-    INTEGRATION_LINKS,
     INTEGRATION_READER,
     STARTER_INTEGRATIONS,
     TASK_NOTICES,

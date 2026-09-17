@@ -9,16 +9,61 @@ import {
   factProblems,
 } from '@change-review/domain/services/fact-rules';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
-import type {
-  LayerDependency,
-  ProposedCohort,
-  ProposedLayer,
-  StackCohort,
+import {
+  type LayerDependency,
+  needsFileNotes,
+  type ProposedCohort,
+  type ProposedLayer,
+  type StackCohort,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 
 const MOST_TITLE = 120;
 
 const MOST_PROSE = 2_000;
+
+const noteProblems = (
+  diff: Diff,
+  layer: ProposedLayer,
+  at: string,
+  required: boolean,
+): string[] => {
+  const problems: string[] = [];
+  const touched = new Set(
+    layer.ranges.flatMap((range) => {
+      const file = diff.fileOf(range.hunk);
+      return file ? [file.path] : [];
+    }),
+  );
+  const noted = new Map<string, number>();
+
+  for (const { path, note } of layer.notes) {
+    noted.set(path, (noted.get(path) ?? 0) + 1);
+
+    if (!touched.has(path)) {
+      problems.push(`${at} notes ${path}, which none of its changes touch`);
+    } else if (!note.trim() || note.length > MOST_PROSE) {
+      problems.push(
+        `${at} needs a note on ${path} of at most ${MOST_PROSE} characters`,
+      );
+    }
+  }
+
+  for (const [path, times] of noted) {
+    if (times > 1) {
+      problems.push(`${at} notes ${path} ${times} times`);
+    }
+  }
+
+  if (required) {
+    for (const path of touched) {
+      if (!noted.has(path)) {
+        problems.push(`${at} gives no note on ${path}`);
+      }
+    }
+  }
+
+  return problems;
+};
 
 const shapeProblems = (
   diff: Diff,
@@ -72,10 +117,11 @@ const shapeProblems = (
         } else {
           placed.set(range.hunk, (placed.get(range.hunk) ?? 0) + 1);
         }
-        if (range.summary && range.summary.length > MOST_PROSE) {
-          problems.push(`${at} summarises ${range.hunk} at too great a length`);
-        }
       }
+
+      problems.push(
+        ...noteProblems(diff, layer, at, needsFileNotes(cohort.kind)),
+      );
 
       for (const dependency of layer.dependsOn) {
         if (
@@ -167,9 +213,10 @@ const numbered = (
           layer.dependsOn,
           derived.get(`${c}.${l}`),
         ),
-        ranges: layer.ranges.map((range) => ({
-          hunk: range.hunk,
-          summary: range.summary?.trim() || null,
+        ranges: layer.ranges.map((range) => ({ hunk: range.hunk })),
+        notes: layer.notes.map((each) => ({
+          path: each.path,
+          note: each.note.trim(),
         })),
       })),
     };

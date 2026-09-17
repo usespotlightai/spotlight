@@ -203,28 +203,34 @@ describe('Task', () => {
     });
   });
 
-  it('links the newest change stack drafted for the task', () => {
+  it('links the changes of the newest stack drafted for the task', () => {
     stacked.mockReturnValue({
       latest: {
         runId: 'run_9',
         repository: 'spotlight',
         state: 'ready',
         checkState: 'checked',
+        added: 61,
+        removed: 4,
       },
     });
     renderAt('task_1');
 
-    expect(screen.getByRole('link', { name: 'Change stack' })).toHaveAttribute(
+    const changes = screen.getByRole('link', { name: /Changes/ });
+
+    expect(changes).toHaveAttribute(
       'href',
       '/w/acme/team/team_1/runs/run_9/changes?repository=spotlight',
     );
+    expect(changes).toHaveTextContent('+61');
+    expect(changes).toHaveTextContent('−4');
   });
 
   it('offers no change stack where none was drafted', () => {
     renderAt('task_1');
 
     expect(
-      screen.queryByRole('link', { name: 'Change stack' }),
+      screen.queryByRole('link', { name: /Changes/ }),
     ).not.toBeInTheDocument();
   });
 
