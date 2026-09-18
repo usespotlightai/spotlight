@@ -89,6 +89,7 @@ const announcing = (
           state: stack.state,
           cohorts: stack.cohorts,
           check: null,
+          ended: false,
           added: 0,
           removed: 0,
         };
@@ -111,6 +112,7 @@ const announcing = (
           workspaceId: WorkspaceId.of('workspace-1'),
           taskId: TaskId.of('task-1'),
           check: null,
+          ended: false,
         };
       },
       wasWorkedBy: async () => true,
@@ -124,6 +126,8 @@ const announcing = (
           workspaceId: WorkspaceId.of('workspace-1'),
           teamId: TeamId.of('team-1'),
           pullRequest: pullRequest ? PullRequestUrl.of(pullRequest) : null,
+          reviewing: false,
+          currentRunId: null,
         };
       },
       taskWithPullRequest: async () => null,

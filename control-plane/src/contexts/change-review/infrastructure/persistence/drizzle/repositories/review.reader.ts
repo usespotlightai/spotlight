@@ -30,6 +30,7 @@ export class DrizzleReviewReader implements ReviewReaderPort {
         startLine: reviewComment.startLine,
         body: reviewComment.body,
         authorId: reviewComment.authorId,
+        authorRunId: reviewComment.authorRunId,
         authorLogin: reviewComment.authorLogin,
         authorName: reviewComment.authorName,
         replyTo: reviewComment.replyToId,
@@ -58,6 +59,8 @@ export class DrizzleReviewReader implements ReviewReaderPort {
       .select({
         id: review.id,
         authorId: review.authorId,
+        authorRunId: review.authorRunId,
+        authorName: review.authorName,
         verdict: review.verdict,
         body: review.body,
         state: review.state,

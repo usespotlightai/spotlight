@@ -7787,6 +7787,10 @@
             "type": "boolean",
             "description": "Whether the caller wrote it"
           },
+          "byAgent": {
+            "type": "boolean",
+            "description": "Whether an agent wrote it, reviewing"
+          },
           "replyTo": {
             "type": "string",
             "nullable": true,
@@ -7829,6 +7833,7 @@
           "authorLogin",
           "authorImage",
           "yours",
+          "byAgent",
           "replyTo",
           "state",
           "failure",
@@ -7848,6 +7853,10 @@
           },
           "yours": {
             "type": "boolean"
+          },
+          "byAgent": {
+            "type": "boolean",
+            "description": "Whether an agent submitted it"
           },
           "verdict": {
             "type": "string",
@@ -7881,6 +7890,7 @@
           "id",
           "authorName",
           "yours",
+          "byAgent",
           "verdict",
           "body",
           "state",

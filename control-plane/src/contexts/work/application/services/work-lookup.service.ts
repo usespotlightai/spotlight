@@ -38,6 +38,7 @@ export class WorkLookup implements WorkLookupPort {
       workspaceId: run.workspaceId,
       taskId: run.taskId,
       check: station?.check?.value ?? null,
+      ended: run.hasEnded,
     };
   }
 
@@ -55,12 +56,20 @@ export class WorkLookup implements WorkLookupPort {
     workspaceId: WorkspaceId,
     pullRequest: PullRequestUrl,
   ): Promise<TaskLookup | null> {
-    const concerns = Concerns.of({ marks: [Mark.pullRequest(pullRequest)] });
-    const task = concerns
-      ? await this.tasks.holding(workspaceId, concerns)
-      : null;
+    const task =
+      (await this.wearing(workspaceId, Mark.pullRequest(pullRequest))) ??
+      (await this.wearing(workspaceId, Mark.review(pullRequest)));
 
     return task ? this.lookup(task) : null;
+  }
+
+  private async wearing(
+    workspaceId: WorkspaceId,
+    mark: Mark,
+  ): Promise<Task | null> {
+    const concerns = Concerns.of({ marks: [mark] });
+
+    return concerns ? this.tasks.holding(workspaceId, concerns) : null;
   }
 
   private async lookup(task: Task): Promise<TaskLookup> {
@@ -71,6 +80,8 @@ export class WorkLookup implements WorkLookupPort {
       workspaceId: task.workspaceId,
       teamId: line?.teamId ?? null,
       pullRequest: task.pullRequest,
+      reviewing: task.reviewing,
+      currentRunId: task.currentRunId,
     };
   }
 }

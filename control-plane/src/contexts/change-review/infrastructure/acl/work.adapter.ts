@@ -19,6 +19,8 @@ const reviewed = (task: TaskLookup): ReviewedTask => ({
   workspaceId: task.workspaceId,
   teamId: task.teamId,
   pullRequest: task.pullRequest,
+  reviewing: task.reviewing,
+  currentRunId: task.currentRunId,
 });
 
 export class Work implements WorkPort {
@@ -33,6 +35,7 @@ export class Work implements WorkPort {
         workspaceId: run.workspaceId,
         taskId: run.taskId,
         check: run.check?.trim() ? StackCheck.named(run.check) : null,
+        ended: run.ended,
       }
     );
   }

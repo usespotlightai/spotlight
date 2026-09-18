@@ -42,6 +42,7 @@ import type { HarnessSession } from '@work/domain/value-objects/harness-session.
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import type { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
+import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
 import type { Remark } from '@work/domain/value-objects/remark.vo';
 import type { Said } from '@work/domain/value-objects/said.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
@@ -101,7 +102,7 @@ export class Task extends EventRecorder {
     readonly createdAt: Date,
     readonly raisedAt: StationId | null,
     readonly raisedBy: UserId | null,
-    readonly pullRequest: PullRequestUrl | null,
+    readonly pullRequestLink: PullRequestLink | null,
     readonly marks: readonly Mark[],
     readonly finishedAt: Date | null,
     readonly assignee: UserId | null,
@@ -175,7 +176,7 @@ export class Task extends EventRecorder {
     createdAt: Date;
     raisedAt: StationId | null;
     raisedBy: UserId | null;
-    pullRequest: PullRequestUrl | null;
+    pullRequestLink?: PullRequestLink | null;
     marks?: readonly Mark[];
     finishedAt: Date | null;
     assignee?: UserId | null;
@@ -207,7 +208,7 @@ export class Task extends EventRecorder {
       input.createdAt,
       input.raisedAt,
       input.raisedBy,
-      input.pullRequest,
+      input.pullRequestLink ?? null,
       input.marks ?? [],
       input.finishedAt,
       input.assignee ?? null,
@@ -291,11 +292,35 @@ export class Task extends EventRecorder {
     }
 
     const opened = this.markedBy(Mark.pullRequest(url)).with({
-      pullRequest: url,
+      pullRequestLink: PullRequestLink.opened(url),
     });
     opened.record(new PullRequestOpened(opened.id, opened.workspaceId, url));
 
     return opened;
+  }
+
+  reviews(url: PullRequestUrl): Task {
+    if (this.pullRequestLink) {
+      throw new InvalidTaskTransitionError(
+        'cannot review a pull request once it has one of its own',
+      );
+    }
+
+    return this.markedBy(Mark.review(url)).with({
+      pullRequestLink: PullRequestLink.reviewing(url),
+    });
+  }
+
+  get pullRequest(): PullRequestUrl | null {
+    return this.pullRequestLink?.url ?? null;
+  }
+
+  get reviewing(): boolean {
+    return this.pullRequestLink?.reviews ?? false;
+  }
+
+  get reviewed(): Repository | null {
+    return this.pullRequestLink?.reviewed ?? null;
   }
 
   markedBy(mark: Mark): Task {
@@ -778,7 +803,7 @@ export class Task extends EventRecorder {
     sessionId?: HarnessSession | null;
     runnerId?: RunnerId | null;
     notes?: readonly TaskNote[];
-    pullRequest?: PullRequestUrl | null;
+    pullRequestLink?: PullRequestLink | null;
     marks?: readonly Mark[];
     finishedAt?: Date | null;
     assignee?: UserId | null;
@@ -797,7 +822,9 @@ export class Task extends EventRecorder {
       this.createdAt,
       this.raisedAt,
       this.raisedBy,
-      part.pullRequest !== undefined ? part.pullRequest : this.pullRequest,
+      part.pullRequestLink !== undefined
+        ? part.pullRequestLink
+        : this.pullRequestLink,
       part.marks ?? this.marks,
       part.finishedAt !== undefined ? part.finishedAt : this.finishedAt,
       part.assignee !== undefined ? part.assignee : this.assignee,

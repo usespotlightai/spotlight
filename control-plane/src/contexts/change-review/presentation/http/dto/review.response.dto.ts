@@ -42,6 +42,9 @@ export class ReviewCommentResponseDto {
   @ApiProperty({ description: 'Whether the caller wrote it' })
   readonly yours: boolean;
 
+  @ApiProperty({ description: 'Whether an agent wrote it, reviewing' })
+  readonly byAgent: boolean;
+
   @ApiProperty({
     nullable: true,
     type: String,
@@ -79,6 +82,7 @@ export class ReviewCommentResponseDto {
     this.authorLogin = fields.authorLogin;
     this.authorImage = fields.authorImage;
     this.yours = fields.yours;
+    this.byAgent = fields.byAgent;
     this.replyTo = fields.replyTo;
     this.state = fields.state;
     this.failure = fields.failure;
@@ -97,6 +101,9 @@ export class ReviewResponseDto {
 
   @ApiProperty()
   readonly yours: boolean;
+
+  @ApiProperty({ description: 'Whether an agent submitted it' })
+  readonly byAgent: boolean;
 
   @ApiProperty({ enum: REVIEW_VERDICT_NAMES })
   readonly verdict: 'comment' | 'approve' | 'request-changes';
@@ -117,6 +124,7 @@ export class ReviewResponseDto {
     this.id = fields.id;
     this.authorName = fields.authorName;
     this.yours = fields.yours;
+    this.byAgent = fields.byAgent;
     this.verdict = fields.verdict;
     this.body = fields.body;
     this.state = fields.state;

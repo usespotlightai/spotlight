@@ -14,11 +14,14 @@ import type { ReviewRepository } from '@change-review/domain/repositories/review
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
+import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
+
 import type { PullRequestReviewsPort } from '@github/application/ports/pull-request-reviews.port';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -37,7 +40,7 @@ const draft = (id: string, line: number) =>
     taskId: TASK,
     anchor: ReviewAnchor.of({ path: 'src/a.ts', side: 'new', line }),
     body: `About line ${line}`,
-    author: { userId: ADA, login: null, name: AuthorName.of('Ada') },
+    author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
     now: NOW,
   });
 
@@ -82,6 +85,8 @@ const syncing = (over: {
     workspaceId: WORKSPACE,
     teamId: null,
     pullRequest: over.pullRequest === undefined ? PULL : over.pullRequest,
+    reviewing: false,
+    currentRunId: null,
   };
 
   const conflicts = new Set<string>();
@@ -154,7 +159,7 @@ const submitted = () => {
     id: ReviewId.of('review_1'),
     workspaceId: WORKSPACE,
     taskId: TASK,
-    author: ADA,
+    author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
     verdict: 'request-changes',
     body: 'A few things',
     drafts: [draft('comment_1', 3), draft('comment_2', 9)],
@@ -178,7 +183,7 @@ describe('SyncReviews', () => {
       expect.objectContaining({
         verdict: 'request-changes',
         body: 'A few things',
-        by: { userId: ADA, name: 'Ada' },
+        by: { kind: 'person', userId: ADA, name: 'Ada' },
         comments: [
           {
             path: 'src/a.ts',
@@ -214,13 +219,48 @@ describe('SyncReviews', () => {
     expect(synced.settled).toEqual([{ how: 'done', args: ['sync_1'] }]);
   });
 
+  it('posts an agent’s review as Spotlight itself, naming nobody', async () => {
+    const agent = ReviewAuthor.agent(RunId.of('run_1'));
+    const { review, claimed } = Review.submit({
+      id: ReviewId.of('review_1'),
+      workspaceId: WORKSPACE,
+      taskId: TASK,
+      author: agent,
+      verdict: 'comment',
+      body: 'One thing',
+      drafts: [
+        ReviewComment.drafted({
+          id: ReviewCommentId.of('comment_1'),
+          workspaceId: WORKSPACE,
+          taskId: TASK,
+          anchor: ReviewAnchor.of({ path: 'src/a.ts', side: 'new', line: 3 }),
+          body: 'About line 3',
+          author: agent,
+          now: NOW,
+        }),
+      ],
+      now: NOW,
+    });
+    const synced = syncing({
+      sync: { kind: 'review', subjectId: 'review_1', attempts: 0 },
+      reviews: [review],
+      comments: [...claimed],
+    });
+
+    await synced.service.syncDue();
+
+    expect(synced.github.submit).toHaveBeenCalledWith(
+      expect.objectContaining({ by: { kind: 'spotlight' } }),
+    );
+  });
+
   it('posts only the comments its own review holds', async () => {
     const { review, comments } = submitted();
     const second = Review.rehydrate({
       id: ReviewId.of('review_2'),
       workspaceId: WORKSPACE,
       taskId: TASK,
-      author: ADA,
+      author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
       verdict: 'comment',
       body: 'Again',
       comments: review.comments,
@@ -324,7 +364,7 @@ describe('SyncReviews', () => {
           id: review.id,
           workspaceId: WORKSPACE,
           taskId: TASK,
-          author: ADA,
+          author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
           verdict: 'comment',
           body: '',
           drafts: [draft('comment_1', 3), draft('comment_2', 9)],
@@ -352,7 +392,7 @@ describe('SyncReviews', () => {
     const reply = sending.replied({
       id: ReviewCommentId.of('comment_2'),
       body: 'Done',
-      author: { userId: ADA, login: null, name: AuthorName.of('Ada') },
+      author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
       now: NOW,
     });
     const synced = syncing({
@@ -372,7 +412,7 @@ describe('SyncReviews', () => {
     const reply = sending.replied({
       id: ReviewCommentId.of('comment_2'),
       body: 'Done',
-      author: { userId: ADA, login: null, name: AuthorName.of('Ada') },
+      author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
       now: NOW,
     });
 
@@ -410,7 +450,7 @@ describe('SyncReviews', () => {
     const reply = parent.replied({
       id: ReviewCommentId.of('comment_2'),
       body: 'Done',
-      author: { userId: ADA, login: null, name: AuthorName.of('Ada') },
+      author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
       now: NOW,
     });
     const synced = syncing({
@@ -433,7 +473,7 @@ describe('SyncReviews', () => {
     const reply = parent.replied({
       id: ReviewCommentId.of('comment_2'),
       body: 'Done',
-      author: { userId: ADA, login: null, name: AuthorName.of('Ada') },
+      author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
       now: NOW,
     });
     reply.pullEvents();
@@ -500,7 +540,7 @@ describe('SyncReviews', () => {
     const reply = parent.postedAs(null).replied({
       id: ReviewCommentId.of('comment_2'),
       body: 'Done',
-      author: { userId: ADA, login: null, name: AuthorName.of('Ada') },
+      author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
       now: NOW,
     });
     const synced = syncing({

@@ -96,6 +96,19 @@ describe('ProvisionTeam', () => {
     ).toBe('Factory');
   });
 
+  it('opens a review line that waits to be mentioned on a pull request', async () => {
+    const { provision, seeded } = provisioning();
+
+    await provision.openLines(created);
+
+    const review = seeded.find((line) => line.role?.equals(LineRole.REVIEW));
+
+    expect(review?.name.value).toBe('Review');
+    expect(review?.reviews?.start).toBe('mentioned');
+    expect(review?.entry?.key.value).toBe('code-review');
+    expect(review?.entry?.harness?.value).toBe('claude-code');
+  });
+
   it('welcomes whoever opened it at the first station of the delivery line, waiting on them', async () => {
     const { provision, seeded, raised } = provisioning();
 

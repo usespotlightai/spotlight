@@ -1,5 +1,5 @@
 {
-  "id": "db9079fd-36a9-4f90-aef0-1ad9948d9e14",
+  "id": "68f21000-f66d-46f1-864a-7803fe9d005b",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -319,7 +319,19 @@
           "name": "author_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
+        },
+        "author_run_id": {
+          "name": "author_run_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "author_name": {
+          "name": "author_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "verdict": {
           "name": "verdict",
@@ -459,6 +471,12 @@
         },
         "author_id": {
           "name": "author_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "author_run_id": {
+          "name": "author_run_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -2748,6 +2766,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "reviews": {
+          "name": "reviews",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "version": {
           "name": "version",
           "type": "integer",
@@ -3857,6 +3881,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "reviewing": {
+          "name": "reviewing",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "finished_at": {
           "name": "finished_at",

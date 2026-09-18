@@ -52,7 +52,7 @@ export function ReviewThreadCard({
         aria-label={`Comments on ${linesOf(thread.root)}`}
         onPointerEnter={() => onPointedAt?.(true)}
         onPointerLeave={() => onPointedAt?.(false)}
-        className="flex max-w-lg flex-col gap-3 rounded-lg border-[0.5px] border-border bg-card p-3 font-sans shadow-xs"
+        className="flex flex-col gap-3 rounded-lg border-[0.5px] border-border bg-card p-3 font-sans shadow-xs"
       >
         {thread.root.startLine !== null && (
           <p className="-mb-1 text-faint text-xs">On {linesOf(thread.root)}</p>

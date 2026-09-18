@@ -3,8 +3,10 @@ import { ReviewComment } from '@change-review/domain/aggregates/review-comment.a
 import { InvalidReviewError } from '@change-review/domain/exceptions/invalid-review.error';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
+import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
+
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -22,7 +24,7 @@ const draftBy = (author: UserId, id = 'comment_1', task = TASK) =>
     taskId: task,
     anchor: ReviewAnchor.of({ path: 'src/a.ts', side: 'new', line: 3 }),
     body: 'Rename this',
-    author: { userId: author, login: null, name: AuthorName.of('Someone') },
+    author: ReviewAuthor.person(author, AuthorName.of('Someone')),
     now: NOW,
   });
 
@@ -30,12 +32,13 @@ const submit = (over: {
   verdict?: string;
   body?: string;
   drafts?: ReviewComment[];
+  author?: ReviewAuthor;
 }) =>
   Review.submit({
     id: ReviewId.of('review_1'),
     workspaceId: WorkspaceId.of('workspace_1'),
     taskId: TASK,
-    author: ADA,
+    author: over.author ?? ReviewAuthor.person(ADA, AuthorName.of('Ada')),
     verdict: over.verdict ?? 'comment',
     body: over.body ?? '',
     drafts: over.drafts ?? [],
@@ -43,6 +46,12 @@ const submit = (over: {
   }).review;
 
 describe('Review', () => {
+  it('is submitted by someone in Spotlight, never by somebody on GitHub', () => {
+    expect(() =>
+      submit({ author: ReviewAuthor.onGitHub('octocat'), body: 'Hi' }),
+    ).toThrow(InvalidReviewError);
+  });
+
   it('submits its author’s drafts with it', () => {
     const review = submit({
       verdict: 'request-changes',

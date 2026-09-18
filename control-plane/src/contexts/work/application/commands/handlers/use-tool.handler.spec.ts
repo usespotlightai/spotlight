@@ -30,6 +30,8 @@ import {
   builtInTool,
   PROPOSE_TASK,
   PULL_REQUEST,
+  REVIEW,
+  REVIEW_COMMENT,
 } from '@work/domain/services/built-in-tools';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
@@ -219,6 +221,10 @@ const using = (
         return 'Proposed.';
       },
     },
+    ...[REVIEW_COMMENT, REVIEW].map((tool) => ({
+      tool,
+      call: async () => null,
+    })),
   ]);
 
   const integrationTools: IntegrationToolsPort = {

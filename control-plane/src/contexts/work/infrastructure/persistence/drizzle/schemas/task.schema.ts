@@ -6,6 +6,7 @@ import type { ApprovalStanding } from '@work/domain/value-objects/approval.vo';
 import type { SpokenBy } from '@work/domain/value-objects/voice.vo';
 import { station } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -56,6 +57,7 @@ export const task = pgTable(
     sessionId: text('session_id'),
     runnerId: text('runner_id'),
     pullRequest: text('pull_request'),
+    reviewing: boolean('reviewing').notNull().default(false),
     finishedAt: timestamp('finished_at'),
     version: integer('version').notNull().default(0),
     createdAt: timestamp('created_at').defaultNow().notNull(),

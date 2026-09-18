@@ -3,6 +3,7 @@ import { ChangedSinceReadError } from '@change-review/domain/exceptions/changed-
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
+import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
 import { reviewComment } from '@change-review/infrastructure/persistence/drizzle/schemas/review.schema';
@@ -12,10 +13,11 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, isNull } from 'drizzle-orm';
 
 type Row = typeof reviewComment.$inferSelect;
 
@@ -31,11 +33,12 @@ const toComment = (row: Row): ReviewComment =>
       startLine: row.startLine,
     }),
     body: row.body,
-    author: {
+    author: ReviewAuthor.rehydrate({
       userId: row.authorId ? UserId.of(row.authorId) : null,
+      runId: row.authorRunId ? RunId.of(row.authorRunId) : null,
       login: row.authorLogin,
       name: AuthorName.of(row.authorName),
-    },
+    }),
     replyTo: row.replyToId ? ReviewCommentId.of(row.replyToId) : null,
     reviewId: row.reviewId ? ReviewId.of(row.reviewId) : null,
     state: row.state,
@@ -61,6 +64,7 @@ const toRow = (comment: ReviewComment): Row => ({
   startLine: comment.anchor.startLine,
   body: comment.body,
   authorId: comment.author.userId?.value ?? null,
+  authorRunId: comment.author.runId?.value ?? null,
   authorLogin: comment.author.login,
   authorName: comment.author.name.value,
   replyToId: comment.replyTo?.value ?? null,
@@ -140,14 +144,30 @@ export class DrizzleReviewCommentRepository implements ReviewCommentRepository {
     return row ? toComment(row) : null;
   }
 
-  async draftsBy(taskId: TaskId, author: UserId): Promise<ReviewComment[]> {
+  async draftsBy(
+    taskId: TaskId,
+    author: ReviewAuthor,
+  ): Promise<ReviewComment[]> {
+    const written = author.userId
+      ? eq(reviewComment.authorId, author.userId.value)
+      : author.kind === 'agent'
+        ? and(
+            isNull(reviewComment.authorId),
+            isNotNull(reviewComment.authorRunId),
+          )
+        : null;
+
+    if (!written) {
+      return [];
+    }
+
     const rows = await this.context.db
       .select()
       .from(reviewComment)
       .where(
         and(
           eq(reviewComment.taskId, taskId.value),
-          eq(reviewComment.authorId, author.value),
+          written,
           eq(reviewComment.state, 'draft'),
         ),
       )

@@ -20,7 +20,7 @@ describe('the words the GitHub source declares', () => {
     }
   });
 
-  it('count a comment and a review as a person speaking, and nothing else', () => {
+  it('count a comment, a review and a mention as a person speaking, and nothing else', () => {
     expect(
       source.happenings
         .filter((each) => each.spoken)
@@ -29,6 +29,7 @@ describe('the words the GitHub source declares', () => {
     ).toEqual([
       'github.pull_request.changes-requested',
       'github.pull_request.commented',
+      'github.pull_request.mentioned',
     ]);
   });
 

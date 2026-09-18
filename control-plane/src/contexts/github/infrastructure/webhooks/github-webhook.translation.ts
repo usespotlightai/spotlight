@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { GitHubDelivery } from '@github/application/dto/github-delivery.dto';
 import type {
+  PullRequestAbout,
   PullRequestActivity,
   PullRequestActivityKind,
   PullRequestRemark,
@@ -16,7 +17,9 @@ interface Payload {
   readonly action?: unknown;
   readonly installation?: { readonly id?: unknown };
   readonly pull_request?: Pull;
-  readonly issue?: { readonly pull_request?: { readonly html_url?: unknown } };
+  readonly issue?: Described & {
+    readonly pull_request?: { readonly html_url?: unknown };
+  };
   readonly comment?: Remark & ReviewComment;
   readonly review?: Remark & { readonly state?: unknown };
   readonly check_suite?: {
@@ -37,7 +40,14 @@ interface Payload {
   }[];
 }
 
-interface Pull {
+interface Described {
+  readonly title?: unknown;
+  readonly body?: unknown;
+  readonly draft?: unknown;
+  readonly user?: { readonly login?: unknown };
+}
+
+interface Pull extends Described {
   readonly merged?: unknown;
   readonly html_url?: unknown;
   readonly head?: { readonly ref?: unknown };
@@ -63,6 +73,12 @@ interface ReviewComment {
 }
 
 const REVIEW_COMMENT_ACTIONS = ['created', 'edited', 'deleted'] as const;
+
+const OPENING_ACTIONS: readonly unknown[] = [
+  'opened',
+  'reopened',
+  'ready_for_review',
+];
 
 const text = (value: unknown): string | null =>
   typeof value === 'string' && value.trim().length > 0 ? value : null;
@@ -103,6 +119,19 @@ const remarked = (remark: Remark | undefined): PullRequestRemark | null =>
       }
     : null;
 
+const described = (pull: Described | undefined): PullRequestAbout | null => {
+  const title = text(pull?.title);
+
+  return pull && title
+    ? {
+        title: title.trim(),
+        body: text(pull.body)?.trim() ?? null,
+        author: text(pull.user?.login),
+        draft: pull.draft === true,
+      }
+    : null;
+};
+
 const byBot = (payload: Payload): boolean =>
   payload.sender?.type === 'Bot' ||
   payload.comment?.user?.type === 'Bot' ||
@@ -112,6 +141,10 @@ const activityOf = (
   event: string | undefined,
   payload: Payload,
 ): PullRequestActivityKind | null => {
+  if (event === 'pull_request' && OPENING_ACTIONS.includes(payload.action)) {
+    return 'opened';
+  }
+
   if (event === 'pull_request' && payload.action === 'closed') {
     return payload.pull_request?.merged === true ? 'merged' : 'closed-unmerged';
   }
@@ -150,7 +183,7 @@ const pullRequestActivity = (
     return [];
   }
 
-  const described: PullRequestActivity = {
+  const read: PullRequestActivity = {
     activity,
     branch:
       text(payload.pull_request?.head?.ref) ??
@@ -159,11 +192,12 @@ const pullRequestActivity = (
       text(payload.pull_request?.html_url) ??
       text(payload.issue?.pull_request?.html_url) ??
       text(payload.check_suite?.pull_requests?.[0]?.html_url),
+    about: described(payload.pull_request) ?? described(payload.issue),
     remark: remarked(payload.comment) ?? remarked(payload.review),
-    byBot: byBot(payload),
+    byBot: activity !== 'opened' && byBot(payload),
   };
 
-  return [{ kind: 'pull-request-activity', activity: described }];
+  return [{ kind: 'pull-request-activity', activity: read }];
 };
 
 const reviewComment = (payload: Payload): Heard[] => {

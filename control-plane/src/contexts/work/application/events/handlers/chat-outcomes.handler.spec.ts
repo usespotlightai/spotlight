@@ -40,6 +40,7 @@ const completed = (
 ) =>
   new RunCompleted(
     RunId.of(runId),
+    WorkspaceId.of('ws_1'),
     subject,
     outcome,
     RunnerId.of('runner_1'),
@@ -122,7 +123,7 @@ describe('ChatOutcomes', () => {
     const { outcomes, save } = settling(working());
 
     await outcomes.onRunAbandoned(
-      new RunAbandoned(RunId.of('run_1'), IN_CHAT, 3),
+      new RunAbandoned(RunId.of('run_1'), WorkspaceId.of('ws_1'), IN_CHAT, 3),
     );
 
     expect(save.mock.calls[0]?.[0].running).toBe(false);

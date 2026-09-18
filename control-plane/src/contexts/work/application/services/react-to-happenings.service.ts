@@ -24,8 +24,15 @@ import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachme
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Placement } from '@work/domain/services/placement';
-import { type Outcome, ReactionFor } from '@work/domain/services/reaction-for';
+import {
+  type OpenedOn,
+  type Outcome,
+  ReactionFor,
+} from '@work/domain/services/reaction-for';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
+import { Concerns } from '@work/domain/value-objects/concerns.vo';
+import { Mark } from '@work/domain/value-objects/mark.vo';
+import type { ReviewRequest } from '@work/domain/value-objects/review-asked.vo';
 import { Said } from '@work/domain/value-objects/said.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -135,6 +142,18 @@ export class ReactToHappenings implements HappeningReactionsPort {
     happened: Heard,
     attachments: readonly Attachment[],
   ): Promise<void> {
+    if (happened.opens?.review) {
+      await this.reviewAsked(
+        workspaceId,
+        teamId,
+        happened,
+        happened.opens.review,
+        attachments,
+      );
+
+      return;
+    }
+
     const task = await this.tasks.holding(workspaceId, happened.concerns);
 
     if (!task) {
@@ -143,6 +162,14 @@ export class ReactToHappenings implements HappeningReactionsPort {
       return;
     }
 
+    await this.heardBy(task, happened, attachments);
+  }
+
+  private async heardBy(
+    task: Task,
+    happened: Heard,
+    attachments: readonly Attachment[],
+  ): Promise<void> {
     const line = await this.lines.holding(task.stationId);
 
     if (!line) {
@@ -172,6 +199,58 @@ export class ReactToHappenings implements HappeningReactionsPort {
     await this.tasks.save(runId ? heard.handedTo(runId, line) : heard);
   }
 
+  private async reviewAsked(
+    workspaceId: WorkspaceId,
+    teamId: TeamId | null,
+    happened: Heard,
+    request: ReviewRequest,
+    attachments: readonly Attachment[],
+  ): Promise<void> {
+    if (!happened.opens) {
+      return;
+    }
+
+    const answer = ReactionFor.reviewAsked({
+      lines: await this.linesOf(workspaceId, teamId),
+      opens: happened.opens,
+      request,
+      said: happened.said,
+      holder: await this.holding(
+        workspaceId,
+        Mark.pullRequest(request.pullRequest),
+      ),
+      held: await this.tasks.holding(workspaceId, happened.concerns),
+    });
+
+    if (answer.kind === 'heard') {
+      await this.heardBy(answer.by, happened, attachments);
+    }
+
+    if (answer.kind === 'opens') {
+      await this.openOn(workspaceId, answer.on, happened, attachments, (task) =>
+        task.reviews(request.pullRequest),
+      );
+    }
+  }
+
+  private async holding(
+    workspaceId: WorkspaceId,
+    mark: Mark,
+  ): Promise<Task | null> {
+    const concerns = Concerns.of({ marks: [mark] });
+
+    return concerns ? this.tasks.holding(workspaceId, concerns) : null;
+  }
+
+  private async linesOf(
+    workspaceId: WorkspaceId,
+    teamId: TeamId | null,
+  ): Promise<readonly Line[]> {
+    return teamId
+      ? this.lines.ofTeam(teamId)
+      : this.lines.ofWorkspace(workspaceId);
+  }
+
   private async opened(
     workspaceId: WorkspaceId,
     teamId: TeamId | null,
@@ -182,12 +261,8 @@ export class ReactToHappenings implements HappeningReactionsPort {
       return;
     }
 
-    const lines = teamId
-      ? await this.lines.ofTeam(teamId)
-      : await this.lines.ofWorkspace(workspaceId);
-
     const chosen = ReactionFor.openingOn({
-      lines,
+      lines: await this.linesOf(workspaceId, teamId),
       opens: happened.opens,
     });
 
@@ -195,29 +270,45 @@ export class ReactToHappenings implements HappeningReactionsPort {
       return;
     }
 
-    const { line, opening } = chosen;
+    await this.openOn(
+      workspaceId,
+      chosen,
+      happened,
+      attachments,
+      (task) => task,
+    );
+  }
 
-    const assignee = happened.opens.assignEmail
+  private async openOn(
+    workspaceId: WorkspaceId,
+    { line, opening }: OpenedOn,
+    happened: Heard,
+    attachments: readonly Attachment[],
+    shaped: (task: Task) => Task,
+  ): Promise<void> {
+    const assignee = happened.opens?.assignEmail
       ? await this.members.byEmail(workspaceId, happened.opens.assignEmail)
       : null;
 
-    const added = opening.marks.reduce(
-      (task, mark) => task.markedBy(mark),
-      Task.add({
-        line,
-        at: opening.at.id,
-        title: opening.title,
-        description: opening.description,
-        attachments,
-        heard: true,
-        rank: Placement.atTheBack(
-          (await this.placements.placementsAt(opening.at.id)).map(
-            (each) => each.rank,
+    const added = shaped(
+      opening.marks.reduce(
+        (task, mark) => task.markedBy(mark),
+        Task.add({
+          line,
+          at: opening.at.id,
+          title: opening.title,
+          description: opening.description,
+          attachments,
+          heard: true,
+          rank: Placement.atTheBack(
+            (await this.placements.placementsAt(opening.at.id)).map(
+              (each) => each.rank,
+            ),
           ),
-        ),
-        now: this.clock.now(),
-        newId: () => this.ids.generate(),
-      }),
+          now: this.clock.now(),
+          newId: () => this.ids.generate(),
+        }),
+      ),
     );
 
     const opened = assignee ? added.assignedTo(assignee) : added;

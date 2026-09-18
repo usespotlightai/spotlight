@@ -49,7 +49,7 @@ const withNotes = (task: Task, ...notes: TaskNote[]) =>
     createdAt: task.createdAt,
     raisedAt: task.raisedAt,
     raisedBy: task.raisedBy,
-    pullRequest: task.pullRequest,
+    pullRequestLink: task.pullRequestLink,
     finishedAt: task.finishedAt,
   });
 
@@ -860,6 +860,29 @@ describe('Task, what it is doing', () => {
       expect(
         added().handedTo(RUN, LINE).openedAt(RUN, url).pullRequest,
       ).toEqual(url);
+    });
+  });
+
+  describe('reviewing a pull request', () => {
+    const url = PullRequestUrl.of('https://github.com/acme/widgets/pull/7');
+
+    it('wears the pull request, and reviews it rather than owning it', () => {
+      const reviewing = added().reviews(url);
+
+      expect(reviewing.pullRequest).toEqual(url);
+      expect(reviewing.reviewing).toBe(true);
+      expect(reviewing.reviewed?.value).toBe('acme/widgets');
+      expect(reviewing.marks.map(String)).toEqual([
+        `github.review:${url.value}`,
+      ]);
+    });
+
+    it('reviews nothing once it has a pull request of its own', () => {
+      const own = added().handedTo(RUN, LINE).openedAt(RUN, url);
+
+      expect(own.reviewing).toBe(false);
+      expect(own.reviewed).toBeNull();
+      expect(() => own.reviews(url)).toThrow(InvalidTaskTransitionError);
     });
   });
 

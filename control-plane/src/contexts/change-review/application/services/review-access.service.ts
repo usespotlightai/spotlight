@@ -3,16 +3,16 @@ import type {
   ReviewedTask,
   WorkPort,
 } from '@change-review/application/ports/work.port';
-import type { ReviewCommentAuthor } from '@change-review/domain/aggregates/review-comment.aggregate';
 import { UnknownReviewError } from '@change-review/domain/exceptions/unknown-review.error';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
+import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export interface Reviewing {
   readonly task: ReviewedTask;
   readonly by: UserId;
-  readonly author: ReviewCommentAuthor;
+  readonly author: ReviewAuthor;
 }
 
 export class ReviewAccess {
@@ -44,11 +44,10 @@ export class ReviewAccess {
     return {
       task,
       by: member.by,
-      author: {
-        userId: member.by,
-        login: null,
-        name: AuthorName.of(person?.name ?? null),
-      },
+      author: ReviewAuthor.person(
+        member.by,
+        AuthorName.of(person?.name ?? null),
+      ),
     };
   }
 }

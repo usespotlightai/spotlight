@@ -10,15 +10,16 @@ import type { ReviewComment } from '@change-review/domain/aggregates/review-comm
 import { ChangedSinceReadError } from '@change-review/domain/exceptions/changed-since-read.error';
 import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
+import type { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
-import type {
-  OnPullRequest,
-  PullRequestReviewsPort,
+import {
+  type OnPullRequest,
+  type PullRequestReviewsPort,
+  SPOTLIGHT_WRITES,
 } from '@github/application/ports/pull-request-reviews.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export const MOST_ATTEMPTS = 6;
 
@@ -165,13 +166,18 @@ export class SyncReviews implements ReviewSyncWorkPort {
       throw new GaveUp('The workspace is not connected to GitHub');
     }
 
-    const on = async (userId: UserId): Promise<OnPullRequest> => ({
+    const on = async (author: ReviewAuthor): Promise<OnPullRequest> => ({
       workspaceId: task.workspaceId,
       pullRequest: task.pullRequest as NonNullable<typeof task.pullRequest>,
-      by: {
-        userId,
-        name: (await this.people.find(userId))?.name ?? 'Someone',
-      },
+      by: author.userId
+        ? {
+            kind: 'person',
+            userId: author.userId,
+            name:
+              (await this.people.find(author.userId))?.name ??
+              author.name.value,
+          }
+        : SPOTLIGHT_WRITES,
     });
 
     if (sync.kind === 'review') {
@@ -187,7 +193,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
       throw new GaveUp('The comment is gone');
     }
 
-    const target = await on(comment.author.userId);
+    const target = await on(comment.author);
 
     if (sync.kind === 'reply') {
       await this.postReply(comment, target);
@@ -215,7 +221,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
 
   private async postReview(
     sync: ReviewSync,
-    on: (userId: UserId) => Promise<OnPullRequest>,
+    on: (author: ReviewAuthor) => Promise<OnPullRequest>,
   ): Promise<void> {
     const review = await this.reviews.find(ReviewId.of(sync.subjectId));
 

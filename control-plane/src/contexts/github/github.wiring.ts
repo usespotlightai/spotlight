@@ -10,6 +10,7 @@ import {
 } from '@github/application/ports/installations.port';
 import { PULL_REQUESTS } from '@github/application/ports/pull-request.port';
 import { PULL_REQUEST_COMMENTS } from '@github/application/ports/pull-request-comments.port';
+import { PULL_REQUEST_REACTIONS } from '@github/application/ports/pull-request-reactions.port';
 import { PULL_REQUEST_REVIEWS } from '@github/application/ports/pull-request-reviews.port';
 import { REMARKS } from '@github/application/ports/remarks.port';
 import {
@@ -39,6 +40,7 @@ import { GitHubAppIdentity } from '@github/infrastructure/github/github-app.iden
 import { GitHubGitTransport } from '@github/infrastructure/github/github-git.transport';
 import { GitHubInstallationAdministration } from '@github/infrastructure/github/github-installation.administration';
 import { GitHubPullRequestComments } from '@github/infrastructure/github/github-pull-request-comments';
+import { GitHubPullRequestReactions } from '@github/infrastructure/github/github-pull-request-reactions';
 import { GitHubPullRequestReviews } from '@github/infrastructure/github/github-pull-request-reviews';
 import { GitHubPullRequests } from '@github/infrastructure/github/github-pull-requests';
 import { GitHubRemarks } from '@github/infrastructure/github/github-remarks';
@@ -94,6 +96,12 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
     inject: [REPOSITORY_ACCESS],
     useFactory: (access: RepositoryAccessPort) =>
       new GitHubPullRequestComments(access),
+  },
+  {
+    provide: PULL_REQUEST_REACTIONS,
+    inject: [REPOSITORY_ACCESS],
+    useFactory: (access: RepositoryAccessPort) =>
+      new GitHubPullRequestReactions(access),
   },
 
   {

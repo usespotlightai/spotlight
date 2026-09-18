@@ -2,6 +2,7 @@ import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { Declaration } from '@work/domain/value-objects/declaration.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
@@ -13,6 +14,7 @@ export class RunCompleted implements DomainEvent {
 
   constructor(
     readonly runId: RunId,
+    readonly workspaceId: WorkspaceId,
     readonly subject: RunSubject | null,
     readonly outcome: RunOutcome,
     readonly workedBy: RunnerId | null,

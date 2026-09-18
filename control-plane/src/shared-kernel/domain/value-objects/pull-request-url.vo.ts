@@ -36,6 +36,26 @@ export class PullRequestUrl {
     }
   }
 
+  get number(): number | null {
+    let path: string;
+
+    try {
+      path = new URL(this.value).pathname;
+    } catch {
+      return null;
+    }
+
+    const [, , kind, number] = path.replace(/^\/+/, '').split('/');
+
+    return kind === 'pull' && /^\d+$/.test(number ?? '')
+      ? Number(number)
+      : null;
+  }
+
+  get headRef(): string | null {
+    return this.number === null ? null : `refs/pull/${this.number}/head`;
+  }
+
   equals(other: PullRequestUrl): boolean {
     return this.value === other.value;
   }

@@ -17,7 +17,9 @@ import type { Happening } from '@work/domain/value-objects/happening.vo';
 import type { LineKey } from '@work/domain/value-objects/line-key.vo';
 import type { LineName } from '@work/domain/value-objects/line-name.vo';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
-import type { LineRole } from '@work/domain/value-objects/line-role.vo';
+import { LineRole } from '@work/domain/value-objects/line-role.vo';
+import type { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
+import { reviewsOn } from '@work/domain/value-objects/review-policy.vo';
 import type { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import type { StationCheck } from '@work/domain/value-objects/station-check.vo';
 import type { StationColor } from '@work/domain/value-objects/station-color.vo';
@@ -58,6 +60,7 @@ export class LinePlan {
     readonly reactions: readonly ReactionPlan[],
     readonly role: LineRole | null,
     readonly repositories: readonly Repository[],
+    readonly reviews: ReviewPolicy | null,
   ) {}
 
   static of(input: {
@@ -67,6 +70,7 @@ export class LinePlan {
     reactions?: readonly ReactionPlan[];
     role?: LineRole | null;
     repositories?: readonly Repository[];
+    reviews?: ReviewPolicy | null;
   }): LinePlan {
     const reactions = input.reactions ?? [];
     const laid = stationsRefused(
@@ -131,6 +135,14 @@ export class LinePlan {
       );
     }
 
+    if (input.reviews && !reviewsOn(input.role ?? null)) {
+      throw new InvalidLinePlanError(
+        input.key.value,
+        `reviews pull requests, which only a line whose role is ${LineRole.REVIEW.value} does`,
+        { of: 'line', field: 'reviews' },
+      );
+    }
+
     return new LinePlan(
       input.key,
       input.name,
@@ -138,6 +150,7 @@ export class LinePlan {
       reactions,
       input.role ?? null,
       input.repositories ?? [],
+      input.reviews ?? null,
     );
   }
 

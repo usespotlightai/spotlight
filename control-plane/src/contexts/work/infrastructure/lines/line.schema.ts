@@ -1,6 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import { EFFORTS } from '@work/domain/value-objects/effort.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
+import { REVIEW_STARTS } from '@work/domain/value-objects/review-policy.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
@@ -50,6 +51,25 @@ const reactionSchema = z.object({
   to: identifier(StationKey.of),
 });
 
+const reviewsSchema = z.object({
+  start: z
+    .enum(REVIEW_STARTS, {
+      message:
+        'is opened, to review every pull request as it opens, or mentioned, to review one when Spotlight is mentioned on it',
+    })
+    .optional(),
+  mention: z.string().optional(),
+  skip: z
+    .object({
+      spotlight: z.boolean().optional(),
+      drafts: z.boolean().optional(),
+      authors: z
+        .array(z.string().min(1, 'is a GitHub login, as in dependabot[bot]'))
+        .optional(),
+    })
+    .default({}),
+});
+
 export const lineSchema = z.object({
   version: z.literal(1, { message: 'must be 1' }),
   name: z.string().min(1, 'is what this line is called'),
@@ -64,4 +84,5 @@ export const lineSchema = z.object({
       'is the stations along this line, in order, and there has to be one',
     ),
   reactions: z.array(reactionSchema).default([]),
+  reviews: reviewsSchema.optional(),
 });

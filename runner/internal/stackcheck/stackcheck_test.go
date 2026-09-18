@@ -279,6 +279,27 @@ func TestDiffGathersEverythingChangedSinceTheRunBegan(t *testing.T) {
 	}
 }
 
+func TestCommittedDiffsOnlyWhatWasCommittedSinceTheRunBegan(t *testing.T) {
+	w := setUp(t)
+	write(t, filepath.Join(w.checkout, "pulled.txt"), "from the pull request\n")
+	git(t, w.checkout, "add", "pulled.txt")
+	git(t, w.checkout, "commit", "--quiet", "--message", "pull request")
+
+	diff, err := w.options().Committed(context.Background(), w.checkout)
+	if err != nil {
+		t.Fatalf("diff: %v", err)
+	}
+
+	if !strings.Contains(diff, "+from the pull request") {
+		t.Errorf("diff lacks what was committed:\n%s", diff)
+	}
+	for _, left := range []string{"lib.txt", "hello, using lib"} {
+		if strings.Contains(diff, left) {
+			t.Errorf("diff holds %q, which was left in the working tree:\n%s", left, diff)
+		}
+	}
+}
+
 func TestDiffRefusesACheckoutWithNoRecordOfWhereItBegan(t *testing.T) {
 	w := setUp(t)
 	git(t, w.checkout, "update-ref", "-d", stackcheck.BaseRef)

@@ -22,6 +22,7 @@ const drafting = (
       workspaceId: WorkspaceId.of('ws_1'),
       taskId: TaskId.of('task_1'),
       check: over.check ?? null,
+      ended: false,
     }),
     wasWorkedBy: async () => over.worked !== false,
     task: async () => null,

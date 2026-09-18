@@ -4,6 +4,7 @@ import { ReviewComment } from '@change-review/domain/aggregates/review-comment.a
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
+import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -62,6 +63,8 @@ const receiving = (held: ReviewComment[] = []) => {
         workspaceId,
         teamId: null,
         pullRequest,
+        reviewing: false,
+        currentRunId: null,
       }),
     },
     repository,
@@ -80,7 +83,7 @@ const onGitHub = (githubId: number, body = 'Earlier') =>
     taskId: TASK,
     anchor: ReviewAnchor.of({ path: 'src/a.ts', side: 'new', line: 12 }),
     body,
-    author: { userId: null, login: 'octocat', name: AuthorName.of('octocat') },
+    author: ReviewAuthor.onGitHub('octocat'),
     replyTo: null,
     github: { id: githubId, url: `https://github.com/c/${githubId}` },
     at: NOW,
@@ -96,11 +99,7 @@ describe('ReceiveReviewComment', () => {
     expect(kept?.state).toBe('posted');
     expect(kept?.anchor.side).toBe('old');
     expect(kept?.anchor.line).toBe(12);
-    expect(kept?.author).toEqual({
-      userId: null,
-      login: 'octocat',
-      name: AuthorName.of('octocat'),
-    });
+    expect(kept?.author.equals(ReviewAuthor.onGitHub('octocat'))).toBe(true);
     expect(kept?.github?.id).toBe(300);
   });
 
@@ -127,11 +126,7 @@ describe('ReceiveReviewComment', () => {
       taskId: TASK,
       anchor: ReviewAnchor.of({ path: 'src/a.ts', side: 'new', line: 12 }),
       body: 'Why not a constant?',
-      author: {
-        userId: UserId.of('user_ada'),
-        login: null,
-        name: AuthorName.of('Ada'),
-      },
+      author: ReviewAuthor.person(UserId.of('user_ada'), AuthorName.of('Ada')),
       now: NOW,
     })
       .submittedIn(ReviewId.of('review_1'))
@@ -152,11 +147,7 @@ describe('ReceiveReviewComment', () => {
       taskId: TASK,
       anchor: ReviewAnchor.of({ path: 'src/a.ts', side: 'new', line: 12 }),
       body: 'Why not a constant?',
-      author: {
-        userId: UserId.of('user_ada'),
-        login: null,
-        name: AuthorName.of('Ada'),
-      },
+      author: ReviewAuthor.person(UserId.of('user_ada'), AuthorName.of('Ada')),
       now: NOW,
     }).submittedIn(ReviewId.of('review_1'));
     const { service, comments } = receiving([posting]);
@@ -185,11 +176,7 @@ describe('ReceiveReviewComment', () => {
       taskId: TASK,
       anchor: ReviewAnchor.of({ path: 'src/a.ts', side: 'new', line: 12 }),
       body: 'Why not a constant?',
-      author: {
-        userId: UserId.of('user_ada'),
-        login: null,
-        name: AuthorName.of('Ada'),
-      },
+      author: ReviewAuthor.person(UserId.of('user_ada'), AuthorName.of('Ada')),
       now: NOW,
     })
       .submittedIn(ReviewId.of('review_1'))

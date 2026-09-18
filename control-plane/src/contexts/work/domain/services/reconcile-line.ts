@@ -112,6 +112,7 @@ const assemble = (
     name: plan.name,
     role: plan.role,
     repositories: plan.repositories,
+    reviews: plan.reviews,
     stations,
     reactions: plan.reactions.map((planned) =>
       Reaction.of({

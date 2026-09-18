@@ -30,6 +30,10 @@ export class Mark {
     return Mark.of('git.pull-request', url.value);
   }
 
+  static review(url: PullRequestUrl): Mark {
+    return Mark.of('github.review', url.value);
+  }
+
   equals(other: Mark): boolean {
     return this.kind === other.kind && this.value === other.value;
   }

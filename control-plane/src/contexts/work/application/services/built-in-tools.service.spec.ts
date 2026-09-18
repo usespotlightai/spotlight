@@ -14,6 +14,8 @@ import {
   builtInTool,
   PROPOSE_TASK,
   PULL_REQUEST,
+  REVIEW,
+  REVIEW_COMMENT,
 } from '@work/domain/services/built-in-tools';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
@@ -50,18 +52,24 @@ const proposing: BuiltInToolUse<ChatToolContext> = {
   call: async () => 'proposed',
 };
 
+const reviewing: BuiltInToolUse<TaskToolContext>[] = [
+  REVIEW_COMMENT,
+  REVIEW,
+].map((tool) => ({ tool, call: async () => null }));
+
 describe('BuiltInTools', () => {
   it('will not start with a tool Spotlight declares and nothing uses', () => {
-    expect(() => new BuiltInTools([answering])).toThrow(
+    expect(() => new BuiltInTools([answering, ...reviewing])).toThrow(
       'Spotlight declares propose-task, and nothing here uses it',
     );
   });
 
   it('reaches a tool of Spotlight’s own, as it is declared, calling its use for the run', async () => {
-    const reached = new BuiltInTools([answering, proposing]).reach(
-      PULL_REQUEST,
-      ON_TASK,
-    );
+    const reached = new BuiltInTools([
+      answering,
+      proposing,
+      ...reviewing,
+    ]).reach(PULL_REQUEST, ON_TASK);
 
     expect(reached?.declared).toBe(builtInTool(PULL_REQUEST)?.declared);
     expect(
@@ -75,7 +83,7 @@ describe('BuiltInTools', () => {
   });
 
   it('reaches a tool only for the kind of work it is made for', () => {
-    const tools = new BuiltInTools([answering, proposing]);
+    const tools = new BuiltInTools([answering, proposing, ...reviewing]);
 
     expect(tools.reach(PULL_REQUEST, IN_CHAT)).toBeNull();
     expect(tools.reach(PROPOSE_TASK, ON_TASK)).toBeNull();
@@ -83,7 +91,7 @@ describe('BuiltInTools', () => {
   });
 
   it('reaches nothing Spotlight does not declare', () => {
-    const tools = new BuiltInTools([answering, proposing]);
+    const tools = new BuiltInTools([answering, proposing, ...reviewing]);
 
     expect(tools.reach(Tool.of('teleport'), ON_TASK)).toBeNull();
     expect(tools.reach(Tool.of('linear.comment'), ON_TASK)).toBeNull();

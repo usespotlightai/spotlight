@@ -11,6 +11,7 @@ export interface ReviewCommentView {
   readonly startLine: number | null;
   readonly body: string;
   readonly authorId: string | null;
+  readonly authorRunId: string | null;
   readonly authorLogin: string | null;
   readonly authorName: string;
   readonly replyTo: string | null;
@@ -23,7 +24,9 @@ export interface ReviewCommentView {
 
 export interface ReviewView {
   readonly id: string;
-  readonly authorId: string;
+  readonly authorId: string | null;
+  readonly authorRunId: string | null;
+  readonly authorName: string | null;
   readonly verdict: 'comment' | 'approve' | 'request-changes';
   readonly body: string;
   readonly state: 'submitted' | 'posted' | 'failed' | 'withdrawn';

@@ -1,6 +1,8 @@
 import { Review } from '@change-review/domain/aggregates/review.aggregate';
 import { ChangedSinceReadError } from '@change-review/domain/exceptions/changed-since-read.error';
 import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
+import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
+import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
 import { review } from '@change-review/infrastructure/persistence/drizzle/schemas/review.schema';
@@ -10,6 +12,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -22,7 +25,12 @@ const toReview = (row: Row): Review =>
     id: ReviewId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
     taskId: TaskId.of(row.taskId),
-    author: UserId.of(row.authorId),
+    author: ReviewAuthor.rehydrate({
+      userId: row.authorId ? UserId.of(row.authorId) : null,
+      runId: row.authorRunId ? RunId.of(row.authorRunId) : null,
+      login: null,
+      name: AuthorName.of(row.authorName),
+    }),
     verdict: row.verdict,
     body: row.body,
     comments: row.commentIds.map((each) => ReviewCommentId.of(each)),
@@ -37,7 +45,9 @@ const toRow = (held: Review): Row => ({
   id: held.id.value,
   workspaceId: held.workspaceId.value,
   taskId: held.taskId.value,
-  authorId: held.author.value,
+  authorId: held.author.userId?.value ?? null,
+  authorRunId: held.author.runId?.value ?? null,
+  authorName: held.author.name.value,
   verdict: held.verdict,
   body: held.body,
   commentIds: held.comments.map((each) => each.value),

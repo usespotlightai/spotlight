@@ -13,6 +13,8 @@ export class LineRole {
 
   static readonly IMPROVEMENT = new LineRole('improvement');
 
+  static readonly REVIEW = new LineRole('review');
+
   static of(raw: string): LineRole {
     const named = raw.trim();
 

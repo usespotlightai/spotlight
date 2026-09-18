@@ -1,9 +1,21 @@
 import type { StationKind } from '@work/domain/entities/station.entity';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
+
+export interface ReviewsRow {
+  readonly start: string;
+  readonly mention: string;
+  readonly skip: {
+    readonly spotlight: boolean;
+    readonly drafts: boolean;
+    readonly authors: readonly string[];
+  };
+}
+
 import {
   boolean,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   text,
@@ -20,6 +32,7 @@ export const line = pgTable(
     teamId: text('team_id').notNull(),
     name: text('name').notNull(),
     role: text('role'),
+    reviews: jsonb('reviews').$type<ReviewsRow>(),
     version: integer('version').notNull().default(0),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')

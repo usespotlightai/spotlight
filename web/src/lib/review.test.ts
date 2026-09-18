@@ -24,6 +24,7 @@ const comment = (over: Partial<ReviewComment>): ReviewComment => ({
   authorLogin: null,
   authorImage: null,
   yours: false,
+  byAgent: false,
   replyTo: null,
   state: 'posted',
   failure: null,
