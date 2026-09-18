@@ -1,6 +1,9 @@
-ARG NODE_VERSION=22-alpine
+ARG NODE_VERSION=24-alpine
+ARG NPM_VERSION=11.19.1
 
 FROM node:${NODE_VERSION} AS deps
+ARG NPM_VERSION
+RUN npm install -g npm@${NPM_VERSION}
 WORKDIR /app
 COPY control-plane/package.json control-plane/package-lock.json ./
 RUN npm ci
@@ -28,6 +31,8 @@ COPY control-plane/ ./
 CMD ["npm", "run", "db:migrate"]
 
 FROM node:${NODE_VERSION} AS prod-deps
+ARG NPM_VERSION
+RUN npm install -g npm@${NPM_VERSION}
 WORKDIR /app
 COPY control-plane/package.json control-plane/package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
