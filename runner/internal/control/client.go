@@ -213,6 +213,17 @@ func (c *Client) Attachment(
 	return nil
 }
 
+func (c *Client) DraftChangeStack(ctx context.Context, runID, repository, diff string) error {
+	path := fmt.Sprintf("/api/runs/%s/change-stacks", url.PathEscape(runID))
+	handed := protocol.ChangeStackDraft{Diff: diff, Repository: repository}
+
+	if err := c.do(ctx, http.MethodPost, path, handed, nil); err != nil {
+		return fmt.Errorf("hand over what a run changed: %w", err)
+	}
+
+	return nil
+}
+
 func (c *Client) ChangeStackChecks(ctx context.Context, runID string) (protocol.StackChecks, error) {
 	path := fmt.Sprintf("/api/runs/%s/change-stack-checks", url.PathEscape(runID))
 

@@ -1,7 +1,13 @@
 import { ChevronRight } from 'lucide-react';
 import { useState } from 'react';
+import { CohortTally } from '@/components/features/changes/CohortTally';
 import { StackNavLayer } from '@/components/features/changes/StackNavLayer';
 import { Unfold } from '@/components/shared/Unfold';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import {
   type ChangeStack,
   filesOf,
@@ -33,13 +39,17 @@ export function StackNavCohort({
         cohort.kind === 'incidental' && 'opacity-80',
       )}
     >
-      <button
-        type="button"
-        onClick={() => setOpen((shown) => !shown)}
-        aria-expanded={open}
-        className="flex flex-col gap-1.5 rounded-md px-2 py-1 text-left outline-none transition-colors hover:bg-border/50 focus-visible:ring-2 focus-visible:ring-ring/70"
-      >
-        <span className="flex w-full items-center justify-between gap-2">
+      <Tooltip disableHoverablePopup>
+        <TooltipTrigger
+          render={
+            <button
+              type="button"
+              onClick={() => setOpen((shown) => !shown)}
+              aria-expanded={open}
+              className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-left outline-none transition-colors hover:bg-border/50 focus-visible:ring-2 focus-visible:ring-ring/70"
+            />
+          }
+        >
           <span className="min-w-0 truncate font-medium text-foreground text-xs">
             {cohort.title}
           </span>
@@ -50,13 +60,19 @@ export function StackNavCohort({
               open && 'rotate-90',
             )}
           />
-        </span>
+        </TooltipTrigger>
 
-        <span className="text-faint text-xs">
-          {cohort.kind === 'incidental' ? 'Incidental · ' : ''}
-          {cohort.intent}
-        </span>
-      </button>
+        <TooltipContent className="flex w-(--anchor-width) max-w-none flex-col gap-1">
+          <span className="font-medium">{cohort.title}</span>
+
+          <CohortTally stack={stack} cohort={cohort} />
+
+          <span className="text-muted-foreground">
+            {cohort.kind === 'incidental' ? 'Incidental · ' : ''}
+            {cohort.intent}
+          </span>
+        </TooltipContent>
+      </Tooltip>
 
       <Unfold open={open} appear={false}>
         <ol className="flex flex-col gap-1">

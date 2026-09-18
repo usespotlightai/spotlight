@@ -22,7 +22,12 @@ import {
   Diff,
   type DiffFile,
 } from '@change-review/domain/value-objects/diff.vo';
+import {
+  StackCheck,
+  WHOLE_STEP,
+} from '@change-review/domain/value-objects/stack-check.vo';
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
+import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -52,7 +57,7 @@ const fileOf = (file: Changed, at: number): DiffFile => ({
   binary: false,
   hunks: [
     {
-      id: `h${at + 1}`,
+      id: HunkId.at(at + 1),
       oldStart: 1,
       oldLines: file.removed.length,
       newStart: 1,
@@ -116,7 +121,7 @@ const cohort = (
       title: 'Add invitations',
       summary: 'The table and the endpoint',
       dependsOn: [],
-      ranges: hunks.map((hunk) => ({ hunk })),
+      ranges: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
       notes: hunks.map((hunk) => ({
         path: paths[Number(hunk.slice(1)) - 1] ?? hunk,
         note: 'Why it changes',
@@ -303,7 +308,12 @@ describe('DraftChangeStack', () => {
       await drafted({ diff: LINKED, repository: null });
 
       expect(asked[0]?.facts.links).toEqual([
-        { kind: 'uses', from: 'h2', to: 'h1', because: ['createInvitation'] },
+        {
+          kind: 'uses',
+          from: HunkId.of('h2'),
+          to: HunkId.of('h1'),
+          because: ['createInvitation'],
+        },
       ]);
 
       const ready = saved[saved.length - 1];
@@ -317,7 +327,7 @@ describe('DraftChangeStack', () => {
       ).toEqual(['h3']);
     });
 
-    it('asks again where the stack splits what the code ties together, then takes it on the last try', async () => {
+    it('asks again where the stack splits what the code ties together, then gives up rather than keep it', async () => {
       const { drafted, saved, asked } = drafting({ answers: [apart, apart] });
 
       await drafted({ diff: LINKED, repository: null });
@@ -329,7 +339,7 @@ describe('DraftChangeStack', () => {
             'h2 uses createInvitation from h1, so they belong in the same cohort',
         },
       ]);
-      expect(saved[saved.length - 1]?.state).toBe('ready');
+      expect(saved[saved.length - 1]?.state).toBe('failed');
     });
 
     it('links what the parsed code ties together, beyond what the diff lines show', async () => {
@@ -388,7 +398,12 @@ describe('DraftChangeStack', () => {
         'after:api.ts',
       ]);
       expect(asked[0]?.facts.links).toEqual([
-        { kind: 'uses', from: 'h2', to: 'h1', because: ['invitations'] },
+        {
+          kind: 'uses',
+          from: HunkId.of('h2'),
+          to: HunkId.of('h1'),
+          because: ['invitations'],
+        },
       ]);
     });
 
@@ -426,14 +441,14 @@ describe('ReorderChangeStack', () => {
         title: 'Add the table',
         summary: 'The table',
         dependsOn: [],
-        ranges: [{ hunk: 'h1' }],
+        ranges: [{ hunk: HunkId.of('h1') }],
         notes: [{ path: 'schema.ts', note: 'Adds the table' }],
       },
       {
         title: 'Add the endpoint',
         summary: 'The endpoint',
         dependsOn: [],
-        ranges: [{ hunk: 'h2' }],
+        ranges: [{ hunk: HunkId.of('h2') }],
         notes: [{ path: 'api.ts', note: 'Adds the endpoint' }],
       },
     ],
@@ -446,15 +461,15 @@ describe('ReorderChangeStack', () => {
     await drafted.drafted({
       diff: DIFF,
       repository: null,
-      check: 'npx tsc --noEmit',
+      check: StackCheck.named('npx tsc --noEmit'),
     });
 
     const ready = drafted.saved[drafted.saved.length - 1] as ChangeStack;
     const reordering = ready.recordCheck(
       [
-        { step: 'whole', passed: true, output: '', tookMs: 1 },
+        { step: WHOLE_STEP, passed: true, output: '', tookMs: 1 },
         {
-          step: 'c1.l1',
+          step: LayerId.of('c1.l1'),
           passed: false,
           output: 'api.ts(1,1): error TS2304',
           tookMs: 1,
@@ -488,7 +503,9 @@ describe('ReorderChangeStack', () => {
     saved.push(await service.reordered(reordering));
 
     expect(asked[1]?.problems).toEqual([]);
-    expect(asked[1]?.reordering?.failedLayers()).toEqual(['c1.l1']);
+    expect(
+      asked[1]?.reordering?.failed.map((each) => [each.cohort, each.layer]),
+    ).toEqual([[0, 0]]);
 
     const reordered = saved[saved.length - 1];
     expect(

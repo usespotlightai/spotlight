@@ -85,14 +85,11 @@ func TestMarkBasesRecordsWhereTheBranchLeftTheDefaultBranch(t *testing.T) {
 	}
 }
 
-func TestAgentToolsLeaveOutWhatTheRunnerDoesItself(t *testing.T) {
-	given := []protocol.ToolManifest{{Name: "pull-request"}, {Name: "change-stack"}}
+func TestToolNamesAreTheManifestsOwn(t *testing.T) {
+	given := []protocol.ToolManifest{{Name: "pull-request"}, {Name: "propose-task"}}
 
-	got := toolNames(agentTools(given))
-	if len(got) != 1 || got[0] != "pull-request" {
-		t.Fatalf("agent tools %v", got)
-	}
-	if len(given) != 2 {
-		t.Fatalf("the run's own manifest changed: %v", given)
+	got := toolNames(given)
+	if len(got) != 2 || got[0] != "pull-request" || got[1] != "propose-task" {
+		t.Fatalf("tool names %v", got)
 	}
 }

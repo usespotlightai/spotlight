@@ -5,7 +5,6 @@ import { HunkReview } from '@/components/features/review/HunkReview';
 import { DiffTally } from '@/components/shared/DiffTally';
 import { Unfold } from '@/components/shared/Unfold';
 import { Button } from '@/components/ui/button';
-import { useDiffGutter } from '@/hooks/useDiffGutter';
 import { useNearViewport } from '@/hooks/useNearViewport';
 import { type LayerFile, linesOf, tallyOf } from '@/lib/change-stack';
 import { cn } from '@/lib/utils';
@@ -13,8 +12,6 @@ import { cn } from '@/lib/utils';
 const LINE_HEIGHT = 17;
 
 const HEADER_HEIGHT = 36;
-
-const NOTE_GAP = 12;
 
 const TOO_LARGE = 800;
 
@@ -37,7 +34,6 @@ export function LayerFileCard({ placed, open, onToggle }: LayerFileCardProps) {
   const status = STATUS[file.status];
   const card = useRef<HTMLElement>(null);
   const near = useNearViewport(card);
-  const gutter = useDiffGutter(card);
   const [asked, setAsked] = useState(false);
   const lines = linesOf(hunks);
   const tooLarge = lines > TOO_LARGE;
@@ -89,7 +85,7 @@ export function LayerFileCard({ placed, open, onToggle }: LayerFileCardProps) {
       </button>
 
       <Unfold open={open} appear={false}>
-        {note && <FileNote note={note} inset={gutter + NOTE_GAP} />}
+        {note && <FileNote note={note} />}
 
         {tooLarge && !asked ? (
           <div className="flex items-center gap-3 px-3 py-3 text-xs">

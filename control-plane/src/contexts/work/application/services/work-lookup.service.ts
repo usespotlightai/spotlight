@@ -25,9 +25,20 @@ export class WorkLookup implements WorkLookupPort {
   async run(runId: RunId): Promise<RunLookup | null> {
     const run = await this.runs.findById(runId);
 
-    return run
-      ? { id: run.id, workspaceId: run.workspaceId, taskId: run.taskId }
+    if (!run) {
+      return null;
+    }
+
+    const station = run.stationId
+      ? (await this.lines.holding(run.stationId))?.stationAt(run.stationId)
       : null;
+
+    return {
+      id: run.id,
+      workspaceId: run.workspaceId,
+      taskId: run.taskId,
+      check: station?.check?.value ?? null,
+    };
   }
 
   async wasWorkedBy(runId: RunId, runner: RunnerId): Promise<boolean> {

@@ -12,13 +12,13 @@ import {
   type StackProblem,
 } from '@change-review/domain/exceptions/invalid-change-stack.error';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
-import { arranged } from '@change-review/domain/services/arrange-stack';
 import { factsOf } from '@change-review/domain/services/diff-facts';
 import {
   NO_INDEX,
   type SymbolIndex,
 } from '@change-review/domain/services/symbol-index';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import { StackCheck } from '@change-review/domain/value-objects/stack-check.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -49,7 +49,11 @@ export class DraftChangeStack {
 
   async begin(
     run: DraftingRun,
-    input: { diff: string; repository: string | null; check?: string | null },
+    input: {
+      diff: string;
+      repository: string | null;
+      check?: StackCheck | null;
+    },
   ): Promise<ChangeStack> {
     if (!this.drafter.available) {
       throw new ChangeStacksUnavailableError();
@@ -95,7 +99,7 @@ export class DraftChangeStack {
     const { diff, facts } = stack;
 
     if (facts.hunks.every((each) => each.incidental)) {
-      return stack.propose(arranged(diff, facts, []), this.clock.now());
+      return stack.propose([], this.clock.now());
     }
 
     let problems: readonly StackProblem[] = [];
@@ -109,11 +113,7 @@ export class DraftChangeStack {
       });
 
       try {
-        return stack.propose(
-          arranged(diff, facts, cohorts),
-          this.clock.now(),
-          attempt < ATTEMPTS,
-        );
+        return stack.propose(cohorts, this.clock.now());
       } catch (error) {
         if (!(error instanceof InvalidChangeStackError)) {
           throw error;

@@ -34,6 +34,11 @@ export type ReviewState = (typeof REVIEW_STATES)[number];
 const says = (verdict: ReviewVerdict, body: string, comments: number) =>
   verdict === 'approve' || body.length > 0 || comments > 0;
 
+export interface SubmittedReview {
+  readonly review: Review;
+  readonly claimed: readonly ReviewComment[];
+}
+
 export class Review extends EventRecorder {
   private constructor(
     readonly id: ReviewId,
@@ -61,7 +66,7 @@ export class Review extends EventRecorder {
     body: string;
     drafts: readonly ReviewComment[];
     now: Date;
-  }): Review {
+  }): SubmittedReview {
     if (!(REVIEW_VERDICTS as readonly string[]).includes(input.verdict)) {
       throw new InvalidReviewError('comments, approves, or requests changes');
     }
@@ -114,7 +119,10 @@ export class Review extends EventRecorder {
       ),
     );
 
-    return review;
+    return {
+      review,
+      claimed: input.drafts.map((draft) => draft.submittedIn(review.id)),
+    };
   }
 
   static rehydrate(input: {

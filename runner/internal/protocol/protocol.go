@@ -53,6 +53,7 @@ type Spec struct {
 	Continuity  Continuity     `json:"continuity,omitzero"`
 	Attachments []Attachment   `json:"attachments,omitempty"`
 	Skills      []SkillFile    `json:"skills,omitempty"`
+	Diffs       bool           `json:"diffs,omitempty"`
 }
 
 type Attachment struct {
@@ -133,6 +134,11 @@ type Said struct {
 	Position    int          `json:"position"`
 	Body        string       `json:"body"`
 	Attachments []Attachment `json:"attachments,omitempty"`
+}
+
+type ChangeStackDraft struct {
+	Diff       string `json:"diff"`
+	Repository string `json:"repository"`
 }
 
 type StackChecks struct {

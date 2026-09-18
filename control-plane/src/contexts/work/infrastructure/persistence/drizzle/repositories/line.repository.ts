@@ -70,6 +70,7 @@ const toStation = (row: StationRow, ways: Ways): Station =>
     effort: row.effort ? Effort.of(row.effort) : null,
     agentPrompt: row.agentPrompt ? AgentPrompt.of(row.agentPrompt) : null,
     check: row.check ? StationCheck.of(row.check) : null,
+    diffs: row.diffs,
     kind: row.kind,
     wayOut: WayOut.of({
       stations: ways.routes.get(row.id) ?? [],
@@ -150,6 +151,7 @@ const columnsOf = (each: Station) => ({
   effort: each.effort?.value ?? null,
   agentPrompt: each.agentPrompt?.value ?? null,
   check: each.check?.value ?? null,
+  diffs: each.diffs,
   kind: each.kind,
   finishes: each.wayOut.ends,
 });

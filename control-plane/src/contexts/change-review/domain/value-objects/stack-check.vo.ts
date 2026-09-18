@@ -1,4 +1,8 @@
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
+import type {
+  HunkId,
+  LayerId,
+} from '@change-review/domain/value-objects/stack-ids';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 export const STACK_CHECK_STATES = ['waiting', 'checked', 'skipped'] as const;
@@ -16,17 +20,19 @@ export type CheckPhase = (typeof CHECK_PHASES)[number];
 
 export const WHOLE_STEP = 'whole';
 
+export type StepId = LayerId | typeof WHOLE_STEP;
+
 export const MOST_CHECK_COMMAND = 500;
 
 export const MOST_REORDERINGS = 1;
 
 export interface CheckStep {
-  readonly id: string;
-  readonly hunks: readonly string[];
+  readonly id: StepId;
+  readonly hunks: readonly HunkId[];
 }
 
 export interface CheckedStep {
-  readonly step: string;
+  readonly step: StepId;
   readonly passed: boolean;
   readonly output: string;
   readonly tookMs: number;
@@ -41,8 +47,8 @@ export interface CheckOutcome {
 }
 
 export interface CheckEntry {
-  readonly hunk: string;
-  readonly layer: string;
+  readonly hunk: HunkId;
+  readonly layer: LayerId;
 }
 
 const OUTCOME_OF: Readonly<Record<CheckPhase, CheckOutcome['state'] | null>> = {

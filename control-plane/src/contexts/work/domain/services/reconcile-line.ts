@@ -97,6 +97,7 @@ const assemble = (
       effort: planned.effort,
       agentPrompt: planned.agentPrompt,
       check: planned.check,
+      diffs: planned.diffs,
       tools: planned.tools,
       skills: planned.skills,
       wayOut: WayOut.of({

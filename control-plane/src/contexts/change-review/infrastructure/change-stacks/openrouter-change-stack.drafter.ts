@@ -7,15 +7,13 @@ import type {
   StackProblemCode,
 } from '@change-review/domain/exceptions/invalid-change-stack.error';
 import type { DiffFacts } from '@change-review/domain/services/diff-facts';
+import type { StackRevision } from '@change-review/domain/services/stack-revision';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
 import {
   COHORT_KINDS,
   type ProposedCohort,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
-import {
-  revisionOf,
-  type StackRevision,
-} from '@change-review/infrastructure/change-stacks/stack-revision';
+import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { z } from 'zod';
 
 export const DEFAULT_MODEL = 'google/gemini-3.8-flash';
@@ -153,6 +151,18 @@ const described = (diff: Diff, facts: DiffFacts): string => {
     .join('\n\n');
 };
 
+const MOST_OUTPUT_LINES = 25;
+
+const MOST_OUTPUT_LENGTH = 2_000;
+
+const tail = (output: string): string =>
+  output
+    .trim()
+    .split('\n')
+    .slice(-MOST_OUTPUT_LINES)
+    .join('\n')
+    .slice(-MOST_OUTPUT_LENGTH);
+
 export const revised = (revision: StackRevision): string =>
   [
     `Spotlight checked every layer on its own, with the layers before it, by running \`${revision.command}\`. The whole change passes, but some layers do not. Fix each failing layer by moving the few changes it needs, most often a test, fixture or type its errors name, into it or an earlier layer. Keep every layer as small as it was and keep the same number of layers; join layers only where moving changes cannot make one build. Give every layer a note on each file its ranges touch once the changes have moved. Keep everything else as it was:`,
@@ -170,7 +180,7 @@ export const revised = (revision: StackRevision): string =>
     ...revision.failed.map((failure) =>
       [
         `cohort ${failure.cohort + 1}, layer ${failure.layer + 1} "${failure.title}" does not build with only the layers up to it. The check printed:`,
-        failure.output,
+        tail(failure.output),
         failure.named.length > 0
           ? `The changed files its errors name:\n${failure.named
               .map(
@@ -225,9 +235,9 @@ export class OpenRouterChangeStackDrafter implements ChangeStackDrafterPort {
       throw new Error('No OpenRouter API key is set for change stacks');
     }
 
-    const revision = reordering ? revisionOf(reordering) : null;
+    const revision = reordering ? reordering : null;
     const asked = [
-      repository ? `Repository: ${repository}` : null,
+      repository ? `Repository: ${repository.value}` : null,
       `The diff, as ${facts.hunks.filter((each) => !each.incidental).length} hunks to place:`,
       described(diff, facts),
       revision ? revised(revision) : null,
@@ -284,8 +294,9 @@ export class OpenRouterChangeStackDrafter implements ChangeStackDrafterPort {
     return STACK.parse(JSON.parse(choice.message.content)).cohorts.map(
       (cohort) => ({
         ...cohort,
-        layers: cohort.layers.map(({ files, ...layer }) => ({
+        layers: cohort.layers.map(({ files, ranges, ...layer }) => ({
           ...layer,
+          ranges: ranges.map((range) => ({ hunk: HunkId.of(range.hunk) })),
           notes: files,
         })),
       }),

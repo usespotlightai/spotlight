@@ -5,13 +5,24 @@ import {
   Diff,
   type DiffFile,
 } from '@change-review/domain/value-objects/diff.vo';
-import type { CheckedStep } from '@change-review/domain/value-objects/stack-check.vo';
+import type {
+  CheckedStep,
+  StepId,
+} from '@change-review/domain/value-objects/stack-check.vo';
+import {
+  StackCheck,
+  WHOLE_STEP,
+} from '@change-review/domain/value-objects/stack-check.vo';
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
+import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
 import { CHECKING_LIMIT_MS } from '@change-review/domain/value-objects/stack-progress.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
+
+const stepOf = (raw: string): StepId =>
+  raw === WHOLE_STEP ? WHOLE_STEP : LayerId.of(raw);
 
 const changed = (path: string, at: number): DiffFile => ({
   path,
@@ -20,7 +31,7 @@ const changed = (path: string, at: number): DiffFile => ({
   binary: false,
   hunks: [
     {
-      id: `h${at + 1}`,
+      id: HunkId.at(at + 1),
       oldStart: 1,
       oldLines: 1,
       newStart: 1,
@@ -52,7 +63,7 @@ const cohort = (
     title: `${title} ${at + 1}`,
     summary: `${title} ${at + 1}`,
     dependsOn: [],
-    ranges: hunks.map((hunk) => ({ hunk })),
+    ranges: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
     notes: hunks.map((hunk) => ({
       path: DIFF.fileOf(hunk)?.path ?? hunk,
       note: 'Why it changes',
@@ -60,7 +71,9 @@ const cohort = (
   })),
 });
 
-const ready = (check: string | null = 'npx tsc --noEmit') => {
+const ready = (
+  check: StackCheck | null = StackCheck.named('npx tsc --noEmit'),
+) => {
   const stack = ChangeStack.draft({
     id: ChangeStackId.of('stack-1'),
     runId: RunId.of('run-1'),
@@ -85,7 +98,7 @@ const ready = (check: string | null = 'npx tsc --noEmit') => {
 };
 
 const passed = (step: string, output = ''): CheckedStep => ({
-  step,
+  step: stepOf(step),
   passed: true,
   output,
   tookMs: 1200,
@@ -97,7 +110,9 @@ describe('ChangeStack check', () => {
   });
 
   it('refuses a check command that is not one short line', () => {
-    expect(() => ready('npx tsc\nrm -rf /')).toThrow(InvalidChangeStackError);
+    expect(() => StackCheck.named('npx tsc\nrm -rf /')).toThrow(
+      InvalidChangeStackError,
+    );
   });
 
   it('waits for a runner once drafted, and gives up after a while', () => {
@@ -121,15 +136,15 @@ describe('ChangeStack check', () => {
   it('keeps what each layer’s check found', () => {
     const checked = ready().recordCheck(
       [
-        passed('whole'),
-        passed('c1.l1'),
+        passed(WHOLE_STEP),
+        passed(LayerId.of('c1.l1')),
         {
-          step: 'c1.l2',
+          step: LayerId.of('c1.l2'),
           passed: false,
           output: 'x'.repeat(20_000),
           tookMs: 9.6,
         },
-        passed('c2.l1'),
+        passed(LayerId.of('c2.l1')),
       ],
       LATER,
     );
@@ -149,7 +164,7 @@ describe('ChangeStack check', () => {
 
   it('judges no layer where the finished change itself fails', () => {
     const checked = ready().recordCheck(
-      [{ step: 'whole', passed: false, output: 'error TS2304', tookMs: 1 }],
+      [{ step: WHOLE_STEP, passed: false, output: 'error TS2304', tookMs: 1 }],
       LATER,
     );
 
@@ -170,7 +185,7 @@ describe('ChangeStack check', () => {
       repository: null,
       diff: DIFF,
       facts: StackFacts.none(),
-      check: 'go build ./...',
+      check: StackCheck.named('go build ./...'),
       now: NOW,
     }).propose(
       [
@@ -188,7 +203,10 @@ describe('ChangeStack check', () => {
     ]);
     expect(
       single
-        .recordCheck([passed('whole', 'ok'), passed('c1.l1')], LATER)
+        .recordCheck(
+          [passed(WHOLE_STEP, 'ok'), passed(LayerId.of('c1.l1'))],
+          LATER,
+        )
         .check?.outcome?.layers.map((each) => [each.step, each.output]),
     ).toEqual([
       ['c1.l1', ''],
@@ -197,13 +215,13 @@ describe('ChangeStack check', () => {
   });
 
   it('refuses steps the stack does not have, a missing whole, and a second report', () => {
-    expect(() => ready().recordCheck([passed('c9.l1')], LATER)).toThrow(
-      InvalidChangeStackError,
-    );
+    expect(() =>
+      ready().recordCheck([passed(LayerId.of('c9.l1'))], LATER),
+    ).toThrow(InvalidChangeStackError);
 
-    const checked = ready().recordCheck([passed('whole')], LATER);
+    const checked = ready().recordCheck([passed(WHOLE_STEP)], LATER);
 
-    expect(() => checked.recordCheck([passed('whole')], LATER)).toThrow(
+    expect(() => checked.recordCheck([passed(WHOLE_STEP)], LATER)).toThrow(
       InvalidChangeStackError,
     );
     expect(() => checked.skipCheck('again', LATER)).toThrow(
@@ -223,10 +241,15 @@ describe('ChangeStack reordering after its check', () => {
   const failing = () =>
     ready().recordCheck(
       [
-        passed('whole'),
-        passed('c1.l1'),
-        { step: 'c1.l2', passed: false, output: 'error TS2304', tookMs: 1 },
-        passed('c2.l1'),
+        passed(WHOLE_STEP),
+        passed(LayerId.of('c1.l1')),
+        {
+          step: LayerId.of('c1.l2'),
+          passed: false,
+          output: 'error TS2304',
+          tookMs: 1,
+        },
+        passed(LayerId.of('c2.l1')),
       ],
       LATER,
     );
@@ -239,7 +262,12 @@ describe('ChangeStack reordering after its check', () => {
     expect(kinds(failing())).toEqual(['change-stack.layers-failed-check']);
 
     const built = ready().recordCheck(
-      [passed('whole'), passed('c1.l1'), passed('c1.l2'), passed('c2.l1')],
+      [
+        passed(WHOLE_STEP),
+        passed(LayerId.of('c1.l1')),
+        passed(LayerId.of('c1.l2')),
+        passed(LayerId.of('c2.l1')),
+      ],
       LATER,
     );
     expect(built.check?.reordering).toBe(false);
@@ -247,7 +275,7 @@ describe('ChangeStack reordering after its check', () => {
 
     expect(
       ready().recordCheck(
-        [{ step: 'whole', passed: false, output: 'x', tookMs: 1 }],
+        [{ step: WHOLE_STEP, passed: false, output: 'x', tookMs: 1 }],
         LATER,
       ).check?.reordering,
     ).toBe(false);
@@ -257,7 +285,7 @@ describe('ChangeStack reordering after its check', () => {
     const reordering = failing();
 
     expect(reordering.checkStateAt(LATER)).toBe('waiting');
-    expect(() => reordering.recordCheck([passed('whole')], LATER)).toThrow(
+    expect(() => reordering.recordCheck([passed(WHOLE_STEP)], LATER)).toThrow(
       InvalidChangeStackError,
     );
   });
@@ -268,15 +296,14 @@ describe('ChangeStack reordering after its check', () => {
 
     const reordered = failed.reordered(
       [
-        cohort('Invitations', [['h1', 'h2', 'h3']]),
+        cohort('Invitations', [['h1', 'h3'], ['h2']]),
         cohort('Docs', [['h5']]),
         cohort('Lockfile', [['h4']], 'incidental'),
       ],
       LATER,
-      false,
     );
 
-    expect(reordered.cohorts[0]?.layers).toHaveLength(1);
+    expect(reordered.cohorts[0]?.layers).toHaveLength(2);
     expect(reordered.check).toMatchObject({
       rounds: 1,
       phase: 'waiting',
@@ -287,8 +314,8 @@ describe('ChangeStack reordering after its check', () => {
 
     const again = reordered.recordCheck(
       [
-        passed('whole'),
-        { step: 'c2.l1', passed: false, output: 'x', tookMs: 1 },
+        passed(WHOLE_STEP),
+        { step: LayerId.of('c2.l1'), passed: false, output: 'x', tookMs: 1 },
       ],
       LATER,
     );
@@ -296,7 +323,7 @@ describe('ChangeStack reordering after its check', () => {
     expect(kinds(again)).toEqual(['change-stack.checked']);
   });
 
-  it('refuses joining layers on a strict attempt, and takes moved changes', () => {
+  it('refuses joining layers, and takes moved changes', () => {
     const joined = () =>
       failing().reordered(
         [
@@ -305,7 +332,6 @@ describe('ChangeStack reordering after its check', () => {
           cohort('Lockfile', [['h4']], 'incidental'),
         ],
         LATER,
-        true,
       );
 
     expect(joined).toThrow('joins layers, leaving 2 where there were 3');
@@ -317,7 +343,6 @@ describe('ChangeStack reordering after its check', () => {
         cohort('Lockfile', [['h4']], 'incidental'),
       ],
       LATER,
-      true,
     );
 
     expect(
@@ -349,11 +374,11 @@ describe('ChangeStack reordering after its check', () => {
       repository: null,
       diff: DIFF,
       facts: StackFacts.none(),
-      check: 'npx tsc --noEmit',
+      check: StackCheck.named('npx tsc --noEmit'),
       now: NOW,
     })
       .propose([cohort('All', [['h1', 'h2', 'h3', 'h4', 'h5']])], LATER)
-      .recordCheck([passed('whole')], LATER);
+      .recordCheck([passed(WHOLE_STEP)], LATER);
 
     expect(kinds(stack)).toEqual([
       'change-stack.drafting-began',

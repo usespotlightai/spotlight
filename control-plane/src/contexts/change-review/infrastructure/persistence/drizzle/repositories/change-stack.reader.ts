@@ -8,10 +8,15 @@ import type {
   RunStackChecks,
 } from '@change-review/application/ports/change-stack-reader.port';
 import { checkStepsOf } from '@change-review/domain/services/check-steps';
-import { Diff, tallyOf } from '@change-review/domain/value-objects/diff.vo';
-import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
+import { tallyOf } from '@change-review/domain/value-objects/diff.vo';
 import type { StackProgress } from '@change-review/domain/value-objects/stack-progress.vo';
-import { progressOf } from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.repository';
+import {
+  cohortsOf,
+  diffOf,
+  factsOf,
+  progressOf,
+  checkOf as storedCheckOf,
+} from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.mapping';
 import { changeStack } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -72,7 +77,7 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
       return null;
     }
 
-    const tally = tallyOf(row.files);
+    const tally = tallyOf(diffOf(row.files).files);
 
     return {
       id: row.id,
@@ -157,10 +162,10 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
         command: plan.check?.command ?? '',
         files: plan.files,
         steps: checkStepsOf({
-          hunks: Diff.rehydrate(plan.files).hunks.map((hunk) => hunk.id),
-          facts: StackFacts.of(plan.facts),
-          cohorts: plan.cohorts,
-          entries: plan.check?.entries ?? [],
+          hunks: diffOf(plan.files).hunks.map((hunk) => hunk.id),
+          facts: factsOf(plan.facts),
+          cohorts: cohortsOf(plan.cohorts),
+          entries: storedCheckOf(plan.check)?.entries ?? [],
         }),
       })),
     };

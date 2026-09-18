@@ -33,7 +33,7 @@ export class SubmitReviewHandler
 
       return await this.transaction.run(async () => {
         const drafts = await this.comments.draftsBy(task.id, by);
-        const review = Review.submit({
+        const { review, claimed } = Review.submit({
           id: ReviewId.of(this.ids.generate()),
           workspaceId: task.workspaceId,
           taskId: task.id,
@@ -44,8 +44,8 @@ export class SubmitReviewHandler
           now: this.clock.now(),
         });
 
-        for (const draft of drafts) {
-          await this.comments.save(draft.submittedIn(review.id));
+        for (const comment of claimed) {
+          await this.comments.save(comment);
         }
         await this.reviews.add(review);
 

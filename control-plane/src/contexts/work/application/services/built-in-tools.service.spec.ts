@@ -12,7 +12,6 @@ import {
 } from '@work/application/services/built-in-tools.service';
 import {
   builtInTool,
-  CHANGE_STACK,
   PROPOSE_TASK,
   PULL_REQUEST,
 } from '@work/domain/services/built-in-tools';
@@ -28,7 +27,6 @@ const ON_TASK: TaskToolContext = {
   workspaceId: WorkspaceId.of('ws_1'),
   taskId: TaskId.of('task_1'),
   stationId: StationId.of('station_1'),
-  stationCheck: null,
 };
 
 const IN_CHAT: ChatToolContext = {
@@ -52,11 +50,6 @@ const proposing: BuiltInToolUse<ChatToolContext> = {
   call: async () => 'proposed',
 };
 
-const stacking: BuiltInToolUse<TaskToolContext> = {
-  tool: CHANGE_STACK,
-  call: async () => 'drafting',
-};
-
 describe('BuiltInTools', () => {
   it('will not start with a tool Spotlight declares and nothing uses', () => {
     expect(() => new BuiltInTools([answering])).toThrow(
@@ -65,7 +58,7 @@ describe('BuiltInTools', () => {
   });
 
   it('reaches a tool of Spotlight’s own, as it is declared, calling its use for the run', async () => {
-    const reached = new BuiltInTools([answering, proposing, stacking]).reach(
+    const reached = new BuiltInTools([answering, proposing]).reach(
       PULL_REQUEST,
       ON_TASK,
     );
@@ -82,7 +75,7 @@ describe('BuiltInTools', () => {
   });
 
   it('reaches a tool only for the kind of work it is made for', () => {
-    const tools = new BuiltInTools([answering, proposing, stacking]);
+    const tools = new BuiltInTools([answering, proposing]);
 
     expect(tools.reach(PULL_REQUEST, IN_CHAT)).toBeNull();
     expect(tools.reach(PROPOSE_TASK, ON_TASK)).toBeNull();
@@ -90,7 +83,7 @@ describe('BuiltInTools', () => {
   });
 
   it('reaches nothing Spotlight does not declare', () => {
-    const tools = new BuiltInTools([answering, proposing, stacking]);
+    const tools = new BuiltInTools([answering, proposing]);
 
     expect(tools.reach(Tool.of('teleport'), ON_TASK)).toBeNull();
     expect(tools.reach(Tool.of('linear.comment'), ON_TASK)).toBeNull();

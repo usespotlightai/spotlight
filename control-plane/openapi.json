@@ -3314,6 +3314,47 @@
         ]
       }
     },
+    "/runs/{runId}/change-stacks": {
+      "post": {
+        "description": "A station that says it wants changes has its runs drafted into a change stack: the runner hands over the diff of each checkout.",
+        "operationId": "draftChangeStack",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DraftChangeStackRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing or wrong enrollment token"
+          },
+          "404": {
+            "description": "Not a run this runner worked"
+          }
+        },
+        "summary": "Hand over what a run changed, to be drafted into a change stack",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
     "/runs/{runId}/change-stack-checks": {
       "get": {
         "description": "Each check is the command the agent named, to run on the whole change and then on every layer with the layers before it.",
@@ -7497,6 +7538,24 @@
         },
         "required": [
           "latest"
+        ]
+      },
+      "DraftChangeStackRequestDto": {
+        "type": "object",
+        "properties": {
+          "diff": {
+            "type": "string",
+            "description": "The changes, as the output of git diff"
+          },
+          "repository": {
+            "type": "object",
+            "nullable": true,
+            "description": "Which checkout the changes are from"
+          }
+        },
+        "required": [
+          "diff",
+          "repository"
         ]
       },
       "ChangeStackCheckStepResponseDto": {

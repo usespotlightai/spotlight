@@ -70,6 +70,10 @@ export const arranged = (
   const leaving = new Set(incidental.map((each) => each.hunk));
 
   const cohorts = proposed.flatMap((cohort) => {
+    if (cohort.layers.length === 0) {
+      return [cohort];
+    }
+
     const kept = withoutHunks(diff, cohort, leaving);
     return kept ? [kept] : [];
   });

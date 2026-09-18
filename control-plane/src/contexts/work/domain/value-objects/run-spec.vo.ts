@@ -59,6 +59,7 @@ export interface RunSpecParts {
   readonly skills?: readonly RunSkillFile[];
   readonly manifest?: readonly RunToolManifest[];
   readonly attachments?: readonly RunAttachment[];
+  readonly diffs?: boolean;
 }
 
 const outside = (path: string): boolean =>
@@ -117,6 +118,7 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
   ...(parts.attachments
     ? { attachments: parts.attachments.map(({ id, path }) => ({ id, path })) }
     : {}),
+  ...(parts.diffs === undefined ? {} : { diffs: parts.diffs }),
 });
 
 const samePart = (a: unknown, b: unknown): boolean => {

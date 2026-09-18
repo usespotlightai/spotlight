@@ -1,15 +1,16 @@
 import type { PeoplePort } from '@change-review/application/ports/people.port';
+import type {
+  ReviewedTask,
+  WorkPort,
+} from '@change-review/application/ports/work.port';
 import type { ReviewCommentAuthor } from '@change-review/domain/aggregates/review-comment.aggregate';
 import { UnknownReviewError } from '@change-review/domain/exceptions/unknown-review.error';
+import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import type {
-  TaskLookup,
-  WorkLookupPort,
-} from '@work/application/ports/work-lookup.port';
 
 export interface Reviewing {
-  readonly task: TaskLookup;
+  readonly task: ReviewedTask;
   readonly by: UserId;
   readonly author: ReviewCommentAuthor;
 }
@@ -17,7 +18,7 @@ export interface Reviewing {
 export class ReviewAccess {
   constructor(
     private readonly people: PeoplePort,
-    private readonly work: WorkLookupPort,
+    private readonly work: WorkPort,
   ) {}
 
   async ofRun(
@@ -46,7 +47,7 @@ export class ReviewAccess {
       author: {
         userId: member.by,
         login: null,
-        name: person?.name ?? 'Someone',
+        name: AuthorName.of(person?.name ?? null),
       },
     };
   }

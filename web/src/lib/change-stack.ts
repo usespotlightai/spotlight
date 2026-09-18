@@ -106,6 +106,18 @@ export const layerTallyOf = (
 ): { added: number; removed: number } =>
   tallyOf(files.flatMap((placed) => placed.hunks));
 
+export const cohortTallyOf = (
+  stack: ChangeStack,
+  cohort: StackCohort,
+): { files: number; added: number; removed: number } => {
+  const placed = cohort.layers.flatMap((layer) => filesOf(stack, layer));
+
+  return {
+    files: new Set(placed.map((each) => each.file.path)).size,
+    ...layerTallyOf(placed),
+  };
+};
+
 export const linesOf = (hunks: readonly DiffHunk[]): number =>
   hunks.reduce((rows, hunk) => rows + hunk.patch.split('\n').length, 0);
 

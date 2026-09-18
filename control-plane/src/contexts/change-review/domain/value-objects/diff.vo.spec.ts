@@ -3,6 +3,7 @@ import {
   Diff,
   type DiffFile,
 } from '@change-review/domain/value-objects/diff.vo';
+import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { describe, expect, it } from 'vitest';
 
 const file = (path: string, ...ids: string[]): DiffFile => ({
@@ -11,7 +12,7 @@ const file = (path: string, ...ids: string[]): DiffFile => ({
   status: 'modified',
   binary: false,
   hunks: ids.map((id) => ({
-    id,
+    id: HunkId.of(id),
     oldStart: 1,
     oldLines: 1,
     newStart: 1,
@@ -40,7 +41,7 @@ describe('Diff', () => {
   it('equals a diff of the same files and hunks', () => {
     const diff = Diff.of([file('a.ts', 'h1')]);
 
-    expect(diff.equals(Diff.rehydrate([file('a.ts', 'h1')]))).toBe(true);
+    expect(diff.equals(Diff.of([file('a.ts', 'h1')]))).toBe(true);
     expect(diff.equals(Diff.of([file('b.ts', 'h1')]))).toBe(false);
   });
 });

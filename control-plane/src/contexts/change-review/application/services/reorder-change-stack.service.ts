@@ -4,7 +4,7 @@ import {
   InvalidChangeStackError,
   type StackProblem,
 } from '@change-review/domain/exceptions/invalid-change-stack.error';
-import { arranged } from '@change-review/domain/services/arrange-stack';
+import { revisionOf } from '@change-review/domain/services/stack-revision';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 
@@ -31,15 +31,11 @@ export class ReorderChangeStack {
         repository: stack.repository,
         facts,
         problems,
-        reordering: stack,
+        reordering: revisionOf(stack),
       });
 
       try {
-        return stack.reordered(
-          arranged(diff, facts, cohorts),
-          this.clock.now(),
-          attempt < ATTEMPTS,
-        );
+        return stack.reordered(cohorts, this.clock.now());
       } catch (error) {
         if (!(error instanceof InvalidChangeStackError)) {
           throw error;

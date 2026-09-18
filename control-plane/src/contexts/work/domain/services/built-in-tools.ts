@@ -15,8 +15,6 @@ export const PULL_REQUEST = Tool.of('pull-request');
 
 export const PROPOSE_TASK = Tool.of('propose-task');
 
-export const CHANGE_STACK = Tool.of('change-stack');
-
 export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
   {
     worksOn: 'task',
@@ -93,34 +91,6 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
           required: false,
           defaulted: false,
           piped: true,
-        },
-      ],
-    }),
-  },
-  {
-    worksOn: 'task',
-    skill: null,
-    declared: DeclaredTool.of({
-      tool: CHANGE_STACK,
-      description:
-        'Draft a change stack: the changes this run made, grouped and ordered so a reviewer can follow them.',
-      inputs: [
-        {
-          name: 'diff',
-          type: 'string',
-          description: 'The changes, as the output of git diff',
-          required: true,
-          defaulted: false,
-          piped: true,
-        },
-        {
-          name: 'repository',
-          type: 'string',
-          description:
-            'Which of the line’s repositories the diff is from, where it works several',
-          required: false,
-          defaulted: false,
-          piped: false,
         },
       ],
     }),

@@ -8,6 +8,7 @@ import type {
   DiffFile,
   DiffHunk,
 } from '@change-review/domain/value-objects/diff.vo';
+import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
 
 export const FILE_CLASSES = [
   'lockfile',
@@ -27,7 +28,7 @@ export const LINK_KINDS = ['uses', 'tests', 'moves'] as const;
 export type LinkKind = (typeof LINK_KINDS)[number];
 
 export interface HunkFacts {
-  readonly hunk: string;
+  readonly hunk: HunkId;
   readonly path: string;
   readonly fileClass: FileClass;
   readonly incidental: boolean;
@@ -40,8 +41,8 @@ export interface HunkFacts {
 
 export interface HunkLink {
   readonly kind: LinkKind;
-  readonly from: string;
-  readonly to: string;
+  readonly from: HunkId;
+  readonly to: HunkId;
   readonly because: readonly string[];
 }
 
@@ -181,7 +182,7 @@ export const factsOf = (
   });
 
   const known = new Map(hunks.map((each) => [each.hunk, each]));
-  const definers = new Map<string, string[]>();
+  const definers = new Map<string, HunkId[]>();
 
   for (const each of hunks) {
     for (const symbol of each.defines.filter((name) => !/\s/.test(name))) {
@@ -191,10 +192,10 @@ export const factsOf = (
 
   const linked = new Map<
     string,
-    { kind: LinkKind; from: string; to: string; because: Set<string> }
+    { kind: LinkKind; from: HunkId; to: HunkId; because: Set<string> }
   >();
 
-  const link = (kind: LinkKind, from: string, to: string, because: string) => {
+  const link = (kind: LinkKind, from: HunkId, to: HunkId, because: string) => {
     const key = `${kind}:${from}>${to}`;
     const held = linked.get(key) ?? {
       kind,

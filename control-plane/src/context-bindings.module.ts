@@ -6,6 +6,6 @@ import { Global, Module } from '@nestjs/common';
 @Global()
 @Module({
   imports: [ConfigurationModule, ChangeReviewModule, IntegrationsModule],
-  exports: [ConfigurationModule, ChangeReviewModule, IntegrationsModule],
+  exports: [ConfigurationModule, IntegrationsModule],
 })
 export class ContextBindingsModule {}

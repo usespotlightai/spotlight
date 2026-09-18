@@ -6,6 +6,7 @@ import { ReviewComment } from '@change-review/domain/aggregates/review-comment.a
 import { ChangedSinceReadError } from '@change-review/domain/exceptions/changed-since-read.error';
 import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
+import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
@@ -26,7 +27,7 @@ const draft = (id: string) =>
     taskId: TASK,
     anchor: ReviewAnchor.of({ path: 'src/a.ts', side: 'new', line: 3 }),
     body: 'About line 3',
-    author: { userId: ADA, login: null, name: 'Ada' },
+    author: { userId: ADA, login: null, name: AuthorName.of('Ada') },
     now: NOW,
   });
 

@@ -176,6 +176,25 @@ describe('RunChangeStack', () => {
       ).toBeInTheDocument();
     });
 
+    it('keeps a cohort’s intent for a hover, not the sidebar', async () => {
+      renderAt();
+
+      const nav = screen.getByRole('navigation', { name: 'Change stack' });
+      const cohort = within(nav).getByRole('region', {
+        name: 'Team invitations',
+      });
+
+      expect(cohort).not.toHaveTextContent('Let admins invite people');
+
+      await userEvent.hover(
+        within(cohort).getByRole('button', { name: /Team invitations/ }),
+      );
+
+      expect(
+        await screen.findByText(/Let admins invite people/),
+      ).toBeInTheDocument();
+    });
+
     it('folds a cohort away and back', async () => {
       renderAt();
 
@@ -271,6 +290,34 @@ describe('RunChangeStack', () => {
           screen.getByRole('region', { name: 'Files in this layer' }),
         ).getAllByRole('button', { expanded: false }).length,
       ).toBeGreaterThan(0);
+    });
+
+    it('folds each layer afresh, though the pane stays put', async () => {
+      renderAt('?layer=c1.l2');
+
+      const sidebar = () =>
+        within(screen.getByRole('navigation', { name: 'Change stack' }));
+      const controller = () =>
+        screen.getByRole('button', { name: /invitation\.controller\.ts/ });
+
+      await userEvent.click(controller());
+      expect(controller()).toHaveAttribute('aria-expanded', 'false');
+
+      await userEvent.click(
+        sidebar().getByRole('button', { name: /Update the lockfile/ }),
+      );
+      expect(
+        within(
+          screen.getByRole('region', { name: 'Files in this layer' }),
+        ).getAllByRole('button', { expanded: false }).length,
+      ).toBeGreaterThan(0);
+
+      await userEvent.click(
+        sidebar().getByRole('button', {
+          name: /Add the invitation API and emails/,
+        }),
+      );
+      expect(controller()).toHaveAttribute('aria-expanded', 'true');
     });
 
     it('moves to another layer when one is picked', async () => {

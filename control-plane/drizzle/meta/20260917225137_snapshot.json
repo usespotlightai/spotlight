@@ -1,5 +1,5 @@
 {
-  "id": "1fcd0c04-53c1-4e40-9129-6cfc0e154637",
+  "id": "8fa440fd-94b8-4437-9ab9-f13c3606710a",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -3055,6 +3055,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "diffs": {
+          "name": "diffs",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "created_at": {
           "name": "created_at",

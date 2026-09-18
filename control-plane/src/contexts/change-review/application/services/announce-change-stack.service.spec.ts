@@ -3,6 +3,7 @@ import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggre
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
+import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import type { StandingComment } from '@github/application/ports/pull-request-comments.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -28,7 +29,7 @@ const ready = () =>
         binary: false,
         hunks: [
           {
-            id: 'h1',
+            id: HunkId.of('h1'),
             oldStart: 1,
             oldLines: 1,
             newStart: 1,
@@ -51,7 +52,7 @@ const ready = () =>
             title: 'Add labels',
             summary: 'Labels',
             dependsOn: [],
-            ranges: [{ hunk: 'h1' }],
+            ranges: [{ hunk: HunkId.of('h1') }],
             notes: [{ path: 'a.ts', note: 'Adds labels' }],
           },
         ],
@@ -84,7 +85,7 @@ const announcing = (
         return {
           id: stack.id.value,
           runId: stack.runId.value,
-          repository: stack.repository,
+          repository: stack.repository?.value ?? null,
           state: stack.state,
           cohorts: stack.cohorts,
           check: null,
@@ -109,6 +110,7 @@ const announcing = (
           id: RunId.of('run-1'),
           workspaceId: WorkspaceId.of('workspace-1'),
           taskId: TaskId.of('task-1'),
+          check: null,
         };
       },
       wasWorkedBy: async () => true,

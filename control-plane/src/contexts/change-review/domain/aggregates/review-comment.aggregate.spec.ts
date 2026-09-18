@@ -1,6 +1,7 @@
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
 import { InvalidReviewError } from '@change-review/domain/exceptions/invalid-review.error';
 import { NotYourReviewCommentError } from '@change-review/domain/exceptions/not-your-review-comment.error';
+import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
@@ -26,7 +27,7 @@ const drafted = (body = 'Should this expire?') =>
     taskId: TaskId.of('task_1'),
     anchor: ANCHOR,
     body,
-    author: { userId: ADA, login: 'ada', name: 'Ada' },
+    author: { userId: ADA, login: 'ada', name: AuthorName.of('Ada') },
     now: NOW,
   });
 
@@ -82,7 +83,7 @@ describe('ReviewComment', () => {
     const reply = posted.replied({
       id: ReviewCommentId.of('comment_2'),
       body: 'Yes, after a week',
-      author: { userId: BOB, login: null, name: 'Bob' },
+      author: { userId: BOB, login: null, name: AuthorName.of('Bob') },
       now: NOW,
     });
 
@@ -93,7 +94,7 @@ describe('ReviewComment', () => {
     const second = reply.replied({
       id: ReviewCommentId.of('comment_3'),
       body: 'Good',
-      author: { userId: ADA, login: 'ada', name: 'Ada' },
+      author: { userId: ADA, login: 'ada', name: AuthorName.of('Ada') },
       now: NOW,
     });
 
@@ -119,7 +120,7 @@ describe('ReviewComment', () => {
     const reply = posted.replied({
       id: ReviewCommentId.of('comment_2'),
       body: 'Yes',
-      author: { userId: BOB, login: null, name: 'Bob' },
+      author: { userId: BOB, login: null, name: AuthorName.of('Bob') },
       now: NOW,
     });
     const rewritten = posted.rewritten('Better', ADA, NOW);
@@ -242,7 +243,7 @@ describe('ReviewComment', () => {
       drafted().replied({
         id: ReviewCommentId.of('comment_2'),
         body: 'Hm',
-        author: { userId: BOB, login: null, name: 'Bob' },
+        author: { userId: BOB, login: null, name: AuthorName.of('Bob') },
         now: NOW,
       }),
     ).toThrow(InvalidReviewError);
@@ -266,7 +267,11 @@ describe('ReviewComment', () => {
       taskId: TaskId.of('task_1'),
       anchor: ANCHOR,
       body: 'From GitHub',
-      author: { userId: null, login: 'octocat', name: 'octocat' },
+      author: {
+        userId: null,
+        login: 'octocat',
+        name: AuthorName.of('octocat'),
+      },
       replyTo: null,
       github: { id: 7, url: 'https://github.com/c/7' },
       at: NOW,
@@ -366,7 +371,7 @@ describe('ReviewComment', () => {
       .replied({
         id: ReviewCommentId.of('comment_2'),
         body: 'Yes',
-        author: { userId: BOB, login: null, name: 'Bob' },
+        author: { userId: BOB, login: null, name: AuthorName.of('Bob') },
         now: NOW,
       })
       .notPosted();

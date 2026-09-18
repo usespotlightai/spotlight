@@ -37,6 +37,7 @@ export interface StationPlan {
   readonly effort: Effort | null;
   readonly agentPrompt: AgentPrompt | null;
   readonly check: StationCheck | null;
+  readonly diffs: boolean;
   readonly tools: readonly Tool[];
   readonly skills: readonly SkillKey[];
   readonly passesTo: readonly StationKey[];

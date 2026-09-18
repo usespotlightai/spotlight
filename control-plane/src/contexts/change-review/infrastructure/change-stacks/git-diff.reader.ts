@@ -6,25 +6,13 @@ import type {
 import { InvalidDiffError } from '@change-review/domain/exceptions/invalid-diff.error';
 import type { SourceSide } from '@change-review/domain/services/symbol-index';
 import {
+  cutInto,
   Diff,
-  type DiffFile,
   type DiffFileStatus,
-  type DiffHunk,
   HUNK_HEADER,
   patchRowsOf,
+  type UnnamedFile,
 } from '@change-review/domain/value-objects/diff.vo';
-
-export const MOST_DIFF_LENGTH = 6 * 1024 * 1024;
-
-export const CONTEXT_LINES = 3;
-
-interface CutHunk {
-  readonly oldStart: number;
-  readonly oldLines: number;
-  readonly newStart: number;
-  readonly newLines: number;
-  readonly patch: string;
-}
 
 interface OpenFile {
   path: string | null;
@@ -66,52 +54,6 @@ const headerPaths = (line: string): { old: string; new: string } | null => {
         new: unquoted(rest.slice(split + 3)),
       }
     : null;
-};
-
-const cut = (header: string, lines: readonly string[]): CutHunk[] => {
-  const rows = patchRowsOf(header, lines);
-  const changed = rows.flatMap((row, at) => (row.sign === ' ' ? [] : [at]));
-
-  if (changed.length === 0) {
-    return [];
-  }
-
-  const groups: [number, number][] = [];
-
-  for (const at of changed) {
-    const open = groups[groups.length - 1];
-
-    if (open && at - open[1] - 1 <= 2 * CONTEXT_LINES) {
-      open[1] = at;
-    } else {
-      groups.push([at, at]);
-    }
-  }
-
-  const trailer = header.replace(HUNK_HEADER, '');
-
-  return groups.map(([first, last], place) => {
-    const from = Math.max(0, first - CONTEXT_LINES);
-    const to = Math.min(rows.length - 1, last + CONTEXT_LINES);
-    const slice = rows.slice(from, to + 1);
-    const oldLines = slice.filter((row) => row.sign !== '+').length;
-    const newLines = slice.filter((row) => row.sign !== '-').length;
-    const start = slice[0] ?? rows[0];
-    const oldStart = (start?.old ?? 0) + (oldLines > 0 ? 1 : 0);
-    const newStart = (start?.new ?? 0) + (newLines > 0 ? 1 : 0);
-    const whole = from === 0 && to === rows.length - 1;
-    const written = whole
-      ? header
-      : `@@ -${oldStart},${oldLines} +${newStart},${newLines} @@${place === 0 ? trailer : ''}`;
-
-    return {
-      oldStart,
-      oldLines,
-      newStart,
-      newLines,
-      patch: [written, ...slice.flatMap((row) => row.lines)].join('\n'),
-    };
-  });
 };
 
 const sourcesOf = (
@@ -220,13 +162,7 @@ const filesIn = (text: string): OpenFile[] => {
 
 export class GitDiffReader implements DiffReaderPort {
   read(text: string): ReadDiff {
-    if (text.length > MOST_DIFF_LENGTH) {
-      throw new InvalidDiffError(
-        `is at most ${MOST_DIFF_LENGTH / 1024 / 1024} MiB`,
-      );
-    }
-
-    const files = filesIn(text);
+    const files = filesIn(Diff.readable(text));
 
     if (files.length === 0) {
       throw new InvalidDiffError(
@@ -234,10 +170,9 @@ export class GitDiffReader implements DiffReaderPort {
       );
     }
 
-    let counted = 0;
     const sources: DiffSource[] = [];
 
-    const parsed = files.map((file): DiffFile => {
+    const parsed = files.map((file): UnnamedFile => {
       const oldPath = file.oldPath ?? file.headerPaths?.old ?? null;
       const newPath = file.newPath ?? file.headerPaths?.new ?? null;
       const path = file.deleted ? oldPath : (newPath ?? oldPath);
@@ -254,16 +189,13 @@ export class GitDiffReader implements DiffReaderPort {
             ? 'renamed'
             : 'modified';
 
-      const cuts = file.hunks.flatMap((hunk) => cut(hunk.header, hunk.lines));
-      const hunks = (
+      const cuts = file.hunks.flatMap((hunk) =>
+        cutInto(hunk.header, hunk.lines),
+      );
+      const hunks =
         cuts.length > 0
           ? cuts
-          : [{ oldStart: 0, oldLines: 0, newStart: 0, newLines: 0, patch: '' }]
-      ).map((hunk): DiffHunk => {
-        counted += 1;
-
-        return { id: `h${counted}`, ...hunk };
-      });
+          : [{ oldStart: 0, oldLines: 0, newStart: 0, newLines: 0, patch: '' }];
 
       sources.push(
         ...sourcesOf(
@@ -282,6 +214,6 @@ export class GitDiffReader implements DiffReaderPort {
       };
     });
 
-    return { diff: Diff.of(parsed), sources };
+    return { diff: Diff.from(parsed), sources };
   }
 }

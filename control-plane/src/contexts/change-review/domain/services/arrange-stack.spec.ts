@@ -11,6 +11,7 @@ import type {
   ProposedCohort,
   ProposedLayer,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
+import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { describe, expect, it } from 'vitest';
 
 const file = (id: string, path: string, line: string): DiffFile => ({
@@ -20,7 +21,7 @@ const file = (id: string, path: string, line: string): DiffFile => ({
   binary: false,
   hunks: [
     {
-      id,
+      id: HunkId.of(id),
       oldStart: 1,
       oldLines: 1,
       newStart: 1,
@@ -75,7 +76,7 @@ const layer = (
   title,
   summary: title,
   dependsOn,
-  ranges: hunks.map((hunk) => ({ hunk })),
+  ranges: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
   notes: hunks.map((hunk) => ({
     path: DIFF.fileOf(hunk)?.path ?? hunk,
     note: `Why ${title} changes`,

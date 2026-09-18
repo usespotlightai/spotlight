@@ -1,13 +1,14 @@
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
-import { arranged } from '@change-review/domain/services/arrange-stack';
 import { generatedEntries } from '@change-review/domain/services/generated-entries';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import {
   Diff,
   type DiffFile,
 } from '@change-review/domain/value-objects/diff.vo';
+import { StackCheck } from '@change-review/domain/value-objects/stack-check.vo';
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
+import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -33,7 +34,7 @@ const changed = (path: string, at: number): DiffFile => ({
   binary: false,
   hunks: [
     {
-      id: `h${at + 1}`,
+      id: HunkId.at(at + 1),
       oldStart: 1,
       oldLines: 1,
       newStart: 1,
@@ -61,7 +62,7 @@ const COHORTS: ProposedCohort[] = [
       title: `Layer ${at + 1}`,
       summary: `Layer ${at + 1}`,
       dependsOn: [],
-      ranges: hunks.map((hunk) => ({ hunk })),
+      ranges: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
       notes: hunks.map((hunk) => ({
         path: DIFF.fileOf(hunk)?.path ?? hunk,
         note: 'Why it changes',
@@ -76,7 +77,7 @@ const factsWith = (imports: typeof IMPORTS) =>
       const generated = GENERATED.has(path);
 
       return {
-        hunk: `h${at + 1}`,
+        hunk: HunkId.at(at + 1),
         path,
         fileClass: generated ? 'generated' : 'source',
         incidental: generated,
@@ -102,18 +103,14 @@ const ready = () =>
     repository: null,
     diff: DIFF,
     facts,
-    check: 'npx tsc -b',
+    check: StackCheck.named('npx tsc -b'),
     now: new Date('2026-09-16T10:00:00Z'),
-  }).propose(
-    arranged(DIFF, facts, COHORTS),
-    new Date('2026-09-16T10:01:00Z'),
-    false,
-  );
+  }).propose(COHORTS, new Date('2026-09-16T10:01:00Z'));
 
 describe('generatedEntries', () => {
   it('lets a generated file in with the earliest layer that reaches it through imports', () => {
     expect(generatedEntries(DIFF, ready().cohorts, facts)).toEqual([
-      { hunk: 'h2', layer: 'c1.l2' },
+      { hunk: HunkId.of('h2'), layer: 'c1.l2' },
     ]);
   });
 

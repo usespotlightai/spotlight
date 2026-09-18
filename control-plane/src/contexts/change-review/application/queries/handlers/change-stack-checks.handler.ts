@@ -1,21 +1,21 @@
 import type { ChangeStackChecksDto } from '@change-review/application/dto/change-stack-check.dto';
+import { diffFrom } from '@change-review/application/mappers/change-stack.from-dto';
 import type { ChangeStackReaderPort } from '@change-review/application/ports/change-stack-reader.port';
 import type { PatchWriterPort } from '@change-review/application/ports/patch-writer.port';
+import type { WorkPort } from '@change-review/application/ports/work.port';
 import type { ChangeStackChecksQuery } from '@change-review/application/queries/change-stack-checks.query';
-import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import type { WorkLookupPort } from '@work/application/ports/work-lookup.port';
 
 export class ChangeStackChecksHandler
   implements
     QueryHandlerPort<ChangeStackChecksQuery, ChangeStackChecksDto | null>
 {
   constructor(
-    private readonly work: WorkLookupPort,
+    private readonly work: WorkPort,
     private readonly stacks: ChangeStackReaderPort,
     private readonly clock: ClockPort,
     private readonly patches: PatchWriterPort,
@@ -39,7 +39,7 @@ export class ChangeStackChecksHandler
       return {
         waiting,
         checks: checks.map((check) => {
-          const diff = Diff.rehydrate(check.files);
+          const diff = diffFrom(check.files);
 
           return {
             stackId: check.stackId,

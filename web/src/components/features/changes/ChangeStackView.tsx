@@ -3,6 +3,7 @@ import { LayerDetail } from '@/components/features/changes/LayerDetail';
 import { StackNavCohort } from '@/components/features/changes/StackNavCohort';
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
+import { usePreloadedLanguages } from '@/hooks/usePreloadedLanguages';
 import { type ChangeStack, layerAt } from '@/lib/change-stack';
 
 export const STACK_NAV_PANE = {
@@ -28,6 +29,8 @@ export function ChangeStackView({
   const reading = useRef<HTMLDivElement>(null);
   const nav = usePaneWidth<HTMLDivElement>(STACK_NAV_PANE);
   const shown = located?.layer.id;
+
+  usePreloadedLanguages(stack.files.map((file) => file.path));
 
   useEffect(() => {
     if (shown && reading.current) {
@@ -62,12 +65,7 @@ export function ChangeStackView({
 
       <div ref={reading} className="min-w-0 flex-1 overflow-y-auto">
         {located && (
-          <LayerDetail
-            key={located.layer.id}
-            stack={stack}
-            located={located}
-            onPick={onPick}
-          />
+          <LayerDetail stack={stack} located={located} onPick={onPick} />
         )}
       </div>
     </div>

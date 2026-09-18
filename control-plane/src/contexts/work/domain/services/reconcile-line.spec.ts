@@ -46,6 +46,7 @@ const station = (
   effort: null,
   agentPrompt: null,
   check: null,
+  diffs: false,
   tools: [],
   skills: [],
   passesTo: [],

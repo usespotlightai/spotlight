@@ -1,3 +1,4 @@
+import { DraftRunChangeStackCommand } from '@change-review/application/commands/draft-run-change-stack.command';
 import { RecordChangeStackCheckCommand } from '@change-review/application/commands/record-change-stack-check.command';
 import type { ChangeStackChecksDto } from '@change-review/application/dto/change-stack-check.dto';
 import { ChangeStackChecksQuery } from '@change-review/application/queries/change-stack-checks.query';
@@ -7,6 +8,7 @@ import {
   ChangeStackChecksResponseDto,
   RecordChangeStackCheckRequestDto,
 } from '@change-review/presentation/http/dto/change-stack-check.dto';
+import { DraftChangeStackRequestDto } from '@change-review/presentation/http/dto/draft-change-stack.dto';
 import {
   Body,
   Controller,
@@ -39,6 +41,32 @@ export class RunnerChangeStackController {
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
   ) {}
+
+  @Post('runs/:runId/change-stacks')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'draftChangeStack',
+    summary: 'Hand over what a run changed, to be drafted into a change stack',
+    description:
+      'A station that says it wants changes has its runs drafted into a ' +
+      'change stack: the runner hands over the diff of each checkout.',
+  })
+  @ApiNoContentResponse()
+  @ApiNotFoundResponse({ description: 'Not a run this runner worked' })
+  async draftChangeStack(
+    @Param('runId') runId: string,
+    @CurrentRunner() runnerId: string,
+    @Body() body: DraftChangeStackRequestDto,
+  ): Promise<void> {
+    await this.commandBus.execute(
+      new DraftRunChangeStackCommand(
+        runId,
+        runnerId,
+        typeof body.diff === 'string' ? body.diff : '',
+        typeof body.repository === 'string' ? body.repository : null,
+      ),
+    );
+  }
 
   @Get('runs/:runId/change-stack-checks')
   @ApiOperation({

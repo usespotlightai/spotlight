@@ -5,7 +5,12 @@ import {
   Diff,
   type DiffFile,
 } from '@change-review/domain/value-objects/diff.vo';
+import {
+  StackCheck,
+  WHOLE_STEP,
+} from '@change-review/domain/value-objects/stack-check.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
+import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -17,7 +22,7 @@ const changed = (path: string, at: number): DiffFile => ({
   binary: false,
   hunks: [
     {
-      id: `h${at + 1}`,
+      id: HunkId.at(at + 1),
       oldStart: 1,
       oldLines: 1,
       newStart: 1,
@@ -38,7 +43,7 @@ const checked = () =>
     repository: null,
     diff: Diff.of(['schema.ts', 'api.ts', 'package-lock.json'].map(changed)),
     facts: StackFacts.none(),
-    check: 'npx tsc --noEmit',
+    check: StackCheck.named('npx tsc --noEmit'),
     now: NOW,
   })
     .propose(
@@ -51,7 +56,7 @@ const checked = () =>
             title: at === 0 ? 'Add the label table' : 'Add the label API',
             summary: 'A layer',
             dependsOn: [],
-            ranges: hunks.map((hunk) => ({ hunk })),
+            ranges: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
             notes: [
               {
                 path: at === 0 ? 'schema.ts' : 'api.ts',
@@ -69,19 +74,23 @@ const checked = () =>
               title: 'Update lockfiles',
               summary: 'Incidental',
               dependsOn: [],
-              ranges: [{ hunk: 'h3' }],
+              ranges: [{ hunk: HunkId.of('h3') }],
               notes: [],
             },
           ],
         },
       ],
       NOW,
-      false,
     )
     .recordCheck(
       [
-        { step: 'whole', passed: true, output: '', tookMs: 1 },
-        { step: 'c1.l1', passed: false, output: 'error', tookMs: 1 },
+        { step: WHOLE_STEP, passed: true, output: '', tookMs: 1 },
+        {
+          step: LayerId.of('c1.l1'),
+          passed: false,
+          output: 'error',
+          tookMs: 1,
+        },
       ],
       NOW,
     )

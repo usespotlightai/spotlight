@@ -1,3 +1,9 @@
+import type {
+  CohortId,
+  HunkId,
+  LayerId,
+} from '@change-review/domain/value-objects/stack-ids';
+
 export const COHORT_KINDS = ['change', 'incidental'] as const;
 
 export type CohortKind = (typeof COHORT_KINDS)[number];
@@ -5,7 +11,7 @@ export type CohortKind = (typeof COHORT_KINDS)[number];
 export const needsFileNotes = (kind: CohortKind): boolean => kind === 'change';
 
 export interface StackRange {
-  readonly hunk: string;
+  readonly hunk: HunkId;
 }
 
 export interface FileNote {
@@ -14,12 +20,12 @@ export interface FileNote {
 }
 
 export interface LayerDependency {
-  readonly layer: string;
+  readonly layer: LayerId;
   readonly because: readonly string[];
 }
 
 export interface StackLayer {
-  readonly id: string;
+  readonly id: LayerId;
   readonly title: string;
   readonly summary: string;
   readonly dependsOn: readonly LayerDependency[];
@@ -28,7 +34,7 @@ export interface StackLayer {
 }
 
 export interface StackCohort {
-  readonly id: string;
+  readonly id: CohortId;
   readonly kind: CohortKind;
   readonly title: string;
   readonly intent: string;

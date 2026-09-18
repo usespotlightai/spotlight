@@ -32,6 +32,7 @@ type Journal interface {
 	RenewLease(ctx context.Context, runID string) (bool, error)
 	Complete(ctx context.Context, runID string, done protocol.Completion) error
 	UseTool(ctx context.Context, runID, name string, input json.RawMessage) (json.RawMessage, error)
+	DraftChangeStack(ctx context.Context, runID, repository, diff string) error
 	AnswerRemark(ctx context.Context, runID string, said protocol.Remark) error
 	Trace(ctx context.Context, runID, taskID string) (json.RawMessage, error)
 	Said(ctx context.Context, runID string) ([]protocol.Said, error)
@@ -39,8 +40,6 @@ type Journal interface {
 	Attachment(ctx context.Context, runID, attachmentID string, into io.Writer) error
 	stackcheck.Source
 }
-
-const changeStackTool = "change-stack"
 
 const (
 	flushEvery = 200 * time.Millisecond
@@ -155,10 +154,10 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	}
 	defer channel.Close()
 
-	channel.Tools(toolNames(agentTools(run.Spec.Manifest)), func(ctx context.Context, name string, input json.RawMessage) (json.RawMessage, error) {
+	channel.Tools(toolNames(run.Spec.Manifest), func(ctx context.Context, name string, input json.RawMessage) (json.RawMessage, error) {
 		return opts.Journal.UseTool(ctx, run.ID, name, input)
 	})
-	channel.Manifest(agentTools(run.Spec.Manifest))
+	channel.Manifest(run.Spec.Manifest)
 
 	channel.Traces(func(ctx context.Context, taskID string) (json.RawMessage, error) {
 		return opts.Journal.Trace(ctx, run.ID, taskID)
@@ -260,14 +259,8 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	return completed
 }
 
-func agentTools(manifest []protocol.ToolManifest) []protocol.ToolManifest {
-	return slices.DeleteFunc(slices.Clone(manifest), func(tool protocol.ToolManifest) bool {
-		return tool.Name == changeStackTool
-	})
-}
-
 func (o Options) draftStacks(ctx context.Context, run protocol.Run, dir string, log *slog.Logger) {
-	if !slices.Contains(toolNames(run.Spec.Manifest), changeStackTool) {
+	if !run.Spec.Diffs {
 		return
 	}
 
@@ -283,13 +276,8 @@ func (o Options) draftStacks(ctx context.Context, run protocol.Run, dir string, 
 			continue
 		}
 
-		input, err := json.Marshal(map[string]string{"diff": diff, "repository": checkout.Path})
-		if err != nil {
-			continue
-		}
-
-		if _, err := o.Journal.UseTool(ctx, run.ID, changeStackTool, input); err != nil {
-			log.Warn("could not draft a change stack", "path", checkout.Path, "error", err)
+		if err := o.Journal.DraftChangeStack(ctx, run.ID, checkout.Path, diff); err != nil {
+			log.Warn("could not hand over what a run changed", "path", checkout.Path, "error", err)
 			continue
 		}
 
@@ -298,7 +286,7 @@ func (o Options) draftStacks(ctx context.Context, run protocol.Run, dir string, 
 }
 
 func (o Options) checkStacks(ctx context.Context, run protocol.Run, dir string, log *slog.Logger) {
-	if len(run.Spec.Checkouts) == 0 || !slices.Contains(toolNames(run.Spec.Manifest), changeStackTool) {
+	if len(run.Spec.Checkouts) == 0 || !run.Spec.Diffs {
 		return
 	}
 

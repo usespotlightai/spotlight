@@ -19,6 +19,11 @@ import (
 	"usespotlight.ai/runner/internal/workspace"
 )
 
+type drafted struct {
+	repository string
+	diff       string
+}
+
 type journal struct {
 	mu        sync.Mutex
 	events    []protocol.Event
@@ -28,6 +33,7 @@ type journal struct {
 	said      [][]protocol.Said
 	delivered []int
 	files     map[string]string
+	drafted   []drafted
 }
 
 func (j *journal) AppendEvents(_ context.Context, _ string, events []protocol.Event) error {
@@ -55,6 +61,15 @@ func (j *journal) UseTool(
 	_ context.Context, _ string, _ string, _ json.RawMessage,
 ) (json.RawMessage, error) {
 	return json.RawMessage(`{"output":"https://github.com/acme/widgets/pull/1"}`), nil
+}
+
+func (j *journal) DraftChangeStack(
+	_ context.Context, _ string, repository, diff string,
+) error {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	j.drafted = append(j.drafted, drafted{repository: repository, diff: diff})
+	return nil
 }
 
 func (j *journal) AnswerRemark(

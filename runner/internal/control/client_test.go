@@ -311,6 +311,27 @@ func TestChangeStackChecksReadsWhatWaitsToBeChecked(t *testing.T) {
 	}
 }
 
+func TestDraftChangeStackHandsOverTheDiffOfOneCheckout(t *testing.T) {
+	var seenPath string
+	var seen protocol.ChangeStackDraft
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		seenPath = r.URL.Path
+		_ = json.NewDecoder(r.Body).Decode(&seen)
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	if err := client.DraftChangeStack(context.Background(), "run_1", "widgets", "diff --git a b"); err != nil {
+		t.Fatalf("draft: %v", err)
+	}
+
+	if seenPath != "/api/runs/run_1/change-stacks" {
+		t.Errorf("path %q", seenPath)
+	}
+	if seen.Repository != "widgets" || seen.Diff != "diff --git a b" {
+		t.Errorf("seen %+v", seen)
+	}
+}
+
 func TestRecordChangeStackCheckPostsEachStep(t *testing.T) {
 	var seenPath string
 	var seen protocol.StackChecked

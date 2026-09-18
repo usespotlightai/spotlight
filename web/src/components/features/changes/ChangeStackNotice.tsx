@@ -58,7 +58,7 @@ export function ChangeStackNotice({ stack, runTo }: ChangeStackNoticeProps) {
   return (
     <Notice>
       <EmptyState icon={Layers} title="No change stack yet" action={back}>
-        One appears here once a station with the change-stack tool finishes its
+        One appears here once a station that asks for changes finishes its
         work.
       </EmptyState>
     </Notice>

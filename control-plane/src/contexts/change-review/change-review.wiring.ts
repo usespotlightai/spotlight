@@ -1,8 +1,10 @@
 import { DeleteReviewCommentCommand } from '@change-review/application/commands/delete-review-comment.command';
 import { DraftReviewCommentCommand } from '@change-review/application/commands/draft-review-comment.command';
+import { DraftRunChangeStackCommand } from '@change-review/application/commands/draft-run-change-stack.command';
 import { EditReviewCommentCommand } from '@change-review/application/commands/edit-review-comment.command';
 import { DeleteReviewCommentHandler } from '@change-review/application/commands/handlers/delete-review-comment.handler';
 import { DraftReviewCommentHandler } from '@change-review/application/commands/handlers/draft-review-comment.handler';
+import { DraftRunChangeStackHandler } from '@change-review/application/commands/handlers/draft-run-change-stack.handler';
 import { EditReviewCommentHandler } from '@change-review/application/commands/handlers/edit-review-comment.handler';
 import { RecordChangeStackCheckHandler } from '@change-review/application/commands/handlers/record-change-stack-check.handler';
 import { SubmitReviewHandler } from '@change-review/application/commands/handlers/submit-review.handler';
@@ -53,6 +55,10 @@ import {
   type SymbolIndexerPort,
 } from '@change-review/application/ports/symbol-indexer.port';
 import {
+  WORK,
+  type WorkPort,
+} from '@change-review/application/ports/work.port';
+import {
   WORKSPACES,
   type WorkspacesPort,
 } from '@change-review/application/ports/workspaces.port';
@@ -75,6 +81,7 @@ import { WorkChangeStacks } from '@change-review/application/services/work-chang
 import { CHANGE_REVIEW_EVENT_TYPES } from '@change-review/domain/event-types';
 import { GitHubConnections } from '@change-review/infrastructure/acl/github-connections.adapter';
 import { People } from '@change-review/infrastructure/acl/people.adapter';
+import { Work } from '@change-review/infrastructure/acl/work.adapter';
 import { Workspaces } from '@change-review/infrastructure/acl/workspaces.adapter';
 import { GitDiffReader } from '@change-review/infrastructure/change-stacks/git-diff.reader';
 import { GitPatchWriter } from '@change-review/infrastructure/change-stacks/git-patch.writer';
@@ -88,13 +95,12 @@ import { DrizzleReviewReader } from '@change-review/infrastructure/persistence/d
 import { DrizzleReviewRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/review.repository';
 import { DrizzleReviewCommentRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/review-comment.repository';
 import { DrizzleReviewOutbox } from '@change-review/infrastructure/persistence/drizzle/repositories/review-outbox.repository';
-import { ReviewSyncWorker } from '@change-review/infrastructure/reviews/review-sync.worker';
 import { changeReviewSubscribers } from '@change-review/presentation/events/change-review.subscribers';
 import { ChangeStackController } from '@change-review/presentation/http/controllers/change-stack.controller';
 import { ReviewController } from '@change-review/presentation/http/controllers/review.controller';
 import { RunnerChangeStackController } from '@change-review/presentation/http/controllers/runner-change-stack.controller';
-import { ChangeStackToolUse } from '@change-review/presentation/tools/change-stack.tool-use';
 import { ChangeStackWorkWorker } from '@change-review/presentation/workers/change-stack-work.worker';
+import { ReviewSyncWorker } from '@change-review/presentation/workers/review-sync.worker';
 import {
   PULL_REQUEST_COMMENTS,
   type PullRequestCommentsPort,
@@ -144,10 +150,6 @@ import {
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
 import {
-  CONTRIBUTED_TOOLS,
-  type ContributedTaskTool,
-} from '@work/application/ports/contributed-tools.port';
-import {
   WORK_LOOKUP,
   type WorkLookupPort,
 } from '@work/application/ports/work-lookup.port';
@@ -178,6 +180,11 @@ const upstream: Provider[] = [
     inject: [WORKSPACE_CONNECTIONS],
     useFactory: (workspaces: WorkspaceConnectionsPort) =>
       new GitHubConnections(workspaces),
+  },
+  {
+    provide: WORK,
+    inject: [WORK_LOOKUP],
+    useFactory: (work: WorkLookupPort) => new Work(work),
   },
 ];
 
@@ -289,7 +296,7 @@ const services: Provider[] = [
     inject: [
       CHANGE_STACK_READER,
       WORKSPACES,
-      WORK_LOOKUP,
+      WORK,
       GITHUB_CONNECTIONS,
       PULL_REQUEST_COMMENTS,
       CLOCK,
@@ -298,7 +305,7 @@ const services: Provider[] = [
     useFactory: (
       stacks: ChangeStackReaderPort,
       workspaces: WorkspacesPort,
-      work: WorkLookupPort,
+      work: WorkPort,
       connections: GitHubConnectionsPort,
       comments: PullRequestCommentsPort,
       clock: ClockPort,
@@ -347,8 +354,8 @@ const services: Provider[] = [
   },
   {
     provide: ReviewAccess,
-    inject: [PEOPLE, WORK_LOOKUP],
-    useFactory: (people: PeoplePort, work: WorkLookupPort) =>
+    inject: [PEOPLE, WORK],
+    useFactory: (people: PeoplePort, work: WorkPort) =>
       new ReviewAccess(people, work),
   },
   {
@@ -357,7 +364,7 @@ const services: Provider[] = [
       REVIEW_OUTBOX,
       DrizzleReviewRepository,
       DrizzleReviewCommentRepository,
-      WORK_LOOKUP,
+      WORK,
       GITHUB_CONNECTIONS,
       PEOPLE,
       PULL_REQUEST_REVIEWS,
@@ -368,7 +375,7 @@ const services: Provider[] = [
       outbox: ReviewOutboxPort,
       reviews: DrizzleReviewRepository,
       comments: DrizzleReviewCommentRepository,
-      work: WorkLookupPort,
+      work: WorkPort,
       connections: GitHubConnectionsPort,
       people: PeoplePort,
       github: PullRequestReviewsPort,
@@ -396,14 +403,14 @@ const services: Provider[] = [
   {
     provide: ReceiveReviewComment,
     inject: [
-      WORK_LOOKUP,
+      WORK,
       DrizzleReviewCommentRepository,
       TRANSACTION,
       ID_GENERATOR,
       CLOCK,
     ],
     useFactory: (
-      work: WorkLookupPort,
+      work: WorkPort,
       comments: DrizzleReviewCommentRepository,
       transaction: TransactionPort,
       ids: IdGeneratorPort,
@@ -438,9 +445,15 @@ const handlers: Provider[] = [
     CLOCK,
   ]),
   ...bindCommandHandler(
+    DraftRunChangeStackCommand,
+    DraftRunChangeStackHandler,
+    [WORK, DraftChangeStack],
+  ),
+
+  ...bindCommandHandler(
     RecordChangeStackCheckCommand,
     RecordChangeStackCheckHandler,
-    [WORK_LOOKUP, DrizzleChangeStackRepository, CLOCK],
+    [WORK, DrizzleChangeStackRepository, CLOCK],
   ),
   ...bindQueryHandler(ReadRunReviewQuery, ReadRunReviewHandler, [
     ReviewAccess,
@@ -449,19 +462,19 @@ const handlers: Provider[] = [
     PEOPLE,
   ]),
   ...bindQueryHandler(ReadTaskChangeStackQuery, ReadTaskChangeStackHandler, [
-    WORK_LOOKUP,
+    WORK,
     WORKSPACES,
     CHANGE_STACK_READER,
     CLOCK,
   ]),
   ...bindQueryHandler(ListRunChangeStacksQuery, ListRunChangeStacksHandler, [
-    WORK_LOOKUP,
+    WORK,
     WORKSPACES,
     CHANGE_STACK_READER,
     CLOCK,
   ]),
   ...bindQueryHandler(ChangeStackChecksQuery, ChangeStackChecksHandler, [
-    WORK_LOOKUP,
+    WORK,
     CHANGE_STACK_READER,
     CLOCK,
     PATCH_WRITER,
@@ -469,13 +482,6 @@ const handlers: Provider[] = [
 ];
 
 const published: Provider[] = [
-  {
-    provide: CONTRIBUTED_TOOLS,
-    inject: [DraftChangeStack],
-    useFactory: (
-      drafting: DraftChangeStack,
-    ): readonly ContributedTaskTool[] => [new ChangeStackToolUse(drafting)],
-  },
   {
     provide: CHANGE_REVIEW_EVENTS,
     inject: [

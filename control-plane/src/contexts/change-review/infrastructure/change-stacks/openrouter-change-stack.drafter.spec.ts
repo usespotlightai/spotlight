@@ -1,4 +1,6 @@
 import { factsOf } from '@change-review/domain/services/diff-facts';
+import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
+import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { GitDiffReader } from '@change-review/infrastructure/change-stacks/git-diff.reader';
 import {
   DEFAULT_MODEL,
@@ -56,7 +58,7 @@ const answering = (status: number, body: unknown) => {
 const draft = (drafter: OpenRouterChangeStackDrafter) =>
   drafter.draft({
     diff: DIFF,
-    repository: 'web',
+    repository: RepositoryName.of('web'),
     facts: factsOf(DIFF, new PatternCodeReading()),
     problems: [{ code: 'shape', message: 'leaves h2 out' }],
   });
@@ -200,8 +202,8 @@ describe('revised', () => {
         {
           title: 'Labels',
           layers: [
-            { title: 'Task reads', hunks: ['h1'] },
-            { title: 'HTTP', hunks: ['h2'] },
+            { title: 'Task reads', hunks: [HunkId.of('h1')] },
+            { title: 'HTTP', hunks: [HunkId.of('h2')] },
           ],
         },
       ],
@@ -212,7 +214,10 @@ describe('revised', () => {
           title: 'Task reads',
           output: 'mapper.spec.ts(5,7): error TS2741',
           named: [
-            { path: 'src/mapper.spec.ts', hunks: [{ hunk: 'h2', layer: 1 }] },
+            {
+              path: 'src/mapper.spec.ts',
+              hunks: [{ hunk: HunkId.of('h2'), layer: 1 }],
+            },
           ],
         },
       ],

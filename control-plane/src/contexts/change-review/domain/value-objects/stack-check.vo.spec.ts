@@ -2,7 +2,9 @@ import { InvalidChangeStackError } from '@change-review/domain/exceptions/invali
 import {
   type CheckOutcome,
   StackCheck,
+  WHOLE_STEP,
 } from '@change-review/domain/value-objects/stack-check.vo';
+import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { describe, expect, it } from 'vitest';
 
@@ -11,8 +13,10 @@ const NOW = new Date('2026-09-16T10:00:00Z');
 const outcome = (layerPasses: boolean, wholePasses = true): CheckOutcome => ({
   state: 'checked',
   reason: null,
-  whole: { step: 'whole', passed: wholePasses, output: '', tookMs: 1 },
-  layers: [{ step: 'c1.l1', passed: layerPasses, output: '', tookMs: 1 }],
+  whole: { step: WHOLE_STEP, passed: wholePasses, output: '', tookMs: 1 },
+  layers: [
+    { step: LayerId.of('c1.l1'), passed: layerPasses, output: '', tookMs: 1 },
+  ],
   checkedAt: NOW,
 });
 
@@ -46,7 +50,9 @@ describe('StackCheck', () => {
 
     expect(reordering.keptLayers()).toMatchObject({ phase: 'checked' });
     expect(
-      reordering.reordered([{ hunk: 'h1', layer: 'c1.l1' }]),
+      reordering.reordered([
+        { hunk: HunkId.of('h1'), layer: LayerId.of('c1.l1') },
+      ]),
     ).toMatchObject({
       phase: 'waiting',
       rounds: 1,

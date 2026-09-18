@@ -3,6 +3,7 @@ import { ReviewCommentReplied } from '@change-review/domain/events/review-commen
 import { ReviewCommentRewritten } from '@change-review/domain/events/review-comment-rewritten.event';
 import { InvalidReviewError } from '@change-review/domain/exceptions/invalid-review.error';
 import { NotYourReviewCommentError } from '@change-review/domain/exceptions/not-your-review-comment.error';
+import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import type { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import type { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import type { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
@@ -29,7 +30,7 @@ const MOST_EDITS_AWAITING_ECHO = 5;
 export interface ReviewCommentAuthor {
   readonly userId: UserId | null;
   readonly login: string | null;
-  readonly name: string;
+  readonly name: AuthorName;
 }
 
 export interface OnGitHub {

@@ -1363,6 +1363,19 @@ export type NewestChangeStackResponseDto = {
   latest: LatestChangeStackResponseDto | null;
 };
 
+export type DraftChangeStackRequestDto = {
+  /**
+   * The changes, as the output of git diff
+   */
+  diff: string;
+  /**
+   * Which checkout the changes are from
+   */
+  repository: {
+    [key: string]: unknown;
+  } | null;
+};
+
 export type ChangeStackCheckStepResponseDto = {
   id: string;
   /**
@@ -3599,6 +3612,32 @@ export type ReadTaskChangeStackResponses = {
 };
 
 export type ReadTaskChangeStackResponse = ReadTaskChangeStackResponses[keyof ReadTaskChangeStackResponses];
+
+export type DraftChangeStackData = {
+  body: DraftChangeStackRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/change-stacks';
+};
+
+export type DraftChangeStackErrors = {
+  /**
+   * Missing or wrong enrollment token
+   */
+  401: unknown;
+  /**
+   * Not a run this runner worked
+   */
+  404: unknown;
+};
+
+export type DraftChangeStackResponses = {
+  204: void;
+};
+
+export type DraftChangeStackResponse = DraftChangeStackResponses[keyof DraftChangeStackResponses];
 
 export type ChangeStackChecksData = {
   body?: never;

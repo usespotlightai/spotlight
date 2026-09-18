@@ -4,10 +4,14 @@ import type {
 } from '@change-review/domain/value-objects/stack-check.vo';
 import { WHOLE_STEP } from '@change-review/domain/value-objects/stack-check.vo';
 import type { StackCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
+import type {
+  HunkId,
+  LayerId,
+} from '@change-review/domain/value-objects/stack-ids';
 
 export const checkStepsOf = (input: {
-  hunks: readonly string[];
-  facts: { isGenerated(hunk: string): boolean };
+  hunks: readonly HunkId[];
+  facts: { isGenerated(hunk: HunkId): boolean };
   cohorts: readonly StackCohort[];
   entries: readonly CheckEntry[];
 }): CheckStep[] => {
@@ -16,7 +20,7 @@ export const checkStepsOf = (input: {
     .flatMap((cohort) => cohort.layers)
     .flatMap((layer) => layer.ranges.map((range) => range.hunk))
     .filter((hunk) => !input.facts.isGenerated(hunk));
-  const entering = new Map<string, string[]>();
+  const entering = new Map<LayerId, HunkId[]>();
 
   for (const { hunk, layer } of input.entries) {
     entering.set(layer, [...(entering.get(layer) ?? []), hunk]);
@@ -29,7 +33,7 @@ export const checkStepsOf = (input: {
       continue;
     }
 
-    const placed: string[] = [...incidental];
+    const placed: HunkId[] = [...incidental];
 
     for (const layer of cohort.layers) {
       placed.push(

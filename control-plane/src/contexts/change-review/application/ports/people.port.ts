@@ -16,5 +16,7 @@ export interface Membership {
 export interface PeoplePort {
   find(userId: UserId): Promise<Person | null>;
 
+  pictureOf(login: string): string | null;
+
   memberOf(teamId: string, userId: string): Promise<Membership | null>;
 }

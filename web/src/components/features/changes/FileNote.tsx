@@ -1,11 +1,8 @@
 import { Logo } from '@/components/shared/icons';
 
-export function FileNote({ note, inset }: { note: string; inset: number }) {
+export function FileNote({ note }: { note: string }) {
   return (
-    <div
-      className="border-border border-b-[0.5px] py-2 pr-3"
-      style={{ paddingLeft: inset }}
-    >
+    <div className="border-border border-b-[0.5px] px-3 py-2">
       <section
         aria-label="What Spotlight says about this file"
         className="flex max-w-lg flex-col gap-3 rounded-lg border-[0.5px] border-border bg-card p-3 font-sans shadow-xs"

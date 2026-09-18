@@ -1,6 +1,7 @@
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
 import { ChangedSinceReadError } from '@change-review/domain/exceptions/changed-since-read.error';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
+import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
@@ -33,7 +34,7 @@ const toComment = (row: Row): ReviewComment =>
     author: {
       userId: row.authorId ? UserId.of(row.authorId) : null,
       login: row.authorLogin,
-      name: row.authorName,
+      name: AuthorName.of(row.authorName),
     },
     replyTo: row.replyToId ? ReviewCommentId.of(row.replyToId) : null,
     reviewId: row.reviewId ? ReviewId.of(row.reviewId) : null,
@@ -61,7 +62,7 @@ const toRow = (comment: ReviewComment): Row => ({
   body: comment.body,
   authorId: comment.author.userId?.value ?? null,
   authorLogin: comment.author.login,
-  authorName: comment.author.name,
+  authorName: comment.author.name.value,
   replyToId: comment.replyTo?.value ?? null,
   reviewId: comment.reviewId?.value ?? null,
   state: comment.state,

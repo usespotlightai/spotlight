@@ -19,7 +19,6 @@ export interface TaskToolContext {
   readonly workspaceId: WorkspaceId;
   readonly taskId: TaskId;
   readonly stationId: StationId;
-  readonly stationCheck: string | null;
 }
 
 export interface ChatToolContext {

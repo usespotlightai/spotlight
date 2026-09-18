@@ -27,7 +27,6 @@ import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import {
   builtInTool,
-  CHANGE_STACK,
   PROPOSE_TASK,
   PULL_REQUEST,
 } from '@work/domain/services/built-in-tools';
@@ -189,7 +188,6 @@ const using = (
         return 'Proposed.';
       },
     },
-    { tool: CHANGE_STACK, call: async () => 'Drafting.' },
   ]);
 
   const integrationTools: IntegrationToolsPort = {

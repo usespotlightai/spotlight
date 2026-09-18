@@ -2,6 +2,7 @@ import type { ChangeStackAnnouncerPort } from '@change-review/application/ports/
 import type { ChangeStackLinksPort } from '@change-review/application/ports/change-stack-links.port';
 import type { ChangeStackReaderPort } from '@change-review/application/ports/change-stack-reader.port';
 import type { GitHubConnectionsPort } from '@change-review/application/ports/github-connections.port';
+import type { WorkPort } from '@change-review/application/ports/work.port';
 import type { WorkspacesPort } from '@change-review/application/ports/workspaces.port';
 import {
   CHANGE_STACK_MARKER,
@@ -11,13 +12,12 @@ import type { PullRequestCommentsPort } from '@github/application/ports/pull-req
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import type { WorkLookupPort } from '@work/application/ports/work-lookup.port';
 
 export class AnnounceChangeStack implements ChangeStackAnnouncerPort {
   constructor(
     private readonly stacks: ChangeStackReaderPort,
     private readonly workspaces: WorkspacesPort,
-    private readonly work: WorkLookupPort,
+    private readonly work: WorkPort,
     private readonly connections: GitHubConnectionsPort,
     private readonly comments: PullRequestCommentsPort,
     private readonly clock: ClockPort,

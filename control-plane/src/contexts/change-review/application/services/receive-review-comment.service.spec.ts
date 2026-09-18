@@ -2,6 +2,7 @@ import type { ReceivedReviewComment } from '@change-review/application/contracts
 import { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
+import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
@@ -79,7 +80,7 @@ const onGitHub = (githubId: number, body = 'Earlier') =>
     taskId: TASK,
     anchor: ReviewAnchor.of({ path: 'src/a.ts', side: 'new', line: 12 }),
     body,
-    author: { userId: null, login: 'octocat', name: 'octocat' },
+    author: { userId: null, login: 'octocat', name: AuthorName.of('octocat') },
     replyTo: null,
     github: { id: githubId, url: `https://github.com/c/${githubId}` },
     at: NOW,
@@ -98,7 +99,7 @@ describe('ReceiveReviewComment', () => {
     expect(kept?.author).toEqual({
       userId: null,
       login: 'octocat',
-      name: 'octocat',
+      name: AuthorName.of('octocat'),
     });
     expect(kept?.github?.id).toBe(300);
   });
@@ -126,7 +127,11 @@ describe('ReceiveReviewComment', () => {
       taskId: TASK,
       anchor: ReviewAnchor.of({ path: 'src/a.ts', side: 'new', line: 12 }),
       body: 'Why not a constant?',
-      author: { userId: UserId.of('user_ada'), login: null, name: 'Ada' },
+      author: {
+        userId: UserId.of('user_ada'),
+        login: null,
+        name: AuthorName.of('Ada'),
+      },
       now: NOW,
     })
       .submittedIn(ReviewId.of('review_1'))
@@ -147,7 +152,11 @@ describe('ReceiveReviewComment', () => {
       taskId: TASK,
       anchor: ReviewAnchor.of({ path: 'src/a.ts', side: 'new', line: 12 }),
       body: 'Why not a constant?',
-      author: { userId: UserId.of('user_ada'), login: null, name: 'Ada' },
+      author: {
+        userId: UserId.of('user_ada'),
+        login: null,
+        name: AuthorName.of('Ada'),
+      },
       now: NOW,
     }).submittedIn(ReviewId.of('review_1'));
     const { service, comments } = receiving([posting]);
@@ -176,7 +185,11 @@ describe('ReceiveReviewComment', () => {
       taskId: TASK,
       anchor: ReviewAnchor.of({ path: 'src/a.ts', side: 'new', line: 12 }),
       body: 'Why not a constant?',
-      author: { userId: UserId.of('user_ada'), login: null, name: 'Ada' },
+      author: {
+        userId: UserId.of('user_ada'),
+        login: null,
+        name: AuthorName.of('Ada'),
+      },
       now: NOW,
     })
       .submittedIn(ReviewId.of('review_1'))

@@ -9,17 +9,18 @@ import {
   changedLinesOf,
   type Diff,
 } from '@change-review/domain/value-objects/diff.vo';
+import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
 
 export interface SymbolLink {
-  readonly from: string;
-  readonly to: string;
+  readonly from: HunkId;
+  readonly to: HunkId;
   readonly because: string;
 }
 
 export interface IndexedFacts {
-  readonly covered: ReadonlySet<string>;
-  readonly defines: ReadonlyMap<string, readonly string[]>;
-  readonly outside: ReadonlyMap<string, readonly string[]>;
+  readonly covered: ReadonlySet<HunkId>;
+  readonly defines: ReadonlyMap<HunkId, readonly string[]>;
+  readonly outside: ReadonlyMap<HunkId, readonly string[]>;
   readonly links: readonly SymbolLink[];
   readonly tests: readonly SymbolLink[];
 }
@@ -69,9 +70,9 @@ export const indexedFacts = (
   index: SymbolIndex,
   testing: (path: string) => boolean = () => false,
 ): IndexedFacts => {
-  const changed = new Map<string, string>();
-  const touched = new Map<string, { hunk: string; lines: number[] }[]>();
-  const covered = new Set<string>();
+  const changed = new Map<string, HunkId>();
+  const touched = new Map<string, { hunk: HunkId; lines: number[] }[]>();
+  const covered = new Set<HunkId>();
   const indexedPaths = new Set(
     index.files.map((file) => `${file.side}:${file.path}`),
   );
@@ -104,7 +105,7 @@ export const indexedFacts = (
     }
   }
 
-  const hunkAt = (file: IndexedFile, line: number): string | null =>
+  const hunkAt = (file: IndexedFile, line: number): HunkId | null =>
     changed.get(`${file.side}:${file.path}:${line}`) ?? null;
 
   const files = new Map(
@@ -113,13 +114,13 @@ export const indexedFacts = (
   const fileAt = (side: SourceSide, path: string) =>
     files.get(`${side}:${path}`) ?? null;
 
-  const defines = new Map<string, Set<string>>();
-  const outside = new Map<string, Set<string>>();
+  const defines = new Map<HunkId, Set<string>>();
+  const outside = new Map<HunkId, Set<string>>();
   const links = new Map<string, SymbolLink>();
   const tests = new Map<string, SymbolLink>();
   const methods = new Map<
     string,
-    { file: IndexedFile; symbol: IndexedSymbol; hunk: string }[]
+    { file: IndexedFile; symbol: IndexedSymbol; hunk: HunkId }[]
   >();
 
   for (const file of index.files) {
@@ -141,7 +142,7 @@ export const indexedFacts = (
 
   const link = (
     file: IndexedFile,
-    user: string,
+    user: HunkId,
     target: IndexedFile,
     symbol: IndexedSymbol,
   ) => {
@@ -161,7 +162,7 @@ export const indexedFacts = (
 
   const cover = (
     file: IndexedFile,
-    user: string,
+    user: HunkId,
     target: IndexedFile,
     symbol: IndexedSymbol,
   ) => {
@@ -188,7 +189,7 @@ export const indexedFacts = (
 
   const linkImported = (
     file: IndexedFile,
-    user: string,
+    user: HunkId,
     imported: IndexedImport,
     name: string,
   ) => {
@@ -204,7 +205,7 @@ export const indexedFacts = (
     }
   };
 
-  const note = (user: string, imported: IndexedImport, name: string) => {
+  const note = (user: HunkId, imported: IndexedImport, name: string) => {
     if (!imported.project || imported.resolved.length > 0) {
       return;
     }
@@ -309,7 +310,7 @@ export const indexedFacts = (
     }
   }
 
-  const listed = (map: Map<string, Set<string>>) =>
+  const listed = (map: Map<HunkId, Set<string>>) =>
     new Map([...map.entries()].map(([hunk, names]) => [hunk, [...names]]));
 
   return {

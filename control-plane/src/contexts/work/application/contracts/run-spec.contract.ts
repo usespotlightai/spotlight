@@ -187,6 +187,8 @@ const read = (raw: unknown): RunSpec => {
     attachmentOf,
   );
 
+  const diffs = given.diffs;
+
   return RunSpec.of({
     ...(checkouts ? { checkouts } : {}),
     command: commandOf(given.command),
@@ -196,6 +198,11 @@ const read = (raw: unknown): RunSpec => {
     ...(skills ? { skills } : {}),
     ...(manifest ? { manifest } : {}),
     ...(attachments ? { attachments } : {}),
+    ...(diffs === undefined
+      ? {}
+      : {
+          diffs: booleanAt(diffs, 'whether it reports the diff it leaves'),
+        }),
   });
 };
 

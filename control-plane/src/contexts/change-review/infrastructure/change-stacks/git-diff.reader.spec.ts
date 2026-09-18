@@ -233,7 +233,7 @@ describe('GitDiffReader with the whole file as context', () => {
   });
 
   it('reads a diff that equals the one kept', () => {
-    expect(Diff.rehydrate(diff.files).equals(diff)).toBe(true);
+    expect(Diff.of(diff.files).equals(diff)).toBe(true);
     expect(reader.read(WHOLE).diff.equals(diff)).toBe(true);
   });
 });

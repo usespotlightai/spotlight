@@ -59,7 +59,6 @@ export class TaskRunWork implements RunWork {
       workspaceId: this.task.workspaceId,
       taskId: this.task.id,
       stationId,
-      stationCheck: line.stationAt(stationId)?.check?.value ?? null,
     };
   }
 }

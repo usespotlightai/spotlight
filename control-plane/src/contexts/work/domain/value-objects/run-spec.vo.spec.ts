@@ -19,6 +19,11 @@ describe('RunSpec', () => {
     expect(RunSpec.of(parts()).value).toEqual(parts());
   });
 
+  it('keeps that the run reports the diff it leaves', () => {
+    expect(RunSpec.of(parts({ diffs: true })).value.diffs).toBe(true);
+    expect(RunSpec.of(parts()).value.diffs).toBeUndefined();
+  });
+
   it('refuses one that says nothing to do, or nothing to run', () => {
     expect(() => RunSpec.of(parts({ briefing: '  ' }))).toThrow(
       InvalidRunSpecError,

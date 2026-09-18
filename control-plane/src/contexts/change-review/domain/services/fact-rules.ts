@@ -4,6 +4,7 @@ import type {
   HunkLink,
 } from '@change-review/domain/services/diff-facts';
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
+import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
 
 interface Placement {
   readonly cohort: number;
@@ -166,8 +167,8 @@ const unconnectedProblems = (
       return [];
     }
 
-    const group = new Map(hunks.map((hunk) => [hunk, hunk]));
-    const root = (hunk: string): string => {
+    const group = new Map<HunkId, HunkId>(hunks.map((hunk) => [hunk, hunk]));
+    const root = (hunk: HunkId): HunkId => {
       const parent = group.get(hunk) ?? hunk;
       return parent === hunk ? hunk : root(parent);
     };

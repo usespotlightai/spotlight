@@ -36,30 +36,51 @@ const shownWithin = (
   return collapsed;
 };
 
+interface Folded {
+  readonly layerId: string;
+  readonly paths: ReadonlySet<string>;
+}
+
+const foldedFor = (located: LocatedLayer, files: readonly LayerFile[]) => ({
+  layerId: located.layer.id,
+  paths:
+    located.cohort.kind === 'incidental'
+      ? new Set(files.map((placed) => placed.file.path))
+      : shownWithin(files, LINE_BUDGET),
+});
+
 export function LayerDetail({ stack, located, onPick }: LayerDetailProps) {
-  const { cohort, layer } = located;
+  const { layer } = located;
   const layers = layersOf(stack);
   const at = layers.findIndex((each) => each.layer.id === layer.id);
   const previous = layers[at - 1];
   const next = layers[at + 1];
   const files = filesOf(stack, layer);
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() =>
-    cohort.kind === 'incidental'
-      ? new Set(files.map((placed) => placed.file.path))
-      : shownWithin(files, LINE_BUDGET),
-  );
+  const [folded, setFolded] = useState<Folded>(() => foldedFor(located, files));
+  const collapsed =
+    folded.layerId === layer.id
+      ? folded.paths
+      : foldedFor(located, files).paths;
+
+  // The pane stays mounted between layers, so each layer folds itself afresh.
+  if (folded.layerId !== layer.id) {
+    setFolded(foldedFor(located, files));
+  }
+
   const allCollapsed =
     files.length > 0 &&
     files.every((placed) => collapsed.has(placed.file.path));
 
-  const toggle = (path: string) =>
-    setCollapsed((now) => {
-      const next = new Set(now);
-      if (!next.delete(path)) {
-        next.add(path);
-      }
-      return next;
-    });
+  const fold = (paths: ReadonlySet<string>) =>
+    setFolded({ layerId: layer.id, paths });
+
+  const toggle = (path: string) => {
+    const next = new Set(collapsed);
+    if (!next.delete(path)) {
+      next.add(path);
+    }
+    fold(next);
+  };
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-8 py-8">
@@ -76,7 +97,7 @@ export function LayerDetail({ stack, located, onPick }: LayerDetailProps) {
               size="sm"
               className="h-7 text-muted-foreground text-xs"
               onClick={() =>
-                setCollapsed(
+                fold(
                   new Set(
                     allCollapsed ? [] : files.map((placed) => placed.file.path),
                   ),

@@ -12,6 +12,7 @@ import { ReviewComment } from '@change-review/domain/aggregates/review-comment.a
 import { ChangedSinceReadError } from '@change-review/domain/exceptions/changed-since-read.error';
 import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
+import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
@@ -36,7 +37,7 @@ const draft = (id: string, line: number) =>
     taskId: TASK,
     anchor: ReviewAnchor.of({ path: 'src/a.ts', side: 'new', line }),
     body: `About line ${line}`,
-    author: { userId: ADA, login: null, name: 'Ada' },
+    author: { userId: ADA, login: null, name: AuthorName.of('Ada') },
     now: NOW,
   });
 
@@ -137,6 +138,7 @@ const syncing = (over: {
     },
     {
       find: async () => ({ name: 'Ada', image: null }),
+      pictureOf: () => null,
       memberOf: async () => null,
     },
     github,
@@ -148,7 +150,7 @@ const syncing = (over: {
 };
 
 const submitted = () => {
-  const review = Review.submit({
+  const { review, claimed } = Review.submit({
     id: ReviewId.of('review_1'),
     workspaceId: WORKSPACE,
     taskId: TASK,
@@ -158,11 +160,7 @@ const submitted = () => {
     drafts: [draft('comment_1', 3), draft('comment_2', 9)],
     now: NOW,
   });
-  const comments = [draft('comment_1', 3), draft('comment_2', 9)].map((each) =>
-    each.submittedIn(review.id),
-  );
-
-  return { review, comments };
+  return { review, comments: [...claimed] };
 };
 
 describe('SyncReviews', () => {
@@ -331,7 +329,7 @@ describe('SyncReviews', () => {
           body: '',
           drafts: [draft('comment_1', 3), draft('comment_2', 9)],
           now: NOW,
-        }),
+        }).review,
       ],
       comments: comments.map((each) => each.removed(ADA)),
     });
@@ -354,7 +352,7 @@ describe('SyncReviews', () => {
     const reply = sending.replied({
       id: ReviewCommentId.of('comment_2'),
       body: 'Done',
-      author: { userId: ADA, login: null, name: 'Ada' },
+      author: { userId: ADA, login: null, name: AuthorName.of('Ada') },
       now: NOW,
     });
     const synced = syncing({
@@ -374,7 +372,7 @@ describe('SyncReviews', () => {
     const reply = sending.replied({
       id: ReviewCommentId.of('comment_2'),
       body: 'Done',
-      author: { userId: ADA, login: null, name: 'Ada' },
+      author: { userId: ADA, login: null, name: AuthorName.of('Ada') },
       now: NOW,
     });
 
@@ -412,7 +410,7 @@ describe('SyncReviews', () => {
     const reply = parent.replied({
       id: ReviewCommentId.of('comment_2'),
       body: 'Done',
-      author: { userId: ADA, login: null, name: 'Ada' },
+      author: { userId: ADA, login: null, name: AuthorName.of('Ada') },
       now: NOW,
     });
     const synced = syncing({
@@ -435,7 +433,7 @@ describe('SyncReviews', () => {
     const reply = parent.replied({
       id: ReviewCommentId.of('comment_2'),
       body: 'Done',
-      author: { userId: ADA, login: null, name: 'Ada' },
+      author: { userId: ADA, login: null, name: AuthorName.of('Ada') },
       now: NOW,
     });
     reply.pullEvents();
@@ -502,7 +500,7 @@ describe('SyncReviews', () => {
     const reply = parent.postedAs(null).replied({
       id: ReviewCommentId.of('comment_2'),
       body: 'Done',
-      author: { userId: ADA, login: null, name: 'Ada' },
+      author: { userId: ADA, login: null, name: AuthorName.of('Ada') },
       now: NOW,
     });
     const synced = syncing({

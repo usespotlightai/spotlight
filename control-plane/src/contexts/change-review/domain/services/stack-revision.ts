@@ -1,14 +1,11 @@
 import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
-
-const MOST_OUTPUT_LINES = 25;
-
-const MOST_OUTPUT_LENGTH = 2_000;
+import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
 
 const PATH = /[\w@.-]+(?:\/[\w@.-]+)+\.[a-z]{1,5}/g;
 
 export interface RevisedLayer {
   readonly title: string;
-  readonly hunks: readonly string[];
+  readonly hunks: readonly HunkId[];
 }
 
 export interface RevisedCohort {
@@ -17,7 +14,7 @@ export interface RevisedCohort {
 }
 
 export interface NamedHunk {
-  readonly hunk: string;
+  readonly hunk: HunkId;
   readonly layer: number | null;
 }
 
@@ -40,14 +37,6 @@ export interface StackRevision {
   readonly failed: readonly FailedLayer[];
 }
 
-const tail = (output: string): string =>
-  output
-    .trim()
-    .split('\n')
-    .slice(-MOST_OUTPUT_LINES)
-    .join('\n')
-    .slice(-MOST_OUTPUT_LENGTH);
-
 export const revisionOf = (stack: ChangeStack): StackRevision | null => {
   const outcome = stack.check?.outcome;
 
@@ -55,7 +44,7 @@ export const revisionOf = (stack: ChangeStack): StackRevision | null => {
     return null;
   }
 
-  const placed = new Map<string, { cohort: number; layer: number }>();
+  const placed = new Map<HunkId, { cohort: number; layer: number }>();
 
   stack.cohorts.forEach((cohort, c) => {
     cohort.layers.forEach((layer, l) => {
@@ -108,7 +97,7 @@ export const revisionOf = (stack: ChangeStack): StackRevision | null => {
           cohort: cohortAt,
           layer: layerAt,
           title: layer.title,
-          output: tail(checked.output),
+          output: checked.output,
           named,
         },
       ];

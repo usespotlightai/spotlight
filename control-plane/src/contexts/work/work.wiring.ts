@@ -149,10 +149,6 @@ import {
   type ConfigurationStatusPort,
 } from '@work/application/ports/configuration-status.port';
 import { CONFIGURED_LINES } from '@work/application/ports/configured-lines.port';
-import {
-  CONTRIBUTED_TOOLS,
-  type ContributedTaskTool,
-} from '@work/application/ports/contributed-tools.port';
 import { DELIVERY_ADDRESSES } from '@work/application/ports/delivery-addresses.port';
 import { GIT_GATEWAY } from '@work/application/ports/git-gateway.port';
 import { HAPPENING_REACTIONS } from '@work/application/ports/happening-reactions.port';
@@ -291,7 +287,6 @@ import { CarryGitCall } from '@work/application/services/carry-git-call.service'
 import { ChatAtHand } from '@work/application/services/chat-at-hand.service';
 import { CHAT_DISPATCH } from '@work/application/services/chat-dispatch';
 import { ConfiguredLinesService } from '@work/application/services/configured-lines.service';
-import { ContributedToolUse } from '@work/application/services/contributed-tool-use';
 import { ConversationAtHand } from '@work/application/services/conversation-at-hand.service';
 import { DispatchChat } from '@work/application/services/dispatch-chat.service';
 import { DispatchTask } from '@work/application/services/dispatch-task.service';
@@ -1032,18 +1027,15 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       DrizzleChatRepository,
       DrizzleLineRepository,
       CLOCK,
-      CONTRIBUTED_TOOLS,
     ],
     useFactory: (
       opening: OpenPullRequest,
       chats: DrizzleChatRepository,
       lines: DrizzleLineRepository,
       clock: ClockPort,
-      contributed: readonly ContributedTaskTool[],
     ): readonly BuiltInToolUse[] => [
       new PullRequestToolUse(opening),
       new ProposeTaskToolUse(chats, lines, clock),
-      ...contributed.map((each) => new ContributedToolUse(each)),
     ],
   },
 

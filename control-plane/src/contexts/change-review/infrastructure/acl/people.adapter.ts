@@ -7,11 +7,19 @@ import type { PersonReaderPort } from '@identity/application/ports/person-reader
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
+const PICTURE_SIZE = 64;
+
 export class People implements PeoplePort {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly people: PersonReaderPort,
   ) {}
+
+  pictureOf(login: string): string | null {
+    return login
+      ? `https://github.com/${encodeURIComponent(login)}.png?size=${PICTURE_SIZE}`
+      : null;
+  }
 
   async find(userId: UserId): Promise<Person | null> {
     const person = await this.people.find(userId);

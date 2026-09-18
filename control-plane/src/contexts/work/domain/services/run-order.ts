@@ -27,6 +27,7 @@ export interface RunOrder {
   readonly repositories: readonly Repository[];
   readonly branch: Branch;
   readonly given: GivenToRun;
+  readonly diffs: boolean;
 }
 
 export const orderFor = ({
@@ -67,5 +68,6 @@ export const orderFor = ({
     repositories: line.repositories.all,
     branch: task.branch,
     given: givenAt(station, ready),
+    diffs: station.diffs,
   };
 };

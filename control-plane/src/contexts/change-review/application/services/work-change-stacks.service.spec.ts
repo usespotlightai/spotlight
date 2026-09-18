@@ -9,8 +9,13 @@ import {
   Diff,
   type DiffFile,
 } from '@change-review/domain/value-objects/diff.vo';
+import {
+  StackCheck,
+  WHOLE_STEP,
+} from '@change-review/domain/value-objects/stack-check.vo';
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
+import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
 import {
   MOST_WORK_ATTEMPTS,
   WORK_LEASE_MS,
@@ -30,7 +35,7 @@ const changed = (path: string, at: number): DiffFile => ({
   binary: false,
   hunks: [
     {
-      id: `h${at + 1}`,
+      id: HunkId.at(at + 1),
       oldStart: 1,
       oldLines: 1,
       newStart: 1,
@@ -50,7 +55,7 @@ const layered = (layers: string[][]): ProposedCohort[] => [
       title: `Layer ${at + 1}`,
       summary: `Layer ${at + 1}`,
       dependsOn: [],
-      ranges: hunks.map((hunk) => ({ hunk })),
+      ranges: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
       notes: hunks.map((hunk) => ({
         path: hunk === 'h1' ? 'schema.ts' : 'api.ts',
         note: 'Why it changes',
@@ -69,7 +74,7 @@ const drafting = () =>
     diff: Diff.of(['schema.ts', 'api.ts'].map(changed)),
     facts: StackFacts.of({
       hunks: ['h1', 'h2'].map((hunk, at) => ({
-        hunk,
+        hunk: HunkId.of(hunk),
         path: at === 0 ? 'schema.ts' : 'api.ts',
         fileClass: 'source',
         incidental: false,
@@ -82,7 +87,7 @@ const drafting = () =>
       links: [],
       imports: [],
     }),
-    check: 'npx tsc --noEmit',
+    check: StackCheck.named('npx tsc --noEmit'),
     now: NOW,
   });
 
@@ -203,8 +208,13 @@ describe('WorkChangeStacks', () => {
       .propose(layered([['h1'], ['h2']]), NOW)
       .recordCheck(
         [
-          { step: 'whole', passed: true, output: '', tookMs: 1 },
-          { step: 'c1.l1', passed: false, output: 'TS2304', tookMs: 1 },
+          { step: WHOLE_STEP, passed: true, output: '', tookMs: 1 },
+          {
+            step: LayerId.of('c1.l1'),
+            passed: false,
+            output: 'TS2304',
+            tookMs: 1,
+          },
         ],
         NOW,
       );

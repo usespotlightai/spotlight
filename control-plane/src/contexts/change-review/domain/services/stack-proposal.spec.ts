@@ -10,10 +10,11 @@ import type {
   FileNote,
   ProposedCohort,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
+import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { describe, expect, it } from 'vitest';
 
 const hunk = (id: string, start: number): DiffHunk => ({
-  id,
+  id: HunkId.of(id),
   oldStart: start,
   oldLines: 1,
   newStart: start,
@@ -51,7 +52,11 @@ const proposal = (
         title: 'Add invitations',
         summary: 'The function and its route',
         dependsOn: [],
-        ranges: [{ hunk: 'h1' }, { hunk: 'h2' }, { hunk: 'h3' }],
+        ranges: [
+          { hunk: HunkId.of('h1') },
+          { hunk: HunkId.of('h2') },
+          { hunk: HunkId.of('h3') },
+        ],
         notes,
       },
     ],
@@ -64,7 +69,7 @@ const NOTED: FileNote[] = [
 ];
 
 const settled = (cohorts: ProposedCohort[]) =>
-  StackProposal.settle({ diff: DIFF, facts: NO_FACTS, cohorts, strict: false });
+  StackProposal.settle({ diff: DIFF, facts: NO_FACTS, cohorts });
 
 const problemsOf = (cohorts: ProposedCohort[]) => {
   try {
@@ -83,9 +88,9 @@ describe('StackProposal', () => {
     const [cohort] = settled(proposal(NOTED));
 
     expect(cohort?.layers[0]?.ranges).toEqual([
-      { hunk: 'h1' },
-      { hunk: 'h2' },
-      { hunk: 'h3' },
+      { hunk: HunkId.of('h1') },
+      { hunk: HunkId.of('h2') },
+      { hunk: HunkId.of('h3') },
     ]);
     expect(cohort?.layers[0]?.notes).toEqual([
       { path: 'src/invite.ts', note: 'Adds the function that invites.' },

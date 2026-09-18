@@ -29,6 +29,7 @@ type Part = {
   effort?: Effort | null;
   agentPrompt?: AgentPrompt | null;
   check?: StationCheck | null;
+  diffs?: boolean;
   wayOut?: WayOut;
   tools?: readonly Tool[];
   skills?: readonly SkillKey[];
@@ -46,6 +47,7 @@ export type StationInput = {
   effort?: Effort | null;
   agentPrompt?: AgentPrompt | null;
   check?: StationCheck | null;
+  diffs?: boolean;
   kind?: StationKind;
   wayOut?: WayOut;
   tools?: readonly Tool[];
@@ -71,6 +73,7 @@ export abstract class Station {
   abstract readonly effort: Effort | null;
   abstract readonly agentPrompt: AgentPrompt | null;
   abstract readonly check: StationCheck | null;
+  abstract readonly diffs: boolean;
 
   static of(input: StationInput): Station {
     Station.guardWhatItGives(input.tools ?? [], input.skills ?? []);
@@ -100,6 +103,7 @@ export abstract class Station {
           input.effort ?? null,
           input.agentPrompt ?? null,
           input.check ?? null,
+          input.diffs ?? false,
         );
     }
   }
@@ -179,6 +183,7 @@ export class WorkStation extends Station {
     readonly effort: Effort | null,
     readonly agentPrompt: AgentPrompt | null,
     readonly check: StationCheck | null,
+    readonly diffs: boolean,
   ) {
     super(id, key, name, position, color, description, wayOut, tools, skills);
   }
@@ -215,6 +220,7 @@ export class WorkStation extends Station {
       part.effort !== undefined ? part.effort : this.effort,
       part.agentPrompt !== undefined ? part.agentPrompt : this.agentPrompt,
       part.check !== undefined ? part.check : this.check,
+      part.diffs !== undefined ? part.diffs : this.diffs,
     );
   }
 }
@@ -226,6 +232,7 @@ export class Backlog extends Station {
   readonly effort = null;
   readonly agentPrompt = null;
   readonly check = null;
+  readonly diffs = false;
 
   runsOn(): Station {
     throw new InvalidStationChangeError(
@@ -267,6 +274,7 @@ export class Completed extends Station {
   readonly effort = null;
   readonly agentPrompt = null;
   readonly check = null;
+  readonly diffs = false;
 
   runsOn(): Station {
     throw new InvalidStationChangeError(

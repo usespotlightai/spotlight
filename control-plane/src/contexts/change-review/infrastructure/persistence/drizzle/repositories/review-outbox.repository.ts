@@ -11,8 +11,6 @@ import { and, asc, eq, lte, sql } from 'drizzle-orm';
 
 const FAILURE_LIMIT = 1_000;
 
-const LEASE_MS = 10 * 60 * 1000;
-
 @Injectable()
 export class DrizzleReviewOutbox implements ReviewOutboxPort {
   constructor(private readonly context: DrizzleContext) {}
@@ -31,7 +29,7 @@ export class DrizzleReviewOutbox implements ReviewOutboxPort {
     });
   }
 
-  async claimDue(now: Date): Promise<ReviewSync | null> {
+  async claimDue(now: Date, leaseUntil: Date): Promise<ReviewSync | null> {
     const found = await this.context.run(async () => {
       const [due] = await this.context.db
         .select()
@@ -44,7 +42,7 @@ export class DrizzleReviewOutbox implements ReviewOutboxPort {
       if (due) {
         await this.context.db
           .update(reviewSync)
-          .set({ dueAt: new Date(now.getTime() + LEASE_MS) })
+          .set({ dueAt: leaseUntil })
           .where(eq(reviewSync.id, due.id));
       }
 

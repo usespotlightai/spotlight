@@ -1,8 +1,13 @@
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
+import { revisionOf } from '@change-review/domain/services/stack-revision';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import {
+  StackCheck,
+  WHOLE_STEP,
+} from '@change-review/domain/value-objects/stack-check.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
+import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
 import { GitDiffReader } from '@change-review/infrastructure/change-stacks/git-diff.reader';
-import { revisionOf } from '@change-review/infrastructure/change-stacks/stack-revision';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -37,7 +42,7 @@ const stack = () =>
     repository: null,
     diff: DIFF,
     facts: StackFacts.none(),
-    check: 'npx tsc --noEmit',
+    check: StackCheck.named('npx tsc --noEmit'),
     now: NOW,
   })
     .propose(
@@ -50,7 +55,7 @@ const stack = () =>
             title: `Layer ${at + 1}`,
             summary: 'A layer',
             dependsOn: [],
-            ranges: hunks.map((hunk) => ({ hunk })),
+            ranges: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
             notes: hunks.map((hunk) => ({
               path: DIFF.fileOf(hunk)?.path ?? hunk,
               note: 'Why it changes',
@@ -59,13 +64,12 @@ const stack = () =>
         },
       ],
       NOW,
-      false,
     )
     .recordCheck(
       [
-        { step: 'whole', passed: true, output: '', tookMs: 1 },
+        { step: WHOLE_STEP, passed: true, output: '', tookMs: 1 },
         {
-          step: 'c1.l1',
+          step: LayerId.of('c1.l1'),
           passed: false,
           output:
             "src/presentation/http/mappers/task.http.mapper.spec.ts(5,7): error TS2741: Property 'labels' is missing",
@@ -98,7 +102,7 @@ describe('revisionOf', () => {
           named: [
             {
               path: 'control-plane/src/presentation/http/mappers/task.http.mapper.spec.ts',
-              hunks: [{ hunk: 'h2', layer: 1 }],
+              hunks: [{ hunk: HunkId.of('h2'), layer: 1 }],
             },
           ],
         },

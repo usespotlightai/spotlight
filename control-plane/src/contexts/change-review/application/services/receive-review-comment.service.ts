@@ -1,17 +1,18 @@
 import type { ReceivedReviewComment } from '@change-review/application/contracts/received-review-comment.contract';
+import type { WorkPort } from '@change-review/application/ports/work.port';
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
+import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
-import type { WorkLookupPort } from '@work/application/ports/work-lookup.port';
 
 export class ReceiveReviewComment {
   constructor(
-    private readonly work: WorkLookupPort,
+    private readonly work: WorkPort,
     private readonly comments: ReviewCommentRepository,
     private readonly transaction: TransactionPort,
     private readonly ids: IdGeneratorPort,
@@ -91,7 +92,7 @@ export class ReceiveReviewComment {
         author: {
           userId: null,
           login: comment.login,
-          name: comment.login ?? 'Someone on GitHub',
+          name: AuthorName.onGitHub(comment.login),
         },
         replyTo: parent ? (parent.replyTo ?? parent.id) : null,
         github: { id: comment.id, url: comment.url },

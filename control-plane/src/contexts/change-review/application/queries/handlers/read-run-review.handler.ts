@@ -50,7 +50,7 @@ export class ReadRunReviewHandler
         comment.authorId
           ? (images.get(comment.authorId) ?? null)
           : comment.authorLogin
-            ? `https://github.com/${encodeURIComponent(comment.authorLogin)}.png?size=64`
+            ? this.people.pictureOf(comment.authorLogin)
             : null;
 
       const failedWith = (id: string, reviewId: string | null) =>

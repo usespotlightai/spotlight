@@ -1,6 +1,7 @@
 import { Review } from '@change-review/domain/aggregates/review.aggregate';
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
 import { InvalidReviewError } from '@change-review/domain/exceptions/invalid-review.error';
+import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
@@ -21,7 +22,7 @@ const draftBy = (author: UserId, id = 'comment_1', task = TASK) =>
     taskId: task,
     anchor: ReviewAnchor.of({ path: 'src/a.ts', side: 'new', line: 3 }),
     body: 'Rename this',
-    author: { userId: author, login: null, name: 'Someone' },
+    author: { userId: author, login: null, name: AuthorName.of('Someone') },
     now: NOW,
   });
 
@@ -39,7 +40,7 @@ const submit = (over: {
     body: over.body ?? '',
     drafts: over.drafts ?? [],
     now: NOW,
-  });
+  }).review;
 
 describe('Review', () => {
   it('submits its author’s drafts with it', () => {

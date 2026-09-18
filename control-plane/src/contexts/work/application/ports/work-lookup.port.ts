@@ -11,6 +11,7 @@ export interface RunLookup {
   readonly id: RunId;
   readonly workspaceId: WorkspaceId;
   readonly taskId: TaskId | null;
+  readonly check: string | null;
 }
 
 export interface TaskLookup {

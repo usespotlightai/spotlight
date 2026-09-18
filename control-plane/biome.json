@@ -192,7 +192,12 @@
       }
     },
     {
-      "includes": ["src/*.ts"],
+      "includes": [
+        "src/app.module.ts",
+        "src/app.setup.ts",
+        "src/main.ts",
+        "src/context-bindings.module.ts"
+      ],
       "linter": {
         "rules": {
           "style": {

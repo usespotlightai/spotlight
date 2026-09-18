@@ -3,6 +3,8 @@ export const DIFF_THEME = {
   dark: 'github-dark',
 } as const;
 
+export const DIFF_THEMES = [DIFF_THEME.light, DIFF_THEME.dark];
+
 const tint = (base: string, light: number, dark: number) =>
   `light-dark(color-mix(in lab, transparent ${light}%, var(${base})), color-mix(in lab, transparent ${dark}%, var(${base})))`;
 

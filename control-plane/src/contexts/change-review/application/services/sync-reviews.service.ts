@@ -5,6 +5,7 @@ import type {
   ReviewSync,
 } from '@change-review/application/ports/review-outbox.port';
 import type { ReviewSyncWorkPort } from '@change-review/application/ports/review-sync-work.port';
+import type { WorkPort } from '@change-review/application/ports/work.port';
 import type { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
 import { ChangedSinceReadError } from '@change-review/domain/exceptions/changed-since-read.error';
 import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
@@ -18,7 +19,6 @@ import type {
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import type { WorkLookupPort } from '@work/application/ports/work-lookup.port';
 
 export const MOST_ATTEMPTS = 6;
 
@@ -27,6 +27,8 @@ export const MOST_WAITS_FOR_THREAD = 30;
 export const AT_A_TIME = 10;
 
 const BACKOFF_MS = 30_000;
+
+const LEASE_MS = 10 * 60 * 1000;
 
 const WAIT_FOR_PULL_REQUEST_MS = 60_000;
 
@@ -48,7 +50,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
     private readonly outbox: ReviewOutboxPort,
     private readonly reviews: ReviewRepository,
     private readonly comments: ReviewCommentRepository,
-    private readonly work: WorkLookupPort,
+    private readonly work: WorkPort,
     private readonly connections: GitHubConnectionsPort,
     private readonly people: PeoplePort,
     private readonly github: PullRequestReviewsPort,
@@ -68,7 +70,10 @@ export class SyncReviews implements ReviewSyncWorkPort {
 
   private async syncNext(): Promise<boolean> {
     const now = this.clock.now();
-    const sync = await this.outbox.claimDue(now);
+    const sync = await this.outbox.claimDue(
+      now,
+      new Date(now.getTime() + LEASE_MS),
+    );
 
     if (!sync) {
       return false;

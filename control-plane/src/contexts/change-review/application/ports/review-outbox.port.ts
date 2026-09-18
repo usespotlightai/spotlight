@@ -19,7 +19,7 @@ export interface ReviewSync {
 export interface ReviewOutboxPort {
   enqueue(sync: Omit<ReviewSync, 'attempts'>, dueAt: Date): Promise<void>;
 
-  claimDue(now: Date): Promise<ReviewSync | null>;
+  claimDue(now: Date, leaseUntil: Date): Promise<ReviewSync | null>;
 
   done(id: string): Promise<void>;
 

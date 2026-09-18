@@ -56,6 +56,7 @@ const written = (
     skills,
     manifest,
     attachments: Attached.shapes(task.allAttachments),
+    diffs: order.diffs,
   });
 
 export class DispatchTask implements TaskDispatching {

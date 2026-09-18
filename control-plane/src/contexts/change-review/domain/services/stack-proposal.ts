@@ -16,6 +16,10 @@ import {
   type ProposedLayer,
   type StackCohort,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
+import {
+  CohortId,
+  LayerId,
+} from '@change-review/domain/value-objects/stack-ids';
 
 const MOST_TITLE = 120;
 
@@ -156,7 +160,7 @@ const shapeProblems = (
 };
 
 const mergedDependencies = (
-  cohortId: string,
+  cohortId: CohortId,
   proposed: ProposedLayer['dependsOn'],
   derived: ReadonlyMap<number, ReadonlySet<string>> | undefined,
 ): LayerDependency[] => {
@@ -185,7 +189,7 @@ const mergedDependencies = (
   return [...merged.entries()]
     .sort(([a], [b]) => a - b)
     .map(([layer, because]) => ({
-      layer: `${cohortId}.l${layer}`,
+      layer: LayerId.in(cohortId, layer),
       because: [...because],
     }));
 };
@@ -197,7 +201,7 @@ const numbered = (
   const derived = derivedDependencies(cohorts, facts.links);
 
   return cohorts.map((cohort, c) => {
-    const cohortId = `c${c + 1}`;
+    const cohortId = CohortId.at(c + 1);
 
     return {
       id: cohortId,
@@ -205,7 +209,7 @@ const numbered = (
       title: cohort.title.trim(),
       intent: cohort.intent.trim(),
       layers: cohort.layers.map((layer, l) => ({
-        id: `${cohortId}.l${l + 1}`,
+        id: LayerId.in(cohortId, l + 1),
         title: layer.title.trim(),
         summary: layer.summary.trim(),
         dependsOn: mergedDependencies(
@@ -228,12 +232,11 @@ export const StackProposal = {
     diff: Diff;
     facts: DiffFacts;
     cohorts: readonly ProposedCohort[];
-    strict: boolean;
     also?: readonly StackProblem[];
   }): StackCohort[] {
     const problems = [
       ...shapeProblems(input.diff, input.cohorts),
-      ...(input.strict ? factProblems(input.cohorts, input.facts) : []),
+      ...factProblems(input.cohorts, input.facts),
       ...(input.also ?? []),
     ];
 

@@ -42,6 +42,7 @@ const planOf = (line: Line): StationPlan[] =>
     effort: each.effort,
     agentPrompt: each.agentPrompt,
     check: null,
+    diffs: false,
     tools: each.tools,
     skills: each.skills,
     passesTo: each.wayOut.stations.map((to) => keyed(line, to)),

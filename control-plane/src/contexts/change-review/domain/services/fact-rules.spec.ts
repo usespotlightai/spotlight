@@ -11,10 +11,11 @@ import type {
   ProposedCohort,
   ProposedLayer,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
+import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { describe, expect, it } from 'vitest';
 
 const hunk = (id: string, over: Partial<HunkFacts> = {}): HunkFacts => ({
-  hunk: id,
+  hunk: HunkId.of(id),
   path: `src/${id}.ts`,
   fileClass: 'source',
   incidental: false,
@@ -30,7 +31,7 @@ const layer = (hunks: string[]): ProposedLayer => ({
   title: 'A layer',
   summary: 'A layer',
   dependsOn: [],
-  ranges: hunks.map((each) => ({ hunk: each })),
+  ranges: hunks.map((each) => ({ hunk: HunkId.of(each) })),
   notes: [],
 });
 
@@ -58,7 +59,14 @@ describe('factProblems', () => {
   it('keeps a test in the same layer as the code it covers', () => {
     const covered = facts(
       [hunk('h1'), hunk('h2', { fileClass: 'test' })],
-      [{ kind: 'tests', from: 'h2', to: 'h1', because: ['invite.ts'] }],
+      [
+        {
+          kind: 'tests',
+          from: HunkId.of('h2'),
+          to: HunkId.of('h1'),
+          because: ['invite.ts'],
+        },
+      ],
     );
 
     expect(messagesOf([cohort([['h1', 'h2']])], covered)).toEqual([]);
@@ -70,7 +78,14 @@ describe('factProblems', () => {
   it('keeps moved code in one layer', () => {
     const moved = facts(
       [hunk('h1'), hunk('h2')],
-      [{ kind: 'moves', from: 'h2', to: 'h1', because: ['a → b'] }],
+      [
+        {
+          kind: 'moves',
+          from: HunkId.of('h2'),
+          to: HunkId.of('h1'),
+          because: ['a → b'],
+        },
+      ],
     );
 
     expect(messagesOf([cohort([['h1'], ['h2']])], moved)).toEqual([
@@ -97,7 +112,14 @@ describe('factProblems', () => {
   it('questions a cohort that joins changes nothing connects, unless it says why', () => {
     const unlinked = facts(
       [hunk('h1'), hunk('h2'), hunk('h3')],
-      [{ kind: 'uses', from: 'h2', to: 'h1', because: ['Invite'] }],
+      [
+        {
+          kind: 'uses',
+          from: HunkId.of('h2'),
+          to: HunkId.of('h1'),
+          because: ['Invite'],
+        },
+      ],
     );
 
     expect(messagesOf([cohort([['h1', 'h2', 'h3']])], unlinked)).toEqual([
@@ -126,8 +148,18 @@ describe('derivedDependencies', () => {
     const derived = derivedDependencies(
       [cohort([['h1'], ['h2', 'h3']])],
       [
-        { kind: 'uses', from: 'h2', to: 'h1', because: ['Invite'] },
-        { kind: 'moves', from: 'h3', to: 'h1', because: ['a → b'] },
+        {
+          kind: 'uses',
+          from: HunkId.of('h2'),
+          to: HunkId.of('h1'),
+          because: ['Invite'],
+        },
+        {
+          kind: 'moves',
+          from: HunkId.of('h3'),
+          to: HunkId.of('h1'),
+          because: ['a → b'],
+        },
       ],
     );
 

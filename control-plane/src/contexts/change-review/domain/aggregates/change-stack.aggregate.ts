@@ -1,13 +1,16 @@
 import { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
 import { ChangeStackDraftingBegan } from '@change-review/domain/events/change-stack-drafting-began.event';
+import { ChangeStackFailed } from '@change-review/domain/events/change-stack-failed.event';
 import { ChangeStackSettled } from '@change-review/domain/events/change-stack-settled.event';
 import { LayersFailedCheck } from '@change-review/domain/events/layers-failed-check.event';
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
+import { arranged } from '@change-review/domain/services/arrange-stack';
 import { checkStepsOf } from '@change-review/domain/services/check-steps';
 import { generatedEntries } from '@change-review/domain/services/generated-entries';
 import { StackProposal } from '@change-review/domain/services/stack-proposal';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
+import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import {
   type CheckedStep,
   type CheckStep,
@@ -28,6 +31,7 @@ import {
 } from '@change-review/domain/value-objects/stack-progress.vo';
 import { StackWork } from '@change-review/domain/value-objects/stack-work.vo';
 import { EventRecorder } from '@shared-kernel/domain/aggregates/event-recorder';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -46,13 +50,69 @@ const changeLayers = (
     .filter((cohort) => cohort.kind === 'change')
     .reduce((total, cohort) => total + cohort.layers.length, 0);
 
+const placedHunks = (cohorts: readonly StackCohort[]): string[] =>
+  cohorts.flatMap((cohort) =>
+    cohort.layers.flatMap((layer) => layer.ranges.map((range) => range.hunk)),
+  );
+
+const assertWhole = (
+  progress: StackProgress,
+  diff: Diff,
+  cohorts: readonly StackCohort[],
+): void => {
+  const wrong = (says: string): never => {
+    throw new InconsistentStateError('change stack', says);
+  };
+
+  if (progress.state === 'drafting' && cohorts.length > 0) {
+    wrong('is still drafting, yet already holds cohorts');
+  }
+
+  if (progress.state === 'failed' && !progress.failure) {
+    wrong('failed without saying why');
+  }
+
+  if (progress.state !== 'ready') {
+    return;
+  }
+
+  if (cohorts.length === 0) {
+    wrong('is ready, yet places nothing');
+  }
+
+  const placed = placedHunks(cohorts);
+  const counted = new Map<string, number>();
+
+  for (const hunk of placed) {
+    counted.set(hunk, (counted.get(hunk) ?? 0) + 1);
+  }
+
+  for (const [hunk, times] of counted) {
+    if (times > 1) {
+      wrong(`places ${hunk} ${times} times`);
+    }
+  }
+
+  for (const hunk of diff.hunks) {
+    if (!counted.has(hunk.id)) {
+      wrong(`leaves ${hunk.id} out`);
+    }
+  }
+
+  for (const hunk of counted.keys()) {
+    if (!diff.hunks.some((each) => each.id === hunk)) {
+      wrong(`places ${hunk}, which the diff does not hold`);
+    }
+  }
+};
+
 export class ChangeStack extends EventRecorder {
   private constructor(
     readonly id: ChangeStackId,
     readonly runId: RunId,
     readonly taskId: TaskId | null,
     readonly workspaceId: WorkspaceId,
-    readonly repository: string | null,
+    readonly repository: RepositoryName | null,
     readonly diff: Diff,
     readonly facts: StackFacts,
     readonly cohorts: readonly StackCohort[],
@@ -71,7 +131,7 @@ export class ChangeStack extends EventRecorder {
     repository: string | null;
     diff: Diff;
     facts: StackFacts;
-    check?: string | null;
+    check?: StackCheck | null;
     now: Date;
   }): ChangeStack {
     const stack = new ChangeStack(
@@ -79,14 +139,11 @@ export class ChangeStack extends EventRecorder {
       input.runId,
       input.taskId,
       input.workspaceId,
-      input.repository?.trim() || null,
+      input.repository?.trim() ? RepositoryName.of(input.repository) : null,
       input.diff,
       input.facts,
       [],
-      StackProgress.drafting(
-        input.now,
-        input.check?.trim() ? StackCheck.named(input.check) : null,
-      ),
+      StackProgress.drafting(input.now, input.check ?? null),
       StackWork.fresh(),
       0,
     );
@@ -101,7 +158,7 @@ export class ChangeStack extends EventRecorder {
     runId: RunId;
     taskId: TaskId | null;
     workspaceId: WorkspaceId;
-    repository: string | null;
+    repository: RepositoryName | null;
     diff: Diff;
     facts: StackFacts;
     cohorts: readonly StackCohort[];
@@ -109,6 +166,8 @@ export class ChangeStack extends EventRecorder {
     work: StackWork;
     version: number;
   }): ChangeStack {
+    assertWhole(input.progress, input.diff, input.cohorts);
+
     return new ChangeStack(
       input.id,
       input.runId,
@@ -277,27 +336,23 @@ export class ChangeStack extends EventRecorder {
     return skipped;
   }
 
-  reordered(
-    cohorts: readonly ProposedCohort[],
-    now: Date,
-    strict: boolean,
-  ): ChangeStack {
+  reordered(cohorts: readonly ProposedCohort[], now: Date): ChangeStack {
     const check = this.check;
 
     if (!check?.reordering || this.checkStateAt(now) !== 'waiting') {
       throw InvalidChangeStackError.because('is not being reordered');
     }
 
+    const setAside = arranged(this.diff, this.facts, cohorts);
     const before = changeLayers(this.cohorts);
-    const after = changeLayers(cohorts);
+    const after = changeLayers(setAside);
 
     const ready = StackProposal.settle({
       diff: this.diff,
       facts: this.facts,
-      cohorts,
-      strict,
+      cohorts: setAside,
       also:
-        strict && after < before
+        after < before
           ? [
               {
                 code: 'joined-layers',
@@ -332,18 +387,13 @@ export class ChangeStack extends EventRecorder {
     return kept;
   }
 
-  propose(
-    cohorts: readonly ProposedCohort[],
-    now: Date,
-    strict = true,
-  ): ChangeStack {
+  propose(cohorts: readonly ProposedCohort[], now: Date): ChangeStack {
     this.assertDrafting();
 
     const ready = StackProposal.settle({
       diff: this.diff,
       facts: this.facts,
-      cohorts,
-      strict,
+      cohorts: arranged(this.diff, this.facts, cohorts),
     });
 
     const settledStack = this.with({
@@ -363,12 +413,16 @@ export class ChangeStack extends EventRecorder {
   fail(reason: string, now: Date): ChangeStack {
     this.assertDrafting();
 
-    return this.with({
-      progress: this.progress.settled('failed', now, {
-        failure: reason.trim() || INTERRUPTED,
-      }),
+    const failure = reason.trim() || INTERRUPTED;
+
+    const failed = this.with({
+      progress: this.progress.settled('failed', now, { failure }),
       work: StackWork.fresh(),
     });
+
+    failed.record(new ChangeStackFailed(this.id, this.runId, failure));
+
+    return failed;
   }
 
   private assertCheckable(now: Date): StackCheck {

@@ -339,6 +339,7 @@ CREATE TABLE "station" (
 	"effort" text,
 	"agent_prompt" text,
 	"check" text,
+	"diffs" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );

@@ -168,6 +168,7 @@ const compileStation = (
       effort: station.effort ? Effort.of(station.effort) : null,
       agentPrompt,
       check,
+      diffs: station.diffs ?? false,
       tools: station.tools.map((each) => Tool.of(each)),
       skills: station.skills.map((each) => SkillKey.of(each)),
       passesTo: station.passesTo.map((each) => StationKey.of(each)),
