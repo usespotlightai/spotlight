@@ -41,7 +41,7 @@
     "age-encryption": "0.3.1",
     "better-auth": "^1.7.5",
     "drizzle-orm": "^0.45.2",
-    "nestjs-pino": "^4.6.1",
+    "nestjs-pino": "^5.2.0",
     "nodemailer": "^10.0.10",
     "pg": "^8.23.0",
     "pino": "^10.3.1",
