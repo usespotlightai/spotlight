@@ -1,5 +1,5 @@
 {
-  "id": "8fa440fd-94b8-4437-9ab9-f13c3606710a",
+  "id": "db9079fd-36a9-4f90-aef0-1ad9948d9e14",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -4200,6 +4200,12 @@
         },
         "said": {
           "name": "said",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "approval": {
+          "name": "approval",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false

@@ -463,6 +463,7 @@ CREATE TABLE "task_note" (
 	"kind" text NOT NULL,
 	"form" text DEFAULT 'words' NOT NULL,
 	"said" jsonb,
+	"approval" jsonb,
 	"answered_at" timestamp,
 	"read_at" timestamp,
 	"delivered_at" timestamp,
