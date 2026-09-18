@@ -68,24 +68,29 @@ const put = (
   return box.scrollTop !== was;
 };
 
+export type Deciding = {
+  readonly pending: boolean;
+  readonly onDecide: (approve: boolean, said: string) => void;
+};
+
 type ConversationProps = {
   item: Conversing;
   worked: readonly RunJournal[];
-  viewerId?: string;
   openAt?: number | null;
   opening?: ReactNode;
   live?: ReactNode;
   footer: ReactNode;
+  deciding?: Deciding;
 };
 
 export function Conversation({
   item,
   worked,
-  viewerId,
   openAt,
   opening,
   live,
   footer,
+  deciding,
 }: ConversationProps) {
   const marked = marksIn(item);
   const scroller = useRef<HTMLDivElement>(null);
@@ -189,11 +194,6 @@ export function Conversation({
               <PersonSaid
                 body={turn.prompt.body}
                 attachments={turn.prompt.attachments}
-                name={
-                  turn.prompt.author?.id === viewerId
-                    ? null
-                    : turn.prompt.author?.name
-                }
               />
             ) : at === 0 ? (
               opening
@@ -236,6 +236,7 @@ export function Conversation({
                           teamId={item.teamId}
                           about={item.about}
                           resolved={item.resolved}
+                          deciding={deciding}
                           worked={worked.filter(
                             (each) => each.runId === note.runId,
                           )}

@@ -5,10 +5,13 @@ import type { ToolAnswerDto } from '@work/application/dto/tool-answer.dto';
 import type { IntegrationToolsPort } from '@work/application/ports/integration-tools.port';
 import type { BuiltInTools } from '@work/application/services/built-in-tools.service';
 import type { RunWorks } from '@work/application/services/run-works.service';
+import { ToolApprovalRefusedError } from '@work/domain/exceptions/tool-approval-refused.error';
+import { ToolAwaitsApprovalError } from '@work/domain/exceptions/tool-awaits-approval.error';
 import { ToolNeedsWorkError } from '@work/domain/exceptions/tool-needs-work.error';
 import { ToolNotGivenError } from '@work/domain/exceptions/tool-not-given.error';
 import { UnknownToolError } from '@work/domain/exceptions/unknown-tool.error';
 import { Tool } from '@work/domain/value-objects/tool.vo';
+import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 
 export class UseToolHandler
   implements CommandHandlerPort<UseToolCommand, ToolAnswerDto>
@@ -47,8 +50,25 @@ export class UseToolHandler
       const inputs = reachable.declared.accept(command.input, (input) =>
         reachable.defaultFor(input),
       );
+      const cleared = await work.clearFor(
+        reachable.declared,
+        ToolCall.of(tool, inputs),
+      );
 
-      return { output: await reachable.call(inputs) };
+      if (cleared.kind === 'asked') {
+        throw new ToolAwaitsApprovalError(tool.value);
+      }
+
+      if (cleared.kind === 'refused') {
+        throw new ToolApprovalRefusedError(tool.value, cleared.reason);
+      }
+
+      try {
+        return { output: await reachable.call(inputs) };
+      } catch (error) {
+        await cleared.returned();
+        throw error;
+      }
     } catch (error) {
       rethrowAsFault(error);
     }

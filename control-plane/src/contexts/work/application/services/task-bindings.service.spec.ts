@@ -1,10 +1,14 @@
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { ApprovalAsked } from '@work/application/rendering/approval-asked';
 import { TaskBindings } from '@work/application/services/task-bindings.service';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
+import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
+import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
@@ -16,6 +20,9 @@ import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { Tool } from '@work/domain/value-objects/tool.vo';
+import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
+import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -96,6 +103,47 @@ describe('TaskBindings', () => {
 
     expect(bound?.waiting?.said).toBe('Which queue should I drain?');
     expect(bound?.waiting?.conversationId).toMatch(/^task_1:/);
+    expect(bound?.waiting?.awaitsApproval).toBe(false);
+  });
+
+  it('says when what a person is owed is a tool call to approve', async () => {
+    const asked = Task.rehydrate({
+      ...task(),
+      currentRunId: RunId.of('run_1'),
+    }).clearFor(
+      ToolCall.of(
+        Tool.of('linear.comment'),
+        ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+      ),
+      ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
+      {
+        station: StationName.of('Triage'),
+        body: TaskNoteBody.of(
+          ApprovalAsked.body(
+            DeclaredTool.of({
+              tool: Tool.of('linear.comment'),
+              description: 'Comment on the issue.',
+            }),
+            ToolCall.of(
+              Tool.of('linear.comment'),
+              ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.\nIn #41.' }),
+            ),
+            ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
+          ),
+        ),
+        at: NOW,
+        voice: Voice.station(RunId.of('run_1')),
+      },
+      RunId.of('run_1'),
+    ).task;
+
+    const bound = await binding().of(asked);
+
+    expect(bound?.waiting?.awaitsApproval).toBe(true);
+    expect(bound?.waiting?.said).not.toContain('**');
+    expect(bound?.waiting?.said).toContain('`linear.comment`');
+    expect(bound?.waiting?.said).toContain('issue: `ENG-12`');
+    expect(bound?.waiting?.said).toContain('body:\n```\nFixed.\nIn #41.\n```');
   });
 
   it('binds nothing for a task off every line', async () => {

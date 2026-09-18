@@ -151,6 +151,7 @@ const carrying = (
       {
         holding: vi.fn(async () => lineWorking(repositories)),
       } as unknown as LineRepository,
+      { now: () => new Date(), sleep: async () => {} },
     ),
     {
       isConnected: vi.fn(async () => true),

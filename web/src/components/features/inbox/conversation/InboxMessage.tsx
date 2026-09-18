@@ -1,13 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { StationIcon } from '@/components/features/board/column/StationIcon';
+import { ApprovalDecision } from '@/components/features/inbox/conversation/ApprovalDecision';
+import type { Deciding } from '@/components/features/inbox/conversation/Conversation';
 import { InboxWork } from '@/components/features/inbox/conversation/InboxWork';
 import { PersonSaid } from '@/components/features/inbox/conversation/PersonSaid';
 import { SaidCard } from '@/components/features/inbox/conversation/SaidCard';
 import { SetupSteps } from '@/components/features/onboarding/SetupSteps';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
-import { useSession } from '@/hooks/api/useSession';
 import {
   type Conversing,
   HELD_AT_TOP,
@@ -23,6 +24,7 @@ type InboxMessageProps = {
   teamId: string | undefined;
   about: Conversing['about'];
   resolved: Conversing['resolved'];
+  deciding?: Deciding;
 };
 
 export function InboxMessage({
@@ -32,8 +34,8 @@ export function InboxMessage({
   teamId,
   about,
   resolved,
+  deciding,
 }: InboxMessageProps) {
-  const { data: session } = useSession();
   const navigate = useNavigate();
   const written = useRef<HTMLDivElement>(null);
 
@@ -86,20 +88,13 @@ export function InboxMessage({
   if (message.voice === 'person') {
     return (
       <li data-note={message.position} className={HELD_AT_TOP}>
-        <PersonSaid
-          body={message.body}
-          attachments={message.attachments}
-          name={
-            message.author && message.author.id !== session?.user.id
-              ? message.author.name
-              : null
-          }
-        />
+        <PersonSaid body={message.body} attachments={message.attachments} />
       </li>
     );
   }
 
   const shows = message.form === 'setup' && teamId;
+  const approval = message.approval;
 
   return (
     <li data-note={message.position} className="flex flex-col gap-1.5">
@@ -115,7 +110,17 @@ export function InboxMessage({
 
       {worked.length > 0 && <InboxWork journals={worked} />}
 
-      {shows ? (
+      {approval ? (
+        <ApprovalDecision
+          approval={approval}
+          pending={deciding?.pending ?? false}
+          onDecide={
+            deciding
+              ? (approve, said) => deciding.onDecide(approve, said)
+              : undefined
+          }
+        />
+      ) : shows ? (
         <SetupSteps
           teamId={teamId}
           body={message.body}

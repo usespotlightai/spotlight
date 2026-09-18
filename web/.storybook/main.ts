@@ -6,6 +6,13 @@ const config: StorybookConfig = {
   core: {
     disableTelemetry: true,
   },
+  viteFinal: (vite) => ({
+    ...vite,
+    server: {
+      ...vite.server,
+      watch: { ...vite.server?.watch, usePolling: true, interval: 300 },
+    },
+  }),
 };
 
 export default config;

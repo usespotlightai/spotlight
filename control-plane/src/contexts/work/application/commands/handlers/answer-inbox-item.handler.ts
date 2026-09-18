@@ -8,8 +8,16 @@ import type { ConversationAtHand } from '@work/application/services/conversation
 import type { FilesAtHand } from '@work/application/services/files-at-hand.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import type { ApprovalDecision } from '@work/domain/value-objects/approval.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
+
+const wordsFor = (decision: ApprovalDecision | null): string =>
+  decision === 'granted'
+    ? 'Approved.'
+    : decision === 'refused'
+      ? 'Rejected.'
+      : '';
 
 export class AnswerInboxItemHandler
   implements CommandHandlerPort<AnswerInboxItemCommand, void>
@@ -37,13 +45,20 @@ export class AnswerInboxItemHandler
           command.attachments,
         );
 
-        const answered = task.answered(item.from, {
-          station,
-          body: TaskNoteBody.given(command.body, attachments),
-          at: this.clock.now(),
-          voice: Voice.person(answeredBy),
-          attachments,
-        });
+        const answered = task.answered(
+          item.from,
+          {
+            station,
+            body: TaskNoteBody.given(
+              command.body || wordsFor(command.decision),
+              attachments,
+            ),
+            at: this.clock.now(),
+            voice: Voice.person(answeredBy),
+            attachments,
+          },
+          command.decision,
+        );
 
         const runId =
           line && answered.wantsRun(line)

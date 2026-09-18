@@ -80,6 +80,7 @@ const using = (
     response: { url: 'https://linear.app/acme/issue/ENG-12#comment-1' },
     capture: { url: 'https://linear.app/acme/issue/ENG-12#comment-1' },
   },
+  over: { file?: string } = {},
 ) => {
   const run = vi.fn(
     async (_action: unknown, _against: Record<string, unknown>) => reply,
@@ -89,7 +90,10 @@ const using = (
     {
       of: vi.fn(async () => ({
         files: [
-          ConfigurationFile.of('.spotlight/integrations/linear.yml', LINEAR),
+          ConfigurationFile.of(
+            '.spotlight/integrations/linear.yml',
+            over.file ?? LINEAR,
+          ),
         ],
       })),
     } as unknown as AppliedConfigurationPort,
@@ -120,6 +124,14 @@ const using = (
   return { reaching, run, comment };
 };
 
+const usingApproved = () =>
+  using(undefined, {
+    file: LINEAR.replace(
+      '    does: comment\n',
+      '    does: comment\n    approval:\n      because: It posts publicly, under the team’s name.\n',
+    ),
+  });
+
 describe('IntegrationToolCalls', () => {
   it('reaches a tool the team’s integrations declare, as they declare it', async () => {
     const reached = await using().reaching('linear.comment');
@@ -130,6 +142,20 @@ describe('IntegrationToolCalls', () => {
       'body',
       'count',
     ]);
+  });
+
+  it('carries no approval where the file asks for none', async () => {
+    const reached = await using().reaching('linear.comment');
+
+    expect(reached?.declared.approval).toBeNull();
+  });
+
+  it('carries into Work the approval a tool may only be used with', async () => {
+    const reached = await usingApproved().reaching('linear.comment');
+
+    expect(reached?.declared.approval).toEqual({
+      because: 'It posts publicly, under the team’s name.',
+    });
   });
 
   it('makes the call the tool’s action describes, and answers with its output', async () => {

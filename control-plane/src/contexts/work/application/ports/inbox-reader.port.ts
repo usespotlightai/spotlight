@@ -4,12 +4,25 @@ import type {
   TaskNoteForm,
   TaskNoteKind,
 } from '@work/domain/entities/task-note.entity';
+import type { ApprovalStanding } from '@work/domain/value-objects/approval.vo';
 import type { SpokenBy } from '@work/domain/value-objects/voice.vo';
 
 export interface InboxAuthor {
   readonly id: string;
   readonly name: string;
   readonly image: string | null;
+}
+
+export interface InboxApprovalInput {
+  readonly name: string;
+  readonly value: string;
+}
+
+export interface InboxApproval {
+  readonly tool: string;
+  readonly because: string;
+  readonly inputs: readonly InboxApprovalInput[];
+  readonly standing: ApprovalStanding;
 }
 
 export interface InboxNote {
@@ -26,6 +39,7 @@ export interface InboxNote {
   readonly at: Date;
   readonly author: InboxAuthor | null;
   readonly readAt: Date | null;
+  readonly approval: InboxApproval | null;
 }
 
 export interface InboxStation {

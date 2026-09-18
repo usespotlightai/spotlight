@@ -18,6 +18,8 @@ import { TaskMarkTaken } from '@work/domain/events/task-mark-taken.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import { TaskProposed } from '@work/domain/events/task-proposed.event';
 import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
+import { Approval } from '@work/domain/value-objects/approval.vo';
+import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
@@ -71,6 +73,7 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
+import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -78,6 +81,8 @@ import { WayOut } from '@work/domain/value-objects/way-out.vo';
 
 export const WORK_EVENT_TYPES = [
   AgentPrompt,
+  Approval,
+  ApprovalNeeded,
   AttachmentId,
   Attachment,
   Branch,
@@ -130,6 +135,7 @@ export const WORK_EVENT_TYPES = [
   TaskNoteBody,
   TaskRank,
   TaskTitle,
+  ToolCall,
   ToolInputs,
   Tool,
   Trail,

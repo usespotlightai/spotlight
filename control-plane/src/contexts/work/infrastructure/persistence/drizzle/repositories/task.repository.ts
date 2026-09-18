@@ -18,6 +18,7 @@ import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { openSetupList } from '@work/domain/services/setup-list';
+import { Approval } from '@work/domain/value-objects/approval.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { Concerns } from '@work/domain/value-objects/concerns.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
@@ -30,6 +31,9 @@ import { TaskDescription } from '@work/domain/value-objects/task-description.vo'
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { Tool } from '@work/domain/value-objects/tool.vo';
+import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
+import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { claimAttachments } from '@work/infrastructure/persistence/drizzle/attachment-claims';
 import {
@@ -37,6 +41,7 @@ import {
   station,
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import {
+  type ApprovalRow,
   task,
   taskAttachment,
   taskMark,
@@ -61,6 +66,35 @@ const toAttachments = (
     .filter((row) => row.notePosition === at)
     .map((row) => Attachment.rehydrate(row));
 
+const toApproval = (row: ApprovalRow): Approval =>
+  Approval.rehydrate({
+    call: ToolCall.of(Tool.of(row.tool), ToolInputs.of(row.inputs)),
+    at: StationId.of(row.stationId),
+    because: row.because,
+    standing: row.standing,
+    decided:
+      row.decidedBy && row.decidedAt
+        ? {
+            by: UserId.of(row.decidedBy),
+            at: new Date(row.decidedAt),
+            reason: row.reason ?? '',
+          }
+        : null,
+    spent: row.spent,
+  });
+
+const toApprovalRow = (approval: Approval): ApprovalRow => ({
+  tool: approval.call.tool.value,
+  inputs: approval.call.inputs.values,
+  stationId: approval.at.value,
+  because: approval.because,
+  standing: approval.standing,
+  decidedBy: approval.decided?.by.value ?? null,
+  decidedAt: approval.decided?.at.toISOString() ?? null,
+  reason: approval.decided?.reason ?? null,
+  spent: approval.spent,
+});
+
 const toNote = (row: NoteRow, attachments: AttachmentRow[]): TaskNote =>
   TaskNote.of({
     position: NotePosition.of(row.position),
@@ -75,6 +109,7 @@ const toNote = (row: NoteRow, attachments: AttachmentRow[]): TaskNote =>
     readAt: row.readAt,
     deliveredAt: row.deliveredAt,
     form: row.form,
+    approval: row.approval ? toApproval(row.approval) : null,
   });
 
 const toTask = (
@@ -531,6 +566,7 @@ export class DrizzleTaskRepository implements TaskRepository {
           readAt: note.readAt,
           deliveredAt: note.deliveredAt,
           form: note.form,
+          approval: note.approval ? toApprovalRow(note.approval) : null,
         })),
       )
       .onConflictDoUpdate({
@@ -539,6 +575,7 @@ export class DrizzleTaskRepository implements TaskRepository {
           readAt: sql`excluded.read_at`,
           deliveredAt: sql`excluded.delivered_at`,
           answeredAt: sql`excluded.answered_at`,
+          approval: sql`excluded.approval`,
         },
       });
   }

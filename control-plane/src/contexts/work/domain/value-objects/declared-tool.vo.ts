@@ -1,6 +1,7 @@
 import { WORDS } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import { InvalidToolError } from '@work/domain/exceptions/invalid-tool.error';
 import { InvalidToolInputError } from '@work/domain/exceptions/invalid-tool-input.error';
+import type { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
 import {
   ToolInputs,
@@ -63,12 +64,14 @@ export class DeclaredTool {
     readonly tool: Tool,
     readonly description: string,
     readonly inputs: readonly ToolInput[],
+    readonly approval: ApprovalNeeded | null,
   ) {}
 
   static of(input: {
     tool: Tool;
     description: string;
     inputs?: readonly ToolInput[];
+    approval?: ApprovalNeeded | null;
   }): DeclaredTool {
     const description = input.description.trim();
     const inputs = input.inputs ?? [];
@@ -111,7 +114,12 @@ export class DeclaredTool {
       );
     }
 
-    return new DeclaredTool(input.tool, description, inputs);
+    return new DeclaredTool(
+      input.tool,
+      description,
+      inputs,
+      input.approval ?? null,
+    );
   }
 
   accept(

@@ -3,11 +3,25 @@ import {
   TASK_NOTE_FORMS,
   TASK_NOTE_KINDS,
 } from '@work/domain/entities/task-note.entity';
+import { APPROVAL_STANDINGS } from '@work/domain/value-objects/approval.vo';
 import { VOICES } from '@work/domain/value-objects/voice.vo';
 
 export const NOTE_KINDS = TASK_NOTE_KINDS;
 export const NOTE_FORMS = TASK_NOTE_FORMS;
 export const NOTE_VOICES = VOICES;
+export const APPROVAL_STANDING = APPROVAL_STANDINGS;
+
+export interface InboxApprovalInputDto {
+  readonly name: string;
+  readonly value: string;
+}
+
+export interface InboxApprovalDto {
+  readonly tool: string;
+  readonly because: string;
+  readonly inputs: readonly InboxApprovalInputDto[];
+  readonly standing: string;
+}
 
 export interface InboxAuthorDto {
   readonly id: string;
@@ -28,6 +42,7 @@ export interface InboxMessageDto {
   readonly attachments: readonly AttachmentDto[];
   readonly at: string;
   readonly author: InboxAuthorDto | null;
+  readonly approval: InboxApprovalDto | null;
 }
 
 export interface InboxStationDto {

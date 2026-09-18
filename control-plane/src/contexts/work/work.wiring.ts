@@ -645,13 +645,15 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       DrizzleTaskRepository,
       DrizzleChatRepository,
       DrizzleLineRepository,
+      CLOCK,
     ],
     useFactory: (
       runs: DrizzleRunRepository,
       tasks: DrizzleTaskRepository,
       chats: DrizzleChatRepository,
       lines: DrizzleLineRepository,
-    ) => new RunWorks(runs, tasks, chats, lines),
+      clock: ClockPort,
+    ) => new RunWorks(runs, tasks, chats, lines, clock),
   },
 
   {

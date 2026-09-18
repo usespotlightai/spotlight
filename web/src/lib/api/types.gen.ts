@@ -420,13 +420,31 @@ export type InboxAuthorResponseDto = {
   image: string | null;
 };
 
+export type InboxApprovalInputResponseDto = {
+  name: string;
+  value: string;
+};
+
+export type InboxApprovalResponseDto = {
+  tool: string;
+  /**
+   * Why the tool cannot run until a person says so
+   */
+  because: string;
+  /**
+   * What the tool would be called with, exactly as it stands
+   */
+  inputs: Array<InboxApprovalInputResponseDto>;
+  standing: 'asked' | 'granted' | 'refused';
+};
+
 export type InboxMessageResponseDto = {
   position: number;
   kind: 'asked' | 'passed' | 'answered' | 'said';
   /**
    * What it shows, which is not what it did
    */
-  form: 'words' | 'setup' | 'settled';
+  form: 'words' | 'setup' | 'settled' | 'approval';
   /**
    * Who spoke: the station, a person, or the world outside it
    */
@@ -451,6 +469,10 @@ export type InboxMessageResponseDto = {
    * Absent where the station said it rather than a person
    */
   author: InboxAuthorResponseDto | null;
+  /**
+   * The tool call this asks a person to approve, where it is one
+   */
+  approval: InboxApprovalResponseDto | null;
 };
 
 export type InboxItemResponseDto = {
@@ -518,6 +540,10 @@ export type AnswerInboxItemRequestDto = {
    * Uploads to attach, by the id each was granted
    */
   attachments?: Array<string>;
+  /**
+   * Where the conversation asks for a tool call to be approved: true lets it run, false rejects it. Left out, the words answer it and the tool call stays undecided. Refused anywhere else.
+   */
+  approve?: boolean;
 };
 
 export type RunMarksResponseDto = {
@@ -2093,6 +2119,10 @@ export type AnswerInboxItemErrors = {
    * No such conversation for this caller
    */
   404: unknown;
+  /**
+   * Only a conversation waiting on a tool call can be approved or rejected
+   */
+  409: unknown;
 };
 
 export type AnswerInboxItemResponses = {

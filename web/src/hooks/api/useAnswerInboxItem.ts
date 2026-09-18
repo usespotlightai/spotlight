@@ -7,6 +7,7 @@ type AnswerInboxItemInput = {
   itemId: string;
   body: string;
   attachments: string[];
+  approve?: boolean;
 };
 
 export function useAnswerInboxItem() {
@@ -18,10 +19,15 @@ export function useAnswerInboxItem() {
       itemId,
       body,
       attachments,
+      approve,
     }: AnswerInboxItemInput) => {
       await answerInboxItem({
         path: { slug, itemId },
-        body: { body, attachments },
+        body: {
+          body,
+          attachments,
+          ...(approve === undefined ? {} : { approve }),
+        },
         throwOnError: true,
       });
     },

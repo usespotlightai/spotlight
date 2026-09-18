@@ -1,0 +1,237 @@
+import { randomUUID } from 'node:crypto';
+import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { Task } from '@work/domain/aggregates/task.aggregate';
+import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
+import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
+import { NotePosition } from '@work/domain/value-objects/note-position.vo';
+import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
+import { Tool } from '@work/domain/value-objects/tool.vo';
+import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
+import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
+import { Voice } from '@work/domain/value-objects/voice.vo';
+import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { openDatabase, type TestDatabase } from './support/database';
+import { openTeam } from './support/team';
+
+const NOW = new Date('2026-01-02T03:04:05.000Z');
+
+const NEEDED = ApprovalNeeded.of(
+  'linear.comment',
+  'It posts publicly, under the team’s name.',
+);
+
+const CALL = ToolCall.of(
+  Tool.of('linear.comment'),
+  ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+);
+
+let held: TestDatabase;
+let db: DrizzleDatabase;
+let tasks: DrizzleTaskRepository;
+
+beforeAll(async () => {
+  held = await openDatabase('tool_approvals');
+  db = held.db;
+  tasks = new DrizzleTaskRepository(new DrizzleContext(db), {
+    dispatch: async () => {},
+  });
+}, 60_000);
+
+afterAll(async () => {
+  await held?.close();
+});
+
+const readBack = async (task: Task): Promise<Task> => {
+  const found = await tasks.find(task.id);
+
+  if (!found) {
+    throw new Error('the task that was just saved could not be read back');
+  }
+
+  return found;
+};
+
+describe('an approval a run asked for', () => {
+  const asking = async () => {
+    const { list, owner } = await openTeam(
+      db,
+      tasks,
+      `approvals-${randomUUID()}`,
+    );
+    const runId = RunId.of(randomUUID());
+
+    await tasks.save(
+      list.settled({
+        station: StationName.of('Backlog'),
+        body: TaskNoteBody.of('Set up.'),
+        at: NOW,
+        voice: Voice.station(),
+      }),
+    );
+
+    const settled = await readBack(list);
+
+    await tasks.save(
+      Task.rehydrate({ ...settled, currentRunId: runId }).clearFor(
+        CALL,
+        NEEDED,
+        {
+          station: StationName.of('Backlog'),
+          body: TaskNoteBody.of('Approve linear.comment?'),
+          at: NOW,
+          voice: Voice.station(runId),
+        },
+        runId,
+      ).task,
+    );
+
+    return { task: await readBack(settled), owner, runId };
+  };
+
+  it('is read back with the call it stands for, still open', async () => {
+    const { task } = await asking();
+    const standing = task.approvalFor(CALL);
+
+    expect(standing?.approval.open).toBe(true);
+    expect(standing?.approval.because).toBe(NEEDED.because);
+    expect(task.awaitingReview).toBe(true);
+  });
+
+  it('matches nothing where the run would send something else', async () => {
+    const { task } = await asking();
+
+    expect(
+      task.approvalFor(
+        ToolCall.of(
+          Tool.of('linear.comment'),
+          ToolInputs.of({ issue: 'ENG-12', body: 'Something else.' }),
+        ),
+      ),
+    ).toBeNull();
+  });
+
+  it('is read back granted, claimed by the call, and handed back when the call fails', async () => {
+    const { task, owner, runId } = await asking();
+    const at = task.approvalFor(CALL)?.at ?? NotePosition.of(0);
+
+    await tasks.save(
+      task.answered(
+        at,
+        {
+          station: StationName.of('Backlog'),
+          body: TaskNoteBody.of('Approved.'),
+          at: NOW,
+          voice: Voice.person(owner),
+        },
+        'granted',
+      ),
+    );
+
+    const granted = await readBack(task);
+    expect(granted.approvalFor(CALL)?.approval.grants).toBe(true);
+    expect(granted.approvalFor(CALL)?.approval.decided?.by.value).toBe(
+      owner.value,
+    );
+    expect(granted.approvalFor(CALL)?.approval.decided?.reason).toBe(
+      'Approved.',
+    );
+
+    const { task: claimed, clearance } = Task.rehydrate({
+      ...granted,
+      currentRunId: runId,
+    }).clearFor(
+      CALL,
+      NEEDED,
+      {
+        station: StationName.of('Backlog'),
+        body: TaskNoteBody.of('Approve linear.comment?'),
+        at: NOW,
+        voice: Voice.station(runId),
+      },
+      runId,
+    );
+    expect(clearance.kind).toBe('given');
+    await tasks.save(claimed);
+
+    const spent = await readBack(granted);
+    expect(spent.approvalFor(CALL)?.approval.grants).toBe(false);
+    expect(spent.approvalFor(CALL)?.approval.spent).toBe(true);
+
+    await tasks.save(spent.approvalReturned(at));
+
+    expect((await readBack(granted)).approvalFor(CALL)?.approval.grants).toBe(
+      true,
+    );
+  });
+
+  it('lets only one of two calls racing for a grant claim it', async () => {
+    const { task, owner, runId } = await asking();
+    const at = task.approvalFor(CALL)?.at ?? NotePosition.of(0);
+
+    await tasks.save(
+      task.answered(
+        at,
+        {
+          station: StationName.of('Backlog'),
+          body: TaskNoteBody.of('Approved.'),
+          at: NOW,
+          voice: Voice.person(owner),
+        },
+        'granted',
+      ),
+    );
+
+    const claiming = async () =>
+      Task.rehydrate({
+        ...(await readBack(task)),
+        currentRunId: runId,
+      }).clearFor(
+        CALL,
+        NEEDED,
+        {
+          station: StationName.of('Backlog'),
+          body: TaskNoteBody.of('Approve linear.comment?'),
+          at: NOW,
+          voice: Voice.station(runId),
+        },
+        runId,
+      );
+
+    const [one, other] = await Promise.all([claiming(), claiming()]);
+
+    expect(one.clearance.kind).toBe('given');
+    expect(other.clearance.kind).toBe('given');
+
+    await tasks.save(one.task);
+    await expect(tasks.save(other.task)).rejects.toBeInstanceOf(
+      TaskMovedOnError,
+    );
+    expect((await readBack(task)).approvalFor(CALL)?.approval.spent).toBe(true);
+  });
+
+  it('is read back refused, and stays refused', async () => {
+    const { task, owner } = await asking();
+    const at = task.approvalFor(CALL)?.at ?? NotePosition.of(0);
+
+    await tasks.save(
+      task.answered(
+        at,
+        {
+          station: StationName.of('Backlog'),
+          body: TaskNoteBody.of('Not before the release.'),
+          at: NOW,
+          voice: Voice.person(owner),
+        },
+        'refused',
+      ),
+    );
+
+    const refused = await readBack(task);
+    expect(refused.approvalFor(CALL)?.approval.refuses).toBe(true);
+    expect(refused.approvalFor(CALL)?.approval.grants).toBe(false);
+  });
+});
