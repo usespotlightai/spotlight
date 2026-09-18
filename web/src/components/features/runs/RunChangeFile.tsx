@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { DiffTally } from '@/components/shared/DiffTally';
 import { type FileChange, fileName, tallyFile } from '@/lib/changes';
 import { useChangesPanel } from '@/lib/changes-panel';
 import { cn } from '@/lib/utils';
@@ -24,16 +25,7 @@ export function RunChangeFile({ file }: { file: FileChange }) {
           {fileName(file.path)}
         </span>
 
-        {added > 0 && (
-          <span className="shrink-0 text-emerald-600 tabular-nums dark:text-emerald-400">
-            +{added}
-          </span>
-        )}
-        {removed > 0 && (
-          <span className="shrink-0 text-destructive tabular-nums">
-            −{removed}
-          </span>
-        )}
+        <DiffTally added={added} removed={removed} />
       </button>
     </li>
   );

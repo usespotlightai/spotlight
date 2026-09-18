@@ -4,21 +4,25 @@ import { useParams, useSearchParams } from 'react-router';
 import { Conversation } from '@/components/features/inbox/conversation/Conversation';
 import { InboxAsked } from '@/components/features/inbox/conversation/InboxAsked';
 import { InboxComposer } from '@/components/features/inbox/conversation/InboxComposer';
+import { InboxItemSkeleton } from '@/components/features/inbox/InboxItemSkeleton';
 import { ChangesPanel } from '@/components/features/runs/ChangesPanel';
 import { RunActivity } from '@/components/features/runs/RunActivity';
 import { RunBriefing } from '@/components/features/runs/RunBriefing';
+import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { PageNotice } from '@/components/shared/PageNotice';
 import {
   type BreadcrumbSegment,
   Breadcrumbs,
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
+import { useAnswerInboxItem } from '@/hooks/api/useAnswerInboxItem';
 import { inboxKeys, useInbox } from '@/hooks/api/useInbox';
 import { useReadInboxItem } from '@/hooks/api/useReadInboxItem';
 import { useRunStream } from '@/hooks/api/useRunStream';
-import { useSession } from '@/hooks/api/useSession';
 import { journalKeys, useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { shownAt } from '@/lib/inbox';
+import { failed, loading } from '@/lib/query';
 import { taskPath } from '@/lib/task';
 import { teamPath } from '@/lib/team';
 import { useTrail } from '@/lib/trail';
@@ -26,12 +30,13 @@ import { useTrail } from '@/lib/trail';
 export function InboxItem() {
   const { slug, itemId } = useParams();
   const [params] = useSearchParams();
-  const { data: waiting } = useInbox(slug);
-  const item = waiting?.find((each) => each.id === itemId);
-  const { data: worked } = useTaskJournal(slug, item?.taskId);
-  const { data: session } = useSession();
+  const inbox = useInbox(slug);
+  const item = inbox.data?.find((each) => each.id === itemId);
+  const journal = useTaskJournal(slug, item?.taskId);
+  const worked = journal.data;
   const { data: workspace } = useWorkspace(slug);
   const read = useReadInboxItem();
+  const answer = useAnswerInboxItem();
 
   const queryClient = useQueryClient();
 
@@ -46,8 +51,6 @@ export function InboxItem() {
 
   useRunStream(item?.runId ?? undefined, Boolean(item?.working), bump);
 
-  // Keyed by the conversation's state, not the item: an ask arriving while it
-  // is open makes it unread again.
   const seen = useRef<string | null>(null);
 
   useEffect(() => {
@@ -81,18 +84,32 @@ export function InboxItem() {
   ];
   const { trail } = useTrail(base);
 
-  if (!item || !slug) {
+  if (loading(inbox) || (item && loading(journal))) {
+    return <InboxItemSkeleton />;
+  }
+
+  if (failed(inbox)) {
     return (
-      <div className="flex min-h-0 flex-1 items-center justify-center p-8">
-        <p className="text-muted-foreground text-sm">
-          Nothing here is waiting on you any more.
-        </p>
-      </div>
+      <PageNotice>
+        <CouldNotLoad
+          what="The inbox"
+          retrying={inbox.isFetching}
+          onRetry={() => void inbox.refetch()}
+        />
+      </PageNotice>
     );
   }
 
-  // A note that shows itself carries the opening too. Shown above it, the
-  // opening reads as something the person wrote, which nobody did.
+  if (!item || !slug) {
+    return (
+      <PageNotice>
+        <p className="text-muted-foreground text-sm">
+          Nothing here is waiting on you any more.
+        </p>
+      </PageNotice>
+    );
+  }
+
   const carriesItsOwn = item.notes[0]?.form === 'setup';
 
   return (
@@ -115,10 +132,21 @@ export function InboxItem() {
               count: item.stationCount,
             },
             working: item.working,
+            resolved: item.resolved,
             notes: item.notes,
           }}
           worked={worked ?? []}
-          viewerId={session?.user.id}
+          deciding={{
+            pending: answer.isPending,
+            onDecide: (approve, said) =>
+              answer.mutate({
+                slug,
+                itemId: item.id,
+                body: said,
+                attachments: [],
+                approve,
+              }),
+          }}
           openAt={shownAt(item.notes, params.get('run'))}
           live={
             item.runId && item.working ? (
@@ -138,9 +166,17 @@ export function InboxItem() {
           }
           opening={
             carriesItsOwn ? undefined : item.briefing ? (
-              <RunBriefing briefing={item.briefing} />
+              <RunBriefing
+                briefing={item.briefing}
+                attachments={item.attachments}
+              />
             ) : (
-              <InboxAsked item={item} />
+              <InboxAsked
+                station={{ ...item.raisedAt, count: item.stationCount }}
+                title={item.title}
+                description={item.description}
+                attachments={item.attachments}
+              />
             )
           }
           footer={
@@ -154,6 +190,7 @@ export function InboxItem() {
               <InboxComposer
                 slug={slug}
                 itemId={item.id}
+                taskId={item.taskId}
                 station={item.station}
                 teamId={item.teamId}
                 runId={item.runId}

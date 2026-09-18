@@ -1,25 +1,12 @@
 #!/bin/sh
-# An example prepare hook: clone each checkout the run asks for.
-#
-# Replace it. Checkout is the part every organisation does differently —
-# sparse checkouts, submodules, LFS, a warm cache, an internal mirror, a
-# version control system that is not git — which is exactly why the runner
-# does not do it.
-#
-# The spec arrives as JSON on stdin. The working directory is the run's own,
-# and empty. A non-zero exit fails the run before the agent starts, and
-# anything written here lands in the run's journal.
 set -eu
 
 spec=$(cat)
 
-# The agent account has none of its own, so without this every commit fails.
 author_name=${SPOTLIGHT_GIT_AUTHOR_NAME:-Spotlight}
 author_email=${SPOTLIGHT_GIT_AUTHOR_EMAIL:-noreply@usespotlight.ai}
 
-# One JSON object per checkout, read field by field. A tab-separated line would
-# be shorter and wrong: tab is whitespace to `read`, so an empty ref collapses
-# and every field after it shifts along by one.
+# Not tab-separated: `read` collapses an empty ref and shifts every later field.
 printf '%s' "$spec" | jq -c '.checkouts[]?' | while read -r checkout; do
   field() { printf '%s' "$checkout" | jq -r "$1"; }
 
@@ -28,15 +15,11 @@ printf '%s' "$spec" | jq -c '.checkouts[]?' | while read -r checkout; do
   ref=$(field '.ref // ""')
   branch=$(field '.branch // ""')
 
-  # A kept workspace was handed to the agent when the last run ended, so it
-  # belongs to that account now and this hook does not. Said per call rather
-  # than written into the runner's own git config, which would outlive the run.
+  # A kept workspace belongs to the agent account; never widen the runner's own git config.
   here="$(pwd)/$path"
   g() { git -c safe.directory="$here" -C "$path" "$@"; }
 
-  # A workspace is kept between runs at a station, so the clone may already be
-  # here. The remote is not: it is served per run, on a port of its own, so a
-  # reused checkout is pointed at this run's before anything reaches it.
+  # The remote is served per run, so a reused clone must be repointed first.
   if [ -d "$path/.git" ]; then
     echo "reusing $path"
     g remote set-url origin "$remote"
@@ -46,7 +29,6 @@ printf '%s' "$spec" | jq -c '.checkouts[]?' | while read -r checkout; do
     git clone --quiet "$remote" "$path"
   fi
 
-  # On the clone, not the machine: it travels with the workspace.
   g config user.name "$author_name"
   g config user.email "$author_email"
 
@@ -54,8 +36,6 @@ printf '%s' "$spec" | jq -c '.checkouts[]?' | while read -r checkout; do
     g checkout --quiet "$ref"
   fi
 
-  # The branch belongs to the task, so every station after the first finds it
-  # already there: switch to it where it exists, and start it where it does not.
   if [ -n "$branch" ]; then
     g switch --quiet "$branch" 2>/dev/null || g switch --quiet -c "$branch"
   fi

@@ -1,5 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { assemblyLineKeys } from '@/hooks/api/useAssemblyLines';
+import { useMutation } from '@tanstack/react-query';
 import { customiseStation } from '@/lib/api';
 
 type CustomiseStationInput = {
@@ -11,13 +10,14 @@ type CustomiseStationInput = {
     color?: string;
     description?: string | null;
     harness?: string | null;
+    model?: string | null;
+    effort?: string | null;
     agentPrompt?: string | null;
+    skills?: string[];
   };
 };
 
 export function useCustomiseStation() {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async ({
       teamId,
@@ -32,9 +32,5 @@ export function useCustomiseStation() {
       });
       return data;
     },
-    onSuccess: (_station, { teamId }) =>
-      queryClient.invalidateQueries({
-        queryKey: assemblyLineKeys.forTeam(teamId),
-      }),
   });
 }

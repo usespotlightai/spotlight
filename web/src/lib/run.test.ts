@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { aged, byAge, type Run, standing, working } from '@/lib/run';
+import {
+  aged,
+  asRunFilter,
+  byAge,
+  inRunFilter,
+  type Run,
+  standing,
+  working,
+} from '@/lib/run';
 
-// Local, because a calendar day is read off the reader's own clock.
 const NOW = new Date(2026, 7, 30, 12, 0, 0);
 
 const on = (days: number, hour = 12) =>
@@ -19,7 +26,6 @@ describe('aged', () => {
     expect(aged(on(0))).toBe('Today');
   });
 
-  // The point of counting calendar days: this morning is still today.
   it('reads the small hours of this morning as today', () => {
     expect(aged(on(0, 0))).toBe('Today');
   });
@@ -28,12 +34,10 @@ describe('aged', () => {
     expect(aged(on(1))).toBe('Yesterday');
   });
 
-  // Under 24 hours, yet the date on the calendar has turned.
   it('reads last night as yesterday', () => {
     expect(aged(on(1, 23))).toBe('Yesterday');
   });
 
-  // Over 24 hours, yet the calendar has turned only once.
   it('reads early yesterday as yesterday', () => {
     expect(aged(on(1, 1))).toBe('Yesterday');
   });
@@ -91,7 +95,6 @@ describe('byAge', () => {
   });
 });
 
-// The states the control plane actually uses: a run being worked is claimed.
 describe('working', () => {
   const run = (state: Run['state'], exitCode: number | null = null) =>
     ({ state, exitCode }) as Run;
@@ -126,5 +129,33 @@ describe('standing', () => {
     expect(standing(run('completed', 0))).toBeNull();
     expect(standing(run('completed', 1))).toBeNull();
     expect(standing(run('failed', -1))).toBeNull();
+  });
+});
+
+describe('run filters', () => {
+  const owed = { review: { state: 'owed', conversationId: 'c_1' } } as const;
+  const settled = {
+    review: { state: 'settled', conversationId: 'c_2' },
+  } as const;
+  const unreviewed = { review: null };
+
+  it('lets every run through All', () => {
+    expect(inRunFilter('all', owed)).toBe(true);
+    expect(inRunFilter('all', settled)).toBe(true);
+    expect(inRunFilter('all', unreviewed)).toBe(true);
+  });
+
+  it('lets only runs still owed a review through Awaiting Review', () => {
+    expect(inRunFilter('awaiting-review', owed)).toBe(true);
+    expect(inRunFilter('awaiting-review', settled)).toBe(false);
+    expect(inRunFilter('awaiting-review', unreviewed)).toBe(false);
+  });
+
+  it('reads a remembered filter it knows', () => {
+    expect(asRunFilter('awaiting-review')).toBe('awaiting-review');
+  });
+
+  it('falls back to All for a filter it does not know', () => {
+    expect(asRunFilter('archived')).toBe('all');
   });
 });

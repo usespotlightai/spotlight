@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
@@ -6,8 +7,8 @@ import { Workspace } from '@/routes/Workspace';
 
 vi.mock('@/hooks/api/useWorkspace', () => ({ useWorkspace: vi.fn() }));
 
-vi.mock('@/hooks/api/useAssemblyLines', () => ({
-  useAssemblyLines: () => ({
+vi.mock('@/hooks/api/useLines', () => ({
+  useLines: () => ({
     data: [{ id: 'line_1', name: 'Default', stations: [] }],
     isPending: false,
   }),
@@ -21,17 +22,18 @@ vi.mock('@/hooks/api/useSignOut', () => ({
 vi.mock('@/hooks/api/useWorkspaces', () => ({
   useWorkspaces: () => ({ data: [], isPending: false }),
 }));
-vi.mock('@/hooks/api/useConfiguration', () => ({
-  configurationKeys: { forWorkspace: () => ['configuration'] },
-  useConfiguration: () => ({ data: { problems: [] } }),
-}));
 vi.mock('@/hooks/api/useInbox', () => ({
   inboxKeys: { forWorkspace: () => ['inbox'] },
   useInbox: () => ({ data: [] }),
 }));
 vi.mock('@/hooks/api/useRunners', () => ({
-  runnerKeys: { all: ['runners'] },
+  runnerKeys: {
+    all: ['runners'],
+    forWorkspace: (slug?: string) => ['runners', slug ?? null],
+  },
   useRunners: () => ({
+    isPending: false,
+    errorUpdateCount: 0,
     data: [
       {
         id: 'r1',
@@ -63,8 +65,19 @@ vi.mock('@/hooks/api/useSession', () => ({
 
 const mockWorkspace = vi.mocked(useWorkspace);
 
-const loaded = (data: unknown) =>
-  mockWorkspace.mockReturnValue({ data, isPending: false } as never);
+const refetch = vi.fn();
+
+const answered = (over: Record<string, unknown>) =>
+  mockWorkspace.mockReturnValue({
+    data: undefined,
+    isPending: false,
+    errorUpdateCount: 0,
+    isFetching: false,
+    refetch,
+    ...over,
+  } as never);
+
+const loaded = (data: unknown) => answered({ data });
 
 const acme = {
   id: 'ws_1',
@@ -86,6 +99,7 @@ const renderAt = (slug: string) =>
 
 beforeEach(() => {
   mockWorkspace.mockReset();
+  refetch.mockClear();
 });
 
 describe('Workspace', () => {
@@ -129,15 +143,53 @@ describe('Workspace', () => {
     ).toBeInTheDocument();
   });
 
-  it('waits rather than claiming absence while it loads', () => {
-    mockWorkspace.mockReturnValue({
-      data: undefined,
-      isPending: true,
-    } as never);
+  it('leaves the sidebar blank while the workspace loads, but not the page', () => {
+    answered({ isPending: true });
 
     renderAt('acme-inc');
 
-    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Your teams' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /Inbox/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('section slot')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Workspace not found' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('says the workspace could not be loaded, and tries again when asked', async () => {
+    const person = userEvent.setup();
+    answered({ errorUpdateCount: 1 });
+
+    renderAt('acme-inc');
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'The workspace could not be loaded.',
+    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.queryByText('section slot')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Workspace not found' }),
+    ).not.toBeInTheDocument();
+
+    await person.click(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  it('keeps the workspace it has when a later refresh fails', () => {
+    answered({ data: acme, errorUpdateCount: 1 });
+
+    renderAt('acme-inc');
+
+    expect(
+      screen.getByRole('button', { name: /Acme Inc\./ }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('counts every runner the control plane can still hear from', () => {

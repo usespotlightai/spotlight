@@ -14,6 +14,7 @@ const line = {
       position: 0,
       color: '#a3a8b0',
       kind: 'backlog',
+      skills: [],
     },
     {
       id: 'station_1',
@@ -21,14 +22,17 @@ const line = {
       position: 1,
       color: '#93a1b5',
       kind: 'work',
+      skills: [],
     },
     {
       id: 'station_2',
       name: 'Spec',
       position: 2,
       color: '#5c66d9',
+      harness: 'claude-code',
       agentPrompt: '## Role\n\n- Sort the queue\n- Ask when unsure',
       kind: 'work',
+      skills: ['our-migrations', 'grafana-dashboards'],
     },
     {
       id: 'station_3',
@@ -36,18 +40,40 @@ const line = {
       position: 3,
       color: '#a3a8b0',
       kind: 'completed',
+      skills: [],
     },
   ],
+  repositories: ['usespotlightai/spotlight'],
 };
 
-vi.mock('@/hooks/api/useAssemblyLines', () => ({
-  useAssemblyLines: () => ({ data: [line], isPending: false }),
+const lines = vi.fn();
+const failing = vi.fn();
+const refetch = vi.fn();
+
+vi.mock('@/hooks/api/useLines', () => ({
+  useLines: () => ({
+    data: lines(),
+    isPending: lines() === undefined,
+    errorUpdateCount: failing() ? 1 : 0,
+    isFetching: false,
+    refetch,
+  }),
 }));
 
 const customised = vi.fn();
+const setRepositories = vi.fn();
 
+vi.mock('@/hooks/api/useConfiguration', () => ({
+  useRereadConfiguration: () => ({ mutate: vi.fn(), isPending: false }),
+}));
 vi.mock('@/hooks/api/useCustomiseStation', () => ({
-  useCustomiseStation: () => ({ mutate: customised }),
+  useCustomiseStation: () => ({ mutate: customised, mutateAsync: customised }),
+}));
+vi.mock('@/hooks/api/useSetLineRepositories', () => ({
+  useSetLineRepositories: () => ({
+    mutate: setRepositories,
+    mutateAsync: setRepositories,
+  }),
 }));
 
 vi.mock('@/hooks/api/useWorkspace', () => ({
@@ -62,6 +88,19 @@ vi.mock('@/hooks/api/useHarnesses', () => ({
       { id: 'claude-code', name: 'Claude Code' },
       { id: 'other', name: 'Other Harness' },
     ],
+  }),
+}));
+vi.mock('@/hooks/api/useRepositories', () => ({
+  useRepositories: () => ({
+    data: [{ fullName: 'usespotlightai/spotlight' }, { fullName: 'acme/web' }],
+  }),
+}));
+vi.mock('@/hooks/api/useTeamSkills', () => ({
+  useTeamSkills: () => ({
+    data: {
+      repository: 'acme/config',
+      skills: [{ key: 'our-migrations' }, { key: 'grafana-dashboards' }],
+    },
   }),
 }));
 vi.mock('@/hooks/api/useRunners', () => ({
@@ -98,8 +137,12 @@ const openHarnesses = async () => {
 };
 
 beforeEach(() => {
+  lines.mockReturnValue([line]);
+  failing.mockReturnValue(false);
+  refetch.mockClear();
   localStorage.clear();
   customised.mockClear();
+  setRepositories.mockClear();
 });
 
 describe('Station', () => {
@@ -200,6 +243,15 @@ describe('Station', () => {
     );
   });
 
+  it('shows the repositories the line works in', () => {
+    renderAt('station_1');
+
+    expect(
+      screen.getByRole('heading', { name: 'Line Repositories' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('usespotlightai/spotlight')).toBeInTheDocument();
+  });
+
   it('offers every harness Spotlight knows, and nobody', async () => {
     renderAt('station_1');
     await openHarnesses();
@@ -237,12 +289,24 @@ describe('Station', () => {
     expect(screen.getByLabelText('Station name')).toHaveValue('Spec');
   });
 
-  it('writes a new name back once the field is left', async () => {
+  const propose = () =>
+    userEvent.click(screen.getByRole('button', { name: 'Propose changes' }));
+
+  it('changes nothing on the board until the change is proposed', async () => {
     const user = userEvent.setup();
     renderAt('station_1');
 
     await user.type(screen.getByLabelText('Station name'), ' queue');
-    await user.tab();
+
+    expect(customised).not.toHaveBeenCalled();
+  });
+
+  it('proposes a changed name', async () => {
+    const user = userEvent.setup();
+    renderAt('station_1');
+
+    await user.type(screen.getByLabelText('Station name'), ' queue');
+    await propose();
 
     expect(customised).toHaveBeenCalledWith({
       teamId: 'team_1',
@@ -252,13 +316,14 @@ describe('Station', () => {
     });
   });
 
-  it('writes a description back once the field is left', async () => {
+  it('proposes only the fields that changed, in one pull request', async () => {
     const user = userEvent.setup();
     renderAt('station_1');
 
     await user.type(screen.getByLabelText('Description'), 'Where work lands');
-    await user.tab();
+    await propose();
 
+    expect(customised).toHaveBeenCalledTimes(1);
     expect(customised).toHaveBeenCalledWith({
       teamId: 'team_1',
       lineId: 'line_1',
@@ -267,13 +332,14 @@ describe('Station', () => {
     });
   });
 
-  it('writes the harness back as soon as one is picked', async () => {
+  it('proposes a picked harness', async () => {
     renderAt('station_1');
     const user = await openHarnesses();
 
     await user.click(
       screen.getByRole('menuitemradio', { name: 'Other Harness' }),
     );
+    await propose();
 
     expect(customised).toHaveBeenCalledWith({
       teamId: 'team_1',
@@ -283,28 +349,108 @@ describe('Station', () => {
     });
   });
 
-  it('writes an emptied harness back, so the station holds its work', async () => {
+  it('proposes the line’s repositories as their own change', async () => {
+    const user = userEvent.setup();
     renderAt('station_1');
-    const user = await openHarnesses();
 
-    await user.click(screen.getByRole('menuitemradio', { name: 'Nobody' }));
+    await user.click(screen.getByLabelText('Repositories'));
+    await screen.findByRole('menu');
+    await user.click(
+      screen.getByRole('menuitemcheckbox', { name: 'acme/web' }),
+    );
+    await propose();
+
+    expect(setRepositories).toHaveBeenCalledWith({
+      teamId: 'team_1',
+      lineId: 'line_1',
+      repositories: ['usespotlightai/spotlight', 'acme/web'],
+    });
+    expect(customised).not.toHaveBeenCalled();
+  });
+
+  it('proposes the team’s own skills picked for the station', async () => {
+    const user = userEvent.setup();
+    renderAt('station_1');
+
+    await user.click(screen.getByLabelText('Skills'));
+    await screen.findByRole('menu');
+    await user.click(
+      screen.getByRole('menuitemcheckbox', { name: 'our-migrations' }),
+    );
+    await propose();
 
     expect(customised).toHaveBeenCalledWith({
       teamId: 'team_1',
       lineId: 'line_1',
       stationId: 'station_1',
-      changes: { harness: '' },
+      changes: { skills: ['our-migrations'] },
     });
   });
 
-  it('holds back a name emptied to nothing, having nowhere to fall back', async () => {
+  it('proposes the skills left once one the station has is un-picked', async () => {
+    const user = userEvent.setup();
+    renderAt('station_2');
+
+    await user.click(screen.getByLabelText('Skills'));
+    await screen.findByRole('menu');
+    await user.click(
+      screen.getByRole('menuitemcheckbox', { name: 'our-migrations' }),
+    );
+    await propose();
+
+    expect(customised).toHaveBeenCalledWith({
+      teamId: 'team_1',
+      lineId: 'line_1',
+      stationId: 'station_2',
+      changes: { skills: ['grafana-dashboards'] },
+    });
+  });
+
+  it('leaves the skills out of a proposal that does not change them', async () => {
+    const user = userEvent.setup();
+    renderAt('station_2');
+
+    await user.type(screen.getByLabelText('Station name'), ' out');
+    await propose();
+
+    expect(customised).toHaveBeenCalledWith({
+      teamId: 'team_1',
+      lineId: 'line_1',
+      stationId: 'station_2',
+      changes: { name: 'Spec out' },
+    });
+  });
+
+  it('offers the backlog no skills', () => {
+    renderAt('station_0');
+
+    expect(screen.queryByLabelText('Skills')).not.toBeInTheDocument();
+  });
+
+  it('proposes an emptied harness, so the station holds its work', async () => {
+    renderAt('station_2');
+    const user = await openHarnesses();
+
+    await user.click(screen.getByRole('menuitemradio', { name: 'Nobody' }));
+    await propose();
+
+    expect(customised).toHaveBeenCalledWith({
+      teamId: 'team_1',
+      lineId: 'line_1',
+      stationId: 'station_2',
+      changes: { harness: null },
+    });
+  });
+
+  it('cannot propose a name emptied to nothing', async () => {
     const user = userEvent.setup();
     renderAt('station_1');
 
     await user.clear(screen.getByLabelText('Station name'));
-    await user.tab();
 
-    expect(customised).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('button', { name: 'Propose changes' }),
+    ).toBeDisabled();
   });
 
   it('marks how far along the line the station stands', () => {
@@ -336,13 +482,14 @@ describe('Station', () => {
     ).toHaveAttribute('stroke', '#db5b52');
   });
 
-  it('repaints the station from the palette behind its icon', async () => {
+  it('proposes a repaint from the palette behind its icon', async () => {
     const user = userEvent.setup();
     renderAt('station_1');
 
     await user.click(screen.getByRole('button', { name: 'Station colour' }));
     await screen.findByRole('button', { name: '#db5b52' });
     await user.click(screen.getByRole('button', { name: '#db5b52' }));
+    await propose();
 
     expect(customised).toHaveBeenCalledWith({
       teamId: 'team_1',
@@ -350,6 +497,41 @@ describe('Station', () => {
       stationId: 'station_1',
       changes: { color: '#db5b52' },
     });
+  });
+
+  it('holds the shape of the station while the line loads, keeping what never changes', () => {
+    lines.mockReturnValue(undefined);
+
+    renderAt('station_2');
+
+    expect(
+      screen.getByRole('status', { name: 'Loading the station' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Line Repositories' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Propose changes' }),
+    ).toBeDisabled();
+    expect(screen.queryByText('Station not found')).not.toBeInTheDocument();
+  });
+
+  it('says the station could not be loaded, and tries again when asked', async () => {
+    const user = userEvent.setup();
+    lines.mockReturnValue(undefined);
+    failing.mockReturnValue(true);
+
+    renderAt('station_2');
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'The station could not be loaded.',
+    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.queryByText('Station not found')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(refetch).toHaveBeenCalled();
   });
 
   it('says so when there is no station at that address', () => {

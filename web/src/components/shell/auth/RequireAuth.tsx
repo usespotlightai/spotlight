@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router';
 import { useSession } from '@/hooks/api/useSession';
 import { useWorkspaces } from '@/hooks/api/useWorkspaces';
+import { loading } from '@/lib/query';
 
 const CREATE_WORKSPACE = '/workspaces/new';
 
@@ -18,7 +19,7 @@ export function RequireAuth() {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  if (workspaces.isPending) {
+  if (loading(workspaces)) {
     return null;
   }
 

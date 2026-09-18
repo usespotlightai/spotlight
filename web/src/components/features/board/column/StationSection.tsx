@@ -1,5 +1,4 @@
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { useDroppable } from '@dnd-kit/core';
 import { ChevronDown, Plus } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { StationIcon } from '@/components/features/board/column/StationIcon';
@@ -20,8 +19,6 @@ type StationSectionProps = {
   to?: string;
   onAddTask?: () => void;
   landing?: boolean;
-  landingEdge?: 'top' | 'bottom';
-  fixed?: boolean;
   children?: ReactNode;
 };
 
@@ -37,40 +34,21 @@ export function StationSection({
   to,
   onAddTask,
   landing,
-  landingEdge,
-  fixed,
   children,
 }: StationSectionProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id,
-    data: { kind: 'station', fixed },
-    disabled: fixed,
-    animateLayoutChanges: () => false,
-  });
+  const { setNodeRef } = useDroppable({ id, data: { kind: 'station' } });
 
   return (
     <section
       ref={setNodeRef}
-      style={{ transform: CSS.Translate.toString(transform), transition }}
       data-slot="station-section"
-      className={cn('relative flex flex-col', isDragging && 'opacity-40')}
+      className="relative flex flex-col"
     >
-      {landingEdge && <DropIndicator edge={landingEdge} />}
-
       <header
-        {...(fixed ? {} : attributes)}
-        {...(fixed ? {} : listeners)}
         style={{
           backgroundImage: `linear-gradient(to right, ${color}1f, transparent 60%)`,
         }}
-        className="sticky top-0 z-10 mx-1.5 relative flex h-9 shrink-0 touch-none select-none items-center gap-2 rounded-md bg-accent px-3"
+        className="sticky top-0 z-10 mx-1.5 relative flex h-9 shrink-0 select-none items-center gap-2 rounded-md bg-accent px-3"
       >
         {landing && <DropIndicator edge="bottom" />}
 

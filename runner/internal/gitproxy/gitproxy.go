@@ -1,9 +1,3 @@
-// Package gitproxy lets the agent reach its repository without holding
-// anything that opens it.
-//
-// The agent runs as its own account and reads whatever the runner leaves in
-// the workspace, so the remote there carries no credential. It points at a
-// loopback listener that adds the runner's own token instead.
 package gitproxy
 
 import (
@@ -18,7 +12,6 @@ import (
 	"time"
 )
 
-// Serving is one run's remote, listening for as long as the run is worked.
 type Serving struct {
 	Remote string
 
@@ -26,7 +19,6 @@ type Serving struct {
 	server   *http.Server
 }
 
-// Serve answers for one run and nothing else, on a port the OS chooses.
 func Serve(controlPlane, token, runID string) (*Serving, error) {
 	base, err := url.Parse(controlPlane)
 	if err != nil || !base.IsAbs() {
@@ -38,8 +30,6 @@ func Serve(controlPlane, token, runID string) (*Serving, error) {
 		return nil, fmt.Errorf("listen for git on loopback: %w", err)
 	}
 
-	// Scoped to this run: another run's path is not this listener's to carry,
-	// whatever else on the machine happens to find the port.
 	prefix := "/" + runID + "/"
 
 	served := &Serving{
@@ -58,7 +48,6 @@ func Serve(controlPlane, token, runID string) (*Serving, error) {
 	return served, nil
 }
 
-// Close stops answering: the run is over, so the remote is too.
 func (s *Serving) Close() error {
 	if s == nil {
 		return nil
@@ -100,7 +89,6 @@ func forwarding(base *url.URL, token, prefix string) http.Handler {
 				forwarded.Header.Set(name, value)
 			}
 		}
-		// The runner's own token, which the workspace never sees.
 		forwarded.Header.Set("Authorization", "Bearer "+token)
 
 		answered, err := client.Do(forwarded)
@@ -117,8 +105,6 @@ func forwarding(base *url.URL, token, prefix string) http.Handler {
 		}
 		w.WriteHeader(answered.StatusCode)
 
-		// Streamed, and flushed as it comes: git talks in both directions
-		// while a pack is still being written.
 		_, _ = io.Copy(flushing{w}, answered.Body)
 	})
 }

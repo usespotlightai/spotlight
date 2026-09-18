@@ -12,7 +12,6 @@ export function useSignOut() {
         throw new Error(error.message ?? 'Sign out failed');
       }
     },
-    // anything fetched as the signed-in user is no longer valid
     onSuccess: () => queryClient.clear(),
   });
 }

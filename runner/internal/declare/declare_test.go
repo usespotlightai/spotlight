@@ -3,6 +3,8 @@ package declare_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"testing"
@@ -14,7 +16,7 @@ import (
 func serve(t *testing.T) *declare.Server {
 	t.Helper()
 
-	server, err := declare.Serve([]string{"Spec", "Code Review", "review"}, 0, nil, nil)
+	server, err := declare.Serve([]string{"spec", "code-review", "review"}, 0, nil)
 	if err != nil {
 		t.Fatalf("serve: %v", err)
 	}
@@ -53,33 +55,29 @@ func TestNothingSaidIsNoDeclaration(t *testing.T) {
 func TestRecordsWhatTheAgentSaid(t *testing.T) {
 	server := serve(t)
 
-	status, said := post(t, server, server.Token(), `{"next":"Spec","note":"needs a spec"}`)
+	status, said := post(t, server, server.Token(), `{"next":"spec","note":"needs a spec"}`)
 	if status != http.StatusNoContent {
 		t.Fatalf("status %d: %s", status, said)
 	}
 
 	declared := server.Declared()
-	if declared == nil || declared.Next != "Spec" || declared.Note != "needs a spec" {
+	if declared == nil || declared.Next != "spec" || declared.Note != "needs a spec" {
 		t.Fatalf("got %+v", declared)
 	}
 }
 
-// The agent should not have to know how the control plane capitalises, but the
-// control plane should get back the spelling it recognises.
 func TestAnswersInTheSpellingTheControlPlaneGave(t *testing.T) {
 	server := serve(t)
 
-	if status, said := post(t, server, server.Token(), `{"next":"code review"}`); status != http.StatusNoContent {
+	if status, said := post(t, server, server.Token(), `{"next":"CODE-REVIEW"}`); status != http.StatusNoContent {
 		t.Fatalf("status %d: %s", status, said)
 	}
 
-	if declared := server.Declared(); declared.Next != "Code Review" {
+	if declared := server.Declared(); declared.Next != "code-review" {
 		t.Fatalf("got %q", declared.Next)
 	}
 }
 
-// The whole point of the endpoint over the file: a wrong word is refused while
-// the agent can still fix it, and the refusal says what would have worked.
 func TestRefusesAWordThatIsNotOnOffer(t *testing.T) {
 	server := serve(t)
 
@@ -88,7 +86,7 @@ func TestRefusesAWordThatIsNotOnOffer(t *testing.T) {
 		t.Fatalf("status %d", status)
 	}
 
-	for _, wanted := range []string{"Deployment", "Spec", "Code Review", "review"} {
+	for _, wanted := range []string{"Deployment", "spec", "code-review", "review"} {
 		if !strings.Contains(said, wanted) {
 			t.Fatalf("refusal %q never mentions %q", said, wanted)
 		}
@@ -102,7 +100,7 @@ func TestRefusesAWordThatIsNotOnOffer(t *testing.T) {
 func TestLastWordStands(t *testing.T) {
 	server := serve(t)
 
-	post(t, server, server.Token(), `{"next":"Spec","note":"first"}`)
+	post(t, server, server.Token(), `{"next":"spec","note":"first"}`)
 	post(t, server, server.Token(), `{"next":"review","note":"second"}`)
 
 	if declared := server.Declared(); declared.Next != "review" || declared.Note != "second" {
@@ -114,7 +112,7 @@ func TestAnotherRunsTokenSpeaksForNothing(t *testing.T) {
 	server := serve(t)
 	other := serve(t)
 
-	if status, _ := post(t, server, other.Token(), `{"next":"Spec"}`); status != http.StatusUnauthorized {
+	if status, _ := post(t, server, other.Token(), `{"next":"spec"}`); status != http.StatusUnauthorized {
 		t.Fatalf("status %d", status)
 	}
 
@@ -134,7 +132,7 @@ func TestUnreadableBodyIsRefused(t *testing.T) {
 func serveLimited(t *testing.T, limit int) *declare.Server {
 	t.Helper()
 
-	server, err := declare.Serve([]string{"Spec"}, limit, nil, nil)
+	server, err := declare.Serve([]string{"spec"}, limit, nil)
 	if err != nil {
 		t.Fatalf("serve: %v", err)
 	}
@@ -147,7 +145,7 @@ func TestRefusesANoteLongerThanTheControlPlaneWillTake(t *testing.T) {
 	server := serveLimited(t, 20)
 
 	status, said := post(t, server, server.Token(),
-		`{"next":"Spec","note":"`+strings.Repeat("x", 40)+`"}`)
+		`{"next":"spec","note":"`+strings.Repeat("x", 40)+`"}`)
 
 	if status != http.StatusUnprocessableEntity {
 		t.Fatalf("status = %d, want 422", status)
@@ -163,82 +161,101 @@ func TestTakesANoteInsideTheLimit(t *testing.T) {
 	server := serveLimited(t, 20)
 
 	status, _ := post(t, server, server.Token(),
-		`{"next":"Spec","note":"short enough"}`)
+		`{"next":"spec","note":"short enough"}`)
 
 	if status != http.StatusNoContent {
 		t.Fatalf("status = %d, want 204", status)
 	}
 }
 
-// Nothing said about a limit is not a limit of nothing.
 func TestRefusesNothingForLengthWhenNoLimitWasGiven(t *testing.T) {
 	server := serveLimited(t, 0)
 
 	status, _ := post(t, server, server.Token(),
-		`{"next":"Spec","note":"`+strings.Repeat("x", 9000)+`"}`)
+		`{"next":"spec","note":"`+strings.Repeat("x", 9000)+`"}`)
 
 	if status != http.StatusNoContent {
 		t.Fatalf("status = %d, want 204", status)
 	}
 }
 
-func TestOpensAPullRequestThroughSpotlight(t *testing.T) {
-	var asked protocol.PullRequest
-	server, err := declare.Serve([]string{"Spec"}, 0,
-		func(_ context.Context, wanted protocol.PullRequest) (string, error) {
-			asked = wanted
-			return "https://github.com/acme/widgets/pull/7", nil
-		}, nil)
-	if err != nil {
-		t.Fatalf("serve: %v", err)
-	}
-	t.Cleanup(func() { _ = server.Close() })
+func TestCarriesAToolItWasGivenToSpotlight(t *testing.T) {
+	server := serve(t)
 
-	status, said := postTo(t, server, declare.PullRequestPath, server.Token(),
+	var reached, carried string
+	server.Tools([]string{"pull-request"}, func(_ context.Context, name string, input json.RawMessage) (json.RawMessage, error) {
+		reached, carried = name, string(input)
+		return json.RawMessage(`{"output":"https://github.com/acme/widgets/pull/7"}`), nil
+	})
+
+	status, said := postTo(t, server, declare.ToolsPath+"pull-request", server.Token(),
 		`{"title":"Fix the queue","body":"what it does"}`)
 
 	if status != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", status, said)
 	}
-	if asked.Title != "Fix the queue" || asked.Body != "what it does" {
-		t.Errorf("asked = %+v, want what the agent said", asked)
+	if reached != "pull-request" || carried != `{"title":"Fix the queue","body":"what it does"}` {
+		t.Errorf("reached %q with %s, want the input carried whole", reached, carried)
 	}
-	if !strings.Contains(said, "/pull/7") {
-		t.Errorf("said %q, want where it landed", said)
-	}
-}
-
-func TestRefusesAPullRequestWithNothingToCallIt(t *testing.T) {
-	server, err := declare.Serve([]string{"Spec"}, 0,
-		func(_ context.Context, _ protocol.PullRequest) (string, error) {
-			t.Error("asked Spotlight for one anyway")
-			return "", nil
-		}, nil)
-	if err != nil {
-		t.Fatalf("serve: %v", err)
-	}
-	t.Cleanup(func() { _ = server.Close() })
-
-	status, _ := postTo(t, server, declare.PullRequestPath, server.Token(), `{"body":"x"}`)
-
-	if status != http.StatusUnprocessableEntity {
-		t.Fatalf("status = %d, want 422", status)
+	if said != `{"output":"https://github.com/acme/widgets/pull/7"}` {
+		t.Errorf("said %q, want the answer carried whole", said)
 	}
 }
 
-// The agent may not reach GitHub itself, so a run with no way to open one
-// says so rather than failing somewhere the agent cannot read.
-func TestSaysWhenTheRunCannotOpenOne(t *testing.T) {
-	server, err := declare.Serve([]string{"Spec"}, 0, nil, nil)
-	if err != nil {
-		t.Fatalf("serve: %v", err)
+func TestRefusesAToolTheRunWasNotGiven(t *testing.T) {
+	server := serve(t)
+	server.Tools([]string{"pull-request"}, func(context.Context, string, json.RawMessage) (json.RawMessage, error) {
+		t.Error("carried it to Spotlight anyway")
+		return nil, nil
+	})
+
+	status, said := postTo(t, server, declare.ToolsPath+"deploy", server.Token(), `{}`)
+
+	if status != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403", status)
 	}
-	t.Cleanup(func() { _ = server.Close() })
+	if !strings.Contains(said, "pull-request") {
+		t.Errorf("said %q, want what it was given", said)
+	}
+}
 
-	status, _ := postTo(t, server, declare.PullRequestPath, server.Token(), `{"title":"x"}`)
+func TestRefusesEveryToolWhereNoneWereGiven(t *testing.T) {
+	server := serve(t)
 
-	if status != http.StatusNotImplemented {
-		t.Fatalf("status = %d, want 501", status)
+	status, said := postTo(t, server, declare.ToolsPath+"pull-request", server.Token(), `{"title":"x"}`)
+
+	if status != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403", status)
+	}
+	if !strings.Contains(said, "given: nothing") {
+		t.Errorf("said %q, want that it was given nothing", said)
+	}
+}
+
+func TestRefusesToolInputThatIsNotJSON(t *testing.T) {
+	server := serve(t)
+	server.Tools([]string{"pull-request"}, func(context.Context, string, json.RawMessage) (json.RawMessage, error) {
+		t.Error("carried it to Spotlight anyway")
+		return nil, nil
+	})
+
+	status, _ := postTo(t, server, declare.ToolsPath+"pull-request", server.Token(), `title=x`)
+
+	if status != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", status)
+	}
+}
+
+func TestSaysWhatSpotlightRefusedOfATool(t *testing.T) {
+	server := serve(t)
+	server.Tools([]string{"pull-request"}, func(context.Context, string, json.RawMessage) (json.RawMessage, error) {
+		return nil, errors.New("pull-request needs a title: say what to call it")
+	})
+
+	status, said := postTo(t, server, declare.ToolsPath+"pull-request", server.Token(), `{}`)
+
+	if status != http.StatusBadGateway || !strings.Contains(said, "say what to call it") {
+		t.Fatalf("status = %d, said %q, want Spotlight's reason", status, said)
 	}
 }
 
@@ -269,7 +286,7 @@ func postTo(t *testing.T, server *declare.Server, path, token, body string) (int
 
 func TestAnswersARemarkThroughSpotlight(t *testing.T) {
 	var said protocol.Remark
-	server, err := declare.Serve([]string{"Spec"}, 0, nil,
+	server, err := declare.Serve([]string{"spec"}, 0,
 		func(_ context.Context, spoken protocol.Remark) error {
 			said = spoken
 			return nil
@@ -290,10 +307,8 @@ func TestAnswersARemarkThroughSpotlight(t *testing.T) {
 	}
 }
 
-// Nothing to answer, or nothing to say: both are the agent's to fix, so both
-// are refused where it can read them rather than sent on.
 func TestRefusesAnAnswerWithNothingToGoOn(t *testing.T) {
-	server, err := declare.Serve([]string{"Spec"}, 0, nil,
+	server, err := declare.Serve([]string{"spec"}, 0,
 		func(context.Context, protocol.Remark) error {
 			t.Error("answered anyway")
 			return nil
@@ -312,7 +327,7 @@ func TestRefusesAnAnswerWithNothingToGoOn(t *testing.T) {
 }
 
 func TestSaysWhenTheRunCannotAnswerOne(t *testing.T) {
-	server, err := declare.Serve([]string{"Spec"}, 0, nil, nil)
+	server, err := declare.Serve([]string{"spec"}, 0, nil)
 	if err != nil {
 		t.Fatalf("serve: %v", err)
 	}
@@ -323,5 +338,54 @@ func TestSaysWhenTheRunCannotAnswerOne(t *testing.T) {
 
 	if status != http.StatusNotImplemented {
 		t.Fatalf("status = %d, want 501", status)
+	}
+}
+
+func TestDescribesOnlyTheToolsTheRunWasGiven(t *testing.T) {
+	server := serve(t)
+	server.Tools([]string{"linear.comment"}, func(context.Context, string, json.RawMessage) (json.RawMessage, error) {
+		return nil, nil
+	})
+	server.Manifest([]protocol.ToolManifest{
+		{Name: "linear.comment", Description: "Comment on the issue."},
+		{Name: "linear.close", Description: "Close the issue."},
+	})
+
+	request, err := http.NewRequest(http.MethodGet, strings.TrimSuffix(server.URL(), "/")+"/tools", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Authorization", "Bearer "+server.Token())
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+
+	var described []protocol.ToolManifest
+	if err := json.NewDecoder(response.Body).Decode(&described); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+
+	if response.StatusCode != http.StatusOK || len(described) != 1 || described[0].Name != "linear.comment" {
+		t.Fatalf("status %d, described %+v", response.StatusCode, described)
+	}
+}
+
+func TestRefusesAToolRequestNamingNoTool(t *testing.T) {
+	server := serve(t)
+	server.Tools([]string{"pull-request"}, func(context.Context, string, json.RawMessage) (json.RawMessage, error) {
+		t.Error("carried it to Spotlight anyway")
+		return nil, nil
+	})
+
+	status, said := postTo(t, server, declare.ToolsPath, server.Token(), `{"next":"spec"}`)
+
+	if status != http.StatusNotFound || !strings.Contains(said, "name the tool") {
+		t.Fatalf("status = %d, said %q, want it to ask which tool", status, said)
+	}
+	if declared := server.Declared(); declared != nil {
+		t.Fatalf("recorded a handover %+v", declared)
 	}
 }

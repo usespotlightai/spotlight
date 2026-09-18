@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router';
 import { StationIcon } from '@/components/features/board/column/StationIcon';
-import { type InboxItem, inboxItemPath, waitingOn } from '@/lib/inbox';
+import { type InboxItem, inboxItemPath, previewOf } from '@/lib/inbox';
 import { stationShare } from '@/lib/station';
 import { raisedOn } from '@/lib/task';
 import { useForwardTrail } from '@/lib/trail';
@@ -12,7 +12,6 @@ type InboxRowProps = {
 };
 
 export function InboxRow({ slug, item }: InboxRowProps) {
-  const asked = waitingOn(item);
   const trail = useForwardTrail();
 
   return (
@@ -62,7 +61,7 @@ export function InboxRow({ slug, item }: InboxRowProps) {
       </span>
 
       <span className="truncate pl-6 text-muted-foreground text-xs">
-        {asked ? asked.body : `Waiting at ${item.station}`}
+        {previewOf(item)}
       </span>
     </NavLink>
   );

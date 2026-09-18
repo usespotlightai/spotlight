@@ -8,7 +8,6 @@ type Person = { id: string; name: string; image: string | null };
 type AssignTaskInput = {
   teamId: string;
   taskId: string;
-  /** The member to give it to, or null to leave it unclaimed. */
   assignee: Person | null;
 };
 

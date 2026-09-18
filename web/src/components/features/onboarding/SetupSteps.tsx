@@ -1,41 +1,62 @@
-import { Check } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { Check, ChevronDown } from 'lucide-react';
+import { type ReactNode, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { ChooseRepository } from '@/components/features/onboarding/ChooseRepository';
+import { SetUpLines } from '@/components/features/onboarding/SetUpLines';
+import {
+  SetupAbout,
+  type SetupAboutProps,
+} from '@/components/features/onboarding/SetupAbout';
+import { SetupStepsSkeleton } from '@/components/features/onboarding/SetupStepsSkeleton';
 import { buttonVariants } from '@/components/ui/button';
 import { useOnboarding } from '@/hooks/api/useOnboarding';
 import type { SetupStepResponseDto } from '@/lib/api/types.gen';
 import { installUrlFor } from '@/lib/github';
+import { loading } from '@/lib/query';
 import { cn } from '@/lib/utils';
-
-type About = {
-  readonly title: string;
-  readonly description: string | null;
-};
 
 type SetupStepsProps = {
   teamId: string;
   body: string;
-  about: About | undefined;
+  about: SetupAboutProps | undefined;
+  resolved: boolean;
 };
 
-/** The application's pill controls: round, flat, one radius winning the merge. */
 const CONTROL = 'rounded-full px-3.5 shadow-none';
 
-/** Named by the step, so one renamed on the way here stops compiling. */
 const CALLS: Partial<Record<SetupStepResponseDto['key'], string>> = {
   runner: 'Enrol one',
-  tools: 'Choose them',
+  integrations: 'Choose them',
 };
 
 type StepProps = {
   step: SetupStepResponseDto;
   action: ReactNode;
-  /** A step whose control is a setting to revise, not a one-off to be done. */
-  keepsControl?: boolean;
+  disabled: boolean;
 };
 
-function Step({ step, action, keepsControl }: StepProps) {
+function Step({ step, action, disabled }: StepProps) {
+  const [expanded, setExpanded] = useState(false);
+
+  const revisable = step.done && Boolean(action);
+  const showAction = !step.done || expanded;
+
+  const [clipped, setClipped] = useState(!showAction);
+  if (!showAction && !clipped) {
+    setClipped(true);
+  }
+
+  const heading = (
+    <div>
+      <p className="font-medium text-foreground text-sm leading-6">
+        {step.title}
+      </p>
+      <p className="text-muted-foreground text-sm leading-6">
+        {step.description}
+      </p>
+    </div>
+  );
+
   return (
     <li className="flex items-start gap-3">
       <span
@@ -49,31 +70,65 @@ function Step({ step, action, keepsControl }: StepProps) {
         {step.done && <Check className="size-3" />}
       </span>
 
-      <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
-        <div>
-          <p className="font-medium text-foreground text-sm leading-6">
-            {step.title}
-          </p>
-          <p className="text-muted-foreground text-sm leading-6">
-            {step.description}
-          </p>
-        </div>
+      <div className="flex min-w-0 flex-1 flex-col items-start">
+        {revisable ? (
+          <button
+            type="button"
+            onClick={() => setExpanded((open) => !open)}
+            aria-expanded={expanded}
+            className="flex w-full items-start justify-between gap-2 text-left outline-none"
+          >
+            {heading}
+            <ChevronDown
+              className={cn(
+                'mt-1.5 size-3.5 shrink-0 text-muted-foreground transition-transform duration-200',
+                expanded && 'rotate-180',
+              )}
+              aria-hidden
+            />
+          </button>
+        ) : (
+          heading
+        )}
 
-        {(!step.done || keepsControl) && action}
+        {action && (
+          <div
+            className={cn(
+              'grid w-full transition-all duration-200 ease-out',
+              showAction
+                ? 'grid-rows-[1fr] opacity-100'
+                : 'grid-rows-[0fr] opacity-0',
+            )}
+            onTransitionEnd={() => {
+              if (showAction) {
+                setClipped(false);
+              }
+            }}
+          >
+            <div className={cn('min-h-0', clipped && 'overflow-hidden')}>
+              <div
+                className={cn('pt-2', disabled && 'opacity-50')}
+                inert={disabled}
+              >
+                {action}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </li>
   );
 }
 
-/**
- * The standing list a team opens with, shown as the things it names. What
- * each step is and whether it is done come from the list itself; what is
- * left here is how to go and take one. The note's own words are the fallback.
- */
-export function SetupSteps({ teamId, body, about }: SetupStepsProps) {
+export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
   const { slug } = useParams();
   const here = useLocation();
-  const { data: onboarding } = useOnboarding(teamId);
+  const query = useOnboarding(teamId);
+  const onboarding = query.data;
+
+  if (slug && loading(query)) {
+    return <SetupStepsSkeleton about={about} />;
+  }
 
   if (!onboarding || !slug) {
     return (
@@ -115,6 +170,20 @@ export function SetupSteps({ teamId, body, about }: SetupStepsProps) {
       );
     }
 
+    if (step.key === 'configuration') {
+      return (
+        onboarding.configRepository && (
+          <SetUpLines
+            slug={slug}
+            teamId={teamId}
+            lines={onboarding.lines}
+            configRepository={onboarding.configRepository}
+            controlClassName={CONTROL}
+          />
+        )
+      );
+    }
+
     return (
       step.where && (
         <Link
@@ -134,17 +203,7 @@ export function SetupSteps({ teamId, body, about }: SetupStepsProps) {
   return (
     <div className="flex flex-col gap-4">
       {about && (
-        <div>
-          <h1 className="font-medium text-foreground text-sm leading-6">
-            {about.title}
-          </h1>
-
-          {about.description && (
-            <p className="text-muted-foreground text-sm leading-6">
-              {about.description}
-            </p>
-          )}
-        </div>
+        <SetupAbout title={about.title} description={about.description} />
       )}
 
       <ul className="flex flex-col gap-3">
@@ -153,9 +212,7 @@ export function SetupSteps({ teamId, body, about }: SetupStepsProps) {
             key={step.key}
             step={step}
             action={goAndDoIt(step)}
-            // The repository a team works in is a choice it can revisit, so its
-            // control stays even once one has been chosen.
-            keepsControl={step.key === 'repository'}
+            disabled={resolved}
           />
         ))}
       </ul>

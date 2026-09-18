@@ -1,12 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { StationIcon } from '@/components/features/board/column/StationIcon';
+import { ApprovalDecision } from '@/components/features/inbox/conversation/ApprovalDecision';
+import type { Deciding } from '@/components/features/inbox/conversation/Conversation';
 import { InboxWork } from '@/components/features/inbox/conversation/InboxWork';
 import { PersonSaid } from '@/components/features/inbox/conversation/PersonSaid';
 import { SaidCard } from '@/components/features/inbox/conversation/SaidCard';
 import { SetupSteps } from '@/components/features/onboarding/SetupSteps';
+import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
-import { useSession } from '@/hooks/api/useSession';
 import {
   type Conversing,
   HELD_AT_TOP,
@@ -17,12 +19,12 @@ import { stationShare } from '@/lib/station';
 
 type InboxMessageProps = {
   message: Message;
-  // How many stations the line holds, which a place is a share of.
   stationCount: number;
   worked: readonly RunJournal[];
-  // Whose team it is, for a note that shows that team's own standing.
   teamId: string | undefined;
   about: Conversing['about'];
+  resolved: Conversing['resolved'];
+  deciding?: Deciding;
 };
 
 export function InboxMessage({
@@ -31,15 +33,12 @@ export function InboxMessage({
   worked,
   teamId,
   about,
+  resolved,
+  deciding,
 }: InboxMessageProps) {
-  const { data: session } = useSession();
   const navigate = useNavigate();
   const written = useRef<HTMLDivElement>(null);
 
-  // A link in a note goes to a page of this application like any other link
-  // in it, rather than out through the browser and back again. Listened for
-  // rather than handled in the markup, because what carries the link is text
-  // somebody wrote and not an element this renders.
   useEffect(() => {
     const held = written.current;
 
@@ -70,14 +69,18 @@ export function InboxMessage({
 
   if (message.voice === 'world') {
     return (
-      // The same inset the held cards carry, so every card is one width and
-      // the words inside them all line up with the plain text.
       <li data-note={message.position} className="-mx-3">
-        <SaidCard>
-          <p className="whitespace-pre-wrap text-foreground text-sm leading-6">
-            {message.body}
-          </p>
-        </SaidCard>
+        <div className="flex flex-col items-start gap-1.5">
+          <AttachmentTiles attachments={message.attachments} />
+
+          {message.body && (
+            <SaidCard>
+              <p className="whitespace-pre-wrap text-foreground text-sm leading-6">
+                {message.body}
+              </p>
+            </SaidCard>
+          )}
+        </div>
       </li>
     );
   }
@@ -85,24 +88,16 @@ export function InboxMessage({
   if (message.voice === 'person') {
     return (
       <li data-note={message.position} className={HELD_AT_TOP}>
-        <PersonSaid
-          body={message.body}
-          name={
-            message.author && message.author.id !== session?.user.id
-              ? message.author.name
-              : null
-          }
-        />
+        <PersonSaid body={message.body} attachments={message.attachments} />
       </li>
     );
   }
 
   const shows = message.form === 'setup' && teamId;
+  const approval = message.approval;
 
   return (
     <li data-note={message.position} className="flex flex-col gap-1.5">
-      {/* Where a station said it, it says which. Spotlight speaking for
-          itself stands under no station's name. */}
       {!shows && (
         <span className="flex items-center gap-1.5 text-muted-foreground text-xs">
           <StationIcon
@@ -115,8 +110,23 @@ export function InboxMessage({
 
       {worked.length > 0 && <InboxWork journals={worked} />}
 
-      {shows ? (
-        <SetupSteps teamId={teamId} body={message.body} about={about} />
+      {approval ? (
+        <ApprovalDecision
+          approval={approval}
+          pending={deciding?.pending ?? false}
+          onDecide={
+            deciding
+              ? (approve, said) => deciding.onDecide(approve, said)
+              : undefined
+          }
+        />
+      ) : shows ? (
+        <SetupSteps
+          teamId={teamId}
+          body={message.body}
+          about={about}
+          resolved={Boolean(resolved)}
+        />
       ) : (
         <div ref={written}>
           <MarkdownEditor
@@ -128,6 +138,8 @@ export function InboxMessage({
           />
         </div>
       )}
+
+      <AttachmentTiles attachments={message.attachments} />
     </li>
   );
 }

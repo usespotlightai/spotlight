@@ -1,14 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { chooseTools, readOnboarding } from '@/lib/api';
+import {
+  type ChooseIntegrationsRequestDto,
+  chooseIntegrations,
+  readOnboarding,
+} from '@/lib/api';
 
 export const onboardingKeys = {
   forTeam: (teamId?: string) => ['onboarding', teamId ?? null] as const,
 };
 
+const POLL_MS = 10_000;
+
 export function useOnboarding(teamId: string | undefined) {
   return useQuery({
     queryKey: onboardingKeys.forTeam(teamId),
     enabled: Boolean(teamId),
+    refetchInterval: (query) =>
+      query.state.data?.steps.every((step) => step.done) ? false : POLL_MS,
     queryFn: async () => {
       const { data } = await readOnboarding({
         path: { teamId: teamId as string },
@@ -19,16 +27,12 @@ export function useOnboarding(teamId: string | undefined) {
   });
 }
 
-/**
- * Writes a starting file for each host newly chosen and takes away the file of
- * each let go, as one pull request to read.
- */
-export function useChooseTools(teamId: string | undefined) {
+export function useChooseIntegrations(teamId: string | undefined) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (change: { sources: string[]; dropped: string[] }) => {
-      const { data } = await chooseTools({
+    mutationFn: async (change: ChooseIntegrationsRequestDto) => {
+      const { data } = await chooseIntegrations({
         path: { teamId: teamId as string },
         body: change,
         throwOnError: true,

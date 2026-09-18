@@ -1,3 +1,4 @@
+import { SidebarHeading } from '@/components/shell/layout/SidebarHeading';
 import { TeamNavItem } from '@/components/shell/layout/TeamNavItem';
 import { useCollapsed } from '@/hooks/useCollapsed';
 import type { Team } from '@/lib/team';
@@ -14,11 +15,7 @@ export function TeamNav({ slug, teams }: TeamNavProps) {
 
   return (
     <section>
-      <div className="flex h-7 items-center px-2">
-        <h2 className="font-medium text-muted-foreground text-xs">
-          Your teams
-        </h2>
-      </div>
+      <SidebarHeading>Your teams</SidebarHeading>
 
       <ul className="flex flex-col gap-0.5">
         {teams.map((team) => (

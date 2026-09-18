@@ -2,14 +2,6 @@ import { useEffect, useRef } from 'react';
 
 const NEAR = 80;
 
-/**
- * Keeps a scroll container pinned to its foot as its content grows — so a run
- * streaming steps keeps the newest in view — unless the reader has scrolled up,
- * in which case it leaves them where they are until they return to the bottom.
- *
- * Returns a ref for the scroll container; its first child is watched for
- * growth, so the container itself may keep a fixed height.
- */
 export function useStickToBottom<T extends HTMLElement>() {
   const ref = useRef<T>(null);
 
@@ -24,8 +16,6 @@ export function useStickToBottom<T extends HTMLElement>() {
 
     const near = () => el.scrollHeight - el.scrollTop - el.clientHeight < NEAR;
 
-    // Only the reader's own scroll gives up the tail, and only returning to the
-    // foot takes it back.
     const onScroll = () => {
       following = near();
     };

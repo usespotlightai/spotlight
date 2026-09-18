@@ -1,31 +1,27 @@
-import { useState } from 'react';
-import { IntegrationDialog } from '@/components/features/integrations/IntegrationDialog';
+import { IntegrationConnect } from '@/components/features/integrations/IntegrationConnect';
 import { IntegrationLogo } from '@/components/features/integrations/IntegrationLogo';
-import { Button } from '@/components/ui/button';
+import { ConfigureLink } from '@/components/shared/ConfigureLink';
 import { Checkbox } from '@/components/ui/checkbox';
+import { repositoryFileUrl } from '@/lib/github';
 import type { Shown } from '@/lib/integrations';
 import { cn } from '@/lib/utils';
 
 type IntegrationCardProps = {
   shown: Shown;
-  teamId: string | undefined;
-  /** Whether this team will be listening to it once the change is read. */
+  teamId: string;
+  repository: string | null;
   selected: boolean;
   onToggle: () => void;
 };
 
-/**
- * One host, written down or not, and the same size either way: what it still
- * needs from a person is a dialog away rather than filling the card.
- */
 export function IntegrationCard({
   shown,
   teamId,
+  repository,
   selected,
   onToggle,
 }: IntegrationCardProps) {
   const held = shown.integration;
-  const [configuring, setConfiguring] = useState(false);
 
   return (
     <article
@@ -34,8 +30,6 @@ export function IntegrationCard({
         selected ? 'border-foreground/25' : 'border-border',
       )}
     >
-      {/* The card is the control. Everything drawn on it lets the click
-          through, so only what is itself a control takes one. */}
       <button
         type="button"
         aria-pressed={selected}
@@ -62,8 +56,6 @@ export function IntegrationCard({
             </p>
           </div>
 
-          {/* The card carries the click and the name; this only shows how it
-              stands, so it is not a second thing to reach for. */}
           <Checkbox
             checked={selected}
             tabIndex={-1}
@@ -72,30 +64,19 @@ export function IntegrationCard({
           />
         </div>
 
-        {/* The room the button takes is held on every card, so one host
-            having something to configure does not make its card taller. */}
-        <div className="mt-auto flex h-7 items-center justify-end">
-          {held && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setConfiguring(true)}
-              className="pointer-events-auto rounded-full bg-card shadow-none"
-            >
-              Configure
-            </Button>
+        <div className="mt-auto flex h-7 items-center justify-end gap-2">
+          {held?.connectable && (
+            <IntegrationConnect integration={held} teamId={teamId} />
+          )}
+          {held && repository && (
+            <ConfigureLink
+              href={repositoryFileUrl(repository, held.path)}
+              name={shown.name}
+              className="pointer-events-auto"
+            />
           )}
         </div>
       </div>
-
-      {held && (
-        <IntegrationDialog
-          integration={held}
-          teamId={teamId}
-          open={configuring}
-          onOpenChange={setConfiguring}
-        />
-      )}
     </article>
   );
 }

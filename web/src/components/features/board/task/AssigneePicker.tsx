@@ -17,12 +17,10 @@ type Person = { id: string; name: string; image: string | null };
 type AssigneePickerProps = {
   teamId: string;
   task: Task;
-  /** 'avatar' is the bare avatar for a board card; 'row' is a labelled line. */
   variant?: 'avatar' | 'row';
   className?: string;
 };
 
-/** A dashed placeholder, sized to sit in line with the members' avatars. */
 function Unclaimed({ className }: { className?: string }) {
   return (
     <span
@@ -84,7 +82,6 @@ export function AssigneePicker({
         </DropdownMenuTrigger>
       ) : (
         <DropdownMenuTrigger
-          // Keep a click on the picker from starting a drag on the row.
           onPointerDown={(event) => event.stopPropagation()}
           aria-label={label}
           className={cn(

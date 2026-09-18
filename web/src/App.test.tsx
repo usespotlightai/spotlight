@@ -17,20 +17,29 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
     isPending: false,
   }),
 }));
-vi.mock('@/hooks/api/useAssemblyLines', () => ({
-  useAssemblyLines: () => ({
+vi.mock('@/hooks/api/useLines', () => ({
+  useLines: () => ({
     data: [{ id: 'line_1', name: 'Default', stations: [] }],
     isPending: false,
   }),
 }));
-
 vi.mock('@/hooks/api/useInbox', () => ({
   inboxKeys: { forWorkspace: () => ['inbox'] },
   useInbox: () => ({ data: [] }),
 }));
 vi.mock('@/hooks/api/useRunners', () => ({
-  runnerKeys: { all: ['runners'] },
+  runnerKeys: {
+    all: ['runners'],
+    forWorkspace: (slug?: string) => ['runners', slug ?? null],
+  },
   useRunners: () => ({ data: [] }),
+}));
+vi.mock('@/hooks/api/useTeamSkills', () => ({
+  useTeamSkills: () => ({
+    data: { repository: 'acme/config', skills: [] },
+    isPending: false,
+    isError: false,
+  }),
 }));
 vi.mock('@/hooks/api/useWorkspaces', () => ({
   useWorkspaces: () => ({
@@ -81,6 +90,29 @@ describe('routing', () => {
 
     expect(
       await screen.findByRole('heading', { name: /Acme\s*Default/ }),
+    ).toBeInTheDocument();
+  });
+
+  it('opens a team’s settings at its general page', async () => {
+    signedIn();
+
+    renderAt('/w/acme/team/team_1/settings');
+
+    expect(
+      await screen.findByRole('link', { name: 'General' }),
+    ).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('opens a team’s skills among its settings', async () => {
+    signedIn();
+
+    renderAt('/w/acme/team/team_1/settings/skills');
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Skills' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Skills', current: 'page' }),
     ).toBeInTheDocument();
   });
 

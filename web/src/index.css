@@ -13,8 +13,6 @@
 }
 
 :root {
-  /* Native scrollbars, form controls and the like follow this. Without it a
-     dark page keeps painting the light scrollbar over its own ground. */
   color-scheme: light;
 
   --background: #efeff1;
@@ -91,14 +89,11 @@
 @theme inline {
   --ease-out-quad: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 
-  /* Lifts a control off the surface it sits on. */
   --shadow-control: 0px 4px 4px -1px #0000000a, 0px 1px 1px 0px #00000014;
 
-  /* For something floating over the whole page rather than sitting on it. */
   --shadow-overlay:
     0 9px 48px #00000014, 0 6px 24px #0000001a, 0 1px 1px #0000000a;
 
-  /* Lifts a floating card off what it sits on, cast softly all round. */
   --shadow-pane: 0 1px 2px #00000008, 0 8px 22px -12px #00000012;
 
   --text-sm: 0.8125rem;
@@ -195,8 +190,6 @@
   }
   html {
     @apply font-sans font-normal;
-    /* Lets a width transition run from `auto`, so a control that changes its
-       label grows into the new one instead of jumping. */
     interpolate-size: allow-keywords;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -218,6 +211,50 @@ body.resizing {
   to {
     width: 0;
   }
+}
+
+@keyframes attachment-in {
+  from {
+    width: 0;
+    margin-right: 0;
+    opacity: 0;
+  }
+}
+
+@keyframes attachment-out {
+  to {
+    width: 0;
+    margin-right: 0;
+    opacity: 0;
+  }
+}
+
+@keyframes attachments-in {
+  from {
+    height: 0;
+  }
+}
+
+@keyframes attachments-out {
+  to {
+    height: 0;
+  }
+}
+
+@utility animate-attachment-in {
+  animation: attachment-in 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@utility animate-attachment-out {
+  animation: attachment-out 140ms cubic-bezier(0.55, 0, 1, 0.45) forwards;
+}
+
+@utility animate-attachments-in {
+  animation: attachments-in 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@utility animate-attachments-out {
+  animation: attachments-out 140ms cubic-bezier(0.55, 0, 1, 0.45) forwards;
 }
 
 @keyframes detail-open {
@@ -268,4 +305,21 @@ body.resizing {
     background-image: none;
     color: var(--color-muted-foreground);
   }
+}
+
+.code-block .shiki {
+  margin: 0;
+  padding: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.code-block .shiki,
+.code-block .shiki span {
+  color: var(--shiki-light);
+}
+
+.dark .code-block .shiki,
+.dark .code-block .shiki span {
+  color: var(--shiki-dark);
 }

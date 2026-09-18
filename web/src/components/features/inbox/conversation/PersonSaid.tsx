@@ -1,22 +1,26 @@
 import { SaidCard } from '@/components/features/inbox/conversation/SaidCard';
+import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
+import type { Attachment } from '@/lib/attachment';
 
 type PersonSaidProps = {
   body: string;
-  name?: string | null;
+  attachments: readonly Attachment[];
 };
 
-export function PersonSaid({ body, name }: PersonSaidProps) {
+export function PersonSaid({ body, attachments }: PersonSaidProps) {
   return (
-    <SaidCard>
-      {name && (
-        <span className="font-medium text-muted-foreground text-xs">
-          {name}
-        </span>
-      )}
+    <div className="flex flex-col items-start gap-1.5">
+      <AttachmentTiles attachments={attachments} />
 
-      <p className="whitespace-pre-wrap text-foreground text-sm leading-6">
-        {body}
-      </p>
-    </SaidCard>
+      {body && (
+        <div className="self-stretch">
+          <SaidCard>
+            <p className="whitespace-pre-wrap text-foreground text-sm leading-6">
+              {body}
+            </p>
+          </SaidCard>
+        </div>
+      )}
+    </div>
   );
 }

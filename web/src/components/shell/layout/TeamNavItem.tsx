@@ -1,21 +1,25 @@
-import { ChevronDown, Package } from 'lucide-react';
+import { ChevronDown, Package, Settings } from 'lucide-react';
 import { useMatch } from 'react-router';
 import { InitialAvatar } from '@/components/shared/avatar/InitialAvatar';
 import { Disclosure } from '@/components/shell/layout/Disclosure';
-import { DisclosureRow } from '@/components/shell/layout/DisclosureRow';
+import { SidebarGroup } from '@/components/shell/layout/SidebarGroup';
 import { SidebarLink } from '@/components/shell/layout/SidebarLink';
-import { useAssemblyLines } from '@/hooks/api/useAssemblyLines';
+import { TeamSectionLink } from '@/components/shell/layout/TeamSectionLink';
+import { useLines } from '@/hooks/api/useLines';
 import { useTasks } from '@/hooks/api/useTasks';
 import { useCollapsed } from '@/hooks/useCollapsed';
 import {
-  assemblyLinePath,
-  TEAM_SECTIONS,
+  linePath,
+  SECTIONS_ABOVE_LINES,
+  SECTIONS_BELOW_LINES,
+  SETTINGS_PAGES,
+  settingsPath,
   type Team,
-  teamSectionPath,
 } from '@/lib/team';
 import { cn } from '@/lib/utils';
 
 const LINE_GROUPS_STORAGE_KEY = 'spotlight.collapsed-line-groups';
+const SETTINGS_GROUPS_STORAGE_KEY = 'spotlight.collapsed-settings-groups';
 
 type TeamNavItemProps = {
   slug: string;
@@ -31,19 +35,14 @@ export function TeamNavItem({
   onToggle,
 }: TeamNavItemProps) {
   const active = Boolean(useMatch(`/w/${slug}/team/${team.id}/*`));
-  const { data: lines } = useAssemblyLines(team.id, expanded);
-  const groups = useCollapsed(LINE_GROUPS_STORAGE_KEY);
-  const linesOpen = groups.isExpanded(team.id);
+  const { data: lines } = useLines(team.id, expanded);
+  const lineGroups = useCollapsed(LINE_GROUPS_STORAGE_KEY);
+  const settingsGroups = useCollapsed(SETTINGS_GROUPS_STORAGE_KEY);
 
-  // A task is addressed under its team, not under the line it stands in, so
-  // the line it is in does not light up on its own. Its trace is addressed
-  // under observability, which is what leads to it.
   const atTask = useMatch(`/w/${slug}/team/${team.id}/tasks/:taskId`);
   const atTrace = useMatch(
     `/w/${slug}/team/${team.id}/observability/tasks/:taskId`,
   );
-  // Only while a task is being read: the page reading it asks for the same
-  // tasks, so this costs nothing there and nothing anywhere else.
   const { data: tasks } = useTasks(atTask ? team.id : undefined);
 
   const standing = tasks?.find((each) => each.id === atTask?.params.taskId);
@@ -79,42 +78,63 @@ export function TeamNavItem({
       </button>
 
       <Disclosure open={expanded} slot="team-sections">
-        <li>
-          <DisclosureRow
-            label="Assembly lines"
-            icon={Package}
-            open={linesOpen}
-            onToggle={() => groups.toggle(team.id)}
-            className="pl-8"
+        {SECTIONS_ABOVE_LINES.map((section) => (
+          <TeamSectionLink
+            key={section.id}
+            slug={slug}
+            teamId={team.id}
+            section={section}
           />
-
-          <Disclosure open={linesOpen} slot="assembly-lines">
-            {lines?.map((line) => (
-              <li key={line.id}>
-                <SidebarLink
-                  to={assemblyLinePath(slug, team.id, line.id)}
-                  className="pl-14"
-                  active={line.id === shownLine?.id}
-                >
-                  {line.name}
-                </SidebarLink>
-              </li>
-            ))}
-          </Disclosure>
-        </li>
-
-        {TEAM_SECTIONS.map((section) => (
-          <li key={section.id}>
-            <SidebarLink
-              to={teamSectionPath(slug, team.id, section.id)}
-              icon={section.icon}
-              className="pl-8"
-              active={section.id === 'observability' && Boolean(atTrace)}
-            >
-              {section.label}
-            </SidebarLink>
-          </li>
         ))}
+
+        <SidebarGroup
+          label="Lines"
+          icon={Package}
+          slot="lines"
+          open={lineGroups.isExpanded(team.id)}
+          onToggle={() => lineGroups.toggle(team.id)}
+        >
+          {lines?.map((line) => (
+            <li key={line.id}>
+              <SidebarLink
+                to={linePath(slug, team.id, line.id)}
+                className="pl-14"
+                active={line.id === shownLine?.id}
+              >
+                {line.name}
+              </SidebarLink>
+            </li>
+          ))}
+        </SidebarGroup>
+
+        {SECTIONS_BELOW_LINES.map((section) => (
+          <TeamSectionLink
+            key={section.id}
+            slug={slug}
+            teamId={team.id}
+            section={section}
+            active={section.id === 'observability' && Boolean(atTrace)}
+          />
+        ))}
+
+        <SidebarGroup
+          label="Settings"
+          icon={Settings}
+          slot="settings"
+          open={settingsGroups.isExpanded(team.id)}
+          onToggle={() => settingsGroups.toggle(team.id)}
+        >
+          {SETTINGS_PAGES.map((page) => (
+            <li key={page.id}>
+              <SidebarLink
+                to={settingsPath(slug, team.id, page.id)}
+                className="pl-14"
+              >
+                {page.label}
+              </SidebarLink>
+            </li>
+          ))}
+        </SidebarGroup>
       </Disclosure>
     </li>
   );

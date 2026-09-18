@@ -8,8 +8,6 @@ import (
 	"usespotlight.ai/runner/internal/workspace"
 )
 
-// held makes a workspace with something in it, so a survivor can be told from
-// a directory that was emptied rather than left alone.
 func held(t *testing.T, root, key string) string {
 	t.Helper()
 
@@ -50,8 +48,6 @@ func TestReapDisposesOfWhatNothingWillReturnFor(t *testing.T) {
 	}
 }
 
-// Nothing wanted is a real answer. Whether the control plane actually said so
-// is the caller's to establish.
 func TestReapDisposesOfEverythingWhenNothingIsWanted(t *testing.T) {
 	root := t.TempDir()
 	held(t, root, "task_1-station_1")

@@ -28,9 +28,7 @@ export const rememberedBoardView = (): BoardView => {
 export const rememberBoardView = (view: BoardView): void => {
   try {
     localStorage.setItem(BOARD_VIEW_STORAGE_KEY, view);
-  } catch {
-    // a browser that refuses storage just forgets the view between visits
-  }
+  } catch {}
 };
 
 export const inView = (view: BoardView, kind: StationResponseDto['kind']) =>

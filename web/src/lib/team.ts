@@ -1,4 +1,4 @@
-import { Binoculars, Play, Plug, Settings } from 'lucide-react';
+import { Binoculars, MousePointer2, Play } from 'lucide-react';
 import type { ComponentType } from 'react';
 
 export type Team = {
@@ -12,16 +12,20 @@ type TeamSectionDefinition = {
   readonly icon: ComponentType<{ className?: string }>;
 };
 
-export const TEAM_SECTIONS = [
+export const SECTIONS_ABOVE_LINES = [
+  { id: 'agent', label: 'Agent', icon: MousePointer2 },
+] as const satisfies readonly TeamSectionDefinition[];
+
+export const SECTIONS_BELOW_LINES = [
   { id: 'runs', label: 'Runs', icon: Play },
   { id: 'observability', label: 'Observability', icon: Binoculars },
-  { id: 'integrations', label: 'Integrations', icon: Plug },
-  { id: 'settings', label: 'Settings', icon: Settings },
 ] as const satisfies readonly TeamSectionDefinition[];
+
+const TEAM_SECTIONS = [...SECTIONS_ABOVE_LINES, ...SECTIONS_BELOW_LINES];
 
 export type TeamSection = (typeof TEAM_SECTIONS)[number];
 
-export type TeamSectionId = TeamSection['id'];
+type TeamSectionId = TeamSection['id'];
 
 export const FALLBACK_TEAM_SECTION_ID: TeamSectionId = 'runs';
 
@@ -34,7 +38,21 @@ export const teamSectionPath = (
   section: TeamSectionId,
 ): string => `${teamPath(slug, teamId)}/${section}`;
 
-export const assemblyLinePath = (
+export const SETTINGS_PAGES = [
+  { id: 'general', label: 'General' },
+  { id: 'integrations', label: 'Integrations' },
+  { id: 'skills', label: 'Skills' },
+] as const;
+
+type SettingsPageId = (typeof SETTINGS_PAGES)[number]['id'];
+
+export const settingsPath = (
+  slug: string,
+  teamId: string,
+  page: SettingsPageId,
+): string => `${teamPath(slug, teamId)}/settings/${page}`;
+
+export const linePath = (
   slug: string,
   teamId: string,
   lineId: string,

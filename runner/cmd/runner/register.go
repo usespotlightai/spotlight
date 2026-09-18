@@ -55,7 +55,7 @@ func register(args []string, in io.Reader, out io.Writer) error {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
 	candidates, err := client.Installable(ctx)
@@ -63,8 +63,7 @@ func register(args []string, in io.Reader, out io.Writer) error {
 		return fmt.Errorf("reach %s: %w", url, err)
 	}
 	if err := client.Register(ctx, protocol.Registration{
-		Capacity:  1,
-		Harnesses: harness.Installed(candidates),
+		Harnesses: harness.Installed(ctx, candidates),
 	}); err != nil {
 		return err
 	}

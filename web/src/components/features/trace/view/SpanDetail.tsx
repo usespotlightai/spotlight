@@ -22,14 +22,15 @@ const DETAIL_PANE: PaneConfig = {
   label: 'Resize the details',
 };
 
-/** The same panel whatever was picked: a row answers what it can, in order. */
 export function SpanDetail({
   node,
   open,
+  duration,
   ref,
 }: {
   node: TraceNode;
   open: boolean;
+  duration?: number;
   ref?: Ref<HTMLElement>;
 }) {
   const { step } = node;
@@ -52,7 +53,7 @@ export function SpanDetail({
   }));
 
   return (
-    <SidePane pane={DETAIL_PANE} open={open} ref={ref}>
+    <SidePane pane={DETAIL_PANE} open={open} duration={duration} ref={ref}>
       <div className="flex h-full flex-col gap-5 overflow-y-auto px-4 py-4 scrollbar-hide">
         <DetailHeader node={node} />
 
@@ -65,8 +66,6 @@ export function SpanDetail({
               {step.change.path && (
                 <span className="truncate">{step.change.path}</span>
               )}
-              {/* The lines it touched: the only thing locations say that
-                    the input and the row's own name do not. */}
               {step.locations.length > 0 && (
                 <span className="shrink-0">
                   {step.locations

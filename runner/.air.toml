@@ -2,12 +2,7 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
-  # Built outside the bind mount and moved into place: a rename swaps the
-  # directory entry, so the exiting process keeps its own inode and the new
-  # binary is never the file someone still has open. Overwriting in place
-  # races the old process and fails with "text file busy".
-  # The agent's own CLI is rebuilt alongside the runner: it is baked into the
-  # image, so without this a change to it never reaches the agent.
+  # Build then mv: overwriting a running binary fails with "text file busy".
   cmd = "go build -o /tmp/runner.next ./cmd/runner && mv /tmp/runner.next /tmp/runner && go build -o /usr/local/bin/.spotlight.next ./cmd/spotlight && mv /usr/local/bin/.spotlight.next /usr/local/bin/spotlight"
   entrypoint = "/tmp/runner"
   include_ext = ["go"]
@@ -16,8 +11,7 @@ tmp_dir = "tmp"
   stop_on_error = false
   send_interrupt = true
   kill_delay = "3s"
-  # Docker Desktop syncs file contents into the container but stops delivering
-  # inotify events, so a watcher goes deaf. Polling is the reliable path.
+  # Docker Desktop stops delivering inotify events into the container.
   poll = true
   poll_interval = 500
 

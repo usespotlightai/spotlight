@@ -1,9 +1,9 @@
-import { createAuth } from '@infrastructure/auth/auth';
-import { parseEnv } from '@infrastructure/config/env';
+import { createAuth } from '@identity/infrastructure/auth/auth';
+import { parseEnv } from '@platform/config/env';
 import {
   createDatabase,
   createPool,
-} from '@infrastructure/persistence/drizzle/drizzle.client';
+} from '@platform/persistence/drizzle/drizzle.client';
 
 const env = parseEnv();
 

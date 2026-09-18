@@ -1,28 +1,14 @@
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 import { ChangeDetail } from '@/components/features/runs/ChangeDetail';
+import { useLingering } from '@/hooks/useLingering';
 import type { FileChange } from '@/lib/changes';
 import { ChangesPanelContext } from '@/lib/changes-panel';
 
-// Matches the pane's close animation so it stays mounted until that finishes.
 const LEAVING = 240;
 
 export function ChangesPanel({ children }: { children: ReactNode }) {
   const [selected, setSelected] = useState<FileChange | null>(null);
-  const [held, setHeld] = useState<FileChange | null>(null);
-
-  useEffect(() => {
-    if (selected) {
-      setHeld(selected);
-      return;
-    }
-
-    if (held === null) {
-      return;
-    }
-
-    const timer = setTimeout(() => setHeld(null), LEAVING);
-    return () => clearTimeout(timer);
-  }, [selected, held]);
+  const held = useLingering(selected, LEAVING);
 
   const value = useMemo(
     () => ({

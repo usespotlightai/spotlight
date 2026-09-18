@@ -41,6 +41,24 @@ describe('useSignIn', () => {
     });
   });
 
+  it('hands the browser back to where it was sent from, where it was', async () => {
+    signInSocial.mockResolvedValue({
+      data: { url: 'https://github.com/login/oauth/authorize', redirect: true },
+      error: null,
+    } as never);
+
+    const { result } = renderHook(() => useSignIn('/invites/tok-123'), {
+      wrapper,
+    });
+    result.current.mutate();
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(signInSocial).toHaveBeenCalledWith({
+      provider: 'github',
+      callbackURL: '/invites/tok-123',
+    });
+  });
+
   it('turns an auth error into a rejected mutation', async () => {
     signInSocial.mockResolvedValue({
       data: null,

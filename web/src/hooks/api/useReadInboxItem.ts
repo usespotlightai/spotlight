@@ -7,7 +7,6 @@ type ReadInboxItemInput = {
   itemId: string;
 };
 
-/** Opening what was put to you is what marks it seen. */
 export function useReadInboxItem() {
   const queryClient = useQueryClient();
 

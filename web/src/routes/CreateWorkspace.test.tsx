@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { WorkspaceSlugTakenError } from '@/hooks/api/useCreateWorkspace';
 import { CreateWorkspace } from '@/routes/CreateWorkspace';
 
 vi.mock('@/hooks/api/useSession', () => ({
@@ -19,7 +20,8 @@ const createState = {
   isError: false,
   error: null as Error | null,
 };
-vi.mock('@/hooks/api/useCreateWorkspace', () => ({
+vi.mock('@/hooks/api/useCreateWorkspace', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/hooks/api/useCreateWorkspace')>()),
   useCreateWorkspace: () => createState,
 }));
 
@@ -106,7 +108,6 @@ describe('CreateWorkspace', () => {
     expect(submit).toBeEnabled();
   });
 
-  // Nothing is created by naming the workspace. The team is asked for first.
   it('asks for the team name before creating anything', async () => {
     const user = userEvent.setup();
     renderPage();
@@ -137,7 +138,6 @@ describe('CreateWorkspace', () => {
     ).toBeEnabled();
   });
 
-  // Going back keeps what was typed: it is one flow, not two forms.
   it('holds on to the workspace name when stepped back', async () => {
     const user = userEvent.setup();
     renderPage();
@@ -165,15 +165,30 @@ describe('CreateWorkspace', () => {
     );
   });
 
-  it('shows why the control-plane refused', () => {
+  it('says in plain words that the workspace could not be created', () => {
     createState.isError = true;
-    createState.error = new Error(
+    createState.error = new Error('connect ECONNREFUSED 127.0.0.1:3000');
+
+    renderPage();
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent(
+      'Something went wrong. Please try again later.',
+    );
+    expect(alert).not.toHaveTextContent('ECONNREFUSED');
+  });
+
+  it('says when the workspace URL is already taken', () => {
+    createState.isError = true;
+    createState.error = new WorkspaceSlugTakenError(
       'The workspace URL "acme-inc" is already taken',
     );
 
     renderPage();
 
-    expect(screen.getByRole('alert')).toHaveTextContent('already taken');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'That workspace URL is already taken. Go back and choose another.',
+    );
   });
 
   it('blocks a second submit while one is in flight', async () => {
@@ -190,7 +205,6 @@ describe('CreateWorkspace', () => {
     ).toBeDisabled();
   });
 
-  // Opening the team leaves a note there saying what it still needs.
   it('lands in the inbox', async () => {
     const user = userEvent.setup();
     renderPage();

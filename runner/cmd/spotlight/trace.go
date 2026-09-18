@@ -15,8 +15,6 @@ import (
 const traceUsage = `usage:
   spotlight trace --task <id> [--out <path>]`
 
-// trace writes a task's whole run trace to a file, so the agent reads and
-// searches it with its own tools rather than loading it into its context.
 func traceCmd(args []string, out io.Writer) error {
 	flags := flag.NewFlagSet("trace", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
@@ -35,7 +33,6 @@ func traceCmd(args []string, out io.Writer) error {
 		return err
 	}
 
-	// Pretty-printed, so the agent can read a range or grep it by line.
 	written, err := json.MarshalIndent(trace, "", "  ")
 	if err != nil {
 		return err
@@ -51,7 +48,6 @@ func traceCmd(args []string, out io.Writer) error {
 		return fmt.Errorf("write the trace: %w", err)
 	}
 
-	// A receipt, not the trace: the counts and where it is, nothing heavy.
 	fmt.Fprintf(
 		out,
 		"Wrote the trace to %s — %d nodes, %d faults, %s. Read and search that "+

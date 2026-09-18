@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from 'react';
-import { RepositorySelect } from '@/components/features/board/task/RepositorySelect';
+import { AttachButton } from '@/components/shared/attachment/AttachButton';
+import { PendingAttachments } from '@/components/shared/attachment/PendingAttachments';
 import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
@@ -12,52 +13,51 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { useLastRepository } from '@/hooks/useLastRepository';
+import { useAttachments } from '@/hooks/useAttachments';
 import type { NewTask } from '@/lib/task';
 
 type NewTaskDialogProps = {
+  slug: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  slug: string | undefined;
   lineName: string;
   stationName: string;
   onCreate: (task: NewTask) => void;
 };
 
 export function NewTaskDialog({
+  slug,
   open,
   onOpenChange,
-  slug,
   lineName,
   stationName,
   onCreate,
 }: NewTaskDialogProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [lastRepository, rememberRepository] = useLastRepository();
-  const [repository, setRepository] = useState(lastRepository);
   const [more, setMore] = useState(false);
   const [round, setRound] = useState(0);
+  const draft = useAttachments(slug);
+
+  const uncreatable = !title.trim() || draft.uploading;
 
   const forget = () => {
     setTitle('');
     setDescription('');
-    setRepository(lastRepository);
+    draft.clear();
     setRound((each) => each + 1);
   };
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (!title.trim()) {
+    if (uncreatable) {
       return;
     }
-
-    rememberRepository(repository);
 
     onCreate({
       title: title.trim(),
       description: description.trim(),
-      repository: repository || null,
+      attachments: draft.ids,
     });
 
     if (more) {
@@ -86,7 +86,7 @@ export function NewTaskDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={submit} className="contents">
+        <form onSubmit={submit} {...draft.handlers} className="contents">
           <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto">
             <AutoGrowTextarea
               autoFocus
@@ -107,31 +107,36 @@ export function NewTaskDialog({
               className="min-h-24 border-none bg-transparent p-0"
               placeholderClassName="top-0 left-0"
             />
-            <div className="flex">
-              <RepositorySelect
-                slug={slug}
-                value={repository}
-                onChange={setRepository}
-              />
-            </div>
+
+            <PendingAttachments
+              attachments={draft.attachments}
+              onRemove={draft.remove}
+            />
           </div>
 
           <DialogFooter className="items-center sm:justify-between">
-            <label
-              htmlFor="create-more"
-              className="flex select-none items-center gap-2 text-muted-foreground text-xs"
-            >
-              <Switch
-                id="create-more"
-                checked={more}
-                onCheckedChange={setMore}
-              />
-              Create more
-            </label>
+            <AttachButton
+              onAttach={draft.add}
+              className="rounded-full border-border text-muted-foreground"
+            />
 
-            <Button type="submit" size="sm" disabled={!title.trim()}>
-              Create task
-            </Button>
+            <div className="flex items-center gap-3">
+              <label
+                htmlFor="create-more"
+                className="flex select-none items-center gap-2 text-muted-foreground text-xs"
+              >
+                <Switch
+                  id="create-more"
+                  checked={more}
+                  onCheckedChange={setMore}
+                />
+                Create more
+              </label>
+
+              <Button type="submit" size="sm" disabled={uncreatable}>
+                Create task
+              </Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>

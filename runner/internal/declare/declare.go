@@ -1,7 +1,3 @@
-// Package declare lets the agent working a run say what should happen to its
-// task next. The listener is the runner's, not the agent's, so the control
-// plane token stays out of model-directed code, and it is raised per run on a
-// loopback port of its own, so the run it speaks for cannot be mistaken.
 package declare
 
 import (
@@ -11,9 +7,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"path"
+	"slices"
 	"strings"
 	"sync"
 	"unicode/utf16"
@@ -21,34 +19,27 @@ import (
 	"usespotlight.ai/runner/internal/protocol"
 )
 
-// Granted to the agent explicitly, unlike the runner's own SPOTLIGHT_
-// variables, which are stripped from what it inherits.
-// Review is the control plane's word for a person. It arrives among the
-// options like any other, but it does not name a station.
 const Review = "review"
+
+const Done = "done"
 
 const (
 	URLVar   = "SPOTLIGHT_HANDOVER_URL"
 	TokenVar = "SPOTLIGHT_HANDOVER_TOKEN"
 )
 
-// PullRequestPath is where the agent asks for one, behind the same token.
-const PullRequestPath = "/pull-request"
+const ToolsPath = "/tools/"
 
-// RemarkPath is where the agent answers something said on the pull request.
 const RemarkPath = "/remark"
 
-// TracePath is where the agent reads a task's trace, behind the same token.
 const TracePath = "/trace"
 
-// Opener is the runner's, so nothing that reaches GitHub is in the agent's.
-type Opener func(ctx context.Context, asked protocol.PullRequest) (string, error)
+const mostInput = 8 << 20
 
-// Answerer is likewise the runner's, for answering what was said on one.
+type Tooler func(ctx context.Context, name string, input json.RawMessage) (json.RawMessage, error)
+
 type Answerer func(ctx context.Context, said protocol.Remark) error
 
-// Tracer is the runner's too: it reads a trace from the control plane with the
-// runner's token, so the agent never holds one.
 type Tracer func(ctx context.Context, taskID string) (json.RawMessage, error)
 
 type Server struct {
@@ -57,7 +48,9 @@ type Server struct {
 	token     string
 	options   []string
 	noteLimit int
-	open      Opener
+	granted   []string
+	manifest  []protocol.ToolManifest
+	use       Tooler
 	answer    Answerer
 	trace     Tracer
 
@@ -67,11 +60,7 @@ type Server struct {
 	once     sync.Once
 }
 
-// Serve listens on a loopback port of the operating system's choosing. The
-// token it mints is no secret from the agent, and good for nothing else.
-func Serve(
-	options []string, noteLimit int, open Opener, answer Answerer,
-) (*Server, error) {
+func Serve(options []string, noteLimit int, answer Answerer) (*Server, error) {
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
 		return nil, fmt.Errorf("mint a handover token: %w", err)
@@ -87,7 +76,6 @@ func Serve(
 		token:     hex.EncodeToString(raw),
 		options:   options,
 		noteLimit: noteLimit,
-		open:      open,
 		answer:    answer,
 		spoken:    make(chan struct{}),
 	}
@@ -111,20 +99,23 @@ func (s *Server) Token() string {
 	return s.token
 }
 
-// Traces sets what answers the agent's requests to read a task's trace. Left
-// unset, the run cannot read one.
+func (s *Server) Tools(granted []string, use Tooler) {
+	s.granted = granted
+	s.use = use
+}
+
+func (s *Server) Manifest(tools []protocol.ToolManifest) {
+	s.manifest = tools
+}
+
 func (s *Server) Traces(trace Tracer) {
 	s.trace = trace
 }
 
-// Spoken closes when the agent first declares. An agent at a terminal never
-// exits on its own, and this is the only word it says that means "finished".
 func (s *Server) Spoken() <-chan struct{} {
 	return s.spoken
 }
 
-// Declared is what the agent said, or nil if it said nothing. An agent that
-// speaks twice has changed its mind, and the last word stands.
 func (s *Server) Declared() *protocol.Outcome {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -142,13 +133,23 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
+	if request.Method == http.MethodGet && path.Clean(request.URL.Path) == strings.TrimSuffix(ToolsPath, "/") {
+		s.describe(writer)
+		return
+	}
+
 	if request.Method != http.MethodPost {
 		refuse(writer, http.StatusMethodNotAllowed, "post a handover")
 		return
 	}
 
-	if path.Clean(request.URL.Path) == PullRequestPath {
-		s.pullRequest(writer, request)
+	if path.Clean(request.URL.Path) == strings.TrimSuffix(ToolsPath, "/") {
+		refuse(writer, http.StatusNotFound, "name the tool: post to "+ToolsPath+"<name>")
+		return
+	}
+
+	if name, found := strings.CutPrefix(path.Clean(request.URL.Path), ToolsPath); found {
+		s.tool(writer, request, name)
 		return
 	}
 
@@ -178,8 +179,6 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	// Said here, while the agent is still working and can shorten it. The
-	// control plane refuses the same note, and by then the run is over.
 	if written := noteLength(spoken.Note); s.noteLimit > 0 && written > s.noteLimit {
 		refuse(writer, http.StatusUnprocessableEntity, fmt.Sprintf(
 			"your note is %d characters and the limit is %d: say it shorter and hand over again",
@@ -196,6 +195,54 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	s.once.Do(func() { close(s.spoken) })
 
 	writer.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) tool(writer http.ResponseWriter, request *http.Request, name string) {
+	if s.use == nil || !slices.Contains(s.granted, name) {
+		refuse(writer, http.StatusForbidden, fmt.Sprintf(
+			"this run was not given %q; it was given: %s", name, given(s.granted),
+		))
+
+		return
+	}
+
+	input, err := io.ReadAll(io.LimitReader(request.Body, mostInput+1))
+	if err != nil || len(input) > mostInput || !json.Valid(input) {
+		refuse(writer, http.StatusBadRequest, "unreadable input: hand the tool JSON")
+		return
+	}
+
+	answer, err := s.use(request.Context(), name, input)
+	if err != nil {
+		refuse(writer, http.StatusBadGateway, err.Error())
+		return
+	}
+
+	writer.Header().Set("Content-Type", "application/json")
+	writer.WriteHeader(http.StatusOK)
+	_, _ = writer.Write(answer)
+}
+
+func (s *Server) describe(writer http.ResponseWriter) {
+	shown := []protocol.ToolManifest{}
+
+	for _, tool := range s.manifest {
+		if slices.Contains(s.granted, tool.Name) {
+			shown = append(shown, tool)
+		}
+	}
+
+	writer.Header().Set("Content-Type", "application/json")
+	writer.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(writer).Encode(shown)
+}
+
+func given(tools []string) string {
+	if len(tools) == 0 {
+		return "nothing"
+	}
+
+	return strings.Join(tools, ", ")
 }
 
 func (s *Server) remark(writer http.ResponseWriter, request *http.Request) {
@@ -256,35 +303,6 @@ func (s *Server) traceOf(writer http.ResponseWriter, request *http.Request) {
 	_, _ = writer.Write(trace)
 }
 
-func (s *Server) pullRequest(writer http.ResponseWriter, request *http.Request) {
-	if s.open == nil {
-		refuse(writer, http.StatusNotImplemented, "this run cannot open one")
-		return
-	}
-
-	var asked protocol.PullRequest
-	if err := json.NewDecoder(request.Body).Decode(&asked); err != nil {
-		refuse(writer, http.StatusBadRequest, "unreadable request")
-		return
-	}
-
-	if strings.TrimSpace(asked.Title) == "" {
-		refuse(writer, http.StatusUnprocessableEntity, "say what to call it")
-		return
-	}
-
-	where, err := s.open(request.Context(), asked)
-	if err != nil {
-		refuse(writer, http.StatusBadGateway, err.Error())
-		return
-	}
-
-	writer.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(writer).Encode(protocol.Opened{URL: where})
-}
-
-// option matches however the agent cased it and answers with the control
-// plane's spelling.
 func (s *Server) option(spoken string) (string, bool) {
 	for _, allowed := range s.options {
 		if strings.EqualFold(spoken, allowed) {
@@ -295,13 +313,10 @@ func (s *Server) option(spoken string) (string, bool) {
 	return "", false
 }
 
-// noteLength counts the way the control plane counts, so a note that passes
-// here is not refused there: JavaScript measures a string in UTF-16 units.
 func noteLength(note string) int {
 	return len(utf16.Encode([]rune(strings.TrimSpace(note))))
 }
 
-// refuse says why in plain text, because the agent reads what it is told.
 func refuse(writer http.ResponseWriter, status int, because string) {
 	writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	writer.WriteHeader(status)
