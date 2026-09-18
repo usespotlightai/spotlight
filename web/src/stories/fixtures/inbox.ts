@@ -330,7 +330,7 @@ export const seedInbox = (client: QueryClient) => {
   client.setQueryData(workspaceKeys.detail(SLUG), WORKSPACE);
   client.setQueryData(taskKeys.forTeam(TEAM_ID), TASKS);
   client.setQueryData(lineKeys.forTeam(TEAM_ID), LINES);
-  client.setQueryData(harnessKeys.all, HARNESSES);
+  client.setQueryData(harnessKeys.forWorkspace(SLUG), HARNESSES);
   client.setQueryData(repositoryKeys.forWorkspace(SLUG), [
     { fullName: 'acme/api' },
     { fullName: 'acme/worker' },

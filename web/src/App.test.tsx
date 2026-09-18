@@ -28,7 +28,10 @@ vi.mock('@/hooks/api/useInbox', () => ({
   useInbox: () => ({ data: [] }),
 }));
 vi.mock('@/hooks/api/useRunners', () => ({
-  runnerKeys: { all: ['runners'] },
+  runnerKeys: {
+    all: ['runners'],
+    forWorkspace: (slug?: string) => ['runners', slug ?? null],
+  },
   useRunners: () => ({ data: [] }),
 }));
 vi.mock('@/hooks/api/useTeamSkills', () => ({

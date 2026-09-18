@@ -213,6 +213,43 @@ func (c *Client) Attachment(
 	return nil
 }
 
+func (c *Client) DraftChangeStack(ctx context.Context, runID, repository, diff string) error {
+	path := fmt.Sprintf("/api/runs/%s/change-stacks", url.PathEscape(runID))
+	handed := protocol.ChangeStackDraft{Diff: diff, Repository: repository}
+
+	if err := c.do(ctx, http.MethodPost, path, handed, nil); err != nil {
+		return fmt.Errorf("hand over what a run changed: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Client) ChangeStackChecks(ctx context.Context, runID string) (protocol.StackChecks, error) {
+	path := fmt.Sprintf("/api/runs/%s/change-stack-checks", url.PathEscape(runID))
+
+	var out protocol.StackChecks
+	if err := c.do(ctx, http.MethodGet, path, nil, &out); err != nil {
+		return protocol.StackChecks{}, fmt.Errorf("ask what change stacks to check: %w", err)
+	}
+
+	return out, nil
+}
+
+func (c *Client) RecordChangeStackCheck(
+	ctx context.Context, runID, stackID string, checked protocol.StackChecked,
+) error {
+	path := fmt.Sprintf(
+		"/api/runs/%s/change-stack-checks/%s",
+		url.PathEscape(runID), url.PathEscape(stackID),
+	)
+
+	if err := c.do(ctx, http.MethodPost, path, checked, nil); err != nil {
+		return fmt.Errorf("report a change stack check: %w", err)
+	}
+
+	return nil
+}
+
 func (c *Client) do(ctx context.Context, method, path string, in, out any) error {
 	_, err := c.request(ctx, method, path, in, out)
 	return err

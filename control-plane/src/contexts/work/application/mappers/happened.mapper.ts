@@ -1,0 +1,62 @@
+import type {
+  Arriving,
+  Happened,
+  MarkWorn,
+} from '@work/application/contracts/happenings.contract';
+import { Concerns } from '@work/domain/value-objects/concerns.vo';
+import { Happening, type Word } from '@work/domain/value-objects/happening.vo';
+import { LineRole } from '@work/domain/value-objects/line-role.vo';
+import { Mark } from '@work/domain/value-objects/mark.vo';
+import type { OpensWith } from '@work/domain/value-objects/opens-with';
+import { Said } from '@work/domain/value-objects/said.vo';
+
+export interface Heard {
+  readonly word: Word;
+  readonly concerns: Concerns;
+  readonly said: Said | null;
+  readonly ourOwn: boolean;
+  readonly opens: OpensWith | null;
+  readonly attachments: readonly Arriving[];
+}
+
+export const HappenedMapper = {
+  markOf(worn: MarkWorn): Mark {
+    return Mark.of(worn.kind, worn.value);
+  },
+
+  toHeard(happened: Happened): Heard | null {
+    const concerns = Concerns.of({
+      branch: happened.concerns.branch,
+      marks: happened.concerns.marks.map(HappenedMapper.markOf),
+    });
+
+    if (!concerns) {
+      return null;
+    }
+
+    const opens = happened.opens;
+
+    return {
+      word: {
+        happening: Happening.of(happened.happening),
+        told: happened.told,
+        spoken: happened.spoken,
+        state: happened.state,
+      },
+      concerns,
+      said: happened.said ? Said.of(happened.said) : null,
+      ourOwn: happened.ourOwn,
+      opens: opens
+        ? {
+            onto: LineRole.of(opens.onto),
+            at: opens.at,
+            title: opens.title,
+            description: opens.description,
+            assignEmail: opens.assignEmail,
+            marks: opens.marks.map(HappenedMapper.markOf),
+          }
+        : null,
+      attachments: happened.attachments ?? [],
+    };
+  },
+};

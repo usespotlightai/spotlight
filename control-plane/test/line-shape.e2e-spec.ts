@@ -1,26 +1,25 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { eq } from 'drizzle-orm';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { AppModule } from '@/app.module';
-import { Line } from '@/domain/aggregates/line.aggregate';
+import { Line } from '@work/domain/aggregates/line.aggregate';
 import {
   BUILT_IN_LINES,
   type LineOpening,
-} from '@/domain/services/built-in-lines';
+} from '@work/domain/services/built-in-lines';
+import { eq } from 'drizzle-orm';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { AppModule } from '@/app.module';
 
 const BUILT_IN_STATIONS = BUILT_IN_LINES[0]?.stations ?? [];
 
-import { FactoryId } from '@/domain/value-objects/factory-id.vo';
-import { WorkspaceId } from '@/domain/value-objects/workspace-id.vo';
-import type { DrizzleDatabase } from '@/infrastructure/persistence/drizzle/drizzle.client';
-import { DRIZZLE } from '@/infrastructure/persistence/drizzle/drizzle.constants';
-import { DrizzleLineRepository } from '@/infrastructure/persistence/drizzle/repositories/line.repository';
-import { factory } from '@/infrastructure/persistence/drizzle/schemas/factory.schema';
 import {
   team,
   workspace,
-} from '@/infrastructure/persistence/drizzle/schemas/workspace.schema';
+} from '@identity/infrastructure/persistence/drizzle/schemas/workspace.schema';
+import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { DrizzleLineRepository } from '@work/infrastructure/persistence/drizzle/repositories/line.repository';
 
 describe('a line, written and read back (e2e)', () => {
   let app: INestApplication;
@@ -42,9 +41,6 @@ describe('a line, written and read back (e2e)', () => {
     await db
       .insert(team)
       .values({ id: held, workspaceId: held, key: 'team', name: held });
-    await db
-      .insert(factory)
-      .values({ id: held, workspaceId: held, teamId: held });
   });
 
   afterEach(async () => {
@@ -56,7 +52,7 @@ describe('a line, written and read back (e2e)', () => {
     let next = 0;
     const opened = Line.open({
       workspaceId: WorkspaceId.of(held),
-      factoryId: FactoryId.of(held),
+      teamId: TeamId.of(held),
       line: BUILT_IN_LINES[0] as LineOpening,
       newId: () => `${held}_${++next}`,
     });

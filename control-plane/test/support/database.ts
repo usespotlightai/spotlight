@@ -1,8 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { DrizzleDatabase } from '@infrastructure/persistence/drizzle/drizzle.client';
-import * as schema from '@infrastructure/persistence/drizzle/schemas';
+import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Client, Pool } from 'pg';
 
@@ -44,7 +43,7 @@ export const openDatabase = async (about: string): Promise<TestDatabase> => {
   await migrated(pool);
 
   return {
-    db: drizzle({ client: pool, schema }),
+    db: drizzle({ client: pool }),
     close: async () => {
       await pool.end();
       await admin.query(`DROP DATABASE IF EXISTS "${database}"`);

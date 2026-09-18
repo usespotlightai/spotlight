@@ -1,0 +1,219 @@
+import { Inject, Injectable } from '@nestjs/common';
+import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import {
+  DOMAIN_EVENT_DISPATCHER,
+  type DomainEventDispatcher,
+} from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
+import { Run } from '@work/domain/aggregates/run.aggregate';
+import { RunMovedOnError } from '@work/domain/exceptions/run-moved-on.error';
+import type {
+  Claimant,
+  RunRepository,
+} from '@work/domain/repositories/run.repository';
+import { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
+import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
+import type { RunSpec } from '@work/domain/value-objects/run-spec.vo';
+import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import { StationId } from '@work/domain/value-objects/station-id.vo';
+import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
+import { and, eq, inArray, lte, sql } from 'drizzle-orm';
+
+type Row = typeof run.$inferSelect;
+
+@Injectable()
+export class DrizzleRunRepository implements RunRepository {
+  constructor(
+    private readonly context: DrizzleContext,
+    @Inject(DOMAIN_EVENT_DISPATCHER)
+    private readonly events: DomainEventDispatcher,
+  ) {}
+
+  async add(added: Run): Promise<void> {
+    await this.context.run(async () => {
+      await this.inserted(added);
+      await this.events.dispatch(added.pullEvents());
+    });
+  }
+
+  private async inserted(added: Run): Promise<void> {
+    await this.context.db.insert(run).values({
+      id: added.id.value,
+      workspaceId: added.workspaceId.value,
+      harness: added.harness.value,
+      priority: added.priority.value,
+      taskId: added.taskId?.value ?? null,
+      stationId: added.stationId?.value ?? null,
+      chatId: added.chatId?.value ?? null,
+      state: added.state,
+      spec: RunSpecContract.toWire(added.spec),
+      targetRunnerId: added.targetRunner?.value ?? null,
+    });
+  }
+
+  async claimNext(by: Claimant, now: Date): Promise<Run | null> {
+    if (by.harnesses.length === 0) {
+      return null;
+    }
+
+    const named = by.harnesses.map((harness) => harness.value);
+
+    return this.context.run(async () => {
+      const locked = await this.context.db.execute<Row>(sql`
+        SELECT
+          id,
+          workspace_id      AS "workspaceId",
+          harness,
+          priority,
+          task_id           AS "taskId",
+          station_id        AS "stationId",
+          chat_id           AS "chatId",
+          state,
+          spec,
+          target_runner_id  AS "targetRunnerId",
+          claimed_by        AS "claimedBy",
+          lease_expires_at  AS "leaseExpiresAt",
+          stop_requested_at AS "stopRequestedAt",
+          exit_code         AS "exitCode",
+          message,
+          stopped,
+          attempt,
+          version
+        FROM ${run}
+        WHERE ${inArray(run.harness, named)}
+          AND state = 'queued'
+          AND workspace_id = ${by.workspaceId.value}
+          AND (target_runner_id IS NULL OR target_runner_id = ${by.runner.value})
+        -- ClaimOrder.next, said in SQL because the claim must be one statement.
+        ORDER BY priority DESC, created_at
+        FOR UPDATE SKIP LOCKED
+        LIMIT 1
+      `);
+
+      const [row] = locked.rows;
+      if (!row) {
+        return null;
+      }
+
+      const claimed = toRun(row).claim(by.runner, now);
+      await this.save(claimed);
+
+      return claimed;
+    });
+  }
+
+  async findById(id: RunId): Promise<Run | null> {
+    const [row] = await this.context.db
+      .select()
+      .from(run)
+      .where(eq(run.id, id.value))
+      .limit(1);
+
+    return row ? toRun(row) : null;
+  }
+
+  async save(saved: Run): Promise<void> {
+    await this.context.run(async () => {
+      await this.stored(saved);
+      await this.events.dispatch(saved.pullEvents());
+    });
+  }
+
+  private async stored(saved: Run): Promise<void> {
+    const written = await this.context.db
+      .update(run)
+      .set({
+        version: saved.version + 1,
+        state: saved.state,
+        attempt: saved.attempt,
+        claimedBy: saved.claimedBy?.value ?? null,
+        leaseExpiresAt: saved.leaseExpiresAt,
+        stopRequestedAt: saved.stopRequestedAt,
+        exitCode: saved.outcome?.exitCode ?? null,
+        message: saved.outcome?.message ?? null,
+        stopped: saved.outcome?.stopped ?? false,
+      })
+      .where(and(eq(run.id, saved.id.value), eq(run.version, saved.version)))
+      .returning({ id: run.id });
+
+    if (written.length === 0) {
+      throw new RunMovedOnError(saved.id.value);
+    }
+  }
+
+  async lapsedClaims(now: Date): Promise<readonly Run[]> {
+    const rows = await this.context.db
+      .select()
+      .from(run)
+      .where(and(eq(run.state, 'claimed'), lte(run.leaseExpiresAt, now)));
+
+    return rows.map(toRun);
+  }
+
+  async claimedBy(runner: RunnerId): Promise<readonly Run[]> {
+    const rows = await this.context.db
+      .select()
+      .from(run)
+      .where(and(eq(run.state, 'claimed'), eq(run.claimedBy, runner.value)));
+
+    return rows.map(toRun);
+  }
+}
+
+// Raw sql returns timestamps as strings; the typed query path returns Dates.
+const asDate = (value: Date | string | null): Date | null => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  return value instanceof Date ? value : new Date(value);
+};
+
+const specOf = (row: Row): RunSpec => {
+  const spec = RunSpecContract.from(row.spec);
+
+  if (!spec) {
+    throw new InconsistentStateError(
+      'run',
+      `has a spec that no longer reads (${row.id})`,
+    );
+  }
+
+  return spec;
+};
+
+const toRun = (row: Row): Run =>
+  Run.rehydrate({
+    id: RunId.of(row.id),
+    workspaceId: WorkspaceId.of(row.workspaceId),
+    harness: HarnessId.of(row.harness),
+    priority: RunPriority.of(row.priority),
+    subject: RunSubject.rehydrate({
+      taskId: row.taskId ? TaskId.of(row.taskId) : null,
+      stationId: row.stationId ? StationId.of(row.stationId) : null,
+      chatId: row.chatId ? ChatId.of(row.chatId) : null,
+    }),
+    spec: specOf(row),
+    targetRunner: row.targetRunnerId ? RunnerId.of(row.targetRunnerId) : null,
+    state: row.state,
+    claimedBy: row.claimedBy ? RunnerId.of(row.claimedBy) : null,
+    leaseExpiresAt: asDate(row.leaseExpiresAt),
+    stopRequestedAt: asDate(row.stopRequestedAt),
+    outcome:
+      row.exitCode === null
+        ? null
+        : RunOutcome.rehydrate({
+            exitCode: row.exitCode,
+            failed: row.state === 'failed',
+            message: row.message,
+            stopped: row.stopped,
+          }),
+    attempt: row.attempt ?? 1,
+    version: row.version,
+  });

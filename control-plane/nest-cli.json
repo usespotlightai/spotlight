@@ -6,7 +6,7 @@
     "deleteOutDir": true,
     "assets": [
       {
-        "include": "infrastructure/skills/built-in/**/*.md",
+        "include": "contexts/configuration/infrastructure/skills/built-in/**/*.md",
         "watchAssets": true
       }
     ]

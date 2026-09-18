@@ -71,14 +71,14 @@ const RUNNERS: Runner[] = [
 ];
 
 export const seedRunners = (client: QueryClient) => {
-  client.setQueryData(runnerKeys.all, RUNNERS);
-  client.setQueryData(harnessKeys.all, HARNESSES);
+  client.setQueryData(runnerKeys.forWorkspace(SLUG), RUNNERS);
+  client.setQueryData(harnessKeys.forWorkspace(SLUG), HARNESSES);
 };
 
 export const emptyRunners = (client: QueryClient) => {
-  client.setQueryData(runnerKeys.all, []);
-  client.setQueryData(harnessKeys.all, HARNESSES);
+  client.setQueryData(runnerKeys.forWorkspace(SLUG), []);
+  client.setQueryData(harnessKeys.forWorkspace(SLUG), HARNESSES);
 };
 
 export const failRunners = (client: QueryClient) =>
-  failQuery(client, runnerKeys.all);
+  failQuery(client, runnerKeys.forWorkspace(SLUG));

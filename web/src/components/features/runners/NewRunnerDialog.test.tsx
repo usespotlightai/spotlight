@@ -21,7 +21,7 @@ beforeEach(() => {
 });
 
 const openDialog = () =>
-  render(<NewRunnerDialog open onOpenChange={vi.fn()} />);
+  render(<NewRunnerDialog slug="acme" open onOpenChange={vi.fn()} />);
 
 const fill = async (name: string) => {
   const user = userEvent.setup();
@@ -73,7 +73,7 @@ describe('NewRunnerDialog', () => {
     );
 
     const { rerender } = render(
-      <NewRunnerDialog open onOpenChange={vi.fn()} />,
+      <NewRunnerDialog slug="acme" open onOpenChange={vi.fn()} />,
     );
     const user = await fill('Laptop');
     await user.click(screen.getByRole('button', { name: /Create runner/ }));
@@ -81,8 +81,10 @@ describe('NewRunnerDialog', () => {
       expect(screen.getByText('a-secret-token')).toBeInTheDocument(),
     );
 
-    rerender(<NewRunnerDialog open={false} onOpenChange={vi.fn()} />);
-    rerender(<NewRunnerDialog open onOpenChange={vi.fn()} />);
+    rerender(
+      <NewRunnerDialog slug="acme" open={false} onOpenChange={vi.fn()} />,
+    );
+    rerender(<NewRunnerDialog slug="acme" open onOpenChange={vi.fn()} />);
 
     await waitFor(() =>
       expect(screen.getByRole('textbox', { name: 'Runner name' })).toHaveValue(

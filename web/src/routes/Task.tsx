@@ -5,6 +5,7 @@ import { AssigneePicker } from '@/components/features/board/task/AssigneePicker'
 import { StationSelect } from '@/components/features/board/task/StationSelect';
 import { TaskActions } from '@/components/features/board/task/TaskActions';
 import { TaskSkeleton } from '@/components/features/board/task/TaskSkeleton';
+import { TaskChangesLink } from '@/components/features/changes/TaskChangesLink';
 import { TaskActivity } from '@/components/features/runs/TaskActivity';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
@@ -165,6 +166,10 @@ export function Task() {
 
               {teamId && (
                 <AssigneePicker teamId={teamId} task={task} variant="row" />
+              )}
+
+              {slug && teamId && (
+                <TaskChangesLink slug={slug} teamId={teamId} taskId={task.id} />
               )}
 
               {task.pullRequest && (

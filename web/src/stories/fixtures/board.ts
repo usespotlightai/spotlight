@@ -1,6 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { lineKeys } from '@/hooks/api/useLines';
 import { memberKeys } from '@/hooks/api/useMembers';
+import { taskChangeStackKeys } from '@/hooks/api/useTaskChangeStack';
 import { taskRunKeys } from '@/hooks/api/useTaskRuns';
 import { taskKeys } from '@/hooks/api/useTasks';
 import { workspaceKeys } from '@/hooks/api/useWorkspaces';
@@ -221,6 +222,14 @@ export const seedBoard = (client: QueryClient) => {
   client.setQueryData(taskKeys.forTeam(TEAM_ID), TASKS);
   client.setQueryData(memberKeys.forTeam(TEAM_ID), MEMBERS);
   client.setQueryData(taskRunKeys.forTask(TASK_ID), RUNS);
+  client.setQueryData(taskChangeStackKeys.forTask(TASK_ID), {
+    latest: {
+      runId: 'run_retries_3',
+      repository: null,
+      state: 'ready',
+      checkState: 'checked',
+    },
+  });
 };
 
 export const emptyBoard = (client: QueryClient) => {

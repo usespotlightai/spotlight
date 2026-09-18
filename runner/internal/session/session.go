@@ -23,6 +23,7 @@ import (
 	"usespotlight.ai/runner/internal/hook"
 	"usespotlight.ai/runner/internal/otel"
 	"usespotlight.ai/runner/internal/protocol"
+	"usespotlight.ai/runner/internal/stackcheck"
 	"usespotlight.ai/runner/internal/workspace"
 )
 
@@ -31,11 +32,13 @@ type Journal interface {
 	RenewLease(ctx context.Context, runID string) (bool, error)
 	Complete(ctx context.Context, runID string, done protocol.Completion) error
 	UseTool(ctx context.Context, runID, name string, input json.RawMessage) (json.RawMessage, error)
+	DraftChangeStack(ctx context.Context, runID, repository, diff string) error
 	AnswerRemark(ctx context.Context, runID string, said protocol.Remark) error
 	Trace(ctx context.Context, runID, taskID string) (json.RawMessage, error)
 	Said(ctx context.Context, runID string) ([]protocol.Said, error)
 	Delivered(ctx context.Context, runID string, upTo int) error
 	Attachment(ctx context.Context, runID, attachmentID string, into io.Writer) error
+	stackcheck.Source
 }
 
 const (
@@ -100,6 +103,8 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	if err := opts.runHook(ctx, opts.PrepareHook, space.Dir, run, journal, log, "prepare"); err != nil {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
+
+	markBases(ctx, space.Dir, run.Spec.Checkouts, log)
 
 	cwd := space.Dir
 
@@ -203,6 +208,8 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
+	opts.draftStacks(ctx, run, space.Dir, log)
+
 	declared := channel.Declared()
 	if declared == nil {
 		declared = space.Outcome()
@@ -240,11 +247,54 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		})
 	}
 
-	return opts.Journal.Complete(ctx, run.ID, protocol.Completion{
+	completed := opts.Journal.Complete(ctx, run.ID, protocol.Completion{
 		ExitCode:  exitCode,
 		Failed:    exitCode != 0,
 		Outcome:   declared,
 		SessionID: sessionID,
+	})
+
+	opts.checkStacks(ctx, run, space.Dir, log)
+
+	return completed
+}
+
+func (o Options) draftStacks(ctx context.Context, run protocol.Run, dir string, log *slog.Logger) {
+	if !run.Spec.Diffs {
+		return
+	}
+
+	checking := stackcheck.Options{Dir: dir, RunAs: o.AgentUser, Log: log}
+
+	for _, checkout := range run.Spec.Checkouts {
+		diff, err := checking.Diff(ctx, filepath.Join(dir, checkout.Path))
+		if err != nil {
+			log.Warn("could not diff a checkout for its change stack", "path", checkout.Path, "error", err)
+			continue
+		}
+		if diff == "" {
+			continue
+		}
+
+		if err := o.Journal.DraftChangeStack(ctx, run.ID, checkout.Path, diff); err != nil {
+			log.Warn("could not hand over what a run changed", "path", checkout.Path, "error", err)
+			continue
+		}
+
+		log.Info("drafting a change stack", "path", checkout.Path)
+	}
+}
+
+func (o Options) checkStacks(ctx context.Context, run protocol.Run, dir string, log *slog.Logger) {
+	if len(run.Spec.Checkouts) == 0 || !run.Spec.Diffs {
+		return
+	}
+
+	stackcheck.Run(ctx, o.Journal, run.ID, stackcheck.Options{
+		Dir:       dir,
+		Checkouts: run.Spec.Checkouts,
+		RunAs:     o.AgentUser,
+		Log:       log,
 	})
 }
 
@@ -293,12 +343,15 @@ func work(
 	go stream(flushing, journal)
 
 	prompt := run.Spec.Briefing
+	steered, resaid := false, false
 
 	for {
 		turn, endTurn := context.WithCancel(ctx)
 		go steer(turn, harness, lease, sessionID, run.ID, log)
 
+		heard := 0
 		result, err := harness.Prompt(ctx, sessionID, prompt, func(update acp.Update) {
+			heard++
 			journal.append(protocol.Event{
 				Type: protocol.EventOutput,
 				Data: update.Raw,
@@ -318,6 +371,14 @@ func work(
 		}
 
 		log.Info("turn finished", "stopReason", result.StopReason)
+
+		// A harness can end the turn right after a cancel without reading the prompt at all.
+		if steered && !resaid && heard == 0 && result.StopReason == "end_turn" {
+			log.Info("the harness let what was said go unread; saying it again")
+			resaid = true
+			continue
+		}
+		steered, resaid = result.StopReason == "cancelled", false
 
 		if result.StopReason != "end_turn" &&
 			result.StopReason != "max_tokens" &&

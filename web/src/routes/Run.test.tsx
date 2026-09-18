@@ -57,6 +57,11 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
 
 vi.mock('@/hooks/api/useRunStream', () => ({ useRunStream: () => undefined }));
 
+vi.mock('@/hooks/api/useRunChangeStacks', () => ({
+  changeStackKeys: { forRun: () => ['change-stacks'] },
+  useRunChangeStacks: () => ({ data: undefined }),
+}));
+
 vi.mock('@/hooks/api/useTaskStation', () => ({
   useTaskStation: () => ({ line: undefined, station: undefined }),
 }));

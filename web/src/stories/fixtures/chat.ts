@@ -138,7 +138,7 @@ const WORKSPACE: WorkspaceResponseDto = {
 
 const seedAround = (client: QueryClient) => {
   client.setQueryData(workspaceKeys.detail(SLUG), WORKSPACE);
-  client.setQueryData(harnessKeys.all, HARNESSES);
+  client.setQueryData(harnessKeys.forWorkspace(SLUG), HARNESSES);
   client.setQueryData(repositoryKeys.forWorkspace(SLUG), [
     { fullName: 'acme/api' },
     { fullName: 'acme/worker' },

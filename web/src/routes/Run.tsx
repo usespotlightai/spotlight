@@ -17,6 +17,7 @@ import {
   Breadcrumbs,
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
+import { changeStackKeys } from '@/hooks/api/useRunChangeStacks';
 import {
   runConversationKeys,
   useRunConversation,
@@ -54,6 +55,9 @@ export function Run() {
     });
     void queryClient.invalidateQueries({
       queryKey: teamRunKeys.forTeam(teamId),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: changeStackKeys.forRun(runId),
     });
   }, [queryClient, said?.taskId, runId, teamId]);
 

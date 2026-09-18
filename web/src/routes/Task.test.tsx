@@ -20,6 +20,7 @@ const deleted = vi.fn();
 const listed = vi.fn();
 const failing = vi.fn();
 const refetch = vi.fn();
+const stacked = vi.fn((): unknown => ({ latest: null }));
 
 vi.mock('@/hooks/api/useTasks', () => ({
   useTasks: () => ({
@@ -64,6 +65,9 @@ vi.mock('@/hooks/api/useLines', () => ({
 vi.mock('@/hooks/api/useTaskRuns', () => ({
   useTaskRuns: () => ({ data: worked() }),
 }));
+vi.mock('@/hooks/api/useTaskChangeStack', () => ({
+  useTaskChangeStack: () => ({ data: stacked() }),
+}));
 vi.mock('@/hooks/api/useTaskJournal', () => ({
   useTaskJournal: () => ({ data: journalled() }),
 }));
@@ -92,6 +96,7 @@ beforeEach(() => {
   listed.mockReturnValue([task]);
   failing.mockReturnValue(false);
   refetch.mockClear();
+  stacked.mockReturnValue({ latest: null });
 });
 
 const run = (over: Record<string, unknown> = {}) => ({
@@ -196,6 +201,37 @@ describe('Task', () => {
       expect(told[1]).toContain('Awaiting review');
       expect(told[2]).toContain('Implementation');
     });
+  });
+
+  it('links the changes of the newest stack drafted for the task', () => {
+    stacked.mockReturnValue({
+      latest: {
+        runId: 'run_9',
+        repository: 'spotlight',
+        state: 'ready',
+        checkState: 'checked',
+        added: 61,
+        removed: 4,
+      },
+    });
+    renderAt('task_1');
+
+    const changes = screen.getByRole('link', { name: /Changes/ });
+
+    expect(changes).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/runs/run_9/changes?repository=spotlight',
+    );
+    expect(changes).toHaveTextContent('+61');
+    expect(changes).toHaveTextContent('−4');
+  });
+
+  it('offers no change stack where none was drafted', () => {
+    renderAt('task_1');
+
+    expect(
+      screen.queryByRole('link', { name: /Changes/ }),
+    ).not.toBeInTheDocument();
   });
 
   it('leads with the task title', () => {
