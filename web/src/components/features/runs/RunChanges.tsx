@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { RunChangeFile } from '@/components/features/runs/RunChangeFile';
+import { DiffTally } from '@/components/shared/DiffTally';
 import { changesOf, tallyOf } from '@/lib/changes';
 import type { RunJournal } from '@/lib/inbox';
 
@@ -24,10 +25,12 @@ export function RunChanges({ journals }: { journals: readonly RunJournal[] }) {
         <span className="font-medium text-foreground">
           {files.length} {files.length === 1 ? 'file' : 'files'} changed
         </span>
-        <span className="ml-auto text-emerald-600 tabular-nums dark:text-emerald-400">
-          +{tally.added}
-        </span>
-        <span className="text-destructive tabular-nums">−{tally.removed}</span>
+        <DiffTally
+          added={tally.added}
+          removed={tally.removed}
+          always
+          className="ml-auto"
+        />
       </div>
 
       <ul className="flex flex-col p-1">

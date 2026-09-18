@@ -7,11 +7,6 @@ type SidebarLinkProps = {
   icon?: ComponentType<{ className?: string }>;
   className?: string;
   trailing?: ReactNode;
-  /**
-   * Held open for somewhere this link owns without being on the way to it: a
-   * task lives under its team rather than under the line it stands in, and a
-   * trace under its task rather than under observability.
-   */
   active?: boolean;
   children: ReactNode;
 };

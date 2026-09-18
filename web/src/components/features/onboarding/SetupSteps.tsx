@@ -3,31 +3,30 @@ import { type ReactNode, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { ChooseRepository } from '@/components/features/onboarding/ChooseRepository';
 import { SetUpLines } from '@/components/features/onboarding/SetUpLines';
+import {
+  SetupAbout,
+  type SetupAboutProps,
+} from '@/components/features/onboarding/SetupAbout';
+import { SetupStepsSkeleton } from '@/components/features/onboarding/SetupStepsSkeleton';
 import { buttonVariants } from '@/components/ui/button';
 import { useOnboarding } from '@/hooks/api/useOnboarding';
 import type { SetupStepResponseDto } from '@/lib/api/types.gen';
 import { installUrlFor } from '@/lib/github';
+import { loading } from '@/lib/query';
 import { cn } from '@/lib/utils';
-
-type About = {
-  readonly title: string;
-  readonly description: string | null;
-};
 
 type SetupStepsProps = {
   teamId: string;
   body: string;
-  about: About | undefined;
+  about: SetupAboutProps | undefined;
   resolved: boolean;
 };
 
-/** The application's pill controls: round, flat, one radius winning the merge. */
 const CONTROL = 'rounded-full px-3.5 shadow-none';
 
-/** Named by the step, so one renamed on the way here stops compiling. */
 const CALLS: Partial<Record<SetupStepResponseDto['key'], string>> = {
   runner: 'Enrol one',
-  tools: 'Choose them',
+  integrations: 'Choose them',
 };
 
 type StepProps = {
@@ -39,14 +38,9 @@ type StepProps = {
 function Step({ step, action, disabled }: StepProps) {
   const [expanded, setExpanded] = useState(false);
 
-  // A done step folds its control away to keep the list tidy; clicking it opens
-  // the control again, so a choice already made can still be revised.
   const revisable = step.done && Boolean(action);
   const showAction = !step.done || expanded;
 
-  // Clipping lets the height animate, but an open control's popup has to spill
-  // out, so clipping is dropped once it has finished opening and put back the
-  // moment it begins to close.
   const [clipped, setClipped] = useState(!showAction);
   if (!showAction && !clipped) {
     setClipped(true);
@@ -112,8 +106,6 @@ function Step({ step, action, disabled }: StepProps) {
             }}
           >
             <div className={cn('min-h-0', clipped && 'overflow-hidden')}>
-              {/* inert reaches every control inside — links, buttons, the
-                  selects — however deep, which a disabled prop could not. */}
               <div
                 className={cn('pt-2', disabled && 'opacity-50')}
                 inert={disabled}
@@ -128,18 +120,14 @@ function Step({ step, action, disabled }: StepProps) {
   );
 }
 
-/**
- * The standing list a team opens with, shown as the things it names. What
- * each step is and whether it is done come from the list itself; what is
- * left here is how to go and take one. The note's own words are the fallback.
- */
 export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
   const { slug } = useParams();
   const here = useLocation();
-  const { data: onboarding, isPending } = useOnboarding(teamId);
+  const query = useOnboarding(teamId);
+  const onboarding = query.data;
 
-  if (slug && isPending) {
-    return null;
+  if (slug && loading(query)) {
+    return <SetupStepsSkeleton about={about} />;
   }
 
   if (!onboarding || !slug) {
@@ -215,17 +203,7 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
   return (
     <div className="flex flex-col gap-4">
       {about && (
-        <div>
-          <h1 className="font-medium text-foreground text-sm leading-6">
-            {about.title}
-          </h1>
-
-          {about.description && (
-            <p className="text-muted-foreground text-sm leading-6">
-              {about.description}
-            </p>
-          )}
-        </div>
+        <SetupAbout title={about.title} description={about.description} />
       )}
 
       <ul className="flex flex-col gap-3">

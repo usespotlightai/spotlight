@@ -15,13 +15,9 @@ export interface Tally {
 export const fileName = (path: string): string =>
   path.slice(path.lastIndexOf('/') + 1);
 
-// The harness reports absolute paths inside the runner's workspace
-// (`/workspaces/<key>/…`), where the repo sits at the workspace root.
 export const repoRelative = (path: string): string =>
   path.replace(/^\/workspaces\/[^/]+\//, '');
 
-// One entry per file, folding repeat edits to the first before and last after.
-// Files left unchanged, and edits reported without a path, drop out.
 export const changesOf = (journals: readonly RunJournal[]): FileChange[] => {
   const order: string[] = [];
   const first = new Map<string, string>();

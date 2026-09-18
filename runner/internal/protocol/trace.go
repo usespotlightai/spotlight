@@ -1,13 +1,9 @@
 package protocol
 
-// TraceRequest is what the agent's CLI asks the runner for: one task's trace,
-// which the runner reads from the control plane on the agent's behalf.
 type TraceRequest struct {
 	Task string `json:"task"`
 }
 
-// Trace and the types under it mirror the control plane's trace response, so
-// the CLI can print only the slice the agent asked for rather than the whole.
 type Trace struct {
 	StartedAt *string     `json:"startedAt"`
 	Ms        int         `json:"ms"`

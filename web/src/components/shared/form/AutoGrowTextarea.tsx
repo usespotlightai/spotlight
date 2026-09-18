@@ -19,6 +19,8 @@ export function AutoGrowTextarea({
 
     textarea.style.height = 'auto';
     textarea.style.height = `${textarea.scrollHeight}px`;
+    textarea.style.overflowY =
+      textarea.scrollHeight - textarea.clientHeight > 1 ? 'auto' : 'hidden';
   }, [value]);
 
   return (

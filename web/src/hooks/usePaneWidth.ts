@@ -14,16 +14,7 @@ type Pane = {
   max: number;
   initial: number;
   label: string;
-  /**
-   * Which side of the pane the handle sits on. Dragging it away from the pane
-   * widens it, whichever side that is.
-   */
   edge?: 'left' | 'right';
-  /**
-   * The custom property the pane's width is drawn from. A drag writes it
-   * straight onto the element, so the width follows the pointer without
-   * waiting on a render of whatever the pane is holding.
-   */
   property?: string;
 };
 
@@ -50,9 +41,7 @@ const clampTo = (pane: Pane, width: number) =>
 const remember = (pane: Pane, width: number) => {
   try {
     localStorage.setItem(pane.storageKey, String(width));
-  } catch {
-    // a browser that refuses storage still resizes, it just forgets
-  }
+  } catch {}
 };
 
 export function usePaneWidth<T extends HTMLElement = HTMLElement>(
@@ -65,14 +54,6 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
   const last = useRef(width);
   const held = useRef<T | null>(null);
 
-  /**
-   * Storage is written when the handle is let go, not on every pixel it
-   * passes through: a drag is hundreds of moves, and each one was a
-   * synchronous write.
-   */
-  // Held on the document, because the pointer spends the drag over whatever
-  // else is on the page: without it the cursor flickers back to a caret and
-  // the text under it starts selecting.
   useEffect(() => {
     if (!resizing) {
       return;
@@ -92,11 +73,6 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
     }
   };
 
-  /**
-   * Straight to the element, so the pointer is never waited on by React. A
-   * pane that hands its width to others writes the property they read; one
-   * that only sizes itself writes its own width.
-   */
   const show = (next: number) => {
     const clamped = clampTo(pane, next);
     last.current = clamped;
@@ -106,8 +82,6 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
     } else if (held.current) {
       held.current.style.width = `${clamped}px`;
     } else {
-      // No element was handed over, so there is nothing to write to and React
-      // has to carry the drag.
       setWidth(clamped);
     }
   };
@@ -128,7 +102,6 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
   const onPointerUp = (event: PointerEvent<HTMLElement>) => {
     origin.current = null;
     setResizing(false);
-    // What the element has been showing all along becomes what React holds.
     setWidth(last.current);
     remember(pane, last.current);
     event.currentTarget.releasePointerCapture?.(event.pointerId);
@@ -150,7 +123,6 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
   return {
     width,
     resizing,
-    /** Put on whatever element carries the width. */
     paneRef: held,
     handleProps: {
       role: 'separator' as const,

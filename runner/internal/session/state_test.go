@@ -28,8 +28,8 @@ func TestNextFollowsTheHappyPath(t *testing.T) {
 		state = next
 	}
 
-	if !state.Terminal() {
-		t.Errorf("%s should be terminal", state)
+	if state != session.Completed {
+		t.Errorf("%s should be completed", state)
 	}
 }
 
@@ -60,20 +60,6 @@ func TestNextRefusesWhatCannotHappen(t *testing.T) {
 	} {
 		if _, err := session.Next(impossible.from, impossible.trigger); err == nil {
 			t.Errorf("%s while %s should be refused", impossible.trigger, impossible.from)
-		}
-	}
-}
-
-func TestOnlyFinishedRunsAreTerminal(t *testing.T) {
-	for state, want := range map[session.State]bool{
-		session.Preparing: false,
-		session.Running:   false,
-		session.Draining:  false,
-		session.Completed: true,
-		session.Failed:    true,
-	} {
-		if state.Terminal() != want {
-			t.Errorf("%s terminal = %v", state, state.Terminal())
 		}
 	}
 }

@@ -1,5 +1,6 @@
-import { Check, Copy } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
+import { CopyField } from '@/components/shared/CopyField';
+import { FieldInput } from '@/components/shared/form/FieldInput';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -11,22 +12,24 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useEnrolRunner } from '@/hooks/api/useEnrolRunner';
-import { useCopied } from '@/hooks/useCopied';
 
 type Enrolled = { id: string; name: string; token: string };
 
 type NewRunnerDialogProps = {
+  slug: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
 
-export function NewRunnerDialog({ open, onOpenChange }: NewRunnerDialogProps) {
+export function NewRunnerDialog({
+  slug,
+  open,
+  onOpenChange,
+}: NewRunnerDialogProps) {
   const [name, setName] = useState('');
   const [enrolled, setEnrolled] = useState<Enrolled | null>(null);
-  const enrol = useEnrolRunner();
+  const enrol = useEnrolRunner(slug);
 
-  // Cleared once the dialog has finished animating out. Resetting on the way
-  // out instead swaps the token back to the empty form mid-animation.
   const forget = () => {
     setName('');
     setEnrolled(null);
@@ -90,15 +93,13 @@ function Naming({ name, onName, pending, error, onSubmit }: NamingProps) {
   return (
     <form onSubmit={onSubmit} className="contents">
       <div className="flex flex-col gap-2">
-        <input
-          // biome-ignore lint/a11y/noAutofocus: the dialog exists to type in this
+        <FieldInput
           autoFocus
           value={name}
           onChange={(event) => onName(event.target.value)}
           placeholder="Name"
           aria-label="Runner name"
           maxLength={60}
-          className="h-8 rounded-md border-[0.5px] border-border bg-background px-2.5 text-foreground text-sm outline-none placeholder:text-muted-foreground focus-visible:border-input"
         />
       </div>
 
@@ -117,36 +118,9 @@ function Naming({ name, onName, pending, error, onSubmit }: NamingProps) {
 }
 
 function Token({ token, onDone }: { token: string; onDone: () => void }) {
-  const { copied, copy } = useCopied();
-
   return (
     <>
-      <span className="flex h-8 min-w-0 items-center gap-2 rounded-md border-[0.5px] border-border bg-background pr-0.5 pl-2.5">
-        <code className="min-w-0 flex-1 truncate font-mono text-foreground text-xs">
-          {token}
-        </code>
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => copy(token)}
-          aria-label="Copy token"
-          className="bg-card"
-        >
-          {/* Keyed so the swap is a remount, and can be animated. */}
-          <span
-            key={copied ? 'copied' : 'copy'}
-            className="flex animate-in items-center gap-1 duration-150 fade-in zoom-in-95 ease-out-quad"
-          >
-            {copied ? (
-              <Check className="size-3.5" aria-hidden />
-            ) : (
-              <Copy className="size-3.5" aria-hidden />
-            )}
-            {copied ? 'Copied' : 'Copy'}
-          </span>
-        </Button>
-      </span>
+      <CopyField value={token} copyLabel="Copy token" />
 
       <DialogFooter>
         <Button size="sm" onClick={onDone}>

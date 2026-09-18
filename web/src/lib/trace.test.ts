@@ -116,7 +116,6 @@ describe('laidOut', () => {
     const held = trace();
     const turn = held.roots[0]?.children[0];
 
-    // The turn runs from twelve seconds to fifty, of a minute.
     expect(turn && laidOut(turn, held)).toEqual({
       left: 20,
       width: (38 / 60) * 100,

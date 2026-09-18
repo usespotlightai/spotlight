@@ -74,8 +74,6 @@ describe('usePaneWidth', () => {
     );
   });
 
-  // A pane whose handle is on its left grows as the handle moves left, so the
-  // arrow keys have to mean the direction the handle goes, not the width.
   it('widens a left-handled pane in the other direction', () => {
     const { result } = renderHook(() =>
       usePaneWidth({ ...PANE, edge: 'left' }),

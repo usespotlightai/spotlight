@@ -1,5 +1,4 @@
 import { DetailProperty } from '@/components/features/trace/view/detail/DetailProperty';
-import { TraceIcon } from '@/components/features/trace/view/TraceIcon';
 import { holdings, reported } from '@/lib/detail';
 import { counted, spentOn, spokenAt, took } from '@/lib/inbox';
 import type { TraceNode } from '@/lib/trace';
@@ -25,19 +24,14 @@ export function DetailHeader({ node }: { node: TraceNode }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-start gap-2">
-        <span className="pt-0.5">
-          <TraceIcon node={node} />
-        </span>
-        <h2
-          className={cn(
-            'min-w-0 break-words font-medium text-sm leading-5',
-            node.tone === 'failed' ? 'text-destructive' : 'text-foreground',
-          )}
-        >
-          {node.name}
-        </h2>
-      </div>
+      <h2
+        className={cn(
+          'min-w-0 break-words font-medium text-sm leading-5',
+          node.tone === 'failed' ? 'text-destructive' : 'text-foreground',
+        )}
+      >
+        {node.name}
+      </h2>
 
       <dl className="flex flex-col">
         <DetailProperty name="Started">

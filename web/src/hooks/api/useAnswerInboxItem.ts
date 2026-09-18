@@ -7,6 +7,7 @@ type AnswerInboxItemInput = {
   itemId: string;
   body: string;
   attachments: string[];
+  approve?: boolean;
 };
 
 export function useAnswerInboxItem() {
@@ -18,16 +19,19 @@ export function useAnswerInboxItem() {
       itemId,
       body,
       attachments,
+      approve,
     }: AnswerInboxItemInput) => {
       await answerInboxItem({
         path: { slug, itemId },
-        body: { body, attachments },
+        body: {
+          body,
+          attachments,
+          ...(approve === undefined ? {} : { approve }),
+        },
         throwOnError: true,
       });
     },
 
-    // The answer puts the task back to work, so it leaves the inbox: what the
-    // list shows next is the server's to say.
     onSuccess: (_answer, { slug }) =>
       queryClient.invalidateQueries({
         queryKey: inboxKeys.forWorkspace(slug),

@@ -5,8 +5,6 @@ import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import type { JournalStep } from '@/lib/inbox';
 import { cn } from '@/lib/utils';
 
-// The action, as a past-tense word, the way the icon used to name it. It leads
-// the row in a darker weight; the step's own text follows it, muted.
 const verbFor = (step: JournalStep): string => {
   if (step.kind === 'thought') {
     return 'Thought';
@@ -48,8 +46,6 @@ export function InboxStep({
   live = false,
 }: {
   step: JournalStep;
-  /** Whether the run is still going. A settled run's steps never shimmer,
-   *  even one left at 'pending' because its completion update never arrived. */
   live?: boolean;
 }) {
   const [open, setOpen] = useState(false);

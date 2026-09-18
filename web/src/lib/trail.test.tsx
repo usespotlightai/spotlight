@@ -67,8 +67,6 @@ describe('useTrail', () => {
       2,
     );
 
-    // The run owns the last two crumbs, so its task stays even though the
-    // trail was reached through the runs list rather than through the task.
     expect(screen.getByTestId('trail')).toHaveTextContent(
       'Runs / Default / Fix the queue',
     );
@@ -100,7 +98,6 @@ describe('useTrail', () => {
       </MemoryRouter>,
     );
 
-    // Arrived from the task, whose crumb the run owns too: it shows once.
     expect(screen.getByTestId('trail')).toHaveTextContent(
       'Spotlight / Setup docs / Implementation',
     );
@@ -117,8 +114,6 @@ describe('useTrail', () => {
   it('hands its own crumb on, linked to where it stands', () => {
     at({ pathname: '/w/a/team/t/tasks/x' });
 
-    // The trail a page hands forward ends at itself, so a page opened from it
-    // reads this page as an ancestor.
     expect(screen.getByTestId('forward')).toHaveTextContent(
       'Acme / Default / Fix the queue',
     );

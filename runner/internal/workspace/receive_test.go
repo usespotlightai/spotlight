@@ -181,3 +181,53 @@ func ownerOf(t *testing.T, path string) uint32 {
 	}
 	return info.Sys().(*syscall.Stat_t).Uid
 }
+
+func TestReplaceWritesOverAFileAlreadyThere(t *testing.T) {
+	space, err := workspace.Create(t.TempDir(), "run_1")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	path := ".claude/skills/spotlight-handover/SKILL.md"
+	if err := space.Receive(path, nil, writing("as it was")); err != nil {
+		t.Fatalf("receive: %v", err)
+	}
+	if err := space.Replace(path, nil, writing("as it is now")); err != nil {
+		t.Fatalf("replace: %v", err)
+	}
+
+	placed, err := os.ReadFile(filepath.Join(space.Dir, path))
+	if err != nil || string(placed) != "as it is now" {
+		t.Fatalf("placed %q: %v", placed, err)
+	}
+}
+
+func TestReplaceRefusesWhatIsNotAFile(t *testing.T) {
+	space, err := workspace.Create(t.TempDir(), "run_1")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	path := ".claude/skills/spotlight-handover"
+	if err := os.MkdirAll(filepath.Join(space.Dir, path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := space.Replace(path, nil, writing("x")); err == nil {
+		t.Fatal("replaced a directory")
+	}
+	if info, err := os.Stat(filepath.Join(space.Dir, path)); err != nil || !info.IsDir() {
+		t.Errorf("the directory is gone: %v", err)
+	}
+}
+
+func TestReplaceRefusesAPathOutOfTheWorkspace(t *testing.T) {
+	space, err := workspace.Create(t.TempDir(), "run_1")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	if err := space.Replace("../outside.md", nil, writing("x")); err == nil {
+		t.Fatal("wrote outside the workspace")
+	}
+}

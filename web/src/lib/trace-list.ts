@@ -3,11 +3,6 @@ import type { Window } from '@/lib/range';
 
 export type Traced = TeamTraceResponseDto;
 
-/**
- * The stretch a bucket stands for. A bar is a span of time, not a moment, and
- * reading it as a moment is how someone concludes the wrong quarter-hour went
- * wrong. The day is said once where both ends fall on it.
- */
 export const spanned = (from: number, to: number): string => {
   const opened = new Date(from);
   const closed = new Date(to);
@@ -36,11 +31,6 @@ export interface Bucket {
   readonly count: number;
 }
 
-/**
- * What went wrong, across the stretch being looked at. Laid over the whole
- * window rather than over the traces themselves: a month asked for is a month
- * drawn, and where the quiet parts of it are is most of what it says.
- */
 export const bucketed = (
   traces: readonly Traced[],
   window: Window,
@@ -59,7 +49,6 @@ export const bucketed = (
 
   for (const trace of traces) {
     const at = new Date(trace.startedAt).getTime();
-    // A trace on either edge of the window still belongs to the nearest one.
     const held = Math.min(
       Math.max(Math.floor((at - from) / width), 0),
       count - 1,

@@ -1,0 +1,188 @@
+import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunId as RunIdOf } from '@shared-kernel/domain/value-objects/run-id.vo';
+import {
+  RunSpecContract,
+  type SkillFileShape,
+  THROUGH_SPOTLIGHT,
+  type ToolManifestShape,
+  TRACE_PARENT_VAR,
+} from '@work/application/contracts/run-spec.contract';
+import { ReadySkillMapper } from '@work/application/mappers/ready-skill.mapper';
+import { skillFilesOf } from '@work/application/mappers/skill-files.mapper';
+import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
+import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
+import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
+import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
+import { Attached } from '@work/application/rendering/attached';
+import { TaskBriefing } from '@work/application/rendering/task-briefing';
+import type { StationSkills } from '@work/application/services/station-skills.service';
+import type { TaskDispatching } from '@work/application/services/task-dispatch';
+import type { TeamIntegrations } from '@work/application/services/team-integrations.service';
+import type { Line } from '@work/domain/aggregates/line.aggregate';
+import { Run } from '@work/domain/aggregates/run.aggregate';
+import type { Task } from '@work/domain/aggregates/task.aggregate';
+import type { RunRepository } from '@work/domain/repositories/run.repository';
+import { describedTools } from '@work/domain/services/given-to-run';
+import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
+import { orderFor, type RunOrder } from '@work/domain/services/run-order';
+import type { HarnessCommand } from '@work/domain/value-objects/harness-command.vo';
+import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
+import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+
+// No host address may ever reach a runner; remotes are named as Spotlight serves them.
+const written = (
+  order: RunOrder,
+  task: Task,
+  command: HarnessCommand,
+  briefing: string,
+  naming: string,
+  skills: readonly SkillFileShape[],
+  manifest: readonly ToolManifestShape[],
+): RunSpec =>
+  RunSpec.of({
+    checkouts: order.repositories.map((repository) => ({
+      remote: THROUGH_SPOTLIGHT,
+      path: repository.name,
+      branch: order.branch.value,
+    })),
+    command: command.started({ [TRACE_PARENT_VAR]: naming }),
+    briefing,
+    handover: {
+      options: order.options.map((each) => each.word),
+      noteLimit: order.noteLimit,
+    },
+    continuity: RunSpecContract.continuityOf(order.continuity),
+    skills,
+    manifest,
+    attachments: Attached.shapes(task.allAttachments),
+    diffs: order.diffs,
+  });
+
+export class DispatchTask implements TaskDispatching {
+  constructor(
+    private readonly runs: RunRepository,
+    private readonly ids: IdGeneratorPort,
+    private readonly harnesses: HarnessCatalog,
+    private readonly launch: HarnessLaunchPort,
+    private readonly tracing: TraceParentPort,
+    private readonly builtInSkills: BuiltInSkillsPort,
+    private readonly teamSkills: StationSkills,
+    private readonly integrations: TeamIntegrations,
+  ) {}
+
+  async runIdFor({
+    task,
+    line,
+  }: {
+    task: Task;
+    line: Line;
+  }): Promise<RunId | null> {
+    const station = line.stationAt(task.stationId);
+    const ready = station ? await this.teamSkills.readyAt(line, station) : [];
+    const order = orderFor({
+      task,
+      line,
+      harnesses: this.harnesses,
+      ready: ready.map(ReadySkillMapper.toReady),
+    });
+
+    if (!order) {
+      return null;
+    }
+
+    const command = this.launch.commandFor(order.harness.id, {
+      model: order.model,
+      effort: order.effort,
+    });
+
+    if (!command || !this.launch.skillsFor(order.harness.id)) {
+      return null;
+    }
+
+    return RunIdOf.of(this.ids.generate());
+  }
+
+  async enqueue({
+    task,
+    line,
+    runId,
+  }: {
+    task: Task;
+    line: Line;
+    runId: RunId;
+  }): Promise<boolean> {
+    const station = line.stationAt(task.stationId);
+    const ready = station ? await this.teamSkills.readyAt(line, station) : [];
+    const order = orderFor({
+      task,
+      line,
+      harnesses: this.harnesses,
+      ready: ready.map(ReadySkillMapper.toReady),
+    });
+
+    if (!order) {
+      return false;
+    }
+
+    const command = this.launch.commandFor(order.harness.id, {
+      model: order.model,
+      effort: order.effort,
+    });
+
+    if (!command) {
+      return false;
+    }
+
+    const home = this.launch.skillsFor(order.harness.id);
+
+    if (!home) {
+      return false;
+    }
+
+    const folders = [
+      ...order.given.builtInSkills.flatMap((key) => {
+        const folder = this.builtInSkills.named(key.value);
+        return folder ? [folder] : [];
+      }),
+      ...order.given.teamSkills.flatMap((skill) =>
+        ready.filter((each) => each.skill.key === skill.key.value),
+      ),
+    ];
+    const offered = order.given.tools.some((each) => each.integration)
+      ? await this.integrations.offered(line)
+      : [];
+    const described = describedTools(order.given.tools, offered);
+
+    const id = runId;
+
+    const briefing = TaskBriefing.brief({
+      task,
+      line,
+      skills: folders.map((each) => each.skill),
+      listedIn: home.readByHarness ? null : home.directory,
+    });
+
+    const queued = Run.enqueue({
+      id,
+      workspaceId: task.workspaceId,
+      harness: order.harness.id,
+      priority: order.priority,
+      subject: RunSubject.task(task.id, order.stationId),
+      targetRunner: order.pinnedTo,
+      spec: written(
+        order,
+        task,
+        command,
+        briefing,
+        this.tracing.for(task.id, id),
+        skillFilesOf(folders, home),
+        described.map(toolManifestOf),
+      ),
+    });
+
+    await this.runs.add(queued);
+
+    return true;
+  }
+}

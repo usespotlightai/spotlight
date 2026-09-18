@@ -4,7 +4,6 @@ import { analyseTraces } from '@/lib/api';
 
 type AnalyseTracesInput = {
   teamId: string;
-  /** The tasks whose traces to analyse, one work item each. */
   taskIds: readonly string[];
 };
 

@@ -1,6 +1,7 @@
 {
   "name": "web",
   "private": true,
+  "packageManager": "npm@11.19.1",
   "version": "0.0.0",
   "type": "module",
   "scripts": {
@@ -12,8 +13,10 @@
     "check": "biome check --write",
     "test": "vitest run",
     "test:watch": "vitest",
-    "icons": "npx @svgr/cli --out-dir src/components/common/icons --typescript --jsx-runtime automatic -- assets/icons && npm run check",
-    "api:generate": "openapi-ts"
+    "icons": "npx @svgr/cli --out-dir src/components/shared/icons --typescript --jsx-runtime automatic -- assets/icons && npm run check",
+    "api:generate": "openapi-ts",
+    "storybook": "WATCHPACK_POLLING=true storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -47,6 +50,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.5.9",
     "@hey-api/openapi-ts": "^0.0.0-next-20260819153534",
+    "@storybook/react-vite": "10.6.0",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.5",
@@ -55,6 +59,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.4",
     "jsdom": "^30.0.1",
+    "storybook": "10.6.0",
     "typescript": "~7.0.2",
     "vite": "^8.2.0",
     "vitest": "^4.1.11"

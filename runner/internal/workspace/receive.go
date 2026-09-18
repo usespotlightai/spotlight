@@ -13,17 +13,13 @@ import (
 	"usespotlight.ai/runner/internal/account"
 )
 
-// Receive places one file at path inside the workspace, skipping one already
-// there. Owner is nil before the hand-over, which gives what this makes along
-// with everything else.
 func (w *Workspace) Receive(path string, owner *account.User, fetch func(io.Writer) error) error {
 	if !filepath.IsLocal(path) {
 		return fmt.Errorf("attachment %q escapes the workspace", path)
 	}
 	path = filepath.Clean(path)
 
-	// Opened as a root, so a link the agent left in its workspace cannot lead
-	// the runner, with rights the agent lacks, to write somewhere else.
+	// Opened as a root, so a link the agent left cannot redirect the runner's write.
 	root, err := os.OpenRoot(w.Dir)
 	if err != nil {
 		return fmt.Errorf("open workspace: %w", err)
@@ -81,8 +77,7 @@ func place(root *os.Root, path string, owner *account.User, fetch func(io.Writer
 	}
 
 	err = fetch(file)
-	// Given before it is renamed in, so the file is never visible as anyone's
-	// but the agent's.
+	// Chowned before the rename, so it is never visible as anyone's but the agent's.
 	if err == nil && owner != nil {
 		err = file.Chown(int(owner.UID), int(owner.GID))
 	}
@@ -99,4 +94,31 @@ func place(root *os.Root, path string, owner *account.User, fetch func(io.Writer
 	}
 
 	return nil
+}
+
+func (w *Workspace) Replace(path string, owner *account.User, fetch func(io.Writer) error) error {
+	if !filepath.IsLocal(path) {
+		return fmt.Errorf("%q escapes the workspace", path)
+	}
+	path = filepath.Clean(path)
+
+	root, err := os.OpenRoot(w.Dir)
+	if err != nil {
+		return fmt.Errorf("open workspace: %w", err)
+	}
+	defer root.Close()
+
+	info, err := root.Lstat(path)
+	switch {
+	case err == nil && !info.Mode().IsRegular():
+		return fmt.Errorf("%s is not a file to replace", path)
+	case err == nil:
+		if err := root.Remove(path); err != nil {
+			return fmt.Errorf("replace %s: %w", path, err)
+		}
+	case !errors.Is(err, fs.ErrNotExist):
+		return fmt.Errorf("look for %s: %w", path, err)
+	}
+
+	return w.Receive(path, owner, fetch)
 }

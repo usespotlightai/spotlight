@@ -17,9 +17,19 @@ const worked = vi.fn((): unknown[] => []);
 const journalled = vi.fn((): unknown[] => []);
 const moved = vi.fn();
 const deleted = vi.fn();
+const listed = vi.fn();
+const failing = vi.fn();
+const refetch = vi.fn();
+const stacked = vi.fn((): unknown => ({ latest: null }));
 
 vi.mock('@/hooks/api/useTasks', () => ({
-  useTasks: () => ({ data: [task], isPending: false }),
+  useTasks: () => ({
+    data: listed(),
+    isPending: listed() === undefined,
+    errorUpdateCount: failing() ? 1 : 0,
+    isFetching: false,
+    refetch,
+  }),
 }));
 vi.mock('@/hooks/api/useMoveTask', () => ({
   useMoveTask: () => ({ mutate: moved }),
@@ -36,8 +46,8 @@ vi.mock('@/hooks/api/useAssignTask', () => ({
 vi.mock('@/hooks/api/useRepositories', () => ({
   useRepositories: () => ({ data: [] }),
 }));
-vi.mock('@/hooks/api/useAssemblyLines', () => ({
-  useAssemblyLines: () => ({
+vi.mock('@/hooks/api/useLines', () => ({
+  useLines: () => ({
     data: [
       {
         id: 'line_1',
@@ -49,10 +59,14 @@ vi.mock('@/hooks/api/useAssemblyLines', () => ({
       },
     ],
     isPending: false,
+    errorUpdateCount: 0,
   }),
 }));
 vi.mock('@/hooks/api/useTaskRuns', () => ({
   useTaskRuns: () => ({ data: worked() }),
+}));
+vi.mock('@/hooks/api/useTaskChangeStack', () => ({
+  useTaskChangeStack: () => ({ data: stacked() }),
 }));
 vi.mock('@/hooks/api/useTaskJournal', () => ({
   useTaskJournal: () => ({ data: journalled() }),
@@ -79,6 +93,10 @@ beforeEach(() => {
   moved.mockClear();
   deleted.mockClear();
   worked.mockReturnValue([]);
+  listed.mockReturnValue([task]);
+  failing.mockReturnValue(false);
+  refetch.mockClear();
+  stacked.mockReturnValue({ latest: null });
 });
 
 const run = (over: Record<string, unknown> = {}) => ({
@@ -185,6 +203,37 @@ describe('Task', () => {
     });
   });
 
+  it('links the changes of the newest stack drafted for the task', () => {
+    stacked.mockReturnValue({
+      latest: {
+        runId: 'run_9',
+        repository: 'spotlight',
+        state: 'ready',
+        checkState: 'checked',
+        added: 61,
+        removed: 4,
+      },
+    });
+    renderAt('task_1');
+
+    const changes = screen.getByRole('link', { name: /Changes/ });
+
+    expect(changes).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/runs/run_9/changes?repository=spotlight',
+    );
+    expect(changes).toHaveTextContent('+61');
+    expect(changes).toHaveTextContent('−4');
+  });
+
+  it('offers no change stack where none was drafted', () => {
+    renderAt('task_1');
+
+    expect(
+      screen.queryByRole('link', { name: /Changes/ }),
+    ).not.toBeInTheDocument();
+  });
+
   it('leads with the task title', () => {
     renderAt('task_1');
 
@@ -276,5 +325,53 @@ describe('Task', () => {
     expect(
       screen.getByRole('heading', { name: 'Task not found' }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open the team' })).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1',
+    );
+  });
+
+  it('holds the shape of a task while it loads, keeping what never changes', () => {
+    listed.mockReturnValue(undefined);
+
+    renderAt('task_1');
+
+    expect(
+      screen.getByRole('status', { name: 'Loading the task' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Properties' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Task not found' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('says the task could not be loaded, and tries again when asked', async () => {
+    const user = userEvent.setup();
+    listed.mockReturnValue(undefined);
+    failing.mockReturnValue(true);
+
+    renderAt('task_1');
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'The task could not be loaded.',
+    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  it('keeps the task up when a later refresh fails', () => {
+    failing.mockReturnValue(true);
+
+    renderAt('task_1');
+
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Fix the queue' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

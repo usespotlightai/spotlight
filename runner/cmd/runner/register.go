@@ -55,8 +55,6 @@ func register(args []string, in io.Reader, out io.Writer) error {
 		return err
 	}
 
-	// Long enough that discovering each installed harness's models, which runs
-	// its CLI, has room to finish before the whole check-in gives up.
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
@@ -65,7 +63,6 @@ func register(args []string, in io.Reader, out io.Writer) error {
 		return fmt.Errorf("reach %s: %w", url, err)
 	}
 	if err := client.Register(ctx, protocol.Registration{
-		Capacity:  1,
 		Harnesses: harness.Installed(ctx, candidates),
 	}); err != nil {
 		return err

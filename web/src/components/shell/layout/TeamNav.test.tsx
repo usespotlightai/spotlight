@@ -4,10 +4,13 @@ import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TeamNav } from '@/components/shell/layout/TeamNav';
 
-vi.mock('@/hooks/api/useAssemblyLines', () => ({
-  useAssemblyLines: () => ({
-    data: [{ id: 'line_1', name: 'Default', stations: [] }],
-    isPending: false,
+const lines = vi.fn();
+
+vi.mock('@/hooks/api/useLines', () => ({
+  useLines: () => ({
+    data: lines(),
+    isPending: lines() === undefined,
+    errorUpdateCount: 0,
   }),
 }));
 vi.mock('@/hooks/api/useTasks', () => ({
@@ -32,13 +35,20 @@ const panels = () =>
   Array.from(document.querySelectorAll('[data-slot="team-sections"]'));
 
 const lineGroups = () =>
-  Array.from(document.querySelectorAll('[data-slot="assembly-lines"]'));
+  Array.from(document.querySelectorAll('[data-slot="lines"]'));
 
 const linesRow = (index: number) =>
-  screen.getAllByRole('button', { name: /Assembly lines/ })[index];
+  screen.getAllByRole('button', { name: /Lines/ })[index];
+
+const settingsGroups = () =>
+  Array.from(document.querySelectorAll('[data-slot="settings"]'));
+
+const settingsRow = (index: number) =>
+  screen.getAllByRole('button', { name: /Settings/ })[index];
 
 beforeEach(() => {
   localStorage.clear();
+  lines.mockReturnValue([{ id: 'line_1', name: 'Default', stations: [] }]);
 });
 
 describe('TeamNav', () => {
@@ -72,7 +82,7 @@ describe('TeamNav', () => {
     expect(panels()[1]?.querySelector('ul')).not.toHaveAttribute('inert');
   });
 
-  it('groups a team’s assembly lines under a row of their own', () => {
+  it('groups a team’s lines under a row of their own', () => {
     renderNav();
 
     expect(lineGroups()).toHaveLength(teams.length);
@@ -80,6 +90,18 @@ describe('TeamNav', () => {
       teams.length,
     );
     expect(linesRow(0)).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('shows no lines, and nothing in their place, while a team’s lines load', () => {
+    lines.mockReturnValue(undefined);
+
+    renderNav();
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Default' }),
+    ).not.toBeInTheDocument();
+    expect(linesRow(0)).toBeInTheDocument();
   });
 
   it('closes one team’s line group without touching the other', async () => {
@@ -104,6 +126,49 @@ describe('TeamNav', () => {
     renderNav();
 
     expect(linesRow(0)).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('groups a team’s settings under a row of their own', () => {
+    renderNav();
+
+    expect(settingsGroups()).toHaveLength(teams.length);
+    expect(settingsRow(0)).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getAllByRole('link', { name: 'General' })[0]).toHaveAttribute(
+      'href',
+      '/w/acme-inc/team/team_1/settings/general',
+    );
+    expect(
+      screen.getAllByRole('link', { name: 'Integrations' })[0],
+    ).toHaveAttribute('href', '/w/acme-inc/team/team_1/settings/integrations');
+    expect(screen.getAllByRole('link', { name: 'Skills' })[0]).toHaveAttribute(
+      'href',
+      '/w/acme-inc/team/team_1/settings/skills',
+    );
+    expect(
+      screen.queryByRole('link', { name: 'Secrets' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('links each team’s agent first, above its lines', () => {
+    renderNav();
+
+    const agent = screen.getAllByRole('link', { name: 'Agent' })[0];
+    expect(agent).toHaveAttribute('href', '/w/acme-inc/team/team_1/agent');
+    expect(panels()[0]?.querySelector('a')).toBe(agent);
+    expect(agent?.compareDocumentPosition(linesRow(0) as HTMLElement)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
+
+  it('closes a team’s settings without touching its lines', async () => {
+    const user = userEvent.setup();
+    renderNav();
+
+    await user.click(settingsRow(0) as HTMLElement);
+
+    expect(settingsRow(0)).toHaveAttribute('aria-expanded', 'false');
+    expect(settingsGroups()[0]?.querySelector('ul')).toHaveAttribute('inert');
+    expect(linesRow(0)).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('only opens and closes, leaving the page where it is', () => {

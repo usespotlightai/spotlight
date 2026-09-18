@@ -6,21 +6,27 @@ import { ChangesPanel } from '@/components/features/runs/ChangesPanel';
 import { RunActivity } from '@/components/features/runs/RunActivity';
 import { RunBriefing } from '@/components/features/runs/RunBriefing';
 import { RunComposer } from '@/components/features/runs/RunComposer';
+import { RunEmpty } from '@/components/features/runs/RunEmpty';
 import { RunOpening } from '@/components/features/runs/RunOpening';
+import { RunSkeleton } from '@/components/features/runs/RunSkeleton';
+import { ComposerFooter } from '@/components/shared/ComposerFooter';
+import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { PageNotice } from '@/components/shared/PageNotice';
 import {
   type BreadcrumbSegment,
   Breadcrumbs,
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
+import { changeStackKeys } from '@/hooks/api/useRunChangeStacks';
 import {
   runConversationKeys,
   useRunConversation,
 } from '@/hooks/api/useRunConversation';
 import { useRunStream } from '@/hooks/api/useRunStream';
-import { useSession } from '@/hooks/api/useSession';
 import { journalKeys, useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { teamRunKeys, useTeamRuns } from '@/hooks/api/useTeamRuns';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { failed, loading } from '@/lib/query';
 import { working } from '@/lib/run';
 import { taskPath } from '@/lib/task';
 import { teamPath } from '@/lib/team';
@@ -28,11 +34,12 @@ import { TrailContext, useTrail } from '@/lib/trail';
 
 export function Run() {
   const { slug, teamId, runId } = useParams();
-  const { data: runs, isPending } = useTeamRuns(teamId);
-  const run = runs?.find((each) => each.id === runId);
-  const { data: said } = useRunConversation(teamId, runId);
-  const { data: worked } = useTaskJournal(slug, said?.taskId);
-  const { data: session } = useSession();
+  const runs = useTeamRuns(teamId);
+  const run = runs.data?.find((each) => each.id === runId);
+  const conversation = useRunConversation(teamId, runId);
+  const said = conversation.data;
+  const journal = useTaskJournal(slug, said?.taskId);
+  const worked = journal.data;
   const { data: workspace } = useWorkspace(slug);
 
   const queryClient = useQueryClient();
@@ -46,6 +53,9 @@ export function Run() {
     });
     void queryClient.invalidateQueries({
       queryKey: teamRunKeys.forTeam(teamId),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: changeStackKeys.forRun(runId),
     });
   }, [queryClient, said?.taskId, runId, teamId]);
 
@@ -76,25 +86,47 @@ export function Run() {
         ]
       : []),
   ];
-  // A run owns two crumbs: the task it is of, and its station — both shown
-  // however it was reached.
   const { trail, forward } = useTrail(base, 2);
 
-  if (isPending || !slug || !teamId) {
+  if (!slug || !teamId) {
     return null;
+  }
+
+  if (
+    loading(runs) ||
+    (run && (loading(conversation) || (said && loading(journal))))
+  ) {
+    return <RunSkeleton />;
+  }
+
+  const lost = failed(runs)
+    ? runs
+    : run && failed(conversation)
+      ? conversation
+      : null;
+
+  if (lost) {
+    return (
+      <PageNotice>
+        <CouldNotLoad
+          what="The run"
+          retrying={lost.isFetching}
+          onRetry={() => void lost.refetch()}
+        />
+      </PageNotice>
+    );
   }
 
   if (!run) {
     return (
-      <div className="flex min-h-0 flex-1 items-center justify-center p-8">
+      <PageNotice>
         <p className="text-muted-foreground text-sm">
           There is no such run for this team.
         </p>
-      </div>
+      </PageNotice>
     );
   }
 
-  // Only while the task is still where this run was dispatched from.
   const here = run.station?.name === said?.station?.name;
 
   const item = said && {
@@ -116,6 +148,7 @@ export function Run() {
       slug={slug}
       teamId={teamId}
       runId={run.id}
+      taskId={said?.taskId}
       station={run.station?.name ?? 'the agent'}
       running={run.state === 'claimed'}
     />
@@ -125,12 +158,15 @@ export function Run() {
     </p>
   );
 
+  const ran = (worked ?? []).filter((each) => each.runId === run.id);
+
+  const quiet =
+    !working(run) &&
+    !failed(journal) &&
+    ran.every((each) => each.steps.length === 0);
+
   const activity = run.station ? (
-    <RunActivity
-      journals={(worked ?? []).filter((each) => each.runId === run.id)}
-      working={working(run)}
-      station={run.station}
-    />
+    <RunActivity journals={ran} working={working(run)} station={run.station} />
   ) : null;
 
   return (
@@ -143,7 +179,6 @@ export function Run() {
             <Conversation
               item={item}
               worked={worked ?? []}
-              viewerId={session?.user.id}
               opening={
                 said?.briefing ? (
                   <RunBriefing
@@ -161,19 +196,16 @@ export function Run() {
                 run={run}
                 briefing={said?.briefing ?? null}
                 attachments={said?.attachments ?? []}
-                activity={activity}
+                activity={
+                  quiet ? (
+                    <RunEmpty slug={slug} teamId={teamId} run={run} />
+                  ) : (
+                    activity
+                  )
+                }
               />
 
-              <div className="relative shrink-0 bg-surface">
-                <div
-                  aria-hidden
-                  className="pointer-events-none absolute inset-x-0 bottom-full h-10 bg-gradient-to-t from-surface to-transparent"
-                />
-
-                <div className="mx-auto w-full max-w-3xl px-8 pt-2 pb-6">
-                  <div className="-mx-3">{footer}</div>
-                </div>
-              </div>
+              <ComposerFooter>{footer}</ComposerFooter>
             </>
           )}
         </ChangesPanel>

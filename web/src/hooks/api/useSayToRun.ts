@@ -20,8 +20,6 @@ export function useSayToRun() {
       });
     },
 
-    // It joins the task's trail at once, so the conversation shows it before
-    // the agent has been given it.
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['inbox'] }),
   });
 }

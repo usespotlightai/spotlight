@@ -29,7 +29,6 @@ const midnight = (at: Date): number =>
   new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime();
 
 export const aged = (at: string): string => {
-  // Rounded because a day either side of a clock change is not 24 hours long.
   const days = Math.round(
     (midnight(new Date()) - midnight(new Date(at))) / DAY,
   );
@@ -69,3 +68,22 @@ export const byAge = <T extends { startedAt: string }>(
 
   return grouped;
 };
+
+export const RUN_FILTERS = [
+  { id: 'all', label: 'All' },
+  { id: 'awaiting-review', label: 'Awaiting Review' },
+] as const;
+
+export type RunFilter = (typeof RUN_FILTERS)[number]['id'];
+
+export const FALLBACK_RUN_FILTER: RunFilter = 'all';
+
+export const asRunFilter = (raw: string): RunFilter =>
+  RUN_FILTERS.some((filter) => filter.id === raw)
+    ? (raw as RunFilter)
+    : FALLBACK_RUN_FILTER;
+
+export const inRunFilter = (
+  filter: RunFilter,
+  run: Pick<TeamRun, 'review'>,
+): boolean => filter === 'all' || run.review?.state === 'owed';

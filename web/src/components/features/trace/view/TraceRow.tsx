@@ -1,11 +1,10 @@
 import { ChevronRight } from 'lucide-react';
 import { memo } from 'react';
 import { TraceBar } from '@/components/features/trace/view/TraceBar';
-import { TraceIcon } from '@/components/features/trace/view/TraceIcon';
 import type { Trace, TraceNode } from '@/lib/trace';
 import { cn } from '@/lib/utils';
 
-const INDENT = 14;
+export const INDENT = 14;
 
 type TraceRowProps = {
   node: TraceNode;
@@ -18,10 +17,6 @@ type TraceRowProps = {
   onToggle: (id: string) => void;
 };
 
-/**
- * Held against re-rendering: a trace is hundreds of rows, and it is told what
- * to call rather than given a new closure each time, so the guard holds.
- */
 export const TraceRow = memo(function TraceRow({
   node,
   depth,
@@ -41,8 +36,6 @@ export const TraceRow = memo(function TraceRow({
     >
       <div
         className="flex min-w-0 shrink-0 items-center gap-1 pr-3"
-        // The width is read from the lane rather than passed in, so dragging
-        // the names wider is a repaint and not four hundred re-renders.
         style={{ width: 'var(--names)', paddingLeft: depth * INDENT + 8 }}
       >
         {holding > 0 ? (
@@ -63,8 +56,6 @@ export const TraceRow = memo(function TraceRow({
         ) : (
           <span className="size-3 shrink-0" aria-hidden />
         )}
-
-        <TraceIcon node={node} />
 
         <button
           type="button"

@@ -1,35 +1,41 @@
 import { GitPullRequest } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
+import { NotFound } from '@/components/features/board/NotFound';
 import { AssigneePicker } from '@/components/features/board/task/AssigneePicker';
 import { StationSelect } from '@/components/features/board/task/StationSelect';
 import { TaskActions } from '@/components/features/board/task/TaskActions';
+import { TaskSkeleton } from '@/components/features/board/task/TaskSkeleton';
+import { TaskChangesLink } from '@/components/features/changes/TaskChangesLink';
 import { TaskActivity } from '@/components/features/runs/TaskActivity';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
+import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
+import { PageNotice } from '@/components/shared/PageNotice';
 import {
   type BreadcrumbSegment,
   Breadcrumbs,
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
-import { useAssemblyLines } from '@/hooks/api/useAssemblyLines';
 import { useDeleteTask } from '@/hooks/api/useDeleteTask';
+import { useLines } from '@/hooks/api/useLines';
 import { useMoveTask } from '@/hooks/api/useMoveTask';
 import { useTasks } from '@/hooks/api/useTasks';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
-import { assemblyLinePath, teamPath } from '@/lib/team';
+import { failed, loading } from '@/lib/query';
+import { linePath, teamPath } from '@/lib/team';
 import { TrailContext, useTrail } from '@/lib/trail';
 
 export function Task() {
   const { slug, teamId, taskId } = useParams();
   const { data: workspace } = useWorkspace(slug);
-  const { data: lines } = useAssemblyLines(teamId);
-  const { data: tasks, isPending } = useTasks(teamId);
+  const lines = useLines(teamId);
+  const tasks = useTasks(teamId);
   const moveTask = useMoveTask();
   const deleteTask = useDeleteTask();
   const navigate = useNavigate();
 
-  const task = tasks?.find((candidate) => candidate.id === taskId);
-  const line = lines?.find((candidate) =>
+  const task = tasks.data?.find((candidate) => candidate.id === taskId);
+  const line = lines.data?.find((candidate) =>
     candidate.stations.some((station) => station.id === task?.stationId),
   );
   const station = line?.stations.find((each) => each.id === task?.stationId);
@@ -49,31 +55,35 @@ export function Task() {
       ? [
           {
             label: line.name,
-            to:
-              slug && teamId
-                ? assemblyLinePath(slug, teamId, line.id)
-                : undefined,
+            to: slug && teamId ? linePath(slug, teamId, line.id) : undefined,
           },
         ]
       : []),
-    ...(task ? [{ label: task.title }] : []),
+    { label: task?.title ?? '' },
   ];
   const { trail, forward } = useTrail(base);
 
-  if (isPending) {
-    return null;
+  if (failed(tasks)) {
+    return (
+      <PageNotice>
+        <CouldNotLoad
+          what="The task"
+          retrying={tasks.isFetching}
+          onRetry={() => void tasks.refetch()}
+        />
+      </PageNotice>
+    );
+  }
+
+  if (loading(tasks) || loading(lines)) {
+    return <TaskSkeleton known={trail.slice(0, -1)} />;
   }
 
   if (!task) {
     return (
-      <>
-        <PageHeader title="Task not found" />
-        <div className="flex min-h-0 flex-1 items-center justify-center p-8">
-          <p className="text-muted-foreground text-sm">
-            This team has no task at that address.
-          </p>
-        </div>
-      </>
+      <NotFound title="Task not found" to={teamPath(slug ?? '', teamId ?? '')}>
+        This team has no task at that address.
+      </NotFound>
     );
   }
 
@@ -95,7 +105,7 @@ export function Task() {
                   onSuccess: () =>
                     void navigate(
                       slug && line
-                        ? assemblyLinePath(slug, teamId, line.id)
+                        ? linePath(slug, teamId, line.id)
                         : teamPath(slug ?? '', teamId),
                     ),
                 },
@@ -156,6 +166,10 @@ export function Task() {
 
               {teamId && (
                 <AssigneePicker teamId={teamId} task={task} variant="row" />
+              )}
+
+              {slug && teamId && (
+                <TaskChangesLink slug={slug} teamId={teamId} taskId={task.id} />
               )}
 
               {task.pullRequest && (

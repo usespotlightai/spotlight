@@ -1,13 +1,13 @@
 import { useMutation } from '@tanstack/react-query';
 import { authClient } from '@/lib/authClient';
 
-export function useSignIn() {
+export function useSignIn(callbackURL = '/') {
   return useMutation({
-    mutationKey: ['auth', 'sign-in'],
+    mutationKey: ['auth', 'sign-in', callbackURL],
     mutationFn: async () => {
       const { data, error } = await authClient.signIn.social({
         provider: 'github',
-        callbackURL: '/',
+        callbackURL,
       });
 
       if (error) {

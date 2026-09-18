@@ -1,121 +1,130 @@
 # Spotlight
 
-Monorepo with two services: `control-plane` (NestJS API backed by Postgres) and
-`web` (React single-page app). Locally both run in Docker behind Traefik, which
-terminates HTTPS and routes by path.
+| Path | What |
+|---|---|
+| `control-plane/` | NestJS API on Postgres |
+| `web/` | React SPA (Vite) |
+| `runner/` | Go `runner` daemon and `spotlight` CLI |
+| `installer/` | `install.sh`, served by the control plane |
+
+Locally everything runs in Docker behind Traefik, which terminates HTTPS and
+routes by host and path. Source is bind-mounted, so edits hot-reload.
 
 ## Local setup
 
-Prerequisites:
-- [Docker](https://docs.docker.com/get-started/get-docker/) — runs every service, so nothing needs to be installed on the host
-- [mkcert](https://github.com/FiloSottile/mkcert) — issues the locally-trusted certificate used for HTTPS
+Requires [Docker](https://docs.docker.com/get-started/get-docker/) and
+[mkcert](https://github.com/FiloSottile/mkcert).
 
 ```bash
-# 1. Point the dev domains at your machine. Traefik routes by Host header,
-#    so the app is only reachable under these names. The second is the
-#    attachments bucket, named the way AWS names one.
 echo "127.0.0.1 app.dev.usespotlight.ai files.dev.usespotlight.ai" | sudo tee -a /etc/hosts
-
-# 2. Trust a local CA (once, asks for your password), then issue the wildcard
-#    certificate Traefik serves. Certificates are gitignored, so each clone
-#    generates its own.
 mkcert -install
 (cd .docker/traefik/certs && mkcert "*.dev.usespotlight.ai")
-
-# 3. Start Traefik, web, control-plane and Postgres. Database migrations run
-#    first, in their own container.
+cp .env.example .env    # fill in, see below
 docker compose up -d
 ```
 
-| URL                                        | Service                                     |
-|--------------------------------------------|---------------------------------------------|
-| https://app.dev.usespotlight.ai            | web — Vite dev server                       |
-| https://app.dev.usespotlight.ai/api        | control-plane — NestJS serves under the `/api` global prefix |
-| https://app.dev.usespotlight.ai/api/install.sh | control-plane — the runner installer (see below) |
-| https://files.dev.usespotlight.ai          | storage — the attachments bucket (MinIO); browsers upload straight to it |
+`.env`, documented inline in `.env.example`:
 
-Source is bind-mounted into both containers, so edits on the host hot-reload
-without a rebuild. Plain HTTP redirects to HTTPS.
+| Variable | Needed for |
+|---|---|
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | sign-in; the control plane won't start without them |
+| `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY` | cloning and pushing; required to start |
+| `GITHUB_WEBHOOK_SECRET`, `CLOUDFLARE_TUNNEL_TOKEN` | GitHub webhooks reaching this machine |
+| `RUNNER_ONE_TOKEN`, `RUNNER_TWO_TOKEN` | the two compose runners, from Settings > Runners |
+| `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` | agents on those runners |
+
+| URL | Service |
+|---|---|
+| https://app.dev.usespotlight.ai | web |
+| https://app.dev.usespotlight.ai/api | control-plane |
+| https://files.dev.usespotlight.ai | storage (MinIO attachments bucket) |
+| http://localhost:8025 | mail (Mailpit; catches all outgoing mail) |
+
+Compose also runs `db`, `migrate` (applies migrations before the control plane
+starts), `storage-bucket` and `tunnel`.
 
 ## Installing a runner
 
-A host becomes a runner in two steps. First install — the script downloads the
-`runner` daemon and the `spotlight` CLI, puts them on PATH, and records which
-control plane it came from:
-
 ```bash
-curl -fsSL https://dev.usespotlight.ai/api/install.sh | bash
+curl -fsSL https://app.dev.usespotlight.ai/api/install.sh | bash
+runner register [--token <token>] [--url <control-plane>]
 ```
 
-Then register, once, with a token minted when you enrol a runner in Spotlight.
-It checks the token, saves it, and starts the runner (as a service where it
-can):
+The script installs `runner` and `spotlight` onto PATH from the public
+[`usespotlightai/cli`](https://github.com/usespotlightai/cli) releases (pin with
+`SPOTLIGHT_VERSION`). `register` checks the token (minted when you enrol a
+runner), saves it, and starts the runner, as a service where it can. The
+production runner image installs the same way (`.docker/runner/Dockerfile`).
+
+Tagging triggers `release.yml`, which starts the `infrastructure` repo's build:
+service images, plus binaries published to `usespotlightai/cli`, since this
+repository is private.
+
+## Schema changes
+
+Edit `control-plane/src/infrastructure/persistence/drizzle/schemas/`, then:
 
 ```bash
-runner register              # prompts for the token
-runner register --token <token>   # or pass it directly
+docker compose exec -T control-plane npm run db:generate -- --name=describe_the_change
+docker compose up -d
 ```
 
-The control plane serves only the script (`installer/install.sh`, bind-mounted
-in dev so edits show up without a rebuild). On a tag, `release.yml` triggers the
-`infrastructure` repo (as it does for the service images); that pipeline
-cross-compiles the binaries and publishes them to the public
-[`usespotlightai/cli`](https://github.com/usespotlightai/cli) releases — the
-code repository is private, so it cannot host public downloads itself. The
-script pulls `runner`/`spotlight` from `releases/latest/download` there; pin a
-version with `SPOTLIGHT_VERSION`. The production runner image installs the very
-same way, at build time (`.docker/runner/Dockerfile`).
+Migrations are generated, never hand-written. Auth tables come from the
+better-auth config: run `npm run auth:generate` first.
 
-The installer is served under `/api` like the rest of the control plane, so it
-needs no routing of its own: `curl -fsSL https://app.dev.usespotlight.ai/api/install.sh`.
+## Configuration
 
-## Attachments
+Validated at startup by `control-plane/src/infrastructure/config/env.schema.ts`.
+Beyond `.env`:
 
-Files put to a task are kept in an S3 bucket. A browser never sends them
-through the control plane: it asks for a signed address and uploads straight to
-the bucket, and the file only joins a task once its id is sent with one.
+| Variable | Purpose |
+|---|---|
+| `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` | session signing; public app URL |
+| `SPOTLIGHT_PUBLIC_URL` | base for install script and invite links; defaults to `BETTER_AUTH_URL` |
+| `SPOTLIGHT_WEBHOOK_URL` | base for integrations' delivery URLs; defaults to `SPOTLIGHT_PUBLIC_URL`, then `BETTER_AUTH_URL` |
+| `SPOTLIGHT_SECRETS_KEY` | seals each team's vault key and host connection tokens in the database; losing it leaves vaults readable only with a key a team kept (`openssl rand -base64 32`) |
+| `OUTBOUND_ALLOWED_HOSTS` | comma-separated hosts integrations and their tools may call; empty allows none (`compose.yml` defaults it to `slack.com`) |
+| `OAUTH_CLIENTS` | shared OAuth2 apps as JSON, e.g. `{"slack":{"id":"…","secret":"…"}}` |
 
-Development runs MinIO under the bucket's own name — `files.dev.usespotlight.ai`
-for a bucket called `files` — so an upload there is addressed exactly as one
-against AWS. What a deployment sets:
+### Attachments
 
-| Variable | Development | Staging & production |
+Browsers upload straight to S3 through presigned URLs (15 minutes); a file
+joins a task only once its id is sent with one. In development MinIO serves the
+bucket under its own hostname, so addressing matches AWS.
+
+| Variable | Development | Production |
 |---|---|---|
-| `S3_BUCKET` | `files` — and so the name it is served at | the bucket's name |
-| `S3_REGION` | `us-east-1` | the bucket's region |
-| `S3_ENDPOINT` | `http://storage:9000` | unset — AWS |
-| `S3_FORCE_PATH_STYLE` | `true` — one address serves every bucket | unset |
-| `S3_PUBLIC_ENDPOINT` | `https://dev.usespotlight.ai` | unset, or a CDN in front of the bucket |
-| `S3_PUBLIC_FORCE_PATH_STYLE` | unset — the bucket names itself in the host | unset |
-| `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | `spotlight` / `spotlight-storage` | the key pair for the bucket's user |
+| `S3_BUCKET` | `files` | bucket name |
+| `S3_REGION` | `us-east-1` | bucket region |
+| `S3_ENDPOINT` | `http://storage:9000` | unset |
+| `S3_FORCE_PATH_STYLE` | `true` | unset |
+| `S3_PUBLIC_ENDPOINT` | `https://dev.usespotlight.ai` | unset, or a CDN |
+| `S3_PUBLIC_FORCE_PATH_STYLE` | unset | unset |
+| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | `spotlight` / `spotlight-storage` | bucket user's keys |
 
-The bucket itself needs three things, none of which this repository provisions:
+The bucket, not provisioned here, needs:
 
-1. **Public access blocked.** Everything is read and written through signed
-   addresses that last fifteen minutes.
-2. **CORS**, so a browser may upload to it from the app:
-
+1. Public access blocked.
+2. CORS:
    ```json
    [{ "AllowedOrigins": ["https://app.example.com"],
       "AllowedMethods": ["PUT", "GET"],
       "AllowedHeaders": ["content-type", "x-amz-meta-uploader", "x-amz-meta-name"],
       "ExposeHeaders": [], "MaxAgeSeconds": 3000 }]
    ```
+3. A lifecycle rule expiring unclaimed objects under `workspaces/`.
 
-3. **A lifecycle rule** expiring objects under `workspaces/` that no task ever
-   claimed, since an upload nobody attaches is never read again.
+The key pair needs only `s3:PutObject`, `s3:GetObject` and `s3:DeleteObject` on
+`arn:aws:s3:::<bucket>/workspaces/*`.
 
-The key pair needs `s3:PutObject`, `s3:GetObject` and `s3:DeleteObject` on
-`arn:aws:s3:::<bucket>/workspaces/*` and nothing else.
+### Mail
 
-## Schema changes
+Invitations (Settings > Members) are emailed links. The token is stored
+hashed, expires after 14 days, and re-inviting replaces it.
 
-Edit `control-plane/src/infrastructure/persistence/drizzle/schema.ts`, then:
+| Variable | Development | Production |
+|---|---|---|
+| `SMTP_URL` | `smtp://mail:1025` | e.g. `smtps://user:pass@smtp.example.com:465` |
+| `MAIL_FROM` | `Spotlight <noreply@dev.usespotlight.ai>` | a permitted sender |
 
-```bash
-docker compose exec -T control-plane npm run db:generate -- --name=describe_the_change
-docker compose up -d          # the migrate container applies it
-```
-
-Auth tables are generated from the better-auth config rather than written by
-hand — run `npm run auth:generate` before generating a migration.
+With `SMTP_URL` unset, messages are logged instead of sent.

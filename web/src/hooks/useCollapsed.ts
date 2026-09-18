@@ -14,15 +14,9 @@ const readStored = (storageKey: string): string[] => {
 const remember = (storageKey: string, ids: readonly string[]) => {
   try {
     localStorage.setItem(storageKey, JSON.stringify(ids));
-  } catch {
-    // a browser that refuses storage still collapses, it just forgets
-  }
+  } catch {}
 };
 
-/**
- * Tracks what is closed, not what is open, so anything added later shows its
- * contents instead of being hidden by a stale record.
- */
 export function useCollapsed(storageKey: string) {
   const [collapsed, setCollapsed] = useState<readonly string[]>(() =>
     readStored(storageKey),

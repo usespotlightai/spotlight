@@ -20,6 +20,13 @@ describe('PageHeader', () => {
     expect(screen.getByRole('button', { name: 'Filter' })).toBeInTheDocument();
   });
 
+  it('keeps the bar but leaves out the heading when there is no title', () => {
+    const { container } = render(<PageHeader />);
+
+    expect(container.querySelector('header')).toBeInTheDocument();
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
+  });
+
   it('leaves out the actions area when there are none', () => {
     const { container } = render(<PageHeader title="Agent" />);
 

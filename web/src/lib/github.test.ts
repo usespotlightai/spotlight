@@ -48,7 +48,6 @@ describe('github', () => {
     });
   });
 
-  // The state came back through GitHub, where anybody could have written it.
   it('refuses to hand back anywhere but a page of this site', () => {
     for (const away of [
       '//evil.example.com',

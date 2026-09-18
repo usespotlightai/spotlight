@@ -3,7 +3,6 @@ import { configurationKeys } from '@/hooks/api/useConfiguration';
 import { onboardingKeys } from '@/hooks/api/useOnboarding';
 import { pinConfigurationRepository } from '@/lib/api';
 
-/** Says which repository this team reads its configuration from. */
 export function usePinConfiguration(teamId: string | undefined) {
   const queryClient = useQueryClient();
 

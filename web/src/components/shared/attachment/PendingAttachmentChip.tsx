@@ -47,7 +47,7 @@ export function PendingAttachmentChip({
           <X />
         </Button>
       }
-      className={cn(failed && 'border-destructive/40')}
+      className={cn('w-48 max-w-none', failed && 'border-destructive/40')}
     />
   );
 }

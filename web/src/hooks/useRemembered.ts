@@ -19,9 +19,7 @@ export function useRemembered(
       setHeld(value);
       try {
         localStorage.setItem(storageKey, value);
-      } catch {
-        // a browser that refuses storage still works, it just forgets
-      }
+      } catch {}
     },
     [storageKey],
   );

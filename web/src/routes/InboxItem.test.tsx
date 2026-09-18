@@ -10,6 +10,8 @@ const read = vi.fn();
 const waiting = vi.fn();
 const viewer = vi.fn();
 const journal = vi.fn();
+const failing = vi.fn();
+const journalFailing = vi.fn();
 
 vi.mock('@/hooks/api/useSession', () => ({
   useSession: () => ({ data: viewer() }),
@@ -17,7 +19,13 @@ vi.mock('@/hooks/api/useSession', () => ({
 
 vi.mock('@/hooks/api/useInbox', () => ({
   inboxKeys: { forWorkspace: () => ['inbox'] },
-  useInbox: () => ({ data: waiting(), isPending: false }),
+  useInbox: () => ({
+    data: waiting(),
+    isPending: waiting() === undefined,
+    errorUpdateCount: failing() ? 1 : 0,
+    isFetching: false,
+    refetch: vi.fn(),
+  }),
 }));
 
 vi.mock('@/hooks/api/useWorkspace', () => ({
@@ -27,7 +35,11 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
 }));
 
 vi.mock('@/hooks/api/useTaskJournal', () => ({
-  useTaskJournal: () => ({ data: journal() }),
+  useTaskJournal: () => ({
+    data: journal(),
+    isPending: journal() === undefined,
+    errorUpdateCount: journalFailing() ? 1 : 0,
+  }),
 }));
 
 vi.mock('@/hooks/api/useAnswerInboxItem', () => ({
@@ -88,7 +100,6 @@ const renderItem = () =>
     </QueryClientProvider>,
   );
 
-// Switching item is a navigation, not a remount.
 function Switch({ to }: { to: string }) {
   const navigate = useNavigate();
   return (
@@ -105,6 +116,62 @@ describe('InboxItem', () => {
     waiting.mockReturnValue(item([message()]));
     viewer.mockReturnValue({ user: { id: 'user_2' } });
     journal.mockReturnValue([]);
+    failing.mockReturnValue(false);
+    journalFailing.mockReturnValue(false);
+  });
+
+  describe('when it could not be loaded', () => {
+    it('says so beneath a bar of its own, rather than calling the item gone', () => {
+      waiting.mockReturnValue(undefined);
+      failing.mockReturnValue(true);
+
+      const { container } = renderItem();
+
+      expect(container.querySelector('header')).toBeInTheDocument();
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'The inbox could not be loaded.',
+      );
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      expect(screen.queryByText(/Nothing here/)).not.toBeInTheDocument();
+    });
+
+    it('still shows the conversation when only the work is missing', () => {
+      journal.mockReturnValue(undefined);
+      journalFailing.mockReturnValue(true);
+
+      renderItem();
+
+      expect(
+        screen.getByText('Which queue should I drain?'),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/Worked/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('while it loads', () => {
+    it('holds the shape of the conversation rather than calling it gone', () => {
+      waiting.mockReturnValue(undefined);
+
+      renderItem();
+
+      expect(
+        screen.getByRole('status', { name: 'Loading the conversation' }),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/Nothing here/)).not.toBeInTheDocument();
+    });
+
+    it('waits for the work too, so it does not open up beneath the reader', () => {
+      journal.mockReturnValue(undefined);
+
+      renderItem();
+
+      expect(
+        screen.getByRole('status', { name: 'Loading the conversation' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByText('Which queue should I drain?'),
+      ).not.toBeInTheDocument();
+    });
   });
 
   it('folds the work away behind what the station said', async () => {
@@ -113,7 +180,6 @@ describe('InboxItem', () => {
       {
         runId: 'run_1',
         attempt: 1,
-        readable: true,
         ms: 56_000,
         spent: {
           used: 12_173,
@@ -163,12 +229,11 @@ describe('InboxItem', () => {
     expect(screen.getByText('total 0')).toBeInTheDocument();
   });
 
-  it('shows nothing where a run left no readable journal', () => {
+  it('shows nothing where a run left no steps', () => {
     journal.mockReturnValue([
       {
         runId: 'run_1',
         attempt: 1,
-        readable: true,
         ms: null,
         spent: null,
         steps: [],
@@ -209,7 +274,7 @@ describe('InboxItem', () => {
     expect(said.closest('li')).not.toHaveTextContent('Triage');
   });
 
-  it('shows a person by name rather than by station', () => {
+  it('shows what a person said without naming them', () => {
     waiting.mockReturnValue(
       item([
         message(),
@@ -217,33 +282,15 @@ describe('InboxItem', () => {
           position: 1,
           body: 'The retry queue.',
           voice: 'person',
-          author: { id: 'user_1', name: 'Leon', image: null },
+          author: { id: 'user_2', name: 'Maya', image: null },
         }),
       ]),
     );
 
     renderItem();
 
-    expect(screen.getByText('Leon')).toBeInTheDocument();
-  });
-
-  it('leaves your own words unnamed', () => {
-    viewer.mockReturnValue({ user: { id: 'user_1' } });
-    waiting.mockReturnValue(
-      item([
-        message({
-          position: 1,
-          body: 'The retry queue.',
-          voice: 'person',
-          author: { id: 'user_1', name: 'Leon', image: null },
-        }),
-      ]),
-    );
-
-    renderItem();
-
-    expect(screen.queryByText('Leon')).not.toBeInTheDocument();
     expect(screen.getByText('The retry queue.')).toBeInTheDocument();
+    expect(screen.queryByText('Maya')).not.toBeInTheDocument();
   });
 
   it('opens on the prompt the station was given', () => {

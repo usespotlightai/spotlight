@@ -37,7 +37,6 @@ const journal = (steps: JournalStep[]): RunJournal =>
       spokeTo: null,
       endedAt: null,
     },
-    readable: true,
   }) as RunJournal;
 
 describe('changesOf', () => {
@@ -115,8 +114,6 @@ describe('tallyOf', () => {
       { path: 'b.ts', before: 'keep\ngo\n', after: 'keep\n' },
     ];
 
-    // a.ts: b→B is one removed + one added, plus c added → +2 −1
-    // b.ts: go removed → +0 −1
     expect(tallyOf(files)).toEqual({ added: 2, removed: 2 });
   });
 

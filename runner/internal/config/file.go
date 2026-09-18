@@ -11,7 +11,6 @@ import (
 
 const envConfigPath = "SPOTLIGHT_CONFIG"
 
-// Path is where the runner's settings are persisted. SPOTLIGHT_CONFIG overrides it.
 func Path() string {
 	if p := strings.TrimSpace(os.Getenv(envConfigPath)); p != "" {
 		return p
@@ -25,7 +24,6 @@ func Path() string {
 	return "/etc/spotlight/runner.env"
 }
 
-// Read parses the persisted config. A missing file is no values, not an error.
 func Read() (map[string]string, error) {
 	file, err := os.Open(Path())
 	if err != nil {
@@ -53,7 +51,6 @@ func Read() (map[string]string, error) {
 	return values, scanner.Err()
 }
 
-// Merge writes updates into the config file, keeping whatever else is there.
 func Merge(updates map[string]string) error {
 	values, err := Read()
 	if err != nil {

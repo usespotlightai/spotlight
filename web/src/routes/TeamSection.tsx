@@ -1,4 +1,5 @@
 import { Navigate, useParams } from 'react-router';
+import { AgentChats } from '@/components/features/agent/AgentChats';
 import { TeamRuns } from '@/components/features/runs/TeamRuns';
 import { RangePicker } from '@/components/features/trace/list/RangePicker';
 import { TraceList } from '@/components/features/trace/list/TraceList';
@@ -24,7 +25,6 @@ export function TeamSection() {
   const { slug, teamId, section } = useParams();
   const { data: workspace } = useWorkspace(slug);
   const [held, remember] = useRemembered(RANGE_KEY, DEFAULT_RANGE);
-  // A range that has since been dropped reads as the default, not as nothing.
   const range = rangeOf(held).id;
 
   const meta = findTeamSection(section);
@@ -61,6 +61,8 @@ export function TeamSection() {
           ) : undefined
         }
       />
+
+      {meta.id === 'agent' && <AgentChats slug={slug} teamId={teamId} />}
 
       {meta.id === 'runs' && <TeamRuns slug={slug} teamId={teamId} />}
 

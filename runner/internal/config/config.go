@@ -1,6 +1,3 @@
-// Package config reads the runner's settings from the environment. Everything
-// that differs between a laptop, a container and a cloud sandbox is a value
-// here.
 package config
 
 import (
@@ -17,23 +14,15 @@ type Config struct {
 	URL           string
 	Token         string
 	WorkspaceRoot string
-	// MaxRuns is how many runs to serve before exiting. Zero is unlimited.
-	MaxRuns int
-	// IdleTimeout exits the runner after this long with no work. Zero never
-	// exits.
-	IdleTimeout time.Duration
-	// PrepareHook fills the workspace before the agent starts. Empty skips it.
-	PrepareHook string
-	PublishHook string
-	// HookTimeout bounds each hook. Zero means no limit.
-	HookTimeout time.Duration
-	// AgentUser is the account to run agents as. Empty runs them as the runner.
-	AgentUser string
-	// RetireAt stops taking new work at this time. Zero means no deadline.
-	RetireAt time.Time
+	MaxRuns       int
+	IdleTimeout   time.Duration
+	PrepareHook   string
+	PublishHook   string
+	HookTimeout   time.Duration
+	AgentUser     string
+	RetireAt      time.Time
 }
 
-// defaultHookTimeout allows for a large clone without holding the lease long.
 const defaultHookTimeout = 10 * time.Minute
 
 const (
@@ -49,8 +38,6 @@ const (
 	envHookTimeout = "SPOTLIGHT_HOOK_TIMEOUT"
 )
 
-// Load reads the settings, reporting every problem at once. The persisted
-// config file is the default for anything the environment does not set.
 func Load() (Config, error) {
 	var problems []error
 	note := func(err error) {
@@ -63,7 +50,6 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("read %s: %w", Path(), err)
 	}
-	// A blank var (an unset compose variable expands to one) falls to the file.
 	get := func(key string) string {
 		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
 			return value

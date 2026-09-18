@@ -5,8 +5,10 @@ import { GitHubInstalled } from '@/routes/GitHubInstalled';
 
 const connect = vi.fn();
 const connectState = {
+  data: undefined as true | undefined,
+  isPending: true,
   isSuccess: false,
-  isError: false,
+  errorUpdateCount: 0,
   error: null as Error | null,
 };
 vi.mock('@/hooks/api/useConnectGitHub', () => ({
@@ -35,8 +37,10 @@ const renderAt = (query: string) =>
 beforeEach(() => {
   connect.mockReset();
   navigate.mockReset();
+  connectState.data = undefined;
+  connectState.isPending = true;
   connectState.isSuccess = false;
-  connectState.isError = false;
+  connectState.errorUpdateCount = 0;
   connectState.error = null;
 });
 
@@ -58,17 +62,18 @@ describe('GitHubInstalled', () => {
     });
   });
 
-  // Where nobody said, the page that says what a team is listening to.
   it('falls back to the integrations page', () => {
     connectState.isSuccess = true;
     renderAt('?installation_id=42&state=acme%3Ateam_1');
 
-    expect(navigate).toHaveBeenCalledWith('/w/acme/team/team_1/integrations', {
-      replace: true,
-    });
+    expect(navigate).toHaveBeenCalledWith(
+      '/w/acme/team/team_1/settings/integrations',
+      {
+        replace: true,
+      },
+    );
   });
 
-  // Somebody without rights on the organisation asks an owner instead.
   it('connects nothing when the App was only requested', () => {
     renderAt('?setup_action=request&installation_id=42&state=acme%3Ateam_1');
 
@@ -77,14 +82,24 @@ describe('GitHubInstalled', () => {
   });
 
   it('says so when the control-plane refused', () => {
-    connectState.isError = true;
+    connectState.isPending = false;
+    connectState.errorUpdateCount = 1;
     connectState.error = new Error(
       'That is not an installation you administer on GitHub',
     );
 
     renderAt('?installation_id=42&state=acme%3Ateam_1');
 
-    expect(screen.getByRole('alert')).toHaveTextContent('not an installation');
+    expect(
+      screen.getByRole('heading', { name: 'Something went wrong' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Please try again in a few minutes/),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Back to the team/ }),
+    ).toBeInTheDocument();
   });
 
   it('goes back to the beginning with no idea where it came from', () => {

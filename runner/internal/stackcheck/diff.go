@@ -1,0 +1,61 @@
+package stackcheck
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+const (
+	wholeContext = "--unified=100000"
+	mostDiff     = 5 * 1024 * 1024
+)
+
+func (o Options) Diff(ctx context.Context, checkout string) (string, error) {
+	if _, err := o.git(ctx, checkout, "", "rev-parse", "--verify", "--quiet", BaseRef); err != nil {
+		return "", fmt.Errorf("the checkout has no record of where the run began")
+	}
+
+	gitDir, err := o.git(ctx, checkout, "", "rev-parse", "--absolute-git-dir")
+	if err != nil {
+		return "", fmt.Errorf("find the git directory: %w", err)
+	}
+
+	index := filepath.Join(gitDir, "spotlight-stack-index")
+	defer os.Remove(index)
+
+	if real, err := os.ReadFile(filepath.Join(gitDir, "index")); err == nil {
+		if err := os.WriteFile(index, real, 0o600); err != nil {
+			return "", err
+		}
+		if err := o.own(index); err != nil {
+			return "", err
+		}
+	}
+
+	staged := map[string]string{"GIT_INDEX_FILE": index, "GIT_TERMINAL_PROMPT": "0"}
+
+	if output, err := o.gitWith(ctx, checkout, staged, "add", "--all"); err != nil {
+		return "", fmt.Errorf("gather what changed: %w: %s", err, output)
+	}
+
+	diff, err := o.gitWith(ctx, checkout, staged, "diff", "--cached", "-M", wholeContext, BaseRef)
+	if err != nil {
+		return "", fmt.Errorf("diff the checkout: %w", err)
+	}
+
+	if len(diff) > mostDiff {
+		diff, err = o.gitWith(ctx, checkout, staged, "diff", "--cached", "-M", BaseRef)
+		if err != nil {
+			return "", fmt.Errorf("diff the checkout: %w", err)
+		}
+	}
+
+	return strings.TrimSpace(diff), nil
+}
+
+func (o Options) gitWith(ctx context.Context, dir string, env map[string]string, args ...string) (string, error) {
+	return o.run(ctx, dir, "", env, "git", append([]string{"-c", "safe.directory=*", "-C", dir}, args...)...)
+}

@@ -1,19 +1,25 @@
 import { randomUUID } from 'node:crypto';
-import { listed } from '@application/services/setup-steps';
-import { welcomeTask } from '@domain/services/welcome-task';
-import { StationId } from '@domain/value-objects/station-id.vo';
-import { StationName } from '@domain/value-objects/station-name.vo';
-import { TaskNoteBody } from '@domain/value-objects/task-note-body.vo';
-import { TeamId } from '@domain/value-objects/team-id.vo';
-import { UserId } from '@domain/value-objects/user-id.vo';
-import { WorkspaceId } from '@domain/value-objects/workspace-id.vo';
-import type { DrizzleDatabase } from '@infrastructure/persistence/drizzle/drizzle.client';
-import type { DrizzleTaskRepository } from '@infrastructure/persistence/drizzle/repositories/task.repository';
-import * as schema from '@infrastructure/persistence/drizzle/schemas';
+import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { listed } from '@work/application/services/setup-steps';
+import { Line } from '@work/domain/aggregates/line.aggregate';
+import { Station } from '@work/domain/entities/station.entity';
+import { welcomeTask } from '@work/domain/services/welcome-task';
+import { LineId } from '@work/domain/value-objects/line-id.vo';
+import { LineKey } from '@work/domain/value-objects/line-key.vo';
+import { LineName } from '@work/domain/value-objects/line-name.vo';
+import { StationColor } from '@work/domain/value-objects/station-color.vo';
+import { StationId } from '@work/domain/value-objects/station-id.vo';
+import { StationKey } from '@work/domain/value-objects/station-key.vo';
+import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
+import type { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
+import * as schema from './schema';
 
 const NOW = new Date('2026-01-02T03:04:05.000Z');
 
-/** A team as it stands the moment it is opened, list and all. */
 export const openTeam = async (
   db: DrizzleDatabase,
   tasks: DrizzleTaskRepository,
@@ -42,28 +48,68 @@ export const openTeam = async (
     .insert(schema.team)
     .values({ id: teamId, workspaceId, key: slug, name: slug });
 
-  const factoryId = randomUUID();
-  await db
-    .insert(schema.factory)
-    .values({ id: factoryId, workspaceId, teamId });
+  await db.insert(schema.teamMember).values({ teamId, userId: owner });
 
   const lineId = randomUUID();
-  await db
-    .insert(schema.assemblyLine)
-    .values({ id: lineId, workspaceId, factoryId, name: 'Default' });
+  await db.insert(schema.line).values({
+    id: lineId,
+    workspaceId,
+    teamId,
+    key: 'default',
+    name: 'Default',
+  });
 
-  await db.insert(schema.station).values({
-    id: stationId,
-    assemblyLineId: lineId,
-    name: 'Backlog',
-    position: 0,
+  const completedId = randomUUID();
+  await db.insert(schema.station).values([
+    {
+      id: stationId,
+      lineId: lineId,
+      key: 'backlog',
+      name: 'Backlog',
+      position: 0,
+      kind: 'backlog',
+    },
+    {
+      id: completedId,
+      lineId: lineId,
+      key: 'completed',
+      name: 'Completed',
+      position: 1,
+      kind: 'completed',
+    },
+  ]);
+
+  const line = Line.rehydrate({
+    id: LineId.of(lineId),
+    workspaceId: WorkspaceId.of(workspaceId),
+    teamId: TeamId.of(teamId),
+    key: LineKey.of('default'),
+    name: LineName.of('Default'),
+    stations: [
+      Station.of({
+        id: StationId.of(stationId),
+        key: StationKey.of('backlog'),
+        name: StationName.of('Backlog'),
+        position: 0,
+        color: StationColor.plain(),
+        kind: 'backlog',
+      }),
+      Station.of({
+        id: StationId.of(completedId),
+        key: StationKey.of('completed'),
+        name: StationName.of('Completed'),
+        position: 1,
+        color: StationColor.plain(),
+        kind: 'completed',
+      }),
+    ],
   });
 
   const list = welcomeTask({
-    workspaceId: WorkspaceId.of(workspaceId),
+    line,
     teamId: TeamId.of(teamId),
     saying: TaskNoteBody.of(listed({ slug, teamId })),
-    stationId: StationId.of(stationId),
+    at: StationId.of(stationId),
     station: StationName.of('Backlog'),
     owner: UserId.of(owner),
     now: NOW,
@@ -78,6 +124,7 @@ export const openTeam = async (
     workspaceId: WorkspaceId.of(workspaceId),
     teamId: TeamId.of(teamId),
     stationId: StationId.of(stationId),
+    line,
     list,
   };
 };

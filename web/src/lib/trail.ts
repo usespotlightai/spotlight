@@ -4,13 +4,6 @@ import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
 
 type TrailState = { trail?: BreadcrumbSegment[] };
 
-/**
- * The breadcrumb a page shows, and the one it hands to pages opened from it.
- * Ancestors come from the trail the page was reached by (navigation state), or
- * from `base` when none was carried. `own` is how many trailing crumbs belong
- * to the page itself and so are kept whatever the trail — a run owns two, its
- * task and its station.
- */
 export function useTrail(
   base: readonly BreadcrumbSegment[],
   own = 1,
@@ -39,15 +32,12 @@ export function useTrail(
   };
 }
 
-/** Adjacent crumbs leading to the same place are one: a page reached through a
- *  crumb it also owns would otherwise name it twice. */
 const collapse = (segments: BreadcrumbSegment[]): BreadcrumbSegment[] =>
   segments.filter(
     (crumb, index) =>
       !(index > 0 && crumb.to && segments[index - 1]?.to === crumb.to),
   );
 
-/** What a page hands to the pages opened from within it. */
 export const TrailContext = createContext<BreadcrumbSegment[]>([]);
 
 export const useForwardTrail = (): BreadcrumbSegment[] =>

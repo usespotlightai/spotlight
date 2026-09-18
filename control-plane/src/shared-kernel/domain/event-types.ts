@@ -1,0 +1,31 @@
+import { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
+import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
+import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+
+export const SHARED_KERNEL_EVENT_TYPES = [
+  ConfigurationFile,
+  ConfigurationProblem,
+  HarnessId,
+  HarnessModel,
+  PullRequestUrl,
+  Repository,
+  RunId,
+  RunnerId,
+  SecretName,
+  TaskId,
+  TeamId,
+  TokenHash,
+  UserId,
+  WorkspaceId,
+] as const;
