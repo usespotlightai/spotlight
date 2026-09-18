@@ -31,7 +31,11 @@ type Checkout struct {
 	Remote string `json:"remote"`
 	Path   string `json:"path"`
 	Branch string `json:"branch"`
+	Ref    string `json:"ref,omitempty"`
+	DiffOf string `json:"diffOf,omitempty"`
 }
+
+const DiffOfCommits = "commits"
 
 type Command struct {
 	Executable string            `json:"executable"`

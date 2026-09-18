@@ -13,10 +13,15 @@ export interface OnGitHub {
   readonly url: string;
 }
 
-export interface ReviewWriter {
-  readonly userId: UserId;
-  readonly name: string;
-}
+export type ReviewWriter =
+  | {
+      readonly kind: 'person';
+      readonly userId: UserId;
+      readonly name: string;
+    }
+  | { readonly kind: 'spotlight' };
+
+export const SPOTLIGHT_WRITES: ReviewWriter = { kind: 'spotlight' };
 
 export interface OnPullRequest {
   readonly workspaceId: WorkspaceId;

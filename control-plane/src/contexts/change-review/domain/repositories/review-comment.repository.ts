@@ -1,7 +1,7 @@
 import type { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
+import type { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import type { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface ReviewCommentRepository {
@@ -16,7 +16,7 @@ export interface ReviewCommentRepository {
     githubId: number,
   ): Promise<ReviewComment | null>;
 
-  draftsBy(taskId: TaskId, author: UserId): Promise<ReviewComment[]>;
+  draftsBy(taskId: TaskId, author: ReviewAuthor): Promise<ReviewComment[]>;
 
   ofTask(taskId: TaskId): Promise<ReviewComment[]>;
 

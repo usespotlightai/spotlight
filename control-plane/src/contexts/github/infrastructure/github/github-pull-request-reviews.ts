@@ -8,6 +8,10 @@ import type {
 } from '@github/application/ports/pull-request-reviews.port';
 import type { RepositoryAccessPort } from '@github/application/ports/repository-access.port';
 import { answered, call } from '@github/infrastructure/github/github.rest';
+import {
+  type ChangedFile,
+  PullRequestLines,
+} from '@github/infrastructure/github/pull-request-lines';
 import { signedBy } from '@github/infrastructure/github/spotlight-signature';
 import type { LinkedAccountsPort } from '@identity/application/ports/linked-accounts.port';
 import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
@@ -20,8 +24,8 @@ interface Posted {
 
 interface ListedComment extends Posted {
   readonly path: string;
-  readonly line: number | null;
-  readonly side: 'LEFT' | 'RIGHT' | null;
+  readonly line?: number | null;
+  readonly side?: 'LEFT' | 'RIGHT' | null;
   readonly body: string;
 }
 
@@ -37,6 +41,20 @@ const EVENTS: Record<ReviewVerdict, string> = {
 };
 
 const UNHEARD = new Set([401, 403, 404]);
+
+const UNPROCESSABLE = 422;
+
+const OWN_PULL_REQUEST = /own pull request/i;
+
+const STANCES: Record<ReviewVerdict, string> = {
+  comment: '',
+  approve: '**Approves.**',
+  'request-changes': '**Requests changes.**',
+};
+
+const FILES_PER_PAGE = 100;
+
+const MOST_FILE_PAGES = 30;
 
 class UnheardError extends UpstreamRefusedError {}
 
@@ -96,18 +114,38 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
         'read the pull request',
       );
       const signed = (body: string) => this.signed(body, input, speaker);
+      const lines =
+        input.comments.length > 0
+          ? PullRequestLines.of(
+              await this.changedFiles(repo, number, speaker.token),
+            )
+          : null;
+      const placed = input.comments.filter(
+        (comment) => lines?.places(comment) ?? false,
+      );
+      const unplaced = input.comments.filter(
+        (comment) => !placed.includes(comment),
+      );
 
+      let verdict = input.verdict;
       const posting = (inline: boolean) =>
         call(`/repos/${repo}/pulls/${number}/reviews`, speaker.token, {
           method: 'POST',
           body: JSON.stringify({
             commit_id: pull.head.sha,
-            event: EVENTS[input.verdict],
+            event: EVENTS[verdict],
             body: signed(
-              inline ? input.body : folded(input.body, input.comments),
+              folded(
+                verdict === input.verdict
+                  ? input.body
+                  : [STANCES[input.verdict], input.body]
+                      .filter(Boolean)
+                      .join('\n\n'),
+                inline ? unplaced : input.comments,
+              ),
             ),
             comments: inline
-              ? input.comments.map((comment) => ({
+              ? placed.map((comment) => ({
                   path: comment.path,
                   line: comment.line,
                   side: gitHubSide(comment),
@@ -126,14 +164,24 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
       let response = await posting(true);
       let inline = true;
 
-      if (response.status === 422 && input.comments.length > 0) {
+      // GitHub lets nobody approve or request changes on a pull request they opened, the app included.
+      if (
+        response.status === UNPROCESSABLE &&
+        verdict !== 'comment' &&
+        OWN_PULL_REQUEST.test(await response.clone().text())
+      ) {
+        verdict = 'comment';
+        response = await posting(true);
+      }
+
+      if (response.status === UNPROCESSABLE && placed.length > 0) {
         response = await posting(false);
         inline = false;
       }
 
       const review = await heard<Posted>(response, 'submit the review');
 
-      if (!inline) {
+      if (!inline || placed.length === 0) {
         return {
           githubId: review.id,
           comments: input.comments.map(() => null),
@@ -152,11 +200,15 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
       return {
         githubId: review.id,
         comments: input.comments.map((comment): OnGitHub | null => {
+          if (!placed.includes(comment)) {
+            return null;
+          }
+
           const at = unmatched.findIndex(
             (each) =>
               each.path === comment.path &&
               each.body.includes(comment.body) &&
-              (each.line === null || each.line === comment.line),
+              (each.line == null || each.line === comment.line),
           );
           const [match] = at >= 0 ? unmatched.splice(at, 1) : [];
 
@@ -164,6 +216,32 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
         }),
       };
     });
+  }
+
+  private async changedFiles(
+    repo: string,
+    number: number,
+    token: string,
+  ): Promise<ChangedFile[]> {
+    const files: ChangedFile[] = [];
+
+    for (let page = 1; page <= MOST_FILE_PAGES; page += 1) {
+      const listed = await heard<ChangedFile[]>(
+        await call(
+          `/repos/${repo}/pulls/${number}/files?per_page=${FILES_PER_PAGE}&page=${page}`,
+          token,
+        ),
+        'read what the pull request changes',
+      );
+
+      files.push(...listed);
+
+      if (listed.length < FILES_PER_PAGE) {
+        break;
+      }
+    }
+
+    return files;
   }
 
   async reply(
@@ -229,16 +307,19 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
   }
 
   private signed(body: string, on: OnPullRequest, speaker: Speaker): string {
-    return speaker.personally ? body : signedBy(on.by.name, body);
+    return speaker.personally || on.by.kind === 'spotlight'
+      ? body
+      : signedBy(on.by.name, body);
   }
 
   private async speaking<T>(
     on: OnPullRequest,
     work: (speaker: Speaker) => Promise<T>,
   ): Promise<T> {
-    const personal = await this.personal
-      .tokenFor(on.by.userId, 'github')
-      .catch(() => null);
+    const personal =
+      on.by.kind === 'person'
+        ? await this.personal.tokenFor(on.by.userId, 'github').catch(() => null)
+        : null;
 
     if (personal) {
       try {

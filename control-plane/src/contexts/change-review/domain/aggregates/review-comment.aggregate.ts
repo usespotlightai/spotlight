@@ -3,8 +3,8 @@ import { ReviewCommentReplied } from '@change-review/domain/events/review-commen
 import { ReviewCommentRewritten } from '@change-review/domain/events/review-comment-rewritten.event';
 import { InvalidReviewError } from '@change-review/domain/exceptions/invalid-review.error';
 import { NotYourReviewCommentError } from '@change-review/domain/exceptions/not-your-review-comment.error';
-import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import type { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
+import type { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import type { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import type { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
 import { EventRecorder } from '@shared-kernel/domain/aggregates/event-recorder';
@@ -26,12 +26,6 @@ export type ReviewCommentState = (typeof REVIEW_COMMENT_STATES)[number];
 export const MOST_REVIEW_COMMENT = 65_000;
 
 const MOST_EDITS_AWAITING_ECHO = 5;
-
-export interface ReviewCommentAuthor {
-  readonly userId: UserId | null;
-  readonly login: string | null;
-  readonly name: AuthorName;
-}
 
 export interface OnGitHub {
   readonly id: number;
@@ -60,7 +54,7 @@ export class ReviewComment extends EventRecorder {
     readonly taskId: TaskId,
     readonly anchor: ReviewAnchor,
     readonly body: string,
-    readonly author: ReviewCommentAuthor,
+    readonly author: ReviewAuthor,
     readonly replyTo: ReviewCommentId | null,
     readonly reviewId: ReviewId | null,
     readonly state: ReviewCommentState,
@@ -81,12 +75,12 @@ export class ReviewComment extends EventRecorder {
     taskId: TaskId;
     anchor: ReviewAnchor;
     body: string;
-    author: ReviewCommentAuthor;
+    author: ReviewAuthor;
     now: Date;
   }): ReviewComment {
-    if (!input.author.userId) {
+    if (!input.author.inSpotlight) {
       throw new InvalidReviewError(
-        'comment is drafted by someone in Spotlight',
+        'comment is drafted by someone in Spotlight, or by an agent',
       );
     }
 
@@ -116,11 +110,17 @@ export class ReviewComment extends EventRecorder {
     taskId: TaskId;
     anchor: ReviewAnchor;
     body: string;
-    author: ReviewCommentAuthor;
+    author: ReviewAuthor;
     replyTo: ReviewCommentId | null;
     github: OnGitHub;
     at: Date;
   }): ReviewComment {
+    if (input.author.inSpotlight) {
+      throw new InvalidReviewError(
+        'comment arrives from GitHub by someone on GitHub',
+      );
+    }
+
     return new ReviewComment(
       input.id,
       input.workspaceId,
@@ -147,7 +147,7 @@ export class ReviewComment extends EventRecorder {
     taskId: TaskId;
     anchor: ReviewAnchor;
     body: string;
-    author: ReviewCommentAuthor;
+    author: ReviewAuthor;
     replyTo: ReviewCommentId | null;
     reviewId: ReviewId | null;
     state: ReviewCommentState;
@@ -210,7 +210,7 @@ export class ReviewComment extends EventRecorder {
   replied(input: {
     id: ReviewCommentId;
     body: string;
-    author: ReviewCommentAuthor;
+    author: ReviewAuthor;
     now: Date;
   }): ReviewComment {
     if (this.state === 'deleted') {
@@ -221,7 +221,7 @@ export class ReviewComment extends EventRecorder {
         'reply is to a comment that has been submitted',
       );
     }
-    if (!input.author.userId) {
+    if (input.author.kind !== 'person') {
       throw new InvalidReviewError('reply is written by someone in Spotlight');
     }
 
@@ -262,6 +262,10 @@ export class ReviewComment extends EventRecorder {
 
   writtenBy(viewer: UserId): boolean {
     return this.author.userId?.equals(viewer) ?? false;
+  }
+
+  get byAgent(): boolean {
+    return this.author.kind === 'agent';
   }
 
   get sending(): boolean {

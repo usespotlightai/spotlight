@@ -56,6 +56,29 @@ func (o Options) Diff(ctx context.Context, checkout string) (string, error) {
 	return strings.TrimSpace(diff), nil
 }
 
+// Committed diffs what the checkout's HEAD holds against where the run began, leaving out the working tree.
+func (o Options) Committed(ctx context.Context, checkout string) (string, error) {
+	if _, err := o.git(ctx, checkout, "", "rev-parse", "--verify", "--quiet", BaseRef); err != nil {
+		return "", fmt.Errorf("the checkout has no record of where the run began")
+	}
+
+	unstaged := map[string]string{"GIT_TERMINAL_PROMPT": "0"}
+
+	diff, err := o.gitWith(ctx, checkout, unstaged, "diff", "-M", wholeContext, BaseRef, "HEAD")
+	if err != nil {
+		return "", fmt.Errorf("diff the checkout: %w", err)
+	}
+
+	if len(diff) > mostDiff {
+		diff, err = o.gitWith(ctx, checkout, unstaged, "diff", "-M", BaseRef, "HEAD")
+		if err != nil {
+			return "", fmt.Errorf("diff the checkout: %w", err)
+		}
+	}
+
+	return strings.TrimSpace(diff), nil
+}
+
 func (o Options) gitWith(ctx context.Context, dir string, env map[string]string, args ...string) (string, error) {
 	return o.run(ctx, dir, "", env, "git", append([]string{"-c", "safe.directory=*", "-C", dir}, args...)...)
 }

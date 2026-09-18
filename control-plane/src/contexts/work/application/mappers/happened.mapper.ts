@@ -1,13 +1,20 @@
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type {
   Arriving,
   Happened,
   MarkWorn,
+  ReviewWord,
 } from '@work/application/contracts/happenings.contract';
+import { Branch } from '@work/domain/value-objects/branch.vo';
 import { Concerns } from '@work/domain/value-objects/concerns.vo';
 import { Happening, type Word } from '@work/domain/value-objects/happening.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import type { OpensWith } from '@work/domain/value-objects/opens-with';
+import {
+  type ReviewRequest,
+  reviewAsking,
+} from '@work/domain/value-objects/review-asked.vo';
 import { Said } from '@work/domain/value-objects/said.vo';
 
 export interface Heard {
@@ -18,6 +25,22 @@ export interface Heard {
   readonly opens: OpensWith | null;
   readonly attachments: readonly Arriving[];
 }
+
+const reviewOf = (
+  word: ReviewWord | null | undefined,
+): ReviewRequest | null => {
+  if (!word) {
+    return null;
+  }
+
+  return {
+    asking: reviewAsking(word.asking),
+    pullRequest: PullRequestUrl.of(word.pullRequest),
+    author: word.author?.trim() || null,
+    draft: word.draft,
+    branch: word.branch ? Branch.of(word.branch) : null,
+  };
+};
 
 export const HappenedMapper = {
   markOf(worn: MarkWorn): Mark {
@@ -54,6 +77,7 @@ export const HappenedMapper = {
             description: opens.description,
             assignEmail: opens.assignEmail,
             marks: opens.marks.map(HappenedMapper.markOf),
+            review: reviewOf(opens.review),
           }
         : null,
       attachments: happened.attachments ?? [],

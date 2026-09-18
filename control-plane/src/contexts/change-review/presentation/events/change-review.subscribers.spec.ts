@@ -3,9 +3,14 @@ import type { ReviewReactions } from '@change-review/application/events/handlers
 import type { ChangeStackAnnouncerPort } from '@change-review/application/ports/change-stack-announcer.port';
 import type { ForgetTaskAcrossAggregates } from '@change-review/application/services/forget-task-across-aggregates.service';
 import type { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
+import type { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
 import { changeReviewSubscribers } from '@change-review/presentation/events/change-review.subscribers';
 import type { ReviewCommentReceivedIntegrationEvent } from '@github/application/integration-events/review-comment-received.integration-event';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { RunEndedIntegrationEvent } from '@work/application/integration-events/run-ended.integration-event';
+import type { TaskHandedToRunIntegrationEvent } from '@work/application/integration-events/task-handed-to-run.integration-event';
 import { describe, expect, it, vi } from 'vitest';
 
 const RECEIVED: ReviewCommentReceivedIntegrationEvent = {
@@ -33,6 +38,7 @@ const hearing = () => {
     {} as unknown as ForgetTaskAcrossAggregates,
     {} as unknown as ReviewReactions,
     { receive } as unknown as ReceiveReviewComment,
+    {} as unknown as SignalReviewing,
   ).find((each) => each.kinds.includes(RECEIVED.kind));
 
   if (!subscriber) {
@@ -82,5 +88,69 @@ describe('change review hearing a review comment on GitHub', () => {
         comment: expect.objectContaining({ writtenAt: null }),
       }),
     );
+  });
+});
+
+describe('change review hearing a run begin and end', () => {
+  const signalled = () => {
+    const began = vi.fn(async () => {});
+    const ended = vi.fn(async () => {});
+    const subscribers = changeReviewSubscribers(
+      {} as unknown as ChangeStackReactions,
+      {} as unknown as ChangeStackAnnouncerPort,
+      {} as unknown as ForgetTaskAcrossAggregates,
+      {} as unknown as ReviewReactions,
+      {} as unknown as ReceiveReviewComment,
+      { began, ended } as unknown as SignalReviewing,
+    );
+    const hearing = (kind: string) => {
+      const found = subscribers.find((each) => each.kinds.includes(kind));
+
+      if (!found) {
+        throw new Error(`nobody hears ${kind}`);
+      }
+
+      return found;
+    };
+
+    return { hearing, began, ended };
+  };
+
+  it('signals a review begun when a task is handed to a run', async () => {
+    const { hearing, began } = signalled();
+
+    const handed: TaskHandedToRunIntegrationEvent = {
+      kind: 'work.task-handed-to-run.v1',
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      runId: 'run_1',
+    };
+
+    await hearing(handed.kind).handle(handed);
+
+    expect(began).toHaveBeenCalledWith(TaskId.of('task_1'), RunId.of('run_1'));
+  });
+
+  it('signals a review ended when its run ends, and nothing for a run with no task', async () => {
+    const { hearing, ended } = signalled();
+    const subscriber = hearing('work.run-ended.v1');
+
+    const ofTask: RunEndedIntegrationEvent = {
+      kind: 'work.run-ended.v1',
+      runId: 'run_1',
+      workspaceId: 'ws_1',
+      taskId: 'task_1',
+    };
+    const ofChat: RunEndedIntegrationEvent = {
+      ...ofTask,
+      runId: 'run_2',
+      taskId: null,
+    };
+
+    await subscriber.handle(ofTask);
+    await subscriber.handle(ofChat);
+
+    expect(ended).toHaveBeenCalledTimes(1);
+    expect(ended).toHaveBeenCalledWith(TaskId.of('task_1'), RunId.of('run_1'));
   });
 });

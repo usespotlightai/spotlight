@@ -1476,6 +1476,10 @@ export type ReviewCommentResponseDto = {
    */
   yours: boolean;
   /**
+   * Whether an agent wrote it, reviewing
+   */
+  byAgent: boolean;
+  /**
    * The first comment of the thread this answers
    */
   replyTo: string | null;
@@ -1493,6 +1497,10 @@ export type ReviewResponseDto = {
   id: string;
   authorName: string;
   yours: boolean;
+  /**
+   * Whether an agent submitted it
+   */
+  byAgent: boolean;
   verdict: 'comment' | 'approve' | 'request-changes';
   body: string;
   state: 'draft' | 'sending' | 'posted' | 'failed';

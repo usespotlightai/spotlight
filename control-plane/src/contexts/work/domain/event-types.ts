@@ -7,6 +7,7 @@ import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event
 import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
+import { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
 import { StationHarnessChanged } from '@work/domain/events/station-harness-changed.event';
 import { StationRenamed } from '@work/domain/events/station-renamed.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
@@ -52,8 +53,10 @@ import { Money } from '@work/domain/value-objects/money.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
+import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import { Remark } from '@work/domain/value-objects/remark.vo';
+import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
@@ -109,6 +112,8 @@ export const WORK_EVENT_TYPES = [
   LinePlan,
   LineRepositories,
   LineRole,
+  PullRequestLink,
+  ReviewPolicy,
   Mark,
   MessagePosition,
   Money,
@@ -148,6 +153,7 @@ export const WORK_EVENT_TYPES = [
   ProposalDismissed,
   PullRequestOpened,
   RunAbandoned,
+  RunWithdrawn,
   RunCompleted,
   RunStopRequested,
   StationHarnessChanged,

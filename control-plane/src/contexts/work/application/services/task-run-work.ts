@@ -49,6 +49,12 @@ export class TaskRunWork implements RunWork {
       return null;
     }
 
+    const reviewed = this.task.reviewed;
+
+    if (reviewed) {
+      return reviewed.name === name ? reviewed : null;
+    }
+
     const line = await this.lines.holding(this.run.stationId);
 
     return line?.repositoryNamed(name) ?? null;

@@ -3,6 +3,7 @@ import type { ReviewReactions } from '@change-review/application/events/handlers
 import type { ChangeStackAnnouncerPort } from '@change-review/application/ports/change-stack-announcer.port';
 import type { ForgetTaskAcrossAggregates } from '@change-review/application/services/forget-task-across-aggregates.service';
 import type { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
+import type { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
 import type { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
 import type { ChangeStackSettled } from '@change-review/domain/events/change-stack-settled.event';
 import type { ReviewCommentRemoved } from '@change-review/domain/events/review-comment-removed.event';
@@ -19,6 +20,7 @@ import {
   type DomainEventSubscriber,
   subscribing,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
@@ -26,9 +28,17 @@ import {
   type PullRequestOpenedIntegrationEvent,
 } from '@work/application/integration-events/pull-request-opened.integration-event';
 import {
+  RUN_ENDED,
+  type RunEndedIntegrationEvent,
+} from '@work/application/integration-events/run-ended.integration-event';
+import {
   TASK_DELETED,
   type TaskDeletedIntegrationEvent,
 } from '@work/application/integration-events/task-deleted.integration-event';
+import {
+  TASK_HANDED_TO_RUN,
+  type TaskHandedToRunIntegrationEvent,
+} from '@work/application/integration-events/task-handed-to-run.integration-event';
 
 export const changeReviewSubscribers = (
   reactions: ChangeStackReactions,
@@ -36,7 +46,21 @@ export const changeReviewSubscribers = (
   forgetting: ForgetTaskAcrossAggregates,
   reviews: ReviewReactions,
   receiving: ReceiveReviewComment,
+  signalling: SignalReviewing,
 ): readonly DomainEventSubscriber[] => [
+  subscribing<TaskHandedToRunIntegrationEvent>(
+    'change-review.signal-reviewing',
+    [TASK_HANDED_TO_RUN],
+    (event) => signalling.began(TaskId.of(event.taskId), RunId.of(event.runId)),
+  ),
+  subscribing<RunEndedIntegrationEvent>(
+    'change-review.signal-reviewed',
+    [RUN_ENDED],
+    (event) =>
+      event.taskId
+        ? signalling.ended(TaskId.of(event.taskId), RunId.of(event.runId))
+        : Promise.resolve(),
+  ),
   subscribing<ChangeStackSettled>(
     'change-review.announce-settled',
     ['change-stack.settled'],

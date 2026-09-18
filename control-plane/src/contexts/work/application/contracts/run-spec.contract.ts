@@ -72,11 +72,21 @@ const checkoutOf = (raw: unknown): RunCheckout => {
   const given = objectAt(raw, 'its checkouts');
   const path = optionalStringAt(given.path, 'where a checkout goes');
   const branch = optionalStringAt(given.branch, 'which branch to check out');
+  const ref = optionalStringAt(given.ref, 'which ref to check out');
+  const diffOf = optionalStringAt(given.diffOf, 'what its change stack diffs');
+
+  if (diffOf !== undefined && diffOf !== 'commits') {
+    throw new InvalidRunSpecError(
+      'diffs a checkout by its commits, or its work',
+    );
+  }
 
   return {
     remote: stringAt(given.remote, 'where a checkout comes from'),
     ...(path !== undefined ? { path } : {}),
     ...(branch !== undefined ? { branch } : {}),
+    ...(ref !== undefined ? { ref } : {}),
+    ...(diffOf !== undefined ? { diffOf } : {}),
   };
 };
 

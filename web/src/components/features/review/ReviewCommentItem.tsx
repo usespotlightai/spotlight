@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ReviewCommentState } from '@/components/features/review/ReviewCommentState';
 import { ReviewComposer } from '@/components/features/review/ReviewComposer';
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
+import { Logo } from '@/components/shared/icons';
 import { Unfold } from '@/components/shared/Unfold';
 import { useDeleteReviewComment } from '@/hooks/api/useDeleteReviewComment';
 import { useEditReviewComment } from '@/hooks/api/useEditReviewComment';
@@ -53,10 +54,17 @@ export function ReviewCommentItem({
       >
         <div className="flex gap-2.5">
           <div className="flex h-5 shrink-0 items-center">
-            <PersonAvatar
-              person={{ name: comment.authorName, image: comment.authorImage }}
-              className="size-5"
-            />
+            {comment.byAgent ? (
+              <Logo className="size-5 rounded" aria-label="Spotlight" />
+            ) : (
+              <PersonAvatar
+                person={{
+                  name: comment.authorName,
+                  image: comment.authorImage,
+                }}
+                className="size-5"
+              />
+            )}
           </div>
 
           <div className="flex min-w-0 flex-1 flex-col gap-1">

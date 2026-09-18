@@ -41,10 +41,12 @@ const written = (
   manifest: readonly ToolManifestShape[],
 ): RunSpec =>
   RunSpec.of({
-    checkouts: order.repositories.map((repository) => ({
+    checkouts: order.checkouts.map((checkout) => ({
       remote: THROUGH_SPOTLIGHT,
-      path: repository.name,
-      branch: order.branch.value,
+      path: checkout.repository.name,
+      ...(checkout.branch ? { branch: checkout.branch.value } : {}),
+      ...(checkout.ref ? { ref: checkout.ref } : {}),
+      ...(checkout.diffOf === 'commits' ? { diffOf: checkout.diffOf } : {}),
     })),
     command: command.started({ [TRACE_PARENT_VAR]: naming }),
     briefing,

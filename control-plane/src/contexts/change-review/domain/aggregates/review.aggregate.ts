@@ -6,12 +6,12 @@ import {
 } from '@change-review/domain/events/review-posted.event';
 import { ReviewSubmitted } from '@change-review/domain/events/review-submitted.event';
 import { InvalidReviewError } from '@change-review/domain/exceptions/invalid-review.error';
+import type { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import type { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import type { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
 import { EventRecorder } from '@shared-kernel/domain/aggregates/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const REVIEW_VERDICTS = [
@@ -44,7 +44,7 @@ export class Review extends EventRecorder {
     readonly id: ReviewId,
     readonly workspaceId: WorkspaceId,
     readonly taskId: TaskId,
-    readonly author: UserId,
+    readonly author: ReviewAuthor,
     readonly verdict: ReviewVerdict,
     readonly body: string,
     readonly comments: readonly ReviewCommentId[],
@@ -61,12 +61,18 @@ export class Review extends EventRecorder {
     id: ReviewId;
     workspaceId: WorkspaceId;
     taskId: TaskId;
-    author: UserId;
+    author: ReviewAuthor;
     verdict: string;
     body: string;
     drafts: readonly ReviewComment[];
     now: Date;
   }): SubmittedReview {
+    if (!input.author.inSpotlight) {
+      throw new InvalidReviewError(
+        'is submitted by someone in Spotlight, or by an agent',
+      );
+    }
+
     if (!(REVIEW_VERDICTS as readonly string[]).includes(input.verdict)) {
       throw new InvalidReviewError('comments, approves, or requests changes');
     }
@@ -78,7 +84,7 @@ export class Review extends EventRecorder {
       if (
         draft.state !== 'draft' ||
         draft.reviewId !== null ||
-        !draft.writtenBy(input.author) ||
+        !input.author.isSameAs(draft.author) ||
         !draft.taskId.equals(input.taskId)
       ) {
         throw new InvalidReviewError(
@@ -129,7 +135,7 @@ export class Review extends EventRecorder {
     id: ReviewId;
     workspaceId: WorkspaceId;
     taskId: TaskId;
-    author: UserId;
+    author: ReviewAuthor;
     verdict: ReviewVerdict;
     body: string;
     comments: readonly ReviewCommentId[];
@@ -139,6 +145,13 @@ export class Review extends EventRecorder {
     postedAt: Date | null;
     version: number;
   }): Review {
+    if (!input.author.inSpotlight) {
+      throw new InconsistentStateError(
+        'review',
+        'was submitted by nobody in Spotlight',
+      );
+    }
+
     if ((input.state === 'posted') !== (input.githubId !== null)) {
       throw new InconsistentStateError(
         'review',

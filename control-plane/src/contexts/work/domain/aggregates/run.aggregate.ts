@@ -8,6 +8,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
+import { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
@@ -182,7 +183,9 @@ export class Run extends EventRecorder {
       outcome: RunOutcome.abandoned(reason),
     });
 
-    abandoned.record(new RunAbandoned(this.id, this.subject, this.attempt));
+    abandoned.record(
+      new RunAbandoned(this.id, this.workspaceId, this.subject, this.attempt),
+    );
 
     return abandoned;
   }
@@ -228,6 +231,7 @@ export class Run extends EventRecorder {
     ended.record(
       new RunCompleted(
         this.id,
+        this.workspaceId,
         this.subject,
         outcome,
         by,
@@ -246,10 +250,14 @@ export class Run extends EventRecorder {
       );
     }
 
-    return this.with({
+    const withdrawn = this.with({
       state: 'failed',
       outcome: RunOutcome.abandoned(reason),
     });
+
+    withdrawn.record(new RunWithdrawn(this.id, this.workspaceId, this.subject));
+
+    return withdrawn;
   }
 
   requestStop(now: Date): Run {
@@ -268,6 +276,10 @@ export class Run extends EventRecorder {
     stopping.record(new RunStopRequested(this.id, this.subject, now));
 
     return stopping;
+  }
+
+  get hasEnded(): boolean {
+    return this.state === 'completed' || this.state === 'failed';
   }
 
   get stopRequested(): boolean {

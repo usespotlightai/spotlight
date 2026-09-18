@@ -14,6 +14,7 @@ import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
+import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
 import { StackCheck } from '@change-review/domain/value-objects/stack-check.vo';
@@ -29,6 +30,7 @@ export const CHANGE_REVIEW_EVENT_TYPES = [
   ReviewAnchor,
   ReviewCommentId,
   ReviewId,
+  ReviewAuthor,
   StackCheck,
   StackFacts,
   StackProgress,

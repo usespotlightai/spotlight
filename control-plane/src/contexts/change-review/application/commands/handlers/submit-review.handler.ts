@@ -25,19 +25,19 @@ export class SubmitReviewHandler
   // A draft belongs to one review, so the review and the claim on its drafts commit together.
   async execute(command: SubmitReviewCommand): Promise<string> {
     try {
-      const { task, by } = await this.access.ofRun(
+      const { task, author } = await this.access.ofRun(
         command.teamId,
         command.runId,
         command.viewerId,
       );
 
       return await this.transaction.run(async () => {
-        const drafts = await this.comments.draftsBy(task.id, by);
+        const drafts = await this.comments.draftsBy(task.id, author);
         const { review, claimed } = Review.submit({
           id: ReviewId.of(this.ids.generate()),
           workspaceId: task.workspaceId,
           taskId: task.id,
-          author: by,
+          author,
           verdict: command.verdict,
           body: command.body,
           drafts,

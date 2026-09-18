@@ -32,8 +32,10 @@ printf '%s' "$spec" | jq -c '.checkouts[]?' | while read -r checkout; do
   g config user.name "$author_name"
   g config user.email "$author_email"
 
+  # A ref the clone does not hold, such as a pull request's head: fetched by name.
   if [ -n "$ref" ]; then
-    g checkout --quiet "$ref"
+    g fetch --quiet origin "$ref"
+    g checkout --quiet --detach FETCH_HEAD
   fi
 
   if [ -n "$branch" ]; then

@@ -1,4 +1,5 @@
 export type PullRequestActivityKind =
+  | 'opened'
   | 'merged'
   | 'closed-unmerged'
   | 'commented'
@@ -13,10 +14,18 @@ export interface PullRequestRemark {
   readonly id: string | null;
 }
 
+export interface PullRequestAbout {
+  readonly title: string;
+  readonly body: string | null;
+  readonly author: string | null;
+  readonly draft: boolean;
+}
+
 export interface PullRequestActivity {
   readonly activity: PullRequestActivityKind;
   readonly branch: string | null;
   readonly pullRequest: string | null;
+  readonly about: PullRequestAbout | null;
   readonly remark: PullRequestRemark | null;
   readonly byBot: boolean;
 }

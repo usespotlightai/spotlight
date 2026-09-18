@@ -5,6 +5,10 @@ import type { Word } from '@work/domain/value-objects/happening.vo';
 import type { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import type { OpensWith } from '@work/domain/value-objects/opens-with';
+import type {
+  ReviewAsked,
+  ReviewRequest,
+} from '@work/domain/value-objects/review-asked.vo';
 import type { Said } from '@work/domain/value-objects/said.vo';
 import type { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
@@ -34,6 +38,15 @@ export interface OpenedOn {
   readonly line: Line;
   readonly opening: Opening;
 }
+
+export type ReviewAnswer =
+  | { readonly kind: 'nothing' }
+  | { readonly kind: 'heard'; readonly by: Task }
+  | { readonly kind: 'opens'; readonly on: OpenedOn };
+
+const spotlights = (request: ReviewRequest, holder: Task | null): boolean =>
+  (request.branch?.isSpotlights ?? false) ||
+  (holder !== null && !holder.reviewing);
 
 export const ReactionFor = {
   happened(input: {
@@ -95,6 +108,61 @@ export const ReactionFor = {
     const ordered = [...input.lines].sort((one, other) =>
       one.key.value.localeCompare(other.key.value),
     );
+
+    for (const line of ordered) {
+      const opening = ReactionFor.opening({ line, opens: input.opens });
+
+      if (opening) {
+        return { line, opening };
+      }
+    }
+
+    return null;
+  },
+
+  // holder wears the pull request's own mark; held wears the mark of a review of it.
+  reviewAsked(input: {
+    lines: readonly Line[];
+    opens: OpensWith;
+    request: ReviewRequest;
+    said: Said | null;
+    holder: Task | null;
+    held: Task | null;
+  }): ReviewAnswer {
+    const on = ReactionFor.reviewOn({
+      lines: input.lines,
+      opens: input.opens,
+      asked: {
+        ...input.request,
+        said: input.said,
+        ours: spotlights(input.request, input.holder),
+      },
+    });
+
+    if (!on) {
+      return { kind: 'nothing' };
+    }
+
+    return input.held && input.held.finishedAt === null
+      ? { kind: 'heard', by: input.held }
+      : { kind: 'opens', on };
+  },
+
+  reviewOn(input: {
+    lines: readonly Line[];
+    opens: OpensWith;
+    asked: ReviewAsked;
+  }): OpenedOn | null {
+    const repository = input.asked.pullRequest.repository;
+    const named = (line: Line): number =>
+      repository && line.names(repository) ? 0 : 1;
+    const ordered = input.lines
+      .filter((line) => line.takesReview(input.asked))
+      .sort(
+        (one, other) =>
+          named(one) - named(other) ||
+          one.key.value.localeCompare(other.key.value),
+      );
 
     for (const line of ordered) {
       const opening = ReactionFor.opening({ line, opens: input.opens });

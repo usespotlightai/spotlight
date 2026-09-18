@@ -70,12 +70,14 @@ import { ReadTaskChangeStackHandler } from '@change-review/application/queries/h
 import { ListRunChangeStacksQuery } from '@change-review/application/queries/list-run-change-stacks.query';
 import { ReadRunReviewQuery } from '@change-review/application/queries/read-run-review.query';
 import { ReadTaskChangeStackQuery } from '@change-review/application/queries/read-task-change-stack.query';
+import { AgentReviews } from '@change-review/application/services/agent-reviews.service';
 import { AnnounceChangeStack } from '@change-review/application/services/announce-change-stack.service';
 import { DraftChangeStack } from '@change-review/application/services/draft-change-stack.service';
 import { ForgetTaskAcrossAggregates } from '@change-review/application/services/forget-task-across-aggregates.service';
 import { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
 import { ReorderChangeStack } from '@change-review/application/services/reorder-change-stack.service';
 import { ReviewAccess } from '@change-review/application/services/review-access.service';
+import { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
 import { SyncReviews } from '@change-review/application/services/sync-reviews.service';
 import { WorkChangeStacks } from '@change-review/application/services/work-change-stacks.service';
 import { CHANGE_REVIEW_EVENT_TYPES } from '@change-review/domain/event-types';
@@ -105,6 +107,10 @@ import {
   PULL_REQUEST_COMMENTS,
   type PullRequestCommentsPort,
 } from '@github/application/ports/pull-request-comments.port';
+import {
+  PULL_REQUEST_REACTIONS,
+  type PullRequestReactionsPort,
+} from '@github/application/ports/pull-request-reactions.port';
 import {
   PULL_REQUEST_REVIEWS,
   type PullRequestReviewsPort,
@@ -149,6 +155,7 @@ import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
+import { PULL_REQUEST_REVIEWING } from '@work/application/ports/pull-request-reviewing.port';
 import {
   WORK_LOOKUP,
   type WorkLookupPort,
@@ -417,6 +424,34 @@ const services: Provider[] = [
       clock: ClockPort,
     ) => new ReceiveReviewComment(work, comments, transaction, ids, clock),
   },
+  {
+    provide: SignalReviewing,
+    inject: [WORK, GITHUB_CONNECTIONS, PULL_REQUEST_REACTIONS],
+    useFactory: (
+      work: WorkPort,
+      connections: GitHubConnectionsPort,
+      reactions: PullRequestReactionsPort,
+    ) => new SignalReviewing(work, connections, reactions),
+  },
+  {
+    provide: PULL_REQUEST_REVIEWING,
+    inject: [
+      WORK,
+      DrizzleReviewCommentRepository,
+      DrizzleReviewRepository,
+      TRANSACTION,
+      ID_GENERATOR,
+      CLOCK,
+    ],
+    useFactory: (
+      work: WorkPort,
+      comments: DrizzleReviewCommentRepository,
+      reviews: DrizzleReviewRepository,
+      transaction: TransactionPort,
+      ids: IdGeneratorPort,
+      clock: ClockPort,
+    ) => new AgentReviews(work, comments, reviews, transaction, ids, clock),
+  },
 ];
 
 const handlers: Provider[] = [
@@ -495,6 +530,7 @@ const published: Provider[] = [
       ID_GENERATOR,
       CLOCK,
       ReceiveReviewComment,
+      SignalReviewing,
     ],
     useFactory: (
       types: EventTypes,
@@ -507,6 +543,7 @@ const published: Provider[] = [
       ids: IdGeneratorPort,
       clock: ClockPort,
       receiving: ReceiveReviewComment,
+      signalling: SignalReviewing,
     ) => {
       types.register('change-review', CHANGE_REVIEW_EVENT_TYPES);
       subscribers.register(
@@ -516,6 +553,7 @@ const published: Provider[] = [
           forgetting,
           new ReviewReactions(comments, outbox, ids, clock),
           receiving,
+          signalling,
         ),
       );
       return true;

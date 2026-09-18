@@ -1,11 +1,16 @@
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { StationKind } from '@work/domain/entities/station.entity';
-import { PULL_REQUEST } from '@work/domain/services/built-in-tools';
+import {
+  PULL_REQUEST,
+  REVIEW,
+  REVIEW_COMMENT,
+} from '@work/domain/services/built-in-tools';
 import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import { Happening } from '@work/domain/value-objects/happening.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
+import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import type { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
@@ -21,6 +26,7 @@ export interface StationOpening {
   readonly passesTo: readonly StationKey[];
   readonly tools: readonly Tool[];
   readonly skills?: readonly SkillKey[];
+  readonly diffs?: boolean;
   readonly ends: boolean;
 }
 
@@ -36,6 +42,7 @@ export interface LineOpening {
   readonly stations: readonly StationOpening[];
   readonly reactions: readonly ReactionOpening[];
   readonly repositories: readonly Repository[];
+  readonly reviews?: ReviewPolicy | null;
 }
 
 const opening = (input: {
@@ -46,6 +53,7 @@ const opening = (input: {
   kind?: StationKind;
   passesTo?: readonly string[];
   tools?: readonly Tool[];
+  diffs?: boolean;
   ends?: boolean;
 }): StationOpening => ({
   key: StationKey.of(input.key),
@@ -55,6 +63,7 @@ const opening = (input: {
   agentPrompt: input.prompt ? AgentPrompt.of(input.prompt) : null,
   passesTo: (input.passesTo ?? []).map((each) => StationKey.of(each)),
   tools: input.tools ?? [],
+  diffs: input.diffs ?? false,
   ends: input.ends ?? false,
 });
 
@@ -194,6 +203,58 @@ against the configuration repository and give its address in your note.
 
 With the pull request open, the task is finished: hand on to \`done\`.`;
 
+const PULL_REQUEST_REVIEW = `## Review
+
+Review the pull request this task names. Somebody else wrote it, outside
+Spotlight: your job is to tell them what is wrong with it and what could be
+better, not to change it. The workspace is checked out at the pull request's
+head, and what it changes is everything since it forked from the default
+branch:
+
+    git diff refs/spotlight/base
+
+Read the description first, so you judge the change against what it set out
+to do. Then read the diff, and as much of the code around it as it takes to be
+sure of what you say. Run the tests where you can.
+
+Look for: behaviour that does not match what the description promises, cases
+the tests miss, errors swallowed or left unhandled, and anything that will be
+hard to change later. Leave style to the linter.
+
+Leave each finding as a comment on the line it is about, with
+\`spotlight review-comment\`, then submit them all as one review with
+\`spotlight review\`. Be specific: what goes wrong, when, and what would fix
+it. Say nothing where there is nothing worth saying.
+
+Make no edits and push nothing: the branch is theirs.
+
+Say in your note what you found, most serious first, and hand on to \`done\`.`;
+
+const REVIEW_STATIONS: readonly StationOpening[] = [
+  opening({
+    key: 'backlog',
+    name: 'Backlog',
+    color: StationColor.plain().value,
+    kind: 'backlog',
+    passesTo: ['code-review'],
+  }),
+  opening({
+    key: 'code-review',
+    name: 'Review',
+    color: '#56b98d',
+    prompt: PULL_REQUEST_REVIEW,
+    ends: true,
+    diffs: true,
+    tools: [REVIEW_COMMENT, REVIEW],
+  }),
+  opening({
+    key: 'completed',
+    name: 'Completed',
+    color: StationColor.plain().value,
+    kind: 'completed',
+  }),
+];
+
 const DELIVERY_STATIONS: readonly StationOpening[] = [
   opening({
     key: 'backlog',
@@ -314,5 +375,27 @@ export const BUILT_IN_LINES: readonly LineOpening[] = [
     stations: IMPROVEMENT_STATIONS,
     reactions: GITHUB_REACTIONS,
     repositories: [],
+  },
+  {
+    key: LineKey.of('review'),
+    name: LineName.of('Review'),
+    role: LineRole.REVIEW,
+    stations: REVIEW_STATIONS,
+    reactions: [
+      {
+        happening: Happening.of('github.pull_request.mentioned'),
+        to: StationKey.of('code-review'),
+      },
+      {
+        happening: Happening.of('github.pull_request.merged'),
+        to: StationKey.of('completed'),
+      },
+      {
+        happening: Happening.of('github.pull_request.closed-unmerged'),
+        to: StationKey.of('completed'),
+      },
+    ],
+    repositories: [],
+    reviews: ReviewPolicy.of({}),
   },
 ];

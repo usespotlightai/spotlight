@@ -267,7 +267,12 @@ func (o Options) draftStacks(ctx context.Context, run protocol.Run, dir string, 
 	checking := stackcheck.Options{Dir: dir, RunAs: o.AgentUser, Log: log}
 
 	for _, checkout := range run.Spec.Checkouts {
-		diff, err := checking.Diff(ctx, filepath.Join(dir, checkout.Path))
+		diffing := checking.Diff
+		if checkout.DiffOf == protocol.DiffOfCommits {
+			diffing = checking.Committed
+		}
+
+		diff, err := diffing(ctx, filepath.Join(dir, checkout.Path))
 		if err != nil {
 			log.Warn("could not diff a checkout for its change stack", "path", checkout.Path, "error", err)
 			continue

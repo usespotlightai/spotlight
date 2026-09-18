@@ -8,6 +8,7 @@ import { Station } from '@work/domain/entities/station.entity';
 import { LineRepositoriesChanged } from '@work/domain/events/line-repositories-changed.event';
 import { StationHarnessChanged } from '@work/domain/events/station-harness-changed.event';
 import { StationRenamed } from '@work/domain/events/station-renamed.event';
+import { InvalidReviewPolicyError } from '@work/domain/exceptions/invalid-review-policy.error';
 import { InvalidStationLayoutError } from '@work/domain/exceptions/invalid-station-layout.error';
 import { UnknownHappeningError } from '@work/domain/exceptions/unknown-happening.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
@@ -25,8 +26,13 @@ import { LineId } from '@work/domain/value-objects/line-id.vo';
 import type { LineKey } from '@work/domain/value-objects/line-key.vo';
 import type { LineName } from '@work/domain/value-objects/line-name.vo';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
-import type { LineRole } from '@work/domain/value-objects/line-role.vo';
+import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
+import type { ReviewAsked } from '@work/domain/value-objects/review-asked.vo';
+import {
+  type ReviewPolicy,
+  reviewsOn,
+} from '@work/domain/value-objects/review-policy.vo';
 import type { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import type { StationColor } from '@work/domain/value-objects/station-color.vo';
 import type { StationDescription } from '@work/domain/value-objects/station-description.vo';
@@ -49,6 +55,7 @@ export interface LineLayout {
   readonly reactions?: readonly Reaction[];
   readonly role?: LineRole | null;
   readonly repositories?: readonly Repository[];
+  readonly reviews?: ReviewPolicy | null;
 }
 
 interface LineIdentity {
@@ -68,6 +75,7 @@ export class Line extends EventRecorder {
     readonly reactions: readonly Reaction[],
     readonly role: LineRole | null,
     readonly repositories: LineRepositories,
+    readonly reviews: ReviewPolicy | null,
     readonly version: number,
   ) {
     super();
@@ -102,6 +110,7 @@ export class Line extends EventRecorder {
       name: input.line.name,
       role: input.line.role,
       repositories: input.line.repositories,
+      reviews: input.line.reviews ?? null,
       stations: named.map((each, position) =>
         Station.of({
           id: ids[position] as StationId,
@@ -117,6 +126,7 @@ export class Line extends EventRecorder {
           }),
           tools: each.tools,
           skills: each.skills,
+          diffs: each.diffs ?? false,
         }),
       ),
       reactions: input.line.reactions.map((each) =>
@@ -176,6 +186,12 @@ export class Line extends EventRecorder {
       throw new InvalidStationLayoutError(reacting.reason);
     }
 
+    if (layout.reviews && !reviewsOn(layout.role ?? null)) {
+      throw new InvalidReviewPolicyError(
+        `belongs only on a line whose role is ${LineRole.REVIEW.value}`,
+      );
+    }
+
     return new Line(
       identity.id,
       identity.workspaceId,
@@ -186,6 +202,7 @@ export class Line extends EventRecorder {
       reactions,
       layout.role ?? null,
       LineRepositories.of(layout.repositories ?? []),
+      layout.reviews ?? null,
       version,
     );
   }
@@ -204,6 +221,7 @@ export class Line extends EventRecorder {
         reactions: part.reactions ?? this.reactions,
         role: part.role !== undefined ? part.role : this.role,
         repositories: part.repositories ?? this.repositories.all,
+        reviews: part.reviews !== undefined ? part.reviews : this.reviews,
       },
       this.version,
     );
@@ -250,6 +268,21 @@ export class Line extends EventRecorder {
 
   get harness(): HarnessId | null {
     return this.entry?.harness ?? null;
+  }
+
+  takesReview(asked: ReviewAsked): boolean {
+    const repository = asked.pullRequest.repository;
+
+    return (
+      reviewsOn(this.role) &&
+      repository !== null &&
+      (this.repositories.isEmpty || this.names(repository)) &&
+      (this.reviews?.takes(asked) ?? false)
+    );
+  }
+
+  names(repository: Repository): boolean {
+    return this.repositories.all.some((each) => each.equals(repository));
   }
 
   repositoryNamed(name: string): Repository | null {

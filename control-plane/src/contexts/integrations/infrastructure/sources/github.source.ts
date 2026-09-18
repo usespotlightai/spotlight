@@ -16,6 +16,9 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 import {
   type Happened,
   PULL_REQUEST_MARK,
+  REVIEW_MARK,
+  REVIEW_ROLE,
+  type ReviewAsking,
 } from '@work/application/contracts/happenings.contract';
 
 const raised = (input: {
@@ -30,38 +33,150 @@ const raised = (input: {
   spoken: input.spoken ?? false,
 });
 
-const RAISED: Readonly<Record<PullRequestActivityKind, HappeningDeclaration>> =
-  {
-    merged: raised({
-      key: 'github.pull_request.merged',
-      label: 'Pull request merged',
-      told: 'The pull request was merged.',
-    }),
-    commented: raised({
-      key: 'github.pull_request.commented',
-      label: 'Pull request commented on',
-      told: 'The pull request was commented on.',
-      spoken: true,
-    }),
-    'changes-requested': raised({
-      key: 'github.pull_request.changes-requested',
-      label: 'Changes requested',
-      told: 'Changes were requested on the pull request.',
-      spoken: true,
-    }),
-    'checks-failed': raised({
-      key: 'github.checks.failed',
-      label: 'Checks failed',
-      told: 'The checks failed on the pull request.',
-    }),
-    'closed-unmerged': raised({
-      key: 'github.pull_request.closed-unmerged',
-      label: 'Pull request closed unmerged',
-      told: 'The pull request was closed without being merged.',
-    }),
-  };
+const ASKED: Readonly<Record<ReviewAsking, HappeningDeclaration>> = {
+  opened: raised({
+    key: 'github.pull_request.opened',
+    label: 'Pull request opened',
+    told: 'A pull request was opened for review.',
+  }),
+  mentioned: raised({
+    key: 'github.pull_request.mentioned',
+    label: 'Mentioned on a pull request',
+    told: 'Somebody mentioned Spotlight on the pull request.',
+    spoken: true,
+  }),
+};
 
-const happened = (heard: PullRequestActivity): Happened => {
+const RAISED: Readonly<
+  Record<Exclude<PullRequestActivityKind, 'opened'>, HappeningDeclaration>
+> = {
+  merged: raised({
+    key: 'github.pull_request.merged',
+    label: 'Pull request merged',
+    told: 'The pull request was merged.',
+  }),
+  commented: raised({
+    key: 'github.pull_request.commented',
+    label: 'Pull request commented on',
+    told: 'The pull request was commented on.',
+    spoken: true,
+  }),
+  'changes-requested': raised({
+    key: 'github.pull_request.changes-requested',
+    label: 'Changes requested',
+    told: 'Changes were requested on the pull request.',
+    spoken: true,
+  }),
+  'checks-failed': raised({
+    key: 'github.checks.failed',
+    label: 'Checks failed',
+    told: 'The checks failed on the pull request.',
+  }),
+  'closed-unmerged': raised({
+    key: 'github.pull_request.closed-unmerged',
+    label: 'Pull request closed unmerged',
+    told: 'The pull request was closed without being merged.',
+  }),
+};
+
+const refusedUnnamed = (heard: PullRequestActivity): never => {
+  throw new UpstreamRefusedError(
+    `reading a GitHub ${heard.activity} delivery`,
+    'it names neither a branch nor a pull request',
+  );
+};
+
+const saidIn = (heard: PullRequestActivity): Happened['said'] =>
+  heard.remark
+    ? {
+        body: heard.remark.body,
+        path: heard.remark.path,
+        from: heard.remark.from,
+        to: heard.remark.to,
+        remark: heard.remark.id,
+      }
+    : null;
+
+const describedFor = (pullRequest: string, body: string | null): string =>
+  [`Review ${pullRequest}`, body ?? ''].filter(Boolean).join('\n\n');
+
+const askedFor = (
+  heard: PullRequestActivity,
+  asking: ReviewAsking,
+): Happened | null => {
+  if (!heard.pullRequest || !heard.about) {
+    return null;
+  }
+
+  const pullRequest = PullRequestUrl.of(heard.pullRequest).value;
+  const marks = [{ kind: REVIEW_MARK, value: pullRequest }];
+  const raising = ASKED[asking];
+
+  return {
+    happening: raising.happening.value,
+    told: raising.told,
+    spoken: raising.spoken,
+    state: 'raised',
+    concerns: { branch: null, marks },
+    said: asking === 'mentioned' ? saidIn(heard) : null,
+    ourOwn: heard.byBot,
+    opens: {
+      onto: REVIEW_ROLE,
+      at: null,
+      title: heard.about.title,
+      description: describedFor(pullRequest, heard.about.body),
+      assignEmail: null,
+      marks,
+      review: {
+        asking,
+        pullRequest,
+        author: heard.about.author,
+        draft: heard.about.draft,
+        branch: heard.branch,
+      },
+    },
+  };
+};
+
+const mentions = (heard: PullRequestActivity): boolean =>
+  (heard.activity === 'commented' || heard.activity === 'changes-requested') &&
+  (heard.remark?.body.includes('@') ?? false);
+
+const happenedIn = (heard: PullRequestActivity): readonly Happened[] => {
+  if (heard.activity === 'opened') {
+    if (!heard.pullRequest) {
+      refusedUnnamed(heard);
+    }
+
+    const asked = askedFor(heard, 'opened');
+
+    return asked ? [asked] : [];
+  }
+
+  const mentioned = mentions(heard) ? askedFor(heard, 'mentioned') : null;
+  const word = happened({ ...heard, activity: heard.activity });
+
+  return [
+    word,
+    ...(heard.pullRequest ? [toItsReview(word, heard.pullRequest)] : []),
+    ...(mentioned ? [mentioned] : []),
+  ];
+};
+
+// The task that opened a pull request and the task reviewing it each hear the word, by their own mark.
+const toItsReview = (word: Happened, pullRequest: string): Happened => ({
+  ...word,
+  concerns: {
+    branch: null,
+    marks: [{ kind: REVIEW_MARK, value: PullRequestUrl.of(pullRequest).value }],
+  },
+});
+
+const happened = (
+  heard: PullRequestActivity & {
+    activity: Exclude<PullRequestActivityKind, 'opened'>;
+  },
+): Happened => {
   const raising = RAISED[heard.activity];
   const concerns = {
     branch: heard.branch,
@@ -76,10 +191,7 @@ const happened = (heard: PullRequestActivity): Happened => {
   };
 
   if (!concerns.branch && concerns.marks.length === 0) {
-    throw new UpstreamRefusedError(
-      `reading a GitHub ${heard.activity} delivery`,
-      'it names neither a branch nor a pull request',
-    );
+    refusedUnnamed(heard);
   }
 
   return {
@@ -88,15 +200,7 @@ const happened = (heard: PullRequestActivity): Happened => {
     spoken: raising.spoken,
     state: 'raised',
     concerns,
-    said: heard.remark
-      ? {
-          body: heard.remark.body,
-          path: heard.remark.path,
-          from: heard.remark.from,
-          to: heard.remark.to,
-          remark: heard.remark.id,
-        }
-      : null,
+    said: saidIn(heard),
     ourOwn: heard.byBot,
     opens: null,
   };
@@ -112,6 +216,8 @@ export class GitHubSource implements WebhookSourcePort {
     RAISED['changes-requested'],
     RAISED['checks-failed'],
     RAISED['closed-unmerged'],
+    ASKED.opened,
+    ASKED.mentioned,
   ];
 
   constructor(private readonly github: GitHubWebhooksPort) {}
@@ -131,6 +237,6 @@ export class GitHubSource implements WebhookSourcePort {
   async read(delivered: Delivered): Promise<readonly Happened[]> {
     await this.github.receive(delivered);
 
-    return this.github.activityIn(delivered).map(happened);
+    return this.github.activityIn(delivered).flatMap(happenedIn);
   }
 }

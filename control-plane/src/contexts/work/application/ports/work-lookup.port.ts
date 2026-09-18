@@ -12,6 +12,7 @@ export interface RunLookup {
   readonly workspaceId: WorkspaceId;
   readonly taskId: TaskId | null;
   readonly check: string | null;
+  readonly ended: boolean;
 }
 
 export interface TaskLookup {
@@ -19,6 +20,8 @@ export interface TaskLookup {
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId | null;
   readonly pullRequest: PullRequestUrl | null;
+  readonly reviewing: boolean;
+  readonly currentRunId: RunId | null;
 }
 
 export interface WorkLookupPort {

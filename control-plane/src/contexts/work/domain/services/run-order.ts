@@ -14,6 +14,31 @@ import type { ReadySkill } from '@work/domain/value-objects/ready-skill';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
 
+export type CheckoutDiff = 'worktree' | 'commits';
+
+export interface OrderedCheckout {
+  readonly repository: Repository;
+  readonly branch: Branch | null;
+  readonly ref: string | null;
+  readonly diffOf: CheckoutDiff;
+}
+
+const checkoutsFor = (task: Task, line: Line): readonly OrderedCheckout[] => {
+  const reviewed = task.reviewed;
+  const ref = task.pullRequest?.headRef ?? null;
+
+  if (reviewed && ref) {
+    return [{ repository: reviewed, branch: null, ref, diffOf: 'commits' }];
+  }
+
+  return line.repositories.all.map((repository) => ({
+    repository,
+    branch: task.branch,
+    ref: null,
+    diffOf: 'worktree',
+  }));
+};
+
 export interface RunOrder {
   readonly harness: Harness;
   readonly model: HarnessModel | null;
@@ -24,8 +49,7 @@ export interface RunOrder {
   readonly options: readonly HandoverOption[];
   readonly noteLimit: number;
   readonly continuity: Continuity;
-  readonly repositories: readonly Repository[];
-  readonly branch: Branch;
+  readonly checkouts: readonly OrderedCheckout[];
   readonly given: GivenToRun;
   readonly diffs: boolean;
 }
@@ -65,8 +89,7 @@ export const orderFor = ({
     options: line.optionsFrom(station.id),
     noteLimit: 0,
     continuity,
-    repositories: line.repositories.all,
-    branch: task.branch,
+    checkouts: checkoutsFor(task, line),
     given: givenAt(station, ready),
     diffs: station.diffs,
   };

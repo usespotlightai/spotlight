@@ -47,7 +47,7 @@ const withNotes = (task: Task, ...notes: TaskNote[]) =>
     createdAt: task.createdAt,
     raisedAt: task.raisedAt,
     raisedBy: task.raisedBy,
-    pullRequest: task.pullRequest,
+    pullRequestLink: task.pullRequestLink,
     finishedAt: task.finishedAt,
     attachments: task.attachments,
   });

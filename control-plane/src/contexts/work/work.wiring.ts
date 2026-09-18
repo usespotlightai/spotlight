@@ -178,6 +178,10 @@ import {
   OUTBOUND_TASK_NOTIFIER,
   type OutboundTaskNotifierPort,
 } from '@work/application/ports/outbound-task-notifier.port';
+import {
+  PULL_REQUEST_REVIEWING,
+  type PullRequestReviewingPort,
+} from '@work/application/ports/pull-request-reviewing.port';
 import { RUN_DIGESTS } from '@work/application/ports/run-digest-reader.port';
 import {
   RUN_DIGEST_WRITER,
@@ -300,6 +304,8 @@ import { ProposeTaskToolUse } from '@work/application/services/propose-task.tool
 import { PullRequestToolUse } from '@work/application/services/pull-request.tool-use';
 import { RaiseTask } from '@work/application/services/raise-task';
 import { ReactToHappenings } from '@work/application/services/react-to-happenings.service';
+import { ReviewToolUse } from '@work/application/services/review.tool-use';
+import { ReviewCommentToolUse } from '@work/application/services/review-comment.tool-use';
 import { RunAtHand } from '@work/application/services/run-at-hand.service';
 import { RunLeases } from '@work/application/services/run-leases.service';
 import { RunWorks } from '@work/application/services/run-works.service';
@@ -1029,15 +1035,19 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       DrizzleChatRepository,
       DrizzleLineRepository,
       CLOCK,
+      PULL_REQUEST_REVIEWING,
     ],
     useFactory: (
       opening: OpenPullRequest,
       chats: DrizzleChatRepository,
       lines: DrizzleLineRepository,
       clock: ClockPort,
+      reviewing: PullRequestReviewingPort,
     ): readonly BuiltInToolUse[] => [
       new PullRequestToolUse(opening),
       new ProposeTaskToolUse(chats, lines, clock),
+      new ReviewCommentToolUse(reviewing),
+      new ReviewToolUse(reviewing),
     ],
   },
 

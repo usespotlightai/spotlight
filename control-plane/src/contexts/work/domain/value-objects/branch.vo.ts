@@ -26,6 +26,10 @@ export class Branch {
       : null;
   }
 
+  get isSpotlights(): boolean {
+    return this.value.startsWith(UNDER);
+  }
+
   equals(other: Branch): boolean {
     return this.value === other.value;
   }

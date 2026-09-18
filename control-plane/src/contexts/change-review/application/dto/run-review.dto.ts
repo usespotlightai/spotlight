@@ -24,6 +24,7 @@ export interface ReviewCommentDto {
   readonly authorLogin: string | null;
   readonly authorImage: string | null;
   readonly yours: boolean;
+  readonly byAgent: boolean;
   readonly replyTo: string | null;
   readonly state: (typeof REVIEW_COMMENT_STATE_NAMES)[number];
   readonly failure: string | null;
@@ -36,6 +37,7 @@ export interface ReviewDto {
   readonly id: string;
   readonly authorName: string;
   readonly yours: boolean;
+  readonly byAgent: boolean;
   readonly verdict: (typeof REVIEW_VERDICT_NAMES)[number];
   readonly body: string;
   readonly state: (typeof REVIEW_COMMENT_STATE_NAMES)[number];

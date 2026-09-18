@@ -14,4 +14,10 @@ export class ToolInputs {
 
     return typeof value === 'string' ? value : null;
   }
+
+  number(name: string): number | null {
+    const value = this.values[name];
+
+    return typeof value === 'number' ? value : null;
+  }
 }

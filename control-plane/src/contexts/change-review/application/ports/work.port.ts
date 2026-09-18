@@ -13,6 +13,7 @@ export interface ReviewedRun {
   readonly workspaceId: WorkspaceId;
   readonly taskId: TaskId | null;
   readonly check: StackCheck | null;
+  readonly ended: boolean;
 }
 
 export interface ReviewedTask {
@@ -20,6 +21,8 @@ export interface ReviewedTask {
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId | null;
   readonly pullRequest: PullRequestUrl | null;
+  readonly reviewing: boolean;
+  readonly currentRunId: RunId | null;
 }
 
 export interface WorkPort {

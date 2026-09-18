@@ -5,7 +5,7 @@ export function FileNote({ note }: { note: string }) {
     <div className="border-border border-b-[0.5px] px-3 py-2">
       <section
         aria-label="What Spotlight says about this file"
-        className="flex max-w-lg flex-col gap-3 rounded-lg border-[0.5px] border-border bg-card p-3 font-sans shadow-xs"
+        className="flex flex-col gap-3 rounded-lg border-[0.5px] border-border bg-card p-3 font-sans shadow-xs"
       >
         <div className="flex gap-2.5">
           <div className="flex h-5 shrink-0 items-center">

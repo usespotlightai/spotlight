@@ -6,6 +6,10 @@ import {
 } from '@work/application/contracts/line-layout.contract';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Station } from '@work/domain/entities/station.entity';
+import {
+  DEFAULT_MENTION,
+  type ReviewPolicy,
+} from '@work/domain/value-objects/review-policy.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import { stringify } from 'yaml';
 
@@ -42,6 +46,7 @@ export const renderLine = (line: Line): readonly ConfigurationFile[] => {
             : {}),
           stations: stations.map((each) => each.key.value),
           ...(reactions.length > 0 ? { reactions } : {}),
+          ...(line.reviews ? { reviews: reviewsWritten(line.reviews) } : {}),
         },
         YAML,
       ),
@@ -57,6 +62,16 @@ export const renderLine = (line: Line): readonly ConfigurationFile[] => {
     ),
   ];
 };
+
+const reviewsWritten = (policy: ReviewPolicy): Record<string, unknown> => ({
+  start: policy.start,
+  ...(policy.mention !== DEFAULT_MENTION ? { mention: policy.mention } : {}),
+  skip: {
+    spotlight: policy.skip.spotlight,
+    drafts: policy.skip.drafts,
+    ...(policy.skip.authors.length > 0 ? { authors: policy.skip.authors } : {}),
+  },
+});
 
 const written = (
   station: Station,

@@ -1,5 +1,6 @@
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -275,6 +276,27 @@ describe('DispatchTask', () => {
           remote: 'spotlight:repository',
           path: 'web',
           branch: 'spotlight/task_1',
+        },
+      ]);
+    });
+
+    it('checks out only the pull request a task reviews, at its head, on no branch of its own', async () => {
+      const station = stations[1] as Station;
+
+      await dispatch(
+        station,
+        task(station.id.value).reviews(
+          PullRequestUrl.of('https://github.com/acme/api/pull/42'),
+        ),
+        ['acme/widgets', 'acme/web'],
+      );
+
+      expect(written(queued[0]).checkouts).toEqual([
+        {
+          remote: 'spotlight:repository',
+          path: 'api',
+          ref: 'refs/pull/42/head',
+          diffOf: 'commits',
         },
       ]);
     });

@@ -3,7 +3,10 @@ import type { GitHubWebhooksPort } from '@github/application/ports/github-webhoo
 import { GitHubSource } from '@integrations/infrastructure/sources/github.source';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { PULL_REQUEST_MARK } from '@work/application/contracts/happenings.contract';
+import {
+  PULL_REQUEST_MARK,
+  REVIEW_MARK,
+} from '@work/application/contracts/happenings.contract';
 import { describe, expect, it, vi } from 'vitest';
 
 const DELIVERED = { headers: {}, body: {}, raw: null };
@@ -12,6 +15,21 @@ const MERGED: PullRequestActivity = {
   activity: 'merged',
   branch: 'spotlight/task_1',
   pullRequest: 'https://github.com/acme/api/pull/7',
+  about: null,
+  remark: null,
+  byBot: false,
+};
+
+const OPENED: PullRequestActivity = {
+  activity: 'opened',
+  branch: 'fix-uploads',
+  pullRequest: 'https://github.com/acme/api/pull/7',
+  about: {
+    title: 'Retry uploads',
+    body: 'They give up too soon.',
+    author: 'octocat',
+    draft: false,
+  },
   remark: null,
   byBot: false,
 };
@@ -128,6 +146,118 @@ describe('GitHubSource', () => {
       sourceOver([{ ...MERGED, branch: null, pullRequest: null }]).source.read(
         DELIVERED,
       ),
+    ).rejects.toThrow(UpstreamRefusedError);
+  });
+
+  it('asks for a review of a pull request opened, found by the review it wants', async () => {
+    expect(await readOne(OPENED)).toEqual({
+      happening: 'github.pull_request.opened',
+      told: 'A pull request was opened for review.',
+      spoken: false,
+      state: 'raised',
+      concerns: {
+        branch: null,
+        marks: [
+          { kind: REVIEW_MARK, value: 'https://github.com/acme/api/pull/7' },
+        ],
+      },
+      said: null,
+      ourOwn: false,
+      opens: {
+        onto: 'review',
+        at: null,
+        title: 'Retry uploads',
+        description:
+          'Review https://github.com/acme/api/pull/7\n\nThey give up too soon.',
+        assignEmail: null,
+        marks: [
+          { kind: REVIEW_MARK, value: 'https://github.com/acme/api/pull/7' },
+        ],
+        review: {
+          asking: 'opened',
+          pullRequest: 'https://github.com/acme/api/pull/7',
+          author: 'octocat',
+          draft: false,
+          branch: 'fix-uploads',
+        },
+      },
+    });
+  });
+
+  it('reads a comment naming somebody as a comment and as a mention', async () => {
+    const read = await sourceOver([
+      {
+        ...OPENED,
+        activity: 'commented',
+        remark: {
+          body: '@spotlight have a look',
+          path: null,
+          from: null,
+          to: null,
+          id: 'IC_1',
+        },
+      },
+    ]).source.read(DELIVERED);
+
+    expect(read.map((each) => each.happening)).toEqual([
+      'github.pull_request.commented',
+      'github.pull_request.commented',
+      'github.pull_request.mentioned',
+    ]);
+    expect(read[2]).toMatchObject({
+      spoken: true,
+      said: { body: '@spotlight have a look' },
+      opens: { review: { asking: 'mentioned' } },
+    });
+  });
+
+  it('hears no mention in a comment naming nobody', async () => {
+    const read = await sourceOver([
+      {
+        ...OPENED,
+        activity: 'commented',
+        remark: {
+          body: 'Looks good',
+          path: null,
+          from: null,
+          to: null,
+          id: null,
+        },
+      },
+    ]).source.read(DELIVERED);
+
+    expect(read.map((each) => each.happening)).toEqual([
+      'github.pull_request.commented',
+      'github.pull_request.commented',
+    ]);
+  });
+
+  it('tells the task reviewing a pull request what happened to it, apart from the task that opened it', async () => {
+    const read = await sourceOver([MERGED]).source.read(DELIVERED);
+
+    expect(read.map((each) => each.concerns)).toEqual([
+      {
+        branch: 'spotlight/task_1',
+        marks: [
+          {
+            kind: PULL_REQUEST_MARK,
+            value: 'https://github.com/acme/api/pull/7',
+          },
+        ],
+      },
+      {
+        branch: null,
+        marks: [
+          { kind: REVIEW_MARK, value: 'https://github.com/acme/api/pull/7' },
+        ],
+      },
+    ]);
+    expect(read[1]?.happening).toBe('github.pull_request.merged');
+  });
+
+  it('refuses a pull request opened that it cannot name', async () => {
+    await expect(
+      sourceOver([{ ...OPENED, pullRequest: null }]).source.read(DELIVERED),
     ).rejects.toThrow(UpstreamRefusedError);
   });
 

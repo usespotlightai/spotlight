@@ -23,6 +23,7 @@ import {
   type StationPlan,
 } from '@work/domain/value-objects/line-plan.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
+import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import { StationCheck } from '@work/domain/value-objects/station-check.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
@@ -266,6 +267,14 @@ export const compileLine = (
     }
   }
 
+  let reviews: ReviewPolicy | null = null;
+
+  try {
+    reviews = file.reviews ? ReviewPolicy.of(file.reviews) : null;
+  } catch (error) {
+    problems.push(refused(path, 'reviews', reasoned(error)));
+  }
+
   const stations: StationPlan[] = [];
 
   for (const [at, named] of file.stations.entries()) {
@@ -311,6 +320,7 @@ export const compileLine = (
         })),
         role: file.role ? LineRole.of(file.role) : null,
         repositories,
+        reviews,
       }),
       problems: warnings,
     };

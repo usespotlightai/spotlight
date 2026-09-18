@@ -40,8 +40,77 @@ describe('GitHubWebhookTranslation', () => {
         activity: 'merged',
         branch: 'spotlight/task_1',
         pullRequest: 'https://github.com/acme/api/pull/7',
+        about: null,
         remark: null,
         byBot: false,
+      });
+    });
+
+    it('reads a pull request opened, reopened or ready for review', () => {
+      for (const action of ['opened', 'reopened', 'ready_for_review']) {
+        expect(
+          activity('pull_request', {
+            action,
+            pull_request: pull({ merged: false }),
+          }),
+        ).toMatchObject({ activity: 'opened' });
+      }
+    });
+
+    it('says nothing of a pull request edited or pushed to', () => {
+      for (const action of ['edited', 'synchronize']) {
+        expect(
+          activity('pull_request', { action, pull_request: pull() }),
+        ).toBeNull();
+      }
+    });
+
+    it('says what the pull request is, who opened it and whether it is a draft', () => {
+      expect(
+        activity('pull_request', {
+          action: 'opened',
+          pull_request: pull({
+            merged: false,
+            title: ' Retry uploads ',
+            body: 'Uploads give up too soon.',
+            draft: true,
+            user: { login: 'octocat' },
+          }),
+        })?.about,
+      ).toEqual({
+        title: 'Retry uploads',
+        body: 'Uploads give up too soon.',
+        author: 'octocat',
+        draft: true,
+      });
+    });
+
+    it('reads a pull request a bot opened, since opening one is not answering itself', () => {
+      expect(
+        activity('pull_request', {
+          action: 'opened',
+          pull_request: pull({ merged: false }),
+          sender: { type: 'Bot' },
+        }),
+      ).toMatchObject({ activity: 'opened', byBot: false });
+    });
+
+    it('says what the pull request a comment was left on is', () => {
+      expect(
+        activity('issue_comment', {
+          action: 'created',
+          issue: {
+            title: 'Retry uploads',
+            user: { login: 'octocat' },
+            pull_request: { html_url: 'https://github.com/acme/api/pull/7' },
+          },
+          comment: { body: '@spotlight have a look' },
+        })?.about,
+      ).toEqual({
+        title: 'Retry uploads',
+        body: null,
+        author: 'octocat',
+        draft: false,
       });
     });
 

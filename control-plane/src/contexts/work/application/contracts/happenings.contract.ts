@@ -1,5 +1,11 @@
 export const PULL_REQUEST_MARK = 'git.pull-request';
 
+export const REVIEW_MARK = 'github.review';
+
+export const REVIEW_ROLE = 'review';
+
+export type ReviewAsking = 'opened' | 'mentioned';
+
 export type HappeningState = 'raised' | 'resolved';
 
 export interface MarkWorn {
@@ -20,6 +26,14 @@ export interface ConcernsWord {
   readonly marks: readonly MarkWorn[];
 }
 
+export interface ReviewWord {
+  readonly asking: ReviewAsking;
+  readonly pullRequest: string;
+  readonly author: string | null;
+  readonly draft: boolean;
+  readonly branch: string | null;
+}
+
 export interface OpensWord {
   readonly onto: string;
   readonly at: string | null;
@@ -27,6 +41,7 @@ export interface OpensWord {
   readonly description: string | null;
   readonly assignEmail: string | null;
   readonly marks: readonly MarkWorn[];
+  readonly review?: ReviewWord | null;
 }
 
 export interface Arriving {

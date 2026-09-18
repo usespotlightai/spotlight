@@ -1,4 +1,7 @@
-import { OPENING_PULL_REQUESTS } from '@work/domain/services/built-in-skills';
+import {
+  OPENING_PULL_REQUESTS,
+  REVIEWING_PULL_REQUESTS,
+} from '@work/domain/services/built-in-skills';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import type { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
@@ -14,6 +17,10 @@ export interface BuiltInTool {
 export const PULL_REQUEST = Tool.of('pull-request');
 
 export const PROPOSE_TASK = Tool.of('propose-task');
+
+export const REVIEW_COMMENT = Tool.of('review-comment');
+
+export const REVIEW = Tool.of('review');
 
 export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
   {
@@ -48,6 +55,85 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
           required: false,
           defaulted: false,
           piped: false,
+        },
+      ],
+    }),
+  },
+  {
+    worksOn: 'task',
+    skill: REVIEWING_PULL_REQUESTS,
+    declared: DeclaredTool.of({
+      tool: REVIEW_COMMENT,
+      description:
+        'Leave a comment on a line of the pull request this task reviews. It is held until the review is submitted.',
+      inputs: [
+        {
+          name: 'path',
+          type: 'string',
+          description: 'The file, from the root of the repository',
+          required: true,
+          defaulted: false,
+          piped: false,
+        },
+        {
+          name: 'line',
+          type: 'number',
+          description: 'The line it is about, or the last of several',
+          required: true,
+          defaulted: false,
+          piped: false,
+        },
+        {
+          name: 'start-line',
+          type: 'number',
+          description: 'The first line, where it is about several',
+          required: false,
+          defaulted: false,
+          piped: false,
+        },
+        {
+          name: 'side',
+          type: 'string',
+          description:
+            'new for a line the pull request leaves, old for one it removes',
+          required: false,
+          defaulted: false,
+          piped: false,
+        },
+        {
+          name: 'body',
+          type: 'string',
+          description: 'What is wrong and what would fix it, as Markdown',
+          required: true,
+          defaulted: false,
+          piped: true,
+        },
+      ],
+    }),
+  },
+  {
+    worksOn: 'task',
+    skill: REVIEWING_PULL_REQUESTS,
+    declared: DeclaredTool.of({
+      tool: REVIEW,
+      description:
+        'Submit the comments left so far as one review of the pull request this task reviews.',
+      inputs: [
+        {
+          name: 'verdict',
+          type: 'string',
+          description: 'comment, approve or request-changes',
+          required: false,
+          defaulted: false,
+          piped: false,
+        },
+        {
+          name: 'body',
+          type: 'string',
+          description: 'What the review comes down to, as Markdown',
+          required: false,
+          defaulted: false,
+          piped: true,
         },
       ],
     }),

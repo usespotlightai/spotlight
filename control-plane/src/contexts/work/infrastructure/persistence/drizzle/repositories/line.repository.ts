@@ -22,6 +22,7 @@ import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
+import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import { StationCheck } from '@work/domain/value-objects/station-check.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
@@ -35,6 +36,7 @@ import {
   line,
   lineReaction,
   lineRepository,
+  type ReviewsRow,
   station,
   stationRoute,
   stationSkill,
@@ -54,6 +56,19 @@ type Ways = {
   tools: Map<string, Tool[]>;
   skills: Map<string, SkillKey[]>;
 };
+
+const reviewsRow = (policy: ReviewPolicy | null): ReviewsRow | null =>
+  policy
+    ? {
+        start: policy.start,
+        mention: policy.mention,
+        skip: {
+          spotlight: policy.skip.spotlight,
+          drafts: policy.skip.drafts,
+          authors: [...policy.skip.authors],
+        },
+      }
+    : null;
 
 const toStation = (row: StationRow, ways: Ways): Station =>
   Station.of({
@@ -96,6 +111,7 @@ const toLine = (
     stations: stations.map((row) => toStation(row, ways)),
     reactions,
     role: line.role ? LineRole.of(line.role) : null,
+    reviews: line.reviews ? ReviewPolicy.of(line.reviews) : null,
     repositories,
     version: line.version,
   });
@@ -186,6 +202,7 @@ export class DrizzleLineRepository implements LineRepository {
       key: added.key.value,
       name: added.name.value,
       role: added.role?.value ?? null,
+      reviews: reviewsRow(added.reviews),
     });
 
     await this.context.db.insert(station).values(rowsOf(added));
@@ -207,6 +224,7 @@ export class DrizzleLineRepository implements LineRepository {
         key: saved.key.value,
         name: saved.name.value,
         role: saved.role?.value ?? null,
+        reviews: reviewsRow(saved.reviews),
       })
       .where(and(eq(line.id, saved.id.value), eq(line.version, saved.version)))
       .returning({ id: line.id });

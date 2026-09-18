@@ -24,27 +24,25 @@ export function NewReviewComment({ spot, open }: NewReviewCommentProps) {
       appear={reviewing.composerAppears}
       className="px-3 py-2 font-sans"
     >
-      <div className="max-w-lg">
-        <ReviewComposer
-          label={`Comment on ${linesOf(spot)}`}
-          submitLabel="Add to review"
-          avatar={<ReviewerAvatar />}
-          pending={draft.isPending}
-          failed={draft.isError}
-          onCancel={() => reviewing.compose(null)}
-          onSubmit={(body) =>
-            draft.mutate(
-              {
-                teamId: reviewing.teamId,
-                runId: reviewing.runId,
-                body,
-                on: spot,
-              },
-              { onSuccess: () => reviewing.compose(null) },
-            )
-          }
-        />
-      </div>
+      <ReviewComposer
+        label={`Comment on ${linesOf(spot)}`}
+        submitLabel="Add to review"
+        avatar={<ReviewerAvatar />}
+        pending={draft.isPending}
+        failed={draft.isError}
+        onCancel={() => reviewing.compose(null)}
+        onSubmit={(body) =>
+          draft.mutate(
+            {
+              teamId: reviewing.teamId,
+              runId: reviewing.runId,
+              body,
+              on: spot,
+            },
+            { onSuccess: () => reviewing.compose(null) },
+          )
+        }
+      />
     </Unfold>
   );
 }

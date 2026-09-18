@@ -349,12 +349,15 @@ describe('Run', () => {
   });
 
   describe('being withdrawn before a runner takes it up', () => {
-    it('ends a queued run without announcing it as abandoned', () => {
+    it('ends a queued run as withdrawn, not as abandoned', () => {
       const withdrawn = queued().withdrawn('The task moved on.');
 
       expect(withdrawn.state).toBe('failed');
+      expect(withdrawn.hasEnded).toBe(true);
       expect(withdrawn.outcome?.message).toBe('The task moved on.');
-      expect(withdrawn.pullEvents()).toEqual([]);
+      expect(withdrawn.pullEvents().map((each) => each.kind)).toEqual([
+        'run.withdrawn',
+      ]);
     });
 
     it('refuses to withdraw a run that is already being worked', () => {
