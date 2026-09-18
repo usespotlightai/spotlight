@@ -1,6 +1,7 @@
 export interface WaitingDto {
   readonly conversationId: string;
   readonly said: string;
+  readonly awaitsApproval: boolean;
 }
 
 export interface BoundTaskDto {

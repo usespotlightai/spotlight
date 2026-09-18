@@ -16,6 +16,7 @@ import type {
 export interface BoundTaskWaiting {
   readonly conversationId: string;
   readonly said: string;
+  readonly awaitsApproval: boolean;
 }
 
 export interface BoundTask {

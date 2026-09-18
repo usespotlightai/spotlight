@@ -217,6 +217,9 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
         tool: declared.tool,
         description: declared.description,
         inputs: declared.inputs,
+        approval: declared.approval
+          ? { because: declared.approval.because }
+          : null,
       },
       defaultFor: (input) => {
         const written = compiled.inputs.find(

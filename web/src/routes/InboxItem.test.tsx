@@ -274,7 +274,7 @@ describe('InboxItem', () => {
     expect(said.closest('li')).not.toHaveTextContent('Triage');
   });
 
-  it('shows a person by name rather than by station', () => {
+  it('shows what a person said without naming them', () => {
     waiting.mockReturnValue(
       item([
         message(),
@@ -282,33 +282,15 @@ describe('InboxItem', () => {
           position: 1,
           body: 'The retry queue.',
           voice: 'person',
-          author: { id: 'user_1', name: 'Leon', image: null },
+          author: { id: 'user_2', name: 'Maya', image: null },
         }),
       ]),
     );
 
     renderItem();
 
-    expect(screen.getByText('Leon')).toBeInTheDocument();
-  });
-
-  it('leaves your own words unnamed', () => {
-    viewer.mockReturnValue({ user: { id: 'user_1' } });
-    waiting.mockReturnValue(
-      item([
-        message({
-          position: 1,
-          body: 'The retry queue.',
-          voice: 'person',
-          author: { id: 'user_1', name: 'Leon', image: null },
-        }),
-      ]),
-    );
-
-    renderItem();
-
-    expect(screen.queryByText('Leon')).not.toBeInTheDocument();
     expect(screen.getByText('The retry queue.')).toBeInTheDocument();
+    expect(screen.queryByText('Maya')).not.toBeInTheDocument();
   });
 
   it('opens on the prompt the station was given', () => {

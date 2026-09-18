@@ -77,6 +77,7 @@ const CONVERSATION: RunConversationResponseDto = {
       runId: RUN_ID,
       body: 'Drained `webhook-retries`: 1,201 jobs replayed and 3 failed again with a `410 Gone` from endpoints that no longer exist.\n\nShould I open a pull request that stops retrying after a `410`?',
       attachments: [],
+      approval: null,
       at: minutesAgo(22),
       author: null,
     },

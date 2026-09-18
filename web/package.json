@@ -14,7 +14,7 @@
     "test:watch": "vitest",
     "icons": "npx @svgr/cli --out-dir src/components/shared/icons --typescript --jsx-runtime automatic -- assets/icons && npm run check",
     "api:generate": "openapi-ts",
-    "storybook": "storybook dev -p 6006",
+    "storybook": "WATCHPACK_POLLING=true storybook dev -p 6006",
     "build-storybook": "storybook build"
   },
   "dependencies": {

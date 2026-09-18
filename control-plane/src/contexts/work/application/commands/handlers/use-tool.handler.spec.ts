@@ -1,3 +1,4 @@
+import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -30,22 +31,27 @@ import {
   PROPOSE_TASK,
   PULL_REQUEST,
 } from '@work/domain/services/built-in-tools';
+import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
+import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
-import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
+import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
+import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
+import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-12T09:00:00.000Z');
@@ -101,6 +107,11 @@ const chat = () =>
     now: NOW,
     newId: () => 'chat_1',
   }).handedTo(RunId.of('run_1'), NOW);
+
+const NEEDS_APPROVAL = ApprovalNeeded.of(
+  'linear.comment',
+  'It posts publicly, under the team’s name.',
+);
 
 const LINEAR_COMMENT = DeclaredTool.of({
   tool: Tool.of('linear.comment'),
@@ -169,9 +180,29 @@ interface Called {
 
 const using = (
   run: Run = claimed(),
-  over: { lineAt?: string | null; task?: Task } = {},
+  over: {
+    lineAt?: string | null;
+    task?: Task;
+    approval?: ApprovalNeeded | null;
+    failing?: boolean;
+  } = {},
 ) => {
   const called: Called[] = [];
+  let standing = over.task ?? task();
+  const tasks = {
+    find: async () => standing,
+    save: async (saved: Task) => {
+      standing = saved;
+    },
+  } as unknown as TaskRepository;
+  const linear = over.approval
+    ? DeclaredTool.of({
+        tool: LINEAR_COMMENT.tool,
+        description: LINEAR_COMMENT.description,
+        inputs: LINEAR_COMMENT.inputs,
+        approval: over.approval,
+      })
+    : LINEAR_COMMENT;
 
   const builtIns = new BuiltInTools([
     {
@@ -194,11 +225,14 @@ const using = (
     reach: async (tool, context): Promise<ReachableTool | null> =>
       tool.equals(LINEAR_COMMENT.tool) && context.kind === 'task'
         ? {
-            declared: LINEAR_COMMENT,
+            declared: linear,
             defaultFor: (input) =>
               input.name === 'issue' ? 'ENG-12' : undefined,
             call: async (inputs) => {
               called.push({ tool: tool.value, context, inputs });
+              if (over.failing) {
+                throw new UpstreamRefusedError('using linear.comment', 'down');
+              }
               return 'https://linear.app/acme/issue/ENG-12#comment-1';
             },
           }
@@ -210,13 +244,14 @@ const using = (
   const handler = new UseToolHandler(
     new RunWorks(
       { findById: async () => run } as unknown as RunRepository,
-      { find: async () => over.task ?? task() } as unknown as TaskRepository,
+      tasks,
       { find: async () => chat() } as unknown as ChatRepository,
       {
         holding: async (stationId: StationId) =>
           stationId.value === lineAt ? LINE : null,
         ofTeam: async () => [LINE],
       } as unknown as LineRepository,
+      { now: () => NOW, sleep: async () => {} },
     ),
     builtIns,
     integrationTools,
@@ -225,7 +260,7 @@ const using = (
   const reach = (tool: string, input: unknown = { title: 'Fix the queue' }) =>
     handler.execute(new UseToolCommand('run_1', 'runner_1', tool, input));
 
-  return { reach, called };
+  return { reach, called, standing: () => standing };
 };
 
 describe('UseToolHandler', () => {
@@ -363,5 +398,251 @@ describe('UseToolHandler', () => {
     await expect(reach('Pull Request')).rejects.toMatchObject({
       kind: 'invalid-input',
     });
+  });
+
+  it('puts a tool that needs approving to a person instead of calling it', async () => {
+    const { reach, called, standing } = using(claimed(['linear.comment']), {
+      approval: NEEDS_APPROVAL,
+    });
+
+    await expect(
+      reach('linear.comment', { body: 'Fixed.' }),
+    ).rejects.toMatchObject({ kind: 'conflict' });
+    expect(called).toEqual([]);
+
+    const asked = standing().notes[standing().notes.length - 1];
+    expect(asked?.kind).toBe('asked');
+    expect(asked?.form).toBe('approval');
+    expect(asked?.approval?.call.tool.value).toBe('linear.comment');
+    expect(asked?.approval?.call.inputs.values).toEqual({
+      issue: 'ENG-12',
+      body: 'Fixed.',
+    });
+    expect(asked?.approval?.because).toBe(NEEDS_APPROVAL.because);
+    expect(asked?.approval?.standing).toBe('asked');
+    expect(asked?.approval?.at.value).toBe('station_1');
+    expect(asked?.body.value).toContain('It posts publicly');
+    expect(asked?.body.value).toContain('Fixed.');
+    expect(standing().running).toBe(false);
+  });
+
+  it('asks once while a person still owes an answer', async () => {
+    const { reach, standing } = using(claimed(['linear.comment']), {
+      approval: NEEDS_APPROVAL,
+    });
+
+    await expect(reach('linear.comment', { body: 'Fixed.' })).rejects.toThrow();
+    const asked = standing().notes.length;
+    await expect(reach('linear.comment', { body: 'Fixed.' })).rejects.toThrow();
+
+    expect(standing().notes).toHaveLength(asked);
+  });
+
+  it('calls a tool the person approved, and spends that approval on the one call', async () => {
+    const approved = task().clearFor(
+      ToolCall.of(
+        Tool.of('linear.comment'),
+        ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+      ),
+      NEEDS_APPROVAL,
+      {
+        station: StationName.of('Backlog'),
+        body: TaskNoteBody.of('Approve linear.comment?'),
+        at: NOW,
+        voice: Voice.station(RunId.of('run_1')),
+      },
+      RunId.of('run_1'),
+    ).task;
+
+    const { reach, called, standing } = using(claimed(['linear.comment']), {
+      approval: NEEDS_APPROVAL,
+      task: Task.rehydrate({
+        ...approved.answered(
+          NotePosition.of(approved.notes.length - 1),
+          {
+            station: StationName.of('Backlog'),
+            body: TaskNoteBody.of('Approved.'),
+            at: NOW,
+            voice: Voice.person(UserId.of('user_1')),
+          },
+          'granted',
+        ),
+        currentRunId: RunId.of('run_1'),
+      }),
+    });
+
+    await expect(reach('linear.comment', { body: 'Fixed.' })).resolves.toEqual({
+      output: 'https://linear.app/acme/issue/ENG-12#comment-1',
+    });
+    expect(called).toHaveLength(1);
+    expect(
+      standing().notes.find((note) => note.approval)?.approval?.spent,
+    ).toBe(true);
+  });
+
+  it('hands the approval back where the call it was spent on failed', async () => {
+    const asked = task().clearFor(
+      ToolCall.of(
+        Tool.of('linear.comment'),
+        ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+      ),
+      NEEDS_APPROVAL,
+      {
+        station: StationName.of('Backlog'),
+        body: TaskNoteBody.of('Approve linear.comment?'),
+        at: NOW,
+        voice: Voice.station(RunId.of('run_1')),
+      },
+      RunId.of('run_1'),
+    ).task;
+    const granted = asked.answered(
+      NotePosition.of(asked.notes.length - 1),
+      {
+        station: StationName.of('Backlog'),
+        body: TaskNoteBody.of('Approved.'),
+        at: NOW,
+        voice: Voice.person(UserId.of('user_1')),
+      },
+      'granted',
+    );
+
+    const { reach, called, standing } = using(claimed(['linear.comment']), {
+      approval: NEEDS_APPROVAL,
+      failing: true,
+      task: Task.rehydrate({ ...granted, currentRunId: RunId.of('run_1') }),
+    });
+
+    await expect(
+      reach('linear.comment', { body: 'Fixed.' }),
+    ).rejects.toMatchObject({ kind: 'refused-upstream' });
+    expect(called).toHaveLength(1);
+    expect(
+      standing().notes.find((note) => note.approval)?.approval?.grants,
+    ).toBe(true);
+  });
+
+  it('refuses a tool the person rejected, in their own words, without asking again', async () => {
+    const asked = task().clearFor(
+      ToolCall.of(
+        Tool.of('linear.comment'),
+        ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+      ),
+      NEEDS_APPROVAL,
+      {
+        station: StationName.of('Backlog'),
+        body: TaskNoteBody.of('Approve linear.comment?'),
+        at: NOW,
+        voice: Voice.station(RunId.of('run_1')),
+      },
+      RunId.of('run_1'),
+    ).task;
+    const rejected = asked.answered(
+      NotePosition.of(asked.notes.length - 1),
+      {
+        station: StationName.of('Backlog'),
+        body: TaskNoteBody.of('Not before the release.'),
+        at: NOW,
+        voice: Voice.person(UserId.of('user_1')),
+      },
+      'refused',
+    );
+
+    const { reach, called, standing } = using(claimed(['linear.comment']), {
+      approval: NEEDS_APPROVAL,
+      task: Task.rehydrate({ ...rejected, currentRunId: RunId.of('run_1') }),
+    });
+    const before = standing().notes.length;
+
+    await expect(
+      reach('linear.comment', { body: 'Fixed.' }),
+    ).rejects.toMatchObject({ kind: 'not-allowed' });
+    expect(called).toEqual([]);
+    expect(standing().notes).toHaveLength(before);
+  });
+
+  it('asks again where the person answered in words without deciding', async () => {
+    const asked = task().clearFor(
+      ToolCall.of(
+        Tool.of('linear.comment'),
+        ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+      ),
+      NEEDS_APPROVAL,
+      {
+        station: StationName.of('Backlog'),
+        body: TaskNoteBody.of('Approve linear.comment?'),
+        at: NOW,
+        voice: Voice.station(RunId.of('run_1')),
+      },
+      RunId.of('run_1'),
+    ).task;
+    const talkedBack = asked.answered(NotePosition.of(asked.notes.length - 1), {
+      station: StationName.of('Backlog'),
+      body: TaskNoteBody.of('Mention the ticket too.'),
+      at: NOW,
+      voice: Voice.person(UserId.of('user_1')),
+    });
+
+    const { reach, called, standing } = using(claimed(['linear.comment']), {
+      approval: NEEDS_APPROVAL,
+      task: Task.rehydrate({ ...talkedBack, currentRunId: RunId.of('run_1') }),
+    });
+
+    await expect(
+      reach('linear.comment', { body: 'Fixed.' }),
+    ).rejects.toMatchObject({ kind: 'conflict' });
+    expect(called).toEqual([]);
+    expect(standing().notes.filter((note) => note.approval?.open)).toHaveLength(
+      2,
+    );
+    expect(standing().awaitingReview).toBe(true);
+  });
+
+  it('asks again where the agent changed what it would send', async () => {
+    const asked = task().clearFor(
+      ToolCall.of(
+        Tool.of('linear.comment'),
+        ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+      ),
+      NEEDS_APPROVAL,
+      {
+        station: StationName.of('Backlog'),
+        body: TaskNoteBody.of('Approve linear.comment?'),
+        at: NOW,
+        voice: Voice.station(RunId.of('run_1')),
+      },
+      RunId.of('run_1'),
+    ).task;
+    const granted = asked.answered(
+      NotePosition.of(asked.notes.length - 1),
+      {
+        station: StationName.of('Backlog'),
+        body: TaskNoteBody.of('Approved.'),
+        at: NOW,
+        voice: Voice.person(UserId.of('user_1')),
+      },
+      'granted',
+    );
+
+    const { reach, called } = using(claimed(['linear.comment']), {
+      approval: NEEDS_APPROVAL,
+      task: Task.rehydrate({ ...granted, currentRunId: RunId.of('run_1') }),
+    });
+
+    await expect(
+      reach('linear.comment', { body: 'Something else.' }),
+    ).rejects.toMatchObject({ kind: 'conflict' });
+    expect(called).toEqual([]);
+  });
+
+  it('tells the agent in the manifest that a tool has to be approved', () => {
+    expect(
+      toolManifestOf(
+        DeclaredTool.of({
+          tool: LINEAR_COMMENT.tool,
+          description: LINEAR_COMMENT.description,
+          approval: NEEDS_APPROVAL,
+        }),
+      ).description,
+    ).toContain('Needs a person’s approval');
   });
 });

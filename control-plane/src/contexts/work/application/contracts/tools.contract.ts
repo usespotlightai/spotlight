@@ -15,8 +15,13 @@ export interface ToolInputDeclaration {
   readonly piped: boolean;
 }
 
+export interface ApprovalDeclaration {
+  readonly because: string;
+}
+
 export interface ToolDeclaration {
   readonly tool: string;
   readonly description: string;
   readonly inputs: readonly ToolInputDeclaration[];
+  readonly approval: ApprovalDeclaration | null;
 }

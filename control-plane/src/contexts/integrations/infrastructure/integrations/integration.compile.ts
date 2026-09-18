@@ -1,6 +1,7 @@
 import { Integration } from '@integrations/domain/entities/integration.entity';
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
 import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/invalid-integration-part.error';
+import { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
 import { Binding } from '@integrations/domain/value-objects/binding.vo';
 import { CronExpression } from '@integrations/domain/value-objects/cron-expression.vo';
 import { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
@@ -958,6 +959,12 @@ export const compileIntegration = (path: string, text: string): Compiled => {
   const pollDeclares = (file.poll?.events ?? []).map((event, at) =>
     compiler.declared(event, `poll.events.${at}`, source),
   );
+  const approvalOf = (
+    written: { because: string } | undefined,
+    name: string,
+  ): ApprovalNeeded | null =>
+    written ? ApprovalNeeded.of(written, `tools.${name}.approval`) : null;
+
   const offers = [...tools.values()].map((tool) =>
     compiler.part(`tools.${tool.name}`, () =>
       OfferedTool.of({
@@ -965,6 +972,7 @@ export const compileIntegration = (path: string, text: string): Compiled => {
         name: tool.name,
         description: file.tools[tool.name]?.description ?? '',
         does: file.tools[tool.name]?.does ?? '',
+        approval: approvalOf(file.tools[tool.name]?.approval, tool.name),
         inputs: tool.inputs.map((input) => ({
           name: input.name,
           type: input.type,

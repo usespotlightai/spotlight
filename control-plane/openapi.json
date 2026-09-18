@@ -922,6 +922,9 @@
           },
           "404": {
             "description": "No such conversation for this caller"
+          },
+          "409": {
+            "description": "Only a conversation waiting on a tool call can be approved or rejected"
           }
         },
         "summary": "Answer what a conversation is waiting on, and let it carry on",
@@ -4882,6 +4885,59 @@
           "image"
         ]
       },
+      "InboxApprovalInputResponseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "issue"
+          },
+          "value": {
+            "type": "string",
+            "example": "ENG-12"
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ]
+      },
+      "InboxApprovalResponseDto": {
+        "type": "object",
+        "properties": {
+          "tool": {
+            "type": "string",
+            "example": "linear.comment"
+          },
+          "because": {
+            "type": "string",
+            "example": "It posts publicly, under the team’s name.",
+            "description": "Why the tool cannot run until a person says so"
+          },
+          "inputs": {
+            "description": "What the tool would be called with, exactly as it stands",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InboxApprovalInputResponseDto"
+            }
+          },
+          "standing": {
+            "type": "string",
+            "example": "asked",
+            "enum": [
+              "asked",
+              "granted",
+              "refused"
+            ]
+          }
+        },
+        "required": [
+          "tool",
+          "because",
+          "inputs",
+          "standing"
+        ]
+      },
       "InboxMessageResponseDto": {
         "type": "object",
         "properties": {
@@ -4905,7 +4961,8 @@
             "enum": [
               "words",
               "setup",
-              "settled"
+              "settled",
+              "approval"
             ],
             "description": "What it shows, which is not what it did"
           },
@@ -4961,6 +5018,16 @@
                 "$ref": "#/components/schemas/InboxAuthorResponseDto"
               }
             ]
+          },
+          "approval": {
+            "nullable": true,
+            "description": "The tool call this asks a person to approve, where it is one",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InboxApprovalResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -4975,7 +5042,8 @@
           "body",
           "attachments",
           "at",
-          "author"
+          "author",
+          "approval"
         ]
       },
       "InboxItemResponseDto": {
@@ -5120,6 +5188,10 @@
             "items": {
               "type": "string"
             }
+          },
+          "approve": {
+            "type": "boolean",
+            "description": "Where the conversation asks for a tool call to be approved: true lets it run, false rejects it. Left out, the words answer it and the tool call stays undecided. Refused anywhere else."
           }
         },
         "required": [

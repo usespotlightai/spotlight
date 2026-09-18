@@ -24,6 +24,8 @@ export const SLUG = 'acme';
 export const TEAM_ID = 'team_platform';
 export const OPENED_ITEM_ID = 'task_retries:0';
 
+export const APPROVAL_ITEM_ID = 'task_release_note:0';
+
 const STATIONS = {
   triage: { name: 'Triage', color: '#edc12b', position: 0 },
   spec: { name: 'Spec', color: '#b36ae2', position: 1 },
@@ -51,6 +53,7 @@ const said = (
     runId: null,
     attachments: [],
     author: null,
+    approval: null,
     ...rest,
   };
 };
@@ -132,6 +135,33 @@ const INBOX: InboxItemResponseDto[] = [
         runId: 'run_retries_2',
         at: '2026-09-15T10:31:00.000Z',
         body: 'Drained `webhook-retries`: 1,201 jobs replayed and 3 failed again with a `410 Gone` from endpoints that no longer exist.\n\nShould I open a pull request that stops retrying after a `410`?',
+      }),
+    ],
+  }),
+  waiting({
+    taskId: 'task_release_note',
+    title: 'Tell the reporter the queue is drained',
+    at: STATIONS.implementation,
+    notes: [
+      said({
+        position: 0,
+        runId: 'run_release_note_1',
+        form: 'approval',
+        at: '2026-09-15T11:10:00.000Z',
+        body: 'I need your approval before I use `linear.comment`.',
+        approval: {
+          tool: 'linear.comment',
+          because: 'It posts publicly on the issue, under the team’s name.',
+          inputs: [
+            { name: 'issue', value: 'ENG-412' },
+            {
+              name: 'body',
+              value:
+                'Drained webhook-retries: 1,201 jobs replayed. Three endpoints are gone for good and have been dropped.',
+            },
+          ],
+          standing: 'asked',
+        },
       }),
     ],
   }),
@@ -257,6 +287,34 @@ const JOURNAL: RunJournalResponseDto[] = [
   },
 ];
 
+const RELEASE_NOTE_JOURNAL: RunJournalResponseDto[] = [
+  {
+    runId: 'run_release_note_1',
+    attempt: 1,
+    ms: 96_000,
+    spans: [],
+    marks: {
+      startedAt: '2026-09-15T11:08:00.000Z',
+      readyAt: null,
+      spokeFrom: null,
+      spokeTo: null,
+      endedAt: '2026-09-15T11:10:00.000Z',
+    },
+    spent: { used: 21_304, size: 200_000 },
+    steps: [
+      step({
+        kind: 'thought',
+        status: null,
+        text: 'The reporter is waiting on ENG-412, so the drain should be written up there.',
+      }),
+      step({
+        tool: 'execute',
+        text: 'spotlight linear comment --issue ENG-412',
+      }),
+    ],
+  },
+];
+
 const station = (
   key: keyof typeof STATIONS,
   kind: StationResponseDto['kind'],
@@ -327,6 +385,10 @@ const WORKSPACE: WorkspaceResponseDto = {
 export const seedInbox = (client: QueryClient) => {
   client.setQueryData(inboxKeys.forWorkspace(SLUG), INBOX);
   client.setQueryData(journalKeys.forTask('task_retries'), JOURNAL);
+  client.setQueryData(
+    journalKeys.forTask('task_release_note'),
+    RELEASE_NOTE_JOURNAL,
+  );
   client.setQueryData(workspaceKeys.detail(SLUG), WORKSPACE);
   client.setQueryData(taskKeys.forTeam(TEAM_ID), TASKS);
   client.setQueryData(lineKeys.forTeam(TEAM_ID), LINES);
@@ -335,6 +397,56 @@ export const seedInbox = (client: QueryClient) => {
     { fullName: 'acme/api' },
     { fullName: 'acme/worker' },
   ]);
+};
+
+const DECIDED_AT = '2026-09-15T11:24:00.000Z';
+
+const decided = (
+  standing: 'granted' | 'refused',
+  body: string,
+): InboxItemResponseDto[] =>
+  INBOX.map((item) =>
+    item.taskId !== 'task_release_note'
+      ? item
+      : {
+          ...item,
+          askedAt: DECIDED_AT,
+          notes: [
+            ...item.notes.map((note) =>
+              note.approval
+                ? { ...note, approval: { ...note.approval, standing } }
+                : note,
+            ),
+            said({
+              position: item.notes.length,
+              kind: 'answered',
+              form: 'approval',
+              voice: 'person',
+              author: { id: 'user_2', name: 'Maya Chen', image: null },
+              at: DECIDED_AT,
+              body,
+            }),
+          ],
+        },
+  );
+
+export const seedApproved = (client: QueryClient) => {
+  seedInbox(client);
+  client.setQueryData(
+    inboxKeys.forWorkspace(SLUG),
+    decided('granted', 'Approved.'),
+  );
+};
+
+export const seedRejected = (client: QueryClient) => {
+  seedInbox(client);
+  client.setQueryData(
+    inboxKeys.forWorkspace(SLUG),
+    decided(
+      'refused',
+      'Not before the release. Hold it until the fix is deployed on Thursday.',
+    ),
+  );
 };
 
 export const emptyInbox = (client: QueryClient) => {

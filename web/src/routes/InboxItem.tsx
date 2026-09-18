@@ -15,10 +15,10 @@ import {
   Breadcrumbs,
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
+import { useAnswerInboxItem } from '@/hooks/api/useAnswerInboxItem';
 import { inboxKeys, useInbox } from '@/hooks/api/useInbox';
 import { useReadInboxItem } from '@/hooks/api/useReadInboxItem';
 import { useRunStream } from '@/hooks/api/useRunStream';
-import { useSession } from '@/hooks/api/useSession';
 import { journalKeys, useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { shownAt } from '@/lib/inbox';
@@ -34,9 +34,9 @@ export function InboxItem() {
   const item = inbox.data?.find((each) => each.id === itemId);
   const journal = useTaskJournal(slug, item?.taskId);
   const worked = journal.data;
-  const { data: session } = useSession();
   const { data: workspace } = useWorkspace(slug);
   const read = useReadInboxItem();
+  const answer = useAnswerInboxItem();
 
   const queryClient = useQueryClient();
 
@@ -136,7 +136,17 @@ export function InboxItem() {
             notes: item.notes,
           }}
           worked={worked ?? []}
-          viewerId={session?.user.id}
+          deciding={{
+            pending: answer.isPending,
+            onDecide: (approve, said) =>
+              answer.mutate({
+                slug,
+                itemId: item.id,
+                body: said,
+                attachments: [],
+                approve,
+              }),
+          }}
           openAt={shownAt(item.notes, params.get('run'))}
           live={
             item.runId && item.working ? (

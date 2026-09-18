@@ -23,7 +23,6 @@ import {
   useRunConversation,
 } from '@/hooks/api/useRunConversation';
 import { useRunStream } from '@/hooks/api/useRunStream';
-import { useSession } from '@/hooks/api/useSession';
 import { journalKeys, useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { teamRunKeys, useTeamRuns } from '@/hooks/api/useTeamRuns';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
@@ -41,7 +40,6 @@ export function Run() {
   const said = conversation.data;
   const journal = useTaskJournal(slug, said?.taskId);
   const worked = journal.data;
-  const { data: session } = useSession();
   const { data: workspace } = useWorkspace(slug);
 
   const queryClient = useQueryClient();
@@ -181,7 +179,6 @@ export function Run() {
             <Conversation
               item={item}
               worked={worked ?? []}
-              viewerId={session?.user.id}
               opening={
                 said?.briefing ? (
                   <RunBriefing

@@ -1,5 +1,6 @@
 import { HostConnected } from '@integrations/domain/events/host-connected.event';
 import { HostRenewalRefused } from '@integrations/domain/events/host-renewal-refused.event';
+import { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
 import { Binding } from '@integrations/domain/value-objects/binding.vo';
 import { CronExpression } from '@integrations/domain/value-objects/cron-expression.vo';
 import { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
@@ -14,6 +15,7 @@ import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { Webhook } from '@integrations/domain/value-objects/webhook.vo';
 
 export const INTEGRATIONS_EVENT_TYPES = [
+  ApprovalNeeded,
   Binding,
   CronExpression,
   DeclaredHappening,

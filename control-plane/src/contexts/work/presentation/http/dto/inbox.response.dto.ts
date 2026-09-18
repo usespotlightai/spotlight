@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  APPROVAL_STANDING,
   NOTE_FORMS,
   NOTE_KINDS,
   NOTE_VOICES,
@@ -20,6 +21,52 @@ export class InboxAuthorResponseDto {
     this.id = id;
     this.name = name;
     this.image = image;
+  }
+}
+
+export class InboxApprovalInputResponseDto {
+  @ApiProperty({ example: 'issue' })
+  readonly name: string;
+
+  @ApiProperty({ example: 'ENG-12' })
+  readonly value: string;
+
+  constructor(name: string, value: string) {
+    this.name = name;
+    this.value = value;
+  }
+}
+
+export class InboxApprovalResponseDto {
+  @ApiProperty({ example: 'linear.comment' })
+  readonly tool: string;
+
+  @ApiProperty({
+    example: 'It posts publicly, under the team’s name.',
+    description: 'Why the tool cannot run until a person says so',
+  })
+  readonly because: string;
+
+  @ApiProperty({
+    type: InboxApprovalInputResponseDto,
+    isArray: true,
+    description: 'What the tool would be called with, exactly as it stands',
+  })
+  readonly inputs: readonly InboxApprovalInputResponseDto[];
+
+  @ApiProperty({ example: 'asked', enum: [...APPROVAL_STANDING] })
+  readonly standing: string;
+
+  constructor(
+    tool: string,
+    because: string,
+    inputs: readonly InboxApprovalInputResponseDto[],
+    standing: string,
+  ) {
+    this.tool = tool;
+    this.because = because;
+    this.inputs = inputs;
+    this.standing = standing;
   }
 }
 
@@ -83,6 +130,13 @@ export class InboxMessageResponseDto {
   })
   readonly author: InboxAuthorResponseDto | null;
 
+  @ApiProperty({
+    type: InboxApprovalResponseDto,
+    nullable: true,
+    description: 'The tool call this asks a person to approve, where it is one',
+  })
+  readonly approval: InboxApprovalResponseDto | null;
+
   constructor(
     position: number,
     kind: string,
@@ -96,6 +150,7 @@ export class InboxMessageResponseDto {
     attachments: readonly AttachmentResponseDto[],
     at: string,
     author: InboxAuthorResponseDto | null,
+    approval: InboxApprovalResponseDto | null,
   ) {
     this.position = position;
     this.kind = kind;
@@ -109,6 +164,7 @@ export class InboxMessageResponseDto {
     this.attachments = attachments;
     this.at = at;
     this.author = author;
+    this.approval = approval;
   }
 }
 
@@ -280,4 +336,11 @@ export class AnswerInboxItemRequestDto {
     description: 'Uploads to attach, by the id each was granted',
   })
   readonly attachments?: string[];
+
+  @ApiPropertyOptional({
+    type: Boolean,
+    description:
+      'Where the conversation asks for a tool call to be approved: true lets it run, false rejects it. Left out, the words answer it and the tool call stays undecided. Refused anywhere else.',
+  })
+  readonly approve?: boolean;
 }

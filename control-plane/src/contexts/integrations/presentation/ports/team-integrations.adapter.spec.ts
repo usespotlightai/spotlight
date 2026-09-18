@@ -15,6 +15,7 @@ const tool = (name: string): ToolDeclaration => ({
   tool: name,
   description: name,
   inputs: [],
+  approval: null,
 });
 
 const integrations = (configured = true) => {

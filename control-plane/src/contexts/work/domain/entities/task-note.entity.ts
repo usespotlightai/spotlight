@@ -1,4 +1,9 @@
 import { unread } from '@work/domain/services/unread';
+import type {
+  Approval,
+  ApprovalDecision,
+  Decided,
+} from '@work/domain/value-objects/approval.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import type { Remark } from '@work/domain/value-objects/remark.vo';
@@ -11,7 +16,12 @@ export const TASK_NOTE_KINDS = ['asked', 'passed', 'answered', 'said'] as const;
 
 export type TaskNoteKind = (typeof TASK_NOTE_KINDS)[number];
 
-export const TASK_NOTE_FORMS = ['words', 'setup', 'settled'] as const;
+export const TASK_NOTE_FORMS = [
+  'words',
+  'setup',
+  'settled',
+  'approval',
+] as const;
 
 export type TaskNoteForm = (typeof TASK_NOTE_FORMS)[number];
 
@@ -29,6 +39,7 @@ export class TaskNote {
     readonly deliveredAt: Date | null,
     readonly form: TaskNoteForm,
     readonly attachments: readonly Attachment[],
+    readonly approval: Approval | null,
   ) {}
 
   static of(input: {
@@ -44,6 +55,7 @@ export class TaskNote {
     deliveredAt?: Date | null;
     form?: TaskNoteForm;
     attachments?: readonly Attachment[];
+    approval?: Approval | null;
   }): TaskNote {
     return new TaskNote(
       input.position,
@@ -58,6 +70,7 @@ export class TaskNote {
       input.deliveredAt ?? null,
       input.form ?? 'words',
       input.attachments ?? [],
+      input.approval ?? null,
     );
   }
 
@@ -87,6 +100,24 @@ export class TaskNote {
     return this.open ? this.with({ answeredAt: at }) : this;
   }
 
+  decided(decision: ApprovalDecision, decided: Decided): TaskNote {
+    return this.approval
+      ? this.with({ approval: this.approval.decide(decision, decided) })
+      : this;
+  }
+
+  approvalClaimed(): TaskNote {
+    return this.approval
+      ? this.with({ approval: this.approval.claimed() })
+      : this;
+  }
+
+  approvalReturned(): TaskNote {
+    return this.approval
+      ? this.with({ approval: this.approval.returned() })
+      : this;
+  }
+
   delivered(at: Date): TaskNote {
     return this.undelivered ? this.with({ deliveredAt: at }) : this;
   }
@@ -99,6 +130,7 @@ export class TaskNote {
     readAt?: Date;
     deliveredAt?: Date;
     answeredAt?: Date;
+    approval?: Approval;
   }): TaskNote {
     return new TaskNote(
       this.position,
@@ -113,6 +145,7 @@ export class TaskNote {
       part.deliveredAt ?? this.deliveredAt,
       this.form,
       this.attachments,
+      part.approval ?? this.approval,
     );
   }
 }

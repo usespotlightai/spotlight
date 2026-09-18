@@ -15,6 +15,13 @@
       "when": 1789685497287,
       "tag": "20260917225137_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789729430015,
+      "tag": "20260918110350_approvals_on_notes",
+      "breakpoints": true
     }
   ]
 }

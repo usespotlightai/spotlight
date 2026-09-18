@@ -1,4 +1,5 @@
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
+import type { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
 import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { WORDS } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
@@ -26,6 +27,7 @@ export class OfferedTool {
     readonly description: string,
     readonly inputs: readonly OfferedToolInput[],
     readonly does: string,
+    readonly approval: ApprovalNeeded | null,
   ) {}
 
   static of(input: {
@@ -34,6 +36,7 @@ export class OfferedTool {
     description: string;
     inputs?: readonly OfferedToolInput[];
     does: string;
+    approval?: ApprovalNeeded | null;
   }): OfferedTool {
     const name = input.name.trim();
     const description = input.description.trim();
@@ -82,7 +85,14 @@ export class OfferedTool {
       );
     }
 
-    return new OfferedTool(input.source, name, description, inputs, input.does);
+    return new OfferedTool(
+      input.source,
+      name,
+      description,
+      inputs,
+      input.does,
+      input.approval ?? null,
+    );
   }
 
   get tool(): string {

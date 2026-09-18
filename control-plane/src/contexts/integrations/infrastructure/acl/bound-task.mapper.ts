@@ -15,6 +15,7 @@ export const BoundTaskMapper = {
         ? {
             conversationId: task.waiting.conversationId,
             said: task.waiting.said,
+            awaitsApproval: task.waiting.awaitsApproval,
           }
         : null,
     };
