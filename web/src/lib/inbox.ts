@@ -10,6 +10,11 @@ export type InboxMessage = InboxMessageResponseDto;
 
 export type Conversing = {
   readonly id: string;
+  readonly teamId: string | undefined;
+  readonly about?: {
+    readonly title: string;
+    readonly description: string | null;
+  };
   readonly createdAt: string;
   readonly station: {
     readonly name: string;
@@ -18,6 +23,7 @@ export type Conversing = {
     readonly count: number;
   };
   readonly working: boolean;
+  readonly resolved?: boolean;
   readonly notes: readonly InboxMessage[];
 };
 
@@ -76,14 +82,8 @@ export const openedAt = (at: string): string => {
   return `${day} ${time}`;
 };
 
-/**
- * What holds a person's words at the top while the work below them scrolls
- * past. It has to sit on the element the conversation lays out directly — a
- * box only travels within its parent's, and a wrapper hugging the card has
- * nowhere to travel. The inset is what the card's own padding cancels.
- */
 export const HELD_AT_TOP =
-  'sticky top-0 z-10 -mx-3 bg-card pt-2 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-6 after:bg-gradient-to-b after:from-card after:to-transparent';
+  'sticky top-0 z-10 -mx-3 bg-surface pt-2 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-6 after:bg-gradient-to-b after:from-surface after:to-transparent';
 
 export const inboxPath = (slug: string) => `/w/${slug}/inbox`;
 
@@ -98,4 +98,12 @@ export const shownAt = (
 ): number | null =>
   notes.find((note) => runId && note.runId === runId)?.position ?? null;
 
-export const waitingOn = (item: InboxItem) => item.notes[item.notes.length - 1];
+export const previewOf = (item: InboxItem): string => {
+  const asked = item.notes[item.notes.length - 1];
+
+  if (!asked) {
+    return `Waiting at ${item.station}`;
+  }
+
+  return asked.form === 'setup' ? (item.description ?? '') : asked.body;
+};

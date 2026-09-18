@@ -1,0 +1,53 @@
+import type { RunEventView } from '@work/application/ports/run-stream.port';
+import {
+  cursorOf,
+  eventIdOf,
+  StreamMark,
+} from '@work/presentation/http/streaming/stream-mark';
+import { describe, expect, it } from 'vitest';
+
+const told = (attempt: number, seq: number): RunEventView => ({
+  attempt,
+  seq,
+  type: 'output',
+  at: '2026-09-17T09:00:00.000Z',
+});
+
+describe('cursorOf', () => {
+  it('resumes within the attempt the run is on', () => {
+    expect(cursorOf('2:7', 2)).toEqual({ attempt: 2, seq: 7 });
+    expect(cursorOf('7', 2)).toEqual({ attempt: 2, seq: 7 });
+  });
+
+  it('starts over when the viewer last saw an earlier attempt', () => {
+    expect(cursorOf('1:40', 2)).toEqual({ attempt: 2, seq: 0 });
+  });
+
+  it('starts from nothing when there is no cursor', () => {
+    expect(cursorOf(undefined, 1)).toEqual({ attempt: 1, seq: 0 });
+    expect(cursorOf('nonsense', 1)).toEqual({ attempt: 1, seq: 0 });
+  });
+});
+
+describe('StreamMark', () => {
+  it('sends each entry once, in order', () => {
+    const mark = new StreamMark({ attempt: 1, seq: 0 });
+
+    expect(mark.admits(told(1, 1))).toBe(true);
+    expect(mark.admits(told(1, 1))).toBe(false);
+    expect(mark.admits(told(1, 2))).toBe(true);
+  });
+
+  it('follows a requeued run into its next attempt from the first entry', () => {
+    const mark = new StreamMark({ attempt: 1, seq: 0 });
+
+    expect(mark.admits(told(1, 5))).toBe(true);
+    expect(mark.admits(told(2, 1))).toBe(true);
+    expect(mark.admits(told(2, 2))).toBe(true);
+    expect(mark.admits(told(1, 6))).toBe(false);
+  });
+
+  it('names each event by its attempt and place', () => {
+    expect(eventIdOf(told(2, 3))).toBe('2:3');
+  });
+});

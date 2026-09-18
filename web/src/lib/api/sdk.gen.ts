@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddTaskData, AddTaskErrors, AddTaskResponses, AnswerInboxItemData, AnswerInboxItemErrors, AnswerInboxItemResponses, AnswerRemarkData, AnswerRemarkErrors, AnswerRemarkResponses, AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, CustomiseStationData, CustomiseStationErrors, CustomiseStationResponses, DeleteTaskData, DeleteTaskErrors, DeleteTaskResponses, DeliverSaidData, DeliverSaidErrors, DeliverSaidResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, EnrolRunnerData, EnrolRunnerErrors, EnrolRunnerResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, InstallableHarnessesData, InstallableHarnessesErrors, InstallableHarnessesResponses, KeptWorkspacesData, KeptWorkspacesErrors, KeptWorkspacesResponses, ListAssemblyLinesData, ListAssemblyLinesErrors, ListAssemblyLinesResponses, ListHarnessesData, ListHarnessesErrors, ListHarnessesResponses, ListInboxData, ListInboxErrors, ListInboxResponses, ListRepositoriesData, ListRepositoriesErrors, ListRepositoriesResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListTaskRunsData, ListTaskRunsErrors, ListTaskRunsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListTeamRunsData, ListTeamRunsErrors, ListTeamRunsResponses, ListTeamTracesData, ListTeamTracesErrors, ListTeamTracesResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, MoveTaskData, MoveTaskErrors, MoveTaskResponses, OpenPullRequestData, OpenPullRequestErrors, OpenPullRequestResponses, PendingMessagesData, PendingMessagesErrors, PendingMessagesResponses, ReadInboxItemData, ReadInboxItemErrors, ReadInboxItemResponses, ReadRunConversationData, ReadRunConversationErrors, ReadRunConversationResponses, ReadTaskJournalData, ReadTaskJournalErrors, ReadTaskJournalResponses, ReadTaskTraceData, ReadTaskTraceErrors, ReadTaskTraceResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, ReorderStationsData, ReorderStationsErrors, ReorderStationsResponses, RevokeRunnerData, RevokeRunnerErrors, RevokeRunnerResponses, SayToRunData, SayToRunErrors, SayToRunResponses, StreamRunData, StreamRunErrors, StreamRunResponses } from './types.gen';
+import type { AcceptInviteData, AcceptInviteErrors, AcceptInviteResponses, AcceptProposalData, AcceptProposalErrors, AcceptProposalResponses, AddTaskData, AddTaskErrors, AddTaskResponses, AnalyseTracesData, AnalyseTracesErrors, AnalyseTracesResponses, AnswerInboxItemData, AnswerInboxItemErrors, AnswerInboxItemResponses, AnswerRemarkData, AnswerRemarkErrors, AnswerRemarkResponses, AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, AssignTaskData, AssignTaskErrors, AssignTaskResponses, ChangeMemberRoleData, ChangeMemberRoleErrors, ChangeMemberRoleResponses, ChangeStackChecksData, ChangeStackChecksErrors, ChangeStackChecksResponses, ChooseIntegrationsData, ChooseIntegrationsErrors, ChooseIntegrationsResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, ConnectGitHubData, ConnectGitHubErrors, ConnectGitHubResponses, ConnectIntegrationData, ConnectIntegrationErrors, ConnectIntegrationResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, CustomiseStationData, CustomiseStationErrors, CustomiseStationResponses, DeleteReviewCommentData, DeleteReviewCommentErrors, DeleteReviewCommentResponses, DeleteTaskData, DeleteTaskErrors, DeleteTaskResponses, DeliverSaidData, DeliverSaidErrors, DeliverSaidResponses, DismissProposalData, DismissProposalErrors, DismissProposalResponses, DraftChangeStackData, DraftChangeStackErrors, DraftChangeStackResponses, DraftReviewCommentData, DraftReviewCommentErrors, DraftReviewCommentResponses, EditReviewCommentData, EditReviewCommentErrors, EditReviewCommentResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, EnrolRunnerData, EnrolRunnerErrors, EnrolRunnerResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, GrantAttachmentUploadData, GrantAttachmentUploadErrors, GrantAttachmentUploadResponses, InstallableHarnessesData, InstallableHarnessesErrors, InstallableHarnessesResponses, InviteToTeamData, InviteToTeamErrors, InviteToTeamResponses, KeptWorkspacesData, KeptWorkspacesErrors, KeptWorkspacesResponses, ListChatsData, ListChatsErrors, ListChatsResponses, ListHappeningsData, ListHappeningsErrors, ListHappeningsResponses, ListHarnessesData, ListHarnessesErrors, ListHarnessesResponses, ListInboxData, ListInboxErrors, ListInboxResponses, ListInvitesData, ListInvitesErrors, ListInvitesResponses, ListLinesData, ListLinesErrors, ListLinesResponses, ListMembersData, ListMembersErrors, ListMembersResponses, ListRepositoriesData, ListRepositoriesErrors, ListRepositoriesResponses, ListRunChangeStacksData, ListRunChangeStacksErrors, ListRunChangeStacksResponses, ListRunnerActivityData, ListRunnerActivityErrors, ListRunnerActivityResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListTaskRunsData, ListTaskRunsErrors, ListTaskRunsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListTeamRunsData, ListTeamRunsErrors, ListTeamRunsResponses, ListTeamSkillsData, ListTeamSkillsErrors, ListTeamSkillsResponses, ListTeamTracesData, ListTeamTracesErrors, ListTeamTracesResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, MoveConfigurationData, MoveConfigurationErrors, MoveConfigurationResponses, MoveTaskData, MoveTaskErrors, MoveTaskResponses, PendingMessagesData, PendingMessagesErrors, PendingMessagesResponses, PinConfigurationRepositoryData, PinConfigurationRepositoryErrors, PinConfigurationRepositoryResponses, ReadAttachmentData, ReadAttachmentErrors, ReadChatData, ReadChatErrors, ReadChatJournalData, ReadChatJournalErrors, ReadChatJournalResponses, ReadChatResponses, ReadConfigurationData, ReadConfigurationErrors, ReadConfigurationResponses, ReadInboxItemData, ReadInboxItemErrors, ReadInboxItemResponses, ReadInviteData, ReadInviteErrors, ReadInviteResponses, ReadOnboardingData, ReadOnboardingErrors, ReadOnboardingResponses, ReadRunAttachmentData, ReadRunAttachmentErrors, ReadRunAttachmentResponses, ReadRunConversationData, ReadRunConversationErrors, ReadRunConversationResponses, ReadRunReviewData, ReadRunReviewErrors, ReadRunReviewResponses, ReadRunTraceData, ReadRunTraceErrors, ReadRunTraceResponses, ReadTaskChangeStackData, ReadTaskChangeStackErrors, ReadTaskChangeStackResponses, ReadTaskJournalData, ReadTaskJournalErrors, ReadTaskJournalResponses, ReadTaskTraceData, ReadTaskTraceErrors, ReadTaskTraceResponses, RecordChangeStackCheckData, RecordChangeStackCheckErrors, RecordChangeStackCheckResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RenameTeamData, RenameTeamErrors, RenameTeamResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, RereadConfigurationData, RereadConfigurationErrors, RereadConfigurationResponses, RevealVaultKeyData, RevealVaultKeyErrors, RevealVaultKeyResponses, RevokeInviteData, RevokeInviteErrors, RevokeInviteResponses, RevokeRunnerData, RevokeRunnerErrors, RevokeRunnerResponses, SayInChatData, SayInChatErrors, SayInChatResponses, SayToRunData, SayToRunErrors, SayToRunResponses, SetLineRepositoriesData, SetLineRepositoriesErrors, SetLineRepositoriesResponses, SetUpLinesData, SetUpLinesErrors, SetUpLinesResponses, StartChatData, StartChatErrors, StartChatResponses, StopChatData, StopChatErrors, StopChatResponses, StopRunData, StopRunErrors, StopRunResponses, StreamRunData, StreamRunErrors, StreamRunResponses, SubmitReviewData, SubmitReviewErrors, SubmitReviewResponses, UseToolData, UseToolErrors, UseToolResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -19,27 +19,20 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 };
 
 /**
- * List a team’s assembly lines, each with its stations in order
+ * Liveness probe
  */
-export const listAssemblyLines = <ThrowOnError extends boolean = false>(options: Options<ListAssemblyLinesData, ThrowOnError>): RequestResult<ListAssemblyLinesResponses, ListAssemblyLinesErrors, ThrowOnError> => (options.client ?? client).get<ListAssemblyLinesResponses, ListAssemblyLinesErrors, ThrowOnError>({ url: '/teams/{teamId}/assembly-lines', ...options });
+export const getHealth = <ThrowOnError extends boolean = false>(options?: Options<GetHealthData, ThrowOnError>): RequestResult<GetHealthResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetHealthResponses, unknown, ThrowOnError>({ url: '/health', ...options });
 
 /**
- * Set the left to right order of a line’s stations
+ * List a team’s lines, each with its stations in order
  */
-export const reorderStations = <ThrowOnError extends boolean = false>(options: Options<ReorderStationsData, ThrowOnError>): RequestResult<ReorderStationsResponses, ReorderStationsErrors, ThrowOnError> => (options.client ?? client).post<ReorderStationsResponses, ReorderStationsErrors, ThrowOnError>({
-  url: '/teams/{teamId}/assembly-lines/{lineId}/stations/order',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
+export const listLines = <ThrowOnError extends boolean = false>(options: Options<ListLinesData, ThrowOnError>): RequestResult<ListLinesResponses, ListLinesErrors, ThrowOnError> => (options.client ?? client).get<ListLinesResponses, ListLinesErrors, ThrowOnError>({ url: '/teams/{teamId}/lines', ...options });
 
 /**
  * Change what a station is called, says, runs on and tells its agent
  */
 export const customiseStation = <ThrowOnError extends boolean = false>(options: Options<CustomiseStationData, ThrowOnError>): RequestResult<CustomiseStationResponses, CustomiseStationErrors, ThrowOnError> => (options.client ?? client).patch<CustomiseStationResponses, CustomiseStationErrors, ThrowOnError>({
-  url: '/teams/{teamId}/assembly-lines/{lineId}/stations/{stationId}',
+  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -48,9 +41,16 @@ export const customiseStation = <ThrowOnError extends boolean = false>(options: 
 });
 
 /**
- * Liveness probe
+ * Set the repositories a line, and so its every station, works in
  */
-export const getHealth = <ThrowOnError extends boolean = false>(options?: Options<GetHealthData, ThrowOnError>): RequestResult<GetHealthResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetHealthResponses, unknown, ThrowOnError>({ url: '/health', ...options });
+export const setLineRepositories = <ThrowOnError extends boolean = false>(options: Options<SetLineRepositoriesData, ThrowOnError>): RequestResult<SetLineRepositoriesResponses, SetLineRepositoriesErrors, ThrowOnError> => (options.client ?? client).patch<SetLineRepositoriesResponses, SetLineRepositoriesErrors, ThrowOnError>({
+  url: '/teams/{teamId}/lines/{lineId}/repositories',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
 
 /**
  * Queue a run for a pool to pick up
@@ -65,7 +65,7 @@ export const enqueueRun = <ThrowOnError extends boolean = false>(options: Option
 });
 
 /**
- * Watch a run’s terminal, catching up on what was missed first
+ * Watch a run’s journal, catching up on what was missed first
  */
 export const streamRun = <ThrowOnError extends boolean = false>(options: Options<StreamRunData, ThrowOnError>): RequestResult<StreamRunResponses, StreamRunErrors, ThrowOnError> => (options.client ?? client).get<StreamRunResponses, StreamRunErrors, ThrowOnError>({ url: '/runs/{runId}/stream', ...options });
 
@@ -82,18 +82,6 @@ export const installableHarnesses = <ThrowOnError extends boolean = false>(optio
 export const keptWorkspaces = <ThrowOnError extends boolean = false>(options?: Options<KeptWorkspacesData, ThrowOnError>): RequestResult<KeptWorkspacesResponses, KeptWorkspacesErrors, ThrowOnError> => (options?.client ?? client).get<KeptWorkspacesResponses, KeptWorkspacesErrors, ThrowOnError>({ url: '/runners/workspaces', ...options });
 
 /**
- * Check in, so the control plane knows this runner is there
- */
-export const registerRunner = <ThrowOnError extends boolean = false>(options: Options<RegisterRunnerData, ThrowOnError>): RequestResult<RegisterRunnerResponses, RegisterRunnerErrors, ThrowOnError> => (options.client ?? client).post<RegisterRunnerResponses, RegisterRunnerErrors, ThrowOnError>({
-  url: '/runners/register',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
  * Long-poll for work, answering empty when the queue is
  */
 export const claimRun = <ThrowOnError extends boolean = false>(options?: Options<ClaimRunData, ThrowOnError>): RequestResult<ClaimRunResponses, ClaimRunErrors, ThrowOnError> => (options?.client ?? client).post<ClaimRunResponses, ClaimRunErrors, ThrowOnError>({ url: '/runners/claim', ...options });
@@ -102,6 +90,16 @@ export const claimRun = <ThrowOnError extends boolean = false>(options?: Options
  * What a person has said to the agent working this run
  */
 export const pendingMessages = <ThrowOnError extends boolean = false>(options: Options<PendingMessagesData, ThrowOnError>): RequestResult<PendingMessagesResponses, PendingMessagesErrors, ThrowOnError> => (options.client ?? client).get<PendingMessagesResponses, PendingMessagesErrors, ThrowOnError>({ url: '/runs/{runId}/messages', ...options });
+
+/**
+ * A file the run’s task was given, to lay out in its workspace
+ */
+export const readRunAttachment = <ThrowOnError extends boolean = false>(options: Options<ReadRunAttachmentData, ThrowOnError>): RequestResult<ReadRunAttachmentResponses, ReadRunAttachmentErrors, ThrowOnError> => (options.client ?? client).get<ReadRunAttachmentResponses, ReadRunAttachmentErrors, ThrowOnError>({ url: '/runs/{runId}/attachments/{attachmentId}', ...options });
+
+/**
+ * Read a task's trace, for an agent studying one of its own team
+ */
+export const readRunTrace = <ThrowOnError extends boolean = false>(options: Options<ReadRunTraceData, ThrowOnError>): RequestResult<ReadRunTraceResponses, ReadRunTraceErrors, ThrowOnError> => (options.client ?? client).get<ReadRunTraceResponses, ReadRunTraceErrors, ThrowOnError>({ url: '/runs/{runId}/trace/{taskId}', ...options });
 
 /**
  * Say what the agent has been given
@@ -117,6 +115,8 @@ export const deliverSaid = <ThrowOnError extends boolean = false>(options: Optio
 
 /**
  * Say the run is still being worked on
+ *
+ * The answer carries back whether a person has asked the run to stop, so the heartbeat doubles as how a stop reaches the runner.
  */
 export const renewLease = <ThrowOnError extends boolean = false>(options: Options<RenewLeaseData, ThrowOnError>): RequestResult<RenewLeaseResponses, RenewLeaseErrors, ThrowOnError> => (options.client ?? client).post<RenewLeaseResponses, RenewLeaseErrors, ThrowOnError>({ url: '/runs/{runId}/lease', ...options });
 
@@ -133,12 +133,12 @@ export const appendRunEvents = <ThrowOnError extends boolean = false>(options: O
 });
 
 /**
- * Open a pull request for the branch this task was worked on
+ * Do what a tool the run was given does
  *
- * Opened under Spotlight’s own credential. Nothing that reaches GitHub is ever sent to a runner.
+ * The input and the answer are the tool’s own. Only for a tool the run was given; any credential it needs is added by Spotlight, never sent by the run.
  */
-export const openPullRequest = <ThrowOnError extends boolean = false>(options: Options<OpenPullRequestData, ThrowOnError>): RequestResult<OpenPullRequestResponses, OpenPullRequestErrors, ThrowOnError> => (options.client ?? client).post<OpenPullRequestResponses, OpenPullRequestErrors, ThrowOnError>({
-  url: '/runs/{runId}/pull-request',
+export const useTool = <ThrowOnError extends boolean = false>(options: Options<UseToolData, ThrowOnError>): RequestResult<UseToolResponses, UseToolErrors, ThrowOnError> => (options.client ?? client).post<UseToolResponses, UseToolErrors, ThrowOnError>({
+  url: '/runs/{runId}/tools/{tool}',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -173,9 +173,16 @@ export const completeRun = <ThrowOnError extends boolean = false>(options: Optio
 });
 
 /**
+ * Which run each of the workspace’s runners is working on
+ *
+ * A runner that holds no run is idle, and is not listed.
+ */
+export const listRunnerActivity = <ThrowOnError extends boolean = false>(options: Options<ListRunnerActivityData, ThrowOnError>): RequestResult<ListRunnerActivityResponses, ListRunnerActivityErrors, ThrowOnError> => (options.client ?? client).get<ListRunnerActivityResponses, ListRunnerActivityErrors, ThrowOnError>({ url: '/workspaces/{slug}/runner-activity', ...options });
+
+/**
  * List the harnesses a station can be worked by
  */
-export const listHarnesses = <ThrowOnError extends boolean = false>(options?: Options<ListHarnessesData, ThrowOnError>): RequestResult<ListHarnessesResponses, ListHarnessesErrors, ThrowOnError> => (options?.client ?? client).get<ListHarnessesResponses, ListHarnessesErrors, ThrowOnError>({ url: '/harnesses', ...options });
+export const listHarnesses = <ThrowOnError extends boolean = false>(options: Options<ListHarnessesData, ThrowOnError>): RequestResult<ListHarnessesResponses, ListHarnessesErrors, ThrowOnError> => (options.client ?? client).get<ListHarnessesResponses, ListHarnessesErrors, ThrowOnError>({ url: '/workspaces/{slug}/harnesses', ...options });
 
 /**
  * The tasks waiting on a person, newest first
@@ -205,15 +212,12 @@ export const readInboxItem = <ThrowOnError extends boolean = false>(options: Opt
 export const readTaskJournal = <ThrowOnError extends boolean = false>(options: Options<ReadTaskJournalData, ThrowOnError>): RequestResult<ReadTaskJournalResponses, ReadTaskJournalErrors, ThrowOnError> => (options.client ?? client).get<ReadTaskJournalResponses, ReadTaskJournalErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/tasks/{taskId}/journal', ...options });
 
 /**
- * List every runner and whether it is still answering
+ * Somewhere to upload one file, before attaching it
+ *
+ * The bytes go straight to where files are kept, not through here. The upload is only an upload: the file joins a task when its id is sent with one.
  */
-export const listRunners = <ThrowOnError extends boolean = false>(options?: Options<ListRunnersData, ThrowOnError>): RequestResult<ListRunnersResponses, ListRunnersErrors, ThrowOnError> => (options?.client ?? client).get<ListRunnersResponses, ListRunnersErrors, ThrowOnError>({ url: '/runners', ...options });
-
-/**
- * Enrol a runner and mint the token it registers with
- */
-export const enrolRunner = <ThrowOnError extends boolean = false>(options: Options<EnrolRunnerData, ThrowOnError>): RequestResult<EnrolRunnerResponses, EnrolRunnerErrors, ThrowOnError> => (options.client ?? client).post<EnrolRunnerResponses, EnrolRunnerErrors, ThrowOnError>({
-  url: '/runners',
+export const grantAttachmentUpload = <ThrowOnError extends boolean = false>(options: Options<GrantAttachmentUploadData, ThrowOnError>): RequestResult<GrantAttachmentUploadResponses, GrantAttachmentUploadErrors, ThrowOnError> => (options.client ?? client).post<GrantAttachmentUploadResponses, GrantAttachmentUploadErrors, ThrowOnError>({
+  url: '/workspaces/{slug}/attachments',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -222,14 +226,9 @@ export const enrolRunner = <ThrowOnError extends boolean = false>(options: Optio
 });
 
 /**
- * Retire a runner’s token, locking it out from the next call on
+ * Open a file a task was given
  */
-export const revokeRunner = <ThrowOnError extends boolean = false>(options: Options<RevokeRunnerData, ThrowOnError>): RequestResult<RevokeRunnerResponses, RevokeRunnerErrors, ThrowOnError> => (options.client ?? client).post<RevokeRunnerResponses, RevokeRunnerErrors, ThrowOnError>({ url: '/runners/{runnerId}/revoke', ...options });
-
-/**
- * List the repositories a task can be raised against
- */
-export const listRepositories = <ThrowOnError extends boolean = false>(options?: Options<ListRepositoriesData, ThrowOnError>): RequestResult<ListRepositoriesResponses, ListRepositoriesErrors, ThrowOnError> => (options?.client ?? client).get<ListRepositoriesResponses, ListRepositoriesErrors, ThrowOnError>({ url: '/repositories', ...options });
+export const readAttachment = <ThrowOnError extends boolean = false>(options: Options<ReadAttachmentData, ThrowOnError>): RequestResult<unknown, ReadAttachmentErrors, ThrowOnError> => (options.client ?? client).get<unknown, ReadAttachmentErrors, ThrowOnError>({ url: '/workspaces/{slug}/attachments/{attachmentId}', ...options });
 
 /**
  * List the tasks standing at a team’s stations, oldest first
@@ -264,6 +263,11 @@ export const sayToRun = <ThrowOnError extends boolean = false>(options: Options<
 });
 
 /**
+ * Stop the agent working a run
+ */
+export const stopRun = <ThrowOnError extends boolean = false>(options: Options<StopRunData, ThrowOnError>): RequestResult<StopRunResponses, StopRunErrors, ThrowOnError> => (options.client ?? client).post<StopRunResponses, StopRunErrors, ThrowOnError>({ url: '/teams/{teamId}/runs/{runId}/stop', ...options });
+
+/**
  * List what has been run on a task, most recent first
  */
 export const listTaskRuns = <ThrowOnError extends boolean = false>(options: Options<ListTaskRunsData, ThrowOnError>): RequestResult<ListTaskRunsResponses, ListTaskRunsErrors, ThrowOnError> => (options.client ?? client).get<ListTaskRunsResponses, ListTaskRunsErrors, ThrowOnError>({ url: '/teams/{teamId}/tasks/{taskId}/runs', ...options });
@@ -282,7 +286,7 @@ export const deleteTask = <ThrowOnError extends boolean = false>(options: Option
  * Add a task to a station
  */
 export const addTask = <ThrowOnError extends boolean = false>(options: Options<AddTaskData, ThrowOnError>): RequestResult<AddTaskResponses, AddTaskErrors, ThrowOnError> => (options.client ?? client).post<AddTaskResponses, AddTaskErrors, ThrowOnError>({
-  url: '/teams/{teamId}/assembly-lines/{lineId}/stations/{stationId}/tasks',
+  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/tasks',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -291,10 +295,105 @@ export const addTask = <ThrowOnError extends boolean = false>(options: Options<A
 });
 
 /**
- * Move a task to another station on the same assembly line
+ * Open a triage task to analyse each selected trace
+ */
+export const analyseTraces = <ThrowOnError extends boolean = false>(options: Options<AnalyseTracesData, ThrowOnError>): RequestResult<AnalyseTracesResponses, AnalyseTracesErrors, ThrowOnError> => (options.client ?? client).post<AnalyseTracesResponses, AnalyseTracesErrors, ThrowOnError>({
+  url: '/teams/{teamId}/traces/analysis',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Move a task to another station on the same line
  */
 export const moveTask = <ThrowOnError extends boolean = false>(options: Options<MoveTaskData, ThrowOnError>): RequestResult<MoveTaskResponses, MoveTaskErrors, ThrowOnError> => (options.client ?? client).post<MoveTaskResponses, MoveTaskErrors, ThrowOnError>({
-  url: '/teams/{teamId}/assembly-lines/{lineId}/tasks/{taskId}/move',
+  url: '/teams/{teamId}/lines/{lineId}/tasks/{taskId}/move',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Give a task to a team member, or clear its assignee
+ */
+export const assignTask = <ThrowOnError extends boolean = false>(options: Options<AssignTaskData, ThrowOnError>): RequestResult<AssignTaskResponses, AssignTaskErrors, ThrowOnError> => (options.client ?? client).put<AssignTaskResponses, AssignTaskErrors, ThrowOnError>({
+  url: '/teams/{teamId}/tasks/{taskId}/assignee',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * The chats the caller has started with the team’s agent, latest first
+ */
+export const listChats = <ThrowOnError extends boolean = false>(options: Options<ListChatsData, ThrowOnError>): RequestResult<ListChatsResponses, ListChatsErrors, ThrowOnError> => (options.client ?? client).get<ListChatsResponses, ListChatsErrors, ThrowOnError>({ url: '/teams/{teamId}/chats', ...options });
+
+/**
+ * Start planning with the team’s agent
+ */
+export const startChat = <ThrowOnError extends boolean = false>(options: Options<StartChatData, ThrowOnError>): RequestResult<StartChatResponses, StartChatErrors, ThrowOnError> => (options.client ?? client).post<StartChatResponses, StartChatErrors, ThrowOnError>({
+  url: '/teams/{teamId}/chats',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * A chat, with everything said and proposed in it
+ */
+export const readChat = <ThrowOnError extends boolean = false>(options: Options<ReadChatData, ThrowOnError>): RequestResult<ReadChatResponses, ReadChatErrors, ThrowOnError> => (options.client ?? client).get<ReadChatResponses, ReadChatErrors, ThrowOnError>({ url: '/teams/{teamId}/chats/{chatId}', ...options });
+
+/**
+ * What the agent did and said in each run of a chat
+ */
+export const readChatJournal = <ThrowOnError extends boolean = false>(options: Options<ReadChatJournalData, ThrowOnError>): RequestResult<ReadChatJournalResponses, ReadChatJournalErrors, ThrowOnError> => (options.client ?? client).get<ReadChatJournalResponses, ReadChatJournalErrors, ThrowOnError>({ url: '/teams/{teamId}/chats/{chatId}/journal', ...options });
+
+/**
+ * Say something to the agent in a chat
+ */
+export const sayInChat = <ThrowOnError extends boolean = false>(options: Options<SayInChatData, ThrowOnError>): RequestResult<SayInChatResponses, SayInChatErrors, ThrowOnError> => (options.client ?? client).post<SayInChatResponses, SayInChatErrors, ThrowOnError>({
+  url: '/teams/{teamId}/chats/{chatId}/messages',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Stop the agent answering in a chat
+ */
+export const stopChat = <ThrowOnError extends boolean = false>(options: Options<StopChatData, ThrowOnError>): RequestResult<StopChatResponses, StopChatErrors, ThrowOnError> => (options.client ?? client).post<StopChatResponses, StopChatErrors, ThrowOnError>({ url: '/teams/{teamId}/chats/{chatId}/stop', ...options });
+
+/**
+ * Accept a task the agent proposed, so it is created
+ */
+export const acceptProposal = <ThrowOnError extends boolean = false>(options: Options<AcceptProposalData, ThrowOnError>): RequestResult<AcceptProposalResponses, AcceptProposalErrors, ThrowOnError> => (options.client ?? client).post<AcceptProposalResponses, AcceptProposalErrors, ThrowOnError>({ url: '/teams/{teamId}/chats/{chatId}/proposals/{position}/acceptance', ...options });
+
+/**
+ * Turn down a task the agent proposed
+ */
+export const dismissProposal = <ThrowOnError extends boolean = false>(options: Options<DismissProposalData, ThrowOnError>): RequestResult<DismissProposalResponses, DismissProposalErrors, ThrowOnError> => (options.client ?? client).post<DismissProposalResponses, DismissProposalErrors, ThrowOnError>({ url: '/teams/{teamId}/chats/{chatId}/proposals/{position}/dismissal', ...options });
+
+/**
+ * What this team still needs, and the integrations it may choose
+ */
+export const readOnboarding = <ThrowOnError extends boolean = false>(options: Options<ReadOnboardingData, ThrowOnError>): RequestResult<ReadOnboardingResponses, ReadOnboardingErrors, ThrowOnError> => (options.client ?? client).get<ReadOnboardingResponses, ReadOnboardingErrors, ThrowOnError>({ url: '/teams/{teamId}/configuration/onboarding', ...options });
+
+/**
+ * Assign each line a harness and repositories, and open the setup
+ */
+export const setUpLines = <ThrowOnError extends boolean = false>(options: Options<SetUpLinesData, ThrowOnError>): RequestResult<SetUpLinesResponses, SetUpLinesErrors, ThrowOnError> => (options.client ?? client).post<SetUpLinesResponses, SetUpLinesErrors, ThrowOnError>({
+  url: '/teams/{teamId}/configuration/setup',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -323,3 +422,272 @@ export const createWorkspace = <ThrowOnError extends boolean = false>(options: O
  * Read one workspace the caller belongs to
  */
 export const getWorkspace = <ThrowOnError extends boolean = false>(options: Options<GetWorkspaceData, ThrowOnError>): RequestResult<GetWorkspaceResponses, GetWorkspaceErrors, ThrowOnError> => (options.client ?? client).get<GetWorkspaceResponses, GetWorkspaceErrors, ThrowOnError>({ url: '/workspaces/{slug}', ...options });
+
+/**
+ * Set what somebody is in this workspace
+ *
+ * Roles are given downwards: an owner may set anyone’s, an admin only those of people they outrank, and nobody may hand out a rank they do not hold. The last owner keeps the workspace.
+ */
+export const changeMemberRole = <ThrowOnError extends boolean = false>(options: Options<ChangeMemberRoleData, ThrowOnError>): RequestResult<ChangeMemberRoleResponses, ChangeMemberRoleErrors, ThrowOnError> => (options.client ?? client).patch<ChangeMemberRoleResponses, ChangeMemberRoleErrors, ThrowOnError>({
+  url: '/workspaces/{slug}/members/{userId}',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Rename a team
+ */
+export const renameTeam = <ThrowOnError extends boolean = false>(options: Options<RenameTeamData, ThrowOnError>): RequestResult<RenameTeamResponses, RenameTeamErrors, ThrowOnError> => (options.client ?? client).patch<RenameTeamResponses, RenameTeamErrors, ThrowOnError>({
+  url: '/teams/{teamId}',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * List the team’s members, what each is, and what may be set
+ */
+export const listMembers = <ThrowOnError extends boolean = false>(options: Options<ListMembersData, ThrowOnError>): RequestResult<ListMembersResponses, ListMembersErrors, ThrowOnError> => (options.client ?? client).get<ListMembersResponses, ListMembersErrors, ThrowOnError>({ url: '/teams/{teamId}/members', ...options });
+
+/**
+ * List the invitations this team is still waiting on
+ */
+export const listInvites = <ThrowOnError extends boolean = false>(options: Options<ListInvitesData, ThrowOnError>): RequestResult<ListInvitesResponses, ListInvitesErrors, ThrowOnError> => (options.client ?? client).get<ListInvitesResponses, ListInvitesErrors, ThrowOnError>({ url: '/teams/{teamId}/invites', ...options });
+
+/**
+ * Invite somebody onto this team by email
+ */
+export const inviteToTeam = <ThrowOnError extends boolean = false>(options: Options<InviteToTeamData, ThrowOnError>): RequestResult<InviteToTeamResponses, InviteToTeamErrors, ThrowOnError> => (options.client ?? client).post<InviteToTeamResponses, InviteToTeamErrors, ThrowOnError>({
+  url: '/teams/{teamId}/invites',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Take an invitation back, so its link stops working
+ */
+export const revokeInvite = <ThrowOnError extends boolean = false>(options: Options<RevokeInviteData, ThrowOnError>): RequestResult<RevokeInviteResponses, RevokeInviteErrors, ThrowOnError> => (options.client ?? client).delete<RevokeInviteResponses, RevokeInviteErrors, ThrowOnError>({ url: '/teams/{teamId}/invites/{inviteId}', ...options });
+
+/**
+ * Read what an invitation link offers
+ */
+export const readInvite = <ThrowOnError extends boolean = false>(options: Options<ReadInviteData, ThrowOnError>): RequestResult<ReadInviteResponses, ReadInviteErrors, ThrowOnError> => (options.client ?? client).get<ReadInviteResponses, ReadInviteErrors, ThrowOnError>({ url: '/invites/{token}', ...options });
+
+/**
+ * Take up an invitation, joining the team it was sent for
+ */
+export const acceptInvite = <ThrowOnError extends boolean = false>(options: Options<AcceptInviteData, ThrowOnError>): RequestResult<AcceptInviteResponses, AcceptInviteErrors, ThrowOnError> => (options.client ?? client).post<AcceptInviteResponses, AcceptInviteErrors, ThrowOnError>({ url: '/invites/{token}/accept', ...options });
+
+/**
+ * List the repositories a task can be raised against
+ */
+export const listRepositories = <ThrowOnError extends boolean = false>(options: Options<ListRepositoriesData, ThrowOnError>): RequestResult<ListRepositoriesResponses, ListRepositoriesErrors, ThrowOnError> => (options.client ?? client).get<ListRepositoriesResponses, ListRepositoriesErrors, ThrowOnError>({ url: '/workspaces/{slug}/repositories', ...options });
+
+/**
+ * Point this workspace at a GitHub App installation
+ */
+export const connectGitHub = <ThrowOnError extends boolean = false>(options: Options<ConnectGitHubData, ThrowOnError>): RequestResult<ConnectGitHubResponses, ConnectGitHubErrors, ThrowOnError> => (options.client ?? client).post<ConnectGitHubResponses, ConnectGitHubErrors, ThrowOnError>({
+  url: '/workspaces/{slug}/github',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * List the workspace’s runners and whether each is still answering
+ */
+export const listRunners = <ThrowOnError extends boolean = false>(options: Options<ListRunnersData, ThrowOnError>): RequestResult<ListRunnersResponses, ListRunnersErrors, ThrowOnError> => (options.client ?? client).get<ListRunnersResponses, ListRunnersErrors, ThrowOnError>({ url: '/workspaces/{slug}/runners', ...options });
+
+/**
+ * Enrol a runner and mint the token it registers with
+ */
+export const enrolRunner = <ThrowOnError extends boolean = false>(options: Options<EnrolRunnerData, ThrowOnError>): RequestResult<EnrolRunnerResponses, EnrolRunnerErrors, ThrowOnError> => (options.client ?? client).post<EnrolRunnerResponses, EnrolRunnerErrors, ThrowOnError>({
+  url: '/workspaces/{slug}/runners',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Retire a runner’s token, locking it out from the next call on
+ */
+export const revokeRunner = <ThrowOnError extends boolean = false>(options: Options<RevokeRunnerData, ThrowOnError>): RequestResult<RevokeRunnerResponses, RevokeRunnerErrors, ThrowOnError> => (options.client ?? client).post<RevokeRunnerResponses, RevokeRunnerErrors, ThrowOnError>({ url: '/workspaces/{slug}/runners/{runnerId}/revoke', ...options });
+
+/**
+ * Announce this runner and the harnesses it found installed
+ */
+export const registerRunner = <ThrowOnError extends boolean = false>(options: Options<RegisterRunnerData, ThrowOnError>): RequestResult<RegisterRunnerResponses, RegisterRunnerErrors, ThrowOnError> => (options.client ?? client).post<RegisterRunnerResponses, RegisterRunnerErrors, ThrowOnError>({
+  url: '/runners/register',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * What this team listens to, and where it reads that from
+ */
+export const readConfiguration = <ThrowOnError extends boolean = false>(options: Options<ReadConfigurationData, ThrowOnError>): RequestResult<ReadConfigurationResponses, ReadConfigurationErrors, ThrowOnError> => (options.client ?? client).get<ReadConfigurationResponses, ReadConfigurationErrors, ThrowOnError>({ url: '/teams/{teamId}/configuration', ...options });
+
+/**
+ * Read this team’s configuration from its repository again
+ */
+export const rereadConfiguration = <ThrowOnError extends boolean = false>(options: Options<RereadConfigurationData, ThrowOnError>): RequestResult<RereadConfigurationResponses, RereadConfigurationErrors, ThrowOnError> => (options.client ?? client).post<RereadConfigurationResponses, RereadConfigurationErrors, ThrowOnError>({ url: '/teams/{teamId}/configuration/reread', ...options });
+
+/**
+ * Choose the repository this team reads its configuration from
+ */
+export const pinConfigurationRepository = <ThrowOnError extends boolean = false>(options: Options<PinConfigurationRepositoryData, ThrowOnError>): RequestResult<PinConfigurationRepositoryResponses, PinConfigurationRepositoryErrors, ThrowOnError> => (options.client ?? client).post<PinConfigurationRepositoryResponses, PinConfigurationRepositoryErrors, ThrowOnError>({
+  url: '/teams/{teamId}/configuration/repository',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Move this team's configuration to a different repository
+ */
+export const moveConfiguration = <ThrowOnError extends boolean = false>(options: Options<MoveConfigurationData, ThrowOnError>): RequestResult<MoveConfigurationResponses, MoveConfigurationErrors, ThrowOnError> => (options.client ?? client).post<MoveConfigurationResponses, MoveConfigurationErrors, ThrowOnError>({
+  url: '/teams/{teamId}/configuration/repository/move',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Write and remove configuration for the integrations this team uses
+ */
+export const chooseIntegrations = <ThrowOnError extends boolean = false>(options: Options<ChooseIntegrationsData, ThrowOnError>): RequestResult<ChooseIntegrationsResponses, ChooseIntegrationsErrors, ThrowOnError> => (options.client ?? client).post<ChooseIntegrationsResponses, ChooseIntegrationsErrors, ThrowOnError>({
+  url: '/teams/{teamId}/configuration/integrations',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Reveal the key this team’s secrets are encrypted with, issuing it the first time
+ */
+export const revealVaultKey = <ThrowOnError extends boolean = false>(options: Options<RevealVaultKeyData, ThrowOnError>): RequestResult<RevealVaultKeyResponses, RevealVaultKeyErrors, ThrowOnError> => (options.client ?? client).post<RevealVaultKeyResponses, RevealVaultKeyErrors, ThrowOnError>({ url: '/teams/{teamId}/configuration/vault/key', ...options });
+
+/**
+ * The skills this team defines in its configuration repository
+ */
+export const listTeamSkills = <ThrowOnError extends boolean = false>(options: Options<ListTeamSkillsData, ThrowOnError>): RequestResult<ListTeamSkillsResponses, ListTeamSkillsErrors, ThrowOnError> => (options.client ?? client).get<ListTeamSkillsResponses, ListTeamSkillsErrors, ThrowOnError>({ url: '/teams/{teamId}/skills', ...options });
+
+/**
+ * The change stacks drafted of what a run changed, newest first
+ */
+export const listRunChangeStacks = <ThrowOnError extends boolean = false>(options: Options<ListRunChangeStacksData, ThrowOnError>): RequestResult<ListRunChangeStacksResponses, ListRunChangeStacksErrors, ThrowOnError> => (options.client ?? client).get<ListRunChangeStacksResponses, ListRunChangeStacksErrors, ThrowOnError>({ url: '/teams/{teamId}/runs/{runId}/change-stacks', ...options });
+
+/**
+ * The newest change stack drafted for a task
+ */
+export const readTaskChangeStack = <ThrowOnError extends boolean = false>(options: Options<ReadTaskChangeStackData, ThrowOnError>): RequestResult<ReadTaskChangeStackResponses, ReadTaskChangeStackErrors, ThrowOnError> => (options.client ?? client).get<ReadTaskChangeStackResponses, ReadTaskChangeStackErrors, ThrowOnError>({ url: '/teams/{teamId}/tasks/{taskId}/change-stack', ...options });
+
+/**
+ * Hand over what a run changed, to be drafted into a change stack
+ *
+ * A station that says it wants changes has its runs drafted into a change stack: the runner hands over the diff of each checkout.
+ */
+export const draftChangeStack = <ThrowOnError extends boolean = false>(options: Options<DraftChangeStackData, ThrowOnError>): RequestResult<DraftChangeStackResponses, DraftChangeStackErrors, ThrowOnError> => (options.client ?? client).post<DraftChangeStackResponses, DraftChangeStackErrors, ThrowOnError>({
+  url: '/runs/{runId}/change-stacks',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * The change stacks this run drafted that wait to be checked
+ *
+ * Each check is the command the agent named, to run on the whole change and then on every layer with the layers before it.
+ */
+export const changeStackChecks = <ThrowOnError extends boolean = false>(options: Options<ChangeStackChecksData, ThrowOnError>): RequestResult<ChangeStackChecksResponses, ChangeStackChecksErrors, ThrowOnError> => (options.client ?? client).get<ChangeStackChecksResponses, ChangeStackChecksErrors, ThrowOnError>({ url: '/runs/{runId}/change-stack-checks', ...options });
+
+/**
+ * Report whether each layer of a change stack passed its check
+ */
+export const recordChangeStackCheck = <ThrowOnError extends boolean = false>(options: Options<RecordChangeStackCheckData, ThrowOnError>): RequestResult<RecordChangeStackCheckResponses, RecordChangeStackCheckErrors, ThrowOnError> => (options.client ?? client).post<RecordChangeStackCheckResponses, RecordChangeStackCheckErrors, ThrowOnError>({
+  url: '/runs/{runId}/change-stack-checks/{stackId}',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * The review of what a run changed: comments on its lines, and reviews submitted
+ */
+export const readRunReview = <ThrowOnError extends boolean = false>(options: Options<ReadRunReviewData, ThrowOnError>): RequestResult<ReadRunReviewResponses, ReadRunReviewErrors, ThrowOnError> => (options.client ?? client).get<ReadRunReviewResponses, ReadRunReviewErrors, ThrowOnError>({ url: '/teams/{teamId}/runs/{runId}/review', ...options });
+
+/**
+ * Submit your drafts as a review; it posts to the pull request, once the task has one
+ */
+export const submitReview = <ThrowOnError extends boolean = false>(options: Options<SubmitReviewData, ThrowOnError>): RequestResult<SubmitReviewResponses, SubmitReviewErrors, ThrowOnError> => (options.client ?? client).post<SubmitReviewResponses, SubmitReviewErrors, ThrowOnError>({
+  url: '/teams/{teamId}/runs/{runId}/review',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Draft a comment on a line, or reply to a comment; a reply goes to GitHub straight away
+ */
+export const draftReviewComment = <ThrowOnError extends boolean = false>(options: Options<DraftReviewCommentData, ThrowOnError>): RequestResult<DraftReviewCommentResponses, DraftReviewCommentErrors, ThrowOnError> => (options.client ?? client).post<DraftReviewCommentResponses, DraftReviewCommentErrors, ThrowOnError>({
+  url: '/teams/{teamId}/runs/{runId}/review/comments',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Delete a comment of your own, from GitHub too once it is there
+ */
+export const deleteReviewComment = <ThrowOnError extends boolean = false>(options: Options<DeleteReviewCommentData, ThrowOnError>): RequestResult<DeleteReviewCommentResponses, DeleteReviewCommentErrors, ThrowOnError> => (options.client ?? client).delete<DeleteReviewCommentResponses, DeleteReviewCommentErrors, ThrowOnError>({ url: '/teams/{teamId}/runs/{runId}/review/comments/{commentId}', ...options });
+
+/**
+ * Rewrite a comment of your own, on GitHub too once it is there
+ */
+export const editReviewComment = <ThrowOnError extends boolean = false>(options: Options<EditReviewCommentData, ThrowOnError>): RequestResult<EditReviewCommentResponses, EditReviewCommentErrors, ThrowOnError> => (options.client ?? client).patch<EditReviewCommentResponses, EditReviewCommentErrors, ThrowOnError>({
+  url: '/teams/{teamId}/runs/{runId}/review/comments/{commentId}',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Begin linking this team to a host over OAuth2
+ */
+export const connectIntegration = <ThrowOnError extends boolean = false>(options: Options<ConnectIntegrationData, ThrowOnError>): RequestResult<ConnectIntegrationResponses, ConnectIntegrationErrors, ThrowOnError> => (options.client ?? client).post<ConnectIntegrationResponses, ConnectIntegrationErrors, ThrowOnError>({ url: '/teams/{teamId}/integrations/{source}/connect', ...options });
+
+/**
+ * The words a station here can be set to wait for
+ */
+export const listHappenings = <ThrowOnError extends boolean = false>(options: Options<ListHappeningsData, ThrowOnError>): RequestResult<ListHappeningsResponses, ListHappeningsErrors, ThrowOnError> => (options.client ?? client).get<ListHappeningsResponses, ListHappeningsErrors, ThrowOnError>({ url: '/workspaces/{slug}/happenings', ...options });

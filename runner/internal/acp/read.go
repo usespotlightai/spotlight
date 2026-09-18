@@ -9,8 +9,6 @@ import (
 	"strings"
 )
 
-// read takes everything the harness says: answers to what was asked of it,
-// what it is doing, and what it wants doing for it.
 func (c *Client) read(stdout io.Reader) {
 	lines := bufio.NewScanner(stdout)
 	lines.Buffer(make([]byte, 0, 64*1024), 8*1024*1024)
@@ -60,8 +58,6 @@ func (c *Client) answered(id json.RawMessage, result json.RawMessage, failed *re
 	}
 }
 
-// told handles what the agent says as it works. Only session updates carry
-// anything worth keeping; the rest is the agent talking about itself.
 func (c *Client) told(method string, params json.RawMessage) {
 	if method != "session/update" {
 		return
@@ -92,8 +88,6 @@ func (c *Client) told(method string, params json.RawMessage) {
 	})
 }
 
-// asked answers what the agent wants doing for it. An unanswered request is a
-// stopped agent, so everything gets a reply, including a refusal.
 func (c *Client) asked(id json.RawMessage, method string, params json.RawMessage) {
 	switch method {
 	case "session/request_permission":
@@ -142,7 +136,6 @@ func (c *Client) permit(id json.RawMessage, params json.RawMessage) {
 	})
 }
 
-// within keeps the agent inside the workspace it was given.
 func (c *Client) within(path string) (string, bool) {
 	full := path
 	if !filepath.IsAbs(full) {

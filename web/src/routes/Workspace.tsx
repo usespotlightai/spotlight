@@ -1,18 +1,43 @@
 import { Link, Outlet, useParams } from 'react-router';
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { WorkspaceSidebar } from '@/components/layout/WorkspaceSidebar';
+import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { PageNotice } from '@/components/shared/PageNotice';
+import { DashboardLayout } from '@/components/shell/layout/DashboardLayout';
+import { WorkspaceSidebar } from '@/components/shell/layout/WorkspaceSidebar';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { failed, loading } from '@/lib/query';
 import { WORKSPACE_URL_PREFIX } from '@/lib/workspace';
 
 export function Workspace() {
   const { slug } = useParams();
-  const { data: workspace, isPending } = useWorkspace(slug);
+  const workspace = useWorkspace(slug);
 
-  if (isPending) {
+  if (!slug) {
     return null;
   }
 
-  if (!workspace) {
+  if (loading(workspace)) {
+    return (
+      <DashboardLayout>
+        <Outlet />
+      </DashboardLayout>
+    );
+  }
+
+  if (failed(workspace)) {
+    return (
+      <DashboardLayout>
+        <PageNotice>
+          <CouldNotLoad
+            what="The workspace"
+            retrying={workspace.isFetching}
+            onRetry={() => void workspace.refetch()}
+          />
+        </PageNotice>
+      </DashboardLayout>
+    );
+  }
+
+  if (!workspace.data) {
     return (
       <main className="flex min-h-svh flex-col items-center justify-center gap-4 px-4">
         <h1 className="font-medium text-2xl tracking-tight">
@@ -33,7 +58,9 @@ export function Workspace() {
   }
 
   return (
-    <DashboardLayout sidebar={<WorkspaceSidebar workspace={workspace} />}>
+    <DashboardLayout
+      sidebar={<WorkspaceSidebar slug={slug} workspace={workspace.data} />}
+    >
       <Outlet />
     </DashboardLayout>
   );

@@ -2,14 +2,32 @@ import { resolve } from 'node:path';
 import swc from 'unplugin-swc';
 import { defineConfig } from 'vitest/config';
 
+const E2E_ENV = {
+  DATABASE_URL:
+    process.env.DATABASE_URL ??
+    'postgres://postgres:postgres@localhost:5432/postgres',
+  GITHUB_CLIENT_ID: 'test-client-id',
+  GITHUB_CLIENT_SECRET: 'test-client-secret',
+  GITHUB_APP_ID: 'test-app-id',
+  GITHUB_APP_PRIVATE_KEY: 'test-private-key',
+  BETTER_AUTH_SECRET: 'test-better-auth-secret-not-a-real-one',
+  BETTER_AUTH_URL: 'http://localhost:3000',
+  SPOTLIGHT_SECRETS_KEY: 'S9+m23g9lI8X4VNFd0ayFXJH7P14Q3GZGsNvjCglc/Q=',
+};
+
 const shared = {
   plugins: [swc.vite({ module: { type: 'es6' } })],
   resolve: {
     alias: {
-      '@domain': resolve(__dirname, 'src/domain'),
-      '@application': resolve(__dirname, 'src/application'),
-      '@infrastructure': resolve(__dirname, 'src/infrastructure'),
-      '@presentation': resolve(__dirname, 'src/presentation'),
+      '@platform': resolve(__dirname, 'src/platform'),
+      '@shared-kernel': resolve(__dirname, 'src/shared-kernel'),
+      '@work': resolve(__dirname, 'src/contexts/work'),
+      '@runners': resolve(__dirname, 'src/contexts/runners'),
+      '@change-review': resolve(__dirname, 'src/contexts/change-review'),
+      '@github': resolve(__dirname, 'src/contexts/github'),
+      '@integrations': resolve(__dirname, 'src/contexts/integrations'),
+      '@configuration': resolve(__dirname, 'src/contexts/configuration'),
+      '@identity': resolve(__dirname, 'src/contexts/identity'),
       '@': resolve(__dirname, 'src'),
     },
   },
@@ -34,13 +52,7 @@ export default defineConfig({
           environment: 'node',
           include: ['test/**/*.e2e-spec.ts'],
           restoreMocks: true,
-          env: {
-            GITHUB_CLIENT_ID: 'test-client-id',
-            GITHUB_CLIENT_SECRET: 'test-client-secret',
-            GITHUB_APP_ID: 'test-app-id',
-            GITHUB_APP_PRIVATE_KEY: 'test-private-key',
-            GITHUB_APP_INSTALLATION_ID: 'test-installation-id',
-          },
+          env: E2E_ENV,
           testTimeout: 30_000,
           hookTimeout: 30_000,
         },

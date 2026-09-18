@@ -1,0 +1,146 @@
+import { ChangeMemberRoleCommand } from '@identity/application/commands/change-member-role.command';
+import { CreateWorkspaceCommand } from '@identity/application/commands/create-workspace.command';
+import type {
+  WorkspaceDetailDto,
+  WorkspaceDto,
+  WorkspaceListingDto,
+} from '@identity/application/dto/workspace.dto';
+import { GetWorkspaceQuery } from '@identity/application/queries/get-workspace.query';
+import { ListWorkspacesQuery } from '@identity/application/queries/list-workspaces.query';
+import { CreateWorkspaceRequestDto } from '@identity/presentation/http/dto/create-workspace.request.dto';
+import { ChangeMemberRoleRequestDto } from '@identity/presentation/http/dto/member.request.dto';
+import {
+  CreatedWorkspaceResponseDto,
+  WorkspaceListingResponseDto,
+  WorkspaceResponseDto,
+} from '@identity/presentation/http/dto/workspace.response.dto';
+import { WorkspaceHttpMapper } from '@identity/presentation/http/mappers/workspace.http.mapper';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  NotFoundException,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
+import { CommandBus, QueryBus } from '@nestjs/cqrs';
+import {
+  ApiConflictResponse,
+  ApiCreatedResponse,
+  ApiForbiddenResponse,
+  ApiNoContentResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+  ApiUnauthorizedResponse,
+  ApiUnprocessableEntityResponse,
+} from '@nestjs/swagger';
+import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
+
+@ApiTags('workspaces')
+@ApiUnauthorizedResponse({ description: 'No valid session' })
+@Controller('workspaces')
+export class WorkspaceController {
+  constructor(
+    private readonly commandBus: CommandBus,
+    private readonly queryBus: QueryBus,
+  ) {}
+
+  @Post()
+  @ApiOperation({
+    operationId: 'createWorkspace',
+    summary: 'Create a workspace, along with the team it starts with',
+  })
+  @ApiCreatedResponse({ type: CreatedWorkspaceResponseDto })
+  @ApiConflictResponse({ description: 'That workspace URL is already taken' })
+  @ApiUnprocessableEntityResponse({ description: 'Invalid name or URL' })
+  async create(
+    @Body() body: CreateWorkspaceRequestDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<CreatedWorkspaceResponseDto> {
+    const workspace = await this.commandBus.execute<
+      CreateWorkspaceCommand,
+      WorkspaceDto
+    >(new CreateWorkspaceCommand(body.name, body.slug, body.teamName, user.id));
+
+    return WorkspaceHttpMapper.createdToResponse(workspace);
+  }
+
+  @Get()
+  @ApiOperation({
+    operationId: 'listWorkspaces',
+    summary: 'List the workspaces the caller belongs to',
+  })
+  @ApiOkResponse({ type: WorkspaceListingResponseDto, isArray: true })
+  async list(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<WorkspaceListingResponseDto[]> {
+    const workspaces = await this.queryBus.execute<
+      ListWorkspacesQuery,
+      WorkspaceListingDto[]
+    >(new ListWorkspacesQuery(user.id));
+
+    return workspaces.map(WorkspaceHttpMapper.listingToResponse);
+  }
+
+  @Get(':slug')
+  @ApiOperation({
+    operationId: 'getWorkspace',
+    summary: 'Read one workspace the caller belongs to',
+  })
+  @ApiParam({ name: 'slug', example: 'acme-inc' })
+  @ApiOkResponse({ type: WorkspaceResponseDto })
+  @ApiNotFoundResponse({ description: 'No such workspace for this caller' })
+  async get(
+    @Param('slug') slug: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<WorkspaceResponseDto> {
+    const workspace = await this.queryBus.execute<
+      GetWorkspaceQuery,
+      WorkspaceDetailDto | null
+    >(new GetWorkspaceQuery(slug, user.id));
+
+    if (!workspace) {
+      throw new NotFoundException();
+    }
+
+    return WorkspaceHttpMapper.toResponse(workspace);
+  }
+
+  @Patch(':slug/members/:userId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'changeMemberRole',
+    summary: 'Set what somebody is in this workspace',
+    description:
+      'Roles are given downwards: an owner may set anyone’s, an admin only those of people they outrank, and nobody may hand out a rank they do not hold. The last owner keeps the workspace.',
+  })
+  @ApiParam({ name: 'slug', example: 'acme-inc' })
+  @ApiParam({ name: 'userId' })
+  @ApiNoContentResponse({ description: 'That is what they are now' })
+  @ApiForbiddenResponse({ description: 'Not yours to give' })
+  @ApiConflictResponse({ description: 'It would leave nobody who owns it' })
+  @ApiNotFoundResponse({ description: 'No such workspace for this caller' })
+  @ApiUnprocessableEntityResponse({ description: 'No such role' })
+  async changeRole(
+    @Param('slug') slug: string,
+    @Param('userId') userId: string,
+    @Body() body: ChangeMemberRoleRequestDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    const changed = await this.commandBus.execute<
+      ChangeMemberRoleCommand,
+      boolean
+    >(new ChangeMemberRoleCommand(slug, userId, body.role, user.id));
+
+    if (!changed) {
+      throw new NotFoundException();
+    }
+  }
+}

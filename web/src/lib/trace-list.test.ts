@@ -38,7 +38,6 @@ describe('bucketed', () => {
     expect(buckets[0]?.to).toBe(HOUR.from + HALF_HOUR);
   });
 
-  // Before this, a month asked for was drawn as the two days that had data.
   it('lays the traces where they fall in the window, not end to end', () => {
     const buckets = bucketed(
       [

@@ -1,7 +1,7 @@
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { NestFactory } from '@nestjs/core';
-import { buildOpenApiDocument } from '@presentation/http/openapi';
+import { buildOpenApiDocument } from '@platform/http/openapi';
 import { AppModule } from '@/app.module';
 
 async function main(): Promise<void> {

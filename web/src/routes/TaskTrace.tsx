@@ -1,54 +1,109 @@
+import { Activity } from 'lucide-react';
 import { useParams } from 'react-router';
-import { InitialAvatar } from '@/components/common/avatar/InitialAvatar';
-import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
-import { PageHeader } from '@/components/layout/PageHeader';
-import { TraceView } from '@/components/trace/TraceView';
+import { TraceView } from '@/components/features/trace/view/TraceView';
+import { TraceViewSkeleton } from '@/components/features/trace/view/TraceViewSkeleton';
+import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { PageNotice } from '@/components/shared/PageNotice';
+import { TrailSkeleton } from '@/components/shared/skeleton/TrailSkeleton';
+import {
+  type BreadcrumbSegment,
+  Breadcrumbs,
+} from '@/components/shell/layout/Breadcrumbs';
+import { PageHeader } from '@/components/shell/layout/PageHeader';
+import { TrailLink } from '@/components/shell/layout/TrailLink';
+import { buttonVariants } from '@/components/ui/button';
 import { useTasks } from '@/hooks/api/useTasks';
 import { useTaskTrace } from '@/hooks/api/useTaskTrace';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { failed, loading } from '@/lib/query';
+import { taskPath } from '@/lib/task';
 import { teamPath, teamSectionPath } from '@/lib/team';
+import { TrailContext, useTrail } from '@/lib/trail';
+import { cn } from '@/lib/utils';
 
 export function TaskTrace() {
   const { slug, teamId, taskId } = useParams();
   const { data: workspace } = useWorkspace(slug);
-  const { data: tasks, isPending } = useTasks(teamId);
-  const { data: trace } = useTaskTrace(teamId, taskId);
+  const tasks = useTasks(teamId);
+  const trace = useTaskTrace(teamId, taskId);
 
-  if (isPending || !slug || !teamId || !taskId) {
+  const task = tasks.data?.find((candidate) => candidate.id === taskId);
+  const team = workspace?.teams.find((candidate) => candidate.id === teamId);
+
+  const base: BreadcrumbSegment[] =
+    slug && teamId
+      ? [
+          ...(team
+            ? [
+                {
+                  label: team.name,
+                  avatar: team.name,
+                  to: teamPath(slug, teamId),
+                },
+              ]
+            : []),
+          {
+            label: 'Observability',
+            to: teamSectionPath(slug, teamId, 'observability'),
+          },
+          { label: task?.title ?? 'Task' },
+        ]
+      : [];
+  const { trail, forward } = useTrail(base);
+
+  if (!slug || !teamId || !taskId) {
     return null;
   }
 
-  const task = tasks?.find((candidate) => candidate.id === taskId);
-  const team = workspace?.teams.find((candidate) => candidate.id === teamId);
+  const title = loading(tasks) ? (
+    <TrailSkeleton known={trail.slice(0, -1)} />
+  ) : (
+    <Breadcrumbs segments={trail} />
+  );
+
+  if (failed(trace)) {
+    return (
+      <PageNotice title={title}>
+        <CouldNotLoad
+          what="The trace"
+          retrying={trace.isFetching}
+          onRetry={() => void trace.refetch()}
+        />
+      </PageNotice>
+    );
+  }
+
+  if (trace.data?.roots.length === 0) {
+    return (
+      <TrailContext value={forward}>
+        <PageNotice title={title}>
+          <EmptyState
+            icon={Activity}
+            title="No runs yet"
+            action={
+              <TrailLink
+                to={taskPath(slug, teamId, taskId)}
+                className={cn(buttonVariants({ size: 'sm' }), 'rounded-full')}
+              >
+                Open the task
+              </TrailLink>
+            }
+          >
+            The trace fills in once a station has worked this task.
+          </EmptyState>
+        </PageNotice>
+      </TrailContext>
+    );
+  }
 
   return (
     <>
-      <PageHeader
-        title={
-          <Breadcrumbs
-            segments={[
-              ...(team
-                ? [
-                    {
-                      label: team.name,
-                      icon: (
-                        <InitialAvatar name={team.name} className="bg-card" />
-                      ),
-                      to: teamPath(slug, teamId),
-                    },
-                  ]
-                : []),
-              {
-                label: 'Observability',
-                to: teamSectionPath(slug, teamId, 'observability'),
-              },
-              { label: task?.title ?? 'Task' },
-            ]}
-          />
-        }
-      />
+      <PageHeader title={title} />
 
-      {trace && <TraceView trace={trace} />}
+      {loading(trace) && <TraceViewSkeleton />}
+
+      {trace.data && <TraceView trace={trace.data} />}
     </>
   );
 }

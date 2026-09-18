@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useReseeded } from '@/hooks/useReseeded';
 import type { Station } from '@/lib/station';
 
 export type StationEdits = {
@@ -6,6 +6,8 @@ export type StationEdits = {
   readonly color: string;
   readonly description: string;
   readonly harness: string;
+  readonly model: string;
+  readonly effort: string;
   readonly agentPrompt: string;
 };
 
@@ -14,17 +16,13 @@ const asEdits = (station?: Station): StationEdits => ({
   color: station?.color ?? '',
   description: station?.description ?? '',
   harness: station?.harness ?? '',
+  model: station?.model ?? '',
+  effort: station?.effort ?? '',
   agentPrompt: station?.agentPrompt ?? '',
 });
 
 export function useStationEdits(station: Station | undefined) {
-  const [standing, setStanding] = useState(station?.id);
-  const [edits, setEdits] = useState(() => asEdits(station));
-
-  if (station && station.id !== standing) {
-    setStanding(station.id);
-    setEdits(asEdits(station));
-  }
+  const [edits, setEdits] = useReseeded(station?.id, () => asEdits(station));
 
   return {
     edits,

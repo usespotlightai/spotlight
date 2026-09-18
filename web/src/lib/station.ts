@@ -1,21 +1,14 @@
 import type { StationResponseDto } from '@/lib/api';
-import { assemblyLinePath } from '@/lib/team';
+import { linePath } from '@/lib/team';
 
 export type Station = StationResponseDto;
-
-export type StationDraft = {
-  readonly name: string;
-  readonly description: string;
-  readonly harness: string;
-  readonly agentPrompt: string;
-};
 
 export const stationPath = (
   slug: string,
   teamId: string,
   lineId: string,
   stationId: string,
-): string => `${assemblyLinePath(slug, teamId, lineId)}/stations/${stationId}`;
+): string => `${linePath(slug, teamId, lineId)}/stations/${stationId}`;
 
 export const stationShare = (place: number, count: number): number =>
   count > 1 ? place / (count - 1) : 1;

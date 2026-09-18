@@ -1,86 +1,96 @@
-import { GitBranch, GitPullRequest } from 'lucide-react';
+import { GitPullRequest } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
-import { StationSelect } from '@/components/board/StationSelect';
-import { TaskActions } from '@/components/board/TaskActions';
-import { InitialAvatar } from '@/components/common/avatar/InitialAvatar';
-import { PersonAvatar } from '@/components/common/avatar/PersonAvatar';
-import { MarkdownEditor } from '@/components/common/form/MarkdownEditor';
-import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
-import { PageHeader } from '@/components/layout/PageHeader';
-import { TaskActivity } from '@/components/runs/TaskActivity';
-import { useAssemblyLines } from '@/hooks/api/useAssemblyLines';
+import { NotFound } from '@/components/features/board/NotFound';
+import { AssigneePicker } from '@/components/features/board/task/AssigneePicker';
+import { StationSelect } from '@/components/features/board/task/StationSelect';
+import { TaskActions } from '@/components/features/board/task/TaskActions';
+import { TaskSkeleton } from '@/components/features/board/task/TaskSkeleton';
+import { TaskChangesLink } from '@/components/features/changes/TaskChangesLink';
+import { TaskActivity } from '@/components/features/runs/TaskActivity';
+import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
+import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
+import { PageNotice } from '@/components/shared/PageNotice';
+import {
+  type BreadcrumbSegment,
+  Breadcrumbs,
+} from '@/components/shell/layout/Breadcrumbs';
+import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useDeleteTask } from '@/hooks/api/useDeleteTask';
+import { useLines } from '@/hooks/api/useLines';
 import { useMoveTask } from '@/hooks/api/useMoveTask';
 import { useTasks } from '@/hooks/api/useTasks';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
-import { assemblyLinePath, teamPath } from '@/lib/team';
+import { failed, loading } from '@/lib/query';
+import { linePath, teamPath } from '@/lib/team';
+import { TrailContext, useTrail } from '@/lib/trail';
 
 export function Task() {
   const { slug, teamId, taskId } = useParams();
   const { data: workspace } = useWorkspace(slug);
-  const { data: lines } = useAssemblyLines(teamId);
-  const { data: tasks, isPending } = useTasks(teamId);
+  const lines = useLines(teamId);
+  const tasks = useTasks(teamId);
   const moveTask = useMoveTask();
   const deleteTask = useDeleteTask();
   const navigate = useNavigate();
 
-  if (isPending) {
-    return null;
-  }
+  const task = tasks.data?.find((candidate) => candidate.id === taskId);
+  const line = lines.data?.find((candidate) =>
+    candidate.stations.some((station) => station.id === task?.stationId),
+  );
+  const station = line?.stations.find((each) => each.id === task?.stationId);
+  const team = workspace?.teams.find((candidate) => candidate.id === teamId);
 
-  const task = tasks?.find((candidate) => candidate.id === taskId);
+  const base: BreadcrumbSegment[] = [
+    ...(team
+      ? [
+          {
+            label: team.name,
+            avatar: team.name,
+            to: slug && teamId ? teamPath(slug, teamId) : undefined,
+          },
+        ]
+      : []),
+    ...(line
+      ? [
+          {
+            label: line.name,
+            to: slug && teamId ? linePath(slug, teamId, line.id) : undefined,
+          },
+        ]
+      : []),
+    { label: task?.title ?? '' },
+  ];
+  const { trail, forward } = useTrail(base);
 
-  if (!task) {
+  if (failed(tasks)) {
     return (
-      <>
-        <PageHeader title="Task not found" />
-        <div className="flex min-h-0 flex-1 items-center justify-center p-8">
-          <p className="text-muted-foreground text-sm">
-            This team has no task at that address.
-          </p>
-        </div>
-      </>
+      <PageNotice>
+        <CouldNotLoad
+          what="The task"
+          retrying={tasks.isFetching}
+          onRetry={() => void tasks.refetch()}
+        />
+      </PageNotice>
     );
   }
 
-  const line = lines?.find((candidate) =>
-    candidate.stations.some((station) => station.id === task.stationId),
-  );
-  const station = line?.stations.find((each) => each.id === task.stationId);
-  const team = workspace?.teams.find((candidate) => candidate.id === teamId);
+  if (loading(tasks) || loading(lines)) {
+    return <TaskSkeleton known={trail.slice(0, -1)} />;
+  }
+
+  if (!task) {
+    return (
+      <NotFound title="Task not found" to={teamPath(slug ?? '', teamId ?? '')}>
+        This team has no task at that address.
+      </NotFound>
+    );
+  }
 
   return (
-    <>
+    <TrailContext value={forward}>
       <PageHeader
-        title={
-          <Breadcrumbs
-            segments={[
-              ...(team
-                ? [
-                    {
-                      label: team.name,
-                      icon: (
-                        <InitialAvatar name={team.name} className="bg-card" />
-                      ),
-                      to: slug && teamId ? teamPath(slug, teamId) : undefined,
-                    },
-                  ]
-                : []),
-              ...(line
-                ? [
-                    {
-                      label: line.name,
-                      to:
-                        slug && teamId
-                          ? assemblyLinePath(slug, teamId, line.id)
-                          : undefined,
-                    },
-                  ]
-                : []),
-              { label: task.title },
-            ]}
-          />
-        }
+        title={<Breadcrumbs segments={trail} />}
         trailing={
           <TaskActions
             title={task.title}
@@ -95,7 +105,7 @@ export function Task() {
                   onSuccess: () =>
                     void navigate(
                       slug && line
-                        ? assemblyLinePath(slug, teamId, line.id)
+                        ? linePath(slug, teamId, line.id)
                         : teamPath(slug ?? '', teamId),
                     ),
                 },
@@ -123,6 +133,8 @@ export function Task() {
             ) : (
               <p className="text-muted-foreground text-sm">No description</p>
             )}
+
+            <AttachmentTiles attachments={task.attachments} />
 
             <div className="pt-4">
               <TaskActivity slug={slug} teamId={teamId} taskId={task.id} />
@@ -152,17 +164,12 @@ export function Task() {
                 />
               )}
 
-              {task.repository && (
-                <div className="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-sm">
-                  <GitBranch
-                    className="size-4 shrink-0 text-muted-foreground"
-                    aria-hidden
-                  />
+              {teamId && (
+                <AssigneePicker teamId={teamId} task={task} variant="row" />
+              )}
 
-                  <span className="truncate text-foreground">
-                    {task.repository}
-                  </span>
-                </div>
+              {slug && teamId && (
+                <TaskChangesLink slug={slug} teamId={teamId} taskId={task.id} />
               )}
 
               {task.pullRequest && (
@@ -180,23 +187,10 @@ export function Task() {
                   <span className="truncate text-foreground">Pull request</span>
                 </a>
               )}
-
-              {task.raisedBy && (
-                <div className="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-sm">
-                  <PersonAvatar
-                    person={task.raisedBy}
-                    className="size-4 data-[size=sm]:size-4"
-                  />
-
-                  <span className="truncate text-foreground">
-                    {task.raisedBy.name}
-                  </span>
-                </div>
-              )}
             </section>
           </aside>
         </div>
       </div>
-    </>
+    </TrailContext>
   );
 }

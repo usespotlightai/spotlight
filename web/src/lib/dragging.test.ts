@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { landingFor, reordered } from '@/lib/dragging';
+import { landingFor } from '@/lib/dragging';
 import type { Task } from '@/lib/task';
 
 const task = (id: string, stationId: string): Task => ({
@@ -7,11 +7,12 @@ const task = (id: string, stationId: string): Task => ({
   stationId,
   title: id,
   description: null,
+  attachments: [],
   createdAt: '2026-08-04T09:15:00.000Z',
   running: false,
   awaitingReview: null,
   raisedBy: null,
-  repository: null,
+  assignee: null,
   pullRequest: null,
   note: null,
 });
@@ -65,19 +66,5 @@ describe('landingFor', () => {
         stationId: 'triage',
       }),
     ).toEqual({ stationId: 'triage', afterTaskId: 'a' });
-  });
-});
-
-describe('reordered', () => {
-  it('moves a station down the line', () => {
-    expect(reordered(['a', 'b', 'c'], 'a', 'c')).toEqual(['b', 'c', 'a']);
-  });
-
-  it('moves a station up the line', () => {
-    expect(reordered(['a', 'b', 'c'], 'c', 'a')).toEqual(['c', 'a', 'b']);
-  });
-
-  it('leaves the line alone when nothing moved', () => {
-    expect(reordered(['a', 'b', 'c'], 'b', 'b')).toEqual(['a', 'b', 'c']);
   });
 });

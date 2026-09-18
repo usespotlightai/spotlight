@@ -28,9 +28,6 @@ describe('RANGES', () => {
     ).toEqual(ASKED);
   });
 
-  // Few enough to draw, many enough to have a shape: a month of half hours
-  // would be 1,440 bars thinner than a pixel. Each band holds two bars, so
-  // the room one needs is twice what a single series would.
   it('leaves every range with a drawable number of bars', () => {
     for (const range of RANGES) {
       const bars = range.minutes / range.bucketMinutes;

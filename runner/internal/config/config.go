@@ -1,6 +1,3 @@
-// Package config reads the runner's settings from the environment. Everything
-// that differs between a laptop, a container and a cloud sandbox is a value
-// here.
 package config
 
 import (
@@ -17,23 +14,15 @@ type Config struct {
 	URL           string
 	Token         string
 	WorkspaceRoot string
-	// MaxRuns is how many runs to serve before exiting. Zero is unlimited.
-	MaxRuns int
-	// IdleTimeout exits the runner after this long with no work. Zero never
-	// exits.
-	IdleTimeout time.Duration
-	// PrepareHook fills the workspace before the agent starts. Empty skips it.
-	PrepareHook string
-	PublishHook string
-	// HookTimeout bounds each hook. Zero means no limit.
-	HookTimeout time.Duration
-	// AgentUser is the account to run agents as. Empty runs them as the runner.
-	AgentUser string
-	// RetireAt stops taking new work at this time. Zero means no deadline.
-	RetireAt time.Time
+	MaxRuns       int
+	IdleTimeout   time.Duration
+	PrepareHook   string
+	PublishHook   string
+	HookTimeout   time.Duration
+	AgentUser     string
+	RetireAt      time.Time
 }
 
-// defaultHookTimeout allows for a large clone without holding the lease long.
 const defaultHookTimeout = 10 * time.Minute
 
 const (
@@ -49,7 +38,6 @@ const (
 	envHookTimeout = "SPOTLIGHT_HOOK_TIMEOUT"
 )
 
-// Load reads the environment, reporting every problem at once.
 func Load() (Config, error) {
 	var problems []error
 	note := func(err error) {
@@ -58,13 +46,24 @@ func Load() (Config, error) {
 		}
 	}
 
+	saved, err := Read()
+	if err != nil {
+		return Config{}, fmt.Errorf("read %s: %w", Path(), err)
+	}
+	get := func(key string) string {
+		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+			return value
+		}
+		return strings.TrimSpace(saved[key])
+	}
+
 	cfg := Config{
-		URL:           strings.TrimSpace(os.Getenv(envURL)),
-		Token:         strings.TrimSpace(os.Getenv(envToken)),
-		WorkspaceRoot: strings.TrimSpace(os.Getenv(envWorkspace)),
-		AgentUser:     strings.TrimSpace(os.Getenv(envAgentUser)),
-		PrepareHook:   strings.TrimSpace(os.Getenv(envPrepareHook)),
-		PublishHook:   strings.TrimSpace(os.Getenv(envPublishHook)),
+		URL:           get(envURL),
+		Token:         get(envToken),
+		WorkspaceRoot: get(envWorkspace),
+		AgentUser:     get(envAgentUser),
+		PrepareHook:   get(envPrepareHook),
+		PublishHook:   get(envPublishHook),
 	}
 
 	for _, required := range []struct {
@@ -82,18 +81,16 @@ func Load() (Config, error) {
 		cfg.WorkspaceRoot = defaultWorkspaceRoot()
 	}
 
-	var err error
-
-	cfg.MaxRuns, err = parseCount(os.Getenv(envMaxRuns))
+	cfg.MaxRuns, err = parseCount(get(envMaxRuns))
 	note(err)
 
-	cfg.IdleTimeout, err = parseDuration(os.Getenv(envIdleTimeout))
+	cfg.IdleTimeout, err = parseDuration(get(envIdleTimeout))
 	note(err)
 
-	cfg.RetireAt, err = parseEpoch(os.Getenv(envRetireAt))
+	cfg.RetireAt, err = parseEpoch(get(envRetireAt))
 	note(err)
 
-	cfg.HookTimeout, err = parseDuration(os.Getenv(envHookTimeout))
+	cfg.HookTimeout, err = parseDuration(get(envHookTimeout))
 	note(err)
 	if cfg.HookTimeout == 0 {
 		cfg.HookTimeout = defaultHookTimeout

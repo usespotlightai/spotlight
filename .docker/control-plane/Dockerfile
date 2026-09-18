@@ -1,6 +1,9 @@
-ARG NODE_VERSION=22-alpine
+ARG NODE_VERSION=24-alpine
+ARG NPM_VERSION=11.19.1
 
 FROM node:${NODE_VERSION} AS deps
+ARG NPM_VERSION
+RUN npm install -g npm@${NPM_VERSION}
 WORKDIR /app
 COPY control-plane/package.json control-plane/package-lock.json ./
 RUN npm ci
@@ -16,6 +19,7 @@ ENV NODE_ENV=development
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY control-plane/ ./
+COPY installer/install.sh /opt/spotlight/installer/install.sh
 EXPOSE 3000 9229
 CMD ["npm", "run", "start:dev"]
 
@@ -27,6 +31,8 @@ COPY control-plane/ ./
 CMD ["npm", "run", "db:migrate"]
 
 FROM node:${NODE_VERSION} AS prod-deps
+ARG NPM_VERSION
+RUN npm install -g npm@${NPM_VERSION}
 WORKDIR /app
 COPY control-plane/package.json control-plane/package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
@@ -37,6 +43,7 @@ WORKDIR /app
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY control-plane/package.json ./
+COPY installer/install.sh /opt/spotlight/installer/install.sh
 USER node
 EXPOSE 3000
 CMD ["node", "dist/main"]
