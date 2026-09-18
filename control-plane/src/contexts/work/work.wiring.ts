@@ -1,0 +1,1199 @@
+import { GITHUB_APP } from '@github/application/ports/github-app.port';
+import {
+  PULL_REQUESTS,
+  type PullRequestPort,
+} from '@github/application/ports/pull-request.port';
+import { REMARKS } from '@github/application/ports/remarks.port';
+import {
+  REPOSITORY_GIT,
+  type RepositoryGitPort,
+} from '@github/application/ports/repository-git.port';
+import {
+  WORKSPACE_CONNECTIONS,
+  type WorkspaceConnectionsPort,
+} from '@github/application/ports/workspace-connections.port';
+import {
+  MEMBER_READER,
+  type MemberReaderPort,
+} from '@identity/application/ports/member-reader.port';
+import { PERSON_READER } from '@identity/application/ports/person-reader.port';
+import {
+  TEAM_DIRECTORY,
+  type TeamDirectoryPort,
+} from '@identity/application/ports/team-directory.port';
+import {
+  WORKSPACE_ACCESS,
+  type WorkspaceAccessPort,
+} from '@identity/application/ports/workspace-access.port';
+import {
+  WORKSPACE_READER,
+  type WorkspaceReaderPort,
+} from '@identity/application/ports/workspace-reader.port';
+import type { Provider, Type } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { ENV } from '@platform/config/config.constants';
+import type { Env } from '@platform/config/env.schema';
+import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
+import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
+import { EventPublications } from '@platform/events/event-publications';
+import { EventSubscribers } from '@platform/events/event-subscribers';
+import { EventTypes } from '@platform/events/event-types';
+import { AuthenticatedGuard } from '@platform/http/guards/authenticated.guard';
+import { RunnerGuard } from '@platform/http/guards/runner.guard';
+import { CryptoIdGenerator } from '@platform/ids/crypto-id.generator';
+import { RUNNER_PRESENCE } from '@runners/application/ports/runner-presence.port';
+import {
+  RUNNER_READER,
+  type RunnerReaderPort,
+} from '@runners/application/ports/runner-reader.port';
+import {
+  CLOCK,
+  type ClockPort,
+} from '@shared-kernel/application/ports/clock.port';
+import {
+  ID_GENERATOR,
+  type IdGeneratorPort,
+} from '@shared-kernel/application/ports/id-generator.port';
+import {
+  LOGGER,
+  type LoggerPort,
+} from '@shared-kernel/application/ports/logger.port';
+import {
+  TRANSACTION,
+  type TransactionPort,
+} from '@shared-kernel/application/ports/transaction.port';
+import { AddTaskCommand } from '@work/application/commands/add-task.command';
+import { AnalyseTraceCommand } from '@work/application/commands/analyse-trace.command';
+import { AnswerInboxItemCommand } from '@work/application/commands/answer-inbox-item.command';
+import { AnswerRemarkCommand } from '@work/application/commands/answer-remark.command';
+import { AssignTaskCommand } from '@work/application/commands/assign-task.command';
+import {
+  AcceptProposalCommand,
+  DismissProposalCommand,
+  SayInChatCommand,
+  StartChatCommand,
+  StopChatCommand,
+} from '@work/application/commands/chat.commands';
+import { CustomiseStationCommand } from '@work/application/commands/customise-station.command';
+import { DeleteTaskCommand } from '@work/application/commands/delete-task.command';
+import { DeliverSaidCommand } from '@work/application/commands/deliver-said.command';
+import { GrantAttachmentUploadCommand } from '@work/application/commands/grant-attachment-upload.command';
+import { AcceptProposalHandler } from '@work/application/commands/handlers/accept-proposal.handler';
+import { AddTaskHandler } from '@work/application/commands/handlers/add-task.handler';
+import { AnalyseTraceHandler } from '@work/application/commands/handlers/analyse-trace.handler';
+import { AnswerInboxItemHandler } from '@work/application/commands/handlers/answer-inbox-item.handler';
+import { AnswerRemarkHandler } from '@work/application/commands/handlers/answer-remark.handler';
+import { AppendRunJournalHandler } from '@work/application/commands/handlers/append-run-journal.handler';
+import { AssignTaskHandler } from '@work/application/commands/handlers/assign-task.handler';
+import { ClaimRunHandler } from '@work/application/commands/handlers/claim-run.handler';
+import { CompleteRunHandler } from '@work/application/commands/handlers/complete-run.handler';
+import { CustomiseStationHandler } from '@work/application/commands/handlers/customise-station.handler';
+import { DeleteTaskHandler } from '@work/application/commands/handlers/delete-task.handler';
+import { DeliverSaidHandler } from '@work/application/commands/handlers/deliver-said.handler';
+import { DismissProposalHandler } from '@work/application/commands/handlers/dismiss-proposal.handler';
+import { EnqueueRunHandler } from '@work/application/commands/handlers/enqueue-run.handler';
+import { GrantAttachmentUploadHandler } from '@work/application/commands/handlers/grant-attachment-upload.handler';
+import { MoveTaskHandler } from '@work/application/commands/handlers/move-task.handler';
+import { ReadInboxItemHandler } from '@work/application/commands/handlers/read-inbox-item.handler';
+import { RenewLeaseHandler } from '@work/application/commands/handlers/renew-lease.handler';
+import { SayInChatHandler } from '@work/application/commands/handlers/say-in-chat.handler';
+import { SayToRunHandler } from '@work/application/commands/handlers/say-to-run.handler';
+import { SetLineRepositoriesHandler } from '@work/application/commands/handlers/set-line-repositories.handler';
+import { SetUpLinesHandler } from '@work/application/commands/handlers/set-up-lines.handler';
+import { StartChatHandler } from '@work/application/commands/handlers/start-chat.handler';
+import { StopChatHandler } from '@work/application/commands/handlers/stop-chat.handler';
+import { StopRunHandler } from '@work/application/commands/handlers/stop-run.handler';
+import { UseToolHandler } from '@work/application/commands/handlers/use-tool.handler';
+import { MoveTaskCommand } from '@work/application/commands/move-task.command';
+import { ReadInboxItemCommand } from '@work/application/commands/read-inbox-item.command';
+import {
+  AppendRunJournalCommand,
+  ClaimRunCommand,
+  CompleteRunCommand,
+  EnqueueRunCommand,
+  RenewLeaseCommand,
+} from '@work/application/commands/runner.commands';
+import { SayToRunCommand } from '@work/application/commands/say-to-run.command';
+import { SetLineRepositoriesCommand } from '@work/application/commands/set-line-repositories.command';
+import { SetUpLinesCommand } from '@work/application/commands/set-up-lines.command';
+import { StopRunCommand } from '@work/application/commands/stop-run.command';
+import { UseToolCommand } from '@work/application/commands/use-tool.command';
+import { ChatOutcomes } from '@work/application/events/handlers/chat-outcomes.handler';
+import { CreateTaskFromProposal } from '@work/application/events/handlers/create-task-from-proposal.handler';
+import { DigestRun } from '@work/application/events/handlers/digest-run.handler';
+import { EnqueueChatRun } from '@work/application/events/handlers/enqueue-chat-run.handler';
+import { EnqueueTaskRun } from '@work/application/events/handlers/enqueue-task-run.handler';
+import { HandOver } from '@work/application/events/handlers/hand-over.handler';
+import { NotifyOutsideTools } from '@work/application/events/handlers/notify-outside-tools.handler';
+import { ProvisionTeam } from '@work/application/events/handlers/provision-team.handler';
+import { ReleaseHeldRuns } from '@work/application/events/handlers/release-held-runs.handler';
+import { StopLetGoRun } from '@work/application/events/handlers/stop-let-go-run.handler';
+import { WORK_PUBLICATIONS } from '@work/application/integration-events/work.publications';
+import { ATTACHMENT_READER } from '@work/application/ports/attachment-reader.port';
+import {
+  ATTACHMENT_STORE,
+  type AttachmentStorePort,
+} from '@work/application/ports/attachment-store.port';
+import {
+  BUILT_IN_SKILLS,
+  type BuiltInSkillsPort,
+  SHIPPED_SKILL_KEYS,
+} from '@work/application/ports/built-in-skills.port';
+import { CHAT_READER } from '@work/application/ports/chat-reader.port';
+import {
+  CONFIGURATION_PROPOSALS,
+  type ConfigurationProposalsPort,
+} from '@work/application/ports/configuration-proposals.port';
+import {
+  CONFIGURATION_STATUS,
+  type ConfigurationStatusPort,
+} from '@work/application/ports/configuration-status.port';
+import { CONFIGURED_LINES } from '@work/application/ports/configured-lines.port';
+import { DELIVERY_ADDRESSES } from '@work/application/ports/delivery-addresses.port';
+import { GIT_GATEWAY } from '@work/application/ports/git-gateway.port';
+import { HAPPENING_REACTIONS } from '@work/application/ports/happening-reactions.port';
+import {
+  HARNESS_LAUNCH,
+  type HarnessLaunchPort,
+} from '@work/application/ports/harness-launch.port';
+import { HELD_RUN_READER } from '@work/application/ports/held-run-reader.port';
+import { INBOX_READER } from '@work/application/ports/inbox-reader.port';
+import {
+  INTEGRATION_TOOL_CALLS,
+  type IntegrationToolCallsPort,
+} from '@work/application/ports/integration-tool-calls.port';
+import { INTEGRATION_TOOLS } from '@work/application/ports/integration-tools.port';
+import { KEPT_WORKSPACE_READER } from '@work/application/ports/kept-workspace-reader.port';
+import {
+  LINE_CONFIG_READER,
+  type LineConfigReaderPort,
+} from '@work/application/ports/line-config-reader.port';
+import {
+  LINE_CONFIG_WRITER,
+  type LineConfigWriterPort,
+} from '@work/application/ports/line-config-writer.port';
+import { LINE_READER } from '@work/application/ports/line-reader.port';
+import { LINE_SET_UP_READER } from '@work/application/ports/line-set-up-reader.port';
+import {
+  OUTBOUND_TASK_NOTIFIER,
+  type OutboundTaskNotifierPort,
+} from '@work/application/ports/outbound-task-notifier.port';
+import { RUN_DIGESTS } from '@work/application/ports/run-digest-reader.port';
+import {
+  RUN_DIGEST_WRITER,
+  type RunDigestWriterPort,
+} from '@work/application/ports/run-digest-writer.port';
+import { RUN_EVENT_READER } from '@work/application/ports/run-event-reader.port';
+import { RUN_JOURNAL } from '@work/application/ports/run-journal.port';
+import { RUN_JOURNAL_READER } from '@work/application/ports/run-journal-reader.port';
+import { RUN_READER } from '@work/application/ports/run-reader.port';
+import { RUN_STREAM } from '@work/application/ports/run-stream.port';
+import { RUNNER_ACTIVITY_READER } from '@work/application/ports/runner-activity-reader.port';
+import {
+  RUNNER_REVOCATION,
+  type RunnerRevocationPort,
+} from '@work/application/ports/runner-revocation.port';
+import { RUNNER_TRACE_READER } from '@work/application/ports/runner-trace-reader.port';
+import { SETUP_SETTLING } from '@work/application/ports/setup-settling.port';
+import { STARTER_INTEGRATIONS } from '@work/application/ports/starter-integrations.port';
+import {
+  STATION_TALLIES,
+  type StationTalliesPort,
+} from '@work/application/ports/station-tallies.port';
+import {
+  TASK_NOTICES,
+  type TaskNoticesPort,
+} from '@work/application/ports/task-notices.port';
+import {
+  TASK_PLACEMENTS,
+  type TaskPlacementsPort,
+} from '@work/application/ports/task-placements.port';
+import { TASK_READER } from '@work/application/ports/task-reader.port';
+import {
+  TEAM_INTEGRATIONS,
+  type TeamIntegrationsPort,
+} from '@work/application/ports/team-integrations.port';
+import {
+  TEAM_SKILLS,
+  type TeamSkillsPort,
+} from '@work/application/ports/team-skills.port';
+import { TEAM_TRACE_READER } from '@work/application/ports/team-trace-reader.port';
+import {
+  TRACE_PARENT,
+  type TraceParentPort,
+} from '@work/application/ports/trace-parent.port';
+import { WORK_LOOKUP } from '@work/application/ports/work-lookup.port';
+import {
+  ListChatsQuery,
+  ReadChatJournalQuery,
+  ReadChatQuery,
+} from '@work/application/queries/chat.queries';
+import { ListChatsHandler } from '@work/application/queries/handlers/list-chats.handler';
+import {
+  HarnessCatalogueHandler,
+  ListHarnessesHandler,
+} from '@work/application/queries/handlers/list-harnesses.handler';
+import { ListInboxHandler } from '@work/application/queries/handlers/list-inbox.handler';
+import { ListKeptWorkspacesHandler } from '@work/application/queries/handlers/list-kept-workspaces.handler';
+import { ListLinesHandler } from '@work/application/queries/handlers/list-lines.handler';
+import { ListRunnerActivityHandler } from '@work/application/queries/handlers/list-runner-activity.handler';
+import { ListTaskRunsHandler } from '@work/application/queries/handlers/list-task-runs.handler';
+import { ListTasksHandler } from '@work/application/queries/handlers/list-tasks.handler';
+import { ListTeamRunsHandler } from '@work/application/queries/handlers/list-team-runs.handler';
+import { ListTeamTracesHandler } from '@work/application/queries/handlers/list-team-traces.handler';
+import { OnboardingHandler } from '@work/application/queries/handlers/onboarding.handler';
+import { PendingMessagesHandler } from '@work/application/queries/handlers/pending-messages.handler';
+import { ReadAttachmentHandler } from '@work/application/queries/handlers/read-attachment.handler';
+import { ReadChatHandler } from '@work/application/queries/handlers/read-chat.handler';
+import { ReadChatJournalHandler } from '@work/application/queries/handlers/read-chat-journal.handler';
+import { ReadRunAttachmentHandler } from '@work/application/queries/handlers/read-run-attachment.handler';
+import { ReadRunConversationHandler } from '@work/application/queries/handlers/read-run-conversation.handler';
+import { ReadRunEventsHandler } from '@work/application/queries/handlers/read-run-events.handler';
+import { ReadRunnerTraceHandler } from '@work/application/queries/handlers/read-runner-trace.handler';
+import { ReadTaskJournalHandler } from '@work/application/queries/handlers/read-task-journal.handler';
+import { ReadTaskTraceHandler } from '@work/application/queries/handlers/read-task-trace.handler';
+import { RunStopRequestedHandler } from '@work/application/queries/handlers/run-stop-requested.handler';
+import { WatchRunHandler } from '@work/application/queries/handlers/watch-run.handler';
+import {
+  HarnessCatalogueQuery,
+  ListHarnessesQuery,
+} from '@work/application/queries/list-harnesses.query';
+import { ListInboxQuery } from '@work/application/queries/list-inbox.query';
+import { ListKeptWorkspacesQuery } from '@work/application/queries/list-kept-workspaces.query';
+import { ListLinesQuery } from '@work/application/queries/list-lines.query';
+import { ListRunnerActivityQuery } from '@work/application/queries/list-runner-activity.query';
+import { ListTaskRunsQuery } from '@work/application/queries/list-task-runs.query';
+import { ListTasksQuery } from '@work/application/queries/list-tasks.query';
+import { ListTeamRunsQuery } from '@work/application/queries/list-team-runs.query';
+import { ListTeamTracesQuery } from '@work/application/queries/list-team-traces.query';
+import { OnboardingQuery } from '@work/application/queries/onboarding.query';
+import { PendingMessagesQuery } from '@work/application/queries/pending-messages.query';
+import { ReadAttachmentQuery } from '@work/application/queries/read-attachment.query';
+import { ReadRunAttachmentQuery } from '@work/application/queries/read-run-attachment.query';
+import { ReadRunConversationQuery } from '@work/application/queries/read-run-conversation.query';
+import { ReadRunEventsQuery } from '@work/application/queries/read-run-events.query';
+import { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trace.query';
+import { ReadTaskJournalQuery } from '@work/application/queries/read-task-journal.query';
+import { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.query';
+import { RunStopRequestedQuery } from '@work/application/queries/run-stop-requested.query';
+import { WatchRunQuery } from '@work/application/queries/watch-run.query';
+import { ApplyLines } from '@work/application/services/apply-lines.service';
+import {
+  BUILT_IN_TOOL_USES,
+  BuiltInTools,
+  type BuiltInToolUse,
+} from '@work/application/services/built-in-tools.service';
+import { CarryGitCall } from '@work/application/services/carry-git-call.service';
+import { ChatAtHand } from '@work/application/services/chat-at-hand.service';
+import { CHAT_DISPATCH } from '@work/application/services/chat-dispatch';
+import { ConfiguredLinesService } from '@work/application/services/configured-lines.service';
+import { ConversationAtHand } from '@work/application/services/conversation-at-hand.service';
+import { DispatchChat } from '@work/application/services/dispatch-chat.service';
+import { DispatchTask } from '@work/application/services/dispatch-task.service';
+import { FilesAtHand } from '@work/application/services/files-at-hand.service';
+import { IntegrationTools } from '@work/application/services/integration-tools.service';
+import { LineAtHand } from '@work/application/services/line-at-hand.service';
+import { OpenPullRequest } from '@work/application/services/open-pull-request.service';
+import { OutsideTaskNotices } from '@work/application/services/outside-task-notices.service';
+import { ProposeLineChange } from '@work/application/services/propose-line-change.service';
+import { ProposeTaskToolUse } from '@work/application/services/propose-task.tool-use';
+import { PullRequestToolUse } from '@work/application/services/pull-request.tool-use';
+import { RaiseTask } from '@work/application/services/raise-task';
+import { ReactToHappenings } from '@work/application/services/react-to-happenings.service';
+import { RunAtHand } from '@work/application/services/run-at-hand.service';
+import { RunLeases } from '@work/application/services/run-leases.service';
+import { RunWorks } from '@work/application/services/run-works.service';
+import { SeedConfiguration } from '@work/application/services/seed-configuration.service';
+import { SettleSetup } from '@work/application/services/settle-setup.service';
+import { StationSkills } from '@work/application/services/station-skills.service';
+import { TaskBindings } from '@work/application/services/task-bindings.service';
+import {
+  TASK_DISPATCH,
+  type TaskDispatching,
+} from '@work/application/services/task-dispatch';
+import { TeamIntegrations } from '@work/application/services/team-integrations.service';
+import { TeamSetup } from '@work/application/services/team-setup.service';
+import { WorkLookup } from '@work/application/services/work-lookup.service';
+import { WORK_EVENT_TYPES } from '@work/domain/event-types';
+import { BUILT_IN_SKILL_KEYS } from '@work/domain/services/built-in-skills';
+import {
+  BuiltInHarnesses,
+  DEFAULT_HARNESS,
+} from '@work/infrastructure/harnesses/built-in-harnesses';
+import { LineConfigReader } from '@work/infrastructure/lines/line-config.reader';
+import { LineConfigWriter } from '@work/infrastructure/lines/line-config.writer';
+import { DrizzleAttachmentReader } from '@work/infrastructure/persistence/drizzle/readers/attachment.reader';
+import { DrizzleChatReader } from '@work/infrastructure/persistence/drizzle/readers/chat.reader';
+import { DrizzleHeldRunReader } from '@work/infrastructure/persistence/drizzle/readers/held-run.reader';
+import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/readers/inbox.reader';
+import { DrizzleKeptWorkspaceReader } from '@work/infrastructure/persistence/drizzle/readers/kept-workspace.reader';
+import { DrizzleLineReader } from '@work/infrastructure/persistence/drizzle/readers/line.reader';
+import { DrizzleLineSetUpReader } from '@work/infrastructure/persistence/drizzle/readers/line-set-up.reader';
+import { DrizzleRunReader } from '@work/infrastructure/persistence/drizzle/readers/run.reader';
+import { DrizzleRunEventReader } from '@work/infrastructure/persistence/drizzle/readers/run-event.reader';
+import { DrizzleRunJournalReader } from '@work/infrastructure/persistence/drizzle/readers/run-journal.reader';
+import { DrizzleRunnerActivityReader } from '@work/infrastructure/persistence/drizzle/readers/runner-activity.reader';
+import { DrizzleRunnerTraceReader } from '@work/infrastructure/persistence/drizzle/readers/runner-trace.reader';
+import { DrizzleStationTallies } from '@work/infrastructure/persistence/drizzle/readers/station-tallies.reader';
+import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/readers/task.reader';
+import { DrizzleTaskPlacements } from '@work/infrastructure/persistence/drizzle/readers/task-placements.reader';
+import { DrizzleTeamTraceReader } from '@work/infrastructure/persistence/drizzle/readers/team-trace.reader';
+import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
+import { DrizzleLineRepository } from '@work/infrastructure/persistence/drizzle/repositories/line.repository';
+import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
+import { DrizzleRunDigests } from '@work/infrastructure/persistence/drizzle/repositories/run-digest.repository';
+import { DrizzleRunJournal } from '@work/infrastructure/persistence/drizzle/repositories/run-journal.repository';
+import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
+import { S3AttachmentStore } from '@work/infrastructure/storage/s3-attachment.store';
+import { InMemoryRunStream } from '@work/infrastructure/streaming/in-memory-run-stream';
+import { HashedTraceParent } from '@work/infrastructure/tracing/hashed-trace-parent';
+import { workSubscribers } from '@work/presentation/events/work.subscribers';
+import { AttachmentController } from '@work/presentation/http/controllers/attachment.controller';
+import { ChatController } from '@work/presentation/http/controllers/chat.controller';
+import { GitController } from '@work/presentation/http/controllers/git.controller';
+import { HarnessController } from '@work/presentation/http/controllers/harness.controller';
+import { InboxController } from '@work/presentation/http/controllers/inbox.controller';
+import { LineController } from '@work/presentation/http/controllers/line.controller';
+import { OnboardingController } from '@work/presentation/http/controllers/onboarding.controller';
+import { RunController } from '@work/presentation/http/controllers/run.controller';
+import { RunStreamController } from '@work/presentation/http/controllers/run-stream.controller';
+import { RunnerController } from '@work/presentation/http/controllers/runner.controller';
+import { RunnerActivityController } from '@work/presentation/http/controllers/runner-activity.controller';
+import { TaskController } from '@work/presentation/http/controllers/task.controller';
+
+const WORK_EVENTS = Symbol('WORK_EVENTS');
+
+export const WORK_CONTROLLERS: readonly Type[] = [
+  LineController,
+  RunController,
+  RunStreamController,
+  RunnerController,
+  RunnerActivityController,
+  HarnessController,
+  InboxController,
+  AttachmentController,
+  GitController,
+  TaskController,
+  ChatController,
+  OnboardingController,
+];
+
+export const WORK_PROVIDERS: readonly Provider[] = [
+  {
+    provide: CONFIGURED_LINES,
+    inject: [ApplyLines],
+    useFactory: (applying: ApplyLines) => new ConfiguredLinesService(applying),
+  },
+
+  {
+    provide: WORK_LOOKUP,
+    inject: [
+      DrizzleRunRepository,
+      DrizzleTaskRepository,
+      DrizzleLineRepository,
+    ],
+    useFactory: (
+      runs: DrizzleRunRepository,
+      tasks: DrizzleTaskRepository,
+      lines: DrizzleLineRepository,
+    ) => new WorkLookup(runs, tasks, lines),
+  },
+
+  DrizzleRunRepository,
+
+  DrizzleLineRepository,
+
+  DrizzleTaskRepository,
+
+  DrizzleChatRepository,
+
+  { provide: CHAT_READER, useClass: DrizzleChatReader },
+
+  { provide: LINE_READER, useClass: DrizzleLineReader },
+
+  { provide: LINE_SET_UP_READER, useClass: DrizzleLineSetUpReader },
+
+  { provide: TASK_READER, useClass: DrizzleTaskReader },
+
+  { provide: INBOX_READER, useClass: DrizzleInboxReader },
+
+  { provide: RUNNER_ACTIVITY_READER, useClass: DrizzleRunnerActivityReader },
+
+  { provide: RUN_READER, useClass: DrizzleRunReader },
+
+  { provide: RUNNER_TRACE_READER, useClass: DrizzleRunnerTraceReader },
+
+  { provide: HARNESS_LAUNCH, useExisting: BuiltInHarnesses },
+
+  { provide: KEPT_WORKSPACE_READER, useClass: DrizzleKeptWorkspaceReader },
+
+  { provide: RUN_JOURNAL_READER, useClass: DrizzleRunJournalReader },
+
+  { provide: TEAM_TRACE_READER, useClass: DrizzleTeamTraceReader },
+
+  { provide: ATTACHMENT_READER, useClass: DrizzleAttachmentReader },
+
+  {
+    provide: ATTACHMENT_STORE,
+    inject: [ENV],
+    useFactory: (env: Env) => new S3AttachmentStore(env),
+  },
+
+  {
+    provide: FilesAtHand,
+    inject: [ATTACHMENT_STORE],
+    useFactory: (files: AttachmentStorePort) => new FilesAtHand(files),
+  },
+
+  DrizzleRunDigests,
+
+  { provide: RUN_DIGESTS, useExisting: DrizzleRunDigests },
+
+  { provide: RUN_DIGEST_WRITER, useExisting: DrizzleRunDigests },
+
+  { provide: RUN_EVENT_READER, useClass: DrizzleRunEventReader },
+
+  { provide: RUN_STREAM, useClass: InMemoryRunStream },
+
+  {
+    provide: RunLeases,
+    inject: [DrizzleRunRepository],
+    useFactory: (runs: DrizzleRunRepository) => new RunLeases(runs),
+  },
+
+  {
+    provide: RUNNER_REVOCATION,
+    inject: [RunLeases],
+    useFactory: (leases: RunLeases) => new ReleaseHeldRuns(leases),
+  },
+
+  { provide: RUN_JOURNAL, useClass: DrizzleRunJournal },
+
+  { provide: HELD_RUN_READER, useClass: DrizzleHeldRunReader },
+
+  {
+    provide: TeamIntegrations,
+    inject: [TEAM_INTEGRATIONS],
+    useFactory: (integrations: TeamIntegrationsPort) =>
+      new TeamIntegrations(integrations),
+  },
+
+  { provide: LINE_CONFIG_READER, useClass: LineConfigReader },
+
+  { provide: LINE_CONFIG_WRITER, useClass: LineConfigWriter },
+
+  {
+    provide: SeedConfiguration,
+    inject: [LINE_CONFIG_WRITER, CONFIGURATION_PROPOSALS],
+    useFactory: (
+      writer: LineConfigWriterPort,
+      proposals: ConfigurationProposalsPort,
+    ) => new SeedConfiguration(writer, proposals),
+  },
+
+  {
+    provide: ProposeLineChange,
+    inject: [
+      WORKSPACE_ACCESS,
+      DrizzleLineRepository,
+      LINE_CONFIG_READER,
+      LINE_CONFIG_WRITER,
+      CONFIGURATION_PROPOSALS,
+      ID_GENERATOR,
+    ],
+    useFactory: (
+      access: WorkspaceAccessPort,
+      lines: DrizzleLineRepository,
+      reader: LineConfigReaderPort,
+      writer: LineConfigWriterPort,
+      proposals: ConfigurationProposalsPort,
+      ids: IdGeneratorPort,
+    ) => new ProposeLineChange(access, lines, reader, writer, proposals, ids),
+  },
+
+  {
+    provide: TeamSetup,
+    inject: [
+      WORKSPACE_CONNECTIONS,
+      CONFIGURATION_STATUS,
+      TEAM_INTEGRATIONS,
+      RUNNER_READER,
+    ],
+    useFactory: (
+      connections: WorkspaceConnectionsPort,
+      configurations: ConfigurationStatusPort,
+      integrations: TeamIntegrationsPort,
+      runners: RunnerReaderPort,
+    ) => new TeamSetup(connections, configurations, integrations, runners),
+  },
+
+  {
+    provide: StationSkills,
+    inject: [TEAM_SKILLS],
+    useFactory: (skills: TeamSkillsPort) => new StationSkills(skills),
+  },
+
+  { provide: STATION_TALLIES, useClass: DrizzleStationTallies },
+
+  { provide: TASK_PLACEMENTS, useClass: DrizzleTaskPlacements },
+
+  {
+    provide: ApplyLines,
+    inject: [
+      DrizzleLineRepository,
+      TEAM_DIRECTORY,
+      STATION_TALLIES,
+      LINE_CONFIG_READER,
+      ID_GENERATOR,
+      TRANSACTION,
+    ],
+    useFactory: (
+      lines: DrizzleLineRepository,
+      teams: TeamDirectoryPort,
+      tallies: StationTalliesPort,
+      reader: LineConfigReaderPort,
+      ids: IdGeneratorPort,
+      transaction: TransactionPort,
+    ) => new ApplyLines(lines, teams, tallies, reader, ids, transaction),
+  },
+
+  {
+    provide: LineAtHand,
+    inject: [WORKSPACE_ACCESS, DrizzleLineRepository],
+    useFactory: (access: WorkspaceAccessPort, lines: DrizzleLineRepository) =>
+      new LineAtHand(access, lines),
+  },
+
+  {
+    provide: HAPPENING_REACTIONS,
+    inject: [
+      DrizzleTaskRepository,
+      TASK_PLACEMENTS,
+      DrizzleLineRepository,
+      TASK_DISPATCH,
+      TRANSACTION,
+      CLOCK,
+      ID_GENERATOR,
+      MEMBER_READER,
+      ATTACHMENT_STORE,
+      LOGGER,
+    ],
+    useFactory: (
+      tasks: DrizzleTaskRepository,
+      placements: TaskPlacementsPort,
+      lines: DrizzleLineRepository,
+      dispatch: TaskDispatching,
+      transaction: TransactionPort,
+      clock: ClockPort,
+      ids: IdGeneratorPort,
+      members: MemberReaderPort,
+      files: AttachmentStorePort,
+      logger: LoggerPort,
+    ) =>
+      new ReactToHappenings(
+        tasks,
+        placements,
+        lines,
+        dispatch,
+        transaction,
+        clock,
+        ids,
+        members,
+        files,
+        logger,
+      ),
+  },
+
+  { provide: SETUP_SETTLING, useExisting: SettleSetup },
+
+  {
+    provide: SettleSetup,
+    inject: [
+      DrizzleTaskRepository,
+      DrizzleLineRepository,
+      TeamSetup,
+      CLOCK,
+      LOGGER,
+    ],
+    useFactory: (
+      tasks: DrizzleTaskRepository,
+      lines: DrizzleLineRepository,
+      setup: TeamSetup,
+      clock: ClockPort,
+      logger: LoggerPort,
+    ) => new SettleSetup(tasks, lines, setup, clock, logger),
+  },
+
+  {
+    provide: RunAtHand,
+    inject: [DrizzleRunRepository, DrizzleTaskRepository],
+    useFactory: (runs: DrizzleRunRepository, tasks: DrizzleTaskRepository) =>
+      new RunAtHand(runs, tasks),
+  },
+
+  {
+    provide: ConversationAtHand,
+    inject: [DrizzleTaskRepository, DrizzleLineRepository],
+    useFactory: (tasks: DrizzleTaskRepository, lines: DrizzleLineRepository) =>
+      new ConversationAtHand(tasks, lines),
+  },
+
+  {
+    provide: RunWorks,
+    inject: [
+      DrizzleRunRepository,
+      DrizzleTaskRepository,
+      DrizzleChatRepository,
+      DrizzleLineRepository,
+      CLOCK,
+    ],
+    useFactory: (
+      runs: DrizzleRunRepository,
+      tasks: DrizzleTaskRepository,
+      chats: DrizzleChatRepository,
+      lines: DrizzleLineRepository,
+      clock: ClockPort,
+    ) => new RunWorks(runs, tasks, chats, lines, clock),
+  },
+
+  {
+    provide: GIT_GATEWAY,
+    inject: [RunWorks, WORKSPACE_CONNECTIONS, REPOSITORY_GIT],
+    useFactory: (
+      works: RunWorks,
+      workspaces: WorkspaceConnectionsPort,
+      git: RepositoryGitPort,
+    ) => new CarryGitCall(works, workspaces, git),
+  },
+
+  {
+    provide: ChatAtHand,
+    inject: [DrizzleChatRepository],
+    useFactory: (chats: DrizzleChatRepository) => new ChatAtHand(chats),
+  },
+
+  {
+    provide: CHAT_DISPATCH,
+    inject: [
+      DrizzleRunRepository,
+      ID_GENERATOR,
+      HARNESS_LAUNCH,
+      TRACE_PARENT,
+      TEAM_DIRECTORY,
+      DrizzleLineRepository,
+      CLOCK,
+    ],
+    useFactory: (
+      runs: DrizzleRunRepository,
+      ids: IdGeneratorPort,
+      launch: HarnessLaunchPort,
+      tracing: TraceParentPort,
+      teams: TeamDirectoryPort,
+      lines: DrizzleLineRepository,
+      clock: ClockPort,
+    ) => new DispatchChat(runs, ids, launch, tracing, teams, lines, clock),
+  },
+
+  {
+    provide: CreateTaskFromProposal,
+    inject: [
+      DrizzleChatRepository,
+      DrizzleLineRepository,
+      TASK_PLACEMENTS,
+      RaiseTask,
+      ID_GENERATOR,
+      CLOCK,
+    ],
+    useFactory: (
+      chats: DrizzleChatRepository,
+      lines: DrizzleLineRepository,
+      placements: TaskPlacementsPort,
+      raise: RaiseTask,
+      ids: IdGeneratorPort,
+      clock: ClockPort,
+    ) =>
+      new CreateTaskFromProposal(chats, lines, placements, raise, ids, clock),
+  },
+
+  BuiltInHarnesses,
+
+  { provide: TRACE_PARENT, useClass: HashedTraceParent },
+
+  {
+    provide: SHIPPED_SKILL_KEYS,
+    useValue: BUILT_IN_SKILL_KEYS.map((each) => each.value),
+  },
+
+  {
+    provide: TASK_DISPATCH,
+    inject: [
+      DrizzleRunRepository,
+      ID_GENERATOR,
+      BuiltInHarnesses,
+      HARNESS_LAUNCH,
+      TRACE_PARENT,
+      BUILT_IN_SKILLS,
+      StationSkills,
+      TeamIntegrations,
+    ],
+    useFactory: (
+      runs: DrizzleRunRepository,
+      ids: CryptoIdGenerator,
+      harnesses: BuiltInHarnesses,
+      launch: HarnessLaunchPort,
+      tracing: TraceParentPort,
+      skills: BuiltInSkillsPort,
+      teamSkills: StationSkills,
+      integrations: TeamIntegrations,
+    ) =>
+      new DispatchTask(
+        runs,
+        ids,
+        harnesses,
+        launch,
+        tracing,
+        skills,
+        teamSkills,
+        integrations,
+      ),
+  },
+
+  {
+    provide: RaiseTask,
+    inject: [DrizzleTaskRepository, TASK_DISPATCH, TRANSACTION],
+    useFactory: (
+      tasks: DrizzleTaskRepository,
+      dispatch: DispatchTask,
+      transaction: TransactionPort,
+    ) => new RaiseTask(tasks, dispatch, transaction),
+  },
+
+  {
+    provide: TaskBindings,
+    inject: [DrizzleLineRepository],
+    useFactory: (lines: DrizzleLineRepository) => new TaskBindings(lines),
+  },
+
+  {
+    provide: OUTBOUND_TASK_NOTIFIER,
+    inject: [TaskBindings, TASK_NOTICES],
+    useFactory: (bindings: TaskBindings, notices: TaskNoticesPort) =>
+      new OutsideTaskNotices(bindings, notices),
+  },
+
+  {
+    provide: WORK_EVENTS,
+    inject: [
+      EventTypes,
+      EventPublications,
+      EventSubscribers,
+      DrizzleLineRepository,
+      WORKSPACE_READER,
+      ID_GENERATOR,
+      CLOCK,
+      RUNNER_REVOCATION,
+      CreateTaskFromProposal,
+      SettleSetup,
+      DrizzleTaskRepository,
+      OUTBOUND_TASK_NOTIFIER,
+      DrizzleLineRepository,
+      DrizzleRunRepository,
+      DrizzleChatRepository,
+      TASK_DISPATCH,
+      CHAT_DISPATCH,
+      RUN_DIGEST_WRITER,
+      TASK_PLACEMENTS,
+      TRANSACTION,
+      ApplyLines,
+    ],
+    useFactory: (
+      types: EventTypes,
+      publications: EventPublications,
+      subscribers: EventSubscribers,
+      provisioningLines: DrizzleLineRepository,
+      workspaces: WorkspaceReaderPort,
+      ids: IdGeneratorPort,
+      clock: ClockPort,
+      revocation: RunnerRevocationPort,
+      acceptances: CreateTaskFromProposal,
+      setup: SettleSetup,
+      tasks: DrizzleTaskRepository,
+      notifier: OutboundTaskNotifierPort,
+      lines: DrizzleLineRepository,
+      runs: DrizzleRunRepository,
+      chats: DrizzleChatRepository,
+      taskDispatch: DispatchTask,
+      chatDispatch: DispatchChat,
+      digests: RunDigestWriterPort,
+      placements: TaskPlacementsPort,
+      transaction: TransactionPort,
+    ) => {
+      types.register('work', WORK_EVENT_TYPES);
+      publications.register(WORK_PUBLICATIONS);
+      subscribers.register([
+        ...workSubscribers({
+          handOver: new HandOver(tasks, placements, lines, taskDispatch, clock),
+          chatOutcomes: new ChatOutcomes(chats, chatDispatch),
+          digests: new DigestRun(digests),
+          provisioning: new ProvisionTeam(
+            provisioningLines,
+            tasks,
+            workspaces,
+            ids,
+            clock,
+            DEFAULT_HARNESS,
+          ),
+          revocation,
+          acceptances,
+          outsideTools: new NotifyOutsideTools(tasks, notifier, transaction),
+          taskRuns: new EnqueueTaskRun(tasks, lines, runs, taskDispatch),
+          letGoRuns: new StopLetGoRun(runs, clock),
+          chatRuns: new EnqueueChatRun(chats, runs, chatDispatch),
+          setup,
+        }),
+      ]);
+      return true;
+    },
+  },
+
+  ...bindQueryHandler(ListLinesQuery, ListLinesHandler, [LINE_READER]),
+
+  ...bindQueryHandler(ListTasksQuery, ListTasksHandler, [TASK_READER]),
+
+  ...bindQueryHandler(ListTaskRunsQuery, ListTaskRunsHandler, [RUN_READER]),
+
+  ...bindQueryHandler(ListTeamRunsQuery, ListTeamRunsHandler, [RUN_READER]),
+
+  ...bindQueryHandler(ReadRunConversationQuery, ReadRunConversationHandler, [
+    RUN_READER,
+  ]),
+
+  ...bindQueryHandler(ReadAttachmentQuery, ReadAttachmentHandler, [
+    WORKSPACE_READER,
+    ATTACHMENT_READER,
+    ATTACHMENT_STORE,
+  ]),
+
+  ...bindQueryHandler(ReadRunAttachmentQuery, ReadRunAttachmentHandler, [
+    HELD_RUN_READER,
+    ATTACHMENT_STORE,
+  ]),
+
+  ...bindQueryHandler(PendingMessagesQuery, PendingMessagesHandler, [
+    HELD_RUN_READER,
+  ]),
+
+  ...bindQueryHandler(ListChatsQuery, ListChatsHandler, [
+    WORKSPACE_READER,
+    CHAT_READER,
+  ]),
+
+  ...bindQueryHandler(ReadChatQuery, ReadChatHandler, [CHAT_READER]),
+
+  ...bindQueryHandler(ReadChatJournalQuery, ReadChatJournalHandler, [
+    RUN_JOURNAL_READER,
+  ]),
+
+  ...bindQueryHandler(RunStopRequestedQuery, RunStopRequestedHandler, [
+    HELD_RUN_READER,
+  ]),
+
+  ...bindQueryHandler(ListHarnessesQuery, ListHarnessesHandler, [
+    HARNESS_LAUNCH,
+    WORKSPACE_ACCESS,
+    RUNNER_READER,
+  ]),
+
+  ...bindQueryHandler(HarnessCatalogueQuery, HarnessCatalogueHandler, [
+    HARNESS_LAUNCH,
+  ]),
+
+  ...bindQueryHandler(ListInboxQuery, ListInboxHandler, [INBOX_READER]),
+
+  ...bindQueryHandler(ListRunnerActivityQuery, ListRunnerActivityHandler, [
+    WORKSPACE_ACCESS,
+    RUNNER_ACTIVITY_READER,
+  ]),
+
+  ...bindQueryHandler(ListTeamTracesQuery, ListTeamTracesHandler, [
+    TEAM_TRACE_READER,
+    RUN_DIGESTS,
+  ]),
+
+  ...bindQueryHandler(ReadTaskTraceQuery, ReadTaskTraceHandler, [
+    RUN_READER,
+    RUN_JOURNAL_READER,
+  ]),
+
+  ...bindQueryHandler(ReadRunnerTraceQuery, ReadRunnerTraceHandler, [
+    RUNNER_TRACE_READER,
+  ]),
+
+  ...bindQueryHandler(ReadTaskJournalQuery, ReadTaskJournalHandler, [
+    RUN_JOURNAL_READER,
+  ]),
+
+  ...bindQueryHandler(ListKeptWorkspacesQuery, ListKeptWorkspacesHandler, [
+    KEPT_WORKSPACE_READER,
+  ]),
+
+  ...bindQueryHandler(WatchRunQuery, WatchRunHandler, [RUN_EVENT_READER]),
+
+  ...bindQueryHandler(ReadRunEventsQuery, ReadRunEventsHandler, [
+    RUN_EVENT_READER,
+  ]),
+
+  ...bindCommandHandler(AddTaskCommand, AddTaskHandler, [
+    TASK_PLACEMENTS,
+    LineAtHand,
+    ID_GENERATOR,
+    CLOCK,
+    RaiseTask,
+    PERSON_READER,
+    FilesAtHand,
+  ]),
+
+  ...bindCommandHandler(
+    GrantAttachmentUploadCommand,
+    GrantAttachmentUploadHandler,
+    [WORKSPACE_READER, ATTACHMENT_STORE, ID_GENERATOR],
+  ),
+
+  ...bindCommandHandler(AnalyseTraceCommand, AnalyseTraceHandler, [
+    DrizzleTaskRepository,
+    TASK_PLACEMENTS,
+    DrizzleLineRepository,
+    TEAM_DIRECTORY,
+    ID_GENERATOR,
+    CLOCK,
+    RaiseTask,
+    PERSON_READER,
+  ]),
+
+  ...bindCommandHandler(DeleteTaskCommand, DeleteTaskHandler, [
+    DrizzleTaskRepository,
+    LineAtHand,
+  ]),
+
+  ...bindCommandHandler(AnswerInboxItemCommand, AnswerInboxItemHandler, [
+    ConversationAtHand,
+    DrizzleTaskRepository,
+    TASK_DISPATCH,
+    TRANSACTION,
+    CLOCK,
+    FilesAtHand,
+  ]),
+
+  ...bindCommandHandler(SetUpLinesCommand, SetUpLinesHandler, [
+    WORKSPACE_ACCESS,
+    DrizzleLineRepository,
+    SeedConfiguration,
+    SettleSetup,
+  ]),
+
+  ...bindQueryHandler(OnboardingQuery, OnboardingHandler, [
+    WORKSPACE_READER,
+    TeamSetup,
+    GITHUB_APP,
+    LINE_SET_UP_READER,
+    STARTER_INTEGRATIONS,
+    DELIVERY_ADDRESSES,
+  ]),
+
+  ...bindCommandHandler(ReadInboxItemCommand, ReadInboxItemHandler, [
+    ConversationAtHand,
+    DrizzleTaskRepository,
+    CLOCK,
+  ]),
+
+  {
+    provide: OpenPullRequest,
+    inject: [
+      DrizzleTaskRepository,
+      DrizzleLineRepository,
+      PULL_REQUESTS,
+      TRANSACTION,
+    ],
+    useFactory: (
+      tasks: DrizzleTaskRepository,
+      lines: DrizzleLineRepository,
+      pullRequests: PullRequestPort,
+      transaction: TransactionPort,
+    ) => new OpenPullRequest(tasks, lines, pullRequests, transaction),
+  },
+
+  {
+    provide: BUILT_IN_TOOL_USES,
+    inject: [
+      OpenPullRequest,
+      DrizzleChatRepository,
+      DrizzleLineRepository,
+      CLOCK,
+    ],
+    useFactory: (
+      opening: OpenPullRequest,
+      chats: DrizzleChatRepository,
+      lines: DrizzleLineRepository,
+      clock: ClockPort,
+    ): readonly BuiltInToolUse[] => [
+      new PullRequestToolUse(opening),
+      new ProposeTaskToolUse(chats, lines, clock),
+    ],
+  },
+
+  {
+    provide: BuiltInTools,
+    inject: [BUILT_IN_TOOL_USES],
+    useFactory: (uses: readonly BuiltInToolUse[]) => new BuiltInTools(uses),
+  },
+
+  {
+    provide: INTEGRATION_TOOLS,
+    inject: [
+      DrizzleTaskRepository,
+      DrizzleLineRepository,
+      TaskBindings,
+      INTEGRATION_TOOL_CALLS,
+    ],
+    useFactory: (
+      tasks: DrizzleTaskRepository,
+      lines: DrizzleLineRepository,
+      bindings: TaskBindings,
+      calls: IntegrationToolCallsPort,
+    ) => new IntegrationTools(tasks, lines, bindings, calls),
+  },
+
+  ...bindCommandHandler(UseToolCommand, UseToolHandler, [
+    RunWorks,
+    BuiltInTools,
+    INTEGRATION_TOOLS,
+  ]),
+
+  ...bindCommandHandler(StartChatCommand, StartChatHandler, [
+    WORKSPACE_READER,
+    DrizzleChatRepository,
+    FilesAtHand,
+    CHAT_DISPATCH,
+    HARNESS_LAUNCH,
+    ID_GENERATOR,
+    CLOCK,
+    TRANSACTION,
+  ]),
+
+  ...bindCommandHandler(SayInChatCommand, SayInChatHandler, [
+    ChatAtHand,
+    DrizzleChatRepository,
+    FilesAtHand,
+    CHAT_DISPATCH,
+    CLOCK,
+    TRANSACTION,
+  ]),
+
+  ...bindCommandHandler(StopChatCommand, StopChatHandler, [
+    ChatAtHand,
+    DrizzleRunRepository,
+    CLOCK,
+  ]),
+
+  ...bindCommandHandler(AcceptProposalCommand, AcceptProposalHandler, [
+    ChatAtHand,
+    DrizzleChatRepository,
+    CLOCK,
+  ]),
+
+  ...bindCommandHandler(DismissProposalCommand, DismissProposalHandler, [
+    ChatAtHand,
+    DrizzleChatRepository,
+    CLOCK,
+  ]),
+
+  ...bindCommandHandler(AnswerRemarkCommand, AnswerRemarkHandler, [
+    RunAtHand,
+    DrizzleTaskRepository,
+    DrizzleLineRepository,
+    REMARKS,
+    CLOCK,
+  ]),
+
+  ...bindCommandHandler(SayToRunCommand, SayToRunHandler, [
+    DrizzleRunRepository,
+    DrizzleTaskRepository,
+    DrizzleLineRepository,
+    CLOCK,
+    FilesAtHand,
+  ]),
+
+  ...bindCommandHandler(StopRunCommand, StopRunHandler, [
+    DrizzleRunRepository,
+    DrizzleTaskRepository,
+    CLOCK,
+  ]),
+
+  ...bindCommandHandler(DeliverSaidCommand, DeliverSaidHandler, [
+    RunWorks,
+    CLOCK,
+  ]),
+
+  ...bindCommandHandler(MoveTaskCommand, MoveTaskHandler, [
+    DrizzleTaskRepository,
+    TASK_PLACEMENTS,
+    LineAtHand,
+    TRANSACTION,
+    TASK_DISPATCH,
+    CLOCK,
+    PERSON_READER,
+  ]),
+
+  ...bindCommandHandler(AssignTaskCommand, AssignTaskHandler, [
+    DrizzleTaskRepository,
+    TEAM_DIRECTORY,
+    TRANSACTION,
+    PERSON_READER,
+  ]),
+
+  ...bindCommandHandler(CustomiseStationCommand, CustomiseStationHandler, [
+    ProposeLineChange,
+  ]),
+
+  ...bindCommandHandler(
+    SetLineRepositoriesCommand,
+    SetLineRepositoriesHandler,
+    [ProposeLineChange],
+  ),
+
+  ...bindCommandHandler(ClaimRunCommand, ClaimRunHandler, [
+    DrizzleRunRepository,
+    RunLeases,
+    RUNNER_PRESENCE,
+    CLOCK,
+  ]),
+
+  ...bindCommandHandler(RenewLeaseCommand, RenewLeaseHandler, [
+    DrizzleRunRepository,
+    RUNNER_PRESENCE,
+    CLOCK,
+  ]),
+
+  ...bindCommandHandler(AppendRunJournalCommand, AppendRunJournalHandler, [
+    DrizzleRunRepository,
+    RUN_JOURNAL,
+    RUN_STREAM,
+  ]),
+
+  ...bindCommandHandler(CompleteRunCommand, CompleteRunHandler, [
+    DrizzleRunRepository,
+    TRANSACTION,
+  ]),
+
+  ...bindCommandHandler(EnqueueRunCommand, EnqueueRunHandler, [
+    DrizzleRunRepository,
+    ID_GENERATOR,
+    HARNESS_LAUNCH,
+    WORKSPACE_ACCESS,
+  ]),
+
+  // RunnerGuard must run before AuthenticatedGuard.
+  { provide: APP_GUARD, useClass: RunnerGuard },
+
+  { provide: APP_GUARD, useClass: AuthenticatedGuard },
+];

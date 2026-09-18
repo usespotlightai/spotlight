@@ -256,14 +256,4 @@ describe('TraceView', () => {
       expect.stringContaining('Publish'),
     ]);
   });
-
-  it('says so when a task has had nothing run against it', () => {
-    render(
-      <TraceView
-        trace={{ startedAt: null, ms: 0, rows: 0, faults: 0, roots: [] }}
-      />,
-    );
-
-    expect(screen.getByText('No runs yet.')).toBeInTheDocument();
-  });
 });

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { seenAt, since } from '@/lib/runner';
+import { seenAt, since, withActivity } from '@/lib/runner';
 
 const NOW = new Date('2026-08-30T12:00:00.000Z');
 
@@ -55,5 +55,17 @@ describe('seenAt', () => {
 
   it('falls back to when it was registered, having never answered', () => {
     expect(seenAt(runner({ lastSeenAt: null }))).toMatch(/^Registered /);
+  });
+});
+
+describe('withActivity', () => {
+  it('pairs each runner with the run it holds, and leaves the rest idle', () => {
+    const [busy, idle] = withActivity(
+      [runner({ id: 'runner_1' }), runner({ id: 'runner_2' })],
+      [{ runnerId: 'runner_1', currentRun: { id: 'run_7', state: 'claimed' } }],
+    );
+
+    expect(busy.currentRun).toEqual({ id: 'run_7', state: 'claimed' });
+    expect(idle.currentRun).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { InboxMessage } from '@/lib/inbox';
-import { inboxItemPath, shownAt, spentOn } from '@/lib/inbox';
+import type { InboxItem, InboxMessage } from '@/lib/inbox';
+import { inboxItemPath, previewOf, shownAt, spentOn } from '@/lib/inbox';
 
 const note = (position: number, runId: string | null) =>
   ({ position, runId }) as InboxMessage;
@@ -43,5 +43,30 @@ describe('spentOn', () => {
 
   it('says nothing where the harness reported nothing', () => {
     expect(spentOn(null)).toBe('–');
+  });
+});
+
+describe('previewOf', () => {
+  const item = (notes: Partial<InboxMessage>[]) =>
+    ({
+      station: 'Planning',
+      description: 'A few quick steps will get everything ready.',
+      notes,
+    }) as InboxItem;
+
+  it('shows the last thing said', () => {
+    expect(previewOf(item([{ form: 'words', body: 'Which queue?' }]))).toBe(
+      'Which queue?',
+    );
+  });
+
+  it('shows the task’s description, not the listed steps, for setting up a team', () => {
+    expect(
+      previewOf(item([{ form: 'setup', body: '1. [Connect GitHub](/x). …' }])),
+    ).toBe('A few quick steps will get everything ready.');
+  });
+
+  it('says where it waits when nothing has been said', () => {
+    expect(previewOf(item([]))).toBe('Waiting at Planning');
   });
 });

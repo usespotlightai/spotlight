@@ -14,9 +14,7 @@ const readStored = (storageKey: string): string[] => {
 const remember = (storageKey: string, ids: readonly string[]) => {
   try {
     localStorage.setItem(storageKey, JSON.stringify(ids));
-  } catch {
-    // a browser that refuses storage still collapses, it just forgets
-  }
+  } catch {}
 };
 
 export function useCollapsed(storageKey: string) {

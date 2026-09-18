@@ -1,10 +1,10 @@
 import { ChevronDown } from 'lucide-react';
-import type { ComponentType } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 type DisclosureRowProps = {
   label: string;
-  count?: number;
+  count?: ReactNode;
   open: boolean;
   onToggle: () => void;
   icon?: ComponentType<{ className?: string }>;

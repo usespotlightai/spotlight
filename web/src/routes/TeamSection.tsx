@@ -1,6 +1,6 @@
 import { Navigate, useParams } from 'react-router';
+import { AgentChats } from '@/components/features/agent/AgentChats';
 import { TeamRuns } from '@/components/features/runs/TeamRuns';
-import { TeamSkills } from '@/components/features/skills/TeamSkills';
 import { RangePicker } from '@/components/features/trace/list/RangePicker';
 import { TraceList } from '@/components/features/trace/list/TraceList';
 import {
@@ -62,9 +62,9 @@ export function TeamSection() {
         }
       />
 
-      {meta.id === 'runs' && <TeamRuns slug={slug} teamId={teamId} />}
+      {meta.id === 'agent' && <AgentChats slug={slug} teamId={teamId} />}
 
-      {meta.id === 'skills' && <TeamSkills teamId={teamId} />}
+      {meta.id === 'runs' && <TeamRuns slug={slug} teamId={teamId} />}
 
       {meta.id === 'observability' && (
         <TraceList slug={slug} teamId={teamId} range={range} />

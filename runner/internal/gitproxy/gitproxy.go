@@ -1,4 +1,3 @@
-// Package gitproxy: the workspace remote carries no credential; this loopback listener adds the runner's token.
 package gitproxy
 
 import (
@@ -31,7 +30,6 @@ func Serve(controlPlane, token, runID string) (*Serving, error) {
 		return nil, fmt.Errorf("listen for git on loopback: %w", err)
 	}
 
-	// Scoped to this run: never carry another run's path.
 	prefix := "/" + runID + "/"
 
 	served := &Serving{
@@ -107,7 +105,6 @@ func forwarding(base *url.URL, token, prefix string) http.Handler {
 		}
 		w.WriteHeader(answered.StatusCode)
 
-		// Flushed as it streams: git talks both ways while a pack is still being written.
 		_, _ = io.Copy(flushing{w}, answered.Body)
 	})
 }

@@ -4,6 +4,10 @@ export type ClientOptions = {
   baseUrl: `${string}://${string}/api` | (string & {});
 };
 
+export type HealthResponseDto = {
+  status: 'ok';
+};
+
 export type StationResponseDto = {
   id: string;
   /**
@@ -110,10 +114,6 @@ export type SetLineRepositoriesRequestDto = {
   repositories: Array<string>;
 };
 
-export type HealthResponseDto = {
-  status: 'ok';
-};
-
 export type EnqueueRunRequestDto = {
   /**
    * The harness to work this run. Only runners that have it may take it.
@@ -160,17 +160,6 @@ export type KeptWorkspacesResponseDto = {
    * The workspace directories this runner should still be holding. Anything else under its workspace root has nothing left to resume and may be disposed of.
    */
   keys: Array<Array<string>>;
-};
-
-export type RegisterRunnerRequestDto = {
-  /**
-   * The harnesses the runner found installed, each with the models it discovered. What is on a machine is a fact about that machine, so the machine is what says it.
-   */
-  harnesses?: Array<Array<unknown>>;
-};
-
-export type RegisteredRunnerResponseDto = {
-  runnerId: string;
 };
 
 export type ClaimedRunResponseDto = {
@@ -377,6 +366,19 @@ export type CompleteRunRequestDto = {
   stopped?: boolean;
 };
 
+export type HeldRunResponseDto = {
+  id: string;
+  state: string;
+};
+
+export type RunnerActivityResponseDto = {
+  runnerId: string;
+  /**
+   * The run the runner is working on
+   */
+  currentRun: HeldRunResponseDto;
+};
+
 export type HarnessModelResponseDto = {
   id: string;
   name: string;
@@ -418,13 +420,31 @@ export type InboxAuthorResponseDto = {
   image: string | null;
 };
 
+export type InboxApprovalInputResponseDto = {
+  name: string;
+  value: string;
+};
+
+export type InboxApprovalResponseDto = {
+  tool: string;
+  /**
+   * Why the tool cannot run until a person says so
+   */
+  because: string;
+  /**
+   * What the tool would be called with, exactly as it stands
+   */
+  inputs: Array<InboxApprovalInputResponseDto>;
+  standing: 'asked' | 'granted' | 'refused';
+};
+
 export type InboxMessageResponseDto = {
   position: number;
   kind: 'asked' | 'passed' | 'answered' | 'said';
   /**
    * What it shows, which is not what it did
    */
-  form: 'words' | 'setup' | 'settled';
+  form: 'words' | 'setup' | 'settled' | 'approval';
   /**
    * Who spoke: the station, a person, or the world outside it
    */
@@ -449,6 +469,10 @@ export type InboxMessageResponseDto = {
    * Absent where the station said it rather than a person
    */
   author: InboxAuthorResponseDto | null;
+  /**
+   * The tool call this asks a person to approve, where it is one
+   */
+  approval: InboxApprovalResponseDto | null;
 };
 
 export type InboxItemResponseDto = {
@@ -516,6 +540,10 @@ export type AnswerInboxItemRequestDto = {
    * Uploads to attach, by the id each was granted
    */
   attachments?: Array<string>;
+  /**
+   * Where the conversation asks for a tool call to be approved: true lets it run, false rejects it. Left out, the words answer it and the tool call stays undecided. Refused anywhere else.
+   */
+  approve?: boolean;
 };
 
 export type RunMarksResponseDto = {
@@ -585,286 +613,6 @@ export type AttachmentUploadResponseDto = {
   headers: {
     [key: string]: string;
   };
-};
-
-export type ActiveRunResponseDto = {
-  id: string;
-  state: string;
-};
-
-export type ConnectedRunnerResponseDto = {
-  id: string;
-  name: string;
-  harnesses: Array<string>;
-  registeredAt: string;
-  /**
-   * Null when the runner has never connected
-   */
-  lastSeenAt: string | null;
-  /**
-   * When its token was retired, if it has been
-   */
-  revokedAt: string | null;
-  /**
-   * Heard from recently enough to be counted on
-   */
-  connected: boolean;
-  /**
-   * The run it is working on, or null when idle
-   */
-  currentRun: ActiveRunResponseDto | null;
-};
-
-export type EnrolRunnerRequestDto = {
-  /**
-   * What to call this runner. Rejected if empty or over 60.
-   */
-  name: string;
-};
-
-export type EnrolledRunnerResponseDto = {
-  id: string;
-  name: string;
-  /**
-   * Shown once. Nothing can recover it after this response.
-   */
-  token: string;
-};
-
-export type RepositoryResponseDto = {
-  /**
-   * Named the way GitHub names it, owner and all
-   */
-  fullName: string;
-};
-
-export type ConnectGitHubRequestDto = {
-  /**
-   * The installation GitHub named when it sent you back
-   */
-  installationId: string;
-};
-
-export type OAuth2StartResponseDto = {
-  /**
-   * Where to send the person to authorize the link
-   */
-  url: string;
-};
-
-export type ConfiguredConnectionResponseDto = {
-  /**
-   * What the host calls the team, where it says; null otherwise
-   */
-  handle: {
-    [key: string]: unknown;
-  } | null;
-};
-
-export type ConfiguredIntegrationResponseDto = {
-  source: string;
-  name: string;
-  /**
-   * The file in the configuration repository it is written in
-   */
-  path: string;
-  /**
-   * Whether this host is linked by authorizing a connection
-   */
-  connectable: boolean;
-  /**
-   * The living link, or null where the team has not linked
-   */
-  connection: ConfiguredConnectionResponseDto | null;
-};
-
-export type ConfigurationResponseDto = {
-  /**
-   * The repository last read from.
-   */
-  repository: string | null;
-  sha: string | null;
-  integrations: Array<ConfiguredIntegrationResponseDto>;
-  /**
-   * Where this team reads its configuration from: where it keeps it, or else where it was last found.
-   */
-  readsFrom: string | null;
-  /**
-   * Where its configuration is moving to, with a pull request open there.
-   */
-  movingTo: string | null;
-};
-
-export type PinConfigurationRequestDto = {
-  /**
-   * The repository this team reads its configuration from. Null takes the pin off.
-   */
-  repository: string | null;
-};
-
-export type MoveConfigurationRequestDto = {
-  /**
-   * The repository to move this team's configuration to.
-   */
-  repository: string;
-};
-
-export type MovedConfigurationResponseDto = {
-  /**
-   * What the move came to: carried in a pull request the team reads through once merged, adopted where the repository already held configuration, or repointed where there was nothing to carry.
-   */
-  kind: 'carried' | 'adopted' | 'repointed';
-  /**
-   * The pull request carrying the configuration, where it was carried.
-   */
-  url: string | null;
-};
-
-export type SetupStepResponseDto = {
-  /**
-   * Which step this is
-   */
-  key: 'runner' | 'github' | 'repository' | 'configuration' | 'integrations';
-  title: string;
-  description: string;
-  /**
-   * The page in Spotlight this step is taken from, or null where there is none
-   */
-  where: string | null;
-  done: boolean;
-};
-
-export type OnboardingLineResponseDto = {
-  key: string;
-  name: string;
-  harness: string | null;
-  model: string | null;
-  effort: string | null;
-  repositories: Array<string>;
-};
-
-export type KnownIntegrationResponseDto = {
-  source: string;
-  name: string;
-  summary: string;
-  /**
-   * The secrets its starting file reads, by name
-   */
-  secrets: Array<string>;
-  /**
-   * Where this integration should be told to send its deliveries
-   */
-  deliverTo: string;
-};
-
-export type OnboardingResponseDto = {
-  /**
-   * The list itself, in the order it is worked through
-   */
-  steps: Array<SetupStepResponseDto>;
-  /**
-   * Where to install the App, or null where GitHub would not say
-   */
-  installUrl: string | null;
-  /**
-   * The App has to be installed to read or write
-   */
-  connectedToGitHub: boolean;
-  configRepository: string | null;
-  /**
-   * The account repositories are named under, or null
-   */
-  repositoryOwner: string | null;
-  lines: Array<OnboardingLineResponseDto>;
-  integrations: Array<KnownIntegrationResponseDto>;
-};
-
-export type SetUpLineRequestDto = {
-  key: string;
-  harness?: string | null;
-  model?: string | null;
-  effort?: string | null;
-  repositories: Array<string>;
-};
-
-export type SetUpLinesRequestDto = {
-  lines: Array<SetUpLineRequestDto>;
-};
-
-export type ChooseIntegrationsRequestDto = {
-  /**
-   * The hosts this team uses, by the name each is known by
-   */
-  sources: Array<string>;
-  /**
-   * The hosts it no longer uses, whose files the change removes
-   */
-  dropped?: Array<string>;
-  /**
-   * The secrets the chosen integrations read, by name. Spotlight encrypts them into the team’s vault
-   */
-  secrets?: {
-    [key: string]: string;
-  };
-};
-
-export type VaultKeyResponseDto = {
-  /**
-   * The passphrase that opens .spotlight/secrets.vault, as in age -d .spotlight/secrets.vault
-   */
-  key: string;
-};
-
-export type RenameTeamRequestDto = {
-  /**
-   * What the team is called.
-   */
-  name: string;
-};
-
-export type InviteResponseDto = {
-  id: string;
-  email: string;
-  /**
-   * Who asked them.
-   */
-  invitedBy: string;
-  invitedAt: string;
-  expiresAt: string;
-};
-
-export type InviteToTeamRequestDto = {
-  /**
-   * Where the invitation is sent, and who may accept it.
-   */
-  email: string;
-};
-
-export type InviteOfferResponseDto = {
-  /**
-   * The address it was sent to, which is who may accept it.
-   */
-  email: string;
-  teamName: string;
-  workspaceName: string;
-  invitedBy: string;
-  /**
-   * Whether it is still worth following.
-   */
-  standing: 'open' | 'accepted' | 'revoked' | 'expired';
-};
-
-export type JoinedTeamResponseDto = {
-  workspaceSlug: string;
-  teamId: string;
-  teamName: string;
-};
-
-export type HappeningResponseDto = {
-  happening: string;
-  source: string;
-  label: string;
-  told: string;
 };
 
 export type TaskReviewResponseDto = {
@@ -1095,18 +843,177 @@ export type AssignTaskRequestDto = {
   assigneeId: string | null;
 };
 
-export type MemberResponseDto = {
+export type ChatSummaryResponseDto = {
   id: string;
+  title: string;
+  harness: string;
+  model: string | null;
+  effort: string | null;
+  repositories: Array<string>;
+  createdAt: string;
+  updatedAt: string;
+  /**
+   * The agent is answering now
+   */
+  working: boolean;
+};
+
+export type StartChatRequestDto = {
+  /**
+   * The harness to talk to
+   */
+  harness: string;
+  /**
+   * The harness’s default where left out
+   */
+  model?: string | null;
+  /**
+   * The harness’s default where left out
+   */
+  effort?: string | null;
+  /**
+   * Checked out for the agent to read
+   */
+  repositories?: Array<string>;
+  /**
+   * What opens the chat. May be empty where files are attached.
+   */
+  body: string;
+  /**
+   * Uploads to attach, by the id each was granted
+   */
+  attachments?: Array<string>;
+};
+
+export type ChatProposalResponseDto = {
+  lineId: string;
+  lineName: string | null;
+  stationId: string;
+  stationName: string | null;
+  stationColor: string | null;
+  title: string;
+  description: string | null;
+  state: 'open' | 'accepted' | 'created' | 'dismissed';
+  /**
+   * The task it became, once created
+   */
+  taskId: string | null;
+};
+
+export type ChatMessageResponseDto = {
+  position: number;
+  kind: 'said' | 'proposed';
+  body: string;
+  at: string;
+  author: InboxAuthorResponseDto | null;
+  /**
+   * The run that proposed it
+   */
+  runId: string | null;
+  attachments: Array<AttachmentResponseDto>;
+  proposal: ChatProposalResponseDto | null;
+};
+
+export type ChatResponseDto = {
+  id: string;
+  title: string;
+  harness: string;
+  model: string | null;
+  effort: string | null;
+  repositories: Array<string>;
+  createdAt: string;
+  updatedAt: string;
+  /**
+   * The agent is answering now
+   */
+  working: boolean;
+  /**
+   * The run answering now
+   */
+  runId: string | null;
+  messages: Array<ChatMessageResponseDto>;
+};
+
+export type SayInChatRequestDto = {
+  /**
+   * May be empty where files are attached.
+   */
+  body: string;
+  /**
+   * Uploads to attach, by the id each was granted
+   */
+  attachments?: Array<string>;
+};
+
+export type SetupStepResponseDto = {
+  /**
+   * Which step this is
+   */
+  key: 'runner' | 'github' | 'repository' | 'configuration' | 'integrations';
+  title: string;
+  description: string;
+  /**
+   * The page in Spotlight this step is taken from, or null where there is none
+   */
+  where: string | null;
+  done: boolean;
+};
+
+export type OnboardingLineResponseDto = {
+  key: string;
   name: string;
-  image: string | null;
+  harness: string | null;
+  model: string | null;
+  effort: string | null;
+  repositories: Array<string>;
+};
+
+export type KnownIntegrationResponseDto = {
+  source: string;
+  name: string;
+  summary: string;
   /**
-   * What they are in the workspace this team belongs to.
+   * The secrets its starting file reads, by name
    */
-  role: 'owner' | 'admin' | 'member';
+  secrets: Array<string>;
   /**
-   * What the caller may set them to, which is empty where that is not theirs to do. Worked out by the same rule the workspace enforces.
+   * Where this integration should be told to send its deliveries
    */
-  mayBeSetTo: Array<'owner' | 'admin' | 'member'>;
+  deliverTo: string;
+};
+
+export type OnboardingResponseDto = {
+  /**
+   * The list itself, in the order it is worked through
+   */
+  steps: Array<SetupStepResponseDto>;
+  /**
+   * Where to install the App, or null where GitHub would not say
+   */
+  installUrl: string | null;
+  /**
+   * The App has to be installed to read or write
+   */
+  connectedToGitHub: boolean;
+  configRepository: string | null;
+  /**
+   * The account repositories are named under, or null
+   */
+  repositoryOwner: string | null;
+  lines: Array<OnboardingLineResponseDto>;
+  integrations: Array<KnownIntegrationResponseDto>;
+};
+
+export type SetUpLineRequestDto = {
+  key: string;
+  harness?: string | null;
+  model?: string | null;
+  effort?: string | null;
+  repositories: Array<string>;
+};
+
+export type SetUpLinesRequestDto = {
+  lines: Array<SetUpLineRequestDto>;
 };
 
 export type CreateWorkspaceRequestDto = {
@@ -1158,6 +1065,217 @@ export type ChangeMemberRoleRequestDto = {
   role: 'owner' | 'admin' | 'member';
 };
 
+export type RenameTeamRequestDto = {
+  /**
+   * What the team is called.
+   */
+  name: string;
+};
+
+export type MemberResponseDto = {
+  id: string;
+  name: string;
+  image: string | null;
+  /**
+   * What they are in the workspace this team belongs to.
+   */
+  role: 'owner' | 'admin' | 'member';
+  /**
+   * What the caller may set them to, which is empty where that is not theirs to do. Worked out by the same rule the workspace enforces.
+   */
+  mayBeSetTo: Array<'owner' | 'admin' | 'member'>;
+};
+
+export type InviteResponseDto = {
+  id: string;
+  email: string;
+  /**
+   * Who asked them.
+   */
+  invitedBy: string;
+  invitedAt: string;
+  expiresAt: string;
+};
+
+export type InviteToTeamRequestDto = {
+  /**
+   * Where the invitation is sent, and who may accept it.
+   */
+  email: string;
+};
+
+export type InviteOfferResponseDto = {
+  /**
+   * The address it was sent to, which is who may accept it.
+   */
+  email: string;
+  teamName: string;
+  workspaceName: string;
+  invitedBy: string;
+  /**
+   * Whether it is still worth following.
+   */
+  standing: 'open' | 'accepted' | 'revoked' | 'expired';
+};
+
+export type JoinedTeamResponseDto = {
+  workspaceSlug: string;
+  teamId: string;
+  teamName: string;
+};
+
+export type RepositoryResponseDto = {
+  /**
+   * Named the way GitHub names it, owner and all
+   */
+  fullName: string;
+};
+
+export type ConnectGitHubRequestDto = {
+  /**
+   * The installation GitHub named when it sent you back
+   */
+  installationId: string;
+};
+
+export type ConnectedRunnerResponseDto = {
+  id: string;
+  name: string;
+  harnesses: Array<string>;
+  registeredAt: string;
+  /**
+   * Null when the runner has never connected
+   */
+  lastSeenAt: string | null;
+  /**
+   * When its token was retired, if it has been
+   */
+  revokedAt: string | null;
+  /**
+   * Heard from recently enough to be counted on
+   */
+  connected: boolean;
+};
+
+export type EnrolRunnerRequestDto = {
+  /**
+   * What to call this runner. Rejected if empty or over 60.
+   */
+  name: string;
+};
+
+export type EnrolledRunnerResponseDto = {
+  id: string;
+  name: string;
+  /**
+   * Shown once. Nothing can recover it after this response.
+   */
+  token: string;
+};
+
+export type RegisterRunnerRequestDto = {
+  /**
+   * The harnesses the runner found installed, each with the models it discovered. What is on a machine is a fact about that machine, so the machine is what says it.
+   */
+  harnesses?: Array<Array<unknown>>;
+};
+
+export type RegisteredRunnerResponseDto = {
+  runnerId: string;
+};
+
+export type ConfiguredConnectionResponseDto = {
+  /**
+   * What the host calls the team, where it says; null otherwise
+   */
+  handle: {
+    [key: string]: unknown;
+  } | null;
+};
+
+export type ConfiguredIntegrationResponseDto = {
+  source: string;
+  name: string;
+  /**
+   * The file in the configuration repository it is written in
+   */
+  path: string;
+  /**
+   * Whether this host is linked by authorizing a connection
+   */
+  connectable: boolean;
+  /**
+   * The living link, or null where the team has not linked
+   */
+  connection: ConfiguredConnectionResponseDto | null;
+};
+
+export type ConfigurationResponseDto = {
+  /**
+   * The repository last read from.
+   */
+  repository: string | null;
+  sha: string | null;
+  integrations: Array<ConfiguredIntegrationResponseDto>;
+  /**
+   * Where this team reads its configuration from: where it keeps it, or else where it was last found.
+   */
+  readsFrom: string | null;
+  /**
+   * Where its configuration is moving to, with a pull request open there.
+   */
+  movingTo: string | null;
+};
+
+export type PinConfigurationRequestDto = {
+  /**
+   * The repository this team reads its configuration from. Null takes the pin off.
+   */
+  repository: string | null;
+};
+
+export type MoveConfigurationRequestDto = {
+  /**
+   * The repository to move this team's configuration to.
+   */
+  repository: string;
+};
+
+export type MovedConfigurationResponseDto = {
+  /**
+   * What the move came to: carried in a pull request the team reads through once merged, adopted where the repository already held configuration, or repointed where there was nothing to carry.
+   */
+  kind: 'carried' | 'adopted' | 'repointed';
+  /**
+   * The pull request carrying the configuration, where it was carried.
+   */
+  url: string | null;
+};
+
+export type ChooseIntegrationsRequestDto = {
+  /**
+   * The hosts this team uses, by the name each is known by
+   */
+  sources: Array<string>;
+  /**
+   * The hosts it no longer uses, whose files the change removes
+   */
+  dropped?: Array<string>;
+  /**
+   * The secrets the chosen integrations read, by name. Spotlight encrypts them into the team’s vault
+   */
+  secrets?: {
+    [key: string]: string;
+  };
+};
+
+export type VaultKeyResponseDto = {
+  /**
+   * The passphrase that opens .spotlight/secrets.vault, as in age -d .spotlight/secrets.vault
+   */
+  key: string;
+};
+
 export type TeamSkillResponseDto = {
   key: string;
   description: string;
@@ -1174,6 +1292,280 @@ export type TeamSkillsResponseDto = {
   repository: string | null;
   skills: Array<TeamSkillResponseDto>;
 };
+
+export type DiffHunkResponseDto = {
+  id: string;
+  oldStart: number;
+  oldLines: number;
+  newStart: number;
+  newLines: number;
+  /**
+   * The hunk as git diff prints it, from its @@ line; empty where the file has no lines to show
+   */
+  patch: string;
+};
+
+export type DiffFileResponseDto = {
+  path: string;
+  previousPath: string | null;
+  status: 'added' | 'deleted' | 'modified' | 'renamed';
+  binary: boolean;
+  hunks: Array<DiffHunkResponseDto>;
+};
+
+export type StackRangeResponseDto = {
+  /**
+   * The hunk it places
+   */
+  hunk: string;
+};
+
+export type FileNoteResponseDto = {
+  path: string;
+  /**
+   * What changed in the file for this layer, and why
+   */
+  note: string;
+};
+
+export type StackLayerResponseDto = {
+  id: string;
+  title: string;
+  summary: string;
+  ranges: Array<StackRangeResponseDto>;
+  /**
+   * One note per file the layer touches; empty for incidental changes
+   */
+  notes: Array<FileNoteResponseDto>;
+};
+
+export type StackCohortResponseDto = {
+  id: string;
+  kind: 'change' | 'incidental';
+  title: string;
+  intent: string;
+  layers: Array<StackLayerResponseDto>;
+};
+
+export type ChangeStackResponseDto = {
+  id: string;
+  repository: string | null;
+  state: 'drafting' | 'ready' | 'failed';
+  failure: string | null;
+  files: Array<DiffFileResponseDto>;
+  cohorts: Array<StackCohortResponseDto>;
+  checkState: 'waiting' | 'checked' | 'skipped' | null;
+};
+
+export type RunChangeStacksResponseDto = {
+  /**
+   * Newest first
+   */
+  stacks: Array<ChangeStackResponseDto>;
+};
+
+export type LatestChangeStackResponseDto = {
+  /**
+   * The run whose page holds the stack
+   */
+  runId: string;
+  repository: string | null;
+  state: 'drafting' | 'ready' | 'failed';
+  checkState: 'waiting' | 'checked' | 'skipped' | null;
+  /**
+   * Lines added across the stack
+   */
+  added: number;
+  /**
+   * Lines removed across the stack
+   */
+  removed: number;
+};
+
+export type NewestChangeStackResponseDto = {
+  /**
+   * The newest change stack drafted, if any
+   */
+  latest: LatestChangeStackResponseDto | null;
+};
+
+export type DraftChangeStackRequestDto = {
+  /**
+   * The changes, as the output of git diff
+   */
+  diff: string;
+  /**
+   * Which checkout the changes are from
+   */
+  repository: {
+    [key: string]: unknown;
+  } | null;
+};
+
+export type ChangeStackCheckStepResponseDto = {
+  id: string;
+  /**
+   * What to apply to where the run began, as git apply takes it
+   */
+  patch: string;
+};
+
+export type ChangeStackCheckResponseDto = {
+  stackId: string;
+  repository: string | null;
+  command: string;
+  /**
+   * The whole change first, then each layer with the layers before it
+   */
+  steps: Array<ChangeStackCheckStepResponseDto>;
+};
+
+export type ChangeStackChecksResponseDto = {
+  /**
+   * Whether a stack with a check is still being drafted
+   */
+  waiting: boolean;
+  checks: Array<ChangeStackCheckResponseDto>;
+};
+
+export type CheckedStepRequestDto = {
+  /**
+   * The step it ran: "whole", or the layer it checked
+   */
+  step: string;
+  passed: boolean;
+  /**
+   * The end of what the check printed
+   */
+  output: string;
+  tookMs: number;
+};
+
+export type RecordChangeStackCheckRequestDto = {
+  /**
+   * Why the runner could not check the stack at all
+   */
+  skipped?: string | null;
+  steps?: Array<CheckedStepRequestDto>;
+};
+
+export type ReviewCommentResponseDto = {
+  id: string;
+  path: string;
+  side: 'new' | 'old';
+  /**
+   * The line it ends on
+   */
+  line: number;
+  /**
+   * Where it starts, when it is on several lines
+   */
+  startLine: number | null;
+  /**
+   * Markdown
+   */
+  body: string;
+  authorName: string;
+  authorLogin: string | null;
+  /**
+   * Their picture
+   */
+  authorImage: string | null;
+  /**
+   * Whether the caller wrote it
+   */
+  yours: boolean;
+  /**
+   * The first comment of the thread this answers
+   */
+  replyTo: string | null;
+  /**
+   * draft: only its author sees it; sending: on its way to GitHub; posted: on GitHub; failed: GitHub refused it
+   */
+  state: 'draft' | 'sending' | 'posted' | 'failed';
+  failure: string | null;
+  url: string | null;
+  createdAt: string;
+  editedAt: string | null;
+};
+
+export type ReviewResponseDto = {
+  id: string;
+  authorName: string;
+  yours: boolean;
+  verdict: 'comment' | 'approve' | 'request-changes';
+  body: string;
+  state: 'draft' | 'sending' | 'posted' | 'failed';
+  failure: string | null;
+  submittedAt: string;
+};
+
+export type CodeReviewResponseDto = {
+  /**
+   * Where the review lands; until there is one, it waits
+   */
+  pullRequest: string | null;
+  comments: Array<ReviewCommentResponseDto>;
+  reviews: Array<ReviewResponseDto>;
+};
+
+export type DraftReviewCommentRequestDto = {
+  body: string;
+  path?: string;
+  side?: 'new' | 'old';
+  /**
+   * The line it ends on
+   */
+  line?: number;
+  /**
+   * Where a comment on several lines starts, on the same side
+   */
+  startLine?: number | null;
+  /**
+   * The comment this answers; the reply lands on its line
+   */
+  replyTo?: string;
+};
+
+export type CreatedIdResponseDto = {
+  id: string;
+};
+
+export type EditReviewCommentRequestDto = {
+  body: string;
+};
+
+export type SubmitReviewRequestDto = {
+  verdict: 'comment' | 'approve' | 'request-changes';
+  body?: string;
+};
+
+export type OAuth2StartResponseDto = {
+  /**
+   * Where to send the person to authorize the link
+   */
+  url: string;
+};
+
+export type HappeningResponseDto = {
+  happening: string;
+  source: string;
+  label: string;
+  told: string;
+};
+
+export type GetHealthData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/health';
+};
+
+export type GetHealthResponses = {
+  200: HealthResponseDto;
+};
+
+export type GetHealthResponse = GetHealthResponses[keyof GetHealthResponses];
 
 export type ListLinesData = {
   body?: never;
@@ -1263,19 +1655,6 @@ export type SetLineRepositoriesResponses = {
 };
 
 export type SetLineRepositoriesResponse = SetLineRepositoriesResponses[keyof SetLineRepositoriesResponses];
-
-export type GetHealthData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: '/health';
-};
-
-export type GetHealthResponses = {
-  200: HealthResponseDto;
-};
-
-export type GetHealthResponse = GetHealthResponses[keyof GetHealthResponses];
 
 export type EnqueueRunData = {
   body: EnqueueRunRequestDto;
@@ -1375,26 +1754,6 @@ export type KeptWorkspacesResponses = {
 
 export type KeptWorkspacesResponse = KeptWorkspacesResponses[keyof KeptWorkspacesResponses];
 
-export type RegisterRunnerData = {
-  body: RegisterRunnerRequestDto;
-  path?: never;
-  query?: never;
-  url: '/runners/register';
-};
-
-export type RegisterRunnerErrors = {
-  /**
-   * Missing or wrong enrollment token
-   */
-  401: unknown;
-};
-
-export type RegisterRunnerResponses = {
-  200: RegisteredRunnerResponseDto;
-};
-
-export type RegisterRunnerResponse = RegisterRunnerResponses[keyof RegisterRunnerResponses];
-
 export type ClaimRunData = {
   body?: never;
   path?: never;
@@ -1433,6 +1792,10 @@ export type PendingMessagesErrors = {
    * Missing or wrong enrollment token
    */
   401: unknown;
+  /**
+   * No such run held by this runner
+   */
+  404: unknown;
 };
 
 export type PendingMessagesResponses = {
@@ -1510,6 +1873,10 @@ export type DeliverSaidErrors = {
    * Missing or wrong enrollment token
    */
   401: unknown;
+  /**
+   * The run is not held by this runner
+   */
+  409: unknown;
 };
 
 export type DeliverSaidResponses = {
@@ -1554,6 +1921,10 @@ export type AppendRunEventsErrors = {
    * Missing or wrong enrollment token
    */
   401: unknown;
+  /**
+   * The run is not held by this runner
+   */
+  409: unknown;
 };
 
 export type AppendRunEventsResponses = {
@@ -1651,11 +2022,39 @@ export type CompleteRunResponses = {
 
 export type CompleteRunResponse = CompleteRunResponses[keyof CompleteRunResponses];
 
+export type ListRunnerActivityData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/runner-activity';
+};
+
+export type ListRunnerActivityErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type ListRunnerActivityResponses = {
+  200: Array<RunnerActivityResponseDto>;
+};
+
+export type ListRunnerActivityResponse = ListRunnerActivityResponses[keyof ListRunnerActivityResponses];
+
 export type ListHarnessesData = {
   body?: never;
-  path?: never;
+  path: {
+    slug: string;
+  };
   query?: never;
-  url: '/harnesses';
+  url: '/workspaces/{slug}/harnesses';
 };
 
 export type ListHarnessesErrors = {
@@ -1663,6 +2062,10 @@ export type ListHarnessesErrors = {
    * No valid session
    */
   401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
 };
 
 export type ListHarnessesResponses = {
@@ -1716,6 +2119,10 @@ export type AnswerInboxItemErrors = {
    * No such conversation for this caller
    */
   404: unknown;
+  /**
+   * Only a conversation waiting on a tool call can be approved or rejected
+   */
+  409: unknown;
 };
 
 export type AnswerInboxItemResponses = {
@@ -1839,589 +2246,6 @@ export type ReadAttachmentErrors = {
    */
   404: unknown;
 };
-
-export type ListRunnersData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: '/runners';
-};
-
-export type ListRunnersErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-};
-
-export type ListRunnersResponses = {
-  200: Array<ConnectedRunnerResponseDto>;
-};
-
-export type ListRunnersResponse = ListRunnersResponses[keyof ListRunnersResponses];
-
-export type EnrolRunnerData = {
-  body: EnrolRunnerRequestDto;
-  path?: never;
-  query?: never;
-  url: '/runners';
-};
-
-export type EnrolRunnerErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-};
-
-export type EnrolRunnerResponses = {
-  201: EnrolledRunnerResponseDto;
-};
-
-export type EnrolRunnerResponse = EnrolRunnerResponses[keyof EnrolRunnerResponses];
-
-export type RevokeRunnerData = {
-  body?: never;
-  path: {
-    runnerId: string;
-  };
-  query?: never;
-  url: '/runners/{runnerId}/revoke';
-};
-
-export type RevokeRunnerErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such runner
-   */
-  404: unknown;
-};
-
-export type RevokeRunnerResponses = {
-  /**
-   * The token no longer works
-   */
-  204: void;
-};
-
-export type RevokeRunnerResponse = RevokeRunnerResponses[keyof RevokeRunnerResponses];
-
-export type ListRepositoriesData = {
-  body?: never;
-  path: {
-    slug: string;
-  };
-  query?: never;
-  url: '/workspaces/{slug}/repositories';
-};
-
-export type ListRepositoriesErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such workspace for this caller
-   */
-  404: unknown;
-};
-
-export type ListRepositoriesResponses = {
-  200: Array<RepositoryResponseDto>;
-};
-
-export type ListRepositoriesResponse = ListRepositoriesResponses[keyof ListRepositoriesResponses];
-
-export type ConnectGitHubData = {
-  body: ConnectGitHubRequestDto;
-  path: {
-    slug: string;
-  };
-  query?: never;
-  url: '/workspaces/{slug}/github';
-};
-
-export type ConnectGitHubErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * Not an owner or admin, or not your installation
-   */
-  403: unknown;
-  /**
-   * No such workspace for this caller
-   */
-  404: unknown;
-};
-
-export type ConnectGitHubResponses = {
-  /**
-   * Connected
-   */
-  204: void;
-};
-
-export type ConnectGitHubResponse = ConnectGitHubResponses[keyof ConnectGitHubResponses];
-
-export type ConnectIntegrationData = {
-  body?: never;
-  path: {
-    teamId: string;
-    source: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/integrations/{source}/connect';
-};
-
-export type ConnectIntegrationErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such team, not yours to link, or the host does not link so
-   */
-  404: unknown;
-};
-
-export type ConnectIntegrationResponses = {
-  200: OAuth2StartResponseDto;
-};
-
-export type ConnectIntegrationResponse = ConnectIntegrationResponses[keyof ConnectIntegrationResponses];
-
-export type ReadConfigurationData = {
-  body?: never;
-  path: {
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/configuration';
-};
-
-export type ReadConfigurationErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such team for this caller
-   */
-  404: unknown;
-};
-
-export type ReadConfigurationResponses = {
-  200: ConfigurationResponseDto;
-};
-
-export type ReadConfigurationResponse = ReadConfigurationResponses[keyof ReadConfigurationResponses];
-
-export type RereadConfigurationData = {
-  body?: never;
-  path: {
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/configuration/reread';
-};
-
-export type RereadConfigurationErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such team, or nowhere to read it from
-   */
-  404: unknown;
-};
-
-export type RereadConfigurationResponses = {
-  200: ConfigurationResponseDto;
-};
-
-export type RereadConfigurationResponse = RereadConfigurationResponses[keyof RereadConfigurationResponses];
-
-export type PinConfigurationRepositoryData = {
-  body: PinConfigurationRequestDto;
-  path: {
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/configuration/repository';
-};
-
-export type PinConfigurationRepositoryErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such team, or not yours to choose for
-   */
-  404: unknown;
-};
-
-export type PinConfigurationRepositoryResponses = {
-  /**
-   * Chosen
-   */
-  204: void;
-};
-
-export type PinConfigurationRepositoryResponse = PinConfigurationRepositoryResponses[keyof PinConfigurationRepositoryResponses];
-
-export type MoveConfigurationData = {
-  body: MoveConfigurationRequestDto;
-  path: {
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/configuration/repository/move';
-};
-
-export type MoveConfigurationErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such team, or not yours to move
-   */
-  404: unknown;
-};
-
-export type MoveConfigurationResponses = {
-  200: MovedConfigurationResponseDto;
-};
-
-export type MoveConfigurationResponse = MoveConfigurationResponses[keyof MoveConfigurationResponses];
-
-export type ReadOnboardingData = {
-  body?: never;
-  path: {
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/configuration/onboarding';
-};
-
-export type ReadOnboardingErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such team for this caller
-   */
-  404: unknown;
-};
-
-export type ReadOnboardingResponses = {
-  200: OnboardingResponseDto;
-};
-
-export type ReadOnboardingResponse = ReadOnboardingResponses[keyof ReadOnboardingResponses];
-
-export type SetUpLinesData = {
-  body: SetUpLinesRequestDto;
-  path: {
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/configuration/setup';
-};
-
-export type SetUpLinesErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such team, or nowhere to write it yet
-   */
-  404: unknown;
-};
-
-export type SetUpLinesResponses = {
-  200: ProposedResponseDto;
-};
-
-export type SetUpLinesResponse = SetUpLinesResponses[keyof SetUpLinesResponses];
-
-export type ChooseIntegrationsData = {
-  body: ChooseIntegrationsRequestDto;
-  path: {
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/configuration/integrations';
-};
-
-export type ChooseIntegrationsErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * Not an owner or admin, and an integration needs secrets
-   */
-  403: unknown;
-  /**
-   * No such team, or nowhere to write it yet
-   */
-  404: unknown;
-  /**
-   * The team’s vault does not open with the key Spotlight holds
-   */
-  409: unknown;
-  /**
-   * A secret an integration needs was not given
-   */
-  422: unknown;
-};
-
-export type ChooseIntegrationsResponses = {
-  200: ProposedResponseDto;
-};
-
-export type ChooseIntegrationsResponse = ChooseIntegrationsResponses[keyof ChooseIntegrationsResponses];
-
-export type RevealVaultKeyData = {
-  body?: never;
-  path: {
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/configuration/vault/key';
-};
-
-export type RevealVaultKeyErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * Not an owner or admin of this team
-   */
-  403: unknown;
-  /**
-   * No such team for this caller
-   */
-  404: unknown;
-  /**
-   * The key Spotlight holds for this team cannot be read
-   */
-  409: unknown;
-};
-
-export type RevealVaultKeyResponses = {
-  200: VaultKeyResponseDto;
-};
-
-export type RevealVaultKeyResponse = RevealVaultKeyResponses[keyof RevealVaultKeyResponses];
-
-export type RenameTeamData = {
-  body: RenameTeamRequestDto;
-  path: {
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}';
-};
-
-export type RenameTeamErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such team, or not yours to rename
-   */
-  404: unknown;
-};
-
-export type RenameTeamResponses = {
-  /**
-   * Renamed
-   */
-  204: void;
-};
-
-export type RenameTeamResponse = RenameTeamResponses[keyof RenameTeamResponses];
-
-export type ListInvitesData = {
-  body?: never;
-  path: {
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/invites';
-};
-
-export type ListInvitesErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such team for this caller
-   */
-  404: unknown;
-};
-
-export type ListInvitesResponses = {
-  200: Array<InviteResponseDto>;
-};
-
-export type ListInvitesResponse = ListInvitesResponses[keyof ListInvitesResponses];
-
-export type InviteToTeamData = {
-  body: InviteToTeamRequestDto;
-  path: {
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/invites';
-};
-
-export type InviteToTeamErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such team, or not yours to invite to
-   */
-  404: unknown;
-  /**
-   * They are already on this team
-   */
-  409: unknown;
-};
-
-export type InviteToTeamResponses = {
-  201: InviteResponseDto;
-};
-
-export type InviteToTeamResponse = InviteToTeamResponses[keyof InviteToTeamResponses];
-
-export type RevokeInviteData = {
-  body?: never;
-  path: {
-    teamId: string;
-    inviteId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/invites/{inviteId}';
-};
-
-export type RevokeInviteErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such invitation for this caller
-   */
-  404: unknown;
-};
-
-export type RevokeInviteResponses = {
-  /**
-   * The link no longer works
-   */
-  204: void;
-};
-
-export type RevokeInviteResponse = RevokeInviteResponses[keyof RevokeInviteResponses];
-
-export type ReadInviteData = {
-  body?: never;
-  path: {
-    token: string;
-  };
-  query?: never;
-  url: '/invites/{token}';
-};
-
-export type ReadInviteErrors = {
-  /**
-   * No invitation by that link
-   */
-  404: unknown;
-};
-
-export type ReadInviteResponses = {
-  200: InviteOfferResponseDto;
-};
-
-export type ReadInviteResponse = ReadInviteResponses[keyof ReadInviteResponses];
-
-export type AcceptInviteData = {
-  body?: never;
-  path: {
-    token: string;
-  };
-  query?: never;
-  url: '/invites/{token}/accept';
-};
-
-export type AcceptInviteErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * Signed in as somebody else
-   */
-  403: unknown;
-  /**
-   * No invitation by that link
-   */
-  404: unknown;
-  /**
-   * Already accepted, revoked or run out
-   */
-  409: unknown;
-};
-
-export type AcceptInviteResponses = {
-  200: JoinedTeamResponseDto;
-};
-
-export type AcceptInviteResponse = AcceptInviteResponses[keyof AcceptInviteResponses];
-
-export type ListHappeningsData = {
-  body?: never;
-  path: {
-    slug: string;
-  };
-  query?: never;
-  url: '/workspaces/{slug}/happenings';
-};
-
-export type ListHappeningsErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such workspace for this caller
-   */
-  404: unknown;
-};
-
-export type ListHappeningsResponses = {
-  200: Array<HappeningResponseDto>;
-};
-
-export type ListHappeningsResponse = ListHappeningsResponses[keyof ListHappeningsResponses];
 
 export type ListTasksData = {
   body?: never;
@@ -2782,16 +2606,16 @@ export type AssignTaskResponses = {
 
 export type AssignTaskResponse = AssignTaskResponses[keyof AssignTaskResponses];
 
-export type ListMembersData = {
+export type ListChatsData = {
   body?: never;
   path: {
     teamId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/members';
+  url: '/teams/{teamId}/chats';
 };
 
-export type ListMembersErrors = {
+export type ListChatsErrors = {
   /**
    * No valid session
    */
@@ -2802,11 +2626,281 @@ export type ListMembersErrors = {
   404: unknown;
 };
 
-export type ListMembersResponses = {
-  200: Array<MemberResponseDto>;
+export type ListChatsResponses = {
+  200: Array<ChatSummaryResponseDto>;
 };
 
-export type ListMembersResponse = ListMembersResponses[keyof ListMembersResponses];
+export type ListChatsResponse = ListChatsResponses[keyof ListChatsResponses];
+
+export type StartChatData = {
+  body: StartChatRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/chats';
+};
+
+export type StartChatErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+  /**
+   * An unknown harness, model, effort or repository
+   */
+  422: unknown;
+};
+
+export type StartChatResponses = {
+  201: ChatResponseDto;
+};
+
+export type StartChatResponse = StartChatResponses[keyof StartChatResponses];
+
+export type ReadChatData = {
+  body?: never;
+  path: {
+    teamId: string;
+    chatId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/chats/{chatId}';
+};
+
+export type ReadChatErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+};
+
+export type ReadChatResponses = {
+  200: ChatResponseDto;
+};
+
+export type ReadChatResponse = ReadChatResponses[keyof ReadChatResponses];
+
+export type ReadChatJournalData = {
+  body?: never;
+  path: {
+    teamId: string;
+    chatId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/chats/{chatId}/journal';
+};
+
+export type ReadChatJournalErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+};
+
+export type ReadChatJournalResponses = {
+  200: Array<RunJournalResponseDto>;
+};
+
+export type ReadChatJournalResponse = ReadChatJournalResponses[keyof ReadChatJournalResponses];
+
+export type SayInChatData = {
+  body: SayInChatRequestDto;
+  path: {
+    teamId: string;
+    chatId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/chats/{chatId}/messages';
+};
+
+export type SayInChatErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+};
+
+export type SayInChatResponses = {
+  /**
+   * The agent hears it
+   */
+  204: void;
+};
+
+export type SayInChatResponse = SayInChatResponses[keyof SayInChatResponses];
+
+export type StopChatData = {
+  body?: never;
+  path: {
+    teamId: string;
+    chatId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/chats/{chatId}/stop';
+};
+
+export type StopChatErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+  /**
+   * The agent is not answering
+   */
+  409: unknown;
+};
+
+export type StopChatResponses = {
+  /**
+   * The agent was asked to stop
+   */
+  204: void;
+};
+
+export type StopChatResponse = StopChatResponses[keyof StopChatResponses];
+
+export type AcceptProposalData = {
+  body?: never;
+  path: {
+    teamId: string;
+    chatId: string;
+    position: number;
+  };
+  query?: never;
+  url: '/teams/{teamId}/chats/{chatId}/proposals/{position}/acceptance';
+};
+
+export type AcceptProposalErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+  /**
+   * The proposal is already settled
+   */
+  409: unknown;
+};
+
+export type AcceptProposalResponses = {
+  /**
+   * The task is being created
+   */
+  204: void;
+};
+
+export type AcceptProposalResponse = AcceptProposalResponses[keyof AcceptProposalResponses];
+
+export type DismissProposalData = {
+  body?: never;
+  path: {
+    teamId: string;
+    chatId: string;
+    position: number;
+  };
+  query?: never;
+  url: '/teams/{teamId}/chats/{chatId}/proposals/{position}/dismissal';
+};
+
+export type DismissProposalErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+  /**
+   * The proposal is already settled
+   */
+  409: unknown;
+};
+
+export type DismissProposalResponses = {
+  /**
+   * The proposal was dismissed
+   */
+  204: void;
+};
+
+export type DismissProposalResponse = DismissProposalResponses[keyof DismissProposalResponses];
+
+export type ReadOnboardingData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration/onboarding';
+};
+
+export type ReadOnboardingErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+};
+
+export type ReadOnboardingResponses = {
+  200: OnboardingResponseDto;
+};
+
+export type ReadOnboardingResponse = ReadOnboardingResponses[keyof ReadOnboardingResponses];
+
+export type SetUpLinesData = {
+  body: SetUpLinesRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration/setup';
+};
+
+export type SetUpLinesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, or nowhere to write it yet
+   */
+  404: unknown;
+};
+
+export type SetUpLinesResponses = {
+  200: ProposedResponseDto;
+};
+
+export type SetUpLinesResponse = SetUpLinesResponses[keyof SetUpLinesResponses];
 
 export type ListWorkspacesData = {
   body?: never;
@@ -2924,6 +3018,555 @@ export type ChangeMemberRoleResponses = {
 
 export type ChangeMemberRoleResponse = ChangeMemberRoleResponses[keyof ChangeMemberRoleResponses];
 
+export type RenameTeamData = {
+  body: RenameTeamRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}';
+};
+
+export type RenameTeamErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, or not yours to rename
+   */
+  404: unknown;
+};
+
+export type RenameTeamResponses = {
+  /**
+   * Renamed
+   */
+  204: void;
+};
+
+export type RenameTeamResponse = RenameTeamResponses[keyof RenameTeamResponses];
+
+export type ListMembersData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/members';
+};
+
+export type ListMembersErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+};
+
+export type ListMembersResponses = {
+  200: Array<MemberResponseDto>;
+};
+
+export type ListMembersResponse = ListMembersResponses[keyof ListMembersResponses];
+
+export type ListInvitesData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/invites';
+};
+
+export type ListInvitesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+};
+
+export type ListInvitesResponses = {
+  200: Array<InviteResponseDto>;
+};
+
+export type ListInvitesResponse = ListInvitesResponses[keyof ListInvitesResponses];
+
+export type InviteToTeamData = {
+  body: InviteToTeamRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/invites';
+};
+
+export type InviteToTeamErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, or not yours to invite to
+   */
+  404: unknown;
+  /**
+   * They are already on this team
+   */
+  409: unknown;
+};
+
+export type InviteToTeamResponses = {
+  201: InviteResponseDto;
+};
+
+export type InviteToTeamResponse = InviteToTeamResponses[keyof InviteToTeamResponses];
+
+export type RevokeInviteData = {
+  body?: never;
+  path: {
+    teamId: string;
+    inviteId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/invites/{inviteId}';
+};
+
+export type RevokeInviteErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such invitation for this caller
+   */
+  404: unknown;
+};
+
+export type RevokeInviteResponses = {
+  /**
+   * The link no longer works
+   */
+  204: void;
+};
+
+export type RevokeInviteResponse = RevokeInviteResponses[keyof RevokeInviteResponses];
+
+export type ReadInviteData = {
+  body?: never;
+  path: {
+    token: string;
+  };
+  query?: never;
+  url: '/invites/{token}';
+};
+
+export type ReadInviteErrors = {
+  /**
+   * No invitation by that link
+   */
+  404: unknown;
+};
+
+export type ReadInviteResponses = {
+  200: InviteOfferResponseDto;
+};
+
+export type ReadInviteResponse = ReadInviteResponses[keyof ReadInviteResponses];
+
+export type AcceptInviteData = {
+  body?: never;
+  path: {
+    token: string;
+  };
+  query?: never;
+  url: '/invites/{token}/accept';
+};
+
+export type AcceptInviteErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * Signed in as somebody else
+   */
+  403: unknown;
+  /**
+   * No invitation by that link
+   */
+  404: unknown;
+  /**
+   * Already accepted, revoked or run out
+   */
+  409: unknown;
+};
+
+export type AcceptInviteResponses = {
+  200: JoinedTeamResponseDto;
+};
+
+export type AcceptInviteResponse = AcceptInviteResponses[keyof AcceptInviteResponses];
+
+export type ListRepositoriesData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/repositories';
+};
+
+export type ListRepositoriesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type ListRepositoriesResponses = {
+  200: Array<RepositoryResponseDto>;
+};
+
+export type ListRepositoriesResponse = ListRepositoriesResponses[keyof ListRepositoriesResponses];
+
+export type ConnectGitHubData = {
+  body: ConnectGitHubRequestDto;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/github';
+};
+
+export type ConnectGitHubErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * Not an owner or admin, or not your installation
+   */
+  403: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+  /**
+   * The installation is already connected to another workspace
+   */
+  409: unknown;
+};
+
+export type ConnectGitHubResponses = {
+  /**
+   * Connected
+   */
+  204: void;
+};
+
+export type ConnectGitHubResponse = ConnectGitHubResponses[keyof ConnectGitHubResponses];
+
+export type ListRunnersData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/runners';
+};
+
+export type ListRunnersErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type ListRunnersResponses = {
+  200: Array<ConnectedRunnerResponseDto>;
+};
+
+export type ListRunnersResponse = ListRunnersResponses[keyof ListRunnersResponses];
+
+export type EnrolRunnerData = {
+  body: EnrolRunnerRequestDto;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/runners';
+};
+
+export type EnrolRunnerErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * Not an owner or admin
+   */
+  403: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type EnrolRunnerResponses = {
+  201: EnrolledRunnerResponseDto;
+};
+
+export type EnrolRunnerResponse = EnrolRunnerResponses[keyof EnrolRunnerResponses];
+
+export type RevokeRunnerData = {
+  body?: never;
+  path: {
+    slug: string;
+    runnerId: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/runners/{runnerId}/revoke';
+};
+
+export type RevokeRunnerErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * Not an owner or admin
+   */
+  403: unknown;
+  /**
+   * No such runner in this workspace
+   */
+  404: unknown;
+};
+
+export type RevokeRunnerResponses = {
+  /**
+   * The token no longer works
+   */
+  204: void;
+};
+
+export type RevokeRunnerResponse = RevokeRunnerResponses[keyof RevokeRunnerResponses];
+
+export type RegisterRunnerData = {
+  body: RegisterRunnerRequestDto;
+  path?: never;
+  query?: never;
+  url: '/runners/register';
+};
+
+export type RegisterRunnerErrors = {
+  /**
+   * Missing or wrong enrollment token
+   */
+  401: unknown;
+};
+
+export type RegisterRunnerResponses = {
+  200: RegisteredRunnerResponseDto;
+};
+
+export type RegisterRunnerResponse = RegisterRunnerResponses[keyof RegisterRunnerResponses];
+
+export type ReadConfigurationData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration';
+};
+
+export type ReadConfigurationErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+};
+
+export type ReadConfigurationResponses = {
+  200: ConfigurationResponseDto;
+};
+
+export type ReadConfigurationResponse = ReadConfigurationResponses[keyof ReadConfigurationResponses];
+
+export type RereadConfigurationData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration/reread';
+};
+
+export type RereadConfigurationErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, or nowhere to read it from
+   */
+  404: unknown;
+};
+
+export type RereadConfigurationResponses = {
+  200: ConfigurationResponseDto;
+};
+
+export type RereadConfigurationResponse = RereadConfigurationResponses[keyof RereadConfigurationResponses];
+
+export type PinConfigurationRepositoryData = {
+  body: PinConfigurationRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration/repository';
+};
+
+export type PinConfigurationRepositoryErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, or not yours to choose for
+   */
+  404: unknown;
+};
+
+export type PinConfigurationRepositoryResponses = {
+  /**
+   * Chosen
+   */
+  204: void;
+};
+
+export type PinConfigurationRepositoryResponse = PinConfigurationRepositoryResponses[keyof PinConfigurationRepositoryResponses];
+
+export type MoveConfigurationData = {
+  body: MoveConfigurationRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration/repository/move';
+};
+
+export type MoveConfigurationErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, or not yours to move
+   */
+  404: unknown;
+};
+
+export type MoveConfigurationResponses = {
+  200: MovedConfigurationResponseDto;
+};
+
+export type MoveConfigurationResponse = MoveConfigurationResponses[keyof MoveConfigurationResponses];
+
+export type ChooseIntegrationsData = {
+  body: ChooseIntegrationsRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration/integrations';
+};
+
+export type ChooseIntegrationsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * Not an owner or admin, and an integration needs secrets
+   */
+  403: unknown;
+  /**
+   * No such team, or nowhere to write it yet
+   */
+  404: unknown;
+  /**
+   * The team’s vault does not open with the key Spotlight holds
+   */
+  409: unknown;
+  /**
+   * A secret an integration needs was not given
+   */
+  422: unknown;
+};
+
+export type ChooseIntegrationsResponses = {
+  200: ProposedResponseDto;
+};
+
+export type ChooseIntegrationsResponse = ChooseIntegrationsResponses[keyof ChooseIntegrationsResponses];
+
+export type RevealVaultKeyData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/configuration/vault/key';
+};
+
+export type RevealVaultKeyErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * Not an owner or admin of this team
+   */
+  403: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+  /**
+   * The key Spotlight holds for this team cannot be read
+   */
+  409: unknown;
+};
+
+export type RevealVaultKeyResponses = {
+  200: VaultKeyResponseDto;
+};
+
+export type RevealVaultKeyResponse = RevealVaultKeyResponses[keyof RevealVaultKeyResponses];
+
 export type ListTeamSkillsData = {
   body?: never;
   path: {
@@ -2949,3 +3592,310 @@ export type ListTeamSkillsResponses = {
 };
 
 export type ListTeamSkillsResponse = ListTeamSkillsResponses[keyof ListTeamSkillsResponses];
+
+export type ListRunChangeStacksData = {
+  body?: never;
+  path: {
+    runId: string;
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/runs/{runId}/change-stacks';
+};
+
+export type ListRunChangeStacksErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such run for this caller
+   */
+  404: unknown;
+};
+
+export type ListRunChangeStacksResponses = {
+  200: RunChangeStacksResponseDto;
+};
+
+export type ListRunChangeStacksResponse = ListRunChangeStacksResponses[keyof ListRunChangeStacksResponses];
+
+export type ReadTaskChangeStackData = {
+  body?: never;
+  path: {
+    taskId: string;
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/change-stack';
+};
+
+export type ReadTaskChangeStackErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+};
+
+export type ReadTaskChangeStackResponses = {
+  200: NewestChangeStackResponseDto;
+};
+
+export type ReadTaskChangeStackResponse = ReadTaskChangeStackResponses[keyof ReadTaskChangeStackResponses];
+
+export type DraftChangeStackData = {
+  body: DraftChangeStackRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/change-stacks';
+};
+
+export type DraftChangeStackErrors = {
+  /**
+   * Missing or wrong enrollment token
+   */
+  401: unknown;
+  /**
+   * Not a run this runner worked
+   */
+  404: unknown;
+};
+
+export type DraftChangeStackResponses = {
+  204: void;
+};
+
+export type DraftChangeStackResponse = DraftChangeStackResponses[keyof DraftChangeStackResponses];
+
+export type ChangeStackChecksData = {
+  body?: never;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/change-stack-checks';
+};
+
+export type ChangeStackChecksErrors = {
+  /**
+   * Missing or wrong enrollment token
+   */
+  401: unknown;
+  /**
+   * Not a run this runner worked
+   */
+  404: unknown;
+};
+
+export type ChangeStackChecksResponses = {
+  200: ChangeStackChecksResponseDto;
+};
+
+export type ChangeStackChecksResponse = ChangeStackChecksResponses[keyof ChangeStackChecksResponses];
+
+export type RecordChangeStackCheckData = {
+  body: RecordChangeStackCheckRequestDto;
+  path: {
+    runId: string;
+    stackId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/change-stack-checks/{stackId}';
+};
+
+export type RecordChangeStackCheckErrors = {
+  /**
+   * Missing or wrong enrollment token
+   */
+  401: unknown;
+  /**
+   * Not a run this runner worked, or no such stack of it
+   */
+  404: unknown;
+  /**
+   * The stack was already checked, or names steps it has not
+   */
+  422: unknown;
+};
+
+export type RecordChangeStackCheckResponses = {
+  204: void;
+};
+
+export type RecordChangeStackCheckResponse = RecordChangeStackCheckResponses[keyof RecordChangeStackCheckResponses];
+
+export type ReadRunReviewData = {
+  body?: never;
+  path: {
+    teamId: string;
+    runId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/runs/{runId}/review';
+};
+
+export type ReadRunReviewErrors = {
+  /**
+   * No such run for this caller
+   */
+  404: unknown;
+};
+
+export type ReadRunReviewResponses = {
+  200: CodeReviewResponseDto;
+};
+
+export type ReadRunReviewResponse = ReadRunReviewResponses[keyof ReadRunReviewResponses];
+
+export type SubmitReviewData = {
+  body: SubmitReviewRequestDto;
+  path: {
+    teamId: string;
+    runId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/runs/{runId}/review';
+};
+
+export type SubmitReviewErrors = {
+  /**
+   * A comment or request for changes that says nothing
+   */
+  422: unknown;
+};
+
+export type SubmitReviewResponses = {
+  201: CreatedIdResponseDto;
+};
+
+export type SubmitReviewResponse = SubmitReviewResponses[keyof SubmitReviewResponses];
+
+export type DraftReviewCommentData = {
+  body: DraftReviewCommentRequestDto;
+  path: {
+    teamId: string;
+    runId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/runs/{runId}/review/comments';
+};
+
+export type DraftReviewCommentErrors = {
+  /**
+   * No such run or comment for this caller
+   */
+  404: unknown;
+  /**
+   * Nothing said, or no line
+   */
+  422: unknown;
+};
+
+export type DraftReviewCommentResponses = {
+  201: CreatedIdResponseDto;
+};
+
+export type DraftReviewCommentResponse = DraftReviewCommentResponses[keyof DraftReviewCommentResponses];
+
+export type DeleteReviewCommentData = {
+  body?: never;
+  path: {
+    teamId: string;
+    runId: string;
+    commentId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/runs/{runId}/review/comments/{commentId}';
+};
+
+export type DeleteReviewCommentErrors = {
+  /**
+   * Someone else wrote it
+   */
+  403: unknown;
+};
+
+export type DeleteReviewCommentResponses = {
+  204: void;
+};
+
+export type DeleteReviewCommentResponse = DeleteReviewCommentResponses[keyof DeleteReviewCommentResponses];
+
+export type EditReviewCommentData = {
+  body: EditReviewCommentRequestDto;
+  path: {
+    teamId: string;
+    runId: string;
+    commentId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/runs/{runId}/review/comments/{commentId}';
+};
+
+export type EditReviewCommentErrors = {
+  /**
+   * Someone else wrote it
+   */
+  403: unknown;
+};
+
+export type EditReviewCommentResponses = {
+  204: void;
+};
+
+export type EditReviewCommentResponse = EditReviewCommentResponses[keyof EditReviewCommentResponses];
+
+export type ConnectIntegrationData = {
+  body?: never;
+  path: {
+    teamId: string;
+    source: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/integrations/{source}/connect';
+};
+
+export type ConnectIntegrationErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, not yours to link, or the host does not link so
+   */
+  404: unknown;
+};
+
+export type ConnectIntegrationResponses = {
+  200: OAuth2StartResponseDto;
+};
+
+export type ConnectIntegrationResponse = ConnectIntegrationResponses[keyof ConnectIntegrationResponses];
+
+export type ListHappeningsData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/happenings';
+};
+
+export type ListHappeningsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type ListHappeningsResponses = {
+  200: Array<HappeningResponseDto>;
+};
+
+export type ListHappeningsResponse = ListHappeningsResponses[keyof ListHappeningsResponses];

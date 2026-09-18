@@ -74,7 +74,6 @@ export function Shortened({
     };
 
     cut();
-    // The font may not have loaded yet, and the wrong font measures the wrong width.
     void document.fonts?.ready.then(cut);
 
     return () => {

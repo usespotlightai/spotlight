@@ -4,6 +4,7 @@
   "description": "",
   "author": "",
   "private": true,
+  "packageManager": "npm@11.19.1",
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
@@ -23,7 +24,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "openapi:generate": "ts-node -r tsconfig-paths/register scripts/generate-openapi.ts",
-    "auth:generate": "auth generate --config scripts/auth-config.ts --output src/infrastructure/persistence/drizzle/schemas/auth.schema.ts -y"
+    "auth:generate": "auth generate --config scripts/auth-config.ts --output src/contexts/identity/infrastructure/persistence/drizzle/schemas/auth.schema.ts -y"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1131.0",
@@ -36,6 +37,7 @@
     "@nestjs/schedule": "^12.0.1",
     "@nestjs/swagger": "^11.4.7",
     "@thallesp/nestjs-better-auth": "^2.7.0",
+    "@vscode/tree-sitter-wasm": "0.3.1",
     "age-encryption": "0.3.1",
     "better-auth": "^1.7.1",
     "drizzle-orm": "^0.45.2",

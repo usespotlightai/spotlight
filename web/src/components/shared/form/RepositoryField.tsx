@@ -78,7 +78,6 @@ export function RepositoryField({
             <li key={name}>
               <button
                 type="button"
-                // mousedown fires before the input's blur closes the list.
                 onMouseDown={(event) => {
                   event.preventDefault();
                   onChange(name);

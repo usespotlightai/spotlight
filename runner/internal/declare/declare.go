@@ -1,4 +1,3 @@
-// Package declare: the runner's per-run loopback listener keeps the control plane token out of model-directed code.
 package declare
 
 import (
@@ -20,7 +19,6 @@ import (
 	"usespotlight.ai/runner/internal/protocol"
 )
 
-// Arrives among the options but names a person, not a station.
 const Review = "review"
 
 const Done = "done"
@@ -36,13 +34,12 @@ const RemarkPath = "/remark"
 
 const TracePath = "/trace"
 
-const mostInput = 1 << 20
+const mostInput = 8 << 20
 
 type Tooler func(ctx context.Context, name string, input json.RawMessage) (json.RawMessage, error)
 
 type Answerer func(ctx context.Context, said protocol.Remark) error
 
-// Uses the runner's token, so the agent never holds one.
 type Tracer func(ctx context.Context, taskID string) (json.RawMessage, error)
 
 type Server struct {
@@ -63,7 +60,6 @@ type Server struct {
 	once     sync.Once
 }
 
-// Loopback only; the minted token is no secret from the agent and grants nothing else.
 func Serve(options []string, noteLimit int, answer Answerer) (*Server, error) {
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
@@ -116,7 +112,6 @@ func (s *Server) Traces(trace Tracer) {
 	s.trace = trace
 }
 
-// An agent at a terminal never exits on its own; this is its only "finished".
 func (s *Server) Spoken() <-chan struct{} {
 	return s.spoken
 }
@@ -318,7 +313,6 @@ func (s *Server) option(spoken string) (string, bool) {
 	return "", false
 }
 
-// Counts UTF-16 units, as the control plane's JavaScript does.
 func noteLength(note string) int {
 	return len(utf16.Encode([]rune(strings.TrimSpace(note))))
 }

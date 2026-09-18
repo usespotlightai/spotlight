@@ -1,4 +1,3 @@
-// Package control is outbound-only HTTP, so it works through an egress proxy.
 package control
 
 import (
@@ -34,8 +33,7 @@ func New(baseURL, token string) (*Client, error) {
 	return &Client{
 		base:  base,
 		token: token,
-		// Above the claim long-poll; per-request contexts set the real deadlines.
-		http: &http.Client{Timeout: 2 * time.Minute},
+		http:  &http.Client{Timeout: 2 * time.Minute},
 	}, nil
 }
 
@@ -171,7 +169,6 @@ func (c *Client) AppendEvents(ctx context.Context, runID string, events []protoc
 		return nil
 	}
 
-	// Wrapped so batch-level fields can be added without breaking older runners.
 	batch := struct {
 		Events []protocol.Event `json:"events"`
 	}{Events: events}
@@ -211,6 +208,43 @@ func (c *Client) Attachment(
 
 	if _, err := io.Copy(into, response.Body); err != nil {
 		return fmt.Errorf("fetch an attachment: %s %s: %w", http.MethodGet, path, err)
+	}
+
+	return nil
+}
+
+func (c *Client) DraftChangeStack(ctx context.Context, runID, repository, diff string) error {
+	path := fmt.Sprintf("/api/runs/%s/change-stacks", url.PathEscape(runID))
+	handed := protocol.ChangeStackDraft{Diff: diff, Repository: repository}
+
+	if err := c.do(ctx, http.MethodPost, path, handed, nil); err != nil {
+		return fmt.Errorf("hand over what a run changed: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Client) ChangeStackChecks(ctx context.Context, runID string) (protocol.StackChecks, error) {
+	path := fmt.Sprintf("/api/runs/%s/change-stack-checks", url.PathEscape(runID))
+
+	var out protocol.StackChecks
+	if err := c.do(ctx, http.MethodGet, path, nil, &out); err != nil {
+		return protocol.StackChecks{}, fmt.Errorf("ask what change stacks to check: %w", err)
+	}
+
+	return out, nil
+}
+
+func (c *Client) RecordChangeStackCheck(
+	ctx context.Context, runID, stackID string, checked protocol.StackChecked,
+) error {
+	path := fmt.Sprintf(
+		"/api/runs/%s/change-stack-checks/%s",
+		url.PathEscape(runID), url.PathEscape(stackID),
+	)
+
+	if err := c.do(ctx, http.MethodPost, path, checked, nil); err != nil {
+		return fmt.Errorf("report a change stack check: %w", err)
 	}
 
 	return nil

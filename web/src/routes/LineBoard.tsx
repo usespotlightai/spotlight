@@ -10,12 +10,17 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router';
+import { BoardSkeleton } from '@/components/features/board/BoardSkeleton';
 import { StationSection } from '@/components/features/board/column/StationSection';
+import { NotFound } from '@/components/features/board/NotFound';
 import { SelectionBar } from '@/components/features/board/SelectionBar';
 import { NewTaskDialog } from '@/components/features/board/task/NewTaskDialog';
 import { TaskPreview } from '@/components/features/board/task/TaskPreview';
 import { TaskRow } from '@/components/features/board/task/TaskRow';
+import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { PageNotice } from '@/components/shared/PageNotice';
 import { RereadConfigurationButton } from '@/components/shared/RereadConfigurationButton';
+import { TrailSkeleton } from '@/components/shared/skeleton/TrailSkeleton';
 import { ViewPills } from '@/components/shared/ViewPills';
 import {
   type BreadcrumbSegment,
@@ -37,6 +42,7 @@ import {
   rememberedBoardView,
 } from '@/lib/board';
 import { inboxItemPath } from '@/lib/inbox';
+import { failed, loading } from '@/lib/query';
 import { stationPath, stationShare } from '@/lib/station';
 import { moveTargetFor, type Task, taskPath, tasksAt } from '@/lib/task';
 import { teamPath } from '@/lib/team';
@@ -47,9 +53,9 @@ const STATIONS_STORAGE_KEY = 'spotlight.collapsed-stations';
 export function LineBoard() {
   const { slug, teamId, lineId } = useParams();
   const { data: workspace } = useWorkspace(slug);
-  const { data: lines, isPending } = useLines(teamId);
+  const lines = useLines(teamId);
   const stations = useCollapsed(STATIONS_STORAGE_KEY);
-  const { data: tasks } = useTasks(teamId);
+  const tasks = useTasks(teamId);
   const addTask = useAddTask();
   const moveTask = useMoveTask();
   const [selected, setSelected] = useState<readonly string[]>([]);
@@ -64,12 +70,13 @@ export function LineBoard() {
     rememberBoardView(view);
   }, [view]);
 
-  const line = lines?.find((candidate) => candidate.id === lineId);
+  const line = lines.data?.find((candidate) => candidate.id === lineId);
+  const standing = tasks.data ?? [];
 
   const drag = useBoardDrag({
     teamId,
     lineId: line?.id ?? '',
-    tasks: tasks ?? [],
+    tasks: standing,
   });
 
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
@@ -84,38 +91,66 @@ export function LineBoard() {
           },
         ]
       : []),
-    ...(line ? [{ label: line.name }] : []),
+    { label: line?.name ?? '' },
   ];
   const { trail, forward } = useTrail(base);
 
-  if (isPending || !slug) {
+  if (!slug) {
     return null;
   }
 
-  if (!line) {
+  if (failed(lines)) {
     return (
-      <>
-        <PageHeader title="Line not found" />
-        <div className="flex min-h-0 flex-1 items-center justify-center p-8">
-          <p className="text-muted-foreground text-sm">
-            This team has no line at that address.
-          </p>
-        </div>
-      </>
+      <PageNotice>
+        <CouldNotLoad
+          what="The line"
+          retrying={lines.isFetching}
+          onRetry={() => void lines.refetch()}
+        />
+      </PageNotice>
     );
   }
 
-  const target = moveTargetFor(line.stations, tasks ?? [], selected);
-  const liftedTask =
-    (tasks ?? []).find((each) => each.id === drag.lifted) ?? null;
+  if (failed(tasks)) {
+    return (
+      <PageNotice>
+        <CouldNotLoad
+          what="The tasks"
+          retrying={tasks.isFetching}
+          onRetry={() => void tasks.refetch()}
+        />
+      </PageNotice>
+    );
+  }
+
+  if (!loading(lines) && !line) {
+    return (
+      <NotFound title="Line not found" to={teamPath(slug, teamId ?? '')}>
+        This team has no line at that address.
+      </NotFound>
+    );
+  }
+
+  const shown = (line?.stations ?? [])
+    .map((station, place) => ({ station, place }))
+    .filter(({ station }) => inView(view, station.kind));
+
+  const target = line ? moveTargetFor(line.stations, standing, selected) : null;
+  const liftedTask = standing.find((each) => each.id === drag.lifted) ?? null;
   const liftedTaskStation = liftedTask
-    ? line.stations.find((each) => each.id === liftedTask.stationId)
+    ? line?.stations.find((each) => each.id === liftedTask.stationId)
     : undefined;
 
   return (
     <TrailContext value={forward}>
       <PageHeader
-        title={<Breadcrumbs segments={trail} />}
+        title={
+          line ? (
+            <Breadcrumbs segments={trail} />
+          ) : (
+            <TrailSkeleton known={trail.slice(0, -1)} />
+          )
+        }
         actions={<RereadConfigurationButton teamId={teamId} />}
       />
 
@@ -128,24 +163,24 @@ export function LineBoard() {
         }}
       />
 
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        <DndContext
-          sensors={drag.sensors}
-          collisionDetection={drag.collisionDetection}
-          {...drag.handlers}
-        >
-          <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto py-1.5">
-            {line.stations
-              .map((station, place) => ({ station, place }))
-              .filter(({ station }) => inView(view, station.kind))
-              .map(({ station, place }) => (
+      {!line || loading(tasks) ? (
+        <BoardSkeleton />
+      ) : (
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          <DndContext
+            sensors={drag.sensors}
+            collisionDetection={drag.collisionDetection}
+            {...drag.handlers}
+          >
+            <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto py-1.5">
+              {shown.map(({ station, place }) => (
                 <StationSection
                   key={station.id}
                   id={station.id}
                   name={station.name}
-                  count={tasksAt(tasks, station.id).length}
+                  count={tasksAt(standing, station.id).length}
                   selectedCount={
-                    tasksAt(tasks, station.id).filter((task) =>
+                    tasksAt(standing, station.id).filter((task) =>
                       selected.includes(task.id),
                     ).length
                   }
@@ -157,145 +192,148 @@ export function LineBoard() {
                   landing={
                     drag.landing?.stationId === station.id &&
                     drag.landing.afterTaskId === null &&
-                    tasksAt(tasks, station.id).length === 0
+                    tasksAt(standing, station.id).length === 0
                   }
                   to={
-                    slug && teamId && station.kind === 'work'
+                    teamId && station.kind === 'work'
                       ? stationPath(slug, teamId, line.id, station.id)
                       : undefined
                   }
                 >
                   <SortableContext
-                    items={tasksAt(tasks, station.id).map((each) => each.id)}
+                    items={tasksAt(standing, station.id).map((each) => each.id)}
                     strategy={verticalListSortingStrategy}
                   >
-                    {tasksAt(tasks, station.id).map((task, spot, standing) => {
-                      const picked = (candidate?: Task) =>
-                        Boolean(candidate && selected.includes(candidate.id));
+                    {tasksAt(standing, station.id).map(
+                      (task, spot, alongside) => {
+                        const picked = (candidate?: Task) =>
+                          Boolean(candidate && selected.includes(candidate.id));
 
-                      return (
-                        <TaskRow
-                          key={task.id}
-                          task={task}
-                          teamId={teamId ?? ''}
-                          to={
-                            slug && teamId
-                              ? taskPath(slug, teamId, task.id)
-                              : ''
-                          }
-                          reviewTo={
-                            slug && task.awaitingReview
-                              ? inboxItemPath(
-                                  slug,
-                                  task.awaitingReview.conversationId,
-                                )
-                              : undefined
-                          }
-                          stationColor={station.color}
-                          stationShare={stationShare(
-                            place,
-                            line.stations.length,
-                          )}
-                          landing={
-                            drag.landing?.stationId === station.id
-                              ? drag.landing.afterTaskId === task.id
-                                ? 'below'
-                                : drag.landing.afterTaskId === null &&
-                                    spot === 0
-                                  ? 'above'
-                                  : undefined
-                              : undefined
-                          }
-                          selected={picked(task)}
-                          mergeTop={picked(task) && picked(standing[spot - 1])}
-                          mergeBottom={
-                            picked(task) && picked(standing[spot + 1])
-                          }
-                          onSelectedChange={(taken) =>
-                            setSelected((current) =>
-                              taken
-                                ? [...current, task.id]
-                                : current.filter((each) => each !== task.id),
-                            )
-                          }
-                        />
-                      );
-                    })}
+                        return (
+                          <TaskRow
+                            key={task.id}
+                            task={task}
+                            teamId={teamId ?? ''}
+                            to={teamId ? taskPath(slug, teamId, task.id) : ''}
+                            reviewTo={
+                              task.awaitingReview
+                                ? inboxItemPath(
+                                    slug,
+                                    task.awaitingReview.conversationId,
+                                  )
+                                : undefined
+                            }
+                            stationColor={station.color}
+                            stationShare={stationShare(
+                              place,
+                              line.stations.length,
+                            )}
+                            landing={
+                              drag.landing?.stationId === station.id
+                                ? drag.landing.afterTaskId === task.id
+                                  ? 'below'
+                                  : drag.landing.afterTaskId === null &&
+                                      spot === 0
+                                    ? 'above'
+                                    : undefined
+                                : undefined
+                            }
+                            selected={picked(task)}
+                            mergeTop={
+                              picked(task) && picked(alongside[spot - 1])
+                            }
+                            mergeBottom={
+                              picked(task) && picked(alongside[spot + 1])
+                            }
+                            onSelectedChange={(taken) =>
+                              setSelected((current) =>
+                                taken
+                                  ? [...current, task.id]
+                                  : current.filter((each) => each !== task.id),
+                              )
+                            }
+                          />
+                        );
+                      },
+                    )}
                   </SortableContext>
                 </StationSection>
               ))}
-          </div>
+            </div>
 
-          <DragOverlay
-            dropAnimation={{
-              duration: 140,
-              easing: 'ease-out',
-              sideEffects: defaultDropAnimationSideEffects({
-                styles: { active: { opacity: '1' } },
-              }),
-              keyframes: ({ transform }) => [
-                {
-                  opacity: 1,
-                  transform: CSS.Transform.toString(transform.initial),
-                },
-                {
-                  opacity: 0,
-                  transform: CSS.Transform.toString(transform.initial),
-                },
-              ],
+            <DragOverlay
+              dropAnimation={{
+                duration: 140,
+                easing: 'ease-out',
+                sideEffects: defaultDropAnimationSideEffects({
+                  styles: { active: { opacity: '1' } },
+                }),
+                keyframes: ({ transform }) => [
+                  {
+                    opacity: 1,
+                    transform: CSS.Transform.toString(transform.initial),
+                  },
+                  {
+                    opacity: 0,
+                    transform: CSS.Transform.toString(transform.initial),
+                  },
+                ],
+              }}
+            >
+              {liftedTask && (
+                <TaskPreview
+                  task={liftedTask}
+                  stationColor={liftedTaskStation?.color ?? '#a3a8b0'}
+                  stationShare={stationShare(
+                    line.stations.findIndex(
+                      (each) => each.id === liftedTask.stationId,
+                    ),
+                    line.stations.length,
+                  )}
+                />
+              )}
+            </DragOverlay>
+          </DndContext>
+
+          <SelectionBar
+            count={selected.length}
+            moveTo={target && { name: target.name, share: target.share }}
+            onMove={() => {
+              if (!teamId || !target) {
+                return;
+              }
+              for (const taskId of selected) {
+                moveTask.mutate({
+                  teamId,
+                  lineId: line.id,
+                  taskId,
+                  stationId: target.id,
+                  afterTaskId: null,
+                });
+              }
+              setSelected([]);
             }}
-          >
-            {liftedTask && (
-              <TaskPreview
-                task={liftedTask}
-                stationColor={liftedTaskStation?.color ?? '#a3a8b0'}
-                stationShare={stationShare(
-                  line.stations.findIndex(
-                    (each) => each.id === liftedTask.stationId,
-                  ),
-                  line.stations.length,
-                )}
-              />
-            )}
-          </DragOverlay>
-        </DndContext>
+            onClear={() => setSelected([])}
+          />
+        </div>
+      )}
 
-        <SelectionBar
-          count={selected.length}
-          moveTo={target && { name: target.name, share: target.share }}
-          onMove={() => {
-            if (!teamId || !target) {
-              return;
-            }
-            for (const taskId of selected) {
-              moveTask.mutate({
-                teamId,
-                lineId: line.id,
-                taskId,
-                stationId: target.id,
-                afterTaskId: null,
-              });
-            }
-            setSelected([]);
-          }}
-          onClear={() => setSelected([])}
+      {line && (
+        <NewTaskDialog
+          slug={slug}
+          open={adding !== null}
+          onOpenChange={(next) => !next && setAdding(null)}
+          lineName={line.name}
+          stationName={
+            line.stations.find((each) => each.id === adding)?.name ?? ''
+          }
+          onCreate={(task) =>
+            adding &&
+            teamId &&
+            addTask.mutate({ teamId, lineId: line.id, stationId: adding, task })
+          }
         />
-      </div>
-
-      <NewTaskDialog
-        slug={slug}
-        open={adding !== null}
-        onOpenChange={(next) => !next && setAdding(null)}
-        lineName={line.name}
-        stationName={
-          line.stations.find((each) => each.id === adding)?.name ?? ''
-        }
-        onCreate={(task) =>
-          adding &&
-          teamId &&
-          addTask.mutate({ teamId, lineId: line.id, stationId: adding, task })
-        }
-      />
+      )}
     </TrailContext>
   );
 }

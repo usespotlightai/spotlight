@@ -1,4 +1,5 @@
 import { Outlet, useParams } from 'react-router';
+import { InboxListSkeleton } from '@/components/features/inbox/InboxListSkeleton';
 import { InboxRow } from '@/components/features/inbox/InboxRow';
 import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
 import { Disclosure } from '@/components/shell/layout/Disclosure';
@@ -9,6 +10,7 @@ import { useInbox } from '@/hooks/api/useInbox';
 import { useCollapsed } from '@/hooks/useCollapsed';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
 import { inboxPath } from '@/lib/inbox';
+import { loading } from '@/lib/query';
 import { TrailContext } from '@/lib/trail';
 import { cn } from '@/lib/utils';
 
@@ -26,15 +28,15 @@ const LIST_PANE = {
 
 export function Inbox() {
   const { slug } = useParams();
-  const { data: waiting, isPending } = useInbox(slug);
+  const inbox = useInbox(slug);
   const listPane = usePaneWidth<HTMLDivElement>(LIST_PANE);
   const sections = useCollapsed(SECTIONS_STORAGE_KEY);
 
-  if (isPending || !slug) {
+  if (!slug) {
     return null;
   }
 
-  const items = waiting ?? [];
+  const items = inbox.data ?? [];
   const owed = items.filter((each) => !each.resolved);
   const done = items.filter((each) => each.resolved);
 
@@ -54,10 +56,11 @@ export function Inbox() {
           <PageHeader title={<Breadcrumbs segments={[{ label: 'Inbox' }]} />} />
 
           <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overflow-x-hidden p-2">
-            {items.length === 0 && (
-              <p className="px-2 py-1 text-muted-foreground text-xs">
-                Nothing is waiting on you.
-              </p>
+            {loading(inbox) && (
+              <InboxListSkeleton
+                open={sections.isExpanded(OPEN)}
+                onToggle={() => sections.toggle(OPEN)}
+              />
             )}
 
             {owed.length > 0 && (

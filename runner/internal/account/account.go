@@ -9,11 +9,9 @@ import (
 	"syscall"
 )
 
-// A separate account keeps the runner's env, token and files unreadable via /proc.
 type User struct {
-	UID uint32
-	GID uint32
-	// Agent CLIs refuse to work without HOME and SHELL.
+	UID   uint32
+	GID   uint32
 	Name  string
 	Home  string
 	Shell string

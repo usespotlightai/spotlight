@@ -16,16 +16,20 @@ import { useEnrolRunner } from '@/hooks/api/useEnrolRunner';
 type Enrolled = { id: string; name: string; token: string };
 
 type NewRunnerDialogProps = {
+  slug: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
 
-export function NewRunnerDialog({ open, onOpenChange }: NewRunnerDialogProps) {
+export function NewRunnerDialog({
+  slug,
+  open,
+  onOpenChange,
+}: NewRunnerDialogProps) {
   const [name, setName] = useState('');
   const [enrolled, setEnrolled] = useState<Enrolled | null>(null);
-  const enrol = useEnrolRunner();
+  const enrol = useEnrolRunner(slug);
 
-  // Reset after the close animation, or the token flips back to the form mid-animation.
   const forget = () => {
     setName('');
     setEnrolled(null);

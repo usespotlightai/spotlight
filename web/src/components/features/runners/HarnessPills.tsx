@@ -1,32 +1,36 @@
+import { HarnessLogo } from '@/components/features/stations/HarnessLogo';
+
+export type NamedHarness = {
+  readonly id: string;
+  readonly name: string;
+};
+
 const PILL =
-  'shrink-0 rounded-full border border-border bg-card px-2 py-0.5 font-medium text-muted-foreground text-xs';
+  'flex shrink-0 items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 font-medium text-muted-foreground text-xs';
 
 const NAMED = 3;
 
-export function HarnessPills({ names }: { names: readonly string[] }) {
-  if (names.length === 0) {
-    return (
-      <span className="text-muted-foreground text-xs">
-        Reported nothing it can run
-      </span>
-    );
+export function HarnessPills({
+  harnesses,
+}: {
+  harnesses: readonly NamedHarness[];
+}) {
+  if (harnesses.length === 0) {
+    return null;
   }
 
-  const rest = names.length - NAMED;
+  const rest = harnesses.length - NAMED;
 
   return (
     <span className="flex flex-wrap items-center gap-1">
-      {names.slice(0, NAMED).map((name) => (
-        <span key={name} className={PILL}>
-          {name}
+      {harnesses.slice(0, NAMED).map((harness) => (
+        <span key={harness.id} className={PILL}>
+          <HarnessLogo harness={harness.id} className="size-3" />
+          {harness.name}
         </span>
       ))}
 
-      {rest > 0 && (
-        <span className="shrink-0 text-muted-foreground text-xs">
-          +{rest} more
-        </span>
-      )}
+      {rest > 0 && <span className={PILL}>+{rest} more</span>}
     </span>
   );
 }

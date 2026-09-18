@@ -20,7 +20,6 @@ type Client struct {
 	nextID  int
 	waiting map[int]chan response
 
-	// Unattended: an unanswered permission request stalls the agent.
 	answer   Permission
 	watching func(Update)
 
@@ -37,11 +36,9 @@ type Options struct {
 	Executable string
 	Args       []string
 	Env        map[string]string
-	// File requests outside Root are refused.
-	Root string
-	// The harness signs in with this account's credentials.
-	RunAs  *account.User
-	Answer Permission
+	Root       string
+	RunAs      *account.User
+	Answer     Permission
 }
 
 func Start(ctx context.Context, opts Options) (*Client, error) {
@@ -148,7 +145,6 @@ func (c *Client) Prompt(
 	return out, err
 }
 
-// The pending Prompt returns "cancelled" and the session stays open.
 func (c *Client) Cancel(sessionID string) error {
 	return c.notify("session/cancel", map[string]any{"sessionId": sessionID})
 }

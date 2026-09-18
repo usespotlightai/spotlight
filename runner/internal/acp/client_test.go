@@ -196,7 +196,6 @@ func TestCancelEndsTheTurnInFlight(t *testing.T) {
 		done <- result
 	}()
 
-	// Let the prompt reach the harness before cancelling.
 	time.Sleep(200 * time.Millisecond)
 	if err := client.Cancel("session_1"); err != nil {
 		t.Fatalf("cancel: %v", err)

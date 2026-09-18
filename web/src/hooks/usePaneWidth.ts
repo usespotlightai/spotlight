@@ -41,9 +41,7 @@ const clampTo = (pane: Pane, width: number) =>
 const remember = (pane: Pane, width: number) => {
   try {
     localStorage.setItem(pane.storageKey, String(width));
-  } catch {
-    // a browser that refuses storage still resizes, it just forgets
-  }
+  } catch {}
 };
 
 export function usePaneWidth<T extends HTMLElement = HTMLElement>(
@@ -56,7 +54,6 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
   const last = useRef(width);
   const held = useRef<T | null>(null);
 
-  // Cursor set on the document, or it flickers to a caret and text selects mid-drag.
   useEffect(() => {
     if (!resizing) {
       return;

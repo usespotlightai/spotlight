@@ -1,18 +1,19 @@
 import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SpanDetail } from '@/components/features/trace/view/SpanDetail';
-import { LABEL_ROOM } from '@/components/features/trace/view/TraceBar';
+import { TraceGrid } from '@/components/features/trace/view/TraceGrid';
 import { TraceRow } from '@/components/features/trace/view/TraceRow';
+import { TraceScale } from '@/components/features/trace/view/TraceScale';
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
+import { useLingering } from '@/hooks/useLingering';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
 import { took } from '@/lib/inbox';
-import { rowsOf, type Trace, type TraceNode } from '@/lib/trace';
+import { rowsOf, type Trace } from '@/lib/trace';
 import { cn } from '@/lib/utils';
 
-// Matches the pane's close animation so it stays mounted until that finishes.
 const LEAVING = 150;
 
-const NAMES_PANE = {
+export const NAMES_PANE = {
   property: '--names',
   storageKey: 'spotlight.trace-names-width',
   min: 200,
@@ -20,8 +21,6 @@ const NAMES_PANE = {
   initial: 320,
   label: 'Resize the names',
 };
-
-const TICKS = [0, 0.25, 0.5, 0.75, 1];
 
 type TraceViewProps = {
   trace: Trace;
@@ -55,21 +54,7 @@ export function TraceView({ trace }: TraceViewProps) {
 
   const chosen = rows.find((row) => row.node.id === picked)?.node ?? null;
 
-  const [held, setHeld] = useState<TraceNode | null>(null);
-
-  useEffect(() => {
-    if (chosen) {
-      setHeld(chosen);
-      return;
-    }
-
-    if (held === null) {
-      return;
-    }
-
-    const timer = setTimeout(() => setHeld(null), LEAVING);
-    return () => clearTimeout(timer);
-  }, [chosen, held]);
+  const held = useLingering(chosen, LEAVING);
 
   const whole = Math.max(trace.ms, 0);
 
@@ -84,14 +69,6 @@ export function TraceView({ trace }: TraceViewProps) {
   }, []);
 
   const pick = useCallback((id: string) => setPicked(id), []);
-
-  if (trace.roots.length === 0) {
-    return (
-      <div className="flex min-h-0 flex-1 items-center justify-center p-8">
-        <p className="text-muted-foreground text-sm">No runs yet.</p>
-      </div>
-    );
-  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -108,31 +85,7 @@ export function TraceView({ trace }: TraceViewProps) {
                 names.resizing && 'select-none',
               )}
             >
-              <div className="sticky top-0 z-20 flex h-6 min-w-0 shrink-0 items-end border-border border-b-[0.5px] bg-surface px-1.5">
-                <span className="shrink-0" style={{ width: 'var(--names)' }} />
-                <div
-                  className="relative min-w-0 flex-1"
-                  style={{ marginRight: LABEL_ROOM }}
-                >
-                  {TICKS.map((tick) => (
-                    <span
-                      key={tick}
-                      className="absolute bottom-0 whitespace-nowrap text-faint text-[10px] tabular-nums"
-                      style={{
-                        left: `${tick * 100}%`,
-                        transform:
-                          tick === 1
-                            ? 'translateX(-100%)'
-                            : tick === 0
-                              ? undefined
-                              : 'translateX(-50%)',
-                      }}
-                    >
-                      {took(Math.round(whole * tick))}
-                    </span>
-                  ))}
-                </div>
-              </div>
+              <TraceScale label={(tick) => took(Math.round(whole * tick))} />
 
               {rows.length === 0 ? (
                 <p className="p-8 text-center text-muted-foreground text-sm">
@@ -140,21 +93,7 @@ export function TraceView({ trace }: TraceViewProps) {
                 </p>
               ) : (
                 <div className="relative flex-1 px-1.5">
-                  <div
-                    aria-hidden
-                    className="pointer-events-none absolute inset-y-0"
-                    style={{ left: 'var(--names)', right: LABEL_ROOM }}
-                  >
-                    {TICKS.map((tick) => (
-                      <span
-                        key={tick}
-                        className="absolute inset-y-0 w-[0.5px] bg-border"
-                        style={
-                          tick === 1 ? { right: 0 } : { left: `${tick * 100}%` }
-                        }
-                      />
-                    ))}
-                  </div>
+                  <TraceGrid />
 
                   <ul ref={listed} className="relative flex flex-col pt-2 pb-6">
                     {rows.map((row) => (

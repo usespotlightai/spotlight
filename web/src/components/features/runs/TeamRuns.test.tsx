@@ -6,9 +6,23 @@ import { TeamRuns } from '@/components/features/runs/TeamRuns';
 import type { TeamRun } from '@/lib/run';
 
 const runs = vi.fn();
+const failing = vi.fn();
+const refetch = vi.fn();
 
 vi.mock('@/hooks/api/useTeamRuns', () => ({
-  useTeamRuns: () => ({ data: runs(), isPending: false }),
+  useTeamRuns: () => ({
+    data: runs(),
+    isPending: runs() === undefined,
+    errorUpdateCount: failing() ? 1 : 0,
+    isFetching: false,
+    refetch,
+  }),
+}));
+
+vi.mock('@/hooks/api/useLines', () => ({
+  useLines: () => ({
+    data: [{ id: 'line_1', name: 'Delivery', stations: [] }],
+  }),
 }));
 
 const run = (
@@ -52,6 +66,8 @@ const filter = (name: string) => screen.getByRole('button', { name });
 beforeEach(() => {
   localStorage.clear();
   runs.mockReturnValue([owed, settled, unreviewed]);
+  failing.mockReturnValue(false);
+  refetch.mockClear();
 });
 
 describe('TeamRuns', () => {
@@ -99,15 +115,62 @@ describe('TeamRuns', () => {
     expect(screen.queryByText('Upgrade the harness')).not.toBeInTheDocument();
   });
 
-  it('offers no filters before anything has been run', () => {
-    runs.mockReturnValue([]);
+  it('holds the shape of a run while they load, leaving the filters until there is something to filter', () => {
+    runs.mockReturnValue(undefined);
     showing();
 
     expect(
-      screen.getByText('Nothing has been run for this team yet.'),
+      screen.getByRole('status', { name: 'Loading the runs' }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'All' }),
     ).not.toBeInTheDocument();
+    expect(screen.queryByText('No runs yet')).not.toBeInTheDocument();
+  });
+
+  it('says the runs could not be loaded, and tries again when asked', async () => {
+    runs.mockReturnValue(undefined);
+    failing.mockReturnValue(true);
+    showing();
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Runs could not be loaded.',
+    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'All' }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  it('keeps the runs it has when a later refresh fails', () => {
+    failing.mockReturnValue(true);
+    showing();
+
+    expect(screen.getByText('Fix the login bug')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('offers no filters before anything has been run', () => {
+    runs.mockReturnValue([]);
+    showing();
+
+    expect(screen.getByText('No runs yet')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'All' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('sends you to the team’s first line to create a task when nothing has run', () => {
+    runs.mockReturnValue([]);
+    showing();
+
+    expect(screen.getByRole('link', { name: 'Create a task' })).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/lines/line_1',
+    );
   });
 });

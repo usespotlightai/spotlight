@@ -114,7 +114,6 @@ export function useAttachments(slug: string) {
     remove,
     clear,
     handlers: {
-      // Without it, the browser opens a dropped file instead of handing it over.
       onDragOver: (event: DragEvent) => {
         if (event.dataTransfer.types.includes('Files')) {
           event.preventDefault();

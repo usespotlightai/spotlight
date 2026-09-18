@@ -4,10 +4,13 @@ import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TeamNav } from '@/components/shell/layout/TeamNav';
 
+const lines = vi.fn();
+
 vi.mock('@/hooks/api/useLines', () => ({
   useLines: () => ({
-    data: [{ id: 'line_1', name: 'Default', stations: [] }],
-    isPending: false,
+    data: lines(),
+    isPending: lines() === undefined,
+    errorUpdateCount: 0,
   }),
 }));
 vi.mock('@/hooks/api/useTasks', () => ({
@@ -45,6 +48,7 @@ const settingsRow = (index: number) =>
 
 beforeEach(() => {
   localStorage.clear();
+  lines.mockReturnValue([{ id: 'line_1', name: 'Default', stations: [] }]);
 });
 
 describe('TeamNav', () => {
@@ -88,6 +92,18 @@ describe('TeamNav', () => {
     expect(linesRow(0)).toHaveAttribute('aria-expanded', 'true');
   });
 
+  it('shows no lines, and nothing in their place, while a team’s lines load', () => {
+    lines.mockReturnValue(undefined);
+
+    renderNav();
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Default' }),
+    ).not.toBeInTheDocument();
+    expect(linesRow(0)).toBeInTheDocument();
+  });
+
   it('closes one team’s line group without touching the other', async () => {
     const user = userEvent.setup();
     renderNav();
@@ -124,18 +140,23 @@ describe('TeamNav', () => {
     expect(
       screen.getAllByRole('link', { name: 'Integrations' })[0],
     ).toHaveAttribute('href', '/w/acme-inc/team/team_1/settings/integrations');
-    expect(screen.getAllByRole('link', { name: 'Secrets' })[0]).toHaveAttribute(
-      'href',
-      '/w/acme-inc/team/team_1/settings/secrets',
-    );
-  });
-
-  it('links each team’s skills as a section of its own', () => {
-    renderNav();
-
     expect(screen.getAllByRole('link', { name: 'Skills' })[0]).toHaveAttribute(
       'href',
-      '/w/acme-inc/team/team_1/skills',
+      '/w/acme-inc/team/team_1/settings/skills',
+    );
+    expect(
+      screen.queryByRole('link', { name: 'Secrets' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('links each team’s agent first, above its lines', () => {
+    renderNav();
+
+    const agent = screen.getAllByRole('link', { name: 'Agent' })[0];
+    expect(agent).toHaveAttribute('href', '/w/acme-inc/team/team_1/agent');
+    expect(panels()[0]?.querySelector('a')).toBe(agent);
+    expect(agent?.compareDocumentPosition(linesRow(0) as HTMLElement)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
     );
   });
 

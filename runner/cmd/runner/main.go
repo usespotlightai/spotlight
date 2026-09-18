@@ -68,7 +68,6 @@ func run() error {
 		"workspace", cfg.WorkspaceRoot,
 	)
 
-	// Only safe between runs: one run at a time, so nothing holds a workspace.
 	sweep := func(ctx context.Context) {
 		keep, err := client.Kept(ctx)
 		if err != nil {

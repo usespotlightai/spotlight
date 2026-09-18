@@ -25,7 +25,6 @@ export function useUploadAttachment() {
     mutationFn: async ({ slug, file }: UploadAttachmentInput) => {
       const { id, url, headers } = await grant(slug, file);
 
-      // Exactly the headers it was signed with, or storage refuses it.
       const put = await fetch(url, { method: 'PUT', headers, body: file });
 
       if (!put.ok) {

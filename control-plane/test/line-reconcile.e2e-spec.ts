@@ -1,32 +1,31 @@
-import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
-import { eq } from 'drizzle-orm';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { AppModule } from '@/app.module';
-import { Line } from '@/domain/aggregates/line.aggregate';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@/domain/services/built-in-lines';
-import { reconcileLine } from '@/domain/services/reconcile-line';
-import { FactoryId } from '@/domain/value-objects/factory-id.vo';
-import {
-  LinePlan,
-  type StationPlan,
-} from '@/domain/value-objects/line-plan.vo';
-import { StationColor } from '@/domain/value-objects/station-color.vo';
-import { StationKey } from '@/domain/value-objects/station-key.vo';
-import { StationName } from '@/domain/value-objects/station-name.vo';
-import { WorkspaceId } from '@/domain/value-objects/workspace-id.vo';
-import type { DrizzleDatabase } from '@/infrastructure/persistence/drizzle/drizzle.client';
-import { DRIZZLE } from '@/infrastructure/persistence/drizzle/drizzle.constants';
-import { DrizzleLineRepository } from '@/infrastructure/persistence/drizzle/repositories/line.repository';
-import { factory } from '@/infrastructure/persistence/drizzle/schemas/factory.schema';
-import { station } from '@/infrastructure/persistence/drizzle/schemas/line.schema';
 import {
   team,
   workspace,
-} from '@/infrastructure/persistence/drizzle/schemas/workspace.schema';
+} from '@identity/infrastructure/persistence/drizzle/schemas/workspace.schema';
+import { INestApplication } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { Line } from '@work/domain/aggregates/line.aggregate';
+import {
+  BUILT_IN_LINES,
+  type LineOpening,
+} from '@work/domain/services/built-in-lines';
+import { reconcileLine } from '@work/domain/services/reconcile-line';
+import {
+  LinePlan,
+  type StationPlan,
+} from '@work/domain/value-objects/line-plan.vo';
+import { StationColor } from '@work/domain/value-objects/station-color.vo';
+import { StationKey } from '@work/domain/value-objects/station-key.vo';
+import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { DrizzleLineRepository } from '@work/infrastructure/persistence/drizzle/repositories/line.repository';
+import { station } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
+import { eq } from 'drizzle-orm';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { AppModule } from '@/app.module';
 
 const keyed = (line: Line, id: { value: string }): StationKey =>
   line.stations.find((each) => each.id.value === id.value)?.key as StationKey;
@@ -42,6 +41,8 @@ const planOf = (line: Line): StationPlan[] =>
     model: each.model,
     effort: each.effort,
     agentPrompt: each.agentPrompt,
+    check: null,
+    diffs: false,
     tools: each.tools,
     skills: each.skills,
     passesTo: each.wayOut.stations.map((to) => keyed(line, to)),
@@ -68,9 +69,6 @@ describe('a line reconciled with its file (e2e)', () => {
     await db
       .insert(team)
       .values({ id: held, workspaceId: held, key: 'team', name: held });
-    await db
-      .insert(factory)
-      .values({ id: held, workspaceId: held, teamId: held });
   });
 
   afterEach(async () => {
@@ -83,7 +81,7 @@ describe('a line reconciled with its file (e2e)', () => {
     const newId = () => `${held}_${++next}`;
     const opened = Line.open({
       workspaceId: WorkspaceId.of(held),
-      factoryId: FactoryId.of(held),
+      teamId: TeamId.of(held),
       line: BUILT_IN_LINES[0] as LineOpening,
       newId,
     });

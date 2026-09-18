@@ -1,11 +1,10 @@
 import { ChevronRight } from 'lucide-react';
 import { memo } from 'react';
 import { TraceBar } from '@/components/features/trace/view/TraceBar';
-import { TraceIcon } from '@/components/features/trace/view/TraceIcon';
 import type { Trace, TraceNode } from '@/lib/trace';
 import { cn } from '@/lib/utils';
 
-const INDENT = 14;
+export const INDENT = 14;
 
 type TraceRowProps = {
   node: TraceNode;
@@ -57,8 +56,6 @@ export const TraceRow = memo(function TraceRow({
         ) : (
           <span className="size-3 shrink-0" aria-hidden />
         )}
-
-        <TraceIcon node={node} />
 
         <button
           type="button"

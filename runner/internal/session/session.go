@@ -23,6 +23,7 @@ import (
 	"usespotlight.ai/runner/internal/hook"
 	"usespotlight.ai/runner/internal/otel"
 	"usespotlight.ai/runner/internal/protocol"
+	"usespotlight.ai/runner/internal/stackcheck"
 	"usespotlight.ai/runner/internal/workspace"
 )
 
@@ -31,16 +32,17 @@ type Journal interface {
 	RenewLease(ctx context.Context, runID string) (bool, error)
 	Complete(ctx context.Context, runID string, done protocol.Completion) error
 	UseTool(ctx context.Context, runID, name string, input json.RawMessage) (json.RawMessage, error)
+	DraftChangeStack(ctx context.Context, runID, repository, diff string) error
 	AnswerRemark(ctx context.Context, runID string, said protocol.Remark) error
 	Trace(ctx context.Context, runID, taskID string) (json.RawMessage, error)
 	Said(ctx context.Context, runID string) ([]protocol.Said, error)
 	Delivered(ctx context.Context, runID string, upTo int) error
 	Attachment(ctx context.Context, runID, attachmentID string, into io.Writer) error
+	stackcheck.Source
 }
 
 const (
 	flushEvery = 200 * time.Millisecond
-	// Well inside the lease expiry; also how quickly a stop is noticed.
 	renewEvery = 2 * time.Second
 	steerEvery = 2 * time.Second
 )
@@ -102,9 +104,10 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
+	markBases(ctx, space.Dir, run.Spec.Checkouts, log)
+
 	cwd := space.Dir
 
-	// Before the handover, so the agent owns these.
 	for _, attachment := range run.Spec.Attachments {
 		if err := fetch(ctx, opts.Journal, run.ID, space, nil, attachment); err != nil {
 			return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
@@ -123,7 +126,6 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		}
 	}
 
-	// Before the handover, so the agent owns this and the harness can write to it.
 	state, err := space.State()
 	if err != nil {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
@@ -140,7 +142,6 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	}
 	journal.record(ctx, protocol.Event{Type: protocol.EventWorkspaceReady, Message: space.Dir})
 
-	// Raised before the agent and closed after it, so nothing speaks for an ended run.
 	channel, err := declare.Serve(
 		run.Spec.Handover.Options,
 		run.Spec.Handover.NoteLimit,
@@ -162,7 +163,6 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		return opts.Journal.Trace(ctx, run.ID, taskID)
 	})
 
-	// Before the agent: a harness may export from its first breath.
 	telemetry, err := otel.Serve(func(span json.RawMessage) {
 		journal.append(protocol.Event{Type: protocol.EventSpan, Data: span})
 	})
@@ -181,8 +181,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		Env:        granted(run.Spec.Command.Env, channel, state, telemetry.URL),
 		Root:       cwd,
 		RunAs:      opts.AgentUser,
-		// Unattended: bounded by its own account and workspace, not by what it may do.
-		Answer: func(string) bool { return true },
+		Answer:     func(string) bool { return true },
 	})
 	if err != nil {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("start agent: %w", err))
@@ -209,7 +208,8 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
-	// Before the publish hook, so a failing hook still carries the outcome.
+	opts.draftStacks(ctx, run, space.Dir, log)
+
 	declared := channel.Declared()
 	if declared == nil {
 		declared = space.Outcome()
@@ -247,11 +247,54 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		})
 	}
 
-	return opts.Journal.Complete(ctx, run.ID, protocol.Completion{
+	completed := opts.Journal.Complete(ctx, run.ID, protocol.Completion{
 		ExitCode:  exitCode,
 		Failed:    exitCode != 0,
 		Outcome:   declared,
 		SessionID: sessionID,
+	})
+
+	opts.checkStacks(ctx, run, space.Dir, log)
+
+	return completed
+}
+
+func (o Options) draftStacks(ctx context.Context, run protocol.Run, dir string, log *slog.Logger) {
+	if !run.Spec.Diffs {
+		return
+	}
+
+	checking := stackcheck.Options{Dir: dir, RunAs: o.AgentUser, Log: log}
+
+	for _, checkout := range run.Spec.Checkouts {
+		diff, err := checking.Diff(ctx, filepath.Join(dir, checkout.Path))
+		if err != nil {
+			log.Warn("could not diff a checkout for its change stack", "path", checkout.Path, "error", err)
+			continue
+		}
+		if diff == "" {
+			continue
+		}
+
+		if err := o.Journal.DraftChangeStack(ctx, run.ID, checkout.Path, diff); err != nil {
+			log.Warn("could not hand over what a run changed", "path", checkout.Path, "error", err)
+			continue
+		}
+
+		log.Info("drafting a change stack", "path", checkout.Path)
+	}
+}
+
+func (o Options) checkStacks(ctx context.Context, run protocol.Run, dir string, log *slog.Logger) {
+	if len(run.Spec.Checkouts) == 0 || !run.Spec.Diffs {
+		return
+	}
+
+	stackcheck.Run(ctx, o.Journal, run.ID, stackcheck.Options{
+		Dir:       dir,
+		Checkouts: run.Spec.Checkouts,
+		RunAs:     o.AgentUser,
+		Log:       log,
 	})
 }
 
@@ -289,7 +332,6 @@ func work(
 	renewing, stopRenewing := context.WithCancel(ctx)
 	defer stopRenewing()
 
-	// Close is a sync.Once, so Execute's deferred Close stays a no-op after this.
 	var stopped atomic.Bool
 	go renew(renewing, lease, run.ID, log, func() {
 		stopped.Store(true)
@@ -301,12 +343,15 @@ func work(
 	go stream(flushing, journal)
 
 	prompt := run.Spec.Briefing
+	steered, resaid := false, false
 
 	for {
 		turn, endTurn := context.WithCancel(ctx)
 		go steer(turn, harness, lease, sessionID, run.ID, log)
 
+		heard := 0
 		result, err := harness.Prompt(ctx, sessionID, prompt, func(update acp.Update) {
+			heard++
 			journal.append(protocol.Event{
 				Type: protocol.EventOutput,
 				Data: update.Raw,
@@ -316,7 +361,6 @@ func work(
 
 		journal.flush(ctx)
 
-		// Checked first: a stop surfaces as the prompt failing.
 		if stopped.Load() {
 			return 0, true
 		}
@@ -328,7 +372,14 @@ func work(
 
 		log.Info("turn finished", "stopReason", result.StopReason)
 
-		// A cancelled turn is a steer, not a failure.
+		// A harness can end the turn right after a cancel without reading the prompt at all.
+		if steered && !resaid && heard == 0 && result.StopReason == "end_turn" {
+			log.Info("the harness let what was said go unread; saying it again")
+			resaid = true
+			continue
+		}
+		steered, resaid = result.StopReason == "cancelled", false
+
 		if result.StopReason != "end_turn" &&
 			result.StopReason != "max_tokens" &&
 			result.StopReason != "cancelled" {
@@ -340,7 +391,6 @@ func work(
 			return 0, false
 		}
 
-		// Marked given before the turn so the agent is never told twice.
 		if err := lease.Delivered(ctx, run.ID, upTo); err != nil {
 			log.Warn("could not mark what was said delivered", "error", err)
 			return 0, false
@@ -511,7 +561,6 @@ func renew(
 	}
 }
 
-// The caller flushes once more after cancel, so a tick lost at the end costs nothing.
 func stream(ctx context.Context, journal *journalWriter) {
 	ticker := time.NewTicker(flushEvery)
 	defer ticker.Stop()
@@ -611,7 +660,6 @@ func (o Options) runHook(
 type journalWriter struct {
 	runID   string
 	journal Journal
-	// Telemetry and agent updates append from different goroutines; seq must not gap.
 	mu      sync.Mutex
 	seq     int
 	pending []protocol.Event
@@ -633,7 +681,6 @@ func (j *journalWriter) record(ctx context.Context, event protocol.Event) {
 }
 
 func (j *journalWriter) flush(ctx context.Context) {
-	// Sent outside the lock: a slow control plane must not hold up reading the agent.
 	j.mu.Lock()
 	batch := j.pending
 	j.pending = nil
@@ -643,7 +690,6 @@ func (j *journalWriter) flush(ctx context.Context) {
 		return
 	}
 
-	// Dropped, not retried: the run matters more than its narration.
 	if err := j.journal.AppendEvents(ctx, j.runID, batch); err != nil {
 		slog.Warn("could not append events", "run", j.runID, "count", len(batch), "error", err)
 	}
@@ -653,7 +699,6 @@ const StateVar = "SPOTLIGHT_STATE_DIR"
 
 const TelemetryVar = "SPOTLIGHT_TELEMETRY_URL"
 
-// Explicit: the agent inherits none of the runner's SPOTLIGHT_ variables.
 func granted(
 	env map[string]string, channel *declare.Server, state, telemetry string,
 ) map[string]string {

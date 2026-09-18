@@ -29,7 +29,6 @@ const midnight = (at: Date): number =>
   new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime();
 
 export const aged = (at: string): string => {
-  // Rounded because a day either side of a clock change is not 24 hours long.
   const days = Math.round(
     (midnight(new Date()) - midnight(new Date(at))) / DAY,
   );

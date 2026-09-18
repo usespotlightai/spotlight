@@ -28,7 +28,10 @@ vi.mock('@/hooks/api/useInbox', () => ({
   useInbox: () => ({ data: [] }),
 }));
 vi.mock('@/hooks/api/useRunners', () => ({
-  runnerKeys: { all: ['runners'] },
+  runnerKeys: {
+    all: ['runners'],
+    forWorkspace: (slug?: string) => ['runners', slug ?? null],
+  },
   useRunners: () => ({ data: [] }),
 }));
 vi.mock('@/hooks/api/useTeamSkills', () => ({
@@ -100,10 +103,10 @@ describe('routing', () => {
     ).toHaveAttribute('aria-current', 'page');
   });
 
-  it('opens a team’s skills as a section of its own', async () => {
+  it('opens a team’s skills among its settings', async () => {
     signedIn();
 
-    renderAt('/w/acme/team/team_1/skills');
+    renderAt('/w/acme/team/team_1/settings/skills');
 
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Skills' }),

@@ -1,5 +1,4 @@
 #!/bin/sh
-# Spotlight runner installer.
 set -eu
 
 REPO="${SPOTLIGHT_REPO:-usespotlightai/cli}"
@@ -103,8 +102,6 @@ save_url() {
   } >"$cfg"
 }
 
-# The runner supervises the Claude Code harness over ACP; without it a runner
-# registers but has nothing to work runs with.
 install_harness() {
   if ! command -v npm >/dev/null 2>&1; then
     say "Node.js/npm not found; install it, then: npm install -g $HARNESS"

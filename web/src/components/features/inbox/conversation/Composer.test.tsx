@@ -74,6 +74,12 @@ describe('Composer', () => {
     expect(onStop).toHaveBeenCalledTimes(1);
   });
 
+  it('shows what it was given to set beside the box', () => {
+    composer({ context: <button type="button">Harness</button> });
+
+    expect(screen.getByRole('button', { name: 'Harness' })).toBeInTheDocument();
+  });
+
   it('never offers to stop when it was given no way to', () => {
     composer({ running: true });
 
@@ -163,7 +169,9 @@ describe('Composer', () => {
       await screen.findByRole('button', { name: 'Remove notes.txt' }),
     );
 
-    expect(screen.queryByText('notes.txt')).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByText('notes.txt')).not.toBeInTheDocument(),
+    );
   });
 
   it('forgets the words and the files once they are sent', async () => {
