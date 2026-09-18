@@ -4,7 +4,10 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
-import type { InboxNote } from '@work/application/ports/inbox-reader.port';
+import type {
+  InboxApproval,
+  InboxNote,
+} from '@work/application/ports/inbox-reader.port';
 import type { RunReview } from '@work/application/ports/run-reader.port';
 import type { TaskNoteKind } from '@work/domain/entities/task-note.entity';
 import { owedIn, reviewsIn } from '@work/domain/services/conversations';
@@ -13,6 +16,7 @@ import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { station } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import {
+  type ApprovalRow,
   task,
   taskAttachment,
   taskNote,
@@ -79,6 +83,18 @@ export const attachmentsFor = async (
   return held;
 };
 
+const asked = (parts: ApprovalRow | null): InboxApproval | null =>
+  parts
+    ? {
+        tool: parts.tool,
+        because: parts.because,
+        inputs: Object.keys(parts.inputs)
+          .sort()
+          .map((name) => ({ name, value: String(parts.inputs[name]) })),
+        standing: parts.standing,
+      }
+    : null;
+
 export const trailsFor = async (
   db: DrizzleDatabase,
   people: PersonReaderPort,
@@ -109,6 +125,7 @@ export const trailsFor = async (
       body: taskNote.body,
       at: taskNote.at,
       authorId: taskNote.authorId,
+      approval: taskNote.approval,
     })
     .from(taskNote)
     .innerJoin(task, eq(task.id, taskNote.taskId))
@@ -149,6 +166,7 @@ export const trailsFor = async (
             image: author?.image ?? null,
           }
         : null,
+      approval: asked(row.approval),
     });
 
     trail.set(row.taskId, told);

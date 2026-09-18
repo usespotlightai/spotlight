@@ -148,8 +148,18 @@ const toolInputSchema = z.object({
   piped: z.boolean().default(false),
 });
 
+const approvalSchema = z.object({
+  because: z
+    .string()
+    .min(
+      1,
+      'says why a person has to approve it, which is what they are shown before they decide',
+    ),
+});
+
 const toolSchema = z.object({
   does: key('comment'),
+  approval: approvalSchema.optional(),
   description: z
     .string()
     .min(1, 'says when an agent should use it, which is how it decides to'),

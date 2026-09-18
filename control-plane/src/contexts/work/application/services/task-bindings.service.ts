@@ -33,6 +33,7 @@ export class TaskBindings {
               from: open.from,
             }).value,
             said: task.notes[open.from]?.body.value?.trim() ?? '',
+            awaitsApproval: task.notes[open.from]?.approval?.open ?? false,
           }
         : null,
     };

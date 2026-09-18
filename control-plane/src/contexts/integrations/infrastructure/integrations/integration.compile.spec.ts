@@ -706,6 +706,42 @@ tools:
     ).toHaveLength(1);
   });
 
+  it('offers a tool no approval where the file asks for none', () => {
+    const compiled = read(OFFERING);
+
+    expect(
+      compiled.ok &&
+        compiled.readable.integration.offered('linear.comment')?.approval,
+    ).toBeNull();
+  });
+
+  it('reads the approval a tool may only run with, and why', () => {
+    const compiled = read(
+      OFFERING.replace(
+        '    does: comment\n',
+        '    does: comment\n    approval:\n      because: It posts publicly, under the team’s name.\n',
+      ),
+    );
+
+    expect(compiled.ok && compiled.warnings).toEqual([]);
+    expect(
+      compiled.ok &&
+        compiled.readable.integration.offered('linear.comment')?.approval
+          ?.because,
+    ).toBe('It posts publicly, under the team’s name.');
+  });
+
+  it('refuses an approval that says nothing about why', () => {
+    expect(
+      problems(
+        OFFERING.replace(
+          '    does: comment\n',
+          '    does: comment\n    approval:\n      because: "  "\n',
+        ),
+      ),
+    ).not.toEqual([]);
+  });
+
   it('refuses a tool that does not say what it is for', () => {
     expect(
       problems(

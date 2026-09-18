@@ -2,6 +2,7 @@ import type {
   TaskNoteForm,
   TaskNoteKind,
 } from '@work/domain/entities/task-note.entity';
+import type { ApprovalStanding } from '@work/domain/value-objects/approval.vo';
 import type { SpokenBy } from '@work/domain/value-objects/voice.vo';
 import { station } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import {
@@ -20,6 +21,18 @@ export interface SaidRow {
   readonly from: number | null;
   readonly to: number | null;
   readonly remark: string | null;
+}
+
+export interface ApprovalRow {
+  readonly tool: string;
+  readonly inputs: Readonly<Record<string, string | number | boolean>>;
+  readonly stationId: string;
+  readonly because: string;
+  readonly standing: ApprovalStanding;
+  readonly decidedBy: string | null;
+  readonly decidedAt: string | null;
+  readonly reason: string | null;
+  readonly spent: boolean;
 }
 
 export const task = pgTable(
@@ -73,6 +86,7 @@ export const taskNote = pgTable(
     kind: text('kind').$type<TaskNoteKind>().notNull(),
     form: text('form').$type<TaskNoteForm>().notNull().default('words'),
     said: jsonb('said').$type<SaidRow>(),
+    approval: jsonb('approval').$type<ApprovalRow>(),
     answeredAt: timestamp('answered_at'),
     readAt: timestamp('read_at'),
     deliveredAt: timestamp('delivered_at'),

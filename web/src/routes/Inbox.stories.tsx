@@ -5,11 +5,14 @@ import { Inbox } from '@/routes/Inbox';
 import { InboxIndex } from '@/routes/InboxIndex';
 import { InboxItem } from '@/routes/InboxItem';
 import {
+  APPROVAL_ITEM_ID,
   emptyInbox,
   failInbox,
   OPENED_ITEM_ID,
   SLUG,
+  seedApproved,
   seedInbox,
+  seedRejected,
 } from '@/stories/fixtures/inbox';
 import { StoryPage } from '@/stories/StoryPage';
 
@@ -54,6 +57,30 @@ export const Failed: Story = {
 export const WithData: Story = {
   render: () => (
     <StoryPage at={inboxItemPath(SLUG, OPENED_ITEM_ID)} seed={seedInbox}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const AwaitingApproval: Story = {
+  render: () => (
+    <StoryPage at={inboxItemPath(SLUG, APPROVAL_ITEM_ID)} seed={seedInbox}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const Approved: Story = {
+  render: () => (
+    <StoryPage at={inboxItemPath(SLUG, APPROVAL_ITEM_ID)} seed={seedApproved}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const Rejected: Story = {
+  render: () => (
+    <StoryPage at={inboxItemPath(SLUG, APPROVAL_ITEM_ID)} seed={seedRejected}>
       {routes}
     </StoryPage>
   ),

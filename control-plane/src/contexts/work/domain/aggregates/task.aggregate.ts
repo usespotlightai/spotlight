@@ -22,13 +22,20 @@ import { TaskHandedToRun } from '@work/domain/events/task-handed-to-run.event';
 import { TaskLetGoOfRun } from '@work/domain/events/task-let-go-of-run.event';
 import { TaskMarkTaken } from '@work/domain/events/task-mark-taken.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
+import { InvalidApprovalAnswerError } from '@work/domain/exceptions/invalid-approval-answer.error';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import type { Conversation } from '@work/domain/services/conversations';
 import { anyUnread } from '@work/domain/services/unread';
+import {
+  Approval,
+  type ApprovalDecision,
+} from '@work/domain/value-objects/approval.vo';
+import type { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
+import type { Clearance } from '@work/domain/value-objects/clearance';
 import { Continuity } from '@work/domain/value-objects/continuity.vo';
 import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
@@ -43,6 +50,7 @@ import type { TaskDescription } from '@work/domain/value-objects/task-descriptio
 import type { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import type { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import type { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
 import type { Voice } from '@work/domain/value-objects/voice.vo';
 
@@ -65,6 +73,17 @@ export interface Saying {
   readonly said?: Said | null;
   readonly form?: TaskNoteForm;
   readonly attachments?: readonly Attachment[];
+  readonly approval?: Approval | null;
+}
+
+export interface StandingApproval {
+  readonly at: NotePosition;
+  readonly approval: Approval;
+}
+
+export interface Cleared {
+  readonly task: Task;
+  readonly clearance: Clearance;
 }
 
 export class Task extends EventRecorder {
@@ -586,14 +605,117 @@ export class Task extends EventRecorder {
     return asked;
   }
 
-  answered(from: NotePosition, saying: Saying): Task {
+  clearFor(
+    call: ToolCall,
+    needed: ApprovalNeeded,
+    asking: Saying,
+    by: RunId,
+  ): Cleared {
+    this.refuseAnotherRun(by, 'use a tool on it');
+
+    const standing = this.approvalFor(call);
+
+    if (standing?.approval.refuses) {
+      return {
+        task: this,
+        clearance: {
+          kind: 'refused',
+          reason: standing.approval.decided?.reason ?? '',
+        },
+      };
+    }
+
+    if (standing?.approval.grants) {
+      return {
+        task: this.withApprovalAt(standing.at, (note) =>
+          note.approvalClaimed(),
+        ),
+        clearance: { kind: 'given', claimed: standing.at },
+      };
+    }
+
+    return {
+      task: this.askedAbout(
+        {
+          ...asking,
+          form: 'approval',
+          approval: Approval.asked(call, this.stationId, needed.because),
+        },
+        by,
+      ),
+      clearance: { kind: 'asked' },
+    };
+  }
+
+  approvalReturned(at: NotePosition): Task {
+    return this.withApprovalAt(at, (note) => note.approvalReturned());
+  }
+
+  approvalFor(call: ToolCall): StandingApproval | null {
+    for (let at = this.notes.length - 1; at >= 0; at--) {
+      const note = this.notes[at];
+      const approval = note?.approval;
+
+      if (note && approval?.standsFor(call, this.stationId)) {
+        return { at: note.position, approval };
+      }
+    }
+
+    return null;
+  }
+
+  answered(
+    from: NotePosition,
+    saying: Saying,
+    decision: ApprovalDecision | null = null,
+  ): Task {
     if (this.openConversation?.from !== from.value) {
       throw new InvalidTaskTransitionError(
         'is not waiting on anyone there, so there is nothing to answer',
       );
     }
 
-    return this.with(this.spoke(saying, 'answered'));
+    const by = saying.voice.author;
+
+    if (decision && !this.notes[from.value]?.approval) {
+      throw new InvalidApprovalAnswerError(
+        'waits on nothing being approved, so there is nothing there to approve',
+      );
+    }
+
+    if (decision && !by) {
+      throw new InvalidApprovalAnswerError(
+        'can only be approved or rejected by a person',
+      );
+    }
+
+    const answered = this.with(
+      this.spoke(
+        decision ? { ...saying, form: 'approval' } : saying,
+        'answered',
+      ),
+    );
+
+    return decision && by
+      ? answered.withApprovalAt(from, (note) =>
+          note.decided(decision, {
+            by,
+            at: saying.at,
+            reason: saying.body.value,
+          }),
+        )
+      : answered;
+  }
+
+  private withApprovalAt(
+    at: NotePosition,
+    change: (note: TaskNote) => TaskNote,
+  ): Task {
+    return this.with({
+      notes: this.notes.map((note) =>
+        note.position.equals(at) ? change(note) : note,
+      ),
+    });
   }
 
   private lettingGoOf(runId: RunId | null): Task {

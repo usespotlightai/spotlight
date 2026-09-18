@@ -1,3 +1,4 @@
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { ChatRunWork } from '@work/application/services/chat-run-work';
@@ -21,6 +22,7 @@ export class RunWorks {
     private readonly tasks: TaskRepository,
     private readonly chats: ChatRepository,
     private readonly lines: LineRepository,
+    private readonly clock: ClockPort,
   ) {}
 
   async heldBy(runId: string, runnerId: string): Promise<WorkedRun> {
@@ -45,7 +47,7 @@ export class RunWorks {
         const task = await this.tasks.find(taskId);
 
         return task?.heldBy(run.id)
-          ? new TaskRunWork(run, task, this.tasks, this.lines)
+          ? new TaskRunWork(run, task, this.tasks, this.lines, this.clock)
           : null;
       },
       chat: async (chatId) => {

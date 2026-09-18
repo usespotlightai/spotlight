@@ -90,7 +90,10 @@ on:
         value: '\${{ capture.thread }}'
 `;
 
-const asked = (marks: Record<string, string> = {}): BoundTaskDto => ({
+const asked = (
+  marks: Record<string, string> = {},
+  awaitsApproval = false,
+): BoundTaskDto => ({
   taskId: 'task_1',
   workspaceId: 'ws_1',
   teamId: 'team_1',
@@ -101,6 +104,7 @@ const asked = (marks: Record<string, string> = {}): BoundTaskDto => ({
   waiting: {
     conversationId: 'task_1:1',
     said: 'Which queue should I drain?',
+    awaitsApproval,
   },
 });
 
@@ -162,6 +166,17 @@ describe('TaskNotices', () => {
     expect(action.target.thread).toBeUndefined();
     expect(action.ask.body).toBe('Which queue should I drain?');
     expect(action.ask.link).toContain('/w/acme/inbox/task_1:');
+  });
+
+  it('tells a host where to approve or reject a tool call, since it cannot be decided there', async () => {
+    const { notifier, run } = notifying();
+
+    await notifier.notify(asked({}, true), 'task.asked');
+
+    const action = run.mock.calls[0]?.[1] as { ask: { body: string } };
+    expect(action.ask.body).toBe(
+      'Which queue should I drain?\n\nApprove or reject it in Spotlight: https://app.example/w/acme/inbox/task_1:1',
+    );
   });
 
   it('posts into the origin thread when the task carries one, over the route', async () => {

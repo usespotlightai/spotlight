@@ -20,6 +20,11 @@ const waiting = (station: string, link: string | null): string => {
   return `A task${where} is waiting on you.${link ? ` ${link}` : ''}`;
 };
 
+const decidedAt = (link: string | null): string =>
+  link
+    ? `Approve or reject it in Spotlight: ${link}`
+    : 'Approve or reject it in your Spotlight inbox.';
+
 export class TaskNotices implements TaskNoticesPort {
   constructor(
     private readonly configurations: AppliedConfigurationPort,
@@ -101,6 +106,12 @@ export class TaskNotices implements TaskNoticesPort {
       open.conversationId,
     );
 
-    return { body: open.said || waiting(station, link), link, station };
+    const body = open.said || waiting(station, link);
+
+    return {
+      body: open.awaitsApproval ? `${body}\n\n${decidedAt(link)}` : body,
+      link,
+      station,
+    };
   }
 }

@@ -24,6 +24,7 @@ export class IntegrationReader implements IntegrationReaderPort {
           tool: each.tool,
           description: each.description,
           inputs: each.inputs,
+          approval: each.approval ? { because: each.approval.because } : null,
         })),
       })),
       problems: readable.problems,

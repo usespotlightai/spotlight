@@ -17,6 +17,7 @@ import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
@@ -29,6 +30,9 @@ import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { Tool } from '@work/domain/value-objects/tool.vo';
+import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
+import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -89,6 +93,37 @@ const waiting = () =>
     },
     null,
   );
+
+const NEEDS_APPROVAL = ApprovalNeeded.of(
+  'linear.comment',
+  'It posts publicly, under the team’s name.',
+);
+
+const asking = () =>
+  Task.add({
+    line: line(),
+    at: StationId.of('station_1'),
+    title: TaskTitle.of('Fix the queue'),
+    rank: TaskRank.of('i'),
+    raisedBy: UserId.of('user_1'),
+    now: NOW,
+    newId: () => 'task_1',
+  })
+    .handedTo(RunId.of('run_1'), line())
+    .clearFor(
+      ToolCall.of(
+        Tool.of('linear.comment'),
+        ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+      ),
+      NEEDS_APPROVAL,
+      {
+        voice: Voice.station(RunId.of('run_1')),
+        station: StationName.of('Triage'),
+        body: TaskNoteBody.of('Approve linear.comment?'),
+        at: NOW,
+      },
+      RunId.of('run_1'),
+    ).task;
 
 let saved: Task | undefined;
 
@@ -206,5 +241,66 @@ describe('AnswerInboxItem', () => {
 
     await expect(answer(untouched)).rejects.toThrow();
     expect(saved).toBeUndefined();
+  });
+
+  it('grants the approval a person gives, and puts the task back to work', async () => {
+    await answer(
+      asking(),
+      new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'granted'),
+    );
+
+    const decided = saved?.notes.find((note) => note.approval)?.approval;
+    expect(decided?.standing).toBe('granted');
+    expect(decided?.decided?.by.value).toBe('user_1');
+    expect(saved?.notes[saved.notes.length - 1]?.body.value).toBe('Approved.');
+    expect(saved?.currentRunId).toEqual(RunId.of('run_2'));
+  });
+
+  it('records a refusal in the person’s own words', async () => {
+    await answer(
+      asking(),
+      new AnswerInboxItemCommand(
+        'task_1:0',
+        'user_1',
+        'Not before the release.',
+        [],
+        'refused',
+      ),
+    );
+
+    expect(saved?.notes.find((note) => note.approval)?.approval?.standing).toBe(
+      'refused',
+    );
+    expect(saved?.notes[saved.notes.length - 1]?.body.value).toBe(
+      'Not before the release.',
+    );
+  });
+
+  it('takes words alone like any answer, leaving the tool call undecided', async () => {
+    await answer(
+      asking(),
+      new AnswerInboxItemCommand(
+        'task_1:0',
+        'user_1',
+        'Mention the ticket too.',
+      ),
+    );
+
+    expect(saved?.notes.find((note) => note.approval)?.approval?.standing).toBe(
+      'asked',
+    );
+    expect(saved?.notes[saved.notes.length - 1]?.body.value).toBe(
+      'Mention the ticket too.',
+    );
+    expect(saved?.currentRunId).toEqual(RunId.of('run_2'));
+  });
+
+  it('refuses a decision where nothing was put up to be approved', async () => {
+    await expect(
+      answer(
+        waiting(),
+        new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'granted'),
+      ),
+    ).rejects.toMatchObject({ kind: 'conflict' });
   });
 });

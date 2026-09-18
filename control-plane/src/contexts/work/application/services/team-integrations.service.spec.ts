@@ -9,6 +9,7 @@ const LINEAR: ToolDeclaration = {
   tool: 'linear.comment',
   description: 'Comment on the issue.',
   inputs: [],
+  approval: null,
 };
 
 describe('TeamIntegrations', () => {

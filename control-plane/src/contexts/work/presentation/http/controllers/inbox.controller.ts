@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
+  ApiConflictResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -28,6 +29,8 @@ import { ListInboxQuery } from '@work/application/queries/list-inbox.query';
 import { ReadTaskJournalQuery } from '@work/application/queries/read-task-journal.query';
 import {
   AnswerInboxItemRequestDto,
+  InboxApprovalInputResponseDto,
+  InboxApprovalResponseDto,
   InboxAuthorResponseDto,
   InboxItemResponseDto,
   InboxMessageResponseDto,
@@ -118,6 +121,20 @@ export class InboxController {
                       note.author.image,
                     )
                   : null,
+                note.approval
+                  ? new InboxApprovalResponseDto(
+                      note.approval.tool,
+                      note.approval.because,
+                      note.approval.inputs.map(
+                        (input) =>
+                          new InboxApprovalInputResponseDto(
+                            input.name,
+                            input.value,
+                          ),
+                      ),
+                      note.approval.standing,
+                    )
+                  : null,
               ),
           ),
         ),
@@ -134,6 +151,10 @@ export class InboxController {
   @ApiParam({ name: 'itemId', type: String, example: 'task_1:0' })
   @ApiNoContentResponse({ description: 'The answer was recorded' })
   @ApiNotFoundResponse({ description: 'No such conversation for this caller' })
+  @ApiConflictResponse({
+    description:
+      'Only a conversation waiting on a tool call can be approved or rejected',
+  })
   async answer(
     @Param('itemId') itemId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -145,6 +166,11 @@ export class InboxController {
         user.id,
         body.body ?? '',
         AttachmentHttpMapper.ids(body.attachments),
+        body.approve === undefined
+          ? null
+          : body.approve
+            ? 'granted'
+            : 'refused',
       ),
     );
   }
