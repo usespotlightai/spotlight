@@ -14,7 +14,7 @@
       "!dist",
       "!src/lib/api",
       "!src/components/ui",
-      "!src/components/common/icons"
+      "!src/components/shared/icons"
     ]
   },
   "formatter": {

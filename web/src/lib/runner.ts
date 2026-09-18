@@ -1,6 +1,22 @@
-import type { ConnectedRunnerResponseDto } from '@/lib/api';
+import type {
+  ConnectedRunnerResponseDto,
+  HeldRunResponseDto,
+  RunnerActivityResponseDto,
+} from '@/lib/api';
 
-export type Runner = ConnectedRunnerResponseDto;
+export type Runner = ConnectedRunnerResponseDto & {
+  readonly currentRun: HeldRunResponseDto | null;
+};
+
+export const withActivity = (
+  runners: readonly ConnectedRunnerResponseDto[],
+  activity: readonly RunnerActivityResponseDto[],
+): Runner[] =>
+  runners.map((runner) => ({
+    ...runner,
+    currentRun:
+      activity.find((each) => each.runnerId === runner.id)?.currentRun ?? null,
+  }));
 
 export const runnersPath = (slug: string) => `/w/${slug}/runners`;
 

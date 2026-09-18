@@ -1,0 +1,96 @@
+import { randomUUID } from 'node:crypto';
+import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { DrizzleHeldRunReader } from '@work/infrastructure/persistence/drizzle/readers/held-run.reader';
+import { eq } from 'drizzle-orm';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { openDatabase, type TestDatabase } from './support/database';
+import * as schema from './support/schema';
+
+let held: TestDatabase;
+let db: DrizzleDatabase;
+let reader: DrizzleHeldRunReader;
+
+beforeAll(async () => {
+  held = await openDatabase('held_run_pending');
+  db = held.db;
+  reader = new DrizzleHeldRunReader(db);
+}, 60_000);
+
+afterAll(async () => {
+  await held?.close();
+});
+
+const RUNNER = RunnerId.of('runner_1');
+
+const taskRun = async () => {
+  const lineId = randomUUID();
+  const stationId = randomUUID();
+  const taskId = randomUUID();
+  const runId = randomUUID();
+
+  await db.insert(schema.line).values({
+    id: lineId,
+    key: `delivery-${lineId}`,
+    workspaceId: 'ws_1',
+    teamId: 'team_1',
+    name: 'Delivery',
+  });
+  await db.insert(schema.station).values({
+    id: stationId,
+    key: 'triage',
+    lineId,
+    name: 'Triage',
+    position: 0,
+  });
+  await db.insert(schema.task).values({
+    id: taskId,
+    workspaceId: 'ws_1',
+    stationId,
+    title: 'Fix the queue',
+    currentRunId: runId,
+  });
+  await db.insert(schema.taskNote).values({
+    taskId,
+    position: 0,
+    station: 'Triage',
+    body: 'Pin it to a version.',
+    at: new Date('2026-09-17T09:00:00.000Z'),
+    voice: 'person',
+    kind: 'said',
+  });
+  await db.insert(schema.run).values({
+    id: runId,
+    workspaceId: 'ws_1',
+    harness: 'dev',
+    taskId,
+    stationId,
+    state: 'claimed',
+    claimedBy: RUNNER.value,
+    spec: {},
+  });
+
+  return { taskId, runId: RunId.of(runId) };
+};
+
+describe('what a held run has yet to be told', () => {
+  it('hands the run holding the task what a person said to it', async () => {
+    const { runId } = await taskRun();
+
+    const pending = await reader.pendingFor(runId, RUNNER);
+
+    expect(pending?.map((each) => each.body)).toEqual(['Pin it to a version.']);
+  });
+
+  it('keeps what was said from a run the task has let go of', async () => {
+    const { taskId, runId } = await taskRun();
+
+    await db
+      .update(schema.task)
+      .set({ currentRunId: randomUUID() })
+      .where(eq(schema.task.id, taskId));
+
+    await expect(reader.pendingFor(runId, RUNNER)).resolves.toEqual([]);
+  });
+});

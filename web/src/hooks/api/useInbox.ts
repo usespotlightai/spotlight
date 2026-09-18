@@ -11,7 +11,6 @@ export function useInbox(slug: string | undefined) {
   return useQuery({
     queryKey: inboxKeys.forWorkspace(slug),
     enabled: Boolean(slug),
-    // Tasks arrive here on their own, with nobody clicking anything.
     refetchInterval: POLL_MS,
     queryFn: async () => {
       const { data } = await listInbox({

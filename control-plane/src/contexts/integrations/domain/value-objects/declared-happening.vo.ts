@@ -1,0 +1,63 @@
+import type { HappeningName } from '@integrations/domain/value-objects/happening-name.vo';
+import type { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
+import type { Opening } from '@integrations/domain/value-objects/opening.vo';
+import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
+
+export class DeclaredHappening {
+  private constructor(
+    readonly happening: HappeningName,
+    readonly label: string,
+    readonly told: string,
+    readonly spoken: boolean,
+    readonly finds: readonly MarkKind[],
+    readonly findsByBranch: boolean,
+    readonly opens: Opening | null,
+  ) {}
+
+  static of(input: {
+    happening: HappeningName;
+    label: string;
+    told: string;
+    spoken?: boolean;
+    finds?: readonly MarkKind[];
+    findsByBranch?: boolean;
+    opens?: Opening | null;
+  }): DeclaredHappening {
+    const label = input.label.trim();
+    const told = input.told.trim();
+
+    if (label.length === 0) {
+      throw new InvalidIdentifierError(
+        'happening label',
+        'is what a person picking one of these will read',
+      );
+    }
+
+    if (told.length === 0) {
+      throw new InvalidIdentifierError(
+        'happening told',
+        'is how this reads in a note when it arrives',
+      );
+    }
+
+    const finds = input.finds ?? [];
+    const findsByBranch = input.findsByBranch ?? false;
+
+    if (finds.length === 0 && !findsByBranch) {
+      throw new InvalidIdentifierError(
+        'happening',
+        'needs a branch or a mark, or nothing could find a task from it',
+      );
+    }
+
+    return new DeclaredHappening(
+      input.happening,
+      label,
+      told,
+      input.spoken ?? false,
+      finds,
+      findsByBranch,
+      input.opens ?? null,
+    );
+  }
+}

@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router';
@@ -9,6 +10,8 @@ const read = vi.fn();
 const waiting = vi.fn();
 const viewer = vi.fn();
 const journal = vi.fn();
+const failing = vi.fn();
+const journalFailing = vi.fn();
 
 vi.mock('@/hooks/api/useSession', () => ({
   useSession: () => ({ data: viewer() }),
@@ -16,7 +19,13 @@ vi.mock('@/hooks/api/useSession', () => ({
 
 vi.mock('@/hooks/api/useInbox', () => ({
   inboxKeys: { forWorkspace: () => ['inbox'] },
-  useInbox: () => ({ data: waiting(), isPending: false }),
+  useInbox: () => ({
+    data: waiting(),
+    isPending: waiting() === undefined,
+    errorUpdateCount: failing() ? 1 : 0,
+    isFetching: false,
+    refetch: vi.fn(),
+  }),
 }));
 
 vi.mock('@/hooks/api/useWorkspace', () => ({
@@ -26,7 +35,11 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
 }));
 
 vi.mock('@/hooks/api/useTaskJournal', () => ({
-  useTaskJournal: () => ({ data: journal() }),
+  useTaskJournal: () => ({
+    data: journal(),
+    isPending: journal() === undefined,
+    errorUpdateCount: journalFailing() ? 1 : 0,
+  }),
 }));
 
 vi.mock('@/hooks/api/useAnswerInboxItem', () => ({
@@ -48,6 +61,7 @@ const message = (over: Record<string, unknown> = {}) => ({
   body: 'Which queue should I drain?',
   at: '2026-08-29T12:00:00.000Z',
   author: null,
+  attachments: [],
   ...over,
 });
 
@@ -58,6 +72,7 @@ const item = (notes: unknown[], description: string | null = null) => [
     teamId: 'team_1',
     title: 'Fix the queue',
     description,
+    attachments: [],
     station: 'Implementation',
     stationColor: '#5c66d9',
     stationPosition: 2,
@@ -76,14 +91,15 @@ const item = (notes: unknown[], description: string | null = null) => [
 
 const renderItem = () =>
   render(
-    <MemoryRouter initialEntries={['/w/acme/inbox/task_1:0']}>
-      <Routes>
-        <Route path="/w/:slug/inbox/:itemId" element={<InboxItem />} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={['/w/acme/inbox/task_1:0']}>
+        <Routes>
+          <Route path="/w/:slug/inbox/:itemId" element={<InboxItem />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 
-// Switching item is a navigation, not a remount.
 function Switch({ to }: { to: string }) {
   const navigate = useNavigate();
   return (
@@ -100,6 +116,62 @@ describe('InboxItem', () => {
     waiting.mockReturnValue(item([message()]));
     viewer.mockReturnValue({ user: { id: 'user_2' } });
     journal.mockReturnValue([]);
+    failing.mockReturnValue(false);
+    journalFailing.mockReturnValue(false);
+  });
+
+  describe('when it could not be loaded', () => {
+    it('says so beneath a bar of its own, rather than calling the item gone', () => {
+      waiting.mockReturnValue(undefined);
+      failing.mockReturnValue(true);
+
+      const { container } = renderItem();
+
+      expect(container.querySelector('header')).toBeInTheDocument();
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'The inbox could not be loaded.',
+      );
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      expect(screen.queryByText(/Nothing here/)).not.toBeInTheDocument();
+    });
+
+    it('still shows the conversation when only the work is missing', () => {
+      journal.mockReturnValue(undefined);
+      journalFailing.mockReturnValue(true);
+
+      renderItem();
+
+      expect(
+        screen.getByText('Which queue should I drain?'),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/Worked/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('while it loads', () => {
+    it('holds the shape of the conversation rather than calling it gone', () => {
+      waiting.mockReturnValue(undefined);
+
+      renderItem();
+
+      expect(
+        screen.getByRole('status', { name: 'Loading the conversation' }),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/Nothing here/)).not.toBeInTheDocument();
+    });
+
+    it('waits for the work too, so it does not open up beneath the reader', () => {
+      journal.mockReturnValue(undefined);
+
+      renderItem();
+
+      expect(
+        screen.getByRole('status', { name: 'Loading the conversation' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByText('Which queue should I drain?'),
+      ).not.toBeInTheDocument();
+    });
   });
 
   it('folds the work away behind what the station said', async () => {
@@ -108,7 +180,6 @@ describe('InboxItem', () => {
       {
         runId: 'run_1',
         attempt: 1,
-        readable: true,
         ms: 56_000,
         spent: {
           used: 12_173,
@@ -151,7 +222,6 @@ describe('InboxItem', () => {
 
     const ran = screen.getByRole('button', { name: /ls -la \/workspaces/ });
     expect(ran).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByText('Ran')).toBeInTheDocument();
 
     await person.click(ran);
 
@@ -159,12 +229,11 @@ describe('InboxItem', () => {
     expect(screen.getByText('total 0')).toBeInTheDocument();
   });
 
-  it('shows nothing where a run left no readable journal', () => {
+  it('shows nothing where a run left no steps', () => {
     journal.mockReturnValue([
       {
         runId: 'run_1',
         attempt: 1,
-        readable: true,
         ms: null,
         spent: null,
         steps: [],
@@ -205,7 +274,7 @@ describe('InboxItem', () => {
     expect(said.closest('li')).not.toHaveTextContent('Triage');
   });
 
-  it('shows a person by name rather than by station', () => {
+  it('shows what a person said without naming them', () => {
     waiting.mockReturnValue(
       item([
         message(),
@@ -213,33 +282,15 @@ describe('InboxItem', () => {
           position: 1,
           body: 'The retry queue.',
           voice: 'person',
-          author: { id: 'user_1', name: 'Leon', image: null },
+          author: { id: 'user_2', name: 'Maya', image: null },
         }),
       ]),
     );
 
     renderItem();
 
-    expect(screen.getByText('Leon')).toBeInTheDocument();
-  });
-
-  it('leaves your own words unnamed', () => {
-    viewer.mockReturnValue({ user: { id: 'user_1' } });
-    waiting.mockReturnValue(
-      item([
-        message({
-          position: 1,
-          body: 'The retry queue.',
-          voice: 'person',
-          author: { id: 'user_1', name: 'Leon', image: null },
-        }),
-      ]),
-    );
-
-    renderItem();
-
-    expect(screen.queryByText('Leon')).not.toBeInTheDocument();
     expect(screen.getByText('The retry queue.')).toBeInTheDocument();
+    expect(screen.queryByText('Maya')).not.toBeInTheDocument();
   });
 
   it('opens on the prompt the station was given', () => {
@@ -304,12 +355,14 @@ describe('InboxItem', () => {
     ]);
 
     render(
-      <MemoryRouter initialEntries={['/w/acme/inbox/task_1:0']}>
-        <Switch to="/w/acme/inbox/task_2:0" />
-        <Routes>
-          <Route path="/w/:slug/inbox/:itemId" element={<InboxItem />} />
-        </Routes>
-      </MemoryRouter>,
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/w/acme/inbox/task_1:0']}>
+          <Switch to="/w/acme/inbox/task_2:0" />
+          <Routes>
+            <Route path="/w/:slug/inbox/:itemId" element={<InboxItem />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
 
     expect(screen.getByText('The first task said this.')).toBeInTheDocument();
@@ -456,11 +509,13 @@ describe('InboxItem', () => {
     );
 
     render(
-      <MemoryRouter initialEntries={['/w/acme/inbox/task_1:4']}>
-        <Routes>
-          <Route path="/w/:slug/inbox/:itemId" element={<InboxItem />} />
-        </Routes>
-      </MemoryRouter>,
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/w/acme/inbox/task_1:4']}>
+          <Routes>
+            <Route path="/w/:slug/inbox/:itemId" element={<InboxItem />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
 
     expect(read).toHaveBeenCalledWith({ slug: 'acme', itemId: 'task_1:4' });
@@ -490,7 +545,12 @@ describe('InboxItem', () => {
     await person.click(screen.getByRole('button', { name: 'Send' }));
 
     expect(answer).toHaveBeenCalledWith(
-      { slug: 'acme', itemId: 'task_1:0', body: 'The retry queue.' },
+      {
+        slug: 'acme',
+        itemId: 'task_1:0',
+        body: 'The retry queue.',
+        attachments: [],
+      },
       expect.anything(),
     );
   });

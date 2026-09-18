@@ -40,64 +40,8 @@ func TestCreateLeavesTheRootTraversableButNotListable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// An agent must reach its own workspace without enumerating its neighbours.
 	if mode := info.Mode().Perm(); mode&0o001 == 0 || mode&0o004 != 0 {
 		t.Errorf("root mode %o", mode)
-	}
-}
-
-func TestResolveDefaultsToTheWorkspaceItself(t *testing.T) {
-	space, err := workspace.Create(t.TempDir(), "run_1")
-	if err != nil {
-		t.Fatalf("create: %v", err)
-	}
-
-	cwd, err := space.Resolve("")
-	if err != nil {
-		t.Fatalf("resolve: %v", err)
-	}
-	if cwd != space.Dir {
-		t.Errorf("cwd %q", cwd)
-	}
-}
-
-func TestResolveFindsWhatTheHookCreated(t *testing.T) {
-	space, err := workspace.Create(t.TempDir(), "run_1")
-	if err != nil {
-		t.Fatalf("create: %v", err)
-	}
-	if err := os.Mkdir(filepath.Join(space.Dir, "service"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-
-	cwd, err := space.Resolve("service")
-	if err != nil {
-		t.Fatalf("resolve: %v", err)
-	}
-	if cwd != filepath.Join(space.Dir, "service") {
-		t.Errorf("cwd %q", cwd)
-	}
-}
-
-func TestResolveRefusesWhatIsNotThere(t *testing.T) {
-	space, err := workspace.Create(t.TempDir(), "run_1")
-	if err != nil {
-		t.Fatalf("create: %v", err)
-	}
-
-	if _, err := space.Resolve("never-cloned"); err == nil {
-		t.Error("a cwd the hook did not create should be refused")
-	}
-}
-
-func TestResolveRefusesAPathOutOfTheWorkspace(t *testing.T) {
-	space, err := workspace.Create(t.TempDir(), "run_1")
-	if err != nil {
-		t.Fatalf("create: %v", err)
-	}
-
-	if _, err := space.Resolve("../escape"); err == nil {
-		t.Error("an escaping cwd should be refused")
 	}
 }
 

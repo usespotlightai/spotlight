@@ -1,9 +1,3 @@
-// Package hook runs the commands a deployment supplies at fixed points in a
-// run: preparing the workspace, and publishing what came out of it.
-//
-// The runner owns when they run and what happens if they fail, but knows
-// nothing about what they do. That is what lets one binary serve a sparse
-// checkout, a warm cache, or something other than git.
 package hook
 
 import (
@@ -20,25 +14,15 @@ import (
 )
 
 type Spec struct {
-	// Path is the executable to run. Empty means no hook, which is not an
-	// error.
-	Path string
-	Dir  string
-	// Payload is written to the hook's stdin as JSON.
+	Path    string
+	Dir     string
 	Payload any
-	// Env is added to the runner's own environment. Hooks run as the runner
-	// and are trusted like it: they are the deployment's code, not the
-	// agent's.
-	Env map[string]string
-	// Timeout bounds the hook. Without one a wedged clone holds the lease
-	// until the run is requeued.
+	Env     map[string]string
 	Timeout time.Duration
 }
 
 var ErrNoHook = errors.New("no hook configured")
 
-// Run executes the hook and returns everything it wrote, on failure too: the
-// hook's stderr is the only explanation a failed checkout has.
 func Run(ctx context.Context, spec Spec) (string, error) {
 	if spec.Path == "" {
 		return "", ErrNoHook
@@ -60,14 +44,10 @@ func Run(ctx context.Context, spec Spec) (string, error) {
 	command.Stdin = bytes.NewReader(payload)
 	command.Env = environment(spec.Env)
 
-	// Own process group, killed as a group. A hook is usually a shell script;
-	// killing only the shell leaves its children holding the output pipe, and
-	// the read blocks past the timeout anyway.
 	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	command.Cancel = func() error {
 		return syscall.Kill(-command.Process.Pid, syscall.SIGKILL)
 	}
-	// If something still holds the pipe, stop reading anyway.
 	command.WaitDelay = 5 * time.Second
 
 	out, err := command.CombinedOutput()

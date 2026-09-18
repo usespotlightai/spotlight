@@ -1,0 +1,64 @@
+import { integrationFilesIn } from '@configuration/application/contracts/configuration-layout.contract';
+import type { AppliedConfigurationPort } from '@configuration/application/ports/applied-configuration.port';
+import type { TeamSecretsPort } from '@configuration/application/ports/team-secrets.port';
+import type {
+  ConfiguredSourcesPort,
+  OfTeam,
+} from '@integrations/application/ports/configured-sources.port';
+import type { WebhookSourcePort } from '@integrations/application/ports/webhook-source.port';
+import type { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
+import type { JwksResolver } from '@integrations/infrastructure/integrations/jwks';
+import { WebhookRuntime } from '@integrations/infrastructure/integrations/webhook.runtime';
+import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+
+export class ConfiguredSources implements ConfiguredSourcesPort {
+  constructor(
+    private readonly configurations: AppliedConfigurationPort,
+    private readonly secrets: TeamSecretsPort,
+    private readonly reader: IntegrationReader,
+    private readonly jwks: JwksResolver,
+    private readonly outbound: HttpOutbound,
+  ) {}
+
+  async find(team: OfTeam, key: string): Promise<WebhookSourcePort | null> {
+    const declared = await this.all(team);
+
+    return declared.find((each) => each.key === key) ?? null;
+  }
+
+  async all(team: OfTeam): Promise<readonly WebhookSourcePort[]> {
+    const applied = await this.configurations.of(team.teamId);
+
+    if (!applied) {
+      return [];
+    }
+
+    const built: WebhookSourcePort[] = [];
+
+    const mine = integrationFilesIn(applied.files);
+
+    for (const readable of this.reader.readable(mine).integrations) {
+      const secrets = new Map(
+        Object.entries(
+          await this.secrets.resolveAll(
+            team.teamId,
+            readable.integration.credentials,
+          ),
+        ),
+      );
+
+      built.push(
+        new WebhookRuntime(
+          readable,
+          team.workspaceId,
+          secrets,
+          undefined,
+          this.jwks,
+          this.outbound,
+        ),
+      );
+    }
+
+    return built;
+  }
+}

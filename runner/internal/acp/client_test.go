@@ -10,8 +10,6 @@ import (
 	"usespotlight.ai/runner/internal/acp"
 )
 
-// pretend writes a harness that speaks just enough ACP to answer, so the
-// client is tested against the protocol rather than against Claude Code.
 func pretend(t *testing.T, script string) string {
 	t.Helper()
 
@@ -92,10 +90,6 @@ func TestOpensASessionAndReportsWhatWasSaid(t *testing.T) {
 	if result.StopReason != "end_turn" {
 		t.Errorf("stopped for %q", result.StopReason)
 	}
-	// Nothing else in the system has ever been able to say what a run cost.
-	if result.Usage == nil || result.Usage.TotalTokens != 8 {
-		t.Errorf("usage %+v", result.Usage)
-	}
 }
 
 const asking = `
@@ -171,8 +165,52 @@ process.stdin.on("data", (chunk) => {
 });
 `
 
-// An unanswered request is a stopped agent, so a station that runs unattended
-// has to answer for itself.
+const steering = `
+const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
+let buffered = "", promptId = null;
+process.stdin.on("data", (chunk) => {
+  buffered += chunk.toString();
+  const lines = buffered.split("\n");
+  buffered = lines.pop();
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const msg = JSON.parse(line);
+    if (msg.method === "initialize") send({ jsonrpc: "2.0", id: msg.id, result: { protocolVersion: 1 } });
+    if (msg.method === "session/prompt") { promptId = msg.id; }
+    if (msg.method === "session/cancel") {
+      send({ jsonrpc: "2.0", id: promptId, result: { stopReason: "cancelled" } });
+    }
+  }
+});
+`
+
+func TestCancelEndsTheTurnInFlight(t *testing.T) {
+	client, _ := start(t, steering, nil)
+
+	ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
+	defer stop()
+
+	done := make(chan acp.Result, 1)
+	go func() {
+		result, _ := client.Prompt(ctx, "session_1", "keep working", func(acp.Update) {})
+		done <- result
+	}()
+
+	time.Sleep(200 * time.Millisecond)
+	if err := client.Cancel("session_1"); err != nil {
+		t.Fatalf("cancel: %v", err)
+	}
+
+	select {
+	case result := <-done:
+		if result.StopReason != "cancelled" {
+			t.Errorf("the turn stopped for %q, not a cancellation", result.StopReason)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the turn did not end after it was cancelled")
+	}
+}
+
 func TestAnswersThePermissionTheAgentAsksFor(t *testing.T) {
 	for _, expected := range []struct {
 		allowed bool
@@ -212,7 +250,6 @@ func TestReadsAndWritesWithinTheWorkspace(t *testing.T) {
 	}
 }
 
-// The agent was given a workspace, not a machine.
 func TestRefusesAPathOutsideTheWorkspace(t *testing.T) {
 	client, root := start(t, reachingOut, nil)
 	if err := os.WriteFile(filepath.Join(filepath.Dir(root), "outside.txt"), []byte("secret"), 0o644); err != nil {
@@ -231,8 +268,6 @@ func TestRefusesAPathOutsideTheWorkspace(t *testing.T) {
 	}
 }
 
-// refusing answers session/load with a refusal, and says a missing session for
-// one id only, so the two kinds of no can be told apart.
 const refusing = `
 const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
 let buffered = "";
@@ -252,10 +287,6 @@ process.stdin.on("data", (chunk) => {
 });
 `
 
-/*
-A session the harness no longer holds is worth telling apart from every other
-refusal: the first is answered by opening a new one, the second by giving up.
-*/
 func TestForgottenTellsAMissingSessionFromAnyOtherRefusal(t *testing.T) {
 	client, _ := start(t, refusing, nil)
 

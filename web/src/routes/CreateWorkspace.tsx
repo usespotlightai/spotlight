@@ -1,23 +1,36 @@
 import { type ChangeEvent, type SubmitEvent, useId, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useCreateWorkspace } from '@/hooks/api/useCreateWorkspace';
+import { FieldInput } from '@/components/shared/form/FieldInput';
+import { AuthScreen } from '@/components/shell/auth/AuthScreen';
+import { AuthTitle } from '@/components/shell/auth/AuthTitle';
+import { ErrorMessage } from '@/components/shell/auth/ErrorMessage';
+import { Button } from '@/components/ui/button';
+import {
+  useCreateWorkspace,
+  WorkspaceSlugTakenError,
+} from '@/hooks/api/useCreateWorkspace';
 import { useSession } from '@/hooks/api/useSession';
 import { useSignOut } from '@/hooks/api/useSignOut';
+import { inboxPath } from '@/lib/inbox';
 import { sanitizeSlug, slugify } from '@/lib/slug';
-import { WORKSPACE_URL_PREFIX, workspacePath } from '@/lib/workspace';
+import { WORKSPACE_URL_PREFIX } from '@/lib/workspace';
+
+type Step = 'workspace' | 'team';
 
 export function CreateWorkspace() {
   const nameId = useId();
   const slugId = useId();
   const prefixId = useId();
+  const teamId = useId();
   const { data: session } = useSession();
   const signOut = useSignOut();
   const navigate = useNavigate();
   const createWorkspace = useCreateWorkspace();
 
+  const [step, setStep] = useState<Step>('workspace');
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
-  // The URL follows the name until edited by hand. Emptying it hands it back.
+  const [teamName, setTeamName] = useState('');
   const [slugTakenOver, setSlugTakenOver] = useState(false);
 
   const onNameChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -37,22 +50,35 @@ export function CreateWorkspace() {
   const onSubmit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    if (step === 'workspace') {
+      setStep('team');
+      return;
+    }
+
     createWorkspace.mutate(
-      { name: name.trim(), slug: slugify(slug) },
+      { name: name.trim(), slug: slugify(slug), teamName: teamName.trim() },
       {
         onSuccess: (workspace) => {
-          void navigate(workspacePath(workspace.slug), { replace: true });
+          void navigate(inboxPath(workspace.slug), { replace: true });
         },
       },
     );
   };
 
+  const namedWorkspace = name.trim() !== '' && slugify(slug) !== '';
   const canSubmit =
-    name.trim() !== '' && slugify(slug) !== '' && !createWorkspace.isPending;
+    step === 'workspace'
+      ? namedWorkspace
+      : teamName.trim() !== '' && !createWorkspace.isPending;
+
+  const failure =
+    createWorkspace.error instanceof WorkspaceSlugTakenError
+      ? 'That workspace URL is already taken. Go back and choose another.'
+      : 'Something went wrong. Please try again later.';
 
   return (
-    <div className="flex min-h-svh flex-col">
-      <header className="flex items-start justify-between gap-4 p-4">
+    <>
+      <header className="absolute inset-x-0 top-0 flex items-start justify-between gap-4 p-4">
         <button
           type="button"
           onClick={() => signOut.mutate()}
@@ -70,68 +96,107 @@ export function CreateWorkspace() {
         </p>
       </header>
 
-      <main className="flex flex-1 items-center justify-center px-4 pb-20">
-        <div className="flex w-72 flex-col gap-6">
-          <h1 className="text-center font-medium text-2xl text-foreground leading-tight tracking-tight">
-            Create workspace
-          </h1>
-          <p className="text-center text-muted-foreground text-sm">
+      <AuthScreen logo={false} className="w-72">
+        {step === 'workspace' ? (
+          <AuthTitle title="Create workspace" large>
             A workspace is a shared environment your team works in.
-          </p>
-          <form onSubmit={onSubmit} className="flex flex-col gap-4">
-            <label htmlFor={nameId} className="sr-only">
-              Workspace Name
-            </label>
-            <input
-              id={nameId}
-              name="name"
-              type="text"
-              required
-              autoComplete="off"
-              placeholder="Workspace name"
-              value={name}
-              onChange={onNameChange}
-              className="h-11 rounded-lg border-[0.5px] border-input bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border focus:border-ring"
-            />
+          </AuthTitle>
+        ) : (
+          <AuthTitle title="Name your first team" large>
+            A team has its own board, its own repository and its own
+            integrations.
+          </AuthTitle>
+        )}
 
-            <label htmlFor={slugId} className="sr-only">
-              Workspace URL
-            </label>
-            <div className="flex h-11 items-center rounded-lg border-[0.5px] border-input bg-background pl-3 text-sm focus-within:border focus-within:border-ring">
-              <span id={prefixId} className="text-muted-foreground">
-                {WORKSPACE_URL_PREFIX}
-              </span>
-              <input
-                id={slugId}
-                name="slug"
-                type="text"
-                required
-                autoComplete="off"
-                aria-describedby={prefixId}
-                value={slug}
-                onChange={onSlugChange}
-                className="h-full min-w-0 flex-1 bg-transparent pr-3 text-foreground outline-none"
-              />
-            </div>
+        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+          {createWorkspace.isError && <ErrorMessage error={failure} />}
 
-            {createWorkspace.isError && (
-              <p role="alert" className="text-center text-destructive text-sm">
-                {createWorkspace.error.message}
-              </p>
+          <div className="flex flex-col gap-2">
+            {step === 'workspace' ? (
+              <>
+                <label htmlFor={nameId} className="sr-only">
+                  Workspace Name
+                </label>
+                <FieldInput
+                  id={nameId}
+                  name="name"
+                  type="text"
+                  required
+                  autoComplete="off"
+                  placeholder="Workspace name"
+                  value={name}
+                  onChange={onNameChange}
+                  className="h-9 bg-card"
+                />
+
+                <label htmlFor={slugId} className="sr-only">
+                  Workspace URL
+                </label>
+                <div className="flex h-9 items-center rounded-md border-[0.5px] border-border bg-card pl-2.5 text-sm focus-within:border-input">
+                  <span id={prefixId} className="text-muted-foreground">
+                    {WORKSPACE_URL_PREFIX}
+                  </span>
+                  <input
+                    id={slugId}
+                    name="slug"
+                    type="text"
+                    required
+                    autoComplete="off"
+                    aria-describedby={prefixId}
+                    value={slug}
+                    onChange={onSlugChange}
+                    className="h-full min-w-0 flex-1 bg-transparent pr-2.5 text-foreground outline-none"
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <label htmlFor={teamId} className="sr-only">
+                  Team Name
+                </label>
+                <FieldInput
+                  id={teamId}
+                  name="teamName"
+                  type="text"
+                  required
+                  autoFocus
+                  autoComplete="off"
+                  placeholder="Product"
+                  value={teamName}
+                  onChange={(event) => setTeamName(event.target.value)}
+                  className="h-9 bg-card"
+                />
+              </>
             )}
+          </div>
 
-            <button
+          <div className="flex flex-col items-center gap-2">
+            <Button
               type="submit"
+              size="lg"
               disabled={!canSubmit}
-              className="h-11 rounded-full bg-primary font-medium text-primary-foreground text-sm outline-none transition-opacity hover:opacity-90 disabled:opacity-60"
+              className="rounded-full px-6"
             >
-              {createWorkspace.isPending
-                ? 'Creating workspace…'
-                : 'Create workspace'}
-            </button>
-          </form>
-        </div>
-      </main>
-    </div>
+              {step === 'workspace'
+                ? 'Continue'
+                : createWorkspace.isPending
+                  ? 'Creating workspace…'
+                  : 'Create workspace'}
+            </Button>
+
+            {step === 'team' && (
+              <button
+                type="button"
+                onClick={() => setStep('workspace')}
+                disabled={createWorkspace.isPending}
+                className="text-muted-foreground text-sm outline-none transition-opacity hover:opacity-70 disabled:opacity-60"
+              >
+                Back
+              </button>
+            )}
+          </div>
+        </form>
+      </AuthScreen>
+    </>
   );
 }

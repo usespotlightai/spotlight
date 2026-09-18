@@ -66,8 +66,6 @@ func TestCarriesTheRunnerTokenTheWorkspaceNeverSees(t *testing.T) {
 	}
 }
 
-// The remote holds no credential, so the only thing keeping one run's agent
-// off another's codebase is that this listener answers for one run.
 func TestRefusesAnotherRunsPath(t *testing.T) {
 	seen := &reached{}
 	control := upstream(t, seen)

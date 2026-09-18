@@ -9,8 +9,6 @@ import (
 	"usespotlight.ai/runner/internal/config"
 )
 
-// setRequired clears every SPOTLIGHT_ var first, so the tests do not pick up
-// whatever the surrounding environment happens to set.
 func setRequired(t *testing.T) {
 	t.Helper()
 
@@ -21,6 +19,8 @@ func setRequired(t *testing.T) {
 	} {
 		t.Setenv(name, "")
 	}
+
+	t.Setenv("SPOTLIGHT_CONFIG", filepath.Join(t.TempDir(), "runner.env"))
 
 	t.Setenv("SPOTLIGHT_URL", "https://spotlight.test")
 	t.Setenv("SPOTLIGHT_TOKEN", "tok")
@@ -108,5 +108,64 @@ func TestLoadDefaultWorkspaceRootIsACleanPath(t *testing.T) {
 
 	if cfg.WorkspaceRoot != filepath.Clean(cfg.WorkspaceRoot) {
 		t.Errorf("workspace root is not clean: %q", cfg.WorkspaceRoot)
+	}
+}
+
+func TestLoadFallsBackToThePersistedFile(t *testing.T) {
+	setRequired(t)
+	t.Setenv("SPOTLIGHT_URL", "")
+	t.Setenv("SPOTLIGHT_TOKEN", "")
+	t.Setenv("SPOTLIGHT_CONFIG", filepath.Join(t.TempDir(), "runner.env"))
+
+	if err := config.Merge(map[string]string{
+		"SPOTLIGHT_URL":   "https://saved.test",
+		"SPOTLIGHT_TOKEN": "saved-tok",
+	}); err != nil {
+		t.Fatalf("merge: %v", err)
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.URL != "https://saved.test" || cfg.Token != "saved-tok" {
+		t.Errorf("did not read the file: url %q, token %q", cfg.URL, cfg.Token)
+	}
+}
+
+func TestLoadLetsTheEnvironmentWinOverTheFile(t *testing.T) {
+	setRequired(t)
+	t.Setenv("SPOTLIGHT_CONFIG", filepath.Join(t.TempDir(), "runner.env"))
+
+	if err := config.Merge(map[string]string{"SPOTLIGHT_URL": "https://saved.test"}); err != nil {
+		t.Fatalf("merge: %v", err)
+	}
+	t.Setenv("SPOTLIGHT_URL", "https://env.test")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.URL != "https://env.test" {
+		t.Errorf("environment did not win: %q", cfg.URL)
+	}
+}
+
+func TestMergeKeepsWhatItIsNotChanging(t *testing.T) {
+	t.Setenv("SPOTLIGHT_CONFIG", filepath.Join(t.TempDir(), "runner.env"))
+
+	if err := config.Merge(map[string]string{"SPOTLIGHT_URL": "https://saved.test"}); err != nil {
+		t.Fatalf("first merge: %v", err)
+	}
+	if err := config.Merge(map[string]string{"SPOTLIGHT_TOKEN": "saved-tok"}); err != nil {
+		t.Fatalf("second merge: %v", err)
+	}
+
+	saved, err := config.Read()
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if saved["SPOTLIGHT_URL"] != "https://saved.test" || saved["SPOTLIGHT_TOKEN"] != "saved-tok" {
+		t.Errorf("merge lost a value: %+v", saved)
 	}
 }

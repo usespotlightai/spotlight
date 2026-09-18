@@ -1,9 +1,8 @@
-// Command runner claims runs from the control plane and supervises the agent
-// CLI that serves each one.
 package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -18,6 +17,14 @@ import (
 )
 
 func main() {
+	if args := os.Args[1:]; len(args) > 0 && args[0] == "register" {
+		if err := register(args[1:], os.Stdin, os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	if err := run(); err != nil {
 		slog.Error("runner stopped", "error", err)
 		os.Exit(1)
@@ -45,15 +52,12 @@ func run() error {
 		return err
 	}
 
-	// Resolved up front so a bad agent user fails at startup, not mid-run.
 	agentUser, err := account.LookupUser(cfg.AgentUser)
 	if err != nil {
 		return err
 	}
 
-	// The control plane may not be up yet. Waiting beats exiting into a
-	// restart loop.
-	if err := control.Register(ctx, client, 1, log); err != nil {
+	if err := control.Register(ctx, client, log); err != nil {
 		log.Info("runner stopped before registering")
 		return nil
 	}
@@ -64,14 +68,10 @@ func run() error {
 		"workspace", cfg.WorkspaceRoot,
 	)
 
-	// Between runs is the only safe moment to dispose of workspaces, and the
-	// only one needed: this serves one run at a time, so nothing here is
-	// holding a directory. The sweep at startup clears what a crash left.
 	sweep := func(ctx context.Context) {
 		keep, err := client.Kept(ctx)
 		if err != nil {
-			// No answer is not an empty answer. Keeping too much costs disk;
-			// deleting on a failed request would cost a task's work.
+			// A failed request is not an empty answer; never sweep on it.
 			log.Warn("could not ask what to keep, holding everything", "error", err)
 			return
 		}

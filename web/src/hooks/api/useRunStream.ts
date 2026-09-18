@@ -1,8 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
-/** The control plane replays what was missed, so a page opened mid-run catches up. */
-export function useRunStream(runId: string | undefined, live: boolean) {
-  const [heard, setHeard] = useState(0);
+const EVERY_MS = 500;
+
+export function useRunStream(
+  runId: string | undefined,
+  live: boolean,
+  onBump: () => void,
+) {
+  const bump = useRef(onBump);
+  bump.current = onBump;
 
   useEffect(() => {
     if (!runId || !live) {
@@ -16,11 +22,35 @@ export function useRunStream(runId: string | undefined, live: boolean) {
       },
     );
 
-    stream.onmessage = () => setHeard((was) => was + 1);
-    stream.onerror = () => stream.close();
+    let pending = false;
+    let ticker: ReturnType<typeof setInterval> | undefined;
 
-    return () => stream.close();
+    const flush = () => {
+      pending = false;
+      bump.current();
+    };
+
+    stream.onmessage = () => {
+      pending = true;
+
+      if (ticker !== undefined) {
+        return;
+      }
+
+      flush();
+      ticker = setInterval(() => {
+        if (pending) {
+          flush();
+        } else {
+          clearInterval(ticker);
+          ticker = undefined;
+        }
+      }, EVERY_MS);
+    };
+
+    return () => {
+      clearInterval(ticker);
+      stream.close();
+    };
   }, [runId, live]);
-
-  return heard;
 }

@@ -7,7 +7,7 @@ export type Task = TaskResponseDto;
 export type NewTask = {
   readonly title: string;
   readonly description: string;
-  readonly repository: string | null;
+  readonly attachments: string[];
 };
 
 export const taskPath = (

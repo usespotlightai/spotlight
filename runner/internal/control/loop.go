@@ -11,9 +11,7 @@ import (
 )
 
 const (
-	// retryFloor is the pause after a failed or empty poll.
-	retryFloor = 2 * time.Second
-	// retryCeiling caps the backoff.
+	retryFloor   = 2 * time.Second
 	retryCeiling = 20 * time.Second
 )
 
@@ -22,16 +20,11 @@ type Claimer interface {
 }
 
 type Limits struct {
-	// MaxRuns is how many runs to serve before exiting. Zero is unlimited.
-	MaxRuns int
-	// IdleTimeout exits after this long with nothing to do. Zero never does.
+	MaxRuns     int
 	IdleTimeout time.Duration
-	// RetireAt stops taking new work at this time. Zero has no deadline.
-	RetireAt time.Time
+	RetireAt    time.Time
 }
 
-// Poll claims runs and hands them to execute, one at a time, until a limit is
-// reached or the context ends. One run at a time; scale by adding runners.
 func Poll(
 	ctx context.Context,
 	claimer Claimer,
@@ -87,12 +80,10 @@ func Poll(
 	}
 }
 
-// jitter keeps a fleet from retrying in lockstep.
 func jitter(d time.Duration) time.Duration {
 	return d/2 + time.Duration(rand.Int64N(int64(d)))
 }
 
-// sleep reports false when the context ended first.
 func sleep(ctx context.Context, d time.Duration) bool {
 	timer := time.NewTimer(d)
 	defer timer.Stop()
@@ -110,14 +101,11 @@ type Registrar interface {
 	Register(ctx context.Context, in protocol.Registration) error
 }
 
-// Register keeps trying until the control plane answers or the context ends.
-// Checking in means saying what is installed, and what to look for is the
-// control plane's to say, so the two go together.
-func Register(ctx context.Context, registrar Registrar, capacity int, log *slog.Logger) error {
+func Register(ctx context.Context, registrar Registrar, log *slog.Logger) error {
 	backoff := retryFloor
 
 	for {
-		err := checkIn(ctx, registrar, capacity)
+		err := checkIn(ctx, registrar)
 		if err == nil {
 			return nil
 		}
@@ -134,14 +122,13 @@ func Register(ctx context.Context, registrar Registrar, capacity int, log *slog.
 	}
 }
 
-func checkIn(ctx context.Context, registrar Registrar, capacity int) error {
+func checkIn(ctx context.Context, registrar Registrar) error {
 	candidates, err := registrar.Installable(ctx)
 	if err != nil {
 		return err
 	}
 
 	return registrar.Register(ctx, protocol.Registration{
-		Capacity:  capacity,
-		Harnesses: harness.Installed(candidates),
+		Harnesses: harness.Installed(ctx, candidates),
 	})
 }

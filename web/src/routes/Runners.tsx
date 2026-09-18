@@ -1,27 +1,33 @@
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useParams } from 'react-router';
-import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
-import { PageHeader } from '@/components/layout/PageHeader';
-import { NewRunnerDialog } from '@/components/runners/NewRunnerDialog';
-import { RunnerCard } from '@/components/runners/RunnerCard';
-import { SettingsPage } from '@/components/settings/SettingsPage';
+import type { NamedHarness } from '@/components/features/runners/HarnessPills';
+import { NewRunnerDialog } from '@/components/features/runners/NewRunnerDialog';
+import { RunnerCard } from '@/components/features/runners/RunnerCard';
+import { RunnerCardSkeleton } from '@/components/features/runners/RunnerCardSkeleton';
+import { SettingsPage } from '@/components/features/settings/SettingsPage';
+import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
+import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useRunners } from '@/hooks/api/useRunners';
+import { failed, loading } from '@/lib/query';
 import type { Runner } from '@/lib/runner';
+
+const FLEET = 'grid gap-2 sm:grid-cols-2';
 
 export function Runners() {
   const { slug } = useParams();
-  const { data: runners, isPending } = useRunners();
+  const runners = useRunners(slug);
   const { data: harnesses } = useHarnesses();
   const [enrolling, setEnrolling] = useState(false);
 
-  if (isPending || !slug) {
+  if (!slug) {
     return null;
   }
 
-  const fleet = runners ?? [];
+  const fleet = runners.data ?? [];
 
   return (
     <>
@@ -40,7 +46,11 @@ export function Runners() {
         }
       />
 
-      <NewRunnerDialog open={enrolling} onOpenChange={setEnrolling} />
+      <NewRunnerDialog
+        slug={slug}
+        open={enrolling}
+        onOpenChange={setEnrolling}
+      />
 
       <SettingsPage
         title="Runners"
@@ -51,7 +61,26 @@ export function Runners() {
             Enrolled
           </h2>
 
-          {fleet.length === 0 ? (
+          {loading(runners) && (
+            <ul
+              role="status"
+              aria-label="Loading the runners"
+              className={FLEET}
+            >
+              <RunnerCardSkeleton />
+            </ul>
+          )}
+
+          {failed(runners) && (
+            <CouldNotLoad
+              what="Runners"
+              retrying={runners.isFetching}
+              onRetry={() => void runners.refetch()}
+              className="items-start"
+            />
+          )}
+
+          {runners.data?.length === 0 && (
             <div className="flex flex-col items-start gap-4">
               <p className="text-muted-foreground text-xs">
                 No runner has registered with the control plane.
@@ -67,8 +96,10 @@ export function Runners() {
                 Register a new runner
               </Button>
             </div>
-          ) : (
-            <ul className="grid gap-2 sm:grid-cols-2">
+          )}
+
+          {fleet.length > 0 && (
+            <ul className={FLEET}>
               {fleet.map((runner) => (
                 <RunnerCard
                   key={runner.id}
@@ -86,8 +117,9 @@ export function Runners() {
 
 const named = (
   runner: Runner,
-  harnesses: readonly { id: string; name: string }[] | undefined,
-): string[] =>
-  runner.harnesses.map(
-    (id) => harnesses?.find((harness) => harness.id === id)?.name ?? id,
-  );
+  harnesses: readonly NamedHarness[] | undefined,
+): NamedHarness[] =>
+  runner.harnesses.map((id) => ({
+    id,
+    name: harnesses?.find((harness) => harness.id === id)?.name ?? id,
+  }));

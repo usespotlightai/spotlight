@@ -12,7 +12,6 @@ import (
 	"usespotlight.ai/runner/internal/account"
 )
 
-// Client is a harness the runner has started and is talking to.
 type Client struct {
 	command *exec.Cmd
 	stdin   io.WriteCloser
@@ -21,8 +20,6 @@ type Client struct {
 	nextID  int
 	waiting map[int]chan response
 
-	// answer decides what to say when the agent asks permission. A station
-	// runs unattended, so something has to answer, and it is the runner.
 	answer   Permission
 	watching func(Update)
 
@@ -33,24 +30,17 @@ type Client struct {
 	failed    error
 }
 
-// Permission answers the agent's request to do something it considers worth
-// asking about.
 type Permission func(kind string) bool
 
 type Options struct {
 	Executable string
 	Args       []string
 	Env        map[string]string
-	// Root is the directory the agent works in. File requests outside it are
-	// refused: the agent asked for a workspace, not a machine.
-	Root string
-	// RunAs is the account to start the harness under. Its credentials are
-	// what the harness signs in with, so this is not only about isolation.
-	RunAs  *account.User
-	Answer Permission
+	Root       string
+	RunAs      *account.User
+	Answer     Permission
 }
 
-// Start spawns the harness and completes the handshake.
 func Start(ctx context.Context, opts Options) (*Client, error) {
 	command := exec.CommandContext(ctx, opts.Executable, opts.Args...)
 	command.Dir = opts.Root
@@ -107,8 +97,6 @@ func (c *Client) initialize(ctx context.Context) error {
 	}, &out)
 }
 
-// NewSession opens a session in the workspace and answers with its id, which
-// is what a later run needs to take the same conversation up again.
 func (c *Client) NewSession(ctx context.Context) (string, error) {
 	var out struct {
 		SessionID string `json:"sessionId"`
@@ -124,7 +112,6 @@ func (c *Client) NewSession(ctx context.Context) (string, error) {
 	return out.SessionID, nil
 }
 
-// Resume takes up a session the harness already holds.
 func (c *Client) Resume(ctx context.Context, sessionID string) error {
 	return c.call(ctx, "session/load", map[string]any{
 		"sessionId":  sessionID,
@@ -133,7 +120,6 @@ func (c *Client) Resume(ctx context.Context, sessionID string) error {
 	}, nil)
 }
 
-// Prompt sends one turn and reports everything the agent says while working.
 func (c *Client) Prompt(
 	ctx context.Context,
 	sessionID string,
@@ -157,6 +143,19 @@ func (c *Client) Prompt(
 	}, &out)
 
 	return out, err
+}
+
+func (c *Client) Cancel(sessionID string) error {
+	return c.notify("session/cancel", map[string]any{"sessionId": sessionID})
+}
+
+func (c *Client) notify(method string, params any) error {
+	encoded, err := json.Marshal(params)
+	if err != nil {
+		return err
+	}
+
+	return c.write(request{JSONRPC: "2.0", Method: method, Params: encoded})
 }
 
 func (c *Client) Close() error {
