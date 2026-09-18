@@ -1,29 +1,24 @@
 import { HarnessLogo } from '@/components/features/stations/HarnessLogo';
-
-export type NamedHarness = {
-  readonly id: string;
-  readonly name: string;
-};
+import type { NamedHarness } from '@/lib/runner';
 
 const PILL =
   'flex shrink-0 items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 font-medium text-muted-foreground text-xs';
 
-const NAMED = 3;
-
-export function HarnessPills({
-  harnesses,
-}: {
+type HarnessPillsProps = {
   harnesses: readonly NamedHarness[];
-}) {
+  named?: number;
+};
+
+export function HarnessPills({ harnesses, named = 3 }: HarnessPillsProps) {
   if (harnesses.length === 0) {
     return null;
   }
 
-  const rest = harnesses.length - NAMED;
+  const rest = harnesses.length - named;
 
   return (
     <span className="flex flex-wrap items-center gap-1">
-      {harnesses.slice(0, NAMED).map((harness) => (
+      {harnesses.slice(0, named).map((harness) => (
         <span key={harness.id} className={PILL}>
           <HarnessLogo harness={harness.id} className="size-3" />
           {harness.name}

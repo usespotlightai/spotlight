@@ -68,3 +68,17 @@ export const seenAt = (runner: Runner): string =>
   runner.lastSeenAt
     ? `Last seen ${since(runner.lastSeenAt)}`
     : `Registered ${since(runner.registeredAt)}`;
+
+export type NamedHarness = {
+  readonly id: string;
+  readonly name: string;
+};
+
+export const harnessesOf = (
+  runner: Runner,
+  harnesses: readonly NamedHarness[] | undefined,
+): NamedHarness[] =>
+  runner.harnesses.map((id) => ({
+    id,
+    name: harnesses?.find((harness) => harness.id === id)?.name ?? id,
+  }));

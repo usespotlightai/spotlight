@@ -5,10 +5,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SetupSteps } from '@/components/features/onboarding/SetupSteps';
 import { installUrlFor } from '@/lib/github';
 
+const refetch = vi.fn();
 const onboardingState = {
   data: undefined as unknown,
   isPending: false,
+  isFetching: false,
   errorUpdateCount: 0,
+  refetch,
 };
 
 vi.mock('@/hooks/api/useOnboarding', () => ({
@@ -29,6 +32,20 @@ vi.mock('@/hooks/api/usePinConfiguration', () => ({
 const setUp = vi.fn();
 vi.mock('@/hooks/api/useSetUpLines', () => ({
   useSetUpLines: () => ({ mutate: setUp, isPending: false }),
+}));
+
+const runnersState = { data: [] as unknown[] };
+vi.mock('@/hooks/api/useRunners', () => ({
+  useRunners: () => runnersState,
+}));
+
+vi.mock('@/hooks/api/useEnrolRunner', () => ({
+  useEnrolRunner: () => ({
+    mutate: vi.fn(),
+    reset: vi.fn(),
+    isPending: false,
+    error: null,
+  }),
 }));
 
 vi.mock('@/hooks/api/useHarnesses', () => ({
@@ -118,6 +135,9 @@ const showing = (resolved = false) =>
 
 beforeEach(() => {
   onboardingState.isPending = false;
+  onboardingState.errorUpdateCount = 0;
+  refetch.mockReset();
+  runnersState.data = [];
   pin.mockReset();
   setUp.mockReset();
 });
@@ -139,10 +159,9 @@ describe('SetupSteps', () => {
     onboardingState.data = onboarding();
     showing();
 
-    expect(screen.getByRole('link', { name: 'Enrol one' })).toHaveAttribute(
-      'href',
-      '/w/acme/runners',
-    );
+    expect(
+      screen.getByRole('button', { name: 'Enrol one' }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: 'Install on GitHub' }),
     ).toHaveAttribute(
@@ -157,6 +176,85 @@ describe('SetupSteps', () => {
       'href',
       '/w/acme/team/team_1/settings/integrations',
     );
+  });
+
+  it('enrols a runner without leaving the message', async () => {
+    onboardingState.data = onboarding();
+    showing();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Enrol one' }));
+
+    expect(
+      await screen.findByRole('dialog', { name: 'New runner' }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Runner name')).toBeInTheDocument();
+  });
+
+  it('lists the runners enrolled so far, leaving out revoked ones', () => {
+    runnersState.data = [
+      {
+        id: 'runner_1',
+        name: 'Build box',
+        harnesses: ['claude-code'],
+        registeredAt: new Date().toISOString(),
+        lastSeenAt: new Date().toISOString(),
+        revokedAt: null,
+        connected: true,
+        currentRun: null,
+      },
+      {
+        id: 'runner_2',
+        name: 'Old laptop',
+        harnesses: [],
+        registeredAt: new Date().toISOString(),
+        lastSeenAt: null,
+        revokedAt: new Date().toISOString(),
+        connected: false,
+        currentRun: null,
+      },
+    ];
+    onboardingState.data = onboarding();
+    showing();
+
+    expect(screen.getByText('Build box')).toBeInTheDocument();
+    expect(screen.getByText('Claude Code')).toBeInTheDocument();
+    expect(screen.queryByText('Old laptop')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Enrol another' }),
+    ).toBeInTheDocument();
+  });
+
+  it('offers to configure the App once it is installed', async () => {
+    onboardingState.data = onboarding({ connectedToGitHub: true }, ['github']);
+    showing();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /Install the GitHub App/ }),
+    );
+
+    expect(
+      screen.getByRole('link', { name: 'Configure on GitHub' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Install on GitHub' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('offers to update a repository already chosen', async () => {
+    onboardingState.data = onboarding(
+      { connectedToGitHub: true, configRepository: 'acme/config' },
+      ['repository'],
+    );
+    showing();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /Choose a repository/ }),
+    );
+    await userEvent.clear(screen.getByLabelText('Repository'));
+    await userEvent.type(screen.getByLabelText('Repository'), 'api');
+    await userEvent.click(screen.getByRole('button', { name: 'Update' }));
+
+    expect(pin).toHaveBeenCalledWith('acme/api');
   });
 
   it('folds a done step away, keeping the next one open', () => {
@@ -205,6 +303,22 @@ describe('SetupSteps', () => {
     expect(
       screen.getByRole('link', { name: 'Choose them' }),
     ).toBeInTheDocument();
+  });
+
+  it('says the steps could not be loaded, and offers to try again', async () => {
+    onboardingState.data = undefined;
+    onboardingState.errorUpdateCount = 1;
+    showing();
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'The setup steps could not be loaded.',
+    );
+    expect(screen.getByText('Set up your team')).toBeInTheDocument();
+    expect(screen.queryByText(BODY)).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(refetch).toHaveBeenCalled();
   });
 
   it('falls back to the words it was written with', () => {
@@ -385,7 +499,7 @@ describe('SetupSteps', () => {
     );
     showing(true);
 
-    const install = screen.getByRole('link', { name: 'Install on GitHub' });
+    const install = screen.getByRole('link', { name: 'Configure on GitHub' });
     expect(install.closest('[inert]')).not.toBeNull();
   });
 
