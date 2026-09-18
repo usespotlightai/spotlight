@@ -1,20 +1,10 @@
-import {
-  HarnessPills,
-  type NamedHarness,
-} from '@/components/features/runners/HarnessPills';
-import { type Runner, seenAt, standing } from '@/lib/runner';
-import { cn } from '@/lib/utils';
+import { HarnessPills } from '@/components/features/runners/HarnessPills';
+import { RunnerStanding } from '@/components/features/runners/RunnerStanding';
+import { type NamedHarness, type Runner, seenAt } from '@/lib/runner';
 
 type RunnerCardProps = {
   runner: Runner;
   harnesses: readonly NamedHarness[];
-};
-
-const dotOf = (runner: Runner) => {
-  if (runner.revokedAt) {
-    return 'bg-destructive/60';
-  }
-  return runner.connected ? 'bg-emerald-500' : 'bg-muted-foreground/40';
 };
 
 export function RunnerCard({ runner, harnesses }: RunnerCardProps) {
@@ -26,12 +16,8 @@ export function RunnerCard({ runner, harnesses }: RunnerCardProps) {
             {runner.name}
           </h3>
 
-          <span className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full font-medium text-muted-foreground text-xs">
-            <span
-              aria-hidden
-              className={cn('size-1.5 shrink-0 rounded-full', dotOf(runner))}
-            />
-            {standing(runner)}
+          <span className="ml-auto">
+            <RunnerStanding runner={runner} />
           </span>
         </div>
 

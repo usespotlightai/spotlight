@@ -13,6 +13,13 @@ type ChooseRepositoryProps = {
   controlClassName?: string;
 };
 
+const labelFor = (chosen: boolean, pending: boolean) => {
+  if (chosen) {
+    return pending ? 'Updating…' : 'Update';
+  }
+  return pending ? 'Setting up…' : 'Confirm';
+};
+
 export function ChooseRepository({
   slug,
   teamId,
@@ -54,7 +61,7 @@ export function ChooseRepository({
           disabled={pin.isPending || (wanted === '' && !chosen)}
           className={cn(buttonVariants({ size: 'sm' }), controlClassName)}
         >
-          {pin.isPending ? 'Setting up…' : 'Confirm'}
+          {labelFor(Boolean(chosen), pin.isPending)}
         </button>
       </div>
     </form>

@@ -1,7 +1,6 @@
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useParams } from 'react-router';
-import type { NamedHarness } from '@/components/features/runners/HarnessPills';
 import { NewRunnerDialog } from '@/components/features/runners/NewRunnerDialog';
 import { RunnerCard } from '@/components/features/runners/RunnerCard';
 import { RunnerCardSkeleton } from '@/components/features/runners/RunnerCardSkeleton';
@@ -13,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useRunners } from '@/hooks/api/useRunners';
 import { failed, loading } from '@/lib/query';
-import type { Runner } from '@/lib/runner';
+import { harnessesOf } from '@/lib/runner';
 
 const FLEET = 'grid gap-2 sm:grid-cols-2';
 
@@ -104,7 +103,7 @@ export function Runners() {
                 <RunnerCard
                   key={runner.id}
                   runner={runner}
-                  harnesses={named(runner, harnesses)}
+                  harnesses={harnessesOf(runner, harnesses)}
                 />
               ))}
             </ul>
@@ -114,12 +113,3 @@ export function Runners() {
     </>
   );
 }
-
-const named = (
-  runner: Runner,
-  harnesses: readonly NamedHarness[] | undefined,
-): NamedHarness[] =>
-  runner.harnesses.map((id) => ({
-    id,
-    name: harnesses?.find((harness) => harness.id === id)?.name ?? id,
-  }));

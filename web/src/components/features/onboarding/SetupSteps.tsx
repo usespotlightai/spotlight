@@ -2,17 +2,19 @@ import { Check, ChevronDown } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { ChooseRepository } from '@/components/features/onboarding/ChooseRepository';
+import { EnrolRunners } from '@/components/features/onboarding/EnrolRunners';
 import { SetUpLines } from '@/components/features/onboarding/SetUpLines';
 import {
   SetupAbout,
   type SetupAboutProps,
 } from '@/components/features/onboarding/SetupAbout';
 import { SetupStepsSkeleton } from '@/components/features/onboarding/SetupStepsSkeleton';
+import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { buttonVariants } from '@/components/ui/button';
 import { useOnboarding } from '@/hooks/api/useOnboarding';
 import type { SetupStepResponseDto } from '@/lib/api/types.gen';
 import { installUrlFor } from '@/lib/github';
-import { loading } from '@/lib/query';
+import { failed, loading } from '@/lib/query';
 import { cn } from '@/lib/utils';
 
 type SetupStepsProps = {
@@ -25,7 +27,6 @@ type SetupStepsProps = {
 const CONTROL = 'rounded-full px-3.5 shadow-none';
 
 const CALLS: Partial<Record<SetupStepResponseDto['key'], string>> = {
-  runner: 'Enrol one',
   integrations: 'Choose them',
 };
 
@@ -130,6 +131,23 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
     return <SetupStepsSkeleton about={about} />;
   }
 
+  if (slug && failed(query)) {
+    return (
+      <div className="flex flex-col gap-4">
+        {about && (
+          <SetupAbout title={about.title} description={about.description} />
+        )}
+
+        <CouldNotLoad
+          what="The setup steps"
+          retrying={query.isFetching}
+          onRetry={() => void query.refetch()}
+          className="items-start"
+        />
+      </div>
+    );
+  }
+
   if (!onboarding || !slug) {
     return (
       <p className="whitespace-pre-wrap text-muted-foreground text-sm leading-6">
@@ -139,7 +157,13 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
   }
 
   const goAndDoIt = (step: SetupStepResponseDto): ReactNode => {
+    if (step.key === 'runner') {
+      return <EnrolRunners slug={slug} controlClassName={CONTROL} />;
+    }
+
     if (step.key === 'github') {
+      const installed = onboarding.connectedToGitHub;
+
       return (
         onboarding.installUrl && (
           <a
@@ -148,9 +172,15 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
               teamId,
               from: `${here.pathname}${here.search}`,
             })}
-            className={cn(buttonVariants({ size: 'sm' }), CONTROL)}
+            className={cn(
+              installed
+                ? buttonVariants({ variant: 'outline', size: 'sm' })
+                : buttonVariants({ size: 'sm' }),
+              CONTROL,
+              installed && 'bg-card',
+            )}
           >
-            Install on GitHub
+            {installed ? 'Configure on GitHub' : 'Install on GitHub'}
           </a>
         )
       );
