@@ -1,10 +1,10 @@
 import type { ConfigurationMove } from '@configuration/domain/services/configuration-move';
 
-export interface CarriedPullRequestDto {
+interface CarriedPullRequestDto {
   readonly url: string;
 }
 
-export interface ConfiguredIntegrationDto {
+interface ConfiguredIntegrationDto {
   readonly source: string;
   readonly name: string;
   readonly path: string;

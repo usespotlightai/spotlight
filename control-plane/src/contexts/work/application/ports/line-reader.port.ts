@@ -17,7 +17,7 @@ export interface StationSummary {
   readonly skills: readonly string[];
 }
 
-export interface ReactionSummary {
+interface ReactionSummary {
   readonly happening: string;
   readonly from: string | null;
   readonly to: string;

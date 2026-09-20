@@ -1,9 +1,9 @@
-export interface ChangeStackCheckStepDto {
+interface ChangeStackCheckStepDto {
   readonly id: string;
   readonly patch: string;
 }
 
-export interface ChangeStackCheckDto {
+interface ChangeStackCheckDto {
   readonly stackId: string;
   readonly repository: string | null;
   readonly command: string;

@@ -20,7 +20,7 @@ export interface ChangeStackSummary {
   readonly removed: number;
 }
 
-export interface PendingStackCheck {
+interface PendingStackCheck {
   readonly stackId: string;
   readonly repository: string | null;
   readonly command: string;

@@ -4,7 +4,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export const CONFIGURED_LINES = Symbol('CONFIGURED_LINES');
 
-export interface StationOffering {
+interface StationOffering {
   readonly line: string;
   readonly station: string;
   readonly tools: readonly string[];

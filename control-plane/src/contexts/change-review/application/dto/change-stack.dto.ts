@@ -19,7 +19,7 @@ export const DIFF_FILE_STATUS_NAMES = [
   'renamed',
 ] as const;
 
-export interface DiffHunkDto {
+interface DiffHunkDto {
   readonly id: string;
   readonly oldStart: number;
   readonly oldLines: number;
@@ -36,7 +36,7 @@ export interface DiffFileDto {
   readonly hunks: readonly DiffHunkDto[];
 }
 
-export interface StackLayerDto {
+interface StackLayerDto {
   readonly id: string;
   readonly title: string;
   readonly summary: string;
@@ -61,7 +61,7 @@ export interface StackCohortDto {
   readonly layers: readonly StackLayerDto[];
 }
 
-export interface CheckedLayerDto {
+interface CheckedLayerDto {
   readonly step: string;
   readonly passed: boolean;
   readonly output: string;

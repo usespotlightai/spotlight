@@ -165,7 +165,7 @@ export abstract class Station {
   protected abstract copiedWith(part: Part): Station;
 }
 
-export class WorkStation extends Station {
+class WorkStation extends Station {
   readonly kind = 'work' as const;
 
   constructor(
@@ -225,7 +225,7 @@ export class WorkStation extends Station {
   }
 }
 
-export class Backlog extends Station {
+class Backlog extends Station {
   readonly kind = 'backlog' as const;
   readonly harness = null;
   readonly model = null;
@@ -267,7 +267,7 @@ export class Backlog extends Station {
   }
 }
 
-export class Completed extends Station {
+class Completed extends Station {
   readonly kind = 'completed' as const;
   readonly harness = null;
   readonly model = null;

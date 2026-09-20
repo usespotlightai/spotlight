@@ -7,13 +7,13 @@ import type {
 import type { ApprovalStanding } from '@work/domain/value-objects/approval.vo';
 import type { SpokenBy } from '@work/domain/value-objects/voice.vo';
 
-export interface InboxAuthor {
+interface InboxAuthor {
   readonly id: string;
   readonly name: string;
   readonly image: string | null;
 }
 
-export interface InboxApprovalInput {
+interface InboxApprovalInput {
   readonly name: string;
   readonly value: string;
 }
@@ -42,7 +42,7 @@ export interface InboxNote {
   readonly approval: InboxApproval | null;
 }
 
-export interface InboxStation {
+interface InboxStation {
   readonly name: string;
   readonly color: string;
   readonly position: number;

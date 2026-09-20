@@ -2,12 +2,12 @@ import { STEP_KINDS } from '@work/domain/value-objects/step-kind';
 
 export const STEP_KIND_NAMES = STEP_KINDS;
 
-export interface StepLocationDto {
+interface StepLocationDto {
   readonly path: string;
   readonly line: number | null;
 }
 
-export interface StepChangeDto {
+interface StepChangeDto {
   readonly path: string | null;
   readonly before: string;
   readonly after: string;
@@ -27,7 +27,7 @@ export interface JournalStepDto {
   readonly change: StepChangeDto | null;
 }
 
-export interface SpanAttributeDto {
+interface SpanAttributeDto {
   readonly name: string;
   readonly value: string;
 }
@@ -42,7 +42,7 @@ export interface RunSpanDto {
   readonly attributes: readonly SpanAttributeDto[];
 }
 
-export interface RunMarksDto {
+interface RunMarksDto {
   readonly startedAt: string | null;
   readonly readyAt: string | null;
   readonly spokeFrom: string | null;
@@ -50,7 +50,7 @@ export interface RunMarksDto {
   readonly endedAt: string | null;
 }
 
-export interface RunSpentDto {
+interface RunSpentDto {
   readonly used: number;
   readonly size: number;
   readonly cost: number | null;

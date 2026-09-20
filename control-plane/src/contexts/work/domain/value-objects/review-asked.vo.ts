@@ -3,7 +3,7 @@ import { InvalidReviewRequestError } from '@work/domain/exceptions/invalid-revie
 import type { Branch } from '@work/domain/value-objects/branch.vo';
 import type { Said } from '@work/domain/value-objects/said.vo';
 
-export const REVIEW_ASKINGS = ['opened', 'mentioned'] as const;
+const REVIEW_ASKINGS = ['opened', 'mentioned'] as const;
 
 export type ReviewAsking = (typeof REVIEW_ASKINGS)[number];
 

@@ -9,7 +9,7 @@ import type {
 } from '@change-review/domain/value-objects/stack-check.vo';
 import type { CohortKind } from '@change-review/domain/value-objects/stack-cohort.vo';
 
-export interface StoredHunk {
+interface StoredHunk {
   readonly id: string;
   readonly oldStart: number;
   readonly oldLines: number;
@@ -26,12 +26,12 @@ export interface StoredFile {
   readonly hunks: readonly StoredHunk[];
 }
 
-export interface StoredNote {
+interface StoredNote {
   readonly path: string;
   readonly note: string;
 }
 
-export interface StoredLayer {
+interface StoredLayer {
   readonly id: string;
   readonly title: string;
   readonly summary: string;
@@ -51,7 +51,7 @@ export interface StoredCohort {
   readonly layers: readonly StoredLayer[];
 }
 
-export interface StoredHunkFacts {
+interface StoredHunkFacts {
   readonly hunk: string;
   readonly path: string;
   readonly fileClass: FileClass;

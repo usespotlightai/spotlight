@@ -1,4 +1,4 @@
-export const UNIQUE_VIOLATION = '23505';
+const _UNIQUE_VIOLATION = '23505';
 
 export const FOREIGN_KEY_VIOLATION = '23503';
 

@@ -3,9 +3,9 @@ import type { PullRequestActivity } from '@github/application/dto/pull-request-a
 
 export const WEBHOOK_TRANSLATION = Symbol('WEBHOOK_TRANSLATION');
 
-export type ReviewCommentAction = 'created' | 'edited' | 'deleted';
+type ReviewCommentAction = 'created' | 'edited' | 'deleted';
 
-export interface HeardReviewComment {
+interface HeardReviewComment {
   readonly id: number;
   readonly url: string;
   readonly path: string;

@@ -14,9 +14,9 @@ import type { ReadySkill } from '@work/domain/value-objects/ready-skill';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
 
-export type CheckoutDiff = 'worktree' | 'commits';
+type CheckoutDiff = 'worktree' | 'commits';
 
-export interface OrderedCheckout {
+interface OrderedCheckout {
   readonly repository: Repository;
   readonly branch: Branch | null;
   readonly ref: string | null;

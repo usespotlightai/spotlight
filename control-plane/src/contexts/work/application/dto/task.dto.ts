@@ -1,6 +1,6 @@
 import type { AttachmentDto } from '@work/application/dto/attachment.dto';
 
-export interface TaskNoteDto {
+interface TaskNoteDto {
   readonly position: number;
   readonly station: string;
   readonly body: string;
@@ -12,7 +12,7 @@ export interface TaskPersonDto {
   readonly image: string | null;
 }
 
-export interface TaskReviewDto {
+interface TaskReviewDto {
   readonly conversationId: string;
 }
 

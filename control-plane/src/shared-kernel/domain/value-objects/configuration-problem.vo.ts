@@ -1,6 +1,6 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
-export const PROBLEM_SEVERITIES = ['error', 'warning'] as const;
+const PROBLEM_SEVERITIES = ['error', 'warning'] as const;
 
 export type ProblemSeverity = (typeof PROBLEM_SEVERITIES)[number];
 

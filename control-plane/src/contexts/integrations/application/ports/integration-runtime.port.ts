@@ -13,7 +13,7 @@ import type {
   ToolInputValues,
 } from '@work/application/contracts/tools.contract';
 
-export interface BoundTaskWaiting {
+interface BoundTaskWaiting {
   readonly conversationId: string;
   readonly said: string;
   readonly awaitsApproval: boolean;

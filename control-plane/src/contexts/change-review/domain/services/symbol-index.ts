@@ -1,6 +1,6 @@
 export type SourceSide = 'before' | 'after';
 
-export const SYMBOL_KINDS = [
+const SYMBOL_KINDS = [
   'function',
   'class',
   'type',

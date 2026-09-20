@@ -10,7 +10,7 @@ export type CohortKind = (typeof COHORT_KINDS)[number];
 
 export const needsFileNotes = (kind: CohortKind): boolean => kind === 'change';
 
-export interface StackRange {
+interface StackRange {
   readonly hunk: HunkId;
 }
 
@@ -24,7 +24,7 @@ export interface LayerDependency {
   readonly because: readonly string[];
 }
 
-export interface StackLayer {
+interface StackLayer {
   readonly id: LayerId;
   readonly title: string;
   readonly summary: string;

@@ -1,4 +1,4 @@
-export interface WaitingDto {
+interface WaitingDto {
   readonly conversationId: string;
   readonly said: string;
   readonly awaitsApproval: boolean;

@@ -9,7 +9,7 @@ export interface TaskNoteSummary {
   readonly body: string;
 }
 
-export interface TaskReviewSummary {
+interface TaskReviewSummary {
   readonly conversationId: string;
 }
 

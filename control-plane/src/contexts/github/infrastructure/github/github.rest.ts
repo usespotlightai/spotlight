@@ -1,6 +1,6 @@
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 
-export const API = 'https://api.github.com';
+const API = 'https://api.github.com';
 
 interface Refusal {
   readonly message?: string;

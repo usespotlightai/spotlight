@@ -14,7 +14,7 @@ export interface StationDto {
   readonly skills: readonly string[];
 }
 
-export interface ReactionDto {
+interface ReactionDto {
   readonly happening: string;
   readonly from: string | null;
   readonly to: string;

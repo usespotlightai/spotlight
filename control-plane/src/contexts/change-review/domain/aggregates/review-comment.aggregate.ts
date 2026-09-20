@@ -23,7 +23,7 @@ export const REVIEW_COMMENT_STATES = [
 
 export type ReviewCommentState = (typeof REVIEW_COMMENT_STATES)[number];
 
-export const MOST_REVIEW_COMMENT = 65_000;
+const MOST_REVIEW_COMMENT = 65_000;
 
 const MOST_EDITS_AWAITING_ECHO = 5;
 

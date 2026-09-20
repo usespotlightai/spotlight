@@ -12,7 +12,7 @@ export const TOOL_INPUT_TYPES = ['string', 'number', 'boolean'] as const;
 
 export type ToolInputType = (typeof TOOL_INPUT_TYPES)[number];
 
-export const TOOL_INPUT_NAME = new RegExp(`^${WORDS}$`);
+const TOOL_INPUT_NAME = new RegExp(`^${WORDS}$`);
 
 export interface ToolInput {
   readonly name: string;

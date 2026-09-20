@@ -1,4 +1,4 @@
-export interface TeamDto {
+interface TeamDto {
   readonly id: string;
   readonly name: string;
 }

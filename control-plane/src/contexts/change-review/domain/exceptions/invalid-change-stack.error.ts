@@ -1,4 +1,4 @@
-export const STACK_PROBLEM_CODES = [
+const STACK_PROBLEM_CODES = [
   'shape',
   'uses',
   'tests',

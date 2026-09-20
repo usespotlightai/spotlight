@@ -1,0 +1,9 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "drizzle": false,
+  "entry": ["src/main.ts", "scripts/*.ts", "drizzle.config.ts"],
+  "ignoreDependencies": ["pino-pretty"],
+  "ignoreIssues": {
+    "src/**/persistence/drizzle/schemas/*.schema.ts": ["exports", "types"]
+  }
+}

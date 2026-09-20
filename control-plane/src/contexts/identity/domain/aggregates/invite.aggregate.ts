@@ -12,7 +12,7 @@ import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.v
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export const INVITE_LASTS_FOR_DAYS = 14;
+const INVITE_LASTS_FOR_DAYS = 14;
 
 const DAY = 24 * 60 * 60 * 1000;
 

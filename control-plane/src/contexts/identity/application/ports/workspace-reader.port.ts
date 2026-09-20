@@ -8,7 +8,7 @@ export interface WorkspaceListing {
   readonly role: WorkspaceRoleName;
 }
 
-export interface TeamSummary {
+interface TeamSummary {
   readonly id: string;
   readonly name: string;
 }

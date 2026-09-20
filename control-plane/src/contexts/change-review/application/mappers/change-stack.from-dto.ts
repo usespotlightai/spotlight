@@ -8,7 +8,7 @@ import {
 } from '@change-review/domain/value-objects/stack-check.vo';
 import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
 
-export const stepFrom = (raw: string): StepId =>
+const stepFrom = (raw: string): StepId =>
   raw === WHOLE_STEP ? WHOLE_STEP : LayerId.of(raw);
 
 export const checkedStepsFrom = (

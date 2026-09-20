@@ -475,6 +475,7 @@ CREATE TABLE "task_note" (
 	CONSTRAINT "task_note_task_id_position_pk" PRIMARY KEY("task_id","position")
 );
 --> statement-breakpoint
+DROP INDEX "account_issuer_accountId_uidx";--> statement-breakpoint
 ALTER TABLE "event_delivery" ADD CONSTRAINT "event_delivery_event_id_event_outbox_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."event_outbox"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "team" ADD CONSTRAINT "team_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "team_invite" ADD CONSTRAINT "team_invite_team_id_team_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."team"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -546,4 +547,5 @@ CREATE INDEX "task_station_idx" ON "task" USING btree ("station_id","rank");--> 
 CREATE INDEX "task_workspace_idx" ON "task" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "task_attachment_task_idx" ON "task_attachment" USING btree ("task_id","note_position");--> statement-breakpoint
 CREATE INDEX "task_mark_task_idx" ON "task_mark" USING btree ("task_id");--> statement-breakpoint
-CREATE INDEX "task_note_task_idx" ON "task_note" USING btree ("task_id","position");
+CREATE INDEX "task_note_task_idx" ON "task_note" USING btree ("task_id","position");--> statement-breakpoint
+ALTER TABLE "account" DROP COLUMN "issuer";

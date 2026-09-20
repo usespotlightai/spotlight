@@ -4,15 +4,12 @@ import { ConfigModule } from '@platform/config/config.module';
 import {
   createDatabase,
   createPool,
-  type DrizzleDatabase,
 } from '@platform/persistence/drizzle/drizzle.client';
 import {
   DRIZZLE,
   PG_POOL,
 } from '@platform/persistence/drizzle/drizzle.constants';
 import type { Pool } from 'pg';
-
-export type { DrizzleDatabase };
 
 @Module({
   imports: [ConfigModule],

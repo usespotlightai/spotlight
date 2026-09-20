@@ -2,7 +2,7 @@ import type { HappeningName } from '@integrations/domain/value-objects/happening
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
 
-export const WEBHOOK_SOURCES = Symbol('WEBHOOK_SOURCES');
+const _WEBHOOK_SOURCES = Symbol('WEBHOOK_SOURCES');
 
 export type WebhookHeaders = Readonly<
   Record<string, string | string[] | undefined>

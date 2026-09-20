@@ -5,7 +5,7 @@ import type { ToolDeclaration } from '@work/application/contracts/tools.contract
 
 export const INTEGRATION_READER = Symbol('INTEGRATION_READER');
 
-export interface IntegrationSummary {
+interface IntegrationSummary {
   readonly source: string;
   readonly path: string;
   readonly name: string;

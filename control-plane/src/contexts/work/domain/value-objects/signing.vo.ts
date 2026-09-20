@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
-export const SIGNING_SCHEMES = [
+const SIGNING_SCHEMES = [
   'hmac-sha256',
   'hmac-sha1',
   'hmac-sha512',
@@ -10,7 +10,7 @@ export const SIGNING_SCHEMES = [
 
 export type SigningScheme = (typeof SIGNING_SCHEMES)[number];
 
-export const SIGNING_ENCODINGS = ['hex', 'base64'] as const;
+const SIGNING_ENCODINGS = ['hex', 'base64'] as const;
 
 export type SigningEncoding = (typeof SIGNING_ENCODINGS)[number];
 

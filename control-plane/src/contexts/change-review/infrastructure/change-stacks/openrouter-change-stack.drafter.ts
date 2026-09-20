@@ -72,7 +72,7 @@ const portable = (schema: unknown): unknown =>
         )
       : schema;
 
-export const STACK_SCHEMA = portable(z.toJSONSchema(STACK));
+const STACK_SCHEMA = portable(z.toJSONSchema(STACK));
 
 const SYSTEM = `You organise a code change into a change stack, so a reviewer can understand a large diff in minutes instead of reading files in alphabetical order.
 

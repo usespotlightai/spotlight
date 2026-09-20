@@ -16,20 +16,20 @@ export interface ChatSummary {
   readonly working: boolean;
 }
 
-export interface ChatAuthorView {
+interface ChatAuthorView {
   readonly id: string;
   readonly name: string;
   readonly image: string | null;
 }
 
-export interface ChatAttachmentView {
+interface ChatAttachmentView {
   readonly id: string;
   readonly name: string;
   readonly contentType: string;
   readonly size: number;
 }
 
-export interface ChatProposalView {
+interface ChatProposalView {
   readonly lineId: string;
   readonly lineName: string | null;
   readonly stationId: string;
@@ -41,7 +41,7 @@ export interface ChatProposalView {
   readonly taskId: string | null;
 }
 
-export interface ChatMessageView {
+interface ChatMessageView {
   readonly position: number;
   readonly kind: string;
   readonly body: string;

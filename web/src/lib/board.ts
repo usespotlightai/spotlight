@@ -8,7 +8,7 @@ export const BOARD_VIEWS = [
 
 export type BoardView = (typeof BOARD_VIEWS)[number]['id'];
 
-export const FALLBACK_BOARD_VIEW: BoardView = 'active';
+const FALLBACK_BOARD_VIEW: BoardView = 'active';
 
 export const asBoardView = (raw: string | null): BoardView =>
   BOARD_VIEWS.some((view) => view.id === raw)

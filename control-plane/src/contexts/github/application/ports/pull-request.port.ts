@@ -13,7 +13,7 @@ export interface PullRequestOpening {
   readonly body: string;
 }
 
-export interface WrittenFile {
+interface WrittenFile {
   readonly path: string;
   readonly text: string;
 }
