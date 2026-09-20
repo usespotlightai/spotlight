@@ -141,7 +141,7 @@ export const holdings = (node: TraceNode): Holding => {
   return { rows, faults, kinds };
 };
 
-export const PROMOTED = [
+const PROMOTED = [
   'gen_ai.request.model',
   'llm.model_name',
   'gen_ai.usage.input_tokens',

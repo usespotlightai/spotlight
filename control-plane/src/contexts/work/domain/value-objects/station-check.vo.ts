@@ -1,6 +1,6 @@
 import { InvalidStationCheckError } from '@work/domain/exceptions/invalid-station-check.error';
 
-export const MOST_CHECK_LENGTH = 500;
+const MOST_CHECK_LENGTH = 500;
 
 export class StationCheck {
   private constructor(readonly value: string) {}

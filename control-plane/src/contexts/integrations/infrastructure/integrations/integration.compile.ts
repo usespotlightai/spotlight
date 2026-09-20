@@ -69,7 +69,7 @@ import { SECRET_NAME_SHAPE } from '@shared-kernel/domain/value-objects/identifie
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { parse as parseYaml } from 'yaml';
 
-export interface Freshness {
+interface Freshness {
   readonly at: Expression;
   readonly within: number;
 }
@@ -156,7 +156,7 @@ export interface AttachesIR {
   readonly fetch: RequestIR;
 }
 
-export interface LookupIR {
+interface LookupIR {
   readonly request: RequestIR;
   readonly capture: readonly { name: string; value: Expression }[];
 }
@@ -168,7 +168,7 @@ export interface EventIR {
   readonly raise: RaiseIR;
 }
 
-export interface WebhookIR {
+interface WebhookIR {
   readonly verify: AuthIR;
   readonly respond: {
     readonly when: Expression;
@@ -181,7 +181,7 @@ export interface WebhookIR {
   readonly events: readonly EventIR[];
 }
 
-export interface PollIR {
+interface PollIR {
   readonly request: RequestIR;
   readonly cursor: Expression | null;
   readonly events: readonly EventIR[];
@@ -197,7 +197,7 @@ export interface ConnectionIR {
   readonly manual: { readonly secrets: readonly string[] } | null;
 }
 
-export interface OnBindingIR {
+interface OnBindingIR {
   readonly event: string;
   readonly to: readonly { name: string; value: Expression }[];
   readonly routes: ReadonlyMap<string, string>;

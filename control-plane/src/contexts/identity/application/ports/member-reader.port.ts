@@ -6,7 +6,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const MEMBER_READER = Symbol('MEMBER_READER');
 
-export interface TeamMemberSummary extends PersonSummary {
+interface TeamMemberSummary extends PersonSummary {
   readonly role: WorkspaceRoleName;
 }
 

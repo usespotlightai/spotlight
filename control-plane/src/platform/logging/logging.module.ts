@@ -12,7 +12,7 @@ import { LoggerModule } from 'nestjs-pino';
   providers: [{ provide: LOGGING, useFactory: buildLogging, inject: [ENV] }],
   exports: [LOGGING],
 })
-export class LoggingSetupModule {}
+class LoggingSetupModule {}
 
 @Module({
   imports: [

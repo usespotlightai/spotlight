@@ -25,7 +25,7 @@ export const MOST_ATTEMPTS = 6;
 
 export const MOST_WAITS_FOR_THREAD = 30;
 
-export const AT_A_TIME = 10;
+const AT_A_TIME = 10;
 
 const BACKOFF_MS = 30_000;
 

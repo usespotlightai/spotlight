@@ -17,7 +17,7 @@ import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
 
-export interface StationOpening {
+interface StationOpening {
   readonly key: StationKey;
   readonly name: StationName;
   readonly color: StationColor;
@@ -30,7 +30,7 @@ export interface StationOpening {
   readonly ends: boolean;
 }
 
-export interface ReactionOpening {
+interface ReactionOpening {
   readonly happening: Happening;
   readonly to: StationKey;
 }

@@ -1,4 +1,4 @@
-export interface HeldRunDto {
+interface HeldRunDto {
   readonly id: string;
   readonly state: string;
 }

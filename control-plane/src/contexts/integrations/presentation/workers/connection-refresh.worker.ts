@@ -3,7 +3,7 @@ import { Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 
-export const EVERY_MS = 60_000;
+const EVERY_MS = 60_000;
 
 @Injectable()
 export class ConnectionRefreshWorker implements OnModuleDestroy {

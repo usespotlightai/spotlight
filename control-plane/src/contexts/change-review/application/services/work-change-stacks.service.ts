@@ -9,7 +9,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 
-export const MOST_STACKS_AT_ONCE = 4;
+const MOST_STACKS_AT_ONCE = 4;
 
 export class WorkChangeStacks implements ChangeStackWorkPort {
   readonly #working = new Set<Promise<void>>();

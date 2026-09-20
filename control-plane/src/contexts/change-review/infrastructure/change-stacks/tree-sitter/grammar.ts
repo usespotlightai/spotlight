@@ -12,7 +12,7 @@ export interface GrammarRoute {
   readonly path: string;
 }
 
-export type Scope = 'file' | 'directory' | 'language';
+type Scope = 'file' | 'directory' | 'language';
 
 export interface Grammar {
   readonly name: string;
@@ -55,7 +55,7 @@ export const fields = (node: Node, name: string): Node[] =>
 export const unquoted = (text: string): string =>
   text.replace(/^[a-zA-Z]{0,2}(['"`]{1,3})/, '').replace(/(['"`]{1,3})$/, '');
 
-export const withoutExtension = (path: string): string =>
+const _withoutExtension = (path: string): string =>
   path.replace(/\.[^./]+$/, '');
 
 export const dirname = (path: string): string =>

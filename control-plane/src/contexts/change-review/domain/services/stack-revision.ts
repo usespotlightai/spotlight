@@ -3,27 +3,27 @@ import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
 
 const PATH = /[\w@.-]+(?:\/[\w@.-]+)+\.[a-z]{1,5}/g;
 
-export interface RevisedLayer {
+interface RevisedLayer {
   readonly title: string;
   readonly hunks: readonly HunkId[];
 }
 
-export interface RevisedCohort {
+interface RevisedCohort {
   readonly title: string;
   readonly layers: readonly RevisedLayer[];
 }
 
-export interface NamedHunk {
+interface NamedHunk {
   readonly hunk: HunkId;
   readonly layer: number | null;
 }
 
-export interface NamedFile {
+interface NamedFile {
   readonly path: string;
   readonly hunks: readonly NamedHunk[];
 }
 
-export interface FailedLayer {
+interface FailedLayer {
   readonly cohort: number;
   readonly layer: number;
   readonly title: string;

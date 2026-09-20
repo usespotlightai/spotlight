@@ -18,7 +18,7 @@ const KEY = new RegExp(`^${WORDS}$`);
 const SECRET_REF = new RegExp(`^secret\\.${SECRET_NAME_SHAPE}$`);
 const WITHIN = /^\d+s$/;
 
-export const EXPRESSION = /^\s*\$\{\{(.+)\}\}\s*$/s;
+const EXPRESSION = /^\s*\$\{\{(.+)\}\}\s*$/s;
 
 const expression = z.string().refine((written) => EXPRESSION.test(written), {
   // biome-ignore lint/suspicious/noTemplateCurlyInString: how an expression is written in the file

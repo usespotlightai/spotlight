@@ -2,7 +2,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export const CONFIGURATION_READER = Symbol('CONFIGURATION_READER');
 
-export interface ReadIntegrationView {
+interface ReadIntegrationView {
   readonly source: string;
   readonly name: string;
   readonly path: string;

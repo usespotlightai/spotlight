@@ -20,9 +20,7 @@ export const withActivity = (
 
 export const runnersPath = (slug: string) => `/w/${slug}/runners`;
 
-export const shortRunnerId = (id: string) => id.slice(0, 8);
-
-export const isReachable = (runner: Runner) => runner.connected;
+const isReachable = (runner: Runner) => runner.connected;
 
 export const reachableCount = (runners: readonly Runner[]) =>
   runners.filter(isReachable).length;

@@ -22,7 +22,7 @@ export const SOURCE_WORD = '[a-z0-9]+';
 
 export const DOTTED_NAME = `${SOURCE_WORD}(\\.[a-z0-9][a-z0-9_-]*)+`;
 
-export const TOOL_NAME = `${WORDS}(\\.${WORDS})?`;
+const TOOL_NAME = `${WORDS}(\\.${WORDS})?`;
 
 const EXACTLY_SOURCE_WORD = new RegExp(`^${SOURCE_WORD}$`);
 const EXACTLY_DOTTED_NAME = new RegExp(`^${DOTTED_NAME}$`);

@@ -10,7 +10,7 @@ import type {
 } from '@change-review/domain/value-objects/diff.vo';
 import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
 
-export const FILE_CLASSES = [
+const FILE_CLASSES = [
   'lockfile',
   'generated',
   'snapshot',
@@ -23,7 +23,7 @@ export const FILE_CLASSES = [
 
 export type FileClass = (typeof FILE_CLASSES)[number];
 
-export const LINK_KINDS = ['uses', 'tests', 'moves'] as const;
+const LINK_KINDS = ['uses', 'tests', 'moves'] as const;
 
 export type LinkKind = (typeof LINK_KINDS)[number];
 

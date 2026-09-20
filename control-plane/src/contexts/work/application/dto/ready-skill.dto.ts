@@ -1,4 +1,4 @@
-export interface SkillFile {
+interface SkillFile {
   readonly path: string;
   readonly text: string;
 }

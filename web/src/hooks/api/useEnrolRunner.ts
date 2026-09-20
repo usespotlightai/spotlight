@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { runnerKeys } from '@/hooks/api/useRunners';
-import { enrolRunner, revokeRunner } from '@/lib/api';
+import { enrolRunner } from '@/lib/api';
 
 export function useEnrolRunner(slug: string) {
   const queryClient = useQueryClient();
@@ -13,20 +13,6 @@ export function useEnrolRunner(slug: string) {
         throwOnError: true,
       });
       return data;
-    },
-    onSuccess: () =>
-      queryClient.invalidateQueries({
-        queryKey: runnerKeys.forWorkspace(slug),
-      }),
-  });
-}
-
-export function useRevokeRunner(slug: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (runnerId: string) => {
-      await revokeRunner({ path: { slug, runnerId }, throwOnError: true });
     },
     onSuccess: () =>
       queryClient.invalidateQueries({

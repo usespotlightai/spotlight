@@ -2,10 +2,6 @@ import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip"
 
 import { cn } from "@/lib/utils"
 
-function TooltipProvider({ ...props }: TooltipPrimitive.Provider.Props) {
-  return <TooltipPrimitive.Provider {...props} />
-}
-
 function Tooltip({ ...props }: TooltipPrimitive.Root.Props) {
   return <TooltipPrimitive.Root data-slot="tooltip" {...props} />
 }
@@ -55,4 +51,4 @@ function TooltipContent({
   )
 }
 
-export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger }
+export { Tooltip, TooltipContent, TooltipTrigger }

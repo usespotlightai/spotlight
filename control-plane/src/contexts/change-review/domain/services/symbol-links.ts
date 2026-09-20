@@ -11,7 +11,7 @@ import {
 } from '@change-review/domain/value-objects/diff.vo';
 import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
 
-export interface SymbolLink {
+interface SymbolLink {
   readonly from: HunkId;
   readonly to: HunkId;
   readonly because: string;

@@ -16,7 +16,7 @@ export interface RunCommand {
   readonly env?: Readonly<Record<string, string>>;
 }
 
-export interface RunHandover {
+interface RunHandover {
   readonly options: readonly string[];
   readonly noteLimit: number;
 }

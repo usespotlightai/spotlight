@@ -21,7 +21,7 @@ export interface SetupStepDto {
   readonly done: boolean;
 }
 
-export interface OnboardingLineDto {
+interface OnboardingLineDto {
   readonly key: string;
   readonly name: string;
   readonly harness: string | null;

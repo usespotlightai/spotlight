@@ -12,7 +12,7 @@ import {
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
 
-export const EVERY_MS = 1000;
+const EVERY_MS = 1000;
 
 @Injectable()
 export class EventDeliveryWorker implements OnModuleInit, OnModuleDestroy {

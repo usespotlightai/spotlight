@@ -16,7 +16,6 @@ import {
   type RunToolManifest,
 } from '@work/domain/value-objects/run-spec.vo';
 
-export type CheckoutShape = RunCheckout;
 export type ToolManifestShape = RunToolManifest;
 export type SkillFileShape = RunSkillFile;
 export type AttachmentShape = RunAttachment;

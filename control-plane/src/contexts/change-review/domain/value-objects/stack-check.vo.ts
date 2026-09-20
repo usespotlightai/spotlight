@@ -5,16 +5,11 @@ import type {
 } from '@change-review/domain/value-objects/stack-ids';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
-export const STACK_CHECK_STATES = ['waiting', 'checked', 'skipped'] as const;
+const STACK_CHECK_STATES = ['waiting', 'checked', 'skipped'] as const;
 
 export type StackCheckState = (typeof STACK_CHECK_STATES)[number];
 
-export const CHECK_PHASES = [
-  'waiting',
-  'reordering',
-  'checked',
-  'skipped',
-] as const;
+const CHECK_PHASES = ['waiting', 'reordering', 'checked', 'skipped'] as const;
 
 export type CheckPhase = (typeof CHECK_PHASES)[number];
 
@@ -22,9 +17,9 @@ export const WHOLE_STEP = 'whole';
 
 export type StepId = LayerId | typeof WHOLE_STEP;
 
-export const MOST_CHECK_COMMAND = 500;
+const MOST_CHECK_COMMAND = 500;
 
-export const MOST_REORDERINGS = 1;
+const MOST_REORDERINGS = 1;
 
 export interface CheckStep {
   readonly id: StepId;

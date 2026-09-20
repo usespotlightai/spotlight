@@ -26,7 +26,7 @@ import { RUST_GRAMMAR } from '@change-review/infrastructure/change-stacks/tree-s
 import { TYPESCRIPT_GRAMMARS } from '@change-review/infrastructure/change-stacks/tree-sitter/typescript.grammar';
 import { Language, type Node, Parser } from '@vscode/tree-sitter-wasm';
 
-export const GRAMMARS: readonly Grammar[] = [
+const GRAMMARS: readonly Grammar[] = [
   ...TYPESCRIPT_GRAMMARS,
   GO_GRAMMAR,
   PYTHON_GRAMMAR,

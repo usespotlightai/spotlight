@@ -8,12 +8,12 @@ export interface SkillSecret {
   readonly description: string;
 }
 
-export interface SkillFolderLimits {
+interface SkillFolderLimits {
   readonly files: number;
   readonly characters: number;
 }
 
-export interface SkillFolderSize {
+interface SkillFolderSize {
   readonly files: number;
   readonly characters: number;
   readonly limits: SkillFolderLimits;

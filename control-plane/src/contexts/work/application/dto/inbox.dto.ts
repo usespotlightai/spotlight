@@ -11,19 +11,19 @@ export const NOTE_FORMS = TASK_NOTE_FORMS;
 export const NOTE_VOICES = VOICES;
 export const APPROVAL_STANDING = APPROVAL_STANDINGS;
 
-export interface InboxApprovalInputDto {
+interface InboxApprovalInputDto {
   readonly name: string;
   readonly value: string;
 }
 
-export interface InboxApprovalDto {
+interface InboxApprovalDto {
   readonly tool: string;
   readonly because: string;
   readonly inputs: readonly InboxApprovalInputDto[];
   readonly standing: string;
 }
 
-export interface InboxAuthorDto {
+interface InboxAuthorDto {
   readonly id: string;
   readonly name: string;
   readonly image: string | null;
@@ -45,7 +45,7 @@ export interface InboxMessageDto {
   readonly approval: InboxApprovalDto | null;
 }
 
-export interface InboxStationDto {
+interface InboxStationDto {
   readonly name: string;
   readonly color: string;
   readonly position: number;

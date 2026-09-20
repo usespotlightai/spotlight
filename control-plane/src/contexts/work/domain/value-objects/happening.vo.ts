@@ -30,7 +30,7 @@ export class Happening {
   }
 }
 
-export type HappeningState = 'raised' | 'resolved';
+type HappeningState = 'raised' | 'resolved';
 
 export interface Word {
   readonly happening: Happening;

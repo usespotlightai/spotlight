@@ -6,7 +6,7 @@ export interface WorkspaceSlugRegistry {
   isTaken(slug: WorkspaceSlug): Promise<boolean>;
 }
 
-export interface WorkspaceFinding {
+interface WorkspaceFinding {
   find(workspaceId: WorkspaceId): Promise<Workspace | null>;
 }
 

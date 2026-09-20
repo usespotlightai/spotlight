@@ -40,6 +40,9 @@ jobs:
       - name: Lint and format check
         run: npx biome ci .
 
+      - name: Unused code and dependencies
+        run: npm run knip
+
       - name: Typecheck and build
         run: npm run build
 

@@ -1,5 +1,5 @@
 {
-  "id": "68f21000-f66d-46f1-864a-7803fe9d005b",
+  "id": "2ca4a9da-e1e9-480a-99aa-bc6617c68270",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -979,12 +979,6 @@
           "primaryKey": true,
           "notNull": true
         },
-        "issuer": {
-          "name": "issuer",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
         "account_id": {
           "name": "account_id",
           "type": "text",
@@ -1060,27 +1054,6 @@
         }
       },
       "indexes": {
-        "account_issuer_accountId_uidx": {
-          "name": "account_issuer_accountId_uidx",
-          "columns": [
-            {
-              "expression": "issuer",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "account_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "account_userId_idx": {
           "name": "account_userId_idx",
           "columns": [

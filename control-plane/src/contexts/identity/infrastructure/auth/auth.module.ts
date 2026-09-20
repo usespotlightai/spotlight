@@ -25,7 +25,7 @@ import { AuthModule as BetterAuthModule } from '@thallesp/nestjs-better-auth';
   ],
   exports: [AUTH],
 })
-export class AuthCoreModule {}
+class AuthCoreModule {}
 
 @Module({
   imports: [

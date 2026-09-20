@@ -10,7 +10,7 @@ export type CodeReview = CodeReviewResponseDto;
 
 export type ReviewComment = ReviewCommentResponseDto;
 
-export type SubmittedReview = ReviewResponseDto;
+type SubmittedReview = ReviewResponseDto;
 
 export type ReviewSide = ReviewComment['side'];
 

@@ -6,14 +6,14 @@ export const REVIEW_ROLE = 'review';
 
 export type ReviewAsking = 'opened' | 'mentioned';
 
-export type HappeningState = 'raised' | 'resolved';
+type HappeningState = 'raised' | 'resolved';
 
 export interface MarkWorn {
   readonly kind: string;
   readonly value: string;
 }
 
-export interface SaidWord {
+interface SaidWord {
   readonly body: string;
   readonly path?: string | null;
   readonly from?: number | null;
@@ -21,7 +21,7 @@ export interface SaidWord {
   readonly remark?: string | null;
 }
 
-export interface ConcernsWord {
+interface ConcernsWord {
   readonly branch: string | null;
   readonly marks: readonly MarkWorn[];
 }
@@ -34,7 +34,7 @@ export interface ReviewWord {
   readonly branch: string | null;
 }
 
-export interface OpensWord {
+interface OpensWord {
   readonly onto: string;
   readonly at: string | null;
   readonly title: string;

@@ -1,11 +1,11 @@
 import { InvalidDiffError } from '@change-review/domain/exceptions/invalid-diff.error';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 
-export const MOST_HUNKS = 2_000;
+const MOST_HUNKS = 2_000;
 
-export const MOST_DIFF_LENGTH = 6 * 1024 * 1024;
+const MOST_DIFF_LENGTH = 6 * 1024 * 1024;
 
-export const CONTEXT_LINES = 3;
+const CONTEXT_LINES = 3;
 
 export type DiffFileStatus = 'added' | 'deleted' | 'modified' | 'renamed';
 
