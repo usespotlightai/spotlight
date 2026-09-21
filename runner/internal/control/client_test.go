@@ -93,19 +93,22 @@ func TestClaimReturnsTheRun(t *testing.T) {
 			return
 		}
 		claimPath = r.URL.Path
-		_ = json.NewEncoder(w).Encode(protocol.Run{ID: "run_1"})
+		_ = json.NewEncoder(w).Encode(protocol.Claimed{
+			Kind: protocol.ClaimedRun,
+			Run:  &protocol.Run{ID: "run_1"},
+		})
 	})
 
 	if err := client.Register(context.Background(), protocol.Registration{}); err != nil {
 		t.Fatalf("register: %v", err)
 	}
 
-	run, err := client.Claim(context.Background())
+	claimed, err := client.Claim(context.Background())
 	if err != nil {
 		t.Fatalf("claim: %v", err)
 	}
-	if run == nil || run.ID != "run_1" {
-		t.Fatalf("run %+v", run)
+	if claimed == nil || claimed.Kind != protocol.ClaimedRun || claimed.Run.ID != "run_1" {
+		t.Fatalf("claimed %+v", claimed)
 	}
 	if claimPath != "/api/runners/claim" {
 		t.Errorf("claim path %q", claimPath)
@@ -291,23 +294,33 @@ func TestUseToolSaysWhichToolTheControlPlaneRefused(t *testing.T) {
 	}
 }
 
-func TestChangeStackChecksReadsWhatWaitsToBeChecked(t *testing.T) {
-	var seenPath string
+func TestClaimReadsAChangeStackCheck(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
-		seenPath = r.URL.Path
-		_, _ = w.Write([]byte(`{"waiting":true,"checks":[{"stackId":"s1","repository":null,"command":"go build ./...","steps":[{"id":"whole","patch":"diff"}]}]}`))
+		if r.URL.Path == "/api/runners/register" {
+			_ = json.NewEncoder(w).Encode(protocol.Registered{RunnerID: "runner_1"})
+			return
+		}
+		_, _ = w.Write([]byte(`{"kind":"check","run":null,"check":{"stackId":"s1","runId":"run_1","repository":"widgets","base":"abc","setup":"npm ci","command":"npm test","steps":[{"id":"whole","patch":"diff","stopsOnFailure":true}]}}`))
 	})
 
-	found, err := client.ChangeStackChecks(context.Background(), "run_1")
-	if err != nil {
-		t.Fatalf("checks: %v", err)
+	if err := client.Register(context.Background(), protocol.Registration{}); err != nil {
+		t.Fatalf("register: %v", err)
 	}
 
-	if seenPath != "/api/runs/run_1/change-stack-checks" {
-		t.Errorf("path %q", seenPath)
+	claimed, err := client.Claim(context.Background())
+	if err != nil {
+		t.Fatalf("claim: %v", err)
 	}
-	if !found.Waiting || len(found.Checks) != 1 || found.Checks[0].Repository != nil || found.Checks[0].Steps[0].ID != "whole" {
-		t.Errorf("found %+v", found)
+
+	if claimed == nil || claimed.Kind != protocol.ClaimedCheck || claimed.Check == nil {
+		t.Fatalf("claimed %+v", claimed)
+	}
+	check := claimed.Check
+	if check.StackID != "s1" || check.Repository != "widgets" || check.Base != "abc" || check.Setup != "npm ci" {
+		t.Errorf("check %+v", check)
+	}
+	if len(check.Steps) != 1 || !check.Steps[0].StopsOnFailure {
+		t.Errorf("steps %+v", check.Steps)
 	}
 }
 
@@ -320,14 +333,15 @@ func TestDraftChangeStackHandsOverTheDiffOfOneCheckout(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	if err := client.DraftChangeStack(context.Background(), "run_1", "widgets", "diff --git a b"); err != nil {
+	if err := client.DraftChangeStack(context.Background(), "run_1", "widgets", "diff --git a b", "0123456789abcdef0123456789abcdef01234567"); err != nil {
 		t.Fatalf("draft: %v", err)
 	}
 
 	if seenPath != "/api/runs/run_1/change-stacks" {
 		t.Errorf("path %q", seenPath)
 	}
-	if seen.Repository != "widgets" || seen.Diff != "diff --git a b" {
+	if seen.Repository != "widgets" || seen.Diff != "diff --git a b" ||
+		seen.Base != "0123456789abcdef0123456789abcdef01234567" {
 		t.Errorf("seen %+v", seen)
 	}
 }
@@ -351,7 +365,7 @@ func TestRecordChangeStackCheckPostsEachStep(t *testing.T) {
 	if seenPath != "/api/runs/run_1/change-stack-checks/s1" {
 		t.Errorf("path %q", seenPath)
 	}
-	if len(seen.Steps) != 1 || !seen.Steps[0].Passed || seen.Skipped != "" {
+	if len(seen.Steps) != 1 || !seen.Steps[0].Passed || seen.Skipped != nil {
 		t.Errorf("seen %+v", seen)
 	}
 }

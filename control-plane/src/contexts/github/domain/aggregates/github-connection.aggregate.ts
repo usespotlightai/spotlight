@@ -3,7 +3,7 @@ import { WorkspaceDisconnected } from '@github/domain/events/workspace-disconnec
 import { InstallationClaimedError } from '@github/domain/exceptions/installation-claimed.error';
 import { NotYoursToConnectError } from '@github/domain/exceptions/not-yours-to-connect.error';
 import type { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
-import { EventRecorder } from '@shared-kernel/domain/aggregates/event-recorder';
+import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 

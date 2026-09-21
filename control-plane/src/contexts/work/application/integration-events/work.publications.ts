@@ -1,20 +1,20 @@
-import { publishing } from '@shared-kernel/application/ports/event-publication.port';
 import {
   PULL_REQUEST_OPENED,
   type PullRequestOpenedIntegrationEvent,
-} from '@work/application/integration-events/pull-request-opened.integration-event';
+} from '@shared-kernel/application/integration-events/pull-request-opened.integration-event';
 import {
   RUN_ENDED,
   type RunEndedIntegrationEvent,
-} from '@work/application/integration-events/run-ended.integration-event';
+} from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import {
   TASK_DELETED,
   type TaskDeletedIntegrationEvent,
-} from '@work/application/integration-events/task-deleted.integration-event';
+} from '@shared-kernel/application/integration-events/task-deleted.integration-event';
 import {
   TASK_HANDED_TO_RUN,
   type TaskHandedToRunIntegrationEvent,
-} from '@work/application/integration-events/task-handed-to-run.integration-event';
+} from '@shared-kernel/application/integration-events/task-handed-to-run.integration-event';
+import { publishing } from '@shared-kernel/application/ports/event-publication.port';
 import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import type { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';

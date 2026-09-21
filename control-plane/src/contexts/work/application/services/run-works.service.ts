@@ -1,6 +1,8 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { ChatRunWork } from '@work/application/services/chat-run-work';
 import type { RunWork } from '@work/application/services/run-work';
 import { TaskRunWork } from '@work/application/services/task-run-work';
@@ -10,10 +12,16 @@ import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { repositoryNamedIn } from '@work/domain/services/repository-named';
 
 export interface WorkedRun {
   readonly run: Run;
   readonly work: RunWork | null;
+}
+
+export interface CheckedRepository {
+  readonly workspaceId: WorkspaceId;
+  readonly repository: Repository;
 }
 
 export class RunWorks {
@@ -35,6 +43,31 @@ export class RunWorks {
     run.assertHeldBy(RunnerId.of(runnerId));
 
     return { run, work: await this.workOf(run) };
+  }
+
+  async repositoryForCheck(
+    runId: RunId,
+    name: string,
+  ): Promise<CheckedRepository | null> {
+    const run = await this.runs.findById(runId);
+
+    if (!run?.stationId) {
+      return null;
+    }
+
+    const reviewed =
+      (await run.subject?.match<Promise<Repository | null>>({
+        task: async (taskId) =>
+          (await this.tasks.find(taskId))?.reviewed ?? null,
+        chat: async () => null,
+      })) ?? null;
+
+    const repository = repositoryNamedIn(name, {
+      reviewed,
+      line: await this.lines.holding(run.stationId),
+    });
+
+    return repository ? { workspaceId: run.workspaceId, repository } : null;
   }
 
   private async workOf(run: Run): Promise<RunWork | null> {

@@ -5,6 +5,7 @@ CREATE TYPE "public"."review_state" AS ENUM('submitted', 'posted', 'failed', 'wi
 CREATE TYPE "public"."review_sync_kind" AS ENUM('review', 'reply', 'edit', 'delete');--> statement-breakpoint
 CREATE TYPE "public"."review_sync_state" AS ENUM('pending', 'done', 'failed');--> statement-breakpoint
 CREATE TYPE "public"."review_verdict" AS ENUM('comment', 'approve', 'request-changes');--> statement-breakpoint
+CREATE TYPE "public"."check_phase" AS ENUM('waiting', 'reordering', 'checked', 'skipped');--> statement-breakpoint
 CREATE TYPE "public"."workspace_role" AS ENUM('owner', 'admin', 'member');--> statement-breakpoint
 CREATE TYPE "public"."run_state" AS ENUM('queued', 'claimed', 'completed', 'failed');--> statement-breakpoint
 CREATE TABLE "event_delivery" (
@@ -31,14 +32,17 @@ CREATE TABLE "change_stack" (
 	"task_id" text,
 	"workspace_id" text NOT NULL,
 	"repository" text,
+	"base_commit" text,
 	"state" "change_stack_state" NOT NULL,
 	"files" jsonb NOT NULL,
 	"cohorts" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"failure" text,
 	"drafted_at" timestamp NOT NULL,
 	"settled_at" timestamp,
-	"check" jsonb,
 	"facts" jsonb NOT NULL,
+	"check_command" text,
+	"check_setup" text,
+	"reordering" boolean DEFAULT false NOT NULL,
 	"work_attempts" integer DEFAULT 0 NOT NULL,
 	"work_due_at" timestamp,
 	"version" integer DEFAULT 0 NOT NULL
@@ -98,6 +102,23 @@ CREATE TABLE "review_sync" (
 	"due_at" timestamp NOT NULL,
 	"failure" text,
 	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "stack_check" (
+	"stack_id" text PRIMARY KEY NOT NULL,
+	"run_id" text NOT NULL,
+	"workspace_id" text NOT NULL,
+	"command" text NOT NULL,
+	"setup" text,
+	"phase" "check_phase" NOT NULL,
+	"entries" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"rounds" integer DEFAULT 0 NOT NULL,
+	"outcome" jsonb,
+	"claimed_by" text,
+	"attempts" integer DEFAULT 0 NOT NULL,
+	"lease_expires_at" timestamp,
+	"waiting_since" timestamp NOT NULL,
+	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "configuration_home" (
@@ -343,6 +364,7 @@ CREATE TABLE "station" (
 	"effort" text,
 	"agent_prompt" text,
 	"check" text,
+	"setup" text,
 	"diffs" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
@@ -515,6 +537,8 @@ CREATE INDEX "review_comment_task_idx" ON "review_comment" USING btree ("task_id
 CREATE UNIQUE INDEX "review_comment_github_idx" ON "review_comment" USING btree ("workspace_id","github_id");--> statement-breakpoint
 CREATE INDEX "review_sync_due_idx" ON "review_sync" USING btree ("state","due_at");--> statement-breakpoint
 CREATE INDEX "review_sync_task_idx" ON "review_sync" USING btree ("task_id");--> statement-breakpoint
+CREATE INDEX "stack_check_run_idx" ON "stack_check" USING btree ("run_id");--> statement-breakpoint
+CREATE INDEX "stack_check_waiting_idx" ON "stack_check" USING btree ("workspace_id","phase");--> statement-breakpoint
 CREATE INDEX "team_workspace_idx" ON "team" USING btree ("workspace_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "team_workspace_key_idx" ON "team" USING btree ("workspace_id","key");--> statement-breakpoint
 CREATE UNIQUE INDEX "team_invite_team_email_idx" ON "team_invite" USING btree ("team_id","email") WHERE "team_invite"."accepted_at" is null and "team_invite"."revoked_at" is null;--> statement-breakpoint

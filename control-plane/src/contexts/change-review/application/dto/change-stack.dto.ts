@@ -28,7 +28,7 @@ interface DiffHunkDto {
   readonly patch: string;
 }
 
-export interface DiffFileDto {
+interface DiffFileDto {
   readonly path: string;
   readonly previousPath: string | null;
   readonly status: (typeof DIFF_FILE_STATUS_NAMES)[number];

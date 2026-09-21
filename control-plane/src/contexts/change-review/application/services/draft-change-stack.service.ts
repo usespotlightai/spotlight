@@ -18,7 +18,7 @@ import {
   type SymbolIndex,
 } from '@change-review/domain/services/symbol-index';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
-import { StackCheck } from '@change-review/domain/value-objects/stack-check.vo';
+import type { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -52,7 +52,8 @@ export class DraftChangeStack {
     input: {
       diff: string;
       repository: string | null;
-      check?: StackCheck | null;
+      base: string | null;
+      request: CheckRequest | null;
     },
   ): Promise<ChangeStack> {
     if (!this.drafter.available) {
@@ -69,9 +70,10 @@ export class DraftChangeStack {
       taskId: run.taskId,
       workspaceId: run.workspaceId,
       repository: input.repository,
+      base: input.base,
       diff,
       facts: StackFacts.of(factsOf(diff, this.reading, index)),
-      check: input.check ?? null,
+      request: input.request,
       now: this.clock.now(),
     });
 

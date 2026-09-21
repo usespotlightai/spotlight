@@ -11,8 +11,10 @@ import (
 	"usespotlight.ai/runner/internal/account"
 	"usespotlight.ai/runner/internal/config"
 	"usespotlight.ai/runner/internal/control"
+	"usespotlight.ai/runner/internal/gitproxy"
 	"usespotlight.ai/runner/internal/protocol"
 	"usespotlight.ai/runner/internal/session"
+	"usespotlight.ai/runner/internal/stackcheck"
 	"usespotlight.ai/runner/internal/workspace"
 )
 
@@ -96,22 +98,28 @@ func run() error {
 			RetireAt:    cfg.RetireAt,
 		},
 		log,
-		func(ctx context.Context, claimed protocol.Run) {
-			if err := session.Execute(ctx, claimed, session.Options{
-				WorkspaceRoot: cfg.WorkspaceRoot,
-				Journal:       client,
-				Log:           log,
-				AgentUser:     agentUser,
-				PrepareHook:   cfg.PrepareHook,
-				PublishHook:   cfg.PublishHook,
-				HookTimeout:   cfg.HookTimeout,
-				ControlPlane:  cfg.URL,
-				Token:         cfg.Token,
-			}); err != nil {
-				log.Error("run failed", "run", claimed.ID, "error", err)
-			}
+		control.Work{
+			Run: func(ctx context.Context, claimed protocol.Run) {
+				if err := session.Execute(ctx, claimed, session.Options{
+					WorkspaceRoot: cfg.WorkspaceRoot,
+					Journal:       client,
+					Log:           log,
+					AgentUser:     agentUser,
+					PrepareHook:   cfg.PrepareHook,
+					PublishHook:   cfg.PublishHook,
+					HookTimeout:   cfg.HookTimeout,
+					ControlPlane:  cfg.URL,
+					Token:         cfg.Token,
+				}); err != nil {
+					log.Error("run failed", "run", claimed.ID, "error", err)
+				}
 
-			sweep(ctx)
+				sweep(ctx)
+			},
+			Check: func(ctx context.Context, claimed protocol.StackCheck) {
+				check(ctx, client, claimed, cfg, agentUser, log)
+				sweep(ctx)
+			},
 		},
 	)
 	if err != nil {
@@ -120,4 +128,33 @@ func run() error {
 
 	log.Info("runner stopped")
 	return nil
+}
+
+func check(
+	ctx context.Context,
+	client *control.Client,
+	claimed protocol.StackCheck,
+	cfg config.Config,
+	agentUser *account.User,
+	log *slog.Logger,
+) {
+	log = log.With("stack", claimed.StackID, "run", claimed.RunID)
+
+	serving, err := gitproxy.Serve(cfg.URL, cfg.Token, claimed.RunID)
+	if err != nil {
+		log.Warn("could not serve git for a check", "error", err)
+		return
+	}
+	defer func() {
+		if err := serving.Close(); err != nil {
+			log.Warn("could not stop serving git", "error", err)
+		}
+	}()
+
+	stackcheck.Perform(ctx, client, claimed, stackcheck.Options{
+		Dir:    cfg.WorkspaceRoot,
+		Remote: serving.Remote,
+		RunAs:  agentUser,
+		Log:    log,
+	})
 }

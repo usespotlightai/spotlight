@@ -1,4 +1,4 @@
-import type { StackCheck } from '@change-review/domain/value-objects/stack-check.vo';
+import type { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -12,7 +12,7 @@ export interface ReviewedRun {
   readonly id: RunId;
   readonly workspaceId: WorkspaceId;
   readonly taskId: TaskId | null;
-  readonly check: StackCheck | null;
+  readonly request: CheckRequest | null;
   readonly ended: boolean;
 }
 

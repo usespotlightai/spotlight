@@ -1,4 +1,5 @@
 import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
+import type { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
 
 const PATH = /[\w@.-]+(?:\/[\w@.-]+)+\.[a-z]{1,5}/g;
@@ -37,10 +38,13 @@ export interface StackRevision {
   readonly failed: readonly FailedLayer[];
 }
 
-export const revisionOf = (stack: ChangeStack): StackRevision | null => {
-  const outcome = stack.check?.outcome;
+export const revisionOf = (
+  stack: ChangeStack,
+  check: StackCheck,
+): StackRevision | null => {
+  const outcome = check.outcome;
 
-  if (!stack.check || outcome?.state !== 'checked') {
+  if (outcome?.state !== 'checked') {
     return null;
   }
 
@@ -106,7 +110,7 @@ export const revisionOf = (stack: ChangeStack): StackRevision | null => {
   return failed.length === 0
     ? null
     : {
-        command: stack.check.command,
+        command: check.request.command,
         stack: stack.cohorts.map((cohort) => ({
           title: cohort.title,
           layers: cohort.layers.map((layer) => ({

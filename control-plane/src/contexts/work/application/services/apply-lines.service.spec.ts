@@ -50,6 +50,7 @@ const station = (key: string): StationPlan => ({
   effort: null,
   agentPrompt: null,
   check: null,
+  setup: null,
   diffs: false,
   tools: [],
   skills: [],

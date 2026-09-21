@@ -1,8 +1,8 @@
+import type { TeamCreated } from '@identity/domain/events/team-created.event';
 import {
   TEAM_CREATED,
   type TeamCreatedIntegrationEvent,
-} from '@identity/application/integration-events/team-created.integration-event';
-import type { TeamCreated } from '@identity/domain/events/team-created.event';
+} from '@shared-kernel/application/integration-events/team-created.integration-event';
 import { publishing } from '@shared-kernel/application/ports/event-publication.port';
 
 export const IDENTITY_PUBLICATIONS = [

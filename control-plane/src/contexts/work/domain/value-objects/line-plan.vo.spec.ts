@@ -28,6 +28,7 @@ const station = (
   effort: null,
   agentPrompt: null,
   check: null,
+  setup: null,
   diffs: false,
   tools: [],
   skills: [],

@@ -10,6 +10,7 @@ import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { repositoryNamedIn } from '@work/domain/services/repository-named';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
@@ -49,15 +50,10 @@ export class TaskRunWork implements RunWork {
       return null;
     }
 
-    const reviewed = this.task.reviewed;
-
-    if (reviewed) {
-      return reviewed.name === name ? reviewed : null;
-    }
-
-    const line = await this.lines.holding(this.run.stationId);
-
-    return line?.repositoryNamed(name) ?? null;
+    return repositoryNamedIn(name, {
+      reviewed: this.task.reviewed,
+      line: await this.lines.holding(this.run.stationId),
+    });
   }
 
   async clearFor(declared: DeclaredTool, call: ToolCall): Promise<Cleared> {

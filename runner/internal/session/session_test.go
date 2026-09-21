@@ -22,6 +22,7 @@ import (
 type drafted struct {
 	repository string
 	diff       string
+	base       string
 }
 
 type journal struct {
@@ -64,11 +65,11 @@ func (j *journal) UseTool(
 }
 
 func (j *journal) DraftChangeStack(
-	_ context.Context, _ string, repository, diff string,
+	_ context.Context, _ string, repository, diff, base string,
 ) error {
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	j.drafted = append(j.drafted, drafted{repository: repository, diff: diff})
+	j.drafted = append(j.drafted, drafted{repository: repository, diff: diff, base: base})
 	return nil
 }
 
@@ -114,14 +115,6 @@ func (j *journal) Attachment(_ context.Context, _ string, id string, into io.Wri
 	}
 	_, err := io.WriteString(into, content)
 	return err
-}
-
-func (j *journal) ChangeStackChecks(context.Context, string) (protocol.StackChecks, error) {
-	return protocol.StackChecks{}, nil
-}
-
-func (j *journal) RecordChangeStackCheck(context.Context, string, string, protocol.StackChecked) error {
-	return nil
 }
 
 func (j *journal) typed(kind protocol.EventType) []protocol.Event {

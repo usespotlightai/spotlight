@@ -5,12 +5,12 @@ import type { ForgetTaskAcrossAggregates } from '@change-review/application/serv
 import type { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
 import type { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
 import { changeReviewSubscribers } from '@change-review/presentation/events/change-review.subscribers';
-import type { ReviewCommentReceivedIntegrationEvent } from '@github/application/integration-events/review-comment-received.integration-event';
+import type { ReviewCommentReceivedIntegrationEvent } from '@shared-kernel/application/integration-events/review-comment-received.integration-event';
+import type { RunEndedIntegrationEvent } from '@shared-kernel/application/integration-events/run-ended.integration-event';
+import type { TaskHandedToRunIntegrationEvent } from '@shared-kernel/application/integration-events/task-handed-to-run.integration-event';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { RunEndedIntegrationEvent } from '@work/application/integration-events/run-ended.integration-event';
-import type { TaskHandedToRunIntegrationEvent } from '@work/application/integration-events/task-handed-to-run.integration-event';
 import { describe, expect, it, vi } from 'vitest';
 
 const RECEIVED: ReviewCommentReceivedIntegrationEvent = {
@@ -39,6 +39,7 @@ const hearing = () => {
     {} as unknown as ReviewReactions,
     { receive } as unknown as ReceiveReviewComment,
     {} as unknown as SignalReviewing,
+    {} as never,
   ).find((each) => each.kinds.includes(RECEIVED.kind));
 
   if (!subscriber) {
@@ -102,6 +103,7 @@ describe('change review hearing a run begin and end', () => {
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
       { began, ended } as unknown as SignalReviewing,
+      {} as never,
     );
     const hearing = (kind: string) => {
       const found = subscribers.find((each) => each.kinds.includes(kind));

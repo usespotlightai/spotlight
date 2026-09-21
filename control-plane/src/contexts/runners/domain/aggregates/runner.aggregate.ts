@@ -5,7 +5,7 @@ import { RunnerRevoked } from '@runners/domain/events/runner-revoked.event';
 import { RevokedRunnerError } from '@runners/domain/exceptions/revoked-runner.error';
 import type { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
 import type { RunnerName } from '@runners/domain/value-objects/runner-name.vo';
-import { EventRecorder } from '@shared-kernel/domain/aggregates/event-recorder';
+import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';

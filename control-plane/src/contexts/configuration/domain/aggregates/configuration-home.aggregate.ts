@@ -2,7 +2,7 @@ import { ConfigurationMoveStarted } from '@configuration/domain/events/configura
 import { ConfigurationMoved } from '@configuration/domain/events/configuration-moved.event';
 import { ConfigurationPinned } from '@configuration/domain/events/configuration-pinned.event';
 import { InvalidConfigurationMoveError } from '@configuration/domain/exceptions/invalid-configuration-move.error';
-import { EventRecorder } from '@shared-kernel/domain/aggregates/event-recorder';
+import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';

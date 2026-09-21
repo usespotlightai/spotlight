@@ -172,6 +172,56 @@ export type ClaimedRunResponseDto = {
   };
 };
 
+export type ClaimedCheckStepResponseDto = {
+  /**
+   * The whole change, or the layer this step reaches
+   */
+  id: string;
+  /**
+   * What to apply on the base before running
+   */
+  patch: string;
+  /**
+   * Whether a failure here leaves the later steps unrun
+   */
+  stopsOnFailure: boolean;
+  /**
+   * Whether the checkout must be made ready again once this step applies, because it installs something the step before it did not
+   */
+  runsSetup: boolean;
+};
+
+export type ClaimedCheckResponseDto = {
+  stackId: string;
+  runId: string;
+  /**
+   * Which checkout to check
+   */
+  repository: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * The commit to check out
+   */
+  base: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * What makes the checkout ready before the check runs
+   */
+  setup: {
+    [key: string]: unknown;
+  } | null;
+  command: string;
+  steps: Array<ClaimedCheckStepResponseDto>;
+};
+
+export type ClaimedWorkResponseDto = {
+  kind: 'run' | 'check';
+  run: ClaimedRunResponseDto | null;
+  check: ClaimedCheckResponseDto | null;
+};
+
 export type RunAttachmentResponseDto = {
   id: string;
   /**
@@ -1400,32 +1450,23 @@ export type DraftChangeStackRequestDto = {
   repository: {
     [key: string]: unknown;
   } | null;
+  /**
+   * The commit the checkout stood at when the run began
+   */
+  base: {
+    [key: string]: unknown;
+  } | null;
 };
 
-export type ChangeStackCheckStepResponseDto = {
-  id: string;
+export type SkippedCheckRequestDto = {
   /**
-   * What to apply to where the run began, as git apply takes it
+   * Why the runner could not check the stack at all
    */
-  patch: string;
-};
-
-export type ChangeStackCheckResponseDto = {
-  stackId: string;
-  repository: string | null;
-  command: string;
+  code: 'no-base' | 'no-checkout' | 'checkout-failed' | 'setup-failed' | 'no-room' | 'out-of-time';
   /**
-   * The whole change first, then each layer with the layers before it
+   * What it printed while trying, where that helps
    */
-  steps: Array<ChangeStackCheckStepResponseDto>;
-};
-
-export type ChangeStackChecksResponseDto = {
-  /**
-   * Whether a stack with a check is still being drafted
-   */
-  waiting: boolean;
-  checks: Array<ChangeStackCheckResponseDto>;
+  detail?: string | null;
 };
 
 export type CheckedStepRequestDto = {
@@ -1443,9 +1484,9 @@ export type CheckedStepRequestDto = {
 
 export type RecordChangeStackCheckRequestDto = {
   /**
-   * Why the runner could not check the stack at all
+   * Set where the stack could not be checked at all
    */
-  skipped?: string | null;
+  skipped?: SkippedCheckRequestDto | null;
   steps?: Array<CheckedStepRequestDto>;
 };
 
@@ -1777,7 +1818,7 @@ export type ClaimRunErrors = {
 };
 
 export type ClaimRunResponses = {
-  200: ClaimedRunResponseDto;
+  200: ClaimedWorkResponseDto;
   /**
    * Nothing queued for this pool
    */
@@ -3676,32 +3717,6 @@ export type DraftChangeStackResponses = {
 };
 
 export type DraftChangeStackResponse = DraftChangeStackResponses[keyof DraftChangeStackResponses];
-
-export type ChangeStackChecksData = {
-  body?: never;
-  path: {
-    runId: string;
-  };
-  query?: never;
-  url: '/runs/{runId}/change-stack-checks';
-};
-
-export type ChangeStackChecksErrors = {
-  /**
-   * Missing or wrong enrollment token
-   */
-  401: unknown;
-  /**
-   * Not a run this runner worked
-   */
-  404: unknown;
-};
-
-export type ChangeStackChecksResponses = {
-  200: ChangeStackChecksResponseDto;
-};
-
-export type ChangeStackChecksResponse = ChangeStackChecksResponses[keyof ChangeStackChecksResponses];
 
 export type RecordChangeStackCheckData = {
   body: RecordChangeStackCheckRequestDto;

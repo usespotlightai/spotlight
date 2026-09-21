@@ -109,14 +109,14 @@ func (c *Client) Trace(
 	return out, nil
 }
 
-func (c *Client) Claim(ctx context.Context) (*protocol.Run, error) {
+func (c *Client) Claim(ctx context.Context) (*protocol.Claimed, error) {
 	ctx, cancel := context.WithTimeout(ctx, PollTimeout+15*time.Second)
 	defer cancel()
 
-	var run protocol.Run
+	var claimed protocol.Claimed
 	const path = "/api/runners/claim"
 
-	status, err := c.request(ctx, http.MethodPost, path, nil, &run)
+	status, err := c.request(ctx, http.MethodPost, path, nil, &claimed)
 	if err != nil {
 		return nil, fmt.Errorf("claim: %w", err)
 	}
@@ -124,7 +124,7 @@ func (c *Client) Claim(ctx context.Context) (*protocol.Run, error) {
 		return nil, nil
 	}
 
-	return &run, nil
+	return &claimed, nil
 }
 
 func (c *Client) Said(ctx context.Context, runID string) ([]protocol.Said, error) {
@@ -213,26 +213,15 @@ func (c *Client) Attachment(
 	return nil
 }
 
-func (c *Client) DraftChangeStack(ctx context.Context, runID, repository, diff string) error {
+func (c *Client) DraftChangeStack(ctx context.Context, runID, repository, diff, base string) error {
 	path := fmt.Sprintf("/api/runs/%s/change-stacks", url.PathEscape(runID))
-	handed := protocol.ChangeStackDraft{Diff: diff, Repository: repository}
+	handed := protocol.ChangeStackDraft{Diff: diff, Repository: repository, Base: base}
 
 	if err := c.do(ctx, http.MethodPost, path, handed, nil); err != nil {
 		return fmt.Errorf("hand over what a run changed: %w", err)
 	}
 
 	return nil
-}
-
-func (c *Client) ChangeStackChecks(ctx context.Context, runID string) (protocol.StackChecks, error) {
-	path := fmt.Sprintf("/api/runs/%s/change-stack-checks", url.PathEscape(runID))
-
-	var out protocol.StackChecks
-	if err := c.do(ctx, http.MethodGet, path, nil, &out); err != nil {
-		return protocol.StackChecks{}, fmt.Errorf("ask what change stacks to check: %w", err)
-	}
-
-	return out, nil
 }
 
 func (c *Client) RecordChangeStackCheck(

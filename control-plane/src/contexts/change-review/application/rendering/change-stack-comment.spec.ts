@@ -1,14 +1,14 @@
 import { ChangeStackComment } from '@change-review/application/rendering/change-stack-comment';
+import { checkReasonOf } from '@change-review/application/rendering/check-reason';
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
+import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import {
   Diff,
   type DiffFile,
 } from '@change-review/domain/value-objects/diff.vo';
-import {
-  StackCheck,
-  WHOLE_STEP,
-} from '@change-review/domain/value-objects/stack-check.vo';
+import { WHOLE_STEP } from '@change-review/domain/value-objects/stack-check.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -41,73 +41,85 @@ const checked = () =>
     taskId: null,
     workspaceId: WorkspaceId.of('workspace-1'),
     repository: null,
+    base: null,
     diff: Diff.of(['schema.ts', 'api.ts', 'package-lock.json'].map(changed)),
     facts: StackFacts.none(),
-    check: StackCheck.named('npx tsc --noEmit'),
+    request: CheckRequest.of('npm test', null),
     now: NOW,
-  })
-    .propose(
-      [
-        {
-          kind: 'change',
-          title: 'Task labels',
-          intent: 'Labels',
-          layers: [['h1'], ['h2']].map((hunks, at) => ({
-            title: at === 0 ? 'Add the label table' : 'Add the label API',
-            summary: 'A layer',
-            dependsOn: [],
-            ranges: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
-            notes: [
-              {
-                path: at === 0 ? 'schema.ts' : 'api.ts',
-                note: 'Why it changes',
-              },
-            ],
-          })),
-        },
-        {
-          kind: 'incidental',
-          title: 'Update lockfiles',
-          intent: 'Incidental',
-          layers: [
+  }).propose(
+    [
+      {
+        kind: 'change',
+        title: 'Task labels',
+        intent: 'Labels',
+        layers: [['h1'], ['h2']].map((hunks, at) => ({
+          title: at === 0 ? 'Add the label table' : 'Add the label API',
+          summary: 'A layer',
+          dependsOn: [],
+          ranges: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
+          notes: [
             {
-              title: 'Update lockfiles',
-              summary: 'Incidental',
-              dependsOn: [],
-              ranges: [{ hunk: HunkId.of('h3') }],
-              notes: [],
+              path: at === 0 ? 'schema.ts' : 'api.ts',
+              note: 'Why it changes',
             },
           ],
-        },
-      ],
-      NOW,
-    )
-    .recordCheck(
-      [
-        { step: WHOLE_STEP, passed: true, output: '', tookMs: 1 },
-        {
-          step: LayerId.of('c1.l1'),
-          passed: false,
-          output: 'error',
-          tookMs: 1,
-        },
-      ],
-      NOW,
-    )
-    .keepLayers();
+        })),
+      },
+      {
+        kind: 'incidental',
+        title: 'Update lockfiles',
+        intent: 'Incidental',
+        layers: [
+          {
+            title: 'Update lockfiles',
+            summary: 'Incidental',
+            dependsOn: [],
+            ranges: [{ hunk: HunkId.of('h3') }],
+            notes: [],
+          },
+        ],
+      },
+    ],
+    NOW,
+  );
 
 describe('ChangeStackComment', () => {
   it('links the stack and marks each layer that does not build', () => {
     const stack = checked();
+    const check = StackCheck.begin({
+      stackId: stack.id,
+      runId: stack.runId,
+      workspaceId: stack.workspaceId,
+      request: CheckRequest.of('npx tsc --noEmit', null),
+      entries: stack.entries(),
+      now: NOW,
+    })
+      .recorded(
+        { steps: stack.checkSteps(stack.entries()), layers: stack.layers() },
+        [
+          { step: WHOLE_STEP, passed: true, output: '', tookMs: 1 },
+          {
+            step: LayerId.of('c1.l1'),
+            passed: false,
+            output: 'does not build',
+            tookMs: 1,
+          },
+        ],
+        NOW,
+      )
+      .keptLayers();
     const body = ChangeStackComment.of(
       {
         cohorts: stack.cohorts,
-        check: stack.check && {
-          command: stack.check.command,
-          state: stack.checkStateAt(NOW) ?? 'waiting',
-          reason: stack.checkReasonAt(NOW),
-          whole: stack.check.outcome?.whole ?? null,
-          layers: stack.check.outcome?.layers ?? [],
+        check: {
+          command: check.request.command,
+          state: check.stateAt(NOW),
+          reason: checkReasonOf({
+            skipped: check.skippedAt(NOW),
+            wholeFailed: check.wholeFailed,
+          }),
+          whole: check.outcome?.whole ?? null,
+          layers: check.outcome?.layers ?? [],
         },
       },
       'https://app.example/w/acme/team/t1/runs/run-1/changes',

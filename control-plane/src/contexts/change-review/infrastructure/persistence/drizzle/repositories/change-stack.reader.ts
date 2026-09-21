@@ -5,45 +5,77 @@ import type {
 import type {
   ChangeStackReaderPort,
   ChangeStackSummary,
-  RunStackChecks,
 } from '@change-review/application/ports/change-stack-reader.port';
-import { checkStepsOf } from '@change-review/domain/services/check-steps';
+import { checkReasonOf } from '@change-review/application/rendering/check-reason';
+import { WAITING_LIMIT_MS } from '@change-review/domain/aggregates/stack-check.aggregate';
 import { tallyOf } from '@change-review/domain/value-objects/diff.vo';
-import type { StackProgress } from '@change-review/domain/value-objects/stack-progress.vo';
 import {
-  cohortsOf,
+  nobodyChecked,
+  skipOf,
+} from '@change-review/domain/value-objects/stack-check.vo';
+import {
+  checkedStepOf,
   diffOf,
-  factsOf,
-  progressOf,
-  checkOf as storedCheckOf,
 } from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.mapping';
 import { changeStack } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.schema';
+import { stackCheck } from '@change-review/infrastructure/persistence/drizzle/schemas/stack-check.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import { and, asc, desc, eq, inArray, isNotNull, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, ne } from 'drizzle-orm';
 
 const PROGRESS = {
   state: changeStack.state,
   failure: changeStack.failure,
   draftedAt: changeStack.draftedAt,
   settledAt: changeStack.settledAt,
-  check: changeStack.check,
 };
 
-const checkOf = (progress: StackProgress, now: Date): StackCheckDto | null => {
-  const state = progress.checkStateAt(now);
+const CHECK = {
+  command: stackCheck.command,
+  phase: stackCheck.phase,
+  outcome: stackCheck.outcome,
+  waitingSince: stackCheck.waitingSince,
+};
 
-  return state && progress.check
-    ? {
-        command: progress.check.command,
-        state,
-        reason: progress.checkReasonAt(now),
-        whole: progress.check.outcome?.whole ?? null,
-        layers: progress.check.outcome?.layers ?? [],
-      }
-    : null;
+type CheckRow = {
+  [K in keyof typeof CHECK]: (typeof CHECK)[K]['_']['data'] | null;
+};
+
+const checkOf = (row: CheckRow | null, now: Date): StackCheckDto | null => {
+  if (!row?.command || !row.phase || !row.waitingSince) {
+    return null;
+  }
+
+  const lapsed = now.getTime() - row.waitingSince.getTime() > WAITING_LIMIT_MS;
+  const state =
+    row.phase === 'waiting'
+      ? lapsed
+        ? 'skipped'
+        : 'waiting'
+      : row.phase === 'reordering'
+        ? 'waiting'
+        : row.phase;
+
+  const skipped =
+    state === 'skipped'
+      ? row.outcome?.skip
+        ? skipOf(row.outcome.skip.code, row.outcome.skip.detail)
+        : nobodyChecked()
+      : null;
+
+  return {
+    command: row.command,
+    state,
+    reason: checkReasonOf({
+      skipped,
+      wholeFailed:
+        row.outcome?.state === 'checked' && row.outcome.whole?.passed === false,
+    }),
+    whole: row.outcome?.whole ? checkedStepOf(row.outcome.whole) : null,
+    layers: row.outcome?.layers.map(checkedStepOf) ?? [],
+  };
 };
 
 @Injectable()
@@ -62,8 +94,10 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
         cohorts: changeStack.cohorts,
         files: changeStack.files,
         ...PROGRESS,
+        check: CHECK,
       })
       .from(changeStack)
+      .leftJoin(stackCheck, eq(stackCheck.stackId, changeStack.id))
       .where(
         and(
           eq(changeStack.taskId, taskId.value),
@@ -85,7 +119,7 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
       repository: row.repository,
       state: row.state,
       cohorts: row.cohorts,
-      check: checkOf(progressOf(row), now),
+      check: checkOf(row.check, now),
       added: tally.added,
       removed: tally.removed,
     };
@@ -99,8 +133,10 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
         files: changeStack.files,
         cohorts: changeStack.cohorts,
         ...PROGRESS,
+        check: CHECK,
       })
       .from(changeStack)
+      .leftJoin(stackCheck, eq(stackCheck.stackId, changeStack.id))
       .where(eq(changeStack.runId, runId.value))
       .orderBy(asc(changeStack.draftedAt));
 
@@ -113,61 +149,7 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
       settledAt: row.settledAt?.toISOString() ?? null,
       files: row.files,
       cohorts: row.cohorts,
-      check: checkOf(progressOf(row), now),
+      check: checkOf(row.check, now),
     }));
-  }
-
-  async checksOfRun(runId: RunId, now: Date): Promise<RunStackChecks> {
-    const rows = await this.context.db
-      .select({ id: changeStack.id, ...PROGRESS })
-      .from(changeStack)
-      .where(
-        and(eq(changeStack.runId, runId.value), isNotNull(changeStack.check)),
-      )
-      .orderBy(asc(changeStack.draftedAt));
-    const progress = rows.map((row) => ({ id: row.id, of: progressOf(row) }));
-    const pending = progress
-      .filter(
-        (each) =>
-          each.of.checkStateAt(now) === 'waiting' && !each.of.check?.reordering,
-      )
-      .map((each) => each.id);
-
-    const plans =
-      pending.length === 0
-        ? []
-        : await this.context.db
-            .select({
-              id: changeStack.id,
-              repository: changeStack.repository,
-              files: changeStack.files,
-              cohorts: changeStack.cohorts,
-              facts: changeStack.facts,
-              check: changeStack.check,
-            })
-            .from(changeStack)
-            .where(inArray(changeStack.id, pending))
-            .orderBy(asc(changeStack.draftedAt));
-
-    return {
-      waiting: progress.some(
-        (each) =>
-          each.of.state === 'drafting' ||
-          (each.of.check?.reordering === true &&
-            each.of.checkStateAt(now) === 'waiting'),
-      ),
-      checks: plans.map((plan) => ({
-        stackId: plan.id,
-        repository: plan.repository,
-        command: plan.check?.command ?? '',
-        files: plan.files,
-        steps: checkStepsOf({
-          hunks: diffOf(plan.files).hunks.map((hunk) => hunk.id),
-          facts: factsOf(plan.facts),
-          cohorts: cohortsOf(plan.cohorts),
-          entries: storedCheckOf(plan.check)?.entries ?? [],
-        }),
-      })),
-    };
   }
 }

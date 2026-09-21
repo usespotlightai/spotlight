@@ -3,8 +3,6 @@ package stackcheck
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -17,37 +15,33 @@ import (
 
 	"usespotlight.ai/runner/internal/account"
 	"usespotlight.ai/runner/internal/protocol"
+	"usespotlight.ai/runner/internal/workspace"
 )
 
 const (
-	BaseRef   = "refs/spotlight/base"
-	WholeStep = "whole"
+	BaseRef = "refs/spotlight/base"
 
-	checksPath   = ".spotlight/checks"
 	mostOutput   = 16 * 1024
-	mostLinked   = 1000
 	waitDelay    = 5 * time.Second
 	shell        = "/bin/sh"
-	defaultWait  = 15 * time.Minute
-	defaultPoll  = 5 * time.Second
 	defaultStep  = 5 * time.Minute
-	defaultTotal = 20 * time.Minute
+	defaultSetup = 15 * time.Minute
+	defaultTotal = 60 * time.Minute
 )
 
-type Source interface {
-	ChangeStackChecks(ctx context.Context, runID string) (protocol.StackChecks, error)
+type Reporter interface {
 	RecordChangeStackCheck(ctx context.Context, runID, stackID string, checked protocol.StackChecked) error
 }
 
 type Options struct {
-	Dir       string
-	Checkouts []protocol.Checkout
-	RunAs     *account.User
-	Log       *slog.Logger
-	Wait      time.Duration
-	Poll      time.Duration
-	Step      time.Duration
-	Total     time.Duration
+	Dir      string
+	Remote   string
+	RunAs    *account.User
+	Log      *slog.Logger
+	Step     time.Duration
+	Setup    time.Duration
+	Total    time.Duration
+	KeepDirs bool
 }
 
 func (o Options) or(value, fallback time.Duration) time.Duration {
@@ -57,182 +51,112 @@ func (o Options) or(value, fallback time.Duration) time.Duration {
 	return fallback
 }
 
-func Run(ctx context.Context, source Source, runID string, opts Options) {
-	waitUntil := time.Now().Add(opts.or(opts.Wait, defaultWait))
+func Perform(ctx context.Context, reporter Reporter, check protocol.StackCheck, opts Options) {
 	checking, stop := context.WithTimeout(ctx, opts.or(opts.Total, defaultTotal))
 	defer stop()
 
-	done := map[string]bool{}
+	checked := opts.perform(checking, check)
 
-	for {
-		found, err := source.ChangeStackChecks(ctx, runID)
-		if err != nil {
-			opts.Log.Warn("could not ask what change stacks to check", "error", err)
-			return
-		}
-
-		for _, check := range found.Checks {
-			key := planOf(check)
-			if done[key] {
-				continue
-			}
-			done[key] = true
-
-			checked := opts.check(checking, check)
-			if err := source.RecordChangeStackCheck(ctx, runID, check.StackID, checked); err != nil {
-				opts.Log.Warn("could not report a change stack check", "stack", check.StackID, "error", err)
-			}
-		}
-
-		if !found.Waiting || time.Now().After(waitUntil) || checking.Err() != nil {
-			return
-		}
-
-		select {
-		case <-checking.Done():
-			return
-		case <-time.After(opts.or(opts.Poll, defaultPoll)):
-		}
+	if err := reporter.RecordChangeStackCheck(ctx, check.RunID, check.StackID, checked); err != nil {
+		opts.Log.Warn("could not report a change stack check", "stack", check.StackID, "error", err)
 	}
 }
 
-func planOf(check protocol.StackCheck) string {
-	hash := sha256.New()
-	for _, step := range check.Steps {
-		hash.Write([]byte(step.ID + "\x00" + step.Patch + "\x00"))
-	}
-	return check.StackID + ":" + hex.EncodeToString(hash.Sum(nil))
+func skipped(code, detail string) protocol.StackChecked {
+	return protocol.StackChecked{Skipped: &protocol.SkippedCheck{Code: code, Detail: detail}}
 }
 
-func (o Options) checkoutFor(repository *string) (string, string) {
-	if repository == nil {
-		if len(o.Checkouts) == 1 {
-			return filepath.Join(o.Dir, o.Checkouts[0].Path), ""
-		}
-		return "", "The run works several repositories, and the stack does not say which it is from."
+func (o Options) perform(ctx context.Context, check protocol.StackCheck) protocol.StackChecked {
+	if check.Base == "" {
+		return skipped(protocol.SkipNoBase, "")
+	}
+	if check.Repository == "" {
+		return skipped(protocol.SkipNoCheckout, "")
 	}
 
-	for _, checkout := range o.Checkouts {
-		if checkout.Path == *repository {
-			return filepath.Join(o.Dir, checkout.Path), ""
-		}
-	}
-
-	return "", fmt.Sprintf("The run has no checkout of %s.", *repository)
-}
-
-func (o Options) check(ctx context.Context, check protocol.StackCheck) protocol.StackChecked {
-	checkout, missing := o.checkoutFor(check.Repository)
-	if missing != "" {
-		return protocol.StackChecked{Skipped: missing}
-	}
-
-	if _, err := o.git(ctx, checkout, "", "rev-parse", "--verify", "--quiet", BaseRef); err != nil {
-		return protocol.StackChecked{Skipped: "The checkout has no record of where the run began."}
-	}
-
-	tree, err := o.setOut(ctx, checkout, check.StackID)
+	space, err := workspace.Create(o.Dir, "check-"+check.StackID)
 	if err != nil {
-		o.Log.Warn("could not set out a copy to check", "stack", check.StackID, "error", err)
-		return protocol.StackChecked{Skipped: "Spotlight could not set out a copy of the checkout to check."}
+		o.Log.Warn("could not make room to check a stack", "stack", check.StackID, "error", err)
+		return skipped(protocol.SkipNoRoom, err.Error())
 	}
-	defer o.clearAway(checkout, tree)
+	if !o.KeepDirs {
+		defer func() {
+			if err := space.Remove(); err != nil {
+				o.Log.Warn("could not remove the copy a check ran in", "error", err)
+			}
+		}()
+	}
 
-	ignored := o.ignored(ctx, checkout)
+	tree := filepath.Join(space.Dir, check.Repository)
+
+	if missing := o.fetch(ctx, tree, check); missing != "" {
+		return skipped(protocol.SkipCheckoutFailed, missing)
+	}
+	if o.RunAs != nil {
+		if err := space.GiveTo(o.RunAs.UID, o.RunAs.GID); err != nil {
+			o.Log.Warn("could not hand over the copy a check runs in", "error", err)
+			return skipped(protocol.SkipNoRoom, err.Error())
+		}
+	}
 
 	var steps []protocol.CheckedStep
-	for _, step := range check.Steps {
+	for at, step := range check.Steps {
 		if ctx.Err() != nil {
 			break
 		}
 
-		checked := o.step(ctx, checkout, tree, ignored, check.Command, step)
+		checked, ready := o.step(ctx, tree, check, step)
+
+		if !ready && at == 0 {
+			return skipped(protocol.SkipSetupFailed, checked.Output)
+		}
+
 		steps = append(steps, checked)
 
-		if step.ID == WholeStep && !checked.Passed {
+		if step.StopsOnFailure && !checked.Passed {
 			break
 		}
 	}
 
 	if len(steps) == 0 {
-		return protocol.StackChecked{Skipped: "There was no time left to check the stack."}
+		return skipped(protocol.SkipOutOfTime, "")
 	}
 
 	return protocol.StackChecked{Steps: steps}
 }
 
-func (o Options) setOut(ctx context.Context, checkout, stackID string) (string, error) {
-	parent := filepath.Join(o.Dir, checksPath)
-	if err := os.MkdirAll(parent, 0o700); err != nil {
-		return "", err
-	}
-	if err := o.own(parent); err != nil {
-		return "", err
-	}
+func (o Options) fetch(ctx context.Context, tree string, check protocol.StackCheck) string {
+	remote := strings.TrimSuffix(o.Remote, "/") + "/" + check.Repository
 
-	tree := filepath.Join(parent, stackID)
-	if err := os.RemoveAll(tree); err != nil {
-		return "", err
+	if err := os.MkdirAll(tree, 0o700); err != nil {
+		o.Log.Warn("could not make room for a checkout", "error", err)
+		return err.Error()
 	}
 
-	if output, err := o.git(ctx, checkout, "", "worktree", "add", "--detach", "--quiet", tree, BaseRef); err != nil {
-		return "", fmt.Errorf("%w: %s", err, output)
-	}
-
-	return tree, nil
-}
-
-func (o Options) ignored(ctx context.Context, checkout string) []string {
-	listed, err := o.git(ctx, checkout, "", "ls-files", "--others", "--ignored", "--exclude-standard", "--directory", "-z")
-	if err != nil {
-		o.Log.Warn("could not list what the checkout ignores", "error", err)
-		return nil
-	}
-
-	var entries []string
-	for _, entry := range strings.Split(listed, "\x00") {
-		entry = strings.TrimSuffix(strings.TrimSpace(entry), "/")
-		if entry != "" && len(entries) < mostLinked {
-			entries = append(entries, entry)
+	for _, args := range [][]string{
+		{"init", "--quiet"},
+		{"remote", "add", "origin", remote},
+		{"fetch", "--quiet", "--no-tags", "origin", check.Base},
+		{"checkout", "--quiet", "--detach", "FETCH_HEAD"},
+	} {
+		if output, err := o.git(ctx, tree, "", args...); err != nil {
+			o.Log.Warn("could not lay out a checkout to check",
+				"stack", check.StackID, "step", args[0], "error", err, "output", output)
+			return fmt.Sprintf("git %s: %s", args[0], tail(output))
 		}
 	}
 
-	return entries
-}
-
-func (o Options) linkIgnored(checkout, tree string, entries []string) {
-	for _, entry := range entries {
-		link := filepath.Join(tree, entry)
-		if _, err := os.Lstat(filepath.Dir(link)); err != nil {
-			continue
-		}
-		if _, err := os.Lstat(link); err == nil {
-			continue
-		}
-
-		if err := os.Symlink(filepath.Join(checkout, entry), link); err != nil {
-			continue
-		}
-		if o.RunAs != nil {
-			_ = os.Lchown(link, int(o.RunAs.UID), int(o.RunAs.GID))
-		}
+	if output, err := o.git(ctx, tree, "", "update-ref", BaseRef, "HEAD"); err != nil {
+		o.Log.Warn("could not mark where a check began", "error", err, "output", output)
+		return tail(output)
 	}
-}
 
-func (o Options) clearAway(checkout, tree string) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-
-	if output, err := o.git(ctx, checkout, "", "worktree", "remove", "--force", tree); err != nil {
-		o.Log.Warn("could not remove the copy a check ran in", "error", err, "output", output)
-	}
-	_ = os.RemoveAll(tree)
-	_, _ = o.git(ctx, checkout, "", "worktree", "prune")
+	return ""
 }
 
 func (o Options) step(
-	ctx context.Context, checkout, tree string, ignored []string, command string, step protocol.CheckStep,
-) protocol.CheckedStep {
+	ctx context.Context, tree string, check protocol.StackCheck, step protocol.CheckStep,
+) (protocol.CheckedStep, bool) {
 	started := time.Now()
 	failed := func(output string) protocol.CheckedStep {
 		return protocol.CheckedStep{
@@ -244,26 +168,35 @@ func (o Options) step(
 	}
 
 	if output, err := o.git(ctx, tree, "", "reset", "--hard", "--quiet", BaseRef); err != nil {
-		return failed("Could not return the copy to where the run began: " + output)
+		return failed("Could not return the copy to where the run began: " + output), true
 	}
 	if output, err := o.git(ctx, tree, "", "clean", "-fdq"); err != nil {
-		return failed("Could not return the copy to where the run began: " + output)
+		return failed("Could not return the copy to where the run began: " + output), true
 	}
-
-	o.linkIgnored(checkout, tree, ignored)
 
 	if strings.TrimSpace(step.Patch) != "" {
 		if output, err := o.git(ctx, tree, step.Patch, "apply", "--whitespace=nowarn", "-"); err != nil {
-			return failed("These changes do not apply on their own:\n" + output)
+			return failed("These changes do not apply on their own:\n" + output), true
+		}
+	}
+
+	// After the patch, so what the step installs is what the step asks for.
+	if check.Setup != "" && step.RunsSetup {
+		ready, stop := context.WithTimeout(ctx, o.or(o.Setup, defaultSetup))
+		defer stop()
+
+		if output, err := o.run(ready, tree, "", nil, shell, "-c", check.Setup); err != nil {
+			o.Log.Warn("could not make the checkout ready", "step", step.ID, "error", err)
+			return failed("The checkout could not be made ready to check:\n" + output), false
 		}
 	}
 
 	running, stop := context.WithTimeout(ctx, o.or(o.Step, defaultStep))
 	defer stop()
 
-	output, err := o.run(running, tree, "", nil, shell, "-c", command)
+	output, err := o.run(running, tree, "", nil, shell, "-c", check.Command)
 	if running.Err() != nil {
-		return failed(output + fmt.Sprintf("\n\nThe check did not finish within %s.", o.or(o.Step, defaultStep)))
+		return failed(output + fmt.Sprintf("\n\nThe check did not finish within %s.", o.or(o.Step, defaultStep))), true
 	}
 
 	return protocol.CheckedStep{
@@ -271,7 +204,7 @@ func (o Options) step(
 		Passed: err == nil,
 		Output: tail(output),
 		TookMs: time.Since(started).Milliseconds(),
-	}
+	}, true
 }
 
 func (o Options) git(ctx context.Context, dir, stdin string, args ...string) (string, error) {
@@ -311,16 +244,16 @@ func (o Options) run(
 	return strings.TrimSpace(output.String()), err
 }
 
-func (o Options) own(path string) error {
-	if o.RunAs == nil {
-		return nil
-	}
-	return os.Lchown(path, int(o.RunAs.UID), int(o.RunAs.GID))
-}
-
 func tail(output string) string {
 	if len(output) <= mostOutput {
 		return output
 	}
 	return output[len(output)-mostOutput:]
+}
+
+func (o Options) own(path string) error {
+	if o.RunAs == nil {
+		return nil
+	}
+	return os.Lchown(path, int(o.RunAs.UID), int(o.RunAs.GID))
 }

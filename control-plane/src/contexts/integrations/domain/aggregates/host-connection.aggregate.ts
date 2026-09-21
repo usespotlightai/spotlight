@@ -3,7 +3,7 @@ import { HostRenewalRefused } from '@integrations/domain/events/host-renewal-ref
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import type { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
 import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
-import { EventRecorder } from '@shared-kernel/domain/aggregates/event-recorder';
+import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 

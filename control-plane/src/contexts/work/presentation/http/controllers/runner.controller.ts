@@ -38,7 +38,7 @@ import {
 import { UseToolCommand } from '@work/application/commands/use-tool.command';
 import type { HarnessDto } from '@work/application/dto/harness.dto';
 import type { PendingMessageDto } from '@work/application/dto/pending-message.dto';
-import type { ClaimedRunDto } from '@work/application/dto/run.dto';
+import type { ClaimedWorkDto } from '@work/application/dto/run.dto';
 import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
 import type { ToolAnswerDto } from '@work/application/dto/tool-answer.dto';
 import type { AttachmentContent } from '@work/application/ports/attachment-store.port';
@@ -59,7 +59,10 @@ import {
   RunAttachmentResponseDto,
 } from '@work/presentation/http/dto/runner.request.dto';
 import {
+  ClaimedCheckResponseDto,
+  ClaimedCheckStepResponseDto,
   ClaimedRunResponseDto,
+  ClaimedWorkResponseDto,
   RenewLeaseResponseDto,
   ToolAnswerResponseDto,
 } from '@work/presentation/http/dto/runner.response.dto';
@@ -126,16 +129,19 @@ export class RunnerController {
   @ApiOperation({
     operationId: 'claimRun',
     summary: 'Long-poll for work, answering empty when the queue is',
+    description:
+      'Work is either a run to carry out or a change stack check to run ' +
+      'against a fresh checkout. A run always comes first.',
   })
-  @ApiOkResponse({ type: ClaimedRunResponseDto })
+  @ApiOkResponse({ type: ClaimedWorkResponseDto })
   @ApiNoContentResponse({ description: 'Nothing queued for this pool' })
   async claim(
     @CurrentRunner() runnerId: string,
     @Res({ passthrough: true }) response: Answerable,
-  ): Promise<ClaimedRunResponseDto | undefined> {
+  ): Promise<ClaimedWorkResponseDto | undefined> {
     const claimed = await this.commandBus.execute<
       ClaimRunCommand,
-      ClaimedRunDto | null
+      ClaimedWorkDto | null
     >(new ClaimRunCommand(runnerId));
 
     if (!claimed) {
@@ -143,7 +149,37 @@ export class RunnerController {
       return undefined;
     }
 
-    return new ClaimedRunResponseDto(claimed.id, claimed.spec);
+    if (claimed.kind === 'run') {
+      return new ClaimedWorkResponseDto(
+        'run',
+        new ClaimedRunResponseDto(claimed.run.id, claimed.run.spec),
+        null,
+      );
+    }
+
+    const { check } = claimed;
+
+    return new ClaimedWorkResponseDto(
+      'check',
+      null,
+      new ClaimedCheckResponseDto(
+        check.stackId,
+        check.runId,
+        check.repository,
+        check.base,
+        check.setup,
+        check.command,
+        check.steps.map(
+          (step) =>
+            new ClaimedCheckStepResponseDto(
+              step.id,
+              step.patch,
+              step.stopsOnFailure,
+              step.runsSetup,
+            ),
+        ),
+      ),
+    );
   }
 
   @Get('runs/:runId/messages')

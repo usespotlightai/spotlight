@@ -1,13 +1,13 @@
+import type { HostConnected } from '@integrations/domain/events/host-connected.event';
+import type { HostRenewalRefused } from '@integrations/domain/events/host-renewal-refused.event';
 import {
   HOST_CONNECTED,
   type HostConnectedIntegrationEvent,
-} from '@integrations/application/integration-events/host-connected.integration-event';
+} from '@shared-kernel/application/integration-events/host-connected.integration-event';
 import {
   HOST_RENEWAL_REFUSED,
   type HostRenewalRefusedIntegrationEvent,
-} from '@integrations/application/integration-events/host-renewal-refused.integration-event';
-import type { HostConnected } from '@integrations/domain/events/host-connected.event';
-import type { HostRenewalRefused } from '@integrations/domain/events/host-renewal-refused.event';
+} from '@shared-kernel/application/integration-events/host-renewal-refused.integration-event';
 import { publishing } from '@shared-kernel/application/ports/event-publication.port';
 
 export const INTEGRATIONS_PUBLICATIONS = [

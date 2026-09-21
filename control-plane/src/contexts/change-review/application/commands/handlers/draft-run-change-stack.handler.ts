@@ -38,7 +38,8 @@ export class DraftRunChangeStackHandler
         {
           diff: command.diff,
           repository: command.repository,
-          check: run.check,
+          base: command.base,
+          request: run.request,
         },
       );
     } catch (error) {

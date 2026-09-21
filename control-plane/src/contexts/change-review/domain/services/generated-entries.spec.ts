@@ -1,11 +1,11 @@
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { generatedEntries } from '@change-review/domain/services/generated-entries';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import {
   Diff,
   type DiffFile,
 } from '@change-review/domain/value-objects/diff.vo';
-import { StackCheck } from '@change-review/domain/value-objects/stack-check.vo';
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
@@ -101,9 +101,10 @@ const ready = () =>
     taskId: null,
     workspaceId: WorkspaceId.of('workspace-1'),
     repository: null,
+    base: null,
     diff: DIFF,
     facts,
-    check: StackCheck.named('npx tsc -b'),
+    request: CheckRequest.of('npm test', null),
     now: new Date('2026-09-16T10:00:00Z'),
   }).propose(COHORTS, new Date('2026-09-16T10:01:00Z'));
 
@@ -119,11 +120,26 @@ describe('generatedEntries', () => {
   });
 
   it('checks each layer with only the generated files it reaches, and the whole change with all of them', () => {
-    expect(ready().checkSteps()).toEqual([
-      { id: 'whole', hunks: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] },
-      { id: 'c1.l1', hunks: ['h1'] },
-      { id: 'c1.l2', hunks: ['h1', 'h2', 'h3', 'h4'] },
-      { id: 'c1.l3', hunks: ['h1', 'h2', 'h3', 'h4', 'h5'] },
+    expect(ready().checkSteps(ready().entries())).toEqual([
+      {
+        id: 'whole',
+        hunks: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
+        isWholeChange: true,
+        installsAnew: true,
+      },
+      { id: 'c1.l1', hunks: ['h1'], isWholeChange: false, installsAnew: false },
+      {
+        id: 'c1.l2',
+        hunks: ['h1', 'h2', 'h3', 'h4'],
+        isWholeChange: false,
+        installsAnew: false,
+      },
+      {
+        id: 'c1.l3',
+        hunks: ['h1', 'h2', 'h3', 'h4', 'h5'],
+        isWholeChange: false,
+        installsAnew: false,
+      },
     ]);
   });
 });

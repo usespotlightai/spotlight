@@ -3,13 +3,12 @@ import {
   Diff,
   type DiffFile,
 } from '@change-review/domain/value-objects/diff.vo';
-import {
-  type CheckEntry,
-  type CheckedStep,
-  StackCheck,
-  type StepId,
-  WHOLE_STEP,
+import type {
+  CheckEntry,
+  CheckedStep,
+  StepId,
 } from '@change-review/domain/value-objects/stack-check.vo';
+import { WHOLE_STEP } from '@change-review/domain/value-objects/stack-check.vo';
 import type { StackCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import {
@@ -25,21 +24,23 @@ import type {
   StoredCohort,
   StoredFacts,
   StoredFile,
-  StoredStackCheck,
   StoredStep,
 } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.rows';
 
 const stepOf = (raw: string): StepId =>
   raw === WHOLE_STEP ? WHOLE_STEP : LayerId.of(raw);
 
-const checkedStepOf = (stored: StoredStep): CheckedStep => ({
+export const checkedStepOf = (stored: StoredStep): CheckedStep => ({
   step: stepOf(stored.step),
   passed: stored.passed,
   output: stored.output,
   tookMs: stored.tookMs,
 });
 
-const entryOf = (stored: { hunk: string; layer: string }): CheckEntry => ({
+export const entryOf = (stored: {
+  hunk: string;
+  layer: string;
+}): CheckEntry => ({
   hunk: HunkId.of(stored.hunk),
   layer: LayerId.of(stored.layer),
 });
@@ -90,35 +91,17 @@ export const cohortsOf = (
     })),
   }));
 
-export const checkOf = (stored: StoredStackCheck | null): StackCheck | null =>
-  stored &&
-  StackCheck.rehydrate({
-    command: stored.command,
-    phase: stored.phase,
-    entries: (stored.entries ?? []).map(entryOf),
-    rounds: stored.rounds ?? 0,
-    outcome: stored.outcome && {
-      state: stored.outcome.state,
-      reason: stored.outcome.reason,
-      whole: stored.outcome.whole && checkedStepOf(stored.outcome.whole),
-      layers: stored.outcome.layers.map(checkedStepOf),
-      checkedAt: new Date(stored.outcome.checkedAt),
-    },
-  });
-
 export const progressOf = (row: {
   state: ChangeStackState;
   failure: string | null;
   draftedAt: Date;
   settledAt: Date | null;
-  check: StoredStackCheck | null;
 }): StackProgress =>
   StackProgress.rehydrate({
     state: row.state,
     failure: row.failure,
     draftedAt: row.draftedAt,
     settledAt: row.settledAt,
-    check: checkOf(row.check),
   });
 
 export const fileRows = (files: readonly DiffFile[]): StoredFile[] =>
@@ -146,18 +129,3 @@ export const cohortRows = (cohorts: readonly StackCohort[]): StoredCohort[] =>
       notes: layer.notes.map((note) => ({ ...note })),
     })),
   }));
-
-export const checkRow = (check: StackCheck | null): StoredStackCheck | null =>
-  check && {
-    command: check.command,
-    phase: check.phase,
-    entries: check.entries.map((entry) => ({ ...entry })),
-    rounds: check.rounds,
-    outcome: check.outcome && {
-      state: check.outcome.state,
-      reason: check.outcome.reason,
-      whole: check.outcome.whole && { ...check.outcome.whole },
-      layers: check.outcome.layers.map((each) => ({ ...each })),
-      checkedAt: check.outcome.checkedAt.toISOString(),
-    },
-  };

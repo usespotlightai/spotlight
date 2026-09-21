@@ -12,6 +12,7 @@ import { RecordChangeStackCheckCommand } from '@change-review/application/comman
 import { SubmitReviewCommand } from '@change-review/application/commands/submit-review.command';
 import { ChangeStackReactions } from '@change-review/application/events/handlers/change-stack-reactions.handler';
 import { ReviewReactions } from '@change-review/application/events/handlers/review-reactions.handler';
+import { StackCheckReactions } from '@change-review/application/events/handlers/stack-check-reactions.handler';
 import {
   CHANGE_STACK_ANNOUNCER,
   type ChangeStackAnnouncerPort,
@@ -40,7 +41,10 @@ import {
   GITHUB_CONNECTIONS,
   type GitHubConnectionsPort,
 } from '@change-review/application/ports/github-connections.port';
-import { PATCH_WRITER } from '@change-review/application/ports/patch-writer.port';
+import {
+  PATCH_WRITER,
+  type PatchWriterPort,
+} from '@change-review/application/ports/patch-writer.port';
 import {
   PEOPLE,
   type PeoplePort,
@@ -62,8 +66,6 @@ import {
   WORKSPACES,
   type WorkspacesPort,
 } from '@change-review/application/ports/workspaces.port';
-import { ChangeStackChecksQuery } from '@change-review/application/queries/change-stack-checks.query';
-import { ChangeStackChecksHandler } from '@change-review/application/queries/handlers/change-stack-checks.handler';
 import { ListRunChangeStacksHandler } from '@change-review/application/queries/handlers/list-run-change-stacks.handler';
 import { ReadRunReviewHandler } from '@change-review/application/queries/handlers/read-run-review.handler';
 import { ReadTaskChangeStackHandler } from '@change-review/application/queries/handlers/read-task-change-stack.handler';
@@ -72,6 +74,8 @@ import { ReadRunReviewQuery } from '@change-review/application/queries/read-run-
 import { ReadTaskChangeStackQuery } from '@change-review/application/queries/read-task-change-stack.query';
 import { AgentReviews } from '@change-review/application/services/agent-reviews.service';
 import { AnnounceChangeStack } from '@change-review/application/services/announce-change-stack.service';
+import { CheckAccess } from '@change-review/application/services/check-access.service';
+import { ClaimChangeStackCheck } from '@change-review/application/services/claim-change-stack-check.service';
 import { DraftChangeStack } from '@change-review/application/services/draft-change-stack.service';
 import { ForgetTaskAcrossAggregates } from '@change-review/application/services/forget-task-across-aggregates.service';
 import { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
@@ -97,6 +101,7 @@ import { DrizzleReviewReader } from '@change-review/infrastructure/persistence/d
 import { DrizzleReviewRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/review.repository';
 import { DrizzleReviewCommentRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/review-comment.repository';
 import { DrizzleReviewOutbox } from '@change-review/infrastructure/persistence/drizzle/repositories/review-outbox.repository';
+import { DrizzleStackCheckRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/stack-check.repository';
 import { changeReviewSubscribers } from '@change-review/presentation/events/change-review.subscribers';
 import { ChangeStackController } from '@change-review/presentation/http/controllers/change-stack.controller';
 import { ReviewController } from '@change-review/presentation/http/controllers/review.controller';
@@ -155,6 +160,8 @@ import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
+import { CHECK_ACCESS } from '@work/application/ports/check-access.port';
+import { CHECK_WORK } from '@work/application/ports/check-work.port';
 import { PULL_REQUEST_REVIEWING } from '@work/application/ports/pull-request-reviewing.port';
 import {
   WORK_LOOKUP,
@@ -197,7 +204,38 @@ const upstream: Provider[] = [
 
 const adapters: Provider[] = [
   DrizzleChangeStackRepository,
+  DrizzleStackCheckRepository,
   { provide: CHANGE_STACK_READER, useClass: DrizzleChangeStackReader },
+  {
+    provide: CHECK_ACCESS,
+    inject: [DrizzleStackCheckRepository],
+    useFactory: (checks: DrizzleStackCheckRepository) =>
+      new CheckAccess(checks),
+  },
+  {
+    provide: CHECK_WORK,
+    inject: [
+      DrizzleStackCheckRepository,
+      DrizzleChangeStackRepository,
+      PATCH_WRITER,
+      TRANSACTION,
+    ],
+    useFactory: (
+      checks: DrizzleStackCheckRepository,
+      stacks: DrizzleChangeStackRepository,
+      patches: PatchWriterPort,
+      transaction: TransactionPort,
+    ) => new ClaimChangeStackCheck(checks, stacks, patches, transaction),
+  },
+  {
+    provide: StackCheckReactions,
+    inject: [DrizzleStackCheckRepository, DrizzleChangeStackRepository, CLOCK],
+    useFactory: (
+      checks: DrizzleStackCheckRepository,
+      stacks: DrizzleChangeStackRepository,
+      clock: ClockPort,
+    ) => new StackCheckReactions(checks, stacks, clock),
+  },
   { provide: REVIEW_READER, useClass: DrizzleReviewReader },
   DrizzleReviewCommentRepository,
   DrizzleReviewRepository,
@@ -269,6 +307,7 @@ const services: Provider[] = [
     provide: WorkChangeStacks,
     inject: [
       DrizzleChangeStackRepository,
+      DrizzleStackCheckRepository,
       TRANSACTION,
       DraftChangeStack,
       ReorderChangeStack,
@@ -277,6 +316,7 @@ const services: Provider[] = [
     ],
     useFactory: (
       stacks: DrizzleChangeStackRepository,
+      checks: DrizzleStackCheckRepository,
       transaction: TransactionPort,
       drafting: DraftChangeStack,
       reordering: ReorderChangeStack,
@@ -285,6 +325,7 @@ const services: Provider[] = [
     ) =>
       new WorkChangeStacks(
         stacks,
+        checks,
         transaction,
         drafting,
         reordering,
@@ -488,7 +529,7 @@ const handlers: Provider[] = [
   ...bindCommandHandler(
     RecordChangeStackCheckCommand,
     RecordChangeStackCheckHandler,
-    [WORK, DrizzleChangeStackRepository, CLOCK],
+    [DrizzleChangeStackRepository, CLOCK],
   ),
   ...bindQueryHandler(ReadRunReviewQuery, ReadRunReviewHandler, [
     ReviewAccess,
@@ -508,12 +549,6 @@ const handlers: Provider[] = [
     CHANGE_STACK_READER,
     CLOCK,
   ]),
-  ...bindQueryHandler(ChangeStackChecksQuery, ChangeStackChecksHandler, [
-    WORK,
-    CHANGE_STACK_READER,
-    CLOCK,
-    PATCH_WRITER,
-  ]),
 ];
 
 const published: Provider[] = [
@@ -531,6 +566,7 @@ const published: Provider[] = [
       CLOCK,
       ReceiveReviewComment,
       SignalReviewing,
+      StackCheckReactions,
     ],
     useFactory: (
       types: EventTypes,
@@ -544,6 +580,7 @@ const published: Provider[] = [
       clock: ClockPort,
       receiving: ReceiveReviewComment,
       signalling: SignalReviewing,
+      checks: StackCheckReactions,
     ) => {
       types.register('change-review', CHANGE_REVIEW_EVENT_TYPES);
       subscribers.register(
@@ -554,6 +591,7 @@ const published: Provider[] = [
           new ReviewReactions(comments, outbox, ids, clock),
           receiving,
           signalling,
+          checks,
         ),
       );
       return true;

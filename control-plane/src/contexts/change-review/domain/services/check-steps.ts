@@ -1,3 +1,4 @@
+import type { FileClass } from '@change-review/domain/services/diff-facts';
 import type {
   CheckEntry,
   CheckStep,
@@ -9,9 +10,34 @@ import type {
   LayerId,
 } from '@change-review/domain/value-objects/stack-ids';
 
+interface StepFacts {
+  isGenerated(hunk: HunkId): boolean;
+  classOf(hunk: HunkId): FileClass | null;
+}
+
+const sameSet = (left: ReadonlySet<string>, right: ReadonlySet<string>) =>
+  left.size === right.size && [...left].every((each) => right.has(each));
+
+const readying = (
+  steps: readonly Omit<CheckStep, 'installsAnew'>[],
+  facts: StepFacts,
+): CheckStep[] => {
+  let installed: ReadonlySet<string> = new Set();
+
+  return steps.map((step, at) => {
+    const locks = new Set(
+      step.hunks.filter((hunk) => facts.classOf(hunk) === 'lockfile'),
+    );
+    const again = at === 0 || !sameSet(locks, installed);
+    installed = locks;
+
+    return { ...step, installsAnew: again };
+  });
+};
+
 export const checkStepsOf = (input: {
   hunks: readonly HunkId[];
-  facts: { isGenerated(hunk: HunkId): boolean };
+  facts: StepFacts;
   cohorts: readonly StackCohort[];
   entries: readonly CheckEntry[];
 }): CheckStep[] => {
@@ -26,7 +52,9 @@ export const checkStepsOf = (input: {
     entering.set(layer, [...(entering.get(layer) ?? []), hunk]);
   }
   const whole = [...input.hunks];
-  const steps: CheckStep[] = [{ id: WHOLE_STEP, hunks: whole }];
+  const steps: Omit<CheckStep, 'installsAnew'>[] = [
+    { id: WHOLE_STEP, hunks: whole, isWholeChange: true },
+  ];
 
   for (const cohort of input.cohorts) {
     if (cohort.kind !== 'change') {
@@ -42,10 +70,10 @@ export const checkStepsOf = (input: {
       );
 
       if (placed.length < whole.length) {
-        steps.push({ id: layer.id, hunks: [...placed] });
+        steps.push({ id: layer.id, hunks: [...placed], isWholeChange: false });
       }
     }
   }
 
-  return steps;
+  return readying(steps, input.facts);
 };

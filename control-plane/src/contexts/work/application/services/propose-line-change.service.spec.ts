@@ -91,6 +91,7 @@ const planOf = (each: Line): LinePlan => {
       effort: station.effort,
       agentPrompt: station.agentPrompt,
       check: null,
+      setup: null,
       diffs: false,
       tools: station.tools,
       skills: station.skills,

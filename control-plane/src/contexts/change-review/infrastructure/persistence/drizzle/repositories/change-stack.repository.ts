@@ -1,11 +1,12 @@
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { ChangedSinceReadError } from '@change-review/domain/exceptions/changed-since-read.error';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
+import { BaseCommit } from '@change-review/domain/value-objects/base-commit.vo';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import { StackWork } from '@change-review/domain/value-objects/stack-work.vo';
 import {
-  checkRow,
   cohortRows,
   cohortsOf,
   diffOf,
@@ -24,7 +25,7 @@ import {
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, eq, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, eq, isNull, lte, or } from 'drizzle-orm';
 
 type Row = typeof changeStack.$inferSelect;
 
@@ -35,6 +36,7 @@ const toChangeStack = (row: Row): ChangeStack =>
     taskId: row.taskId ? TaskId.of(row.taskId) : null,
     workspaceId: WorkspaceId.of(row.workspaceId),
     repository: row.repository ? RepositoryName.of(row.repository) : null,
+    base: row.baseCommit ? BaseCommit.of(row.baseCommit) : null,
     diff: diffOf(row.files),
     facts: factsOf(row.facts),
     cohorts: cohortsOf(row.cohorts),
@@ -43,6 +45,10 @@ const toChangeStack = (row: Row): ChangeStack =>
       attempts: row.workAttempts,
       dueAt: row.workDueAt,
     }),
+    request: row.checkCommand
+      ? CheckRequest.of(row.checkCommand, row.checkSetup)
+      : null,
+    reordering: row.reordering,
     version: row.version,
   });
 
@@ -68,16 +74,19 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
       taskId: added.taskId?.value ?? null,
       workspaceId: added.workspaceId.value,
       repository: added.repository?.value ?? null,
+      baseCommit: added.base?.value ?? null,
       state: added.state,
       files: fileRows(added.diff.files),
       cohorts: cohortRows(added.cohorts),
       failure: added.failure,
       draftedAt: added.draftedAt,
       settledAt: added.settledAt,
-      check: checkRow(added.check),
       facts: factRows(added.facts),
       workAttempts: added.work.attempts,
       workDueAt: added.work.dueAt,
+      checkCommand: added.request?.command ?? null,
+      checkSetup: added.request?.setup ?? null,
+      reordering: added.reordering,
       version: added.version,
     });
   }
@@ -98,9 +107,9 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
         cohorts: cohortRows(saved.cohorts),
         failure: saved.failure,
         settledAt: saved.settledAt,
-        check: checkRow(saved.check),
         workAttempts: saved.work.attempts,
         workDueAt: saved.work.dueAt,
+        reordering: saved.reordering,
       })
       .where(
         and(
@@ -133,7 +142,7 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
         and(
           or(
             eq(changeStack.state, 'drafting'),
-            sql`${changeStack.check}->>'phase' = 'reordering'`,
+            eq(changeStack.reordering, true),
           ),
           or(isNull(changeStack.workDueAt), lte(changeStack.workDueAt, now)),
         ),

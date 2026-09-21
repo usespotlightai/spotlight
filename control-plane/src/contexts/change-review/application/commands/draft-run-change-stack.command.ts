@@ -4,5 +4,6 @@ export class DraftRunChangeStackCommand {
     readonly runnerId: string,
     readonly diff: string,
     readonly repository: string | null,
+    readonly base: string | null,
   ) {}
 }

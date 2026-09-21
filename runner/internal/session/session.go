@@ -32,13 +32,12 @@ type Journal interface {
 	RenewLease(ctx context.Context, runID string) (bool, error)
 	Complete(ctx context.Context, runID string, done protocol.Completion) error
 	UseTool(ctx context.Context, runID, name string, input json.RawMessage) (json.RawMessage, error)
-	DraftChangeStack(ctx context.Context, runID, repository, diff string) error
+	DraftChangeStack(ctx context.Context, runID, repository, diff, base string) error
 	AnswerRemark(ctx context.Context, runID string, said protocol.Remark) error
 	Trace(ctx context.Context, runID, taskID string) (json.RawMessage, error)
 	Said(ctx context.Context, runID string) ([]protocol.Said, error)
 	Delivered(ctx context.Context, runID string, upTo int) error
 	Attachment(ctx context.Context, runID, attachmentID string, into io.Writer) error
-	stackcheck.Source
 }
 
 const (
@@ -104,7 +103,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
-	markBases(ctx, space.Dir, run.Spec.Checkouts, log)
+	bases := markBases(ctx, space.Dir, run.Spec.Checkouts, log)
 
 	cwd := space.Dir
 
@@ -208,7 +207,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
-	opts.draftStacks(ctx, run, space.Dir, log)
+	opts.draftStacks(ctx, run, space.Dir, bases, log)
 
 	declared := channel.Declared()
 	if declared == nil {
@@ -254,12 +253,12 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		SessionID: sessionID,
 	})
 
-	opts.checkStacks(ctx, run, space.Dir, log)
-
 	return completed
 }
 
-func (o Options) draftStacks(ctx context.Context, run protocol.Run, dir string, log *slog.Logger) {
+func (o Options) draftStacks(
+	ctx context.Context, run protocol.Run, dir string, bases map[string]string, log *slog.Logger,
+) {
 	if !run.Spec.Diffs {
 		return
 	}
@@ -281,26 +280,13 @@ func (o Options) draftStacks(ctx context.Context, run protocol.Run, dir string, 
 			continue
 		}
 
-		if err := o.Journal.DraftChangeStack(ctx, run.ID, checkout.Path, diff); err != nil {
+		if err := o.Journal.DraftChangeStack(ctx, run.ID, checkout.Path, diff, bases[checkout.Path]); err != nil {
 			log.Warn("could not hand over what a run changed", "path", checkout.Path, "error", err)
 			continue
 		}
 
 		log.Info("drafting a change stack", "path", checkout.Path)
 	}
-}
-
-func (o Options) checkStacks(ctx context.Context, run protocol.Run, dir string, log *slog.Logger) {
-	if len(run.Spec.Checkouts) == 0 || !run.Spec.Diffs {
-		return
-	}
-
-	stackcheck.Run(ctx, o.Journal, run.ID, stackcheck.Options{
-		Dir:       dir,
-		Checkouts: run.Spec.Checkouts,
-		RunAs:     o.AgentUser,
-		Log:       log,
-	})
 }
 
 func open(ctx context.Context, harness *acp.Client, previous string, log *slog.Logger) (string, error) {

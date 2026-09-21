@@ -14,20 +14,31 @@ import (
 
 type claims struct {
 	runs  []*protocol.Run
+	work  []*protocol.Claimed
 	errs  []error
 	calls int
 }
 
-func (c *claims) Claim(context.Context) (*protocol.Run, error) {
+func (c *claims) Claim(context.Context) (*protocol.Claimed, error) {
 	defer func() { c.calls++ }()
 
 	if c.calls < len(c.errs) && c.errs[c.calls] != nil {
 		return nil, c.errs[c.calls]
 	}
+	if c.calls < len(c.work) {
+		return c.work[c.calls], nil
+	}
 	if c.calls < len(c.runs) {
-		return c.runs[c.calls], nil
+		return &protocol.Claimed{Kind: protocol.ClaimedRun, Run: c.runs[c.calls]}, nil
 	}
 	return nil, nil
+}
+
+func running(served *[]string) control.Work {
+	return control.Work{
+		Run:   func(_ context.Context, run protocol.Run) { *served = append(*served, run.ID) },
+		Check: func(context.Context, protocol.StackCheck) {},
+	}
 }
 
 func quiet() *slog.Logger {
@@ -43,7 +54,7 @@ func TestPollStopsAfterTheRunsItWasAskedFor(t *testing.T) {
 		claimer,
 		control.Limits{MaxRuns: 2},
 		quiet(),
-		func(_ context.Context, run protocol.Run) { served = append(served, run.ID) },
+		running(&served),
 	)
 	if err != nil {
 		t.Fatalf("poll: %v", err)
@@ -62,7 +73,10 @@ func TestPollStopsWhenIdleForLongEnough(t *testing.T) {
 			&claims{},
 			control.Limits{IdleTimeout: 50 * time.Millisecond},
 			quiet(),
-			func(context.Context, protocol.Run) { t.Error("nothing should have been served") },
+			control.Work{
+				Run:   func(context.Context, protocol.Run) { t.Error("nothing should have been served") },
+				Check: func(context.Context, protocol.StackCheck) { t.Error("nothing should have been served") },
+			},
 		)
 	}()
 
@@ -84,7 +98,10 @@ func TestPollTakesNoWorkPastItsRetirement(t *testing.T) {
 		claimer,
 		control.Limits{RetireAt: time.Now().Add(-time.Second)},
 		quiet(),
-		func(context.Context, protocol.Run) { t.Error("a retired runner should not serve") },
+		control.Work{
+			Run:   func(context.Context, protocol.Run) { t.Error("a retired runner should not serve") },
+			Check: func(context.Context, protocol.StackCheck) { t.Error("a retired runner should not serve") },
+		},
 	)
 	if err != nil {
 		t.Fatalf("poll: %v", err)
@@ -106,7 +123,7 @@ func TestPollKeepsGoingAfterTheControlPlaneFails(t *testing.T) {
 		claimer,
 		control.Limits{MaxRuns: 1},
 		quiet(),
-		func(_ context.Context, run protocol.Run) { served = append(served, run.ID) },
+		running(&served),
 	)
 	if err != nil {
 		t.Fatalf("poll: %v", err)
@@ -126,9 +143,65 @@ func TestPollStopsWhenToldTo(t *testing.T) {
 		&claims{runs: []*protocol.Run{{ID: "a"}}},
 		control.Limits{},
 		quiet(),
-		func(context.Context, protocol.Run) { t.Error("a cancelled runner should not serve") },
+		control.Work{
+			Run:   func(context.Context, protocol.Run) { t.Error("a cancelled runner should not serve") },
+			Check: func(context.Context, protocol.StackCheck) { t.Error("a cancelled runner should not serve") },
+		},
 	)
 	if err != nil {
 		t.Fatalf("poll: %v", err)
+	}
+}
+
+func TestPollRunsAChangeStackCheckWithoutCountingItAsARun(t *testing.T) {
+	claimer := &claims{work: []*protocol.Claimed{
+		{Kind: protocol.ClaimedCheck, Check: &protocol.StackCheck{StackID: "s1"}},
+		{Kind: protocol.ClaimedRun, Run: &protocol.Run{ID: "a"}},
+		{Kind: protocol.ClaimedRun, Run: &protocol.Run{ID: "b"}},
+	}}
+
+	var served, checked []string
+	err := control.Poll(
+		context.Background(),
+		claimer,
+		control.Limits{MaxRuns: 2},
+		quiet(),
+		control.Work{
+			Run:   func(_ context.Context, run protocol.Run) { served = append(served, run.ID) },
+			Check: func(_ context.Context, c protocol.StackCheck) { checked = append(checked, c.StackID) },
+		},
+	)
+	if err != nil {
+		t.Fatalf("poll: %v", err)
+	}
+
+	if len(checked) != 1 || checked[0] != "s1" {
+		t.Errorf("checked %v", checked)
+	}
+	if len(served) != 2 {
+		t.Errorf("served %v, want a check not to use up a run", served)
+	}
+}
+
+func TestPollPassesOverWorkItDoesNotKnow(t *testing.T) {
+	claimer := &claims{work: []*protocol.Claimed{
+		{Kind: "something-new"},
+		{Kind: protocol.ClaimedRun, Run: &protocol.Run{ID: "a"}},
+	}}
+
+	var served []string
+	err := control.Poll(
+		context.Background(),
+		claimer,
+		control.Limits{MaxRuns: 1},
+		quiet(),
+		running(&served),
+	)
+	if err != nil {
+		t.Fatalf("poll: %v", err)
+	}
+
+	if len(served) != 1 || served[0] != "a" {
+		t.Errorf("served %v", served)
 	}
 }

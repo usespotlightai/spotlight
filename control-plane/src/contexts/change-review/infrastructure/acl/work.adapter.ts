@@ -3,7 +3,7 @@ import type {
   ReviewedTask,
   WorkPort,
 } from '@change-review/application/ports/work.port';
-import { StackCheck } from '@change-review/domain/value-objects/stack-check.vo';
+import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -34,7 +34,9 @@ export class Work implements WorkPort {
         id: run.id,
         workspaceId: run.workspaceId,
         taskId: run.taskId,
-        check: run.check?.trim() ? StackCheck.named(run.check) : null,
+        request: run.check?.trim()
+          ? CheckRequest.of(run.check, run.setup)
+          : null,
         ended: run.ended,
       }
     );

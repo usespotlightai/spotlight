@@ -343,6 +343,7 @@
     },
     "/runners/claim": {
       "post": {
+        "description": "Work is either a run to carry out or a change stack check to run against a fresh checkout. A run always comes first.",
         "operationId": "claimRun",
         "parameters": [],
         "responses": {
@@ -351,7 +352,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ClaimedRunResponseDto"
+                  "$ref": "#/components/schemas/ClaimedWorkResponseDto"
                 }
               }
             }
@@ -3358,44 +3359,6 @@
         ]
       }
     },
-    "/runs/{runId}/change-stack-checks": {
-      "get": {
-        "description": "Each check is the command the agent named, to run on the whole change and then on every layer with the layers before it.",
-        "operationId": "changeStackChecks",
-        "parameters": [
-          {
-            "name": "runId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ChangeStackChecksResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing or wrong enrollment token"
-          },
-          "404": {
-            "description": "Not a run this runner worked"
-          }
-        },
-        "summary": "The change stacks this run drafted that wait to be checked",
-        "tags": [
-          "runners"
-        ]
-      }
-    },
     "/runs/{runId}/change-stack-checks/{stackId}": {
       "post": {
         "operationId": "recordChangeStackCheck",
@@ -4183,6 +4146,116 @@
         "required": [
           "id",
           "spec"
+        ]
+      },
+      "ClaimedCheckStepResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The whole change, or the layer this step reaches",
+            "example": "whole"
+          },
+          "patch": {
+            "type": "string",
+            "description": "What to apply on the base before running"
+          },
+          "stopsOnFailure": {
+            "type": "boolean",
+            "description": "Whether a failure here leaves the later steps unrun"
+          },
+          "runsSetup": {
+            "type": "boolean",
+            "description": "Whether the checkout must be made ready again once this step applies, because it installs something the step before it did not"
+          }
+        },
+        "required": [
+          "id",
+          "patch",
+          "stopsOnFailure",
+          "runsSetup"
+        ]
+      },
+      "ClaimedCheckResponseDto": {
+        "type": "object",
+        "properties": {
+          "stackId": {
+            "type": "string",
+            "example": "stack_1"
+          },
+          "runId": {
+            "type": "string",
+            "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
+          },
+          "repository": {
+            "type": "object",
+            "nullable": true,
+            "description": "Which checkout to check"
+          },
+          "base": {
+            "type": "object",
+            "nullable": true,
+            "description": "The commit to check out"
+          },
+          "setup": {
+            "type": "object",
+            "nullable": true,
+            "description": "What makes the checkout ready before the check runs"
+          },
+          "command": {
+            "type": "string",
+            "example": "npm test"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClaimedCheckStepResponseDto"
+            }
+          }
+        },
+        "required": [
+          "stackId",
+          "runId",
+          "repository",
+          "base",
+          "setup",
+          "command",
+          "steps"
+        ]
+      },
+      "ClaimedWorkResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "run",
+              "check"
+            ]
+          },
+          "run": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ClaimedRunResponseDto"
+              }
+            ]
+          },
+          "check": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ClaimedCheckResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "run",
+          "check"
         ]
       },
       "RunAttachmentResponseDto": {
@@ -7623,76 +7696,42 @@
             "type": "object",
             "nullable": true,
             "description": "Which checkout the changes are from"
+          },
+          "base": {
+            "type": "object",
+            "nullable": true,
+            "description": "The commit the checkout stood at when the run began"
           }
         },
         "required": [
           "diff",
-          "repository"
-        ]
-      },
-      "ChangeStackCheckStepResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "example": "c1.l1"
-          },
-          "patch": {
-            "type": "string",
-            "description": "What to apply to where the run began, as git apply takes it"
-          }
-        },
-        "required": [
-          "id",
-          "patch"
-        ]
-      },
-      "ChangeStackCheckResponseDto": {
-        "type": "object",
-        "properties": {
-          "stackId": {
-            "type": "string"
-          },
-          "repository": {
-            "type": "string",
-            "nullable": true
-          },
-          "command": {
-            "type": "string",
-            "example": "npx tsc --noEmit"
-          },
-          "steps": {
-            "description": "The whole change first, then each layer with the layers before it",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ChangeStackCheckStepResponseDto"
-            }
-          }
-        },
-        "required": [
-          "stackId",
           "repository",
-          "command",
-          "steps"
+          "base"
         ]
       },
-      "ChangeStackChecksResponseDto": {
+      "SkippedCheckRequestDto": {
         "type": "object",
         "properties": {
-          "waiting": {
-            "type": "boolean",
-            "description": "Whether a stack with a check is still being drafted"
+          "code": {
+            "type": "string",
+            "enum": [
+              "no-base",
+              "no-checkout",
+              "checkout-failed",
+              "setup-failed",
+              "no-room",
+              "out-of-time"
+            ],
+            "description": "Why the runner could not check the stack at all"
           },
-          "checks": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ChangeStackCheckResponseDto"
-            }
+          "detail": {
+            "type": "string",
+            "nullable": true,
+            "description": "What it printed while trying, where that helps"
           }
         },
         "required": [
-          "waiting",
-          "checks"
+          "code"
         ]
       },
       "CheckedStepRequestDto": {
@@ -7726,9 +7765,14 @@
         "type": "object",
         "properties": {
           "skipped": {
-            "type": "string",
             "nullable": true,
-            "description": "Why the runner could not check the stack at all"
+            "description": "Set where the stack could not be checked at all",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SkippedCheckRequestDto"
+              }
+            ]
           },
           "steps": {
             "type": "array",

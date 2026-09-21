@@ -3,10 +3,7 @@ import type {
   LinkKind,
 } from '@change-review/domain/services/diff-facts';
 import type { DiffFileStatus } from '@change-review/domain/value-objects/diff.vo';
-import type {
-  CheckPhase,
-  StackCheckState,
-} from '@change-review/domain/value-objects/stack-check.vo';
+import type { StackCheckState } from '@change-review/domain/value-objects/stack-check.vo';
 import type { CohortKind } from '@change-review/domain/value-objects/stack-cohort.vo';
 
 interface StoredHunk {
@@ -81,19 +78,18 @@ export interface StoredStep {
   readonly tookMs: number;
 }
 
-export interface StoredStackCheck {
-  readonly command: string;
-  readonly entries?: readonly {
-    readonly hunk: string;
-    readonly layer: string;
-  }[];
-  readonly rounds?: number;
-  readonly phase: CheckPhase;
-  readonly outcome: {
-    readonly state: Exclude<StackCheckState, 'waiting'>;
-    readonly reason: string | null;
-    readonly whole: StoredStep | null;
-    readonly layers: readonly StoredStep[];
-    readonly checkedAt: string;
+export interface StoredCheckEntry {
+  readonly hunk: string;
+  readonly layer: string;
+}
+
+export interface StoredCheckOutcome {
+  readonly state: Exclude<StackCheckState, 'waiting'>;
+  readonly skip: {
+    readonly code: string;
+    readonly detail: string | null;
   } | null;
+  readonly whole: StoredStep | null;
+  readonly layers: readonly StoredStep[];
+  readonly checkedAt: string;
 }

@@ -259,4 +259,63 @@ describe('writing a line out and reading it back', () => {
       expect(read.ok).toBe(false);
     });
   });
+
+  describe('a station’s setup', () => {
+    const withFront = (front: string) =>
+      renderLine(built()).map((file) =>
+        file.path.endsWith('/implementation.md')
+          ? {
+              ...file,
+              text: file.text.replace('\nname: ', `\n${front}\nname: `),
+            }
+          : file,
+      ) as ReturnType<typeof renderLine>;
+
+    it('reads the command that makes a checkout ready, and writes it back', () => {
+      const read = compileLine(
+        'delivery',
+        withFront('check: npm test\ndiffs: true\nsetup: npm ci'),
+      );
+
+      if (!read.ok) {
+        throw new Error('did not read');
+      }
+
+      const reconciled = reconcileLine({
+        standing: built(),
+        plan: read.line,
+        tasksStanding: new Map(),
+        newId: () => 'new_id',
+      });
+
+      if (!reconciled.ok) {
+        throw new Error('did not reconcile');
+      }
+
+      const implementation = reconciled.line.stations.find(
+        (each) => each.key.value === 'implementation',
+      );
+
+      expect(implementation?.setup?.value).toBe('npm ci');
+      expect(
+        renderLine(reconciled.line).find((each) =>
+          each.path.endsWith('/implementation.md'),
+        )?.text,
+      ).toContain('setup: npm ci');
+    });
+
+    it('refuses a station that checks its layers without one', () => {
+      const read = compileLine(
+        'delivery',
+        withFront('check: npm test\ndiffs: true'),
+      );
+
+      expect(read.ok).toBe(false);
+      expect(read.problems.map((each) => each.at)).toContain('setup');
+    });
+
+    it('asks for none from a station that does not check its layers', () => {
+      expect(compileLine('delivery', withFront('diffs: true')).ok).toBe(true);
+    });
+  });
 });

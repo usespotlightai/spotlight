@@ -4,31 +4,77 @@ import type {
   RepositoryGitPort,
 } from '@github/application/ports/repository-git.port';
 import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
-import type { GitGatewayPort } from '@work/application/ports/git-gateway.port';
-import type { RunWorks } from '@work/application/services/run-works.service';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import type { CheckAccessPort } from '@work/application/ports/check-access.port';
+import type {
+  GitGatewayPort,
+  GitService,
+} from '@work/application/ports/git-gateway.port';
+import type {
+  CheckedRepository,
+  RunWorks,
+} from '@work/application/services/run-works.service';
 
 export class CarryGitCall implements GitGatewayPort {
   constructor(
     private readonly works: RunWorks,
     private readonly workspaces: WorkspaceConnectionsPort,
     private readonly git: RepositoryGitPort,
+    private readonly checking: CheckAccessPort,
+    private readonly clock: ClockPort,
   ) {}
 
   async carry(
     runId: string,
     runnerId: string,
     repo: string,
+    service: GitService,
     call: GitCall,
   ): Promise<GitAnswer | null> {
-    const { work } = await this.works.heldBy(runId, runnerId);
-    const repository = work ? await work.repositoryNamed(repo) : null;
+    const reached = await this.reaching(runId, runnerId, repo, service);
 
-    if (!work || !repository) {
+    if (!reached) {
       return null;
     }
 
-    return (await this.workspaces.isConnected(work.workspaceId))
-      ? this.git.call(work.workspaceId, repository, call)
+    return (await this.workspaces.isConnected(reached.workspaceId))
+      ? this.git.call(reached.workspaceId, reached.repository, call)
       : null;
+  }
+
+  private async reaching(
+    runId: string,
+    runnerId: string,
+    repo: string,
+    service: GitService,
+  ): Promise<CheckedRepository | null> {
+    const held = await this.works
+      .heldBy(runId, runnerId)
+      .then((worked) => ({ worked }))
+      .catch((refused: unknown) => ({ refused }));
+
+    if ('worked' in held) {
+      const { work } = held.worked;
+      const repository = work ? await work.repositoryNamed(repo) : null;
+
+      return work && repository
+        ? { workspaceId: work.workspaceId, repository }
+        : null;
+    }
+
+    if (
+      service === 'git-receive-pack' ||
+      !(await this.checking.holdsCheckOfRun(
+        RunId.of(runId),
+        RunnerId.of(runnerId),
+        this.clock.now(),
+      ))
+    ) {
+      throw held.refused;
+    }
+
+    return this.works.repositoryForCheck(RunId.of(runId), repo);
   }
 }
