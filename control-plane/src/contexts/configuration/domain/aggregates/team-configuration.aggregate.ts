@@ -2,7 +2,7 @@ import { ConfigurationRead } from '@configuration/domain/events/configuration-re
 import { InvalidConfigurationError } from '@configuration/domain/exceptions/invalid-configuration.error';
 import type { Commit } from '@configuration/domain/value-objects/commit.vo';
 import type { ConfiguredIntegration } from '@configuration/domain/value-objects/configured-integration.vo';
-import { EventRecorder } from '@shared-kernel/domain/aggregates/event-recorder';
+import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';

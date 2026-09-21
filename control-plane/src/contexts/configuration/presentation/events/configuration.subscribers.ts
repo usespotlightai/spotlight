@@ -8,11 +8,11 @@ import type { ConfigurationRead } from '@configuration/domain/events/configurati
 import {
   DEFAULT_BRANCH_PUSHED,
   type DefaultBranchPushedIntegrationEvent,
-} from '@github/application/integration-events/default-branch-pushed.integration-event';
+} from '@shared-kernel/application/integration-events/default-branch-pushed.integration-event';
 import {
   HOST_CONNECTED,
   type HostConnectedIntegrationEvent,
-} from '@integrations/application/integration-events/host-connected.integration-event';
+} from '@shared-kernel/application/integration-events/host-connected.integration-event';
 import {
   type DomainEventSubscriber,
   subscribing,

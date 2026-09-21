@@ -143,27 +143,53 @@ type Said struct {
 type ChangeStackDraft struct {
 	Diff       string `json:"diff"`
 	Repository string `json:"repository"`
+	Base       string `json:"base,omitempty"`
 }
 
-type StackChecks struct {
-	Waiting bool         `json:"waiting"`
-	Checks  []StackCheck `json:"checks"`
+const (
+	ClaimedRun   = "run"
+	ClaimedCheck = "check"
+)
+
+type Claimed struct {
+	Kind  string      `json:"kind"`
+	Run   *Run        `json:"run"`
+	Check *StackCheck `json:"check"`
 }
 
 type StackCheck struct {
 	StackID    string      `json:"stackId"`
-	Repository *string     `json:"repository"`
+	RunID      string      `json:"runId"`
+	Repository string      `json:"repository"`
+	Base       string      `json:"base"`
+	Setup      string      `json:"setup"`
 	Command    string      `json:"command"`
 	Steps      []CheckStep `json:"steps"`
 }
 
 type CheckStep struct {
-	ID    string `json:"id"`
-	Patch string `json:"patch"`
+	ID             string `json:"id"`
+	Patch          string `json:"patch"`
+	StopsOnFailure bool   `json:"stopsOnFailure"`
+	RunsSetup      bool   `json:"runsSetup"`
+}
+
+const (
+	SkipNoBase         = "no-base"
+	SkipNoCheckout     = "no-checkout"
+	SkipCheckoutFailed = "checkout-failed"
+	SkipSetupFailed    = "setup-failed"
+	SkipNoRoom         = "no-room"
+	SkipOutOfTime      = "out-of-time"
+)
+
+type SkippedCheck struct {
+	Code   string `json:"code"`
+	Detail string `json:"detail,omitempty"`
 }
 
 type StackChecked struct {
-	Skipped string        `json:"skipped,omitempty"`
+	Skipped *SkippedCheck `json:"skipped,omitempty"`
 	Steps   []CheckedStep `json:"steps,omitempty"`
 }
 

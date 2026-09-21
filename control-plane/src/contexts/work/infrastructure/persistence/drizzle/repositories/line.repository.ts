@@ -30,6 +30,7 @@ import { StationDescription } from '@work/domain/value-objects/station-descripti
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { StationSetup } from '@work/domain/value-objects/station-setup.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
 import { WayOut } from '@work/domain/value-objects/way-out.vo';
 import {
@@ -85,6 +86,7 @@ const toStation = (row: StationRow, ways: Ways): Station =>
     effort: row.effort ? Effort.of(row.effort) : null,
     agentPrompt: row.agentPrompt ? AgentPrompt.of(row.agentPrompt) : null,
     check: row.check ? StationCheck.of(row.check) : null,
+    setup: row.setup ? StationSetup.of(row.setup) : null,
     diffs: row.diffs,
     kind: row.kind,
     wayOut: WayOut.of({
@@ -167,6 +169,7 @@ const columnsOf = (each: Station) => ({
   effort: each.effort?.value ?? null,
   agentPrompt: each.agentPrompt?.value ?? null,
   check: each.check?.value ?? null,
+  setup: each.setup?.value ?? null,
   diffs: each.diffs,
   kind: each.kind,
   finishes: each.wayOut.ends,

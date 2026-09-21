@@ -30,6 +30,7 @@ import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationDescription } from '@work/domain/value-objects/station-description.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { StationSetup } from '@work/domain/value-objects/station-setup.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
 import {
   lineSchema,
@@ -152,6 +153,30 @@ const compileStation = (
     };
   }
 
+  let setup: StationSetup | null = null;
+
+  try {
+    setup = station.setup ? StationSetup.of(station.setup) : null;
+  } catch (error) {
+    return {
+      ok: false,
+      problems: [refused(file.path, 'setup', reasoned(error))],
+    };
+  }
+
+  if (check && station.diffs && !setup) {
+    return {
+      ok: false,
+      problems: [
+        refused(
+          file.path,
+          'setup',
+          'says how to make the checkout ready before the check runs, and a station that checks its layers needs one',
+        ),
+      ],
+    };
+  }
+
   return {
     ok: true,
     value: {
@@ -169,6 +194,7 @@ const compileStation = (
       effort: station.effort ? Effort.of(station.effort) : null,
       agentPrompt,
       check,
+      setup,
       diffs: station.diffs ?? false,
       tools: station.tools.map((each) => Tool.of(each)),
       skills: station.skills.map((each) => SkillKey.of(each)),

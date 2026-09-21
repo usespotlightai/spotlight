@@ -16,7 +16,12 @@ const (
 )
 
 type Claimer interface {
-	Claim(ctx context.Context) (*protocol.Run, error)
+	Claim(ctx context.Context) (*protocol.Claimed, error)
+}
+
+type Work struct {
+	Run   func(context.Context, protocol.Run)
+	Check func(context.Context, protocol.StackCheck)
 }
 
 type Limits struct {
@@ -30,7 +35,7 @@ func Poll(
 	claimer Claimer,
 	limits Limits,
 	log *slog.Logger,
-	execute func(context.Context, protocol.Run),
+	work Work,
 ) error {
 	served := 0
 	idleSince := time.Now()
@@ -53,7 +58,7 @@ func Poll(
 			return nil
 		}
 
-		run, err := claimer.Claim(ctx)
+		claimed, err := claimer.Claim(ctx)
 		if err != nil {
 			if ctx.Err() != nil {
 				return nil
@@ -68,14 +73,24 @@ func Poll(
 
 		backoff = retryFloor
 
-		if run == nil {
+		if claimed == nil {
 			continue
 		}
 
-		log.Info("claimed a run", "run", run.ID)
-		execute(ctx, *run)
+		switch {
+		case claimed.Kind == protocol.ClaimedRun && claimed.Run != nil:
+			log.Info("claimed a run", "run", claimed.Run.ID)
+			work.Run(ctx, *claimed.Run)
+			served++
+		case claimed.Kind == protocol.ClaimedCheck && claimed.Check != nil:
+			log.Info("claimed a change stack check",
+				"stack", claimed.Check.StackID, "run", claimed.Check.RunID)
+			work.Check(ctx, *claimed.Check)
+		default:
+			log.Warn("claimed something it does not know how to do", "kind", claimed.Kind)
+			continue
+		}
 
-		served++
 		idleSince = time.Now()
 	}
 }

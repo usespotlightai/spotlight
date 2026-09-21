@@ -1,19 +1,19 @@
 import {
-  WORKSPACE_CONNECTED,
-  type WorkspaceConnectedIntegrationEvent,
-} from '@github/application/integration-events/workspace-connected.integration-event';
-import {
-  TEAM_CREATED,
-  type TeamCreatedIntegrationEvent,
-} from '@identity/application/integration-events/team-created.integration-event';
-import {
   RUNNER_REGISTERED,
   type RunnerRegisteredIntegrationEvent,
-} from '@runners/application/integration-events/runner-registered.integration-event';
+} from '@shared-kernel/application/integration-events/runner-registered.integration-event';
 import {
   RUNNER_REVOKED,
   type RunnerRevokedIntegrationEvent,
-} from '@runners/application/integration-events/runner-revoked.integration-event';
+} from '@shared-kernel/application/integration-events/runner-revoked.integration-event';
+import {
+  TEAM_CREATED,
+  type TeamCreatedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/team-created.integration-event';
+import {
+  WORKSPACE_CONNECTED,
+  type WorkspaceConnectedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/workspace-connected.integration-event';
 import {
   type DomainEventSubscriber,
   subscribing,

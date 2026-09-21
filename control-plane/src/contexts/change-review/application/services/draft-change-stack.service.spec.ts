@@ -11,6 +11,7 @@ import type { SymbolIndexerPort } from '@change-review/application/ports/symbol-
 import { DraftChangeStack } from '@change-review/application/services/draft-change-stack.service';
 import { ReorderChangeStack } from '@change-review/application/services/reorder-change-stack.service';
 import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
+import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import { ChangeStacksUnavailableError } from '@change-review/domain/exceptions/change-stacks-unavailable.error';
 import { InvalidDiffError } from '@change-review/domain/exceptions/invalid-diff.error';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
@@ -18,14 +19,12 @@ import {
   NO_INDEX,
   type SymbolIndex,
 } from '@change-review/domain/services/symbol-index';
+import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import {
   Diff,
   type DiffFile,
 } from '@change-review/domain/value-objects/diff.vo';
-import {
-  StackCheck,
-  WHOLE_STEP,
-} from '@change-review/domain/value-objects/stack-check.vo';
+import { WHOLE_STEP } from '@change-review/domain/value-objects/stack-check.vo';
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -209,6 +208,8 @@ describe('DraftChangeStack', () => {
     const stack = await service.begin(RUN, {
       diff: DIFF,
       repository: 'web',
+      base: null,
+      request: null,
     });
 
     expect(stack.state).toBe('drafting');
@@ -233,7 +234,7 @@ describe('DraftChangeStack', () => {
       answers: [[cohort(['h1'])], [cohort(['h1', 'h2'])]],
     });
 
-    await drafted({ diff: DIFF, repository: null });
+    await drafted({ diff: DIFF, repository: null, base: null, request: null });
 
     expect(
       asked.map((each) => each.problems.map((problem) => problem.message)),
@@ -246,7 +247,7 @@ describe('DraftChangeStack', () => {
       answers: [[cohort(['h1'])], [cohort(['h2'])]],
     });
 
-    await drafted({ diff: DIFF, repository: null });
+    await drafted({ diff: DIFF, repository: null, base: null, request: null });
 
     expect(saved[saved.length - 1]?.state).toBe('failed');
     expect(saved[saved.length - 1]?.failure).toBe(
@@ -256,7 +257,12 @@ describe('DraftChangeStack', () => {
 
   it('leaves the draft to be tried again where the drafter cannot answer', async () => {
     const { service } = drafting({ answers: [new Error('overloaded')] });
-    const stack = await service.begin(RUN, { diff: DIFF, repository: null });
+    const stack = await service.begin(RUN, {
+      diff: DIFF,
+      repository: null,
+      base: null,
+      request: null,
+    });
 
     await expect(service.drafted(stack)).rejects.toThrow('overloaded');
   });
@@ -265,7 +271,12 @@ describe('DraftChangeStack', () => {
     const { service } = drafting({ available: false });
 
     await expect(
-      service.begin(RUN, { diff: DIFF, repository: null }),
+      service.begin(RUN, {
+        diff: DIFF,
+        repository: null,
+        base: null,
+        request: null,
+      }),
     ).rejects.toThrow(ChangeStacksUnavailableError);
   });
 
@@ -273,7 +284,12 @@ describe('DraftChangeStack', () => {
     const { service, saved } = drafting();
 
     await expect(
-      service.begin(RUN, { diff: 'nothing changed', repository: null }),
+      service.begin(RUN, {
+        diff: 'nothing changed',
+        repository: null,
+        base: null,
+        request: null,
+      }),
     ).rejects.toThrow(InvalidDiffError);
     expect(saved).toEqual([]);
   });
@@ -305,7 +321,12 @@ describe('DraftChangeStack', () => {
         answers: [[cohort(['h1', 'h2'], LINKED_PATHS)]],
       });
 
-      await drafted({ diff: LINKED, repository: null });
+      await drafted({
+        diff: LINKED,
+        repository: null,
+        base: null,
+        request: null,
+      });
 
       expect(asked[0]?.facts.links).toEqual([
         {
@@ -330,7 +351,12 @@ describe('DraftChangeStack', () => {
     it('asks again where the stack splits what the code ties together, then gives up rather than keep it', async () => {
       const { drafted, saved, asked } = drafting({ answers: [apart, apart] });
 
-      await drafted({ diff: LINKED, repository: null });
+      await drafted({
+        diff: LINKED,
+        repository: null,
+        base: null,
+        request: null,
+      });
 
       expect(asked[1]?.problems).toEqual([
         {
@@ -389,7 +415,12 @@ describe('DraftChangeStack', () => {
         },
       });
 
-      await drafted({ diff: DIFF, repository: null });
+      await drafted({
+        diff: DIFF,
+        repository: null,
+        base: null,
+        request: null,
+      });
 
       expect(read).toEqual([
         'before:schema.ts',
@@ -415,7 +446,12 @@ describe('DraftChangeStack', () => {
         },
       });
 
-      await drafted({ diff: LINKED, repository: null });
+      await drafted({
+        diff: LINKED,
+        repository: null,
+        base: null,
+        request: null,
+      });
 
       expect(asked[0]?.facts.links).toHaveLength(1);
       expect(saved[saved.length - 1]?.state).toBe('ready');
@@ -425,7 +461,12 @@ describe('DraftChangeStack', () => {
       const lockfileOnly = written(LOCKFILE);
       const { drafted, saved, asked } = drafting({ answers: [] });
 
-      await drafted({ diff: lockfileOnly, repository: null });
+      await drafted({
+        diff: lockfileOnly,
+        repository: null,
+        base: null,
+        request: null,
+      });
 
       expect(asked).toEqual([]);
       expect(saved[saved.length - 1]?.cohorts[0]?.kind).toBe('incidental');
@@ -461,11 +502,20 @@ describe('ReorderChangeStack', () => {
     await drafted.drafted({
       diff: DIFF,
       repository: null,
-      check: StackCheck.named('npx tsc --noEmit'),
+      base: null,
+      request: CheckRequest.of('npx tsc --noEmit', null),
     });
 
     const ready = drafted.saved[drafted.saved.length - 1] as ChangeStack;
-    const reordering = ready.recordCheck(
+    const check = StackCheck.begin({
+      stackId: ready.id,
+      runId: ready.runId,
+      workspaceId: ready.workspaceId,
+      request: CheckRequest.of('npx tsc --noEmit', null),
+      entries: ready.entries(),
+      now: new Date('2026-09-16T10:00:00Z'),
+    }).recorded(
+      { steps: ready.checkSteps(ready.entries()), layers: ready.layers() },
       [
         { step: WHOLE_STEP, passed: true, output: '', tookMs: 1 },
         {
@@ -477,6 +527,7 @@ describe('ReorderChangeStack', () => {
       ],
       new Date('2026-09-16T10:00:00Z'),
     );
+    const reordering = ready.askedToReorder();
 
     drafted.saved.push(reordering);
 
@@ -489,7 +540,7 @@ describe('ReorderChangeStack', () => {
       QUIET,
     );
 
-    return { ...drafted, reordering, service };
+    return { ...drafted, reordering, check, service };
   };
 
   it('asks for the layers again with what the check found, and takes the reordered stack', async () => {
@@ -498,9 +549,11 @@ describe('ReorderChangeStack', () => {
       ...twoLayers,
       layers: [endpoint, table].flatMap((layer) => (layer ? [layer] : [])),
     };
-    const { service, saved, asked, reordering } = await failedCheck([[moved]]);
+    const { service, saved, asked, reordering, check } = await failedCheck([
+      [moved],
+    ]);
 
-    saved.push(await service.reordered(reordering));
+    saved.push(await service.reordered(reordering, check));
 
     expect(asked[1]?.problems).toEqual([]);
     expect(
@@ -513,31 +566,28 @@ describe('ReorderChangeStack', () => {
         layer.ranges.map((range) => range.hunk),
       ),
     ).toEqual([['h2'], ['h1']]);
-    expect(reordered?.check).toMatchObject({
-      rounds: 1,
-      phase: 'waiting',
-      outcome: null,
-    });
+    expect(reordered?.reordering).toBe(false);
   });
 
   it('keeps the checked layers where the reordered stack keeps breaking the rules', async () => {
-    const { service, reordering } = await failedCheck([
+    const { service, reordering, check } = await failedCheck([
       [cohort(['h1'])],
       [cohort(['h2'])],
     ]);
 
-    const kept = await service.reordered(reordering);
+    const kept = await service.reordered(reordering, check);
 
-    expect(kept.check?.reordering).toBe(false);
-    expect(kept.check?.outcome?.state).toBe('checked');
+    expect(kept.reordering).toBe(false);
     expect(kept.cohorts[0]?.layers).toHaveLength(2);
   });
 
   it('leaves the reordering to be tried again where the model cannot answer', async () => {
-    const { service, reordering } = await failedCheck([
+    const { service, reordering, check } = await failedCheck([
       new Error('overloaded'),
     ]);
 
-    await expect(service.reordered(reordering)).rejects.toThrow('overloaded');
+    await expect(service.reordered(reordering, check)).rejects.toThrow(
+      'overloaded',
+    );
   });
 });

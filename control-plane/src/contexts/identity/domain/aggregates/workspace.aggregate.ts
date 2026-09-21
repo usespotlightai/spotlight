@@ -12,7 +12,7 @@ import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import type { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import type { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
-import { EventRecorder } from '@shared-kernel/domain/aggregates/event-recorder';
+import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';

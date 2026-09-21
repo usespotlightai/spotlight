@@ -56,8 +56,10 @@ const drafting = (facts = StackFacts.none()) =>
     taskId: null,
     workspaceId: WorkspaceId.of('workspace-1'),
     repository: ' web ',
+    base: null,
     diff: DIFF,
     facts,
+    request: null,
     now: NOW,
   });
 
@@ -362,11 +364,14 @@ describe('ChangeStack read back from what was stored', () => {
       taskId: null,
       workspaceId: WorkspaceId.of('workspace-1'),
       repository: RepositoryName.of('web'),
+      base: null,
       diff: DIFF,
       facts: StackFacts.none(),
       cohorts: ready().cohorts,
       progress: ready().progress,
       work: ready().work,
+      request: ready().request,
+      reordering: false,
       version: 1,
       ...over,
     });
@@ -407,7 +412,6 @@ describe('ChangeStack read back from what was stored', () => {
           failure: null,
           draftedAt: NOW,
           settledAt: LATER,
-          check: null,
         }),
       }),
     ).toThrow('failed without saying why');
@@ -416,7 +420,7 @@ describe('ChangeStack read back from what was stored', () => {
   it('refuses a stack that is still drafting, yet holds cohorts', () => {
     expect(() =>
       stored({
-        progress: StackProgress.drafting(NOW, null),
+        progress: StackProgress.drafting(NOW),
       }),
     ).toThrow('is still drafting, yet already holds cohorts');
   });

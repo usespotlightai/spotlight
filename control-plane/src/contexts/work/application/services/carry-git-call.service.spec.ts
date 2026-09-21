@@ -138,6 +138,7 @@ const carrying = (
   run: Run | null,
   held: Task | null,
   repositories: readonly string[] = ['acme/widgets'],
+  checking = false,
 ) => {
   const git = {
     call: vi.fn(async () => ({ status: 200, headers: {}, body: null })),
@@ -157,6 +158,8 @@ const carrying = (
       isConnected: vi.fn(async () => true),
     } as unknown as WorkspaceConnectionsPort,
     git as unknown as RepositoryGitPort,
+    { holdsCheckOfRun: vi.fn(async () => checking) },
+    { now: () => NOW, sleep: async () => {} },
   );
 
   return { service, git };
@@ -166,7 +169,13 @@ describe('CarryGitCall', () => {
   it('carries the call to the line’s repository named at the door', async () => {
     const { service, git } = carrying(claimedBy('runner_1'), task());
 
-    await service.carry('run_1', 'runner_1', 'widgets', call);
+    await service.carry(
+      'run_1',
+      'runner_1',
+      'widgets',
+      'git-upload-pack',
+      call,
+    );
 
     expect(git.call).toHaveBeenCalledWith(
       WorkspaceId.of('ws_1'),
@@ -181,7 +190,13 @@ describe('CarryGitCall', () => {
       null,
     );
 
-    await service.carry('run_1', 'runner_1', 'planning', call);
+    await service.carry(
+      'run_1',
+      'runner_1',
+      'planning',
+      'git-upload-pack',
+      call,
+    );
 
     expect(git.call).toHaveBeenCalledWith(
       WorkspaceId.of('ws_1'),
@@ -194,7 +209,7 @@ describe('CarryGitCall', () => {
     const { service, git } = carrying(claimedBy('runner_1'), added());
 
     await expect(
-      service.carry('run_1', 'runner_1', 'widgets', call),
+      service.carry('run_1', 'runner_1', 'widgets', 'git-upload-pack', call),
     ).resolves.toBeNull();
     expect(git.call).not.toHaveBeenCalled();
   });
@@ -203,7 +218,7 @@ describe('CarryGitCall', () => {
     const { service, git } = carrying(claimedBy('runner_1'), task());
 
     await expect(
-      service.carry('run_1', 'runner_2', 'widgets', call),
+      service.carry('run_1', 'runner_2', 'widgets', 'git-upload-pack', call),
     ).rejects.toThrow(InvalidRunTransitionError);
     expect(git.call).not.toHaveBeenCalled();
   });
@@ -212,7 +227,7 @@ describe('CarryGitCall', () => {
     const { service, git } = carrying(enqueued(), task());
 
     await expect(
-      service.carry('run_1', 'runner_1', 'widgets', call),
+      service.carry('run_1', 'runner_1', 'widgets', 'git-upload-pack', call),
     ).rejects.toThrow(InvalidRunTransitionError);
     expect(git.call).not.toHaveBeenCalled();
   });
@@ -221,7 +236,7 @@ describe('CarryGitCall', () => {
     const { service, git } = carrying(claimedBy('runner_1'), task());
 
     await expect(
-      service.carry('run_1', 'runner_1', 'other', call),
+      service.carry('run_1', 'runner_1', 'other', 'git-upload-pack', call),
     ).resolves.toBeNull();
     expect(git.call).not.toHaveBeenCalled();
   });
@@ -230,7 +245,79 @@ describe('CarryGitCall', () => {
     const { service } = carrying(null, null);
 
     await expect(
-      service.carry('run_1', 'runner_1', 'widgets', call),
+      service.carry('run_1', 'runner_1', 'widgets', 'git-upload-pack', call),
     ).rejects.toThrow(UnknownRunError);
+  });
+
+  describe('a runner holding a check of the run', () => {
+    it('reads the repository though it never held the run', async () => {
+      const { service, git } = carrying(
+        claimedBy('runner_1'),
+        task(),
+        undefined,
+        true,
+      );
+
+      await service.carry(
+        'run_1',
+        'runner_2',
+        'widgets',
+        'git-upload-pack',
+        call,
+      );
+
+      expect(git.call).toHaveBeenCalledWith(
+        WorkspaceId.of('ws_1'),
+        Repository.of('acme/widgets'),
+        call,
+      );
+    });
+
+    it('reads it even once the task has moved on', async () => {
+      const { service, git } = carrying(
+        claimedBy('runner_1'),
+        added(),
+        undefined,
+        true,
+      );
+
+      await service.carry(
+        'run_1',
+        'runner_2',
+        'widgets',
+        'git-upload-pack',
+        call,
+      );
+
+      expect(git.call).toHaveBeenCalled();
+    });
+
+    it('is never let near a push', async () => {
+      const { service, git } = carrying(
+        claimedBy('runner_1'),
+        task(),
+        undefined,
+        true,
+      );
+
+      await expect(
+        service.carry('run_1', 'runner_2', 'widgets', 'git-receive-pack', call),
+      ).rejects.toThrow(InvalidRunTransitionError);
+      expect(git.call).not.toHaveBeenCalled();
+    });
+
+    it('says nothing to carry where the line does not work that repository', async () => {
+      const { service, git } = carrying(
+        claimedBy('runner_1'),
+        task(),
+        undefined,
+        true,
+      );
+
+      await expect(
+        service.carry('run_1', 'runner_2', 'other', 'git-upload-pack', call),
+      ).resolves.toBeNull();
+      expect(git.call).not.toHaveBeenCalled();
+    });
   });
 });

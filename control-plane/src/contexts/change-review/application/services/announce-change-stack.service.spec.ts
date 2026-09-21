@@ -21,6 +21,8 @@ const ready = () =>
     taskId: null,
     workspaceId: WorkspaceId.of('workspace-1'),
     repository: null,
+    base: null,
+    request: null,
     diff: Diff.of([
       {
         path: 'a.ts',
@@ -89,13 +91,11 @@ const announcing = (
           state: stack.state,
           cohorts: stack.cohorts,
           check: null,
-          ended: false,
           added: 0,
           removed: 0,
         };
       },
       ofRun: async () => [],
-      checksOfRun: async () => ({ waiting: false, checks: [] }),
     },
     {
       slugOf: async () => 'acme',
@@ -111,7 +111,7 @@ const announcing = (
           id: RunId.of('run-1'),
           workspaceId: WorkspaceId.of('workspace-1'),
           taskId: TaskId.of('task-1'),
-          check: null,
+          request: null,
           ended: false,
         };
       },

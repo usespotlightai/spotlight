@@ -4,18 +4,16 @@ import { ReorderChangeStack } from '@change-review/application/services/reorder-
 import { WorkChangeStacks } from '@change-review/application/services/work-change-stacks.service';
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
+import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import {
   Diff,
   type DiffFile,
 } from '@change-review/domain/value-objects/diff.vo';
-import {
-  StackCheck,
-  WHOLE_STEP,
-} from '@change-review/domain/value-objects/stack-check.vo';
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
-import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
+import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import {
   MOST_WORK_ATTEMPTS,
   WORK_LEASE_MS,
@@ -71,6 +69,7 @@ const drafting = () =>
     taskId: null,
     workspaceId: WorkspaceId.of('workspace-1'),
     repository: null,
+    base: null,
     diff: Diff.of(['schema.ts', 'api.ts'].map(changed)),
     facts: StackFacts.of({
       hunks: ['h1', 'h2'].map((hunk, at) => ({
@@ -87,7 +86,7 @@ const drafting = () =>
       links: [],
       imports: [],
     }),
-    check: StackCheck.named('npx tsc --noEmit'),
+    request: CheckRequest.of('npm test', null),
     now: NOW,
   });
 
@@ -117,9 +116,15 @@ const working = (
   const drafter: ChangeStackDrafterPort = { available: true, draft };
   const clock = { now: () => now, sleep: async () => undefined };
 
+  const checks = {
+    find: async () => null,
+    save: async () => undefined,
+  } as unknown as StackCheckRepository;
+
   const service = new WorkChangeStacks(
     stacks,
-    { run: (work) => work() },
+    checks,
+    { run: <T>(work: () => Promise<T>) => work() },
     new DraftChangeStack(
       stacks,
       drafter,
@@ -203,29 +208,15 @@ describe('WorkChangeStacks', () => {
     expect(worked.stored().state).toBe('failed');
   });
 
-  it('reorders a stack whose layers failed their check', async () => {
+  it('gives up reordering a stack whose check has gone', async () => {
     const reordering = drafting()
       .propose(layered([['h1'], ['h2']]), NOW)
-      .recordCheck(
-        [
-          { step: WHOLE_STEP, passed: true, output: '', tookMs: 1 },
-          {
-            step: LayerId.of('c1.l1'),
-            passed: false,
-            output: 'TS2304',
-            tookMs: 1,
-          },
-        ],
-        NOW,
-      );
+      .askedToReorder();
     const worked = working(reordering, async () => layered([['h2'], ['h1']]));
 
     await worked.turn(NOW);
 
-    expect(worked.stored().check).toMatchObject({
-      phase: 'waiting',
-      rounds: 1,
-    });
+    expect(worked.stored().reordering).toBe(false);
     expect(worked.stored().owesWork).toBe(false);
   });
 });

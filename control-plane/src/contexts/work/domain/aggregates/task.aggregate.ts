@@ -1,4 +1,4 @@
-import { EventRecorder } from '@shared-kernel/domain/aggregates/event-recorder';
+import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';

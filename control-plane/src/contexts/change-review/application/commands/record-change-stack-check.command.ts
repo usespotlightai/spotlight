@@ -5,7 +5,7 @@ export class RecordChangeStackCheckCommand {
     readonly runId: string,
     readonly runnerId: string,
     readonly stackId: string,
-    readonly skipped: string | null,
+    readonly skipped: { code: string; detail: string | null } | null,
     readonly steps: readonly CheckedStepDto[],
   ) {}
 }

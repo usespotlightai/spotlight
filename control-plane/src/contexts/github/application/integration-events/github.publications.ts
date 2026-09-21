@@ -1,23 +1,23 @@
-import {
-  DEFAULT_BRANCH_PUSHED,
-  type DefaultBranchPushedIntegrationEvent,
-} from '@github/application/integration-events/default-branch-pushed.integration-event';
-import {
-  REVIEW_COMMENT_RECEIVED,
-  type ReviewCommentReceivedIntegrationEvent,
-} from '@github/application/integration-events/review-comment-received.integration-event';
-import {
-  WORKSPACE_CONNECTED,
-  type WorkspaceConnectedIntegrationEvent,
-} from '@github/application/integration-events/workspace-connected.integration-event';
-import {
-  WORKSPACE_DISCONNECTED,
-  type WorkspaceDisconnectedIntegrationEvent,
-} from '@github/application/integration-events/workspace-disconnected.integration-event';
 import type { DefaultBranchPushed } from '@github/domain/events/default-branch-pushed.event';
 import type { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
 import type { WorkspaceConnected } from '@github/domain/events/workspace-connected.event';
 import type { WorkspaceDisconnected } from '@github/domain/events/workspace-disconnected.event';
+import {
+  DEFAULT_BRANCH_PUSHED,
+  type DefaultBranchPushedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/default-branch-pushed.integration-event';
+import {
+  REVIEW_COMMENT_RECEIVED,
+  type ReviewCommentReceivedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/review-comment-received.integration-event';
+import {
+  WORKSPACE_CONNECTED,
+  type WorkspaceConnectedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/workspace-connected.integration-event';
+import {
+  WORKSPACE_DISCONNECTED,
+  type WorkspaceDisconnectedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/workspace-disconnected.integration-event';
 import { publishing } from '@shared-kernel/application/ports/event-publication.port';
 
 export const GITHUB_PUBLICATIONS = [

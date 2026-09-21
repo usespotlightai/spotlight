@@ -5,6 +5,8 @@ import {
 import { GitHubModule } from '@github/github.module';
 import { IdentityModule } from '@identity/identity.module';
 import { Module } from '@nestjs/common';
+import { CHECK_ACCESS } from '@work/application/ports/check-access.port';
+import { CHECK_WORK } from '@work/application/ports/check-work.port';
 import { PULL_REQUEST_REVIEWING } from '@work/application/ports/pull-request-reviewing.port';
 import { WorkModule } from '@work/work.module';
 
@@ -12,6 +14,6 @@ import { WorkModule } from '@work/work.module';
   imports: [IdentityModule, GitHubModule, WorkModule],
   controllers: [...CHANGE_REVIEW_CONTROLLERS],
   providers: [...CHANGE_REVIEW_PROVIDERS],
-  exports: [PULL_REQUEST_REVIEWING],
+  exports: [PULL_REQUEST_REVIEWING, CHECK_ACCESS, CHECK_WORK],
 })
 export class ChangeReviewModule {}

@@ -1,10 +1,9 @@
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
+import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import { revisionOf } from '@change-review/domain/services/stack-revision';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
-import {
-  StackCheck,
-  WHOLE_STEP,
-} from '@change-review/domain/value-objects/stack-check.vo';
+import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
+import { WHOLE_STEP } from '@change-review/domain/value-objects/stack-check.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
 import { GitDiffReader } from '@change-review/infrastructure/change-stacks/git-diff.reader';
@@ -40,48 +39,58 @@ const stack = () =>
     taskId: null,
     workspaceId: WorkspaceId.of('workspace-1'),
     repository: null,
+    base: null,
     diff: DIFF,
     facts: StackFacts.none(),
-    check: StackCheck.named('npx tsc --noEmit'),
+    request: CheckRequest.of('npm test', null),
     now: NOW,
-  })
-    .propose(
-      [
-        {
-          kind: 'change',
-          title: 'Labels',
-          intent: 'Labels',
-          layers: [['h1'], ['h2']].map((hunks, at) => ({
-            title: `Layer ${at + 1}`,
-            summary: 'A layer',
-            dependsOn: [],
-            ranges: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
-            notes: hunks.map((hunk) => ({
-              path: DIFF.fileOf(hunk)?.path ?? hunk,
-              note: 'Why it changes',
-            })),
+  }).propose(
+    [
+      {
+        kind: 'change',
+        title: 'Labels',
+        intent: 'Labels',
+        layers: [['h1'], ['h2']].map((hunks, at) => ({
+          title: `Layer ${at + 1}`,
+          summary: 'A layer',
+          dependsOn: [],
+          ranges: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
+          notes: hunks.map((hunk) => ({
+            path: DIFF.fileOf(hunk)?.path ?? hunk,
+            note: 'Why it changes',
           })),
-        },
-      ],
-      NOW,
-    )
-    .recordCheck(
-      [
-        { step: WHOLE_STEP, passed: true, output: '', tookMs: 1 },
-        {
-          step: LayerId.of('c1.l1'),
-          passed: false,
-          output:
-            "src/presentation/http/mappers/task.http.mapper.spec.ts(5,7): error TS2741: Property 'labels' is missing",
-          tookMs: 1,
-        },
-      ],
-      NOW,
-    );
+        })),
+      },
+    ],
+    NOW,
+  );
+
+const checkOf = (built = stack()) =>
+  StackCheck.begin({
+    stackId: built.id,
+    runId: built.runId,
+    workspaceId: built.workspaceId,
+    request: CheckRequest.of('npx tsc --noEmit', null),
+    entries: built.entries(),
+    now: NOW,
+  }).recorded(
+    { steps: built.checkSteps(built.entries()), layers: built.layers() },
+    [
+      { step: WHOLE_STEP, passed: true, output: '', tookMs: 1 },
+      {
+        step: LayerId.of('c1.l1'),
+        passed: false,
+        output:
+          "src/presentation/http/mappers/task.http.mapper.spec.ts(5,7): error TS2741: Property 'labels' is missing",
+        tookMs: 1,
+      },
+    ],
+    NOW,
+  );
 
 describe('revisionOf', () => {
   it('gives how the stack stood, what failed, and where the files its errors name sit', () => {
-    expect(revisionOf(stack())).toEqual({
+    expect(revisionOf(stack(), checkOf())).toEqual({
       command: 'npx tsc --noEmit',
       stack: [
         {
@@ -117,11 +126,25 @@ describe('revisionOf', () => {
       taskId: null,
       workspaceId: WorkspaceId.of('workspace-1'),
       repository: null,
+      base: null,
       diff: DIFF,
       facts: StackFacts.none(),
+      request: null,
       now: NOW,
     });
 
-    expect(revisionOf(built)).toBeNull();
+    expect(
+      revisionOf(
+        built,
+        StackCheck.begin({
+          stackId: built.id,
+          runId: built.runId,
+          workspaceId: built.workspaceId,
+          request: CheckRequest.of('npx tsc --noEmit', null),
+          entries: [],
+          now: NOW,
+        }),
+      ),
+    ).toBeNull();
   });
 });

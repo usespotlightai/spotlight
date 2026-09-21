@@ -26,6 +26,7 @@ import type { StationColor } from '@work/domain/value-objects/station-color.vo';
 import type { StationDescription } from '@work/domain/value-objects/station-description.vo';
 import type { StationKey } from '@work/domain/value-objects/station-key.vo';
 import type { StationName } from '@work/domain/value-objects/station-name.vo';
+import type { StationSetup } from '@work/domain/value-objects/station-setup.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
 
 export interface StationPlan {
@@ -39,6 +40,7 @@ export interface StationPlan {
   readonly effort: Effort | null;
   readonly agentPrompt: AgentPrompt | null;
   readonly check: StationCheck | null;
+  readonly setup: StationSetup | null;
   readonly diffs: boolean;
   readonly tools: readonly Tool[];
   readonly skills: readonly SkillKey[];

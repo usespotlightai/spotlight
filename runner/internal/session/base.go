@@ -11,7 +11,9 @@ import (
 	"usespotlight.ai/runner/internal/stackcheck"
 )
 
-func markBases(ctx context.Context, dir string, checkouts []protocol.Checkout, log *slog.Logger) {
+func markBases(ctx context.Context, dir string, checkouts []protocol.Checkout, log *slog.Logger) map[string]string {
+	marked := make(map[string]string, len(checkouts))
+
 	for _, checkout := range checkouts {
 		repository := filepath.Join(dir, checkout.Path)
 		git := func(args ...string) (string, error) {
@@ -32,6 +34,17 @@ func markBases(ctx context.Context, dir string, checkouts []protocol.Checkout, l
 				"error", err,
 				"output", output,
 			)
+			continue
 		}
+
+		commit, err := git("rev-parse", "--verify", stackcheck.BaseRef)
+		if err != nil {
+			log.Warn("could not read where a checkout began", "path", checkout.Path, "error", err)
+			continue
+		}
+
+		marked[checkout.Path] = commit
 	}
+
+	return marked
 }

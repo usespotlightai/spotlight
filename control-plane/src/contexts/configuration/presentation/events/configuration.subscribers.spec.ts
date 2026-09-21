@@ -3,8 +3,8 @@ import type { ConfigurationNotices } from '@configuration/application/services/c
 import { ConfigurationRead } from '@configuration/domain/events/configuration-read.event';
 import { Commit } from '@configuration/domain/value-objects/commit.vo';
 import { configurationSubscribers } from '@configuration/presentation/events/configuration.subscribers';
-import type { DefaultBranchPushedIntegrationEvent } from '@github/application/integration-events/default-branch-pushed.integration-event';
-import type { HostConnectedIntegrationEvent } from '@integrations/application/integration-events/host-connected.integration-event';
+import type { DefaultBranchPushedIntegrationEvent } from '@shared-kernel/application/integration-events/default-branch-pushed.integration-event';
+import type { HostConnectedIntegrationEvent } from '@shared-kernel/application/integration-events/host-connected.integration-event';
 import { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';

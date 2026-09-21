@@ -16,15 +16,13 @@ import { CurrentRunner } from '@platform/http/decorators/current-runner.decorato
 import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
 import {
   GIT_GATEWAY,
+  GIT_SERVICES,
   type GitGatewayPort,
+  type GitService,
 } from '@work/application/ports/git-gateway.port';
 
-const SERVICES = ['git-upload-pack', 'git-receive-pack'] as const;
-
-type Service = (typeof SERVICES)[number];
-
-const isService = (value: string): value is Service =>
-  SERVICES.includes(value as Service);
+const isService = (value: string): value is GitService =>
+  GIT_SERVICES.includes(value as GitService);
 
 interface Incoming extends AsyncIterable<Uint8Array> {
   headers: Record<string, string | string[] | undefined>;
@@ -57,7 +55,7 @@ export class GitController {
     }
 
     await this.answer(
-      await this.gateway.carry(runId, runnerId, repo, {
+      await this.gateway.carry(runId, runnerId, repo, service, {
         method: 'GET',
         path: '/info/refs',
         search: `?service=${service}`,
@@ -82,7 +80,7 @@ export class GitController {
     }
 
     await this.answer(
-      await this.gateway.carry(runId, runnerId, repo, {
+      await this.gateway.carry(runId, runnerId, repo, service, {
         method: 'POST',
         path: `/${service}`,
         search: '',

@@ -1,13 +1,13 @@
+import type { RunnerRegistered } from '@runners/domain/events/runner-registered.event';
+import type { RunnerRevoked } from '@runners/domain/events/runner-revoked.event';
 import {
   RUNNER_REGISTERED,
   type RunnerRegisteredIntegrationEvent,
-} from '@runners/application/integration-events/runner-registered.integration-event';
+} from '@shared-kernel/application/integration-events/runner-registered.integration-event';
 import {
   RUNNER_REVOKED,
   type RunnerRevokedIntegrationEvent,
-} from '@runners/application/integration-events/runner-revoked.integration-event';
-import type { RunnerRegistered } from '@runners/domain/events/runner-registered.event';
-import type { RunnerRevoked } from '@runners/domain/events/runner-revoked.event';
+} from '@shared-kernel/application/integration-events/runner-revoked.integration-event';
 import { publishing } from '@shared-kernel/application/ports/event-publication.port';
 
 export const RUNNERS_PUBLICATIONS = [

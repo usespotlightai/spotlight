@@ -141,6 +141,11 @@ import {
 } from '@work/application/ports/built-in-skills.port';
 import { CHAT_READER } from '@work/application/ports/chat-reader.port';
 import {
+  CHECK_ACCESS,
+  type CheckAccessPort,
+} from '@work/application/ports/check-access.port';
+import { CHECK_WORK } from '@work/application/ports/check-work.port';
+import {
   CONFIGURATION_PROPOSALS,
   type ConfigurationProposalsPort,
 } from '@work/application/ports/configuration-proposals.port';
@@ -664,12 +669,20 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: GIT_GATEWAY,
-    inject: [RunWorks, WORKSPACE_CONNECTIONS, REPOSITORY_GIT],
+    inject: [
+      RunWorks,
+      WORKSPACE_CONNECTIONS,
+      REPOSITORY_GIT,
+      CHECK_ACCESS,
+      CLOCK,
+    ],
     useFactory: (
       works: RunWorks,
       workspaces: WorkspaceConnectionsPort,
       git: RepositoryGitPort,
-    ) => new CarryGitCall(works, workspaces, git),
+      checking: CheckAccessPort,
+      clock: ClockPort,
+    ) => new CarryGitCall(works, workspaces, git, checking, clock),
   },
 
   {
@@ -1176,6 +1189,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     RunLeases,
     RUNNER_PRESENCE,
     CLOCK,
+    CHECK_WORK,
   ]),
 
   ...bindCommandHandler(RenewLeaseCommand, RenewLeaseHandler, [

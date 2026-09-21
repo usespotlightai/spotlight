@@ -1,29 +1,19 @@
 import { DraftRunChangeStackCommand } from '@change-review/application/commands/draft-run-change-stack.command';
 import { RecordChangeStackCheckCommand } from '@change-review/application/commands/record-change-stack-check.command';
-import type { ChangeStackChecksDto } from '@change-review/application/dto/change-stack-check.dto';
-import { ChangeStackChecksQuery } from '@change-review/application/queries/change-stack-checks.query';
-import {
-  ChangeStackCheckResponseDto,
-  ChangeStackCheckStepResponseDto,
-  ChangeStackChecksResponseDto,
-  RecordChangeStackCheckRequestDto,
-} from '@change-review/presentation/http/dto/change-stack-check.dto';
+import { RecordChangeStackCheckRequestDto } from '@change-review/presentation/http/dto/change-stack-check.dto';
 import { DraftChangeStackRequestDto } from '@change-review/presentation/http/dto/draft-change-stack.dto';
 import {
   Body,
   Controller,
-  Get,
   HttpCode,
   HttpStatus,
-  NotFoundException,
   Param,
   Post,
 } from '@nestjs/common';
-import { CommandBus, QueryBus } from '@nestjs/cqrs';
+import { CommandBus } from '@nestjs/cqrs';
 import {
   ApiNoContentResponse,
   ApiNotFoundResponse,
-  ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
@@ -37,10 +27,7 @@ import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
 @RunnerOnly()
 @Controller()
 export class RunnerChangeStackController {
-  constructor(
-    private readonly commandBus: CommandBus,
-    private readonly queryBus: QueryBus,
-  ) {}
+  constructor(private readonly commandBus: CommandBus) {}
 
   @Post('runs/:runId/change-stacks')
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -64,46 +51,7 @@ export class RunnerChangeStackController {
         runnerId,
         typeof body.diff === 'string' ? body.diff : '',
         typeof body.repository === 'string' ? body.repository : null,
-      ),
-    );
-  }
-
-  @Get('runs/:runId/change-stack-checks')
-  @ApiOperation({
-    operationId: 'changeStackChecks',
-    summary: 'The change stacks this run drafted that wait to be checked',
-    description:
-      'Each check is the command the agent named, to run on the whole ' +
-      'change and then on every layer with the layers before it.',
-  })
-  @ApiOkResponse({ type: ChangeStackChecksResponseDto })
-  @ApiNotFoundResponse({ description: 'Not a run this runner worked' })
-  async changeStackChecks(
-    @Param('runId') runId: string,
-    @CurrentRunner() runnerId: string,
-  ): Promise<ChangeStackChecksResponseDto> {
-    const found = await this.queryBus.execute<
-      ChangeStackChecksQuery,
-      ChangeStackChecksDto | null
-    >(new ChangeStackChecksQuery(runId, runnerId));
-
-    if (!found) {
-      throw new NotFoundException();
-    }
-
-    return new ChangeStackChecksResponseDto(
-      found.waiting,
-      found.checks.map(
-        (check) =>
-          new ChangeStackCheckResponseDto(
-            check.stackId,
-            check.repository,
-            check.command,
-            check.steps.map(
-              (step) =>
-                new ChangeStackCheckStepResponseDto(step.id, step.patch),
-            ),
-          ),
+        typeof body.base === 'string' ? body.base : null,
       ),
     );
   }
@@ -132,7 +80,15 @@ export class RunnerChangeStackController {
         runId,
         runnerId,
         stackId,
-        typeof body.skipped === 'string' ? body.skipped : null,
+        body.skipped
+          ? {
+              code: String(body.skipped.code),
+              detail:
+                typeof body.skipped.detail === 'string'
+                  ? body.skipped.detail
+                  : null,
+            }
+          : null,
         (Array.isArray(body.steps) ? body.steps : []).map((step) => ({
           step: String(step.step),
           passed: step.passed === true,

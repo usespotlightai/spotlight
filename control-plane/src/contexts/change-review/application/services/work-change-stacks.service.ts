@@ -4,6 +4,7 @@ import type { ReorderChangeStack } from '@change-review/application/services/reo
 import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { ChangedSinceReadError } from '@change-review/domain/exceptions/changed-since-read.error';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
+import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -16,6 +17,7 @@ export class WorkChangeStacks implements ChangeStackWorkPort {
 
   constructor(
     private readonly stacks: ChangeStackRepository,
+    private readonly checks: StackCheckRepository,
     private readonly transaction: TransactionPort,
     private readonly drafting: DraftChangeStack,
     private readonly reordering: ReorderChangeStack,
@@ -50,6 +52,18 @@ export class WorkChangeStacks implements ChangeStackWorkPort {
     }
   }
 
+  private async worked(stack: ChangeStack): Promise<ChangeStack> {
+    if (stack.state === 'drafting') {
+      return this.drafting.drafted(stack);
+    }
+
+    const check = await this.checks.find(stack.id);
+
+    return check
+      ? this.reordering.reordered(stack, check)
+      : stack.gaveUpReordering();
+  }
+
   private claim(): Promise<ChangeStackId | null> {
     return this.transaction.run(async () => {
       const now = this.clock.now();
@@ -75,11 +89,7 @@ export class WorkChangeStacks implements ChangeStackWorkPort {
 
   private async work(stack: ChangeStack): Promise<void> {
     try {
-      await this.stacks.save(
-        stack.state === 'drafting'
-          ? await this.drafting.drafted(stack)
-          : await this.reordering.reordered(stack),
-      );
+      await this.stacks.save(await this.worked(stack));
     } catch (error) {
       this.logger.error(
         {

@@ -71,6 +71,7 @@ import { StationDescription } from '@work/domain/value-objects/station-descripti
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { StationSetup } from '@work/domain/value-objects/station-setup.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
@@ -136,6 +137,7 @@ export const WORK_EVENT_TYPES = [
   StationId,
   StationKey,
   StationName,
+  StationSetup,
   TaskDescription,
   TaskNoteBody,
   TaskRank,

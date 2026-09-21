@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -16,45 +15,26 @@ import (
 	"usespotlight.ai/runner/internal/stackcheck"
 )
 
-const consistent = `test -f deps/tool.txt && { ! grep -q lib app.txt || test -f lib.txt; }`
+const consistent = `! grep -q lib app.txt || test -f lib.txt`
 
-type source struct {
-	mu       sync.Mutex
-	answers  []protocol.StackChecks
-	recorded map[string]protocol.StackChecked
-	asked    int
+type reporter struct {
+	recorded []protocol.StackChecked
+	stacks   []string
 }
 
-func (s *source) ChangeStackChecks(context.Context, string) (protocol.StackChecks, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.asked++
-	if len(s.answers) == 0 {
-		return protocol.StackChecks{}, nil
-	}
-
-	next := s.answers[0]
-	if len(s.answers) > 1 {
-		s.answers = s.answers[1:]
-	}
-	for _, check := range next.Checks {
-		if _, done := s.recorded[check.StackID]; done {
-			return protocol.StackChecks{Waiting: next.Waiting}, nil
-		}
-	}
-	return next, nil
-}
-
-func (s *source) RecordChangeStackCheck(_ context.Context, _ string, stackID string, checked protocol.StackChecked) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.recorded == nil {
-		s.recorded = map[string]protocol.StackChecked{}
-	}
-	s.recorded[stackID] = checked
+func (r *reporter) RecordChangeStackCheck(
+	_ context.Context, _ string, stackID string, checked protocol.StackChecked,
+) error {
+	r.recorded = append(r.recorded, checked)
+	r.stacks = append(r.stacks, stackID)
 	return nil
+}
+
+func (r *reporter) only() protocol.StackChecked {
+	if len(r.recorded) != 1 {
+		panic("nothing recorded")
+	}
+	return r.recorded[0]
 }
 
 func git(t *testing.T, dir string, args ...string) string {
@@ -71,7 +51,7 @@ func git(t *testing.T, dir string, args ...string) string {
 		t.Fatalf("git %v: %v\n%s", args, err, output)
 	}
 
-	return string(output)
+	return strings.TrimSpace(string(output))
 }
 
 func write(t *testing.T, path, body string) {
@@ -85,14 +65,15 @@ func write(t *testing.T, path, body string) {
 	}
 }
 
-type workspace struct {
-	dir      string
-	checkout string
-	whole    string
-	appOnly  string
+type remote struct {
+	dir     string
+	origin  string
+	base    string
+	whole   string
+	appOnly string
 }
 
-func setUp(t *testing.T) workspace {
+func setUp(t *testing.T) remote {
 	t.Helper()
 
 	if _, err := exec.LookPath("git"); err != nil {
@@ -100,55 +81,72 @@ func setUp(t *testing.T) workspace {
 	}
 
 	dir := t.TempDir()
-	checkout := filepath.Join(dir, "widgets")
+	origin := filepath.Join(dir, "origin", "widgets")
 
-	write(t, filepath.Join(checkout, "app.txt"), "hello\n")
-	write(t, filepath.Join(checkout, ".gitignore"), "deps/\n")
-	git(t, checkout, "init", "--quiet")
-	git(t, checkout, "add", "--all")
-	git(t, checkout, "commit", "--quiet", "--message", "start")
-	git(t, checkout, "update-ref", stackcheck.BaseRef, "HEAD")
+	write(t, filepath.Join(origin, "app.txt"), "hello\n")
+	write(t, filepath.Join(origin, ".gitignore"), "deps/\n")
+	git(t, origin, "init", "--quiet")
+	git(t, origin, "add", "--all")
+	git(t, origin, "commit", "--quiet", "--message", "start")
 
-	write(t, filepath.Join(checkout, "deps", "tool.txt"), "installed\n")
-	write(t, filepath.Join(checkout, "app.txt"), "hello, using lib\n")
-	write(t, filepath.Join(checkout, "lib.txt"), "lib\n")
-	git(t, checkout, "add", "--intent-to-add", "--all")
+	base := git(t, origin, "rev-parse", "HEAD")
 
-	return workspace{
-		dir:      dir,
-		checkout: checkout,
-		whole:    git(t, checkout, "diff", stackcheck.BaseRef),
-		appOnly:  git(t, checkout, "diff", stackcheck.BaseRef, "--", "app.txt"),
+	write(t, filepath.Join(origin, "app.txt"), "hello, using lib\n")
+	write(t, filepath.Join(origin, "lib.txt"), "lib\n")
+	git(t, origin, "add", "--intent-to-add", "--all")
+
+	found := remote{
+		dir:     dir,
+		origin:  filepath.Join(dir, "origin"),
+		base:    base,
+		whole:   git(t, origin, "diff", base) + "\n",
+		appOnly: git(t, origin, "diff", base, "--", "app.txt") + "\n",
 	}
+
+	git(t, origin, "reset", "--quiet", "--hard", base)
+	git(t, origin, "clean", "-fdq")
+
+	return found
 }
 
-func (w workspace) options() stackcheck.Options {
+func (r remote) options() stackcheck.Options {
 	return stackcheck.Options{
-		Dir:       w.dir,
-		Checkouts: []protocol.Checkout{{Path: "widgets"}},
-		Log:       slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Poll:      10 * time.Millisecond,
+		Dir:    filepath.Join(r.dir, "workspaces"),
+		Remote: r.origin,
+		Log:    slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 }
 
-func TestRunChecksTheWholeChangeThenEachLayerOnItsOwn(t *testing.T) {
-	w := setUp(t)
-	given := &source{answers: []protocol.StackChecks{{
-		Checks: []protocol.StackCheck{{
-			StackID: "stack-1",
-			Command: consistent,
-			Steps: []protocol.CheckStep{
-				{ID: stackcheck.WholeStep, Patch: w.whole},
-				{ID: "c1.l1", Patch: w.appOnly},
-				{ID: "c2.l1", Patch: "diff --git a/nowhere.txt b/nowhere.txt\n--- a/nowhere.txt\n+++ b/nowhere.txt\n@@ -1 +1 @@\n-a\n+b\n"},
-			},
-		}},
-	}}}
+func (r remote) check(steps ...protocol.CheckStep) protocol.StackCheck {
+	return protocol.StackCheck{
+		StackID:    "stack-1",
+		RunID:      "run-1",
+		Repository: "widgets",
+		Base:       r.base,
+		Command:    consistent,
+		Steps:      steps,
+	}
+}
 
-	stackcheck.Run(context.Background(), given, "run-1", w.options())
+func whole(patch string) protocol.CheckStep {
+	return protocol.CheckStep{ID: "whole", Patch: patch, StopsOnFailure: true, RunsSetup: true}
+}
 
-	checked := given.recorded["stack-1"]
-	if checked.Skipped != "" || len(checked.Steps) != 3 {
+func TestPerformChecksTheWholeChangeThenEachLayerOnItsOwn(t *testing.T) {
+	r := setUp(t)
+	told := &reporter{}
+
+	stackcheck.Perform(context.Background(), told, r.check(
+		whole(r.whole),
+		protocol.CheckStep{ID: "c1.l1", Patch: r.appOnly},
+		protocol.CheckStep{
+			ID:    "c2.l1",
+			Patch: "diff --git a/nowhere.txt b/nowhere.txt\n--- a/nowhere.txt\n+++ b/nowhere.txt\n@@ -1 +1 @@\n-a\n+b\n",
+		},
+	), r.options())
+
+	checked := told.only()
+	if checked.Skipped != nil || len(checked.Steps) != 3 {
 		t.Fatalf("checked %+v", checked)
 	}
 
@@ -156,112 +154,181 @@ func TestRunChecksTheWholeChangeThenEachLayerOnItsOwn(t *testing.T) {
 	for _, step := range checked.Steps {
 		passed[step.Step] = step.Passed
 	}
-	if !passed[stackcheck.WholeStep] || passed["c1.l1"] || passed["c2.l1"] {
+	if !passed["whole"] || passed["c1.l1"] || passed["c2.l1"] {
 		t.Fatalf("passed %v", passed)
 	}
 	if !strings.Contains(checked.Steps[2].Output, "do not apply") {
 		t.Fatalf("output %q", checked.Steps[2].Output)
 	}
-
-	if got := git(t, w.checkout, "worktree", "list"); strings.Count(got, "\n") != 1 {
-		t.Fatalf("left worktrees behind:\n%s", got)
-	}
-	if got, _ := os.ReadFile(filepath.Join(w.checkout, "app.txt")); string(got) != "hello, using lib\n" {
-		t.Fatalf("the checkout changed: %q", got)
+	if told.stacks[0] != "stack-1" {
+		t.Fatalf("reported against %q", told.stacks[0])
 	}
 }
 
-func TestRunStopsWhereTheWholeChangeFails(t *testing.T) {
-	w := setUp(t)
-	given := &source{answers: []protocol.StackChecks{{
-		Checks: []protocol.StackCheck{{
-			StackID: "stack-1",
-			Command: "echo broken; exit 3",
-			Steps: []protocol.CheckStep{
-				{ID: stackcheck.WholeStep, Patch: w.whole},
-				{ID: "c1.l1", Patch: w.appOnly},
-			},
-		}},
-	}}}
+func TestPerformStopsWhereAStepSaysItShould(t *testing.T) {
+	r := setUp(t)
+	told := &reporter{}
 
-	stackcheck.Run(context.Background(), given, "run-1", w.options())
+	check := r.check(whole(r.whole), protocol.CheckStep{ID: "c1.l1", Patch: r.appOnly})
+	check.Command = "echo broken; exit 3"
 
-	steps := given.recorded["stack-1"].Steps
+	stackcheck.Perform(context.Background(), told, check, r.options())
+
+	steps := told.only().Steps
 	if len(steps) != 1 || steps[0].Passed || steps[0].Output != "broken" {
 		t.Fatalf("steps %+v", steps)
 	}
 }
 
-func TestRunWaitsForAStackStillBeingDrafted(t *testing.T) {
-	w := setUp(t)
-	ready := protocol.StackChecks{Checks: []protocol.StackCheck{{
-		StackID: "stack-1",
-		Command: "true",
-		Steps:   []protocol.CheckStep{{ID: stackcheck.WholeStep, Patch: w.whole}},
-	}}}
-	given := &source{answers: []protocol.StackChecks{{Waiting: true}, {Waiting: true}, ready}}
+func TestPerformRunsEveryStepWhereNoneStopsTheRest(t *testing.T) {
+	r := setUp(t)
+	told := &reporter{}
 
-	stackcheck.Run(context.Background(), given, "run-1", w.options())
+	check := r.check(
+		protocol.CheckStep{ID: "whole", Patch: r.whole},
+		protocol.CheckStep{ID: "c1.l1", Patch: r.appOnly},
+	)
+	check.Command = "exit 1"
 
-	if _, done := given.recorded["stack-1"]; !done || given.asked < 3 {
-		t.Fatalf("asked %d times, recorded %v", given.asked, given.recorded)
-	}
-}
+	stackcheck.Perform(context.Background(), told, check, r.options())
 
-func TestRunGivesUpWaitingInTime(t *testing.T) {
-	w := setUp(t)
-	given := &source{answers: []protocol.StackChecks{{Waiting: true}}}
-	options := w.options()
-	options.Wait = 50 * time.Millisecond
-
-	started := time.Now()
-	stackcheck.Run(context.Background(), given, "run-1", options)
-
-	if time.Since(started) > 2*time.Second {
-		t.Fatalf("waited %s", time.Since(started))
-	}
-}
-
-func TestRunSaysWhyItCouldNotCheck(t *testing.T) {
-	w := setUp(t)
-	other := "api"
-	given := &source{answers: []protocol.StackChecks{{
-		Checks: []protocol.StackCheck{{StackID: "stack-1", Repository: &other, Command: "true"}},
-	}}}
-
-	stackcheck.Run(context.Background(), given, "run-1", w.options())
-
-	if got := given.recorded["stack-1"].Skipped; got != "The run has no checkout of api." {
-		t.Fatalf("skipped %q", got)
-	}
-}
-
-func TestRunStopsAStepThatRunsTooLong(t *testing.T) {
-	w := setUp(t)
-	given := &source{answers: []protocol.StackChecks{{
-		Checks: []protocol.StackCheck{{
-			StackID: "stack-1",
-			Command: "sleep 30",
-			Steps:   []protocol.CheckStep{{ID: stackcheck.WholeStep, Patch: w.whole}},
-		}},
-	}}}
-	options := w.options()
-	options.Step = 200 * time.Millisecond
-
-	stackcheck.Run(context.Background(), given, "run-1", options)
-
-	steps := given.recorded["stack-1"].Steps
-	if len(steps) != 1 || steps[0].Passed || !strings.Contains(steps[0].Output, "did not finish") {
+	if steps := told.only().Steps; len(steps) != 2 {
 		t.Fatalf("steps %+v", steps)
 	}
 }
 
-func TestDiffGathersEverythingChangedSinceTheRunBegan(t *testing.T) {
-	w := setUp(t)
-	git(t, w.checkout, "reset", "--quiet")
-	before := git(t, w.checkout, "status", "--porcelain")
+func TestPerformMakesTheCheckoutReadyFirst(t *testing.T) {
+	r := setUp(t)
+	told := &reporter{}
 
-	diff, err := w.options().Diff(context.Background(), w.checkout)
+	check := r.check(whole(r.whole))
+	check.Setup = "mkdir -p deps && echo installed > deps/tool.txt"
+	check.Command = "test -f deps/tool.txt"
+
+	stackcheck.Perform(context.Background(), told, check, r.options())
+
+	steps := told.only().Steps
+	if len(steps) != 1 || !steps[0].Passed {
+		t.Fatalf("steps %+v", steps)
+	}
+}
+
+func TestPerformSaysWhenTheCheckoutCouldNotBeMadeReady(t *testing.T) {
+	r := setUp(t)
+	told := &reporter{}
+
+	check := r.check(whole(r.whole))
+	check.Setup = "echo no network; exit 1"
+
+	stackcheck.Perform(context.Background(), told, check, r.options())
+
+	skipped := told.only().Skipped
+	if skipped == nil || skipped.Code != protocol.SkipSetupFailed {
+		t.Fatalf("skipped %+v", skipped)
+	}
+	if !strings.Contains(skipped.Detail, "no network") {
+		t.Fatalf("detail %q", skipped.Detail)
+	}
+}
+
+func TestPerformKeepsWhatSetupLaidDownBetweenSteps(t *testing.T) {
+	r := setUp(t)
+	told := &reporter{}
+
+	check := r.check(
+		whole(r.whole),
+		protocol.CheckStep{ID: "c1.l1", Patch: r.appOnly},
+	)
+	check.Setup = "mkdir -p deps && echo installed > deps/tool.txt"
+	check.Command = "test -f deps/tool.txt"
+
+	stackcheck.Perform(context.Background(), told, check, r.options())
+
+	for _, step := range told.only().Steps {
+		if !step.Passed {
+			t.Fatalf("%s lost what setup laid down: %q", step.Step, step.Output)
+		}
+	}
+}
+
+func TestPerformSaysWhyItCouldNotCheck(t *testing.T) {
+	r := setUp(t)
+
+	for _, missing := range []struct {
+		name  string
+		code  string
+		spoil func(*protocol.StackCheck)
+	}{
+		{"no base", protocol.SkipNoBase, func(c *protocol.StackCheck) { c.Base = "" }},
+		{"no repository", protocol.SkipNoCheckout, func(c *protocol.StackCheck) { c.Repository = "" }},
+		{"no such commit", protocol.SkipCheckoutFailed, func(c *protocol.StackCheck) {
+			c.Base = "0123456789abcdef0123456789abcdef01234567"
+		}},
+		{"no such repository", protocol.SkipCheckoutFailed, func(c *protocol.StackCheck) { c.Repository = "other" }},
+	} {
+		t.Run(missing.name, func(t *testing.T) {
+			told := &reporter{}
+			check := r.check(whole(r.whole))
+			missing.spoil(&check)
+
+			stackcheck.Perform(context.Background(), told, check, r.options())
+
+			skipped := told.only().Skipped
+			if skipped == nil || skipped.Code != missing.code {
+				t.Fatalf("skipped %+v, want %s", skipped, missing.code)
+			}
+		})
+	}
+}
+
+func TestPerformStopsAStepThatRunsTooLong(t *testing.T) {
+	r := setUp(t)
+	told := &reporter{}
+
+	check := r.check(whole(r.whole))
+	check.Command = "sleep 30"
+
+	options := r.options()
+	options.Step = 200 * time.Millisecond
+
+	stackcheck.Perform(context.Background(), told, check, options)
+
+	steps := told.only().Steps
+	if len(steps) != 1 || steps[0].Passed {
+		t.Fatalf("steps %+v", steps)
+	}
+	if !strings.Contains(steps[0].Output, "did not finish") {
+		t.Fatalf("output %q", steps[0].Output)
+	}
+}
+
+func TestPerformLeavesNothingBehind(t *testing.T) {
+	r := setUp(t)
+	told := &reporter{}
+	options := r.options()
+
+	stackcheck.Perform(context.Background(), told, r.check(whole(r.whole)), options)
+
+	entries, err := os.ReadDir(options.Dir)
+	if err != nil {
+		t.Fatalf("read the workspace root: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("left %d directories behind", len(entries))
+	}
+}
+
+func TestDiffGathersEverythingChangedSinceTheRunBegan(t *testing.T) {
+	r := setUp(t)
+	checkout := filepath.Join(r.origin, "widgets")
+	git(t, checkout, "update-ref", stackcheck.BaseRef, r.base)
+	write(t, filepath.Join(checkout, "deps", "tool.txt"), "installed\n")
+	write(t, filepath.Join(checkout, "app.txt"), "hello, using lib\n")
+	write(t, filepath.Join(checkout, "lib.txt"), "lib\n")
+
+	before := git(t, checkout, "status", "--porcelain")
+
+	diff, err := r.options().Diff(context.Background(), checkout)
 	if err != nil {
 		t.Fatalf("diff: %v", err)
 	}
@@ -274,18 +341,22 @@ func TestDiffGathersEverythingChangedSinceTheRunBegan(t *testing.T) {
 	if strings.Contains(diff, "deps/tool.txt") {
 		t.Errorf("diff holds an ignored file:\n%s", diff)
 	}
-	if after := git(t, w.checkout, "status", "--porcelain"); after != before {
+	if after := git(t, checkout, "status", "--porcelain"); after != before {
 		t.Errorf("the checkout's index changed:\nbefore %q\nafter  %q", before, after)
 	}
 }
 
 func TestCommittedDiffsOnlyWhatWasCommittedSinceTheRunBegan(t *testing.T) {
-	w := setUp(t)
-	write(t, filepath.Join(w.checkout, "pulled.txt"), "from the pull request\n")
-	git(t, w.checkout, "add", "pulled.txt")
-	git(t, w.checkout, "commit", "--quiet", "--message", "pull request")
+	r := setUp(t)
+	checkout := filepath.Join(r.origin, "widgets")
+	git(t, checkout, "update-ref", stackcheck.BaseRef, r.base)
 
-	diff, err := w.options().Committed(context.Background(), w.checkout)
+	write(t, filepath.Join(checkout, "pulled.txt"), "from the pull request\n")
+	git(t, checkout, "add", "pulled.txt")
+	git(t, checkout, "commit", "--quiet", "--message", "pull request")
+	write(t, filepath.Join(checkout, "lib.txt"), "lib\n")
+
+	diff, err := r.options().Committed(context.Background(), checkout)
 	if err != nil {
 		t.Fatalf("diff: %v", err)
 	}
@@ -293,62 +364,75 @@ func TestCommittedDiffsOnlyWhatWasCommittedSinceTheRunBegan(t *testing.T) {
 	if !strings.Contains(diff, "+from the pull request") {
 		t.Errorf("diff lacks what was committed:\n%s", diff)
 	}
-	for _, left := range []string{"lib.txt", "hello, using lib"} {
-		if strings.Contains(diff, left) {
-			t.Errorf("diff holds %q, which was left in the working tree:\n%s", left, diff)
-		}
+	if strings.Contains(diff, "lib.txt") {
+		t.Errorf("diff holds what was left in the working tree:\n%s", diff)
 	}
 }
 
 func TestDiffRefusesACheckoutWithNoRecordOfWhereItBegan(t *testing.T) {
-	w := setUp(t)
-	git(t, w.checkout, "update-ref", "-d", stackcheck.BaseRef)
+	r := setUp(t)
 
-	if _, err := w.options().Diff(context.Background(), w.checkout); err == nil {
+	if _, err := r.options().Diff(context.Background(), filepath.Join(r.origin, "widgets")); err == nil {
 		t.Fatal("expected an error")
 	}
 }
 
-func TestRunChecksAStackAgainOnceItsLayersAreReordered(t *testing.T) {
-	w := setUp(t)
-	first := protocol.StackCheck{
-		StackID: "stack-1",
-		Command: "true",
-		Steps:   []protocol.CheckStep{{ID: stackcheck.WholeStep, Patch: w.whole}, {ID: "c1.l1", Patch: w.appOnly}},
+func TestPerformMakesTheCheckoutReadyAgainOnlyWhereAStepAsksFor(t *testing.T) {
+	r := setUp(t)
+	told := &reporter{}
+
+	check := r.check(
+		whole(r.whole),
+		protocol.CheckStep{ID: "c1.l1", Patch: r.appOnly},
+		protocol.CheckStep{ID: "c1.l2", Patch: r.appOnly, RunsSetup: true},
+	)
+	check.Setup = "mkdir -p deps && printf x >> deps/marks.txt"
+	check.Command = "true"
+
+	options := r.options()
+	options.KeepDirs = true
+
+	stackcheck.Perform(context.Background(), told, check, options)
+
+	if steps := told.only().Steps; len(steps) != 3 {
+		t.Fatalf("steps %+v", steps)
 	}
-	reordered := first
-	reordered.Steps = []protocol.CheckStep{{ID: stackcheck.WholeStep, Patch: w.whole}}
 
-	given := &reordering{answers: []protocol.StackChecks{
-		{Waiting: true, Checks: []protocol.StackCheck{first}},
-		{Waiting: true},
-		{Checks: []protocol.StackCheck{reordered}},
-	}}
-
-	stackcheck.Run(context.Background(), given, "run-1", w.options())
-
-	if len(given.recorded) != 2 {
-		t.Fatalf("recorded %d checks, want the first stack and the reordered one", len(given.recorded))
+	// deps/ is ignored, so git clean leaves it between steps the way it leaves
+	// an installed node_modules, and it carries a mark for each time the
+	// checkout was made ready.
+	ready, err := os.ReadFile(
+		filepath.Join(r.dir, "workspaces", "check-stack-1", "widgets", "deps", "marks.txt"),
+	)
+	if err != nil {
+		t.Fatalf("read what setup left: %v", err)
 	}
-	if len(given.recorded[1].Steps) != 1 {
-		t.Fatalf("the second check ran %+v", given.recorded[1].Steps)
+	if string(ready) != "xx" {
+		t.Fatalf("setup ran %d times, want once for the whole change and once for the step that asked", len(ready))
 	}
 }
 
-type reordering struct {
-	answers  []protocol.StackChecks
-	recorded []protocol.StackChecked
-}
+func TestPerformJudgesAStepThatCannotBeMadeReady(t *testing.T) {
+	r := setUp(t)
+	told := &reporter{}
 
-func (r *reordering) ChangeStackChecks(context.Context, string) (protocol.StackChecks, error) {
-	next := r.answers[0]
-	if len(r.answers) > 1 {
-		r.answers = r.answers[1:]
+	check := r.check(
+		whole(r.whole),
+		protocol.CheckStep{ID: "c1.l1", Patch: r.appOnly, RunsSetup: true},
+	)
+	check.Setup = "test -f lib.txt || { echo cannot install; exit 1; }"
+	check.Command = "true"
+
+	stackcheck.Perform(context.Background(), told, check, r.options())
+
+	checked := told.only()
+	if checked.Skipped != nil {
+		t.Fatalf("skipped the whole check for one step: %+v", checked.Skipped)
 	}
-	return next, nil
-}
-
-func (r *reordering) RecordChangeStackCheck(_ context.Context, _ string, _ string, checked protocol.StackChecked) error {
-	r.recorded = append(r.recorded, checked)
-	return nil
+	if len(checked.Steps) != 2 || checked.Steps[1].Passed {
+		t.Fatalf("steps %+v", checked.Steps)
+	}
+	if !strings.Contains(checked.Steps[1].Output, "cannot install") {
+		t.Fatalf("output %q", checked.Steps[1].Output)
+	}
 }

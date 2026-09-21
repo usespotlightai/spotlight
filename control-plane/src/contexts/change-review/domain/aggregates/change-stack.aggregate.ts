@@ -1,47 +1,41 @@
-import { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
 import { ChangeStackDraftingBegan } from '@change-review/domain/events/change-stack-drafting-began.event';
 import { ChangeStackFailed } from '@change-review/domain/events/change-stack-failed.event';
+import { ChangeStackReordered } from '@change-review/domain/events/change-stack-reordered.event';
+import { ChangeStackReorderingEnded } from '@change-review/domain/events/change-stack-reordering-ended.event';
 import { ChangeStackSettled } from '@change-review/domain/events/change-stack-settled.event';
-import { LayersFailedCheck } from '@change-review/domain/events/layers-failed-check.event';
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
 import { arranged } from '@change-review/domain/services/arrange-stack';
 import { checkStepsOf } from '@change-review/domain/services/check-steps';
 import { generatedEntries } from '@change-review/domain/services/generated-entries';
 import { StackProposal } from '@change-review/domain/services/stack-proposal';
+import { BaseCommit } from '@change-review/domain/value-objects/base-commit.vo';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
-import {
-  type CheckedStep,
-  type CheckStep,
-  StackCheck,
-  type StackCheckState,
-  WHOLE_STEP,
+import type {
+  CheckEntry,
+  CheckStep,
 } from '@change-review/domain/value-objects/stack-check.vo';
 import type {
   ProposedCohort,
   StackCohort,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 import type { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
+import type { LayerId } from '@change-review/domain/value-objects/stack-ids';
 import {
   type ChangeStackState,
   INTERRUPTED,
   StackProgress,
-  UNCHECKED,
 } from '@change-review/domain/value-objects/stack-progress.vo';
 import { StackWork } from '@change-review/domain/value-objects/stack-work.vo';
-import { EventRecorder } from '@shared-kernel/domain/aggregates/event-recorder';
+import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-const MOST_CHECK_OUTPUT = 16_000;
-
 const NOT_DRAFTED = 'The change stack could not be drafted.';
-
-const WHOLE_FAILED =
-  'The finished change does not pass the check, so its layers were not checked on their own.';
 
 const changeLayers = (
   stack: readonly { kind: string; layers: readonly unknown[] }[],
@@ -113,11 +107,14 @@ export class ChangeStack extends EventRecorder {
     readonly taskId: TaskId | null,
     readonly workspaceId: WorkspaceId,
     readonly repository: RepositoryName | null,
+    readonly base: BaseCommit | null,
     readonly diff: Diff,
     readonly facts: StackFacts,
     readonly cohorts: readonly StackCohort[],
     readonly progress: StackProgress,
     readonly work: StackWork,
+    readonly request: CheckRequest | null,
+    readonly reordering: boolean,
     readonly version: number,
   ) {
     super();
@@ -129,9 +126,10 @@ export class ChangeStack extends EventRecorder {
     taskId: TaskId | null;
     workspaceId: WorkspaceId;
     repository: string | null;
+    base: string | null;
     diff: Diff;
     facts: StackFacts;
-    check?: StackCheck | null;
+    request: CheckRequest | null;
     now: Date;
   }): ChangeStack {
     const stack = new ChangeStack(
@@ -140,11 +138,14 @@ export class ChangeStack extends EventRecorder {
       input.taskId,
       input.workspaceId,
       input.repository?.trim() ? RepositoryName.of(input.repository) : null,
+      input.base?.trim() ? BaseCommit.of(input.base) : null,
       input.diff,
       input.facts,
       [],
-      StackProgress.drafting(input.now, input.check ?? null),
+      StackProgress.drafting(input.now),
       StackWork.fresh(),
+      input.request,
+      false,
       0,
     );
 
@@ -159,11 +160,14 @@ export class ChangeStack extends EventRecorder {
     taskId: TaskId | null;
     workspaceId: WorkspaceId;
     repository: RepositoryName | null;
+    base: BaseCommit | null;
     diff: Diff;
     facts: StackFacts;
     cohorts: readonly StackCohort[];
     progress: StackProgress;
     work: StackWork;
+    request: CheckRequest | null;
+    reordering: boolean;
     version: number;
   }): ChangeStack {
     assertWhole(input.progress, input.diff, input.cohorts);
@@ -174,11 +178,14 @@ export class ChangeStack extends EventRecorder {
       input.taskId,
       input.workspaceId,
       input.repository,
+      input.base,
       input.diff,
       input.facts,
       input.cohorts,
       input.progress,
       input.work,
+      input.request,
+      input.reordering,
       input.version,
     );
   }
@@ -199,29 +206,34 @@ export class ChangeStack extends EventRecorder {
     return this.progress.settledAt;
   }
 
-  get check(): StackCheck | null {
-    return this.progress.check;
-  }
-
-  checkStateAt(now: Date): StackCheckState | null {
-    return this.progress.checkStateAt(now);
-  }
-
-  checkReasonAt(now: Date): string | null {
-    return this.progress.checkReasonAt(now);
-  }
-
   get owesWork(): boolean {
-    return this.state === 'drafting' || this.check?.reordering === true;
+    return this.state === 'drafting' || this.reordering;
   }
 
-  checkSteps(): CheckStep[] {
+  entries(): readonly CheckEntry[] {
+    return generatedEntries(this.diff, this.cohorts, this.facts);
+  }
+
+  layers(): readonly LayerId[] {
+    return this.cohorts
+      .filter((cohort) => cohort.kind === 'change')
+      .flatMap((cohort) => cohort.layers)
+      .map((layer) => layer.id);
+  }
+
+  checkSteps(entries: readonly CheckEntry[]): CheckStep[] {
     return checkStepsOf({
       hunks: this.diff.hunks.map((hunk) => hunk.id),
       facts: this.facts,
       cohorts: this.cohorts,
-      entries: this.check?.entries ?? [],
+      entries,
     });
+  }
+
+  askedToReorder(): ChangeStack {
+    return this.state === 'ready' && !this.reordering
+      ? this.with({ reordering: true, work: StackWork.fresh() })
+      : this;
   }
 
   leased(now: Date): ChangeStack {
@@ -250,96 +262,11 @@ export class ChangeStack extends EventRecorder {
       return this.fail(NOT_DRAFTED, now);
     }
 
-    return this.keepLayers();
-  }
-
-  failedLayers(): readonly string[] {
-    const outcome = this.check?.outcome;
-
-    return outcome?.state === 'checked'
-      ? outcome.layers
-          .filter((checked) => !checked.passed)
-          .map((checked) => checked.step)
-      : [];
-  }
-
-  recordCheck(steps: readonly CheckedStep[], now: Date): ChangeStack {
-    const check = this.assertCheckable(now);
-    const planned = this.checkSteps();
-    const known = new Set(planned.map((step) => step.id));
-    const problems = steps
-      .filter((step) => !known.has(step.step))
-      .map((step) => `checks ${step.step}, which is not a step of this stack`);
-    const whole = steps.find((step) => step.step === WHOLE_STEP);
-
-    if (!whole) {
-      problems.push('checks nothing without checking the whole change');
-    }
-    if (problems.length > 0 || !whole) {
-      throw InvalidChangeStackError.because(...problems);
-    }
-
-    const trimmed = (step: CheckedStep): CheckedStep => ({
-      ...step,
-      output: step.output.slice(-MOST_CHECK_OUTPUT),
-      tookMs: Math.max(0, Math.round(step.tookMs)),
-    });
-    const given = new Map(steps.map((step) => [step.step, trimmed(step)]));
-    const layers = whole.passed
-      ? this.cohorts
-          .filter((cohort) => cohort.kind === 'change')
-          .flatMap((cohort) => cohort.layers)
-          .flatMap((layer): CheckedStep[] => {
-            const result = known.has(layer.id)
-              ? given.get(layer.id)
-              : given.get(WHOLE_STEP);
-            return result ? [{ ...result, step: layer.id }] : [];
-          })
-      : [];
-
-    const found = check.found({
-      state: 'checked',
-      reason: whole.passed ? null : WHOLE_FAILED,
-      whole: trimmed(whole),
-      layers,
-      checkedAt: now,
-    });
-    const checked = this.with({
-      progress: this.progress.checked(found),
-      work: StackWork.fresh(),
-    });
-
-    checked.record(
-      found.reordering
-        ? new LayersFailedCheck(this.id, this.runId)
-        : new ChangeStackChecked(this.id, this.runId),
-    );
-    return checked;
-  }
-
-  skipCheck(reason: string, now: Date): ChangeStack {
-    const check = this.assertCheckable(now);
-
-    const skipped = this.with({
-      progress: this.progress.checked(
-        check.found({
-          state: 'skipped',
-          reason: reason.trim().slice(0, 500) || UNCHECKED,
-          whole: null,
-          layers: [],
-          checkedAt: now,
-        }),
-      ),
-    });
-
-    skipped.record(new ChangeStackChecked(this.id, this.runId));
-    return skipped;
+    return this.gaveUpReordering();
   }
 
   reordered(cohorts: readonly ProposedCohort[], now: Date): ChangeStack {
-    const check = this.check;
-
-    if (!check?.reordering || this.checkStateAt(now) !== 'waiting') {
+    if (!this.reordering) {
       throw InvalidChangeStackError.because('is not being reordered');
     }
 
@@ -364,26 +291,22 @@ export class ChangeStack extends EventRecorder {
 
     const reordered = this.with({
       cohorts: ready,
-      progress: this.progress.settled('ready', now, {
-        check: check.reordered(generatedEntries(this.diff, ready, this.facts)),
-      }),
+      progress: this.progress.settled('ready', now),
       work: StackWork.fresh(),
+      reordering: false,
     });
 
-    reordered.record(new ChangeStackSettled(this.id, this.runId));
+    reordered.record(new ChangeStackReordered(this.id, this.runId));
     return reordered;
   }
 
-  keepLayers(): ChangeStack {
-    if (!this.check?.reordering) {
+  gaveUpReordering(): ChangeStack {
+    if (!this.reordering) {
       return this;
     }
 
-    const kept = this.with({
-      progress: this.progress.checked(this.check.keptLayers()),
-      work: StackWork.fresh(),
-    });
-    kept.record(new ChangeStackChecked(this.id, this.runId));
+    const kept = this.with({ reordering: false, work: StackWork.fresh() });
+    kept.record(new ChangeStackReorderingEnded(this.id, this.runId));
     return kept;
   }
 
@@ -398,11 +321,7 @@ export class ChangeStack extends EventRecorder {
 
     const settledStack = this.with({
       cohorts: ready,
-      progress: this.progress.settled('ready', now, {
-        check:
-          this.check?.planned(generatedEntries(this.diff, ready, this.facts)) ??
-          null,
-      }),
+      progress: this.progress.settled('ready', now),
       work: StackWork.fresh(),
     });
 
@@ -425,19 +344,6 @@ export class ChangeStack extends EventRecorder {
     return failed;
   }
 
-  private assertCheckable(now: Date): StackCheck {
-    if (!this.check) {
-      throw InvalidChangeStackError.because('was not given a check to run');
-    }
-    if (!this.check.waiting || this.checkStateAt(now) !== 'waiting') {
-      throw InvalidChangeStackError.because(
-        `cannot be checked while its check is ${this.checkStateAt(now) ?? this.state}`,
-      );
-    }
-
-    return this.check;
-  }
-
   private assertDrafting(): void {
     if (this.state !== 'drafting') {
       throw InvalidChangeStackError.because(`is already ${this.state}`);
@@ -448,6 +354,7 @@ export class ChangeStack extends EventRecorder {
     cohorts?: readonly StackCohort[];
     progress?: StackProgress;
     work?: StackWork;
+    reordering?: boolean;
   }): ChangeStack {
     const next = new ChangeStack(
       this.id,
@@ -455,11 +362,14 @@ export class ChangeStack extends EventRecorder {
       this.taskId,
       this.workspaceId,
       this.repository,
+      this.base,
       this.diff,
       this.facts,
       change.cohorts ?? this.cohorts,
       change.progress ?? this.progress,
       change.work ?? this.work,
+      this.request,
+      change.reordering ?? this.reordering,
       this.version,
     );
 

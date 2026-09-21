@@ -2,7 +2,7 @@ import { DraftRunChangeStackCommand } from '@change-review/application/commands/
 import { DraftRunChangeStackHandler } from '@change-review/application/commands/handlers/draft-run-change-stack.handler';
 import type { WorkPort } from '@change-review/application/ports/work.port';
 import type { DraftChangeStack } from '@change-review/application/services/draft-change-stack.service';
-import { StackCheck } from '@change-review/domain/value-objects/stack-check.vo';
+import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -12,7 +12,7 @@ import { describe, expect, it, vi } from 'vitest';
 const RUN = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
 
 const drafting = (
-  over: { worked?: boolean; check?: StackCheck | null } = {},
+  over: { worked?: boolean; request?: CheckRequest | null } = {},
 ) => {
   const begin = vi.fn(async () => ({}) as never);
 
@@ -21,7 +21,7 @@ const drafting = (
       id: RunId.of(RUN),
       workspaceId: WorkspaceId.of('ws_1'),
       taskId: TaskId.of('task_1'),
-      check: over.check ?? null,
+      request: over.request ?? null,
       ended: false,
     }),
     wasWorkedBy: async () => over.worked !== false,
@@ -42,12 +42,13 @@ const handed = new DraftRunChangeStackCommand(
   'runner_1',
   'diff --git a/a.ts b/a.ts',
   'widgets',
+  null,
 );
 
 describe('DraftRunChangeStackHandler', () => {
   it('drafts what the run left behind, with the station’s check to run on it', async () => {
     const { handler, begin } = drafting({
-      check: StackCheck.named('npm test'),
+      request: CheckRequest.of('npm test', null),
     });
 
     await handler.execute(handed);
@@ -61,7 +62,8 @@ describe('DraftRunChangeStackHandler', () => {
       {
         diff: 'diff --git a/a.ts b/a.ts',
         repository: 'widgets',
-        check: StackCheck.named('npm test'),
+        base: null,
+        request: CheckRequest.of('npm test', null),
       },
     );
   });

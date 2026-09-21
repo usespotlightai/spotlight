@@ -14,6 +14,7 @@ import type { StationDescription } from '@work/domain/value-objects/station-desc
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import type { StationKey } from '@work/domain/value-objects/station-key.vo';
 import type { StationName } from '@work/domain/value-objects/station-name.vo';
+import type { StationSetup } from '@work/domain/value-objects/station-setup.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
 import { WayOut } from '@work/domain/value-objects/way-out.vo';
 
@@ -29,6 +30,7 @@ type Part = {
   effort?: Effort | null;
   agentPrompt?: AgentPrompt | null;
   check?: StationCheck | null;
+  setup?: StationSetup | null;
   diffs?: boolean;
   wayOut?: WayOut;
   tools?: readonly Tool[];
@@ -47,6 +49,7 @@ export type StationInput = {
   effort?: Effort | null;
   agentPrompt?: AgentPrompt | null;
   check?: StationCheck | null;
+  setup?: StationSetup | null;
   diffs?: boolean;
   kind?: StationKind;
   wayOut?: WayOut;
@@ -73,6 +76,7 @@ export abstract class Station {
   abstract readonly effort: Effort | null;
   abstract readonly agentPrompt: AgentPrompt | null;
   abstract readonly check: StationCheck | null;
+  abstract readonly setup: StationSetup | null;
   abstract readonly diffs: boolean;
 
   static of(input: StationInput): Station {
@@ -103,6 +107,7 @@ export abstract class Station {
           input.effort ?? null,
           input.agentPrompt ?? null,
           input.check ?? null,
+          input.setup ?? null,
           input.diffs ?? false,
         );
     }
@@ -183,6 +188,7 @@ class WorkStation extends Station {
     readonly effort: Effort | null,
     readonly agentPrompt: AgentPrompt | null,
     readonly check: StationCheck | null,
+    readonly setup: StationSetup | null,
     readonly diffs: boolean,
   ) {
     super(id, key, name, position, color, description, wayOut, tools, skills);
@@ -220,6 +226,7 @@ class WorkStation extends Station {
       part.effort !== undefined ? part.effort : this.effort,
       part.agentPrompt !== undefined ? part.agentPrompt : this.agentPrompt,
       part.check !== undefined ? part.check : this.check,
+      part.setup !== undefined ? part.setup : this.setup,
       part.diffs !== undefined ? part.diffs : this.diffs,
     );
   }
@@ -232,6 +239,7 @@ class Backlog extends Station {
   readonly effort = null;
   readonly agentPrompt = null;
   readonly check = null;
+  readonly setup = null;
   readonly diffs = false;
 
   runsOn(): Station {
@@ -274,6 +282,7 @@ class Completed extends Station {
   readonly effort = null;
   readonly agentPrompt = null;
   readonly check = null;
+  readonly setup = null;
   readonly diffs = false;
 
   runsOn(): Station {

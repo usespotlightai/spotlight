@@ -37,6 +37,7 @@ const laid = (key: string, over: Partial<StationPlan> = {}): StationPlan => ({
   effort: null,
   agentPrompt: null,
   check: null,
+  setup: null,
   diffs: false,
   tools: [],
   skills: [],

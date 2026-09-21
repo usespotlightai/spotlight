@@ -1,4 +1,4 @@
-import { EventRecorder } from '@shared-kernel/domain/aggregates/event-recorder';
+import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';

@@ -48,12 +48,18 @@ func TestMarkBasesRecordsWhereEachCheckoutBegan(t *testing.T) {
 	began := git(t, repository, "rev-parse", "HEAD")
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	markBases(context.Background(), dir, []protocol.Checkout{{Path: "widgets"}, {Path: "missing"}}, logger)
+	marked := markBases(context.Background(), dir, []protocol.Checkout{{Path: "widgets"}, {Path: "missing"}}, logger)
 
 	git(t, repository, "commit", "--quiet", "--allow-empty", "--message", "work")
 
 	if got := git(t, repository, "rev-parse", stackcheck.BaseRef); got != began {
 		t.Fatalf("base is %s, want %s", got, began)
+	}
+	if marked["widgets"] != began {
+		t.Fatalf("reported %q, want %s", marked["widgets"], began)
+	}
+	if _, told := marked["missing"]; told {
+		t.Fatalf("reported a base for a checkout that is not there: %q", marked["missing"])
 	}
 }
 
@@ -78,10 +84,13 @@ func TestMarkBasesRecordsWhereTheBranchLeftTheDefaultBranch(t *testing.T) {
 	git(t, repository, "commit", "--quiet", "--allow-empty", "--message", "an earlier run")
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	markBases(context.Background(), dir, []protocol.Checkout{{Path: "widgets"}}, logger)
+	marked := markBases(context.Background(), dir, []protocol.Checkout{{Path: "widgets"}}, logger)
 
 	if got := git(t, repository, "rev-parse", stackcheck.BaseRef); got != branched {
 		t.Fatalf("base is %s, want where the branch left develop, %s", got, branched)
+	}
+	if marked["widgets"] != branched {
+		t.Fatalf("reported %q, want %s", marked["widgets"], branched)
 	}
 }
 

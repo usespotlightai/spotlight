@@ -38,6 +38,7 @@ export class WorkLookup implements WorkLookupPort {
       workspaceId: run.workspaceId,
       taskId: run.taskId,
       check: station?.check?.value ?? null,
+      setup: station?.setup?.value ?? null,
       ended: run.hasEnded,
     };
   }

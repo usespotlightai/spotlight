@@ -1,5 +1,6 @@
 import type { ChangeStackDrafterPort } from '@change-review/application/ports/change-stack-drafter.port';
 import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
+import type { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import {
   InvalidChangeStackError,
   type StackProblem,
@@ -17,9 +18,9 @@ export class ReorderChangeStack {
     private readonly logger: LoggerPort,
   ) {}
 
-  async reordered(stack: ChangeStack): Promise<ChangeStack> {
-    if (stack.failedLayers().length === 0) {
-      return stack.keepLayers();
+  async reordered(stack: ChangeStack, check: StackCheck): Promise<ChangeStack> {
+    if (check.failedLayers().length === 0) {
+      return stack.gaveUpReordering();
     }
 
     const { diff, facts } = stack;
@@ -31,7 +32,7 @@ export class ReorderChangeStack {
         repository: stack.repository,
         facts,
         problems,
-        reordering: revisionOf(stack),
+        reordering: revisionOf(stack, check),
       });
 
       try {
@@ -52,6 +53,6 @@ export class ReorderChangeStack {
       'A reordered change stack kept breaking its rules; keeping the checked one',
     );
 
-    return stack.keepLayers();
+    return stack.gaveUpReordering();
   }
 }

@@ -1,4 +1,4 @@
-import { EventRecorder } from '@shared-kernel/domain/aggregates/event-recorder';
+import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';

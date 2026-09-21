@@ -50,7 +50,7 @@ const signalling = (
         id: runId,
         workspaceId: WorkspaceId.of('ws_1'),
         taskId: TASK,
-        check: null,
+        request: null,
         ended: ended.some((each) => each.equals(runId)),
       }),
     } as unknown as WorkPort,

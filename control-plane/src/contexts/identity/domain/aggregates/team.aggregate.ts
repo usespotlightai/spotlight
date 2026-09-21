@@ -2,7 +2,7 @@ import { TeamCreated } from '@identity/domain/events/team-created.event';
 import { TeamMemberJoined } from '@identity/domain/events/team-member-joined.event';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
-import { EventRecorder } from '@shared-kernel/domain/aggregates/event-recorder';
+import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';

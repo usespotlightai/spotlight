@@ -66,6 +66,7 @@ export const station = pgTable(
     effort: text('effort'),
     agentPrompt: text('agent_prompt'),
     check: text('check'),
+    setup: text('setup'),
     diffs: boolean('diffs').notNull().default(false),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
