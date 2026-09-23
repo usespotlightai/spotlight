@@ -39,7 +39,6 @@ const provisioning = (over: { standing?: Line[]; setup?: boolean } = {}) => {
       add: vi.fn(async (task: Task) => void raised.push(task)),
       settingUpFor: vi.fn(async () => (over.setup ? {} : null)),
     } as unknown as TaskRepository,
-    { slugOf: vi.fn(async () => 'acme') },
     ids(),
     { now: () => new Date('2026-09-03T09:00:00.000Z'), sleep: async () => {} },
     HarnessId.of('claude-code'),
@@ -119,9 +118,7 @@ describe('ProvisionTeam', () => {
     expect(raised[0]?.title.value).toBe('Set up your team');
     expect(raised[0]?.stationId).toEqual(seeded[0]?.stations[0]?.id);
     expect(raised[0]?.notes.map((each) => each.kind)).toEqual(['asked']);
-    expect(raised[0]?.notes[0]?.body.value).toContain(
-      '[Start a runner](/w/acme/runners)',
-    );
+    expect(raised[0]?.notes[0]?.body.value).toContain('2. Run a harness.');
   });
 
   it('waits to welcome a team until its lines are open', async () => {

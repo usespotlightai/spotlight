@@ -1,25 +1,12 @@
-import { RenameTeamCommand } from '@identity/application/commands/rename-team.command';
 import type { MemberDto } from '@identity/application/dto/member.dto';
 import { ListMembersQuery } from '@identity/application/queries/list-members.query';
 import { MemberResponseDto } from '@identity/presentation/http/dto/member.response.dto';
-import { RenameTeamRequestDto } from '@identity/presentation/http/dto/team.request.dto';
+import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
+import { QueryBus } from '@nestjs/cqrs';
 import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  NotFoundException,
-  Param,
-  Patch,
-} from '@nestjs/common';
-import { CommandBus, QueryBus } from '@nestjs/cqrs';
-import {
-  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
-  ApiParam,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -30,30 +17,7 @@ import type { AuthenticatedUser } from '@shared-kernel/application/ports/session
 @ApiUnauthorizedResponse({ description: 'No valid session' })
 @Controller('teams/:teamId')
 export class TeamController {
-  constructor(
-    private readonly commandBus: CommandBus,
-    private readonly queryBus: QueryBus,
-  ) {}
-
-  @Patch()
-  @ApiOperation({ operationId: 'renameTeam', summary: 'Rename a team' })
-  @ApiParam({ name: 'teamId', example: 'team_1' })
-  @ApiNoContentResponse({ description: 'Renamed' })
-  @ApiNotFoundResponse({ description: 'No such team, or not yours to rename' })
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async rename(
-    @Param('teamId') teamId: string,
-    @Body() body: RenameTeamRequestDto,
-    @CurrentUser() user: AuthenticatedUser,
-  ): Promise<void> {
-    const renamed = await this.commandBus.execute<RenameTeamCommand, boolean>(
-      new RenameTeamCommand(teamId, body.name, user.id),
-    );
-
-    if (!renamed) {
-      throw new NotFoundException();
-    }
-  }
+  constructor(private readonly queryBus: QueryBus) {}
 
   @Get('members')
   @ApiOperation({

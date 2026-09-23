@@ -1,22 +1,18 @@
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { OnboardingHandler } from '@work/application/queries/handlers/onboarding.handler';
 import { OnboardingQuery } from '@work/application/queries/onboarding.query';
-import type {
-  TeamFacts,
-  TeamSetup,
-} from '@work/application/services/team-setup.service';
-import { SETUP_STEPS } from '@work/domain/services/setup-list';
+import type { WorkspaceSetup } from '@work/application/services/workspace-setup.service';
+import { SETUP_STEPS, type SetupState } from '@work/domain/services/setup-list';
 import { describe, expect, it, vi } from 'vitest';
 
 type Given = {
   member?: boolean;
-  facts?: Partial<TeamFacts>;
+  state?: Partial<SetupState>;
 };
 
-const nothing: TeamFacts = {
-  hasRunner: false,
+const nothing: SetupState = {
   connectedToGitHub: false,
-  listening: [],
+  hasHarness: false,
 };
 
 const handler = (given: Given = {}) => {
@@ -34,8 +30,8 @@ const handler = (given: Given = {}) => {
   } as unknown as WorkspaceReaderPort;
 
   const setup = {
-    factsFor: vi.fn().mockResolvedValue({ ...nothing, ...given.facts }),
-  } as unknown as TeamSetup;
+    stateOf: vi.fn().mockResolvedValue({ ...nothing, ...given.state }),
+  } as unknown as WorkspaceSetup;
 
   return new OnboardingHandler(workspaces, setup);
 };
@@ -59,24 +55,9 @@ describe('OnboardingHandler', () => {
   });
 
   it('ticks a step off once it has been taken', async () => {
-    const onboarding = await read({ facts: { hasRunner: true } });
+    const onboarding = await read({ state: { hasHarness: true } });
 
-    expect(step(onboarding, 'runner')?.done).toBe(true);
+    expect(step(onboarding, 'harness')?.done).toBe(true);
     expect(step(onboarding, 'github')?.done).toBe(false);
-  });
-
-  it('is done choosing tools once it is listening to one', async () => {
-    const onboarding = await read({ facts: { listening: ['linear'] } });
-
-    expect(step(onboarding, 'integrations')?.done).toBe(true);
-  });
-
-  it('says where each step is taken, for the team asking', async () => {
-    const onboarding = await read();
-
-    expect(step(onboarding, 'runner')?.where).toBe('/w/acme/runners');
-    expect(step(onboarding, 'integrations')?.where).toBe(
-      '/w/acme/team/team_1/settings/integrations',
-    );
   });
 });

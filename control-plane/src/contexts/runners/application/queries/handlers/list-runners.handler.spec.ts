@@ -49,7 +49,7 @@ const listing = (
     } as unknown as WorkspaceAccessPort,
     {
       inWorkspace,
-      anyConnected: vi.fn(),
+      anyOffersWork: vi.fn(),
       advertisedModels: vi.fn(),
     } as RunnerReaderPort,
     clock(),

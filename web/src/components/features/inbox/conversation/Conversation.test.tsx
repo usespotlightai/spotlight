@@ -19,10 +19,6 @@ vi.mock('@/hooks/api/useRepositories', () => ({
   useRepositories: () => ({ data: [] }),
 }));
 
-vi.mock('@/hooks/api/usePinConfiguration', () => ({
-  usePinConfiguration: () => ({ mutate: vi.fn(), isPending: false }),
-}));
-
 const AT = '2026-09-03T21:22:00.000Z';
 const LATER = '2026-09-03T23:45:00.000Z';
 
@@ -86,13 +82,7 @@ describe('Conversation', () => {
   });
 
   it('names no station over a note that shows itself', () => {
-    onboardingState.data = {
-      steps: [],
-      connectedToGitHub: false,
-      configRepository: null,
-      installUrl: null,
-      integrations: [],
-    };
+    onboardingState.data = { steps: [] };
     showing([{ ...note(0, AT), form: 'setup' }]);
 
     expect(screen.queryByText('Backlog')).not.toBeInTheDocument();

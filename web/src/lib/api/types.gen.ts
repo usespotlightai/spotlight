@@ -986,13 +986,9 @@ export type SetupStepResponseDto = {
   /**
    * Which step this is
    */
-  key: 'runner' | 'github' | 'integrations';
+  key: 'github' | 'harness';
   title: string;
   description: string;
-  /**
-   * The page in Spotlight this step is taken from, or null where there is none
-   */
-  where: string | null;
   done: boolean;
 };
 
@@ -1050,13 +1046,6 @@ export type ChangeMemberRoleRequestDto = {
    * What they are to be in this workspace, which is what they may do in every team of it.
    */
   role: 'owner' | 'admin' | 'member';
-};
-
-export type RenameTeamRequestDto = {
-  /**
-   * What the team is called.
-   */
-  name: string;
 };
 
 export type MemberResponseDto = {
@@ -3013,35 +3002,6 @@ export type ChangeMemberRoleResponses = {
 };
 
 export type ChangeMemberRoleResponse = ChangeMemberRoleResponses[keyof ChangeMemberRoleResponses];
-
-export type RenameTeamData = {
-  body: RenameTeamRequestDto;
-  path: {
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}';
-};
-
-export type RenameTeamErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such team, or not yours to rename
-   */
-  404: unknown;
-};
-
-export type RenameTeamResponses = {
-  /**
-   * Renamed
-   */
-  204: void;
-};
-
-export type RenameTeamResponse = RenameTeamResponses[keyof RenameTeamResponses];
 
 export type ListMembersData = {
   body?: never;

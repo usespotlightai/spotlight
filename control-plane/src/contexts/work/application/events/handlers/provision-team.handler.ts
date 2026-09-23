@@ -1,4 +1,3 @@
-import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -30,7 +29,6 @@ export class ProvisionTeam {
   constructor(
     private readonly lines: LineRepository,
     private readonly tasks: TaskRepository,
-    private readonly workspaces: Pick<WorkspaceReaderPort, 'slugOf'>,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly harness: HarnessId,
@@ -53,12 +51,6 @@ export class ProvisionTeam {
       return;
     }
 
-    const slug = await this.workspaces.slugOf(team.workspaceId.value);
-
-    if (!slug) {
-      return;
-    }
-
     const delivery = (await this.lines.ofTeam(team.teamId)).find((each) =>
       each.key.equals(DELIVERY.key),
     );
@@ -74,7 +66,7 @@ export class ProvisionTeam {
       welcomeTask({
         line: delivery,
         teamId: team.teamId,
-        saying: TaskNoteBody.of(listed({ slug, teamId: team.teamId.value })),
+        saying: TaskNoteBody.of(listed()),
         at: first.id,
         station: first.name,
         owner: team.owner,

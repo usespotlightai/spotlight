@@ -109,7 +109,7 @@ export const openTeam = async (
   const list = welcomeTask({
     line,
     teamId: TeamId.of(teamId),
-    saying: TaskNoteBody.of(listed({ slug, teamId })),
+    saying: TaskNoteBody.of(listed()),
     at: StationId.of(stationId),
     station: StationName.of('Backlog'),
     owner: UserId.of(owner),

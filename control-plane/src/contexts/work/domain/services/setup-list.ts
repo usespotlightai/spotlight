@@ -8,19 +8,17 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
 export interface SetupState {
-  readonly hasRunner: boolean;
   readonly connectedToGitHub: boolean;
-  readonly listensToAnIntegration: boolean;
+  readonly hasHarness: boolean;
 }
 
-export const SETUP_STEPS = ['runner', 'github', 'integrations'] as const;
+export const SETUP_STEPS = ['github', 'harness'] as const;
 
 export type SetupStepKey = (typeof SETUP_STEPS)[number];
 
 export const TAKEN: Record<SetupStepKey, (state: SetupState) => boolean> = {
-  runner: (state) => state.hasRunner,
   github: (state) => state.connectedToGitHub,
-  integrations: (state) => state.listensToAnIntegration,
+  harness: (state) => state.hasHarness,
 };
 
 const setUp = (state: SetupState): boolean =>

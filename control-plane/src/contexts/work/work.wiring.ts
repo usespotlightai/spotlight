@@ -24,10 +24,7 @@ import {
   WORKSPACE_ACCESS,
   type WorkspaceAccessPort,
 } from '@identity/application/ports/workspace-access.port';
-import {
-  WORKSPACE_READER,
-  type WorkspaceReaderPort,
-} from '@identity/application/ports/workspace-reader.port';
+import { WORKSPACE_READER } from '@identity/application/ports/workspace-reader.port';
 import type { Provider, Type } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ENV } from '@platform/config/config.constants';
@@ -183,7 +180,6 @@ import {
   type RunnerRevocationPort,
 } from '@work/application/ports/runner-revocation.port';
 import { RUNNER_TRACE_READER } from '@work/application/ports/runner-trace-reader.port';
-import { SETUP_SETTLING } from '@work/application/ports/setup-settling.port';
 import {
   STATION_TALLIES,
   type StationTalliesPort,
@@ -303,8 +299,8 @@ import {
   type TaskDispatching,
 } from '@work/application/services/task-dispatch';
 import { TeamIntegrations } from '@work/application/services/team-integrations.service';
-import { TeamSetup } from '@work/application/services/team-setup.service';
 import { WorkLookup } from '@work/application/services/work-lookup.service';
+import { WorkspaceSetup } from '@work/application/services/workspace-setup.service';
 import { WORK_EVENT_TYPES } from '@work/domain/event-types';
 import { BUILT_IN_SKILL_KEYS } from '@work/domain/services/built-in-skills';
 import {
@@ -464,13 +460,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   { provide: LINE_COMPILER, useClass: LineCompiler },
 
   {
-    provide: TeamSetup,
-    inject: [WORKSPACE_CONNECTIONS, TEAM_INTEGRATIONS, RUNNER_READER],
+    provide: WorkspaceSetup,
+    inject: [WORKSPACE_CONNECTIONS, RUNNER_READER],
     useFactory: (
       connections: WorkspaceConnectionsPort,
-      integrations: TeamIntegrationsPort,
       runners: RunnerReaderPort,
-    ) => new TeamSetup(connections, integrations, runners),
+    ) => new WorkspaceSetup(connections, runners),
   },
 
   {
@@ -548,24 +543,15 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ),
   },
 
-  { provide: SETUP_SETTLING, useExisting: SettleSetup },
-
   {
     provide: SettleSetup,
-    inject: [
-      DrizzleTaskRepository,
-      DrizzleLineRepository,
-      TeamSetup,
-      CLOCK,
-      LOGGER,
-    ],
+    inject: [DrizzleTaskRepository, WorkspaceSetup, CLOCK, LOGGER],
     useFactory: (
       tasks: DrizzleTaskRepository,
-      lines: DrizzleLineRepository,
-      setup: TeamSetup,
+      setup: WorkspaceSetup,
       clock: ClockPort,
       logger: LoggerPort,
-    ) => new SettleSetup(tasks, lines, setup, clock, logger),
+    ) => new SettleSetup(tasks, setup, clock, logger),
   },
 
   {
@@ -743,7 +729,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       EventPublications,
       EventSubscribers,
       DrizzleLineRepository,
-      WORKSPACE_READER,
       ID_GENERATOR,
       CLOCK,
       RUNNER_REVOCATION,
@@ -765,7 +750,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       publications: EventPublications,
       subscribers: EventSubscribers,
       provisioningLines: DrizzleLineRepository,
-      workspaces: WorkspaceReaderPort,
       ids: IdGeneratorPort,
       clock: ClockPort,
       revocation: RunnerRevocationPort,
@@ -792,7 +776,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           provisioning: new ProvisionTeam(
             provisioningLines,
             tasks,
-            workspaces,
             ids,
             clock,
             DEFAULT_HARNESS,
@@ -946,7 +929,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindQueryHandler(OnboardingQuery, OnboardingHandler, [
     WORKSPACE_READER,
-    TeamSetup,
+    WorkspaceSetup,
   ]),
 
   ...bindCommandHandler(ReadInboxItemCommand, ReadInboxItemHandler, [

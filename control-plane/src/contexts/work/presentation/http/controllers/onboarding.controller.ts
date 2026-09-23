@@ -51,7 +51,6 @@ export class OnboardingController {
             each.key,
             each.title,
             each.description,
-            each.where,
             each.done,
           ),
       ),
