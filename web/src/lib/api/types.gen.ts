@@ -74,31 +74,64 @@ export type LineResponseDto = {
   repositories: Array<string>;
 };
 
+export type FieldErrorResponseDto = {
+  /**
+   * The attribute it is about, as a Terraform provider addresses one; empty for the whole resource
+   */
+  path: string;
+  message: string;
+  severity: 'error' | 'warning';
+};
+
+export type ProblemResponseDto = {
+  /**
+   * What kind of problem it is; stable, safe to branch on
+   */
+  type: string;
+  title: string;
+  status: number;
+  detail: string;
+  /**
+   * Each field that is wrong, when the request was invalid
+   */
+  errors?: Array<FieldErrorResponseDto>;
+  /**
+   * The version the resource is at now, when a write conflicted
+   */
+  currentVersion?: number;
+};
+
 export type LineResourceResponseDto = {
+  /**
+   * Issued by Spotlight when the resource is created, and never changed
+   */
   id: string;
   /**
-   * The line as it was defined, with every field it left out filled in
+   * Rises with every change; the ETag carries it, and a write sends it back as If-Match
+   */
+  version: number;
+  /**
+   * Names the resource within its workspace; terraform import takes it
+   */
+  address: string;
+  /**
+   * What would work better, though nothing stops it working; not settable
+   */
+  warnings: Array<FieldErrorResponseDto>;
+  /**
+   * The team it belongs to
+   */
+  teamId: string;
+  /**
+   * Names the line within its team; fixed for its life, so changing it means replacing the line
+   */
+  key: string;
+  /**
+   * The line as it stands now, stations in order, with every field a definition may leave out filled in
    */
   definition: {
     [key: string]: unknown;
   };
-};
-
-export type ConfigurationProblemResponseDto = {
-  /**
-   * The resource the problem is in
-   */
-  path: string;
-  /**
-   * The field within it, as a Terraform attribute path
-   */
-  at: string;
-  reason: string;
-  severity: 'error' | 'warning';
-};
-
-export type ConfigurationProblemsResponseDto = {
-  problems: Array<ConfigurationProblemResponseDto>;
 };
 
 export type EnqueueRunRequestDto = {
@@ -999,6 +1032,64 @@ export type OnboardingResponseDto = {
   steps: Array<SetupStepResponseDto>;
 };
 
+export type WorkspaceResourceResponseDto = {
+  /**
+   * Issued by Spotlight when the resource is created, and never changed
+   */
+  id: string;
+  /**
+   * Rises with every change; the ETag carries it, and a write sends it back as If-Match
+   */
+  version: number;
+  /**
+   * Names the resource within its workspace; terraform import takes it
+   */
+  address: string;
+  /**
+   * What would work better, though nothing stops it working; not settable
+   */
+  warnings: Array<FieldErrorResponseDto>;
+  /**
+   * What the workspace is called
+   */
+  name: string;
+  /**
+   * Where the workspace lives in the web app; fixed for its life, so changing it means replacing the workspace
+   */
+  slug: string;
+};
+
+export type TeamResourceResponseDto = {
+  /**
+   * Issued by Spotlight when the resource is created, and never changed
+   */
+  id: string;
+  /**
+   * Rises with every change; the ETag carries it, and a write sends it back as If-Match
+   */
+  version: number;
+  /**
+   * Names the resource within its workspace; terraform import takes it
+   */
+  address: string;
+  /**
+   * What would work better, though nothing stops it working; not settable
+   */
+  warnings: Array<FieldErrorResponseDto>;
+  /**
+   * The workspace it belongs to
+   */
+  workspaceId: string;
+  /**
+   * Names the team in the addresses of everything it holds; fixed for its life, so changing it means replacing the team
+   */
+  key: string;
+  /**
+   * What the team is called
+   */
+  name: string;
+};
+
 export type CreateWorkspaceRequestDto = {
   name: string;
   /**
@@ -1203,6 +1294,56 @@ export type TeamSkillResponseDto = {
 
 export type TeamSkillsResponseDto = {
   skills: Array<TeamSkillResponseDto>;
+};
+
+export type SkillSecretResponseDto = {
+  name: string;
+  description: string;
+};
+
+export type SkillResourceResponseDto = {
+  /**
+   * Issued by Spotlight when the resource is created, and never changed
+   */
+  id: string;
+  /**
+   * Rises with every change; the ETag carries it, and a write sends it back as If-Match
+   */
+  version: number;
+  /**
+   * Names the resource within its workspace; terraform import takes it
+   */
+  address: string;
+  /**
+   * What would work better, though nothing stops it working; not settable
+   */
+  warnings: Array<FieldErrorResponseDto>;
+  /**
+   * The team it belongs to
+   */
+  teamId: string;
+  /**
+   * What stations give it by; fixed for its life, so changing it means replacing the skill
+   */
+  key: string;
+  /**
+   * Each file in the skill’s folder, by its path within it; SKILL.md is the one the skill is read from
+   */
+  files: {
+    [key: string]: string;
+  };
+  /**
+   * What SKILL.md says it is for; not settable
+   */
+  description: string;
+  /**
+   * The secrets SKILL.md asks for; not settable
+   */
+  secrets: Array<SkillSecretResponseDto>;
+  /**
+   * The tools SKILL.md uses; not settable
+   */
+  tools: Array<string>;
 };
 
 export type DiffHunkResponseDto = {
@@ -1570,33 +1711,6 @@ export type OAuth2StartResponseDto = {
   url: string;
 };
 
-export type FieldErrorResponseDto = {
-  /**
-   * The attribute it is about, as a Terraform provider addresses one; empty for the whole resource
-   */
-  path: string;
-  message: string;
-  severity: 'error' | 'warning';
-};
-
-export type ProblemResponseDto = {
-  /**
-   * What kind of problem it is; stable, safe to branch on
-   */
-  type: string;
-  title: string;
-  status: number;
-  detail: string;
-  /**
-   * Each field that is wrong, when the request was invalid
-   */
-  errors?: Array<FieldErrorResponseDto>;
-  /**
-   * The version the resource is at now, when a write conflicted
-   */
-  currentVersion?: number;
-};
-
 export type IntegrationResourceResponseDto = {
   /**
    * Issued by Spotlight when the resource is created, and never changed
@@ -1676,39 +1790,259 @@ export type ListLinesResponses = {
 
 export type ListLinesResponse = ListLinesResponses[keyof ListLinesResponses];
 
-export type DefineLineData = {
+export type CreateLineData = {
   body: {
     [key: string]: unknown;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     */
+    'Idempotency-Key': string;
   };
   path: {
     teamId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/lines';
+  url: '/resources/teams/{teamId}/lines';
 };
 
-export type DefineLineErrors = {
+export type CreateLineErrors = {
   /**
-   * No valid session
+   * Malformed, or asking for an API version this server does not serve
    */
-  401: unknown;
+  400: ProblemResponseDto;
   /**
-   * No such team this caller administers
+   * No valid credentials
    */
-  404: unknown;
+  401: ProblemResponseDto;
   /**
-   * What is wrong with the definition, field by field
+   * No such line that you may see
    */
-  422: ConfigurationProblemsResponseDto;
+  404: ProblemResponseDto;
+  /**
+   * There is already a line at that address
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field; or the Idempotency-Key was used for a different request
+   */
+  422: ProblemResponseDto;
 };
 
-export type DefineLineError = DefineLineErrors[keyof DefineLineErrors];
+export type CreateLineError = CreateLineErrors[keyof CreateLineErrors];
 
-export type DefineLineResponses = {
+export type CreateLineResponses = {
+  /**
+   * The line, as a read would answer it
+   */
   201: LineResourceResponseDto;
 };
 
-export type DefineLineResponse = DefineLineResponses[keyof DefineLineResponses];
+export type CreateLineResponse = CreateLineResponses[keyof CreateLineResponses];
+
+export type DeleteLineData = {
+  body?: never;
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/lines/{id}';
+};
+
+export type DeleteLineErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such line that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type DeleteLineError = DeleteLineErrors[keyof DeleteLineErrors];
+
+export type DeleteLineResponses = {
+  /**
+   * Deleted
+   */
+  204: void;
+};
+
+export type DeleteLineResponse = DeleteLineResponses[keyof DeleteLineResponses];
+
+export type ReadLineData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/lines/{id}';
+};
+
+export type ReadLineErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such line that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadLineError = ReadLineErrors[keyof ReadLineErrors];
+
+export type ReadLineResponses = {
+  /**
+   * The line, every field of it
+   */
+  200: LineResourceResponseDto;
+};
+
+export type ReadLineResponse = ReadLineResponses[keyof ReadLineResponses];
+
+export type UpdateLineData = {
+  body: {
+    [key: string]: unknown;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/lines/{id}';
+};
+
+export type UpdateLineErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such line that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field
+   */
+  422: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type UpdateLineError = UpdateLineErrors[keyof UpdateLineErrors];
+
+export type UpdateLineResponses = {
+  /**
+   * The line, as a read would answer it
+   */
+  200: LineResourceResponseDto;
+};
+
+export type UpdateLineResponse = UpdateLineResponses[keyof UpdateLineResponses];
+
+export type ImportLineData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+  };
+  path: {
+    workspaceId: string;
+  };
+  query: {
+    /**
+     * The line's address within the workspace
+     */
+    address: unknown;
+  };
+  url: '/resources/workspaces/{workspaceId}/lines/import';
+};
+
+export type ImportLineErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such line that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ImportLineError = ImportLineErrors[keyof ImportLineErrors];
+
+export type ImportLineResponses = {
+  /**
+   * The line, as a read would answer it
+   */
+  200: LineResourceResponseDto;
+};
+
+export type ImportLineResponse = ImportLineResponses[keyof ImportLineResponses];
 
 export type EnqueueRunData = {
   body: EnqueueRunRequestDto;
@@ -2930,6 +3264,514 @@ export type ReadOnboardingResponses = {
 
 export type ReadOnboardingResponse = ReadOnboardingResponses[keyof ReadOnboardingResponses];
 
+export type ImportWorkspaceData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+  };
+  path?: never;
+  query: {
+    /**
+     * The workspace's address within the workspace
+     */
+    address: unknown;
+  };
+  url: '/resources/workspaces/import';
+};
+
+export type ImportWorkspaceErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ImportWorkspaceError = ImportWorkspaceErrors[keyof ImportWorkspaceErrors];
+
+export type ImportWorkspaceResponses = {
+  /**
+   * The workspace, as a read would answer it
+   */
+  200: WorkspaceResourceResponseDto;
+};
+
+export type ImportWorkspaceResponse = ImportWorkspaceResponses[keyof ImportWorkspaceResponses];
+
+export type CreateWorkspaceData = {
+  body: {
+    name: string;
+    slug: string;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     */
+    'Idempotency-Key': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/resources/workspaces';
+};
+
+export type CreateWorkspaceErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * There is already a workspace at that address
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field; or the Idempotency-Key was used for a different request
+   */
+  422: ProblemResponseDto;
+};
+
+export type CreateWorkspaceError = CreateWorkspaceErrors[keyof CreateWorkspaceErrors];
+
+export type CreateWorkspaceResponses = {
+  /**
+   * The workspace, as a read would answer it
+   */
+  201: WorkspaceResourceResponseDto;
+};
+
+export type CreateWorkspaceResponse = CreateWorkspaceResponses[keyof CreateWorkspaceResponses];
+
+export type DeleteWorkspaceData = {
+  body?: never;
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{id}';
+};
+
+export type DeleteWorkspaceErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type DeleteWorkspaceError = DeleteWorkspaceErrors[keyof DeleteWorkspaceErrors];
+
+export type DeleteWorkspaceResponses = {
+  /**
+   * Deleted
+   */
+  204: void;
+};
+
+export type DeleteWorkspaceResponse = DeleteWorkspaceResponses[keyof DeleteWorkspaceResponses];
+
+export type ReadWorkspaceData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{id}';
+};
+
+export type ReadWorkspaceErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadWorkspaceError = ReadWorkspaceErrors[keyof ReadWorkspaceErrors];
+
+export type ReadWorkspaceResponses = {
+  /**
+   * The workspace, every field of it
+   */
+  200: WorkspaceResourceResponseDto;
+};
+
+export type ReadWorkspaceResponse = ReadWorkspaceResponses[keyof ReadWorkspaceResponses];
+
+export type UpdateWorkspaceData = {
+  body: {
+    name: string;
+    slug: string;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{id}';
+};
+
+export type UpdateWorkspaceErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field
+   */
+  422: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type UpdateWorkspaceError = UpdateWorkspaceErrors[keyof UpdateWorkspaceErrors];
+
+export type UpdateWorkspaceResponses = {
+  /**
+   * The workspace, as a read would answer it
+   */
+  200: WorkspaceResourceResponseDto;
+};
+
+export type UpdateWorkspaceResponse = UpdateWorkspaceResponses[keyof UpdateWorkspaceResponses];
+
+export type CreateTeamData = {
+  body: {
+    key: string;
+    name: string;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     */
+    'Idempotency-Key': string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{workspaceId}/teams';
+};
+
+export type CreateTeamErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such team that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * There is already a team at that address
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field; or the Idempotency-Key was used for a different request
+   */
+  422: ProblemResponseDto;
+};
+
+export type CreateTeamError = CreateTeamErrors[keyof CreateTeamErrors];
+
+export type CreateTeamResponses = {
+  /**
+   * The team, as a read would answer it
+   */
+  201: TeamResourceResponseDto;
+};
+
+export type CreateTeamResponse = CreateTeamResponses[keyof CreateTeamResponses];
+
+export type DeleteTeamData = {
+  body?: never;
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/teams/{id}';
+};
+
+export type DeleteTeamErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such team that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type DeleteTeamError = DeleteTeamErrors[keyof DeleteTeamErrors];
+
+export type DeleteTeamResponses = {
+  /**
+   * Deleted
+   */
+  204: void;
+};
+
+export type DeleteTeamResponse = DeleteTeamResponses[keyof DeleteTeamResponses];
+
+export type ReadTeamData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/teams/{id}';
+};
+
+export type ReadTeamErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such team that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadTeamError = ReadTeamErrors[keyof ReadTeamErrors];
+
+export type ReadTeamResponses = {
+  /**
+   * The team, every field of it
+   */
+  200: TeamResourceResponseDto;
+};
+
+export type ReadTeamResponse = ReadTeamResponses[keyof ReadTeamResponses];
+
+export type UpdateTeamData = {
+  body: {
+    key: string;
+    name: string;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/teams/{id}';
+};
+
+export type UpdateTeamErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such team that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field
+   */
+  422: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type UpdateTeamError = UpdateTeamErrors[keyof UpdateTeamErrors];
+
+export type UpdateTeamResponses = {
+  /**
+   * The team, as a read would answer it
+   */
+  200: TeamResourceResponseDto;
+};
+
+export type UpdateTeamResponse = UpdateTeamResponses[keyof UpdateTeamResponses];
+
+export type ImportTeamData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+  };
+  path: {
+    workspaceId: string;
+  };
+  query: {
+    /**
+     * The team's address within the workspace
+     */
+    address: unknown;
+  };
+  url: '/resources/workspaces/{workspaceId}/teams/import';
+};
+
+export type ImportTeamErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such team that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ImportTeamError = ImportTeamErrors[keyof ImportTeamErrors];
+
+export type ImportTeamResponses = {
+  /**
+   * The team, as a read would answer it
+   */
+  200: TeamResourceResponseDto;
+};
+
+export type ImportTeamResponse = ImportTeamResponses[keyof ImportTeamResponses];
+
 export type ListWorkspacesData = {
   body?: never;
   path?: never;
@@ -2950,14 +3792,14 @@ export type ListWorkspacesResponses = {
 
 export type ListWorkspacesResponse = ListWorkspacesResponses[keyof ListWorkspacesResponses];
 
-export type CreateWorkspaceData = {
+export type OpenWorkspaceData = {
   body: CreateWorkspaceRequestDto;
   path?: never;
   query?: never;
   url: '/workspaces';
 };
 
-export type CreateWorkspaceErrors = {
+export type OpenWorkspaceErrors = {
   /**
    * No valid session
    */
@@ -2972,11 +3814,11 @@ export type CreateWorkspaceErrors = {
   422: unknown;
 };
 
-export type CreateWorkspaceResponses = {
+export type OpenWorkspaceResponses = {
   201: CreatedWorkspaceResponseDto;
 };
 
-export type CreateWorkspaceResponse = CreateWorkspaceResponses[keyof CreateWorkspaceResponses];
+export type OpenWorkspaceResponse = OpenWorkspaceResponses[keyof OpenWorkspaceResponses];
 
 export type GetWorkspaceData = {
   body?: never;
@@ -3465,6 +4307,266 @@ export type ListTeamSkillsResponses = {
 
 export type ListTeamSkillsResponse = ListTeamSkillsResponses[keyof ListTeamSkillsResponses];
 
+export type CreateSkillData = {
+  body: {
+    key: string;
+    files: {
+      [key: string]: string;
+    };
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     */
+    'Idempotency-Key': string;
+  };
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/resources/teams/{teamId}/skills';
+};
+
+export type CreateSkillErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such skill that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * There is already a skill at that address
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field; or the Idempotency-Key was used for a different request
+   */
+  422: ProblemResponseDto;
+};
+
+export type CreateSkillError = CreateSkillErrors[keyof CreateSkillErrors];
+
+export type CreateSkillResponses = {
+  /**
+   * The skill, as a read would answer it
+   */
+  201: SkillResourceResponseDto;
+};
+
+export type CreateSkillResponse = CreateSkillResponses[keyof CreateSkillResponses];
+
+export type DeleteSkillData = {
+  body?: never;
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/skills/{id}';
+};
+
+export type DeleteSkillErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such skill that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type DeleteSkillError = DeleteSkillErrors[keyof DeleteSkillErrors];
+
+export type DeleteSkillResponses = {
+  /**
+   * Deleted
+   */
+  204: void;
+};
+
+export type DeleteSkillResponse = DeleteSkillResponses[keyof DeleteSkillResponses];
+
+export type ReadSkillData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/skills/{id}';
+};
+
+export type ReadSkillErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such skill that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadSkillError = ReadSkillErrors[keyof ReadSkillErrors];
+
+export type ReadSkillResponses = {
+  /**
+   * The skill, every field of it
+   */
+  200: SkillResourceResponseDto;
+};
+
+export type ReadSkillResponse = ReadSkillResponses[keyof ReadSkillResponses];
+
+export type UpdateSkillData = {
+  body: {
+    key: string;
+    files: {
+      [key: string]: string;
+    };
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/skills/{id}';
+};
+
+export type UpdateSkillErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such skill that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field
+   */
+  422: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type UpdateSkillError = UpdateSkillErrors[keyof UpdateSkillErrors];
+
+export type UpdateSkillResponses = {
+  /**
+   * The skill, as a read would answer it
+   */
+  200: SkillResourceResponseDto;
+};
+
+export type UpdateSkillResponse = UpdateSkillResponses[keyof UpdateSkillResponses];
+
+export type ImportSkillData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+  };
+  path: {
+    workspaceId: string;
+  };
+  query: {
+    /**
+     * The skill's address within the workspace
+     */
+    address: unknown;
+  };
+  url: '/resources/workspaces/{workspaceId}/skills/import';
+};
+
+export type ImportSkillErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such skill that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ImportSkillError = ImportSkillErrors[keyof ImportSkillErrors];
+
+export type ImportSkillResponses = {
+  /**
+   * The skill, as a read would answer it
+   */
+  200: SkillResourceResponseDto;
+};
+
+export type ImportSkillResponse = ImportSkillResponses[keyof ImportSkillResponses];
+
 export type ListRunChangeStacksData = {
   body?: never;
   path: {
@@ -3841,7 +4943,7 @@ export type CreateIntegrationData = {
     teamId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/integrations';
+  url: '/resources/teams/{teamId}/integrations';
 };
 
 export type CreateIntegrationErrors = {
@@ -3894,7 +4996,7 @@ export type DeleteIntegrationData = {
     id: string;
   };
   query?: never;
-  url: '/integrations/{id}';
+  url: '/resources/integrations/{id}';
 };
 
 export type DeleteIntegrationErrors = {
@@ -3943,7 +5045,7 @@ export type ReadIntegrationData = {
     id: string;
   };
   query?: never;
-  url: '/integrations/{id}';
+  url: '/resources/integrations/{id}';
 };
 
 export type ReadIntegrationErrors = {
@@ -3990,7 +5092,7 @@ export type UpdateIntegrationData = {
     id: string;
   };
   query?: never;
-  url: '/integrations/{id}';
+  url: '/resources/integrations/{id}';
 };
 
 export type UpdateIntegrationErrors = {
@@ -4040,7 +5142,7 @@ export type ImportIntegrationData = {
     'Spotlight-Api-Version'?: '2026-09-23';
   };
   path: {
-    slug: string;
+    workspaceId: string;
   };
   query: {
     /**
@@ -4048,7 +5150,7 @@ export type ImportIntegrationData = {
      */
     address: unknown;
   };
-  url: '/workspaces/{slug}/integrations/import';
+  url: '/resources/workspaces/{workspaceId}/integrations/import';
 };
 
 export type ImportIntegrationErrors = {

@@ -1,11 +1,17 @@
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
+import { LineOpened } from '@work/domain/events/line-opened.event';
+import { LineRedefined } from '@work/domain/events/line-redefined.event';
 import { LineRepositoriesChanged } from '@work/domain/events/line-repositories-changed.event';
+import { LineRetired } from '@work/domain/events/line-retired.event';
 import { StationHarnessChanged } from '@work/domain/events/station-harness-changed.event';
 import { StationRenamed } from '@work/domain/events/station-renamed.event';
 import { InvalidStationChangeError } from '@work/domain/exceptions/invalid-station-change.error';
 import { InvalidStationLayoutError } from '@work/domain/exceptions/invalid-station-layout.error';
+import { LineInUseError } from '@work/domain/exceptions/line-in-use.error';
+import { LineKeyFixedError } from '@work/domain/exceptions/line-key-fixed.error';
+import { LineMovedOnError } from '@work/domain/exceptions/line-moved-on.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import {
   BUILT_IN_LINES,
@@ -14,7 +20,6 @@ import {
 
 const BUILT_IN_STATIONS = BUILT_IN_LINES[0]?.stations ?? [];
 
-import { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -126,39 +131,6 @@ describe('Line', () => {
     const ids = [line.id.value, ...line.stations.map((each) => each.id.value)];
 
     expect(new Set(ids).size).toBe(ids.length);
-  });
-
-  it('opens a built-in line with no definition behind it', () => {
-    expect(opened().definition).toBeNull();
-  });
-
-  it('keeps its definition through a change that does not replace it', () => {
-    const line = opened();
-    const defined = line.relaidAs({
-      key: line.key,
-      name: line.name,
-      stations: line.stations,
-      reactions: line.reactions,
-      definition: DefinitionDocument.of({ key: line.key.value }),
-    });
-
-    expect(defined.worksIn([]).definition?.fields).toEqual({
-      key: line.key.value,
-    });
-  });
-
-  it('refuses a definition of another line', () => {
-    const line = opened();
-
-    expect(() =>
-      line.relaidAs({
-        key: line.key,
-        name: line.name,
-        stations: line.stations,
-        reactions: line.reactions,
-        definition: DefinitionDocument.of({ key: 'review' }),
-      }),
-    ).toThrow(/defines another line/);
   });
 
   it('stands where it was opened', () => {
@@ -751,5 +723,85 @@ describe('Line, what it records of its changes', () => {
       standing().runsOn(HarnessId.of('claude-code'), null).harness?.value,
     ).toBe('claude-code');
     expect(standing().harness).toBeNull();
+  });
+
+  describe('as a resource', () => {
+    const kept = (version = 3) => {
+      const line = opened();
+
+      return Line.rehydrate({
+        id: line.id,
+        workspaceId: line.workspaceId,
+        teamId: line.teamId,
+        key: line.key,
+        name: line.name,
+        stations: line.stations,
+        reactions: line.reactions,
+        version,
+      });
+    };
+
+    it('says it opened', () => {
+      const line = opened();
+
+      expect(line.pullEvents()).toEqual([
+        new LineOpened(line.id, line.workspaceId, line.teamId, line.key),
+      ]);
+    });
+
+    it('says it was redefined when laid out again', () => {
+      const line = kept();
+      const relaid = line.relaidAs({
+        key: line.key,
+        name: line.name,
+        stations: line.stations,
+        reactions: line.reactions,
+      });
+
+      expect(relaid.pullEvents()).toContainEqual(
+        new LineRedefined(line.id, line.workspaceId, line.teamId, line.key),
+      );
+    });
+
+    it('refuses a change made against another version', () => {
+      expect(() => kept(3).expecting(2)).toThrow(LineMovedOnError);
+      expect(() => kept(3).expecting(3)).not.toThrow();
+    });
+
+    it('keeps its key for its whole life', () => {
+      const line = kept();
+
+      expect(() =>
+        line.relaidAs({
+          key: LineKey.of('shipping'),
+          name: line.name,
+          stations: line.stations,
+          reactions: line.reactions,
+        }),
+      ).toThrow(LineKeyFixedError);
+    });
+
+    it('retires once no task stands on it, and says so', () => {
+      const line = kept();
+      const retired = line.retired(new Map());
+
+      expect(retired.isRetired).toBe(true);
+      expect(retired.pullEvents()).toEqual([
+        new LineRetired(line.id, line.workspaceId, line.teamId, line.key),
+      ]);
+      expect(() => retired.worksIn([])).toThrow(/after it retired/);
+    });
+
+    it('will not retire while tasks stand on it, naming where', () => {
+      const line = kept();
+      const [, working] = line.stations;
+
+      expect(() =>
+        line.retired(new Map([[working?.id.value ?? '', 2]])),
+      ).toThrow(LineInUseError);
+      expect(() =>
+        line.retired(new Map([[working?.id.value ?? '', 2]])),
+      ).toThrow(`${working?.name.value} (2 standing there)`);
+    });
   });
 });

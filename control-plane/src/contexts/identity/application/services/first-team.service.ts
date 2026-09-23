@@ -6,6 +6,10 @@ export class FirstTeam {
   constructor(private readonly teams: TeamRepository) {}
 
   async openFor(opened: WorkspaceOpened): Promise<void> {
+    if (!opened.firstTeam) {
+      return;
+    }
+
     const team = Team.open({
       id: opened.firstTeam.id,
       workspaceId: opened.workspaceId,

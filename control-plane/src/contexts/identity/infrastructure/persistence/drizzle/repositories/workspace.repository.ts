@@ -1,4 +1,5 @@
 import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
+import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-use.error';
 import { WorkspaceMovedOnError } from '@identity/domain/exceptions/workspace-moved-on.error';
 import { WorkspaceSlugTakenError } from '@identity/domain/exceptions/workspace-slug-taken.error';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
@@ -20,6 +21,15 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { and, eq, notInArray } from 'drizzle-orm';
 
 const UNIQUE_VIOLATION = '23505';
+
+const RESTRICT_VIOLATION = '23001';
+
+const codeOf = (error: unknown): string | undefined =>
+  (
+    ((error as { cause?: unknown } | null)?.cause ?? error) as {
+      code?: string;
+    } | null
+  )?.code;
 
 const isSlugCollision = (error: unknown): boolean =>
   typeof error === 'object' &&
@@ -93,6 +103,11 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
 
   private async stored(saved: Workspace): Promise<void> {
     await this.context.run(async () => {
+      if (saved.isClosed) {
+        await this.closed(saved);
+        return;
+      }
+
       const written = await this.context.db
         .update(workspace)
         .set({
@@ -114,6 +129,27 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
 
       await this.writeMembers(saved);
     });
+  }
+
+  private async closed(saved: Workspace): Promise<void> {
+    const removed = await this.context.db
+      .delete(workspace)
+      .where(
+        and(
+          eq(workspace.id, saved.id.value),
+          eq(workspace.version, saved.version),
+        ),
+      )
+      .returning({ id: workspace.id })
+      .catch((error: unknown) => {
+        throw codeOf(error) === RESTRICT_VIOLATION
+          ? new WorkspaceInUseError(saved.slug.value, [])
+          : error;
+      });
+
+    if (removed.length === 0) {
+      throw new WorkspaceMovedOnError(saved.slug.value);
+    }
   }
 
   private async writeMembers(saved: Workspace): Promise<void> {

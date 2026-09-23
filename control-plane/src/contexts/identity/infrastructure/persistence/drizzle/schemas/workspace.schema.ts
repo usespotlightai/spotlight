@@ -51,7 +51,7 @@ export const team = pgTable(
     key: text('key').notNull(),
     workspaceId: text('workspace_id')
       .notNull()
-      .references(() => workspace.id, { onDelete: 'cascade' }),
+      .references(() => workspace.id, { onDelete: 'restrict' }),
     name: text('name').notNull(),
     version: integer('version').default(0).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),

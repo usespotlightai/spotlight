@@ -36,6 +36,7 @@ import {
   RESOURCE_EXTENSION,
   SUPPORTED_API_VERSIONS,
 } from '@platform/http/resources/resource-headers';
+import { RESOURCES } from '@platform/http/routes';
 
 export const RESOURCE_OPERATIONS = [
   'create',
@@ -115,7 +116,7 @@ export const resourceApi = (resource: ResourceKind) => {
   return {
     Controller: () =>
       applyDecorators(
-        Controller(),
+        Controller(RESOURCES),
         ApiTags(resource.tag),
         ApiExtraModels(ProblemResponseDto),
         UseFilters(ProblemFilter),

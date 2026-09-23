@@ -1,22 +1,22 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { UpdateIntegrationCommand } from '@integrations/application/commands/update-integration.command';
-import type { IntegrationUpdatedDto } from '@integrations/application/dto/integration-resource.dto';
 import type { IntegrationCompilerPort } from '@integrations/application/ports/integration-compiler.port';
+import { IntegrationProblems } from '@integrations/application/rendering/integration-problems';
 import type { ToolsGiven } from '@integrations/application/services/tools-given.service';
 import { IntegrationDefinitionMovedOnError } from '@integrations/domain/exceptions/integration-definition-moved-on.error';
 import { IntegrationHostFixedError } from '@integrations/domain/exceptions/integration-host-fixed.error';
 import { IntegrationToolsInUseError } from '@integrations/domain/exceptions/integration-tools-in-use.error';
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
+import type { ResourceUpdated } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class UpdateIntegrationHandler
   implements
-    CommandHandlerPort<UpdateIntegrationCommand, IntegrationUpdatedDto | null>
+    CommandHandlerPort<UpdateIntegrationCommand, ResourceUpdated | null>
 {
   constructor(
     private readonly access: WorkspaceAccessPort,
@@ -28,7 +28,7 @@ export class UpdateIntegrationHandler
 
   async execute(
     command: UpdateIntegrationCommand,
-  ): Promise<IntegrationUpdatedDto | null> {
+  ): Promise<ResourceUpdated | null> {
     const id = IntegrationDefinitionId.of(command.integrationId);
 
     try {
@@ -71,13 +71,7 @@ export class UpdateIntegrationHandler
       if (error instanceof IntegrationHostFixedError) {
         return {
           outcome: 'invalid',
-          problems: [
-            ConfigurationProblem.of({
-              path: `integrations/${error.source}`,
-              at: error.field,
-              reason: error.because,
-            }),
-          ],
+          problems: [IntegrationProblems.hostFixed(error)],
         };
       }
 

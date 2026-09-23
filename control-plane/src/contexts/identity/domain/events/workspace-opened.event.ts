@@ -10,6 +10,9 @@ export class WorkspaceOpened implements DomainEvent {
   constructor(
     readonly workspaceId: WorkspaceId,
     readonly owner: UserId,
-    readonly firstTeam: { readonly id: TeamId; readonly name: TeamName },
+    readonly firstTeam: {
+      readonly id: TeamId;
+      readonly name: TeamName;
+    } | null,
   ) {}
 }

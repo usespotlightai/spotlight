@@ -1,0 +1,77 @@
+import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type { ResourceUpdated } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
+import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { UpdateLineCommand } from '@work/application/commands/update-line.command';
+import type { LineCompilerPort } from '@work/application/ports/line-compiler.port';
+import type { ApplyLines } from '@work/application/services/apply-lines.service';
+import { lineRefusal } from '@work/application/services/line-refusals';
+import { LineMovedOnError } from '@work/domain/exceptions/line-moved-on.error';
+import type { LineRepository } from '@work/domain/repositories/line.repository';
+import { LineId } from '@work/domain/value-objects/line-id.vo';
+
+export class UpdateLineHandler
+  implements CommandHandlerPort<UpdateLineCommand, ResourceUpdated | null>
+{
+  constructor(
+    private readonly access: WorkspaceAccessPort,
+    private readonly compiler: LineCompilerPort,
+    private readonly lines: LineRepository,
+    private readonly applying: ApplyLines,
+    private readonly transaction: TransactionPort,
+  ) {}
+
+  async execute(command: UpdateLineCommand): Promise<ResourceUpdated | null> {
+    const id = LineId.of(command.lineId);
+
+    try {
+      const standing = await this.lines.find(id);
+      const membership = standing
+        ? await this.access.onTeam(
+            standing.teamId.value,
+            UserId.of(command.requesterId),
+          )
+        : null;
+
+      if (!standing || !membership?.administers) {
+        return null;
+      }
+
+      standing.expecting(command.expectedVersion);
+
+      const compiled = this.compiler.compile(command.definition);
+
+      if (!compiled.ok) {
+        return { outcome: 'invalid', problems: compiled.problems };
+      }
+
+      try {
+        await this.transaction.run(() =>
+          this.applying.reconcile(standing, compiled.line),
+        );
+      } catch (error) {
+        const refused = lineRefusal(standing.key.value, error);
+
+        if (refused) {
+          return refused;
+        }
+
+        throw error;
+      }
+
+      return { outcome: 'updated', id: id.value };
+    } catch (error) {
+      if (error instanceof LineMovedOnError) {
+        const current = await this.lines.find(id);
+
+        return current
+          ? { outcome: 'moved-on', currentVersion: current.version }
+          : null;
+      }
+
+      rethrowAsFault(error);
+    }
+  }
+}

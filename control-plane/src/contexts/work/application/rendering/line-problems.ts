@@ -1,48 +1,36 @@
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import type { RoleClaimedTwice } from '@work/domain/services/line-roles';
-import type { Stranded } from '@work/domain/services/reconcile-line';
 
 export const LINES = 'lines';
 
 export const lineAt = (key: string): string => `${LINES}/${key}`;
 
 export const LineProblems = {
-  roleClaimedTwice(
-    where: string,
-    claim: RoleClaimedTwice,
-  ): ConfigurationProblem {
+  roleClaimedTwice(claim: RoleClaimedTwice): ConfigurationProblem {
     return ConfigurationProblem.of({
-      path: where,
+      path: lineAt(claim.line.value),
       at: 'role',
-      reason: `claims the role "${claim.role.value}", which ${claim.others
-        .map((each) => each.value)
-        .join(', ')} already does, and a role names one line`,
+      reason: `claims the role "${claim.role.value}", which ${
+        claim.others.length > 0
+          ? claim.others.map((each) => each.value).join(', ')
+          : 'another line'
+      } already does, and a role names one line`,
     });
   },
 
-  stranded(where: string, stranded: readonly Stranded[]): ConfigurationProblem {
+  keyFixed(key: string, because: string): ConfigurationProblem {
     return ConfigurationProblem.of({
-      path: where,
-      at: 'stations',
-      reason: `would remove ${stranded
-        .map((each) => `${each.name} (${each.tasks} standing there)`)
-        .join(', ')}, so nothing here was changed`,
-    });
-  },
-
-  nowhereToOpen(where: string): ConfigurationProblem {
-    return ConfigurationProblem.of({
-      path: where,
+      path: lineAt(key),
       at: 'key',
-      reason: 'describes a line this workspace has nowhere to open',
+      reason: because,
     });
   },
 
-  unapplied(where: string, error: unknown): ConfigurationProblem {
+  unapplied(key: string, at: string, error: Error): ConfigurationProblem {
     return ConfigurationProblem.of({
-      path: where,
-      at: 'stations',
-      reason: error instanceof Error ? error.message : String(error),
+      path: lineAt(key),
+      at,
+      reason: error.message,
     });
   },
 };

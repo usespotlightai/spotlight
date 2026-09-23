@@ -1,5 +1,4 @@
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
-import { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
@@ -229,7 +228,6 @@ export const compileLine = (held: unknown): CompiledLine => {
         role: definition.role ? LineRole.of(definition.role) : null,
         repositories,
         reviews,
-        definition: DefinitionDocument.of(definition),
       }),
     };
   } catch (error) {

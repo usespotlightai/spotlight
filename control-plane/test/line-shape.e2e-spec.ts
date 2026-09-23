@@ -1,12 +1,13 @@
+import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import type { ResourceCreated } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { DefineLineCommand } from '@work/application/commands/define-line.command';
-import type { DefinedLineDto } from '@work/application/dto/line-resource.dto';
+import { CreateLineCommand } from '@work/application/commands/create-line.command';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import {
   BUILT_IN_LINES,
@@ -72,15 +73,22 @@ describe('a line, defined and read back (e2e)', () => {
 
   it('holds every station, its ways out and what it waits for, as its definition says', async () => {
     const defined = await commands.execute<
-      DefineLineCommand,
-      DefinedLineDto | null
-    >(new DefineLineCommand(held, seat.owner, definitionOf(BUILT_IN)));
+      CreateLineCommand,
+      ResourceCreated | null
+    >(
+      new CreateLineCommand(
+        held,
+        seat.owner,
+        randomUUID(),
+        definitionOf(BUILT_IN),
+      ),
+    );
 
-    if (!defined?.ok) {
+    if (defined?.outcome !== 'created') {
       throw new Error(JSON.stringify(defined));
     }
 
-    const read = (await lines.find(LineId.of(defined.line.id))) as Line;
+    const read = (await lines.find(LineId.of(defined.id))) as Line;
     let next = 0;
     const opened = Line.open({
       workspaceId: WorkspaceId.of(held),

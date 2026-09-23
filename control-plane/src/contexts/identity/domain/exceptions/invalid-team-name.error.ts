@@ -1,8 +1,8 @@
 export class InvalidTeamNameError extends Error {
   readonly violation = 'invalid' as const;
 
-  constructor(reason: string) {
-    super(`A team name ${reason}`);
+  constructor(readonly because: string) {
+    super(`A team name ${because}`);
     this.name = 'InvalidTeamNameError';
   }
 }

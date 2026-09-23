@@ -1,8 +1,8 @@
 export class InvalidWorkspaceSlugError extends Error {
   readonly violation = 'invalid' as const;
 
-  constructor(reason: string) {
-    super(`A workspace URL ${reason}`);
+  constructor(readonly because: string) {
+    super(`A workspace URL ${because}`);
     this.name = 'InvalidWorkspaceSlugError';
   }
 }

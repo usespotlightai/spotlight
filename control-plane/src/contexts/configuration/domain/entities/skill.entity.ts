@@ -1,4 +1,5 @@
 import { InvalidSkillError } from '@configuration/domain/exceptions/invalid-skill.error';
+import { SkillKeyReservedError } from '@configuration/domain/exceptions/skill-key-reserved.error';
 import type { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import type { ToolName } from '@configuration/domain/value-objects/tool-name.vo';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
@@ -36,17 +37,15 @@ export class Skill {
     readonly instructions: string,
     readonly secrets: readonly SkillSecret[],
     readonly tools: readonly ToolName[],
+    readonly isShipped: boolean,
   ) {}
 
   static defined(input: SkillInput): Skill {
     if (input.key.isSpotlights) {
-      throw new InvalidSkillError(
-        input.key.value,
-        "is named as Spotlight names its own, and a name starting spotlight- is Spotlight's own: name it without spotlight-",
-      );
+      throw new SkillKeyReservedError(input.key.value);
     }
 
-    return Skill.made(input);
+    return Skill.made(input, false);
   }
 
   static shipped(input: SkillInput): Skill {
@@ -57,10 +56,10 @@ export class Skill {
       );
     }
 
-    return Skill.made(input);
+    return Skill.made(input, true);
   }
 
-  private static made(input: SkillInput): Skill {
+  private static made(input: SkillInput, isShipped: boolean): Skill {
     const description = input.description.trim();
     const instructions = input.instructions.trim();
     const folder = input.folder;
@@ -106,6 +105,7 @@ export class Skill {
       instructions,
       input.secrets ?? [],
       input.tools ?? [],
+      isShipped,
     );
   }
 

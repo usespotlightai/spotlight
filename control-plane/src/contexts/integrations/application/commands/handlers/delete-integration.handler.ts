@@ -1,11 +1,11 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { DeleteIntegrationCommand } from '@integrations/application/commands/delete-integration.command';
-import type { IntegrationDeletedDto } from '@integrations/application/dto/integration-resource.dto';
 import type { ToolsGiven } from '@integrations/application/services/tools-given.service';
 import { IntegrationDefinitionMovedOnError } from '@integrations/domain/exceptions/integration-definition-moved-on.error';
 import { IntegrationToolsInUseError } from '@integrations/domain/exceptions/integration-tools-in-use.error';
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
+import type { ResourceDeleted } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -13,7 +13,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class DeleteIntegrationHandler
   implements
-    CommandHandlerPort<DeleteIntegrationCommand, IntegrationDeletedDto | null>
+    CommandHandlerPort<DeleteIntegrationCommand, ResourceDeleted | null>
 {
   constructor(
     private readonly access: WorkspaceAccessPort,
@@ -24,7 +24,7 @@ export class DeleteIntegrationHandler
 
   async execute(
     command: DeleteIntegrationCommand,
-  ): Promise<IntegrationDeletedDto | null> {
+  ): Promise<ResourceDeleted | null> {
     const id = IntegrationDefinitionId.of(command.integrationId);
 
     try {

@@ -51,6 +51,15 @@ export class WorkspaceAccess implements WorkspaceAccessPort {
     return workspace?.holds(viewer) ? membershipIn(workspace, viewer) : null;
   }
 
+  async inWorkspaceWithId(
+    workspaceId: WorkspaceId,
+    viewer: UserId,
+  ): Promise<WorkspaceMembership | null> {
+    const workspace = await this.workspaces.find(workspaceId);
+
+    return workspace?.holds(viewer) ? membershipIn(workspace, viewer) : null;
+  }
+
   async onTeam(teamId: string, viewer: UserId): Promise<TeamMembership | null> {
     const member = await this.members.findTeamForMember(teamId, viewer);
 

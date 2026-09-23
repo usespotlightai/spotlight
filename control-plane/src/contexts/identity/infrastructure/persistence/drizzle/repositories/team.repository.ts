@@ -1,4 +1,6 @@
 import { Team } from '@identity/domain/aggregates/team.aggregate';
+import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-workspace.error';
+import { TeamAlreadyDefinedError } from '@identity/domain/exceptions/team-already-defined.error';
 import { TeamMovedOnError } from '@identity/domain/exceptions/team-moved-on.error';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
@@ -17,6 +19,17 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, inArray, notInArray } from 'drizzle-orm';
+
+const UNIQUE_VIOLATION = '23505';
+
+const FOREIGN_KEY_VIOLATION = '23503';
+
+const codeOf = (error: unknown): string | undefined =>
+  (
+    ((error as { cause?: unknown } | null)?.cause ?? error) as {
+      code?: string;
+    } | null
+  )?.code;
 
 interface Row {
   readonly id: string;
@@ -43,7 +56,19 @@ export class DrizzleTeamRepository implements TeamRepository {
 
   private async inserted(added: Team): Promise<void> {
     await this.context.run(async () => {
-      await this.context.db.insert(team).values(this.written(added));
+      try {
+        await this.context.db.insert(team).values(this.written(added));
+      } catch (error) {
+        if (codeOf(error) === UNIQUE_VIOLATION) {
+          throw new TeamAlreadyDefinedError(added.key.value);
+        }
+
+        if (codeOf(error) === FOREIGN_KEY_VIOLATION) {
+          throw new NoSuchWorkspaceError(added.workspaceId.value);
+        }
+
+        throw error;
+      }
 
       if (added.members.length > 0) {
         await this.context.db.insert(teamMember).values(
@@ -65,6 +90,21 @@ export class DrizzleTeamRepository implements TeamRepository {
 
   private async stored(saved: Team): Promise<void> {
     await this.context.run(async () => {
+      if (saved.isDisbanded) {
+        const removed = await this.context.db
+          .delete(team)
+          .where(
+            and(eq(team.id, saved.id.value), eq(team.version, saved.version)),
+          )
+          .returning({ id: team.id });
+
+        if (removed.length === 0) {
+          throw new TeamMovedOnError(saved.id.value);
+        }
+
+        return;
+      }
+
       const written = await this.context.db
         .update(team)
         .set({

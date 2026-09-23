@@ -2,6 +2,10 @@ import type {
   CompiledIntegration,
   IntegrationCompilerPort,
 } from '@integrations/application/ports/integration-compiler.port';
+import {
+  INTEGRATIONS,
+  integrationAt,
+} from '@integrations/application/rendering/integration-problems';
 import { Integration } from '@integrations/domain/entities/integration.entity';
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
 import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/invalid-integration-part.error';
@@ -705,10 +709,6 @@ class Compiler {
     };
   }
 }
-
-const INTEGRATIONS = 'integrations';
-
-const integrationAt = (source: string): string => `${INTEGRATIONS}/${source}`;
 
 const addressOf = (held: unknown): string => {
   const source =

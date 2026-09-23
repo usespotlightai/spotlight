@@ -144,6 +144,18 @@ export class IntegrationDefinition extends EventRecorder {
     return retired;
   }
 
+  abandoned(): IntegrationDefinition {
+    this.guardLive();
+
+    const abandoned = this.with({ retired: true });
+
+    abandoned.record(
+      new IntegrationRetired(this.id, this.teamId, this.source, this.offers),
+    );
+
+    return abandoned;
+  }
+
   get id(): IntegrationDefinitionId {
     return this.state.id;
   }

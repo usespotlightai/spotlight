@@ -14,6 +14,10 @@ import {
   TEAM_DIRECTORY,
   TeamDirectoryPort,
 } from '@identity/application/ports/team-directory.port';
+import {
+  TEAM_HOLDINGS,
+  type TeamHoldingsPort,
+} from '@identity/application/ports/team-holdings.port';
 import { WORKSPACE_ACCESS } from '@identity/application/ports/workspace-access.port';
 import {
   WORKSPACE_READER,
@@ -83,6 +87,7 @@ import { ReadIntegrationHandler } from '@integrations/application/queries/handle
 import { ImportIntegrationQuery } from '@integrations/application/queries/import-integration.query';
 import { ListHappeningsQuery } from '@integrations/application/queries/list-happenings.query';
 import { ReadIntegrationQuery } from '@integrations/application/queries/read-integration.query';
+import { AbandonTeamIntegrations } from '@integrations/application/services/abandon-team-integrations.service';
 import { HostReach } from '@integrations/application/services/host-reach.service';
 import { IntegrationViews } from '@integrations/application/services/integration-views.service';
 import { RefreshConnections } from '@integrations/application/services/refresh-connections.service';
@@ -97,6 +102,7 @@ import {
   HOST_CONNECTIONS,
   HostConnectionRepository,
 } from '@integrations/domain/repositories/host-connection.repository';
+import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
 import { INTEGRATION_DEFINITIONS } from '@integrations/domain/repositories/integration-definition.repository';
 import { IntegrationReadings } from '@integrations/infrastructure/acl/integration-readings.adapter';
 import { IntegrationToolCalls } from '@integrations/infrastructure/acl/integration-tool-calls.adapter';
@@ -113,6 +119,7 @@ import { OAuth2State } from '@integrations/infrastructure/integrations/oauth2-st
 import { Egress } from '@integrations/infrastructure/outbound/egress';
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
 import { DrizzleDefinedIntegrations } from '@integrations/infrastructure/persistence/drizzle/readers/defined-integrations.reader';
+import { DrizzleIntegrationsHeld } from '@integrations/infrastructure/persistence/drizzle/readers/integrations-held.reader';
 import { DrizzleDeliveryInbox } from '@integrations/infrastructure/persistence/drizzle/repositories/delivery-inbox.repository';
 import { DrizzleHostConnections } from '@integrations/infrastructure/persistence/drizzle/repositories/host-connections.repository';
 import { DrizzleIntegrationCursors } from '@integrations/infrastructure/persistence/drizzle/repositories/integration-cursors.repository';
@@ -120,6 +127,7 @@ import { DrizzleIntegrationDefinitions } from '@integrations/infrastructure/pers
 import { DrizzleOAuth2Nonces } from '@integrations/infrastructure/persistence/drizzle/repositories/oauth2-nonces.repository';
 import { GitHubSource } from '@integrations/infrastructure/sources/github.source';
 import { markedSources } from '@integrations/infrastructure/webhooks/registered-sources';
+import { integrationsSubscribers } from '@integrations/presentation/events/integrations.subscribers';
 import { HappeningController } from '@integrations/presentation/http/controllers/happening.controller';
 import { IntegrationResourceController } from '@integrations/presentation/http/controllers/integration-resource.controller';
 import { OAuth2ConnectionController } from '@integrations/presentation/http/controllers/oauth2-connection.controller';
@@ -139,6 +147,7 @@ import { type Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventPublications } from '@platform/events/event-publications';
+import { EventSubscribers } from '@platform/events/event-subscribers';
 import { EventTypes } from '@platform/events/event-types';
 import { API_PREFIX } from '@platform/http/routes';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -154,6 +163,7 @@ import {
   LOGGER,
   LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
+import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import {
   GIVEN_TOOLS,
@@ -169,6 +179,8 @@ import { TEAM_INTEGRATIONS } from '@work/application/ports/team-integrations.por
 
 const INTEGRATIONS_EVENTS = Symbol('INTEGRATIONS_EVENTS');
 
+const INTEGRATIONS_HOLDINGS = Symbol('INTEGRATIONS_HOLDINGS');
+
 export const INTEGRATIONS_CONTROLLERS: readonly Type[] = [
   OAuth2ConnectionController,
   IntegrationResourceController,
@@ -179,16 +191,46 @@ export const INTEGRATIONS_CONTROLLERS: readonly Type[] = [
 export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
   {
     provide: INTEGRATIONS_EVENTS,
-    inject: [EventTypes, EventPublications],
-    useFactory: (types: EventTypes, publications: EventPublications) => {
+    inject: [
+      EventTypes,
+      EventPublications,
+      EventSubscribers,
+      INTEGRATION_DEFINITIONS,
+      TRANSACTION,
+    ],
+    useFactory: (
+      types: EventTypes,
+      publications: EventPublications,
+      subscribers: EventSubscribers,
+      definitions: IntegrationDefinitionRepository,
+      transaction: TransactionPort,
+    ) => {
       types.register('integrations', INTEGRATIONS_EVENT_TYPES);
       publications.register(INTEGRATIONS_PUBLICATIONS);
+      subscribers.register(
+        integrationsSubscribers(
+          new AbandonTeamIntegrations(definitions, transaction),
+        ),
+      );
       return true;
     },
   },
   DrizzleDefinedIntegrations,
 
   { provide: DEFINED_INTEGRATIONS, useExisting: DrizzleDefinedIntegrations },
+
+  DrizzleIntegrationsHeld,
+  {
+    provide: INTEGRATIONS_HOLDINGS,
+    inject: [TEAM_HOLDINGS, DrizzleIntegrationsHeld],
+    useFactory: (
+      holdings: TeamHoldingsPort,
+      integrations: DrizzleIntegrationsHeld,
+    ) => {
+      holdings.register(integrations);
+      return true;
+    },
+  },
 
   { provide: INTEGRATION_DEFINITIONS, useClass: DrizzleIntegrationDefinitions },
 

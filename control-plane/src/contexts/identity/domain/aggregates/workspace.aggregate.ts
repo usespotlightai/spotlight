@@ -1,13 +1,19 @@
+import { WorkspaceClosed } from '@identity/domain/events/workspace-closed.event';
 import { WorkspaceMemberJoined } from '@identity/domain/events/workspace-member-joined.event';
 import { WorkspaceMemberRoleChanged } from '@identity/domain/events/workspace-member-role-changed.event';
 import { WorkspaceOpened } from '@identity/domain/events/workspace-opened.event';
+import { WorkspaceRedefined } from '@identity/domain/events/workspace-redefined.event';
 import { LastOwnerError } from '@identity/domain/exceptions/last-owner.error';
 import { NotYoursToGiveError } from '@identity/domain/exceptions/not-yours-to-give.error';
+import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-use.error';
+import { WorkspaceMovedOnError } from '@identity/domain/exceptions/workspace-moved-on.error';
+import { WorkspaceSlugFixedError } from '@identity/domain/exceptions/workspace-slug-fixed.error';
 import {
   type RolePositions,
   refusalToGive,
   rolesGivable,
 } from '@identity/domain/services/role-giving';
+import type { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import type { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
@@ -30,6 +36,7 @@ export class Workspace extends EventRecorder {
     readonly slug: WorkspaceSlug,
     readonly members: readonly WorkspaceMember[],
     readonly version: number = 0,
+    readonly isClosed: boolean = false,
   ) {
     super();
   }
@@ -39,13 +46,15 @@ export class Workspace extends EventRecorder {
     name: WorkspaceName;
     slug: WorkspaceSlug;
     owner: UserId;
-    firstTeam: { id: TeamId; name: TeamName };
+    firstTeam?: { id: TeamId; name: TeamName };
   }): Workspace {
     const opened = new Workspace(input.id, input.name, input.slug, [
       { userId: input.owner, role: WorkspaceRole.owner },
     ]);
 
-    opened.record(new WorkspaceOpened(input.id, input.owner, input.firstTeam));
+    opened.record(
+      new WorkspaceOpened(input.id, input.owner, input.firstTeam ?? null),
+    );
 
     return opened;
   }
@@ -71,6 +80,58 @@ export class Workspace extends EventRecorder {
       input.members,
       input.version ?? 0,
     );
+  }
+
+  expecting(version: number): void {
+    if (version !== this.version) {
+      throw new WorkspaceMovedOnError(this.slug.value);
+    }
+  }
+
+  redefinedAs(definition: {
+    name: WorkspaceName;
+    slug: WorkspaceSlug;
+  }): Workspace {
+    this.guardOpen();
+
+    if (!definition.slug.equals(this.slug)) {
+      throw new WorkspaceSlugFixedError(
+        this.slug.value,
+        `keeps its slug for its whole life; replace it to have ${definition.slug.value}`,
+      );
+    }
+
+    const redefined = this.with({
+      members: this.members,
+      name: definition.name,
+    });
+
+    redefined.record(new WorkspaceRedefined(this.id, definition.name));
+
+    return redefined;
+  }
+
+  closed(teams: readonly TeamKey[]): Workspace {
+    this.guardOpen();
+
+    if (teams.length > 0) {
+      throw new WorkspaceInUseError(this.slug.value, teams);
+    }
+
+    const closed = this.with({ members: this.members, closed: true });
+
+    closed.record(new WorkspaceClosed(this.id, this.slug));
+
+    return closed;
+  }
+
+  private guardOpen(): void {
+    if (this.isClosed) {
+      throw new InconsistentStateError(
+        'workspace',
+        'was changed after it was closed',
+      );
+    }
   }
 
   roleOf(userId: UserId): WorkspaceRole | null {
@@ -150,13 +211,18 @@ export class Workspace extends EventRecorder {
     return joined;
   }
 
-  private with(over: { members: readonly WorkspaceMember[] }): Workspace {
+  private with(over: {
+    members: readonly WorkspaceMember[];
+    name?: WorkspaceName;
+    closed?: boolean;
+  }): Workspace {
     const next = new Workspace(
       this.id,
-      this.name,
+      over.name ?? this.name,
       this.slug,
       over.members,
       this.version,
+      over.closed ?? this.isClosed,
     );
     next.inheritEvents(this);
 

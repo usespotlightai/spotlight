@@ -1,4 +1,5 @@
 import type { IntegrationLinksPort } from '@configuration/application/ports/integration-links.port';
+import type { AbandonTeamSkills } from '@configuration/application/services/abandon-team-skills.service';
 import { configurationSubscribers } from '@configuration/presentation/events/configuration.subscribers';
 import type { HostConnectedIntegrationEvent } from '@shared-kernel/application/integration-events/host-connected.integration-event';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -14,11 +15,10 @@ describe('configuration hearing a host connect', () => {
 
   const tracking = () => {
     const linked = vi.fn(async () => {});
-    const subscriber = configurationSubscribers({
-      linked,
-    } as unknown as IntegrationLinksPort).find(
-      (each) => each.name === 'configuration.track-integration-link',
-    );
+    const subscriber = configurationSubscribers(
+      { linked } as unknown as IntegrationLinksPort,
+      { of: vi.fn() } as unknown as AbandonTeamSkills,
+    ).find((each) => each.name === 'configuration.track-integration-link');
 
     if (!subscriber) {
       throw new Error('nobody tracks a link');
@@ -47,5 +47,26 @@ describe('configuration hearing a host connect', () => {
       source: 'linear',
       handle: null,
     });
+  });
+});
+
+describe('configuration hearing a team disband', () => {
+  it('abandons whatever skills the team still holds', async () => {
+    const abandoning = { of: vi.fn(async () => {}) };
+    const subscriber = configurationSubscribers(
+      {} as IntegrationLinksPort,
+      abandoning as unknown as AbandonTeamSkills,
+    ).find(
+      (each) => each.name === 'configuration.abandon-skills-of-disbanded-team',
+    );
+
+    await subscriber?.handle({
+      kind: 'identity.team-disbanded.v1',
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      key: 'core',
+    } as never);
+
+    expect(abandoning.of).toHaveBeenCalledWith(TeamId.of('team_1'));
   });
 });

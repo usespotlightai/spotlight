@@ -1,19 +1,34 @@
 import { AcceptInviteCommand } from '@identity/application/commands/accept-invite.command';
 import { ChangeMemberRoleCommand } from '@identity/application/commands/change-member-role.command';
+import { CreateTeamCommand } from '@identity/application/commands/create-team.command';
 import { CreateWorkspaceCommand } from '@identity/application/commands/create-workspace.command';
+import { DeleteTeamCommand } from '@identity/application/commands/delete-team.command';
+import { DeleteWorkspaceCommand } from '@identity/application/commands/delete-workspace.command';
 import { AcceptInviteHandler } from '@identity/application/commands/handlers/accept-invite.handler';
 import { ChangeMemberRoleHandler } from '@identity/application/commands/handlers/change-member-role.handler';
+import { CreateTeamHandler } from '@identity/application/commands/handlers/create-team.handler';
 import { CreateWorkspaceHandler } from '@identity/application/commands/handlers/create-workspace.handler';
+import { DeleteTeamHandler } from '@identity/application/commands/handlers/delete-team.handler';
+import { DeleteWorkspaceHandler } from '@identity/application/commands/handlers/delete-workspace.handler';
 import { InviteToTeamHandler } from '@identity/application/commands/handlers/invite-to-team.handler';
+import { OpenWorkspaceHandler } from '@identity/application/commands/handlers/open-workspace.handler';
 import { RevokeInviteHandler } from '@identity/application/commands/handlers/revoke-invite.handler';
+import { UpdateTeamHandler } from '@identity/application/commands/handlers/update-team.handler';
+import { UpdateWorkspaceHandler } from '@identity/application/commands/handlers/update-workspace.handler';
 import { InviteToTeamCommand } from '@identity/application/commands/invite-to-team.command';
+import { OpenWorkspaceCommand } from '@identity/application/commands/open-workspace.command';
 import { RevokeInviteCommand } from '@identity/application/commands/revoke-invite.command';
+import { UpdateTeamCommand } from '@identity/application/commands/update-team.command';
+import { UpdateWorkspaceCommand } from '@identity/application/commands/update-workspace.command';
 import { IDENTITY_PUBLICATIONS } from '@identity/application/integration-events/identity.publications';
+import { IDENTITY_DEFINITIONS } from '@identity/application/ports/identity-definitions.port';
+import { IDENTITY_RESOURCES } from '@identity/application/ports/identity-resources.port';
 import { INVITE_MAIL } from '@identity/application/ports/invite-mail.port';
 import { INVITE_READER } from '@identity/application/ports/invite-reader.port';
 import { MEMBER_READER } from '@identity/application/ports/member-reader.port';
 import { PERSON_READER } from '@identity/application/ports/person-reader.port';
 import { TEAM_DIRECTORY } from '@identity/application/ports/team-directory.port';
+import { TEAM_HOLDINGS } from '@identity/application/ports/team-holdings.port';
 import { WORKSPACE_ACCESS } from '@identity/application/ports/workspace-access.port';
 import {
   WORKSPACE_READER,
@@ -21,24 +36,35 @@ import {
 } from '@identity/application/ports/workspace-reader.port';
 import { GetWorkspaceQuery } from '@identity/application/queries/get-workspace.query';
 import { GetWorkspaceHandler } from '@identity/application/queries/handlers/get-workspace.handler';
+import { ImportTeamHandler } from '@identity/application/queries/handlers/import-team.handler';
+import { ImportWorkspaceHandler } from '@identity/application/queries/handlers/import-workspace.handler';
 import { ListInvitesHandler } from '@identity/application/queries/handlers/list-invites.handler';
 import { ListMembersHandler } from '@identity/application/queries/handlers/list-members.handler';
 import { ListWorkspacesHandler } from '@identity/application/queries/handlers/list-workspaces.handler';
 import { ReadInviteHandler } from '@identity/application/queries/handlers/read-invite.handler';
+import { ReadTeamHandler } from '@identity/application/queries/handlers/read-team.handler';
+import { ReadWorkspaceHandler } from '@identity/application/queries/handlers/read-workspace.handler';
+import { ImportTeamQuery } from '@identity/application/queries/import-team.query';
+import { ImportWorkspaceQuery } from '@identity/application/queries/import-workspace.query';
 import { ListInvitesQuery } from '@identity/application/queries/list-invites.query';
 import { ListMembersQuery } from '@identity/application/queries/list-members.query';
 import { ListWorkspacesQuery } from '@identity/application/queries/list-workspaces.query';
 import { ReadInviteQuery } from '@identity/application/queries/read-invite.query';
+import { ReadTeamQuery } from '@identity/application/queries/read-team.query';
+import { ReadWorkspaceQuery } from '@identity/application/queries/read-workspace.query';
 import { FirstTeam } from '@identity/application/services/first-team.service';
 import { InviteMemberships } from '@identity/application/services/invite-memberships.service';
 import { TeamAdministration } from '@identity/application/services/team-administration.service';
 import { TeamDirectory } from '@identity/application/services/team-directory.service';
+import { TeamHoldingsRegistry } from '@identity/application/services/team-holdings-registry.service';
 import { WorkspaceAccess } from '@identity/application/services/workspace-access.service';
 import { IDENTITY_EVENT_TYPES } from '@identity/domain/event-types';
+import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
 import { InviteByMail } from '@identity/infrastructure/mail/invite.mail';
 import type { MailTransport } from '@identity/infrastructure/mail/mail.transport';
 import { SmtpMail } from '@identity/infrastructure/mail/smtp.transport';
 import { WrittenDownMail } from '@identity/infrastructure/mail/written-down.mail';
+import { DrizzleIdentityResources } from '@identity/infrastructure/persistence/drizzle/readers/identity-resources.reader';
 import { DrizzleInviteReader } from '@identity/infrastructure/persistence/drizzle/readers/invite.reader';
 import { DrizzleMemberReader } from '@identity/infrastructure/persistence/drizzle/readers/member.reader';
 import { DrizzlePersonReader } from '@identity/infrastructure/persistence/drizzle/readers/person.reader';
@@ -53,7 +79,9 @@ import {
   TeamInviteController,
 } from '@identity/presentation/http/controllers/invite.controller';
 import { TeamController } from '@identity/presentation/http/controllers/team.controller';
+import { TeamResourceController } from '@identity/presentation/http/controllers/team-resource.controller';
 import { WorkspaceController } from '@identity/presentation/http/controllers/workspace.controller';
+import { WorkspaceResourceController } from '@identity/presentation/http/controllers/workspace-resource.controller';
 import type { Provider, Type } from '@nestjs/common';
 import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
@@ -64,15 +92,19 @@ import { EventSubscribers } from '@platform/events/event-subscribers';
 import { EventTypes } from '@platform/events/event-types';
 import { CLOCK } from '@shared-kernel/application/ports/clock.port';
 import { ID_GENERATOR } from '@shared-kernel/application/ports/id-generator.port';
+import { IDEMPOTENT_CREATES } from '@shared-kernel/application/ports/idempotent-creates.port';
 import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
 import { TOKEN_MINT } from '@shared-kernel/application/ports/token-mint.port';
+import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 
 const IDENTITY_EVENTS = Symbol('IDENTITY_EVENTS');
 
 export const IDENTITY_CONTROLLERS: readonly Type[] = [
+  WorkspaceResourceController,
+  TeamResourceController,
   WorkspaceController,
   TeamController,
   TeamInviteController,
@@ -88,6 +120,9 @@ const adapters: Provider[] = [
   { provide: PERSON_READER, useClass: DrizzlePersonReader },
   { provide: MEMBER_READER, useClass: DrizzleMemberReader },
   { provide: INVITE_READER, useClass: DrizzleInviteReader },
+  { provide: IDENTITY_DEFINITIONS, useClass: IdentityDefinitions },
+  { provide: TEAM_HOLDINGS, useFactory: () => new TeamHoldingsRegistry() },
+  { provide: IDENTITY_RESOURCES, useClass: DrizzleIdentityResources },
   {
     provide: INVITE_MAIL,
     inject: [ENV, LOGGER],
@@ -124,9 +159,62 @@ const handlers: Provider[] = [
     INVITE_READER,
     TOKEN_MINT,
   ]),
-  ...bindCommandHandler(CreateWorkspaceCommand, CreateWorkspaceHandler, [
+  ...bindCommandHandler(OpenWorkspaceCommand, OpenWorkspaceHandler, [
     DrizzleWorkspaceRepository,
     ID_GENERATOR,
+  ]),
+  ...bindCommandHandler(CreateWorkspaceCommand, CreateWorkspaceHandler, [
+    IDENTITY_DEFINITIONS,
+    DrizzleWorkspaceRepository,
+    IDEMPOTENT_CREATES,
+    ID_GENERATOR,
+    TRANSACTION,
+  ]),
+  ...bindCommandHandler(UpdateWorkspaceCommand, UpdateWorkspaceHandler, [
+    IDENTITY_DEFINITIONS,
+    DrizzleWorkspaceRepository,
+    TRANSACTION,
+  ]),
+  ...bindCommandHandler(DeleteWorkspaceCommand, DeleteWorkspaceHandler, [
+    DrizzleWorkspaceRepository,
+    IDENTITY_RESOURCES,
+    TRANSACTION,
+  ]),
+  ...bindQueryHandler(ReadWorkspaceQuery, ReadWorkspaceHandler, [
+    WORKSPACE_ACCESS,
+    IDENTITY_RESOURCES,
+  ]),
+  ...bindQueryHandler(ImportWorkspaceQuery, ImportWorkspaceHandler, [
+    WORKSPACE_ACCESS,
+    IDENTITY_RESOURCES,
+  ]),
+  ...bindCommandHandler(CreateTeamCommand, CreateTeamHandler, [
+    WORKSPACE_ACCESS,
+    IDENTITY_DEFINITIONS,
+    DrizzleTeamRepository,
+    IDEMPOTENT_CREATES,
+    ID_GENERATOR,
+    TRANSACTION,
+  ]),
+  ...bindCommandHandler(UpdateTeamCommand, UpdateTeamHandler, [
+    WORKSPACE_ACCESS,
+    IDENTITY_DEFINITIONS,
+    DrizzleTeamRepository,
+    TRANSACTION,
+  ]),
+  ...bindCommandHandler(DeleteTeamCommand, DeleteTeamHandler, [
+    WORKSPACE_ACCESS,
+    DrizzleTeamRepository,
+    TEAM_HOLDINGS,
+    TRANSACTION,
+  ]),
+  ...bindQueryHandler(ReadTeamQuery, ReadTeamHandler, [
+    WORKSPACE_ACCESS,
+    IDENTITY_RESOURCES,
+  ]),
+  ...bindQueryHandler(ImportTeamQuery, ImportTeamHandler, [
+    WORKSPACE_ACCESS,
+    IDENTITY_RESOURCES,
   ]),
   ...bindCommandHandler(InviteToTeamCommand, InviteToTeamHandler, [
     TeamAdministration,

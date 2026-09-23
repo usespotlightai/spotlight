@@ -1,8 +1,7 @@
 export class CreateWorkspaceCommand {
   constructor(
-    readonly name: string,
-    readonly slug: string,
-    readonly teamName: string,
-    readonly ownerId: string,
+    readonly requesterId: string,
+    readonly idempotencyKey: string,
+    readonly definition: unknown,
   ) {}
 }

@@ -11,6 +11,7 @@ export interface ReviewsRow {
   };
 }
 
+import { sql } from 'drizzle-orm';
 import {
   boolean,
   index,
@@ -43,6 +44,10 @@ export const line = pgTable(
   (table) => [
     index('line_team_idx').on(table.teamId),
     index('line_workspace_idx').on(table.workspaceId),
+    uniqueIndex('line_team_key_idx').on(table.teamId, table.key),
+    uniqueIndex('line_team_role_idx')
+      .on(table.teamId, table.role)
+      .where(sql`${table.role} is not null`),
   ],
 );
 
@@ -157,14 +162,3 @@ export const lineReaction = pgTable(
   },
   (table) => [index('line_reaction_line_idx').on(table.lineId)],
 );
-
-export const lineDefinition = pgTable('line_definition', {
-  lineId: text('line_id')
-    .primaryKey()
-    .references(() => line.id, { onDelete: 'cascade' }),
-  definition: jsonb('definition').$type<Record<string, unknown>>().notNull(),
-  definedAt: timestamp('defined_at')
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
-});

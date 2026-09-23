@@ -24,6 +24,18 @@ const collided = (error: unknown): boolean =>
     } | null
   )?.code === UNIQUE_VIOLATION;
 
+const rehydrated = (
+  row: typeof integrationDefinition.$inferSelect,
+): IntegrationDefinition =>
+  IntegrationDefinition.rehydrate({
+    id: IntegrationDefinitionId.of(row.id),
+    teamId: TeamId.of(row.teamId),
+    source: SourceKey.of(row.source),
+    document: DefinitionDocument.of(row.definition),
+    offers: row.offers,
+    version: row.version,
+  });
+
 const inPlace = (definition: IntegrationDefinition) =>
   and(
     eq(integrationDefinition.id, definition.id.value),
@@ -51,6 +63,15 @@ export class DrizzleIntegrationDefinitions
         eq(integrationDefinition.source, source.value),
       ),
     );
+  }
+
+  async ofTeam(teamId: TeamId): Promise<readonly IntegrationDefinition[]> {
+    return (
+      await this.context.db
+        .select()
+        .from(integrationDefinition)
+        .where(eq(integrationDefinition.teamId, teamId.value))
+    ).map(rehydrated);
   }
 
   async save(definition: IntegrationDefinition): Promise<void> {
@@ -110,15 +131,6 @@ export class DrizzleIntegrationDefinitions
       .where(where)
       .limit(1);
 
-    return found
-      ? IntegrationDefinition.rehydrate({
-          id: IntegrationDefinitionId.of(found.id),
-          teamId: TeamId.of(found.teamId),
-          source: SourceKey.of(found.source),
-          document: DefinitionDocument.of(found.definition),
-          offers: found.offers,
-          version: found.version,
-        })
-      : null;
+    return found ? rehydrated(found) : null;
   }
 }

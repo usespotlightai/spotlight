@@ -11,6 +11,10 @@ import {
   type TeamCreatedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/team-created.integration-event';
 import {
+  TEAM_DISBANDED,
+  type TeamDisbandedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/team-disbanded.integration-event';
+import {
   WORKSPACE_CONNECTED,
   type WorkspaceConnectedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/workspace-connected.integration-event';
@@ -23,6 +27,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { BINDABLE_TASK_EVENTS } from '@work/application/contracts/bindable-task-events.contract';
+import type { AbandonTeamLines } from '@work/application/events/handlers/abandon-team-lines.handler';
 import type { EnqueueChatRun } from '@work/application/events/handlers/enqueue-chat-run.handler';
 import type { EnqueueTaskRun } from '@work/application/events/handlers/enqueue-task-run.handler';
 import type { NotifyOutsideTools } from '@work/application/events/handlers/notify-outside-tools.handler';
@@ -51,6 +56,9 @@ const newTeam = (event: TeamCreatedIntegrationEvent): NewTeam => ({
   owner: UserId.of(event.ownerId),
 });
 
+const signedUp = (event: TeamCreatedIntegrationEvent): boolean =>
+  event.origin === 'sign-up';
+
 const reactingToOutcomes = (
   name: string,
   outcomes: RunOutcomes,
@@ -75,19 +83,27 @@ export const workSubscribers = (reactions: {
   letGoRuns: StopLetGoRun;
   chatRuns: EnqueueChatRun;
   setup: SettleSetup;
+  abandoning: AbandonTeamLines;
 }): readonly DomainEventSubscriber[] => [
+  subscribing<TeamDisbandedIntegrationEvent>(
+    'work.abandon-lines-of-disbanded-team',
+    [TEAM_DISBANDED],
+    (event) => reactions.abandoning.of(TeamId.of(event.teamId)),
+  ),
   ...reactingToOutcomes('work.hand-over', reactions.handOver),
   ...reactingToOutcomes('work.chat-outcomes', reactions.chatOutcomes),
   ...reactingToOutcomes('work.digest-run', reactions.digests),
   subscribing<TeamCreatedIntegrationEvent>(
     'work.open-built-in-lines',
     [TEAM_CREATED],
-    (event) => reactions.provisioning.openLines(newTeam(event)),
+    async (event) =>
+      signedUp(event) && reactions.provisioning.openLines(newTeam(event)),
   ),
   subscribing<TeamCreatedIntegrationEvent>(
     'work.welcome-team',
     [TEAM_CREATED],
-    (event) => reactions.provisioning.welcome(newTeam(event)),
+    async (event) =>
+      signedUp(event) && reactions.provisioning.welcome(newTeam(event)),
   ),
   subscribing<WorkspaceConnectedIntegrationEvent>(
     'work.settle-on-connection',

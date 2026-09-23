@@ -8,6 +8,7 @@ import { IntegrationAddress } from '@integrations/domain/value-objects/integrati
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class ImportIntegrationHandler
   implements
@@ -26,7 +27,10 @@ export class ImportIntegrationHandler
     try {
       const address = IntegrationAddress.parse(query.address);
       const viewer = UserId.of(query.viewerId);
-      const workspace = await this.access.inWorkspace(query.slug, viewer);
+      const workspace = await this.access.inWorkspaceWithId(
+        WorkspaceId.of(query.workspaceId),
+        viewer,
+      );
       const team = workspace
         ? (await this.teams.inWorkspace(workspace.workspaceId)).find(
             (each) => each.key === address.teamKey,

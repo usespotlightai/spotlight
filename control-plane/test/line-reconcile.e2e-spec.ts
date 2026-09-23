@@ -1,12 +1,17 @@
+import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import type {
+  ResourceCreated,
+  ResourceUpdated,
+} from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { DefineLineCommand } from '@work/application/commands/define-line.command';
-import type { DefinedLineDto } from '@work/application/dto/line-resource.dto';
+import { CreateLineCommand } from '@work/application/commands/create-line.command';
+import { UpdateLineCommand } from '@work/application/commands/update-line.command';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import {
   BUILT_IN_LINES,
@@ -50,19 +55,38 @@ describe('a line reconciled with its definition (e2e)', () => {
   const held = `reconcile-${Date.now()}`;
   let seat: Awaited<ReturnType<typeof seatTeam>>;
 
-  const define = (definition: unknown, by = seat.owner) =>
-    commands.execute<DefineLineCommand, DefinedLineDto | null>(
-      new DefineLineCommand(held, by, definition),
+  const define = async <T extends { readonly key: string }>(
+    definition: T,
+    by = seat.owner,
+  ): Promise<ResourceCreated | ResourceUpdated | null> => {
+    const standing = (await lines.ofTeam(TeamId.of(held))).find(
+      (each) => each.key.value === definition.key,
     );
 
-  const defined = async (definition: unknown): Promise<Line> => {
+    return standing
+      ? commands.execute<UpdateLineCommand, ResourceUpdated | null>(
+          new UpdateLineCommand(
+            standing.id.value,
+            by,
+            standing.version,
+            definition,
+          ),
+        )
+      : commands.execute<CreateLineCommand, ResourceCreated | null>(
+          new CreateLineCommand(held, by, randomUUID(), definition),
+        );
+  };
+
+  const defined = async <T extends { readonly key: string }>(
+    definition: T,
+  ): Promise<Line> => {
     const result = await define(definition);
 
-    if (!result?.ok) {
+    if (result?.outcome !== 'created' && result?.outcome !== 'updated') {
       throw new Error(JSON.stringify(result));
     }
 
-    return (await lines.find(LineId.of(result.line.id))) as Line;
+    return (await lines.find(LineId.of(result.id))) as Line;
   };
 
   beforeEach(async () => {
@@ -84,17 +108,12 @@ describe('a line reconciled with its definition (e2e)', () => {
     await app.close();
   });
 
-  it('opens a line the team does not have, and keeps its definition', async () => {
+  it('opens a line the team does not have, as its definition says', async () => {
     const opened = await defined(DELIVERY);
-    const [kept] = await db
-      .select()
-      .from(schema.lineDefinition)
-      .where(eq(schema.lineDefinition.lineId, opened.id.value));
 
     expect(opened.stations.map((each) => each.key.value)).toEqual(
       DELIVERY.stations.map((each) => each.key),
     );
-    expect(kept?.definition).toMatchObject({ key: 'delivery' });
   });
 
   it('adds a station the definition describes and drops one it no longer does', async () => {
@@ -138,7 +157,7 @@ describe('a line reconciled with its definition (e2e)', () => {
         reactions: [{ happening: 'github.checks.failed', to: 'nowhere' }],
       }),
     ).toMatchObject({
-      ok: false,
+      outcome: 'invalid',
       problems: [
         { path: 'lines/delivery', field: FieldPath.dotted('reactions.0.to') },
       ],

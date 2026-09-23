@@ -1,7 +1,13 @@
 import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
+import { WorkspaceClosed } from '@identity/domain/events/workspace-closed.event';
 import { WorkspaceOpened } from '@identity/domain/events/workspace-opened.event';
+import { WorkspaceRedefined } from '@identity/domain/events/workspace-redefined.event';
 import { LastOwnerError } from '@identity/domain/exceptions/last-owner.error';
 import { NotYoursToGiveError } from '@identity/domain/exceptions/not-yours-to-give.error';
+import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-use.error';
+import { WorkspaceMovedOnError } from '@identity/domain/exceptions/workspace-moved-on.error';
+import { WorkspaceSlugFixedError } from '@identity/domain/exceptions/workspace-slug-fixed.error';
+import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
@@ -321,6 +327,74 @@ describe('Workspace', () => {
 
       expect(changed.roleOf(OWNER)).toBe(WorkspaceRole.owner);
       expect(changed.roleOf(ADMIN)).toBe(WorkspaceRole.admin);
+    });
+  });
+
+  describe('as a resource', () => {
+    const kept = (version = 3) =>
+      Workspace.rehydrate({
+        id: WorkspaceId.of('ws_1'),
+        name: WorkspaceName.of('Acme Inc.'),
+        slug: WorkspaceSlug.of('acme-inc'),
+        members: [{ userId: UserId.of('user_1'), role: WorkspaceRole.owner }],
+        version,
+      });
+
+    it('opens with no first team when none is asked for', () => {
+      const opened = Workspace.open({
+        id: WorkspaceId.of('ws_1'),
+        name: WorkspaceName.of('Acme Inc.'),
+        slug: WorkspaceSlug.of('acme-inc'),
+        owner: UserId.of('user_1'),
+      });
+
+      expect(opened.pullEvents()).toEqual([
+        new WorkspaceOpened(WorkspaceId.of('ws_1'), UserId.of('user_1'), null),
+      ]);
+    });
+
+    it('refuses a change made against another version', () => {
+      expect(() => kept(3).expecting(2)).toThrow(WorkspaceMovedOnError);
+    });
+
+    it('takes a new name, and says so', () => {
+      const renamed = kept().redefinedAs({
+        name: WorkspaceName.of('Acme'),
+        slug: WorkspaceSlug.of('acme-inc'),
+      });
+
+      expect(renamed.name.value).toBe('Acme');
+      expect(renamed.pullEvents()).toEqual([
+        new WorkspaceRedefined(
+          WorkspaceId.of('ws_1'),
+          WorkspaceName.of('Acme'),
+        ),
+      ]);
+    });
+
+    it('keeps its slug for its whole life', () => {
+      expect(() =>
+        kept().redefinedAs({
+          name: WorkspaceName.of('Acme'),
+          slug: WorkspaceSlug.of('acme'),
+        }),
+      ).toThrow(WorkspaceSlugFixedError);
+    });
+
+    it('closes only once it holds no team', () => {
+      expect(() => kept().closed([TeamKey.of('core')])).toThrow(
+        WorkspaceInUseError,
+      );
+
+      const closed = kept().closed([]);
+
+      expect(closed.isClosed).toBe(true);
+      expect(closed.pullEvents()).toEqual([
+        new WorkspaceClosed(
+          WorkspaceId.of('ws_1'),
+          WorkspaceSlug.of('acme-inc'),
+        ),
+      ]);
     });
   });
 });

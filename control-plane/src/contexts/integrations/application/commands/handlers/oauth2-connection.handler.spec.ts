@@ -23,6 +23,7 @@ const authorizing = (allowed: boolean) =>
     viewableBy: vi.fn(),
     mayView: vi.fn(),
     inWorkspace: vi.fn(),
+    inWorkspaceWithId: vi.fn(),
     onTeam: vi.fn(async () => ({
       workspaceId: WorkspaceId.of('ws_1'),
       slug: 'acme',
