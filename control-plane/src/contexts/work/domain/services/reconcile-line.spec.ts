@@ -1,7 +1,7 @@
-import { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Line } from '@work/domain/aggregates/line.aggregate';
+import { LineKeyFixedError } from '@work/domain/exceptions/line-key-fixed.error';
 import {
   BUILT_IN_LINES,
   type LineOpening,
@@ -272,51 +272,23 @@ describe('reconciling a line with the plan describing it', () => {
     );
   });
 
-  it('takes the line’s own name and key from the plan', () => {
+  it('takes the line’s own name from the plan', () => {
     const line = standing();
 
     const { result } = reconciling(
-      like(asStanding(line), {
-        key: LineKey.of('release'),
-        name: LineName.of('Release'),
-      }),
+      like(asStanding(line), { name: LineName.of('Release') }),
       line,
     );
 
-    expect(result.ok && result.line.key.value).toBe('release');
+    expect(result.ok && result.line.key.value).toBe(line.key.value);
     expect(result.ok && result.line.name.value).toBe('Release');
   });
 
-  it('keeps the definition the line was reconciled with', () => {
-    const line = standing();
-    const plan = LinePlan.of({
-      key: line.key,
-      name: line.name,
-      stations: asStanding(line).stations,
-      definition: DefinitionDocument.of({
-        key: line.key.value,
-        name: 'Delivery',
-      }),
-    });
-
-    const { result } = reconciling(plan, line);
-
-    expect(result.ok && result.line.definition?.fields).toEqual({
-      key: line.key.value,
-      name: 'Delivery',
-    });
-  });
-
-  it('refuses a plan compiled from a definition of another line', () => {
+  it('keeps the line’s key, which a plan cannot change', () => {
     const line = standing();
 
     expect(() =>
-      LinePlan.of({
-        key: line.key,
-        name: line.name,
-        stations: asStanding(line).stations,
-        definition: DefinitionDocument.of({ key: 'review' }),
-      }),
-    ).toThrow(/definition of another line/);
+      reconciling(like(asStanding(line), { key: LineKey.of('release') }), line),
+    ).toThrow(LineKeyFixedError);
   });
 });

@@ -62,10 +62,25 @@
         "tags": [
           "lines"
         ]
-      },
+      }
+    },
+    "/resources/teams/{teamId}/lines": {
       "post": {
-        "operationId": "defineLine",
+        "operationId": "createLine",
         "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
           {
             "name": "teamId",
             "required": true,
@@ -73,6 +88,16 @@
             "schema": {
               "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
               "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 255
             }
           }
         ],
@@ -117,7 +142,25 @@
         },
         "responses": {
           "201": {
-            "description": "",
+            "description": "The line, as a read would answer it",
+            "headers": {
+              "ETag": {
+                "description": "The version answered, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              },
+              "Idempotent-Replayed": {
+                "description": "true when this answers an earlier attempt",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -126,27 +169,515 @@
               }
             }
           },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
           "401": {
-            "description": "No valid session"
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
           },
           "404": {
-            "description": "No such team this caller administers"
+            "description": "No such line that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "There is already a line at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
           },
           "422": {
-            "description": "What is wrong with the definition, field by field",
+            "description": "What is wrong, field by field; or the Idempotency-Key was used for a different request",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConfigurationProblemsResponseDto"
+                  "$ref": "#/components/schemas/ProblemResponseDto"
                 }
               }
             }
           }
         },
-        "summary": "Define a line: open it, or reconcile the line with its key to match",
+        "summary": "Open a line for a team",
         "tags": [
           "lines"
-        ]
+        ],
+        "x-spotlight-resource": {
+          "kind": "line",
+          "operation": "create"
+        }
+      }
+    },
+    "/resources/lines/{id}": {
+      "get": {
+        "operationId": "readLine",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "3f7a2c9e-5d18-4b6a-8e2f-1c9d7b4a6e03",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The line, every field of it",
+            "headers": {
+              "ETag": {
+                "description": "The version answered, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LineResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such line that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read a line as it stands",
+        "tags": [
+          "lines"
+        ],
+        "x-spotlight-resource": {
+          "kind": "line",
+          "operation": "read"
+        }
+      },
+      "put": {
+        "operationId": "updateLine",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "3f7a2c9e-5d18-4b6a-8e2f-1c9d7b4a6e03",
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The ETag of the version this write was based on; a write to any other version is refused with 409",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "\"3\""
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "example": {
+                  "key": "delivery",
+                  "name": "Delivery",
+                  "stations": [
+                    {
+                      "key": "backlog",
+                      "name": "Backlog",
+                      "kind": "backlog",
+                      "passesTo": [
+                        "implementation"
+                      ]
+                    },
+                    {
+                      "key": "implementation",
+                      "name": "Implementation",
+                      "harness": "claude-code",
+                      "prompt": "Implement the task.",
+                      "passesTo": [
+                        "completed"
+                      ]
+                    },
+                    {
+                      "key": "completed",
+                      "name": "Completed",
+                      "kind": "completed"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The line, as a read would answer it",
+            "headers": {
+              "ETag": {
+                "description": "The version answered, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LineResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such line that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What is wrong, field by field",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match is missing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Reconcile a line with its definition, keeping each station it keeps",
+        "tags": [
+          "lines"
+        ],
+        "x-spotlight-resource": {
+          "kind": "line",
+          "operation": "update"
+        }
+      },
+      "delete": {
+        "operationId": "deleteLine",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "3f7a2c9e-5d18-4b6a-8e2f-1c9d7b4a6e03",
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The ETag of the version this write was based on; a write to any other version is refused with 409",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "\"3\""
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such line that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match is missing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete a line no task stands on",
+        "tags": [
+          "lines"
+        ],
+        "x-spotlight-resource": {
+          "kind": "line",
+          "operation": "delete"
+        }
+      }
+    },
+    "/resources/workspaces/{workspaceId}/lines/import": {
+      "get": {
+        "operationId": "importLine",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
+              "type": "string"
+            }
+          },
+          {
+            "name": "address",
+            "required": true,
+            "in": "query",
+            "description": "The line's address within the workspace",
+            "schema": {
+              "example": "core/delivery"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The line, as a read would answer it",
+            "headers": {
+              "ETag": {
+                "description": "The version answered, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LineResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such line that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Find the line at an address in a workspace, to import it",
+        "tags": [
+          "lines"
+        ],
+        "x-spotlight-resource": {
+          "kind": "line",
+          "operation": "import"
+        }
       }
     },
     "/workspaces/{slug}/runs": {
@@ -2129,9 +2660,1163 @@
         ]
       }
     },
-    "/workspaces": {
+    "/resources/workspaces/import": {
+      "get": {
+        "operationId": "importWorkspace",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "address",
+            "required": true,
+            "in": "query",
+            "description": "The workspace's address within the workspace",
+            "schema": {
+              "example": "acme"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The workspace, as a read would answer it",
+            "headers": {
+              "ETag": {
+                "description": "The version answered, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such workspace that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Find the workspace with a slug, to import it",
+        "tags": [
+          "workspaces"
+        ],
+        "x-spotlight-resource": {
+          "kind": "workspace",
+          "operation": "import"
+        }
+      }
+    },
+    "/resources/workspaces": {
       "post": {
         "operationId": "createWorkspace",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "slug"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Acme"
+                  },
+                  "slug": {
+                    "type": "string",
+                    "example": "acme"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The workspace, as a read would answer it",
+            "headers": {
+              "ETag": {
+                "description": "The version answered, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              },
+              "Idempotent-Replayed": {
+                "description": "true when this answers an earlier attempt",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such workspace that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "There is already a workspace at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What is wrong, field by field; or the Idempotency-Key was used for a different request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a workspace, owned by whoever creates it",
+        "tags": [
+          "workspaces"
+        ],
+        "x-spotlight-resource": {
+          "kind": "workspace",
+          "operation": "create"
+        }
+      }
+    },
+    "/resources/workspaces/{id}": {
+      "get": {
+        "operationId": "readWorkspace",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The workspace, every field of it",
+            "headers": {
+              "ETag": {
+                "description": "The version answered, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such workspace that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read a workspace",
+        "tags": [
+          "workspaces"
+        ],
+        "x-spotlight-resource": {
+          "kind": "workspace",
+          "operation": "read"
+        }
+      },
+      "put": {
+        "operationId": "updateWorkspace",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The ETag of the version this write was based on; a write to any other version is refused with 409",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "\"3\""
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "slug"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Acme"
+                  },
+                  "slug": {
+                    "type": "string",
+                    "example": "acme"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The workspace, as a read would answer it",
+            "headers": {
+              "ETag": {
+                "description": "The version answered, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such workspace that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What is wrong, field by field",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match is missing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Rename a workspace",
+        "tags": [
+          "workspaces"
+        ],
+        "x-spotlight-resource": {
+          "kind": "workspace",
+          "operation": "update"
+        }
+      },
+      "delete": {
+        "operationId": "deleteWorkspace",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The ETag of the version this write was based on; a write to any other version is refused with 409",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "\"3\""
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such workspace that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match is missing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete a workspace that holds no teams",
+        "tags": [
+          "workspaces"
+        ],
+        "x-spotlight-resource": {
+          "kind": "workspace",
+          "operation": "delete"
+        }
+      }
+    },
+    "/resources/workspaces/{workspaceId}/teams": {
+      "post": {
+        "operationId": "createTeam",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "key",
+                  "name"
+                ],
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "example": "core"
+                  },
+                  "name": {
+                    "type": "string",
+                    "example": "Core"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The team, as a read would answer it",
+            "headers": {
+              "ETag": {
+                "description": "The version answered, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              },
+              "Idempotent-Replayed": {
+                "description": "true when this answers an earlier attempt",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such team that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "There is already a team at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What is wrong, field by field; or the Idempotency-Key was used for a different request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a team in a workspace, holding nothing yet",
+        "tags": [
+          "teams"
+        ],
+        "x-spotlight-resource": {
+          "kind": "team",
+          "operation": "create"
+        }
+      }
+    },
+    "/resources/teams/{id}": {
+      "get": {
+        "operationId": "readTeam",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The team, every field of it",
+            "headers": {
+              "ETag": {
+                "description": "The version answered, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such team that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read a team",
+        "tags": [
+          "teams"
+        ],
+        "x-spotlight-resource": {
+          "kind": "team",
+          "operation": "read"
+        }
+      },
+      "put": {
+        "operationId": "updateTeam",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The ETag of the version this write was based on; a write to any other version is refused with 409",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "\"3\""
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "key",
+                  "name"
+                ],
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "example": "core"
+                  },
+                  "name": {
+                    "type": "string",
+                    "example": "Core"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The team, as a read would answer it",
+            "headers": {
+              "ETag": {
+                "description": "The version answered, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such team that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What is wrong, field by field",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match is missing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Rename a team",
+        "tags": [
+          "teams"
+        ],
+        "x-spotlight-resource": {
+          "kind": "team",
+          "operation": "update"
+        }
+      },
+      "delete": {
+        "operationId": "deleteTeam",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The ETag of the version this write was based on; a write to any other version is refused with 409",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "\"3\""
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such team that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match is missing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete a team that holds no lines, skills or integrations",
+        "tags": [
+          "teams"
+        ],
+        "x-spotlight-resource": {
+          "kind": "team",
+          "operation": "delete"
+        }
+      }
+    },
+    "/resources/workspaces/{workspaceId}/teams/import": {
+      "get": {
+        "operationId": "importTeam",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
+              "type": "string"
+            }
+          },
+          {
+            "name": "address",
+            "required": true,
+            "in": "query",
+            "description": "The team's address within the workspace",
+            "schema": {
+              "example": "core"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The team, as a read would answer it",
+            "headers": {
+              "ETag": {
+                "description": "The version answered, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such team that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Find the team with a key in a workspace, to import it",
+        "tags": [
+          "teams"
+        ],
+        "x-spotlight-resource": {
+          "kind": "team",
+          "operation": "import"
+        }
+      }
+    },
+    "/workspaces": {
+      "post": {
+        "operationId": "openWorkspace",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -2906,6 +4591,602 @@
         ]
       }
     },
+    "/resources/teams/{teamId}/skills": {
+      "post": {
+        "operationId": "createSkill",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "key",
+                  "files"
+                ],
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "example": "grafana"
+                  },
+                  "files": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "example": {
+                      "SKILL.md": "---\nname: grafana\ndescription: Look up dashboards\n---\nSearch before you guess."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The skill, as a read would answer it",
+            "headers": {
+              "ETag": {
+                "description": "The version answered, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              },
+              "Idempotent-Replayed": {
+                "description": "true when this answers an earlier attempt",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such skill that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "There is already a skill at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What is wrong, field by field; or the Idempotency-Key was used for a different request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Define a skill for a team",
+        "tags": [
+          "skills"
+        ],
+        "x-spotlight-resource": {
+          "kind": "skill",
+          "operation": "create"
+        }
+      }
+    },
+    "/resources/skills/{id}": {
+      "get": {
+        "operationId": "readSkill",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "7e4b1a9d-2c5f-4d3e-8b6a-0f9c2d7e5a18",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The skill, every field of it",
+            "headers": {
+              "ETag": {
+                "description": "The version answered, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such skill that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read a skill, files and all",
+        "tags": [
+          "skills"
+        ],
+        "x-spotlight-resource": {
+          "kind": "skill",
+          "operation": "read"
+        }
+      },
+      "put": {
+        "operationId": "updateSkill",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "7e4b1a9d-2c5f-4d3e-8b6a-0f9c2d7e5a18",
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The ETag of the version this write was based on; a write to any other version is refused with 409",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "\"3\""
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "key",
+                  "files"
+                ],
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "example": "grafana"
+                  },
+                  "files": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "example": {
+                      "SKILL.md": "---\nname: grafana\ndescription: Look up dashboards\n---\nSearch before you guess."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The skill, as a read would answer it",
+            "headers": {
+              "ETag": {
+                "description": "The version answered, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such skill that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What is wrong, field by field",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match is missing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Replace a skill’s files",
+        "tags": [
+          "skills"
+        ],
+        "x-spotlight-resource": {
+          "kind": "skill",
+          "operation": "update"
+        }
+      },
+      "delete": {
+        "operationId": "deleteSkill",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "7e4b1a9d-2c5f-4d3e-8b6a-0f9c2d7e5a18",
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The ETag of the version this write was based on; a write to any other version is refused with 409",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "\"3\""
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such skill that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match is missing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete a skill no station gives",
+        "tags": [
+          "skills"
+        ],
+        "x-spotlight-resource": {
+          "kind": "skill",
+          "operation": "delete"
+        }
+      }
+    },
+    "/resources/workspaces/{workspaceId}/skills/import": {
+      "get": {
+        "operationId": "importSkill",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
+              "type": "string"
+            }
+          },
+          {
+            "name": "address",
+            "required": true,
+            "in": "query",
+            "description": "The skill's address within the workspace",
+            "schema": {
+              "example": "core/grafana"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The skill, as a read would answer it",
+            "headers": {
+              "ETag": {
+                "description": "The version answered, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such skill that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Find the skill at an address in a workspace, to import it",
+        "tags": [
+          "skills"
+        ],
+        "x-spotlight-resource": {
+          "kind": "skill",
+          "operation": "import"
+        }
+      }
+    },
     "/teams/{teamId}/runs/{runId}/change-stacks": {
       "get": {
         "operationId": "listRunChangeStacks",
@@ -3563,7 +5844,7 @@
         ]
       }
     },
-    "/teams/{teamId}/integrations": {
+    "/resources/teams/{teamId}/integrations": {
       "post": {
         "operationId": "createIntegration",
         "parameters": [
@@ -3712,7 +5993,7 @@
         }
       }
     },
-    "/integrations/{id}": {
+    "/resources/integrations/{id}": {
       "get": {
         "operationId": "readIntegration",
         "parameters": [
@@ -4048,7 +6329,7 @@
         }
       }
     },
-    "/workspaces/{slug}/integrations/import": {
+    "/resources/workspaces/{workspaceId}/integrations/import": {
       "get": {
         "operationId": "importIntegration",
         "parameters": [
@@ -4066,11 +6347,11 @@
             }
           },
           {
-            "name": "slug",
+            "name": "workspaceId",
             "required": true,
             "in": "path",
             "schema": {
-              "example": "acme",
+              "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
               "type": "string"
             }
           },
@@ -4189,7 +6470,7 @@
   },
   "info": {
     "title": "Spotlight Control Plane",
-    "description": "HTTP API for the Spotlight Control Plane.\n\n## Resource conventions\n\nOperations marked `x-spotlight-resource` manage configuration resources, the ones the Terraform provider writes. Every resource follows these rules, and a conformance suite holds each one to them.\n\n- **Stable ids.** Spotlight issues a resource's `id` when it is created. It never changes for the resource's life, whatever else does.\n- **Reads return every field.** A read answers the whole resource, defaults filled in, so a client comparing it with what it wrote sees any drift. A write answers exactly what a read would.\n- **Versions.** Every resource carries a `version` that rises with each change, and each answer carries it as a strong `ETag` (`\"3\"`). An update or delete must send it back as `If-Match`: without one it is refused with 428, and against a version that is no longer current with 409, whose body gives the `currentVersion` and whose `ETag` names it. A write that would remove something another resource still uses is refused with 409 `in-use`.\n- **Idempotent creates.** A create must carry an `Idempotency-Key`. Retrying with the same key and body within 24 hours answers the resource the first attempt created, marked `Idempotent-Replayed: true`, and creates nothing more; the same key with a different body is refused with 422.\n- **Problems name fields.** Errors are `application/problem+json` (RFC 9457). `type` is stable and safe to branch on. An invalid request lists `errors`, each with the `path` of the attribute it is about, as in `stations[2].check`.\n- **API versions.** A client may send `Spotlight-Api-Version`; every response names the version it was answered in, currently `2026-09-23`. Changes within a version are additive only: fields and operations are added, never removed, renamed or given a new meaning.\n- **Import by address.** Each resource has an `address` that names it within its workspace, such as `core/linear`, and an import operation that answers the resource at that address, as `terraform import` needs.",
+    "description": "HTTP API for the Spotlight Control Plane.\n\n## Resource conventions\n\nOperations marked `x-spotlight-resource` manage configuration resources, the ones the Terraform provider writes. They live under `/resources` and address everything by id. Every resource follows these rules, and a conformance suite holds each one to them.\n\n- **Stable ids.** Spotlight issues a resource's `id` when it is created. It never changes for the resource's life, whatever else does.\n- **Reads return every field.** A read answers the whole resource, defaults filled in, so a client comparing it with what it wrote sees any drift. A write answers exactly what a read would.\n- **Versions.** Every resource carries a `version` that rises with each change, and each answer carries it as a strong `ETag` (`\"3\"`). An update or delete must send it back as `If-Match`: without one it is refused with 428, and against a version that is no longer current with 409, whose body gives the `currentVersion` and whose `ETag` names it. A write that would remove something another resource still uses is refused with 409 `in-use`.\n- **Idempotent creates.** A create must carry an `Idempotency-Key`. Retrying with the same key and body within 24 hours answers the resource the first attempt created, marked `Idempotent-Replayed: true`, and creates nothing more; the same key with a different body is refused with 422.\n- **Problems name fields.** Errors are `application/problem+json` (RFC 9457). `type` is stable and safe to branch on. An invalid request lists `errors`, each with the `path` of the attribute it is about, as in `stations[2].check`.\n- **API versions.** A client may send `Spotlight-Api-Version`; every response names the version it was answered in, currently `2026-09-23`. Changes within a version are additive only: fields and operations are added, never removed, renamed or given a new meaning.\n- **Import by address.** Each resource has an `address` that names it within its workspace, such as `core/linear`, and an import operation that answers the resource at that address, as `terraform import` needs. A workspace's address is its slug; a team's is its key; anything a team holds is the team's key and its own, as in `core/delivery`.",
     "version": "2026-09-23",
     "contact": {}
   },
@@ -4378,49 +6659,15 @@
           "repositories"
         ]
       },
-      "LineResourceResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
-          },
-          "definition": {
-            "type": "object",
-            "additionalProperties": true,
-            "description": "The line as it was defined, with every field it left out filled in",
-            "example": {
-              "key": "delivery",
-              "name": "Delivery",
-              "stations": [
-                {
-                  "key": "backlog",
-                  "name": "Backlog",
-                  "kind": "backlog"
-                }
-              ]
-            }
-          }
-        },
-        "required": [
-          "id",
-          "definition"
-        ]
-      },
-      "ConfigurationProblemResponseDto": {
+      "FieldErrorResponseDto": {
         "type": "object",
         "properties": {
           "path": {
             "type": "string",
-            "example": "lines/delivery",
-            "description": "The resource the problem is in"
-          },
-          "at": {
-            "type": "string",
             "example": "stations[2].check",
-            "description": "The field within it, as a Terraform attribute path"
+            "description": "The attribute it is about, as a Terraform provider addresses one; empty for the whole resource"
           },
-          "reason": {
+          "message": {
             "type": "string",
             "example": "must not be empty"
           },
@@ -4434,23 +6681,121 @@
         },
         "required": [
           "path",
-          "at",
-          "reason",
+          "message",
           "severity"
         ]
       },
-      "ConfigurationProblemsResponseDto": {
+      "ProblemResponseDto": {
         "type": "object",
         "properties": {
-          "problems": {
+          "type": {
+            "type": "string",
+            "example": "urn:spotlight:problem:moved-on",
+            "description": "What kind of problem it is; stable, safe to branch on"
+          },
+          "title": {
+            "type": "string",
+            "example": "The integration changed since it was read"
+          },
+          "status": {
+            "type": "number",
+            "example": 409
+          },
+          "detail": {
+            "type": "string",
+            "example": "The integration is at version 4; read it again and send that version as If-Match"
+          },
+          "errors": {
+            "description": "Each field that is wrong, when the request was invalid",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConfigurationProblemResponseDto"
+              "$ref": "#/components/schemas/FieldErrorResponseDto"
+            }
+          },
+          "currentVersion": {
+            "type": "number",
+            "example": 4,
+            "description": "The version the resource is at now, when a write conflicted"
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "detail"
+        ]
+      },
+      "LineResourceResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "0d6f3c1e-8a52-4f7b-9c1d-5e2a7b3f9c40",
+            "description": "Issued by Spotlight when the resource is created, and never changed"
+          },
+          "version": {
+            "type": "number",
+            "example": 3,
+            "description": "Rises with every change; the ETag carries it, and a write sends it back as If-Match"
+          },
+          "address": {
+            "type": "string",
+            "example": "core/linear",
+            "description": "Names the resource within its workspace; terraform import takes it"
+          },
+          "warnings": {
+            "description": "What would work better, though nothing stops it working; not settable",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldErrorResponseDto"
+            }
+          },
+          "teamId": {
+            "type": "string",
+            "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+            "description": "The team it belongs to"
+          },
+          "key": {
+            "type": "string",
+            "example": "delivery",
+            "description": "Names the line within its team; fixed for its life, so changing it means replacing the line"
+          },
+          "definition": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "The line as it stands now, stations in order, with every field a definition may leave out filled in",
+            "example": {
+              "key": "delivery",
+              "name": "Delivery",
+              "repositories": [],
+              "stations": [
+                {
+                  "key": "backlog",
+                  "name": "Backlog",
+                  "kind": "backlog",
+                  "color": "#a3a8b0",
+                  "diffs": false,
+                  "decisions": false,
+                  "tools": [],
+                  "skills": [],
+                  "passesTo": [
+                    "completed"
+                  ],
+                  "ends": false
+                }
+              ],
+              "reactions": []
             }
           }
         },
         "required": [
-          "problems"
+          "id",
+          "version",
+          "address",
+          "warnings",
+          "teamId",
+          "key",
+          "definition"
         ]
       },
       "EnqueueRunRequestDto": {
@@ -6904,6 +9249,102 @@
           "steps"
         ]
       },
+      "WorkspaceResourceResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "0d6f3c1e-8a52-4f7b-9c1d-5e2a7b3f9c40",
+            "description": "Issued by Spotlight when the resource is created, and never changed"
+          },
+          "version": {
+            "type": "number",
+            "example": 3,
+            "description": "Rises with every change; the ETag carries it, and a write sends it back as If-Match"
+          },
+          "address": {
+            "type": "string",
+            "example": "core/linear",
+            "description": "Names the resource within its workspace; terraform import takes it"
+          },
+          "warnings": {
+            "description": "What would work better, though nothing stops it working; not settable",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldErrorResponseDto"
+            }
+          },
+          "name": {
+            "type": "string",
+            "example": "Acme",
+            "description": "What the workspace is called"
+          },
+          "slug": {
+            "type": "string",
+            "example": "acme",
+            "description": "Where the workspace lives in the web app; fixed for its life, so changing it means replacing the workspace"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "address",
+          "warnings",
+          "name",
+          "slug"
+        ]
+      },
+      "TeamResourceResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "0d6f3c1e-8a52-4f7b-9c1d-5e2a7b3f9c40",
+            "description": "Issued by Spotlight when the resource is created, and never changed"
+          },
+          "version": {
+            "type": "number",
+            "example": 3,
+            "description": "Rises with every change; the ETag carries it, and a write sends it back as If-Match"
+          },
+          "address": {
+            "type": "string",
+            "example": "core/linear",
+            "description": "Names the resource within its workspace; terraform import takes it"
+          },
+          "warnings": {
+            "description": "What would work better, though nothing stops it working; not settable",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldErrorResponseDto"
+            }
+          },
+          "workspaceId": {
+            "type": "string",
+            "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
+            "description": "The workspace it belongs to"
+          },
+          "key": {
+            "type": "string",
+            "example": "core",
+            "description": "Names the team in the addresses of everything it holds; fixed for its life, so changing it means replacing the team"
+          },
+          "name": {
+            "type": "string",
+            "example": "Core",
+            "description": "What the team is called"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "address",
+          "warnings",
+          "workspaceId",
+          "key",
+          "name"
+        ]
+      },
       "CreateWorkspaceRequestDto": {
         "type": "object",
         "properties": {
@@ -7472,6 +9913,104 @@
         },
         "required": [
           "skills"
+        ]
+      },
+      "SkillSecretResponseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "GRAFANA_TOKEN"
+          },
+          "description": {
+            "type": "string",
+            "example": "A read-only token its tools use"
+          }
+        },
+        "required": [
+          "name",
+          "description"
+        ]
+      },
+      "SkillResourceResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "0d6f3c1e-8a52-4f7b-9c1d-5e2a7b3f9c40",
+            "description": "Issued by Spotlight when the resource is created, and never changed"
+          },
+          "version": {
+            "type": "number",
+            "example": 3,
+            "description": "Rises with every change; the ETag carries it, and a write sends it back as If-Match"
+          },
+          "address": {
+            "type": "string",
+            "example": "core/linear",
+            "description": "Names the resource within its workspace; terraform import takes it"
+          },
+          "warnings": {
+            "description": "What would work better, though nothing stops it working; not settable",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldErrorResponseDto"
+            }
+          },
+          "teamId": {
+            "type": "string",
+            "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+            "description": "The team it belongs to"
+          },
+          "key": {
+            "type": "string",
+            "example": "grafana",
+            "description": "What stations give it by; fixed for its life, so changing it means replacing the skill"
+          },
+          "files": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "example": {
+              "SKILL.md": "---\nname: grafana\ndescription: Look up dashboards\n---\nSearch before you guess."
+            },
+            "description": "Each file in the skill’s folder, by its path within it; SKILL.md is the one the skill is read from"
+          },
+          "description": {
+            "type": "string",
+            "example": "Look up dashboards",
+            "description": "What SKILL.md says it is for; not settable"
+          },
+          "secrets": {
+            "description": "The secrets SKILL.md asks for; not settable",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SkillSecretResponseDto"
+            }
+          },
+          "tools": {
+            "example": [
+              "grafana.search"
+            ],
+            "description": "The tools SKILL.md uses; not settable",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "address",
+          "warnings",
+          "teamId",
+          "key",
+          "files",
+          "description",
+          "secrets",
+          "tools"
         ]
       },
       "DiffHunkResponseDto": {
@@ -8413,72 +10952,6 @@
         },
         "required": [
           "url"
-        ]
-      },
-      "FieldErrorResponseDto": {
-        "type": "object",
-        "properties": {
-          "path": {
-            "type": "string",
-            "example": "stations[2].check",
-            "description": "The attribute it is about, as a Terraform provider addresses one; empty for the whole resource"
-          },
-          "message": {
-            "type": "string",
-            "example": "must not be empty"
-          },
-          "severity": {
-            "type": "string",
-            "enum": [
-              "error",
-              "warning"
-            ]
-          }
-        },
-        "required": [
-          "path",
-          "message",
-          "severity"
-        ]
-      },
-      "ProblemResponseDto": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "example": "urn:spotlight:problem:moved-on",
-            "description": "What kind of problem it is; stable, safe to branch on"
-          },
-          "title": {
-            "type": "string",
-            "example": "The integration changed since it was read"
-          },
-          "status": {
-            "type": "number",
-            "example": 409
-          },
-          "detail": {
-            "type": "string",
-            "example": "The integration is at version 4; read it again and send that version as If-Match"
-          },
-          "errors": {
-            "description": "Each field that is wrong, when the request was invalid",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/FieldErrorResponseDto"
-            }
-          },
-          "currentVersion": {
-            "type": "number",
-            "example": 4,
-            "description": "The version the resource is at now, when a write conflicted"
-          }
-        },
-        "required": [
-          "type",
-          "title",
-          "status",
-          "detail"
         ]
       },
       "IntegrationResourceResponseDto": {

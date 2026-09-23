@@ -2,9 +2,10 @@ import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/c
 
 export interface LineResourceDto {
   readonly id: string;
+  readonly version: number;
+  readonly address: string;
+  readonly teamId: string;
+  readonly key: string;
   readonly definition: Readonly<Record<string, unknown>>;
+  readonly warnings: readonly ConfigurationProblem[];
 }
-
-export type DefinedLineDto =
-  | { readonly ok: true; readonly line: LineResourceDto }
-  | { readonly ok: false; readonly problems: readonly ConfigurationProblem[] };

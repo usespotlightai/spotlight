@@ -1,6 +1,6 @@
 export class ImportIntegrationQuery {
   constructor(
-    readonly slug: string,
+    readonly workspaceId: string,
     readonly address: string,
     readonly viewerId: string,
   ) {}

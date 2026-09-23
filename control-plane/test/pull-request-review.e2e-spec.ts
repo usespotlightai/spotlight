@@ -63,6 +63,7 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
   afterEach(async () => {
     await db.delete(reviewTable).where(eq(reviewTable.workspaceId, held));
     await db.delete(reviewComment).where(eq(reviewComment.workspaceId, held));
+    await db.delete(team).where(eq(team.workspaceId, held));
     await db.delete(workspace).where(eq(workspace.id, held));
     await app.close();
   });

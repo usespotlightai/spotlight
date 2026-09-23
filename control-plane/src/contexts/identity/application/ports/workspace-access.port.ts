@@ -28,5 +28,10 @@ export interface WorkspaceAccessPort {
     viewer: UserId,
   ): Promise<WorkspaceMembership | null>;
 
+  inWorkspaceWithId(
+    workspaceId: WorkspaceId,
+    viewer: UserId,
+  ): Promise<WorkspaceMembership | null>;
+
   onTeam(teamId: string, viewer: UserId): Promise<TeamMembership | null>;
 }

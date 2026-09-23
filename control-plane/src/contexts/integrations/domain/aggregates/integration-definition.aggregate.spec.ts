@@ -168,4 +168,15 @@ describe('IntegrationDefinition', () => {
       }),
     ).toThrow(/does not define/);
   });
+
+  it('is abandoned with its team, whatever its tools are given to', () => {
+    const abandoned = standing(['linear.comment']).abandoned();
+
+    expect(abandoned.isRetired).toBe(true);
+    expect(abandoned.pullEvents()).toEqual([
+      new IntegrationRetired(ID, TEAM, SourceKey.of('linear'), [
+        'linear.comment',
+      ]),
+    ]);
+  });
 });

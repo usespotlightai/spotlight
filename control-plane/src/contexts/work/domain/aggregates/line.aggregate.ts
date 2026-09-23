@@ -1,17 +1,22 @@
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
-import type { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Station } from '@work/domain/entities/station.entity';
+import { LineOpened } from '@work/domain/events/line-opened.event';
+import { LineRedefined } from '@work/domain/events/line-redefined.event';
 import { LineRepositoriesChanged } from '@work/domain/events/line-repositories-changed.event';
+import { LineRetired } from '@work/domain/events/line-retired.event';
 import { StationHarnessChanged } from '@work/domain/events/station-harness-changed.event';
 import { StationRenamed } from '@work/domain/events/station-renamed.event';
-import { InvalidLineDefinitionError } from '@work/domain/exceptions/invalid-line-definition.error';
 import { InvalidReviewPolicyError } from '@work/domain/exceptions/invalid-review-policy.error';
 import { InvalidStationLayoutError } from '@work/domain/exceptions/invalid-station-layout.error';
+import { LineInUseError } from '@work/domain/exceptions/line-in-use.error';
+import { LineKeyFixedError } from '@work/domain/exceptions/line-key-fixed.error';
+import { LineMovedOnError } from '@work/domain/exceptions/line-moved-on.error';
 import { UnknownHappeningError } from '@work/domain/exceptions/unknown-happening.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import type { LineOpening } from '@work/domain/services/built-in-lines';
@@ -20,6 +25,7 @@ import {
   reactionsRefused,
   stationsRefused,
 } from '@work/domain/services/line-layout';
+import type { TasksStanding } from '@work/domain/services/reconcile-line';
 import type { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import type { Effort } from '@work/domain/value-objects/effort.vo';
 import { HandoverOption } from '@work/domain/value-objects/handover-option.vo';
@@ -58,7 +64,6 @@ export interface LineLayout {
   readonly role?: LineRole | null;
   readonly repositories?: readonly Repository[];
   readonly reviews?: ReviewPolicy | null;
-  readonly definition?: DefinitionDocument | null;
 }
 
 interface LineIdentity {
@@ -79,8 +84,8 @@ export class Line extends EventRecorder {
     readonly role: LineRole | null,
     readonly repositories: LineRepositories,
     readonly reviews: ReviewPolicy | null,
-    readonly definition: DefinitionDocument | null,
     readonly version: number,
+    readonly isRetired = false,
   ) {
     super();
   }
@@ -141,7 +146,13 @@ export class Line extends EventRecorder {
   }
 
   static laidOut(input: LineIdentity & LineLayout): Line {
-    return Line.built(input, input, 0);
+    const opened = Line.built(input, input, 0);
+
+    opened.record(
+      new LineOpened(opened.id, opened.workspaceId, opened.teamId, opened.key),
+    );
+
+    return opened;
   }
 
   static rehydrate(
@@ -197,12 +208,6 @@ export class Line extends EventRecorder {
       );
     }
 
-    if (layout.definition && !layout.definition.says('key', layout.key.value)) {
-      throw new InvalidLineDefinitionError(
-        `defines another line than ${layout.key.value}`,
-      );
-    }
-
     return new Line(
       identity.id,
       identity.workspaceId,
@@ -214,16 +219,74 @@ export class Line extends EventRecorder {
       layout.role ?? null,
       LineRepositories.of(layout.repositories ?? []),
       layout.reviews ?? null,
-      layout.definition ?? null,
       version,
     );
   }
 
+  expecting(version: number): void {
+    if (version !== this.version) {
+      throw new LineMovedOnError(this.id.value);
+    }
+  }
+
   relaidAs(layout: LineLayout): Line {
-    return this.changed(layout);
+    if (!layout.key.equals(this.key)) {
+      throw new LineKeyFixedError(
+        this.key.value,
+        `keeps its key for its whole life, since its tasks and address hang on it; replace it to key a line ${layout.key.value}`,
+      );
+    }
+
+    const relaid = this.changed(layout);
+
+    relaid.record(
+      new LineRedefined(this.id, this.workspaceId, this.teamId, this.key),
+    );
+
+    return relaid;
+  }
+
+  retired(standing: TasksStanding): Line {
+    const stranded = this.stations
+      .map((each) => ({
+        key: each.key.value,
+        name: each.name.value,
+        tasks: standing.get(each.id.value) ?? 0,
+      }))
+      .filter((each) => each.tasks > 0);
+
+    if (stranded.length > 0) {
+      throw new LineInUseError(this.key.value, stranded);
+    }
+
+    const retired = new Line(
+      this.id,
+      this.workspaceId,
+      this.teamId,
+      this.key,
+      this.name,
+      this.stations,
+      this.reactions,
+      this.role,
+      this.repositories,
+      this.reviews,
+      this.version,
+      true,
+    );
+
+    retired.inheritEvents(this);
+    retired.record(
+      new LineRetired(this.id, this.workspaceId, this.teamId, this.key),
+    );
+
+    return retired;
   }
 
   private changed(part: Partial<LineLayout>): Line {
+    if (this.isRetired) {
+      throw new InconsistentStateError('line', 'was changed after it retired');
+    }
+
     const next = Line.built(
       this,
       {
@@ -234,8 +297,6 @@ export class Line extends EventRecorder {
         role: part.role !== undefined ? part.role : this.role,
         repositories: part.repositories ?? this.repositories.all,
         reviews: part.reviews !== undefined ? part.reviews : this.reviews,
-        definition:
-          part.definition !== undefined ? part.definition : this.definition,
       },
       this.version,
     );

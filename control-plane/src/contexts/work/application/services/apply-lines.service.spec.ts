@@ -1,11 +1,13 @@
-import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
+import type { TeamProfile } from '@identity/application/ports/team-directory.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
-import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { StationTalliesPort } from '@work/application/ports/station-tallies.port';
 import { ApplyLines } from '@work/application/services/apply-lines.service';
 import { Line } from '@work/domain/aggregates/line.aggregate';
+import { LineAlreadyOpenedError } from '@work/domain/exceptions/line-already-opened.error';
+import { LineInUseError } from '@work/domain/exceptions/line-in-use.error';
+import { LineRoleTakenError } from '@work/domain/exceptions/line-role-taken.error';
 import { StrandedWorkError } from '@work/domain/exceptions/stranded-work.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import {
@@ -83,8 +85,16 @@ const like = (
     role: over.role ?? plan.role,
   });
 
+const TEAM_PROFILE: TeamProfile = {
+  id: TEAM,
+  workspaceId: WORKSPACE,
+  key: 'platform',
+  name: 'Platform',
+  members: [],
+};
+
 const applying = (
-  plans: readonly LinePlan[],
+  plan: LinePlan,
   over: {
     standing?: readonly Line[];
     tasks?: Record<string, number>;
@@ -104,17 +114,6 @@ const applying = (
     find: vi.fn(),
     holding: vi.fn(),
   } as unknown as LineRepository;
-
-  const teams = {
-    find: vi.fn(async () => ({
-      id: TEAM,
-      workspaceId: WORKSPACE,
-      key: 'platform',
-      name: 'Platform',
-      members: [],
-    })),
-    inWorkspace: vi.fn(async () => []),
-  } satisfies TeamDirectoryPort;
 
   const tally = async (stationIds: readonly { value: string }[]) =>
     new Map(
@@ -137,13 +136,13 @@ const applying = (
     generate: () => `new_${++next}`,
   } as unknown as IdGeneratorPort;
 
-  const applier = new ApplyLines(lines, teams, tallies, ids, {
-    run: (work) => work(),
-  } satisfies TransactionPort);
+  const applier = new ApplyLines(lines, tallies, ids);
 
   return {
-    apply: async () => (await applier.apply(TEAM, plans)).problems,
-    applied: () => applier.apply(TEAM, plans),
+    applied: (): Promise<Line> =>
+      plan.key.equals(held.key)
+        ? applier.reconcile(held, plan)
+        : applier.open(TEAM_PROFILE, plan),
     save,
     add,
     held,
@@ -154,12 +153,13 @@ const applying = (
 describe('ApplyLines', () => {
   it('makes the line say what its definition says', async () => {
     const held = line();
-    const { apply, save } = applying(
-      [like(asStanding(held), { name: LineName.of('Renamed') })],
+    const { applied, save } = applying(
+      like(asStanding(held), { name: LineName.of('Renamed') }),
       { held },
     );
 
-    expect(await apply()).toEqual([]);
+    await applied();
+
     expect(save).toHaveBeenCalledTimes(1);
 
     const [written] = save.mock.calls[0] as never as [Line];
@@ -170,34 +170,23 @@ describe('ApplyLines', () => {
   it('hands back the line as it applied it', async () => {
     const held = line();
     const { applied } = applying(
-      [like(asStanding(held), { name: LineName.of('Renamed') })],
+      like(asStanding(held), { name: LineName.of('Renamed') }),
       { held },
     );
 
-    const { lines } = await applied();
+    const reconciled = await applied();
 
-    expect(lines.map((each) => [each.id, each.name.value])).toEqual([
-      [held.id, 'Renamed'],
+    expect([reconciled.id, reconciled.name.value]).toEqual([
+      held.id,
+      'Renamed',
     ]);
-  });
-
-  it('hands back nothing it could not apply', async () => {
-    const held = line();
-    const plan = asStanding(held);
-    const going = plan.stations[1]?.key.value as string;
-    const { applied } = applying(
-      [like(plan, { stations: plan.stations.filter((_, at) => at !== 1) })],
-      { held, tasks: { [going]: 2 } },
-    );
-
-    expect((await applied()).lines).toEqual([]);
   });
 
   it('leaves every station the station it was', async () => {
     const held = line();
-    const { apply, save } = applying([asStanding(held)], { held });
+    const { applied, save } = applying(asStanding(held), { held });
 
-    await apply();
+    await applied();
 
     const [written] = save.mock.calls[0] as never as [Line];
 
@@ -213,24 +202,21 @@ describe('ApplyLines', () => {
     const plan = asStanding(held);
     const going = plan.stations[1]?.key.value as string;
 
-    const { apply, save } = applying(
-      [like(plan, { stations: plan.stations.filter((_, at) => at !== 1) })],
+    const { applied, save } = applying(
+      like(plan, { stations: plan.stations.filter((_, at) => at !== 1) }),
       { held, tasks: { [going]: 2 } },
     );
 
-    const problems = await apply();
-
+    await expect(applied()).rejects.toThrow(LineInUseError);
+    await expect(applied()).rejects.toThrow(/2 standing there/);
     expect(save).not.toHaveBeenCalled();
-    expect(problems).toHaveLength(1);
-    expect(problems[0]?.reason).toMatch(/2 standing there/);
-    expect(problems[0]?.path).toBe('lines/delivery');
   });
 
   it('holds the stations it tallies until the change is written', async () => {
     const held = line();
-    const { apply, tallies } = applying([asStanding(held)], { held });
+    const { applied, tallies } = applying(asStanding(held), { held });
 
-    await apply();
+    await applied();
 
     expect(tallies.lockedStandingAt).toHaveBeenCalledTimes(1);
     expect(tallies.standingAt).not.toHaveBeenCalled();
@@ -238,24 +224,22 @@ describe('ApplyLines', () => {
 
   it('refuses a change that would strand work that arrived after the tally', async () => {
     const held = line();
-    const { apply, save } = applying([asStanding(held)], { held });
+    const { applied, save } = applying(asStanding(held), { held });
 
     save.mockRejectedValueOnce(new StrandedWorkError(['station_2']));
 
-    const problems = await apply();
-
-    expect(problems).toHaveLength(1);
-    expect(problems[0]?.reason).toMatch(/cannot drop them/);
+    await expect(applied()).rejects.toThrow(/cannot drop them/);
   });
 
   it('opens a line the team does not have from its definition', async () => {
     const held = line();
-    const { apply, add, save } = applying(
-      [like(asStanding(held), { key: LineKey.of('release') })],
+    const { applied, add, save } = applying(
+      like(asStanding(held), { key: LineKey.of('release') }),
       { held },
     );
 
-    expect(await apply()).toEqual([]);
+    await applied();
+
     expect(save).not.toHaveBeenCalled();
     expect(add).toHaveBeenCalledTimes(1);
 
@@ -265,54 +249,78 @@ describe('ApplyLines', () => {
     expect(opened.teamId).toEqual(held.teamId);
   });
 
-  it('opens neither of two lines that claim the same role', async () => {
+  it('opens no line under a key the team already has', async () => {
     const held = line();
-    const base = asStanding(held);
-
-    const { apply, add } = applying(
-      [
-        like(base, { key: LineKey.of('one'), role: LineRole.IMPROVEMENT }),
-        like(base, { key: LineKey.of('two'), role: LineRole.IMPROVEMENT }),
-      ],
-      { held },
+    const { add } = applying(asStanding(held), { held });
+    const applier = new ApplyLines(
+      {
+        ofTeam: vi.fn(async () => [held]),
+        add,
+      } as unknown as LineRepository,
+      {} as StationTalliesPort,
+      { generate: () => 'new' },
     );
 
-    const problems = await apply();
-
+    await expect(applier.open(TEAM_PROFILE, asStanding(held))).rejects.toThrow(
+      LineAlreadyOpenedError,
+    );
     expect(add).not.toHaveBeenCalled();
-    expect(problems.map((each) => each.path).sort()).toEqual([
-      'lines/one',
-      'lines/two',
-    ]);
-    expect(problems[0]?.reason).toMatch(/role "improvement"/);
   });
 
-  it('leaves a line no definition mentions alone', async () => {
+  it('opens no line that claims a role another line already has', async () => {
     const held = line();
-    const { apply, save } = applying([], { held });
+    const base = asStanding(held);
+    const claiming = like(base, {
+      key: LineKey.of('one'),
+      role: LineRole.IMPROVEMENT,
+    });
+    const holding = applying(like(base, { role: LineRole.IMPROVEMENT }), {
+      held,
+    });
+    const standing = await holding.applied();
+    const { applied, add } = applying(
+      like(claiming, { key: LineKey.of('two') }),
+      { held, standing: [standing] },
+    );
 
-    expect(await apply()).toEqual([]);
-    expect(save).not.toHaveBeenCalled();
+    await expect(applied()).rejects.toThrow(LineRoleTakenError);
+    await expect(applied()).rejects.toThrow(/role "improvement"/);
+    expect(add).not.toHaveBeenCalled();
+  });
+
+  it('lets a line keep the role it already claims', async () => {
+    const held = line();
+    const holding = applying(
+      like(asStanding(held), { role: LineRole.IMPROVEMENT }),
+      { held },
+    );
+    const standing = await holding.applied();
+    const { applied, save } = applying(
+      like(asStanding(standing), { role: LineRole.IMPROVEMENT }),
+      { held: standing, standing: [standing] },
+    );
+
+    await applied();
+
+    expect(save).toHaveBeenCalledTimes(1);
   });
 
   it('gives a station nobody had before an identity of its own', async () => {
     const held = line();
     const plan = asStanding(held);
 
-    const { apply, save } = applying(
-      [
-        like(plan, {
-          stations: [
-            ...plan.stations.slice(0, -1),
-            station('handover'),
-            plan.stations[plan.stations.length - 1] as StationPlan,
-          ],
-        }),
-      ],
+    const { applied, save } = applying(
+      like(plan, {
+        stations: [
+          ...plan.stations.slice(0, -1),
+          station('handover'),
+          plan.stations[plan.stations.length - 1] as StationPlan,
+        ],
+      }),
       { held },
     );
 
-    await apply();
+    await applied();
 
     const [written] = save.mock.calls[0] as never as [Line];
 

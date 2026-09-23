@@ -5,4 +5,5 @@ export type TeamCreatedIntegrationEvent = {
   readonly workspaceId: string;
   readonly teamId: string;
   readonly ownerId: string;
+  readonly origin: 'sign-up' | 'configuration';
 };

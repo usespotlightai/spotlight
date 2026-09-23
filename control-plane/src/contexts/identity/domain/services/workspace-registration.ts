@@ -15,7 +15,7 @@ export class WorkspaceRegistration {
     id: WorkspaceId;
     name: WorkspaceName;
     slug: WorkspaceSlug;
-    firstTeam: { id: TeamId; name: TeamName };
+    firstTeam?: { id: TeamId; name: TeamName };
     owner: UserId;
   }): Promise<Workspace> {
     if (await this.slugs.isTaken(input.slug)) {

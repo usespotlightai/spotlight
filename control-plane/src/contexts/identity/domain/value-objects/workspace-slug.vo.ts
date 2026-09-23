@@ -25,6 +25,18 @@ export class WorkspaceSlug {
     return new WorkspaceSlug(candidate);
   }
 
+  static exactly(raw: string): WorkspaceSlug {
+    const slug = WorkspaceSlug.of(raw);
+
+    if (slug.value !== raw) {
+      throw new InvalidWorkspaceSlugError(
+        `is written exactly as it is kept, in lowercase, as in ${slug.value}`,
+      );
+    }
+
+    return slug;
+  }
+
   equals(other: WorkspaceSlug): boolean {
     return this.value === other.value;
   }

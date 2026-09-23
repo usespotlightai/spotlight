@@ -10,5 +10,7 @@ export interface IntegrationDefinitionRepository {
 
   of(teamId: TeamId, source: SourceKey): Promise<IntegrationDefinition | null>;
 
+  ofTeam(teamId: TeamId): Promise<readonly IntegrationDefinition[]>;
+
   save(definition: IntegrationDefinition): Promise<void>;
 }

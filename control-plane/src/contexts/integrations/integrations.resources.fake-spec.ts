@@ -116,6 +116,7 @@ export const definitions = (
   return {
     withId: read,
     of: read,
+    ofTeam: vi.fn(async () => (over.standing ? [over.standing] : [])),
     save: vi.fn(async (_: IntegrationDefinition) => {
       if (over.refusing) {
         read.mockResolvedValue(over.thenAt ?? null);

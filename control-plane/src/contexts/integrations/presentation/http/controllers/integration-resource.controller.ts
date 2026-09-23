@@ -1,12 +1,7 @@
 import { CreateIntegrationCommand } from '@integrations/application/commands/create-integration.command';
 import { DeleteIntegrationCommand } from '@integrations/application/commands/delete-integration.command';
 import { UpdateIntegrationCommand } from '@integrations/application/commands/update-integration.command';
-import type {
-  IntegrationCreatedDto,
-  IntegrationDeletedDto,
-  IntegrationResourceDto,
-  IntegrationUpdatedDto,
-} from '@integrations/application/dto/integration-resource.dto';
+import type { IntegrationResourceDto } from '@integrations/application/dto/integration-resource.dto';
 import { ImportIntegrationQuery } from '@integrations/application/queries/import-integration.query';
 import { ReadIntegrationQuery } from '@integrations/application/queries/read-integration.query';
 import { IntegrationResourceResponseDto } from '@integrations/presentation/http/dto/integration-resource.response.dto';
@@ -16,9 +11,18 @@ import { ApiBody, ApiParam } from '@nestjs/swagger';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
-import { ProblemException } from '@platform/http/resources/problem.exception';
-import { replayed } from '@platform/http/resources/replayed';
+import {
+  answerCreated,
+  answerDeleted,
+  answerUpdated,
+  found,
+} from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
+import type {
+  ResourceCreated,
+  ResourceDeleted,
+  ResourceUpdated,
+} from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 
 const KIND = 'integration';
@@ -50,25 +54,8 @@ const ID = ApiParam({
   example: '0d6f3c1e-8a52-4f7b-9c1d-5e2a7b3f9c40',
 });
 
-const found = (
-  integration: IntegrationResourceDto | null,
-): IntegrationResourceResponseDto => {
-  if (!integration) {
-    throw ProblemException.notFound(KIND);
-  }
-
-  return new IntegrationResourceResponseDto(integration);
-};
-
-const refused = (
-  outcome:
-    | { readonly outcome: 'moved-on'; readonly currentVersion: number }
-    | { readonly outcome: 'in-use'; readonly reason: string },
-): never => {
-  throw outcome.outcome === 'moved-on'
-    ? ProblemException.movedOn(KIND, outcome.currentVersion)
-    : ProblemException.inUse(KIND, outcome.reason);
-};
+const representation = (integration: IntegrationResourceDto) =>
+  new IntegrationResourceResponseDto(integration);
 
 @IntegrationResource.Controller()
 export class IntegrationResourceController {
@@ -89,26 +76,14 @@ export class IntegrationResourceController {
     @Body() body: unknown,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<IntegrationResourceResponseDto> {
-    const created = await this.commandBus.execute<
-      CreateIntegrationCommand,
-      IntegrationCreatedDto | null
-    >(new CreateIntegrationCommand(teamId, user.id, key, body));
-
-    switch (created?.outcome) {
-      case 'created': {
-        const answered = await this.answer(created.id, user);
-
-        return created.replayed ? replayed(answered) : answered;
-      }
-      case 'invalid':
-        throw ProblemException.invalid(KIND, created.problems);
-      case 'taken':
-        throw ProblemException.taken(KIND, created.address);
-      case 'key-reused':
-        throw ProblemException.idempotencyKeyReused();
-      default:
-        throw ProblemException.notFound(KIND);
-    }
+    return answerCreated(
+      KIND,
+      await this.commandBus.execute<
+        CreateIntegrationCommand,
+        ResourceCreated | null
+      >(new CreateIntegrationCommand(teamId, user.id, key, body)),
+      (id) => this.answer(id, user),
+    );
   }
 
   @IntegrationResource.Read('integrations/:id', 'Read an integration')
@@ -132,23 +107,14 @@ export class IntegrationResourceController {
     @Body() body: unknown,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<IntegrationResourceResponseDto> {
-    const updated = await this.commandBus.execute<
-      UpdateIntegrationCommand,
-      IntegrationUpdatedDto | null
-    >(new UpdateIntegrationCommand(id, user.id, version, body));
-
-    if (!updated) {
-      throw ProblemException.notFound(KIND);
-    }
-
-    switch (updated.outcome) {
-      case 'updated':
-        return this.answer(updated.id, user);
-      case 'invalid':
-        throw ProblemException.invalid(KIND, updated.problems);
-      default:
-        return refused(updated);
-    }
+    return answerUpdated(
+      KIND,
+      await this.commandBus.execute<
+        UpdateIntegrationCommand,
+        ResourceUpdated | null
+      >(new UpdateIntegrationCommand(id, user.id, version, body)),
+      (updated) => this.answer(updated, user),
+    );
   }
 
   @IntegrationResource.Delete('integrations/:id', 'Delete an integration')
@@ -158,35 +124,35 @@ export class IntegrationResourceController {
     @IfMatch() version: number,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
-    const deleted = await this.commandBus.execute<
-      DeleteIntegrationCommand,
-      IntegrationDeletedDto | null
-    >(new DeleteIntegrationCommand(id, user.id, version));
-
-    if (!deleted) {
-      throw ProblemException.notFound(KIND);
-    }
-
-    if (deleted.outcome !== 'deleted') {
-      refused(deleted);
-    }
+    answerDeleted(
+      KIND,
+      await this.commandBus.execute<
+        DeleteIntegrationCommand,
+        ResourceDeleted | null
+      >(new DeleteIntegrationCommand(id, user.id, version)),
+    );
   }
 
   @IntegrationResource.Import(
-    'workspaces/:slug/integrations/import',
+    'workspaces/:workspaceId/integrations/import',
     'Find the integration at an address in a workspace, to import it',
   )
-  @ApiParam({ name: 'slug', example: 'acme' })
+  @ApiParam({
+    name: 'workspaceId',
+    example: '5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57',
+  })
   async import(
-    @Param('slug') slug: string,
+    @Param('workspaceId') workspaceId: string,
     @Query('address') address: string | undefined,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<IntegrationResourceResponseDto> {
     return found(
+      KIND,
       await this.queryBus.execute<
         ImportIntegrationQuery,
         IntegrationResourceDto | null
-      >(new ImportIntegrationQuery(slug, address ?? '', user.id)),
+      >(new ImportIntegrationQuery(workspaceId, address ?? '', user.id)),
+      representation,
     );
   }
 
@@ -195,10 +161,12 @@ export class IntegrationResourceController {
     user: AuthenticatedUser,
   ): Promise<IntegrationResourceResponseDto> {
     return found(
+      KIND,
       await this.queryBus.execute<
         ReadIntegrationQuery,
         IntegrationResourceDto | null
       >(new ReadIntegrationQuery(id, user.id)),
+      representation,
     );
   }
 }

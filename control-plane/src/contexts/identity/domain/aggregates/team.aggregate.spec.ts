@@ -1,7 +1,13 @@
 import { Team } from '@identity/domain/aggregates/team.aggregate';
 import { TeamCreated } from '@identity/domain/events/team-created.event';
+import { TeamDisbanded } from '@identity/domain/events/team-disbanded.event';
+import { TeamRedefined } from '@identity/domain/events/team-redefined.event';
+import { TeamKeyFixedError } from '@identity/domain/exceptions/team-key-fixed.error';
+import { TeamMovedOnError } from '@identity/domain/exceptions/team-moved-on.error';
+import { TeamHoldings } from '@identity/domain/value-objects/team-holdings.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -107,5 +113,78 @@ describe('Team', () => {
     const held = open();
 
     expect(held.equals(held.renamedTo(TeamName.of('Renamed')))).toBe(true);
+  });
+
+  describe('as a resource', () => {
+    const defined = () =>
+      Team.define({
+        id: TeamId.of('team_1'),
+        workspaceId: WORKSPACE,
+        key: TeamKey.of('core'),
+        name: TeamName.of('Core'),
+        openedBy: OWNER,
+      });
+
+    const kept = (version = 3) =>
+      Team.rehydrate({
+        id: TeamId.of('team_1'),
+        workspaceId: WORKSPACE,
+        key: TeamKey.of('core'),
+        name: TeamName.of('Core'),
+        members: [OWNER],
+        version,
+      });
+
+    it('says it was created through configuration, which opens no lines for it', () => {
+      expect(defined().pullEvents()).toEqual([
+        new TeamCreated(WORKSPACE, TeamId.of('team_1'), OWNER, 'configuration'),
+      ]);
+    });
+
+    it('starts with whoever defined it as a member', () => {
+      expect(defined().members).toEqual([OWNER]);
+    });
+
+    it('refuses a change made against another version', () => {
+      expect(() => kept(3).expecting(2)).toThrow(TeamMovedOnError);
+      expect(() => kept(3).expecting(3)).not.toThrow();
+    });
+
+    it('takes a new name, and says so', () => {
+      const renamed = kept().redefinedAs({
+        key: TeamKey.of('core'),
+        name: TeamName.of('Core platform'),
+      });
+
+      expect(renamed.name.value).toBe('Core platform');
+      expect(renamed.pullEvents()).toEqual([
+        new TeamRedefined(WORKSPACE, TeamId.of('team_1'), TeamKey.of('core')),
+      ]);
+    });
+
+    it('keeps its key for its whole life', () => {
+      expect(() =>
+        kept().redefinedAs({
+          key: TeamKey.of('platform'),
+          name: TeamName.of('Core'),
+        }),
+      ).toThrow(TeamKeyFixedError);
+    });
+
+    it('disbands only once it holds nothing', () => {
+      expect(() =>
+        kept().disbanded(TeamHoldings.of(['line delivery', 'skill grafana'])),
+      ).toThrow(/still holds line delivery, skill grafana/);
+
+      const disbanded = kept().disbanded(TeamHoldings.none());
+
+      expect(disbanded.isDisbanded).toBe(true);
+      expect(disbanded.pullEvents()).toEqual([
+        new TeamDisbanded(WORKSPACE, TeamId.of('team_1'), TeamKey.of('core')),
+      ]);
+      expect(() => disbanded.disbanded(TeamHoldings.none())).toThrow(
+        InconsistentStateError,
+      );
+    });
   });
 });

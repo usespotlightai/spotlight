@@ -1,0 +1,93 @@
+import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
+import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type { ResourceCreated } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
+import type {
+  IdempotentCreate,
+  IdempotentCreatesPort,
+} from '@shared-kernel/application/ports/idempotent-creates.port';
+import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { createdOnce } from '@shared-kernel/application/services/created-once';
+import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
+import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { CreateLineCommand } from '@work/application/commands/create-line.command';
+import type { LineCompilerPort } from '@work/application/ports/line-compiler.port';
+import type { ApplyLines } from '@work/application/services/apply-lines.service';
+import { lineRefusal } from '@work/application/services/line-refusals';
+import { LineAlreadyOpenedError } from '@work/domain/exceptions/line-already-opened.error';
+
+export class CreateLineHandler
+  implements CommandHandlerPort<CreateLineCommand, ResourceCreated | null>
+{
+  constructor(
+    private readonly access: WorkspaceAccessPort,
+    private readonly teams: TeamDirectoryPort,
+    private readonly compiler: LineCompilerPort,
+    private readonly applying: ApplyLines,
+    private readonly creates: IdempotentCreatesPort,
+    private readonly transaction: TransactionPort,
+  ) {}
+
+  async execute(command: CreateLineCommand): Promise<ResourceCreated | null> {
+    try {
+      const membership = await this.access.onTeam(
+        command.teamId,
+        UserId.of(command.requesterId),
+      );
+      const team = membership?.administers
+        ? await this.teams.find(membership.teamId)
+        : null;
+
+      if (!team) {
+        return null;
+      }
+
+      const compiled = this.compiler.compile(command.definition);
+
+      if (!compiled.ok) {
+        return { outcome: 'invalid', problems: compiled.problems };
+      }
+
+      const key = compiled.line.key.value;
+      const create: IdempotentCreate = {
+        by: command.requesterId,
+        key: IdempotencyKey.of(command.idempotencyKey),
+        request: {
+          line: 'create',
+          teamId: command.teamId,
+          definition: command.definition,
+        },
+      };
+
+      try {
+        return await this.transaction.run(() =>
+          createdOnce(
+            this.creates,
+            create,
+            async () =>
+              (await this.applying.open(team, compiled.line)).id.value,
+          ),
+        );
+      } catch (error) {
+        if (error instanceof LineAlreadyOpenedError) {
+          return {
+            outcome: 'taken',
+            address: TeamAddress.of(team.key, key).toString(),
+          };
+        }
+
+        const refused = lineRefusal(key, error);
+
+        if (refused?.outcome === 'invalid') {
+          return refused;
+        }
+
+        throw error;
+      }
+    } catch (error) {
+      rethrowAsFault(error);
+    }
+  }
+}

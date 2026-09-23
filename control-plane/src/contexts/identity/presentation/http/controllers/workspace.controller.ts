@@ -1,5 +1,5 @@
 import { ChangeMemberRoleCommand } from '@identity/application/commands/change-member-role.command';
-import { CreateWorkspaceCommand } from '@identity/application/commands/create-workspace.command';
+import { OpenWorkspaceCommand } from '@identity/application/commands/open-workspace.command';
 import type {
   WorkspaceDetailDto,
   WorkspaceDto,
@@ -54,7 +54,7 @@ export class WorkspaceController {
 
   @Post()
   @ApiOperation({
-    operationId: 'createWorkspace',
+    operationId: 'openWorkspace',
     summary: 'Create a workspace, along with the team it starts with',
   })
   @ApiCreatedResponse({ type: CreatedWorkspaceResponseDto })
@@ -65,9 +65,9 @@ export class WorkspaceController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<CreatedWorkspaceResponseDto> {
     const workspace = await this.commandBus.execute<
-      CreateWorkspaceCommand,
+      OpenWorkspaceCommand,
       WorkspaceDto
-    >(new CreateWorkspaceCommand(body.name, body.slug, body.teamName, user.id));
+    >(new OpenWorkspaceCommand(body.name, body.slug, body.teamName, user.id));
 
     return WorkspaceHttpMapper.createdToResponse(workspace);
   }

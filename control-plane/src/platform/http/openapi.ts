@@ -12,13 +12,14 @@ import {
   PROBLEM_CONTENT_TYPE,
   RESOURCE_EXTENSION,
 } from '@platform/http/resources/resource-headers';
+import { RESOURCES } from '@platform/http/routes';
 
 const RESOURCE_CONVENTIONS = `
 HTTP API for the Spotlight Control Plane.
 
 ## Resource conventions
 
-Operations marked \`${RESOURCE_EXTENSION}\` manage configuration resources, the ones the Terraform provider writes. Every resource follows these rules, and a conformance suite holds each one to them.
+Operations marked \`${RESOURCE_EXTENSION}\` manage configuration resources, the ones the Terraform provider writes. They live under \`/${RESOURCES}\` and address everything by id. Every resource follows these rules, and a conformance suite holds each one to them.
 
 - **Stable ids.** Spotlight issues a resource's \`id\` when it is created. It never changes for the resource's life, whatever else does.
 - **Reads return every field.** A read answers the whole resource, defaults filled in, so a client comparing it with what it wrote sees any drift. A write answers exactly what a read would.
@@ -26,7 +27,7 @@ Operations marked \`${RESOURCE_EXTENSION}\` manage configuration resources, the 
 - **Idempotent creates.** A create must carry an \`${IDEMPOTENCY_KEY_HEADER}\`. Retrying with the same key and body within 24 hours answers the resource the first attempt created, marked \`${IDEMPOTENT_REPLAY_HEADER}: true\`, and creates nothing more; the same key with a different body is refused with 422.
 - **Problems name fields.** Errors are \`${PROBLEM_CONTENT_TYPE}\` (RFC 9457). \`type\` is stable and safe to branch on. An invalid request lists \`errors\`, each with the \`path\` of the attribute it is about, as in \`stations[2].check\`.
 - **API versions.** A client may send \`${API_VERSION_HEADER}\`; every response names the version it was answered in, currently \`${API_VERSION}\`. Changes within a version are additive only: fields and operations are added, never removed, renamed or given a new meaning.
-- **Import by address.** Each resource has an \`address\` that names it within its workspace, such as \`core/linear\`, and an import operation that answers the resource at that address, as \`terraform import\` needs.
+- **Import by address.** Each resource has an \`address\` that names it within its workspace, such as \`core/linear\`, and an import operation that answers the resource at that address, as \`terraform import\` needs. A workspace's address is its slug; a team's is its key; anything a team holds is the team's key and its own, as in \`core/delivery\`.
 `.trim();
 
 const openApiConfig = new DocumentBuilder()

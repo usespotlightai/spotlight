@@ -11,6 +11,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -30,6 +31,7 @@ export const SHARED_KERNEL_EVENT_TYPES = [
   RunnerId,
   SecretName,
   TaskId,
+  TeamAddress,
   TeamId,
   TokenHash,
   UserId,

@@ -69,21 +69,16 @@ describe('compileLine', () => {
     );
   });
 
-  it('hands back the definition with what it left out filled in', () => {
+  it('fills in what a definition left out', () => {
     const compiled = compileLine(DELIVERY);
+    const completed = compiled.ok ? compiled.line.stations[2] : undefined;
 
-    expect(compiled.ok && compiled.line.definition?.fields).toMatchObject({
-      stations: [
-        {},
-        {},
-        {
-          key: 'completed',
-          tools: [],
-          passesTo: [],
-          ends: false,
-        },
-      ],
-    });
+    expect(completed?.key.value).toBe('completed');
+    expect([completed?.tools, completed?.passesTo, completed?.ends]).toEqual([
+      [],
+      [],
+      false,
+    ]);
   });
 
   it('places every problem at the line it is about', () => {

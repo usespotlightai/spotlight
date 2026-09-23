@@ -35,6 +35,8 @@ export interface ResourceFixture {
   readonly changed: Body;
   readonly changedAgain: Body;
   readonly invalid: { readonly body: Body; readonly path: string };
+  readonly anyoneCreates?: boolean;
+  readonly admit?: (created: Body & { id: string }) => Promise<void>;
   readonly close: () => Promise<void>;
 }
 
@@ -44,6 +46,7 @@ export interface ResourceUnderTest {
 }
 
 interface DocumentedOperation {
+  readonly operationId?: string;
   readonly parameters?: readonly {
     readonly name: string;
     readonly in: string;
@@ -179,6 +182,20 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
 
           expect(answered?.headers, name).toHaveProperty(['ETag']);
         }
+      }
+
+      const everyId = Object.values(buildOpenApiDocument(app).paths).flatMap(
+        (methods) =>
+          (Object.values(methods) as DocumentedOperation[]).map(
+            (each) => each?.operationId,
+          ),
+      );
+
+      for (const [name, operation] of operations) {
+        expect(
+          everyId.filter((each) => each === operation.operationId),
+          `${name} is the only ${operation.operationId}`,
+        ).toHaveLength(1);
       }
 
       const create = operations.get('create') as DocumentedOperation;
@@ -395,8 +412,14 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       const made = await created();
       const viewer = as(fixture.viewer);
 
+      await fixture.admit?.(made);
+
       expect((await viewer.read(made.id)).body).toEqual(made);
-      problem(await viewer.create(fixture.changed), 404, 'not-found');
+
+      if (!fixture.anyoneCreates) {
+        problem(await viewer.create(fixture.changed), 404, 'not-found');
+      }
+
       problem(
         await viewer.update(made.id, fixture.changed, made.version),
         404,

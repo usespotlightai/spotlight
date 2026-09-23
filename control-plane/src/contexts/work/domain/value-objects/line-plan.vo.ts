@@ -1,4 +1,3 @@
-import type { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -65,7 +64,6 @@ export class LinePlan {
     readonly role: LineRole | null,
     readonly repositories: readonly Repository[],
     readonly reviews: ReviewPolicy | null,
-    readonly definition: DefinitionDocument | null,
   ) {}
 
   static of(input: {
@@ -76,7 +74,6 @@ export class LinePlan {
     role?: LineRole | null;
     repositories?: readonly Repository[];
     reviews?: ReviewPolicy | null;
-    definition?: DefinitionDocument | null;
   }): LinePlan {
     const reactions = input.reactions ?? [];
     const laid = stationsRefused(
@@ -149,14 +146,6 @@ export class LinePlan {
       );
     }
 
-    if (input.definition && !input.definition.says('key', input.key.value)) {
-      throw new InvalidLinePlanError(
-        input.key.value,
-        'is compiled from a definition of another line',
-        { of: 'line', field: 'key' },
-      );
-    }
-
     return new LinePlan(
       input.key,
       input.name,
@@ -165,7 +154,6 @@ export class LinePlan {
       input.role ?? null,
       input.repositories ?? [],
       input.reviews ?? null,
-      input.definition ?? null,
     );
   }
 
