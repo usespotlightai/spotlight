@@ -55,8 +55,6 @@ export class OnboardingController {
             each.done,
           ),
       ),
-      read.installUrl,
-      read.connectedToGitHub,
     );
   }
 }

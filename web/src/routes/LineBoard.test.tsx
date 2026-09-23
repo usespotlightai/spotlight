@@ -42,11 +42,7 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
 vi.mock('@/hooks/api/useMembers', () => ({
   useMembers: () => ({ data: [] }),
 }));
-const reread = vi.fn();
 
-vi.mock('@/hooks/api/useConfiguration', () => ({
-  useRereadConfiguration: () => ({ mutate: reread, isPending: false }),
-}));
 vi.mock('@/hooks/api/useAssignTask', () => ({
   useAssignTask: () => ({ mutate: vi.fn() }),
 }));
@@ -155,9 +151,6 @@ describe('LineBoard', () => {
     expect(
       screen.getByRole('status', { name: 'Loading the line' }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Read again' }),
-    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Active' })).toBeInTheDocument();
     expect(sections()).toHaveLength(0);
     expect(
@@ -242,16 +235,6 @@ describe('LineBoard', () => {
       'Implementation',
       'Code Review',
     ]);
-  });
-
-  it('reads the configuration again from the header', async () => {
-    renderAt('line_1');
-
-    await userEvent
-      .setup()
-      .click(screen.getByRole('button', { name: 'Read again' }));
-
-    expect(reread).toHaveBeenCalled();
   });
 
   it('names the team and the line it is showing', () => {

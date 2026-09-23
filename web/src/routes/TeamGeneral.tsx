@@ -1,7 +1,5 @@
-import { Pencil } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router';
-import { MoveConfigurationDialog } from '@/components/features/settings/MoveConfigurationDialog';
 import { SettingsPage } from '@/components/features/settings/SettingsPage';
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { SettingsSection } from '@/components/features/settings/SettingsSection';
@@ -10,25 +8,19 @@ import { TeamMembers } from '@/components/features/settings/TeamMembers';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { FieldInput } from '@/components/shared/form/FieldInput';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
-import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
-import { useConfiguration } from '@/hooks/api/useConfiguration';
-import { useOnboarding } from '@/hooks/api/useOnboarding';
 import { useRenameTeam } from '@/hooks/api/useRenameTeam';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
-import { failed, loading } from '@/lib/query';
+import { failed } from '@/lib/query';
 
 export function TeamGeneral() {
   const { slug, teamId } = useParams();
   const workspace = useWorkspace(slug);
-  const configuration = useConfiguration(teamId);
-  const onboarding = useOnboarding(teamId);
   const rename = useRenameTeam(slug, teamId);
 
   const team = workspace.data?.teams.find(
     (candidate) => candidate.id === teamId,
   );
 
-  const [moving, setMoving] = useState(false);
   const [name, setName] = useState('');
   useEffect(() => {
     if (team?.name) {
@@ -39,8 +31,6 @@ export function TeamGeneral() {
   if (!teamId || (workspace.data !== undefined && !team)) {
     return null;
   }
-
-  const unread = [configuration, onboarding].filter((query) => failed(query));
 
   const saveName = () => {
     if (!team) {
@@ -57,18 +47,14 @@ export function TeamGeneral() {
   return (
     <SettingsPage
       title="General"
-      description="Manage how this team is configured and who has access."
+      description="Manage what this team is called and who has access."
     >
-      {unread.length > 0 ? (
+      {failed(workspace) ? (
         <SettingsSection>
           <CouldNotLoad
             what="The team’s settings"
-            retrying={unread.some((query) => query.isFetching)}
-            onRetry={() => {
-              for (const query of unread) {
-                void query.refetch();
-              }
-            }}
+            retrying={workspace.isFetching}
+            onRetry={() => void workspace.refetch()}
             className="items-start px-4 py-3"
           />
         </SettingsSection>
@@ -98,57 +84,12 @@ export function TeamGeneral() {
               </span>
             )}
           </SettingsRow>
-
-          <SettingsRow
-            label="Configuration repository"
-            description={
-              configuration.data?.movingTo
-                ? `Moving to ${configuration.data.movingTo} once its pull request merges.`
-                : undefined
-            }
-          >
-            {loading(configuration) || loading(onboarding) ? (
-              <span
-                role="status"
-                aria-label="Loading the configuration repository"
-                className="flex"
-              >
-                <SkeletonLine className="w-32 text-sm" />
-              </span>
-            ) : onboarding.data?.connectedToGitHub ? (
-              <div className="flex items-center gap-2">
-                <span className="truncate text-foreground text-sm">
-                  {configuration.data?.readsFrom ?? 'Not set'}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setMoving(true)}
-                  aria-label="Move configuration"
-                  className="flex size-6 shrink-0 items-center justify-center rounded-full border-[0.5px] border-border bg-surface text-muted-foreground outline-none hover:text-foreground focus-visible:border-input"
-                >
-                  <Pencil className="size-3" aria-hidden />
-                </button>
-              </div>
-            ) : (
-              <span className="text-muted-foreground text-sm">
-                Connect GitHub to choose one.
-              </span>
-            )}
-          </SettingsRow>
         </SettingsSection>
       )}
 
       <TeamMembers slug={slug} teamId={teamId} />
 
       <TeamInvites teamId={teamId} />
-
-      <MoveConfigurationDialog
-        open={moving}
-        onOpenChange={setMoving}
-        slug={slug}
-        teamId={teamId}
-        owner={onboarding.data?.repositoryOwner ?? null}
-      />
     </SettingsPage>
   );
 }

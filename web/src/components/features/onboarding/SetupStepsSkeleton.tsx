@@ -5,7 +5,7 @@ import {
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 
-const TITLES = ['w-28', 'w-40', 'w-36', 'w-44', 'w-32'];
+const TITLES = ['w-28', 'w-40', 'w-36', 'w-32'];
 
 type SetupStepsSkeletonProps = {
   about: SetupAboutProps | undefined;

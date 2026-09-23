@@ -2,7 +2,6 @@ import type { QueryClient } from '@tanstack/react-query';
 import { harnessKeys } from '@/hooks/api/useHarnesses';
 import { lineKeys } from '@/hooks/api/useLines';
 import { repositoryKeys } from '@/hooks/api/useRepositories';
-import { teamSkillKeys } from '@/hooks/api/useTeamSkills';
 import { workspaceKeys } from '@/hooks/api/useWorkspaces';
 import type {
   HarnessResponseDto,
@@ -11,7 +10,6 @@ import type {
   StationResponseDto,
 } from '@/lib/api';
 import { failQuery } from '@/stories/failQuery';
-import { SKILLS } from '@/stories/fixtures/skills';
 import { SLUG, TEAM_ID, WORKSPACE } from '@/stories/fixtures/team';
 
 export const LINE_ID = 'line_default';
@@ -67,7 +65,7 @@ const LINES: LineResponseDto[] = [
         effort: 'high',
         agentPrompt:
           '## Role\n\nImplement the spec on the task.\n\n- Keep the change small\n- Ask when the spec is unclear',
-        skills: ['our-migrations'],
+        skills: ['our-migrations', 'grafana-dashboards'],
       }),
       station({
         id: 'station_completed',
@@ -111,7 +109,6 @@ export const seedStation = (client: QueryClient) => {
   client.setQueryData(lineKeys.forTeam(TEAM_ID), LINES);
   client.setQueryData(harnessKeys.forWorkspace(SLUG), HARNESSES);
   client.setQueryData(repositoryKeys.forWorkspace(SLUG), REPOSITORIES);
-  client.setQueryData(teamSkillKeys.forTeam(TEAM_ID), SKILLS);
 };
 
 export const failStation = (client: QueryClient) => {

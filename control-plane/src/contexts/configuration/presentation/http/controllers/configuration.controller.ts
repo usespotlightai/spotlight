@@ -2,7 +2,6 @@ import type { ConfigurationDto } from '@configuration/application/dto/configurat
 import { ConfigurationQuery } from '@configuration/application/queries/read-configuration.query';
 import {
   ConfigurationResponseDto,
-  ConfiguredConnectionResponseDto,
   ConfiguredIntegrationResponseDto,
 } from '@configuration/presentation/http/dto/configuration.response.dto';
 import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
@@ -26,10 +25,8 @@ const shown = (read: ConfigurationDto): ConfigurationResponseDto =>
           each.source,
           each.name,
           each.path,
-          each.connectable,
-          each.connection
-            ? new ConfiguredConnectionResponseDto(each.connection.handle)
-            : null,
+          each.standing,
+          each.handle,
         ),
     ),
   );

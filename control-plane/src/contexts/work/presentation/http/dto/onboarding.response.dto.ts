@@ -53,24 +53,7 @@ export class OnboardingResponseDto {
   })
   readonly steps: readonly SetupStepResponseDto[];
 
-  @ApiProperty({
-    description: 'Where to install the App, or null where GitHub would not say',
-    nullable: true,
-    type: String,
-    example: 'https://github.com/apps/spotlight/installations/new',
-  })
-  readonly installUrl: string | null;
-
-  @ApiProperty({ description: 'The App has to be installed to read or write' })
-  readonly connectedToGitHub: boolean;
-
-  constructor(
-    steps: readonly SetupStepResponseDto[],
-    installUrl: string | null,
-    connectedToGitHub: boolean,
-  ) {
+  constructor(steps: readonly SetupStepResponseDto[]) {
     this.steps = steps;
-    this.installUrl = installUrl;
-    this.connectedToGitHub = connectedToGitHub;
   }
 }

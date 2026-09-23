@@ -1,4 +1,3 @@
-import type { GitHubAppPort } from '@github/application/ports/github-app.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { OnboardingHandler } from '@work/application/queries/handlers/onboarding.handler';
 import { OnboardingQuery } from '@work/application/queries/onboarding.query';
@@ -12,7 +11,6 @@ import { describe, expect, it, vi } from 'vitest';
 type Given = {
   member?: boolean;
   facts?: Partial<TeamFacts>;
-  installUrl?: string | null;
 };
 
 const nothing: TeamFacts = {
@@ -40,17 +38,7 @@ const handler = (given: Given = {}) => {
     factsFor: vi.fn().mockResolvedValue({ ...nothing, ...given.facts }),
   } as unknown as TeamSetup;
 
-  const app: GitHubAppPort = {
-    installUrl: vi
-      .fn()
-      .mockResolvedValue(
-        given.installUrl === undefined
-          ? 'https://github.com/apps/spotlight/installations/new'
-          : given.installUrl,
-      ),
-  };
-
-  return new OnboardingHandler(workspaces, setup, app);
+  return new OnboardingHandler(workspaces, setup);
 };
 
 const read = (given: Given = {}) =>
@@ -95,18 +83,5 @@ describe('OnboardingHandler', () => {
 
   it('sends nobody anywhere for the pull request', async () => {
     expect(step(await read(), 'configuration')?.where).toBeNull();
-  });
-
-  it('says where to install the App while it is not installed', async () => {
-    await expect(read()).resolves.toMatchObject({
-      connectedToGitHub: false,
-      installUrl: 'https://github.com/apps/spotlight/installations/new',
-    });
-  });
-
-  it('still answers where GitHub would not say what the App is called', async () => {
-    await expect(read({ installUrl: null })).resolves.toMatchObject({
-      installUrl: null,
-    });
   });
 });

@@ -6,9 +6,7 @@ import { installUrlFor } from '@/lib/github';
 import { TeamIntegrations } from '@/routes/TeamIntegrations';
 
 const configuration = vi.fn();
-const onboarding = vi.fn();
-const choose = vi.fn();
-const chosen = vi.fn();
+const github = vi.fn();
 const connect = vi.fn();
 
 const failing = vi.fn();
@@ -24,47 +22,19 @@ const query = (data: unknown) => ({
 
 vi.mock('@/hooks/api/useConfiguration', () => ({
   useConfiguration: () => query(configuration()),
-  useRereadConfiguration: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
-vi.mock('@/hooks/api/useOnboarding', () => ({
-  useOnboarding: () => query(onboarding()),
-  useChooseIntegrations: () => ({
-    mutate: choose,
-    isPending: false,
-    ...chosen(),
-  }),
+vi.mock('@/hooks/api/useGitHub', () => ({
+  useGitHub: () => query(github()),
 }));
 
 vi.mock('@/hooks/api/useConnectIntegration', () => ({
   useConnectIntegration: () => ({ mutate: connect, isPending: false }),
 }));
 
-const tool = (over: Record<string, unknown> = {}) => ({
-  source: 'linear',
-  name: 'Linear',
-  summary: 'Move a task on when its issue is done.',
-  deliverTo: '/api/webhooks/w/acme/t/platform/linear',
-  ...over,
-});
-
-const steps = (undone: string[] = []) =>
-  ['runner', 'github', 'repository', 'configuration', 'integrations'].map(
-    (key) => ({
-      key,
-      title: key,
-      description: key,
-      where: null,
-      done: !undone.includes(key),
-    }),
-  );
-
 const ready = (over: Record<string, unknown> = {}) => ({
-  steps: steps(),
-  connectedToGitHub: true,
-  configRepository: 'acme/api',
+  connected: true,
   installUrl: 'https://github.com/apps/spotlight/installations/new',
-  integrations: [tool()],
   ...over,
 });
 
@@ -72,17 +42,12 @@ const listening = (over: Record<string, unknown> = {}) => ({
   source: 'linear',
   name: 'Linear',
   path: '.spotlight/integrations/linear.yml',
-  connectable: false,
-  connection: null,
+  standing: 'listens',
+  handle: null,
   ...over,
 });
 
-const read = (over: Record<string, unknown> = {}) => ({
-  repository: 'acme/api',
-  sha: 'a1b2c3d4',
-  integrations: [],
-  ...over,
-});
+const read = (integrations: unknown[] = []) => ({ integrations });
 
 const showing = () =>
   render(
@@ -98,15 +63,24 @@ const showing = () =>
     </MemoryRouter>,
   );
 
+const INSTALL = installUrlFor(
+  'https://github.com/apps/spotlight/installations/new',
+  {
+    slug: 'acme',
+    teamId: 'team_1',
+    from: '/w/acme/team/team_1/settings/integrations',
+  },
+);
+
 beforeEach(() => {
-  chosen.mockReturnValue({});
   failing.mockReturnValue(false);
   refetch.mockClear();
+  connect.mockClear();
 });
 
 describe('TeamIntegrations', () => {
   it('holds the shape of an integration while they load, keeping what never changes', () => {
-    onboarding.mockReturnValue(undefined);
+    github.mockReturnValue(undefined);
     configuration.mockReturnValue(undefined);
     showing();
 
@@ -117,14 +91,11 @@ describe('TeamIntegrations', () => {
       screen.getByRole('status', { name: 'Loading the integrations' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Hosts' })).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Open pull request' }),
-    ).toBeDisabled();
-    expect(screen.queryByText(/No integrations yet/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/listens to no host/)).not.toBeInTheDocument();
   });
 
   it('shows GitHub once the team is known, while the hosts still load', () => {
-    onboarding.mockReturnValue(ready());
+    github.mockReturnValue(ready());
     configuration.mockReturnValue(undefined);
     showing();
 
@@ -135,7 +106,7 @@ describe('TeamIntegrations', () => {
   });
 
   it('says the integrations could not be loaded, and tries again when asked', async () => {
-    onboarding.mockReturnValue(undefined);
+    github.mockReturnValue(undefined);
     configuration.mockReturnValue(undefined);
     failing.mockReturnValue(true);
     showing();
@@ -150,103 +121,57 @@ describe('TeamIntegrations', () => {
     expect(refetch).toHaveBeenCalledTimes(2);
   });
 
-  it('says so when there is no host to listen to, and links to where one is written', () => {
-    onboarding.mockReturnValue(ready({ integrations: [] }));
+  it('says so when the team listens to no host', () => {
+    github.mockReturnValue(ready());
     configuration.mockReturnValue(read());
     showing();
 
-    expect(screen.getByText(/No integrations yet/)).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: 'Open on GitHub' }),
-    ).toHaveAttribute('href', 'https://github.com/acme/api');
-  });
-
-  it('offers the tools this team might use', () => {
-    onboarding.mockReturnValue(ready());
-    configuration.mockReturnValue(read());
-    showing();
-
-    expect(screen.getByText('Linear')).toBeInTheDocument();
-    expect(
-      screen.getByText('Move a task on when its issue is done.'),
+      screen.getByText('This team listens to no host yet.'),
     ).toBeInTheDocument();
   });
 
-  it('writes the configuration for the ones chosen', async () => {
-    onboarding.mockReturnValue(ready());
-    configuration.mockReturnValue(read());
-    showing();
-
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Listen to Linear' }),
-    );
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Open pull request' }),
-    );
-
-    expect(choose).toHaveBeenCalledWith({ sources: ['linear'], dropped: [] });
-  });
-
-  it('shows one already written as listening', () => {
-    onboarding.mockReturnValue(ready());
-    configuration.mockReturnValue(read({ integrations: [listening()] }));
-    showing();
-
-    expect(
-      screen.getByRole('button', { name: 'Stop listening to Linear' }),
-    ).toHaveAttribute('aria-pressed', 'true');
-  });
-
-  it('says why the pull request could not be opened', () => {
-    chosen.mockReturnValue({
-      error: { message: 'This team has nowhere to write its configuration.' },
-    });
-    onboarding.mockReturnValue(ready());
-    configuration.mockReturnValue(read());
-    showing();
-
-    expect(
-      screen.getByText('This team has nowhere to write its configuration.'),
-    ).toBeInTheDocument();
-  });
-
-  it('links the pull request once it is opened', () => {
-    chosen.mockReturnValue({
-      data: { url: 'https://github.com/acme/api/pull/7' },
-    });
-    onboarding.mockReturnValue(ready());
-    configuration.mockReturnValue(read());
-    showing();
-
-    expect(
-      screen.getByRole('link', {
-        name: 'Merge the pull request to apply the change.',
-      }),
-    ).toHaveAttribute('href', 'https://github.com/acme/api/pull/7');
-  });
-
-  it('opens a listening integration’s file in the repository from Configure', () => {
-    onboarding.mockReturnValue(ready());
-    configuration.mockReturnValue(read({ integrations: [listening()] }));
-    showing();
-
-    const configure = screen.getByRole('link', {
-      name: 'Configure Linear on GitHub',
-    });
-
-    expect(configure).toHaveAttribute(
-      'href',
-      'https://github.com/acme/api/blob/HEAD/.spotlight/integrations/linear.yml',
-    );
-    expect(configure).toHaveAttribute('target', '_blank');
-  });
-
-  it('offers to connect an integration that links by authorizing', async () => {
-    onboarding.mockReturnValue(ready());
+  it('shows every host the team listens to', () => {
+    github.mockReturnValue(ready());
     configuration.mockReturnValue(
-      read({ integrations: [listening({ connectable: true })] }),
+      read([listening(), listening({ source: 'slack', name: 'Slack' })]),
     );
     showing();
+
+    expect(screen.getByRole('heading', { name: 'Linear' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Slack' })).toBeInTheDocument();
+  });
+
+  it('offers nothing to choose or propose', () => {
+    github.mockReturnValue(ready());
+    configuration.mockReturnValue(read([listening()]));
+    showing();
+
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /pull request/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('says a host that only listens needs nothing connected', () => {
+    github.mockReturnValue(ready());
+    configuration.mockReturnValue(read([listening()]));
+    showing();
+
+    expect(
+      screen.getByText('Listens for what the host sends.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Connect to Linear' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('offers to connect a host that links by authorizing', async () => {
+    github.mockReturnValue(ready());
+    configuration.mockReturnValue(read([listening({ standing: 'unlinked' })]));
+    showing();
+
+    expect(screen.getByText('Not connected yet.')).toBeInTheDocument();
 
     await userEvent.click(
       screen.getByRole('button', { name: 'Connect to Linear' }),
@@ -255,89 +180,39 @@ describe('TeamIntegrations', () => {
     expect(connect).toHaveBeenCalledWith('linear');
   });
 
-  it('offers nothing to configure for an integration not written down', () => {
-    onboarding.mockReturnValue(ready());
-    configuration.mockReturnValue(read());
+  it('says what the host calls the team once it is connected', () => {
+    github.mockReturnValue(ready());
+    configuration.mockReturnValue(
+      read([listening({ standing: 'linked', handle: 'Acme' })]),
+    );
     showing();
 
+    expect(screen.getByText('Connected as Acme.')).toBeInTheDocument();
     expect(
-      screen.queryByRole('link', { name: 'Configure Linear on GitHub' }),
-    ).not.toBeInTheDocument();
-  });
-
-  it('takes away the file of one let go', async () => {
-    onboarding.mockReturnValue(ready());
-    configuration.mockReturnValue(read({ integrations: [listening()] }));
-    showing();
-
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Stop listening to Linear' }),
-    );
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Open pull request' }),
-    );
-
-    expect(choose).toHaveBeenCalledWith({ sources: [], dropped: ['linear'] });
+      screen.getByRole('button', { name: 'Reconnect to Linear' }),
+    ).toBeInTheDocument();
   });
 
   it('offers to install the App while it is not installed', () => {
-    onboarding.mockReturnValue(ready({ connectedToGitHub: false }));
+    github.mockReturnValue(ready({ connected: false }));
     configuration.mockReturnValue(read());
     showing();
 
     expect(
       screen.getByRole('link', { name: 'Install it on GitHub' }),
-    ).toHaveAttribute(
-      'href',
-      installUrlFor('https://github.com/apps/spotlight/installations/new', {
-        slug: 'acme',
-        teamId: 'team_1',
-        from: '/w/acme/team/team_1/settings/integrations',
-      }),
-    );
+    ).toHaveAttribute('href', INSTALL);
   });
 
-  it('drops the offer once it is installed', () => {
-    onboarding.mockReturnValue(ready());
+  it('shows GitHub connected once the App is installed', () => {
+    github.mockReturnValue(ready());
     configuration.mockReturnValue(read());
     showing();
 
     expect(
       screen.queryByRole('link', { name: 'Install it on GitHub' }),
     ).not.toBeInTheDocument();
-  });
-
-  it('shows GitHub connected once the App is installed', () => {
-    onboarding.mockReturnValue(ready({ configRepository: 'acme/platform' }));
-    configuration.mockReturnValue(read());
-    showing();
-
-    expect(screen.getByText(/acme\/platform/)).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: 'Manage on GitHub' }),
-    ).toHaveAttribute(
-      'href',
-      installUrlFor('https://github.com/apps/spotlight/installations/new', {
-        slug: 'acme',
-        teamId: 'team_1',
-        from: '/w/acme/team/team_1/settings/integrations',
-      }),
-    );
-  });
-
-  it.each([
-    ['no runner', { steps: steps(['runner']) }],
-    ['no App', { connectedToGitHub: false }],
-    ['nothing read', { steps: steps(['configuration']) }],
-  ])('says nothing of what is still needed with %s', (_, missing) => {
-    onboarding.mockReturnValue(ready(missing));
-    configuration.mockReturnValue(read());
-    showing();
-
-    expect(screen.getByText('Integrations')).toBeInTheDocument();
-    expect(screen.queryByText('Start a runner')).not.toBeInTheDocument();
-    expect(
-      screen.queryByText('Merge the opening pull request'),
-    ).not.toBeInTheDocument();
+    ).toHaveAttribute('href', INSTALL);
   });
 });

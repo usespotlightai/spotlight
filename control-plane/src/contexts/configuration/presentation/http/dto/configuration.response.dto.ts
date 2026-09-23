@@ -1,17 +1,8 @@
+import {
+  CONFIGURED_INTEGRATION_STANDINGS,
+  type ConfiguredIntegrationDto,
+} from '@configuration/application/dto/configuration.dto';
 import { ApiProperty } from '@nestjs/swagger';
-
-export class ConfiguredConnectionResponseDto {
-  @ApiProperty({
-    description: 'What the host calls the team, where it says; null otherwise',
-    example: 'Acme',
-    nullable: true,
-  })
-  readonly handle: string | null;
-
-  constructor(handle: string | null) {
-    this.handle = handle;
-  }
-}
 
 export class ConfiguredIntegrationResponseDto {
   @ApiProperty({ example: 'linear' })
@@ -27,30 +18,33 @@ export class ConfiguredIntegrationResponseDto {
   readonly path: string;
 
   @ApiProperty({
-    description: 'Whether this host is linked by authorizing a connection',
-    example: true,
+    description:
+      'Whether the team is linked to the host: it only listens, it links by authorizing and has not, or it has',
+    enum: CONFIGURED_INTEGRATION_STANDINGS,
+    example: 'linked',
   })
-  readonly connectable: boolean;
+  readonly standing: ConfiguredIntegrationDto['standing'];
 
   @ApiProperty({
-    type: ConfiguredConnectionResponseDto,
+    description: 'What the host calls the team once linked, where it says',
+    example: 'Acme',
     nullable: true,
-    description: 'The living link, or null where the team has not linked',
+    type: String,
   })
-  readonly connection: ConfiguredConnectionResponseDto | null;
+  readonly handle: string | null;
 
   constructor(
     source: string,
     name: string,
     path: string,
-    connectable: boolean,
-    connection: ConfiguredConnectionResponseDto | null,
+    standing: ConfiguredIntegrationDto['standing'],
+    handle: string | null,
   ) {
     this.source = source;
     this.name = name;
     this.path = path;
-    this.connectable = connectable;
-    this.connection = connection;
+    this.standing = standing;
+    this.handle = handle;
   }
 }
 

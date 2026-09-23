@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -21,6 +21,7 @@ const line = {
       name: 'Triage',
       position: 1,
       color: '#93a1b5',
+      description: 'Where new work lands.',
       kind: 'work',
       skills: [],
     },
@@ -60,22 +61,6 @@ vi.mock('@/hooks/api/useLines', () => ({
   }),
 }));
 
-const customised = vi.fn();
-const setRepositories = vi.fn();
-
-vi.mock('@/hooks/api/useConfiguration', () => ({
-  useRereadConfiguration: () => ({ mutate: vi.fn(), isPending: false }),
-}));
-vi.mock('@/hooks/api/useCustomiseStation', () => ({
-  useCustomiseStation: () => ({ mutate: customised, mutateAsync: customised }),
-}));
-vi.mock('@/hooks/api/useSetLineRepositories', () => ({
-  useSetLineRepositories: () => ({
-    mutate: setRepositories,
-    mutateAsync: setRepositories,
-  }),
-}));
-
 vi.mock('@/hooks/api/useWorkspace', () => ({
   useWorkspace: () => ({
     data: { teams: [{ id: 'team_1', name: 'Platform' }] },
@@ -95,23 +80,6 @@ vi.mock('@/hooks/api/useRepositories', () => ({
     data: [{ fullName: 'usespotlightai/spotlight' }, { fullName: 'acme/web' }],
   }),
 }));
-vi.mock('@/hooks/api/useTeamSkills', () => ({
-  useTeamSkills: () => ({
-    data: {
-      repository: 'acme/config',
-      skills: [{ key: 'our-migrations' }, { key: 'grafana-dashboards' }],
-    },
-  }),
-}));
-vi.mock('@/hooks/api/useRunners', () => ({
-  useRunners: () => ({
-    data: [
-      { id: 'runner_1', name: 'One', pool: 'default', connected: true },
-      { id: 'runner_2', name: 'Two', pool: 'default', connected: true },
-      { id: 'runner_3', name: 'Three', pool: 'gpu', connected: false },
-    ],
-  }),
-}));
 
 const renderAt = (stationId: string) =>
   render(
@@ -129,27 +97,18 @@ const renderAt = (stationId: string) =>
     </MemoryRouter>,
   );
 
-const openHarnesses = async () => {
-  const user = userEvent.setup();
-  await user.click(screen.getByLabelText('Harness'));
-  await screen.findByRole('menu');
-  return user;
-};
-
 beforeEach(() => {
   lines.mockReturnValue([line]);
   failing.mockReturnValue(false);
   refetch.mockClear();
   localStorage.clear();
-  customised.mockClear();
-  setRepositories.mockClear();
 });
 
 describe('Station', () => {
   it('opens on the station’s own name', () => {
     renderAt('station_2');
 
-    expect(screen.getByLabelText('Station name')).toHaveValue('Spec');
+    expect(screen.getByRole('heading', { name: 'Spec' })).toBeInTheDocument();
   });
 
   it('names the team, the line and the station it is showing', () => {
@@ -181,36 +140,32 @@ describe('Station', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('takes a new name and follows it in the breadcrumbs', async () => {
+  it('shows what the station is for', () => {
     renderAt('station_1');
 
-    await userEvent.type(screen.getByLabelText('Station name'), ' queue');
+    expect(screen.getByText('Where new work lands.')).toBeInTheDocument();
+  });
 
-    expect(screen.getByLabelText('Station name')).toHaveValue('Triage queue');
+  it('offers nothing to change', () => {
+    renderAt('station_2');
+
+    expect(screen.queryByLabelText('Station name')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Description')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Harness')).toBeDisabled();
     expect(
-      screen.getByRole('heading', { name: /Triage queue/ }),
-    ).toBeInTheDocument();
+      screen.queryByRole('button', { name: /propose/i }),
+    ).not.toBeInTheDocument();
   });
 
-  it('takes a description, which starts out empty', async () => {
-    renderAt('station_1');
-
-    const description = screen.getByLabelText('Description');
-    expect(description).toHaveValue('');
-
-    await userEvent.type(description, 'Where new work lands.');
-
-    expect(description).toHaveValue('Where new work lands.');
-  });
-
-  it('offers the backlog neither a harness nor a prompt', () => {
+  it('shows the backlog neither a harness nor a prompt', () => {
     renderAt('station_0');
 
     expect(screen.queryByLabelText('Harness')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Agent prompt')).not.toBeInTheDocument();
+    expect(screen.getByText(/Nothing runs at a backlog/)).toBeInTheDocument();
   });
 
-  it('offers what is completed neither a harness nor a prompt', () => {
+  it('shows what is completed neither a harness nor a prompt', () => {
     renderAt('station_3');
 
     expect(screen.queryByLabelText('Harness')).not.toBeInTheDocument();
@@ -218,239 +173,61 @@ describe('Station', () => {
     expect(screen.getByText(/the line is done with them/)).toBeInTheDocument();
   });
 
-  it('still offers a station both', () => {
-    renderAt('station_1');
-
-    expect(screen.getByLabelText('Harness')).toBeInTheDocument();
-  });
-
   it('renders the agent prompt rather than showing its markdown', () => {
     renderAt('station_2');
 
     expect(screen.getByRole('heading', { name: 'Role' })).toBeInTheDocument();
-    expect(
-      screen.getAllByRole('listitem').map((each) => each.textContent),
-    ).toEqual(['Sort the queue', 'Ask when unsure']);
+    expect(screen.getByText('Sort the queue')).toBeInTheDocument();
     expect(screen.queryByText(/^## Role/)).not.toBeInTheDocument();
   });
 
-  it('offers the agent prompt for writing', () => {
-    renderAt('station_1');
+  it('shows the agent prompt without letting it be written', () => {
+    renderAt('station_2');
 
     expect(screen.getByLabelText('Agent prompt')).toHaveAttribute(
       'contenteditable',
-      'true',
+      'false',
     );
+  });
+
+  it('says so where a station has no prompt', () => {
+    renderAt('station_1');
+
+    expect(screen.getByText('No agent prompt.')).toBeInTheDocument();
+  });
+
+  it('shows the harness the station runs on', () => {
+    renderAt('station_2');
+
+    expect(screen.getByLabelText('Harness')).toHaveTextContent('Claude Code');
+  });
+
+  it('says nobody works the station where no harness is set', () => {
+    renderAt('station_1');
+
+    expect(screen.getByLabelText('Harness')).toHaveTextContent('Nobody');
   });
 
   it('shows the repositories the line works in', () => {
     renderAt('station_1');
 
-    expect(
-      screen.getByRole('heading', { name: 'Line Repositories' }),
-    ).toBeInTheDocument();
     expect(screen.getByText('usespotlightai/spotlight')).toBeInTheDocument();
   });
 
-  it('offers every harness Spotlight knows, and nobody', async () => {
-    renderAt('station_1');
-    await openHarnesses();
-
-    expect(
-      screen.getByRole('menuitemradio', { name: 'Claude Code' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('menuitemradio', { name: 'Other Harness' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('menuitemradio', { name: 'Nobody' }),
-    ).toBeInTheDocument();
-  });
-
-  it('shows the harness once one is picked', async () => {
-    renderAt('station_1');
-    const user = await openHarnesses();
-
-    await user.click(
-      screen.getByRole('menuitemradio', { name: 'Other Harness' }),
-    );
-
-    expect(screen.getByLabelText('Harness')).toHaveTextContent('Other Harness');
-  });
-
-  it('keeps each station’s edits to itself', async () => {
-    const { unmount } = renderAt('station_1');
-    await userEvent.type(screen.getByLabelText('Description'), 'Triage only');
-    unmount();
-
+  it('shows the skills the station gives its runs', () => {
     renderAt('station_2');
 
-    expect(screen.getByLabelText('Description')).toHaveValue('');
-    expect(screen.getByLabelText('Station name')).toHaveValue('Spec');
-  });
-
-  const propose = () =>
-    userEvent.click(screen.getByRole('button', { name: 'Propose changes' }));
-
-  it('changes nothing on the board until the change is proposed', async () => {
-    const user = userEvent.setup();
-    renderAt('station_1');
-
-    await user.type(screen.getByLabelText('Station name'), ' queue');
-
-    expect(customised).not.toHaveBeenCalled();
-  });
-
-  it('proposes a changed name', async () => {
-    const user = userEvent.setup();
-    renderAt('station_1');
-
-    await user.type(screen.getByLabelText('Station name'), ' queue');
-    await propose();
-
-    expect(customised).toHaveBeenCalledWith({
-      teamId: 'team_1',
-      lineId: 'line_1',
-      stationId: 'station_1',
-      changes: { name: 'Triage queue' },
-    });
-  });
-
-  it('proposes only the fields that changed, in one pull request', async () => {
-    const user = userEvent.setup();
-    renderAt('station_1');
-
-    await user.type(screen.getByLabelText('Description'), 'Where work lands');
-    await propose();
-
-    expect(customised).toHaveBeenCalledTimes(1);
-    expect(customised).toHaveBeenCalledWith({
-      teamId: 'team_1',
-      lineId: 'line_1',
-      stationId: 'station_1',
-      changes: { description: 'Where work lands' },
-    });
-  });
-
-  it('proposes a picked harness', async () => {
-    renderAt('station_1');
-    const user = await openHarnesses();
-
-    await user.click(
-      screen.getByRole('menuitemradio', { name: 'Other Harness' }),
-    );
-    await propose();
-
-    expect(customised).toHaveBeenCalledWith({
-      teamId: 'team_1',
-      lineId: 'line_1',
-      stationId: 'station_1',
-      changes: { harness: 'other' },
-    });
-  });
-
-  it('proposes the line’s repositories as their own change', async () => {
-    const user = userEvent.setup();
-    renderAt('station_1');
-
-    await user.click(screen.getByLabelText('Repositories'));
-    await screen.findByRole('menu');
-    await user.click(
-      screen.getByRole('menuitemcheckbox', { name: 'acme/web' }),
-    );
-    await propose();
-
-    expect(setRepositories).toHaveBeenCalledWith({
-      teamId: 'team_1',
-      lineId: 'line_1',
-      repositories: ['usespotlightai/spotlight', 'acme/web'],
-    });
-    expect(customised).not.toHaveBeenCalled();
-  });
-
-  it('proposes the team’s own skills picked for the station', async () => {
-    const user = userEvent.setup();
-    renderAt('station_1');
-
-    await user.click(screen.getByLabelText('Skills'));
-    await screen.findByRole('menu');
-    await user.click(
-      screen.getByRole('menuitemcheckbox', { name: 'our-migrations' }),
-    );
-    await propose();
-
-    expect(customised).toHaveBeenCalledWith({
-      teamId: 'team_1',
-      lineId: 'line_1',
-      stationId: 'station_1',
-      changes: { skills: ['our-migrations'] },
-    });
-  });
-
-  it('proposes the skills left once one the station has is un-picked', async () => {
-    const user = userEvent.setup();
-    renderAt('station_2');
-
-    await user.click(screen.getByLabelText('Skills'));
-    await screen.findByRole('menu');
-    await user.click(
-      screen.getByRole('menuitemcheckbox', { name: 'our-migrations' }),
-    );
-    await propose();
-
-    expect(customised).toHaveBeenCalledWith({
-      teamId: 'team_1',
-      lineId: 'line_1',
-      stationId: 'station_2',
-      changes: { skills: ['grafana-dashboards'] },
-    });
-  });
-
-  it('leaves the skills out of a proposal that does not change them', async () => {
-    const user = userEvent.setup();
-    renderAt('station_2');
-
-    await user.type(screen.getByLabelText('Station name'), ' out');
-    await propose();
-
-    expect(customised).toHaveBeenCalledWith({
-      teamId: 'team_1',
-      lineId: 'line_1',
-      stationId: 'station_2',
-      changes: { name: 'Spec out' },
-    });
-  });
-
-  it('offers the backlog no skills', () => {
-    renderAt('station_0');
-
-    expect(screen.queryByLabelText('Skills')).not.toBeInTheDocument();
-  });
-
-  it('proposes an emptied harness, so the station holds its work', async () => {
-    renderAt('station_2');
-    const user = await openHarnesses();
-
-    await user.click(screen.getByRole('menuitemradio', { name: 'Nobody' }));
-    await propose();
-
-    expect(customised).toHaveBeenCalledWith({
-      teamId: 'team_1',
-      lineId: 'line_1',
-      stationId: 'station_2',
-      changes: { harness: null },
-    });
-  });
-
-  it('cannot propose a name emptied to nothing', async () => {
-    const user = userEvent.setup();
-    renderAt('station_1');
-
-    await user.clear(screen.getByLabelText('Station name'));
-
     expect(
-      screen.getByRole('button', { name: 'Propose changes' }),
-    ).toBeDisabled();
+      within(screen.getByRole('list', { name: 'Skills' }))
+        .getAllByRole('listitem')
+        .map((each) => each.textContent),
+    ).toEqual(['our-migrations', 'grafana-dashboards']);
+  });
+
+  it('says so where a station gives no skills', () => {
+    renderAt('station_1');
+
+    expect(screen.getByText('No skills.')).toBeInTheDocument();
   });
 
   it('marks how far along the line the station stands', () => {
@@ -469,36 +246,6 @@ describe('Station', () => {
     ).toHaveAttribute('stroke', '#93a1b5');
   });
 
-  it('takes the picked colour straight away, without waiting on the save', async () => {
-    const user = userEvent.setup();
-    renderAt('station_1');
-
-    await user.click(screen.getByRole('button', { name: 'Station colour' }));
-    await screen.findByRole('button', { name: '#db5b52' });
-    await user.click(screen.getByRole('button', { name: '#db5b52' }));
-
-    expect(
-      document.querySelector('[data-slot="station-icon"] circle'),
-    ).toHaveAttribute('stroke', '#db5b52');
-  });
-
-  it('proposes a repaint from the palette behind its icon', async () => {
-    const user = userEvent.setup();
-    renderAt('station_1');
-
-    await user.click(screen.getByRole('button', { name: 'Station colour' }));
-    await screen.findByRole('button', { name: '#db5b52' });
-    await user.click(screen.getByRole('button', { name: '#db5b52' }));
-    await propose();
-
-    expect(customised).toHaveBeenCalledWith({
-      teamId: 'team_1',
-      lineId: 'line_1',
-      stationId: 'station_1',
-      changes: { color: '#db5b52' },
-    });
-  });
-
   it('holds the shape of the station while the line loads, keeping what never changes', () => {
     lines.mockReturnValue(undefined);
 
@@ -508,11 +255,8 @@ describe('Station', () => {
       screen.getByRole('status', { name: 'Loading the station' }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: 'Line Repositories' }),
+      screen.getByRole('heading', { name: 'Agent prompt' }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Propose changes' }),
-    ).toBeDisabled();
     expect(screen.queryByText('Station not found')).not.toBeInTheDocument();
   });
 
@@ -540,11 +284,5 @@ describe('Station', () => {
     expect(
       screen.getByRole('heading', { name: 'Station not found' }),
     ).toBeInTheDocument();
-  });
-
-  it('says nobody works the station until a harness is picked', () => {
-    renderAt('station_1');
-
-    expect(screen.getByLabelText('Harness')).toHaveTextContent('Nobody');
   });
 });

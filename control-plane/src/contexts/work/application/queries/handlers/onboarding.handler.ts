@@ -1,4 +1,3 @@
-import type { GitHubAppPort } from '@github/application/ports/github-app.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
@@ -19,7 +18,6 @@ export class OnboardingHandler
   constructor(
     private readonly workspaces: WorkspaceReaderPort,
     private readonly setup: TeamSetup,
-    private readonly app: GitHubAppPort,
   ) {}
 
   async execute(query: OnboardingQuery): Promise<OnboardingDto | null> {
@@ -33,21 +31,16 @@ export class OnboardingHandler
         return null;
       }
 
-      const [facts, installUrl] = await Promise.all([
-        this.setup.factsFor(
-          WorkspaceId.of(team.workspaceId),
-          TeamId.of(team.teamId),
-        ),
-        this.app.installUrl(),
-      ]);
+      const facts = await this.setup.factsFor(
+        WorkspaceId.of(team.workspaceId),
+        TeamId.of(team.teamId),
+      );
 
       return {
         steps: shownFor(asSetupState(facts), {
           slug: team.slug,
           teamId: team.teamId,
         }),
-        installUrl,
-        connectedToGitHub: facts.connectedToGitHub,
       };
     } catch (error) {
       rethrowAsFault(error);

@@ -1,4 +1,3 @@
-import { GITHUB_APP } from '@github/application/ports/github-app.port';
 import {
   PULL_REQUESTS,
   type PullRequestPort,
@@ -956,7 +955,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(OnboardingQuery, OnboardingHandler, [
     WORKSPACE_READER,
     TeamSetup,
-    GITHUB_APP,
   ]),
 
   ...bindCommandHandler(ReadInboxItemCommand, ReadInboxItemHandler, [

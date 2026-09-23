@@ -29,7 +29,9 @@ import {
 } from '@github/application/ports/webhook-translation.port';
 import { WORKSPACE_CONNECTIONS } from '@github/application/ports/workspace-connections.port';
 import { ListRepositoriesHandler } from '@github/application/queries/handlers/list-repositories.handler';
+import { ReadGitHubHandler } from '@github/application/queries/handlers/read-github.handler';
 import { ListRepositoriesQuery } from '@github/application/queries/list-repositories.query';
+import { ReadGitHubQuery } from '@github/application/queries/read-github.query';
 import { GitHubWebhooks } from '@github/application/services/github-webhooks.service';
 import { Installations } from '@github/application/services/installations.service';
 import { WorkspaceConnections } from '@github/application/services/workspace-connections.service';
@@ -206,6 +208,12 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
     WORKSPACE_READER,
     WORKSPACE_CONNECTIONS,
     REPOSITORY_CATALOG,
+  ]),
+
+  ...bindQueryHandler(ReadGitHubQuery, ReadGitHubHandler, [
+    WORKSPACE_READER,
+    WORKSPACE_CONNECTIONS,
+    GITHUB_APP,
   ]),
 
   ...bindCommandHandler(ConnectGitHubCommand, ConnectGitHubHandler, [

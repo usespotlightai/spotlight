@@ -3,6 +3,7 @@ import type { ConfigurationReaderPort } from '@configuration/application/ports/c
 import type { IntegrationLinksPort } from '@configuration/application/ports/integration-links.port';
 import type { TeamsPort } from '@configuration/application/ports/teams.port';
 import type { ConfigurationQuery } from '@configuration/application/queries/read-configuration.query';
+import { standingOf } from '@configuration/domain/services/integration-standing';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -34,15 +35,17 @@ export class ConfigurationHandler
       const linked = new Map(links.map((each) => [each.source, each]));
 
       return {
-        integrations: view.integrations.map((each) => ({
-          source: each.source,
-          path: each.path,
-          name: each.name,
-          connectable: each.connectable,
-          connection: linked.has(each.source)
-            ? { handle: linked.get(each.source)?.handle ?? null }
-            : null,
-        })),
+        integrations: view.integrations.map((each) => {
+          const link = linked.get(each.source);
+
+          return {
+            source: each.source,
+            path: each.path,
+            name: each.name,
+            standing: standingOf(each.connectable, link !== undefined),
+            handle: link?.handle ?? null,
+          };
+        }),
       };
     } catch (error) {
       rethrowAsFault(error);

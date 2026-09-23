@@ -2537,6 +2537,42 @@
       }
     },
     "/workspaces/{slug}/github": {
+      "get": {
+        "operationId": "readGitHub",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitHubStandingResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          }
+        },
+        "summary": "Whether this workspace is connected to GitHub, and where to install the App",
+        "tags": [
+          "workspaces"
+        ]
+      },
       "post": {
         "operationId": "connectGitHub",
         "parameters": [
@@ -6170,22 +6206,10 @@
             "items": {
               "$ref": "#/components/schemas/SetupStepResponseDto"
             }
-          },
-          "installUrl": {
-            "type": "string",
-            "description": "Where to install the App, or null where GitHub would not say",
-            "nullable": true,
-            "example": "https://github.com/apps/spotlight/installations/new"
-          },
-          "connectedToGitHub": {
-            "type": "boolean",
-            "description": "The App has to be installed to read or write"
           }
         },
         "required": [
-          "steps",
-          "installUrl",
-          "connectedToGitHub"
+          "steps"
         ]
       },
       "CreateWorkspaceRequestDto": {
@@ -6535,6 +6559,25 @@
           "fullName"
         ]
       },
+      "GitHubStandingResponseDto": {
+        "type": "object",
+        "properties": {
+          "connected": {
+            "type": "boolean",
+            "description": "Whether the App is installed for this workspace"
+          },
+          "installUrl": {
+            "type": "string",
+            "description": "Where to install the App, or null where GitHub would not say",
+            "nullable": true,
+            "example": "https://github.com/apps/spotlight/installations/new"
+          }
+        },
+        "required": [
+          "connected",
+          "installUrl"
+        ]
+      },
       "ConnectGitHubRequestDto": {
         "type": "object",
         "properties": {
@@ -6660,20 +6703,6 @@
           "runnerId"
         ]
       },
-      "ConfiguredConnectionResponseDto": {
-        "type": "object",
-        "properties": {
-          "handle": {
-            "type": "object",
-            "description": "What the host calls the team, where it says; null otherwise",
-            "example": "Acme",
-            "nullable": true
-          }
-        },
-        "required": [
-          "handle"
-        ]
-      },
       "ConfiguredIntegrationResponseDto": {
         "type": "object",
         "properties": {
@@ -6690,28 +6719,29 @@
             "description": "Where the integration is defined",
             "example": ".spotlight/integrations/linear.yml"
           },
-          "connectable": {
-            "type": "boolean",
-            "description": "Whether this host is linked by authorizing a connection",
-            "example": true
+          "standing": {
+            "type": "string",
+            "description": "Whether the team is linked to the host: it only listens, it links by authorizing and has not, or it has",
+            "enum": [
+              "listens",
+              "unlinked",
+              "linked"
+            ],
+            "example": "linked"
           },
-          "connection": {
-            "nullable": true,
-            "description": "The living link, or null where the team has not linked",
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ConfiguredConnectionResponseDto"
-              }
-            ]
+          "handle": {
+            "type": "string",
+            "description": "What the host calls the team once linked, where it says",
+            "example": "Acme",
+            "nullable": true
           }
         },
         "required": [
           "source",
           "name",
           "path",
-          "connectable",
-          "connection"
+          "standing",
+          "handle"
         ]
       },
       "ConfigurationResponseDto": {

@@ -1,53 +1,35 @@
 import { useParams } from 'react-router';
 import { StationIcon } from '@/components/features/board/column/StationIcon';
-import { AgentPromptField } from '@/components/features/stations/AgentPromptField';
-import { ProposeChangesButton } from '@/components/features/stations/ProposeChangesButton';
-import { StationColorPicker } from '@/components/features/stations/StationColorPicker';
+import { FixedSettings } from '@/components/features/stations/FixedSettings';
 import { StationLayout } from '@/components/features/stations/StationLayout';
-import { StationProperties } from '@/components/features/stations/StationProperties';
+import { StationPrompt } from '@/components/features/stations/StationPrompt';
 import { StationSkeleton } from '@/components/features/stations/StationSkeleton';
+import { StationSkills } from '@/components/features/stations/StationSkills';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
-import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
 import { PageNotice } from '@/components/shared/PageNotice';
-import { ProposedPullRequest } from '@/components/shared/ProposedPullRequest';
-import { RereadConfigurationButton } from '@/components/shared/RereadConfigurationButton';
 import {
   type BreadcrumbSegment,
   Breadcrumbs,
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { useCustomiseStation } from '@/hooks/api/useCustomiseStation';
-import { useSetLineRepositories } from '@/hooks/api/useSetLineRepositories';
 import { useStation } from '@/hooks/api/useStation';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
-import { useReseeded } from '@/hooks/useReseeded';
-import { useStationEdits } from '@/hooks/useStationEdits';
-import { sameMembers } from '@/lib/members';
 import { failed, loading } from '@/lib/query';
 import { stationShare } from '@/lib/station';
 import { linePath, teamPath } from '@/lib/team';
 import { useTrail } from '@/lib/trail';
 
+const ENDS = {
+  backlog:
+    'Tasks wait here until someone starts them. Nothing runs at a backlog, so it has no harness and nothing to instruct.',
+  completed:
+    'Tasks land here once the line is done with them. Nothing runs at it.',
+};
+
 export function Station() {
   const { slug, teamId, lineId, stationId } = useParams();
   const { data: workspace } = useWorkspace(slug);
   const { lines, line, station } = useStation(teamId, lineId, stationId);
-  const { edits, change } = useStationEdits(station);
-  const customise = useCustomiseStation();
-  const setRepositories = useSetLineRepositories();
-
-  const [repos, setRepos] = useReseeded(line?.id, () =>
-    line ? [...line.repositories] : [],
-  );
-
-  const [skills, setSkills] = useReseeded(station?.id, () =>
-    station ? [...station.skills] : [],
-  );
 
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
 
@@ -72,12 +54,12 @@ export function Station() {
           },
         ]
       : []),
-    ...(station ? [{ label: edits.name || station.name }] : []),
+    ...(station ? [{ label: station.name }] : []),
   ];
   const { trail } = useTrail(base);
 
   if (loading(lines)) {
-    return <StationSkeleton teamId={teamId} />;
+    return <StationSkeleton />;
   }
 
   if (failed(lines)) {
@@ -92,7 +74,7 @@ export function Station() {
     );
   }
 
-  if (!line || !station) {
+  if (!line || !station || !slug) {
     return (
       <PageNotice title="Station not found">
         <p className="text-muted-foreground text-sm">
@@ -102,176 +84,61 @@ export function Station() {
     );
   }
 
-  const ends = station.kind !== 'work';
-
-  const changed: NonNullable<
-    Parameters<typeof customise.mutate>[0]
-  >['changes'] = {};
-  if (edits.name !== station.name) {
-    changed.name = edits.name;
-  }
-  if (edits.color !== station.color) {
-    changed.color = edits.color;
-  }
-  if (edits.description !== (station.description ?? '')) {
-    changed.description = edits.description || null;
-  }
-  if (!ends && edits.harness !== (station.harness ?? '')) {
-    changed.harness = edits.harness || null;
-  }
-  if (!ends && edits.model !== (station.model ?? '')) {
-    changed.model = edits.model || null;
-  }
-  if (!ends && edits.effort !== (station.effort ?? '')) {
-    changed.effort = edits.effort || null;
-  }
-  if (!ends && edits.agentPrompt !== (station.agentPrompt ?? '')) {
-    changed.agentPrompt = edits.agentPrompt || null;
-  }
-  if (!ends && !sameMembers(skills, station.skills)) {
-    changed.skills = skills;
-  }
-
-  const reposChanged = !sameMembers(repos, line.repositories);
-
-  const stationChanged = Object.keys(changed).length > 0;
-  const dirty = stationChanged || reposChanged;
-  const proposable = dirty && edits.name.trim().length > 0;
-
-  const proposing = customise.isPending || setRepositories.isPending;
-  const proposedUrl = customise.data?.url ?? setRepositories.data?.url;
-  const proposeError = customise.error ?? setRepositories.error;
-
-  const propose = async () => {
-    if (!teamId || !proposable) {
-      return;
-    }
-    if (stationChanged) {
-      await customise.mutateAsync({
-        teamId,
-        lineId: line.id,
-        stationId: station.id,
-        changes: changed,
-      });
-    }
-    if (reposChanged) {
-      await setRepositories.mutateAsync({
-        teamId,
-        lineId: line.id,
-        repositories: repos,
-      });
-    }
-  };
-
   return (
     <>
-      <PageHeader
-        title={<Breadcrumbs segments={trail} />}
-        actions={
-          <>
-            <RereadConfigurationButton teamId={teamId} />
+      <PageHeader title={<Breadcrumbs segments={trail} />} />
 
-            <ProposeChangesButton
-              proposing={proposing}
-              disabled={!proposable || proposing}
-              onClick={propose}
-            />
-          </>
-        }
-      />
-
-      <StationLayout
-        notices={
-          <>
-            {proposedUrl && !dirty && (
-              <ProposedPullRequest url={proposedUrl}>
-                Changes proposed. The board updates once this pull request is
-                merged.
-              </ProposedPullRequest>
-            )}
-
-            {proposeError && (
-              <p className="text-destructive text-sm">{proposeError.message}</p>
-            )}
-          </>
-        }
-        aside={
-          <StationProperties
-            slug={slug}
-            teamId={teamId}
-            repositories={repos}
-            onRepositories={setRepos}
-            {...(ends
-              ? {
-                  note:
-                    station.kind === 'backlog'
-                      ? 'Tasks wait here until someone starts them. Nothing runs at a backlog, so it has no harness and nothing to instruct.'
-                      : 'Tasks land here once the line is done with them. Nothing runs at it.',
-                }
-              : {
-                  harness: edits.harness,
-                  onHarness: (harness: string) =>
-                    change({ harness, model: '', effort: '' }),
-                  model: edits.model,
-                  onModel: (model: string) => change({ model }),
-                  effort: edits.effort,
-                  onEffort: (effort: string) => change({ effort }),
-                  skills,
-                  onSkills: setSkills,
-                })}
-          />
-        }
-      >
+      <StationLayout>
         <div className="flex flex-col gap-3">
           <div className="flex items-start gap-2">
-            <Popover>
-              <PopoverTrigger
-                aria-label="Station colour"
-                className="mt-1 rounded-md p-0.5 outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent"
-              >
-                <StationIcon
-                  share={stationShare(
-                    line.stations.findIndex((each) => each.id === station.id),
-                    line.stations.length,
-                  )}
-                  color={edits.color}
-                  className="size-5"
-                />
-              </PopoverTrigger>
+            <span className="mt-1 p-0.5">
+              <StationIcon
+                share={stationShare(
+                  line.stations.findIndex((each) => each.id === station.id),
+                  line.stations.length,
+                )}
+                color={station.color}
+                className="size-5"
+              />
+            </span>
 
-              <PopoverContent align="start" sideOffset={6}>
-                <StationColorPicker
-                  value={edits.color}
-                  onChange={(color) => change({ color })}
-                />
-              </PopoverContent>
-            </Popover>
-
-            <AutoGrowTextarea
-              value={edits.name}
-              onChange={(event) => change({ name: event.target.value })}
-              aria-label="Station name"
-              placeholder="Station name"
-              maxLength={100}
-              className="font-semibold text-2xl text-foreground leading-8 tracking-tight"
-            />
+            <h1 className="font-semibold text-2xl text-foreground leading-8 tracking-tight">
+              {station.name}
+            </h1>
           </div>
 
-          <AutoGrowTextarea
-            value={edits.description}
-            onChange={(event) => change({ description: event.target.value })}
-            aria-label="Description"
-            placeholder="Add description…"
-            className="text-foreground text-sm leading-6"
-          />
+          {station.description && (
+            <p className="text-foreground text-sm leading-6">
+              {station.description}
+            </p>
+          )}
+
+          {station.kind === 'work' && (
+            <div className="-ml-2 flex flex-wrap items-center gap-2">
+              <FixedSettings
+                slug={slug}
+                harness={station.harness}
+                model={station.model}
+                effort={station.effort}
+                repositories={line.repositories}
+              />
+            </div>
+          )}
         </div>
 
-        {!ends && (
-          <AgentPromptField
-            key={station.id}
-            value={edits.agentPrompt}
-            onChange={(agentPrompt) => change({ agentPrompt })}
-          />
+        {station.kind === 'work' ? (
+          <>
+            <StationPrompt
+              stationId={station.id}
+              prompt={station.agentPrompt}
+            />
+
+            <StationSkills skills={station.skills} />
+          </>
+        ) : (
+          <p className="text-muted-foreground text-sm leading-6">
+            {ENDS[station.kind]}
+          </p>
         )}
       </StationLayout>
     </>

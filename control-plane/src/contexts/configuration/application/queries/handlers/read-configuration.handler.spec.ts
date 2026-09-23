@@ -70,26 +70,31 @@ describe('ConfigurationHandler', () => {
     );
   });
 
-  it('says a host is not connected where it links but the team has not', async () => {
+  it('says a host is unlinked where it links by authorizing but the team has not', async () => {
     const read = await asking({ connects: true }).execute(query());
 
-    expect(read?.integrations[0]?.connectable).toBe(true);
-    expect(read?.integrations[0]?.connection).toBeNull();
+    expect(read?.integrations[0]).toMatchObject({
+      standing: 'unlinked',
+      handle: null,
+    });
   });
 
-  it('shows the identity the host gave once a team has linked', async () => {
+  it('says a host is linked, and what it calls the team, once the team has authorized it', async () => {
     const read = await asking({
       connects: true,
       linked: [{ source: 'linear', handle: 'Acme' }],
     }).execute(query());
 
-    expect(read?.integrations[0]?.connection).toEqual({ handle: 'Acme' });
+    expect(read?.integrations[0]).toMatchObject({
+      standing: 'linked',
+      handle: 'Acme',
+    });
   });
 
-  it('never offers to connect a host that does not link that way', async () => {
+  it('says a host that does not link that way only listens', async () => {
     const read = await asking().execute(query());
 
-    expect(read?.integrations[0]?.connectable).toBe(false);
+    expect(read?.integrations[0]?.standing).toBe('listens');
   });
 
   it('lists nothing where the team listens to nothing', async () => {

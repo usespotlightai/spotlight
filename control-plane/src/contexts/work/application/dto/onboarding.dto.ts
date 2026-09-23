@@ -15,6 +15,4 @@ export interface SetupStepDto {
 
 export interface OnboardingDto {
   readonly steps: readonly SetupStepDto[];
-  readonly installUrl: string | null;
-  readonly connectedToGitHub: boolean;
 }

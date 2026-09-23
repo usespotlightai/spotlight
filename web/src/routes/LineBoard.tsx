@@ -19,7 +19,6 @@ import { TaskPreview } from '@/components/features/board/task/TaskPreview';
 import { TaskRow } from '@/components/features/board/task/TaskRow';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
-import { RereadConfigurationButton } from '@/components/shared/RereadConfigurationButton';
 import { TrailSkeleton } from '@/components/shared/skeleton/TrailSkeleton';
 import { ViewPills } from '@/components/shared/ViewPills';
 import {
@@ -151,7 +150,6 @@ export function LineBoard() {
             <TrailSkeleton known={trail.slice(0, -1)} />
           )
         }
-        actions={<RereadConfigurationButton teamId={teamId} />}
       />
 
       <ViewPills

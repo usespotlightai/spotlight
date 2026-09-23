@@ -1,20 +1,25 @@
 import { ConnectGitHubCommand } from '@github/application/commands/connect-github.command';
+import type { GitHubStandingDto } from '@github/application/dto/github-standing.dto';
+import { ReadGitHubQuery } from '@github/application/queries/read-github.query';
 import { ConnectGitHubRequestDto } from '@github/presentation/http/dto/connect-github.request.dto';
+import { GitHubStandingResponseDto } from '@github/presentation/http/dto/github-standing.response.dto';
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   NotFoundException,
   Param,
   Post,
 } from '@nestjs/common';
-import { CommandBus } from '@nestjs/cqrs';
+import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
   ApiConflictResponse,
   ApiForbiddenResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiParam,
   ApiTags,
@@ -27,7 +32,35 @@ import type { AuthenticatedUser } from '@shared-kernel/application/ports/session
 @ApiUnauthorizedResponse({ description: 'No valid session' })
 @Controller('workspaces/:slug/github')
 export class GitHubConnectionController {
-  constructor(private readonly commandBus: CommandBus) {}
+  constructor(
+    private readonly queryBus: QueryBus,
+    private readonly commandBus: CommandBus,
+  ) {}
+
+  @Get()
+  @ApiOperation({
+    operationId: 'readGitHub',
+    summary:
+      'Whether this workspace is connected to GitHub, and where to install the App',
+  })
+  @ApiParam({ name: 'slug', example: 'acme' })
+  @ApiOkResponse({ type: GitHubStandingResponseDto })
+  @ApiNotFoundResponse({ description: 'No such workspace for this caller' })
+  async read(
+    @Param('slug') slug: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<GitHubStandingResponseDto> {
+    const read = await this.queryBus.execute<
+      ReadGitHubQuery,
+      GitHubStandingDto | null
+    >(new ReadGitHubQuery(slug, user.id));
+
+    if (!read) {
+      throw new NotFoundException();
+    }
+
+    return new GitHubStandingResponseDto(read.connected, read.installUrl);
+  }
 
   @Post()
   @ApiOperation({

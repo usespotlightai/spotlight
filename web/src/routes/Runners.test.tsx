@@ -31,10 +31,6 @@ vi.mock('@/hooks/api/useHarnesses', () => ({
   }),
 }));
 
-vi.mock('@/hooks/api/useEnrolRunner', () => ({
-  useEnrolRunner: () => ({ mutate: vi.fn(), reset: vi.fn(), isPending: false }),
-}));
-
 const runner = (over: Record<string, unknown> = {}) => ({
   id: 'runner_1',
   name: 'Laptop',
@@ -72,9 +68,6 @@ describe('Runners', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: 'Enrolled' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'New runner' }),
     ).toBeInTheDocument();
     expect(
       screen.queryByText(/No runner has registered/),
@@ -178,26 +171,13 @@ describe('Runners', () => {
     expect(screen.getByText(/No runner has registered/)).toBeInTheDocument();
   });
 
-  it('offers to register one where none has', async () => {
-    const person = userEvent.setup();
+  it('offers nothing to register', () => {
     fleet.mockReturnValue([]);
 
     renderPage();
 
-    await person.click(
-      screen.getByRole('button', { name: 'Register a new runner' }),
-    );
-
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
-  });
-
-  it('offers nothing to register once one has', () => {
-    fleet.mockReturnValue([runner()]);
-
-    renderPage();
-
     expect(
-      screen.queryByRole('button', { name: 'Register a new runner' }),
+      screen.queryByRole('button', { name: /runner/i }),
     ).not.toBeInTheDocument();
   });
 });

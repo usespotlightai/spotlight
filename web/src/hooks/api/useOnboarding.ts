@@ -1,9 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  type ChooseIntegrationsRequestDto,
-  chooseIntegrations,
-  readOnboarding,
-} from '@/lib/api';
+import { useQuery } from '@tanstack/react-query';
+import { readOnboarding } from '@/lib/api';
 
 export const onboardingKeys = {
   forTeam: (teamId?: string) => ['onboarding', teamId ?? null] as const,
@@ -23,26 +19,6 @@ export function useOnboarding(teamId: string | undefined) {
         throwOnError: true,
       });
       return data;
-    },
-  });
-}
-
-export function useChooseIntegrations(teamId: string | undefined) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (change: ChooseIntegrationsRequestDto) => {
-      const { data } = await chooseIntegrations({
-        path: { teamId: teamId as string },
-        body: change,
-        throwOnError: true,
-      });
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: onboardingKeys.forTeam(teamId),
-      });
     },
   });
 }
