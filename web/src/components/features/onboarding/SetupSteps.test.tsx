@@ -29,22 +29,14 @@ vi.mock('@/hooks/api/useGitHub', () => ({
 
 const STEPS = [
   {
-    key: 'runner',
-    title: 'Start a runner',
-    description: 'The machine that does the work.',
-    where: '/w/acme/runners',
-  },
-  {
     key: 'github',
     title: 'Install the GitHub App',
     description: 'So Spotlight can read and write.',
-    where: '/w/acme/team/team_1/settings/integrations',
   },
   {
-    key: 'integrations',
-    title: 'Choose your integrations',
-    description: 'What this team listens to.',
-    where: '/w/acme/team/team_1/settings/integrations',
+    key: 'harness',
+    title: 'Run a harness',
+    description: 'A runner with an agent harness installed.',
   },
 ];
 
@@ -56,7 +48,7 @@ const onboarding = (
   ...over,
 });
 
-const BODY = '1. Start a runner. The machine that does the work.';
+const BODY = '1. Install the GitHub App. So Spotlight can read and write.';
 
 const showing = (resolved = false) =>
   render(
@@ -105,10 +97,6 @@ describe('SetupSteps', () => {
     onboardingState.data = onboarding();
     showing();
 
-    expect(screen.getByRole('link', { name: 'Take me there' })).toHaveAttribute(
-      'href',
-      '/w/acme/runners',
-    );
     expect(
       screen.getByRole('link', { name: 'Install on GitHub' }),
     ).toHaveAttribute(
@@ -119,9 +107,9 @@ describe('SetupSteps', () => {
         from: '/w/acme/inbox/item_1',
       }),
     );
-    expect(screen.getByRole('link', { name: 'Choose them' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Take me there' })).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/settings/integrations',
+      '/w/acme/runners',
     );
   });
 
@@ -143,14 +131,15 @@ describe('SetupSteps', () => {
   });
 
   it('folds a done step away, keeping the next one open', () => {
-    onboardingState.data = onboarding({}, ['runner']);
+    githubState.data = { connected: true, installUrl: INSTALL };
+    onboardingState.data = onboarding({}, ['github']);
     showing();
 
     expect(
-      screen.getByRole('button', { name: /Start a runner/ }),
+      screen.getByRole('button', { name: /Install the GitHub App/ }),
     ).toHaveAttribute('aria-expanded', 'false');
     expect(
-      screen.getByRole('link', { name: 'Install on GitHub' }),
+      screen.getByRole('link', { name: 'Take me there' }),
     ).toBeInTheDocument();
   });
 
@@ -179,15 +168,15 @@ describe('SetupSteps', () => {
     ).toBeInTheDocument();
   });
 
-  it('folds the integrations step away once one is chosen', () => {
-    onboardingState.data = onboarding({}, ['integrations']);
+  it('folds the harness step away once a runner reports one', () => {
+    onboardingState.data = onboarding({}, ['harness']);
     showing();
 
     expect(
-      screen.getByRole('button', { name: /Choose your integrations/ }),
+      screen.getByRole('button', { name: /Run a harness/ }),
     ).toHaveAttribute('aria-expanded', 'false');
     expect(
-      screen.getByRole('link', { name: 'Choose them' }),
+      screen.getByRole('link', { name: 'Install on GitHub' }),
     ).toBeInTheDocument();
   });
 
@@ -216,7 +205,7 @@ describe('SetupSteps', () => {
 
   it('locks every control once the item is resolved', () => {
     githubState.data = { connected: true, installUrl: INSTALL };
-    onboardingState.data = onboarding({}, ['runner', 'github', 'integrations']);
+    onboardingState.data = onboarding({}, ['github', 'harness']);
     showing(true);
 
     const install = screen.getByRole('link', { name: 'Configure on GitHub' });

@@ -8,30 +8,22 @@ export const SLUG = 'acme';
 export const TEAM_ID = 'team_platform';
 export const SETUP_ITEM_ID = 'task_setup:0';
 
-export const BODY =
-  '1. Start a runner.\n2. Install the GitHub App.\n3. Set up your lines.\n4. Choose your integrations.';
+export const BODY = '1. Install the GitHub App.\n2. Run a harness.';
 
 type StepKey = SetupStepResponseDto['key'];
 
 const STEPS: Omit<SetupStepResponseDto, 'done'>[] = [
   {
-    key: 'runner',
-    title: 'Start a runner',
-    description: 'The machine that does the work.',
-    where: `/w/${SLUG}/runners`,
-  },
-  {
     key: 'github',
     title: 'Install the GitHub App',
     description:
       'So Spotlight can read your repositories and open pull requests.',
-    where: null,
   },
   {
-    key: 'integrations',
-    title: 'Choose your integrations',
-    description: 'What this team listens to.',
-    where: `/w/${SLUG}/team/${TEAM_ID}/settings/integrations`,
+    key: 'harness',
+    title: 'Run a harness',
+    description:
+      'A runner with an agent harness installed, such as Claude Code.',
   },
 ];
 
@@ -46,11 +38,9 @@ const seed =
 
 export const seedFreshSetup = seed([]);
 
-export const seedRunnersEnrolled = seed(['runner']);
+export const seedGitHubInstalled = seed(['github']);
 
-export const seedGitHubInstalled = seed(['runner', 'github']);
-
-export const seedSetupDone = seed(['runner', 'github', 'integrations']);
+export const seedSetupDone = seed(['github', 'harness']);
 
 export const failSetup = (client: QueryClient) =>
   failQuery(client, onboardingKeys.forTeam(TEAM_ID));

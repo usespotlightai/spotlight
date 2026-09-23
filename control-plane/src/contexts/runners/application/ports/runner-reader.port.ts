@@ -14,7 +14,7 @@ export const RUNNER_READER = Symbol('RUNNER_READER');
 export interface RunnerReaderPort {
   inWorkspace(workspaceId: WorkspaceId): Promise<RunnerSummary[]>;
 
-  anyConnected(workspaceId: WorkspaceId): Promise<boolean>;
+  anyOffersWork(workspaceId: WorkspaceId): Promise<boolean>;
 
   advertisedModels(
     workspaceId: WorkspaceId,

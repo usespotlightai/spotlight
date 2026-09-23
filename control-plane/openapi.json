@@ -2293,47 +2293,6 @@
         ]
       }
     },
-    "/teams/{teamId}": {
-      "patch": {
-        "operationId": "renameTeam",
-        "parameters": [
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "team_1",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RenameTeamRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "204": {
-            "description": "Renamed"
-          },
-          "401": {
-            "description": "No valid session"
-          },
-          "404": {
-            "description": "No such team, or not yours to rename"
-          }
-        },
-        "summary": "Rename a team",
-        "tags": [
-          "teams"
-        ]
-      }
-    },
     "/teams/{teamId}/members": {
       "get": {
         "operationId": "listMembers",
@@ -6395,24 +6354,17 @@
             "type": "string",
             "description": "Which step this is",
             "enum": [
-              "runner",
               "github",
-              "integrations"
+              "harness"
             ],
-            "example": "runner"
+            "example": "github"
           },
           "title": {
             "type": "string",
-            "example": "Start a runner"
+            "example": "Install the GitHub App"
           },
           "description": {
             "type": "string"
-          },
-          "where": {
-            "type": "string",
-            "description": "The page in Spotlight this step is taken from, or null where there is none",
-            "nullable": true,
-            "example": "/w/acme/runners"
           },
           "done": {
             "type": "boolean"
@@ -6422,7 +6374,6 @@
           "key",
           "title",
           "description",
-          "where",
           "done"
         ]
       },
@@ -6602,19 +6553,6 @@
         },
         "required": [
           "role"
-        ]
-      },
-      "RenameTeamRequestDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "What the team is called.",
-            "example": "Platform"
-          }
-        },
-        "required": [
-          "name"
         ]
       },
       "MemberResponseDto": {

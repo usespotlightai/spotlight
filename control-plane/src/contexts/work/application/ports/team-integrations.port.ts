@@ -5,6 +5,4 @@ export const TEAM_INTEGRATIONS = Symbol('TEAM_INTEGRATIONS');
 
 export interface TeamIntegrationsPort {
   offered(teamId: TeamId): Promise<readonly ToolDeclaration[]>;
-
-  listening(teamId: TeamId): Promise<readonly string[]>;
 }

@@ -89,10 +89,12 @@ describe('an integration, defined and read back (e2e)', () => {
       }),
     ]);
     expect(
-      await app
-        .get<TeamIntegrationsPort>(TEAM_INTEGRATIONS)
-        .listening(TeamId.of(held)),
-    ).toEqual(['linear']);
+      (
+        await app
+          .get<TeamIntegrationsPort>(TEAM_INTEGRATIONS)
+          .offered(TeamId.of(held))
+      ).map((each) => each.tool),
+    ).toEqual(['linear.comment']);
   });
 
   it('replaces the one the team had for that host', async () => {

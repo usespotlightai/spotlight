@@ -57,6 +57,28 @@ describe('Runner', () => {
     expect(runner.revoked).toBe(false);
   });
 
+  it('offers no work before it has ever connected', () => {
+    expect(enrolled().offersWork).toBe(false);
+  });
+
+  it('offers work once it connects with a harness installed', () => {
+    expect(enrolled().register([has('claude-code')], NOW).offersWork).toBe(
+      true,
+    );
+  });
+
+  it('offers no work where it connected with no harness installed', () => {
+    expect(enrolled().register([], NOW).offersWork).toBe(false);
+  });
+
+  it('offers no work once its token is revoked', () => {
+    expect(
+      enrolled()
+        .register([has('claude-code')], NOW)
+        .revoke(LATER).offersWork,
+    ).toBe(false);
+  });
+
   it('records what the runner says it found, and that it was heard from', () => {
     const runner = enrolled().register([has('claude-code'), has('other')], NOW);
 

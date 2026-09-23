@@ -15,10 +15,7 @@ const LINEAR: ToolDeclaration = {
 describe('TeamIntegrations', () => {
   it('offers what the line’s team’s integrations offer, in Work’s own terms', async () => {
     const offered = vi.fn(async () => [LINEAR]);
-    const service = new TeamIntegrations({
-      offered,
-      listening: async () => [],
-    });
+    const service = new TeamIntegrations({ offered });
 
     const tools = await service.offered({ teamId: TEAM } as Line);
 

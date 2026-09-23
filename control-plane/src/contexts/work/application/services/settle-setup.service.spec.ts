@@ -6,15 +6,12 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { SettleSetup } from '@work/application/services/settle-setup.service';
 import { listed } from '@work/application/services/setup-steps';
-import type {
-  TeamFacts,
-  TeamSetup,
-} from '@work/application/services/team-setup.service';
+import type { WorkspaceSetup } from '@work/application/services/workspace-setup.service';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import type { SetupState } from '@work/domain/services/setup-list';
 import { welcomeTask } from '@work/domain/services/welcome-task';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
@@ -70,7 +67,7 @@ const list = (): Task =>
   welcomeTask({
     line: DELIVERY,
     teamId: TEAM,
-    saying: TaskNoteBody.of(listed({ slug: 'acme', teamId: TEAM.value })),
+    saying: TaskNoteBody.of(listed()),
     at: STATION,
     station: StationName.of('Inbox'),
     owner: OWNER,
@@ -78,30 +75,24 @@ const list = (): Task =>
     newId: nextId,
   });
 
-const done: TeamFacts = {
-  hasRunner: true,
+const done: SetupState = {
   connectedToGitHub: true,
-  listening: ['linear'],
+  hasHarness: true,
 };
 
-const settling = (given: { task?: Task; facts?: TeamFacts } = {}) => {
+const settling = (given: { task?: Task; state?: SetupState } = {}) => {
   const task = given.task ?? list();
   const save = vi.fn(async () => {});
 
   const tasks = {
     save,
-    settingUpFor: vi.fn(async () => task),
     settingUpIn: vi.fn(async () => [task]),
     settingUp: vi.fn(async () => [task]),
   } as unknown as TaskRepository;
 
-  const lines = {
-    holding: vi.fn(async () => DELIVERY),
-  } as unknown as LineRepository;
-
   const setup = {
-    factsFor: vi.fn(async () => given.facts ?? done),
-  } as unknown as TeamSetup;
+    stateOf: vi.fn(async () => given.state ?? done),
+  } as unknown as WorkspaceSetup;
 
   const logger = { warn: vi.fn(), error: vi.fn() } as unknown as LoggerPort;
 
@@ -112,7 +103,6 @@ const settling = (given: { task?: Task; facts?: TeamFacts } = {}) => {
     setup,
     service: new SettleSetup(
       tasks,
-      lines,
       setup,
       { now: () => NOW } as ClockPort,
       logger,
@@ -131,7 +121,7 @@ describe('SettleSetup', () => {
   it('settles the list once nothing is left on it', async () => {
     const { service, save } = settling();
 
-    await service.forTeam(TEAM);
+    await service.forWorkspace(WORKSPACE);
 
     const task = settled(save);
     expect(task.notes[task.notes.length - 1]?.kind).toBe('passed');
@@ -144,7 +134,7 @@ describe('SettleSetup', () => {
     });
     const { service, save } = settling({ task: working });
 
-    await service.forTeam(TEAM);
+    await service.forWorkspace(WORKSPACE);
 
     expect(settled(save).finishedAt).toBeNull();
     expect(settled(save).currentRunId).toEqual(working.currentRunId);
@@ -153,7 +143,7 @@ describe('SettleSetup', () => {
   it('says so on the trail in the board’s own voice', async () => {
     const { service, save } = settling();
 
-    await service.forTeam(TEAM);
+    await service.forWorkspace(WORKSPACE);
 
     const last = settled(save).notes[settled(save).notes.length - 1];
     expect(last?.voice.isStation).toBe(true);
@@ -165,10 +155,10 @@ describe('SettleSetup', () => {
 
   it('leaves it standing while a step is still to be taken', async () => {
     const { service, save } = settling({
-      facts: { ...done, hasRunner: false },
+      state: { ...done, hasHarness: false },
     });
 
-    await service.forTeam(TEAM);
+    await service.forWorkspace(WORKSPACE);
 
     expect(save).not.toHaveBeenCalled();
   });
@@ -183,7 +173,7 @@ describe('SettleSetup', () => {
 
     const { service, save } = settling({ task: gone });
 
-    await service.forTeam(TEAM);
+    await service.forWorkspace(WORKSPACE);
 
     expect(save).not.toHaveBeenCalled();
   });
@@ -197,12 +187,12 @@ describe('SettleSetup', () => {
     expect(save).toHaveBeenCalledTimes(1);
   });
 
-  it('asks after the team whose line the list stands on', async () => {
+  it('asks after the workspace the list stands in', async () => {
     const { service, setup } = settling();
 
     await service.wherever();
 
-    expect(setup.factsFor).toHaveBeenCalledWith(WORKSPACE, TEAM);
+    expect(setup.stateOf).toHaveBeenCalledWith(WORKSPACE);
   });
 
   it('goes through the lists of one workspace alone', async () => {
@@ -217,11 +207,11 @@ describe('SettleSetup', () => {
 
   it('says so and carries on where the lists cannot be looked for', async () => {
     const { service, tasks, logger } = settling();
-    (tasks.settingUpFor as ReturnType<typeof vi.fn>).mockRejectedValue(
+    (tasks.settingUpIn as ReturnType<typeof vi.fn>).mockRejectedValue(
       new Error('nope'),
     );
 
-    await expect(service.forTeam(TEAM)).resolves.toBeUndefined();
+    await expect(service.forWorkspace(WORKSPACE)).resolves.toBeUndefined();
     expect(logger.warn).toHaveBeenCalled();
   });
 
@@ -231,7 +221,7 @@ describe('SettleSetup', () => {
       new Error('nope'),
     );
 
-    await expect(service.forTeam(TEAM)).resolves.toBeUndefined();
+    await expect(service.forWorkspace(WORKSPACE)).resolves.toBeUndefined();
     expect(logger.warn).toHaveBeenCalled();
   });
 });

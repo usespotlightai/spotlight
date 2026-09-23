@@ -7,14 +7,14 @@ import type {
 } from '@runners/application/ports/runner-reader.port';
 import { runner } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, isNotNull, isNull } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleRunnerReader implements RunnerReaderPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
-  async anyConnected(workspaceId: WorkspaceId): Promise<boolean> {
-    const [reached] = await this.db
+  async anyOffersWork(workspaceId: WorkspaceId): Promise<boolean> {
+    const [offering] = await this.db
       .select({ id: runner.id })
       .from(runner)
       .where(
@@ -22,11 +22,12 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
           eq(runner.workspaceId, workspaceId.value),
           isNull(runner.revokedAt),
           isNotNull(runner.lastSeenAt),
+          sql`jsonb_array_length(${runner.harnesses}) > 0`,
         ),
       )
       .limit(1);
 
-    return reached !== undefined;
+    return offering !== undefined;
   }
 
   async advertisedModels(

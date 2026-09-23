@@ -10,7 +10,6 @@ const invites = vi.fn();
 const changeRole = vi.fn();
 const invite = vi.fn();
 const revoke = vi.fn();
-const rename = vi.fn();
 
 const settingsFailing = vi.fn();
 const membersFailing = vi.fn();
@@ -65,10 +64,6 @@ vi.mock('@/hooks/api/useChangeMemberRole', () => ({
   }),
 }));
 
-vi.mock('@/hooks/api/useRenameTeam', () => ({
-  useRenameTeam: () => ({ mutate: rename, isPending: false }),
-}));
-
 const showing = () =>
   render(
     <MemoryRouter initialEntries={['/w/acme/team/team_1/settings/general']}>
@@ -116,38 +111,17 @@ beforeEach(() => {
   membersFailing.mockReturnValue(false);
   refetchSettings.mockClear();
   refetchMembers.mockClear();
-  rename.mockReset();
   invite.mockReset();
   revoke.mockReset();
   changeRole.mockReset();
 });
 
 describe('TeamGeneral', () => {
-  it('shows the team name', () => {
+  it('shows the team name without offering to change it', () => {
     showing();
 
-    expect(screen.getByLabelText('Team name')).toHaveValue('Platform');
-  });
-
-  it('renames the team once edited and left', async () => {
-    showing();
-
-    const field = screen.getByLabelText('Team name');
-    await userEvent.clear(field);
-    await userEvent.type(field, 'Platform Team');
-    await userEvent.tab();
-
-    expect(rename).toHaveBeenCalledWith('Platform Team', expect.anything());
-  });
-
-  it('does not rename when the name is left unchanged', async () => {
-    showing();
-
-    const field = screen.getByLabelText('Team name');
-    await userEvent.click(field);
-    await userEvent.tab();
-
-    expect(rename).not.toHaveBeenCalled();
+    expect(screen.getByText('Platform')).toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 
   it('lists the members with a count', () => {
@@ -359,7 +333,7 @@ describe('TeamGeneral', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       'The team’s settings could not be loaded.',
     );
-    expect(screen.queryByLabelText('Team name')).not.toBeInTheDocument();
+    expect(screen.queryByText('Team name')).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
 

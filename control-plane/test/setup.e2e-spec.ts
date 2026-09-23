@@ -6,8 +6,14 @@ import { DrizzleWorkspaceReader } from '@identity/infrastructure/persistence/dri
 import { DrizzleWorkspaceRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace.repository';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { Runner } from '@runners/domain/aggregates/runner.aggregate';
+import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
+import { RunnerName } from '@runners/domain/value-objects/runner-name.vo';
 import { DrizzleRunnerReader } from '@runners/infrastructure/persistence/drizzle/readers/runner.reader';
+import { DrizzleRunnerRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner.repository';
+import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { ListInboxHandler } from '@work/application/queries/handlers/list-inbox.handler';
 import { ListInboxQuery } from '@work/application/queries/list-inbox.query';
@@ -35,9 +41,8 @@ const access = (db: DrizzleDatabase) =>
 const NOW = new Date('2026-01-02T03:04:05.000Z');
 
 const DONE = {
-  hasRunner: true,
   connectedToGitHub: true,
-  listensToAnIntegration: true,
+  hasHarness: true,
 };
 
 let held: TestDatabase;
@@ -184,67 +189,67 @@ describe('the inbox item a setup list stands as', () => {
   });
 });
 
-describe('whether a team has a runner', () => {
+describe('whether a workspace has a runner that offers work', () => {
   const runners = () => new DrizzleRunnerReader(db);
-  const MINE = WorkspaceId.of('ws_mine');
-  const THEIRS = WorkspaceId.of('ws_theirs');
-
-  const enrol = async (given: {
-    lastSeenAt?: Date | null;
-    revokedAt?: Date | null;
-    workspaceId?: WorkspaceId;
-  }) => {
-    const id = randomUUID();
-
-    await db.insert(schema.runner).values({
-      id,
-      workspaceId: (given.workspaceId ?? MINE).value,
-      name: id,
-      tokenHash: id,
-      lastSeenAt: given.lastSeenAt ?? null,
-      revokedAt: given.revokedAt ?? null,
+  const repository = () =>
+    new DrizzleRunnerRepository(new DrizzleContext(db), {
+      dispatch: async () => {},
     });
 
-    return id;
+  const enrolled = (workspaceId: WorkspaceId) =>
+    Runner.enrol({
+      id: RunnerId.of(randomUUID()),
+      workspaceId,
+      name: RunnerName.of('Laptop'),
+      tokenHash: TokenHash.of(randomUUID().replaceAll('-', '').repeat(2)),
+    });
+
+  const claude = [InstalledHarness.reported('claude-code', [])];
+
+  const standing: Record<string, (runner: Runner) => Runner> = {
+    'never connected': (runner) => runner,
+    'connected with a harness': (runner) => runner.register(claude, NOW),
+    'connected with no harness': (runner) => runner.register([], NOW),
+    'revoked after connecting': (runner) =>
+      runner.register(claude, NOW).revoke(NOW),
+    'revoked before connecting': (runner) => runner.revoke(NOW),
   };
 
   afterEach(async () => {
     await db.delete(schema.runner);
   });
 
-  it('has none where none was ever enrolled', async () => {
-    await expect(runners().anyConnected(MINE)).resolves.toBe(false);
+  it.each(Object.keys(standing))(
+    'reads a runner %s the way the runner itself says',
+    async (state) => {
+      const workspace = WorkspaceId.of(randomUUID());
+      const runner = standing[state]?.(enrolled(workspace)) as Runner;
+
+      await repository().add(runner);
+
+      await expect(runners().anyOffersWork(workspace)).resolves.toBe(
+        runner.offersWork,
+      );
+    },
+  );
+
+  it('finds the one that offers work among those that do not', async () => {
+    const workspace = WorkspaceId.of(randomUUID());
+
+    for (const shaped of Object.values(standing)) {
+      await repository().add(shaped(enrolled(workspace)));
+    }
+
+    await expect(runners().anyOffersWork(workspace)).resolves.toBe(true);
   });
 
-  it('has none where the only one has never checked in', async () => {
-    await enrol({ lastSeenAt: null });
+  it('does not count a runner in another workspace', async () => {
+    const mine = WorkspaceId.of(randomUUID());
 
-    await expect(runners().anyConnected(MINE)).resolves.toBe(false);
-  });
+    await repository().add(
+      enrolled(WorkspaceId.of(randomUUID())).register(claude, NOW),
+    );
 
-  it('has none where the only one that checked in was taken away', async () => {
-    await enrol({ lastSeenAt: NOW, revokedAt: NOW });
-
-    await expect(runners().anyConnected(MINE)).resolves.toBe(false);
-  });
-
-  it('has one once something has checked in against its token', async () => {
-    await enrol({ lastSeenAt: NOW });
-
-    await expect(runners().anyConnected(MINE)).resolves.toBe(true);
-  });
-
-  it('does not count a runner enrolled in another workspace', async () => {
-    await enrol({ lastSeenAt: NOW, workspaceId: THEIRS });
-
-    await expect(runners().anyConnected(MINE)).resolves.toBe(false);
-  });
-
-  it('finds it among ones that never came and ones that went', async () => {
-    await enrol({ lastSeenAt: null });
-    await enrol({ lastSeenAt: NOW, revokedAt: NOW });
-    await enrol({ lastSeenAt: NOW });
-
-    await expect(runners().anyConnected(MINE)).resolves.toBe(true);
+    await expect(runners().anyOffersWork(mine)).resolves.toBe(false);
   });
 });

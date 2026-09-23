@@ -63,6 +63,12 @@ export const seedTeamGeneral = (client: QueryClient) => {
   client.setQueryData(inviteKeys.forTeam(TEAM_ID), INVITES);
 };
 
+export const seedEmptyTeamGeneral = (client: QueryClient) => {
+  client.setQueryData(workspaceKeys.detail(SLUG), WORKSPACE);
+  client.setQueryData(memberKeys.forTeam(TEAM_ID), []);
+  client.setQueryData(inviteKeys.forTeam(TEAM_ID), []);
+};
+
 export const failTeamGeneral = (client: QueryClient) => {
   client.setQueryData(workspaceKeys.detail(SLUG), WORKSPACE);
   failQuery(client, memberKeys.forTeam(TEAM_ID));

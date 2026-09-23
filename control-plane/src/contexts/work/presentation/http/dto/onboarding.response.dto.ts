@@ -8,24 +8,15 @@ export class SetupStepResponseDto {
   @ApiProperty({
     description: 'Which step this is',
     enum: SETUP_STEP_KEYS,
-    example: 'runner',
+    example: 'github',
   })
   readonly key: SetupStepDto['key'];
 
-  @ApiProperty({ example: 'Start a runner' })
+  @ApiProperty({ example: 'Install the GitHub App' })
   readonly title: string;
 
   @ApiProperty()
   readonly description: string;
-
-  @ApiProperty({
-    description:
-      'The page in Spotlight this step is taken from, or null where there is none',
-    nullable: true,
-    type: String,
-    example: '/w/acme/runners',
-  })
-  readonly where: string | null;
 
   @ApiProperty()
   readonly done: boolean;
@@ -34,13 +25,11 @@ export class SetupStepResponseDto {
     key: SetupStepDto['key'],
     title: string,
     description: string,
-    where: string | null,
     done: boolean,
   ) {
     this.key = key;
     this.title = title;
     this.description = description;
-    this.where = where;
     this.done = done;
   }
 }

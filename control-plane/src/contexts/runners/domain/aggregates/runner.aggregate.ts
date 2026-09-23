@@ -103,6 +103,10 @@ export class Runner extends EventRecorder {
     return this.lastSeenAt !== null;
   }
 
+  get offersWork(): boolean {
+    return this.hasConnected && !this.revoked && this.installed.length > 0;
+  }
+
   get harnesses(): readonly HarnessId[] {
     return this.installed.map((each) => each.id);
   }

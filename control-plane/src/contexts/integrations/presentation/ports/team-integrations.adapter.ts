@@ -7,14 +7,8 @@ export class TeamIntegrations implements TeamIntegrationsPort {
   constructor(private readonly readings: IntegrationReaderPort) {}
 
   async offered(teamId: TeamId): Promise<readonly ToolDeclaration[]> {
-    return (await this.read(teamId)).flatMap((each) => each.offers);
-  }
-
-  async listening(teamId: TeamId): Promise<readonly string[]> {
-    return (await this.read(teamId)).map((each) => each.source);
-  }
-
-  private async read(teamId: TeamId) {
-    return (await this.readings.ofTeam(teamId)).integrations;
+    return (await this.readings.ofTeam(teamId)).integrations.flatMap(
+      (each) => each.offers,
+    );
   }
 }

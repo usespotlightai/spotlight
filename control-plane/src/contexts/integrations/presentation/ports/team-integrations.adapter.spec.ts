@@ -38,12 +38,7 @@ describe('TeamIntegrations', () => {
     ]);
   });
 
-  it('listens to every integration the team configured', async () => {
-    expect(await integrations().listening(TEAM)).toEqual(['linear', 'slack']);
-  });
-
-  it('offers and hears nothing for a team that defined no integration', async () => {
+  it('offers nothing for a team that defined no integration', async () => {
     expect(await integrations(false).offered(TEAM)).toEqual([]);
-    expect(await integrations(false).listening(TEAM)).toEqual([]);
   });
 });

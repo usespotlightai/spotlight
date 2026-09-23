@@ -5,10 +5,8 @@ import { AcceptInviteHandler } from '@identity/application/commands/handlers/acc
 import { ChangeMemberRoleHandler } from '@identity/application/commands/handlers/change-member-role.handler';
 import { CreateWorkspaceHandler } from '@identity/application/commands/handlers/create-workspace.handler';
 import { InviteToTeamHandler } from '@identity/application/commands/handlers/invite-to-team.handler';
-import { RenameTeamHandler } from '@identity/application/commands/handlers/rename-team.handler';
 import { RevokeInviteHandler } from '@identity/application/commands/handlers/revoke-invite.handler';
 import { InviteToTeamCommand } from '@identity/application/commands/invite-to-team.command';
-import { RenameTeamCommand } from '@identity/application/commands/rename-team.command';
 import { RevokeInviteCommand } from '@identity/application/commands/revoke-invite.command';
 import { IDENTITY_PUBLICATIONS } from '@identity/application/integration-events/identity.publications';
 import { INVITE_MAIL } from '@identity/application/ports/invite-mail.port';
@@ -129,10 +127,6 @@ const handlers: Provider[] = [
   ...bindCommandHandler(CreateWorkspaceCommand, CreateWorkspaceHandler, [
     DrizzleWorkspaceRepository,
     ID_GENERATOR,
-  ]),
-  ...bindCommandHandler(RenameTeamCommand, RenameTeamHandler, [
-    TeamAdministration,
-    DrizzleTeamRepository,
   ]),
   ...bindCommandHandler(InviteToTeamCommand, InviteToTeamHandler, [
     TeamAdministration,

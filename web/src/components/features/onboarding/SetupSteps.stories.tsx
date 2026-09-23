@@ -9,7 +9,6 @@ import {
   SLUG,
   seedFreshSetup,
   seedGitHubInstalled,
-  seedRunnersEnrolled,
   seedSetupDone,
   TEAM_ID,
 } from '@/stories/fixtures/onboarding';
@@ -68,15 +67,6 @@ export const Failed: Story = {
 
 export const Fresh: Story = {
   render: () => <Showing seed={seedFreshSetup} />,
-};
-
-export const RunnersEnrolled: Story = {
-  render: () => <Showing seed={seedRunnersEnrolled} />,
-  play: async ({ canvas, userEvent }) => {
-    await userEvent.click(
-      canvas.getByRole('button', { name: /Start a runner/ }),
-    );
-  },
 };
 
 export const GitHubInstalled: Story = {

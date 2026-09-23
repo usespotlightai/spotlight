@@ -17,15 +17,13 @@ import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
 
 const done: SetupState = {
-  hasRunner: true,
   connectedToGitHub: true,
-  listensToAnIntegration: true,
+  hasHarness: true,
 };
 
 const nothing: SetupState = {
-  hasRunner: false,
   connectedToGitHub: false,
-  listensToAnIntegration: false,
+  hasHarness: false,
 };
 
 const NOW = new Date('2026-01-02T03:04:05.000Z');

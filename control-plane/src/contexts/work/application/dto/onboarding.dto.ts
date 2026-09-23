@@ -9,7 +9,6 @@ export interface SetupStepDto {
   readonly key: SetupStepKey;
   readonly title: string;
   readonly description: string;
-  readonly where: string | null;
   readonly done: boolean;
 }
 

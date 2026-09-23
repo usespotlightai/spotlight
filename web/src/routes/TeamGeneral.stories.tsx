@@ -5,6 +5,7 @@ import { TeamGeneral } from '@/routes/TeamGeneral';
 import {
   failTeamGeneral,
   SLUG,
+  seedEmptyTeamGeneral,
   seedTeamGeneral,
   TEAM_ID,
 } from '@/stories/fixtures/team';
@@ -29,6 +30,14 @@ type Story = StoryObj<typeof meta>;
 
 export const Loading: Story = {
   render: () => <StoryPage at={at}>{routes}</StoryPage>,
+};
+
+export const Empty: Story = {
+  render: () => (
+    <StoryPage at={at} seed={seedEmptyTeamGeneral}>
+      {routes}
+    </StoryPage>
+  ),
 };
 
 export const Failed: Story = {

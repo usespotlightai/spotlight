@@ -12,6 +12,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { useOnboarding } from '@/hooks/api/useOnboarding';
 import type { SetupStepResponseDto } from '@/lib/api/types.gen';
 import { failed, loading } from '@/lib/query';
+import { runnersPath } from '@/lib/runner';
 import { cn } from '@/lib/utils';
 
 type SetupStepsProps = {
@@ -22,10 +23,6 @@ type SetupStepsProps = {
 };
 
 const CONTROL = 'rounded-full px-3.5 shadow-none';
-
-const CALLS: Partial<Record<SetupStepResponseDto['key'], string>> = {
-  integrations: 'Choose them',
-};
 
 type StepProps = {
   step: SetupStepResponseDto;
@@ -160,18 +157,16 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
     }
 
     return (
-      step.where && (
-        <Link
-          to={step.where}
-          className={cn(
-            buttonVariants({ variant: 'outline', size: 'sm' }),
-            CONTROL,
-            'bg-card',
-          )}
-        >
-          {CALLS[step.key] ?? 'Take me there'}
-        </Link>
-      )
+      <Link
+        to={runnersPath(slug)}
+        className={cn(
+          buttonVariants({ variant: 'outline', size: 'sm' }),
+          CONTROL,
+          'bg-card',
+        )}
+      >
+        Take me there
+      </Link>
     );
   };
 
