@@ -3,6 +3,7 @@ import { CommandBus } from '@nestjs/cqrs';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { DefineLineCommand } from '@work/application/commands/define-line.command';
 import type { DefinedLineDto } from '@work/application/dto/line-resource.dto';
@@ -138,7 +139,9 @@ describe('a line reconciled with its definition (e2e)', () => {
       }),
     ).toMatchObject({
       ok: false,
-      problems: [{ path: 'lines/delivery', at: 'reactions.0.to' }],
+      problems: [
+        { path: 'lines/delivery', field: FieldPath.dotted('reactions.0.to') },
+      ],
     });
     expect((await lines.find(opened.id))?.name.value).toBe(DELIVERY.name);
   });

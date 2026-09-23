@@ -8,6 +8,7 @@ export * from '@identity/infrastructure/persistence/drizzle/schemas/workspace.sc
 export * from '@integrations/infrastructure/persistence/drizzle/schemas/delivery.schema';
 export * from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 export * from '@platform/persistence/drizzle/schemas/event.schema';
+export * from '@platform/persistence/drizzle/schemas/idempotency.schema';
 export * from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/attachment.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';

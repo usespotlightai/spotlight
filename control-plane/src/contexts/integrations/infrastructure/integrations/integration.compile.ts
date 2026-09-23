@@ -71,6 +71,7 @@ import {
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
+import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { SECRET_NAME_SHAPE } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
@@ -735,7 +736,7 @@ export const compileIntegration = (held: unknown): Compiled => {
       problems: read.error.issues.map((issue) =>
         ConfigurationProblem.of({
           path,
-          at: issue.path.length > 0 ? issue.path.join('.') : 'the integration',
+          at: FieldPath.of(issue.path),
           reason: issue.message,
         }),
       ),
@@ -1045,7 +1046,7 @@ export const compileIntegration = (held: unknown): Compiled => {
       problems: [
         ConfigurationProblem.of({
           path,
-          at: 'the integration',
+          at: '',
           reason: reasoned(error),
         }),
         ...compiler.warnings,

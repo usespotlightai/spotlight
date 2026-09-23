@@ -1,12 +1,18 @@
-import type { DefinedIntegration } from '@integrations/application/ports/defined-integrations.port';
+import type { IntegrationResourceDto } from '@integrations/application/dto/integration-resource.dto';
 import { ApiProperty } from '@nestjs/swagger';
-import { ConfigurationProblemResponseDto } from '@platform/http/dto/configuration-problems.response.dto';
-import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
+import { ResourceResponseDto } from '@platform/http/dto/resource.response.dto';
 
-export class IntegrationResourceResponseDto {
+export class IntegrationResourceResponseDto extends ResourceResponseDto {
+  @ApiProperty({
+    example: '9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84',
+    description: 'The team it belongs to',
+  })
+  readonly teamId: string;
+
   @ApiProperty({
     example: 'linear',
-    description: 'The host it defines, which names it within the team',
+    description:
+      'The host it defines; fixed for its life, so changing it means replacing the integration',
   })
   readonly source: string;
 
@@ -18,21 +24,10 @@ export class IntegrationResourceResponseDto {
   })
   readonly definition: Readonly<Record<string, unknown>>;
 
-  @ApiProperty({
-    type: ConfigurationProblemResponseDto,
-    isArray: true,
-    description: 'What would work better, though nothing stops it working',
-  })
-  readonly warnings: readonly ConfigurationProblemResponseDto[];
-
-  constructor(
-    integration: DefinedIntegration,
-    warnings: readonly ConfigurationProblem[],
-  ) {
+  constructor(integration: IntegrationResourceDto) {
+    super(integration);
+    this.teamId = integration.teamId;
     this.source = integration.source;
     this.definition = integration.definition;
-    this.warnings = warnings.map(
-      (each) => new ConfigurationProblemResponseDto(each),
-    );
   }
 }

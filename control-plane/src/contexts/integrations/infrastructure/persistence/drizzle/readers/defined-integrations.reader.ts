@@ -3,11 +3,15 @@ import type {
   DefinedIntegrationsPort,
   TeamDefinedIntegrations,
 } from '@integrations/application/ports/defined-integrations.port';
+import type {
+  IntegrationResourcesPort,
+  KeptIntegration,
+} from '@integrations/application/ports/integration-resources.port';
 import { integrationDefinition } from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq, type SQL } from 'drizzle-orm';
 
 const DEFINED = {
   teamId: integrationDefinition.teamId,
@@ -15,8 +19,16 @@ const DEFINED = {
   definition: integrationDefinition.definition,
 };
 
+const KEPT = {
+  ...DEFINED,
+  id: integrationDefinition.id,
+  version: integrationDefinition.version,
+};
+
 @Injectable()
-export class DrizzleDefinedIntegrations implements DefinedIntegrationsPort {
+export class DrizzleDefinedIntegrations
+  implements DefinedIntegrationsPort, IntegrationResourcesPort
+{
   constructor(private readonly context: DrizzleContext) {}
 
   async ofTeam(teamId: TeamId): Promise<readonly DefinedIntegration[]> {
@@ -48,5 +60,28 @@ export class DrizzleDefinedIntegrations implements DefinedIntegrationsPort {
       teamId: TeamId.of(teamId),
       integrations,
     }));
+  }
+
+  withId(id: string): Promise<KeptIntegration | null> {
+    return this.kept(eq(integrationDefinition.id, id));
+  }
+
+  at(teamId: TeamId, source: string): Promise<KeptIntegration | null> {
+    return this.kept(
+      and(
+        eq(integrationDefinition.teamId, teamId.value),
+        eq(integrationDefinition.source, source),
+      ),
+    );
+  }
+
+  private async kept(where: SQL | undefined): Promise<KeptIntegration | null> {
+    const [found] = await this.context.db
+      .select(KEPT)
+      .from(integrationDefinition)
+      .where(where)
+      .limit(1);
+
+    return found ? { ...found, teamId: TeamId.of(found.teamId) } : null;
   }
 }

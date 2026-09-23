@@ -1,6 +1,7 @@
 import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import { TeamSkillFiles } from '@configuration/infrastructure/skills/team-skill-files';
 import { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
+import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const SKILL = (name: string, description = 'Writing a migration here.') =>
@@ -12,7 +13,12 @@ const read = (...files: ConfigurationFile[]) =>
   new TeamSkillFiles().read(files);
 
 const reasons = (found: ReturnType<typeof read>) =>
-  found.problems.map((each) => `${each.path} ${each.at}: ${each.reason}`);
+  found.problems.map((each) =>
+    [each.path, dottedOf(each.field)]
+      .filter(Boolean)
+      .join(' ')
+      .concat(`: ${each.reason}`),
+  );
 
 describe('TeamSkillFiles', () => {
   it('reads each folder as the skill named for it, laid with every file beside SKILL.md', () => {
@@ -83,7 +89,7 @@ describe('TeamSkillFiles', () => {
       );
 
       expect(reasons(found)).toEqual([
-        '.spotlight/skills/our-migrations/notes.md the file: The our-migrations skill has no SKILL.md in our-migrations, which is what a skill is read from',
+        '.spotlight/skills/our-migrations/notes.md: The our-migrations skill has no SKILL.md in our-migrations, which is what a skill is read from',
       ]);
     });
 

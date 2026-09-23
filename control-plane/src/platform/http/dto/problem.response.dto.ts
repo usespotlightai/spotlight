@@ -1,0 +1,49 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+export class FieldErrorResponseDto {
+  @ApiProperty({
+    example: 'stations[2].check',
+    description:
+      'The attribute it is about, as a Terraform provider addresses one; empty for the whole resource',
+  })
+  readonly path!: string;
+
+  @ApiProperty({ example: 'must not be empty' })
+  readonly message!: string;
+
+  @ApiProperty({ enum: ['error', 'warning'] })
+  readonly severity!: 'error' | 'warning';
+}
+
+export class ProblemResponseDto {
+  @ApiProperty({
+    example: 'urn:spotlight:problem:moved-on',
+    description: 'What kind of problem it is; stable, safe to branch on',
+  })
+  readonly type!: string;
+
+  @ApiProperty({ example: 'The integration changed since it was read' })
+  readonly title!: string;
+
+  @ApiProperty({ example: 409 })
+  readonly status!: number;
+
+  @ApiProperty({
+    example:
+      'The integration is at version 4; read it again and send that version as If-Match',
+  })
+  readonly detail!: string;
+
+  @ApiPropertyOptional({
+    type: FieldErrorResponseDto,
+    isArray: true,
+    description: 'Each field that is wrong, when the request was invalid',
+  })
+  readonly errors?: readonly FieldErrorResponseDto[];
+
+  @ApiPropertyOptional({
+    example: 4,
+    description: 'The version the resource is at now, when a write conflicted',
+  })
+  readonly currentVersion?: number;
+}

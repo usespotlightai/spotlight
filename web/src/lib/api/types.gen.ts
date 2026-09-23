@@ -90,7 +90,7 @@ export type ConfigurationProblemResponseDto = {
    */
   path: string;
   /**
-   * The field within it, as a dotted path
+   * The field within it, as a Terraform attribute path
    */
   at: string;
   reason: string;
@@ -1570,9 +1570,56 @@ export type OAuth2StartResponseDto = {
   url: string;
 };
 
+export type FieldErrorResponseDto = {
+  /**
+   * The attribute it is about, as a Terraform provider addresses one; empty for the whole resource
+   */
+  path: string;
+  message: string;
+  severity: 'error' | 'warning';
+};
+
+export type ProblemResponseDto = {
+  /**
+   * What kind of problem it is; stable, safe to branch on
+   */
+  type: string;
+  title: string;
+  status: number;
+  detail: string;
+  /**
+   * Each field that is wrong, when the request was invalid
+   */
+  errors?: Array<FieldErrorResponseDto>;
+  /**
+   * The version the resource is at now, when a write conflicted
+   */
+  currentVersion?: number;
+};
+
 export type IntegrationResourceResponseDto = {
   /**
-   * The host it defines, which names it within the team
+   * Issued by Spotlight when the resource is created, and never changed
+   */
+  id: string;
+  /**
+   * Rises with every change; the ETag carries it, and a write sends it back as If-Match
+   */
+  version: number;
+  /**
+   * Names the resource within its workspace; terraform import takes it
+   */
+  address: string;
+  /**
+   * What would work better, though nothing stops it working; not settable
+   */
+  warnings: Array<FieldErrorResponseDto>;
+  /**
+   * The team it belongs to
+   */
+  teamId: string;
+  /**
+   * The host it defines; fixed for its life, so changing it means replacing the integration
    */
   source: string;
   /**
@@ -1581,10 +1628,6 @@ export type IntegrationResourceResponseDto = {
   definition: {
     [key: string]: unknown;
   };
-  /**
-   * What would work better, though nothing stops it working
-   */
-  warnings: Array<ConfigurationProblemResponseDto>;
 };
 
 export type HappeningResponseDto = {
@@ -3780,9 +3823,19 @@ export type ConnectIntegrationResponses = {
 
 export type ConnectIntegrationResponse = ConnectIntegrationResponses[keyof ConnectIntegrationResponses];
 
-export type DefineIntegrationData = {
+export type CreateIntegrationData = {
   body: {
     [key: string]: unknown;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     */
+    'Idempotency-Key': string;
   };
   path: {
     teamId: string;
@@ -3791,28 +3844,238 @@ export type DefineIntegrationData = {
   url: '/teams/{teamId}/integrations';
 };
 
-export type DefineIntegrationErrors = {
+export type CreateIntegrationErrors = {
   /**
-   * No valid session
+   * Malformed, or asking for an API version this server does not serve
    */
-  401: unknown;
+  400: ProblemResponseDto;
   /**
-   * No such team this caller administers
+   * No valid credentials
    */
-  404: unknown;
+  401: ProblemResponseDto;
   /**
-   * What is wrong with the definition, field by field
+   * No such integration that you may see
    */
-  422: ConfigurationProblemsResponseDto;
+  404: ProblemResponseDto;
+  /**
+   * There is already a integration at that address
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field; or the Idempotency-Key was used for a different request
+   */
+  422: ProblemResponseDto;
 };
 
-export type DefineIntegrationError = DefineIntegrationErrors[keyof DefineIntegrationErrors];
+export type CreateIntegrationError = CreateIntegrationErrors[keyof CreateIntegrationErrors];
 
-export type DefineIntegrationResponses = {
+export type CreateIntegrationResponses = {
+  /**
+   * The integration, as a read would answer it
+   */
   201: IntegrationResourceResponseDto;
 };
 
-export type DefineIntegrationResponse = DefineIntegrationResponses[keyof DefineIntegrationResponses];
+export type CreateIntegrationResponse = CreateIntegrationResponses[keyof CreateIntegrationResponses];
+
+export type DeleteIntegrationData = {
+  body?: never;
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/integrations/{id}';
+};
+
+export type DeleteIntegrationErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such integration that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type DeleteIntegrationError = DeleteIntegrationErrors[keyof DeleteIntegrationErrors];
+
+export type DeleteIntegrationResponses = {
+  /**
+   * Deleted
+   */
+  204: void;
+};
+
+export type DeleteIntegrationResponse = DeleteIntegrationResponses[keyof DeleteIntegrationResponses];
+
+export type ReadIntegrationData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/integrations/{id}';
+};
+
+export type ReadIntegrationErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such integration that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadIntegrationError = ReadIntegrationErrors[keyof ReadIntegrationErrors];
+
+export type ReadIntegrationResponses = {
+  /**
+   * The integration, every field of it
+   */
+  200: IntegrationResourceResponseDto;
+};
+
+export type ReadIntegrationResponse = ReadIntegrationResponses[keyof ReadIntegrationResponses];
+
+export type UpdateIntegrationData = {
+  body: {
+    [key: string]: unknown;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/integrations/{id}';
+};
+
+export type UpdateIntegrationErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such integration that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field
+   */
+  422: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type UpdateIntegrationError = UpdateIntegrationErrors[keyof UpdateIntegrationErrors];
+
+export type UpdateIntegrationResponses = {
+  /**
+   * The integration, as a read would answer it
+   */
+  200: IntegrationResourceResponseDto;
+};
+
+export type UpdateIntegrationResponse = UpdateIntegrationResponses[keyof UpdateIntegrationResponses];
+
+export type ImportIntegrationData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+  };
+  path: {
+    slug: string;
+  };
+  query: {
+    /**
+     * The integration's address within the workspace
+     */
+    address: unknown;
+  };
+  url: '/workspaces/{slug}/integrations/import';
+};
+
+export type ImportIntegrationErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such integration that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ImportIntegrationError = ImportIntegrationErrors[keyof ImportIntegrationErrors];
+
+export type ImportIntegrationResponses = {
+  /**
+   * The integration, as a read would answer it
+   */
+  200: IntegrationResourceResponseDto;
+};
+
+export type ImportIntegrationResponse = ImportIntegrationResponses[keyof ImportIntegrationResponses];
 
 export type ListHappeningsData = {
   body?: never;

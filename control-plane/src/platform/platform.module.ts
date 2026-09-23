@@ -13,6 +13,7 @@ import { EventTypes } from '@platform/events/event-types';
 import { HealthController } from '@platform/http/controllers/health.controller';
 import { ServerFaultFilter } from '@platform/http/filters/server-fault.filter';
 import { UseCaseFaultFilter } from '@platform/http/filters/use-case-fault.filter';
+import { DrizzleIdempotentCreates } from '@platform/idempotency/drizzle-idempotent-creates';
 import { CryptoIdGenerator } from '@platform/ids/crypto-id.generator';
 import { GracefulShutdown } from '@platform/lifecycle/graceful-shutdown';
 import { LoggingModule } from '@platform/logging/logging.module';
@@ -25,6 +26,7 @@ import { BACKGROUND } from '@shared-kernel/application/ports/background.port';
 import { CLOCK } from '@shared-kernel/application/ports/clock.port';
 import { DOMAIN_EVENT_DISPATCHER } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { ID_GENERATOR } from '@shared-kernel/application/ports/id-generator.port';
+import { IDEMPOTENT_CREATES } from '@shared-kernel/application/ports/idempotent-creates.port';
 import {
   LOGGER,
   type LoggerPort,
@@ -67,6 +69,7 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
     { provide: CLOCK, useClass: SystemClock },
     TokenMint,
     { provide: TOKEN_MINT, useClass: TokenMint },
+    { provide: IDEMPOTENT_CREATES, useClass: DrizzleIdempotentCreates },
     {
       provide: SecretCipher,
       inject: [ENV],
@@ -91,6 +94,7 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
     CLOCK,
     TokenMint,
     TOKEN_MINT,
+    IDEMPOTENT_CREATES,
     SecretCipher,
   ],
 })

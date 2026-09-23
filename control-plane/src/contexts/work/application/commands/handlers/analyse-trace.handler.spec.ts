@@ -92,6 +92,7 @@ const teams = (holds = true): TeamDirectoryPort => ({
   find: vi.fn(async () => ({
     id: TeamId.of('team_1'),
     workspaceId: WorkspaceId.of('ws_1'),
+    key: 'platform',
     name: 'Platform',
     members: holds ? [UserId.of('user_1')] : [],
   })),

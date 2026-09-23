@@ -28,7 +28,7 @@ const readFolder = (
   const refused = (reason: string): Read => ({
     problem: ConfigurationProblem.of({
       path: main?.path ?? (files[0] as ConfigurationFile).path,
-      at: 'the file',
+      at: '',
       reason,
     }),
   });
@@ -82,7 +82,7 @@ export class TeamSkillFiles implements SkillReaderPort {
         problems.push(
           ConfigurationProblem.of({
             path: file.path,
-            at: 'the file',
+            at: '',
             reason: `sits in ${SKILLS_UNDER} itself, where no skill reads it: put it in the folder of the skill it belongs to`,
             severity: 'warning',
           }),

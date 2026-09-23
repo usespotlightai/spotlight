@@ -1,4 +1,5 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
+import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
 const PROBLEM_SEVERITIES = ['error', 'warning'] as const;
 
@@ -7,14 +8,14 @@ export type ProblemSeverity = (typeof PROBLEM_SEVERITIES)[number];
 export class ConfigurationProblem {
   private constructor(
     readonly path: string,
-    readonly at: string,
+    readonly field: FieldPath,
     readonly reason: string,
     readonly severity: ProblemSeverity,
   ) {}
 
   static of(input: {
     path: string;
-    at: string;
+    at: string | FieldPath;
     reason: string;
     severity?: ProblemSeverity;
   }): ConfigurationProblem {
@@ -29,7 +30,7 @@ export class ConfigurationProblem {
 
     return new ConfigurationProblem(
       input.path.trim(),
-      input.at.trim() || 'the file',
+      typeof input.at === 'string' ? FieldPath.dotted(input.at) : input.at,
       reason,
       input.severity ?? 'error',
     );
@@ -46,7 +47,7 @@ export class ConfigurationProblem {
   equals(other: ConfigurationProblem): boolean {
     return (
       this.path === other.path &&
-      this.at === other.at &&
+      this.field.equals(other.field) &&
       this.reason === other.reason &&
       this.severity === other.severity
     );

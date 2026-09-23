@@ -1,3 +1,4 @@
+import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { compileLine } from '@work/infrastructure/lines/line.compile';
 import { describe, expect, it } from 'vitest';
 
@@ -44,7 +45,7 @@ describe('the repositories a line works', () => {
 
     expect(read.ok).toBe(false);
     if (!read.ok) {
-      expect(read.problems[0]?.at).toBe('repositories.0');
+      expect(dottedOf(read.problems[0]?.field)).toBe('repositories.0');
     }
   });
 

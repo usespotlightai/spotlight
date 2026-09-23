@@ -28,6 +28,15 @@ CREATE TABLE "event_outbox" (
 	"recorded_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "idempotent_create" (
+	"scope" text NOT NULL,
+	"key" text NOT NULL,
+	"fingerprint" text NOT NULL,
+	"created_id" text,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "idempotent_create_scope_key_pk" PRIMARY KEY("scope","key")
+);
+--> statement-breakpoint
 CREATE TABLE "change_stack" (
 	"id" text PRIMARY KEY NOT NULL,
 	"run_id" text NOT NULL,
@@ -269,12 +278,14 @@ CREATE TABLE "integration_cursor" (
 );
 --> statement-breakpoint
 CREATE TABLE "integration_definition" (
+	"id" text PRIMARY KEY NOT NULL,
 	"team_id" text NOT NULL,
 	"source" text NOT NULL,
 	"definition" jsonb NOT NULL,
+	"offers" jsonb NOT NULL,
 	"version" integer DEFAULT 1 NOT NULL,
 	"defined_at" timestamp DEFAULT now() NOT NULL,
-	CONSTRAINT "integration_definition_team_id_source_pk" PRIMARY KEY("team_id","source")
+	CONSTRAINT "integration_definition_team_id_source_unique" UNIQUE("team_id","source")
 );
 --> statement-breakpoint
 CREATE TABLE "oauth2_spent_nonce" (

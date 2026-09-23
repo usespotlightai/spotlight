@@ -109,6 +109,7 @@ const applying = (
     find: vi.fn(async () => ({
       id: TEAM,
       workspaceId: WORKSPACE,
+      key: 'platform',
       name: 'Platform',
       members: [],
     })),

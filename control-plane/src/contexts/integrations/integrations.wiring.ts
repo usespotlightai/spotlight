@@ -21,16 +21,20 @@ import {
 } from '@identity/application/ports/workspace-reader.port';
 import { AcceptDeliveryCommand } from '@integrations/application/commands/accept-delivery.command';
 import { BeginOAuth2ConnectionCommand } from '@integrations/application/commands/begin-oauth2-connection.command';
-import { DefineIntegrationCommand } from '@integrations/application/commands/define-integration.command';
+import { CreateIntegrationCommand } from '@integrations/application/commands/create-integration.command';
+import { DeleteIntegrationCommand } from '@integrations/application/commands/delete-integration.command';
 import { FinishOAuth2ConnectionCommand } from '@integrations/application/commands/finish-oauth2-connection.command';
 import { AcceptDeliveryHandler } from '@integrations/application/commands/handlers/accept-delivery.handler';
-import { DefineIntegrationHandler } from '@integrations/application/commands/handlers/define-integration.handler';
+import { CreateIntegrationHandler } from '@integrations/application/commands/handlers/create-integration.handler';
+import { DeleteIntegrationHandler } from '@integrations/application/commands/handlers/delete-integration.handler';
 import {
   BeginOAuth2ConnectionHandler,
   FinishOAuth2ConnectionHandler,
 } from '@integrations/application/commands/handlers/oauth2-connection.handler';
 import { ReadDeliveryHandler } from '@integrations/application/commands/handlers/read-delivery.handler';
+import { UpdateIntegrationHandler } from '@integrations/application/commands/handlers/update-integration.handler';
 import { ReadDeliveryCommand } from '@integrations/application/commands/read-delivery.command';
+import { UpdateIntegrationCommand } from '@integrations/application/commands/update-integration.command';
 import { INTEGRATIONS_PUBLICATIONS } from '@integrations/application/integration-events/integrations.publications';
 import {
   CONFIGURED_SOURCES,
@@ -52,11 +56,15 @@ import {
   INBOX_LINKS,
   type InboxLinksPort,
 } from '@integrations/application/ports/inbox-links.port';
-import { INTEGRATION_COMPILER } from '@integrations/application/ports/integration-compiler.port';
+import {
+  INTEGRATION_COMPILER,
+  type IntegrationCompilerPort,
+} from '@integrations/application/ports/integration-compiler.port';
 import {
   INTEGRATION_CURSORS,
   IntegrationCursorsPort,
 } from '@integrations/application/ports/integration-cursors.port';
+import { INTEGRATION_RESOURCES } from '@integrations/application/ports/integration-resources.port';
 import {
   INTEGRATION_RUNTIME,
   type IntegrationRuntimePort,
@@ -69,12 +77,18 @@ import {
   OAUTH2_NONCES,
   type OAuth2NoncesPort,
 } from '@integrations/application/ports/oauth2-nonces.port';
+import { ImportIntegrationHandler } from '@integrations/application/queries/handlers/import-integration.handler';
 import { ListHappeningsHandler } from '@integrations/application/queries/handlers/list-happenings.handler';
+import { ReadIntegrationHandler } from '@integrations/application/queries/handlers/read-integration.handler';
+import { ImportIntegrationQuery } from '@integrations/application/queries/import-integration.query';
 import { ListHappeningsQuery } from '@integrations/application/queries/list-happenings.query';
+import { ReadIntegrationQuery } from '@integrations/application/queries/read-integration.query';
 import { HostReach } from '@integrations/application/services/host-reach.service';
+import { IntegrationViews } from '@integrations/application/services/integration-views.service';
 import { RefreshConnections } from '@integrations/application/services/refresh-connections.service';
 import { RunSchedules } from '@integrations/application/services/run-schedules.service';
 import { SourceForDelivery } from '@integrations/application/services/source-for-delivery.service';
+import { ToolsGiven } from '@integrations/application/services/tools-given.service';
 import { WebhookSources } from '@integrations/application/services/webhook-sources.service';
 import { WorkOffDeliveries } from '@integrations/application/services/work-off-deliveries.service';
 import { WorkOffPolls } from '@integrations/application/services/work-off-polls.service';
@@ -107,7 +121,7 @@ import { DrizzleOAuth2Nonces } from '@integrations/infrastructure/persistence/dr
 import { GitHubSource } from '@integrations/infrastructure/sources/github.source';
 import { markedSources } from '@integrations/infrastructure/webhooks/registered-sources';
 import { HappeningController } from '@integrations/presentation/http/controllers/happening.controller';
-import { IntegrationDefinitionController } from '@integrations/presentation/http/controllers/integration-definition.controller';
+import { IntegrationResourceController } from '@integrations/presentation/http/controllers/integration-resource.controller';
 import { OAuth2ConnectionController } from '@integrations/presentation/http/controllers/oauth2-connection.controller';
 import { WebhookController } from '@integrations/presentation/http/controllers/webhook.controller';
 import { OAuth2NonceCookie } from '@integrations/presentation/http/oauth2-nonce-cookie';
@@ -134,11 +148,17 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { ID_GENERATOR } from '@shared-kernel/application/ports/id-generator.port';
+import { IDEMPOTENT_CREATES } from '@shared-kernel/application/ports/idempotent-creates.port';
 import {
   LOGGER,
   LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
+import {
+  GIVEN_TOOLS,
+  type GivenToolsPort,
+} from '@work/application/ports/given-tools.port';
 import {
   HAPPENING_REACTIONS,
   HappeningReactionsPort,
@@ -151,7 +171,7 @@ const INTEGRATIONS_EVENTS = Symbol('INTEGRATIONS_EVENTS');
 
 export const INTEGRATIONS_CONTROLLERS: readonly Type[] = [
   OAuth2ConnectionController,
-  IntegrationDefinitionController,
+  IntegrationResourceController,
   HappeningController,
   WebhookController,
 ];
@@ -166,11 +186,28 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       return true;
     },
   },
-  { provide: DEFINED_INTEGRATIONS, useClass: DrizzleDefinedIntegrations },
+  DrizzleDefinedIntegrations,
+
+  { provide: DEFINED_INTEGRATIONS, useExisting: DrizzleDefinedIntegrations },
 
   { provide: INTEGRATION_DEFINITIONS, useClass: DrizzleIntegrationDefinitions },
 
   { provide: INTEGRATION_COMPILER, useClass: IntegrationCompiler },
+
+  { provide: INTEGRATION_RESOURCES, useExisting: DrizzleDefinedIntegrations },
+
+  {
+    provide: IntegrationViews,
+    inject: [TEAM_DIRECTORY, INTEGRATION_COMPILER],
+    useFactory: (teams: TeamDirectoryPort, compiler: IntegrationCompilerPort) =>
+      new IntegrationViews(teams, compiler),
+  },
+
+  {
+    provide: ToolsGiven,
+    inject: [GIVEN_TOOLS],
+    useFactory: (given: GivenToolsPort) => new ToolsGiven(given),
+  },
 
   {
     provide: TEAM_INTEGRATIONS,
@@ -493,11 +530,42 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     [OAUTH2_LINKING, HOST_CONNECTIONS, WORKSPACE_ACCESS, TRANSACTION],
   ),
 
-  ...bindCommandHandler(DefineIntegrationCommand, DefineIntegrationHandler, [
+  ...bindCommandHandler(CreateIntegrationCommand, CreateIntegrationHandler, [
+    WORKSPACE_ACCESS,
+    TEAM_DIRECTORY,
+    INTEGRATION_COMPILER,
+    INTEGRATION_DEFINITIONS,
+    IDEMPOTENT_CREATES,
+    ID_GENERATOR,
+    TRANSACTION,
+  ]),
+
+  ...bindCommandHandler(UpdateIntegrationCommand, UpdateIntegrationHandler, [
     WORKSPACE_ACCESS,
     INTEGRATION_COMPILER,
     INTEGRATION_DEFINITIONS,
+    ToolsGiven,
     TRANSACTION,
+  ]),
+
+  ...bindCommandHandler(DeleteIntegrationCommand, DeleteIntegrationHandler, [
+    WORKSPACE_ACCESS,
+    INTEGRATION_DEFINITIONS,
+    ToolsGiven,
+    TRANSACTION,
+  ]),
+
+  ...bindQueryHandler(ReadIntegrationQuery, ReadIntegrationHandler, [
+    WORKSPACE_ACCESS,
+    INTEGRATION_RESOURCES,
+    IntegrationViews,
+  ]),
+
+  ...bindQueryHandler(ImportIntegrationQuery, ImportIntegrationHandler, [
+    WORKSPACE_ACCESS,
+    TEAM_DIRECTORY,
+    INTEGRATION_RESOURCES,
+    IntegrationViews,
   ]),
 
   ...bindCommandHandler(AcceptDeliveryCommand, AcceptDeliveryHandler, [
