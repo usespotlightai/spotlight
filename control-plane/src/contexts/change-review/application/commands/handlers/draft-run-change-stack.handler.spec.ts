@@ -23,8 +23,11 @@ const drafting = (
       taskId: TaskId.of('task_1'),
       request: over.request ?? null,
       ended: false,
+      completed: false,
+      decisions: false,
     }),
     wasWorkedBy: async () => over.worked !== false,
+    reasoning: async () => null,
     task: async () => null,
     taskWithPullRequest: async () => null,
   } satisfies WorkPort;

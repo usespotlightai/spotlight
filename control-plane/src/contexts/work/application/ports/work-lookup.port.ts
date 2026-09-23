@@ -13,7 +13,20 @@ export interface RunLookup {
   readonly taskId: TaskId | null;
   readonly check: string | null;
   readonly setup: string | null;
+  readonly decisions: boolean;
   readonly ended: boolean;
+  readonly completed: boolean;
+}
+
+export interface ReasonedStep {
+  readonly index: number;
+  readonly kind: 'said' | 'thought' | 'planned' | 'handover';
+  readonly text: string;
+}
+
+export interface RunReasoning {
+  readonly steps: readonly ReasonedStep[];
+  readonly changed: readonly string[];
 }
 
 export interface TaskLookup {
@@ -29,6 +42,8 @@ export interface WorkLookupPort {
   run(runId: RunId): Promise<RunLookup | null>;
 
   wasWorkedBy(runId: RunId, runner: RunnerId): Promise<boolean>;
+
+  reasoning(runId: RunId): Promise<RunReasoning | null>;
 
   task(taskId: TaskId): Promise<TaskLookup | null>;
 

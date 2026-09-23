@@ -196,6 +196,7 @@ const compileStation = (
       check,
       setup,
       diffs: station.diffs ?? false,
+      decisions: station.decisions ?? false,
       tools: station.tools.map((each) => Tool.of(each)),
       skills: station.skills.map((each) => SkillKey.of(each)),
       passesTo: station.passesTo.map((each) => StationKey.of(each)),

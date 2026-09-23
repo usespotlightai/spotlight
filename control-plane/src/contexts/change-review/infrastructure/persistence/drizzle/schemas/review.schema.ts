@@ -5,9 +5,11 @@ import {
 } from '@change-review/domain/aggregates/review.aggregate';
 import { REVIEW_COMMENT_STATES } from '@change-review/domain/aggregates/review-comment.aggregate';
 import { REVIEW_SIDES } from '@change-review/domain/value-objects/review-anchor.vo';
+import { sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -39,8 +41,8 @@ export const reviewComment = pgTable(
     workspaceId: text('workspace_id').notNull(),
     taskId: text('task_id').notNull(),
     path: text('path').notNull(),
-    side: reviewSide('side').notNull(),
-    line: integer('line').notNull(),
+    side: reviewSide('side'),
+    line: integer('line'),
     startLine: integer('start_line'),
     body: text('body').notNull(),
     authorId: text('author_id'),
@@ -67,6 +69,10 @@ export const reviewComment = pgTable(
     uniqueIndex('review_comment_github_idx').on(
       table.workspaceId,
       table.githubId,
+    ),
+    check(
+      'review_comment_lines_check',
+      sql`(${table.side} is null) = (${table.line} is null) and (${table.line} is not null or ${table.startLine} is null)`,
     ),
   ],
 );

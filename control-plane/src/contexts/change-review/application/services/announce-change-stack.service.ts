@@ -1,7 +1,7 @@
 import type { ChangeStackAnnouncerPort } from '@change-review/application/ports/change-stack-announcer.port';
-import type { ChangeStackLinksPort } from '@change-review/application/ports/change-stack-links.port';
 import type { ChangeStackReaderPort } from '@change-review/application/ports/change-stack-reader.port';
 import type { GitHubConnectionsPort } from '@change-review/application/ports/github-connections.port';
+import type { ReviewLinksPort } from '@change-review/application/ports/review-links.port';
 import type { WorkPort } from '@change-review/application/ports/work.port';
 import type { WorkspacesPort } from '@change-review/application/ports/workspaces.port';
 import {
@@ -21,7 +21,7 @@ export class AnnounceChangeStack implements ChangeStackAnnouncerPort {
     private readonly connections: GitHubConnectionsPort,
     private readonly comments: PullRequestCommentsPort,
     private readonly clock: ClockPort,
-    private readonly links: ChangeStackLinksPort,
+    private readonly links: ReviewLinksPort,
   ) {}
 
   async ofRun(runId: RunId): Promise<void> {
@@ -58,7 +58,7 @@ export class AnnounceChangeStack implements ChangeStackAnnouncerPort {
       marker: CHANGE_STACK_MARKER,
       body: ChangeStackComment.of(
         latest,
-        this.links.pageOf({
+        this.links.changeStackOf({
           slug,
           teamId: task.teamId.value,
           runId: latest.runId,

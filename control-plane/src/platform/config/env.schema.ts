@@ -48,6 +48,7 @@ export const envSchema = databaseSchema
     SPOTLIGHT_INSTALLER_DIR: z.string().default('/opt/spotlight/installer'),
     OPENROUTER_API_KEY: z.string().optional(),
     CHANGE_STACK_MODEL: z.string().min(1).default('google/gemini-3.8-flash'),
+    DECISIONS_MODEL: z.string().min(1).default('google/gemini-3.8-flash'),
     LOG_LEVEL: z.enum(LOG_LEVELS).optional(),
   })
   .transform((env) => ({

@@ -14,65 +14,44 @@ import {
   type ProposedCohort,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import {
+  askForJson,
+  type Fetch,
+  JsonShape,
+} from '@change-review/infrastructure/openrouter/openrouter-json';
 import { z } from 'zod';
 
 export const DEFAULT_MODEL = 'google/gemini-3.8-flash';
 
-const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
-
-const MOST_WAIT_MS = 10 * 60 * 1000;
-
-type Fetch = typeof globalThis.fetch;
-
-interface Completion {
-  readonly choices?: readonly {
-    readonly finish_reason?: string | null;
-    readonly message?: { readonly content?: string | null };
-  }[];
-  readonly error?: { readonly message?: string };
-}
-
 const MOST_OUTPUT = 32_000;
 
-const STACK = z.object({
-  cohorts: z.array(
-    z.object({
-      kind: z.enum(COHORT_KINDS),
-      title: z.string(),
-      intent: z.string(),
-      joinedBecause: z.string().nullable(),
-      layers: z.array(
-        z.object({
-          title: z.string(),
-          summary: z.string(),
-          dependsOn: z.array(
-            z.object({
-              layer: z.number().int(),
-              because: z.array(z.string()),
-            }),
-          ),
-          ranges: z.array(z.object({ hunk: z.string() })),
-          files: z.array(z.object({ path: z.string(), note: z.string() })),
-        }),
-      ),
-    }),
-  ),
-});
-
-const UNSUPPORTED = new Set(['$schema', 'minimum', 'maximum']);
-
-const portable = (schema: unknown): unknown =>
-  Array.isArray(schema)
-    ? schema.map(portable)
-    : schema && typeof schema === 'object'
-      ? Object.fromEntries(
-          Object.entries(schema)
-            .filter(([key]) => !UNSUPPORTED.has(key))
-            .map(([key, value]) => [key, portable(value)]),
-        )
-      : schema;
-
-const STACK_SCHEMA = portable(z.toJSONSchema(STACK));
+const STACK = new JsonShape(
+  'change_stack',
+  z.object({
+    cohorts: z.array(
+      z.object({
+        kind: z.enum(COHORT_KINDS),
+        title: z.string(),
+        intent: z.string(),
+        joinedBecause: z.string().nullable(),
+        layers: z.array(
+          z.object({
+            title: z.string(),
+            summary: z.string(),
+            dependsOn: z.array(
+              z.object({
+                layer: z.number().int(),
+                because: z.array(z.string()),
+              }),
+            ),
+            ranges: z.array(z.object({ hunk: z.string() })),
+            files: z.array(z.object({ path: z.string(), note: z.string() })),
+          }),
+        ),
+      }),
+    ),
+  }),
+);
 
 const SYSTEM = `You organise a code change into a change stack, so a reviewer can understand a large diff in minutes instead of reading files in alphabetical order.
 
@@ -248,58 +227,23 @@ export class OpenRouterChangeStackDrafter implements ChangeStackDrafterPort {
       .filter(Boolean)
       .join('\n\n');
 
-    const response = await this.fetch(ENDPOINT, {
-      method: 'POST',
-      signal: AbortSignal.timeout(MOST_WAIT_MS),
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-        'X-Title': 'Spotlight',
-      },
-      body: JSON.stringify({
-        model: this.model,
-        max_tokens: MOST_OUTPUT,
-        messages: [
-          { role: 'system', content: SYSTEM },
-          { role: 'user', content: asked },
-        ],
-        response_format: {
-          type: 'json_schema',
-          json_schema: {
-            name: 'change_stack',
-            strict: true,
-            schema: STACK_SCHEMA,
-          },
-        },
-        provider: { require_parameters: true },
-      }),
+    const { cohorts } = await askForJson({
+      apiKey: this.apiKey,
+      model: this.model,
+      fetch: this.fetch,
+      shape: STACK,
+      system: SYSTEM,
+      asked,
+      most: MOST_OUTPUT,
     });
 
-    const answered = (await response.json().catch(() => ({}))) as Completion;
-
-    if (!response.ok) {
-      throw new Error(
-        `OpenRouter refused to draft: ${response.status} ${answered.error?.message ?? response.statusText}`,
-      );
-    }
-
-    const [choice] = answered.choices ?? [];
-
-    if (choice?.finish_reason !== 'stop' || !choice.message?.content) {
-      throw new Error(
-        `Drafting stopped early: ${choice?.finish_reason ?? answered.error?.message ?? 'no answer'}`,
-      );
-    }
-
-    return STACK.parse(JSON.parse(choice.message.content)).cohorts.map(
-      (cohort) => ({
-        ...cohort,
-        layers: cohort.layers.map(({ files, ranges, ...layer }) => ({
-          ...layer,
-          ranges: ranges.map((range) => ({ hunk: HunkId.of(range.hunk) })),
-          notes: files,
-        })),
-      }),
-    );
+    return cohorts.map((cohort) => ({
+      ...cohort,
+      layers: cohort.layers.map(({ files, ranges, ...layer }) => ({
+        ...layer,
+        ranges: ranges.map((range) => ({ hunk: HunkId.of(range.hunk) })),
+        notes: files,
+      })),
+    }));
   }
 }

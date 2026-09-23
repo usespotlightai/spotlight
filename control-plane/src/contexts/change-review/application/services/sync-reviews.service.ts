@@ -145,7 +145,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
 
     const id = ReviewCommentId.of(sync.subjectId);
 
-    if (sync.kind === 'reply') {
+    if (sync.kind === 'reply' || sync.kind === 'file') {
       await this.keep(id, (comment) => comment.notPosted());
     } else if (sync.kind === 'edit') {
       await this.keep(id, (comment) => comment.editNotSent());
@@ -200,6 +200,11 @@ export class SyncReviews implements ReviewSyncWorkPort {
       return;
     }
 
+    if (sync.kind === 'file') {
+      await this.postOnFile(comment, target);
+      return;
+    }
+
     if (!comment.github) {
       throw new GaveUp('The comment was never on GitHub');
     }
@@ -245,15 +250,20 @@ export class SyncReviews implements ReviewSyncWorkPort {
       return;
     }
 
+    const onLines = sent.flatMap((comment) =>
+      comment.anchor.lines ? [{ comment, lines: comment.anchor.lines }] : [],
+    );
+    const onFiles = sent.filter((comment) => comment.anchor.wholeFile);
+
     const submitted = await this.github.submit({
       ...(await on(review.author)),
       verdict: review.verdict,
       body: review.body,
-      comments: sent.map((comment) => ({
-        path: comment.anchor.path,
-        side: comment.anchor.side,
-        line: comment.anchor.line,
-        startLine: comment.anchor.startLine,
+      comments: onLines.map(({ comment, lines }) => ({
+        path: comment.anchor.path.value,
+        side: lines.side,
+        line: lines.line,
+        startLine: lines.startLine,
         body: comment.sentBody ?? comment.body,
       })),
     });
@@ -261,16 +271,21 @@ export class SyncReviews implements ReviewSyncWorkPort {
     const now = this.clock.now();
 
     await this.reviews.save(
-      review.postedAs(submitted.githubId, now, [
-        ...sent.map((comment, place) => ({
-          commentId: comment.id,
-          github: submitted.comments[place] ?? null,
-        })),
-        ...withdrawn.map((comment) => ({
-          commentId: comment.id,
-          github: null,
-        })),
-      ]),
+      review.postedAs(
+        submitted.githubId,
+        now,
+        [
+          ...onLines.map(({ comment }, place) => ({
+            commentId: comment.id,
+            github: submitted.comments[place] ?? null,
+          })),
+          ...withdrawn.map((comment) => ({
+            commentId: comment.id,
+            github: null,
+          })),
+        ],
+        onFiles.map((comment) => comment.id),
+      ),
     );
   }
 
@@ -310,6 +325,27 @@ export class SyncReviews implements ReviewSyncWorkPort {
     });
 
     await this.keep(reply.id, (latest) => latest.postedAs(posted));
+  }
+
+  private async postOnFile(
+    comment: ReviewComment,
+    target: OnPullRequest,
+  ): Promise<void> {
+    if (!comment.sending) {
+      return;
+    }
+    if (comment.state === 'deleted') {
+      await this.keep(comment.id, (latest) => latest.postedAs(null));
+      return;
+    }
+
+    const posted = await this.github.commentOnFile({
+      ...target,
+      path: comment.anchor.path.value,
+      body: comment.sentBody ?? comment.body,
+    });
+
+    await this.keep(comment.id, (latest) => latest.postedAs(posted));
   }
 
   private async keep(

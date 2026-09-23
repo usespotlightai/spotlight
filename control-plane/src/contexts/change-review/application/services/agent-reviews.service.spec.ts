@@ -83,7 +83,7 @@ describe('AgentReviews', () => {
 
     expect(left?.state).toBe('draft');
     expect(left?.anchor).toEqual(
-      ReviewAnchor.of({
+      ReviewAnchor.onLines({
         path: 'src/upload.ts',
         side: 'new',
         line: 12,
@@ -102,7 +102,7 @@ describe('AgentReviews', () => {
       id: ReviewCommentId.of('comment_ada'),
       workspaceId: WORKSPACE,
       taskId: TASK,
-      anchor: ReviewAnchor.of({ path: 'src/a.ts', side: 'new', line: 1 }),
+      anchor: ReviewAnchor.onLines({ path: 'src/a.ts', side: 'new', line: 1 }),
       body: 'Mine',
       author: ReviewAuthor.person(UserId.of('user_ada'), AuthorName.of('Ada')),
       now: NOW,

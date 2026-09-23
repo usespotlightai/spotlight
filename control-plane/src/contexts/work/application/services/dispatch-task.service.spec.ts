@@ -229,6 +229,7 @@ const dispatch = async (
     SHIPPED,
     teamSkills,
     integrations,
+    { ofTask: async () => [] },
   );
   const working = standing ?? task(station.id.value);
   const line = held(station, repositories);

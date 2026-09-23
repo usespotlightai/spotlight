@@ -38,7 +38,7 @@ const draft = (id: string, line: number) =>
     id: ReviewCommentId.of(id),
     workspaceId: WORKSPACE,
     taskId: TASK,
-    anchor: ReviewAnchor.of({ path: 'src/a.ts', side: 'new', line }),
+    anchor: ReviewAnchor.onLines({ path: 'src/a.ts', side: 'new', line }),
     body: `About line ${line}`,
     author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
     now: NOW,
@@ -112,6 +112,10 @@ const syncing = (over: {
       }
       return { id: 555, url: 'https://github.com/c/555' };
     }),
+    commentOnFile: vi.fn(async () => ({
+      id: 777,
+      url: 'https://github.com/c/777',
+    })),
     edit: vi.fn(async () => {}),
     remove: vi.fn(async () => {}),
     ...over.github,
@@ -135,6 +139,7 @@ const syncing = (over: {
     {
       run: async () => null,
       wasWorkedBy: async () => false,
+      reasoning: async () => null,
       task: async () => task,
       taskWithPullRequest: async () => null,
     },
@@ -233,7 +238,11 @@ describe('SyncReviews', () => {
           id: ReviewCommentId.of('comment_1'),
           workspaceId: WORKSPACE,
           taskId: TASK,
-          anchor: ReviewAnchor.of({ path: 'src/a.ts', side: 'new', line: 3 }),
+          anchor: ReviewAnchor.onLines({
+            path: 'src/a.ts',
+            side: 'new',
+            line: 3,
+          }),
           body: 'About line 3',
           author: agent,
           now: NOW,
@@ -441,6 +450,77 @@ describe('SyncReviews', () => {
 
     expect(tired.settled[0]?.how).toBe('failed');
     expect(tired.comments.get('comment_2')?.state).toBe('failed');
+  });
+
+  it('posts a review with its comments on lines, and owes each comment on a whole file a post of its own', async () => {
+    const onFile = ReviewComment.drafted({
+      id: ReviewCommentId.of('comment_3'),
+      workspaceId: WORKSPACE,
+      taskId: TASK,
+      anchor: ReviewAnchor.onFile('src/a.ts'),
+      body: 'About the file',
+      author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
+      now: NOW,
+    });
+    const { review, claimed } = Review.submit({
+      id: ReviewId.of('review_1'),
+      workspaceId: WORKSPACE,
+      taskId: TASK,
+      author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
+      verdict: 'comment',
+      body: '',
+      drafts: [draft('comment_1', 3), onFile],
+      now: NOW,
+    });
+    const synced = syncing({
+      sync: { kind: 'review', subjectId: 'review_1', attempts: 0 },
+      reviews: [review],
+      comments: [...claimed],
+    });
+
+    await synced.service.syncDue();
+
+    expect(synced.github.submit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        comments: [expect.objectContaining({ line: 3 })],
+      }),
+    );
+    expect(synced.github.commentOnFile).not.toHaveBeenCalled();
+    expect(synced.reviews.get('review_1')?.pullEvents()).toContainEqual(
+      expect.objectContaining({
+        kind: 'review.posted',
+        placed: [expect.objectContaining({ github: expect.anything() })],
+        onFiles: [ReviewCommentId.of('comment_3')],
+      }),
+    );
+  });
+
+  it('posts a comment on a whole file on its own, and keeps where GitHub put it', async () => {
+    const onFile = ReviewComment.drafted({
+      id: ReviewCommentId.of('comment_3'),
+      workspaceId: WORKSPACE,
+      taskId: TASK,
+      anchor: ReviewAnchor.onFile('src/a.ts'),
+      body: 'About the file',
+      author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
+      now: NOW,
+    }).submittedIn(ReviewId.of('review_1'));
+    const synced = syncing({
+      sync: { kind: 'file', subjectId: 'comment_3', attempts: 0 },
+      comments: [onFile],
+    });
+
+    await synced.service.syncDue();
+
+    expect(synced.github.commentOnFile).toHaveBeenCalledWith(
+      expect.objectContaining({ path: 'src/a.ts', body: 'About the file' }),
+    );
+    expect(synced.comments.get('comment_3')?.state).toBe('posted');
+    expect(synced.comments.get('comment_3')?.github?.id).toBe(777);
+
+    await synced.service.syncDue();
+
+    expect(synced.github.commentOnFile).toHaveBeenCalledTimes(1);
   });
 
   it('replies in the thread once the comment it answers is on GitHub', async () => {

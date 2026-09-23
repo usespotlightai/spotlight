@@ -7,10 +7,17 @@ export class DraftReviewCommentRequestDto {
   @ApiPropertyOptional({ example: 'src/invite.ts' })
   readonly path?: string;
 
-  @ApiPropertyOptional({ enum: ['new', 'old'] })
+  @ApiPropertyOptional({
+    enum: ['new', 'old'],
+    description:
+      'The side of the change the lines are on; none on the whole file',
+  })
   readonly side?: string;
 
-  @ApiPropertyOptional({ example: 12, description: 'The line it ends on' })
+  @ApiPropertyOptional({
+    example: 12,
+    description: 'The line it ends on; none for a comment on the whole file',
+  })
   readonly line?: number;
 
   @ApiPropertyOptional({
@@ -22,7 +29,8 @@ export class DraftReviewCommentRequestDto {
   readonly startLine?: number | null;
 
   @ApiPropertyOptional({
-    description: 'The comment this answers; the reply lands on its line',
+    description:
+      'The comment this answers; the reply lands on its line. A comment on the whole file answers the file’s thread by itself',
   })
   readonly replyTo?: string;
 }

@@ -65,4 +65,36 @@ describe('GitHubPullRequestComments', () => {
     });
     expect(asked).toHaveLength(2);
   });
+
+  it('withdraws its own comment', async () => {
+    const { asked, comments } = answering([
+      { id: 1, body: 'LGTM' },
+      { id: 7, body: `${MARKER}\nAn older stack` },
+    ]);
+
+    await comments.withdraw({
+      workspaceId: WorkspaceId.of('ws_1'),
+      repository: Repository.of('acme/widgets'),
+      pullRequest: PullRequestUrl.of('https://github.com/acme/widgets/pull/66'),
+      marker: MARKER,
+    });
+
+    expect(asked[1]).toMatchObject({
+      url: 'https://api.github.com/repos/acme/widgets/issues/comments/7',
+      method: 'DELETE',
+    });
+  });
+
+  it('withdraws nothing where it never commented', async () => {
+    const { asked, comments } = answering([{ id: 1, body: 'LGTM' }]);
+
+    await comments.withdraw({
+      workspaceId: WorkspaceId.of('ws_1'),
+      repository: Repository.of('acme/widgets'),
+      pullRequest: PullRequestUrl.of('https://github.com/acme/widgets/pull/66'),
+      marker: MARKER,
+    });
+
+    expect(asked).toHaveLength(1);
+  });
 });

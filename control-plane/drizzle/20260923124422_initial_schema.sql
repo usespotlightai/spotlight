@@ -1,8 +1,10 @@
 CREATE TYPE "public"."change_stack_state" AS ENUM('drafting', 'ready', 'failed');--> statement-breakpoint
+CREATE TYPE "public"."decision_kind" AS ENUM('trade-off', 'assumption', 'limitation', 'rejected-approach', 'deviation');--> statement-breakpoint
+CREATE TYPE "public"."decision_standing" AS ENUM('proposed', 'stands');--> statement-breakpoint
 CREATE TYPE "public"."review_comment_state" AS ENUM('draft', 'submitted', 'posted', 'failed', 'deleted');--> statement-breakpoint
 CREATE TYPE "public"."review_side" AS ENUM('new', 'old');--> statement-breakpoint
 CREATE TYPE "public"."review_state" AS ENUM('submitted', 'posted', 'failed', 'withdrawn');--> statement-breakpoint
-CREATE TYPE "public"."review_sync_kind" AS ENUM('review', 'reply', 'edit', 'delete');--> statement-breakpoint
+CREATE TYPE "public"."review_sync_kind" AS ENUM('review', 'reply', 'file', 'edit', 'delete');--> statement-breakpoint
 CREATE TYPE "public"."review_sync_state" AS ENUM('pending', 'done', 'failed');--> statement-breakpoint
 CREATE TYPE "public"."review_verdict" AS ENUM('comment', 'approve', 'request-changes');--> statement-breakpoint
 CREATE TYPE "public"."check_phase" AS ENUM('waiting', 'reordering', 'checked', 'skipped');--> statement-breakpoint
@@ -48,6 +50,43 @@ CREATE TABLE "change_stack" (
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "decision" (
+	"id" text PRIMARY KEY NOT NULL,
+	"set_id" text NOT NULL,
+	"position" integer NOT NULL,
+	"kind" "decision_kind" NOT NULL,
+	"title" text NOT NULL,
+	"why" text NOT NULL,
+	"alternatives" jsonb NOT NULL,
+	"paths" jsonb NOT NULL,
+	"steps" jsonb NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "decision_dispute" (
+	"id" text PRIMARY KEY NOT NULL,
+	"decision_id" text NOT NULL,
+	"path" text NOT NULL,
+	"by_user_id" text NOT NULL,
+	"reason" text NOT NULL,
+	"at" timestamp NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "decision_set" (
+	"id" text PRIMARY KEY NOT NULL,
+	"task_id" text NOT NULL,
+	"workspace_id" text NOT NULL,
+	"decided_in" text,
+	"draft_run_id" text,
+	"draft_asked_at" timestamp,
+	"work_attempts" integer DEFAULT 0 NOT NULL,
+	"work_due_at" timestamp,
+	"standing" "decision_standing" DEFAULT 'proposed' NOT NULL,
+	"merged_repository" text,
+	"merged_commit" text,
+	"merged_at" timestamp,
+	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "review" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
@@ -70,8 +109,8 @@ CREATE TABLE "review_comment" (
 	"workspace_id" text NOT NULL,
 	"task_id" text NOT NULL,
 	"path" text NOT NULL,
-	"side" "review_side" NOT NULL,
-	"line" integer NOT NULL,
+	"side" "review_side",
+	"line" integer,
 	"start_line" integer,
 	"body" text NOT NULL,
 	"author_id" text,
@@ -88,7 +127,8 @@ CREATE TABLE "review_comment" (
 	"edits_awaiting_echo" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"created_at" timestamp NOT NULL,
 	"edited_at" timestamp,
-	"version" integer DEFAULT 0 NOT NULL
+	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "review_comment_lines_check" CHECK (("review_comment"."side" is null) = ("review_comment"."line" is null) and ("review_comment"."line" is not null or "review_comment"."start_line" is null))
 );
 --> statement-breakpoint
 CREATE TABLE "review_sync" (
@@ -366,6 +406,7 @@ CREATE TABLE "station" (
 	"check" text,
 	"setup" text,
 	"diffs" boolean DEFAULT false NOT NULL,
+	"decisions" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
@@ -499,6 +540,8 @@ CREATE TABLE "task_note" (
 --> statement-breakpoint
 DROP INDEX "account_issuer_accountId_uidx";--> statement-breakpoint
 ALTER TABLE "event_delivery" ADD CONSTRAINT "event_delivery_event_id_event_outbox_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."event_outbox"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "decision" ADD CONSTRAINT "decision_set_id_decision_set_id_fk" FOREIGN KEY ("set_id") REFERENCES "public"."decision_set"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "decision_dispute" ADD CONSTRAINT "decision_dispute_decision_id_decision_id_fk" FOREIGN KEY ("decision_id") REFERENCES "public"."decision"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "team" ADD CONSTRAINT "team_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "team_invite" ADD CONSTRAINT "team_invite_team_id_team_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."team"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "team_invite" ADD CONSTRAINT "team_invite_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -532,6 +575,12 @@ ALTER TABLE "task_note" ADD CONSTRAINT "task_note_task_id_task_id_fk" FOREIGN KE
 CREATE INDEX "event_delivery_due_idx" ON "event_delivery" USING btree ("due_at");--> statement-breakpoint
 CREATE INDEX "change_stack_run_idx" ON "change_stack" USING btree ("run_id","drafted_at");--> statement-breakpoint
 CREATE INDEX "change_stack_task_idx" ON "change_stack" USING btree ("task_id","drafted_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "decision_position_idx" ON "decision" USING btree ("set_id","position");--> statement-breakpoint
+CREATE INDEX "decision_paths_idx" ON "decision" USING gin ("paths");--> statement-breakpoint
+CREATE INDEX "decision_dispute_decision_idx" ON "decision_dispute" USING btree ("decision_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "decision_set_task_idx" ON "decision_set" USING btree ("task_id");--> statement-breakpoint
+CREATE INDEX "decision_set_draft_idx" ON "decision_set" USING btree ("draft_asked_at");--> statement-breakpoint
+CREATE INDEX "decision_set_merged_idx" ON "decision_set" USING btree ("workspace_id","merged_repository","merged_at");--> statement-breakpoint
 CREATE INDEX "review_task_idx" ON "review" USING btree ("task_id","submitted_at");--> statement-breakpoint
 CREATE INDEX "review_comment_task_idx" ON "review_comment" USING btree ("task_id","created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "review_comment_github_idx" ON "review_comment" USING btree ("workspace_id","github_id");--> statement-breakpoint

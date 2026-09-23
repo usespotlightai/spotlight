@@ -11,13 +11,13 @@ import {
   Diff,
   type DiffFile,
 } from '@change-review/domain/value-objects/diff.vo';
-import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
-import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
-import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import {
   MOST_WORK_ATTEMPTS,
   WORK_LEASE_MS,
-} from '@change-review/domain/value-objects/stack-work.vo';
+} from '@change-review/domain/value-objects/owed-work.vo';
+import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
+import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
+import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';

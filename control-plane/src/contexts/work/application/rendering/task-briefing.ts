@@ -1,8 +1,10 @@
 import { SKILL_FILE } from '@work/application/contracts/run-spec.contract';
 import type { SkillBrief } from '@work/application/dto/ready-skill.dto';
+import type { BriefedDecision } from '@work/application/ports/task-decisions.port';
 import { Attached } from '@work/application/rendering/attached';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { OpenRemark, Task } from '@work/domain/aggregates/task.aggregate';
+import { HANDOVER_COMMAND } from '@work/domain/services/run-reasoning';
 import { DONE, REVIEW } from '@work/domain/value-objects/handover-word';
 import { RemarkHandle } from '@work/domain/value-objects/remark-handle.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
@@ -20,7 +22,7 @@ const closing = (line: Line, stationId: StationId): string => {
   return [
     '## When you are done',
     'Run this, from anywhere in the workspace:',
-    '```\nspotlight handover --next "…" --note "…"\n```',
+    `\`\`\`\n${HANDOVER_COMMAND} --next "…" --note "…"\n\`\`\``,
     `\`--next\` names a station to pass the task to, by its key: ${named}. Name somewhere else and the command refuses it and tells you what would have worked, so read what it says and run it again.`,
     `To put the task in front of a person instead of a station, use \`--next "${REVIEW}"\`. That is not a station — it is a person, whatever any station is called — and it is what to use whenever you are unsure.`,
     offered.some((each) => each.kind === 'done')
@@ -84,6 +86,41 @@ const listing = (
       ].join('\n\n')
     : null;
 
+const labelled = (kind: string): string => {
+  const words = kind.replaceAll('-', ' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
+};
+
+const recorded = (decision: BriefedDecision): string =>
+  [
+    `- **${labelled(decision.kind)}** · ${decision.title} — ${decision.why} (${decision.paths.map((path) => `\`${path}\``).join(', ')})`,
+    ...decision.disputes.map(
+      (reason) => `  - A reviewer disputes it: ${reason}`,
+    ),
+  ].join('\n');
+
+const onRecord = (decisions: readonly BriefedDecision[]): string | null =>
+  decisions.length > 0
+    ? [
+        '## Decisions on record',
+        'An earlier run on this task recorded these decisions, and the pull request shows them to its reviewers. Check that the ones your work touches still hold, and weigh what a reviewer disputes. Where you change what one rests on, or find it no longer holds, say so in your note.',
+        decisions.map(recorded).join('\n'),
+      ].join('\n\n')
+    : null;
+
+const SAYING_DECISIONS = [
+  '## Say what you decide',
+  'Reviewers of this work are shown the decisions you made, taken only from what you say while you work. When you make one, say it in a sentence as you go:',
+  [
+    '- a trade-off you accept, and what it costs;',
+    '- an assumption you rely on but have not checked;',
+    '- a limitation or gap you leave in place;',
+    '- an approach you weighed and set aside, and why;',
+    '- anywhere you depart from what the task, the spec or an earlier note asked.',
+  ].join('\n'),
+  'Routine choices anyone would make need no mention. Name them again in your handover note.',
+].join('\n\n');
+
 const workspaceOf = (line: Line): string | null => {
   const repositories = line.repositories.all;
 
@@ -114,6 +151,7 @@ export const TaskBriefing = {
     line: Line;
     skills: readonly SkillBrief[];
     listedIn: string | null;
+    decisions: readonly BriefedDecision[];
   }): string {
     const station = input.line.stationAt(input.task.stationId);
     const notes = input.task.notes.map(
@@ -127,6 +165,8 @@ export const TaskBriefing = {
       input.task.description?.value,
       Attached.listed(input.task.attachments),
       notes.length > 0 ? ['## Already done', ...notes].join('\n\n') : null,
+      onRecord(input.decisions),
+      station?.decisions ? SAYING_DECISIONS : null,
       workspaceOf(input.line),
       listing(input.skills, input.listedIn),
       answering(input.task),

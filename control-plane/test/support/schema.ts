@@ -1,4 +1,5 @@
 export * from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.schema';
+export * from '@change-review/infrastructure/persistence/drizzle/schemas/decision.schema';
 export * from '@change-review/infrastructure/persistence/drizzle/schemas/review.schema';
 export * from '@configuration/infrastructure/persistence/drizzle/schemas/configuration.schema';
 export * from '@github/infrastructure/persistence/drizzle/schemas/github-connection.schema';

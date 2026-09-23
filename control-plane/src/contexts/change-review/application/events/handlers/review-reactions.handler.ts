@@ -34,6 +34,10 @@ export class ReviewReactions {
         await this.comments.save(comment.postedAs(github));
       }
     }
+
+    for (const commentId of event.onFiles) {
+      await this.sync(event, 'file', commentId.value);
+    }
   }
 
   async onNotPosted(event: ReviewNotPosted): Promise<void> {

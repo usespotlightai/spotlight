@@ -20,6 +20,10 @@ export class DrizzleContext implements TransactionPort, BackgroundPort {
     return this.ambient.getStore()?.db ?? this.root;
   }
 
+  get transacting(): boolean {
+    return this.ambient.getStore() !== undefined;
+  }
+
   async run<T>(work: () => Promise<T>): Promise<T> {
     if (this.ambient.getStore()) {
       return work();

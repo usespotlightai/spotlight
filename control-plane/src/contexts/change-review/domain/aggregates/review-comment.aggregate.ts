@@ -207,6 +207,10 @@ export class ReviewComment extends EventRecorder {
     );
   }
 
+  get answerable(): boolean {
+    return this.state !== 'draft' && this.state !== 'deleted';
+  }
+
   replied(input: {
     id: ReviewCommentId;
     body: string;

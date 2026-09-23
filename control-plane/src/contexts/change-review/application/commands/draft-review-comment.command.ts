@@ -11,6 +11,7 @@ export class DraftReviewCommentCommand {
           readonly line: number;
           readonly startLine: number | null;
         }
+      | { readonly file: string }
       | { readonly replyTo: string },
   ) {}
 }

@@ -194,7 +194,10 @@ import {
 } from '@work/application/ports/run-digest-writer.port';
 import { RUN_EVENT_READER } from '@work/application/ports/run-event-reader.port';
 import { RUN_JOURNAL } from '@work/application/ports/run-journal.port';
-import { RUN_JOURNAL_READER } from '@work/application/ports/run-journal-reader.port';
+import {
+  RUN_JOURNAL_READER,
+  type RunJournalReaderPort,
+} from '@work/application/ports/run-journal-reader.port';
 import { RUN_READER } from '@work/application/ports/run-reader.port';
 import { RUN_STREAM } from '@work/application/ports/run-stream.port';
 import { RUNNER_ACTIVITY_READER } from '@work/application/ports/runner-activity-reader.port';
@@ -209,6 +212,10 @@ import {
   STATION_TALLIES,
   type StationTalliesPort,
 } from '@work/application/ports/station-tallies.port';
+import {
+  TASK_DECISIONS,
+  type TaskDecisionsPort,
+} from '@work/application/ports/task-decisions.port';
 import {
   TASK_NOTICES,
   type TaskNoticesPort,
@@ -402,12 +409,14 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       DrizzleRunRepository,
       DrizzleTaskRepository,
       DrizzleLineRepository,
+      RUN_JOURNAL_READER,
     ],
     useFactory: (
       runs: DrizzleRunRepository,
       tasks: DrizzleTaskRepository,
       lines: DrizzleLineRepository,
-    ) => new WorkLookup(runs, tasks, lines),
+      journals: RunJournalReaderPort,
+    ) => new WorkLookup(runs, tasks, lines, journals),
   },
 
   DrizzleRunRepository,
@@ -754,6 +763,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       BUILT_IN_SKILLS,
       StationSkills,
       TeamIntegrations,
+      TASK_DECISIONS,
     ],
     useFactory: (
       runs: DrizzleRunRepository,
@@ -764,6 +774,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       skills: BuiltInSkillsPort,
       teamSkills: StationSkills,
       integrations: TeamIntegrations,
+      decisions: TaskDecisionsPort,
     ) =>
       new DispatchTask(
         runs,
@@ -774,6 +785,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         skills,
         teamSkills,
         integrations,
+        decisions,
       ),
   },
 

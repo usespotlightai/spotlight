@@ -3318,6 +3318,196 @@
         ]
       }
     },
+    "/teams/{teamId}/tasks/{taskId}/decisions": {
+      "get": {
+        "operationId": "readTaskDecisions",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskDecisionsResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such task for this caller"
+          }
+        },
+        "summary": "The decisions the agent made in the task’s latest drafted run, for review",
+        "tags": [
+          "decisions"
+        ]
+      }
+    },
+    "/teams/{teamId}/tasks/{taskId}/decisions/{decisionId}/disputes": {
+      "post": {
+        "operationId": "disputeDecision",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "decisionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisputeDecisionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskDecisionsResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No reason given, one too long, or a path the decision does not name"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such decision for this caller"
+          }
+        },
+        "summary": "Say a decision the agent made is wrong or out of date, and why",
+        "tags": [
+          "decisions"
+        ]
+      }
+    },
+    "/workspaces/{slug}/decisions": {
+      "get": {
+        "operationId": "listStandingDecisions",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repository",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "acme/api",
+              "type": "string"
+            }
+          },
+          {
+            "name": "since",
+            "required": false,
+            "in": "query",
+            "description": "Merged at or after, as an ISO date",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "until",
+            "required": false,
+            "in": "query",
+            "description": "Merged at or before, as an ISO date",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "required": false,
+            "in": "query",
+            "description": "A file or directory in the repository; repeat it to ask about several",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandingDecisionListResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Paths without their repository, or a time that is no date"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          }
+        },
+        "summary": "The decisions that shipped in merged pull requests, for incident handling",
+        "tags": [
+          "decisions"
+        ]
+      }
+    },
     "/runs/{runId}/change-stacks": {
       "post": {
         "description": "A station that says it wants changes has its runs drafted into a change stack: the runner hands over the diff of each checkout.",
@@ -3548,10 +3738,10 @@
             "description": "No such run or comment for this caller"
           },
           "422": {
-            "description": "Nothing said, or no line"
+            "description": "Nothing said, or no file"
           }
         },
-        "summary": "Draft a comment on a line, or reply to a comment; a reply goes to GitHub straight away",
+        "summary": "Draft a comment on lines or a whole file, or reply to a comment; a reply goes to GitHub straight away",
         "tags": [
           "reviews"
         ]
@@ -7685,6 +7875,250 @@
           "latest"
         ]
       },
+      "DecisionMergeResponseDto": {
+        "type": "object",
+        "properties": {
+          "repository": {
+            "type": "string",
+            "example": "acme/api"
+          },
+          "commit": {
+            "type": "string",
+            "description": "The commit the merge made"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "repository",
+          "commit",
+          "at"
+        ]
+      },
+      "DisputeResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string",
+            "description": "The file of the decision it is about"
+          },
+          "by": {
+            "type": "string",
+            "description": "The person who disputed it"
+          },
+          "byName": {
+            "type": "string",
+            "nullable": true
+          },
+          "reason": {
+            "type": "string",
+            "example": "The client already retries twice."
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "path",
+          "by",
+          "byName",
+          "reason",
+          "at"
+        ]
+      },
+      "DecisionResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Disputes name the decision by this"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "trade-off",
+              "assumption",
+              "limitation",
+              "rejected-approach",
+              "deviation"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "example": "Retries uploads in the request, not from a queue"
+          },
+          "why": {
+            "type": "string",
+            "description": "What led the agent to it, and what it costs"
+          },
+          "alternatives": {
+            "description": "The options the agent weighed and set aside",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "paths": {
+            "example": [
+              "api/src/uploads.ts"
+            ],
+            "description": "The changed files it bears on, from the workspace root",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "description": "Where the agent reasoned it, as steps of the run’s journal",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "disputes": {
+            "description": "Who holds it wrong or out of date, and why",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DisputeResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "why",
+          "alternatives",
+          "paths",
+          "steps",
+          "disputes"
+        ]
+      },
+      "TaskDecisionsResponseDto": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The run the decisions were drafted from, if any was"
+          },
+          "drafting": {
+            "type": "boolean",
+            "description": "Whether a later run’s decisions are being drafted"
+          },
+          "standing": {
+            "type": "string",
+            "enum": [
+              "proposed",
+              "stands"
+            ]
+          },
+          "merge": {
+            "nullable": true,
+            "description": "The merge the decisions stood in, once the pull request merged",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DecisionMergeResponseDto"
+              }
+            ]
+          },
+          "decisions": {
+            "description": "Deviations and limitations first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DecisionResponseDto"
+            }
+          }
+        },
+        "required": [
+          "runId",
+          "drafting",
+          "standing",
+          "merge",
+          "decisions"
+        ]
+      },
+      "DisputeDecisionRequestDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "example": "The client already retries twice, so this retry is a third.",
+            "description": "Why the decision is wrong or out of date"
+          },
+          "path": {
+            "type": "string",
+            "example": "api/src/uploads/retry.ts",
+            "description": "The file of the decision the dispute is about"
+          }
+        },
+        "required": [
+          "reason",
+          "path"
+        ]
+      },
+      "StandingDecisionsResponseDto": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          },
+          "runId": {
+            "type": "string",
+            "nullable": true
+          },
+          "repository": {
+            "type": "string",
+            "example": "acme/api"
+          },
+          "commit": {
+            "type": "string",
+            "description": "The commit the merge made"
+          },
+          "mergedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "decisions": {
+            "description": "Those bearing on the paths asked about; deviations and limitations first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DecisionResponseDto"
+            }
+          }
+        },
+        "required": [
+          "taskId",
+          "runId",
+          "repository",
+          "commit",
+          "mergedAt",
+          "decisions"
+        ]
+      },
+      "StandingDecisionListResponseDto": {
+        "type": "object",
+        "properties": {
+          "merges": {
+            "description": "Newest merge first, at most fifty",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StandingDecisionsResponseDto"
+            }
+          }
+        },
+        "required": [
+          "merges"
+        ]
+      },
       "DraftChangeStackRequestDto": {
         "type": "object",
         "properties": {
@@ -7797,12 +8231,15 @@
             "enum": [
               "new",
               "old"
-            ]
+            ],
+            "nullable": true,
+            "description": "Which side of the change its lines are on; none on the whole file"
           },
           "line": {
             "type": "number",
             "example": 12,
-            "description": "The line it ends on"
+            "nullable": true,
+            "description": "The line it ends on; none for a comment on the whole file"
           },
           "startLine": {
             "type": "number",
@@ -7985,12 +8422,13 @@
             "enum": [
               "new",
               "old"
-            ]
+            ],
+            "description": "The side of the change the lines are on; none on the whole file"
           },
           "line": {
             "type": "number",
             "example": 12,
-            "description": "The line it ends on"
+            "description": "The line it ends on; none for a comment on the whole file"
           },
           "startLine": {
             "type": "number",
@@ -8000,7 +8438,7 @@
           },
           "replyTo": {
             "type": "string",
-            "description": "The comment this answers; the reply lands on its line"
+            "description": "The comment this answers; the reply lands on its line. A comment on the whole file answers the file’s thread by itself"
           }
         },
         "required": [

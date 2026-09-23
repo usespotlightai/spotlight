@@ -187,6 +187,7 @@ export class Review extends EventRecorder {
     githubId: number,
     now: Date,
     placed: readonly PlacedComment[] = [],
+    onFiles: readonly ReviewCommentId[] = [],
   ): Review {
     if (this.state !== 'submitted') {
       throw new InvalidReviewError('is posted to GitHub only once');
@@ -194,7 +195,9 @@ export class Review extends EventRecorder {
 
     const posted = this.with('posted', githubId, now);
 
-    posted.record(new ReviewPosted(this.id, placed));
+    posted.record(
+      new ReviewPosted(this.id, this.workspaceId, this.taskId, placed, onFiles),
+    );
 
     return posted;
   }

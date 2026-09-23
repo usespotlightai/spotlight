@@ -1439,6 +1439,112 @@ export type NewestChangeStackResponseDto = {
   latest: LatestChangeStackResponseDto | null;
 };
 
+export type DecisionMergeResponseDto = {
+  repository: string;
+  /**
+   * The commit the merge made
+   */
+  commit: string;
+  at: string;
+};
+
+export type DisputeResponseDto = {
+  id: string;
+  /**
+   * The file of the decision it is about
+   */
+  path: string;
+  /**
+   * The person who disputed it
+   */
+  by: string;
+  byName: string | null;
+  reason: string;
+  at: string;
+};
+
+export type DecisionResponseDto = {
+  /**
+   * Disputes name the decision by this
+   */
+  id: string;
+  kind: 'trade-off' | 'assumption' | 'limitation' | 'rejected-approach' | 'deviation';
+  title: string;
+  /**
+   * What led the agent to it, and what it costs
+   */
+  why: string;
+  /**
+   * The options the agent weighed and set aside
+   */
+  alternatives: Array<string>;
+  /**
+   * The changed files it bears on, from the workspace root
+   */
+  paths: Array<string>;
+  /**
+   * Where the agent reasoned it, as steps of the run’s journal
+   */
+  steps: Array<number>;
+  /**
+   * Who holds it wrong or out of date, and why
+   */
+  disputes: Array<DisputeResponseDto>;
+};
+
+export type TaskDecisionsResponseDto = {
+  /**
+   * The run the decisions were drafted from, if any was
+   */
+  runId: string | null;
+  /**
+   * Whether a later run’s decisions are being drafted
+   */
+  drafting: boolean;
+  standing: 'proposed' | 'stands';
+  /**
+   * The merge the decisions stood in, once the pull request merged
+   */
+  merge: DecisionMergeResponseDto | null;
+  /**
+   * Deviations and limitations first
+   */
+  decisions: Array<DecisionResponseDto>;
+};
+
+export type DisputeDecisionRequestDto = {
+  /**
+   * Why the decision is wrong or out of date
+   */
+  reason: string;
+  /**
+   * The file of the decision the dispute is about
+   */
+  path: string;
+};
+
+export type StandingDecisionsResponseDto = {
+  taskId: string;
+  runId: string | null;
+  repository: string;
+  /**
+   * The commit the merge made
+   */
+  commit: string;
+  mergedAt: string;
+  /**
+   * Those bearing on the paths asked about; deviations and limitations first
+   */
+  decisions: Array<DecisionResponseDto>;
+};
+
+export type StandingDecisionListResponseDto = {
+  /**
+   * Newest merge first, at most fifty
+   */
+  merges: Array<StandingDecisionsResponseDto>;
+};
+
 export type DraftChangeStackRequestDto = {
   /**
    * The changes, as the output of git diff
@@ -1493,11 +1599,14 @@ export type RecordChangeStackCheckRequestDto = {
 export type ReviewCommentResponseDto = {
   id: string;
   path: string;
+  /**
+   * Which side of the change its lines are on; none on the whole file
+   */
   side: 'new' | 'old';
   /**
-   * The line it ends on
+   * The line it ends on; none for a comment on the whole file
    */
-  line: number;
+  line: number | null;
   /**
    * Where it starts, when it is on several lines
    */
@@ -1561,9 +1670,12 @@ export type CodeReviewResponseDto = {
 export type DraftReviewCommentRequestDto = {
   body: string;
   path?: string;
+  /**
+   * The side of the change the lines are on; none on the whole file
+   */
   side?: 'new' | 'old';
   /**
-   * The line it ends on
+   * The line it ends on; none for a comment on the whole file
    */
   line?: number;
   /**
@@ -1571,7 +1683,7 @@ export type DraftReviewCommentRequestDto = {
    */
   startLine?: number | null;
   /**
-   * The comment this answers; the reply lands on its line
+   * The comment this answers; the reply lands on its line. A comment on the whole file answers the file’s thread by itself
    */
   replyTo?: string;
 };
@@ -3692,6 +3804,109 @@ export type ReadTaskChangeStackResponses = {
 
 export type ReadTaskChangeStackResponse = ReadTaskChangeStackResponses[keyof ReadTaskChangeStackResponses];
 
+export type ReadTaskDecisionsData = {
+  body?: never;
+  path: {
+    teamId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/decisions';
+};
+
+export type ReadTaskDecisionsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+};
+
+export type ReadTaskDecisionsResponses = {
+  200: TaskDecisionsResponseDto;
+};
+
+export type ReadTaskDecisionsResponse = ReadTaskDecisionsResponses[keyof ReadTaskDecisionsResponses];
+
+export type DisputeDecisionData = {
+  body: DisputeDecisionRequestDto;
+  path: {
+    teamId: string;
+    taskId: string;
+    decisionId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/decisions/{decisionId}/disputes';
+};
+
+export type DisputeDecisionErrors = {
+  /**
+   * No reason given, one too long, or a path the decision does not name
+   */
+  400: unknown;
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such decision for this caller
+   */
+  404: unknown;
+};
+
+export type DisputeDecisionResponses = {
+  201: TaskDecisionsResponseDto;
+};
+
+export type DisputeDecisionResponse = DisputeDecisionResponses[keyof DisputeDecisionResponses];
+
+export type ListStandingDecisionsData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: {
+    repository?: string;
+    /**
+     * Merged at or after, as an ISO date
+     */
+    since?: string;
+    /**
+     * Merged at or before, as an ISO date
+     */
+    until?: string;
+    /**
+     * A file or directory in the repository; repeat it to ask about several
+     */
+    path?: Array<string>;
+  };
+  url: '/workspaces/{slug}/decisions';
+};
+
+export type ListStandingDecisionsErrors = {
+  /**
+   * Paths without their repository, or a time that is no date
+   */
+  400: unknown;
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type ListStandingDecisionsResponses = {
+  200: StandingDecisionListResponseDto;
+};
+
+export type ListStandingDecisionsResponse = ListStandingDecisionsResponses[keyof ListStandingDecisionsResponses];
+
 export type DraftChangeStackData = {
   body: DraftChangeStackRequestDto;
   path: {
@@ -3811,7 +4026,7 @@ export type DraftReviewCommentErrors = {
    */
   404: unknown;
   /**
-   * Nothing said, or no line
+   * Nothing said, or no file
    */
   422: unknown;
 };

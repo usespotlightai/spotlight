@@ -1,4 +1,5 @@
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
+import { InvalidFilePathError } from '@change-review/domain/exceptions/invalid-file-path.error';
 import { InvalidReviewError } from '@change-review/domain/exceptions/invalid-review.error';
 import { NotYourReviewCommentError } from '@change-review/domain/exceptions/not-your-review-comment.error';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
@@ -15,7 +16,7 @@ const NOW = new Date('2026-09-16T10:00:00Z');
 const ADA = UserId.of('user_ada');
 const BOB = UserId.of('user_bob');
 
-const ANCHOR = ReviewAnchor.of({
+const ANCHOR = ReviewAnchor.onLines({
   path: 'src/invite.ts',
   side: 'new',
   line: 12,
@@ -33,16 +34,16 @@ const drafted = (body = 'Should this expire?') =>
   });
 
 describe('ReviewAnchor', () => {
-  it('refuses a line that is not a line', () => {
+  it('refuses a line that is not a line, on a file with no path', () => {
     expect(() =>
-      ReviewAnchor.of({ path: 'a.ts', side: 'new', line: 0 }),
+      ReviewAnchor.onLines({ path: 'a.ts', side: 'new', line: 0 }),
     ).toThrow(InvalidReviewError);
     expect(() =>
-      ReviewAnchor.of({ path: 'a.ts', side: 'middle', line: 3 }),
+      ReviewAnchor.onLines({ path: 'a.ts', side: 'middle', line: 3 }),
     ).toThrow(InvalidReviewError);
-    expect(() => ReviewAnchor.of({ path: ' ', side: 'old', line: 3 })).toThrow(
-      InvalidReviewError,
-    );
+    expect(() =>
+      ReviewAnchor.onLines({ path: ' ', side: 'old', line: 3 }),
+    ).toThrow(InvalidFilePathError);
   });
 });
 
@@ -381,32 +382,44 @@ describe('ReviewComment', () => {
 
 describe('ReviewAnchor across lines', () => {
   it('keeps where a comment on several lines starts', () => {
-    const anchor = ReviewAnchor.of({
+    const anchor = ReviewAnchor.onLines({
       path: 'src/a.ts',
       side: 'new',
       line: 9,
       startLine: 4,
     });
 
-    expect(anchor.startLine).toBe(4);
-    expect(anchor.firstLine).toBe(4);
+    expect(anchor.lines?.startLine).toBe(4);
   });
 
   it('treats a range of one line as that line', () => {
-    const anchor = ReviewAnchor.of({
+    const anchor = ReviewAnchor.onLines({
       path: 'src/a.ts',
       side: 'new',
       line: 9,
       startLine: 9,
     });
 
-    expect(anchor.startLine).toBeNull();
-    expect(anchor.firstLine).toBe(9);
+    expect(anchor.lines?.startLine).toBeNull();
+  });
+
+  it('is on the whole file, with no lines or side', () => {
+    const anchor = ReviewAnchor.onFile('/src/a.ts');
+
+    expect(anchor.path.value).toBe('src/a.ts');
+    expect(anchor.wholeFile).toBe(true);
+    expect(anchor.lines).toBeNull();
+    expect(anchor.equals(ReviewAnchor.onFile('src/a.ts'))).toBe(true);
   });
 
   it('refuses a range that starts after it ends', () => {
     expect(() =>
-      ReviewAnchor.of({ path: 'src/a.ts', side: 'old', line: 4, startLine: 9 }),
+      ReviewAnchor.onLines({
+        path: 'src/a.ts',
+        side: 'old',
+        line: 4,
+        startLine: 9,
+      }),
     ).toThrow(InvalidReviewError);
   });
 });

@@ -2,6 +2,7 @@ import { useParams, useSearchParams } from 'react-router';
 import { ChangeStackNotice } from '@/components/features/changes/ChangeStackNotice';
 import { ChangeStackSkeleton } from '@/components/features/changes/ChangeStackSkeleton';
 import { ChangeStackView } from '@/components/features/changes/ChangeStackView';
+import { DecisionsProvider } from '@/components/features/decisions/DecisionsProvider';
 import { ReviewProvider } from '@/components/features/review/ReviewProvider';
 import { SubmitReviewButton } from '@/components/features/review/SubmitReviewButton';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
@@ -96,41 +97,43 @@ export function RunChangeStack() {
   return (
     <TrailContext value={forward}>
       <ReviewProvider teamId={teamId} runId={runId} review={review.data}>
-        <div className="flex min-h-0 flex-1 flex-col">
-          <PageHeader
-            title={<Breadcrumbs segments={trail} />}
-            actions={
-              stack?.state === 'ready' ? (
-                <>
-                  {current.length > 1 && (
-                    <ViewPills
-                      views={current.map((each) => ({
-                        id: each.repository ?? UNNAMED,
-                        label: each.repository ?? UNNAMED,
-                      }))}
-                      current={stack.repository ?? UNNAMED}
-                      onChange={switchTo}
-                    />
-                  )}
-                  {run?.taskId && <SubmitReviewButton />}
-                </>
-              ) : undefined
-            }
-          />
+        <DecisionsProvider slug={slug} teamId={teamId} taskId={run?.taskId}>
+          <div className="flex min-h-0 flex-1 flex-col">
+            <PageHeader
+              title={<Breadcrumbs segments={trail} />}
+              actions={
+                stack?.state === 'ready' ? (
+                  <>
+                    {current.length > 1 && (
+                      <ViewPills
+                        views={current.map((each) => ({
+                          id: each.repository ?? UNNAMED,
+                          label: each.repository ?? UNNAMED,
+                        }))}
+                        current={stack.repository ?? UNNAMED}
+                        onChange={switchTo}
+                      />
+                    )}
+                    {run?.taskId && <SubmitReviewButton />}
+                  </>
+                ) : undefined
+              }
+            />
 
-          {stack?.state === 'ready' ? (
-            <ChangeStackView
-              stack={stack}
-              layerId={params.get('layer')}
-              onPick={pick}
-            />
-          ) : (
-            <ChangeStackNotice
-              stack={stack}
-              runTo={runPath(slug, teamId, runId)}
-            />
-          )}
-        </div>
+            {stack?.state === 'ready' ? (
+              <ChangeStackView
+                stack={stack}
+                layerId={params.get('layer')}
+                onPick={pick}
+              />
+            ) : (
+              <ChangeStackNotice
+                stack={stack}
+                runTo={runPath(slug, teamId, runId)}
+              />
+            )}
+          </div>
+        </DecisionsProvider>
       </ReviewProvider>
     </TrailContext>
   );

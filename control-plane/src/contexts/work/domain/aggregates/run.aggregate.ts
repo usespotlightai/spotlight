@@ -278,6 +278,10 @@ export class Run extends EventRecorder {
     return stopping;
   }
 
+  get hasCompleted(): boolean {
+    return this.state === 'completed';
+  }
+
   get hasEnded(): boolean {
     return this.state === 'completed' || this.state === 'failed';
   }

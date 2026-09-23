@@ -1,4 +1,5 @@
 import type { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
+import type { FilePath } from '@change-review/domain/value-objects/file-path.vo';
 import type { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import type { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -19,6 +20,10 @@ export interface ReviewCommentRepository {
   draftsBy(taskId: TaskId, author: ReviewAuthor): Promise<ReviewComment[]>;
 
   ofTask(taskId: TaskId): Promise<ReviewComment[]>;
+
+  lockThreadsOnFile(taskId: TaskId, path: FilePath): Promise<void>;
+
+  threadsOnFile(taskId: TaskId, path: FilePath): Promise<ReviewComment[]>;
 
   removeForTask(taskId: TaskId): Promise<void>;
 }

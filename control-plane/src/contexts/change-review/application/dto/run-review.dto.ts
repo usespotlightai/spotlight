@@ -16,8 +16,8 @@ export const REVIEW_VERDICT_NAMES = [
 export interface ReviewCommentDto {
   readonly id: string;
   readonly path: string;
-  readonly side: (typeof REVIEW_SIDE_NAMES)[number];
-  readonly line: number;
+  readonly side: (typeof REVIEW_SIDE_NAMES)[number] | null;
+  readonly line: number | null;
   readonly startLine: number | null;
   readonly body: string;
   readonly authorName: string;

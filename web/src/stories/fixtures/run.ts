@@ -25,7 +25,7 @@ export const SLUG = 'acme';
 export const TEAM_ID = 'team_platform';
 export const RUN_ID = 'run_retries_2';
 
-const TASK_ID = 'task_retries';
+export const TASK_ID = 'task_retries';
 
 const minutesAgo = (minutes: number): string =>
   new Date(Date.now() - minutes * 60_000).toISOString();

@@ -1,4 +1,4 @@
-import type { ChangeStackWorkPort } from '@change-review/application/ports/change-stack-work.port';
+import type { OwedWorkPort } from '@change-review/application/ports/owed-work.port';
 import { Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -6,12 +6,12 @@ import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 const EVERY_MS = 2_000;
 
 @Injectable()
-export class ChangeStackWorkWorker implements OnModuleDestroy {
+export class OwedWorkWorker implements OnModuleDestroy {
   #turning = false;
   #stopped = false;
 
   constructor(
-    private readonly work: ChangeStackWorkPort,
+    private readonly owed: readonly OwedWorkPort[],
     private readonly logger: LoggerPort,
   ) {}
 
@@ -28,12 +28,13 @@ export class ChangeStackWorkWorker implements OnModuleDestroy {
     this.#turning = true;
 
     try {
-      await this.work.workDue();
-    } catch (error) {
-      this.logger.error(
-        { err: error },
-        'Drafting and reordering change stacks',
-      );
+      for (const work of this.owed) {
+        await work
+          .workDue()
+          .catch((error: unknown) =>
+            this.logger.error({ err: error }, work.name),
+          );
+      }
     } finally {
       this.#turning = false;
     }

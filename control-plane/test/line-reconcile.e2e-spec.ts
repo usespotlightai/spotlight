@@ -44,6 +44,7 @@ const planOf = (line: Line): StationPlan[] =>
     check: null,
     setup: null,
     diffs: false,
+    decisions: false,
     tools: each.tools,
     skills: each.skills,
     passesTo: each.wayOut.stations.map((to) => keyed(line, to)),

@@ -1,24 +1,33 @@
 import { InvalidReviewError } from '@change-review/domain/exceptions/invalid-review.error';
+import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
 
 export const REVIEW_SIDES = ['new', 'old'] as const;
 
 export type ReviewSide = (typeof REVIEW_SIDES)[number];
 
+export interface ReviewLines {
+  readonly side: ReviewSide;
+  readonly line: number;
+  readonly startLine: number | null;
+}
+
 export class ReviewAnchor {
   private constructor(
-    readonly path: string,
-    readonly side: ReviewSide,
-    readonly line: number,
-    readonly startLine: number | null,
+    readonly path: FilePath,
+    readonly lines: ReviewLines | null,
   ) {}
 
-  static of(input: {
+  static onFile(path: string): ReviewAnchor {
+    return new ReviewAnchor(FilePath.of(path), null);
+  }
+
+  static onLines(input: {
     path: string;
     side: string;
     line: number;
     startLine?: number | null;
   }): ReviewAnchor {
-    const path = input.path.trim().replace(/^\/+/, '');
+    const path = FilePath.of(input.path);
     const startLine =
       input.startLine === undefined ||
       input.startLine === null ||
@@ -26,9 +35,6 @@ export class ReviewAnchor {
         ? null
         : input.startLine;
 
-    if (!path) {
-      throw new InvalidReviewError('comment is on a file with no path');
-    }
     if (!(REVIEW_SIDES as readonly string[]).includes(input.side)) {
       throw new InvalidReviewError(
         'comment is on the new or the old side of a change',
@@ -46,24 +52,23 @@ export class ReviewAnchor {
       );
     }
 
-    return new ReviewAnchor(
-      path,
-      input.side as ReviewSide,
-      input.line,
+    return new ReviewAnchor(path, {
+      side: input.side as ReviewSide,
+      line: input.line,
       startLine,
-    );
+    });
   }
 
-  get firstLine(): number {
-    return this.startLine ?? this.line;
+  get wholeFile(): boolean {
+    return this.lines === null;
   }
 
   equals(other: ReviewAnchor): boolean {
     return (
-      this.path === other.path &&
-      this.side === other.side &&
-      this.line === other.line &&
-      this.startLine === other.startLine
+      this.path.equals(other.path) &&
+      this.lines?.side === other.lines?.side &&
+      this.lines?.line === other.lines?.line &&
+      this.lines?.startLine === other.lines?.startLine
     );
   }
 }

@@ -27,6 +27,7 @@ const noticed = (
     id: 300,
     url: 'https://github.com/acme/web/pull/7#discussion_r300',
     path: 'src/a.ts',
+    subject: 'line',
     side: 'new',
     line: 12,
     startLine: null,
@@ -57,6 +58,7 @@ const receiving = (held: ReviewComment[] = []) => {
     {
       run: async () => null,
       wasWorkedBy: async () => false,
+      reasoning: async () => null,
       task: async () => null,
       taskWithPullRequest: async (workspaceId, pullRequest) => ({
         id: TASK,
@@ -81,7 +83,7 @@ const onGitHub = (githubId: number, body = 'Earlier') =>
     id: ReviewCommentId.of(`comment_${githubId}`),
     workspaceId: WORKSPACE,
     taskId: TASK,
-    anchor: ReviewAnchor.of({ path: 'src/a.ts', side: 'new', line: 12 }),
+    anchor: ReviewAnchor.onLines({ path: 'src/a.ts', side: 'new', line: 12 }),
     body,
     author: ReviewAuthor.onGitHub('octocat'),
     replyTo: null,
@@ -97,8 +99,8 @@ describe('ReceiveReviewComment', () => {
 
     const [kept] = [...comments.values()];
     expect(kept?.state).toBe('posted');
-    expect(kept?.anchor.side).toBe('old');
-    expect(kept?.anchor.line).toBe(12);
+    expect(kept?.anchor.lines?.side).toBe('old');
+    expect(kept?.anchor.lines?.line).toBe(12);
     expect(kept?.author.equals(ReviewAuthor.onGitHub('octocat'))).toBe(true);
     expect(kept?.github?.id).toBe(300);
   });
@@ -124,7 +126,7 @@ describe('ReceiveReviewComment', () => {
       id: ReviewCommentId.of('comment_mine'),
       workspaceId: WORKSPACE,
       taskId: TASK,
-      anchor: ReviewAnchor.of({ path: 'src/a.ts', side: 'new', line: 12 }),
+      anchor: ReviewAnchor.onLines({ path: 'src/a.ts', side: 'new', line: 12 }),
       body: 'Why not a constant?',
       author: ReviewAuthor.person(UserId.of('user_ada'), AuthorName.of('Ada')),
       now: NOW,
@@ -145,7 +147,7 @@ describe('ReceiveReviewComment', () => {
       id: ReviewCommentId.of('comment_mine'),
       workspaceId: WORKSPACE,
       taskId: TASK,
-      anchor: ReviewAnchor.of({ path: 'src/a.ts', side: 'new', line: 12 }),
+      anchor: ReviewAnchor.onLines({ path: 'src/a.ts', side: 'new', line: 12 }),
       body: 'Why not a constant?',
       author: ReviewAuthor.person(UserId.of('user_ada'), AuthorName.of('Ada')),
       now: NOW,
@@ -174,7 +176,7 @@ describe('ReceiveReviewComment', () => {
       id: ReviewCommentId.of('comment_mine'),
       workspaceId: WORKSPACE,
       taskId: TASK,
-      anchor: ReviewAnchor.of({ path: 'src/a.ts', side: 'new', line: 12 }),
+      anchor: ReviewAnchor.onLines({ path: 'src/a.ts', side: 'new', line: 12 }),
       body: 'Why not a constant?',
       author: ReviewAuthor.person(UserId.of('user_ada'), AuthorName.of('Ada')),
       now: NOW,
@@ -192,9 +194,20 @@ describe('ReceiveReviewComment', () => {
     expect(comments.get('comment_mine')?.editPending).toBe(true);
   });
 
-  it('ignores a comment on a file rather than a line, or from a workspace it does not know', async () => {
-    const unlined = receiving();
-    await unlined.service.receive(noticed({ line: null }));
-    expect(unlined.comments.size).toBe(0);
+  it('keeps a comment made on GitHub on the whole file', async () => {
+    const { service, comments } = receiving();
+
+    await service.receive(noticed({ subject: 'file' }));
+
+    const [kept] = [...comments.values()];
+    expect(kept?.anchor.wholeFile).toBe(true);
+  });
+
+  it('never takes a comment on lines GitHub no longer places for one on the whole file', async () => {
+    const { service, comments } = receiving();
+
+    await service.receive(noticed({ line: null, startLine: null }));
+
+    expect([...comments.values()]).toEqual([]);
   });
 });

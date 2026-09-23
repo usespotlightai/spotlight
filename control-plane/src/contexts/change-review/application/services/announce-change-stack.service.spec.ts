@@ -99,6 +99,7 @@ const announcing = (
     },
     {
       slugOf: async () => 'acme',
+      idOf: async () => null,
       mayView: async () => true,
     },
     {
@@ -113,9 +114,12 @@ const announcing = (
           taskId: TaskId.of('task-1'),
           request: null,
           ended: false,
+          completed: false,
+          decisions: false,
         };
       },
       wasWorkedBy: async () => true,
+      reasoning: async () => null,
       task: async () => {
         if (over.failing === 'task') {
           return unreachable();
@@ -143,9 +147,14 @@ const announcing = (
         }
         kept.push(comment);
       },
+      withdraw: async () => undefined,
     },
     { now: () => NOW, sleep: async () => undefined },
-    { pageOf: ({ runId }) => `https://app.example/runs/${runId}/changes` },
+    {
+      changeStackOf: ({ runId }) => `https://app.example/runs/${runId}/changes`,
+      decisionsOf: ({ taskId }) =>
+        `https://app.example/tasks/${taskId}#decisions`,
+    },
   );
 
   return { announcer, kept };

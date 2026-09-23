@@ -7,6 +7,7 @@ import type {
   WebhookTranslationPort,
 } from '@github/application/ports/webhook-translation.port';
 import { DefaultBranchPushed } from '@github/domain/events/default-branch-pushed.event';
+import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
 import { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
 import type { GitHubConnectionRepository } from '@github/domain/repositories/github-connection.repository';
 import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
@@ -93,6 +94,18 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
           heard.action,
           heard.pullRequest,
           heard.comment,
+        ),
+      ]);
+    }
+
+    if (heard.kind === 'pull-request-closed') {
+      await this.events.dispatch([
+        new PullRequestClosed(
+          workspaceId,
+          heard.pullRequest,
+          heard.repository,
+          heard.merge,
+          heard.closedAt,
         ),
       ]);
     }

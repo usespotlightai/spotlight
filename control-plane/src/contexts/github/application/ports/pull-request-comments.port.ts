@@ -12,6 +12,10 @@ export interface StandingComment {
   readonly body: string;
 }
 
+export type StandingPlace = Omit<StandingComment, 'body'>;
+
 export interface PullRequestCommentsPort {
   keep(comment: StandingComment): Promise<void>;
+
+  withdraw(place: StandingPlace): Promise<void>;
 }

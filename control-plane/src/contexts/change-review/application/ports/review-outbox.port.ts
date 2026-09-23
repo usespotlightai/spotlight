@@ -3,7 +3,13 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const REVIEW_OUTBOX = Symbol('REVIEW_OUTBOX');
 
-export const REVIEW_SYNC_KINDS = ['review', 'reply', 'edit', 'delete'] as const;
+export const REVIEW_SYNC_KINDS = [
+  'review',
+  'reply',
+  'file',
+  'edit',
+  'delete',
+] as const;
 
 export type ReviewSyncKind = (typeof REVIEW_SYNC_KINDS)[number];
 

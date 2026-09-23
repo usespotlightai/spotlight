@@ -79,13 +79,13 @@ export class ReviewController {
   @ApiOperation({
     operationId: 'draftReviewComment',
     summary:
-      'Draft a comment on a line, or reply to a comment; a reply goes to GitHub straight away',
+      'Draft a comment on lines or a whole file, or reply to a comment; a reply goes to GitHub straight away',
   })
   @ApiCreatedResponse({ type: CreatedIdResponseDto })
   @ApiNotFoundResponse({
     description: 'No such run or comment for this caller',
   })
-  @ApiUnprocessableEntityResponse({ description: 'Nothing said, or no line' })
+  @ApiUnprocessableEntityResponse({ description: 'Nothing said, or no file' })
   async draft(
     @Param('teamId') teamId: string,
     @Param('runId') runId: string,
@@ -100,15 +100,17 @@ export class ReviewController {
         body.body ?? '',
         body.replyTo
           ? { replyTo: body.replyTo }
-          : {
-              path: body.path ?? '',
-              side: body.side ?? '',
-              line: Number(body.line),
-              startLine:
-                body.startLine === undefined || body.startLine === null
-                  ? null
-                  : Number(body.startLine),
-            },
+          : body.line === undefined
+            ? { file: body.path ?? '' }
+            : {
+                path: body.path ?? '',
+                side: body.side ?? '',
+                line: Number(body.line),
+                startLine:
+                  body.startLine === undefined || body.startLine === null
+                    ? null
+                    : Number(body.startLine),
+              },
       ),
     );
 

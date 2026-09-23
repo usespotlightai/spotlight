@@ -49,6 +49,8 @@ interface Described {
 
 interface Pull extends Described {
   readonly merged?: unknown;
+  readonly merge_commit_sha?: unknown;
+  readonly closed_at?: unknown;
   readonly html_url?: unknown;
   readonly head?: { readonly ref?: unknown };
 }
@@ -68,6 +70,7 @@ interface ReviewComment {
   readonly id?: unknown;
   readonly html_url?: unknown;
   readonly side?: unknown;
+  readonly subject_type?: unknown;
   readonly in_reply_to_id?: unknown;
   readonly created_at?: unknown;
 }
@@ -221,9 +224,16 @@ const reviewComment = (payload: Payload): Heard[] => {
         id,
         url,
         path,
-        side: comment.side === 'LEFT' ? 'old' : 'new',
-        line: at(comment.line) ?? at(comment.original_line),
-        startLine: at(comment.start_line) ?? at(comment.original_start_line),
+        ...(comment.subject_type === 'file'
+          ? { subject: 'file' as const }
+          : {
+              subject: 'line' as const,
+              side:
+                comment.side === 'LEFT' ? ('old' as const) : ('new' as const),
+              line: at(comment.line) ?? at(comment.original_line),
+              startLine:
+                at(comment.start_line) ?? at(comment.original_start_line),
+            }),
         body:
           typeof comment.body !== 'string'
             ? ''
@@ -263,6 +273,34 @@ const defaultBranchPushed = (payload: Payload): Heard[] => {
     : [];
 };
 
+const COMMIT = /^[0-9a-f]{40}$/i;
+
+const pullRequestClosed = (payload: Payload): Heard[] => {
+  const pull = payload.pull_request;
+  const pullRequest = text(pull?.html_url);
+  const repository = text(payload.repository?.full_name);
+
+  if (payload.action !== 'closed' || !pull || !pullRequest || !repository) {
+    return [];
+  }
+
+  const commit = text(pull.merge_commit_sha);
+
+  if (pull.merged === true && !(commit && COMMIT.test(commit))) {
+    return [];
+  }
+
+  return [
+    {
+      kind: 'pull-request-closed',
+      pullRequest,
+      repository,
+      merge: pull.merged === true && commit ? { commit } : null,
+      closedAt: writtenAt(pull.closed_at),
+    },
+  ];
+};
+
 const heardIn = (event: string | undefined, payload: Payload): Heard[] => {
   if (event === 'installation') {
     return payload.action === 'deleted'
@@ -276,6 +314,7 @@ const heardIn = (event: string | undefined, payload: Payload): Heard[] => {
 
   return [
     ...(event === 'pull_request_review_comment' ? reviewComment(payload) : []),
+    ...(event === 'pull_request' ? pullRequestClosed(payload) : []),
     ...pullRequestActivity(event, payload),
   ];
 };
