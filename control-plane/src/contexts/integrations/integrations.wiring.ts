@@ -86,7 +86,6 @@ import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integra
 import { ConfiguredSources } from '@integrations/infrastructure/integrations/configured.sources';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { JwksCache } from '@integrations/infrastructure/integrations/jwks';
-import { KnownIntegrations } from '@integrations/infrastructure/integrations/known-integrations';
 import { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-clients';
 import { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import { OAuth2Linking } from '@integrations/infrastructure/integrations/oauth2-linking';
@@ -104,7 +103,6 @@ import { OAuth2ConnectionController } from '@integrations/presentation/http/cont
 import { WebhookController } from '@integrations/presentation/http/controllers/webhook.controller';
 import { OAuth2NonceCookie } from '@integrations/presentation/http/oauth2-nonce-cookie';
 import { WebInboxLinks } from '@integrations/presentation/http/web-inbox-links';
-import { WebhookDeliveryAddresses } from '@integrations/presentation/http/webhook-delivery-addresses';
 import { TeamIntegrations } from '@integrations/presentation/ports/team-integrations.adapter';
 import { ConnectionRefreshWorker } from '@integrations/presentation/workers/connection-refresh.worker';
 import { DeliveryWorker } from '@integrations/presentation/workers/delivery-worker';
@@ -113,7 +111,7 @@ import { ScheduleWorker } from '@integrations/presentation/workers/schedule.work
 import type { Provider, Type } from '@nestjs/common';
 import { DiscoveryService } from '@nestjs/core';
 import { ENV } from '@platform/config/config.constants';
-import { publicUrlOf, webhookUrlOf } from '@platform/config/env';
+import { publicUrlOf } from '@platform/config/env';
 import { type Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
@@ -132,13 +130,11 @@ import {
   LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
-import { DELIVERY_ADDRESSES } from '@work/application/ports/delivery-addresses.port';
 import {
   HAPPENING_REACTIONS,
   HappeningReactionsPort,
 } from '@work/application/ports/happening-reactions.port';
 import { INTEGRATION_TOOL_CALLS } from '@work/application/ports/integration-tool-calls.port';
-import { STARTER_INTEGRATIONS } from '@work/application/ports/starter-integrations.port';
 import { TASK_NOTICES } from '@work/application/ports/task-notices.port';
 import { TEAM_INTEGRATIONS } from '@work/application/ports/team-integrations.port';
 
@@ -290,12 +286,6 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     // Lazy: discovery only sees providers once the container is built.
     useFactory: (discovery: DiscoveryService) =>
       new WebhookSources(() => markedSources(discovery)),
-  },
-
-  {
-    provide: DELIVERY_ADDRESSES,
-    inject: [ENV],
-    useFactory: (env: Env) => new WebhookDeliveryAddresses(webhookUrlOf(env)),
   },
 
   {
@@ -456,8 +446,6 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       configured: ConfiguredSourcesPort,
     ) => new SourceForDelivery(registered, configured),
   },
-
-  { provide: STARTER_INTEGRATIONS, useFactory: () => new KnownIntegrations() },
 
   {
     provide: TASK_NOTICES,

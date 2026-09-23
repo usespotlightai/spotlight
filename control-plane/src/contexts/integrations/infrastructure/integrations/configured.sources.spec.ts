@@ -6,7 +6,6 @@ import { ConfiguredSources } from '@integrations/infrastructure/integrations/con
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
 import { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
-import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -47,9 +46,9 @@ const holding = (files: ConfigurationFile[] | null) => {
           files
             ? ({
                 teamId: TeamId.of('team_1'),
-                repository: Repository.of('acme/api'),
-                files,
-              } as Applied)
+                integrations: files,
+                skills: [],
+              } satisfies Applied)
             : null,
         ),
         save: vi.fn(),

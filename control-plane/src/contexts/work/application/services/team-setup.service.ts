@@ -9,7 +9,6 @@ import type { SetupState } from '@work/domain/services/setup-list';
 export interface TeamFacts {
   readonly hasRunner: boolean;
   readonly connectedToGitHub: boolean;
-  readonly configRepository: string | null;
   readonly hasConfiguration: boolean;
   readonly listening: readonly string[];
 }
@@ -17,7 +16,6 @@ export interface TeamFacts {
 export const asSetupState = (facts: TeamFacts): SetupState => ({
   hasRunner: facts.hasRunner,
   connectedToGitHub: facts.connectedToGitHub,
-  hasRepository: facts.configRepository !== null,
   hasConfiguration: facts.hasConfiguration,
   listensToAnIntegration: facts.listening.length > 0,
 });
@@ -31,17 +29,15 @@ export class TeamSetup {
   ) {}
 
   async factsFor(workspaceId: WorkspaceId, teamId: TeamId): Promise<TeamFacts> {
-    const [connected, applied, hasRunner, keptIn] = await Promise.all([
+    const [connected, applied, hasRunner] = await Promise.all([
       this.connections.isConnected(workspaceId),
       this.configurations.isApplied(teamId),
       this.runners.anyConnected(workspaceId),
-      this.configurations.keptIn(teamId),
     ]);
 
     return {
       hasRunner,
       connectedToGitHub: connected,
-      configRepository: keptIn?.value ?? null,
       hasConfiguration: applied,
       listening: applied ? await this.integrations.listening(teamId) : [],
     };

@@ -4,13 +4,6 @@ import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/config
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
-import {
-  LINE_FILE,
-  lineFolder,
-  linePath,
-  STATIONS_UNDER,
-  stationPath,
-} from '@work/application/contracts/line-layout.contract';
 import { InvalidLinePlanError } from '@work/domain/exceptions/invalid-line-plan.error';
 import type { LinePart } from '@work/domain/services/line-layout';
 import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
@@ -36,6 +29,13 @@ import {
   lineSchema,
   stationSchema,
 } from '@work/infrastructure/lines/line.schema';
+import {
+  LINE_FILE,
+  lineFolder,
+  linePath,
+  STATIONS_UNDER,
+  stationPath,
+} from '@work/infrastructure/lines/line-files';
 import { parse as parseYaml } from 'yaml';
 import type { z } from 'zod';
 

@@ -7,7 +7,6 @@ import { PULL_REQUEST_REVIEWS } from '@github/application/ports/pull-request-rev
 import { REMARKS } from '@github/application/ports/remarks.port';
 import { REPOSITORY_ACCESS } from '@github/application/ports/repository-access.port';
 import { REPOSITORY_CATALOG } from '@github/application/ports/repository-catalog.port';
-import { REPOSITORY_CONTENTS } from '@github/application/ports/repository-contents.port';
 import { REPOSITORY_GIT } from '@github/application/ports/repository-git.port';
 
 import { WORKSPACE_CONNECTIONS } from '@github/application/ports/workspace-connections.port';
@@ -23,7 +22,6 @@ import { Module } from '@nestjs/common';
     WORKSPACE_CONNECTIONS,
     REPOSITORY_ACCESS,
     REPOSITORY_CATALOG,
-    REPOSITORY_CONTENTS,
     REPOSITORY_GIT,
     PULL_REQUESTS,
     PULL_REQUEST_COMMENTS,

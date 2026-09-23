@@ -4,7 +4,6 @@ import { Module } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
 import { RunnersModule } from '@runners/runners.module';
 import { SHIPPED_SKILL_KEYS } from '@work/application/ports/built-in-skills.port';
-import { CONFIGURED_LINES } from '@work/application/ports/configured-lines.port';
 import { HAPPENING_REACTIONS } from '@work/application/ports/happening-reactions.port';
 import { SETUP_SETTLING } from '@work/application/ports/setup-settling.port';
 import { WORK_LOOKUP } from '@work/application/ports/work-lookup.port';
@@ -16,7 +15,6 @@ import { WORK_CONTROLLERS, WORK_PROVIDERS } from '@work/work.wiring';
   providers: [...WORK_PROVIDERS],
   exports: [
     WORK_LOOKUP,
-    CONFIGURED_LINES,
     SHIPPED_SKILL_KEYS,
     HAPPENING_REACTIONS,
     SETUP_SETTLING,

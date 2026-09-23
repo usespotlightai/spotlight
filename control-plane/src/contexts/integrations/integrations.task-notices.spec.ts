@@ -109,7 +109,7 @@ const notifying = (
   const notifier = new TaskNotices(
     {
       of: vi.fn(async () => ({
-        files: [
+        integrations: [
           ConfigurationFile.of('.spotlight/integrations/slack.yml', file),
         ],
       })),

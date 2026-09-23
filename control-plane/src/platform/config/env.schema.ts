@@ -31,7 +31,6 @@ export const envSchema = databaseSchema
     GITHUB_WEBHOOK_SECRET: z.string().default(''),
     SPOTLIGHT_SECRETS_KEY: z.string().min(1),
     SPOTLIGHT_PUBLIC_URL: z.url().optional(),
-    SPOTLIGHT_WEBHOOK_URL: z.url().optional(),
     // Empty allows none: templated URLs carry secrets, so the deployment decides.
     OUTBOUND_ALLOWED_HOSTS: z.string().default(''),
     OAUTH_CLIENTS: z.string().default('{}'),

@@ -1,12 +1,7 @@
-import type { DefaultBranchPushed } from '@github/domain/events/default-branch-pushed.event';
 import type { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
 import type { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
 import type { WorkspaceConnected } from '@github/domain/events/workspace-connected.event';
 import type { WorkspaceDisconnected } from '@github/domain/events/workspace-disconnected.event';
-import {
-  DEFAULT_BRANCH_PUSHED,
-  type DefaultBranchPushedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/default-branch-pushed.integration-event';
 import {
   PULL_REQUEST_CLOSED,
   type PullRequestClosedIntegrationEvent,
@@ -67,15 +62,6 @@ export const GITHUB_PUBLICATIONS = [
       answers: comment.answers,
       login: comment.login,
       writtenAt: comment.writtenAt?.toISOString() ?? null,
-    }),
-  ),
-  publishing<DefaultBranchPushed>(
-    'repository.default-branch-pushed',
-    (event): DefaultBranchPushedIntegrationEvent => ({
-      kind: DEFAULT_BRANCH_PUSHED,
-      workspaceId: event.workspaceId.value,
-      repository: event.repository,
-      paths: event.paths,
     }),
   ),
   publishing<PullRequestClosed>(

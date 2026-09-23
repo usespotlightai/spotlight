@@ -1,11 +1,5 @@
 import { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { Line } from '@work/domain/aggregates/line.aggregate';
-import { BUILT_IN_LINES } from '@work/domain/services/built-in-lines';
-import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { compileLine } from '@work/infrastructure/lines/line.compile';
-import { renderLine } from '@work/infrastructure/lines/line.render';
 import { describe, expect, it } from 'vitest';
 
 const STATIONS = [
@@ -89,32 +83,5 @@ describe('the pull requests a line reviews', () => {
 
     expect(line.ok).toBe(false);
     expect(line.problems.map((each) => each.at)).toEqual(['reviews']);
-  });
-
-  it('writes the built-in review line out and reads the same reviews back', () => {
-    const opening = BUILT_IN_LINES.find((each) =>
-      each.role?.equals(LineRole.REVIEW),
-    );
-    let next = 0;
-    const line = Line.open({
-      workspaceId: WorkspaceId.of('ws_1'),
-      teamId: TeamId.of('team_1'),
-      // biome-ignore lint/style/noNonNullAssertion: Spotlight ships a review line
-      line: opening!,
-      newId: () => `id_${++next}`,
-    });
-    const back = compileLine('review', renderLine(line));
-
-    if (!back.ok) {
-      throw new Error(back.problems.map((each) => each.reason).join(', '));
-    }
-
-    expect(line.reviews).not.toBeNull();
-    // biome-ignore lint/style/noNonNullAssertion: checked just above
-    expect(back.line.reviews?.equals(line.reviews!)).toBe(true);
-    expect(
-      back.line.stations.find((each) => each.key.value === 'code-review')
-        ?.diffs,
-    ).toBe(true);
   });
 });

@@ -8,9 +8,7 @@ import {
 } from '@integrations/integrations.wiring';
 import { Module } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
-import { DELIVERY_ADDRESSES } from '@work/application/ports/delivery-addresses.port';
 import { INTEGRATION_TOOL_CALLS } from '@work/application/ports/integration-tool-calls.port';
-import { STARTER_INTEGRATIONS } from '@work/application/ports/starter-integrations.port';
 import { TASK_NOTICES } from '@work/application/ports/task-notices.port';
 import { TEAM_INTEGRATIONS } from '@work/application/ports/team-integrations.port';
 import { WorkModule } from '@work/work.module';
@@ -28,10 +26,8 @@ import { WorkModule } from '@work/work.module';
   exports: [
     TEAM_INTEGRATIONS,
     INTEGRATION_READER,
-    STARTER_INTEGRATIONS,
     TASK_NOTICES,
     INTEGRATION_TOOL_CALLS,
-    DELIVERY_ADDRESSES,
   ],
 })
 export class IntegrationsModule {}

@@ -13,7 +13,7 @@ class TeamSkillResponseDto {
 
   @ApiProperty({
     example: '.spotlight/skills/grafana-dashboards',
-    description: 'Its folder in the configuration repository',
+    description: 'Where the skill is defined',
   })
   readonly path: string;
 
@@ -25,19 +25,10 @@ class TeamSkillResponseDto {
 }
 
 export class TeamSkillsResponseDto {
-  @ApiProperty({
-    example: 'acme/config',
-    nullable: true,
-    type: String,
-    description: 'Where the skills were read from',
-  })
-  readonly repository: string | null;
-
   @ApiProperty({ type: [TeamSkillResponseDto] })
   readonly skills: TeamSkillResponseDto[];
 
   constructor(dto: TeamSkillsDto) {
-    this.repository = dto.repository;
     this.skills = dto.skills.map((each) => new TeamSkillResponseDto(each));
   }
 }

@@ -4,22 +4,18 @@ import type {
 } from '@configuration/application/ports/configuration-reader.port';
 import type { IntegrationLink } from '@configuration/application/ports/integration-links.port';
 import type {
-  TeamStanding,
+  TeamProfile,
   TeamsPort,
 } from '@configuration/application/ports/teams.port';
 import { ConfigurationHandler } from '@configuration/application/queries/handlers/read-configuration.handler';
 import { ConfigurationQuery } from '@configuration/application/queries/read-configuration.query';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
-const TEAM: TeamStanding = {
+const TEAM: TeamProfile = {
   teamId: TeamId.of('team_1'),
   workspaceId: WorkspaceId.of('ws_1'),
-  connected: false,
-  viewer: UserId.of('user_1'),
-  administers: true,
 };
 
 const asking = (
@@ -28,36 +24,26 @@ const asking = (
     applied?: boolean;
     linked?: readonly IntegrationLink[];
     connects?: boolean;
-    kept?: string;
-    moving?: string;
   } = {},
 ) =>
   new ConfigurationHandler(
     {
-      find: vi.fn(),
       viewedBy: vi.fn(async () => (over.workspace === null ? null : TEAM)),
-      inWorkspace: vi.fn(),
     } satisfies TeamsPort,
     {
       of: vi.fn(
         async (): Promise<ConfigurationView> => ({
-          keptIn: over.kept ?? null,
-          movingTo: over.moving ?? null,
-          read:
+          integrations:
             over.applied === false
-              ? null
-              : {
-                  repository: 'acme/api',
-                  sha: 'a1b2c3d',
-                  integrations: [
-                    {
-                      source: 'linear',
-                      name: 'Linear',
-                      path: '.spotlight/integrations/linear.yml',
-                      connectable: over.connects ?? false,
-                    },
-                  ],
-                },
+              ? []
+              : [
+                  {
+                    source: 'linear',
+                    name: 'Linear',
+                    path: '.spotlight/integrations/linear.yml',
+                    connectable: over.connects ?? false,
+                  },
+                ],
         }),
       ),
     } satisfies ConfigurationReaderPort,
@@ -70,41 +56,10 @@ const asking = (
 const query = () => new ConfigurationQuery('acme', 'user_1');
 
 describe('ConfigurationHandler', () => {
-  it('says what the workspace listens to, and where it was read from', async () => {
+  it('says what the team listens to', async () => {
     const read = await asking().execute(query());
 
-    expect(read?.repository).toBe('acme/api');
-    expect(read?.sha).toBe('a1b2c3d');
-    expect(read?.integrations).toHaveLength(1);
-  });
-
-  describe('where the team reads from', () => {
-    it('reads where the fallback rule last found it, where it keeps it nowhere', async () => {
-      const read = await asking().execute(query());
-
-      expect(read?.readsFrom).toBe('acme/api');
-      expect(read?.movingTo).toBeNull();
-    });
-
-    it('says where it keeps it, and where it is moving to', async () => {
-      const read = await asking({
-        kept: 'acme/api',
-        moving: 'acme/new',
-      }).execute(query());
-
-      expect(read?.readsFrom).toBe('acme/api');
-      expect(read?.movingTo).toBe('acme/new');
-    });
-
-    it('says where it keeps it before anything has been read', async () => {
-      const read = await asking({
-        applied: false,
-        kept: 'acme/pinned',
-      }).execute(query());
-
-      expect(read?.repository).toBeNull();
-      expect(read?.readsFrom).toBe('acme/pinned');
-    });
+    expect(read?.integrations.map((each) => each.source)).toEqual(['linear']);
   });
 
   it('says which file each host is written in', async () => {
@@ -137,16 +92,10 @@ describe('ConfigurationHandler', () => {
     expect(read?.integrations[0]?.connectable).toBe(false);
   });
 
-  it('says nothing has been read yet where nothing has', async () => {
+  it('lists nothing where the team listens to nothing', async () => {
     const read = await asking({ applied: false }).execute(query());
 
-    expect(read).toEqual({
-      repository: null,
-      readsFrom: null,
-      movingTo: null,
-      sha: null,
-      integrations: [],
-    });
+    expect(read).toEqual({ integrations: [] });
   });
 
   it('answers with nothing where the team is not the caller’s', async () => {

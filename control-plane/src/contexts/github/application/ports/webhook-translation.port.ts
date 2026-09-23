@@ -33,11 +33,6 @@ export type Heard =
       readonly comment: HeardReviewComment;
     }
   | {
-      readonly kind: 'default-branch-pushed';
-      readonly repository: string;
-      readonly paths: readonly string[];
-    }
-  | {
       readonly kind: 'pull-request-closed';
       readonly pullRequest: string;
       readonly repository: string;

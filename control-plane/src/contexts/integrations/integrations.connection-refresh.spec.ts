@@ -15,7 +15,6 @@ import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/o
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
-import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -55,12 +54,17 @@ webhook:
             value: '\${{ body.event.ts }}'
 `;
 
-const config = () =>
-  ({
+const config = (): Applied => {
+  const files = [
+    ConfigurationFile.of('.spotlight/integrations/slack.yml', CONFIG),
+  ];
+
+  return {
     teamId: TEAM,
-    repository: Repository.of('acme/api'),
-    files: [ConfigurationFile.of('.spotlight/integrations/slack.yml', CONFIG)],
-  }) as Applied;
+    integrations: files,
+    skills: [],
+  };
+};
 
 const nearing = (over: { refreshToken?: string | null } = {}) =>
   HostConnection.rehydrate({

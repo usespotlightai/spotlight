@@ -27,32 +27,14 @@ export class ConfigurationHandler
         return null;
       }
 
-      const view = await this.configurations.of(team.teamId);
-      const readsFrom = view.keptIn ?? view.read?.repository ?? null;
-
-      if (!view.read) {
-        return {
-          repository: null,
-          readsFrom,
-          movingTo: view.movingTo,
-          sha: null,
-          integrations: [],
-        };
-      }
-
-      const linked = new Map(
-        (await this.connections.heldBy(team.teamId)).map((each) => [
-          each.source,
-          each,
-        ]),
-      );
+      const [view, links] = await Promise.all([
+        this.configurations.of(team.teamId),
+        this.connections.heldBy(team.teamId),
+      ]);
+      const linked = new Map(links.map((each) => [each.source, each]));
 
       return {
-        repository: view.read.repository,
-        readsFrom,
-        movingTo: view.movingTo,
-        sha: view.read.sha,
-        integrations: view.read.integrations.map((each) => ({
+        integrations: view.integrations.map((each) => ({
           source: each.source,
           path: each.path,
           name: each.name,

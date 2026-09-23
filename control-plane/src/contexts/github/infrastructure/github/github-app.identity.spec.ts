@@ -1,5 +1,4 @@
 import { generateKeyPairSync } from 'node:crypto';
-import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
 import { GitHubAppIdentity } from '@github/infrastructure/github/github-app.identity';
 import type { Env } from '@platform/config/env.schema';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -14,11 +13,6 @@ const env = {
   }) as string,
 } as Env;
 
-const installations = {
-  of: async () => GitHubInstallation.of('42'),
-  maybe: async () => GitHubInstallation.of('42'),
-};
-
 const answering = (body: unknown, ok = true) =>
   vi.fn().mockResolvedValue({ ok, json: async () => body });
 
@@ -30,16 +24,16 @@ describe('GitHubAppIdentity', () => {
   it('builds the install URL from what GitHub calls the App', async () => {
     vi.stubGlobal('fetch', answering({ slug: 'spotlight-dev' }));
 
-    await expect(
-      new GitHubAppIdentity(env, installations).installUrl(),
-    ).resolves.toBe('https://github.com/apps/spotlight-dev/installations/new');
+    await expect(new GitHubAppIdentity(env).installUrl()).resolves.toBe(
+      'https://github.com/apps/spotlight-dev/installations/new',
+    );
   });
 
   it('speaks as the App itself', async () => {
     const fetching = answering({ slug: 'spotlight-dev' });
     vi.stubGlobal('fetch', fetching);
 
-    await new GitHubAppIdentity(env, installations).installUrl();
+    await new GitHubAppIdentity(env).installUrl();
 
     const [url, init] = fetching.mock.calls[0];
     expect(url).toBe('https://api.github.com/app');
@@ -50,7 +44,7 @@ describe('GitHubAppIdentity', () => {
     const fetching = answering({ slug: 'spotlight-dev' });
     vi.stubGlobal('fetch', fetching);
 
-    const identity = new GitHubAppIdentity(env, installations);
+    const identity = new GitHubAppIdentity(env);
     await identity.installUrl();
     await identity.installUrl();
 
@@ -60,16 +54,12 @@ describe('GitHubAppIdentity', () => {
   it('answers null where GitHub refuses', async () => {
     vi.stubGlobal('fetch', answering({}, false));
 
-    await expect(
-      new GitHubAppIdentity(env, installations).installUrl(),
-    ).resolves.toBeNull();
+    await expect(new GitHubAppIdentity(env).installUrl()).resolves.toBeNull();
   });
 
   it('answers null where GitHub cannot be reached at all', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
 
-    await expect(
-      new GitHubAppIdentity(env, installations).installUrl(),
-    ).resolves.toBeNull();
+    await expect(new GitHubAppIdentity(env).installUrl()).resolves.toBeNull();
   });
 });

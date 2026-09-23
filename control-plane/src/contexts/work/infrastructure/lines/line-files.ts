@@ -10,8 +10,5 @@ export const lineFolder = (lineKey: string): string =>
 export const linePath = (lineKey: string): string =>
   `${lineFolder(lineKey)}/${LINE_FILE}`;
 
-export const stationsFolder = (lineKey: string): string =>
-  `${lineFolder(lineKey)}/${STATIONS_UNDER}`;
-
 export const stationPath = (lineKey: string, stationKey: string): string =>
-  `${stationsFolder(lineKey)}/${stationKey}.md`;
+  `${lineFolder(lineKey)}/${STATIONS_UNDER}/${stationKey}.md`;

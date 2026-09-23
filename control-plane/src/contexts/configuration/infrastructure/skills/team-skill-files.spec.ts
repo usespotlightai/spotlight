@@ -1,3 +1,4 @@
+import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import { TeamSkillFiles } from '@configuration/infrastructure/skills/team-skill-files';
 import { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
 import { describe, expect, it } from 'vitest';
@@ -41,6 +42,12 @@ describe('TeamSkillFiles', () => {
 
   it('reads none where the team keeps none', () => {
     expect(read()).toEqual({ skills: [], problems: [] });
+  });
+
+  it('says a skill is defined in the folder it is read from', () => {
+    expect(new TeamSkillFiles().definedAt(SkillKey.of('our-migrations'))).toBe(
+      '.spotlight/skills/our-migrations',
+    );
   });
 
   describe('a skill that will not read', () => {

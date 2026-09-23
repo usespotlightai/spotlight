@@ -19,7 +19,6 @@ import { describe, expect, it } from 'vitest';
 const done: SetupState = {
   hasRunner: true,
   connectedToGitHub: true,
-  hasRepository: true,
   hasConfiguration: true,
   listensToAnIntegration: true,
 };
@@ -27,7 +26,6 @@ const done: SetupState = {
 const nothing: SetupState = {
   hasRunner: false,
   connectedToGitHub: false,
-  hasRepository: false,
   hasConfiguration: false,
   listensToAnIntegration: false,
 };

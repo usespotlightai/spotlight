@@ -7,7 +7,6 @@ const AT = { slug: 'acme', teamId: 'team_1' };
 const nothing: SetupState = {
   hasRunner: false,
   connectedToGitHub: false,
-  hasRepository: false,
   hasConfiguration: false,
   listensToAnIntegration: false,
 };
@@ -23,7 +22,7 @@ describe('listed', () => {
   });
 
   it('leaves a step with nowhere to go as words', () => {
-    expect(listed(AT)).toContain('4. Set up your lines.');
+    expect(listed(AT)).toContain('3. Set up your lines.');
   });
 });
 

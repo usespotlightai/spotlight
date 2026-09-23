@@ -43,7 +43,9 @@ export class ApplyLines {
     const claimedTwice = rolesClaimedTwice(standing, plans);
     const found = [
       ...problems,
-      ...claimedTwice.map(LineProblems.roleClaimedTwice),
+      ...claimedTwice.map((claim) =>
+        LineProblems.roleClaimedTwice(this.reader.definedAt(claim.line), claim),
+      ),
     ];
 
     for (const plan of plans) {
@@ -74,7 +76,9 @@ export class ApplyLines {
     const claimedTwice = rolesClaimedTwice(standing, plans);
     const found = [
       ...problems,
-      ...claimedTwice.map(LineProblems.roleClaimedTwice),
+      ...claimedTwice.map((claim) =>
+        LineProblems.roleClaimedTwice(this.reader.definedAt(claim.line), claim),
+      ),
     ];
 
     for (const plan of plans) {
@@ -86,7 +90,9 @@ export class ApplyLines {
 
       if (!line) {
         if (!team) {
-          found.push(LineProblems.nowhereToOpen(plan.key));
+          found.push(
+            LineProblems.nowhereToOpen(this.reader.definedAt(plan.key)),
+          );
         }
         continue;
       }
@@ -102,10 +108,17 @@ export class ApplyLines {
         });
 
         if (!reconciled.ok) {
-          found.push(LineProblems.stranded(plan.key, reconciled.stranded));
+          found.push(
+            LineProblems.stranded(
+              this.reader.definedAt(plan.key),
+              reconciled.stranded,
+            ),
+          );
         }
       } catch (error) {
-        found.push(LineProblems.unapplied(plan.key, error));
+        found.push(
+          LineProblems.unapplied(this.reader.definedAt(plan.key), error),
+        );
       }
     }
 
@@ -128,7 +141,12 @@ export class ApplyLines {
         });
 
         if (!reconciled.ok) {
-          return [LineProblems.stranded(plan.key, reconciled.stranded)];
+          return [
+            LineProblems.stranded(
+              this.reader.definedAt(plan.key),
+              reconciled.stranded,
+            ),
+          ];
         }
 
         await this.lines.save(reconciled.line);
@@ -136,7 +154,7 @@ export class ApplyLines {
         return [];
       });
     } catch (error) {
-      return [LineProblems.unapplied(plan.key, error)];
+      return [LineProblems.unapplied(this.reader.definedAt(plan.key), error)];
     }
   }
 
@@ -145,7 +163,7 @@ export class ApplyLines {
     team: TeamProfile | null,
   ): Promise<readonly ConfigurationProblem[]> {
     if (!team) {
-      return [LineProblems.nowhereToOpen(plan.key)];
+      return [LineProblems.nowhereToOpen(this.reader.definedAt(plan.key))];
     }
 
     try {
@@ -163,7 +181,7 @@ export class ApplyLines {
 
       return [];
     } catch (error) {
-      return [LineProblems.unapplied(plan.key, error)];
+      return [LineProblems.unapplied(this.reader.definedAt(plan.key), error)];
     }
   }
 }

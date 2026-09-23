@@ -64,135 +64,6 @@
         ]
       }
     },
-    "/teams/{teamId}/lines/{lineId}/stations/{stationId}": {
-      "patch": {
-        "operationId": "customiseStation",
-        "parameters": [
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
-              "type": "string"
-            }
-          },
-          {
-            "name": "lineId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "7b2c9e14-3a5d-4c8f-b6e1-9d0a2f7c5b43",
-              "type": "string"
-            }
-          },
-          {
-            "name": "stationId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CustomiseStationRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProposedResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session"
-          },
-          "404": {
-            "description": "No such station, or nowhere to write it"
-          },
-          "422": {
-            "description": "Invalid field"
-          }
-        },
-        "summary": "Change what a station is called, says, runs on and tells its agent",
-        "tags": [
-          "lines"
-        ]
-      }
-    },
-    "/teams/{teamId}/lines/{lineId}/repositories": {
-      "patch": {
-        "operationId": "setLineRepositories",
-        "parameters": [
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
-              "type": "string"
-            }
-          },
-          {
-            "name": "lineId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "7b2c9e14-3a5d-4c8f-b6e1-9d0a2f7c5b43",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetLineRepositoriesRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProposedResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session"
-          },
-          "404": {
-            "description": "No such line, or nowhere to write it"
-          },
-          "422": {
-            "description": "Invalid repository"
-          }
-        },
-        "summary": "Set the repositories a line, and so its every station, works in",
-        "tags": [
-          "lines"
-        ]
-      }
-    },
     "/workspaces/{slug}/runs": {
       "post": {
         "operationId": "enqueueRun",
@@ -2167,55 +2038,7 @@
             "description": "No such team for this caller"
           }
         },
-        "summary": "What this team still needs, and the integrations it may choose",
-        "tags": [
-          "onboarding"
-        ]
-      }
-    },
-    "/teams/{teamId}/configuration/setup": {
-      "post": {
-        "operationId": "setUpLines",
-        "parameters": [
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "team_1",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetUpLinesRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProposedResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session"
-          },
-          "404": {
-            "description": "No such team, or nowhere to write it yet"
-          }
-        },
-        "summary": "Assign each line a harness and repositories, and open the setup",
+        "summary": "What this team still needs",
         "tags": [
           "onboarding"
         ]
@@ -2959,182 +2782,7 @@
             "description": "No such team for this caller"
           }
         },
-        "summary": "What this team listens to, and where it reads that from",
-        "tags": [
-          "configuration"
-        ]
-      }
-    },
-    "/teams/{teamId}/configuration/reread": {
-      "post": {
-        "operationId": "rereadConfiguration",
-        "parameters": [
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "team_1",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ConfigurationResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session"
-          },
-          "404": {
-            "description": "No such team, or nowhere to read it from"
-          }
-        },
-        "summary": "Read this team’s configuration from its repository again",
-        "tags": [
-          "configuration"
-        ]
-      }
-    },
-    "/teams/{teamId}/configuration/repository": {
-      "post": {
-        "operationId": "pinConfigurationRepository",
-        "parameters": [
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "team_1",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PinConfigurationRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "204": {
-            "description": "Chosen"
-          },
-          "401": {
-            "description": "No valid session"
-          },
-          "404": {
-            "description": "No such team, or not yours to choose for"
-          }
-        },
-        "summary": "Choose the repository this team reads its configuration from",
-        "tags": [
-          "configuration"
-        ]
-      }
-    },
-    "/teams/{teamId}/configuration/repository/move": {
-      "post": {
-        "operationId": "moveConfiguration",
-        "parameters": [
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "team_1",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MoveConfigurationRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MovedConfigurationResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session"
-          },
-          "404": {
-            "description": "No such team, or not yours to move"
-          }
-        },
-        "summary": "Move this team's configuration to a different repository",
-        "tags": [
-          "configuration"
-        ]
-      }
-    },
-    "/teams/{teamId}/configuration/integrations": {
-      "post": {
-        "operationId": "chooseIntegrations",
-        "parameters": [
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "team_1",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ChooseIntegrationsRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProposedResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session"
-          },
-          "404": {
-            "description": "No such team, or nowhere to write it yet"
-          }
-        },
-        "summary": "Write and remove configuration for the integrations this team uses",
+        "summary": "What this team listens to",
         "tags": [
           "configuration"
         ]
@@ -3172,7 +2820,7 @@
             "description": "No such team for this caller"
           }
         },
-        "summary": "The skills this team defines in its configuration repository",
+        "summary": "The skills this team defines",
         "tags": [
           "skills"
         ]
@@ -4065,95 +3713,6 @@
           "name",
           "stations",
           "reactions",
-          "repositories"
-        ]
-      },
-      "CustomiseStationRequestDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "example": "Triage",
-            "maxLength": 100
-          },
-          "color": {
-            "type": "string",
-            "example": "#5c66d9",
-            "description": "Six digit hex. The board offers a palette, but any will do."
-          },
-          "description": {
-            "type": "string",
-            "example": "Where new work lands before anyone looks at it",
-            "maxLength": 500,
-            "nullable": true
-          },
-          "harness": {
-            "type": "string",
-            "example": "dev",
-            "maxLength": 60,
-            "nullable": true,
-            "description": "Which runners work this station"
-          },
-          "model": {
-            "type": "string",
-            "example": "claude-sonnet-5",
-            "maxLength": 60,
-            "nullable": true,
-            "description": "Which model the harness answers with here"
-          },
-          "effort": {
-            "type": "string",
-            "example": "high",
-            "maxLength": 20,
-            "nullable": true,
-            "description": "How hard the harness is told to think here"
-          },
-          "agentPrompt": {
-            "type": "string",
-            "example": "## Role\n\nSort the queue.",
-            "maxLength": 20000,
-            "nullable": true,
-            "description": "Markdown, handed to the agent that works this station"
-          },
-          "skills": {
-            "example": [
-              "our-migrations"
-            ],
-            "description": "The team’s own skills given to a run here, by the folder each is defined in",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "ProposedResponseDto": {
-        "type": "object",
-        "properties": {
-          "url": {
-            "type": "string",
-            "example": "https://github.com/acme/api/pull/4"
-          }
-        },
-        "required": [
-          "url"
-        ]
-      },
-      "SetLineRepositoriesRequestDto": {
-        "type": "object",
-        "properties": {
-          "repositories": {
-            "example": [
-              "usespotlightai/spotlight"
-            ],
-            "description": "The line’s repositories, as owner/name, set whole.",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
           "repositories"
         ]
       },
@@ -6572,7 +6131,6 @@
             "enum": [
               "runner",
               "github",
-              "repository",
               "configuration",
               "integrations"
             ],
@@ -6603,79 +6161,6 @@
           "done"
         ]
       },
-      "OnboardingLineResponseDto": {
-        "type": "object",
-        "properties": {
-          "key": {
-            "type": "string",
-            "example": "delivery"
-          },
-          "name": {
-            "type": "string",
-            "example": "Delivery"
-          },
-          "harness": {
-            "type": "string",
-            "nullable": true,
-            "example": "claude-code"
-          },
-          "model": {
-            "type": "string",
-            "nullable": true,
-            "example": "claude-sonnet-5"
-          },
-          "effort": {
-            "type": "string",
-            "nullable": true,
-            "example": "high"
-          },
-          "repositories": {
-            "example": [
-              "acme/api"
-            ],
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "key",
-          "name",
-          "harness",
-          "model",
-          "effort",
-          "repositories"
-        ]
-      },
-      "KnownIntegrationResponseDto": {
-        "type": "object",
-        "properties": {
-          "source": {
-            "type": "string",
-            "example": "linear"
-          },
-          "name": {
-            "type": "string",
-            "example": "Linear"
-          },
-          "summary": {
-            "type": "string",
-            "example": "Move a task on when its issue is done."
-          },
-          "deliverTo": {
-            "type": "string",
-            "description": "Where this integration should be told to send its deliveries",
-            "example": "https://hooks.usespotlight.ai/api/webhooks/w/acme/t/platform/linear"
-          }
-        },
-        "required": [
-          "source",
-          "name",
-          "summary",
-          "deliverTo"
-        ]
-      },
       "OnboardingResponseDto": {
         "type": "object",
         "properties": {
@@ -6695,90 +6180,12 @@
           "connectedToGitHub": {
             "type": "boolean",
             "description": "The App has to be installed to read or write"
-          },
-          "configRepository": {
-            "type": "string",
-            "nullable": true,
-            "example": "acme/api"
-          },
-          "repositoryOwner": {
-            "type": "string",
-            "description": "The account repositories are named under, or null",
-            "nullable": true,
-            "example": "acme"
-          },
-          "lines": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/OnboardingLineResponseDto"
-            }
-          },
-          "integrations": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/KnownIntegrationResponseDto"
-            }
           }
         },
         "required": [
           "steps",
           "installUrl",
-          "connectedToGitHub",
-          "configRepository",
-          "repositoryOwner",
-          "lines",
-          "integrations"
-        ]
-      },
-      "SetUpLineRequestDto": {
-        "type": "object",
-        "properties": {
-          "key": {
-            "type": "string",
-            "example": "delivery"
-          },
-          "harness": {
-            "type": "string",
-            "nullable": true,
-            "example": "claude-code"
-          },
-          "model": {
-            "type": "string",
-            "nullable": true,
-            "example": "claude-sonnet-5"
-          },
-          "effort": {
-            "type": "string",
-            "nullable": true,
-            "example": "high"
-          },
-          "repositories": {
-            "example": [
-              "acme/api"
-            ],
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "key",
-          "repositories"
-        ]
-      },
-      "SetUpLinesRequestDto": {
-        "type": "object",
-        "properties": {
-          "lines": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SetUpLineRequestDto"
-            }
-          }
-        },
-        "required": [
-          "lines"
+          "connectedToGitHub"
         ]
       },
       "CreateWorkspaceRequestDto": {
@@ -7280,7 +6687,7 @@
           },
           "path": {
             "type": "string",
-            "description": "The file in the configuration repository it is written in",
+            "description": "Where the integration is defined",
             "example": ".spotlight/integrations/linear.yml"
           },
           "connectable": {
@@ -7310,123 +6717,15 @@
       "ConfigurationResponseDto": {
         "type": "object",
         "properties": {
-          "repository": {
-            "type": "string",
-            "description": "The repository last read from.",
-            "nullable": true,
-            "example": "acme/api"
-          },
-          "sha": {
-            "type": "string",
-            "nullable": true,
-            "example": "a1b2c3d"
-          },
           "integrations": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ConfiguredIntegrationResponseDto"
             }
-          },
-          "readsFrom": {
-            "type": "string",
-            "description": "Where this team reads its configuration from: where it keeps it, or else where it was last found.",
-            "nullable": true,
-            "example": "acme/api"
-          },
-          "movingTo": {
-            "type": "string",
-            "description": "Where its configuration is moving to, with a pull request open there.",
-            "nullable": true,
-            "example": "acme/config"
           }
         },
         "required": [
-          "repository",
-          "sha",
-          "integrations",
-          "readsFrom",
-          "movingTo"
-        ]
-      },
-      "PinConfigurationRequestDto": {
-        "type": "object",
-        "properties": {
-          "repository": {
-            "type": "string",
-            "description": "The repository this team reads its configuration from. Null takes the pin off.",
-            "example": "acme/api",
-            "nullable": true
-          }
-        },
-        "required": [
-          "repository"
-        ]
-      },
-      "MoveConfigurationRequestDto": {
-        "type": "object",
-        "properties": {
-          "repository": {
-            "type": "string",
-            "description": "The repository to move this team's configuration to.",
-            "example": "acme/config"
-          }
-        },
-        "required": [
-          "repository"
-        ]
-      },
-      "MovedConfigurationResponseDto": {
-        "type": "object",
-        "properties": {
-          "kind": {
-            "type": "string",
-            "description": "What the move came to: carried in a pull request the team reads through once merged, adopted where the repository already held configuration, or repointed where there was nothing to carry.",
-            "enum": [
-              "carried",
-              "adopted",
-              "repointed"
-            ],
-            "example": "carried"
-          },
-          "url": {
-            "type": "string",
-            "description": "The pull request carrying the configuration, where it was carried.",
-            "example": "https://github.com/acme/config/pull/4",
-            "nullable": true
-          }
-        },
-        "required": [
-          "kind",
-          "url"
-        ]
-      },
-      "ChooseIntegrationsRequestDto": {
-        "type": "object",
-        "properties": {
-          "sources": {
-            "description": "The hosts this team uses, by the name each is known by",
-            "example": [
-              "linear",
-              "sentry"
-            ],
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "dropped": {
-            "description": "The hosts it no longer uses, whose files the change removes",
-            "example": [
-              "grafana"
-            ],
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "sources"
+          "integrations"
         ]
       },
       "TeamSkillResponseDto": {
@@ -7443,7 +6742,7 @@
           "path": {
             "type": "string",
             "example": ".spotlight/skills/grafana-dashboards",
-            "description": "Its folder in the configuration repository"
+            "description": "Where the skill is defined"
           }
         },
         "required": [
@@ -7455,12 +6754,6 @@
       "TeamSkillsResponseDto": {
         "type": "object",
         "properties": {
-          "repository": {
-            "type": "string",
-            "example": "acme/config",
-            "nullable": true,
-            "description": "Where the skills were read from"
-          },
           "skills": {
             "type": "array",
             "items": {
@@ -7469,7 +6762,6 @@
           }
         },
         "required": [
-          "repository",
           "skills"
         ]
       },

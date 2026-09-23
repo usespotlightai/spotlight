@@ -135,7 +135,7 @@ const applying = (
 
   const reader = {
     read: () => ({ plans, problems: over.problems ?? [] }),
-    write: () => ({ path: '', text: '' }),
+    definedAt: (line: LineKey) => `.spotlight/lines/${line.value}/line.yml`,
   } as unknown as LineConfigReaderPort;
 
   let next = 100;

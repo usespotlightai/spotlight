@@ -18,7 +18,6 @@ import {
   RepositoryAccessPort,
 } from '@github/application/ports/repository-access.port';
 import { REPOSITORY_CATALOG } from '@github/application/ports/repository-catalog.port';
-import { REPOSITORY_CONTENTS } from '@github/application/ports/repository-contents.port';
 import { REPOSITORY_GIT } from '@github/application/ports/repository-git.port';
 import {
   WEBHOOK_SIGNATURE,
@@ -45,7 +44,6 @@ import { GitHubPullRequestReviews } from '@github/infrastructure/github/github-p
 import { GitHubPullRequests } from '@github/infrastructure/github/github-pull-requests';
 import { GitHubRemarks } from '@github/infrastructure/github/github-remarks';
 import { GitHubRepositoryCatalog } from '@github/infrastructure/github/github-repository.catalog';
-import { GitHubRepositoryContents } from '@github/infrastructure/github/github-repository.contents';
 import { GitHubWebhookSignature } from '@github/infrastructure/github/github-webhook.signature';
 import { DrizzleGitHubConnections } from '@github/infrastructure/persistence/drizzle/repositories/github-connection.repository';
 import { GitHubWebhookTranslation } from '@github/infrastructure/webhooks/github-webhook.translation';
@@ -173,9 +171,8 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
 
   {
     provide: GITHUB_APP,
-    inject: [ENV, INSTALLATIONS],
-    useFactory: (env: Env, installations: InstallationsPort) =>
-      new GitHubAppIdentity(env, installations),
+    inject: [ENV],
+    useFactory: (env: Env) => new GitHubAppIdentity(env),
   },
 
   {
@@ -183,13 +180,6 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
     inject: [REPOSITORY_ACCESS],
     useFactory: (access: RepositoryAccessPort) =>
       new GitHubPullRequests(access),
-  },
-
-  {
-    provide: REPOSITORY_CONTENTS,
-    inject: [REPOSITORY_ACCESS],
-    useFactory: (access: RepositoryAccessPort) =>
-      new GitHubRepositoryContents(access),
   },
 
   {

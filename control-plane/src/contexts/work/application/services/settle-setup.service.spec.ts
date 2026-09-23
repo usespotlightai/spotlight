@@ -81,7 +81,6 @@ const list = (): Task =>
 const done: TeamFacts = {
   hasRunner: true,
   connectedToGitHub: true,
-  configRepository: 'acme/spotlight-config',
   hasConfiguration: true,
   listening: ['linear'],
 };

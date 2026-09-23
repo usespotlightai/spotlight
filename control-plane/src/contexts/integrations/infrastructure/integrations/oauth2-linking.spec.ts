@@ -13,7 +13,6 @@ import { OAuth2Linking } from '@integrations/infrastructure/integrations/oauth2-
 import { OAuth2State } from '@integrations/infrastructure/integrations/oauth2-state';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
-import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -44,12 +43,17 @@ webhook:
             value: '\${{ body.event.ts }}'
 `;
 
-const config = () =>
-  ({
+const config = (): Applied => {
+  const files = [
+    ConfigurationFile.of('.spotlight/integrations/slack.yml', SLACK),
+  ];
+
+  return {
     teamId: TEAM,
-    repository: Repository.of('acme/api'),
-    files: [ConfigurationFile.of('.spotlight/integrations/slack.yml', SLACK)],
-  }) as Applied;
+    integrations: files,
+    skills: [],
+  };
+};
 
 const GRANT = HostGrant.of({
   accessToken: 'xoxb-1',

@@ -1,4 +1,3 @@
-import { SKILLS_UNDER } from '@configuration/application/contracts/configuration-layout.contract';
 import type {
   ReadSkills,
   SkillFile,
@@ -7,6 +6,8 @@ import type {
   SkillReaderPort,
 } from '@configuration/application/ports/skill-reader.port';
 import { InvalidSkillError } from '@configuration/domain/exceptions/invalid-skill.error';
+import type { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
+import { SKILLS_UNDER } from '@configuration/infrastructure/configuration-files';
 import { readSkillFolder } from '@configuration/infrastructure/skills/skill-file';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import type { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
@@ -57,6 +58,10 @@ const readFolder = (
 };
 
 export class TeamSkillFiles implements SkillReaderPort {
+  definedAt(key: SkillKey): string {
+    return `${SKILLS_UNDER}/${key.value}`;
+  }
+
   folder(
     name: string,
     files: readonly SkillFile[],

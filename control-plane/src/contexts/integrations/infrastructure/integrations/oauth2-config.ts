@@ -1,4 +1,3 @@
-import { integrationFilesIn } from '@configuration/application/contracts/configuration-layout.contract';
 import type { AppliedConfigurationPort } from '@configuration/application/ports/applied-configuration.port';
 import type { ConnectionIR } from '@integrations/infrastructure/integrations/integration.compile';
 import type { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
@@ -16,8 +15,7 @@ export async function oauth2Of(
     return null;
   }
 
-  for (const readable of reader.readable(integrationFilesIn(applied.files))
-    .integrations) {
+  for (const readable of reader.readable(applied.integrations).integrations) {
     const oauth2 = readable.connection?.oauth2;
 
     if (readable.integration.source.value === source && oauth2) {

@@ -1,4 +1,3 @@
-import { integrationFilesIn } from '@configuration/application/contracts/configuration-layout.contract';
 import type { AppliedConfigurationPort } from '@configuration/application/ports/applied-configuration.port';
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
 import { HostConnection } from '@integrations/domain/aggregates/host-connection.aggregate';
@@ -50,7 +49,7 @@ export class RefreshConnections {
     }
 
     const renewed = await this.runtime.renew(
-      integrationFilesIn(applied.files),
+      applied.integrations,
       connection.source,
       refreshToken,
     );

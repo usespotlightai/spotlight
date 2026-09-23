@@ -1,4 +1,3 @@
-import type { Heard } from '@github/application/ports/webhook-translation.port';
 import { GitHubWebhookTranslation } from '@github/infrastructure/webhooks/github-webhook.translation';
 import { describe, expect, it } from 'vitest';
 
@@ -369,47 +368,6 @@ describe('GitHubWebhookTranslation', () => {
 
     it('hears nothing of a pull request still open', () => {
       expect(closed({ action: 'opened' })).toEqual([]);
-    });
-  });
-
-  describe('hearing a push', () => {
-    const pushed = (over: Record<string, unknown> = {}) =>
-      heard('push', {
-        ref: 'refs/heads/main',
-        repository: { full_name: 'acme/api', default_branch: 'main' },
-        commits: [
-          { added: [], removed: [], modified: ['.spotlight/config.yml'] },
-        ],
-        ...over,
-      });
-
-    it('hears a push to the default branch, with every path it touched', () => {
-      expect(
-        pushed({
-          commits: [
-            { added: ['.spotlight/integrations/linear.yml'] },
-            { removed: ['src/main.ts'], modified: ['src/main.ts'] },
-          ],
-        }),
-      ).toEqual([
-        {
-          kind: 'default-branch-pushed',
-          repository: 'acme/api',
-          paths: ['.spotlight/integrations/linear.yml', 'src/main.ts'],
-        },
-      ] satisfies Heard[]);
-    });
-
-    it('hears nothing on a branch other than the default', () => {
-      expect(pushed({ ref: 'refs/heads/topic' })).toEqual([]);
-    });
-
-    it('hears nothing where the push names no repository', () => {
-      expect(pushed({ repository: {} })).toEqual([]);
-    });
-
-    it('hears nothing where the push touched no file', () => {
-      expect(pushed({ commits: [] })).toEqual([]);
     });
   });
 
