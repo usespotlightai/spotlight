@@ -1,5 +1,5 @@
 {
-  "id": "46e70652-3ba6-4baa-b92d-618948661351",
+  "id": "89769d68-d19b-4afb-8d24-49b26921cd40",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -1244,57 +1244,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.configuration_home": {
-      "name": "configuration_home",
-      "schema": "",
-      "columns": {
-        "team_id": {
-          "name": "team_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "kept_in": {
-          "name": "kept_in",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "moving_to": {
-          "name": "moving_to",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "version": {
-          "name": "version",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 1
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.integration_link": {
       "name": "integration_link",
       "schema": "",
@@ -1336,69 +1285,6 @@
           ]
         }
       },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.team_config": {
-      "name": "team_config",
-      "schema": "",
-      "columns": {
-        "team_id": {
-          "name": "team_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "repository": {
-          "name": "repository",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "sha": {
-          "name": "sha",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "files": {
-          "name": "files",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "problems": {
-          "name": "problems",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "integrations": {
-          "name": "integrations",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "begun_at": {
-          "name": "begun_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "read_at": {
-          "name": "read_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
