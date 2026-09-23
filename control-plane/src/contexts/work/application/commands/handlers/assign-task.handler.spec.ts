@@ -31,6 +31,7 @@ const transaction: TransactionPort = { run: (work) => work() };
 const team = (): TeamProfile => ({
   id: TeamId.of('team_1'),
   workspaceId: WorkspaceId.of('ws_1'),
+  key: 'platform',
   name: 'Platform',
   members: [UserId.of('user_1'), UserId.of('user_2')],
 });

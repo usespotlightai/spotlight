@@ -1,5 +1,6 @@
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
+import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -145,7 +146,7 @@ const placed = (definition: LineFields, part: LinePart): string => {
     case 'reaction':
       return `reactions.${part.place}${part.field ? `.${part.field}` : ''}`;
     default:
-      return part.field ?? 'the line';
+      return part.field ?? '';
   }
 };
 
@@ -160,7 +161,7 @@ export const compileLine = (held: unknown): CompiledLine => {
       problems: read.error.issues.map((issue) =>
         ConfigurationProblem.of({
           path,
-          at: issue.path.length > 0 ? issue.path.join('.') : 'the line',
+          at: FieldPath.of(issue.path),
           reason: issue.message,
         }),
       ),

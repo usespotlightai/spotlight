@@ -1,5 +1,6 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
+import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -98,7 +99,9 @@ describe('DefineLineHandler', () => {
 
     expect(defined).toMatchObject({
       ok: false,
-      problems: [{ path: 'lines/delivery', at: 'stations' }],
+      problems: [
+        { path: 'lines/delivery', field: FieldPath.dotted('stations') },
+      ],
     });
     expect(apply).not.toHaveBeenCalled();
   });

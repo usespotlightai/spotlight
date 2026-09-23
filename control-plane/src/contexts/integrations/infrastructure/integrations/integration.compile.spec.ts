@@ -2,6 +2,8 @@ import {
   compileIntegration,
   IntegrationCompiler,
 } from '@integrations/infrastructure/integrations/integration.compile';
+import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
+import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 
@@ -38,7 +40,9 @@ const problems = (text: string) => {
 };
 
 const complaining = (text: string, about: string) =>
-  problems(text).filter((each) => each.at.includes(about));
+  problems(text).filter((each) =>
+    (dottedOf(each.field) ?? '').startsWith(about),
+  );
 
 describe('compiling an integration', () => {
   it('compiles one that is whole', () => {
@@ -81,7 +85,7 @@ describe('compiling an integration', () => {
     it('refuses what is not an integration at all', () => {
       expect(compileIntegration('linear')).toMatchObject({
         ok: false,
-        problems: [{ path: 'integrations', at: 'the integration' }],
+        problems: [{ path: 'integrations', field: FieldPath.root() }],
       });
     });
 
@@ -174,9 +178,7 @@ describe('compiling an integration', () => {
     });
 
     it('refuses an integration with no trigger at all', () => {
-      expect(
-        complaining('integration: linear', 'the integration'),
-      ).not.toHaveLength(0);
+      expect(complaining('integration: linear', '')).not.toHaveLength(0);
     });
 
     it('refuses a mark kind that names no source', () => {
@@ -208,7 +210,7 @@ on:
 `;
 
       const [problem] = problems(text).filter(
-        (each) => each.at === 'on.task.moved',
+        (each) => dottedOf(each.field) === 'on.task.moved',
       );
 
       expect(problem?.reason).toMatch(/is not an event Spotlight raises/);
@@ -519,14 +521,16 @@ on:
 
       expect(read.ok).toBe(true);
       expect(warnings(text)).toHaveLength(1);
-      expect(warnings(text)[0]?.at).toBe('on.task.asked.to.thread');
+      expect(dottedOf(warnings(text)[0]?.field)).toBe(
+        'on.task.asked.to.thread',
+      );
       expect(warnings(text)[0]?.reason).toMatch(/No such key: makrs/);
     });
 
     it('tells a name that is not there what may be read instead', () => {
       const [warning] = warnings(BINDING.replace('ask.body', 'asked.body'));
 
-      expect(warning?.at).toBe('actions.post.request.body');
+      expect(dottedOf(warning?.field)).toBe('actions.post.request.body');
       expect(warning?.reason).toMatch(/Unknown variable: asked/);
       expect(warning?.reason).toMatch(/ask, connection, secret, target, task/);
     });
@@ -608,9 +612,9 @@ actions:
       parseYaml(ACTION.replace('ask.body', 'ask.boddy')),
     );
 
-    expect(read.ok && read.warnings.map((each) => each.at)).toEqual([
-      'actions.post.request.body.text',
-    ]);
+    expect(
+      read.ok && read.warnings.map((each) => dottedOf(each.field)),
+    ).toEqual(['actions.post.request.body.text']);
   });
 });
 
@@ -688,9 +692,9 @@ tools:
   it('checks what an action reads of its tools’ inputs', () => {
     const compiled = read(OFFERING.replace('inputs.body', 'inputs.bdy'));
 
-    expect(compiled.ok && compiled.warnings.map((each) => each.at)).toEqual([
-      'actions.comment.request.body.variables.body',
-    ]);
+    expect(
+      compiled.ok && compiled.warnings.map((each) => dottedOf(each.field)),
+    ).toEqual(['actions.comment.request.body.variables.body']);
   });
 
   it('refuses a tool whose action is not defined', () => {
@@ -745,7 +749,7 @@ tools:
           '    description: Comment on the Linear issue this task came from.\n',
           '',
         ),
-      ).map((each) => each.at),
+      ).map((each) => dottedOf(each.field)),
     ).toContain('tools.comment.description');
   });
 });
@@ -803,7 +807,9 @@ actions:
       HINTED.replace('body.data.identifier', 'body.data.identifer'),
     );
 
-    expect(warning?.at).toBe('webhook.events.0.raise.marks.0.value');
+    expect(dottedOf(warning?.field)).toBe(
+      'webhook.events.0.raise.marks.0.value',
+    );
     expect(warning?.reason).toMatch(/No such key: identifer/);
   });
 
@@ -811,7 +817,7 @@ actions:
     expect(
       warnings(
         HINTED.replace('response.data.user.email', 'response.data.user.emial'),
-      ).map((each) => each.at),
+      ).map((each) => dottedOf(each.field)),
     ).toEqual(['actions.assignee.request.capture.email']);
   });
 
@@ -821,14 +827,16 @@ actions:
       'body.data.identifer',
     );
 
-    expect(warnings(text).map((each) => each.at)).toEqual(['types.User.email']);
+    expect(warnings(text).map((each) => dottedOf(each.field))).toEqual([
+      'types.User.email',
+    ]);
   });
 
   it('says where types name each other round', () => {
     expect(
       warnings(
         HINTED.replace('email: string', 'email: string\n    boss: Issue'),
-      ).map((each) => each.at),
+      ).map((each) => dottedOf(each.field)),
     ).toContain('types.Issue');
   });
 

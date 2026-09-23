@@ -1,5 +1,6 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
+import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { describe, expect, it } from 'vitest';
 
 const problem = (over: Record<string, string> = {}) =>
@@ -13,12 +14,12 @@ const problem = (over: Record<string, string> = {}) =>
 describe('ConfigurationProblem', () => {
   it('points at where it is the way a person would', () => {
     expect(problem().path).toBe('integrations/linear');
-    expect(problem().at).toBe('happenings.0.when');
+    expect(problem().field).toEqual(FieldPath.of(['happenings', 0, 'when']));
     expect(problem().reason).toBe('must be an expression');
   });
 
-  it('points at the file where it points at nothing narrower', () => {
-    expect(problem({ at: '' }).at).toBe('the file');
+  it('points at the whole document where it points at nothing narrower', () => {
+    expect(problem({ at: '' }).field.isRoot).toBe(true);
   });
 
   it('refuses one that says nothing to act on', () => {

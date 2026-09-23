@@ -7,6 +7,7 @@ export const TEAM_DIRECTORY = Symbol('TEAM_DIRECTORY');
 export interface TeamProfile {
   readonly id: TeamId;
   readonly workspaceId: WorkspaceId;
+  readonly key: string;
   readonly name: string;
   readonly members: readonly UserId[];
 }

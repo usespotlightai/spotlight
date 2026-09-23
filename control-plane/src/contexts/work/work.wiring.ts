@@ -138,6 +138,7 @@ import {
 } from '@work/application/ports/check-access.port';
 import { CHECK_WORK } from '@work/application/ports/check-work.port';
 import { GIT_GATEWAY } from '@work/application/ports/git-gateway.port';
+import { GIVEN_TOOLS } from '@work/application/ports/given-tools.port';
 import { HAPPENING_REACTIONS } from '@work/application/ports/happening-reactions.port';
 import {
   HARNESS_LAUNCH,
@@ -310,6 +311,7 @@ import {
 import { LineCompiler } from '@work/infrastructure/lines/line.compile';
 import { DrizzleAttachmentReader } from '@work/infrastructure/persistence/drizzle/readers/attachment.reader';
 import { DrizzleChatReader } from '@work/infrastructure/persistence/drizzle/readers/chat.reader';
+import { DrizzleGivenTools } from '@work/infrastructure/persistence/drizzle/readers/given-tools.reader';
 import { DrizzleHeldRunReader } from '@work/infrastructure/persistence/drizzle/readers/held-run.reader';
 import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/readers/inbox.reader';
 import { DrizzleKeptWorkspaceReader } from '@work/infrastructure/persistence/drizzle/readers/kept-workspace.reader';
@@ -364,6 +366,8 @@ export const WORK_CONTROLLERS: readonly Type[] = [
 ];
 
 export const WORK_PROVIDERS: readonly Provider[] = [
+  { provide: GIVEN_TOOLS, useClass: DrizzleGivenTools },
+
   {
     provide: WORK_LOOKUP,
     inject: [

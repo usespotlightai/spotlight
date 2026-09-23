@@ -22,9 +22,12 @@ const AS_HTTP: Record<UseCaseFaultKind, (message: string) => HttpException> = {
   'refused-upstream': (message) => new BadGatewayException(message),
 };
 
+export const httpExceptionOf = (fault: UseCaseFault): HttpException =>
+  AS_HTTP[fault.kind](fault.message);
+
 @Catch(UseCaseFault)
 export class UseCaseFaultFilter extends BaseExceptionFilter {
   override catch(exception: UseCaseFault, host: ArgumentsHost): void {
-    super.catch(AS_HTTP[exception.kind](exception.message), host);
+    super.catch(httpExceptionOf(exception), host);
   }
 }

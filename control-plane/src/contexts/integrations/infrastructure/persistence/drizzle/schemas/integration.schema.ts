@@ -5,6 +5,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  unique,
 } from 'drizzle-orm/pg-core';
 
 export const integrationCursor = pgTable(
@@ -43,14 +44,16 @@ export const oauth2SpentNonce = pgTable('oauth2_spent_nonce', {
 export const integrationDefinition = pgTable(
   'integration_definition',
   {
+    id: text('id').primaryKey(),
     teamId: text('team_id').notNull(),
     source: text('source').notNull(),
     definition: jsonb('definition').$type<Record<string, unknown>>().notNull(),
+    offers: jsonb('offers').$type<string[]>().notNull(),
     version: integer('version').notNull().default(1),
     definedAt: timestamp('defined_at')
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
   },
-  (table) => [primaryKey({ columns: [table.teamId, table.source] })],
+  (table) => [unique().on(table.teamId, table.source)],
 );

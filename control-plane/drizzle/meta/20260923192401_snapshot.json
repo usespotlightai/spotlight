@@ -1,5 +1,5 @@
 {
-  "id": "89769d68-d19b-4afb-8d24-49b26921cd40",
+  "id": "b460d341-0ef5-4a5b-8094-b6a36e041b4e",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -132,6 +132,58 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.idempotent_create": {
+      "name": "idempotent_create",
+      "schema": "",
+      "columns": {
+        "scope": {
+          "name": "scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fingerprint": {
+          "name": "fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_id": {
+          "name": "created_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "idempotent_create_scope_key_pk": {
+          "name": "idempotent_create_scope_key_pk",
+          "columns": [
+            "scope",
+            "key"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -2509,6 +2561,12 @@
       "name": "integration_definition",
       "schema": "",
       "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
         "team_id": {
           "name": "team_id",
           "type": "text",
@@ -2523,6 +2581,12 @@
         },
         "definition": {
           "name": "definition",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "offers": {
+          "name": "offers",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true
@@ -2544,16 +2608,17 @@
       },
       "indexes": {},
       "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "integration_definition_team_id_source_pk": {
-          "name": "integration_definition_team_id_source_pk",
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "integration_definition_team_id_source_unique": {
+          "name": "integration_definition_team_id_source_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "team_id",
             "source"
           ]
         }
       },
-      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

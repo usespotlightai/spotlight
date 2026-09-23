@@ -10,6 +10,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 const profileOf = (team: Team): TeamProfile => ({
   id: team.id,
   workspaceId: team.workspaceId,
+  key: team.key.value,
   name: team.name.value,
   members: team.members,
 });

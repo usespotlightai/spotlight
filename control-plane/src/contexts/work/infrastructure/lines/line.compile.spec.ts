@@ -1,3 +1,5 @@
+import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
+import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { compileLine } from '@work/infrastructure/lines/line.compile';
 import { describe, expect, it } from 'vitest';
 
@@ -87,25 +89,30 @@ describe('compileLine', () => {
   it('places every problem at the line it is about', () => {
     expect(refused({ ...DELIVERY, name: '' })[0]).toMatchObject({
       path: 'lines/delivery',
-      at: 'name',
+      field: FieldPath.dotted('name'),
     });
   });
 
   it('places a line whose key is unusable at the lines themselves', () => {
     expect(refused({ ...DELIVERY, key: 'Not A Key' })[0]).toMatchObject({
       path: 'lines',
-      at: 'key',
+      field: FieldPath.dotted('key'),
     });
   });
 
   it('refuses a line with no stations', () => {
-    expect(refused({ ...DELIVERY, stations: [] })[0]?.at).toBe('stations');
+    expect(dottedOf(refused({ ...DELIVERY, stations: [] })[0]?.field)).toBe(
+      'stations',
+    );
   });
 
   it('places a problem with a station’s fields at that station', () => {
     expect(
       refused(withStation(2, { key: 'completed', kind: 'completed' }))[0],
-    ).toMatchObject({ path: 'lines/delivery', at: 'stations.2.name' });
+    ).toMatchObject({
+      path: 'lines/delivery',
+      field: FieldPath.dotted('stations.2.name'),
+    });
   });
 
   it('places a problem with how a station hands on at that station', () => {
@@ -118,7 +125,10 @@ describe('compileLine', () => {
           passesTo: ['backlog'],
         }),
       )[0],
-    ).toMatchObject({ path: 'lines/delivery', at: 'stations.0.passesTo' });
+    ).toMatchObject({
+      path: 'lines/delivery',
+      field: FieldPath.dotted('stations.0.passesTo'),
+    });
   });
 
   it('places a problem with what a station gives at that station', () => {
@@ -131,7 +141,10 @@ describe('compileLine', () => {
           tools: ['pull-request', 'pull-request'],
         }),
       )[0],
-    ).toMatchObject({ path: 'lines/delivery', at: 'stations.1.tools' });
+    ).toMatchObject({
+      path: 'lines/delivery',
+      field: FieldPath.dotted('stations.1.tools'),
+    });
   });
 
   it('places a problem with a reaction at that reaction', () => {
@@ -143,7 +156,10 @@ describe('compileLine', () => {
           { happening: 'github.checks.failed', to: 'nowhere' },
         ],
       })[0],
-    ).toMatchObject({ path: 'lines/delivery', at: 'reactions.1.to' });
+    ).toMatchObject({
+      path: 'lines/delivery',
+      field: FieldPath.dotted('reactions.1.to'),
+    });
   });
 
   it('refuses a station that checks its layers with no setup', () => {
@@ -157,13 +173,13 @@ describe('compileLine', () => {
           diffs: true,
         }),
       )[0],
-    ).toMatchObject({ at: 'stations.1.setup' });
+    ).toMatchObject({ field: FieldPath.dotted('stations.1.setup') });
   });
 
   it('refuses what is not a line at all', () => {
     expect(refused('version: 1')[0]).toMatchObject({
       path: 'lines',
-      at: 'the line',
+      field: FieldPath.root(),
     });
   });
 });

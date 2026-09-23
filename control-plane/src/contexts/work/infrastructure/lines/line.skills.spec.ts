@@ -1,3 +1,4 @@
+import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { compileLine } from '@work/infrastructure/lines/line.compile';
 import { describe, expect, it } from 'vitest';
 
@@ -45,7 +46,7 @@ describe('the skills a station definition gives a station', () => {
     expect(read.ok).toBe(false);
     expect(!read.ok && read.problems[0]).toMatchObject({
       path: 'lines/delivery',
-      at: 'stations.1.skills.0',
+      field: FieldPath.dotted('stations.1.skills.0'),
     });
   });
 });

@@ -1,10 +1,38 @@
-import type { DefinedIntegration } from '@integrations/application/ports/defined-integrations.port';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 
-export type DefinedIntegrationDto =
+export interface IntegrationResourceDto {
+  readonly id: string;
+  readonly version: number;
+  readonly address: string;
+  readonly teamId: string;
+  readonly source: string;
+  readonly definition: Readonly<Record<string, unknown>>;
+  readonly warnings: readonly ConfigurationProblem[];
+}
+
+type Refused =
+  | { readonly outcome: 'moved-on'; readonly currentVersion: number }
+  | { readonly outcome: 'in-use'; readonly reason: string };
+
+export type IntegrationCreatedDto =
   | {
-      readonly ok: true;
-      readonly integration: DefinedIntegration;
-      readonly warnings: readonly ConfigurationProblem[];
+      readonly outcome: 'created';
+      readonly id: string;
+      readonly replayed: boolean;
     }
-  | { readonly ok: false; readonly problems: readonly ConfigurationProblem[] };
+  | {
+      readonly outcome: 'invalid';
+      readonly problems: readonly ConfigurationProblem[];
+    }
+  | { readonly outcome: 'taken'; readonly address: string }
+  | { readonly outcome: 'key-reused' };
+
+export type IntegrationUpdatedDto =
+  | { readonly outcome: 'updated'; readonly id: string }
+  | {
+      readonly outcome: 'invalid';
+      readonly problems: readonly ConfigurationProblem[];
+    }
+  | Refused;
+
+export type IntegrationDeletedDto = { readonly outcome: 'deleted' } | Refused;

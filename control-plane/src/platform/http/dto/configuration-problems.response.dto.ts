@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { attributePath } from '@platform/http/field-paths';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 
 export class ConfigurationProblemResponseDto {
@@ -9,8 +10,8 @@ export class ConfigurationProblemResponseDto {
   readonly path: string;
 
   @ApiProperty({
-    example: 'stations.2.check',
-    description: 'The field within it, as a dotted path',
+    example: 'stations[2].check',
+    description: 'The field within it, as a Terraform attribute path',
   })
   readonly at: string;
 
@@ -22,7 +23,7 @@ export class ConfigurationProblemResponseDto {
 
   constructor(problem: ConfigurationProblem) {
     this.path = problem.path;
-    this.at = problem.at;
+    this.at = attributePath(problem.field);
     this.reason = problem.reason;
     this.severity = problem.severity;
   }

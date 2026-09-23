@@ -1,3 +1,4 @@
+import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { compileLine } from '@work/infrastructure/lines/line.compile';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
@@ -60,7 +61,10 @@ describe('the pull requests a line reviews', () => {
   it('refuses reviews on a line whose role is not review', () => {
     const line = compiled('reviews:\n  start: opened\n', 'delivery');
 
-    expect(line).toMatchObject({ ok: false, problems: [{ at: 'reviews' }] });
+    expect(line).toMatchObject({
+      ok: false,
+      problems: [{ field: FieldPath.dotted('reviews') }],
+    });
   });
 
   it('refuses a review that starts on anything else', () => {
@@ -68,13 +72,16 @@ describe('the pull requests a line reviews', () => {
 
     expect(line).toMatchObject({
       ok: false,
-      problems: [{ at: 'reviews.start' }],
+      problems: [{ field: FieldPath.dotted('reviews.start') }],
     });
   });
 
   it('refuses a mention that is not a handle', () => {
     const line = compiled('reviews:\n  mention: spotlight\n');
 
-    expect(line).toMatchObject({ ok: false, problems: [{ at: 'reviews' }] });
+    expect(line).toMatchObject({
+      ok: false,
+      problems: [{ field: FieldPath.dotted('reviews') }],
+    });
   });
 });

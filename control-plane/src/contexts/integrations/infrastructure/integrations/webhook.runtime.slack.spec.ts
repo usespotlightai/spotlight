@@ -5,6 +5,7 @@ import {
 } from '@integrations/infrastructure/integrations/integration.compile';
 import { WebhookRuntime } from '@integrations/infrastructure/integrations/webhook.runtime';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 import { parse as parseYaml } from 'yaml';
@@ -90,7 +91,7 @@ const compiled = (): ReadableIntegration => {
 
   if (!read.ok) {
     throw new Error(
-      `fixture will not compile: ${read.problems.map((each) => `${each.at} ${each.reason}`).join(', ')}`,
+      `fixture will not compile: ${read.problems.map((each) => `${dottedOf(each.field)} ${each.reason}`).join(', ')}`,
     );
   }
 
