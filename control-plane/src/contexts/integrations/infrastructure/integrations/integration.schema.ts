@@ -264,7 +264,6 @@ export const ON_EVENTS = BINDABLE_TASK_EVENTS;
 
 export const integrationSchema = z
   .object({
-    version: z.literal(1, { message: 'must be 1' }),
     integration: z
       .string()
       .regex(NAME, 'is the name this host is addressed by, as in slack'),
@@ -303,6 +302,7 @@ export const integrationSchema = z
     'must do something: a webhook, a poll, a schedule, or an action to run',
   );
 
+export type IntegrationFile = z.infer<typeof integrationSchema>;
 export type EventFile = z.infer<typeof eventSchema>;
 export type AuthFile = z.infer<typeof authSchema>;
 export type RequestFile = z.infer<typeof requestSchema>;

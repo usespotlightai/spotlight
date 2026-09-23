@@ -13,7 +13,7 @@ export class ConfiguredIntegrationResponseDto {
 
   @ApiProperty({
     description: 'Where the integration is defined',
-    example: '.spotlight/integrations/linear.yml',
+    example: 'integrations/linear',
   })
   readonly path: string;
 

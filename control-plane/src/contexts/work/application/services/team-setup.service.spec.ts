@@ -2,7 +2,6 @@ import type { WorkspaceConnectionsPort } from '@github/application/ports/workspa
 import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { ConfigurationStatusPort } from '@work/application/ports/configuration-status.port';
 import type { TeamIntegrationsPort } from '@work/application/ports/team-integrations.port';
 import {
   asSetupState,
@@ -16,7 +15,6 @@ const WORKSPACE = WorkspaceId.of('123e4567-e89b-42d3-a456-426614174001');
 type Given = {
   connected?: boolean;
   runner?: boolean;
-  applied?: boolean;
   listening?: readonly string[];
 };
 
@@ -24,10 +22,6 @@ const read = (given: Given = {}) => {
   const connections = {
     isConnected: vi.fn().mockResolvedValue(given.connected ?? false),
   } as unknown as WorkspaceConnectionsPort;
-
-  const configurations = {
-    isApplied: vi.fn().mockResolvedValue(given.applied ?? false),
-  } satisfies ConfigurationStatusPort;
 
   const integrations = {
     offered: vi.fn(),
@@ -38,12 +32,10 @@ const read = (given: Given = {}) => {
     anyConnected: vi.fn().mockResolvedValue(given.runner ?? false),
   } as unknown as RunnerReaderPort;
 
-  return new TeamSetup(
-    connections,
-    configurations,
-    integrations,
-    runners,
-  ).factsFor(WORKSPACE, TEAM);
+  return new TeamSetup(connections, integrations, runners).factsFor(
+    WORKSPACE,
+    TEAM,
+  );
 };
 
 describe('TeamSetup', () => {
@@ -51,7 +43,6 @@ describe('TeamSetup', () => {
     await expect(read()).resolves.toEqual({
       hasRunner: false,
       connectedToGitHub: false,
-      hasConfiguration: false,
       listening: [],
     });
   });
@@ -61,13 +52,11 @@ describe('TeamSetup', () => {
       read({
         connected: true,
         runner: true,
-        applied: true,
         listening: ['linear'],
       }),
     ).resolves.toEqual({
       hasRunner: true,
       connectedToGitHub: true,
-      hasConfiguration: true,
       listening: ['linear'],
     });
   });
@@ -75,12 +64,6 @@ describe('TeamSetup', () => {
   it('has no runner where nothing has checked in', async () => {
     await expect(read({ runner: false })).resolves.toMatchObject({
       hasRunner: false,
-    });
-  });
-
-  it('hears no tools while no configuration has been taken up', async () => {
-    await expect(read({ listening: ['linear'] })).resolves.toMatchObject({
-      listening: [],
     });
   });
 });
@@ -91,13 +74,11 @@ describe('asSetupState', () => {
       asSetupState({
         hasRunner: true,
         connectedToGitHub: true,
-        hasConfiguration: true,
         listening: ['linear'],
       }),
     ).toEqual({
       hasRunner: true,
       connectedToGitHub: true,
-      hasConfiguration: true,
       listensToAnIntegration: true,
     });
   });
@@ -107,7 +88,6 @@ describe('asSetupState', () => {
       asSetupState({
         hasRunner: false,
         connectedToGitHub: false,
-        hasConfiguration: false,
         listening: [],
       }),
     ).toMatchObject({ listensToAnIntegration: false });

@@ -81,7 +81,6 @@ const list = (): Task =>
 const done: TeamFacts = {
   hasRunner: true,
   connectedToGitHub: true,
-  hasConfiguration: true,
   listening: ['linear'],
 };
 

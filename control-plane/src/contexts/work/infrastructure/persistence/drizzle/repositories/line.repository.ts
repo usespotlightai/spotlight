@@ -4,6 +4,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -35,6 +36,7 @@ import { Tool } from '@work/domain/value-objects/tool.vo';
 import { WayOut } from '@work/domain/value-objects/way-out.vo';
 import {
   line,
+  lineDefinition,
   lineReaction,
   lineRepository,
   type ReviewsRow,
@@ -104,6 +106,7 @@ const toLine = (
   ways: Ways,
   reactions: readonly Reaction[],
   repositories: readonly Repository[],
+  definition: DefinitionDocument | null,
 ): Line =>
   Line.rehydrate({
     id: LineId.of(line.id),
@@ -116,6 +119,7 @@ const toLine = (
     role: line.role ? LineRole.of(line.role) : null,
     reviews: line.reviews ? ReviewPolicy.of(line.reviews) : null,
     repositories,
+    definition,
     version: line.version,
   });
 
@@ -212,6 +216,7 @@ export class DrizzleLineRepository implements LineRepository {
 
     await this.context.db.insert(station).values(rowsOf(added));
     await this.writeWays(added);
+    await this.writeDefinition(added);
   }
 
   async save(saved: Line): Promise<void> {
@@ -291,6 +296,26 @@ export class DrizzleLineRepository implements LineRepository {
       .delete(lineRepository)
       .where(eq(lineRepository.lineId, saved.id.value));
     await this.writeWays(saved);
+    await this.writeDefinition(saved);
+  }
+
+  private async writeDefinition(held: Line): Promise<void> {
+    if (!held.definition) {
+      await this.context.db
+        .delete(lineDefinition)
+        .where(eq(lineDefinition.lineId, held.id.value));
+      return;
+    }
+
+    const definition = { ...held.definition.fields };
+
+    await this.context.db
+      .insert(lineDefinition)
+      .values({ lineId: held.id.value, definition })
+      .onConflictDoUpdate({
+        target: lineDefinition.lineId,
+        set: { definition, definedAt: new Date() },
+      });
   }
 
   private async dropped(stationIds: readonly string[]): Promise<void> {
@@ -396,6 +421,18 @@ export class DrizzleLineRepository implements LineRepository {
     );
   }
 
+  private async definitionOf(
+    lineId: string,
+  ): Promise<DefinitionDocument | null> {
+    const [held] = await this.context.db
+      .select({ definition: lineDefinition.definition })
+      .from(lineDefinition)
+      .where(eq(lineDefinition.lineId, lineId))
+      .limit(1);
+
+    return held ? DefinitionDocument.of(held.definition) : null;
+  }
+
   private async repositoriesOf(lineId: string): Promise<Repository[]> {
     const held = await this.context.db
       .select()
@@ -432,13 +469,14 @@ export class DrizzleLineRepository implements LineRepository {
       .where(eq(station.lineId, id.value))
       .orderBy(station.position);
 
-    const [ways, reactions, repositories] = await Promise.all([
+    const [ways, reactions, repositories, definition] = await Promise.all([
       this.waysOf(stations),
       this.reactionsOf(id.value),
       this.repositoriesOf(id.value),
+      this.definitionOf(id.value),
     ]);
 
-    return toLine(found, stations, ways, reactions, repositories);
+    return toLine(found, stations, ways, reactions, repositories, definition);
   }
 
   async ofTeam(teamId: TeamId): Promise<readonly Line[]> {

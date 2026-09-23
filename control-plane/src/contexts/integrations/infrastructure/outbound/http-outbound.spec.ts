@@ -7,9 +7,9 @@ import {
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 import { describe, expect, it, vi } from 'vitest';
+import { parse as parseYaml } from 'yaml';
 
 const FIXTURE = `
-version: 1
 integration: demo
 actions:
   post-message:
@@ -26,7 +26,7 @@ actions:
 `;
 
 const action = (): RequestIR => {
-  const read = compileIntegration('.spotlight/integrations/demo.yml', FIXTURE);
+  const read = compileIntegration(parseYaml(FIXTURE));
 
   if (!read.ok) {
     throw new Error(read.problems.map((each) => each.reason).join(', '));
@@ -77,7 +77,6 @@ describe('HttpOutbound', () => {
 
   it('leaves a content-type the file set alone', async () => {
     const FORM = `
-version: 1
 integration: demo
 actions:
   post-message:
@@ -88,7 +87,7 @@ actions:
         content-type: application/x-www-form-urlencoded
       body: '\${{ {"channel": target.channel} }}'
 `;
-    const read = compileIntegration('.spotlight/integrations/demo.yml', FORM);
+    const read = compileIntegration(parseYaml(FORM));
     const request = read.ok
       ? (read.readable.actions.get('post-message') as RequestIR)
       : (() => {
@@ -171,7 +170,6 @@ actions:
 
   it('wears the connection token where the action authenticates by oauth2', async () => {
     const OAUTH = `
-version: 1
 integration: demo
 connection:
   oauth2:
@@ -186,7 +184,7 @@ actions:
         oauth2:
           connection: true
 `;
-    const read = compileIntegration('.spotlight/integrations/demo.yml', OAUTH);
+    const read = compileIntegration(parseYaml(OAUTH));
     const request = read.ok
       ? (read.readable.actions.get('post-message') as RequestIR)
       : (() => {
@@ -206,7 +204,6 @@ actions:
 
   describe('fetching a file', () => {
     const FILE = `
-version: 1
 integration: demo
 actions:
   fetch:
@@ -221,7 +218,7 @@ actions:
 `;
 
     const fetching = (): RequestIR => {
-      const read = compileIntegration('.spotlight/integrations/demo.yml', FILE);
+      const read = compileIntegration(parseYaml(FILE));
 
       if (!read.ok) {
         throw new Error(read.problems.map((each) => each.reason).join(', '));
@@ -278,7 +275,6 @@ actions:
 
 describe('HttpOutbound, a request written out', () => {
   const WRITTEN = `
-version: 1
 integration: demo
 actions:
   post:
@@ -295,7 +291,7 @@ actions:
 `;
 
   const written = (text = WRITTEN, name = 'post') => {
-    const read = compileIntegration('.spotlight/integrations/demo.yml', text);
+    const read = compileIntegration(parseYaml(text));
 
     if (!read.ok) {
       throw new Error(read.problems.map((each) => each.reason).join(', '));

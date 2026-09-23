@@ -16,6 +16,7 @@ import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import type { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
+import { eq, inArray } from 'drizzle-orm';
 import * as schema from './schema';
 
 const NOW = new Date('2026-01-02T03:04:05.000Z');
@@ -126,5 +127,39 @@ export const openTeam = async (
     stationId: StationId.of(stationId),
     line,
     list,
+  };
+};
+
+export const seatTeam = async (db: DrizzleDatabase, id: string) => {
+  const owner = randomUUID();
+  const member = randomUUID();
+
+  await db.insert(schema.user).values([
+    { id: owner, name: 'Ada', email: `${owner}@example.com` },
+    { id: member, name: 'Bea', email: `${member}@example.com` },
+  ]);
+  await db.insert(schema.workspace).values({ id, name: id, slug: id });
+  await db.insert(schema.workspaceMember).values([
+    { workspaceId: id, userId: owner, role: 'owner' },
+    { workspaceId: id, userId: member, role: 'member' },
+  ]);
+  await db
+    .insert(schema.team)
+    .values({ id, workspaceId: id, key: 'team', name: id });
+  await db.insert(schema.teamMember).values([
+    { teamId: id, userId: owner },
+    { teamId: id, userId: member },
+  ]);
+
+  return {
+    owner,
+    member,
+    unseat: async () => {
+      await db.delete(schema.line).where(eq(schema.line.teamId, id));
+      await db.delete(schema.workspace).where(eq(schema.workspace.id, id));
+      await db
+        .delete(schema.user)
+        .where(inArray(schema.user.id, [owner, member]));
+    },
   };
 };

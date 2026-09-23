@@ -62,6 +62,91 @@
         "tags": [
           "lines"
         ]
+      },
+      "post": {
+        "operationId": "defineLine",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "example": {
+                  "key": "delivery",
+                  "name": "Delivery",
+                  "stations": [
+                    {
+                      "key": "backlog",
+                      "name": "Backlog",
+                      "kind": "backlog",
+                      "passesTo": [
+                        "implementation"
+                      ]
+                    },
+                    {
+                      "key": "implementation",
+                      "name": "Implementation",
+                      "harness": "claude-code",
+                      "prompt": "Implement the task.",
+                      "passesTo": [
+                        "completed"
+                      ]
+                    },
+                    {
+                      "key": "completed",
+                      "name": "Completed",
+                      "kind": "completed"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LineResourceResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team this caller administers"
+          },
+          "422": {
+            "description": "What is wrong with the definition, field by field",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationProblemsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Define a line: open it, or reconcile the line with its key to match",
+        "tags": [
+          "lines"
+        ]
       }
     },
     "/workspaces/{slug}/runs": {
@@ -3519,6 +3604,76 @@
         ]
       }
     },
+    "/teams/{teamId}/integrations": {
+      "post": {
+        "operationId": "defineIntegration",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "example": {
+                  "integration": "linear",
+                  "actions": {
+                    "comment": {
+                      "request": {
+                        "method": "POST",
+                        "url": "https://api.linear.app/graphql"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntegrationResourceResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team this caller administers"
+          },
+          "422": {
+            "description": "What is wrong with the definition, field by field",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationProblemsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Define an integration, replacing the one this team has for its host",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
     "/workspaces/{slug}/happenings": {
       "get": {
         "operationId": "listHappenings",
@@ -3600,7 +3755,7 @@
           "key": {
             "type": "string",
             "example": "triage",
-            "description": "What the station is called in its line file, and what a run hands a task on to it by"
+            "description": "What the station is called in its line definition, and what a run hands a task on to it by"
           },
           "name": {
             "type": "string",
@@ -3750,6 +3905,81 @@
           "stations",
           "reactions",
           "repositories"
+        ]
+      },
+      "LineResourceResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
+          },
+          "definition": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "The line as it was defined, with every field it left out filled in",
+            "example": {
+              "key": "delivery",
+              "name": "Delivery",
+              "stations": [
+                {
+                  "key": "backlog",
+                  "name": "Backlog",
+                  "kind": "backlog"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "definition"
+        ]
+      },
+      "ConfigurationProblemResponseDto": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "example": "lines/delivery",
+            "description": "The resource the problem is in"
+          },
+          "at": {
+            "type": "string",
+            "example": "stations.2.check",
+            "description": "The field within it, as a dotted path"
+          },
+          "reason": {
+            "type": "string",
+            "example": "must not be empty"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning"
+            ]
+          }
+        },
+        "required": [
+          "path",
+          "at",
+          "reason",
+          "severity"
+        ]
+      },
+      "ConfigurationProblemsResponseDto": {
+        "type": "object",
+        "properties": {
+          "problems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfigurationProblemResponseDto"
+            }
+          }
+        },
+        "required": [
+          "problems"
         ]
       },
       "EnqueueRunRequestDto": {
@@ -6167,7 +6397,6 @@
             "enum": [
               "runner",
               "github",
-              "configuration",
               "integrations"
             ],
             "example": "runner"
@@ -6717,7 +6946,7 @@
           "path": {
             "type": "string",
             "description": "Where the integration is defined",
-            "example": ".spotlight/integrations/linear.yml"
+            "example": "integrations/linear"
           },
           "standing": {
             "type": "string",
@@ -7734,6 +7963,33 @@
         },
         "required": [
           "url"
+        ]
+      },
+      "IntegrationResourceResponseDto": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "example": "linear",
+            "description": "The host it defines, which names it within the team"
+          },
+          "definition": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "The integration as it was defined, with every field it left out filled in"
+          },
+          "warnings": {
+            "description": "What would work better, though nothing stops it working",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfigurationProblemResponseDto"
+            }
+          }
+        },
+        "required": [
+          "source",
+          "definition",
+          "warnings"
         ]
       },
       "HappeningResponseDto": {

@@ -1,61 +1,68 @@
-import {
-  team,
-  workspace,
-} from '@identity/infrastructure/persistence/drizzle/schemas/workspace.schema';
 import { INestApplication } from '@nestjs/common';
+import { CommandBus } from '@nestjs/cqrs';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { Line } from '@work/domain/aggregates/line.aggregate';
+import { DefineLineCommand } from '@work/application/commands/define-line.command';
+import type { DefinedLineDto } from '@work/application/dto/line-resource.dto';
+import type { Line } from '@work/domain/aggregates/line.aggregate';
 import {
   BUILT_IN_LINES,
   type LineOpening,
 } from '@work/domain/services/built-in-lines';
-import { reconcileLine } from '@work/domain/services/reconcile-line';
-import {
-  LinePlan,
-  type StationPlan,
-} from '@work/domain/value-objects/line-plan.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { DrizzleLineRepository } from '@work/infrastructure/persistence/drizzle/repositories/line.repository';
-import { station } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { AppModule } from '@/app.module';
+import { definitionOf, type LineDefinition } from './support/line-definition';
+import * as schema from './support/schema';
+import { seatTeam } from './support/team';
 
-const keyed = (line: Line, id: { value: string }): StationKey =>
-  line.stations.find((each) => each.id.value === id.value)?.key as StationKey;
+const DELIVERY = definitionOf(BUILT_IN_LINES[0] as LineOpening);
 
-const planOf = (line: Line): StationPlan[] =>
-  line.stations.map((each) => ({
-    key: each.key,
-    name: each.name,
-    kind: each.kind,
-    color: each.color,
-    description: each.description,
-    harness: each.harness,
-    model: each.model,
-    effort: each.effort,
-    agentPrompt: each.agentPrompt,
-    check: null,
-    setup: null,
-    diffs: false,
-    decisions: false,
-    tools: each.tools,
-    skills: each.skills,
-    passesTo: each.wayOut.stations.map((to) => keyed(line, to)),
-    ends: each.wayOut.ends,
-  }));
+const withDesign = (line: LineDefinition): LineDefinition => ({
+  ...line,
+  stations: line.stations.map((each) =>
+    each.key === 'spec'
+      ? {
+          ...each,
+          key: 'design',
+          name: 'Design',
+          color: '#5c66d9',
+          tools: [],
+          passesTo: ['implementation'],
+        }
+      : {
+          ...each,
+          passesTo: each.passesTo.map((to) => (to === 'spec' ? 'design' : to)),
+        },
+  ),
+});
 
-describe('a line reconciled with its file (e2e)', () => {
+describe('a line reconciled with its definition (e2e)', () => {
   let app: INestApplication;
   let lines: DrizzleLineRepository;
   let db: DrizzleDatabase;
-  const held = `reconcile_${Date.now()}`;
+  let commands: CommandBus;
+  const held = `reconcile-${Date.now()}`;
+  let seat: Awaited<ReturnType<typeof seatTeam>>;
+
+  const define = (definition: unknown, by = seat.owner) =>
+    commands.execute<DefineLineCommand, DefinedLineDto | null>(
+      new DefineLineCommand(held, by, definition),
+    );
+
+  const defined = async (definition: unknown): Promise<Line> => {
+    const result = await define(definition);
+
+    if (!result?.ok) {
+      throw new Error(JSON.stringify(result));
+    }
+
+    return (await lines.find(LineId.of(result.line.id))) as Line;
+  };
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -66,94 +73,78 @@ describe('a line reconciled with its file (e2e)', () => {
     await app.init();
     lines = app.get(DrizzleLineRepository);
     db = app.get(DRIZZLE);
+    commands = app.get(CommandBus);
 
-    await db.insert(workspace).values({ id: held, name: held, slug: held });
-    await db
-      .insert(team)
-      .values({ id: held, workspaceId: held, key: 'team', name: held });
+    seat = await seatTeam(db, held);
   });
 
   afterEach(async () => {
-    await db.delete(workspace).where(eq(workspace.id, held));
+    await seat.unseat();
     await app.close();
   });
 
-  it('adds a station the file describes and drops one it no longer does', async () => {
-    let next = 0;
-    const newId = () => `${held}_${++next}`;
-    const opened = Line.open({
-      workspaceId: WorkspaceId.of(held),
-      teamId: TeamId.of(held),
-      line: BUILT_IN_LINES[0] as LineOpening,
-      newId,
-    });
-    await lines.add(opened);
+  it('opens a line the team does not have, and keeps its definition', async () => {
+    const opened = await defined(DELIVERY);
+    const [kept] = await db
+      .select()
+      .from(schema.lineDefinition)
+      .where(eq(schema.lineDefinition.lineId, opened.id.value));
 
-    const spec = StationKey.of('spec');
-    const design = StationKey.of('design');
-    const implementation = StationKey.of('implementation');
-    const standing = planOf(opened);
-    const stations = standing.flatMap((each): StationPlan[] => {
-      if (each.key.equals(spec)) {
-        return [
-          {
-            ...each,
-            key: design,
-            name: StationName.of('Design'),
-            color: StationColor.of('#5c66d9'),
-            tools: [],
-            skills: [],
-            passesTo: [implementation],
-          },
-        ];
-      }
-      return [
-        {
-          ...each,
-          passesTo: each.passesTo.map((to) => (to.equals(spec) ? design : to)),
-        },
-      ];
-    });
-
-    const reconciled = reconcileLine({
-      standing: opened,
-      plan: LinePlan.of({
-        key: opened.key,
-        name: opened.name,
-        stations,
-        reactions: opened.reactions.map((each) => ({
-          happening: each.happening,
-          from: each.from ? keyed(opened, each.from) : null,
-          to: keyed(opened, each.to),
-        })),
-        role: opened.role,
-        repositories: opened.repositories.all,
-      }),
-      tasksStanding: new Map(),
-      newId,
-    });
-
-    expect(reconciled.ok).toBe(true);
-    if (!reconciled.ok) {
-      return;
-    }
-
-    await lines.save(reconciled.line);
-    const read = (await lines.find(opened.id)) as Line;
-    const rows = await db
-      .select({ key: station.key })
-      .from(station)
-      .where(eq(station.lineId, opened.id.value));
-
-    const keys = standing.map((each) =>
-      each.key.equals(spec) ? 'design' : each.key.value,
+    expect(opened.stations.map((each) => each.key.value)).toEqual(
+      DELIVERY.stations.map((each) => each.key),
     );
+    expect(kept?.definition).toMatchObject({ key: 'delivery' });
+  });
+
+  it('adds a station the definition describes and drops one it no longer does', async () => {
+    const opened = await defined(DELIVERY);
+    const read = await defined(withDesign(DELIVERY));
+    const rows = await db
+      .select({ key: schema.station.key })
+      .from(schema.station)
+      .where(eq(schema.station.lineId, opened.id.value));
+
+    const keys = DELIVERY.stations.map((each) =>
+      each.key === 'spec' ? 'design' : each.key,
+    );
+    expect(read.id).toEqual(opened.id);
     expect(read.stations.map((each) => each.key.value)).toEqual(keys);
     expect(rows.map((each) => each.key).sort()).toEqual([...keys].sort());
     expect(
       read.stations
-        .find((each) => each.key.equals(design))
-        ?.wayOut.stations.map((to) => keyed(read, to).value),
+        .find((each) => each.key.value === 'design')
+        ?.wayOut.stations.map((to) => read.stationAt(to)?.key.value),
     ).toEqual(['implementation']);
+  });
+
+  it('leaves every station it keeps the station it was', async () => {
+    const opened = await defined(DELIVERY);
+    const read = await defined({ ...DELIVERY, name: 'Shipping' });
+
+    expect(read.name.value).toBe('Shipping');
+    expect(read.stations.map((each) => each.id.value)).toEqual(
+      opened.stations.map((each) => each.id.value),
+    );
+  });
+
+  it('says where a definition is wrong, and changes nothing', async () => {
+    const opened = await defined(DELIVERY);
+
+    expect(
+      await define({
+        ...DELIVERY,
+        name: 'Broken',
+        reactions: [{ happening: 'github.checks.failed', to: 'nowhere' }],
+      }),
+    ).toMatchObject({
+      ok: false,
+      problems: [{ path: 'lines/delivery', at: 'reactions.0.to' }],
+    });
+    expect((await lines.find(opened.id))?.name.value).toBe(DELIVERY.name);
+  });
+
+  it('defines nothing for a member who does not administer the workspace', async () => {
+    expect(await define(DELIVERY, seat.member)).toBeNull();
+    expect(await lines.ofTeam(TeamId.of(held))).toEqual([]);
   });
 });

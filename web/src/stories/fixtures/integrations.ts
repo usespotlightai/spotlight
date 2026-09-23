@@ -9,14 +9,14 @@ const CONFIGURED: ConfiguredIntegrationResponseDto[] = [
   {
     source: 'linear',
     name: 'Linear',
-    path: '.spotlight/integrations/linear.yml',
+    path: 'integrations/linear',
     standing: 'listens',
     handle: null,
   },
   {
     source: 'slack',
     name: 'Slack',
-    path: '.spotlight/integrations/slack.yml',
+    path: 'integrations/slack',
     standing: 'linked',
     handle: 'Acme',
   },

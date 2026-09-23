@@ -1,8 +1,8 @@
-import type { AppliedConfigurationPort } from '@configuration/application/ports/applied-configuration.port';
 import type {
   ConfiguredSourcesPort,
   OfTeam,
 } from '@integrations/application/ports/configured-sources.port';
+import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { WebhookSourcePort } from '@integrations/application/ports/webhook-source.port';
 import type { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type { JwksResolver } from '@integrations/infrastructure/integrations/jwks';
@@ -11,7 +11,7 @@ import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-ou
 
 export class ConfiguredSources implements ConfiguredSourcesPort {
   constructor(
-    private readonly configurations: AppliedConfigurationPort,
+    private readonly defined: DefinedIntegrationsPort,
     private readonly reader: IntegrationReader,
     private readonly jwks: JwksResolver,
     private readonly outbound: HttpOutbound,
@@ -24,17 +24,10 @@ export class ConfiguredSources implements ConfiguredSourcesPort {
   }
 
   async all(team: OfTeam): Promise<readonly WebhookSourcePort[]> {
-    const applied = await this.configurations.of(team.teamId);
-
-    if (!applied) {
-      return [];
-    }
-
+    const definitions = await this.defined.ofTeam(team.teamId);
     const built: WebhookSourcePort[] = [];
 
-    const mine = applied.integrations;
-
-    for (const readable of this.reader.readable(mine).integrations) {
+    for (const readable of this.reader.readable(definitions).integrations) {
       built.push(
         new WebhookRuntime(
           readable,

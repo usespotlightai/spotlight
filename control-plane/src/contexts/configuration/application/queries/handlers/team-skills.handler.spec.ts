@@ -38,10 +38,8 @@ const listing = (teamId = 'team_1') =>
     {
       of: vi.fn(async () => ({
         teamId: TeamId.of('team_1'),
-        integrations: [],
         skills: [],
       })),
-      everywhere: vi.fn(),
     } satisfies AppliedConfigurationPort,
     {
       read: () => ({ skills: [GRAFANA], problems: [] }),

@@ -1,4 +1,4 @@
-import type { AppliedConfigurationPort } from '@configuration/application/ports/applied-configuration.port';
+import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
 import { HostConnection } from '@integrations/domain/aggregates/host-connection.aggregate';
 import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
@@ -8,7 +8,7 @@ import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 export class RefreshConnections {
   constructor(
     private readonly connections: HostConnectionRepository,
-    private readonly configurations: AppliedConfigurationPort,
+    private readonly defined: DefinedIntegrationsPort,
     private readonly runtime: IntegrationRuntimePort,
     private readonly clock: ClockPort,
     private readonly log: LoggerPort,
@@ -42,14 +42,14 @@ export class RefreshConnections {
 
   private async one(connection: HostConnection, now: Date): Promise<void> {
     const refreshToken = connection.refreshToken;
-    const applied = await this.configurations.of(connection.teamId);
+    const definitions = await this.defined.ofTeam(connection.teamId);
 
-    if (!refreshToken || !applied) {
+    if (!refreshToken) {
       return;
     }
 
     const renewed = await this.runtime.renew(
-      applied.integrations,
+      definitions,
       connection.source,
       refreshToken,
     );

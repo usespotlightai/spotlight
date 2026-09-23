@@ -17,7 +17,7 @@ interface LaidReaction {
 export type LinePart =
   | {
       readonly of: 'line';
-      readonly field: 'stations' | 'repositories' | 'reviews' | null;
+      readonly field: 'key' | 'stations' | 'repositories' | 'reviews' | null;
     }
   | {
       readonly of: 'station';

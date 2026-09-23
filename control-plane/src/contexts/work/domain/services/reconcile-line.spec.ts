@@ -1,3 +1,4 @@
+import { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Line } from '@work/domain/aggregates/line.aggregate';
@@ -284,5 +285,38 @@ describe('reconciling a line with the plan describing it', () => {
 
     expect(result.ok && result.line.key.value).toBe('release');
     expect(result.ok && result.line.name.value).toBe('Release');
+  });
+
+  it('keeps the definition the line was reconciled with', () => {
+    const line = standing();
+    const plan = LinePlan.of({
+      key: line.key,
+      name: line.name,
+      stations: asStanding(line).stations,
+      definition: DefinitionDocument.of({
+        key: line.key.value,
+        name: 'Delivery',
+      }),
+    });
+
+    const { result } = reconciling(plan, line);
+
+    expect(result.ok && result.line.definition?.fields).toEqual({
+      key: line.key.value,
+      name: 'Delivery',
+    });
+  });
+
+  it('refuses a plan compiled from a definition of another line', () => {
+    const line = standing();
+
+    expect(() =>
+      LinePlan.of({
+        key: line.key,
+        name: line.name,
+        stations: asStanding(line).stations,
+        definition: DefinitionDocument.of({ key: 'review' }),
+      }),
+    ).toThrow(/definition of another line/);
   });
 });

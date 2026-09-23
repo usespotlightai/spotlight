@@ -19,7 +19,6 @@ const DONE = {
   hasRunner: true,
   connectedToGitHub: true,
   hasRepository: true,
-  hasConfiguration: true,
   listensToAnIntegration: true,
 };
 

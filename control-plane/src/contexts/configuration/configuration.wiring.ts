@@ -12,6 +12,10 @@ import {
   type IntegrationLinksPort,
 } from '@configuration/application/ports/integration-links.port';
 import {
+  INTEGRATION_READER,
+  type IntegrationReaderPort,
+} from '@configuration/application/ports/integration-reader.port';
+import {
   SKILL_READER,
   type SkillReaderPort,
 } from '@configuration/application/ports/skill-reader.port';
@@ -22,10 +26,10 @@ import { ConfigurationQuery } from '@configuration/application/queries/read-conf
 import { TeamSkillsQuery } from '@configuration/application/queries/team-skills.query';
 import { CONFIGURATION_EVENT_TYPES } from '@configuration/domain/event-types';
 import { BuiltInSkills } from '@configuration/infrastructure/acl/built-in-skills.adapter';
+import { DefinedConfiguration } from '@configuration/infrastructure/acl/defined-configuration.adapter';
 import { TeamSkills } from '@configuration/infrastructure/acl/team-skills.adapter';
 import { Teams } from '@configuration/infrastructure/acl/teams.adapter';
 import { DrizzleAppliedConfigurationReader } from '@configuration/infrastructure/persistence/drizzle/readers/applied-configuration.reader';
-import { DrizzleConfigurationReader } from '@configuration/infrastructure/persistence/drizzle/readers/configuration.reader';
 import { DrizzleIntegrationLinks } from '@configuration/infrastructure/persistence/drizzle/readers/integration-links.reader';
 import { NoHeldSecrets } from '@configuration/infrastructure/secrets/no-held-secrets';
 import { BuiltInSkillFiles } from '@configuration/infrastructure/skills/built-in-skill-files';
@@ -33,7 +37,6 @@ import { TeamSkillFiles } from '@configuration/infrastructure/skills/team-skill-
 import { configurationSubscribers } from '@configuration/presentation/events/configuration.subscribers';
 import { ConfigurationController } from '@configuration/presentation/http/controllers/configuration.controller';
 import { SkillController } from '@configuration/presentation/http/controllers/skill.controller';
-import { ConfigurationStatus } from '@configuration/presentation/ports/configuration-status.adapter';
 import {
   WORKSPACE_ACCESS,
   type WorkspaceAccessPort,
@@ -46,7 +49,6 @@ import {
   BUILT_IN_SKILLS,
   SHIPPED_SKILL_KEYS,
 } from '@work/application/ports/built-in-skills.port';
-import { CONFIGURATION_STATUS } from '@work/application/ports/configuration-status.port';
 import { TEAM_SKILLS } from '@work/application/ports/team-skills.port';
 
 const CONFIGURATION_EVENTS = Symbol('CONFIGURATION_EVENTS');
@@ -73,7 +75,12 @@ const adapters: Provider[] = [
   },
   { provide: SKILL_READER, useFactory: () => new TeamSkillFiles() },
   { provide: HELD_SECRETS, useFactory: () => new NoHeldSecrets() },
-  { provide: CONFIGURATION_READER, useClass: DrizzleConfigurationReader },
+  {
+    provide: CONFIGURATION_READER,
+    inject: [INTEGRATION_READER],
+    useFactory: (reader: IntegrationReaderPort) =>
+      new DefinedConfiguration(reader),
+  },
   { provide: INTEGRATION_LINKS, useClass: DrizzleIntegrationLinks },
 ];
 
@@ -119,12 +126,6 @@ export const CONFIGURATION_PROVIDERS: readonly Provider[] = [
       subscribers.register(configurationSubscribers(links));
       return true;
     },
-  },
-  {
-    provide: CONFIGURATION_STATUS,
-    inject: [APPLIED_CONFIGURATION],
-    useFactory: (applied: AppliedConfigurationPort) =>
-      new ConfigurationStatus(applied),
   },
   ...upstream,
   ...adapters,

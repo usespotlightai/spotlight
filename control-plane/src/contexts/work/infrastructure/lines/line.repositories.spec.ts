@@ -1,42 +1,23 @@
-import { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
 import { compileLine } from '@work/infrastructure/lines/line.compile';
 import { describe, expect, it } from 'vitest';
 
 const STATIONS = [
-  ConfigurationFile.of(
-    '.spotlight/lines/delivery/stations/backlog.md',
-    '---\nname: Backlog\nkind: backlog\n---\n',
-  ),
-  ConfigurationFile.of(
-    '.spotlight/lines/delivery/stations/build.md',
-    '---\nname: Build\nharness: dev\n---\n',
-  ),
-  ConfigurationFile.of(
-    '.spotlight/lines/delivery/stations/completed.md',
-    '---\nname: Completed\nkind: completed\n---\n',
-  ),
+  { key: 'backlog', name: 'Backlog', kind: 'backlog' },
+  { key: 'build', name: 'Build', harness: 'dev' },
+  { key: 'completed', name: 'Completed', kind: 'completed' },
 ];
 
-const LINE = (repositories: string) => `
-version: 1
-name: Delivery
-repositories:
-${repositories}
-stations: [backlog, build, completed]
-`;
-
-const compiled = (repositories: string) =>
-  compileLine('delivery', [
-    ConfigurationFile.of(
-      '.spotlight/lines/delivery/line.yml',
-      LINE(repositories),
-    ),
-    ...STATIONS,
-  ]);
+const compiled = (repositories?: readonly string[]) =>
+  compileLine({
+    key: 'delivery',
+    name: 'Delivery',
+    ...(repositories ? { repositories } : {}),
+    stations: STATIONS,
+  });
 
 describe('the repositories a line works', () => {
   it('reads each one it names', () => {
-    const read = compiled('  - acme/api\n  - acme/web');
+    const read = compiled(['acme/api', 'acme/web']);
 
     if (!read.ok) {
       throw new Error(read.problems.map((each) => each.reason).join(', '));
@@ -49,13 +30,7 @@ describe('the repositories a line works', () => {
   });
 
   it('reads a line that names none', () => {
-    const read = compileLine('delivery', [
-      ConfigurationFile.of(
-        '.spotlight/lines/delivery/line.yml',
-        'version: 1\nname: Delivery\nstations: [backlog, build, completed]\n',
-      ),
-      ...STATIONS,
-    ]);
+    const read = compiled();
 
     if (!read.ok) {
       throw new Error(read.problems.map((each) => each.reason).join(', '));
@@ -65,7 +40,7 @@ describe('the repositories a line works', () => {
   });
 
   it('refuses one that is not named owner/name', () => {
-    const read = compiled('  - not-a-repo');
+    const read = compiled(['not-a-repo']);
 
     expect(read.ok).toBe(false);
     if (!read.ok) {
@@ -74,7 +49,7 @@ describe('the repositories a line works', () => {
   });
 
   it('refuses two repositories that share a name', () => {
-    const read = compiled('  - acme/api\n  - other/api');
+    const read = compiled(['acme/api', 'other/api']);
 
     expect(read.ok).toBe(false);
     if (!read.ok) {

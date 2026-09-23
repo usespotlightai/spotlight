@@ -1,7 +1,9 @@
-import { compileIntegration } from '@integrations/infrastructure/integrations/integration.compile';
+import {
+  compileIntegration,
+  IntegrationCompiler,
+} from '@integrations/infrastructure/integrations/integration.compile';
 import { describe, expect, it } from 'vitest';
-
-const PATH = '.spotlight/integrations/linear.yml';
+import { parse as parseYaml } from 'yaml';
 
 const VERIFY = `  verify:
     hmac:
@@ -21,18 +23,16 @@ const EVENTS = `  events:
             value: \${{ body.data.identifier }}
 `;
 
-const WHOLE = `version: 1
-integration: linear
+const WHOLE = `integration: linear
 webhook:
 ${VERIFY}${EVENTS}`;
 
-const WITHOUT_VERIFY = `version: 1
-integration: linear
+const WITHOUT_VERIFY = `integration: linear
 webhook:
 ${EVENTS}`;
 
 const problems = (text: string) => {
-  const read = compileIntegration(PATH, text);
+  const read = compileIntegration(parseYaml(text));
 
   return read.ok ? [] : read.problems;
 };
@@ -42,7 +42,7 @@ const complaining = (text: string, about: string) =>
 
 describe('compiling an integration', () => {
   it('compiles one that is whole', () => {
-    const read = compileIntegration(PATH, WHOLE);
+    const read = compileIntegration(parseYaml(WHOLE));
 
     expect(read.ok).toBe(true);
     expect(read.ok && read.readable.integration.source.value).toBe('linear');
@@ -51,7 +51,7 @@ describe('compiling an integration', () => {
   });
 
   it('collects the secrets the file reads', () => {
-    const read = compileIntegration(PATH, WHOLE);
+    const read = compileIntegration(parseYaml(WHOLE));
 
     expect(
       read.ok &&
@@ -60,17 +60,29 @@ describe('compiling an integration', () => {
   });
 
   it('calls it by its source where the file gives no name', () => {
-    const read = compileIntegration(PATH, WHOLE);
+    const read = compileIntegration(parseYaml(WHOLE));
 
     expect(read.ok && read.readable.integration.name).toBe('linear');
   });
 
   describe('says what is wrong, where it is', () => {
-    it('names the file that will not parse as YAML', () => {
-      const [problem] = problems('version: 1\n  bad: [indent');
+    it('names the integration a problem is in', () => {
+      const [problem] = problems(WITHOUT_VERIFY);
 
-      expect(problem?.path).toBe(PATH);
-      expect(problem?.reason).toMatch(/is not YAML/);
+      expect(problem?.path).toBe('integrations/linear');
+    });
+
+    it('names the integrations themselves where it cannot tell which', () => {
+      const [problem] = problems('integration: LINEAR');
+
+      expect(problem?.path).toBe('integrations');
+    });
+
+    it('refuses what is not an integration at all', () => {
+      expect(compileIntegration('linear')).toMatchObject({
+        ok: false,
+        problems: [{ path: 'integrations', at: 'the integration' }],
+      });
     });
 
     it('points at the field, the way a person would', () => {
@@ -84,9 +96,9 @@ describe('compiling an integration', () => {
     });
 
     it('reports everything wrong at once, not the first thing', () => {
-      expect(
-        problems('version: 2\nintegration: LINEAR').length,
-      ).toBeGreaterThan(1);
+      expect(problems("integration: LINEAR\nname: ''").length).toBeGreaterThan(
+        1,
+      );
     });
 
     it('refuses a webhook that would verify nothing', () => {
@@ -117,12 +129,6 @@ describe('compiling an integration', () => {
           WHOLE.replace('integration: linear', 'integration: Linear'),
           'integration',
         ),
-      ).toHaveLength(1);
-    });
-
-    it('refuses a version it does not know', () => {
-      expect(
-        complaining(WHOLE.replace('version: 1', 'version: 2'), 'version'),
       ).toHaveLength(1);
     });
 
@@ -167,9 +173,9 @@ describe('compiling an integration', () => {
       expect(complaining(text, 'webhook.events.0.raise')).not.toHaveLength(0);
     });
 
-    it('refuses a file with no trigger at all', () => {
+    it('refuses an integration with no trigger at all', () => {
       expect(
-        complaining('version: 1\nintegration: linear', 'the file'),
+        complaining('integration: linear', 'the integration'),
       ).not.toHaveLength(0);
     });
 
@@ -210,8 +216,7 @@ on:
   });
 
   describe('a polling trigger', () => {
-    const POLL = `version: 1
-integration: linear
+    const POLL = `integration: linear
 poll:
   every: 60s
   request:
@@ -233,14 +238,14 @@ poll:
 `;
 
     it('reads the interval as seconds and keeps the request', () => {
-      const read = compileIntegration(PATH, POLL);
+      const read = compileIntegration(parseYaml(POLL));
 
       expect(read.ok && read.readable.integration.poll?.every).toBe(60);
       expect(read.ok && read.readable.poll?.request.url).toBeDefined();
     });
 
     it('declares the happening the poll can raise', () => {
-      const read = compileIntegration(PATH, POLL);
+      const read = compileIntegration(parseYaml(POLL));
 
       expect(
         read.ok &&
@@ -251,13 +256,13 @@ poll:
     });
 
     it('keeps the per-item iteration the poll walks', () => {
-      const read = compileIntegration(PATH, POLL);
+      const read = compileIntegration(parseYaml(POLL));
 
       expect(read.ok && read.readable.poll?.events[0]?.forEach).toBeDefined();
     });
 
     it('collects the token the request reads', () => {
-      const read = compileIntegration(PATH, POLL);
+      const read = compileIntegration(parseYaml(POLL));
 
       expect(
         read.ok &&
@@ -267,8 +272,7 @@ poll:
   });
 
   describe('a schedule trigger', () => {
-    const withCron = (cron: string, action = 'digest') => `version: 1
-integration: linear
+    const withCron = (cron: string, action = 'digest') => `integration: linear
 schedule:
   cron: '${cron}'
   do: ${action}
@@ -280,7 +284,7 @@ actions:
 `;
 
     it('keeps the cron and the action it runs', () => {
-      const read = compileIntegration(PATH, withCron('0 9 * * *'));
+      const read = compileIntegration(parseYaml(withCron('0 9 * * *')));
 
       expect(read.ok && read.readable.integration.schedule?.cron.value).toBe(
         '0 9 * * *',
@@ -304,8 +308,7 @@ actions:
   });
 
   describe('an oauth2 connection', () => {
-    const WHOLE_OAUTH = `version: 1
-integration: slack
+    const WHOLE_OAUTH = `integration: slack
 connection:
   oauth2:
     authorize: https://slack.com/oauth/authorize
@@ -327,7 +330,7 @@ webhook:
 `;
 
     it('keeps the endpoints and scopes it links through', () => {
-      const read = compileIntegration(PATH, WHOLE_OAUTH);
+      const read = compileIntegration(parseYaml(WHOLE_OAUTH));
 
       expect(read.ok && read.readable.connection?.oauth2?.token).toBe(
         'https://slack.com/api/oauth.v2.access',
@@ -341,8 +344,7 @@ webhook:
     });
 
     it('collects a manually-set secret as a credential', () => {
-      const manual = `version: 1
-integration: linear
+      const manual = `integration: linear
 connection:
   manual:
     secrets:
@@ -360,7 +362,7 @@ poll:
           - kind: linear.issue
             value: \${{ body.id }}
 `;
-      const read = compileIntegration(PATH, manual);
+      const read = compileIntegration(parseYaml(manual));
 
       expect(
         read.ok &&
@@ -370,8 +372,7 @@ poll:
   });
 
   describe('an event that looks up and assigns', () => {
-    const WITH_LOOKUP = `version: 1
-integration: slack
+    const WITH_LOOKUP = `integration: slack
 webhook:
   verify:
     token:
@@ -402,7 +403,7 @@ webhook:
 `;
 
     it('compiles the lookup request and its captures', () => {
-      const read = compileIntegration(PATH, WITH_LOOKUP);
+      const read = compileIntegration(parseYaml(WITH_LOOKUP));
       const lookup = read.ok ? read.readable.webhook?.events[0]?.lookup : null;
 
       expect(lookup?.request.url).toBeDefined();
@@ -410,7 +411,7 @@ webhook:
     });
 
     it('compiles the email the opened task is assigned by', () => {
-      const read = compileIntegration(PATH, WITH_LOOKUP);
+      const read = compileIntegration(parseYaml(WITH_LOOKUP));
 
       expect(
         read.ok && read.readable.webhook?.events[0]?.raise.opens?.assignBy,
@@ -418,7 +419,7 @@ webhook:
     });
 
     it('collects the lookup’s token as a credential', () => {
-      const read = compileIntegration(PATH, WITH_LOOKUP);
+      const read = compileIntegration(parseYaml(WITH_LOOKUP));
 
       expect(
         read.ok &&
@@ -428,8 +429,7 @@ webhook:
   });
 
   describe('a mark that does not find a task', () => {
-    const withAmbient = `version: 1
-integration: slack
+    const withAmbient = `integration: slack
 webhook:
   verify:
     token:
@@ -450,7 +450,7 @@ webhook:
 `;
 
     it('keeps an ambient mark, but not among what finds the task', () => {
-      const read = compileIntegration(PATH, withAmbient);
+      const read = compileIntegration(parseYaml(withAmbient));
       const marks = read.ok
         ? read.readable.webhook?.events[0]?.raise.marks
         : [];
@@ -468,8 +468,7 @@ webhook:
     });
 
     it('refuses a happening nothing could find a task from', () => {
-      const onlyAmbient = `version: 1
-integration: slack
+      const onlyAmbient = `integration: slack
 webhook:
   verify:
     token:
@@ -490,7 +489,7 @@ webhook:
 
   describe('an expression that does not check against what it may read', () => {
     const warnings = (text: string) => {
-      const read = compileIntegration(PATH, text);
+      const read = compileIntegration(parseYaml(text));
 
       return read.ok
         ? read.warnings
@@ -516,7 +515,7 @@ on:
 
     it('warns about a misspelled field, and still compiles', () => {
       const text = BINDING.replace('task.marks', 'task.makrs');
-      const read = compileIntegration(PATH, text);
+      const read = compileIntegration(parseYaml(text));
 
       expect(read.ok).toBe(true);
       expect(warnings(text)).toHaveLength(1);
@@ -560,8 +559,7 @@ on:
 });
 
 describe('a request written out', () => {
-  const ACTION = `version: 1
-integration: demo
+  const ACTION = `integration: demo
 actions:
   post:
     request:
@@ -577,7 +575,7 @@ actions:
 `;
 
   const request = (text: string) => {
-    const read = compileIntegration(PATH, text);
+    const read = compileIntegration(parseYaml(text));
 
     return read.ok ? read.readable.actions.get('post') : undefined;
   };
@@ -588,7 +586,7 @@ actions:
   });
 
   it('collects a secret read inside a string', () => {
-    const read = compileIntegration(PATH, ACTION);
+    const read = compileIntegration(parseYaml(ACTION));
 
     expect(
       read.ok &&
@@ -607,8 +605,7 @@ actions:
 
   it('checks each piece of the body where it sits', () => {
     const read = compileIntegration(
-      PATH,
-      ACTION.replace('ask.body', 'ask.boddy'),
+      parseYaml(ACTION.replace('ask.body', 'ask.boddy')),
     );
 
     expect(read.ok && read.warnings.map((each) => each.at)).toEqual([
@@ -618,8 +615,7 @@ actions:
 });
 
 describe('the tools an integration offers', () => {
-  const OFFERING = `version: 1
-integration: linear
+  const OFFERING = `integration: linear
 actions:
   comment:
     request:
@@ -648,7 +644,7 @@ tools:
     output: '\${{ capture.url }}'
 `;
 
-  const read = (text: string) => compileIntegration(PATH, text);
+  const read = (text: string) => compileIntegration(parseYaml(text));
 
   it('offers each as a tool named for the integration, with what it takes', () => {
     const compiled = read(OFFERING);
@@ -755,8 +751,7 @@ tools:
 });
 
 describe('type hints', () => {
-  const HINTED = `version: 1
-integration: linear
+  const HINTED = `integration: linear
 types:
   Issue:
     identifier: string
@@ -792,7 +787,7 @@ actions:
 `;
 
   const warnings = (text: string) => {
-    const read = compileIntegration(PATH, text);
+    const read = compileIntegration(parseYaml(text));
 
     return read.ok
       ? read.warnings
@@ -839,8 +834,26 @@ actions:
 
   it('still compiles a file whose hints are wrong', () => {
     expect(
-      compileIntegration(PATH, HINTED.replace('email: string', 'email: strng'))
-        .ok,
+      compileIntegration(
+        parseYaml(HINTED.replace('email: string', 'email: strng')),
+      ).ok,
     ).toBe(true);
+  });
+});
+
+describe('IntegrationCompiler', () => {
+  it('hands back the integration with the definition it was compiled from', () => {
+    const compiled = new IntegrationCompiler().compile(parseYaml(WHOLE));
+
+    expect(compiled.ok && compiled.integration.source.value).toBe('linear');
+    expect(compiled.ok && compiled.document.says('integration', 'linear')).toBe(
+      true,
+    );
+  });
+
+  it('says what is wrong with one that will not compile', () => {
+    expect(
+      new IntegrationCompiler().compile({ integration: 'linear' }),
+    ).toMatchObject({ ok: false, problems: [{ path: 'integrations/linear' }] });
   });
 });

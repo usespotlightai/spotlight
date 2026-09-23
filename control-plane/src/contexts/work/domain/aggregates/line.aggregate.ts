@@ -1,4 +1,5 @@
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import type { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -8,6 +9,7 @@ import { Station } from '@work/domain/entities/station.entity';
 import { LineRepositoriesChanged } from '@work/domain/events/line-repositories-changed.event';
 import { StationHarnessChanged } from '@work/domain/events/station-harness-changed.event';
 import { StationRenamed } from '@work/domain/events/station-renamed.event';
+import { InvalidLineDefinitionError } from '@work/domain/exceptions/invalid-line-definition.error';
 import { InvalidReviewPolicyError } from '@work/domain/exceptions/invalid-review-policy.error';
 import { InvalidStationLayoutError } from '@work/domain/exceptions/invalid-station-layout.error';
 import { UnknownHappeningError } from '@work/domain/exceptions/unknown-happening.error';
@@ -56,6 +58,7 @@ export interface LineLayout {
   readonly role?: LineRole | null;
   readonly repositories?: readonly Repository[];
   readonly reviews?: ReviewPolicy | null;
+  readonly definition?: DefinitionDocument | null;
 }
 
 interface LineIdentity {
@@ -76,6 +79,7 @@ export class Line extends EventRecorder {
     readonly role: LineRole | null,
     readonly repositories: LineRepositories,
     readonly reviews: ReviewPolicy | null,
+    readonly definition: DefinitionDocument | null,
     readonly version: number,
   ) {
     super();
@@ -193,6 +197,12 @@ export class Line extends EventRecorder {
       );
     }
 
+    if (layout.definition && !layout.definition.says('key', layout.key.value)) {
+      throw new InvalidLineDefinitionError(
+        `defines another line than ${layout.key.value}`,
+      );
+    }
+
     return new Line(
       identity.id,
       identity.workspaceId,
@@ -204,6 +214,7 @@ export class Line extends EventRecorder {
       layout.role ?? null,
       LineRepositories.of(layout.repositories ?? []),
       layout.reviews ?? null,
+      layout.definition ?? null,
       version,
     );
   }
@@ -223,6 +234,8 @@ export class Line extends EventRecorder {
         role: part.role !== undefined ? part.role : this.role,
         repositories: part.repositories ?? this.repositories.all,
         reviews: part.reviews !== undefined ? part.reviews : this.reviews,
+        definition:
+          part.definition !== undefined ? part.definition : this.definition,
       },
       this.version,
     );

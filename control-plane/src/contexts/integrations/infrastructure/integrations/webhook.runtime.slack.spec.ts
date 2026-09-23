@@ -7,13 +7,13 @@ import { WebhookRuntime } from '@integrations/infrastructure/integrations/webhoo
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
+import { parse as parseYaml } from 'yaml';
 
 const SIGNING = 'slack_signing_secret';
 const WORKSPACE = WorkspaceId.of('ws_1');
 const NOW = 1_700_000_000;
 
 const SLACK = `
-version: 1
 integration: slack
 name: Slack
 
@@ -86,7 +86,7 @@ on:
 `;
 
 const compiled = (): ReadableIntegration => {
-  const read = compileIntegration('.spotlight/integrations/slack.yml', SLACK);
+  const read = compileIntegration(parseYaml(SLACK));
 
   if (!read.ok) {
     throw new Error(
@@ -227,7 +227,6 @@ describe('the Slack webhook runtime', () => {
 
   describe('enriching before it raises', () => {
     const WITH_LOOKUP = `
-version: 1
 integration: slack
 webhook:
   verify:
@@ -259,10 +258,7 @@ webhook:
 `;
 
     const looking = (response: unknown, ok = true) => {
-      const read = compileIntegration(
-        '.spotlight/integrations/slack.yml',
-        WITH_LOOKUP,
-      );
+      const read = compileIntegration(parseYaml(WITH_LOOKUP));
       if (!read.ok) {
         throw new Error(read.problems.map((each) => each.reason).join(', '));
       }

@@ -7,12 +7,13 @@ import type { JwksResolver } from '@integrations/infrastructure/integrations/jwk
 import { WebhookRuntime } from '@integrations/infrastructure/integrations/webhook.runtime';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
+import { parse as parseYaml } from 'yaml';
 
 const WORKSPACE = WorkspaceId.of('ws_1');
 const NOW = 1_700_000_000;
 
 const compiled = (text: string): ReadableIntegration => {
-  const read = compileIntegration('.spotlight/integrations/x.yml', text);
+  const read = compileIntegration(parseYaml(text));
   if (!read.ok) {
     throw new Error(read.problems.map((each) => each.reason).join(', '));
   }
@@ -39,7 +40,6 @@ describe('verifying an ed25519 signature', () => {
   const hex = der.subarray(der.length - 32).toString('hex');
 
   const DISCORD = `
-version: 1
 integration: x
 webhook:
   verify:
@@ -98,7 +98,6 @@ describe('verifying an rsa-sha256 signature', () => {
   const pem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
 
   const RSA = `
-version: 1
 integration: x
 webhook:
   verify:
@@ -141,7 +140,6 @@ describe('verifying a JWT against a JWKS', () => {
   };
 
   const JWT = `
-version: 1
 integration: x
 webhook:
   verify:

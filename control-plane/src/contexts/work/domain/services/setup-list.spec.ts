@@ -19,14 +19,12 @@ import { describe, expect, it } from 'vitest';
 const done: SetupState = {
   hasRunner: true,
   connectedToGitHub: true,
-  hasConfiguration: true,
   listensToAnIntegration: true,
 };
 
 const nothing: SetupState = {
   hasRunner: false,
   connectedToGitHub: false,
-  hasConfiguration: false,
   listensToAnIntegration: false,
 };
 

@@ -1,6 +1,6 @@
-import type { AppliedConfigurationPort } from '@configuration/application/ports/applied-configuration.port';
 import type { HeldSecretsPort } from '@configuration/application/ports/held-secrets.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
+import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import { HostReach } from '@integrations/application/services/host-reach.service';
 import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
 import { TaskNotices } from '@integrations/infrastructure/acl/task-notices.adapter';
@@ -12,8 +12,8 @@ import type {
   HttpOutbound,
   OutboundResult,
 } from '@integrations/infrastructure/outbound/http-outbound';
+import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { WebInboxLinks } from '@integrations/presentation/http/web-inbox-links';
-import { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
 import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -32,7 +32,6 @@ const runtimeWith = (
 const _NOW = new Date('2026-09-07T10:00:00.000Z');
 
 const slack = (headers = '') => `
-version: 1
 integration: slack
 actions:
   post-message:
@@ -108,12 +107,8 @@ const notifying = (
 
   const notifier = new TaskNotices(
     {
-      of: vi.fn(async () => ({
-        integrations: [
-          ConfigurationFile.of('.spotlight/integrations/slack.yml', file),
-        ],
-      })),
-    } as unknown as AppliedConfigurationPort,
+      ofTeam: vi.fn(async () => [defined(file)]),
+    } as unknown as DefinedIntegrationsPort,
     runtimeWith({ run } as unknown as HttpOutbound),
     new HostReach({ held: async () => [] } satisfies HeldSecretsPort, {
       of: async () => null,

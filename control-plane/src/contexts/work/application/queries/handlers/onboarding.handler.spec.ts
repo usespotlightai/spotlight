@@ -16,7 +16,6 @@ type Given = {
 const nothing: TeamFacts = {
   hasRunner: false,
   connectedToGitHub: false,
-  hasConfiguration: false,
   listening: [],
 };
 
@@ -79,9 +78,5 @@ describe('OnboardingHandler', () => {
     expect(step(onboarding, 'integrations')?.where).toBe(
       '/w/acme/team/team_1/settings/integrations',
     );
-  });
-
-  it('sends nobody anywhere for the pull request', async () => {
-    expect(step(await read(), 'configuration')?.where).toBeNull();
   });
 });

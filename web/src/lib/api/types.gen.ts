@@ -11,7 +11,7 @@ export type HealthResponseDto = {
 export type StationResponseDto = {
   id: string;
   /**
-   * What the station is called in its line file, and what a run hands a task on to it by
+   * What the station is called in its line definition, and what a run hands a task on to it by
    */
   key: string;
   name: string;
@@ -72,6 +72,33 @@ export type LineResponseDto = {
    * The repositories a run on this line works in, as owner/name
    */
   repositories: Array<string>;
+};
+
+export type LineResourceResponseDto = {
+  id: string;
+  /**
+   * The line as it was defined, with every field it left out filled in
+   */
+  definition: {
+    [key: string]: unknown;
+  };
+};
+
+export type ConfigurationProblemResponseDto = {
+  /**
+   * The resource the problem is in
+   */
+  path: string;
+  /**
+   * The field within it, as a dotted path
+   */
+  at: string;
+  reason: string;
+  severity: 'error' | 'warning';
+};
+
+export type ConfigurationProblemsResponseDto = {
+  problems: Array<ConfigurationProblemResponseDto>;
 };
 
 export type EnqueueRunRequestDto = {
@@ -959,7 +986,7 @@ export type SetupStepResponseDto = {
   /**
    * Which step this is
    */
-  key: 'runner' | 'github' | 'configuration' | 'integrations';
+  key: 'runner' | 'github' | 'integrations';
   title: string;
   description: string;
   /**
@@ -1554,6 +1581,23 @@ export type OAuth2StartResponseDto = {
   url: string;
 };
 
+export type IntegrationResourceResponseDto = {
+  /**
+   * The host it defines, which names it within the team
+   */
+  source: string;
+  /**
+   * The integration as it was defined, with every field it left out filled in
+   */
+  definition: {
+    [key: string]: unknown;
+  };
+  /**
+   * What would work better, though nothing stops it working
+   */
+  warnings: Array<ConfigurationProblemResponseDto>;
+};
+
 export type HappeningResponseDto = {
   happening: string;
   source: string;
@@ -1599,6 +1643,40 @@ export type ListLinesResponses = {
 };
 
 export type ListLinesResponse = ListLinesResponses[keyof ListLinesResponses];
+
+export type DefineLineData = {
+  body: {
+    [key: string]: unknown;
+  };
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/lines';
+};
+
+export type DefineLineErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team this caller administers
+   */
+  404: unknown;
+  /**
+   * What is wrong with the definition, field by field
+   */
+  422: ConfigurationProblemsResponseDto;
+};
+
+export type DefineLineError = DefineLineErrors[keyof DefineLineErrors];
+
+export type DefineLineResponses = {
+  201: LineResourceResponseDto;
+};
+
+export type DefineLineResponse = DefineLineResponses[keyof DefineLineResponses];
 
 export type EnqueueRunData = {
   body: EnqueueRunRequestDto;
@@ -3741,6 +3819,40 @@ export type ConnectIntegrationResponses = {
 };
 
 export type ConnectIntegrationResponse = ConnectIntegrationResponses[keyof ConnectIntegrationResponses];
+
+export type DefineIntegrationData = {
+  body: {
+    [key: string]: unknown;
+  };
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/integrations';
+};
+
+export type DefineIntegrationErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team this caller administers
+   */
+  404: unknown;
+  /**
+   * What is wrong with the definition, field by field
+   */
+  422: ConfigurationProblemsResponseDto;
+};
+
+export type DefineIntegrationError = DefineIntegrationErrors[keyof DefineIntegrationErrors];
+
+export type DefineIntegrationResponses = {
+  201: IntegrationResourceResponseDto;
+};
+
+export type DefineIntegrationResponse = DefineIntegrationResponses[keyof DefineIntegrationResponses];
 
 export type ListHappeningsData = {
   body?: never;

@@ -288,6 +288,15 @@ CREATE TABLE "integration_cursor" (
 	CONSTRAINT "integration_cursor_team_id_source_pk" PRIMARY KEY("team_id","source")
 );
 --> statement-breakpoint
+CREATE TABLE "integration_definition" (
+	"team_id" text NOT NULL,
+	"source" text NOT NULL,
+	"definition" jsonb NOT NULL,
+	"version" integer DEFAULT 1 NOT NULL,
+	"defined_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "integration_definition_team_id_source_pk" PRIMARY KEY("team_id","source")
+);
+--> statement-breakpoint
 CREATE TABLE "oauth2_spent_nonce" (
 	"nonce" text PRIMARY KEY NOT NULL,
 	"until" timestamp NOT NULL
@@ -368,6 +377,12 @@ CREATE TABLE "line" (
 	"version" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "line_definition" (
+	"line_id" text PRIMARY KEY NOT NULL,
+	"definition" jsonb NOT NULL,
+	"defined_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "line_reaction" (
@@ -549,6 +564,7 @@ ALTER TABLE "attachment_claim" ADD CONSTRAINT "attachment_claim_task_id_task_id_
 ALTER TABLE "attachment_claim" ADD CONSTRAINT "attachment_claim_chat_id_chat_id_fk" FOREIGN KEY ("chat_id") REFERENCES "public"."chat"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "chat_attachment" ADD CONSTRAINT "chat_attachment_chat_id_chat_id_fk" FOREIGN KEY ("chat_id") REFERENCES "public"."chat"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "chat_message" ADD CONSTRAINT "chat_message_chat_id_chat_id_fk" FOREIGN KEY ("chat_id") REFERENCES "public"."chat"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "line_definition" ADD CONSTRAINT "line_definition_line_id_line_id_fk" FOREIGN KEY ("line_id") REFERENCES "public"."line"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "line_reaction" ADD CONSTRAINT "line_reaction_line_id_line_id_fk" FOREIGN KEY ("line_id") REFERENCES "public"."line"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "line_reaction" ADD CONSTRAINT "line_reaction_from_station_id_station_id_fk" FOREIGN KEY ("from_station_id") REFERENCES "public"."station"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "line_reaction" ADD CONSTRAINT "line_reaction_to_station_id_station_id_fk" FOREIGN KEY ("to_station_id") REFERENCES "public"."station"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

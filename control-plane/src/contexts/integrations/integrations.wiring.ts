@@ -1,14 +1,10 @@
 import {
-  APPLIED_CONFIGURATION,
-  AppliedConfigurationPort,
-} from '@configuration/application/ports/applied-configuration.port';
-import {
   HELD_SECRETS,
   type HeldSecretsPort,
 } from '@configuration/application/ports/held-secrets.port';
 import {
   INTEGRATION_READER,
-  IntegrationReaderPort,
+  type IntegrationReaderPort,
 } from '@configuration/application/ports/integration-reader.port';
 import {
   GITHUB_WEBHOOKS,
@@ -25,8 +21,10 @@ import {
 } from '@identity/application/ports/workspace-reader.port';
 import { AcceptDeliveryCommand } from '@integrations/application/commands/accept-delivery.command';
 import { BeginOAuth2ConnectionCommand } from '@integrations/application/commands/begin-oauth2-connection.command';
+import { DefineIntegrationCommand } from '@integrations/application/commands/define-integration.command';
 import { FinishOAuth2ConnectionCommand } from '@integrations/application/commands/finish-oauth2-connection.command';
 import { AcceptDeliveryHandler } from '@integrations/application/commands/handlers/accept-delivery.handler';
+import { DefineIntegrationHandler } from '@integrations/application/commands/handlers/define-integration.handler';
 import {
   BeginOAuth2ConnectionHandler,
   FinishOAuth2ConnectionHandler,
@@ -39,6 +37,10 @@ import {
   ConfiguredSourcesPort,
 } from '@integrations/application/ports/configured-sources.port';
 import {
+  DEFINED_INTEGRATIONS,
+  type DefinedIntegrationsPort,
+} from '@integrations/application/ports/defined-integrations.port';
+import {
   DELIVERY_INBOX,
   DeliveryInboxPort,
 } from '@integrations/application/ports/delivery-inbox.port';
@@ -50,6 +52,7 @@ import {
   INBOX_LINKS,
   type InboxLinksPort,
 } from '@integrations/application/ports/inbox-links.port';
+import { INTEGRATION_COMPILER } from '@integrations/application/ports/integration-compiler.port';
 import {
   INTEGRATION_CURSORS,
   IntegrationCursorsPort,
@@ -80,10 +83,13 @@ import {
   HOST_CONNECTIONS,
   HostConnectionRepository,
 } from '@integrations/domain/repositories/host-connection.repository';
+import { INTEGRATION_DEFINITIONS } from '@integrations/domain/repositories/integration-definition.repository';
+import { IntegrationReadings } from '@integrations/infrastructure/acl/integration-readings.adapter';
 import { IntegrationToolCalls } from '@integrations/infrastructure/acl/integration-tool-calls.adapter';
 import { TaskNotices } from '@integrations/infrastructure/acl/task-notices.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { ConfiguredSources } from '@integrations/infrastructure/integrations/configured.sources';
+import { IntegrationCompiler } from '@integrations/infrastructure/integrations/integration.compile';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { JwksCache } from '@integrations/infrastructure/integrations/jwks';
 import { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-clients';
@@ -92,13 +98,16 @@ import { OAuth2Linking } from '@integrations/infrastructure/integrations/oauth2-
 import { OAuth2State } from '@integrations/infrastructure/integrations/oauth2-state';
 import { Egress } from '@integrations/infrastructure/outbound/egress';
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import { DrizzleDefinedIntegrations } from '@integrations/infrastructure/persistence/drizzle/readers/defined-integrations.reader';
 import { DrizzleDeliveryInbox } from '@integrations/infrastructure/persistence/drizzle/repositories/delivery-inbox.repository';
 import { DrizzleHostConnections } from '@integrations/infrastructure/persistence/drizzle/repositories/host-connections.repository';
 import { DrizzleIntegrationCursors } from '@integrations/infrastructure/persistence/drizzle/repositories/integration-cursors.repository';
+import { DrizzleIntegrationDefinitions } from '@integrations/infrastructure/persistence/drizzle/repositories/integration-definitions.repository';
 import { DrizzleOAuth2Nonces } from '@integrations/infrastructure/persistence/drizzle/repositories/oauth2-nonces.repository';
 import { GitHubSource } from '@integrations/infrastructure/sources/github.source';
 import { markedSources } from '@integrations/infrastructure/webhooks/registered-sources';
 import { HappeningController } from '@integrations/presentation/http/controllers/happening.controller';
+import { IntegrationDefinitionController } from '@integrations/presentation/http/controllers/integration-definition.controller';
 import { OAuth2ConnectionController } from '@integrations/presentation/http/controllers/oauth2-connection.controller';
 import { WebhookController } from '@integrations/presentation/http/controllers/webhook.controller';
 import { OAuth2NonceCookie } from '@integrations/presentation/http/oauth2-nonce-cookie';
@@ -142,6 +151,7 @@ const INTEGRATIONS_EVENTS = Symbol('INTEGRATIONS_EVENTS');
 
 export const INTEGRATIONS_CONTROLLERS: readonly Type[] = [
   OAuth2ConnectionController,
+  IntegrationDefinitionController,
   HappeningController,
   WebhookController,
 ];
@@ -156,13 +166,17 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       return true;
     },
   },
+  { provide: DEFINED_INTEGRATIONS, useClass: DrizzleDefinedIntegrations },
+
+  { provide: INTEGRATION_DEFINITIONS, useClass: DrizzleIntegrationDefinitions },
+
+  { provide: INTEGRATION_COMPILER, useClass: IntegrationCompiler },
+
   {
     provide: TEAM_INTEGRATIONS,
-    inject: [APPLIED_CONFIGURATION, INTEGRATION_READER],
-    useFactory: (
-      applied: AppliedConfigurationPort,
-      reader: IntegrationReaderPort,
-    ) => new TeamIntegrations(applied, reader),
+    inject: [INTEGRATION_READER],
+    useFactory: (readings: IntegrationReaderPort) =>
+      new TeamIntegrations(readings),
   },
 
   {
@@ -208,7 +222,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
   {
     provide: WorkOffPolls,
     inject: [
-      APPLIED_CONFIGURATION,
+      DEFINED_INTEGRATIONS,
       INTEGRATION_RUNTIME,
       TEAM_DIRECTORY,
       HostReach,
@@ -218,7 +232,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       LOGGER,
     ],
     useFactory: (
-      configurations: AppliedConfigurationPort,
+      defined: DefinedIntegrationsPort,
       runtime: IntegrationRuntimePort,
       teams: TeamDirectoryPort,
       reach: HostReach,
@@ -228,7 +242,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       logger: LoggerPort,
     ) =>
       new WorkOffPolls(
-        configurations,
+        defined,
         runtime,
         teams,
         reach,
@@ -249,7 +263,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
   {
     provide: RunSchedules,
     inject: [
-      APPLIED_CONFIGURATION,
+      DEFINED_INTEGRATIONS,
       INTEGRATION_RUNTIME,
       HostReach,
       INTEGRATION_CURSORS,
@@ -257,14 +271,13 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       LOGGER,
     ],
     useFactory: (
-      configurations: AppliedConfigurationPort,
+      defined: DefinedIntegrationsPort,
       runtime: IntegrationRuntimePort,
       reach: HostReach,
       cursors: IntegrationCursorsPort,
       clock: ClockPort,
       logger: LoggerPort,
-    ) =>
-      new RunSchedules(configurations, runtime, reach, cursors, clock, logger),
+    ) => new RunSchedules(defined, runtime, reach, cursors, clock, logger),
   },
 
   {
@@ -338,25 +351,18 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     provide: RefreshConnections,
     inject: [
       HOST_CONNECTIONS,
-      APPLIED_CONFIGURATION,
+      DEFINED_INTEGRATIONS,
       INTEGRATION_RUNTIME,
       CLOCK,
       LOGGER,
     ],
     useFactory: (
       connections: HostConnectionRepository,
-      configurations: AppliedConfigurationPort,
+      defined: DefinedIntegrationsPort,
       runtime: IntegrationRuntimePort,
       clock: ClockPort,
       logger: LoggerPort,
-    ) =>
-      new RefreshConnections(
-        connections,
-        configurations,
-        runtime,
-        clock,
-        logger,
-      ),
+    ) => new RefreshConnections(connections, defined, runtime, clock, logger),
   },
 
   {
@@ -375,7 +381,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
   {
     provide: OAUTH2_LINKING,
     inject: [
-      APPLIED_CONFIGURATION,
+      DEFINED_INTEGRATIONS,
       IntegrationReader,
       OAuth2Clients,
       OAuth2Exchange,
@@ -387,7 +393,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       ENV,
     ],
     useFactory: (
-      configurations: AppliedConfigurationPort,
+      defined: DefinedIntegrationsPort,
       reader: IntegrationReader,
       clients: OAuth2Clients,
       exchange: OAuth2Exchange,
@@ -399,7 +405,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       env: Env,
     ) =>
       new OAuth2Linking(
-        configurations,
+        defined,
         reader,
         clients,
         exchange,
@@ -423,19 +429,24 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   IntegrationReader,
 
-  { provide: INTEGRATION_READER, useExisting: IntegrationReader },
+  {
+    provide: INTEGRATION_READER,
+    inject: [DEFINED_INTEGRATIONS, IntegrationReader],
+    useFactory: (defined: DefinedIntegrationsPort, reader: IntegrationReader) =>
+      new IntegrationReadings(defined, reader),
+  },
 
   { provide: JwksCache, useFactory: () => new JwksCache() },
 
   {
     provide: CONFIGURED_SOURCES,
-    inject: [APPLIED_CONFIGURATION, IntegrationReader, JwksCache, HttpOutbound],
+    inject: [DEFINED_INTEGRATIONS, IntegrationReader, JwksCache, HttpOutbound],
     useFactory: (
-      configurations: AppliedConfigurationPort,
+      defined: DefinedIntegrationsPort,
       reader: IntegrationReader,
       jwks: JwksCache,
       outbound: HttpOutbound,
-    ) => new ConfiguredSources(configurations, reader, jwks, outbound),
+    ) => new ConfiguredSources(defined, reader, jwks, outbound),
   },
 
   {
@@ -450,19 +461,19 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
   {
     provide: TASK_NOTICES,
     inject: [
-      APPLIED_CONFIGURATION,
+      DEFINED_INTEGRATIONS,
       INTEGRATION_RUNTIME,
       HostReach,
       INBOX_LINKS,
       LOGGER,
     ],
     useFactory: (
-      configurations: AppliedConfigurationPort,
+      defined: DefinedIntegrationsPort,
       runtime: IntegrationRuntimePort,
       reach: HostReach,
       links: InboxLinksPort,
       logger: LoggerPort,
-    ) => new TaskNotices(configurations, runtime, reach, links, logger),
+    ) => new TaskNotices(defined, runtime, reach, links, logger),
   },
 
   ...bindQueryHandler(ListHappeningsQuery, ListHappeningsHandler, [
@@ -482,6 +493,13 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     [OAUTH2_LINKING, HOST_CONNECTIONS, WORKSPACE_ACCESS, TRANSACTION],
   ),
 
+  ...bindCommandHandler(DefineIntegrationCommand, DefineIntegrationHandler, [
+    WORKSPACE_ACCESS,
+    INTEGRATION_COMPILER,
+    INTEGRATION_DEFINITIONS,
+    TRANSACTION,
+  ]),
+
   ...bindCommandHandler(AcceptDeliveryCommand, AcceptDeliveryHandler, [
     SourceForDelivery,
     DELIVERY_INBOX,
@@ -494,11 +512,11 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: INTEGRATION_TOOL_CALLS,
-    inject: [APPLIED_CONFIGURATION, INTEGRATION_RUNTIME, HostReach],
+    inject: [DEFINED_INTEGRATIONS, INTEGRATION_RUNTIME, HostReach],
     useFactory: (
-      configurations: AppliedConfigurationPort,
+      defined: DefinedIntegrationsPort,
       runtime: IntegrationRuntimePort,
       reach: HostReach,
-    ) => new IntegrationToolCalls(configurations, runtime, reach),
+    ) => new IntegrationToolCalls(defined, runtime, reach),
   },
 ];

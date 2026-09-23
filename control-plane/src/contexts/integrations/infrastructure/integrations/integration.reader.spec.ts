@@ -1,9 +1,8 @@
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
-import { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
+import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const WHOLE = `
-version: 1
 integration: linear
 webhook:
   verify:
@@ -22,71 +21,29 @@ webhook:
             value: \${{ body.data.identifier }}
 `;
 
-const at = (path: string, text = WHOLE) => ConfigurationFile.of(path, text);
-
-const reading = (files: ConfigurationFile[]) =>
-  new IntegrationReader().read(files);
-
 describe('IntegrationReader', () => {
-  it('reads every integration a workspace wrote', () => {
-    const read = reading([
-      at('.spotlight/teams/platform/integrations/linear.yml'),
-    ]);
+  it('reads every integration a team defined', () => {
+    const read = new IntegrationReader().read([defined(WHOLE)]);
 
     expect(read.integrations.map((each) => each.source)).toEqual(['linear']);
+    expect(read.integrations[0]?.path).toBe('integrations/linear');
     expect(read.problems).toEqual([]);
   });
 
-  it('reads one written as .yaml just the same', () => {
-    expect(
-      reading([at('.spotlight/teams/platform/integrations/linear.yaml')])
-        .integrations,
-    ).toHaveLength(1);
-  });
-
-  it('reads every file it is given, wherever it came from', () => {
-    expect(reading([at('somewhere/else.yml')]).integrations).toHaveLength(1);
-  });
-
-  it('keeps reading past a file that will not', () => {
-    const read = reading([
-      at('.spotlight/teams/platform/integrations/broken.yml', 'version: 2'),
-      at('.spotlight/teams/platform/integrations/linear.yml'),
+  it('keeps reading past a definition that will not', () => {
+    const read = new IntegrationReader().read([
+      defined('integration: sentry'),
+      defined(WHOLE),
     ]);
 
     expect(read.integrations.map((each) => each.source)).toEqual(['linear']);
-    expect(read.problems).not.toHaveLength(0);
-    expect(read.problems[0]?.path).toBe(
-      '.spotlight/teams/platform/integrations/broken.yml',
-    );
-  });
-
-  it('lets the first by path keep a host two files claim', () => {
-    const read = reading([
-      at('.spotlight/teams/platform/integrations/a-linear.yml'),
-      at('.spotlight/teams/platform/integrations/z-linear.yml'),
-    ]);
-
-    expect(read.integrations).toHaveLength(1);
-    expect(read.problems).toHaveLength(1);
-    expect(read.problems[0]?.path).toBe(
-      '.spotlight/teams/platform/integrations/z-linear.yml',
-    );
-    expect(read.problems[0]?.reason).toMatch(/already declared by/);
-  });
-
-  it('says so rather than quietly dropping the one that lost', () => {
-    const read = reading([
-      at('.spotlight/teams/platform/integrations/a-linear.yml'),
-      at('.spotlight/teams/platform/integrations/z-linear.yml'),
-    ]);
-
-    expect(read.problems[0]?.reason).toContain(
-      '.spotlight/teams/platform/integrations/a-linear.yml',
-    );
+    expect(read.problems[0]?.path).toBe('integrations/sentry');
   });
 
   it('reads nothing at all from nothing at all', () => {
-    expect(reading([])).toEqual({ integrations: [], problems: [] });
+    expect(new IntegrationReader().read([])).toEqual({
+      integrations: [],
+      problems: [],
+    });
   });
 });

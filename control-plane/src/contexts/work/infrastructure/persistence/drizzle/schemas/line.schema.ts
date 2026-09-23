@@ -157,3 +157,14 @@ export const lineReaction = pgTable(
   },
   (table) => [index('line_reaction_line_idx').on(table.lineId)],
 );
+
+export const lineDefinition = pgTable('line_definition', {
+  lineId: text('line_id')
+    .primaryKey()
+    .references(() => line.id, { onDelete: 'cascade' }),
+  definition: jsonb('definition').$type<Record<string, unknown>>().notNull(),
+  definedAt: timestamp('defined_at')
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});

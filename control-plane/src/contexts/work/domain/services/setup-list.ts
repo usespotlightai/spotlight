@@ -10,23 +10,16 @@ import { Voice } from '@work/domain/value-objects/voice.vo';
 export interface SetupState {
   readonly hasRunner: boolean;
   readonly connectedToGitHub: boolean;
-  readonly hasConfiguration: boolean;
   readonly listensToAnIntegration: boolean;
 }
 
-export const SETUP_STEPS = [
-  'runner',
-  'github',
-  'configuration',
-  'integrations',
-] as const;
+export const SETUP_STEPS = ['runner', 'github', 'integrations'] as const;
 
 export type SetupStepKey = (typeof SETUP_STEPS)[number];
 
 export const TAKEN: Record<SetupStepKey, (state: SetupState) => boolean> = {
   runner: (state) => state.hasRunner,
   github: (state) => state.connectedToGitHub,
-  configuration: (state) => state.hasConfiguration,
   integrations: (state) => state.listensToAnIntegration,
 };
 

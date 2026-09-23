@@ -3,7 +3,6 @@ import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-genera
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { LineConfigReaderPort } from '@work/application/ports/line-config-reader.port';
 import type { StationTalliesPort } from '@work/application/ports/station-tallies.port';
 import { ApplyLines } from '@work/application/services/apply-lines.service';
 import { Line } from '@work/domain/aggregates/line.aggregate';
@@ -88,7 +87,6 @@ const applying = (
   plans: readonly LinePlan[],
   over: {
     standing?: readonly Line[];
-    problems?: readonly { path: string; at: string; reason: string }[];
     tasks?: Record<string, number>;
     held?: Line;
   } = {},
@@ -133,20 +131,18 @@ const applying = (
     lockedStandingAt: vi.fn(tally),
   } satisfies StationTalliesPort;
 
-  const reader = {
-    read: () => ({ plans, problems: over.problems ?? [] }),
-    definedAt: (line: LineKey) => `.spotlight/lines/${line.value}/line.yml`,
-  } as unknown as LineConfigReaderPort;
-
   let next = 100;
   const ids = {
     generate: () => `new_${++next}`,
   } as unknown as IdGeneratorPort;
 
+  const applier = new ApplyLines(lines, teams, tallies, ids, {
+    run: (work) => work(),
+  } satisfies TransactionPort);
+
   return {
-    apply: new ApplyLines(lines, teams, tallies, reader, ids, {
-      run: (work) => work(),
-    } satisfies TransactionPort),
+    apply: async () => (await applier.apply(TEAM, plans)).problems,
+    applied: () => applier.apply(TEAM, plans),
     save,
     add,
     held,
@@ -155,14 +151,14 @@ const applying = (
 };
 
 describe('ApplyLines', () => {
-  it('makes the line say what the file says', async () => {
+  it('makes the line say what its definition says', async () => {
     const held = line();
     const { apply, save } = applying(
       [like(asStanding(held), { name: LineName.of('Renamed') })],
       { held },
     );
 
-    expect((await apply.apply(TEAM, [])).problems).toEqual([]);
+    expect(await apply()).toEqual([]);
     expect(save).toHaveBeenCalledTimes(1);
 
     const [written] = save.mock.calls[0] as never as [Line];
@@ -170,11 +166,37 @@ describe('ApplyLines', () => {
     expect(written.name.value).toBe('Renamed');
   });
 
+  it('hands back the line as it applied it', async () => {
+    const held = line();
+    const { applied } = applying(
+      [like(asStanding(held), { name: LineName.of('Renamed') })],
+      { held },
+    );
+
+    const { lines } = await applied();
+
+    expect(lines.map((each) => [each.id, each.name.value])).toEqual([
+      [held.id, 'Renamed'],
+    ]);
+  });
+
+  it('hands back nothing it could not apply', async () => {
+    const held = line();
+    const plan = asStanding(held);
+    const going = plan.stations[1]?.key.value as string;
+    const { applied } = applying(
+      [like(plan, { stations: plan.stations.filter((_, at) => at !== 1) })],
+      { held, tasks: { [going]: 2 } },
+    );
+
+    expect((await applied()).lines).toEqual([]);
+  });
+
   it('leaves every station the station it was', async () => {
     const held = line();
     const { apply, save } = applying([asStanding(held)], { held });
 
-    await apply.apply(TEAM, []);
+    await apply();
 
     const [written] = save.mock.calls[0] as never as [Line];
 
@@ -195,19 +217,19 @@ describe('ApplyLines', () => {
       { held, tasks: { [going]: 2 } },
     );
 
-    const { problems } = await apply.apply(TEAM, []);
+    const problems = await apply();
 
     expect(save).not.toHaveBeenCalled();
     expect(problems).toHaveLength(1);
     expect(problems[0]?.reason).toMatch(/2 standing there/);
-    expect(problems[0]?.path).toBe('.spotlight/lines/delivery/line.yml');
+    expect(problems[0]?.path).toBe('lines/delivery');
   });
 
   it('holds the stations it tallies until the change is written', async () => {
     const held = line();
     const { apply, tallies } = applying([asStanding(held)], { held });
 
-    await apply.apply(TEAM, []);
+    await apply();
 
     expect(tallies.lockedStandingAt).toHaveBeenCalledTimes(1);
     expect(tallies.standingAt).not.toHaveBeenCalled();
@@ -219,37 +241,20 @@ describe('ApplyLines', () => {
 
     save.mockRejectedValueOnce(new StrandedWorkError(['station_2']));
 
-    const { problems } = await apply.apply(TEAM, []);
+    const problems = await apply();
 
     expect(problems).toHaveLength(1);
     expect(problems[0]?.reason).toMatch(/cannot drop them/);
   });
 
-  it('plans without writing, and says what applying would strand', async () => {
-    const held = line();
-    const plan = asStanding(held);
-    const going = plan.stations[1]?.key.value as string;
-
-    const { apply, save, add } = applying(
-      [like(plan, { stations: plan.stations.filter((_, at) => at !== 1) })],
-      { held, tasks: { [going]: 2 } },
-    );
-
-    const { problems } = await apply.plan(TEAM, []);
-
-    expect(save).not.toHaveBeenCalled();
-    expect(add).not.toHaveBeenCalled();
-    expect(problems[0]?.reason).toMatch(/2 standing there/);
-  });
-
-  it('opens a line the workspace does not have from its file', async () => {
+  it('opens a line the team does not have from its definition', async () => {
     const held = line();
     const { apply, add, save } = applying(
       [like(asStanding(held), { key: LineKey.of('release') })],
       { held },
     );
 
-    expect((await apply.apply(TEAM, [])).problems).toEqual([]);
+    expect(await apply()).toEqual([]);
     expect(save).not.toHaveBeenCalled();
     expect(add).toHaveBeenCalledTimes(1);
 
@@ -271,35 +276,22 @@ describe('ApplyLines', () => {
       { held },
     );
 
-    const { problems } = await apply.apply(TEAM, []);
+    const problems = await apply();
 
     expect(add).not.toHaveBeenCalled();
     expect(problems.map((each) => each.path).sort()).toEqual([
-      '.spotlight/lines/one/line.yml',
-      '.spotlight/lines/two/line.yml',
+      'lines/one',
+      'lines/two',
     ]);
     expect(problems[0]?.reason).toMatch(/role "improvement"/);
   });
 
-  it('leaves a line no file mentions alone', async () => {
+  it('leaves a line no definition mentions alone', async () => {
     const held = line();
     const { apply, save } = applying([], { held });
 
-    expect((await apply.apply(TEAM, [])).problems).toEqual([]);
+    expect(await apply()).toEqual([]);
     expect(save).not.toHaveBeenCalled();
-  });
-
-  it('carries through what the reader could not read', async () => {
-    const held = line();
-    const broken = {
-      path: '.spotlight/lines/broken/line.yml',
-      at: 'the file',
-      reason: 'is not YAML',
-    };
-
-    const { apply } = applying([], { held, problems: [broken] });
-
-    expect((await apply.apply(TEAM, [])).problems).toEqual([broken]);
   });
 
   it('gives a station nobody had before an identity of its own', async () => {
@@ -319,7 +311,7 @@ describe('ApplyLines', () => {
       { held },
     );
 
-    await apply.apply(TEAM, []);
+    await apply();
 
     const [written] = save.mock.calls[0] as never as [Line];
 

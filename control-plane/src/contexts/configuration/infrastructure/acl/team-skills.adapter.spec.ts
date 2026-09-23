@@ -57,7 +57,6 @@ const naming = (...skills: string[]) => skills;
 const keeping = (
   folders: readonly SkillFolder[],
   held: readonly string[] = [],
-  over: { configured?: boolean } = {},
 ) => {
   const secrets = {
     held: vi.fn(async () => held.map((each) => SecretName.of(each))),
@@ -70,16 +69,7 @@ const keeping = (
 
   return new TeamSkills(
     {
-      of: vi.fn(async () =>
-        over.configured === false
-          ? null
-          : {
-              teamId: TEAM,
-              integrations: [],
-              skills: [],
-            },
-      ),
-      everywhere: vi.fn(),
+      of: vi.fn(async () => ({ teamId: TEAM, skills: [] })),
     } satisfies AppliedConfigurationPort,
     reader,
     secrets,
@@ -124,13 +114,5 @@ describe('TeamSkills', () => {
     const skills = keeping([MIGRATIONS, FRONTEND]);
 
     await expect(skills.readyFor(TEAM, naming())).resolves.toEqual([]);
-  });
-
-  it('gives nothing where the team has read no configuration', async () => {
-    const skills = keeping([MIGRATIONS], [], { configured: false });
-
-    await expect(
-      skills.readyFor(TEAM, naming('our-migrations')),
-    ).resolves.toEqual([]);
   });
 });

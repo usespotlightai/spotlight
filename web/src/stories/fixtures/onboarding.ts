@@ -28,12 +28,6 @@ const STEPS: Omit<SetupStepResponseDto, 'done'>[] = [
     where: null,
   },
   {
-    key: 'configuration',
-    title: 'Set up your lines',
-    description: 'What this team’s lines run on.',
-    where: null,
-  },
-  {
     key: 'integrations',
     title: 'Choose your integrations',
     description: 'What this team listens to.',
@@ -56,12 +50,7 @@ export const seedRunnersEnrolled = seed(['runner']);
 
 export const seedGitHubInstalled = seed(['runner', 'github']);
 
-export const seedSetupDone = seed([
-  'runner',
-  'github',
-  'configuration',
-  'integrations',
-]);
+export const seedSetupDone = seed(['runner', 'github', 'integrations']);
 
 export const failSetup = (client: QueryClient) =>
   failQuery(client, onboardingKeys.forTeam(TEAM_ID));
