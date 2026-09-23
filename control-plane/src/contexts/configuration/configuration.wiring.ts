@@ -29,10 +29,10 @@ import { BuiltInSkills } from '@configuration/infrastructure/acl/built-in-skills
 import { DefinedConfiguration } from '@configuration/infrastructure/acl/defined-configuration.adapter';
 import { TeamSkills } from '@configuration/infrastructure/acl/team-skills.adapter';
 import { Teams } from '@configuration/infrastructure/acl/teams.adapter';
-import { DrizzleAppliedConfigurationReader } from '@configuration/infrastructure/persistence/drizzle/readers/applied-configuration.reader';
 import { DrizzleIntegrationLinks } from '@configuration/infrastructure/persistence/drizzle/readers/integration-links.reader';
 import { NoHeldSecrets } from '@configuration/infrastructure/secrets/no-held-secrets';
 import { BuiltInSkillFiles } from '@configuration/infrastructure/skills/built-in-skill-files';
+import { NoAppliedSkills } from '@configuration/infrastructure/skills/no-applied-skills';
 import { TeamSkillFiles } from '@configuration/infrastructure/skills/team-skill-files';
 import { configurationSubscribers } from '@configuration/presentation/events/configuration.subscribers';
 import { ConfigurationController } from '@configuration/presentation/http/controllers/configuration.controller';
@@ -98,10 +98,7 @@ const handlers: Provider[] = [
 ];
 
 const published: Provider[] = [
-  {
-    provide: APPLIED_CONFIGURATION,
-    useClass: DrizzleAppliedConfigurationReader,
-  },
+  { provide: APPLIED_CONFIGURATION, useFactory: () => new NoAppliedSkills() },
   {
     provide: TEAM_SKILLS,
     inject: [APPLIED_CONFIGURATION, SKILL_READER, HELD_SECRETS],

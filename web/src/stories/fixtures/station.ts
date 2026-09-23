@@ -101,7 +101,7 @@ const HARNESSES: HarnessResponseDto[] = [
 const REPOSITORIES: RepositoryResponseDto[] = [
   { fullName: 'acme/api' },
   { fullName: 'acme/web' },
-  { fullName: 'acme/spotlight-config' },
+  { fullName: 'acme/docs' },
 ];
 
 export const seedStation = (client: QueryClient) => {

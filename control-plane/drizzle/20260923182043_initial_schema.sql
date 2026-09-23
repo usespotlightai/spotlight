@@ -161,32 +161,12 @@ CREATE TABLE "stack_check" (
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "configuration_home" (
-	"team_id" text PRIMARY KEY NOT NULL,
-	"workspace_id" text NOT NULL,
-	"kept_in" text,
-	"moving_to" text,
-	"version" integer DEFAULT 1 NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE "integration_link" (
 	"team_id" text NOT NULL,
 	"source" text NOT NULL,
 	"handle" text,
 	"linked_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "integration_link_team_id_source_pk" PRIMARY KEY("team_id","source")
-);
---> statement-breakpoint
-CREATE TABLE "team_config" (
-	"team_id" text PRIMARY KEY NOT NULL,
-	"repository" text NOT NULL,
-	"sha" text NOT NULL,
-	"files" jsonb NOT NULL,
-	"problems" jsonb NOT NULL,
-	"integrations" jsonb DEFAULT '[]'::jsonb NOT NULL,
-	"begun_at" timestamp NOT NULL,
-	"read_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "github_connection" (
