@@ -1,4 +1,3 @@
-import { integrationFilesIn } from '@configuration/application/contracts/configuration-layout.contract';
 import type { AppliedConfigurationPort } from '@configuration/application/ports/applied-configuration.port';
 import type { IntegrationReaderPort } from '@configuration/application/ports/integration-reader.port';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -22,8 +21,6 @@ export class TeamIntegrations implements TeamIntegrationsPort {
   private async read(teamId: TeamId) {
     const applied = await this.applied.of(teamId);
 
-    return applied
-      ? this.reader.read(integrationFilesIn(applied.files)).integrations
-      : [];
+    return applied ? this.reader.read(applied.integrations).integrations : [];
   }
 }

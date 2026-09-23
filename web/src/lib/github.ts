@@ -30,9 +30,3 @@ export const installUrlFor = (base: string, whence: Whence): string => {
 
   return url.toString();
 };
-
-export const repositoryFileUrl = (repository: string, path: string): string =>
-  `https://github.com/${repository}/blob/HEAD/${path}`;
-
-export const repositoryFolderUrl = (repository: string, path: string): string =>
-  `https://github.com/${repository}/tree/HEAD/${path}`;

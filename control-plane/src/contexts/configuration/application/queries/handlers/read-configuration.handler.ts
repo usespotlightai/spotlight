@@ -3,6 +3,7 @@ import type { ConfigurationReaderPort } from '@configuration/application/ports/c
 import type { IntegrationLinksPort } from '@configuration/application/ports/integration-links.port';
 import type { TeamsPort } from '@configuration/application/ports/teams.port';
 import type { ConfigurationQuery } from '@configuration/application/queries/read-configuration.query';
+import { standingOf } from '@configuration/domain/services/integration-standing';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -27,40 +28,24 @@ export class ConfigurationHandler
         return null;
       }
 
-      const view = await this.configurations.of(team.teamId);
-      const readsFrom = view.keptIn ?? view.read?.repository ?? null;
-
-      if (!view.read) {
-        return {
-          repository: null,
-          readsFrom,
-          movingTo: view.movingTo,
-          sha: null,
-          integrations: [],
-        };
-      }
-
-      const linked = new Map(
-        (await this.connections.heldBy(team.teamId)).map((each) => [
-          each.source,
-          each,
-        ]),
-      );
+      const [view, links] = await Promise.all([
+        this.configurations.of(team.teamId),
+        this.connections.heldBy(team.teamId),
+      ]);
+      const linked = new Map(links.map((each) => [each.source, each]));
 
       return {
-        repository: view.read.repository,
-        readsFrom,
-        movingTo: view.movingTo,
-        sha: view.read.sha,
-        integrations: view.read.integrations.map((each) => ({
-          source: each.source,
-          path: each.path,
-          name: each.name,
-          connectable: each.connectable,
-          connection: linked.has(each.source)
-            ? { handle: linked.get(each.source)?.handle ?? null }
-            : null,
-        })),
+        integrations: view.integrations.map((each) => {
+          const link = linked.get(each.source);
+
+          return {
+            source: each.source,
+            path: each.path,
+            name: each.name,
+            standing: standingOf(each.connectable, link !== undefined),
+            handle: link?.handle ?? null,
+          };
+        }),
       };
     } catch (error) {
       rethrowAsFault(error);

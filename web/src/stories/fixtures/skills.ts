@@ -2,10 +2,9 @@ import type { QueryClient } from '@tanstack/react-query';
 import { teamSkillKeys } from '@/hooks/api/useTeamSkills';
 import type { TeamSkillsResponseDto } from '@/lib/api';
 import { failQuery } from '@/stories/failQuery';
-import { CONFIGURATION_REPOSITORY, TEAM_ID } from '@/stories/fixtures/team';
+import { TEAM_ID } from '@/stories/fixtures/team';
 
-export const SKILLS: TeamSkillsResponseDto = {
-  repository: CONFIGURATION_REPOSITORY,
+const SKILLS: TeamSkillsResponseDto = {
   skills: [
     {
       key: 'grafana-dashboards',
@@ -31,7 +30,6 @@ export const seedTeamSkills = (client: QueryClient) =>
 
 export const emptyTeamSkills = (client: QueryClient) =>
   client.setQueryData(teamSkillKeys.forTeam(TEAM_ID), {
-    repository: CONFIGURATION_REPOSITORY,
     skills: [],
   } satisfies TeamSkillsResponseDto);
 

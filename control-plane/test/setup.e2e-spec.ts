@@ -37,7 +37,6 @@ const NOW = new Date('2026-01-02T03:04:05.000Z');
 const DONE = {
   hasRunner: true,
   connectedToGitHub: true,
-  hasRepository: true,
   hasConfiguration: true,
   listensToAnIntegration: true,
 };

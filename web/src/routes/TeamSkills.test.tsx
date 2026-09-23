@@ -37,7 +37,7 @@ const showing = () =>
   );
 
 beforeEach(() => {
-  skills.mockReturnValue({ repository: 'acme/config', skills: [GRAFANA] });
+  skills.mockReturnValue({ skills: [GRAFANA] });
   failing.mockReturnValue(false);
   refetch.mockClear();
 });
@@ -52,18 +52,14 @@ describe('TeamSkills', () => {
     ).toBeInTheDocument();
   });
 
-  it('configures a skill on GitHub, and offers nothing to edit here', () => {
+  it('says where each skill is defined, and offers nothing to edit here', () => {
     showing();
 
     expect(
-      screen.getByRole('link', {
-        name: 'Configure grafana-dashboards on GitHub',
-      }),
-    ).toHaveAttribute(
-      'href',
-      'https://github.com/acme/config/tree/HEAD/.spotlight/skills/grafana-dashboards',
-    );
+      screen.getByText('.spotlight/skills/grafana-dashboards'),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
   });
 
   it('holds the shape of a skill while they load, keeping what never changes', () => {
@@ -74,28 +70,16 @@ describe('TeamSkills', () => {
       screen.getByRole('status', { name: 'Loading the skills' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Skills' })).toBeInTheDocument();
-    expect(screen.queryByText(/No skills yet/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/defines no skills/)).not.toBeInTheDocument();
   });
 
-  it('says how to add a skill where the team keeps none', () => {
-    skills.mockReturnValue({ repository: 'acme/config', skills: [] });
+  it('says so where the team keeps none', () => {
+    skills.mockReturnValue({ skills: [] });
     showing();
 
     expect(
-      screen.getByText(/No skills yet\. Add a folder with a SKILL\.md/),
-    ).toHaveTextContent('in acme/config');
-    expect(
-      screen.getByRole('link', { name: 'Open on GitHub' }),
-    ).toHaveAttribute('href', 'https://github.com/acme/config');
-  });
-
-  it('sends a team that has never read its configuration to choose a repository', () => {
-    skills.mockReturnValue({ repository: null, skills: [] });
-    showing();
-
-    expect(
-      screen.getByRole('link', { name: 'Choose a configuration repository' }),
-    ).toHaveAttribute('href', '/w/acme/team/team_1/settings/general');
+      screen.getByText('This team defines no skills yet.'),
+    ).toBeInTheDocument();
   });
 
   it('says the skills could not be loaded, rather than that there are none, and tries again when asked', async () => {
@@ -108,7 +92,7 @@ describe('TeamSkills', () => {
       'Skills could not be loaded.',
     );
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
-    expect(screen.queryByText(/No skills yet/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/defines no skills/)).not.toBeInTheDocument();
 
     await person.click(screen.getByRole('button', { name: 'Try again' }));
 

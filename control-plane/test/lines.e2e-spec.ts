@@ -52,11 +52,4 @@ describe('LineController (e2e)', () => {
       .send({ stationId: 'station_1' })
       .expect(401);
   });
-
-  it('/teams/../stations/.. (PATCH) is rejected without a session', () => {
-    return request(app.getHttpServer())
-      .patch('/api/teams/team_1/lines/line_1/stations/station_1')
-      .send({ pool: 'dev' })
-      .expect(401);
-  });
 });

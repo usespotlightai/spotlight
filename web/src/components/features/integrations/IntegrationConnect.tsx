@@ -12,7 +12,6 @@ export function IntegrationConnect({
   teamId,
 }: IntegrationConnectProps) {
   const connect = useConnectIntegration(teamId);
-  const handle = integration.connection?.handle;
 
   return (
     <Button
@@ -20,16 +19,11 @@ export function IntegrationConnect({
       size="sm"
       onClick={() => connect.mutate(integration.source)}
       disabled={connect.isPending}
-      title={
-        integration.connection
-          ? `Connected${handle ? ` as ${handle}` : ''}`
-          : undefined
-      }
       className="pointer-events-auto rounded-full bg-card shadow-none"
     >
       {connect.isPending
         ? 'Opening…'
-        : integration.connection
+        : integration.standing === 'linked'
           ? `Reconnect to ${integration.name}`
           : `Connect to ${integration.name}`}
     </Button>

@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { gitHubKeys } from '@/hooks/api/useConnectGitHub';
+import { gitHubKeys } from '@/hooks/api/useGitHub';
 import { lineKeys } from '@/hooks/api/useLines';
 import { workspaceKeys } from '@/hooks/api/useWorkspaces';
 import type { LineResponseDto, WorkspaceListingResponseDto } from '@/lib/api';

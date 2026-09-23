@@ -4,7 +4,6 @@ import {
   compileIntegration,
   type RequestIR,
 } from '@integrations/infrastructure/integrations/integration.compile';
-import { KnownIntegrations } from '@integrations/infrastructure/integrations/known-integrations';
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 import { describe, expect, it, vi } from 'vitest';
@@ -346,43 +345,5 @@ actions:
       }),
     ).rejects.toThrow(/actions\.post\.request\.body\.text/);
     expect(fetch).not.toHaveBeenCalled();
-  });
-
-  it('sends the Slack starter’s acknowledgement and pull request as Slack reads them', async () => {
-    const slack = new KnownIntegrations().fileFor('slack') as string;
-    const fetch = replying({ ok: true });
-    const out = new HttpOutbound(['slack.com'], fetch);
-
-    await out.run(written(slack, 'acknowledge'), asked);
-    await out.run(written(slack, 'share-pull-request'), asked);
-
-    const sent = fetch.mock.calls.map((call) => {
-      const [, init] = call as unknown as [string, RequestInit];
-      return {
-        authorization: (init.headers as Record<string, string>).authorization,
-        body: JSON.parse(init.body as string),
-      };
-    });
-    expect(sent).toEqual([
-      {
-        authorization: 'Bearer xoxb-1',
-        body: {
-          channel: 'C0DELIVERY',
-          thread_ts: '170.5',
-          text: 'Got it. I’ve opened a task for this and I’ll follow up here.'.replaceAll(
-            '’',
-            "'",
-          ),
-        },
-      },
-      {
-        authorization: 'Bearer xoxb-1',
-        body: {
-          channel: 'C0DELIVERY',
-          thread_ts: '170.5',
-          text: "I've opened a pull request for this: https://github.com/acme/api/pull/9",
-        },
-      },
-    ]);
   });
 });

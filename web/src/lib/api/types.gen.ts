@@ -74,46 +74,6 @@ export type LineResponseDto = {
   repositories: Array<string>;
 };
 
-export type CustomiseStationRequestDto = {
-  name?: string;
-  /**
-   * Six digit hex. The board offers a palette, but any will do.
-   */
-  color?: string;
-  description?: string | null;
-  /**
-   * Which runners work this station
-   */
-  harness?: string | null;
-  /**
-   * Which model the harness answers with here
-   */
-  model?: string | null;
-  /**
-   * How hard the harness is told to think here
-   */
-  effort?: string | null;
-  /**
-   * Markdown, handed to the agent that works this station
-   */
-  agentPrompt?: string | null;
-  /**
-   * The team’s own skills given to a run here, by the folder each is defined in
-   */
-  skills?: Array<string>;
-};
-
-export type ProposedResponseDto = {
-  url: string;
-};
-
-export type SetLineRepositoriesRequestDto = {
-  /**
-   * The line’s repositories, as owner/name, set whole.
-   */
-  repositories: Array<string>;
-};
-
 export type EnqueueRunRequestDto = {
   /**
    * The harness to work this run. Only runners that have it may take it.
@@ -999,7 +959,7 @@ export type SetupStepResponseDto = {
   /**
    * Which step this is
    */
-  key: 'runner' | 'github' | 'repository' | 'configuration' | 'integrations';
+  key: 'runner' | 'github' | 'configuration' | 'integrations';
   title: string;
   description: string;
   /**
@@ -1009,57 +969,11 @@ export type SetupStepResponseDto = {
   done: boolean;
 };
 
-export type OnboardingLineResponseDto = {
-  key: string;
-  name: string;
-  harness: string | null;
-  model: string | null;
-  effort: string | null;
-  repositories: Array<string>;
-};
-
-export type KnownIntegrationResponseDto = {
-  source: string;
-  name: string;
-  summary: string;
-  /**
-   * Where this integration should be told to send its deliveries
-   */
-  deliverTo: string;
-};
-
 export type OnboardingResponseDto = {
   /**
    * The list itself, in the order it is worked through
    */
   steps: Array<SetupStepResponseDto>;
-  /**
-   * Where to install the App, or null where GitHub would not say
-   */
-  installUrl: string | null;
-  /**
-   * The App has to be installed to read or write
-   */
-  connectedToGitHub: boolean;
-  configRepository: string | null;
-  /**
-   * The account repositories are named under, or null
-   */
-  repositoryOwner: string | null;
-  lines: Array<OnboardingLineResponseDto>;
-  integrations: Array<KnownIntegrationResponseDto>;
-};
-
-export type SetUpLineRequestDto = {
-  key: string;
-  harness?: string | null;
-  model?: string | null;
-  effort?: string | null;
-  repositories: Array<string>;
-};
-
-export type SetUpLinesRequestDto = {
-  lines: Array<SetUpLineRequestDto>;
 };
 
 export type CreateWorkspaceRequestDto = {
@@ -1177,6 +1091,17 @@ export type RepositoryResponseDto = {
   fullName: string;
 };
 
+export type GitHubStandingResponseDto = {
+  /**
+   * Whether the App is installed for this workspace
+   */
+  connected: boolean;
+  /**
+   * Where to install the App, or null where GitHub would not say
+   */
+  installUrl: string | null;
+};
+
 export type ConnectGitHubRequestDto = {
   /**
    * The installation GitHub named when it sent you back
@@ -1230,99 +1155,37 @@ export type RegisteredRunnerResponseDto = {
   runnerId: string;
 };
 
-export type ConfiguredConnectionResponseDto = {
-  /**
-   * What the host calls the team, where it says; null otherwise
-   */
-  handle: {
-    [key: string]: unknown;
-  } | null;
-};
-
 export type ConfiguredIntegrationResponseDto = {
   source: string;
   name: string;
   /**
-   * The file in the configuration repository it is written in
+   * Where the integration is defined
    */
   path: string;
   /**
-   * Whether this host is linked by authorizing a connection
+   * Whether the team is linked to the host: it only listens, it links by authorizing and has not, or it has
    */
-  connectable: boolean;
+  standing: 'listens' | 'unlinked' | 'linked';
   /**
-   * The living link, or null where the team has not linked
+   * What the host calls the team once linked, where it says
    */
-  connection: ConfiguredConnectionResponseDto | null;
+  handle: string | null;
 };
 
 export type ConfigurationResponseDto = {
-  /**
-   * The repository last read from.
-   */
-  repository: string | null;
-  sha: string | null;
   integrations: Array<ConfiguredIntegrationResponseDto>;
-  /**
-   * Where this team reads its configuration from: where it keeps it, or else where it was last found.
-   */
-  readsFrom: string | null;
-  /**
-   * Where its configuration is moving to, with a pull request open there.
-   */
-  movingTo: string | null;
-};
-
-export type PinConfigurationRequestDto = {
-  /**
-   * The repository this team reads its configuration from. Null takes the pin off.
-   */
-  repository: string | null;
-};
-
-export type MoveConfigurationRequestDto = {
-  /**
-   * The repository to move this team's configuration to.
-   */
-  repository: string;
-};
-
-export type MovedConfigurationResponseDto = {
-  /**
-   * What the move came to: carried in a pull request the team reads through once merged, adopted where the repository already held configuration, or repointed where there was nothing to carry.
-   */
-  kind: 'carried' | 'adopted' | 'repointed';
-  /**
-   * The pull request carrying the configuration, where it was carried.
-   */
-  url: string | null;
-};
-
-export type ChooseIntegrationsRequestDto = {
-  /**
-   * The hosts this team uses, by the name each is known by
-   */
-  sources: Array<string>;
-  /**
-   * The hosts it no longer uses, whose files the change removes
-   */
-  dropped?: Array<string>;
 };
 
 export type TeamSkillResponseDto = {
   key: string;
   description: string;
   /**
-   * Its folder in the configuration repository
+   * Where the skill is defined
    */
   path: string;
 };
 
 export type TeamSkillsResponseDto = {
-  /**
-   * Where the skills were read from
-   */
-  repository: string | null;
   skills: Array<TeamSkillResponseDto>;
 };
 
@@ -1736,69 +1599,6 @@ export type ListLinesResponses = {
 };
 
 export type ListLinesResponse = ListLinesResponses[keyof ListLinesResponses];
-
-export type CustomiseStationData = {
-  body: CustomiseStationRequestDto;
-  path: {
-    teamId: string;
-    lineId: string;
-    stationId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}';
-};
-
-export type CustomiseStationErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such station, or nowhere to write it
-   */
-  404: unknown;
-  /**
-   * Invalid field
-   */
-  422: unknown;
-};
-
-export type CustomiseStationResponses = {
-  200: ProposedResponseDto;
-};
-
-export type CustomiseStationResponse = CustomiseStationResponses[keyof CustomiseStationResponses];
-
-export type SetLineRepositoriesData = {
-  body: SetLineRepositoriesRequestDto;
-  path: {
-    teamId: string;
-    lineId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/lines/{lineId}/repositories';
-};
-
-export type SetLineRepositoriesErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such line, or nowhere to write it
-   */
-  404: unknown;
-  /**
-   * Invalid repository
-   */
-  422: unknown;
-};
-
-export type SetLineRepositoriesResponses = {
-  200: ProposedResponseDto;
-};
-
-export type SetLineRepositoriesResponse = SetLineRepositoriesResponses[keyof SetLineRepositoriesResponses];
 
 export type EnqueueRunData = {
   body: EnqueueRunRequestDto;
@@ -3020,32 +2820,6 @@ export type ReadOnboardingResponses = {
 
 export type ReadOnboardingResponse = ReadOnboardingResponses[keyof ReadOnboardingResponses];
 
-export type SetUpLinesData = {
-  body: SetUpLinesRequestDto;
-  path: {
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/configuration/setup';
-};
-
-export type SetUpLinesErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such team, or nowhere to write it yet
-   */
-  404: unknown;
-};
-
-export type SetUpLinesResponses = {
-  200: ProposedResponseDto;
-};
-
-export type SetUpLinesResponse = SetUpLinesResponses[keyof SetUpLinesResponses];
-
 export type ListWorkspacesData = {
   body?: never;
   path?: never;
@@ -3385,6 +3159,32 @@ export type ListRepositoriesResponses = {
 
 export type ListRepositoriesResponse = ListRepositoriesResponses[keyof ListRepositoriesResponses];
 
+export type ReadGitHubData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/github';
+};
+
+export type ReadGitHubErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type ReadGitHubResponses = {
+  200: GitHubStandingResponseDto;
+};
+
+export type ReadGitHubResponse = ReadGitHubResponses[keyof ReadGitHubResponses];
+
 export type ConnectGitHubData = {
   body: ConnectGitHubRequestDto;
   path: {
@@ -3557,113 +3357,6 @@ export type ReadConfigurationResponses = {
 };
 
 export type ReadConfigurationResponse = ReadConfigurationResponses[keyof ReadConfigurationResponses];
-
-export type RereadConfigurationData = {
-  body?: never;
-  path: {
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/configuration/reread';
-};
-
-export type RereadConfigurationErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such team, or nowhere to read it from
-   */
-  404: unknown;
-};
-
-export type RereadConfigurationResponses = {
-  200: ConfigurationResponseDto;
-};
-
-export type RereadConfigurationResponse = RereadConfigurationResponses[keyof RereadConfigurationResponses];
-
-export type PinConfigurationRepositoryData = {
-  body: PinConfigurationRequestDto;
-  path: {
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/configuration/repository';
-};
-
-export type PinConfigurationRepositoryErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such team, or not yours to choose for
-   */
-  404: unknown;
-};
-
-export type PinConfigurationRepositoryResponses = {
-  /**
-   * Chosen
-   */
-  204: void;
-};
-
-export type PinConfigurationRepositoryResponse = PinConfigurationRepositoryResponses[keyof PinConfigurationRepositoryResponses];
-
-export type MoveConfigurationData = {
-  body: MoveConfigurationRequestDto;
-  path: {
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/configuration/repository/move';
-};
-
-export type MoveConfigurationErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such team, or not yours to move
-   */
-  404: unknown;
-};
-
-export type MoveConfigurationResponses = {
-  200: MovedConfigurationResponseDto;
-};
-
-export type MoveConfigurationResponse = MoveConfigurationResponses[keyof MoveConfigurationResponses];
-
-export type ChooseIntegrationsData = {
-  body: ChooseIntegrationsRequestDto;
-  path: {
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/configuration/integrations';
-};
-
-export type ChooseIntegrationsErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such team, or nowhere to write it yet
-   */
-  404: unknown;
-};
-
-export type ChooseIntegrationsResponses = {
-  200: ProposedResponseDto;
-};
-
-export type ChooseIntegrationsResponse = ChooseIntegrationsResponses[keyof ChooseIntegrationsResponses];
 
 export type ListTeamSkillsData = {
   body?: never;

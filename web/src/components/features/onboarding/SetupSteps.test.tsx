@@ -18,40 +18,13 @@ vi.mock('@/hooks/api/useOnboarding', () => ({
   useOnboarding: () => onboardingState,
 }));
 
-vi.mock('@/hooks/api/useRepositories', () => ({
-  useRepositories: () => ({
-    data: [{ fullName: 'acme/api' }, { fullName: 'acme/config' }],
-  }),
-}));
+const INSTALL = 'https://github.com/apps/spotlight/installations/new';
+const githubState = {
+  data: { connected: false, installUrl: INSTALL as string | null },
+};
 
-const pin = vi.fn();
-vi.mock('@/hooks/api/usePinConfiguration', () => ({
-  usePinConfiguration: () => ({ mutate: pin, isPending: false }),
-}));
-
-const setUp = vi.fn();
-vi.mock('@/hooks/api/useSetUpLines', () => ({
-  useSetUpLines: () => ({ mutate: setUp, isPending: false }),
-}));
-
-const runnersState = { data: [] as unknown[] };
-vi.mock('@/hooks/api/useRunners', () => ({
-  useRunners: () => runnersState,
-}));
-
-vi.mock('@/hooks/api/useEnrolRunner', () => ({
-  useEnrolRunner: () => ({
-    mutate: vi.fn(),
-    reset: vi.fn(),
-    isPending: false,
-    error: null,
-  }),
-}));
-
-vi.mock('@/hooks/api/useHarnesses', () => ({
-  useHarnesses: () => ({
-    data: [{ id: 'claude-code', name: 'Claude Code' }],
-  }),
+vi.mock('@/hooks/api/useGitHub', () => ({
+  useGitHub: () => githubState,
 }));
 
 const STEPS = [
@@ -68,15 +41,9 @@ const STEPS = [
     where: '/w/acme/team/team_1/settings/integrations',
   },
   {
-    key: 'repository',
-    title: 'Choose a repository',
-    description: 'Where this team works.',
-    where: '/w/acme/team/team_1/settings/integrations',
-  },
-  {
     key: 'configuration',
-    title: 'Merge the setup pull request',
-    description: 'Nothing is read until you do.',
+    title: 'Set up your lines',
+    description: 'What this team’s lines run on.',
     where: null,
   },
   {
@@ -92,19 +59,6 @@ const onboarding = (
   done: string[] = [],
 ) => ({
   steps: STEPS.map((step) => ({ ...step, done: done.includes(step.key) })),
-  connectedToGitHub: false,
-  configRepository: null,
-  repositoryOwner: 'acme',
-  installUrl: 'https://github.com/apps/spotlight/installations/new',
-  lines: [
-    {
-      key: 'delivery',
-      name: 'Delivery',
-      harness: null,
-      repositories: [],
-    },
-  ],
-  integrations: [{ source: 'linear' }],
   ...over,
 });
 
@@ -137,9 +91,7 @@ beforeEach(() => {
   onboardingState.isPending = false;
   onboardingState.errorUpdateCount = 0;
   refetch.mockReset();
-  runnersState.data = [];
-  pin.mockReset();
-  setUp.mockReset();
+  githubState.data = { connected: false, installUrl: INSTALL };
 });
 
 describe('SetupSteps', () => {
@@ -159,9 +111,10 @@ describe('SetupSteps', () => {
     onboardingState.data = onboarding();
     showing();
 
-    expect(
-      screen.getByRole('button', { name: 'Enrol one' }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Take me there' })).toHaveAttribute(
+      'href',
+      '/w/acme/runners',
+    );
     expect(
       screen.getByRole('link', { name: 'Install on GitHub' }),
     ).toHaveAttribute(
@@ -178,54 +131,9 @@ describe('SetupSteps', () => {
     );
   });
 
-  it('enrols a runner without leaving the message', async () => {
-    onboardingState.data = onboarding();
-    showing();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Enrol one' }));
-
-    expect(
-      await screen.findByRole('dialog', { name: 'New runner' }),
-    ).toBeInTheDocument();
-    expect(screen.getByLabelText('Runner name')).toBeInTheDocument();
-  });
-
-  it('lists the runners enrolled so far, leaving out revoked ones', () => {
-    runnersState.data = [
-      {
-        id: 'runner_1',
-        name: 'Build box',
-        harnesses: ['claude-code'],
-        registeredAt: new Date().toISOString(),
-        lastSeenAt: new Date().toISOString(),
-        revokedAt: null,
-        connected: true,
-        currentRun: null,
-      },
-      {
-        id: 'runner_2',
-        name: 'Old laptop',
-        harnesses: [],
-        registeredAt: new Date().toISOString(),
-        lastSeenAt: null,
-        revokedAt: new Date().toISOString(),
-        connected: false,
-        currentRun: null,
-      },
-    ];
-    onboardingState.data = onboarding();
-    showing();
-
-    expect(screen.getByText('Build box')).toBeInTheDocument();
-    expect(screen.getByText('Claude Code')).toBeInTheDocument();
-    expect(screen.queryByText('Old laptop')).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Enrol another' }),
-    ).toBeInTheDocument();
-  });
-
   it('offers to configure the App once it is installed', async () => {
-    onboardingState.data = onboarding({ connectedToGitHub: true }, ['github']);
+    githubState.data = { connected: true, installUrl: INSTALL };
+    onboardingState.data = onboarding({}, ['github']);
     showing();
 
     await userEvent.click(
@@ -238,23 +146,6 @@ describe('SetupSteps', () => {
     expect(
       screen.queryByRole('link', { name: 'Install on GitHub' }),
     ).not.toBeInTheDocument();
-  });
-
-  it('offers to update a repository already chosen', async () => {
-    onboardingState.data = onboarding(
-      { connectedToGitHub: true, configRepository: 'acme/config' },
-      ['repository'],
-    );
-    showing();
-
-    await userEvent.click(
-      screen.getByRole('button', { name: /Choose a repository/ }),
-    );
-    await userEvent.clear(screen.getByLabelText('Repository'));
-    await userEvent.type(screen.getByLabelText('Repository'), 'api');
-    await userEvent.click(screen.getByRole('button', { name: 'Update' }));
-
-    expect(pin).toHaveBeenCalledWith('acme/api');
   });
 
   it('folds a done step away, keeping the next one open', () => {
@@ -270,7 +161,8 @@ describe('SetupSteps', () => {
   });
 
   it('shows no install control where GitHub would not say', () => {
-    onboardingState.data = onboarding({ installUrl: null });
+    githubState.data = { connected: false, installUrl: null };
+    onboardingState.data = onboarding();
     showing();
 
     expect(
@@ -328,175 +220,25 @@ describe('SetupSteps', () => {
     expect(screen.getByText(BODY)).toBeInTheDocument();
   });
 
-  it('lets a person say which repository the setup goes in', async () => {
-    onboardingState.data = onboarding({ connectedToGitHub: true });
+  it('leaves the line setup as words, with nothing to do here', () => {
+    githubState.data = { connected: true, installUrl: INSTALL };
+    onboardingState.data = onboarding({}, ['runner', 'github']);
     showing();
 
-    await userEvent.type(screen.getByLabelText('Repository'), 'config');
-    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
-
-    expect(pin).toHaveBeenCalledWith('acme/config');
-  });
-
-  it("takes a name that is on nobody's list", async () => {
-    onboardingState.data = onboarding({ connectedToGitHub: true });
-    showing();
-
-    await userEvent.type(
-      screen.getByLabelText('Repository'),
-      'brand-new{Enter}',
-    );
-
-    expect(pin).toHaveBeenCalledWith('acme/brand-new');
-  });
-
-  it('says nothing until it is confirmed', async () => {
-    onboardingState.data = onboarding({ connectedToGitHub: true });
-    showing();
-
-    await userEvent.type(screen.getByLabelText('Repository'), 'bra');
-
-    expect(pin).not.toHaveBeenCalled();
-  });
-
-  it('asks for no repository before the App is installed', () => {
-    onboardingState.data = onboarding();
-    showing();
-
-    expect(screen.queryByLabelText('Repository')).not.toBeInTheDocument();
-  });
-
-  it('folds a done step’s control away until it is clicked', async () => {
-    onboardingState.data = onboarding(
-      { connectedToGitHub: true, configRepository: 'acme/config' },
-      ['repository'],
-    );
-    showing();
-
-    const toggle = screen.getByRole('button', {
-      name: /Choose a repository/,
-    });
-    expect(toggle).toHaveAttribute('aria-expanded', 'false');
-
-    await userEvent.click(toggle);
-
-    expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByLabelText('Repository')).toHaveValue('config');
-  });
-
-  it('suggests the repositories that match what is typed', async () => {
-    onboardingState.data = onboarding({ connectedToGitHub: true });
-    showing();
-
-    await userEvent.type(screen.getByLabelText('Repository'), 'conf');
-
-    expect(screen.getByRole('button', { name: 'config' })).toBeInTheDocument();
+    expect(screen.getByText('Set up your lines')).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: 'api' }),
+      screen.queryByRole('button', { name: /Set up your lines/ }),
     ).not.toBeInTheDocument();
-  });
-
-  it('fills the field from a suggestion', async () => {
-    onboardingState.data = onboarding({ connectedToGitHub: true });
-    showing();
-
-    await userEvent.type(screen.getByLabelText('Repository'), 'conf');
-    await userEvent.click(screen.getByRole('button', { name: 'config' }));
-
-    expect(screen.getByLabelText('Repository')).toHaveValue('config');
-    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
-
-    expect(pin).toHaveBeenCalledWith('acme/config');
-  });
-
-  it('offers no line setup before a repository is chosen', () => {
-    onboardingState.data = onboarding({ connectedToGitHub: true });
-    showing();
-
-    expect(
-      screen.queryByRole('button', { name: /Open pull request/ }),
-    ).not.toBeInTheDocument();
-  });
-
-  it('opens the setup with each line’s harness and repositories', async () => {
-    onboardingState.data = onboarding({
-      connectedToGitHub: true,
-      configRepository: 'acme/config',
-      lines: [
-        {
-          key: 'delivery',
-          name: 'Delivery',
-          harness: 'claude-code',
-          repositories: ['acme/api'],
-        },
-      ],
-    });
-    showing();
-
-    expect(screen.getByText('Delivery')).toBeInTheDocument();
-    await userEvent.click(
-      screen.getByRole('button', { name: /Open pull request/ }),
-    );
-
-    expect(setUp).toHaveBeenCalledWith([
-      {
-        key: 'delivery',
-        harness: 'claude-code',
-        model: null,
-        effort: null,
-        repositories: ['acme/api'],
-      },
-    ]);
-  });
-
-  it('starts the improvement line working in the configuration repository', async () => {
-    onboardingState.data = onboarding({
-      connectedToGitHub: true,
-      configRepository: 'acme/config',
-      lines: [
-        {
-          key: 'delivery',
-          name: 'Delivery',
-          harness: null,
-          repositories: [],
-        },
-        {
-          key: 'factory',
-          name: 'Factory',
-          harness: null,
-          repositories: [],
-        },
-      ],
-    });
-    showing();
-
-    await userEvent.click(
-      screen.getByRole('button', { name: /Open pull request/ }),
-    );
-
-    expect(setUp).toHaveBeenCalledWith([
-      {
-        key: 'delivery',
-        harness: null,
-        model: null,
-        effort: null,
-        repositories: [],
-      },
-      {
-        key: 'factory',
-        harness: null,
-        model: null,
-        effort: null,
-        repositories: ['acme/config'],
-      },
-    ]);
   });
 
   it('locks every control once the item is resolved', () => {
-    onboardingState.data = onboarding(
-      { connectedToGitHub: true, configRepository: 'acme/config' },
-      ['runner', 'github', 'repository', 'configuration', 'integrations'],
-    );
+    githubState.data = { connected: true, installUrl: INSTALL };
+    onboardingState.data = onboarding({}, [
+      'runner',
+      'github',
+      'configuration',
+      'integrations',
+    ]);
     showing(true);
 
     const install = screen.getByRole('link', { name: 'Configure on GitHub' });
@@ -509,19 +251,5 @@ describe('SetupSteps', () => {
 
     const install = screen.getByRole('link', { name: 'Install on GitHub' });
     expect(install.closest('[inert]')).toBeNull();
-  });
-
-  it('suggests nothing where nothing matches', async () => {
-    onboardingState.data = onboarding({ connectedToGitHub: true });
-    showing();
-
-    await userEvent.type(screen.getByLabelText('Repository'), 'brand-new');
-
-    expect(
-      screen.queryByRole('button', { name: 'config' }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'api' }),
-    ).not.toBeInTheDocument();
   });
 });

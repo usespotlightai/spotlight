@@ -1,4 +1,3 @@
-import { INTEGRATIONS_UNDER } from '@configuration/application/contracts/configuration-layout.contract';
 import type {
   Applied,
   AppliedConfigurationPort,
@@ -20,13 +19,13 @@ const tool = (name: string): ToolDeclaration => ({
 
 const integrations = (configured = true) => {
   const files = [
-    ConfigurationFile.of(`${INTEGRATIONS_UNDER}/linear.yml`, 'linear'),
-    ConfigurationFile.of(`${INTEGRATIONS_UNDER}/slack.yml`, 'slack'),
-    ConfigurationFile.of('.spotlight/lines/delivery/line.yml', 'line'),
+    ConfigurationFile.of('.spotlight/integrations/linear.yml', 'linear'),
+    ConfigurationFile.of('.spotlight/integrations/slack.yml', 'slack'),
   ];
 
   const applied = {
-    of: async () => (configured ? ({ files } as unknown as Applied) : null),
+    of: async () =>
+      configured ? ({ integrations: files } as unknown as Applied) : null,
   } as unknown as AppliedConfigurationPort;
 
   const reader = {

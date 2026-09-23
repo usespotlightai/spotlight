@@ -9,7 +9,7 @@ export const REVIEW_STARTS = ['opened', 'mentioned'] as const;
 
 export type ReviewStart = (typeof REVIEW_STARTS)[number];
 
-export const DEFAULT_MENTION = '@spotlight';
+const DEFAULT_MENTION = '@spotlight';
 
 const MENTION = /^@[A-Za-z0-9][A-Za-z0-9_-]*(\[bot\])?$/;
 

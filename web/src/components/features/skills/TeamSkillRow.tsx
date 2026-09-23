@@ -1,28 +1,18 @@
 import { SquareMousePointer } from 'lucide-react';
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
-import { ConfigureLink } from '@/components/shared/ConfigureLink';
 import { RowIcon } from '@/components/shared/RowIcon';
 import type { TeamSkillResponseDto } from '@/lib/api';
-import { repositoryFolderUrl } from '@/lib/github';
 
-type TeamSkillRowProps = {
-  skill: TeamSkillResponseDto;
-  repository: string | null;
-};
-
-export function TeamSkillRow({ skill, repository }: TeamSkillRowProps) {
+export function TeamSkillRow({ skill }: { skill: TeamSkillResponseDto }) {
   return (
     <SettingsRow
       label={skill.key}
       description={skill.description}
       leading={<RowIcon icon={SquareMousePointer} />}
     >
-      {repository && (
-        <ConfigureLink
-          href={repositoryFolderUrl(repository, skill.path)}
-          name={skill.key}
-        />
-      )}
+      <span className="truncate font-mono text-muted-foreground text-xs">
+        {skill.path}
+      </span>
     </SettingsRow>
   );
 }

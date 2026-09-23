@@ -1,4 +1,3 @@
-import { GITHUB_APP } from '@github/application/ports/github-app.port';
 import {
   PULL_REQUESTS,
   type PullRequestPort,
@@ -74,7 +73,6 @@ import {
   StartChatCommand,
   StopChatCommand,
 } from '@work/application/commands/chat.commands';
-import { CustomiseStationCommand } from '@work/application/commands/customise-station.command';
 import { DeleteTaskCommand } from '@work/application/commands/delete-task.command';
 import { DeliverSaidCommand } from '@work/application/commands/deliver-said.command';
 import { GrantAttachmentUploadCommand } from '@work/application/commands/grant-attachment-upload.command';
@@ -87,7 +85,6 @@ import { AppendRunJournalHandler } from '@work/application/commands/handlers/app
 import { AssignTaskHandler } from '@work/application/commands/handlers/assign-task.handler';
 import { ClaimRunHandler } from '@work/application/commands/handlers/claim-run.handler';
 import { CompleteRunHandler } from '@work/application/commands/handlers/complete-run.handler';
-import { CustomiseStationHandler } from '@work/application/commands/handlers/customise-station.handler';
 import { DeleteTaskHandler } from '@work/application/commands/handlers/delete-task.handler';
 import { DeliverSaidHandler } from '@work/application/commands/handlers/deliver-said.handler';
 import { DismissProposalHandler } from '@work/application/commands/handlers/dismiss-proposal.handler';
@@ -98,8 +95,6 @@ import { ReadInboxItemHandler } from '@work/application/commands/handlers/read-i
 import { RenewLeaseHandler } from '@work/application/commands/handlers/renew-lease.handler';
 import { SayInChatHandler } from '@work/application/commands/handlers/say-in-chat.handler';
 import { SayToRunHandler } from '@work/application/commands/handlers/say-to-run.handler';
-import { SetLineRepositoriesHandler } from '@work/application/commands/handlers/set-line-repositories.handler';
-import { SetUpLinesHandler } from '@work/application/commands/handlers/set-up-lines.handler';
 import { StartChatHandler } from '@work/application/commands/handlers/start-chat.handler';
 import { StopChatHandler } from '@work/application/commands/handlers/stop-chat.handler';
 import { StopRunHandler } from '@work/application/commands/handlers/stop-run.handler';
@@ -114,8 +109,6 @@ import {
   RenewLeaseCommand,
 } from '@work/application/commands/runner.commands';
 import { SayToRunCommand } from '@work/application/commands/say-to-run.command';
-import { SetLineRepositoriesCommand } from '@work/application/commands/set-line-repositories.command';
-import { SetUpLinesCommand } from '@work/application/commands/set-up-lines.command';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
 import { UseToolCommand } from '@work/application/commands/use-tool.command';
 import { ChatOutcomes } from '@work/application/events/handlers/chat-outcomes.handler';
@@ -146,15 +139,9 @@ import {
 } from '@work/application/ports/check-access.port';
 import { CHECK_WORK } from '@work/application/ports/check-work.port';
 import {
-  CONFIGURATION_PROPOSALS,
-  type ConfigurationProposalsPort,
-} from '@work/application/ports/configuration-proposals.port';
-import {
   CONFIGURATION_STATUS,
   type ConfigurationStatusPort,
 } from '@work/application/ports/configuration-status.port';
-import { CONFIGURED_LINES } from '@work/application/ports/configured-lines.port';
-import { DELIVERY_ADDRESSES } from '@work/application/ports/delivery-addresses.port';
 import { GIT_GATEWAY } from '@work/application/ports/git-gateway.port';
 import { HAPPENING_REACTIONS } from '@work/application/ports/happening-reactions.port';
 import {
@@ -173,12 +160,7 @@ import {
   LINE_CONFIG_READER,
   type LineConfigReaderPort,
 } from '@work/application/ports/line-config-reader.port';
-import {
-  LINE_CONFIG_WRITER,
-  type LineConfigWriterPort,
-} from '@work/application/ports/line-config-writer.port';
 import { LINE_READER } from '@work/application/ports/line-reader.port';
-import { LINE_SET_UP_READER } from '@work/application/ports/line-set-up-reader.port';
 import {
   OUTBOUND_TASK_NOTIFIER,
   type OutboundTaskNotifierPort,
@@ -207,7 +189,6 @@ import {
 } from '@work/application/ports/runner-revocation.port';
 import { RUNNER_TRACE_READER } from '@work/application/ports/runner-trace-reader.port';
 import { SETUP_SETTLING } from '@work/application/ports/setup-settling.port';
-import { STARTER_INTEGRATIONS } from '@work/application/ports/starter-integrations.port';
 import {
   STATION_TALLIES,
   type StationTalliesPort,
@@ -302,7 +283,6 @@ import {
 import { CarryGitCall } from '@work/application/services/carry-git-call.service';
 import { ChatAtHand } from '@work/application/services/chat-at-hand.service';
 import { CHAT_DISPATCH } from '@work/application/services/chat-dispatch';
-import { ConfiguredLinesService } from '@work/application/services/configured-lines.service';
 import { ConversationAtHand } from '@work/application/services/conversation-at-hand.service';
 import { DispatchChat } from '@work/application/services/dispatch-chat.service';
 import { DispatchTask } from '@work/application/services/dispatch-task.service';
@@ -311,7 +291,6 @@ import { IntegrationTools } from '@work/application/services/integration-tools.s
 import { LineAtHand } from '@work/application/services/line-at-hand.service';
 import { OpenPullRequest } from '@work/application/services/open-pull-request.service';
 import { OutsideTaskNotices } from '@work/application/services/outside-task-notices.service';
-import { ProposeLineChange } from '@work/application/services/propose-line-change.service';
 import { ProposeTaskToolUse } from '@work/application/services/propose-task.tool-use';
 import { PullRequestToolUse } from '@work/application/services/pull-request.tool-use';
 import { RaiseTask } from '@work/application/services/raise-task';
@@ -321,7 +300,6 @@ import { ReviewCommentToolUse } from '@work/application/services/review-comment.
 import { RunAtHand } from '@work/application/services/run-at-hand.service';
 import { RunLeases } from '@work/application/services/run-leases.service';
 import { RunWorks } from '@work/application/services/run-works.service';
-import { SeedConfiguration } from '@work/application/services/seed-configuration.service';
 import { SettleSetup } from '@work/application/services/settle-setup.service';
 import { StationSkills } from '@work/application/services/station-skills.service';
 import { TaskBindings } from '@work/application/services/task-bindings.service';
@@ -339,14 +317,12 @@ import {
   DEFAULT_HARNESS,
 } from '@work/infrastructure/harnesses/built-in-harnesses';
 import { LineConfigReader } from '@work/infrastructure/lines/line-config.reader';
-import { LineConfigWriter } from '@work/infrastructure/lines/line-config.writer';
 import { DrizzleAttachmentReader } from '@work/infrastructure/persistence/drizzle/readers/attachment.reader';
 import { DrizzleChatReader } from '@work/infrastructure/persistence/drizzle/readers/chat.reader';
 import { DrizzleHeldRunReader } from '@work/infrastructure/persistence/drizzle/readers/held-run.reader';
 import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/readers/inbox.reader';
 import { DrizzleKeptWorkspaceReader } from '@work/infrastructure/persistence/drizzle/readers/kept-workspace.reader';
 import { DrizzleLineReader } from '@work/infrastructure/persistence/drizzle/readers/line.reader';
-import { DrizzleLineSetUpReader } from '@work/infrastructure/persistence/drizzle/readers/line-set-up.reader';
 import { DrizzleRunReader } from '@work/infrastructure/persistence/drizzle/readers/run.reader';
 import { DrizzleRunEventReader } from '@work/infrastructure/persistence/drizzle/readers/run-event.reader';
 import { DrizzleRunJournalReader } from '@work/infrastructure/persistence/drizzle/readers/run-journal.reader';
@@ -398,12 +374,6 @@ export const WORK_CONTROLLERS: readonly Type[] = [
 
 export const WORK_PROVIDERS: readonly Provider[] = [
   {
-    provide: CONFIGURED_LINES,
-    inject: [ApplyLines],
-    useFactory: (applying: ApplyLines) => new ConfiguredLinesService(applying),
-  },
-
-  {
     provide: WORK_LOOKUP,
     inject: [
       DrizzleRunRepository,
@@ -430,8 +400,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   { provide: CHAT_READER, useClass: DrizzleChatReader },
 
   { provide: LINE_READER, useClass: DrizzleLineReader },
-
-  { provide: LINE_SET_UP_READER, useClass: DrizzleLineSetUpReader },
 
   { provide: TASK_READER, useClass: DrizzleTaskReader },
 
@@ -499,37 +467,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   { provide: LINE_CONFIG_READER, useClass: LineConfigReader },
-
-  { provide: LINE_CONFIG_WRITER, useClass: LineConfigWriter },
-
-  {
-    provide: SeedConfiguration,
-    inject: [LINE_CONFIG_WRITER, CONFIGURATION_PROPOSALS],
-    useFactory: (
-      writer: LineConfigWriterPort,
-      proposals: ConfigurationProposalsPort,
-    ) => new SeedConfiguration(writer, proposals),
-  },
-
-  {
-    provide: ProposeLineChange,
-    inject: [
-      WORKSPACE_ACCESS,
-      DrizzleLineRepository,
-      LINE_CONFIG_READER,
-      LINE_CONFIG_WRITER,
-      CONFIGURATION_PROPOSALS,
-      ID_GENERATOR,
-    ],
-    useFactory: (
-      access: WorkspaceAccessPort,
-      lines: DrizzleLineRepository,
-      reader: LineConfigReaderPort,
-      writer: LineConfigWriterPort,
-      proposals: ConfigurationProposalsPort,
-      ids: IdGeneratorPort,
-    ) => new ProposeLineChange(access, lines, reader, writer, proposals, ids),
-  },
 
   {
     provide: TeamSetup,
@@ -1015,20 +952,9 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     FilesAtHand,
   ]),
 
-  ...bindCommandHandler(SetUpLinesCommand, SetUpLinesHandler, [
-    WORKSPACE_ACCESS,
-    DrizzleLineRepository,
-    SeedConfiguration,
-    SettleSetup,
-  ]),
-
   ...bindQueryHandler(OnboardingQuery, OnboardingHandler, [
     WORKSPACE_READER,
     TeamSetup,
-    GITHUB_APP,
-    LINE_SET_UP_READER,
-    STARTER_INTEGRATIONS,
-    DELIVERY_ADDRESSES,
   ]),
 
   ...bindCommandHandler(ReadInboxItemCommand, ReadInboxItemHandler, [
@@ -1185,16 +1111,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     TRANSACTION,
     PERSON_READER,
   ]),
-
-  ...bindCommandHandler(CustomiseStationCommand, CustomiseStationHandler, [
-    ProposeLineChange,
-  ]),
-
-  ...bindCommandHandler(
-    SetLineRepositoriesCommand,
-    SetLineRepositoriesHandler,
-    [ProposeLineChange],
-  ),
 
   ...bindCommandHandler(ClaimRunCommand, ClaimRunHandler, [
     DrizzleRunRepository,

@@ -1,40 +1,11 @@
-import type { CustomiseStationCommand } from '@work/application/commands/customise-station.command';
 import type { LineDto, StationDto } from '@work/application/dto/line.dto';
-import type { CustomiseStationRequestDto } from '@work/presentation/http/dto/customise-station.request.dto';
 import {
   LineResponseDto,
   ReactionResponseDto,
   StationResponseDto,
 } from '@work/presentation/http/dto/line.response.dto';
 
-const emptied = (raw: string | null | undefined): string | null | undefined => {
-  if (raw === undefined) {
-    return undefined;
-  }
-
-  return raw !== null && raw.trim().length > 0 ? raw : null;
-};
-
 export const LineHttpMapper = {
-  toStationChanges(
-    body: CustomiseStationRequestDto,
-  ): CustomiseStationCommand['changes'] {
-    const changes = {
-      name: body.name,
-      color: body.color,
-      description: emptied(body.description),
-      harness: emptied(body.harness),
-      model: emptied(body.model),
-      effort: emptied(body.effort),
-      agentPrompt: emptied(body.agentPrompt),
-      skills: body.skills,
-    };
-
-    return Object.fromEntries(
-      Object.entries(changes).filter(([, value]) => value !== undefined),
-    );
-  },
-
   stationToResponse(dto: StationDto): StationResponseDto {
     return new StationResponseDto(
       dto.id,

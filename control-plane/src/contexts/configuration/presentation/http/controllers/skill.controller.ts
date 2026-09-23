@@ -23,7 +23,7 @@ export class SkillController {
   @Get('teams/:teamId/skills')
   @ApiOperation({
     operationId: 'listTeamSkills',
-    summary: 'The skills this team defines in its configuration repository',
+    summary: 'The skills this team defines',
   })
   @ApiParam({ name: 'teamId', example: 'team_1' })
   @ApiOkResponse({ type: TeamSkillsResponseDto })

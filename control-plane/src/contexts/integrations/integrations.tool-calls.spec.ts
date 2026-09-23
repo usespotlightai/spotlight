@@ -87,7 +87,7 @@ const using = (
   const tools = new IntegrationToolCalls(
     {
       of: vi.fn(async () => ({
-        files: [
+        integrations: [
           ConfigurationFile.of(
             '.spotlight/integrations/linear.yml',
             over.file ?? LINEAR,

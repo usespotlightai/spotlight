@@ -1,13 +1,6 @@
 import { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { Line } from '@work/domain/aggregates/line.aggregate';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@work/domain/services/built-in-lines';
+import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineConfigReader } from '@work/infrastructure/lines/line-config.reader';
-import { LineConfigWriter } from '@work/infrastructure/lines/line-config.writer';
 import { describe, expect, it } from 'vitest';
 
 const LINE = `version: 1
@@ -37,17 +30,6 @@ const folder = (key: string): ConfigurationFile[] => [
 
 const reading = (files: ConfigurationFile[]) =>
   new LineConfigReader().read(files);
-
-const line = () => {
-  let next = 0;
-
-  return Line.open({
-    workspaceId: WorkspaceId.of('ws_1'),
-    teamId: TeamId.of('team_1'),
-    line: BUILT_IN_LINES[0] as LineOpening,
-    newId: () => `id_${++next}`,
-  });
-};
 
 describe('LineConfigReader', () => {
   it('reads every line a workspace wrote, named for its folder', () => {
@@ -208,49 +190,9 @@ describe('LineConfigReader', () => {
     );
   });
 
-  describe('writing one back', () => {
-    it('takes away the station files the line no longer has, and nothing else', () => {
-      const written = new LineConfigWriter().write(line(), [
-        ConfigurationFile.of('.spotlight/lines/delivery/line.yml', 'x'),
-        ConfigurationFile.of(
-          '.spotlight/lines/delivery/stations/triage.md',
-          'x',
-        ),
-        ConfigurationFile.of('.spotlight/lines/delivery/stations/gone.md', 'x'),
-        ConfigurationFile.of(
-          '.spotlight/lines/delivery/stations/notes.txt',
-          'x',
-        ),
-        ConfigurationFile.of('.spotlight/lines/delivery/README.md', 'x'),
-        ConfigurationFile.of('.spotlight/lines/other/stations/gone.md', 'x'),
-      ]);
-
-      expect(written.removes).toEqual([
-        '.spotlight/lines/delivery/stations/gone.md',
-      ]);
-    });
-
-    it('takes nothing away where nothing stands yet', () => {
-      expect(new LineConfigWriter().write(line()).removes).toEqual([]);
-    });
-
-    it('writes it where that line is read from', () => {
-      expect(new LineConfigWriter().write(line()).files[0]?.path).toBe(
-        '.spotlight/lines/delivery/line.yml',
-      );
-    });
-
-    it('writes something it can read back itself', () => {
-      const reader = new LineConfigReader();
-
-      const read = reader.read([...new LineConfigWriter().write(line()).files]);
-
-      expect(read.problems).toEqual([]);
-      expect(read.plans[0]?.stations.map((each) => each.key.value)).toEqual(
-        [...line().stations]
-          .sort((one, other) => one.position - other.position)
-          .map((each) => each.key.value),
-      );
-    });
+  it('says a line is defined in the line.yml of its folder', () => {
+    expect(new LineConfigReader().definedAt(LineKey.of('delivery'))).toBe(
+      '.spotlight/lines/delivery/line.yml',
+    );
   });
 });

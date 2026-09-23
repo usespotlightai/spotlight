@@ -5,6 +5,5 @@ export interface TeamSkillDto {
 }
 
 export interface TeamSkillsDto {
-  readonly repository: string | null;
   readonly skills: readonly TeamSkillDto[];
 }

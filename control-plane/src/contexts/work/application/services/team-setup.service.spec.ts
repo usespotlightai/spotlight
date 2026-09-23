@@ -1,6 +1,5 @@
 import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
 import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
-import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { ConfigurationStatusPort } from '@work/application/ports/configuration-status.port';
@@ -19,7 +18,6 @@ type Given = {
   runner?: boolean;
   applied?: boolean;
   listening?: readonly string[];
-  configRepository?: string | null;
 };
 
 const read = (given: Given = {}) => {
@@ -29,13 +27,6 @@ const read = (given: Given = {}) => {
 
   const configurations = {
     isApplied: vi.fn().mockResolvedValue(given.applied ?? false),
-    keptIn: vi
-      .fn()
-      .mockResolvedValue(
-        given.configRepository
-          ? ({ value: given.configRepository } as Repository)
-          : null,
-      ),
   } satisfies ConfigurationStatusPort;
 
   const integrations = {
@@ -60,7 +51,6 @@ describe('TeamSetup', () => {
     await expect(read()).resolves.toEqual({
       hasRunner: false,
       connectedToGitHub: false,
-      configRepository: null,
       hasConfiguration: false,
       listening: [],
     });
@@ -73,12 +63,10 @@ describe('TeamSetup', () => {
         runner: true,
         applied: true,
         listening: ['linear'],
-        configRepository: 'acme/spotlight-config',
       }),
     ).resolves.toEqual({
       hasRunner: true,
       connectedToGitHub: true,
-      configRepository: 'acme/spotlight-config',
       hasConfiguration: true,
       listening: ['linear'],
     });
@@ -103,28 +91,25 @@ describe('asSetupState', () => {
       asSetupState({
         hasRunner: true,
         connectedToGitHub: true,
-        configRepository: 'acme/spotlight-config',
         hasConfiguration: true,
         listening: ['linear'],
       }),
     ).toEqual({
       hasRunner: true,
       connectedToGitHub: true,
-      hasRepository: true,
       hasConfiguration: true,
       listensToAnIntegration: true,
     });
   });
 
-  it('has neither where a team pinned nothing and listens to nothing', () => {
+  it('does not listen where a team listens to nothing', () => {
     expect(
       asSetupState({
         hasRunner: false,
         connectedToGitHub: false,
-        configRepository: null,
         hasConfiguration: false,
         listening: [],
       }),
-    ).toMatchObject({ hasRepository: false, listensToAnIntegration: false });
+    ).toMatchObject({ listensToAnIntegration: false });
   });
 });

@@ -4,7 +4,6 @@ import type {
 } from '@github/application/ports/webhook-translation.port';
 import { GitHubWebhooks } from '@github/application/services/github-webhooks.service';
 import { GitHubConnection } from '@github/domain/aggregates/github-connection.aggregate';
-import { DefaultBranchPushed } from '@github/domain/events/default-branch-pushed.event';
 import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
 import { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
 import type { GitHubConnectionRepository } from '@github/domain/repositories/github-connection.repository';
@@ -43,6 +42,14 @@ const MERGED: Heard = {
     remark: null,
     byBot: false,
   },
+};
+
+const CLOSED: Heard = {
+  kind: 'pull-request-closed',
+  pullRequest: 'https://github.com/acme/api/pull/7',
+  repository: 'acme/api',
+  merge: null,
+  closedAt: null,
 };
 
 const hooks = (
@@ -202,27 +209,6 @@ describe('GitHubWebhooks', () => {
       ]);
     });
 
-    it('says the default branch was pushed in the workspace', async () => {
-      const { service, events } = hooks({
-        installation: '42',
-        heard: [
-          {
-            kind: 'default-branch-pushed',
-            repository: 'acme/api',
-            paths: ['.spotlight/config.yml'],
-          },
-        ],
-      });
-
-      await service.receive(DELIVERY);
-
-      expect(events.dispatch).toHaveBeenCalledWith([
-        new DefaultBranchPushed(WORKSPACE, 'acme/api', [
-          '.spotlight/config.yml',
-        ]),
-      ]);
-    });
-
     it('says a pull request closed in the workspace', async () => {
       const closedAt = new Date('2026-09-21T09:30:00Z');
       const { service, events } = hooks({
@@ -255,13 +241,7 @@ describe('GitHubWebhooks', () => {
       const { service, events } = hooks(
         {
           installation: '42',
-          heard: [
-            {
-              kind: 'default-branch-pushed',
-              repository: 'acme/api',
-              paths: ['.spotlight/config.yml'],
-            },
-          ],
+          heard: [CLOSED],
         },
         { held: false },
       );
@@ -274,13 +254,7 @@ describe('GitHubWebhooks', () => {
     it('says nothing where the delivery came through no installation', async () => {
       const { service, events, connections } = hooks({
         installation: null,
-        heard: [
-          {
-            kind: 'default-branch-pushed',
-            repository: 'acme/api',
-            paths: ['.spotlight/config.yml'],
-          },
-        ],
+        heard: [CLOSED],
       });
 
       await service.receive(DELIVERY);
@@ -305,13 +279,7 @@ describe('GitHubWebhooks', () => {
       const { service, events, logger } = hooks(
         {
           installation: '42',
-          heard: [
-            {
-              kind: 'default-branch-pushed',
-              repository: 'acme/api',
-              paths: ['.spotlight/config.yml'],
-            },
-          ],
+          heard: [CLOSED],
         },
         {
           dispatch: async () => {

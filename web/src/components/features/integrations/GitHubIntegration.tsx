@@ -9,7 +9,6 @@ type GitHubIntegrationProps = {
   teamId: string;
   installUrl: string | null;
   connected: boolean;
-  repository: string | null;
 };
 
 export function GitHubIntegration({
@@ -17,7 +16,6 @@ export function GitHubIntegration({
   teamId,
   installUrl,
   connected,
-  repository,
 }: GitHubIntegrationProps) {
   const here = useLocation();
 
@@ -31,10 +29,8 @@ export function GitHubIntegration({
       : null;
 
   const summary = connected
-    ? repository
-      ? `Reads this team’s configuration from ${repository}.`
-      : 'Reads this team’s configuration.'
-    : 'Install the App to read this team’s configuration.';
+    ? 'Works in this team’s repositories.'
+    : 'Install the App so Spotlight can work in this team’s repositories.';
 
   return (
     <article className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">

@@ -19,7 +19,6 @@ import type {
 import { FakeIntegrationCursors } from '@integrations/integrations.cursors.fake-spec';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
-import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
@@ -66,12 +65,17 @@ const READS_A_SECRET = `    headers:
       authorization: '\${{ "Bearer " + secret.LINEAR_TOKEN }}'
 `;
 
-const config = (file: string) =>
-  ({
+const config = (file: string): Applied => {
+  const files = [
+    ConfigurationFile.of('.spotlight/integrations/linear.yml', file),
+  ];
+
+  return {
     teamId: TEAM,
-    repository: Repository.of('acme/api'),
-    files: [ConfigurationFile.of('.spotlight/integrations/linear.yml', file)],
-  }) as Applied;
+    integrations: files,
+    skills: [],
+  };
+};
 
 const REPLY: OutboundResult = {
   ok: true,

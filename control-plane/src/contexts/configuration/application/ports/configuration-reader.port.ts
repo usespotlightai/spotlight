@@ -10,13 +10,7 @@ interface ReadIntegrationView {
 }
 
 export interface ConfigurationView {
-  readonly keptIn: string | null;
-  readonly movingTo: string | null;
-  readonly read: {
-    readonly repository: string;
-    readonly sha: string;
-    readonly integrations: readonly ReadIntegrationView[];
-  } | null;
+  readonly integrations: readonly ReadIntegrationView[];
 }
 
 export interface ConfigurationReaderPort {

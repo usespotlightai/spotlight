@@ -9,7 +9,6 @@ import {
   SLUG,
   seedFreshSetup,
   seedGitHubInstalled,
-  seedRepositoryChosen,
   seedRunnersEnrolled,
   seedSetupDone,
   TEAM_ID,
@@ -71,13 +70,6 @@ export const Fresh: Story = {
   render: () => <Showing seed={seedFreshSetup} />,
 };
 
-export const EnrollingARunner: Story = {
-  render: () => <Showing seed={seedFreshSetup} />,
-  play: async ({ canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole('button', { name: 'Enrol one' }));
-  },
-};
-
 export const RunnersEnrolled: Story = {
   render: () => <Showing seed={seedRunnersEnrolled} />,
   play: async ({ canvas, userEvent }) => {
@@ -93,15 +85,6 @@ export const GitHubInstalled: Story = {
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(
       canvas.getByRole('button', { name: /Install the GitHub App/ }),
-    );
-  },
-};
-
-export const RepositoryChosen: Story = {
-  render: () => <Showing seed={seedRepositoryChosen} />,
-  play: async ({ canvas, userEvent }) => {
-    await userEvent.click(
-      canvas.getByRole('button', { name: /Choose a configuration repository/ }),
     );
   },
 };

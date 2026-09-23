@@ -11,10 +11,6 @@ const changeRole = vi.fn();
 const invite = vi.fn();
 const revoke = vi.fn();
 const rename = vi.fn();
-const configuration = vi.fn();
-const onboarding = vi.fn();
-const move = vi.fn();
-const moved = vi.fn();
 
 const settingsFailing = vi.fn();
 const membersFailing = vi.fn();
@@ -34,7 +30,7 @@ const query = (
 });
 
 vi.mock('@/hooks/api/useWorkspace', () => ({
-  useWorkspace: () => query(workspace()),
+  useWorkspace: () => query(workspace(), settingsFailing(), refetchSettings),
 }));
 
 vi.mock('@/hooks/api/useMembers', () => ({
@@ -73,32 +69,6 @@ vi.mock('@/hooks/api/useRenameTeam', () => ({
   useRenameTeam: () => ({ mutate: rename, isPending: false }),
 }));
 
-vi.mock('@/hooks/api/useConfiguration', () => ({
-  useConfiguration: () =>
-    query(configuration(), settingsFailing(), refetchSettings),
-}));
-
-vi.mock('@/hooks/api/useOnboarding', () => ({
-  useOnboarding: () => query(onboarding(), settingsFailing(), refetchSettings),
-}));
-
-vi.mock('@/hooks/api/useRepositories', () => ({
-  useRepositories: () => ({
-    data: [{ fullName: 'acme/api' }, { fullName: 'acme/config' }],
-  }),
-}));
-
-vi.mock('@/hooks/api/useMoveConfiguration', () => ({
-  useMoveConfiguration: () => ({
-    mutate: move,
-    reset: vi.fn(),
-    isPending: false,
-    isError: false,
-    error: null,
-    ...moved(),
-  }),
-}));
-
 const showing = () =>
   render(
     <MemoryRouter initialEntries={['/w/acme/team/team_1/settings/general']}>
@@ -110,9 +80,6 @@ const showing = () =>
       </Routes>
     </MemoryRouter>,
   );
-
-const moving = async () =>
-  userEvent.click(screen.getByRole('button', { name: 'Move configuration' }));
 
 const openRoleOf = async (name: string) => {
   await userEvent.click(
@@ -144,23 +111,12 @@ beforeEach(() => {
       mayBeSetTo: ['owner', 'admin', 'member'],
     },
   ]);
-  configuration.mockReturnValue({
-    repository: 'acme/config',
-    readsFrom: 'acme/config',
-    movingTo: null,
-  });
-  onboarding.mockReturnValue({
-    connectedToGitHub: true,
-    repositoryOwner: 'acme',
-  });
   invites.mockReturnValue([]);
-  moved.mockReturnValue({ isSuccess: false, data: undefined });
   settingsFailing.mockReturnValue(false);
   membersFailing.mockReturnValue(false);
   refetchSettings.mockClear();
   refetchMembers.mockClear();
   rename.mockReset();
-  move.mockReset();
   invite.mockReset();
   revoke.mockReset();
   changeRole.mockReset();
@@ -356,106 +312,25 @@ describe('TeamGeneral', () => {
     expect(revoke).toHaveBeenCalledWith('invite_1');
   });
 
-  it('shows the repository the team reads its configuration from', () => {
+  it('offers nothing to say where the team is configured', () => {
     showing();
-
-    expect(screen.getByText('acme/config')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Repository')).not.toBeInTheDocument();
-  });
-
-  it('says where the configuration is moving while that is under way', () => {
-    configuration.mockReturnValue({
-      repository: 'acme/config',
-      readsFrom: 'acme/config',
-      movingTo: 'acme/other',
-    });
-    showing();
-
-    expect(screen.getByText('acme/config')).toBeInTheDocument();
-    expect(
-      screen.getByText('Moving to acme/other once its pull request merges.'),
-    ).toBeInTheDocument();
-  });
-
-  it('moves the configuration to the repository named', async () => {
-    showing();
-
-    await moving();
-
-    await userEvent.type(screen.getByLabelText('Repository'), 'other');
-    await userEvent.click(screen.getByRole('button', { name: 'Move' }));
-
-    expect(move).toHaveBeenCalledWith('acme/other');
-  });
-
-  it('links the pull request that carries the configuration', async () => {
-    moved.mockReturnValue({
-      isSuccess: true,
-      data: {
-        kind: 'carried',
-        url: 'https://github.com/acme/other/pull/4',
-      },
-      variables: 'acme/other',
-    });
-    showing();
-
-    await moving();
 
     expect(
-      screen.getByRole('link', { name: 'View pull request' }),
-    ).toHaveAttribute('href', 'https://github.com/acme/other/pull/4');
-    expect(
-      screen.getByText(/The team reads from there once it merges\./),
-    ).toBeInTheDocument();
-  });
-
-  it('says a repository already holding configuration is read from now', async () => {
-    moved.mockReturnValue({
-      isSuccess: true,
-      data: { kind: 'adopted', url: null },
-      variables: 'acme/other',
-    });
-    showing();
-
-    await moving();
-
-    expect(
-      screen.getByText(
-        'acme/other already holds Spotlight configuration, so this team reads from it now. Nothing was written over it.',
-      ),
-    ).toBeInTheDocument();
-  });
-
-  it('asks to connect GitHub before a repository can be chosen', () => {
-    onboarding.mockReturnValue({
-      connectedToGitHub: false,
-      repositoryOwner: null,
-    });
-    showing();
-
+      screen.queryByText('Configuration repository'),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Move configuration' }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByText('Connect GitHub to choose one.'),
-    ).toBeInTheDocument();
   });
 
   it('holds the shape of the team while it loads, keeping what never changes', () => {
     workspace.mockReturnValue(undefined);
-    configuration.mockReturnValue(undefined);
-    onboarding.mockReturnValue(undefined);
     members.mockReturnValue(undefined);
     invites.mockReturnValue(undefined);
     showing();
 
     expect(
       screen.getByRole('status', { name: 'Loading the team name' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('status', {
-        name: 'Loading the configuration repository',
-      }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('status', { name: 'Loading the members' }),
@@ -477,7 +352,7 @@ describe('TeamGeneral', () => {
   });
 
   it('says the team’s settings could not be loaded, and tries again when asked', async () => {
-    configuration.mockReturnValue(undefined);
+    workspace.mockReturnValue(undefined);
     settingsFailing.mockReturnValue(true);
     showing();
 

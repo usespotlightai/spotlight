@@ -1,13 +1,14 @@
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
-import { linePath } from '@work/application/contracts/line-layout.contract';
 import type { RoleClaimedTwice } from '@work/domain/services/line-roles';
 import type { Stranded } from '@work/domain/services/reconcile-line';
-import type { LineKey } from '@work/domain/value-objects/line-key.vo';
 
 export const LineProblems = {
-  roleClaimedTwice(claim: RoleClaimedTwice): ConfigurationProblem {
+  roleClaimedTwice(
+    where: string,
+    claim: RoleClaimedTwice,
+  ): ConfigurationProblem {
     return ConfigurationProblem.of({
-      path: linePath(claim.line.value),
+      path: where,
       at: 'role',
       reason: `claims the role "${claim.role.value}", which ${claim.others
         .map((each) => each.value)
@@ -15,9 +16,9 @@ export const LineProblems = {
     });
   },
 
-  stranded(line: LineKey, stranded: readonly Stranded[]): ConfigurationProblem {
+  stranded(where: string, stranded: readonly Stranded[]): ConfigurationProblem {
     return ConfigurationProblem.of({
-      path: linePath(line.value),
+      path: where,
       at: 'stations',
       reason: `would remove ${stranded
         .map((each) => `${each.name} (${each.tasks} standing there)`)
@@ -25,17 +26,17 @@ export const LineProblems = {
     });
   },
 
-  nowhereToOpen(line: LineKey): ConfigurationProblem {
+  nowhereToOpen(where: string): ConfigurationProblem {
     return ConfigurationProblem.of({
-      path: linePath(line.value),
+      path: where,
       at: 'key',
       reason: 'describes a line this workspace has nowhere to open',
     });
   },
 
-  unapplied(line: LineKey, error: unknown): ConfigurationProblem {
+  unapplied(where: string, error: unknown): ConfigurationProblem {
     return ConfigurationProblem.of({
-      path: linePath(line.value),
+      path: where,
       at: 'stations',
       reason: error instanceof Error ? error.message : String(error),
     });

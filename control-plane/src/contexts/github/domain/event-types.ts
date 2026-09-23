@@ -1,4 +1,3 @@
-import { DefaultBranchPushed } from '@github/domain/events/default-branch-pushed.event';
 import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
 import { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
 import { WorkspaceConnected } from '@github/domain/events/workspace-connected.event';
@@ -10,6 +9,5 @@ export const GITHUB_EVENT_TYPES = [
   WorkspaceConnected,
   WorkspaceDisconnected,
   ReviewCommentReceived,
-  DefaultBranchPushed,
   PullRequestClosed,
 ] as const;

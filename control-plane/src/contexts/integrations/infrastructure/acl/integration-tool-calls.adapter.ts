@@ -1,4 +1,3 @@
-import { integrationFilesIn } from '@configuration/application/contracts/configuration-layout.contract';
 import type { AppliedConfigurationPort } from '@configuration/application/ports/applied-configuration.port';
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
 import type { HostReach } from '@integrations/application/services/host-reach.service';
@@ -25,7 +24,7 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
     const applied = await this.configurations.of(teamId);
     const reachable = applied
       ? this.runtime.tool(
-          integrationFilesIn(applied.files),
+          applied.integrations,
           tool,
           BoundTaskMapper.toBound(task),
         )

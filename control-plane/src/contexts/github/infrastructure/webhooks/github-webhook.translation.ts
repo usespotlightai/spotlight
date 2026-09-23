@@ -28,16 +28,9 @@ interface Payload {
     readonly pull_requests?: readonly { readonly html_url?: unknown }[];
   };
   readonly sender?: { readonly type?: unknown };
-  readonly ref?: unknown;
   readonly repository?: {
     readonly full_name?: unknown;
-    readonly default_branch?: unknown;
   };
-  readonly commits?: readonly {
-    readonly added?: readonly unknown[];
-    readonly removed?: readonly unknown[];
-    readonly modified?: readonly unknown[];
-  }[];
 }
 
 interface Described {
@@ -248,31 +241,6 @@ const reviewComment = (payload: Payload): Heard[] => {
   ];
 };
 
-const defaultBranchPushed = (payload: Payload): Heard[] => {
-  const repository = text(payload.repository?.full_name);
-  const branch = text(payload.repository?.default_branch);
-
-  if (!repository || !branch || payload.ref !== `refs/heads/${branch}`) {
-    return [];
-  }
-
-  const paths = [
-    ...new Set(
-      (payload.commits ?? []).flatMap((commit) =>
-        [
-          ...(commit.added ?? []),
-          ...(commit.removed ?? []),
-          ...(commit.modified ?? []),
-        ].filter((path): path is string => typeof path === 'string'),
-      ),
-    ),
-  ];
-
-  return paths.length > 0
-    ? [{ kind: 'default-branch-pushed', repository, paths }]
-    : [];
-};
-
 const COMMIT = /^[0-9a-f]{40}$/i;
 
 const pullRequestClosed = (payload: Payload): Heard[] => {
@@ -306,10 +274,6 @@ const heardIn = (event: string | undefined, payload: Payload): Heard[] => {
     return payload.action === 'deleted'
       ? [{ kind: 'installation-removed' }]
       : [];
-  }
-
-  if (event === 'push') {
-    return defaultBranchPushed(payload);
   }
 
   return [

@@ -1,9 +1,7 @@
 import { Check, ChevronDown } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
-import { Link, useLocation, useParams } from 'react-router';
-import { ChooseRepository } from '@/components/features/onboarding/ChooseRepository';
-import { EnrolRunners } from '@/components/features/onboarding/EnrolRunners';
-import { SetUpLines } from '@/components/features/onboarding/SetUpLines';
+import { Link, useParams } from 'react-router';
+import { InstallGitHubLink } from '@/components/features/onboarding/InstallGitHubLink';
 import {
   SetupAbout,
   type SetupAboutProps,
@@ -13,7 +11,6 @@ import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { buttonVariants } from '@/components/ui/button';
 import { useOnboarding } from '@/hooks/api/useOnboarding';
 import type { SetupStepResponseDto } from '@/lib/api/types.gen';
-import { installUrlFor } from '@/lib/github';
 import { failed, loading } from '@/lib/query';
 import { cn } from '@/lib/utils';
 
@@ -123,7 +120,6 @@ function Step({ step, action, disabled }: StepProps) {
 
 export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
   const { slug } = useParams();
-  const here = useLocation();
   const query = useOnboarding(teamId);
   const onboarding = query.data;
 
@@ -157,60 +153,9 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
   }
 
   const goAndDoIt = (step: SetupStepResponseDto): ReactNode => {
-    if (step.key === 'runner') {
-      return <EnrolRunners slug={slug} controlClassName={CONTROL} />;
-    }
-
     if (step.key === 'github') {
-      const installed = onboarding.connectedToGitHub;
-
       return (
-        onboarding.installUrl && (
-          <a
-            href={installUrlFor(onboarding.installUrl, {
-              slug,
-              teamId,
-              from: `${here.pathname}${here.search}`,
-            })}
-            className={cn(
-              installed
-                ? buttonVariants({ variant: 'outline', size: 'sm' })
-                : buttonVariants({ size: 'sm' }),
-              CONTROL,
-              installed && 'bg-card',
-            )}
-          >
-            {installed ? 'Configure on GitHub' : 'Install on GitHub'}
-          </a>
-        )
-      );
-    }
-
-    if (step.key === 'repository') {
-      return (
-        onboarding.connectedToGitHub && (
-          <ChooseRepository
-            slug={slug}
-            teamId={teamId}
-            owner={onboarding.repositoryOwner}
-            chosen={onboarding.configRepository}
-            controlClassName={CONTROL}
-          />
-        )
-      );
-    }
-
-    if (step.key === 'configuration') {
-      return (
-        onboarding.configRepository && (
-          <SetUpLines
-            slug={slug}
-            teamId={teamId}
-            lines={onboarding.lines}
-            configRepository={onboarding.configRepository}
-            controlClassName={CONTROL}
-          />
-        )
+        <InstallGitHubLink slug={slug} teamId={teamId} className={CONTROL} />
       );
     }
 

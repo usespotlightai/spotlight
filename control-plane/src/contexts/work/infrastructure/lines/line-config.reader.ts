@@ -1,13 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import type { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
-import { LINES_UNDER } from '@work/application/contracts/line-layout.contract';
 import type {
   LineConfigReaderPort,
   ReadLines,
 } from '@work/application/ports/line-config-reader.port';
+import type { LineKey } from '@work/domain/value-objects/line-key.vo';
 import type { LinePlan } from '@work/domain/value-objects/line-plan.vo';
 import { compileLine } from '@work/infrastructure/lines/line.compile';
+import { LINES_UNDER, linePath } from '@work/infrastructure/lines/line-files';
 
 const loose = (file: ConfigurationFile): ConfigurationProblem =>
   ConfigurationProblem.of({
@@ -19,6 +20,10 @@ const loose = (file: ConfigurationFile): ConfigurationProblem =>
 
 @Injectable()
 export class LineConfigReader implements LineConfigReaderPort {
+  definedAt(line: LineKey): string {
+    return linePath(line.value);
+  }
+
   read(files: readonly ConfigurationFile[]): ReadLines {
     const folders = new Map<string, ConfigurationFile[]>();
     const problems: ConfigurationProblem[] = [];

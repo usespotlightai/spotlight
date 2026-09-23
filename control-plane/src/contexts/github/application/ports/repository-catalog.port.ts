@@ -1,4 +1,3 @@
-import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface RepositorySummary {
@@ -9,6 +8,4 @@ export const REPOSITORY_CATALOG = Symbol('REPOSITORY_CATALOG');
 
 export interface RepositoryCatalogPort {
   list(workspaceId: WorkspaceId): Promise<RepositorySummary[]>;
-
-  create(workspaceId: WorkspaceId, repository: Repository): Promise<boolean>;
 }

@@ -1,4 +1,3 @@
-import { integrationFilesIn } from '@configuration/application/contracts/configuration-layout.contract';
 import type { AppliedConfigurationPort } from '@configuration/application/ports/applied-configuration.port';
 import type { IntegrationCursorsPort } from '@integrations/application/ports/integration-cursors.port';
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
@@ -24,7 +23,7 @@ export class RunSchedules {
     const now = this.clock.now();
 
     for (const applied of await this.configurations.everywhere()) {
-      const files = integrationFilesIn(applied.files);
+      const files = applied.integrations;
 
       for (const integration of this.runtime.integrations(files)) {
         if (integration.schedule) {

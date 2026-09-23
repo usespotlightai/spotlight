@@ -8,7 +8,6 @@ import type {
 } from '@github/application/ports/repository-catalog.port';
 import { Inject, Injectable } from '@nestjs/common';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
-import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const API = 'https://api.github.com';
@@ -46,31 +45,6 @@ export class GitHubRepositoryCatalog implements RepositoryCatalogPort {
     return found.sort((one, other) =>
       one.fullName.localeCompare(other.fullName),
     );
-  }
-
-  async create(
-    workspaceId: WorkspaceId,
-    repository: Repository,
-  ): Promise<boolean> {
-    const { password: token } = await this.access.credential(workspaceId);
-
-    const response = await fetch(`${API}/orgs/${repository.owner}/repos`, {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${token}`,
-        accept: 'application/vnd.github+json',
-        'x-github-api-version': '2022-11-28',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        name: repository.name,
-        private: true,
-        auto_init: true,
-        description: 'Spotlight configuration',
-      }),
-    }).catch(() => null);
-
-    return response?.ok === true;
   }
 
   private async page(

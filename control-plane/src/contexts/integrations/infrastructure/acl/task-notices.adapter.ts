@@ -1,4 +1,3 @@
-import { integrationFilesIn } from '@configuration/application/contracts/configuration-layout.contract';
 import type { AppliedConfigurationPort } from '@configuration/application/ports/applied-configuration.port';
 import type { InboxLinksPort } from '@integrations/application/ports/inbox-links.port';
 import type {
@@ -45,7 +44,7 @@ export class TaskNotices implements TaskNoticesPort {
       return [];
     }
 
-    const files = integrationFilesIn(applied.files);
+    const files = applied.integrations;
     const posting = this.runtime
       .integrations(files)
       .filter((each) => each.postsOn(event));

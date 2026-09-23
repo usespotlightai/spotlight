@@ -1,4 +1,3 @@
-import { integrationFilesIn } from '@configuration/application/contracts/configuration-layout.contract';
 import type { AppliedConfigurationPort } from '@configuration/application/ports/applied-configuration.port';
 import type {
   ConfiguredSourcesPort,
@@ -33,7 +32,7 @@ export class ConfiguredSources implements ConfiguredSourcesPort {
 
     const built: WebhookSourcePort[] = [];
 
-    const mine = integrationFilesIn(applied.files);
+    const mine = applied.integrations;
 
     for (const readable of this.reader.readable(mine).integrations) {
       built.push(
