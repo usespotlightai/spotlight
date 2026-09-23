@@ -1,4 +1,5 @@
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
+import { SecretsNotHeldError } from '@integrations/domain/exceptions/secrets-not-held.error';
 import type { Binding } from '@integrations/domain/value-objects/binding.vo';
 import type { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
@@ -129,6 +130,16 @@ export class Integration {
 
   offered(tool: string): OfferedTool | null {
     return this.offers.find((each) => each.tool === tool) ?? null;
+  }
+
+  assertReachableWith(held: readonly SecretName[]): void {
+    const missing = this.credentials.filter(
+      (needed) => !held.some((each) => each.equals(needed)),
+    );
+
+    if (missing.length > 0) {
+      throw new SecretsNotHeldError(this.source.value, missing);
+    }
   }
 
   equals(other: Integration): boolean {

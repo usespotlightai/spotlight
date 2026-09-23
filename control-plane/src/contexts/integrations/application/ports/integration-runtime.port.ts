@@ -33,7 +33,6 @@ export interface BoundTask {
 export const INTEGRATION_RUNTIME = Symbol('INTEGRATION_RUNTIME');
 
 export interface Reach {
-  readonly secret: Readonly<Record<string, string>>;
   readonly connection: AccessToken | null;
 }
 

@@ -1,10 +1,9 @@
 import { compileIntegration } from '@integrations/infrastructure/integrations/integration.compile';
-import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { KnownIntegrations } from '@integrations/infrastructure/integrations/known-integrations';
 import { describe, expect, it } from 'vitest';
 
 describe('the starter files Spotlight writes', () => {
-  const tools = new KnownIntegrations(new IntegrationReader());
+  const tools = new KnownIntegrations();
 
   for (const tool of tools.all()) {
     it(`compiles the one for ${tool.source} with nothing wrong`, () => {

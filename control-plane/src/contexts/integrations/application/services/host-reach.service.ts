@@ -1,4 +1,4 @@
-import type { TeamSecretsPort } from '@configuration/application/ports/team-secrets.port';
+import type { HeldSecretsPort } from '@configuration/application/ports/held-secrets.port';
 import type { Reach } from '@integrations/application/ports/integration-runtime.port';
 import type { Integration } from '@integrations/domain/entities/integration.entity';
 import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
@@ -6,21 +6,17 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class HostReach {
   constructor(
-    private readonly secrets: TeamSecretsPort,
+    private readonly secrets: HeldSecretsPort,
     private readonly connections: HostConnectionRepository,
   ) {}
 
-  async of(
-    teamId: TeamId,
-    integration: Pick<Integration, 'source' | 'credentials' | 'connects'>,
-  ): Promise<Reach> {
-    const [secret, connection] = await Promise.all([
-      this.secrets.resolveAll(teamId, integration.credentials),
-      integration.connects
-        ? this.connections.of(teamId, integration.source)
-        : Promise.resolve(null),
-    ]);
+  async of(teamId: TeamId, integration: Integration): Promise<Reach> {
+    integration.assertReachableWith(await this.secrets.held(teamId));
 
-    return { secret, connection: connection?.accessToken ?? null };
+    const connection = integration.connects
+      ? await this.connections.of(teamId, integration.source)
+      : null;
+
+    return { connection: connection?.accessToken ?? null };
   }
 }

@@ -8,7 +8,6 @@ import type {
 } from '@configuration/application/services/configuration-target.service';
 import {
   type ConfigurationChange,
-  type ProposalTarget,
   ProposeConfigurationChange,
 } from '@configuration/application/services/propose-configuration-change.service';
 import type {
@@ -73,33 +72,19 @@ const configurationChange = (
   viewerId: 'user_1',
   title: 'Listen to Sentry',
   body: 'Sentry, written down.',
-  written: async () => ({
-    files: [ConfigurationFile.of('.spotlight/integrations/sentry.yml', 'x')],
-  }),
+  files: [ConfigurationFile.of('.spotlight/integrations/sentry.yml', 'x')],
+  removes: [],
   ...over,
 });
 
 describe('ProposeConfigurationChange', () => {
   it('writes what the change writes, where the team keeps its configuration', async () => {
     const { service, written } = proposing();
-    let targeted: ProposalTarget | undefined;
 
-    await expect(
-      service.propose(
-        configurationChange({
-          written: async (target) => {
-            targeted = target;
-            return {
-              files: [
-                ConfigurationFile.of('.spotlight/integrations/sentry.yml', 'x'),
-              ],
-            };
-          },
-        }),
-      ),
-    ).resolves.toEqual({ url: 'https://github.com/acme/api/pull/9' });
+    await expect(service.propose(configurationChange())).resolves.toEqual({
+      url: 'https://github.com/acme/api/pull/9',
+    });
 
-    expect(targeted).toEqual({ team: TEAM, into: INTO });
     expect(written).toEqual([
       {
         into: INTO,
@@ -109,6 +94,7 @@ describe('ProposeConfigurationChange', () => {
           files: [
             ConfigurationFile.of('.spotlight/integrations/sentry.yml', 'x'),
           ],
+          removes: [],
         },
       },
     ]);
@@ -119,10 +105,8 @@ describe('ProposeConfigurationChange', () => {
 
     await service.propose(
       configurationChange({
-        written: async () => ({
-          files: [],
-          removes: ['.spotlight/integrations/linear.yml'],
-        }),
+        files: [],
+        removes: ['.spotlight/integrations/linear.yml'],
       }),
     );
 
@@ -135,9 +119,7 @@ describe('ProposeConfigurationChange', () => {
     const { service, written } = proposing();
 
     await expect(
-      service.propose(
-        configurationChange({ written: async () => ({ files: [] }) }),
-      ),
+      service.propose(configurationChange({ files: [] })),
     ).resolves.toBeNull();
     expect(written).toEqual([]);
   });

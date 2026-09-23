@@ -1,5 +1,5 @@
+import type { HeldSecretsPort } from '@configuration/application/ports/held-secrets.port';
 import type { SkillReaderPort } from '@configuration/application/ports/skill-reader.port';
-import type { TeamSecretsPort } from '@configuration/application/ports/team-secrets.port';
 import type { TeamConfigurationRepository } from '@configuration/domain/repositories/team-configuration.repository';
 import { ReadySkillMapper } from '@configuration/infrastructure/acl/ready-skill.mapper';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -10,7 +10,7 @@ export class TeamSkills implements TeamSkillsPort {
   constructor(
     private readonly configurations: TeamConfigurationRepository,
     private readonly reader: SkillReaderPort,
-    private readonly secrets: TeamSecretsPort,
+    private readonly secrets: HeldSecretsPort,
   ) {}
 
   async readyFor(
@@ -27,15 +27,15 @@ export class TeamSkills implements TeamSkillsPort {
       return [];
     }
 
-    const found = this.reader
-      .read(applied.files)
-      .skills.filter((folder) => named.includes(folder.skill.key.value));
-    const held = found.some((folder) => folder.skill.secrets.length > 0)
-      ? await this.secrets.held(teamId)
-      : [];
+    const held = await this.secrets.held(teamId);
 
-    return found
-      .filter((folder) => folder.skill.isReadyWith(held))
+    return this.reader
+      .read(applied.files)
+      .skills.filter(
+        (folder) =>
+          named.includes(folder.skill.key.value) &&
+          folder.skill.isReadyWith(held),
+      )
       .map(ReadySkillMapper.toReady);
   }
 }

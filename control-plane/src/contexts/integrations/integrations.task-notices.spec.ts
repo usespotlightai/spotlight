@@ -1,5 +1,5 @@
 import type { AppliedConfigurationPort } from '@configuration/application/ports/applied-configuration.port';
-import type { TeamSecretsPort } from '@configuration/application/ports/team-secrets.port';
+import type { HeldSecretsPort } from '@configuration/application/ports/held-secrets.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { HostReach } from '@integrations/application/services/host-reach.service';
 import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
@@ -31,32 +31,15 @@ const runtimeWith = (
 
 const _NOW = new Date('2026-09-07T10:00:00.000Z');
 
-const SLACK = `
+const slack = (headers = '') => `
 version: 1
 integration: slack
-webhook:
-  verify:
-    hmac:
-      algorithm: sha256
-      secret: secret.SLACK_SIGNING_SECRET
-      header: x-slack-signature
-  events:
-    - when: '\${{ body.event.type == "app_mention" }}'
-      raise:
-        happening: slack.app_mention
-        label: Mentioned
-        told: Mentioned.
-        marks:
-          - kind: slack.thread
-            value: '\${{ body.event.ts }}'
 actions:
   post-message:
     request:
       method: POST
       url: https://slack.com/api/chat.postMessage
-      headers:
-        authorization: '\${{ "Bearer " + secret.SLACK_BOT_TOKEN }}'
-      body: '\${{ {"channel": target.channel, "thread_ts": target.thread, "text": ask.body} }}'
+${headers}      body: '\${{ {"channel": target.channel, "thread_ts": target.thread, "text": ask.body} }}'
       expect:
         success: '\${{ response.ok }}'
       capture:
@@ -65,9 +48,7 @@ actions:
     request:
       method: POST
       url: https://slack.com/api/chat.postMessage
-      headers:
-        authorization: '\${{ "Bearer " + secret.SLACK_BOT_TOKEN }}'
-      body: '\${{ {"channel": target.channel, "thread_ts": target.thread, "text": dyn("On it.")} }}'
+${headers}      body: '\${{ {"channel": target.channel, "thread_ts": target.thread, "text": dyn("On it.")} }}'
       expect:
         success: '\${{ response.ok }}'
 on:
@@ -88,6 +69,10 @@ on:
     mark:
       - kind: slack.thread
         value: '\${{ capture.thread }}'
+`;
+
+const READS_A_SECRET = `      headers:
+        authorization: '\${{ "Bearer " + secret.SLACK_BOT_TOKEN }}'
 `;
 
 const asked = (
@@ -115,6 +100,7 @@ const notifying = (
     response: { ok: true, ts: '170.9' },
     capture: { thread: '170.9' },
   },
+  file = slack(),
 ) => {
   const run = vi.fn(
     async (_action: unknown, _against: Record<string, unknown>) => reply,
@@ -124,24 +110,14 @@ const notifying = (
     {
       of: vi.fn(async () => ({
         files: [
-          ConfigurationFile.of('.spotlight/integrations/slack.yml', SLACK),
+          ConfigurationFile.of('.spotlight/integrations/slack.yml', file),
         ],
       })),
     } as unknown as AppliedConfigurationPort,
     runtimeWith({ run } as unknown as HttpOutbound),
-    new HostReach(
-      {
-        resolveAll: vi.fn(
-          async (_team: unknown, names: readonly { value: string }[]) =>
-            Object.fromEntries(
-              names
-                .filter((name) => name.value === 'SLACK_BOT_TOKEN')
-                .map((name) => [name.value, 'xoxb-1']),
-            ),
-        ),
-      } as unknown as TeamSecretsPort,
-      { of: async () => null } as unknown as HostConnectionRepository,
-    ),
+    new HostReach({ held: async () => [] } satisfies HeldSecretsPort, {
+      of: async () => null,
+    } as unknown as HostConnectionRepository),
     new WebInboxLinks(
       { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,
       'https://app.example',
@@ -213,6 +189,13 @@ describe('TaskNotices', () => {
     });
 
     expect(await notifier.notify(asked(), 'task.asked')).toEqual([]);
+  });
+
+  it('posts nothing, and keeps nothing, for a host whose file reads a secret', async () => {
+    const { notifier, run } = notifying(undefined, slack(READS_A_SECRET));
+
+    expect(await notifier.notify(asked(), 'task.asked')).toEqual([]);
+    expect(run).not.toHaveBeenCalled();
   });
 
   it('runs the binding for the event it is given', async () => {

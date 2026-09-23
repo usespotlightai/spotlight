@@ -4,7 +4,6 @@ import {
   compileIntegration,
   type RequestIR,
 } from '@integrations/infrastructure/integrations/integration.compile';
-import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { KnownIntegrations } from '@integrations/infrastructure/integrations/known-integrations';
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
@@ -350,9 +349,7 @@ actions:
   });
 
   it('sends the Slack starter’s acknowledgement and pull request as Slack reads them', async () => {
-    const slack = new KnownIntegrations(new IntegrationReader()).fileFor(
-      'slack',
-    ) as string;
+    const slack = new KnownIntegrations().fileFor('slack') as string;
     const fetch = replying({ ok: true });
     const out = new HttpOutbound(['slack.com'], fetch);
 

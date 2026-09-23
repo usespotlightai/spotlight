@@ -64,9 +64,9 @@ export class DrizzleHostConnections implements HostConnectionRepository {
 
   private async stored(connection: HostConnection): Promise<void> {
     const written = {
-      accessToken: this.cipher.seal(connection.accessToken.value),
+      accessToken: this.cipher.encrypt(connection.accessToken.value),
       refreshToken: connection.refreshToken
-        ? this.cipher.seal(connection.refreshToken.value)
+        ? this.cipher.encrypt(connection.refreshToken.value)
         : null,
       expiresAt: connection.expiresAt,
       scopes: connection.scopes.join(' '),
@@ -111,9 +111,9 @@ export class DrizzleHostConnections implements HostConnectionRepository {
     return HostConnection.rehydrate({
       teamId: TeamId.of(row.teamId),
       source: SourceKey.of(row.source),
-      accessToken: AccessToken.of(this.cipher.open(row.accessToken)),
+      accessToken: AccessToken.of(this.cipher.decrypt(row.accessToken)),
       refreshToken: row.refreshToken
-        ? AccessToken.of(this.cipher.open(row.refreshToken))
+        ? AccessToken.of(this.cipher.decrypt(row.refreshToken))
         : null,
       expiresAt: row.expiresAt,
       scopes: row.scopes ? row.scopes.split(' ') : [],

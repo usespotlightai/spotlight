@@ -40,28 +40,10 @@ vi.mock('@/hooks/api/useConnectIntegration', () => ({
   useConnectIntegration: () => ({ mutate: connect, isPending: false }),
 }));
 
-vi.mock('@/components/features/integrations/SecretsPrompt', () => ({
-  SecretsPrompt: ({
-    integrations,
-    onSubmit,
-  }: {
-    integrations: { source: string }[];
-    onSubmit: (secrets: Record<string, string>) => void;
-  }) => (
-    <button
-      type="button"
-      onClick={() => onSubmit({ LINEAR_WEBHOOK_SECRET: 'whsec_1' })}
-    >
-      Give secrets for {integrations.map((each) => each.source).join(', ')}
-    </button>
-  ),
-}));
-
 const tool = (over: Record<string, unknown> = {}) => ({
   source: 'linear',
   name: 'Linear',
   summary: 'Move a task on when its issue is done.',
-  secrets: [],
   deliverTo: '/api/webhooks/w/acme/t/platform/linear',
   ...over,
 });
@@ -213,37 +195,6 @@ describe('TeamIntegrations', () => {
     expect(
       screen.getByRole('button', { name: 'Stop listening to Linear' }),
     ).toHaveAttribute('aria-pressed', 'true');
-  });
-
-  it('asks for the secrets a chosen integration reads before opening the pull request', async () => {
-    choose.mockClear();
-    onboarding.mockReturnValue(
-      ready({ integrations: [tool({ secrets: ['LINEAR_WEBHOOK_SECRET'] })] }),
-    );
-    configuration.mockReturnValue(read());
-    showing();
-
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Listen to Linear' }),
-    );
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Open pull request' }),
-    );
-
-    expect(choose).not.toHaveBeenCalled();
-
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Give secrets for linear' }),
-    );
-
-    expect(choose).toHaveBeenCalledWith(
-      {
-        sources: ['linear'],
-        dropped: [],
-        secrets: { LINEAR_WEBHOOK_SECRET: 'whsec_1' },
-      },
-      expect.anything(),
-    );
   });
 
   it('says why the pull request could not be opened', () => {

@@ -2,7 +2,6 @@ import type {
   Applied,
   AppliedConfigurationPort,
 } from '@configuration/application/ports/applied-configuration.port';
-import type { TeamSecretsPort } from '@configuration/application/ports/team-secrets.port';
 import { ConfiguredSources } from '@integrations/infrastructure/integrations/configured.sources';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
@@ -40,22 +39,8 @@ webhook:
             value: \${{ body.data.identifier }}
 `;
 
-const holding = (
-  files: ConfigurationFile[] | null,
-  secrets: Record<string, string> = {},
-) => {
-  const resolveAll = vi.fn(
-    async (_teamId: unknown, names: readonly { value: string }[]) =>
-      Object.fromEntries(
-        names.flatMap((name) => {
-          const value = secrets[name.value];
-          return value ? [[name.value, value]] : [];
-        }),
-      ),
-  );
-
+const holding = (files: ConfigurationFile[] | null) => {
   return {
-    resolveAll,
     sources: new ConfiguredSources(
       {
         of: vi.fn(async () =>
@@ -69,7 +54,6 @@ const holding = (
         ),
         save: vi.fn(),
       } as unknown as AppliedConfigurationPort,
-      { resolveAll } as unknown as TeamSecretsPort,
       new IntegrationReader(),
       { keys: async () => new Map() },
       new HttpOutbound([]),
@@ -99,20 +83,7 @@ describe('ConfiguredSources', () => {
     expect(await sources.find(TEAM, 'sentry')).toBeNull();
   });
 
-  it('hands each one the secret the file names', async () => {
-    const { sources, resolveAll } = holding(
-      [at('.spotlight/integrations/linear.yml', linear())],
-      { LINEAR_WEBHOOK_SECRET: 'whsec_1' },
-    );
-
-    await sources.all(TEAM);
-
-    expect(resolveAll).toHaveBeenCalledWith(TEAM.teamId, [
-      expect.objectContaining({ value: 'LINEAR_WEBHOOK_SECRET' }),
-    ]);
-  });
-
-  it('builds one that verifies nothing where no secret is set', async () => {
+  it('builds one that verifies nothing, since no secret is held', async () => {
     const { sources } = holding([
       at('.spotlight/integrations/linear.yml', linear()),
     ]);

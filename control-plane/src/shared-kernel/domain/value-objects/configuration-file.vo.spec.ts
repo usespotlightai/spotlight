@@ -31,7 +31,7 @@ describe('ConfigurationFile', () => {
   it('refuses a path that is not within the repository', () => {
     for (const path of [
       '/etc/passwd',
-      '../secrets.vault',
+      '../secrets.yml',
       '.spotlight/../../x',
     ]) {
       expect(() => ConfigurationFile.of(path, '')).toThrow(

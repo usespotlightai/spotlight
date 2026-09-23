@@ -15,14 +15,6 @@ export class KnownIntegrationResponseDto {
   readonly summary: string;
 
   @ApiProperty({
-    description: 'The secrets its starting file reads, by name',
-    example: ['LINEAR_WEBHOOK_SECRET'],
-    isArray: true,
-    type: String,
-  })
-  readonly secrets: readonly string[];
-
-  @ApiProperty({
     description: 'Where this integration should be told to send its deliveries',
     example:
       'https://hooks.usespotlight.ai/api/webhooks/w/acme/t/platform/linear',
@@ -33,13 +25,11 @@ export class KnownIntegrationResponseDto {
     source: string,
     name: string,
     summary: string,
-    secrets: readonly string[],
     deliverTo: string,
   ) {
     this.source = source;
     this.name = name;
     this.summary = summary;
-    this.secrets = secrets;
     this.deliverTo = deliverTo;
   }
 }

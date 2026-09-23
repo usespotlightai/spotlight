@@ -92,7 +92,6 @@ export class OnboardingController {
             each.source,
             each.name,
             each.summary,
-            each.secrets,
             each.deliverTo,
           ),
       ),

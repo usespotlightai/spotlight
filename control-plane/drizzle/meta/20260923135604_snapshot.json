@@ -1,5 +1,5 @@
 {
-  "id": "0ff16a04-ed5e-4084-a1fd-cbe2b5df01fb",
+  "id": "670985ab-22f1-4a02-a587-c31b1019e5af",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -1390,38 +1390,6 @@
         },
         "read_at": {
           "name": "read_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.team_vault_key": {
-      "name": "team_vault_key",
-      "schema": "",
-      "columns": {
-        "team_id": {
-          "name": "team_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "sealed_key": {
-          "name": "sealed_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": true,

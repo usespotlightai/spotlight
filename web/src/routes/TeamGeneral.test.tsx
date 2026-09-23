@@ -15,23 +15,6 @@ const configuration = vi.fn();
 const onboarding = vi.fn();
 const move = vi.fn();
 const moved = vi.fn();
-const revealed = vi.fn();
-
-vi.mock('@/hooks/api/useRevealVaultKey', async () => {
-  const { useState } = await import('react');
-
-  return {
-    useRevealVaultKey: () => {
-      const [asked, setAsked] = useState(false);
-
-      return {
-        ...(asked ? revealed() : { data: undefined, isError: false }),
-        isPending: false,
-        mutate: () => setAsked(true),
-      };
-    },
-  };
-});
 
 const settingsFailing = vi.fn();
 const membersFailing = vi.fn();
@@ -172,7 +155,6 @@ beforeEach(() => {
   });
   invites.mockReturnValue([]);
   moved.mockReturnValue({ isSuccess: false, data: undefined });
-  revealed.mockReturnValue({ data: { key: 'the-vault-key' }, isError: false });
   settingsFailing.mockReturnValue(false);
   membersFailing.mockReturnValue(false);
   refetchSettings.mockClear();
@@ -459,44 +441,6 @@ describe('TeamGeneral', () => {
     ).toBeInTheDocument();
   });
 
-  it('keeps the vault key hidden until it is revealed', async () => {
-    showing();
-
-    expect(screen.queryByText('the-vault-key')).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Reveal' }));
-
-    expect(await screen.findByText('the-vault-key')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Copy the vault key' }),
-    ).toBeInTheDocument();
-  });
-
-  it('tells somebody who is no owner or admin the vault key is not theirs to see', async () => {
-    revealed.mockReturnValue({ data: null, isError: false });
-    showing();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Reveal' }));
-
-    expect(
-      screen.getByText('Only owners and admins can see the vault key.'),
-    ).toBeInTheDocument();
-  });
-
-  it('says the vault key could not be loaded when revealing it fails otherwise', async () => {
-    revealed.mockReturnValue({ data: undefined, isError: true });
-    showing();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Reveal' }));
-
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'The vault key could not be loaded.',
-    );
-    expect(
-      screen.queryByText('Only owners and admins can see the vault key.'),
-    ).not.toBeInTheDocument();
-  });
-
   it('holds the shape of the team while it loads, keeping what never changes', () => {
     workspace.mockReturnValue(undefined);
     configuration.mockReturnValue(undefined);
@@ -517,7 +461,6 @@ describe('TeamGeneral', () => {
       screen.getByRole('status', { name: 'Loading the members' }),
     ).toBeInTheDocument();
     expect(screen.getByText('Team name')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Reveal' })).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Add a member' }),
     ).toBeInTheDocument();
