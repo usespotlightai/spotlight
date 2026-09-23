@@ -1,7 +1,4 @@
-import type {
-  Applied,
-  AppliedConfigurationPort,
-} from '@configuration/application/ports/applied-configuration.port';
+import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import { RefreshConnections } from '@integrations/application/services/refresh-connections.service';
 import { HostConnection } from '@integrations/domain/aggregates/host-connection.aggregate';
 import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
@@ -13,8 +10,8 @@ import { IntegrationReader } from '@integrations/infrastructure/integrations/int
 import { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-clients';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import { defined } from '@integrations/integrations.definitions.fake-spec';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -35,7 +32,6 @@ const TEAM = TeamId.of('team_1');
 const SLACK = SourceKey.of('slack');
 
 const CONFIG = `
-version: 1
 integration: slack
 connection:
   oauth2:
@@ -54,17 +50,7 @@ webhook:
             value: '\${{ body.event.ts }}'
 `;
 
-const config = (): Applied => {
-  const files = [
-    ConfigurationFile.of('.spotlight/integrations/slack.yml', CONFIG),
-  ];
-
-  return {
-    teamId: TEAM,
-    integrations: files,
-    skills: [],
-  };
-};
+const config = () => [defined(CONFIG)];
 
 const nearing = (over: { refreshToken?: string | null } = {}) =>
   HostConnection.rehydrate({
@@ -100,7 +86,7 @@ const refreshing = (
       save,
       of: vi.fn(),
     } as unknown as HostConnectionRepository,
-    { of: async () => config() } as unknown as AppliedConfigurationPort,
+    { ofTeam: async () => config() } as unknown as DefinedIntegrationsPort,
     runtimeWith(
       {},
       { refresh } as unknown as OAuth2Exchange,

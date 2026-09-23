@@ -14,6 +14,7 @@ import {
 
 const BUILT_IN_STATIONS = BUILT_IN_LINES[0]?.stations ?? [];
 
+import { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -125,6 +126,39 @@ describe('Line', () => {
     const ids = [line.id.value, ...line.stations.map((each) => each.id.value)];
 
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('opens a built-in line with no definition behind it', () => {
+    expect(opened().definition).toBeNull();
+  });
+
+  it('keeps its definition through a change that does not replace it', () => {
+    const line = opened();
+    const defined = line.relaidAs({
+      key: line.key,
+      name: line.name,
+      stations: line.stations,
+      reactions: line.reactions,
+      definition: DefinitionDocument.of({ key: line.key.value }),
+    });
+
+    expect(defined.worksIn([]).definition?.fields).toEqual({
+      key: line.key.value,
+    });
+  });
+
+  it('refuses a definition of another line', () => {
+    const line = opened();
+
+    expect(() =>
+      line.relaidAs({
+        key: line.key,
+        name: line.name,
+        stations: line.stations,
+        reactions: line.reactions,
+        definition: DefinitionDocument.of({ key: 'review' }),
+      }),
+    ).toThrow(/defines another line/);
   });
 
   it('stands where it was opened', () => {

@@ -41,7 +41,7 @@ const ready = (over: Record<string, unknown> = {}) => ({
 const listening = (over: Record<string, unknown> = {}) => ({
   source: 'linear',
   name: 'Linear',
-  path: '.spotlight/integrations/linear.yml',
+  path: 'integrations/linear',
   standing: 'listens',
   handle: null,
   ...over,

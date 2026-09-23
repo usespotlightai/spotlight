@@ -2,6 +2,10 @@ import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/config
 import type { RoleClaimedTwice } from '@work/domain/services/line-roles';
 import type { Stranded } from '@work/domain/services/reconcile-line';
 
+export const LINES = 'lines';
+
+export const lineAt = (key: string): string => `${LINES}/${key}`;
+
 export const LineProblems = {
   roleClaimedTwice(
     where: string,

@@ -1,17 +1,14 @@
-import type {
-  IntegrationReaderPort,
-  ReadIntegrations,
-} from '@configuration/application/ports/integration-reader.port';
+import type { ReadIntegrations } from '@configuration/application/ports/integration-reader.port';
+import type { DefinedIntegration } from '@integrations/application/ports/defined-integrations.port';
 import type { ReadableIntegration } from '@integrations/infrastructure/integrations/integration.compile';
 import { compileIntegration } from '@integrations/infrastructure/integrations/integration.compile';
 import { Injectable } from '@nestjs/common';
-import type { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
-import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
+import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 
 @Injectable()
-export class IntegrationReader implements IntegrationReaderPort {
-  read(files: readonly ConfigurationFile[]): ReadIntegrations {
-    const readable = this.readable(files);
+export class IntegrationReader {
+  read(definitions: readonly DefinedIntegration[]): ReadIntegrations {
+    const readable = this.readable(definitions);
 
     return {
       integrations: readable.integrations.map(({ path, integration }) => ({
@@ -31,40 +28,22 @@ export class IntegrationReader implements IntegrationReaderPort {
     };
   }
 
-  readable(files: readonly ConfigurationFile[]): {
+  readable(definitions: readonly DefinedIntegration[]): {
     integrations: readonly ReadableIntegration[];
     problems: readonly ConfigurationProblem[];
   } {
     const integrations: ReadableIntegration[] = [];
     const problems: ConfigurationProblem[] = [];
-    const claimed = new Map<string, string>();
 
-    for (const file of files) {
-      const read = compileIntegration(file.path, file.text);
+    for (const each of definitions) {
+      const read = compileIntegration(each.definition);
 
-      if (!read.ok) {
+      if (read.ok) {
+        integrations.push(read.readable);
+        problems.push(...read.warnings);
+      } else {
         problems.push(...read.problems);
-        continue;
       }
-
-      problems.push(...read.warnings);
-
-      const key = read.readable.integration.source.value;
-      const already = claimed.get(key);
-
-      if (already) {
-        problems.push(
-          ConfigurationProblem.of({
-            path: file.path,
-            at: 'source',
-            reason: `is already declared by ${already}, so this file is not read`,
-          }),
-        );
-        continue;
-      }
-
-      claimed.set(key, file.path);
-      integrations.push(read.readable);
     }
 
     return { integrations, problems };

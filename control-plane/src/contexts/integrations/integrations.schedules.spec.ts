@@ -1,8 +1,8 @@
-import type {
-  Applied,
-  AppliedConfigurationPort,
-} from '@configuration/application/ports/applied-configuration.port';
 import type { HeldSecretsPort } from '@configuration/application/ports/held-secrets.port';
+import type {
+  DefinedIntegrationsPort,
+  TeamDefinedIntegrations,
+} from '@integrations/application/ports/defined-integrations.port';
 import type { PollState } from '@integrations/application/ports/integration-cursors.port';
 import { HostReach } from '@integrations/application/services/host-reach.service';
 import { RunSchedules } from '@integrations/application/services/run-schedules.service';
@@ -16,8 +16,8 @@ import type {
   OutboundResult,
 } from '@integrations/infrastructure/outbound/http-outbound';
 import { FakeIntegrationCursors } from '@integrations/integrations.cursors.fake-spec';
+import { defined } from '@integrations/integrations.definitions.fake-spec';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -37,7 +37,6 @@ const NOW = new Date('2026-09-07T09:00:00.000Z');
 const TEAM = TeamId.of('team_1');
 
 const schedule = (headers = '') => `
-version: 1
 integration: linear
 schedule:
   cron: 0 * * * *
@@ -53,17 +52,10 @@ const READS_A_SECRET = `      headers:
         authorization: '\${{ "Bearer " + secret.LINEAR_TOKEN }}'
 `;
 
-const config = (file: string): Applied => {
-  const files = [
-    ConfigurationFile.of('.spotlight/integrations/linear.yml', file),
-  ];
-
-  return {
-    teamId: TEAM,
-    integrations: files,
-    skills: [],
-  };
-};
+const config = (file: string): TeamDefinedIntegrations => ({
+  teamId: TEAM,
+  integrations: [defined(file)],
+});
 
 const OK: OutboundResult = { ok: true, status: 200, response: {}, capture: {} };
 
@@ -78,7 +70,7 @@ const scheduling = (
   new RunSchedules(
     {
       everywhere: async () => [config(file)],
-    } as unknown as AppliedConfigurationPort,
+    } as unknown as DefinedIntegrationsPort,
     runtimeWith({ run } as unknown as HttpOutbound),
     new HostReach({ held: async () => [] } satisfies HeldSecretsPort, {
       of: async () => null,

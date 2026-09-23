@@ -14,7 +14,7 @@ interface Whereabouts {
 interface Wording {
   readonly title: string;
   readonly says: string;
-  readonly where: (at: Whereabouts) => string | null;
+  readonly where: (at: Whereabouts) => string;
 }
 
 const team = (at: Whereabouts): string => `/w/${at.slug}/team/${at.teamId}`;
@@ -30,11 +30,6 @@ const WORDING: Record<SetupStepKey, Wording> = {
     says: 'Connect Spotlight to the repository your team will work with. This lets Spotlight interact with your code through GitHub.',
     where: (at) => `${team(at)}/settings/integrations`,
   },
-  configuration: {
-    title: 'Set up your lines',
-    says: 'Choose the harness and repositories for each line, then open the setup pull request. Nothing is written until you do, and nothing changes until you merge it.',
-    where: () => null,
-  },
   integrations: {
     title: 'Choose your integrations',
     says: 'Pick the integrations your team should have access to. Spotlight will create a starter configuration for each one, which you can customize later.',
@@ -45,9 +40,8 @@ const WORDING: Record<SetupStepKey, Wording> = {
 export const listed = (at: Whereabouts): string =>
   SETUP_STEPS.map((key, index) => {
     const { title, says, where } = WORDING[key];
-    const going = where(at);
 
-    return `${index + 1}. ${going ? `[${title}](${going})` : title}. ${says}`;
+    return `${index + 1}. [${title}](${where(at)}). ${says}`;
   }).join('\n');
 
 export const shownFor = (

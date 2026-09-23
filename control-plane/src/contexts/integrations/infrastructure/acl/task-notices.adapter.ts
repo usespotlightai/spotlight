@@ -1,4 +1,4 @@
-import type { AppliedConfigurationPort } from '@configuration/application/ports/applied-configuration.port';
+import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { InboxLinksPort } from '@integrations/application/ports/inbox-links.port';
 import type {
   BoundTask,
@@ -26,7 +26,7 @@ const decidedAt = (link: string | null): string =>
 
 export class TaskNotices implements TaskNoticesPort {
   constructor(
-    private readonly configurations: AppliedConfigurationPort,
+    private readonly defined: DefinedIntegrationsPort,
     private readonly runtime: IntegrationRuntimePort,
     private readonly reach: HostReach,
     private readonly links: InboxLinksPort,
@@ -38,15 +38,9 @@ export class TaskNotices implements TaskNoticesPort {
     event: string,
   ): Promise<readonly MarkWorn[]> {
     const teamId = TeamId.of(task.teamId);
-    const applied = await this.configurations.of(teamId);
-
-    if (!applied) {
-      return [];
-    }
-
-    const files = applied.integrations;
+    const definitions = await this.defined.ofTeam(teamId);
     const posting = this.runtime
-      .integrations(files)
+      .integrations(definitions)
       .filter((each) => each.postsOn(event));
 
     if (posting.length === 0) {
@@ -60,7 +54,7 @@ export class TaskNotices implements TaskNoticesPort {
     for (const integration of posting) {
       try {
         const posted = await this.runtime.post(
-          files,
+          definitions,
           integration,
           event,
           word,

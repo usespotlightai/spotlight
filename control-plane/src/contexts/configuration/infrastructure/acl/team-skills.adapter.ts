@@ -22,11 +22,6 @@ export class TeamSkills implements TeamSkillsPort {
     }
 
     const configuration = await this.applied.of(teamId);
-
-    if (!configuration) {
-      return [];
-    }
-
     const held = await this.secrets.held(teamId);
 
     return this.reader

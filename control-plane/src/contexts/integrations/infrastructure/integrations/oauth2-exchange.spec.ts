@@ -7,12 +7,12 @@ import { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2
 import { Egress } from '@integrations/infrastructure/outbound/egress';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { describe, expect, it, vi } from 'vitest';
+import { parse as parseYaml } from 'yaml';
 
 const NOW = new Date('2026-09-07T10:00:00.000Z');
 const CLIENT = { id: 'c-1', secret: 's-1' };
 
 const FIXTURE = `
-version: 1
 integration: slack
 connection:
   oauth2:
@@ -35,7 +35,7 @@ webhook:
 `;
 
 const oauth2 = (): NonNullable<ConnectionIR['oauth2']> => {
-  const read = compileIntegration('.spotlight/integrations/slack.yml', FIXTURE);
+  const read = compileIntegration(parseYaml(FIXTURE));
 
   if (!read.ok || !read.readable.connection?.oauth2) {
     throw new Error('fixture did not compile with an oauth2 connection');

@@ -1,3 +1,7 @@
+import type {
+  CompiledIntegration,
+  IntegrationCompilerPort,
+} from '@integrations/application/ports/integration-compiler.port';
 import { Integration } from '@integrations/domain/entities/integration.entity';
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
 import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/invalid-integration-part.error';
@@ -34,6 +38,7 @@ import {
 import {
   type AuthFile,
   type EventFile,
+  type IntegrationFile,
   integrationSchema,
   isExpression,
   ON_EVENTS,
@@ -65,9 +70,9 @@ import {
 } from '@integrations/infrastructure/integrations/templating';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
+import { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
 import { SECRET_NAME_SHAPE } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
-import { parse as parseYaml } from 'yaml';
 
 interface Freshness {
   readonly at: Expression;
@@ -234,6 +239,7 @@ export type Compiled =
   | {
       readonly ok: true;
       readonly readable: ReadableIntegration;
+      readonly definition: IntegrationFile;
       readonly warnings: readonly ConfigurationProblem[];
     }
   | { readonly ok: false; readonly problems: readonly ConfigurationProblem[] };
@@ -699,33 +705,37 @@ class Compiler {
   }
 }
 
-export const compileIntegration = (path: string, text: string): Compiled => {
-  let held: unknown;
+const INTEGRATIONS = 'integrations';
+
+const integrationAt = (source: string): string => `${INTEGRATIONS}/${source}`;
+
+const addressOf = (held: unknown): string => {
+  const source =
+    typeof held === 'object' && held !== null && 'integration' in held
+      ? held.integration
+      : null;
 
   try {
-    held = parseYaml(text);
-  } catch (error) {
-    return {
-      ok: false,
-      problems: [
-        ConfigurationProblem.of({
-          path,
-          at: 'the file',
-          reason: `is not YAML: ${reasoned(error)}`,
-        }),
-      ],
-    };
+    return typeof source === 'string'
+      ? integrationAt(SourceKey.of(source).value)
+      : INTEGRATIONS;
+  } catch {
+    return INTEGRATIONS;
   }
+};
 
+export const compileIntegration = (held: unknown): Compiled => {
   const read = integrationSchema.safeParse(held);
 
   if (!read.success) {
+    const path = addressOf(held);
+
     return {
       ok: false,
       problems: read.error.issues.map((issue) =>
         ConfigurationProblem.of({
           path,
-          at: issue.path.length > 0 ? issue.path.join('.') : 'the file',
+          at: issue.path.length > 0 ? issue.path.join('.') : 'the integration',
           reason: issue.message,
         }),
       ),
@@ -733,6 +743,7 @@ export const compileIntegration = (path: string, text: string): Compiled => {
   }
 
   const file = read.data;
+  const path = addressOf(file);
   const hintWarnings = hintProblemsOf(path, file);
   const hinting = hintWarnings.length === 0;
   const typeOrder = orderedTypes(file.types as Record<string, Shape>).order;
@@ -1025,6 +1036,7 @@ export const compileIntegration = (path: string, text: string): Compiled => {
         on,
         tools,
       },
+      definition: file,
       warnings: compiler.warnings,
     };
   } catch (error) {
@@ -1033,7 +1045,7 @@ export const compileIntegration = (path: string, text: string): Compiled => {
       problems: [
         ConfigurationProblem.of({
           path,
-          at: 'the file',
+          at: 'the integration',
           reason: reasoned(error),
         }),
         ...compiler.warnings,
@@ -1046,7 +1058,7 @@ const isPresent = <T>(each: T | null): each is T => each !== null;
 
 const hintProblemsOf = (
   path: string,
-  file: ReturnType<typeof integrationSchema.parse>,
+  file: IntegrationFile,
 ): ConfigurationProblem[] => {
   const known = new Set(Object.keys(file.types));
   const shapes: [Shape, string][] = [
@@ -1105,3 +1117,18 @@ const hintProblemsOf = (
     }),
   );
 };
+
+export class IntegrationCompiler implements IntegrationCompilerPort {
+  compile(held: unknown): CompiledIntegration {
+    const compiled = compileIntegration(held);
+
+    return compiled.ok
+      ? {
+          ok: true,
+          integration: compiled.readable.integration,
+          document: DefinitionDocument.of(compiled.definition),
+          warnings: compiled.warnings,
+        }
+      : compiled;
+  }
+}

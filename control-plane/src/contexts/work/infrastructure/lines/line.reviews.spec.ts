@@ -1,34 +1,27 @@
-import { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
 import { compileLine } from '@work/infrastructure/lines/line.compile';
 import { describe, expect, it } from 'vitest';
+import { parse as parseYaml } from 'yaml';
 
 const STATIONS = [
-  ConfigurationFile.of(
-    '.spotlight/lines/review/stations/backlog.md',
-    '---\nname: Backlog\nkind: backlog\n---\n',
-  ),
-  ConfigurationFile.of(
-    '.spotlight/lines/review/stations/code-review.md',
-    '---\nname: Review\nharness: dev\ndiffs: true\n---\nReview it.\n',
-  ),
-  ConfigurationFile.of(
-    '.spotlight/lines/review/stations/completed.md',
-    '---\nname: Completed\nkind: completed\n---\n',
-  ),
+  { key: 'backlog', name: 'Backlog', kind: 'backlog' },
+  {
+    key: 'code-review',
+    name: 'Review',
+    harness: 'dev',
+    diffs: true,
+    prompt: 'Review it.',
+  },
+  { key: 'completed', name: 'Completed', kind: 'completed' },
 ];
 
 const compiled = (reviews: string, role = 'review') =>
-  compileLine('review', [
-    ConfigurationFile.of(
-      '.spotlight/lines/review/line.yml',
-      `version: 1
-name: Review
-role: ${role}
-stations: [backlog, code-review, completed]
-${reviews}`,
-    ),
-    ...STATIONS,
-  ]);
+  compileLine({
+    key: 'review',
+    name: 'Review',
+    role,
+    stations: STATIONS,
+    ...(parseYaml(reviews) ?? {}),
+  });
 
 const read = (reviews: string) => {
   const line = compiled(reviews);
@@ -67,21 +60,21 @@ describe('the pull requests a line reviews', () => {
   it('refuses reviews on a line whose role is not review', () => {
     const line = compiled('reviews:\n  start: opened\n', 'delivery');
 
-    expect(line.ok).toBe(false);
-    expect(line.problems.map((each) => each.at)).toEqual(['reviews']);
+    expect(line).toMatchObject({ ok: false, problems: [{ at: 'reviews' }] });
   });
 
   it('refuses a review that starts on anything else', () => {
     const line = compiled('reviews:\n  start: pushed\n');
 
-    expect(line.ok).toBe(false);
-    expect(line.problems.map((each) => each.at)).toEqual(['reviews.start']);
+    expect(line).toMatchObject({
+      ok: false,
+      problems: [{ at: 'reviews.start' }],
+    });
   });
 
   it('refuses a mention that is not a handle', () => {
     const line = compiled('reviews:\n  mention: spotlight\n');
 
-    expect(line.ok).toBe(false);
-    expect(line.problems.map((each) => each.at)).toEqual(['reviews']);
+    expect(line).toMatchObject({ ok: false, problems: [{ at: 'reviews' }] });
   });
 });

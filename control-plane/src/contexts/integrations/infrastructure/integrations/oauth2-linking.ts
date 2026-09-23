@@ -1,7 +1,7 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import type { AppliedConfigurationPort } from '@configuration/application/ports/applied-configuration.port';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
+import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type {
   OAuth2Authorized,
   OAuth2Begun,
@@ -28,7 +28,7 @@ const sameNonce = (one: string, other: string): boolean => {
 
 export class OAuth2Linking implements OAuth2LinkingPort {
   constructor(
-    private readonly configurations: AppliedConfigurationPort,
+    private readonly defined: DefinedIntegrationsPort,
     private readonly reader: IntegrationReader,
     private readonly clients: OAuth2Clients,
     private readonly exchange: OAuth2Exchange,
@@ -47,7 +47,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
     by: string,
   ): Promise<OAuth2Begun | null> {
     const oauth2 = await oauth2Of(
-      this.configurations,
+      this.defined,
       this.reader,
       TeamId.of(teamId),
       source,
@@ -94,7 +94,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
     }
 
     const oauth2 = await oauth2Of(
-      this.configurations,
+      this.defined,
       this.reader,
       TeamId.of(intent.teamId),
       intent.source,

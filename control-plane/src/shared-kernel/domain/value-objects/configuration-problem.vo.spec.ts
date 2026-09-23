@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const problem = (over: Record<string, string> = {}) =>
   ConfigurationProblem.of({
-    path: '.spotlight/integrations/linear.yml',
+    path: 'integrations/linear',
     at: 'happenings.0.when',
     reason: 'must be an expression',
     ...over,
@@ -12,7 +12,7 @@ const problem = (over: Record<string, string> = {}) =>
 
 describe('ConfigurationProblem', () => {
   it('points at where it is the way a person would', () => {
-    expect(problem().path).toBe('.spotlight/integrations/linear.yml');
+    expect(problem().path).toBe('integrations/linear');
     expect(problem().at).toBe('happenings.0.when');
     expect(problem().reason).toBe('must be an expression');
   });
@@ -39,7 +39,7 @@ describe('ConfigurationProblem', () => {
   });
 
   it('says which file it is in', () => {
-    expect(problem().isIn('.spotlight/integrations/linear.yml')).toBe(true);
-    expect(problem().isIn('.spotlight/lines/default/line.yml')).toBe(false);
+    expect(problem().isIn('integrations/linear')).toBe(true);
+    expect(problem().isIn('lines/default')).toBe(false);
   });
 });

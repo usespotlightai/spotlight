@@ -1,8 +1,8 @@
+import type { DefinedIntegration } from '@integrations/application/ports/defined-integrations.port';
 import type { Integration } from '@integrations/domain/entities/integration.entity';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import type { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
 import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
-import type { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
 import type {
   Happened,
   MarkWorn,
@@ -93,23 +93,25 @@ export interface ReachableTool {
 }
 
 export interface IntegrationRuntimePort {
-  integrations(files: readonly ConfigurationFile[]): readonly Integration[];
+  integrations(
+    definitions: readonly DefinedIntegration[],
+  ): readonly Integration[];
 
   poll(
-    files: readonly ConfigurationFile[],
+    definitions: readonly DefinedIntegration[],
     integration: Integration,
     cursor: string | null,
     reach: Reach,
   ): Promise<Polled>;
 
   runSchedule(
-    files: readonly ConfigurationFile[],
+    definitions: readonly DefinedIntegration[],
     integration: Integration,
     reach: Reach,
   ): Promise<Acted>;
 
   post(
-    files: readonly ConfigurationFile[],
+    definitions: readonly DefinedIntegration[],
     integration: Integration,
     event: string,
     word: TaskWord,
@@ -117,13 +119,13 @@ export interface IntegrationRuntimePort {
   ): Promise<Posted>;
 
   tool(
-    files: readonly ConfigurationFile[],
+    definitions: readonly DefinedIntegration[],
     tool: string,
     task: BoundTask,
   ): ReachableTool | null;
 
   renew(
-    files: readonly ConfigurationFile[],
+    definitions: readonly DefinedIntegration[],
     source: SourceKey,
     refreshToken: AccessToken,
   ): Promise<Renewed>;

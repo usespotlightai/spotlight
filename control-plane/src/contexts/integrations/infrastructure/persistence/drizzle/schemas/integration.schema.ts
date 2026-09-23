@@ -1,5 +1,6 @@
 import {
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   text,
@@ -38,3 +39,18 @@ export const oauth2SpentNonce = pgTable('oauth2_spent_nonce', {
   nonce: text('nonce').primaryKey(),
   until: timestamp('until').notNull(),
 });
+
+export const integrationDefinition = pgTable(
+  'integration_definition',
+  {
+    teamId: text('team_id').notNull(),
+    source: text('source').notNull(),
+    definition: jsonb('definition').$type<Record<string, unknown>>().notNull(),
+    version: integer('version').notNull().default(1),
+    definedAt: timestamp('defined_at')
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.teamId, table.source] })],
+);

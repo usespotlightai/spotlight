@@ -1,9 +1,6 @@
-import type {
-  Applied,
-  AppliedConfigurationPort,
-} from '@configuration/application/ports/applied-configuration.port';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
+import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { OAuth2NoncesPort } from '@integrations/application/ports/oauth2-nonces.port';
 import { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
@@ -11,8 +8,8 @@ import { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import { OAuth2Linking } from '@integrations/infrastructure/integrations/oauth2-linking';
 import { OAuth2State } from '@integrations/infrastructure/integrations/oauth2-state';
+import { defined } from '@integrations/integrations.definitions.fake-spec';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -21,7 +18,6 @@ const TEAM = TeamId.of('team_1');
 const BASE = 'https://app.example';
 
 const SLACK = `
-version: 1
 integration: slack
 connection:
   oauth2:
@@ -43,17 +39,7 @@ webhook:
             value: '\${{ body.event.ts }}'
 `;
 
-const config = (): Applied => {
-  const files = [
-    ConfigurationFile.of('.spotlight/integrations/slack.yml', SLACK),
-  ];
-
-  return {
-    teamId: TEAM,
-    integrations: files,
-    skills: [],
-  };
-};
+const config = () => [defined(SLACK)];
 
 const GRANT = HostGrant.of({
   accessToken: 'xoxb-1',
@@ -80,7 +66,7 @@ const linking = (
   };
 
   const it = new OAuth2Linking(
-    { of: async () => config() } as unknown as AppliedConfigurationPort,
+    { ofTeam: async () => config() } as unknown as DefinedIntegrationsPort,
     new IntegrationReader(),
     OAuth2Clients.from(over.clients ?? '{"slack":{"id":"c-1","secret":"s-1"}}'),
     { exchange } as unknown as OAuth2Exchange,

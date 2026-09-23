@@ -1,5 +1,5 @@
-import type { AppliedConfigurationPort } from '@configuration/application/ports/applied-configuration.port';
 import type { HeldSecretsPort } from '@configuration/application/ports/held-secrets.port';
+import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import { HostReach } from '@integrations/application/services/host-reach.service';
 import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
 import { IntegrationToolCalls } from '@integrations/infrastructure/acl/integration-tool-calls.adapter';
@@ -11,8 +11,8 @@ import type {
   HttpOutbound,
   OutboundResult,
 } from '@integrations/infrastructure/outbound/http-outbound';
+import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
-import { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type { ToolInputValues } from '@work/application/contracts/tools.contract';
 import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
@@ -31,8 +31,7 @@ const runtimeWith = (
     exchange as OAuth2Exchange,
   );
 
-const LINEAR = `version: 1
-integration: linear
+const LINEAR = `integration: linear
 actions:
   comment:
     request:
@@ -86,15 +85,8 @@ const using = (
 
   const tools = new IntegrationToolCalls(
     {
-      of: vi.fn(async () => ({
-        integrations: [
-          ConfigurationFile.of(
-            '.spotlight/integrations/linear.yml',
-            over.file ?? LINEAR,
-          ),
-        ],
-      })),
-    } as unknown as AppliedConfigurationPort,
+      ofTeam: vi.fn(async () => [defined(over.file ?? LINEAR)]),
+    } as unknown as DefinedIntegrationsPort,
     runtimeWith({ run } as unknown as HttpOutbound),
     new HostReach(
       {

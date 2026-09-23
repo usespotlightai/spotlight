@@ -5,12 +5,9 @@ export const APPLIED_CONFIGURATION = Symbol('APPLIED_CONFIGURATION');
 
 export interface Applied {
   readonly teamId: TeamId;
-  readonly integrations: readonly ConfigurationFile[];
   readonly skills: readonly ConfigurationFile[];
 }
 
 export interface AppliedConfigurationPort {
-  of(teamId: TeamId): Promise<Applied | null>;
-
-  everywhere(): Promise<readonly Applied[]>;
+  of(teamId: TeamId): Promise<Applied>;
 }

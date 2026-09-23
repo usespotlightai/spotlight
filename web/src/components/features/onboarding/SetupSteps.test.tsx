@@ -41,12 +41,6 @@ const STEPS = [
     where: '/w/acme/team/team_1/settings/integrations',
   },
   {
-    key: 'configuration',
-    title: 'Set up your lines',
-    description: 'What this team’s lines run on.',
-    where: null,
-  },
-  {
     key: 'integrations',
     title: 'Choose your integrations',
     description: 'What this team listens to.',
@@ -220,25 +214,9 @@ describe('SetupSteps', () => {
     expect(screen.getByText(BODY)).toBeInTheDocument();
   });
 
-  it('leaves the line setup as words, with nothing to do here', () => {
-    githubState.data = { connected: true, installUrl: INSTALL };
-    onboardingState.data = onboarding({}, ['runner', 'github']);
-    showing();
-
-    expect(screen.getByText('Set up your lines')).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: /Set up your lines/ }),
-    ).not.toBeInTheDocument();
-  });
-
   it('locks every control once the item is resolved', () => {
     githubState.data = { connected: true, installUrl: INSTALL };
-    onboardingState.data = onboarding({}, [
-      'runner',
-      'github',
-      'configuration',
-      'integrations',
-    ]);
+    onboardingState.data = onboarding({}, ['runner', 'github', 'integrations']);
     showing(true);
 
     const install = screen.getByRole('link', { name: 'Configure on GitHub' });

@@ -1,5 +1,6 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import { EFFORTS } from '@work/domain/value-objects/effort.vo';
+import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { REVIEW_STARTS } from '@work/domain/value-objects/review-policy.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
@@ -24,7 +25,8 @@ const identifier = (make: (raw: string) => unknown) =>
     }
   });
 
-export const stationSchema = z.object({
+const stationSchema = z.object({
+  key: identifier(StationKey.of),
   name: z.string().min(1, 'is what this station is called on the board'),
   kind: z.enum(['backlog', 'work', 'completed']).default('work'),
   color: z
@@ -35,6 +37,7 @@ export const stationSchema = z.object({
   harness: z.string().min(1).optional(),
   model: z.string().min(1).optional(),
   effort: z.enum(EFFORTS).optional(),
+  prompt: z.string().optional(),
   check: z.string().optional(),
   setup: z.string().optional(),
   diffs: z.boolean().optional(),
@@ -73,14 +76,14 @@ const reviewsSchema = z.object({
 });
 
 export const lineSchema = z.object({
-  version: z.literal(1, { message: 'must be 1' }),
+  key: identifier(LineKey.of),
   name: z.string().min(1, 'is what this line is called'),
   role: identifier(LineRole.of).optional(),
   repositories: z
     .array(z.string().min(1, 'is a repository named owner/name'))
     .default([]),
   stations: z
-    .array(identifier(StationKey.of))
+    .array(stationSchema)
     .min(
       1,
       'is the stations along this line, in order, and there has to be one',
@@ -88,3 +91,5 @@ export const lineSchema = z.object({
   reactions: z.array(reactionSchema).default([]),
   reviews: reviewsSchema.optional(),
 });
+
+export type LineFields = z.output<typeof lineSchema>;

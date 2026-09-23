@@ -40,7 +40,7 @@ const asking = (
                   {
                     source: 'linear',
                     name: 'Linear',
-                    path: '.spotlight/integrations/linear.yml',
+                    path: 'integrations/linear',
                     connectable: over.connects ?? false,
                   },
                 ],
@@ -62,12 +62,10 @@ describe('ConfigurationHandler', () => {
     expect(read?.integrations.map((each) => each.source)).toEqual(['linear']);
   });
 
-  it('says which file each host is written in', async () => {
+  it('says which resource defines each host', async () => {
     const read = await asking().execute(query());
 
-    expect(read?.integrations[0]?.path).toBe(
-      '.spotlight/integrations/linear.yml',
-    );
+    expect(read?.integrations[0]?.path).toBe('integrations/linear');
   });
 
   it('says a host is unlinked where it links by authorizing but the team has not', async () => {

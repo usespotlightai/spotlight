@@ -1,4 +1,7 @@
-import type { AppliedConfigurationPort } from '@configuration/application/ports/applied-configuration.port';
+import type {
+  DefinedIntegration,
+  DefinedIntegrationsPort,
+} from '@integrations/application/ports/defined-integrations.port';
 import type { IntegrationCursorsPort } from '@integrations/application/ports/integration-cursors.port';
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
 import type { HostReach } from '@integrations/application/services/host-reach.service';
@@ -6,12 +9,11 @@ import type { Integration } from '@integrations/domain/entities/integration.enti
 import type { Schedule } from '@integrations/domain/value-objects/schedule.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class RunSchedules {
   constructor(
-    private readonly configurations: AppliedConfigurationPort,
+    private readonly defined: DefinedIntegrationsPort,
     private readonly runtime: IntegrationRuntimePort,
     private readonly reach: HostReach,
     private readonly cursors: IntegrationCursorsPort,
@@ -22,14 +24,14 @@ export class RunSchedules {
   async runDue(): Promise<void> {
     const now = this.clock.now();
 
-    for (const applied of await this.configurations.everywhere()) {
-      const files = applied.integrations;
+    for (const applied of await this.defined.everywhere()) {
+      const definitions = applied.integrations;
 
-      for (const integration of this.runtime.integrations(files)) {
+      for (const integration of this.runtime.integrations(definitions)) {
         if (integration.schedule) {
           await this.one(
             applied.teamId,
-            files,
+            definitions,
             integration,
             integration.schedule,
             now,
@@ -41,7 +43,7 @@ export class RunSchedules {
 
   private async one(
     teamId: TeamId,
-    files: readonly ConfigurationFile[],
+    definitions: readonly DefinedIntegration[],
     integration: Integration,
     schedule: Schedule,
     now: Date,
@@ -64,7 +66,7 @@ export class RunSchedules {
 
     try {
       const acted = await this.runtime.runSchedule(
-        files,
+        definitions,
         integration,
         await this.reach.of(teamId, integration),
       );

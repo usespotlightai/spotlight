@@ -73,6 +73,7 @@ import {
   StartChatCommand,
   StopChatCommand,
 } from '@work/application/commands/chat.commands';
+import { DefineLineCommand } from '@work/application/commands/define-line.command';
 import { DeleteTaskCommand } from '@work/application/commands/delete-task.command';
 import { DeliverSaidCommand } from '@work/application/commands/deliver-said.command';
 import { GrantAttachmentUploadCommand } from '@work/application/commands/grant-attachment-upload.command';
@@ -85,6 +86,7 @@ import { AppendRunJournalHandler } from '@work/application/commands/handlers/app
 import { AssignTaskHandler } from '@work/application/commands/handlers/assign-task.handler';
 import { ClaimRunHandler } from '@work/application/commands/handlers/claim-run.handler';
 import { CompleteRunHandler } from '@work/application/commands/handlers/complete-run.handler';
+import { DefineLineHandler } from '@work/application/commands/handlers/define-line.handler';
 import { DeleteTaskHandler } from '@work/application/commands/handlers/delete-task.handler';
 import { DeliverSaidHandler } from '@work/application/commands/handlers/deliver-said.handler';
 import { DismissProposalHandler } from '@work/application/commands/handlers/dismiss-proposal.handler';
@@ -138,10 +140,6 @@ import {
   type CheckAccessPort,
 } from '@work/application/ports/check-access.port';
 import { CHECK_WORK } from '@work/application/ports/check-work.port';
-import {
-  CONFIGURATION_STATUS,
-  type ConfigurationStatusPort,
-} from '@work/application/ports/configuration-status.port';
 import { GIT_GATEWAY } from '@work/application/ports/git-gateway.port';
 import { HAPPENING_REACTIONS } from '@work/application/ports/happening-reactions.port';
 import {
@@ -156,10 +154,7 @@ import {
 } from '@work/application/ports/integration-tool-calls.port';
 import { INTEGRATION_TOOLS } from '@work/application/ports/integration-tools.port';
 import { KEPT_WORKSPACE_READER } from '@work/application/ports/kept-workspace-reader.port';
-import {
-  LINE_CONFIG_READER,
-  type LineConfigReaderPort,
-} from '@work/application/ports/line-config-reader.port';
+import { LINE_COMPILER } from '@work/application/ports/line-compiler.port';
 import { LINE_READER } from '@work/application/ports/line-reader.port';
 import {
   OUTBOUND_TASK_NOTIFIER,
@@ -316,7 +311,7 @@ import {
   BuiltInHarnesses,
   DEFAULT_HARNESS,
 } from '@work/infrastructure/harnesses/built-in-harnesses';
-import { LineConfigReader } from '@work/infrastructure/lines/line-config.reader';
+import { LineCompiler } from '@work/infrastructure/lines/line.compile';
 import { DrizzleAttachmentReader } from '@work/infrastructure/persistence/drizzle/readers/attachment.reader';
 import { DrizzleChatReader } from '@work/infrastructure/persistence/drizzle/readers/chat.reader';
 import { DrizzleHeldRunReader } from '@work/infrastructure/persistence/drizzle/readers/held-run.reader';
@@ -466,22 +461,16 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       new TeamIntegrations(integrations),
   },
 
-  { provide: LINE_CONFIG_READER, useClass: LineConfigReader },
+  { provide: LINE_COMPILER, useClass: LineCompiler },
 
   {
     provide: TeamSetup,
-    inject: [
-      WORKSPACE_CONNECTIONS,
-      CONFIGURATION_STATUS,
-      TEAM_INTEGRATIONS,
-      RUNNER_READER,
-    ],
+    inject: [WORKSPACE_CONNECTIONS, TEAM_INTEGRATIONS, RUNNER_READER],
     useFactory: (
       connections: WorkspaceConnectionsPort,
-      configurations: ConfigurationStatusPort,
       integrations: TeamIntegrationsPort,
       runners: RunnerReaderPort,
-    ) => new TeamSetup(connections, configurations, integrations, runners),
+    ) => new TeamSetup(connections, integrations, runners),
   },
 
   {
@@ -500,7 +489,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       DrizzleLineRepository,
       TEAM_DIRECTORY,
       STATION_TALLIES,
-      LINE_CONFIG_READER,
       ID_GENERATOR,
       TRANSACTION,
     ],
@@ -508,10 +496,9 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       lines: DrizzleLineRepository,
       teams: TeamDirectoryPort,
       tallies: StationTalliesPort,
-      reader: LineConfigReaderPort,
       ids: IdGeneratorPort,
       transaction: TransactionPort,
-    ) => new ApplyLines(lines, teams, tallies, reader, ids, transaction),
+    ) => new ApplyLines(lines, teams, tallies, ids, transaction),
   },
 
   {
@@ -772,7 +759,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       RUN_DIGEST_WRITER,
       TASK_PLACEMENTS,
       TRANSACTION,
-      ApplyLines,
     ],
     useFactory: (
       types: EventTypes,
@@ -926,6 +912,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     GrantAttachmentUploadHandler,
     [WORKSPACE_READER, ATTACHMENT_STORE, ID_GENERATOR],
   ),
+
+  ...bindCommandHandler(DefineLineCommand, DefineLineHandler, [
+    WORKSPACE_ACCESS,
+    LINE_COMPILER,
+    ApplyLines,
+  ]),
 
   ...bindCommandHandler(AnalyseTraceCommand, AnalyseTraceHandler, [
     DrizzleTaskRepository,

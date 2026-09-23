@@ -27,6 +27,20 @@ describe('LineController (e2e)', () => {
       .expect(401);
   });
 
+  it('/teams/:teamId/lines (POST) is rejected without a session', () => {
+    return request(app.getHttpServer())
+      .post('/api/teams/team_1/lines')
+      .send({ key: 'delivery', name: 'Delivery', stations: [] })
+      .expect(401);
+  });
+
+  it('/teams/:teamId/integrations (POST) is rejected without a session', () => {
+    return request(app.getHttpServer())
+      .post('/api/teams/team_1/integrations')
+      .send({ integration: 'linear' })
+      .expect(401);
+  });
+
   it('/teams/:teamId/tasks (GET) is rejected without a session', () => {
     return request(app.getHttpServer())
       .get('/api/teams/team_1/tasks')

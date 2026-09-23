@@ -28,7 +28,7 @@ export class TeamSkillsHandler
       }
 
       const applied = await this.applied.of(member.teamId);
-      const { skills } = this.reader.read(applied?.skills ?? []);
+      const { skills } = this.reader.read(applied.skills);
 
       return {
         skills: skills.map(({ skill }) => ({

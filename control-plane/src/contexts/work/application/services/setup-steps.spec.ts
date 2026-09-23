@@ -7,7 +7,6 @@ const AT = { slug: 'acme', teamId: 'team_1' };
 const nothing: SetupState = {
   hasRunner: false,
   connectedToGitHub: false,
-  hasConfiguration: false,
   listensToAnIntegration: false,
 };
 
@@ -19,10 +18,6 @@ describe('listed', () => {
     expect(lines[0]).toBe(
       '1. [Start a runner](/w/acme/runners). Set up the machine where your team’s work will run. You can connect an existing environment or create a new one.',
     );
-  });
-
-  it('leaves a step with nowhere to go as words', () => {
-    expect(listed(AT)).toContain('3. Set up your lines.');
   });
 });
 
@@ -49,8 +44,5 @@ describe('shownFor', () => {
     expect(shown.find((each) => each.key === 'integrations')?.where).toBe(
       '/w/acme/team/team_1/settings/integrations',
     );
-    expect(
-      shown.find((each) => each.key === 'configuration')?.where,
-    ).toBeNull();
   });
 });

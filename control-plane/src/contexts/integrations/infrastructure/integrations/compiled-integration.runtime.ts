@@ -1,3 +1,4 @@
+import type { DefinedIntegration } from '@integrations/application/ports/defined-integrations.port';
 import type {
   Acted,
   BoundTask,
@@ -34,7 +35,6 @@ import type {
 } from '@integrations/infrastructure/outbound/http-outbound';
 import { taskBinding } from '@integrations/infrastructure/outbound/task-binding';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
-import type { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
 import type { MarkWorn } from '@work/application/contracts/happenings.contract';
 
 const SAID_AT_MOST = 500;
@@ -52,7 +52,7 @@ const reached = (reach: Reach) =>
 
 export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   readonly #read = new WeakMap<
-    readonly ConfigurationFile[],
+    readonly DefinedIntegration[],
     readonly ReadableIntegration[]
   >();
 
@@ -63,17 +63,19 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     private readonly exchange: OAuth2Exchange,
   ) {}
 
-  integrations(files: readonly ConfigurationFile[]): readonly Integration[] {
-    return this.readable(files).map((each) => each.integration);
+  integrations(
+    definitions: readonly DefinedIntegration[],
+  ): readonly Integration[] {
+    return this.readable(definitions).map((each) => each.integration);
   }
 
   async poll(
-    files: readonly ConfigurationFile[],
+    definitions: readonly DefinedIntegration[],
     integration: Integration,
     cursor: string | null,
     reach: Reach,
   ): Promise<Polled> {
-    const readable = this.find(files, integration.source);
+    const readable = this.find(definitions, integration.source);
     const poll = readable?.poll;
 
     if (!readable || !poll) {
@@ -109,11 +111,11 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   }
 
   async runSchedule(
-    files: readonly ConfigurationFile[],
+    definitions: readonly DefinedIntegration[],
     integration: Integration,
     reach: Reach,
   ): Promise<Acted> {
-    const readable = this.find(files, integration.source);
+    const readable = this.find(definitions, integration.source);
     const schedule = readable?.integration.schedule;
     const request = schedule ? readable?.actions.get(schedule.does) : undefined;
 
@@ -129,13 +131,13 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   }
 
   async post(
-    files: readonly ConfigurationFile[],
+    definitions: readonly DefinedIntegration[],
     integration: Integration,
     event: string,
     word: TaskWord,
     reach: Reach,
   ): Promise<Posted> {
-    const readable = this.find(files, integration.source);
+    const readable = this.find(definitions, integration.source);
     const bound = readable?.integration.bindingFor(event);
     const binding = bound
       ? readable?.on.find((each) => each.event === bound.event)
@@ -192,11 +194,11 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   }
 
   tool(
-    files: readonly ConfigurationFile[],
+    definitions: readonly DefinedIntegration[],
     tool: string,
     task: BoundTask,
   ): ReachableTool | null {
-    const readable = this.readable(files).find(
+    const readable = this.readable(definitions).find(
       (each) => each.integration.offered(tool) !== null,
     );
     const declared = readable?.integration.offered(tool) ?? null;
@@ -251,11 +253,11 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   }
 
   async renew(
-    files: readonly ConfigurationFile[],
+    definitions: readonly DefinedIntegration[],
     source: SourceKey,
     refreshToken: AccessToken,
   ): Promise<Renewed> {
-    const oauth2 = this.find(files, source)?.connection?.oauth2;
+    const oauth2 = this.find(definitions, source)?.connection?.oauth2;
     const client = this.clients.of(source.value);
 
     if (!oauth2 || !client) {
@@ -272,25 +274,25 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   }
 
   private readable(
-    files: readonly ConfigurationFile[],
+    definitions: readonly DefinedIntegration[],
   ): readonly ReadableIntegration[] {
-    const held = this.#read.get(files);
+    const held = this.#read.get(definitions);
 
     if (held) {
       return held;
     }
 
-    const read = this.reader.readable(files).integrations;
-    this.#read.set(files, read);
+    const read = this.reader.readable(definitions).integrations;
+    this.#read.set(definitions, read);
 
     return read;
   }
 
   private find(
-    files: readonly ConfigurationFile[],
+    definitions: readonly DefinedIntegration[],
     source: SourceKey,
   ): ReadableIntegration | undefined {
-    return this.readable(files).find((each) =>
+    return this.readable(definitions).find((each) =>
       each.integration.source.equals(source),
     );
   }
