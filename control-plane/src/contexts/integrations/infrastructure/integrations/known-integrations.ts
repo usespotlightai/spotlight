@@ -1,8 +1,3 @@
-import { integrationPath } from '@configuration/application/contracts/configuration-layout.contract';
-import type { IntegrationReaderPort } from '@configuration/application/ports/integration-reader.port';
-import { distinct } from '@shared-kernel/domain/services/distinct';
-import { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
-import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type {
   StarterIntegration,
   StarterIntegrationsPort,
@@ -312,27 +307,11 @@ const CATALOG: readonly (StarterIntegration & { readonly file: string })[] = [
 ];
 
 export class KnownIntegrations implements StarterIntegrationsPort {
-  constructor(private readonly integrations: IntegrationReaderPort) {}
-
   all(): readonly StarterIntegration[] {
     return CATALOG.map(({ file: _file, ...integration }) => integration);
   }
 
   fileFor(source: string): string | null {
     return CATALOG.find((each) => each.source === source)?.file ?? null;
-  }
-
-  secretsFor(source: string): readonly SecretName[] {
-    const file = this.fileFor(source);
-
-    if (!file) {
-      return [];
-    }
-
-    return distinct(
-      this.integrations
-        .read([ConfigurationFile.of(integrationPath(source), file)])
-        .integrations.flatMap((each) => each.credentials),
-    );
   }
 }

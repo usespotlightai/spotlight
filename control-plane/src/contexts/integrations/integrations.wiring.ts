@@ -3,13 +3,13 @@ import {
   AppliedConfigurationPort,
 } from '@configuration/application/ports/applied-configuration.port';
 import {
+  HELD_SECRETS,
+  type HeldSecretsPort,
+} from '@configuration/application/ports/held-secrets.port';
+import {
   INTEGRATION_READER,
   IntegrationReaderPort,
 } from '@configuration/application/ports/integration-reader.port';
-import {
-  TEAM_SECRETS,
-  TeamSecretsPort,
-} from '@configuration/application/ports/team-secrets.port';
 import {
   GITHUB_WEBHOOKS,
   type GitHubWebhooksPort,
@@ -326,9 +326,9 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: HostReach,
-    inject: [TEAM_SECRETS, HOST_CONNECTIONS],
+    inject: [HELD_SECRETS, HOST_CONNECTIONS],
     useFactory: (
-      secrets: TeamSecretsPort,
+      secrets: HeldSecretsPort,
       connections: HostConnectionRepository,
     ) => new HostReach(secrets, connections),
   },
@@ -439,20 +439,13 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: CONFIGURED_SOURCES,
-    inject: [
-      APPLIED_CONFIGURATION,
-      TEAM_SECRETS,
-      IntegrationReader,
-      JwksCache,
-      HttpOutbound,
-    ],
+    inject: [APPLIED_CONFIGURATION, IntegrationReader, JwksCache, HttpOutbound],
     useFactory: (
       configurations: AppliedConfigurationPort,
-      secrets: TeamSecretsPort,
       reader: IntegrationReader,
       jwks: JwksCache,
       outbound: HttpOutbound,
-    ) => new ConfiguredSources(configurations, secrets, reader, jwks, outbound),
+    ) => new ConfiguredSources(configurations, reader, jwks, outbound),
   },
 
   {
@@ -464,12 +457,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     ) => new SourceForDelivery(registered, configured),
   },
 
-  {
-    provide: STARTER_INTEGRATIONS,
-    inject: [INTEGRATION_READER],
-    useFactory: (integrations: IntegrationReaderPort) =>
-      new KnownIntegrations(integrations),
-  },
+  { provide: STARTER_INTEGRATIONS, useFactory: () => new KnownIntegrations() },
 
   {
     provide: TASK_NOTICES,

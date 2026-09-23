@@ -1,14 +1,16 @@
-import type { IntegrationReaderPort } from '@configuration/application/ports/integration-reader.port';
+import type { HeldSecretsPort } from '@configuration/application/ports/held-secrets.port';
+import type {
+  IntegrationReaderPort,
+  ReadIntegrations,
+} from '@configuration/application/ports/integration-reader.port';
 import type { LinesPort } from '@configuration/application/ports/lines.port';
 import type {
   SkillFolder,
   SkillReaderPort,
 } from '@configuration/application/ports/skill-reader.port';
 import type { TeamProfile } from '@configuration/application/ports/teams.port';
-import { VaultProblems } from '@configuration/application/rendering/vault-problems';
 import { HeldConfiguration } from '@configuration/application/services/held-configuration.service';
 import { ReadConfiguration } from '@configuration/application/services/read-configuration.service';
-import type { TeamVault } from '@configuration/application/services/team-vault.service';
 import { ConfigurationHome } from '@configuration/domain/aggregates/configuration-home.aggregate';
 import { TeamConfiguration } from '@configuration/domain/aggregates/team-configuration.aggregate';
 import { Skill } from '@configuration/domain/entities/skill.entity';
@@ -22,7 +24,6 @@ import type {
 import { Commit } from '@configuration/domain/value-objects/commit.vo';
 import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import { ToolName } from '@configuration/domain/value-objects/tool-name.vo';
-import type { VaultRefusal } from '@configuration/domain/value-objects/vault.vo';
 import type { RepositoryCatalogPort } from '@github/application/ports/repository-catalog.port';
 import type { RepositoryContentsPort } from '@github/application/ports/repository-contents.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -63,7 +64,8 @@ const reading = (
     problems?: readonly ConfigurationProblem[];
     skillProblems?: readonly ConfigurationProblem[];
     skills?: readonly SkillFolder[];
-    sealing?: VaultRefusal;
+    integrations?: ReadIntegrations['integrations'];
+    held?: readonly string[];
     strandings?: readonly ConfigurationProblem[];
     stations?: Awaited<ReturnType<LinesPort['plan']>>['stations'];
     home?: ConfigurationHome | null;
@@ -95,7 +97,7 @@ const reading = (
   } as unknown as TeamConfigurationRepository;
 
   const read = vi.fn((_files: readonly { path: string }[]) => ({
-    integrations: [],
+    integrations: over.integrations ?? [],
     problems: over.problems ?? [],
   }));
   const readSkills = vi.fn((_files: readonly { path: string }[]) => ({
@@ -123,12 +125,8 @@ const reading = (
     { read } as unknown as IntegrationReaderPort,
     { read: readSkills } as unknown as SkillReaderPort,
     {
-      open: vi.fn(async () =>
-        over.sealing
-          ? { opened: false, refusal: over.sealing }
-          : { opened: true, vault: { names: [] } },
-      ),
-    } as unknown as TeamVault,
+      held: async () => (over.held ?? []).map((each) => SecretName.of(each)),
+    } satisfies HeldSecretsPort,
     { plan, offersBuiltIn: () => false } satisfies LinesPort,
     {
       find: async () =>
@@ -154,9 +152,8 @@ const reading = (
 };
 
 describe('ReadConfiguration', () => {
-  it('warns of a skill whose secrets the vault lacks, and of a tool it brings that nothing offers', async () => {
+  it('warns of a skill that needs a secret the team does not hold, and of a tool it brings that nothing offers', async () => {
     const { service } = reading({
-      files: [CONFIG, { path: '.spotlight/secrets.vault', text: 'sealed' }],
       skills: [
         {
           skill: Skill.defined({
@@ -399,22 +396,43 @@ describe('ReadConfiguration', () => {
     expect(written.problems).toEqual([broken]);
   });
 
-  it('writes down a secrets vault Spotlight cannot open', async () => {
-    const vault = {
-      path: '.spotlight/secrets.vault',
-      text: '-----BEGIN AGE ENCRYPTED FILE-----',
+  describe('an integration that reads secrets', () => {
+    const LINEAR = {
+      source: 'linear',
+      path: '.spotlight/integrations/linear.yml',
+      name: 'Linear',
+      connects: false,
+      credentials: [
+        SecretName.of('LINEAR_API_KEY'),
+        SecretName.of('LINEAR_WEBHOOK_SECRET'),
+      ],
+      offers: [],
     };
-    const { service } = reading({
-      files: [CONFIG, vault],
-      sealing: { because: 'not-for-this-key' },
+
+    it('writes down each secret it reads that the team does not hold', async () => {
+      const { service } = reading({
+        integrations: [LINEAR],
+        held: ['LINEAR_API_KEY'],
+      });
+
+      expect((await service.read(TEAM))?.problems).toEqual([
+        ConfigurationProblem.of({
+          path: '.spotlight/integrations/linear.yml',
+          at: 'secret.LINEAR_WEBHOOK_SECRET',
+          reason:
+            'reads secret.LINEAR_WEBHOOK_SECRET, which the team does not hold: whatever reads it is refused until it does',
+        }),
+      ]);
     });
 
-    expect((await service.read(TEAM))?.problems).toEqual([
-      VaultProblems.problem({ because: 'not-for-this-key' }),
-    ]);
-    expect(VaultProblems.problem({ because: 'not-for-this-key' }).path).toBe(
-      vault.path,
-    );
+    it('writes down nothing where the team holds every secret it reads', async () => {
+      const { service } = reading({
+        integrations: [LINEAR],
+        held: ['LINEAR_API_KEY', 'LINEAR_WEBHOOK_SECRET'],
+      });
+
+      expect((await service.read(TEAM))?.problems).toEqual([]);
+    });
   });
 
   describe('a move under way', () => {

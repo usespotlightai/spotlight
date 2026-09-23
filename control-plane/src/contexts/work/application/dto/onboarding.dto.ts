@@ -9,7 +9,6 @@ export interface KnownIntegrationDto {
   readonly source: string;
   readonly name: string;
   readonly summary: string;
-  readonly secrets: readonly string[];
   readonly deliverTo: string;
 }
 

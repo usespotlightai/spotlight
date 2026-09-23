@@ -1,8 +1,8 @@
+import type { HeldSecretsPort } from '@configuration/application/ports/held-secrets.port';
 import type {
   SkillFolder,
   SkillReaderPort,
 } from '@configuration/application/ports/skill-reader.port';
-import type { TeamSecretsPort } from '@configuration/application/ports/team-secrets.port';
 import { TeamConfiguration } from '@configuration/domain/aggregates/team-configuration.aggregate';
 import { Skill } from '@configuration/domain/entities/skill.entity';
 import type { TeamConfigurationRepository } from '@configuration/domain/repositories/team-configuration.repository';
@@ -64,8 +64,7 @@ const keeping = (
 ) => {
   const secrets = {
     held: vi.fn(async () => held.map((each) => SecretName.of(each))),
-    resolveAll: vi.fn(async () => ({})),
-  } satisfies TeamSecretsPort;
+  } satisfies HeldSecretsPort;
   const reader: SkillReaderPort = {
     read: () => ({ skills: folders, problems: [] }),
     folder: vi.fn(),
@@ -97,7 +96,7 @@ const keysOf = (folders: readonly ReadySkillFolder[]) =>
   folders.map((each) => each.skill.key);
 
 describe('TeamSkills', () => {
-  it('gives a run each skill the station names whose secrets the vault holds', async () => {
+  it('gives a run each skill the station names whose secrets the team holds', async () => {
     const skills = keeping([GRAFANA, FRONTEND], ['GRAFANA_TOKEN']);
 
     const ready = await skills.readyFor(TEAM, naming('grafana-dashboards'));
@@ -116,7 +115,7 @@ describe('TeamSkills', () => {
     ]);
   });
 
-  it('leaves out a skill that still needs a secret', async () => {
+  it('leaves out a skill that needs a secret the team does not hold', async () => {
     const skills = keeping([GRAFANA, MIGRATIONS]);
 
     const ready = await skills.readyFor(

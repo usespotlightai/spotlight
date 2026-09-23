@@ -155,15 +155,6 @@ export class ChooseIntegrationsRequestDto {
     type: String,
   })
   readonly dropped?: string[];
-
-  @ApiPropertyOptional({
-    description:
-      'The secrets the chosen integrations read, by name. Spotlight encrypts them into the team’s vault',
-    type: 'object',
-    additionalProperties: { type: 'string' },
-    example: { LINEAR_WEBHOOK_SECRET: 'lin_wh_...' },
-  })
-  readonly secrets?: Record<string, string>;
 }
 
 export class PinConfigurationRequestDto {
@@ -175,17 +166,4 @@ export class PinConfigurationRequestDto {
     type: String,
   })
   readonly repository!: string | null;
-}
-
-export class VaultKeyResponseDto {
-  @ApiProperty({
-    description:
-      'The passphrase that opens .spotlight/secrets.vault, as in age -d .spotlight/secrets.vault',
-    example: 'Gk3qVb8Rz2mJwYtR9cH4nLpZ6sA1eGuFoKiMxBy7TwQ',
-  })
-  readonly key: string;
-
-  constructor(key: string) {
-    this.key = key;
-  }
 }

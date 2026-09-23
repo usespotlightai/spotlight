@@ -1,6 +1,5 @@
 import {
   integrationFilesIn,
-  sealedVaultIn,
   skillFile,
 } from '@configuration/application/contracts/configuration-layout.contract';
 import { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
@@ -28,14 +27,5 @@ describe('the configuration layout', () => {
       '.spotlight/integrations/linear.yml',
       '.spotlight/integrations/sentry.yaml',
     ]);
-  });
-
-  it('finds the sealed vault, where there is one', () => {
-    expect(
-      sealedVaultIn([file('.spotlight/secrets.vault', 'sealed')])?.text,
-    ).toBe('sealed');
-    expect(sealedVaultIn([file('.spotlight/lines/delivery/line.yml')])).toBe(
-      null,
-    );
   });
 });

@@ -1,7 +1,6 @@
 import { Pencil } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router';
-import { VaultKeyField } from '@/components/features/secrets/VaultKeyField';
 import { MoveConfigurationDialog } from '@/components/features/settings/MoveConfigurationDialog';
 import { SettingsPage } from '@/components/features/settings/SettingsPage';
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
@@ -135,10 +134,6 @@ export function TeamGeneral() {
                 Connect GitHub to choose one.
               </span>
             )}
-          </SettingsRow>
-
-          <SettingsRow label="Vault key">
-            <VaultKeyField teamId={teamId} />
           </SettingsRow>
         </SettingsSection>
       )}

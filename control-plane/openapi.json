@@ -3130,64 +3130,11 @@
           "401": {
             "description": "No valid session"
           },
-          "403": {
-            "description": "Not an owner or admin, and an integration needs secrets"
-          },
           "404": {
             "description": "No such team, or nowhere to write it yet"
-          },
-          "409": {
-            "description": "The team’s vault does not open with the key Spotlight holds"
-          },
-          "422": {
-            "description": "A secret an integration needs was not given"
           }
         },
         "summary": "Write and remove configuration for the integrations this team uses",
-        "tags": [
-          "configuration"
-        ]
-      }
-    },
-    "/teams/{teamId}/configuration/vault/key": {
-      "post": {
-        "operationId": "revealVaultKey",
-        "parameters": [
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "team_1",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/VaultKeyResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session"
-          },
-          "403": {
-            "description": "Not an owner or admin of this team"
-          },
-          "404": {
-            "description": "No such team for this caller"
-          },
-          "409": {
-            "description": "The key Spotlight holds for this team cannot be read"
-          }
-        },
-        "summary": "Reveal the key this team’s secrets are encrypted with, issuing it the first time",
         "tags": [
           "configuration"
         ]
@@ -6716,16 +6663,6 @@
             "type": "string",
             "example": "Move a task on when its issue is done."
           },
-          "secrets": {
-            "description": "The secrets its starting file reads, by name",
-            "example": [
-              "LINEAR_WEBHOOK_SECRET"
-            ],
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
           "deliverTo": {
             "type": "string",
             "description": "Where this integration should be told to send its deliveries",
@@ -6736,7 +6673,6 @@
           "source",
           "name",
           "summary",
-          "secrets",
           "deliverTo"
         ]
       },
@@ -7487,33 +7423,10 @@
             "items": {
               "type": "string"
             }
-          },
-          "secrets": {
-            "type": "object",
-            "description": "The secrets the chosen integrations read, by name. Spotlight encrypts them into the team’s vault",
-            "additionalProperties": {
-              "type": "string"
-            },
-            "example": {
-              "LINEAR_WEBHOOK_SECRET": "lin_wh_..."
-            }
           }
         },
         "required": [
           "sources"
-        ]
-      },
-      "VaultKeyResponseDto": {
-        "type": "object",
-        "properties": {
-          "key": {
-            "type": "string",
-            "description": "The passphrase that opens .spotlight/secrets.vault, as in age -d .spotlight/secrets.vault",
-            "example": "Gk3qVb8Rz2mJwYtR9cH4nLpZ6sA1eGuFoKiMxBy7TwQ"
-          }
-        },
-        "required": [
-          "key"
         ]
       },
       "TeamSkillResponseDto": {

@@ -16,6 +16,16 @@ export interface SecretMissing {
   readonly secret: SecretName;
 }
 
+export interface CredentialMissing {
+  readonly path: string;
+  readonly secret: SecretName;
+}
+
+interface ReadingCredentials {
+  readonly path: string;
+  readonly credentials: readonly SecretName[];
+}
+
 export interface SecretWritten {
   readonly skill: SkillKey;
 }
@@ -54,6 +64,16 @@ export const secretsMissing = (
     skill
       .missingFrom(held)
       .map((needed) => ({ skill: skill.key, secret: needed.name })),
+  );
+
+export const credentialsMissing = (
+  integrations: readonly ReadingCredentials[],
+  held: readonly SecretName[],
+): CredentialMissing[] =>
+  integrations.flatMap((integration) =>
+    integration.credentials
+      .filter((secret) => !held.some((each) => each.equals(secret)))
+      .map((secret) => ({ path: integration.path, secret })),
   );
 
 export const secretsWrittenIn = (

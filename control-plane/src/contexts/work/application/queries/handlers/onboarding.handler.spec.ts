@@ -1,6 +1,5 @@
 import type { GitHubAppPort } from '@github/application/ports/github-app.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
-import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { OnboardingHandler } from '@work/application/queries/handlers/onboarding.handler';
 import { OnboardingQuery } from '@work/application/queries/onboarding.query';
 import type {
@@ -90,8 +89,6 @@ const handler = (given: Given = {}) => {
       ],
       fileFor: () =>
         given.withFile ? 'version: 1\nintegration: linear\n' : null,
-      secretsFor: () =>
-        given.withFile ? [SecretName.of('LINEAR_WEBHOOK_SECRET')] : [],
     },
     {
       of: (slug: string, teamKey: string, source: string) =>
@@ -205,13 +202,12 @@ describe('OnboardingHandler', () => {
     );
   });
 
-  it('says which secrets each tool reads, and where its host delivers', async () => {
+  it('says where each tool’s host delivers', async () => {
     const onboarding = await read({ withFile: true });
     const linear = onboarding?.integrations.find(
       (each) => each.source === 'linear',
     );
 
-    expect(linear?.secrets).toEqual(['LINEAR_WEBHOOK_SECRET']);
     expect(linear?.deliverTo).toBe(
       'https://hooks.example.com/api/webhooks/w/acme/t/platform/linear',
     );

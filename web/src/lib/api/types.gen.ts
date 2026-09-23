@@ -1023,10 +1023,6 @@ export type KnownIntegrationResponseDto = {
   name: string;
   summary: string;
   /**
-   * The secrets its starting file reads, by name
-   */
-  secrets: Array<string>;
-  /**
    * Where this integration should be told to send its deliveries
    */
   deliverTo: string;
@@ -1311,19 +1307,6 @@ export type ChooseIntegrationsRequestDto = {
    * The hosts it no longer uses, whose files the change removes
    */
   dropped?: Array<string>;
-  /**
-   * The secrets the chosen integrations read, by name. Spotlight encrypts them into the team’s vault
-   */
-  secrets?: {
-    [key: string]: string;
-  };
-};
-
-export type VaultKeyResponseDto = {
-  /**
-   * The passphrase that opens .spotlight/secrets.vault, as in age -d .spotlight/secrets.vault
-   */
-  key: string;
 };
 
 export type TeamSkillResponseDto = {
@@ -3671,21 +3654,9 @@ export type ChooseIntegrationsErrors = {
    */
   401: unknown;
   /**
-   * Not an owner or admin, and an integration needs secrets
-   */
-  403: unknown;
-  /**
    * No such team, or nowhere to write it yet
    */
   404: unknown;
-  /**
-   * The team’s vault does not open with the key Spotlight holds
-   */
-  409: unknown;
-  /**
-   * A secret an integration needs was not given
-   */
-  422: unknown;
 };
 
 export type ChooseIntegrationsResponses = {
@@ -3693,40 +3664,6 @@ export type ChooseIntegrationsResponses = {
 };
 
 export type ChooseIntegrationsResponse = ChooseIntegrationsResponses[keyof ChooseIntegrationsResponses];
-
-export type RevealVaultKeyData = {
-  body?: never;
-  path: {
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/configuration/vault/key';
-};
-
-export type RevealVaultKeyErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * Not an owner or admin of this team
-   */
-  403: unknown;
-  /**
-   * No such team for this caller
-   */
-  404: unknown;
-  /**
-   * The key Spotlight holds for this team cannot be read
-   */
-  409: unknown;
-};
-
-export type RevealVaultKeyResponses = {
-  200: VaultKeyResponseDto;
-};
-
-export type RevealVaultKeyResponse = RevealVaultKeyResponses[keyof RevealVaultKeyResponses];
 
 export type ListTeamSkillsData = {
   body?: never;

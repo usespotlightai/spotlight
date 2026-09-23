@@ -1,5 +1,5 @@
 import { APPLIED_CONFIGURATION } from '@configuration/application/ports/applied-configuration.port';
-import { TEAM_SECRETS } from '@configuration/application/ports/team-secrets.port';
+import { HELD_SECRETS } from '@configuration/application/ports/held-secrets.port';
 import {
   CONFIGURATION_CONTROLLERS,
   CONFIGURATION_PROVIDERS,
@@ -22,7 +22,7 @@ import { WorkModule } from '@work/work.module';
     APPLIED_CONFIGURATION,
     CONFIGURATION_PROPOSALS,
     TEAM_SKILLS,
-    TEAM_SECRETS,
+    HELD_SECRETS,
     BUILT_IN_SKILLS,
   ],
 })

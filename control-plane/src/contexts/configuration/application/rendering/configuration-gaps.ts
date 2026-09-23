@@ -1,9 +1,9 @@
 import {
   integrationPath,
-  SECRETS_VAULT,
   skillFile,
 } from '@configuration/application/contracts/configuration-layout.contract';
 import type {
+  CredentialMissing,
   SecretMissing,
   SecretWritten,
   SkillToolUnoffered,
@@ -23,8 +23,16 @@ export const ConfigurationGaps = {
     return ConfigurationProblem.of({
       path: skillFile(gap.skill.value),
       at: `secrets.${gap.secret.value}`,
-      reason: `needs ${gap.secret.value} in ${SECRETS_VAULT} before a run is given it: encrypt it in with the team’s vault key`,
+      reason: `needs ${gap.secret.value}, which the team does not hold: no run is given this skill until it does`,
       severity: 'warning',
+    });
+  },
+
+  credentialMissing(gap: CredentialMissing): ConfigurationProblem {
+    return ConfigurationProblem.of({
+      path: gap.path,
+      at: `secret.${gap.secret.value}`,
+      reason: `reads secret.${gap.secret.value}, which the team does not hold: whatever reads it is refused until it does`,
     });
   },
 

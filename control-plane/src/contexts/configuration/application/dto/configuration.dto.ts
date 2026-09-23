@@ -29,7 +29,3 @@ export const CONFIGURATION_MOVE_KINDS = [
 export type ConfigurationMoveDto =
   | { readonly kind: 'carried'; readonly pullRequest: CarriedPullRequestDto }
   | { readonly kind: Exclude<ConfigurationMove['kind'], 'carried'> };
-
-export interface VaultKeyDto {
-  readonly key: string;
-}

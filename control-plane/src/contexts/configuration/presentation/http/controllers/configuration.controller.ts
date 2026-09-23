@@ -2,11 +2,9 @@ import { ChooseIntegrationsCommand } from '@configuration/application/commands/c
 import { MoveConfigurationCommand } from '@configuration/application/commands/move-configuration.command';
 import { PinConfigurationCommand } from '@configuration/application/commands/pin-configuration.command';
 import { ReadConfigurationCommand } from '@configuration/application/commands/read-configuration.command';
-import { RevealVaultKeyCommand } from '@configuration/application/commands/reveal-vault-key.command';
 import type {
   ConfigurationDto,
   ConfigurationMoveDto,
-  VaultKeyDto,
 } from '@configuration/application/dto/configuration.dto';
 import { ConfigurationQuery } from '@configuration/application/queries/read-configuration.query';
 import type { Read } from '@configuration/application/services/read-configuration.service';
@@ -18,14 +16,12 @@ import {
   MoveConfigurationRequestDto,
   MovedConfigurationResponseDto,
   PinConfigurationRequestDto,
-  VaultKeyResponseDto,
 } from '@configuration/presentation/http/dto/configuration.response.dto';
 import type { OpenedPullRequestDto } from '@github/application/ports/pull-request.port';
 import {
   Body,
   Controller,
   Get,
-  Header,
   HttpCode,
   HttpStatus,
   NotFoundException,
@@ -34,8 +30,6 @@ import {
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
-  ApiConflictResponse,
-  ApiForbiddenResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -43,7 +37,6 @@ import {
   ApiParam,
   ApiTags,
   ApiUnauthorizedResponse,
-  ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import { ProposedResponseDto } from '@platform/http/dto/proposed.response.dto';
@@ -195,15 +188,6 @@ export class ConfigurationController {
   @ApiNotFoundResponse({
     description: 'No such team, or nowhere to write it yet',
   })
-  @ApiForbiddenResponse({
-    description: 'Not an owner or admin, and an integration needs secrets',
-  })
-  @ApiConflictResponse({
-    description: 'The team’s vault does not open with the key Spotlight holds',
-  })
-  @ApiUnprocessableEntityResponse({
-    description: 'A secret an integration needs was not given',
-  })
   async chooseIntegrations(
     @Param('teamId') teamId: string,
     @Body() body: ChooseIntegrationsRequestDto,
@@ -218,11 +202,6 @@ export class ConfigurationController {
         body.sources ?? [],
         user.id,
         body.dropped ?? [],
-        Object.fromEntries(
-          Object.entries(body.secrets ?? {}).filter(
-            (entry): entry is [string, string] => typeof entry[1] === 'string',
-          ),
-        ),
       ),
     );
 
@@ -231,36 +210,5 @@ export class ConfigurationController {
     }
 
     return new ProposedResponseDto(opened.url);
-  }
-
-  @Post('vault/key')
-  @HttpCode(HttpStatus.OK)
-  @Header('Cache-Control', 'no-store')
-  @ApiOperation({
-    operationId: 'revealVaultKey',
-    summary:
-      'Reveal the key this team’s secrets are encrypted with, issuing it the first time',
-  })
-  @ApiParam({ name: 'teamId', example: 'team_1' })
-  @ApiOkResponse({ type: VaultKeyResponseDto })
-  @ApiNotFoundResponse({ description: 'No such team for this caller' })
-  @ApiForbiddenResponse({ description: 'Not an owner or admin of this team' })
-  @ApiConflictResponse({
-    description: 'The key Spotlight holds for this team cannot be read',
-  })
-  async revealVaultKey(
-    @Param('teamId') teamId: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ): Promise<VaultKeyResponseDto> {
-    const revealed = await this.commandBus.execute<
-      RevealVaultKeyCommand,
-      VaultKeyDto | null
-    >(new RevealVaultKeyCommand(teamId, user.id));
-
-    if (!revealed) {
-      throw new NotFoundException();
-    }
-
-    return new VaultKeyResponseDto(revealed.key);
   }
 }

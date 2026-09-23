@@ -1,24 +1,21 @@
-import {
-  INTEGRATIONS_UNDER,
-  sealedVaultIn,
-} from '@configuration/application/contracts/configuration-layout.contract';
+import { INTEGRATIONS_UNDER } from '@configuration/application/contracts/configuration-layout.contract';
+import type { HeldSecretsPort } from '@configuration/application/ports/held-secrets.port';
 import type { IntegrationReaderPort } from '@configuration/application/ports/integration-reader.port';
 import type { LinesPort } from '@configuration/application/ports/lines.port';
 import type { SkillReaderPort } from '@configuration/application/ports/skill-reader.port';
 import type { TeamProfile } from '@configuration/application/ports/teams.port';
 import { ConfigurationGaps } from '@configuration/application/rendering/configuration-gaps';
-import { VaultProblems } from '@configuration/application/rendering/vault-problems';
 import type {
   HeldConfiguration,
   Holding,
 } from '@configuration/application/services/held-configuration.service';
-import type { TeamVault } from '@configuration/application/services/team-vault.service';
 import { ConfigurationHome } from '@configuration/domain/aggregates/configuration-home.aggregate';
 import { TeamConfiguration } from '@configuration/domain/aggregates/team-configuration.aggregate';
 import { ConfigurationHomeMovedOnError } from '@configuration/domain/exceptions/configuration-home-moved-on.error';
 import type { ConfigurationHomeRepository } from '@configuration/domain/repositories/configuration-home.repository';
 import type { TeamConfigurationRepository } from '@configuration/domain/repositories/team-configuration.repository';
 import {
+  credentialsMissing,
   secretsMissing,
   secretsWrittenIn,
   skillToolsUnoffered,
@@ -49,7 +46,7 @@ export class ReadConfiguration {
     private readonly held: HeldConfiguration,
     private readonly integrations: IntegrationReaderPort,
     private readonly skills: SkillReaderPort,
-    private readonly vault: TeamVault,
+    private readonly secrets: HeldSecretsPort,
     private readonly lines: LinesPort,
     private readonly homes: ConfigurationHomeRepository,
     private readonly configurations: TeamConfigurationRepository,
@@ -94,16 +91,15 @@ export class ReadConfiguration {
       begunAt,
       readAt: this.clock.now(),
     });
-    const sealed = sealedVaultIn(reading.files);
-    const vault = sealed ? await this.vault.open(team.teamId, sealed) : null;
-    const held = vault?.opened ? vault.vault.names : [];
-
+    const held = await this.secrets.held(team.teamId);
     const lines = await this.lines.plan(team.teamId, lineFiles);
 
     const problems: ConfigurationProblem[] = [
       ...integrationsRead.problems,
       ...skillsRead.problems,
-      ...(vault && !vault.opened ? [VaultProblems.problem(vault.refusal)] : []),
+      ...credentialsMissing(integrationsRead.integrations, held).map(
+        ConfigurationGaps.credentialMissing,
+      ),
       ...secretsMissing(skills, held).map(ConfigurationGaps.secretMissing),
       ...secretsWrittenIn(
         skillsRead.skills.map((each) => ({

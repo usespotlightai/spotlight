@@ -3,7 +3,6 @@ import { useParams, useSearchParams } from 'react-router';
 import { GitHubIntegration } from '@/components/features/integrations/GitHubIntegration';
 import { IntegrationCard } from '@/components/features/integrations/IntegrationCard';
 import { IntegrationCardSkeleton } from '@/components/features/integrations/IntegrationCardSkeleton';
-import { SecretsPrompt } from '@/components/features/integrations/SecretsPrompt';
 import { ConfigurationRepositoryLink } from '@/components/features/settings/ConfigurationRepositoryLink';
 import { SettingsEmpty } from '@/components/features/settings/SettingsEmpty';
 import { SettingsPage } from '@/components/features/settings/SettingsPage';
@@ -49,7 +48,6 @@ export function TeamIntegrations() {
   }, [connected, setParams]);
 
   const [wanted, setWanted] = useState<ReadonlyMap<string, boolean>>(new Map());
-  const [prompting, setPrompting] = useState(false);
 
   if (!teamId) {
     return null;
@@ -80,23 +78,9 @@ export function TeamIntegrations() {
   const dropped = asked.filter(([, on]) => !on).map(([source]) => source);
   const changed = sources.length + dropped.length;
 
-  const needingSecrets = (onboarding.data?.integrations ?? []).filter(
-    (integration) =>
-      sources.includes(integration.source) && integration.secrets.length > 0,
-  );
-
   const notOpened = choose.error
     ? messageOf(choose.error, 'The pull request could not be opened.')
     : null;
-
-  const openPullRequest = () => {
-    if (needingSecrets.length > 0) {
-      setPrompting(true);
-      return;
-    }
-
-    choose.mutate({ sources, dropped });
-  };
 
   return (
     <SettingsPage
@@ -164,7 +148,7 @@ export function TeamIntegrations() {
                 <Button
                   size="sm"
                   disabled={changed === 0 || choose.isPending}
-                  onClick={openPullRequest}
+                  onClick={() => choose.mutate({ sources, dropped })}
                   className="rounded-full shadow-none"
                 >
                   {choose.isPending ? 'Opening…' : 'Open pull request'}
@@ -172,7 +156,7 @@ export function TeamIntegrations() {
               </div>
             </div>
 
-            {!prompting && notOpened && (
+            {notOpened && (
               <p className="text-destructive text-sm">{notOpened}</p>
             )}
 
@@ -249,21 +233,6 @@ export function TeamIntegrations() {
             )}
           </section>
         </>
-      )}
-
-      {prompting && (
-        <SecretsPrompt
-          integrations={needingSecrets}
-          onOpenChange={setPrompting}
-          pending={choose.isPending}
-          error={notOpened}
-          onSubmit={(secrets) =>
-            choose.mutate(
-              { sources, dropped, secrets },
-              { onSuccess: () => setPrompting(false) },
-            )
-          }
-        />
       )}
     </SettingsPage>
   );

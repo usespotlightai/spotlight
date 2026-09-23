@@ -2,7 +2,7 @@ import type {
   Applied,
   AppliedConfigurationPort,
 } from '@configuration/application/ports/applied-configuration.port';
-import type { TeamSecretsPort } from '@configuration/application/ports/team-secrets.port';
+import type { HeldSecretsPort } from '@configuration/application/ports/held-secrets.port';
 import type { PollState } from '@integrations/application/ports/integration-cursors.port';
 import { HostReach } from '@integrations/application/services/host-reach.service';
 import { RunSchedules } from '@integrations/application/services/run-schedules.service';
@@ -37,7 +37,7 @@ const runtimeWith = (
 const NOW = new Date('2026-09-07T09:00:00.000Z');
 const TEAM = TeamId.of('team_1');
 
-const SCHEDULE = `
+const schedule = (headers = '') => `
 version: 1
 integration: linear
 schedule:
@@ -48,17 +48,17 @@ actions:
     request:
       method: POST
       url: https://api.linear.app/digest
-      headers:
+${headers}`;
+
+const READS_A_SECRET = `      headers:
         authorization: '\${{ "Bearer " + secret.LINEAR_TOKEN }}'
 `;
 
-const config = () =>
+const config = (file: string) =>
   ({
     teamId: TEAM,
     repository: Repository.of('acme/api'),
-    files: [
-      ConfigurationFile.of('.spotlight/integrations/linear.yml', SCHEDULE),
-    ],
+    files: [ConfigurationFile.of('.spotlight/integrations/linear.yml', file)],
   }) as Applied;
 
 const OK: OutboundResult = { ok: true, status: 200, response: {}, capture: {} };
@@ -67,43 +67,32 @@ const KEY = 'linear:schedule';
 
 const scheduling = (
   cursors: FakeIntegrationCursors,
-  run: (
-    request: unknown,
-    against: { secret: Record<string, string> },
-  ) => Promise<OutboundResult>,
+  run: (request: unknown) => Promise<OutboundResult>,
   now: Date = NOW,
+  file = schedule(),
 ) =>
   new RunSchedules(
     {
-      everywhere: async () => [config()],
+      everywhere: async () => [config(file)],
     } as unknown as AppliedConfigurationPort,
     runtimeWith({ run } as unknown as HttpOutbound),
-    new HostReach(
-      {
-        resolveAll: async (
-          _team: unknown,
-          names: readonly { value: string }[],
-        ) => Object.fromEntries(names.map((name) => [name.value, 'lin_1'])),
-      } as unknown as TeamSecretsPort,
-      { of: async () => null } as unknown as HostConnectionRepository,
-    ),
+    new HostReach({ held: async () => [] } satisfies HeldSecretsPort, {
+      of: async () => null,
+    } as unknown as HostConnectionRepository),
     cursors,
     { now: () => now } as ClockPort,
     { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
   );
 
-const working = (state: PollState, now: Date = NOW) => {
-  const run = vi.fn(
-    async (_request: unknown, _against: { secret: Record<string, string> }) =>
-      OK,
-  );
+const working = (state: PollState, now: Date = NOW, file = schedule()) => {
+  const run = vi.fn(async (_request: unknown) => OK);
   const cursors = new FakeIntegrationCursors();
 
   if (state.ranAt) {
     cursors.keep(TEAM, KEY, state);
   }
 
-  return { schedules: scheduling(cursors, run, now), run, cursors };
+  return { schedules: scheduling(cursors, run, now, file), run, cursors };
 };
 
 describe('RunSchedules', () => {
@@ -153,17 +142,17 @@ describe('RunSchedules', () => {
     expect(run).toHaveBeenCalledTimes(1);
   });
 
-  it('reads the action with the team secret', async () => {
-    const { schedules, run } = working({
-      cursor: null,
-      ranAt: new Date('2026-09-07T08:00:00.000Z'),
-    });
+  it('does not run an action whose file reads a secret, since none is held', async () => {
+    const { schedules, run, cursors } = working(
+      { cursor: null, ranAt: new Date('2026-09-07T08:00:00.000Z') },
+      NOW,
+      schedule(READS_A_SECRET),
+    );
 
     await schedules.runDue();
 
-    const [request, against] = run.mock.calls[0] ?? [];
-    expect(request).toBeDefined();
-    expect(against?.secret.LINEAR_TOKEN).toBe('lin_1');
+    expect(run).not.toHaveBeenCalled();
+    expect(cursors.kept(TEAM, KEY)?.ranAt).toEqual(NOW);
   });
 
   it('runs the action once when two workers reach the slot together', async () => {

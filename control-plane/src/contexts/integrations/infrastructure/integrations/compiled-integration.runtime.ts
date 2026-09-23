@@ -47,10 +47,8 @@ const refusalOf = (result: OutboundResult): HostRefusal => ({
   said: asJson(result.response ?? null).slice(0, SAID_AT_MOST),
 });
 
-const reached = (reach: Reach) => ({
-  secret: { ...reach.secret },
-  ...(reach.connection ? { connection: reach.connection.value } : {}),
-});
+const reached = (reach: Reach) =>
+  reach.connection ? { connection: reach.connection.value } : {};
 
 export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   readonly #read = new WeakMap<

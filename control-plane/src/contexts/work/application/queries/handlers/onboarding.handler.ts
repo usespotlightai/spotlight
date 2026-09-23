@@ -70,9 +70,6 @@ export class OnboardingHandler
             source: each.source,
             name: each.name,
             summary: each.summary,
-            secrets: this.starters
-              .secretsFor(each.source)
-              .map((name) => name.value),
             deliverTo: this.addresses.of(team.slug, team.teamKey, each.source),
           }),
         ),

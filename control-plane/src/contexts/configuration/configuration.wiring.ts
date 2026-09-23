@@ -3,16 +3,18 @@ import { ChooseIntegrationsHandler } from '@configuration/application/commands/h
 import { MoveConfigurationHandler } from '@configuration/application/commands/handlers/move-configuration.handler';
 import { PinConfigurationHandler } from '@configuration/application/commands/handlers/pin-configuration.handler';
 import { ReadConfigurationHandler } from '@configuration/application/commands/handlers/read-configuration.handler';
-import { RevealVaultKeyHandler } from '@configuration/application/commands/handlers/reveal-vault-key.handler';
 import { MoveConfigurationCommand } from '@configuration/application/commands/move-configuration.command';
 import { PinConfigurationCommand } from '@configuration/application/commands/pin-configuration.command';
 import { ReadConfigurationCommand } from '@configuration/application/commands/read-configuration.command';
-import { RevealVaultKeyCommand } from '@configuration/application/commands/reveal-vault-key.command';
 import {
   APPLIED_CONFIGURATION,
   type AppliedConfigurationPort,
 } from '@configuration/application/ports/applied-configuration.port';
 import { CONFIGURATION_READER } from '@configuration/application/ports/configuration-reader.port';
+import {
+  HELD_SECRETS,
+  type HeldSecretsPort,
+} from '@configuration/application/ports/held-secrets.port';
 import {
   INTEGRATION_LINKS,
   type IntegrationLinksPort,
@@ -30,21 +32,9 @@ import {
   type SkillReaderPort,
 } from '@configuration/application/ports/skill-reader.port';
 import {
-  TEAM_SECRETS,
-  type TeamSecretsPort,
-} from '@configuration/application/ports/team-secrets.port';
-import {
   TEAMS,
   type TeamsPort,
 } from '@configuration/application/ports/teams.port';
-import {
-  VAULT_KEYS,
-  type VaultKeysPort,
-} from '@configuration/application/ports/vault-keys.port';
-import {
-  VAULT_SEALING,
-  type VaultSealingPort,
-} from '@configuration/application/ports/vault-sealing.port';
 import { ConfigurationHandler } from '@configuration/application/queries/handlers/read-configuration.handler';
 import { TeamSkillsHandler } from '@configuration/application/queries/handlers/team-skills.handler';
 import { ConfigurationQuery } from '@configuration/application/queries/read-configuration.query';
@@ -57,8 +47,6 @@ import { PendingConfiguration } from '@configuration/application/services/pendin
 import { ProposeConfigurationChange } from '@configuration/application/services/propose-configuration-change.service';
 import { ReadConfiguration } from '@configuration/application/services/read-configuration.service';
 import { RepositoryProvisioning } from '@configuration/application/services/repository-provisioning.service';
-import { TeamSecrets } from '@configuration/application/services/team-secrets.service';
-import { TeamVault } from '@configuration/application/services/team-vault.service';
 import { WriteConfiguration } from '@configuration/application/services/write-configuration.service';
 import { CONFIGURATION_EVENT_TYPES } from '@configuration/domain/event-types';
 import { BuiltInSkills } from '@configuration/infrastructure/acl/built-in-skills.adapter';
@@ -70,8 +58,7 @@ import { DrizzleConfigurationReader } from '@configuration/infrastructure/persis
 import { DrizzleIntegrationLinks } from '@configuration/infrastructure/persistence/drizzle/readers/integration-links.reader';
 import { DrizzleConfigurationHome } from '@configuration/infrastructure/persistence/drizzle/repositories/configuration-home.repository';
 import { DrizzleTeamConfiguration } from '@configuration/infrastructure/persistence/drizzle/repositories/team-configuration.repository';
-import { AgeVaultSealing } from '@configuration/infrastructure/secrets/age-vault-sealing';
-import { DrizzleVaultKeys } from '@configuration/infrastructure/secrets/drizzle-vault-keys';
+import { NoHeldSecrets } from '@configuration/infrastructure/secrets/no-held-secrets';
 import { BuiltInSkillFiles } from '@configuration/infrastructure/skills/built-in-skill-files';
 import { TeamSkillFiles } from '@configuration/infrastructure/skills/team-skill-files';
 import { configurationSubscribers } from '@configuration/presentation/events/configuration.subscribers';
@@ -107,8 +94,6 @@ import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { EventTypes } from '@platform/events/event-types';
-import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { SecretCipher } from '@platform/secrets/secret.cipher';
 import {
   CLOCK,
   type ClockPort,
@@ -167,31 +152,13 @@ const adapters: Provider[] = [
   },
   DrizzleTeamConfiguration,
   DrizzleConfigurationHome,
-  {
-    provide: VAULT_KEYS,
-    inject: [DrizzleContext, SecretCipher],
-    useFactory: (context: DrizzleContext, cipher: SecretCipher) =>
-      new DrizzleVaultKeys(context, cipher),
-  },
-  { provide: VAULT_SEALING, useFactory: () => new AgeVaultSealing() },
   { provide: SKILL_READER, useFactory: () => new TeamSkillFiles() },
+  { provide: HELD_SECRETS, useFactory: () => new NoHeldSecrets() },
   { provide: CONFIGURATION_READER, useClass: DrizzleConfigurationReader },
   { provide: INTEGRATION_LINKS, useClass: DrizzleIntegrationLinks },
 ];
 
 const services: Provider[] = [
-  {
-    provide: TEAM_SECRETS,
-    inject: [APPLIED_CONFIGURATION, TeamVault],
-    useFactory: (configurations: AppliedConfigurationPort, vault: TeamVault) =>
-      new TeamSecrets(configurations, vault),
-  },
-  {
-    provide: TeamVault,
-    inject: [VAULT_KEYS, VAULT_SEALING],
-    useFactory: (keys: VaultKeysPort, sealing: VaultSealingPort) =>
-      new TeamVault(keys, sealing),
-  },
   {
     provide: HeldConfiguration,
     inject: [REPOSITORY_CONTENTS],
@@ -233,7 +200,7 @@ const services: Provider[] = [
       HeldConfiguration,
       INTEGRATION_READER,
       SKILL_READER,
-      TeamVault,
+      HELD_SECRETS,
       LINES,
       DrizzleConfigurationHome,
       DrizzleTeamConfiguration,
@@ -245,7 +212,7 @@ const services: Provider[] = [
       held: HeldConfiguration,
       integrations: IntegrationReaderPort,
       skills: SkillReaderPort,
-      vault: TeamVault,
+      secrets: HeldSecretsPort,
       lines: LinesPort,
       homes: DrizzleConfigurationHome,
       configurations: DrizzleTeamConfiguration,
@@ -257,7 +224,7 @@ const services: Provider[] = [
         held,
         integrations,
         skills,
-        vault,
+        secrets,
         lines,
         homes,
         configurations,
@@ -296,15 +263,9 @@ const handlers: Provider[] = [
     TEAMS,
     ReadConfiguration,
   ]),
-  ...bindCommandHandler(RevealVaultKeyCommand, RevealVaultKeyHandler, [
-    TEAMS,
-    TeamVault,
-  ]),
   ...bindCommandHandler(ChooseIntegrationsCommand, ChooseIntegrationsHandler, [
     ProposeConfigurationChange,
     STARTER_INTEGRATIONS,
-    PendingConfiguration,
-    TeamVault,
   ]),
   ...bindQueryHandler(ConfigurationQuery, ConfigurationHandler, [
     TEAMS,
@@ -345,11 +306,11 @@ const published: Provider[] = [
   },
   {
     provide: TEAM_SKILLS,
-    inject: [DrizzleTeamConfiguration, SKILL_READER, TEAM_SECRETS],
+    inject: [DrizzleTeamConfiguration, SKILL_READER, HELD_SECRETS],
     useFactory: (
       configurations: DrizzleTeamConfiguration,
       reader: SkillReaderPort,
-      secrets: TeamSecretsPort,
+      secrets: HeldSecretsPort,
     ) => new TeamSkills(configurations, reader, secrets),
   },
   {

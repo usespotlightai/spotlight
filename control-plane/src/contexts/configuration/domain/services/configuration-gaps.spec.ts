@@ -1,5 +1,6 @@
 import { Skill } from '@configuration/domain/entities/skill.entity';
 import {
+  credentialsMissing,
   secretsMissing,
   secretsWrittenIn,
   skillToolsUnoffered,
@@ -30,13 +31,35 @@ const STATION = {
 const BUILT_IN = (tool: ToolName) => tool.value === 'pull-request';
 
 describe('configuration gaps', () => {
-  it('finds each secret a skill needs that the vault does not hold', () => {
+  it('finds each secret a skill needs that the team does not hold', () => {
     expect(secretsMissing([GRAFANA], [])).toEqual([
       { skill: GRAFANA.key, secret: SecretName.of('GRAFANA_TOKEN') },
     ]);
     expect(secretsMissing([GRAFANA], [SecretName.of('GRAFANA_TOKEN')])).toEqual(
       [],
     );
+  });
+
+  it('finds each secret an integration reads that the team does not hold', () => {
+    const integrations = [
+      {
+        path: '.spotlight/integrations/linear.yml',
+        credentials: [
+          SecretName.of('LINEAR_API_KEY'),
+          SecretName.of('LINEAR_WEBHOOK_SECRET'),
+        ],
+      },
+      { path: '.spotlight/integrations/github.yml', credentials: [] },
+    ];
+
+    expect(
+      credentialsMissing(integrations, [SecretName.of('LINEAR_API_KEY')]),
+    ).toEqual([
+      {
+        path: '.spotlight/integrations/linear.yml',
+        secret: SecretName.of('LINEAR_WEBHOOK_SECRET'),
+      },
+    ]);
   });
 
   it('finds each skill that writes a secret into any of its files', () => {

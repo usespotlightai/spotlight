@@ -1,5 +1,4 @@
 import { compileIntegration } from '@integrations/infrastructure/integrations/integration.compile';
-import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { KnownIntegrations } from '@integrations/infrastructure/integrations/known-integrations';
 import { WebhookRuntime } from '@integrations/infrastructure/integrations/webhook.runtime';
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
@@ -9,7 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 const slack = () => {
   const read = compileIntegration(
     '.spotlight/integrations/slack.yml',
-    new KnownIntegrations(new IntegrationReader()).fileFor('slack') as string,
+    new KnownIntegrations().fileFor('slack') as string,
   );
 
   if (!read.ok) {

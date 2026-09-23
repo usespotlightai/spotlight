@@ -7,12 +7,6 @@ import {
   timestamp,
 } from 'drizzle-orm/pg-core';
 
-export const teamVaultKey = pgTable('team_vault_key', {
-  teamId: text('team_id').primaryKey(),
-  sealedKey: text('sealed_key').notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-});
-
 export const teamConfig = pgTable('team_config', {
   teamId: text('team_id').primaryKey(),
   repository: text('repository').notNull(),

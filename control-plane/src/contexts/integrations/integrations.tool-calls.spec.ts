@@ -1,5 +1,5 @@
 import type { AppliedConfigurationPort } from '@configuration/application/ports/applied-configuration.port';
-import type { TeamSecretsPort } from '@configuration/application/ports/team-secrets.port';
+import type { HeldSecretsPort } from '@configuration/application/ports/held-secrets.port';
 import { HostReach } from '@integrations/application/services/host-reach.service';
 import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
 import { IntegrationToolCalls } from '@integrations/infrastructure/acl/integration-tool-calls.adapter';
@@ -13,6 +13,7 @@ import type {
 } from '@integrations/infrastructure/outbound/http-outbound';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 import { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type { ToolInputValues } from '@work/application/contracts/tools.contract';
 import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
 import type { IntegrationTool } from '@work/application/ports/integration-tool-calls.port';
@@ -37,9 +38,6 @@ actions:
     request:
       method: POST
       url: https://api.linear.app/graphql
-      auth:
-        token:
-          secret: secret.LINEAR_API_KEY
       body:
         issue: '\${{ inputs.issue }}'
         body: '\${{ inputs.body }}'
@@ -80,7 +78,7 @@ const using = (
     response: { url: 'https://linear.app/acme/issue/ENG-12#comment-1' },
     capture: { url: 'https://linear.app/acme/issue/ENG-12#comment-1' },
   },
-  over: { file?: string } = {},
+  over: { file?: string; held?: readonly string[] } = {},
 ) => {
   const run = vi.fn(
     async (_action: unknown, _against: Record<string, unknown>) => reply,
@@ -100,11 +98,8 @@ const using = (
     runtimeWith({ run } as unknown as HttpOutbound),
     new HostReach(
       {
-        resolveAll: vi.fn(
-          async (_team: unknown, names: readonly { value: string }[]) =>
-            Object.fromEntries(names.map((name) => [name.value, 'lin_api_1'])),
-        ),
-      } as unknown as TeamSecretsPort,
+        held: async () => (over.held ?? []).map((each) => SecretName.of(each)),
+      } satisfies HeldSecretsPort,
       { of: async () => null } as unknown as HostConnectionRepository,
     ),
   );
@@ -181,7 +176,35 @@ describe('IntegrationToolCalls', () => {
         marks: { 'linear.issue': 'ENG-12' },
       },
       inputs: { issue: 'ENG-7', body: 'Fixed in the queue worker.', count: 2 },
-      secret: { LINEAR_API_KEY: 'lin_api_1' },
+    });
+  });
+
+  describe('an action that reads a secret', () => {
+    const READS_A_SECRET = LINEAR.replace(
+      '      url: https://api.linear.app/graphql\n',
+      '      url: https://api.linear.app/graphql\n      auth:\n        token:\n          secret: secret.LINEAR_API_KEY\n',
+    );
+
+    it('is refused where the team does not hold the secret', async () => {
+      const { comment, run } = using(undefined, { file: READS_A_SECRET });
+
+      await expect(comment({ body: 'x' })).rejects.toMatchObject({
+        violation: 'conflict',
+        message:
+          'The linear integration reads secret.LINEAR_API_KEY, which the team does not hold',
+      });
+      expect(run).not.toHaveBeenCalled();
+    });
+
+    it('is made where the team holds the secret', async () => {
+      const { comment, run } = using(undefined, {
+        file: READS_A_SECRET,
+        held: ['LINEAR_API_KEY'],
+      });
+
+      await comment({ body: 'x' });
+
+      expect(run).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -7,6 +7,7 @@ import { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
 import { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { Webhook } from '@integrations/domain/value-objects/webhook.vo';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { describe, expect, it } from 'vitest';
 
 const LINEAR = SourceKey.of('linear');
@@ -102,5 +103,40 @@ describe('Integration', () => {
 
   it('is the same integration as another to the same host', () => {
     expect(integration().equals(integration())).toBe(true);
+  });
+
+  describe('reached with the secrets a team holds', () => {
+    const reading = Integration.of({
+      source: SourceKey.of('linear'),
+      credentials: [
+        SecretName.of('LINEAR_API_KEY'),
+        SecretName.of('LINEAR_WEBHOOK_SECRET'),
+      ],
+    });
+
+    it('is reachable where the team holds every secret it reads', () => {
+      expect(() =>
+        reading.assertReachableWith([
+          SecretName.of('LINEAR_WEBHOOK_SECRET'),
+          SecretName.of('LINEAR_API_KEY'),
+        ]),
+      ).not.toThrow();
+    });
+
+    it('is reachable without secrets where it reads none', () => {
+      expect(() =>
+        Integration.of({ source: SourceKey.of('sentry') }).assertReachableWith(
+          [],
+        ),
+      ).not.toThrow();
+    });
+
+    it('names each secret the team does not hold', () => {
+      expect(() =>
+        reading.assertReachableWith([SecretName.of('LINEAR_API_KEY')]),
+      ).toThrow(
+        'The linear integration reads secret.LINEAR_WEBHOOK_SECRET, which the team does not hold',
+      );
+    });
   });
 });

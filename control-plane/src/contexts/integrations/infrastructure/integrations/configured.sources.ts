@@ -1,6 +1,5 @@
 import { integrationFilesIn } from '@configuration/application/contracts/configuration-layout.contract';
 import type { AppliedConfigurationPort } from '@configuration/application/ports/applied-configuration.port';
-import type { TeamSecretsPort } from '@configuration/application/ports/team-secrets.port';
 import type {
   ConfiguredSourcesPort,
   OfTeam,
@@ -14,7 +13,6 @@ import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-ou
 export class ConfiguredSources implements ConfiguredSourcesPort {
   constructor(
     private readonly configurations: AppliedConfigurationPort,
-    private readonly secrets: TeamSecretsPort,
     private readonly reader: IntegrationReader,
     private readonly jwks: JwksResolver,
     private readonly outbound: HttpOutbound,
@@ -38,20 +36,11 @@ export class ConfiguredSources implements ConfiguredSourcesPort {
     const mine = integrationFilesIn(applied.files);
 
     for (const readable of this.reader.readable(mine).integrations) {
-      const secrets = new Map(
-        Object.entries(
-          await this.secrets.resolveAll(
-            team.teamId,
-            readable.integration.credentials,
-          ),
-        ),
-      );
-
       built.push(
         new WebhookRuntime(
           readable,
           team.workspaceId,
-          secrets,
+          new Map(),
           undefined,
           this.jwks,
           this.outbound,

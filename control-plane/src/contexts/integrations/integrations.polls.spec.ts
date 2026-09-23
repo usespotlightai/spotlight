@@ -2,7 +2,7 @@ import type {
   Applied,
   AppliedConfigurationPort,
 } from '@configuration/application/ports/applied-configuration.port';
-import type { TeamSecretsPort } from '@configuration/application/ports/team-secrets.port';
+import type { HeldSecretsPort } from '@configuration/application/ports/held-secrets.port';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { PollState } from '@integrations/application/ports/integration-cursors.port';
 import { HostReach } from '@integrations/application/services/host-reach.service';
@@ -41,7 +41,7 @@ const runtimeWith = (
 const NOW = new Date('2026-09-07T10:00:00.000Z');
 const TEAM = TeamId.of('team_1');
 
-const POLL = `
+const poll = (headers = '') => `
 version: 1
 integration: linear
 poll:
@@ -49,9 +49,7 @@ poll:
   request:
     method: GET
     url: https://api.linear.app/issues
-    headers:
-      authorization: '\${{ "Bearer " + secret.LINEAR_TOKEN }}'
-  cursor: '\${{ body.lastId }}'
+${headers}  cursor: '\${{ body.lastId }}'
   events:
     - forEach: '\${{ body.issues }}'
       when: '\${{ item.done }}'
@@ -64,11 +62,15 @@ poll:
             value: '\${{ item.id }}'
 `;
 
-const config = () =>
+const READS_A_SECRET = `    headers:
+      authorization: '\${{ "Bearer " + secret.LINEAR_TOKEN }}'
+`;
+
+const config = (file: string) =>
   ({
     teamId: TEAM,
     repository: Repository.of('acme/api'),
-    files: [ConfigurationFile.of('.spotlight/integrations/linear.yml', POLL)],
+    files: [ConfigurationFile.of('.spotlight/integrations/linear.yml', file)],
   }) as Applied;
 
 const REPLY: OutboundResult = {
@@ -91,10 +93,11 @@ const polling = (
     against: { cursor: string },
   ) => Promise<OutboundResult>,
   react: HappeningReactionsPort['react'],
+  file = poll(),
 ) =>
   new WorkOffPolls(
     {
-      everywhere: async () => [config()],
+      everywhere: async () => [config(file)],
     } as unknown as AppliedConfigurationPort,
     runtimeWith({ run } as unknown as HttpOutbound),
     {
@@ -105,20 +108,9 @@ const polling = (
         members: [],
       }),
     } as unknown as TeamDirectoryPort,
-    new HostReach(
-      {
-        resolveAll: async (
-          _team: unknown,
-          names: readonly { value: string }[],
-        ) =>
-          Object.fromEntries(
-            names
-              .filter((name) => name.value === 'LINEAR_TOKEN')
-              .map((name) => [name.value, 'lin_1']),
-          ),
-      } as unknown as TeamSecretsPort,
-      { of: async () => null } as unknown as HostConnectionRepository,
-    ),
+    new HostReach({ held: async () => [] } satisfies HeldSecretsPort, {
+      of: async () => null,
+    } as unknown as HostConnectionRepository),
     cursors,
     { react } as HappeningReactionsPort,
     { now: () => NOW } as ClockPort,
@@ -213,6 +205,21 @@ describe('WorkOffPolls', () => {
       cursor: 'ENG-0',
       ranAt: NOW,
     });
+  });
+
+  it('does not poll a host whose file reads a secret, since none is held', async () => {
+    const run = vi.fn(async () => REPLY);
+    const react = vi.fn(async () => undefined);
+
+    await polling(
+      new FakeIntegrationCursors(),
+      run,
+      react,
+      poll(READS_A_SECRET),
+    ).workOff();
+
+    expect(run).not.toHaveBeenCalled();
+    expect(react).not.toHaveBeenCalled();
   });
 
   it('polls a slot once when two workers reach it together', async () => {
