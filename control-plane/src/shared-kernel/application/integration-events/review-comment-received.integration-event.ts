@@ -8,11 +8,16 @@ export type ReviewCommentReceivedIntegrationEvent = {
   readonly commentId: number;
   readonly url: string;
   readonly path: string;
-  readonly side: 'old' | 'new';
-  readonly line: number | null;
-  readonly startLine: number | null;
   readonly body: string;
   readonly answers: number | null;
   readonly login: string | null;
   readonly writtenAt: string | null;
-};
+} & (
+  | { readonly subject: 'file' }
+  | {
+      readonly subject: 'line';
+      readonly side: 'old' | 'new';
+      readonly line: number | null;
+      readonly startLine: number | null;
+    }
+);

@@ -14,11 +14,21 @@ export class ReviewCommentResponseDto {
   @ApiProperty({ example: 'src/invite.ts' })
   readonly path: string;
 
-  @ApiProperty({ enum: REVIEW_SIDE_NAMES })
-  readonly side: 'new' | 'old';
+  @ApiProperty({
+    enum: REVIEW_SIDE_NAMES,
+    nullable: true,
+    description:
+      'Which side of the change its lines are on; none on the whole file',
+  })
+  readonly side: 'new' | 'old' | null;
 
-  @ApiProperty({ example: 12, description: 'The line it ends on' })
-  readonly line: number;
+  @ApiProperty({
+    example: 12,
+    nullable: true,
+    type: Number,
+    description: 'The line it ends on; none for a comment on the whole file',
+  })
+  readonly line: number | null;
 
   @ApiProperty({
     nullable: true,

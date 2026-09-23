@@ -27,6 +27,7 @@ interface StationOpening {
   readonly tools: readonly Tool[];
   readonly skills?: readonly SkillKey[];
   readonly diffs?: boolean;
+  readonly decisions?: boolean;
   readonly ends: boolean;
 }
 
@@ -54,6 +55,7 @@ const opening = (input: {
   passesTo?: readonly string[];
   tools?: readonly Tool[];
   diffs?: boolean;
+  decisions?: boolean;
   ends?: boolean;
 }): StationOpening => ({
   key: StationKey.of(input.key),
@@ -64,6 +66,7 @@ const opening = (input: {
   passesTo: (input.passesTo ?? []).map((each) => StationKey.of(each)),
   tools: input.tools ?? [],
   diffs: input.diffs ?? false,
+  decisions: input.decisions ?? false,
   ends: input.ends ?? false,
 });
 
@@ -283,6 +286,7 @@ const DELIVERY_STATIONS: readonly StationOpening[] = [
     color: '#edc12b',
     prompt: IMPLEMENTATION,
     passesTo: ['code-review'],
+    decisions: true,
   }),
   opening({
     key: 'code-review',

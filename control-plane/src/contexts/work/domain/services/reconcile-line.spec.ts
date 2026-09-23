@@ -48,6 +48,7 @@ const station = (
   check: null,
   setup: null,
   diffs: false,
+  decisions: false,
   tools: [],
   skills: [],
   passesTo: [],

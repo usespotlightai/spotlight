@@ -29,12 +29,15 @@ export interface OnPullRequest {
   readonly by: ReviewWriter;
 }
 
-export interface LineComment {
+export interface FileComment {
   readonly path: string;
+  readonly body: string;
+}
+
+export interface LineComment extends FileComment {
   readonly side: ReviewSide;
   readonly line: number;
   readonly startLine: number | null;
-  readonly body: string;
 }
 
 export interface SubmittedReview {
@@ -54,6 +57,8 @@ export interface PullRequestReviewsPort {
   reply(
     input: OnPullRequest & { readonly to: number; readonly body: string },
   ): Promise<OnGitHub>;
+
+  commentOnFile(input: OnPullRequest & FileComment): Promise<OnGitHub>;
 
   edit(
     input: OnPullRequest & {

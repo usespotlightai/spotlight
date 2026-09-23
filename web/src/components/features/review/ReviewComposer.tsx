@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 type ReviewComposerProps = {
   label: string;
   submitLabel: string;
+  placeholder?: string;
   initial?: string;
   avatar?: ReactNode;
   pending: boolean;
@@ -21,6 +22,7 @@ type ReviewComposerProps = {
 export function ReviewComposer({
   label,
   submitLabel,
+  placeholder = 'Leave a comment',
   initial = '',
   avatar,
   pending,
@@ -51,19 +53,21 @@ export function ReviewComposer({
   return (
     <form
       onSubmit={submit}
-      className="flex flex-col gap-1.5 rounded-lg border-[0.5px] border-border bg-card px-2.5 pt-2 pb-1.5 shadow-xs transition-shadow focus-within:border-ring/60 focus-within:ring-2 focus-within:ring-ring/20"
+      className="flex flex-col gap-1 rounded-lg border-[0.5px] border-border bg-card px-2 pt-1.5 pb-1 shadow-xs"
     >
-      <div className="flex gap-2.5">
+      <div className="flex gap-2">
         {avatar && (
-          <div className="flex h-5 shrink-0 items-center">{avatar}</div>
+          <div className="flex size-5 shrink-0 items-center justify-center *:size-5!">
+            {avatar}
+          </div>
         )}
         <AutoGrowTextarea
           aria-label={label}
-          placeholder="Leave a comment"
+          placeholder={placeholder}
           value={body}
           onChange={(event) => setBody(event.target.value)}
           onKeyDown={onKeyDown}
-          className="max-h-72 min-h-20 p-0 font-sans text-sm leading-5"
+          className="max-h-72 min-h-16 p-0 font-sans text-xs leading-5"
           autoFocus
         />
       </div>

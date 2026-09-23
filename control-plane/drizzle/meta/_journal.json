@@ -15,6 +15,13 @@
       "when": 1789970811345,
       "tag": "20260921060651_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790162211382,
+      "tag": "20260923111651_record_agent_decisions",
+      "breakpoints": true
     }
   ]
 }

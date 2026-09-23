@@ -1,6 +1,7 @@
 import type {
   ReviewedRun,
   ReviewedTask,
+  RunReasoning,
   WorkPort,
 } from '@change-review/application/ports/work.port';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
@@ -38,12 +39,18 @@ export class Work implements WorkPort {
           ? CheckRequest.of(run.check, run.setup)
           : null,
         ended: run.ended,
+        completed: run.completed,
+        decisions: run.decisions,
       }
     );
   }
 
   wasWorkedBy(runId: RunId, runner: RunnerId): Promise<boolean> {
     return this.work.wasWorkedBy(runId, runner);
+  }
+
+  reasoning(runId: RunId): Promise<RunReasoning | null> {
+    return this.work.reasoning(runId);
   }
 
   async task(taskId: TaskId): Promise<ReviewedTask | null> {

@@ -4,6 +4,7 @@ import { ChangeStackReordered } from '@change-review/domain/events/change-stack-
 import { ChangeStackReorderingEnded } from '@change-review/domain/events/change-stack-reordering-ended.event';
 import { ChangeStackSettled } from '@change-review/domain/events/change-stack-settled.event';
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
+import type { OwesWork } from '@change-review/domain/owes-work';
 import { arranged } from '@change-review/domain/services/arrange-stack';
 import { checkStepsOf } from '@change-review/domain/services/check-steps';
 import { generatedEntries } from '@change-review/domain/services/generated-entries';
@@ -12,6 +13,7 @@ import { BaseCommit } from '@change-review/domain/value-objects/base-commit.vo';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
+import { OwedWork } from '@change-review/domain/value-objects/owed-work.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import type {
   CheckEntry,
@@ -28,7 +30,6 @@ import {
   INTERRUPTED,
   StackProgress,
 } from '@change-review/domain/value-objects/stack-progress.vo';
-import { StackWork } from '@change-review/domain/value-objects/stack-work.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -100,7 +101,10 @@ const assertWhole = (
   }
 };
 
-export class ChangeStack extends EventRecorder {
+export class ChangeStack
+  extends EventRecorder
+  implements OwesWork<ChangeStack>
+{
   private constructor(
     readonly id: ChangeStackId,
     readonly runId: RunId,
@@ -112,7 +116,7 @@ export class ChangeStack extends EventRecorder {
     readonly facts: StackFacts,
     readonly cohorts: readonly StackCohort[],
     readonly progress: StackProgress,
-    readonly work: StackWork,
+    readonly work: OwedWork,
     readonly request: CheckRequest | null,
     readonly reordering: boolean,
     readonly version: number,
@@ -143,7 +147,7 @@ export class ChangeStack extends EventRecorder {
       input.facts,
       [],
       StackProgress.drafting(input.now),
-      StackWork.fresh(),
+      OwedWork.fresh(),
       input.request,
       false,
       0,
@@ -165,7 +169,7 @@ export class ChangeStack extends EventRecorder {
     facts: StackFacts;
     cohorts: readonly StackCohort[];
     progress: StackProgress;
-    work: StackWork;
+    work: OwedWork;
     request: CheckRequest | null;
     reordering: boolean;
     version: number;
@@ -210,6 +214,10 @@ export class ChangeStack extends EventRecorder {
     return this.state === 'drafting' || this.reordering;
   }
 
+  get workExhausted(): boolean {
+    return this.work.exhausted;
+  }
+
   entries(): readonly CheckEntry[] {
     return generatedEntries(this.diff, this.cohorts, this.facts);
   }
@@ -232,7 +240,7 @@ export class ChangeStack extends EventRecorder {
 
   askedToReorder(): ChangeStack {
     return this.state === 'ready' && !this.reordering
-      ? this.with({ reordering: true, work: StackWork.fresh() })
+      ? this.with({ reordering: true, work: OwedWork.fresh() })
       : this;
   }
 
@@ -292,7 +300,7 @@ export class ChangeStack extends EventRecorder {
     const reordered = this.with({
       cohorts: ready,
       progress: this.progress.settled('ready', now),
-      work: StackWork.fresh(),
+      work: OwedWork.fresh(),
       reordering: false,
     });
 
@@ -305,7 +313,7 @@ export class ChangeStack extends EventRecorder {
       return this;
     }
 
-    const kept = this.with({ reordering: false, work: StackWork.fresh() });
+    const kept = this.with({ reordering: false, work: OwedWork.fresh() });
     kept.record(new ChangeStackReorderingEnded(this.id, this.runId));
     return kept;
   }
@@ -322,7 +330,7 @@ export class ChangeStack extends EventRecorder {
     const settledStack = this.with({
       cohorts: ready,
       progress: this.progress.settled('ready', now),
-      work: StackWork.fresh(),
+      work: OwedWork.fresh(),
     });
 
     settledStack.record(new ChangeStackSettled(this.id, this.runId));
@@ -336,7 +344,7 @@ export class ChangeStack extends EventRecorder {
 
     const failed = this.with({
       progress: this.progress.settled('failed', now, { failure }),
-      work: StackWork.fresh(),
+      work: OwedWork.fresh(),
     });
 
     failed.record(new ChangeStackFailed(this.id, this.runId, failure));
@@ -353,7 +361,7 @@ export class ChangeStack extends EventRecorder {
   private with(change: {
     cohorts?: readonly StackCohort[];
     progress?: StackProgress;
-    work?: StackWork;
+    work?: OwedWork;
     reordering?: boolean;
   }): ChangeStack {
     const next = new ChangeStack(

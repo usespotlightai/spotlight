@@ -11,6 +11,7 @@ const stacks = vi.fn();
 const stacksFailing = vi.fn();
 const refetchStacks = vi.fn();
 const review = vi.fn();
+const decided = vi.fn();
 
 vi.mock('@/hooks/api/useRunChangeStacks', () => ({
   changeStackKeys: { forRun: () => ['change-stacks'] },
@@ -42,6 +43,23 @@ vi.mock('@/hooks/api/useTeamRuns', () => ({
     isPending: false,
     errorUpdateCount: 0,
   }),
+}));
+
+vi.mock('@/hooks/api/useTaskDecisions', () => ({
+  taskDecisionKeys: { forTask: () => ['decisions'] },
+  useTaskDecisions: () => ({ data: decided() }),
+}));
+
+vi.mock('@/hooks/api/useDisputeDecision', () => ({
+  useDisputeDecision: () => ({
+    isPending: false,
+    isError: false,
+    mutateAsync: vi.fn(),
+  }),
+}));
+
+vi.mock('@/hooks/api/useSession', () => ({
+  useSession: () => ({ data: undefined }),
 }));
 
 vi.mock('@/hooks/api/useWorkspace', () => ({
@@ -76,6 +94,7 @@ const given = (value: RunChangeStacks | undefined) =>
 beforeEach(() => {
   stacks.mockReset();
   stacksFailing.mockReturnValue(false);
+  decided.mockReturnValue(undefined);
 });
 
 describe('RunChangeStack', () => {
@@ -343,6 +362,59 @@ describe('RunChangeStack', () => {
           name: 'Add the invitation API and emails',
         }),
       ).toBeInTheDocument();
+    });
+    it('shows a decision on the file it bears on, with its disputes there', () => {
+      decided.mockReturnValue({
+        runId: 'run_1',
+        drafting: false,
+        standing: 'proposed',
+        merge: null,
+        decisions: [
+          {
+            position: 0,
+            kind: 'limitation',
+            title: 'Invitations expire after seven days',
+            why: 'The ticket says nothing on renewal.',
+            alternatives: [],
+            paths: ['control-plane/src/schemas/invitation.schema.ts'],
+            steps: [7],
+            disputes: [
+              {
+                path: 'control-plane/src/schemas/invitation.schema.ts',
+                by: 'user_maya',
+                byName: 'Maya Chen',
+                reason: 'Product wants thirty days.',
+                at: '2026-09-21T10:00:00.000Z',
+              },
+            ],
+          },
+        ],
+      });
+      renderAt();
+
+      const file = screen.getByRole('article', {
+        name: 'control-plane/src/schemas/invitation.schema.ts',
+      });
+      const decision = within(file).getByRole('region', {
+        name: 'Decision: Invitations expire after seven days',
+      });
+
+      expect(decision).toHaveTextContent('The ticket says nothing on renewal.');
+      expect(decision).toHaveTextContent('Maya Chen');
+      expect(decision).toHaveTextContent('Product wants thirty days.');
+      expect(
+        within(decision).getByRole('link', {
+          name: 'Detailed reasoning steps',
+        }),
+      ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_1');
+    });
+
+    it('shows no decisions where none were recorded', () => {
+      renderAt();
+
+      expect(
+        screen.queryByRole('region', { name: /^Decision:/ }),
+      ).not.toBeInTheDocument();
     });
   });
 });

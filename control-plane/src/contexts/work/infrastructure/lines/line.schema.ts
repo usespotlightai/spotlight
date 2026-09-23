@@ -38,6 +38,7 @@ export const stationSchema = z.object({
   check: z.string().optional(),
   setup: z.string().optional(),
   diffs: z.boolean().optional(),
+  decisions: z.boolean().optional(),
   tools: z.array(identifier(Tool.of)).default([]),
   skills: z.array(identifier(SkillKey.of)).default([]),
   passesTo: z.array(identifier(StationKey.of)).default([]),

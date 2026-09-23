@@ -1,13 +1,18 @@
 import type { ChangeStackReactions } from '@change-review/application/events/handlers/change-stack-reactions.handler';
 import type { ReviewReactions } from '@change-review/application/events/handlers/review-reactions.handler';
 import type { ChangeStackAnnouncerPort } from '@change-review/application/ports/change-stack-announcer.port';
+import type { AskForDecisions } from '@change-review/application/services/ask-for-decisions.service';
 import type { ForgetTaskAcrossAggregates } from '@change-review/application/services/forget-task-across-aggregates.service';
 import type { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
+import type { SettleDecisions } from '@change-review/application/services/settle-decisions.service';
 import type { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
 import { changeReviewSubscribers } from '@change-review/presentation/events/change-review.subscribers';
+import type { PullRequestClosedIntegrationEvent } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import type { ReviewCommentReceivedIntegrationEvent } from '@shared-kernel/application/integration-events/review-comment-received.integration-event';
 import type { RunEndedIntegrationEvent } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import type { TaskHandedToRunIntegrationEvent } from '@shared-kernel/application/integration-events/task-handed-to-run.integration-event';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -21,6 +26,7 @@ const RECEIVED: ReviewCommentReceivedIntegrationEvent = {
   commentId: 300,
   url: 'https://github.com/acme/api/pull/7#discussion_r300',
   path: 'src/a.ts',
+  subject: 'line',
   side: 'old',
   line: 4,
   startLine: null,
@@ -39,6 +45,9 @@ const hearing = () => {
     {} as unknown as ReviewReactions,
     { receive } as unknown as ReceiveReviewComment,
     {} as unknown as SignalReviewing,
+    {} as never,
+    {} as never,
+    {} as never,
     {} as never,
   ).find((each) => each.kinds.includes(RECEIVED.kind));
 
@@ -63,6 +72,7 @@ describe('change review hearing a review comment on GitHub', () => {
         id: 300,
         url: 'https://github.com/acme/api/pull/7#discussion_r300',
         path: 'src/a.ts',
+        subject: 'line',
         side: 'old',
         line: 4,
         startLine: null,
@@ -103,6 +113,9 @@ describe('change review hearing a run begin and end', () => {
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
       { began, ended } as unknown as SignalReviewing,
+      {} as never,
+      {} as never,
+      {} as never,
       {} as never,
     );
     const hearing = (kind: string) => {
@@ -154,5 +167,84 @@ describe('change review hearing a run begin and end', () => {
 
     expect(ended).toHaveBeenCalledTimes(1);
     expect(ended).toHaveBeenCalledWith(TaskId.of('task_1'), RunId.of('run_1'));
+  });
+});
+
+describe('change review hearing a run end', () => {
+  it('asks for the decisions a task’s run made, and none for a run with no task', async () => {
+    const runEnded = vi.fn(async () => {});
+    const subscriber = changeReviewSubscribers(
+      {} as unknown as ChangeStackReactions,
+      {} as unknown as ChangeStackAnnouncerPort,
+      {} as unknown as ForgetTaskAcrossAggregates,
+      {} as unknown as ReviewReactions,
+      {} as unknown as ReceiveReviewComment,
+      {} as unknown as SignalReviewing,
+      {} as never,
+      { runEnded } as unknown as AskForDecisions,
+      {} as never,
+      {} as never,
+    ).find((each) => each.name === 'change-review.ask-for-decisions');
+
+    const ofTask: RunEndedIntegrationEvent = {
+      kind: 'work.run-ended.v1',
+      runId: 'run_1',
+      workspaceId: 'ws_1',
+      taskId: 'task_1',
+    };
+
+    await subscriber?.handle(ofTask);
+    const ofChat: RunEndedIntegrationEvent = {
+      ...ofTask,
+      runId: 'run_2',
+      taskId: null,
+    };
+
+    await subscriber?.handle(ofChat);
+
+    expect(subscriber?.kinds).toEqual(['work.run-ended.v1']);
+    expect(runEnded).toHaveBeenCalledTimes(1);
+    expect(runEnded).toHaveBeenCalledWith(
+      TaskId.of('task_1'),
+      RunId.of('run_1'),
+    );
+  });
+});
+
+describe('change review hearing a pull request close', () => {
+  it('settles the decisions of the task that holds it', async () => {
+    const closed = vi.fn(async () => {});
+    const subscriber = changeReviewSubscribers(
+      {} as unknown as ChangeStackReactions,
+      {} as unknown as ChangeStackAnnouncerPort,
+      {} as unknown as ForgetTaskAcrossAggregates,
+      {} as unknown as ReviewReactions,
+      {} as unknown as ReceiveReviewComment,
+      {} as unknown as SignalReviewing,
+      {} as never,
+      {} as never,
+      { closed } as unknown as SettleDecisions,
+      {} as never,
+    ).find((each) => each.name === 'change-review.settle-decisions');
+
+    const merged: PullRequestClosedIntegrationEvent = {
+      kind: 'github.pull-request-closed.v1',
+      workspaceId: 'ws_1',
+      pullRequest: 'https://github.com/acme/api/pull/7',
+      repository: 'acme/api',
+      merged: true,
+      mergeCommit: 'c'.repeat(40),
+      closedAt: '2026-09-21T09:30:00.000Z',
+    };
+
+    await subscriber?.handle(merged);
+
+    expect(closed).toHaveBeenCalledWith({
+      workspaceId: WorkspaceId.of('ws_1'),
+      pullRequest: PullRequestUrl.of('https://github.com/acme/api/pull/7'),
+      repository: Repository.of('acme/api'),
+      merge: { commit: 'c'.repeat(40) },
+      closedAt: new Date('2026-09-21T09:30:00.000Z'),
+    });
   });
 });

@@ -26,7 +26,7 @@ const draft = (id: string) =>
     id: ReviewCommentId.of(id),
     workspaceId: WORKSPACE,
     taskId: TASK,
-    anchor: ReviewAnchor.of({ path: 'src/a.ts', side: 'new', line: 3 }),
+    anchor: ReviewAnchor.onLines({ path: 'src/a.ts', side: 'new', line: 3 }),
     body: 'About line 3',
     author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
     now: NOW,

@@ -4,8 +4,8 @@ import type { ChangeStackRepository } from '@change-review/domain/repositories/c
 import { BaseCommit } from '@change-review/domain/value-objects/base-commit.vo';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
+import { OwedWork } from '@change-review/domain/value-objects/owed-work.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
-import { StackWork } from '@change-review/domain/value-objects/stack-work.vo';
 import {
   cohortRows,
   cohortsOf,
@@ -41,7 +41,7 @@ const toChangeStack = (row: Row): ChangeStack =>
     facts: factsOf(row.facts),
     cohorts: cohortsOf(row.cohorts),
     progress: progressOf(row),
-    work: StackWork.rehydrate({
+    work: OwedWork.rehydrate({
       attempts: row.workAttempts,
       dueAt: row.workDueAt,
     }),

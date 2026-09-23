@@ -1,5 +1,6 @@
 import type { ReviewOutboxPort } from '@change-review/application/ports/review-outbox.port';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
+import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
 import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -11,6 +12,7 @@ export class ForgetTaskAcrossAggregates {
     private readonly comments: ReviewCommentRepository,
     private readonly reviews: ReviewRepository,
     private readonly stacks: ChangeStackRepository,
+    private readonly decisions: DecisionSetRepository,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -20,6 +22,7 @@ export class ForgetTaskAcrossAggregates {
       await this.comments.removeForTask(taskId);
       await this.reviews.removeForTask(taskId);
       await this.stacks.removeForTask(taskId);
+      await this.decisions.removeForTask(taskId);
     });
   }
 }

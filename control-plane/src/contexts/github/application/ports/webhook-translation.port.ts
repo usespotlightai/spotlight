@@ -5,18 +5,24 @@ export const WEBHOOK_TRANSLATION = Symbol('WEBHOOK_TRANSLATION');
 
 type ReviewCommentAction = 'created' | 'edited' | 'deleted';
 
-interface HeardReviewComment {
+type HeardPlace =
+  | { readonly subject: 'file' }
+  | {
+      readonly subject: 'line';
+      readonly side: 'old' | 'new';
+      readonly line: number | null;
+      readonly startLine: number | null;
+    };
+
+type HeardReviewComment = {
   readonly id: number;
   readonly url: string;
   readonly path: string;
-  readonly side: 'old' | 'new';
-  readonly line: number | null;
-  readonly startLine: number | null;
   readonly body: string;
   readonly answers: number | null;
   readonly login: string | null;
   readonly writtenAt: Date | null;
-}
+} & HeardPlace;
 
 export type Heard =
   | { readonly kind: 'installation-removed' }
@@ -30,6 +36,13 @@ export type Heard =
       readonly kind: 'default-branch-pushed';
       readonly repository: string;
       readonly paths: readonly string[];
+    }
+  | {
+      readonly kind: 'pull-request-closed';
+      readonly pullRequest: string;
+      readonly repository: string;
+      readonly merge: { readonly commit: string } | null;
+      readonly closedAt: Date | null;
     }
   | {
       readonly kind: 'pull-request-activity';

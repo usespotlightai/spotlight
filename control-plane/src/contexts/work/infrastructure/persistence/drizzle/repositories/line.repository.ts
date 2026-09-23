@@ -88,6 +88,7 @@ const toStation = (row: StationRow, ways: Ways): Station =>
     check: row.check ? StationCheck.of(row.check) : null,
     setup: row.setup ? StationSetup.of(row.setup) : null,
     diffs: row.diffs,
+    decisions: row.decisions,
     kind: row.kind,
     wayOut: WayOut.of({
       stations: ways.routes.get(row.id) ?? [],
@@ -171,6 +172,7 @@ const columnsOf = (each: Station) => ({
   check: each.check?.value ?? null,
   setup: each.setup?.value ?? null,
   diffs: each.diffs,
+  decisions: each.decisions,
   kind: each.kind,
   finishes: each.wayOut.ends,
 });

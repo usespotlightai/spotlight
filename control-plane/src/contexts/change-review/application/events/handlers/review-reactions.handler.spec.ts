@@ -30,7 +30,7 @@ const draft = (id: string) =>
     id: ReviewCommentId.of(id),
     workspaceId: WORKSPACE,
     taskId: TASK,
-    anchor: ReviewAnchor.of({ path: 'src/a.ts', side: 'new', line: 3 }),
+    anchor: ReviewAnchor.onLines({ path: 'src/a.ts', side: 'new', line: 3 }),
     body: 'About line 3',
     author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
     now: NOW,
@@ -54,6 +54,19 @@ const reacting = (held: readonly ReviewComment[] = []) => {
 };
 
 describe('ReviewReactions', () => {
+  it('owes GitHub a post of its own for each comment on a whole file', async () => {
+    const { reactions, enqueue } = reacting();
+
+    await reactions.onPosted(
+      new ReviewPosted(REVIEW, WORKSPACE, TASK, [], [COMMENT]),
+    );
+
+    expect(enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'file', subjectId: 'comment_1' }),
+      NOW,
+    );
+  });
+
   it('queues a submitted review for GitHub', async () => {
     const { reactions, enqueue } = reacting();
 
@@ -73,16 +86,22 @@ describe('ReviewReactions', () => {
     const { reactions, comments } = reacting([submitted, elsewhere]);
 
     await reactions.onPosted(
-      new ReviewPosted(REVIEW, [
-        {
-          commentId: submitted.id,
-          github: { id: 101, url: 'https://github.com/c/101' },
-        },
-        {
-          commentId: elsewhere.id,
-          github: { id: 102, url: 'https://github.com/c/102' },
-        },
-      ]),
+      new ReviewPosted(
+        REVIEW,
+        WORKSPACE,
+        TASK,
+        [
+          {
+            commentId: submitted.id,
+            github: { id: 101, url: 'https://github.com/c/101' },
+          },
+          {
+            commentId: elsewhere.id,
+            github: { id: 102, url: 'https://github.com/c/102' },
+          },
+        ],
+        [],
+      ),
     );
 
     expect(comments.get('comment_1')?.github?.id).toBe(101);
@@ -116,12 +135,18 @@ describe('ReviewReactions', () => {
     const { reactions, comments } = reacting([sending]);
 
     await reactions.onPosted(
-      new ReviewPosted(REVIEW, [
-        {
-          commentId: sending.id,
-          github: { id: 101, url: 'https://github.com/c/101' },
-        },
-      ]),
+      new ReviewPosted(
+        REVIEW,
+        WORKSPACE,
+        TASK,
+        [
+          {
+            commentId: sending.id,
+            github: { id: 101, url: 'https://github.com/c/101' },
+          },
+        ],
+        [],
+      ),
     );
 
     expect(comments.get('comment_1')?.pullEvents()).toEqual([

@@ -52,6 +52,7 @@ const station = (key: string): StationPlan => ({
   check: null,
   setup: null,
   diffs: false,
+  decisions: false,
   tools: [],
   skills: [],
   passesTo: [],

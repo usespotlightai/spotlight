@@ -10,6 +10,23 @@ import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-genera
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 
+const anchorOf = (
+  comment: ReceivedReviewComment['comment'],
+): ReviewAnchor | null => {
+  if (comment.subject === 'file') {
+    return ReviewAnchor.onFile(comment.path);
+  }
+
+  return comment.line === null
+    ? null
+    : ReviewAnchor.onLines({
+        path: comment.path,
+        side: comment.side,
+        line: comment.line,
+        startLine: comment.startLine,
+      });
+};
+
 export class ReceiveReviewComment {
   constructor(
     private readonly work: WorkPort,
@@ -52,25 +69,17 @@ export class ReceiveReviewComment {
     pullRequest,
     comment,
   }: ReceivedReviewComment): Promise<void> {
-    if (!comment.line) {
-      return;
-    }
-
     const task = await this.work.taskWithPullRequest(
       workspaceId,
       PullRequestUrl.of(pullRequest),
     );
 
-    if (!task) {
+    const anchor = anchorOf(comment);
+
+    if (!task || !anchor) {
       return;
     }
 
-    const anchor = ReviewAnchor.of({
-      path: comment.path,
-      side: comment.side,
-      line: comment.line,
-      startLine: comment.startLine,
-    });
     const siblings = await this.comments.ofTask(task.id);
 
     if (siblings.some((each) => each.echoes(anchor, comment.body))) {

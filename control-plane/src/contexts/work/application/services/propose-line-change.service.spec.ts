@@ -93,6 +93,7 @@ const planOf = (each: Line): LinePlan => {
       check: null,
       setup: null,
       diffs: false,
+      decisions: false,
       tools: station.tools,
       skills: station.skills,
       passesTo: station.wayOut.stations.map(

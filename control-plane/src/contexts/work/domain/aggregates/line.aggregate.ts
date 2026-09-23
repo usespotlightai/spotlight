@@ -127,6 +127,7 @@ export class Line extends EventRecorder {
           tools: each.tools,
           skills: each.skills,
           diffs: each.diffs ?? false,
+          decisions: each.decisions ?? false,
         }),
       ),
       reactions: input.line.reactions.map((each) =>

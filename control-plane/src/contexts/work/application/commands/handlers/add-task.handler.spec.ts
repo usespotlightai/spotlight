@@ -88,7 +88,13 @@ const dispatch = (runId: string | null = 'run_1'): TaskDispatching => ({
     dispatched.push({
       harness: station.harness.value,
       priority: station.position,
-      brief: TaskBriefing.brief({ task, line, skills: [], listedIn: null }),
+      brief: TaskBriefing.brief({
+        task,
+        line,
+        skills: [],
+        listedIn: null,
+        decisions: [],
+      }),
     });
     return runId === null ? null : RunId.of(runId);
   },

@@ -2,6 +2,7 @@ import { ReviewComment } from '@change-review/domain/aggregates/review-comment.a
 import { ChangedSinceReadError } from '@change-review/domain/exceptions/changed-since-read.error';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
+import type { FilePath } from '@change-review/domain/value-objects/file-path.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
@@ -13,25 +14,41 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, eq, isNotNull, isNull } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 
 type Row = typeof reviewComment.$inferSelect;
+
+const anchorOf = (row: Row): ReviewAnchor => {
+  if (row.side === null && row.line === null && row.startLine === null) {
+    return ReviewAnchor.onFile(row.path);
+  }
+
+  if (row.side === null || row.line === null) {
+    throw new InconsistentStateError(
+      'review comment',
+      'is on lines without saying which side or line',
+    );
+  }
+
+  return ReviewAnchor.onLines({
+    path: row.path,
+    side: row.side,
+    line: row.line,
+    startLine: row.startLine,
+  });
+};
 
 const toComment = (row: Row): ReviewComment =>
   ReviewComment.rehydrate({
     id: ReviewCommentId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
     taskId: TaskId.of(row.taskId),
-    anchor: ReviewAnchor.of({
-      path: row.path,
-      side: row.side,
-      line: row.line,
-      startLine: row.startLine,
-    }),
+    anchor: anchorOf(row),
     body: row.body,
     author: ReviewAuthor.rehydrate({
       userId: row.authorId ? UserId.of(row.authorId) : null,
@@ -58,10 +75,10 @@ const toRow = (comment: ReviewComment): Row => ({
   id: comment.id.value,
   workspaceId: comment.workspaceId.value,
   taskId: comment.taskId.value,
-  path: comment.anchor.path,
-  side: comment.anchor.side,
-  line: comment.anchor.line,
-  startLine: comment.anchor.startLine,
+  path: comment.anchor.path.value,
+  side: comment.anchor.lines?.side ?? null,
+  line: comment.anchor.lines?.line ?? null,
+  startLine: comment.anchor.lines?.startLine ?? null,
   body: comment.body,
   authorId: comment.author.userId?.value ?? null,
   authorRunId: comment.author.runId?.value ?? null,
@@ -181,6 +198,36 @@ export class DrizzleReviewCommentRepository implements ReviewCommentRepository {
       .select()
       .from(reviewComment)
       .where(eq(reviewComment.taskId, taskId.value))
+      .orderBy(asc(reviewComment.createdAt));
+
+    return rows.map(toComment);
+  }
+
+  async lockThreadsOnFile(taskId: TaskId, path: FilePath): Promise<void> {
+    if (!this.context.transacting) {
+      throw new Error('Locking the threads on a file needs a transaction');
+    }
+
+    await this.context.db.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${`review-file:${taskId.value}:${path.value}`}, 0))`,
+    );
+  }
+
+  async threadsOnFile(
+    taskId: TaskId,
+    path: FilePath,
+  ): Promise<ReviewComment[]> {
+    const rows = await this.context.db
+      .select()
+      .from(reviewComment)
+      .where(
+        and(
+          eq(reviewComment.taskId, taskId.value),
+          eq(reviewComment.path, path.value),
+          isNull(reviewComment.line),
+          isNull(reviewComment.replyToId),
+        ),
+      )
       .orderBy(asc(reviewComment.createdAt));
 
     return rows.map(toComment);

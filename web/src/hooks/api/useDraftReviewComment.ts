@@ -7,7 +7,7 @@ type DraftReviewCommentInput = {
   teamId: string;
   runId: string;
   body: string;
-  on: ReviewSpot | { replyTo: string };
+  on: ReviewSpot | { path: string } | { replyTo: string };
 };
 
 export function useDraftReviewComment() {

@@ -99,6 +99,7 @@ const assemble = (
       check: planned.check,
       setup: planned.setup,
       diffs: planned.diffs,
+      decisions: planned.decisions,
       tools: planned.tools,
       skills: planned.skills,
       wayOut: WayOut.of({

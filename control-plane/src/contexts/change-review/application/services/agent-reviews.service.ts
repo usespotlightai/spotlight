@@ -37,7 +37,7 @@ export class AgentReviews implements PullRequestReviewingPort {
       id: ReviewCommentId.of(this.ids.generate()),
       workspaceId: task.workspaceId,
       taskId: task.id,
-      anchor: ReviewAnchor.of({
+      anchor: ReviewAnchor.onLines({
         path: left.path,
         side: left.side,
         line: left.line,

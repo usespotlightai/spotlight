@@ -1,4 +1,5 @@
 import type {
+  FileComment,
   LineComment,
   OnGitHub,
   OnPullRequest,
@@ -262,6 +263,31 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
           },
         ),
         'reply to the review comment',
+      );
+
+      return { id: posted.id, url: posted.html_url };
+    });
+  }
+
+  async commentOnFile(input: OnPullRequest & FileComment): Promise<OnGitHub> {
+    const { repo, number } = located(input);
+
+    return this.speaking(input, async (speaker) => {
+      const pull = await heard<{ head: { sha: string } }>(
+        await call(`/repos/${repo}/pulls/${number}`, speaker.token),
+        'read the pull request',
+      );
+      const posted = await heard<Posted>(
+        await call(`/repos/${repo}/pulls/${number}/comments`, speaker.token, {
+          method: 'POST',
+          body: JSON.stringify({
+            commit_id: pull.head.sha,
+            path: input.path,
+            subject_type: 'file',
+            body: this.signed(input.body, input, speaker),
+          }),
+        }),
+        'comment on the file',
       );
 
       return { id: posted.id, url: posted.html_url };

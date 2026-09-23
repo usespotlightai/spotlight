@@ -1,4 +1,5 @@
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { RunJournal } from '@work/application/contracts/run-journal.contract';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
@@ -22,6 +23,14 @@ export function journalsOfChat(
   chatId: ChatId,
 ): Promise<RunJournal[]> {
   return journalsOf(db, eq(run.chatId, chatId.value));
+}
+
+export async function journalOfRun(
+  db: DrizzleDatabase,
+  runId: RunId,
+): Promise<RunJournal | null> {
+  const [journal] = await journalsOf(db, eq(run.id, runId.value));
+  return journal ?? null;
 }
 
 async function journalsOf(

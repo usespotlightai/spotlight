@@ -1,4 +1,5 @@
 import { InvalidRunSpecError } from '@work/domain/exceptions/invalid-run-spec.error';
+import { workspacePath } from '@work/domain/services/workspace-path';
 import type { ToolInputType } from '@work/domain/value-objects/declared-tool.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
 
@@ -203,6 +204,16 @@ export class RunSpec {
 
   gives(tool: Tool): boolean {
     return (this.parts.manifest ?? []).some((each) => each.name === tool.value);
+  }
+
+  get checkoutFolders(): readonly string[] {
+    return (this.parts.checkouts ?? []).flatMap((each) =>
+      each.path && !blank(each.path) ? [each.path] : [],
+    );
+  }
+
+  workspacePathOf(path: string): string | null {
+    return workspacePath(path, this.checkoutFolders);
   }
 
   get value(): RunSpecParts {

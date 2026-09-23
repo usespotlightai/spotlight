@@ -1,6 +1,7 @@
 import type {
   PullRequestCommentsPort,
   StandingComment,
+  StandingPlace,
 } from '@github/application/ports/pull-request-comments.port';
 import type { RepositoryAccessPort } from '@github/application/ports/repository-access.port';
 import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
@@ -52,6 +53,33 @@ export class GitHubPullRequestComments implements PullRequestCommentsPort {
     if (!response.ok) {
       throw new UpstreamRefusedError(
         'commenting on a pull request',
+        `GitHub answered ${response.status}`,
+      );
+    }
+  }
+
+  async withdraw(place: StandingPlace): Promise<void> {
+    const { password: token } = await this.access.credential(place.workspaceId);
+    const repo = `${place.repository.owner}/${place.repository.name}`;
+    const standing = await this.standing(
+      repo,
+      numbered(place.pullRequest.value),
+      place.marker,
+      token,
+    );
+
+    if (!standing) {
+      return;
+    }
+
+    const response = await this.fetch(
+      `${API}/repos/${repo}/issues/comments/${standing}`,
+      { method: 'DELETE', headers: this.headers(token) },
+    );
+
+    if (!response.ok && response.status !== 404) {
+      throw new UpstreamRefusedError(
+        'withdrawing a comment from a pull request',
         `GitHub answered ${response.status}`,
       );
     }

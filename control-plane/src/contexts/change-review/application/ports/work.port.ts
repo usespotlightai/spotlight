@@ -14,6 +14,19 @@ export interface ReviewedRun {
   readonly taskId: TaskId | null;
   readonly request: CheckRequest | null;
   readonly ended: boolean;
+  readonly completed: boolean;
+  readonly decisions: boolean;
+}
+
+export interface ReasonedStep {
+  readonly index: number;
+  readonly kind: string;
+  readonly text: string;
+}
+
+export interface RunReasoning {
+  readonly steps: readonly ReasonedStep[];
+  readonly changed: readonly string[];
 }
 
 export interface ReviewedTask {
@@ -29,6 +42,8 @@ export interface WorkPort {
   run(runId: RunId): Promise<ReviewedRun | null>;
 
   wasWorkedBy(runId: RunId, runner: RunnerId): Promise<boolean>;
+
+  reasoning(runId: RunId): Promise<RunReasoning | null>;
 
   task(taskId: TaskId): Promise<ReviewedTask | null>;
 

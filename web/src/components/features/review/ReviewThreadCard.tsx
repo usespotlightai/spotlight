@@ -1,10 +1,8 @@
 import { useState } from 'react';
+import { ReplyBox } from '@/components/features/review/ReplyBox';
 import { ReviewCommentItem } from '@/components/features/review/ReviewCommentItem';
-import { ReviewComposer } from '@/components/features/review/ReviewComposer';
-import { ReviewerAvatar } from '@/components/features/review/ReviewerAvatar';
-import { UNFOLD_MS, Unfold } from '@/components/shared/Unfold';
+import { Unfold } from '@/components/shared/Unfold';
 import { useDraftReviewComment } from '@/hooks/api/useDraftReviewComment';
-import { useLingering } from '@/hooks/useLingering';
 import { linesOf, type ReviewThread } from '@/lib/review';
 import { useReviewing } from '@/lib/review-context';
 
@@ -22,7 +20,6 @@ export function ReviewThreadCard({
   const reviewing = useReviewing();
   const [replying, setReplying] = useState(false);
   const draft = useDraftReviewComment();
-  const shownComposer = useLingering(replying ? true : null, UNFOLD_MS);
   const [leaving, setLeaving] = useState<ReadonlySet<string>>(new Set());
 
   if (!reviewing) {
@@ -70,40 +67,24 @@ export function ReviewThreadCard({
         </ol>
 
         {answerable && (
-          <div className="flex flex-col">
-            <Unfold open={!replying} appear={false}>
-              <button
-                type="button"
-                onClick={() => setReplying(true)}
-                className="w-full rounded-md border-[0.5px] border-border bg-card px-2 py-1.5 text-left text-muted-foreground text-xs outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/70"
-              >
-                Reply…
-              </button>
-            </Unfold>
-            <Unfold open={replying} appear={false}>
-              {shownComposer && (
-                <ReviewComposer
-                  label="Reply"
-                  submitLabel="Reply"
-                  avatar={<ReviewerAvatar />}
-                  pending={draft.isPending}
-                  failed={draft.isError}
-                  onCancel={() => setReplying(false)}
-                  onSubmit={(body) =>
-                    draft.mutate(
-                      {
-                        teamId: reviewing.teamId,
-                        runId: reviewing.runId,
-                        body,
-                        on: { replyTo: thread.root.id },
-                      },
-                      { onSuccess: () => setReplying(false) },
-                    )
-                  }
-                />
-              )}
-            </Unfold>
-          </div>
+          <ReplyBox
+            label="Reply"
+            open={replying}
+            onOpenChange={setReplying}
+            pending={draft.isPending}
+            failed={draft.isError}
+            onSubmit={(body) =>
+              draft.mutate(
+                {
+                  teamId: reviewing.teamId,
+                  runId: reviewing.runId,
+                  body,
+                  on: { replyTo: thread.root.id },
+                },
+                { onSuccess: () => setReplying(false) },
+              )
+            }
+          />
         )}
       </section>
     </Unfold>

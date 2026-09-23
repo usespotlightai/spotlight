@@ -42,6 +42,7 @@ export interface StationPlan {
   readonly check: StationCheck | null;
   readonly setup: StationSetup | null;
   readonly diffs: boolean;
+  readonly decisions: boolean;
   readonly tools: readonly Tool[];
   readonly skills: readonly SkillKey[];
   readonly passesTo: readonly StationKey[];

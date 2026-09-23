@@ -92,6 +92,7 @@ const written = (
     ...(station.check ? { check: station.check.value } : {}),
     ...(station.setup ? { setup: station.setup.value } : {}),
     ...(station.diffs ? { diffs: true } : {}),
+    ...(station.decisions ? { decisions: true } : {}),
     ...(station.tools.length > 0
       ? { tools: station.tools.map((each) => each.value) }
       : {}),

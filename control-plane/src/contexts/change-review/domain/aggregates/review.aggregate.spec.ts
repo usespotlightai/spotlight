@@ -22,7 +22,7 @@ const draftBy = (author: UserId, id = 'comment_1', task = TASK) =>
     id: ReviewCommentId.of(id),
     workspaceId: WorkspaceId.of('workspace_1'),
     taskId: task,
-    anchor: ReviewAnchor.of({ path: 'src/a.ts', side: 'new', line: 3 }),
+    anchor: ReviewAnchor.onLines({ path: 'src/a.ts', side: 'new', line: 3 }),
     body: 'Rename this',
     author: ReviewAuthor.person(author, AuthorName.of('Someone')),
     now: NOW,

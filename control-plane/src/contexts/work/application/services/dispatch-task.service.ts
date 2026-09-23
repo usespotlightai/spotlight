@@ -13,6 +13,7 @@ import { skillFilesOf } from '@work/application/mappers/skill-files.mapper';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
+import type { TaskDecisionsPort } from '@work/application/ports/task-decisions.port';
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { Attached } from '@work/application/rendering/attached';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
@@ -71,6 +72,7 @@ export class DispatchTask implements TaskDispatching {
     private readonly builtInSkills: BuiltInSkillsPort,
     private readonly teamSkills: StationSkills,
     private readonly integrations: TeamIntegrations,
+    private readonly decisions: TaskDecisionsPort,
   ) {}
 
   async runIdFor({
@@ -163,6 +165,7 @@ export class DispatchTask implements TaskDispatching {
       line,
       skills: folders.map((each) => each.skill),
       listedIn: home.readByHarness ? null : home.directory,
+      decisions: await this.decisions.ofTask(task.id),
     });
 
     const queued = Run.enqueue({

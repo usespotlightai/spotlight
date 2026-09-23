@@ -2,6 +2,7 @@ import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { BriefedDecision } from '@work/application/ports/task-decisions.port';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
@@ -94,6 +95,7 @@ const atPlace = (station: Station, position: number) =>
     harness: station.harness,
     agentPrompt: station.agentPrompt,
     kind: station.kind,
+    decisions: station.decisions,
     wayOut: station.wayOut,
     tools: station.tools,
     skills: station.skills,
@@ -141,12 +143,17 @@ const shipped = [
   },
 ];
 
-const brief = (station: Station, worked?: Task) =>
+const brief = (
+  station: Station,
+  worked?: Task,
+  decisions: readonly BriefedDecision[] = [],
+) =>
   TaskBriefing.brief({
     task: worked ?? task(station.id.value),
     line: held(station, at('station_2', 'Spec', 1)),
     skills: shipped,
     listedIn: null,
+    decisions,
   });
 
 describe('TaskBriefing', () => {
@@ -159,6 +166,52 @@ describe('TaskBriefing', () => {
     expect(briefing).toContain(
       '## Role\n\nSort it.\n\n## Fix the queue\n\nIt hangs on restart.',
     );
+  });
+
+  it('lists the decisions an earlier run recorded, asking that they still hold', () => {
+    const briefing = brief(triage(), undefined, [
+      {
+        kind: 'rejected-approach',
+        title: 'Retries in the request, not from a queue',
+        why: 'A queue needs a worker the service does not run.',
+        paths: ['api/src/uploads.ts'],
+        disputes: ['The client already retries twice.'],
+      },
+    ]);
+
+    expect(briefing).toContain('## Decisions on record');
+    expect(briefing).toContain(
+      '  - A reviewer disputes it: The client already retries twice.',
+    );
+    expect(briefing).toContain(
+      '- **Rejected approach** · Retries in the request, not from a queue — A queue needs a worker the service does not run. (`api/src/uploads.ts`)',
+    );
+  });
+
+  it('asks a station that records decisions to say them as it works', () => {
+    const deciding = Station.of({
+      id: StationId.of('station_1'),
+      key: StationKey.of('implementation'),
+      name: StationName.of('Implementation'),
+      position: 0,
+      color: StationColor.of('#93a1b5'),
+      harness: HarnessId.of('dev'),
+      decisions: true,
+      wayOut: WayOut.of({ stations: [StationId.of('station_2')], ends: false }),
+    });
+
+    const briefing = brief(deciding);
+
+    expect(briefing).toContain('## Say what you decide');
+    expect(briefing).toContain('- a limitation or gap you leave in place;');
+  });
+
+  it('asks nothing of the kind where the station records no decisions', () => {
+    expect(brief(triage())).not.toContain('Say what you decide');
+  });
+
+  it('says nothing of decisions where none are on record', () => {
+    expect(brief(triage())).not.toContain('Decisions on record');
   });
 
   it('lets the task speak for itself at a station with nothing to say', () => {
@@ -286,6 +339,7 @@ describe('TaskBriefing', () => {
         line: held(station, at('station_2', 'Spec', 1)),
         skills: shipped,
         listedIn: '.spotlight/skills',
+        decisions: [],
       });
 
     it('pastes no skill in, and lists none, where the harness reads them itself', () => {

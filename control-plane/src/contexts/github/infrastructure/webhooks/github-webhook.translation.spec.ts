@@ -323,6 +323,55 @@ describe('GitHubWebhookTranslation', () => {
     });
   });
 
+  describe('hearing a pull request close', () => {
+    const closed = (over: Record<string, unknown> = {}) =>
+      heard('pull_request', {
+        action: 'closed',
+        repository: { full_name: 'acme/api' },
+        pull_request: pull({
+          merge_commit_sha: 'c'.repeat(40),
+          closed_at: '2026-09-21T09:30:00Z',
+        }),
+        ...over,
+      }).filter((each) => each.kind === 'pull-request-closed');
+
+    it('hears a merge, with the commit it made and when', () => {
+      expect(closed()).toEqual([
+        {
+          kind: 'pull-request-closed',
+          pullRequest: 'https://github.com/acme/api/pull/7',
+          repository: 'acme/api',
+          merge: { commit: 'c'.repeat(40) },
+          closedAt: new Date('2026-09-21T09:30:00Z'),
+        },
+      ]);
+    });
+
+    it('hears a close without a merge, naming no commit', () => {
+      expect(
+        closed({
+          pull_request: pull({
+            merged: false,
+            merge_commit_sha: 'd'.repeat(40),
+          }),
+        }),
+      ).toMatchObject([{ merge: null }]);
+    });
+
+    it('hears nothing of a merge that names no full commit', () => {
+      expect(
+        closed({ pull_request: pull({ merge_commit_sha: null }) }),
+      ).toEqual([]);
+      expect(
+        closed({ pull_request: pull({ merge_commit_sha: 'abc123' }) }),
+      ).toEqual([]);
+    });
+
+    it('hears nothing of a pull request still open', () => {
+      expect(closed({ action: 'opened' })).toEqual([]);
+    });
+  });
+
   describe('hearing a push', () => {
     const pushed = (over: Record<string, unknown> = {}) =>
       heard('push', {
@@ -396,6 +445,7 @@ describe('GitHubWebhookTranslation', () => {
             id: 300,
             url: 'https://github.com/acme/api/pull/7#discussion_r300',
             path: 'src/a.ts',
+            subject: 'line',
             side: 'new',
             line: 12,
             startLine: 9,
@@ -426,6 +476,29 @@ describe('GitHubWebhookTranslation', () => {
       ).toMatchObject({
         comment: { side: 'old', line: 4, answers: null, writtenAt: null },
       });
+    });
+
+    it('hears a comment left on the whole file as one', () => {
+      expect(
+        commented('created', {
+          id: 302,
+          html_url: 'https://github.com/acme/api/pull/7#discussion_r302',
+          path: 'src/a.ts',
+          subject_type: 'file',
+          line: null,
+          body: 'This file wants splitting',
+        })[0],
+      ).toMatchObject({ comment: { subject: 'file' } });
+      expect(
+        commented('created', {
+          id: 302,
+          html_url: 'https://github.com/acme/api/pull/7#discussion_r302',
+          path: 'src/a.ts',
+          subject_type: 'file',
+          line: null,
+          body: 'This file wants splitting',
+        })[0]?.comment,
+      ).not.toHaveProperty('line');
     });
 
     it('hears what Spotlight said without the name it signed it with', () => {

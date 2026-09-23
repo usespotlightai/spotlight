@@ -3,6 +3,7 @@ import { Route } from 'react-router';
 import { changeStackPath } from '@/lib/change-stack';
 import { RunChangeStack } from '@/routes/RunChangeStack';
 import {
+  decidedChangeStack,
   draftingChangeStack,
   emptyChangeStack,
   failChangeStack,
@@ -54,6 +55,14 @@ export const Failed: Story = {
 export const WithData: Story = {
   render: () => (
     <StoryPage at={at} seed={seedChangeStack}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const Decisions: Story = {
+  render: () => (
+    <StoryPage at={at} seed={decidedChangeStack}>
       {routes}
     </StoryPage>
   ),

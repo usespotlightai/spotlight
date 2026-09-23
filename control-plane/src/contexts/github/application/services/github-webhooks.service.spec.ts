@@ -5,6 +5,7 @@ import type {
 import { GitHubWebhooks } from '@github/application/services/github-webhooks.service';
 import { GitHubConnection } from '@github/domain/aggregates/github-connection.aggregate';
 import { DefaultBranchPushed } from '@github/domain/events/default-branch-pushed.event';
+import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
 import { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
 import type { GitHubConnectionRepository } from '@github/domain/repositories/github-connection.repository';
 import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
@@ -22,6 +23,7 @@ const COMMENT = {
   id: 300,
   url: 'https://github.com/acme/api/pull/7#discussion_r300',
   path: 'src/a.ts',
+  subject: 'line' as const,
   side: 'new' as const,
   line: 12,
   startLine: 9,
@@ -218,6 +220,34 @@ describe('GitHubWebhooks', () => {
         new DefaultBranchPushed(WORKSPACE, 'acme/api', [
           '.spotlight/config.yml',
         ]),
+      ]);
+    });
+
+    it('says a pull request closed in the workspace', async () => {
+      const closedAt = new Date('2026-09-21T09:30:00Z');
+      const { service, events } = hooks({
+        installation: '42',
+        heard: [
+          {
+            kind: 'pull-request-closed',
+            pullRequest: 'https://github.com/acme/api/pull/7',
+            repository: 'acme/api',
+            merge: { commit: 'c'.repeat(40) },
+            closedAt,
+          },
+        ],
+      });
+
+      await service.receive(DELIVERY);
+
+      expect(events.dispatch).toHaveBeenCalledWith([
+        new PullRequestClosed(
+          WORKSPACE,
+          'https://github.com/acme/api/pull/7',
+          'acme/api',
+          { commit: 'c'.repeat(40) },
+          closedAt,
+        ),
       ]);
     });
 

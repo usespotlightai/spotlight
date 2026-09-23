@@ -12,7 +12,7 @@ export type ReviewComment = ReviewCommentResponseDto;
 
 type SubmittedReview = ReviewResponseDto;
 
-export type ReviewSide = ReviewComment['side'];
+export type ReviewSide = NonNullable<ReviewComment['side']>;
 
 export type ReviewVerdict = SubmittedReview['verdict'];
 
@@ -23,8 +23,13 @@ export interface ReviewSpot {
   readonly startLine: number | null;
 }
 
+type LineComment = ReviewComment & {
+  readonly side: ReviewSide;
+  readonly line: number;
+};
+
 export interface ReviewThread {
-  readonly root: ReviewComment;
+  readonly root: LineComment;
   readonly replies: readonly ReviewComment[];
 }
 
@@ -42,13 +47,39 @@ export const VERDICTS: readonly {
   },
 ];
 
+const onLines = (comment: ReviewComment): comment is LineComment =>
+  comment.side !== null && comment.line !== null;
+
 export const threadsOf = (comments: readonly ReviewComment[]): ReviewThread[] =>
   comments
     .filter((comment) => comment.replyTo === null)
+    .filter(onLines)
     .map((root) => ({
       root,
       replies: comments.filter((comment) => comment.replyTo === root.id),
     }));
+
+export const fileCommentsOf = (
+  comments: readonly ReviewComment[],
+  path: string,
+): ReviewComment[] => {
+  const roots = new Set(
+    comments
+      .filter(
+        (comment) =>
+          comment.replyTo === null &&
+          comment.path === path &&
+          comment.line === null,
+      )
+      .map((comment) => comment.id),
+  );
+
+  return comments.filter(
+    (comment) =>
+      roots.has(comment.id) ||
+      (comment.replyTo !== null && roots.has(comment.replyTo)),
+  );
+};
 
 export const sideOf = (selection: SelectionSide | undefined): ReviewSide =>
   selection === 'deletions' ? 'old' : 'new';

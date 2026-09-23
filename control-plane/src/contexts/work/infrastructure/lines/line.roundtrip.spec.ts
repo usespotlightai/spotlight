@@ -318,4 +318,62 @@ describe('writing a line out and reading it back', () => {
       expect(compileLine('delivery', withFront('diffs: true')).ok).toBe(true);
     });
   });
+
+  describe('a station’s decisions', () => {
+    const specWith = (front: string) => {
+      const read = compileLine(
+        'delivery',
+        renderLine(built()).map((file) =>
+          file.path.endsWith('/spec.md')
+            ? {
+                ...file,
+                text: file.text.replace('\nname: ', `\n${front}\nname: `),
+              }
+            : file,
+        ) as ReturnType<typeof renderLine>,
+      );
+
+      if (!read.ok) {
+        throw new Error('did not read');
+      }
+
+      const reconciled = reconcileLine({
+        standing: built(),
+        plan: read.line,
+        tasksStanding: new Map(),
+        newId: () => 'new_id',
+      });
+
+      if (!reconciled.ok) {
+        throw new Error('did not reconcile');
+      }
+
+      return reconciled.line;
+    };
+
+    const stationOf = (line: Line, key: string) =>
+      line.stations.find((each) => each.key.value === key);
+
+    const fileOf = (line: Line, key: string) =>
+      renderLine(line).find((each) => each.path.endsWith(`/${key}.md`))?.text;
+
+    it('reads that a station records its decisions, and writes it back', () => {
+      const line = specWith('decisions: true');
+
+      expect(stationOf(line, 'spec')?.decisions).toBe(true);
+      expect(fileOf(line, 'spec')).toContain('decisions: true');
+    });
+
+    it('records none unless the station says so', () => {
+      const line = specWith('');
+
+      expect(stationOf(line, 'spec')?.decisions).toBe(false);
+      expect(fileOf(line, 'spec')).not.toContain('decisions:');
+    });
+
+    it('has delivery record the decisions made in implementation', () => {
+      expect(stationOf(built(), 'implementation')?.decisions).toBe(true);
+      expect(fileOf(built(), 'implementation')).toContain('decisions: true');
+    });
+  });
 });
