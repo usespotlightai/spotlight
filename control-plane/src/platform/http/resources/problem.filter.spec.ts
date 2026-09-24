@@ -1,5 +1,6 @@
 import {
   type ArgumentsHost,
+  ForbiddenException,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -84,6 +85,22 @@ describe('ProblemFilter', () => {
     expect(
       answering(new UseCaseFault('conflict', 'it moved')).body,
     ).toMatchObject({ status: 409, detail: 'it moved' });
+  });
+
+  it('answers a guard or use case that refuses as a forbidden problem', () => {
+    for (const refusal of [
+      new ForbiddenException(),
+      new UseCaseFault('not-allowed', 'not yours'),
+    ]) {
+      const { body, status, headers } = answering(refusal);
+
+      expect(status).toBe(403);
+      expect(headers.get('Content-Type')).toBe('application/problem+json');
+      expect(body).toMatchObject({
+        type: 'urn:spotlight:problem:forbidden',
+        status: 403,
+      });
+    }
   });
 
   it('logs a fault of its own, and says nothing of it to the caller', () => {

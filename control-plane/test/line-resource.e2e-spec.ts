@@ -14,7 +14,6 @@ import {
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { DrizzleLineRepository } from '@work/infrastructure/persistence/drizzle/repositories/line.repository';
 import { and, eq, inArray } from 'drizzle-orm';
-import request from 'supertest';
 import {
   afterAll,
   afterEach,
@@ -24,7 +23,7 @@ import {
   expect,
   it,
 } from 'vitest';
-import { openApp, TEST_USER_HEADER } from './support/app';
+import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { definitionOf } from './support/line-definition';
 import {
   conformsAsResource,
@@ -73,21 +72,21 @@ describe('a line, created through the resource API (e2e)', () => {
   let fixture: ResourceFixture;
 
   const create = (body: object) =>
-    request(app.getHttpServer())
+    served(app)
       .post(fixture.collection)
       .set(TEST_USER_HEADER, fixture.admin)
       .set('Idempotency-Key', randomUUID())
       .send(body);
 
   const change = (id: string, version: number, body: object) =>
-    request(app.getHttpServer())
+    served(app)
       .put(fixture.item(id))
       .set(TEST_USER_HEADER, fixture.admin)
       .set('If-Match', `"${version}"`)
       .send(body);
 
   const remove = (id: string, version: number) =>
-    request(app.getHttpServer())
+    served(app)
       .delete(fixture.item(id))
       .set(TEST_USER_HEADER, fixture.admin)
       .set('If-Match', `"${version}"`);
@@ -158,7 +157,7 @@ describe('a line, created through the resource API (e2e)', () => {
       ),
     };
     const made = await create(written);
-    const read = await request(app.getHttpServer())
+    const read = await served(app)
       .get(fixture.item(made.body.id))
       .set(TEST_USER_HEADER, fixture.admin);
     const again = await change(made.body.id, made.body.version, written);

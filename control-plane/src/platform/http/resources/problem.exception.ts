@@ -18,6 +18,7 @@ export interface Problem {
   readonly detail: string;
   readonly errors?: readonly FieldError[];
   readonly currentVersion?: number;
+  readonly permission?: ForbiddenAct;
 }
 
 const TITLES: Readonly<Record<number, [slug: string, title: string]>> = {
@@ -61,6 +62,8 @@ const REFUSALS: Readonly<Record<ForbiddenAct, Refusal>> = {
     'Checking an expression is planning, which this token’s scopes do not allow',
   ],
 };
+
+export const FORBIDDEN_ACTS = Object.keys(REFUSALS) as readonly ForbiddenAct[];
 
 const problemType = (slug: string): string => `urn:spotlight:problem:${slug}`;
 
@@ -153,6 +156,7 @@ export class ProblemException extends HttpException {
       title,
       status: HttpStatus.FORBIDDEN,
       detail,
+      permission: act,
     });
   }
 

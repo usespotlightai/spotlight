@@ -9,7 +9,6 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { eq, inArray } from 'drizzle-orm';
-import request from 'supertest';
 import {
   afterAll,
   afterEach,
@@ -19,7 +18,7 @@ import {
   expect,
   it,
 } from 'vitest';
-import { openApp, TEST_USER_HEADER } from './support/app';
+import { openApp, served, TEST_USER_HEADER } from './support/app';
 import {
   conformsAsResource,
   type ResourceFixture,
@@ -89,19 +88,19 @@ describe('a workspace, created through the resource API (e2e)', () => {
 
   const as = (user: string) => ({
     create: (body: object) =>
-      request(app.getHttpServer())
+      served(app)
         .post(fixture.collection)
         .set(TEST_USER_HEADER, user)
         .set('Idempotency-Key', randomUUID())
         .send(body),
     put: (id: string, version: number, body: object) =>
-      request(app.getHttpServer())
+      served(app)
         .put(fixture.item(id))
         .set(TEST_USER_HEADER, user)
         .set('If-Match', `"${version}"`)
         .send(body),
     delete: (id: string, version: number) =>
-      request(app.getHttpServer())
+      served(app)
         .delete(fixture.item(id))
         .set(TEST_USER_HEADER, user)
         .set('If-Match', `"${version}"`),

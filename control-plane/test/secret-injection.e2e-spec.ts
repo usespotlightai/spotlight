@@ -18,7 +18,6 @@ import {
   type IntegrationToolCallsPort,
 } from '@work/application/ports/integration-tool-calls.port';
 import { and, eq, inArray } from 'drizzle-orm';
-import request from 'supertest';
 import {
   afterAll,
   afterEach,
@@ -29,7 +28,7 @@ import {
   it,
   vi,
 } from 'vitest';
-import { openApp, TEST_USER_HEADER } from './support/app';
+import { openApp, served, TEST_USER_HEADER } from './support/app';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
@@ -82,7 +81,7 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
   );
 
   const post = (path: string, body: object) =>
-    request(app.getHttpServer())
+    served(app)
       .post(path)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', randomUUID())

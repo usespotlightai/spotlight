@@ -4,7 +4,6 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { RUNNER_TOKEN_HEADER } from '@runners/presentation/http/controllers/runner-resource.controller';
 import { eq, inArray } from 'drizzle-orm';
-import request from 'supertest';
 import {
   afterAll,
   afterEach,
@@ -14,7 +13,7 @@ import {
   expect,
   it,
 } from 'vitest';
-import { openApp, TEST_USER_HEADER } from './support/app';
+import { openApp, served, TEST_USER_HEADER } from './support/app';
 import {
   conformsAsResource,
   type ResourceFixture,
@@ -119,7 +118,7 @@ describe('runners and what the workspace declares of them (e2e)', () => {
   let owner: string;
   let unseat: () => Promise<void>;
 
-  const http = () => request(app.getHttpServer());
+  const http = () => served(app);
 
   const enrol = (body: object, key = randomUUID()) =>
     http()
@@ -305,12 +304,22 @@ describe('runners and what the workspace declares of them (e2e)', () => {
     expect(answered.map((each) => each.status)).toEqual(
       Array(answered.length).fill(403),
     );
-    expect(answered.map((each) => [each.body.type, each.body.title])).toEqual(
+    expect(
+      answered.map((each) => [
+        each.body.type,
+        each.body.title,
+        each.body.permission,
+      ]),
+    ).toEqual(
       [
         ...Array(3).fill('Not allowed to change the runner'),
         ...Array(3).fill('Not allowed to change the runner-trust'),
         ...Array(2).fill('Not allowed to change the workspace-runners'),
-      ].map((title) => ['urn:spotlight:problem:forbidden', title]),
+      ].map((title) => [
+        'urn:spotlight:problem:forbidden',
+        title,
+        'manage-runners',
+      ]),
     );
     expect(
       (await configure.get(`/api/resources/runners/${runner.body.id}`)).status,
@@ -509,7 +518,43 @@ describe('runners and what the workspace declares of them (e2e)', () => {
     expect((await register(rotated)).status).toBe(201);
     expect(
       (await enrol({ name: 'build-2', token: rotated })).body.errors,
-    ).toEqual([expect.objectContaining({ path: 'token' })]);
+    ).toEqual([
+      expect.objectContaining({
+        path: 'token',
+        message: 'is already another runner’s token; give each runner its own',
+      }),
+    ]);
+  });
+
+  it('never takes back a token a deleted runner held, and says it was revoked', async () => {
+    const given = randomUUID().replaceAll('-', '');
+    const made = await enrol({ name: 'build-1', token: given });
+
+    await http()
+      .delete(`/api/resources/runners/${made.body.id}`)
+      .set(TEST_USER_HEADER, owner)
+      .set('If-Match', `"${made.body.version}"`)
+      .expect(204);
+
+    const again = await enrol({ name: 'build-1', token: given });
+    const other = await enrol({ name: 'build-2' });
+    const rekeyed = await http()
+      .put(`/api/resources/runners/${other.body.id}`)
+      .set(TEST_USER_HEADER, owner)
+      .set('If-Match', `"${other.body.version}"`)
+      .send({ name: 'build-2', token: given });
+
+    for (const refused of [again, rekeyed]) {
+      expect(refused.status).toBe(422);
+      expect(refused.body.errors).toEqual([
+        {
+          path: 'token',
+          message:
+            'was held by a runner that has been revoked and can’t be used again; give this runner a new token',
+          severity: 'error',
+        },
+      ]);
+    }
   });
 
   it('shuts a deleted runner out', async () => {

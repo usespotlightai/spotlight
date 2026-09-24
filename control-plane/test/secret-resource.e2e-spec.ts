@@ -7,7 +7,6 @@ import {
   type SecretInjectionPort,
 } from '@secrets/application/ports/secret-injection.port';
 import { eq, inArray } from 'drizzle-orm';
-import request from 'supertest';
 import {
   afterAll,
   afterEach,
@@ -17,7 +16,7 @@ import {
   expect,
   it,
 } from 'vitest';
-import { openApp, TEST_USER_HEADER } from './support/app';
+import { openApp, served, TEST_USER_HEADER } from './support/app';
 import {
   conformsAsResource,
   type ResourceFixture,
@@ -90,7 +89,7 @@ describe('a secret, set through the resource API (e2e)', () => {
   let workspaceId: string;
 
   const as = (user: string) => {
-    const http = request(app.getHttpServer());
+    const http = served(app);
 
     return {
       create: (body: object) =>
@@ -292,7 +291,7 @@ describe('a secret, set through the resource API (e2e)', () => {
     });
     await admin().remove(made.body.id, rotated.body.version);
 
-    const audit = await request(app.getHttpServer())
+    const audit = await served(app)
       .get(`/api/workspaces/${workspaceId}/configuration-changes`)
       .set(TEST_USER_HEADER, fixture.admin);
     const changes = (

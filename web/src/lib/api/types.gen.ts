@@ -99,6 +99,10 @@ export type ProblemResponseDto = {
    * The version the resource is at now, when a write conflicted
    */
   currentVersion?: number;
+  /**
+   * The permission the caller lacks, when it was refused as forbidden: one its role in the workspace, or its token’s scopes, do not grant
+   */
+  permission?: 'configure' | 'manage-secrets' | 'manage-runners' | 'administer' | 'open-workspaces' | 'plan';
 };
 
 export type LineResourceResponseDto = {

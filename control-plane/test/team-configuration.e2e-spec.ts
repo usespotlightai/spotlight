@@ -3,7 +3,6 @@ import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { eq, inArray } from 'drizzle-orm';
-import request from 'supertest';
 import {
   afterAll,
   afterEach,
@@ -13,7 +12,7 @@ import {
   expect,
   it,
 } from 'vitest';
-import { openApp, TEST_USER_HEADER } from './support/app';
+import { openApp, served, TEST_USER_HEADER } from './support/app';
 import * as schema from './support/schema';
 
 type Body = Record<string, unknown> & { id: string; version: number };
@@ -86,7 +85,7 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
   const slugs: string[] = [];
 
   const api = () => {
-    const http = request(app.getHttpServer());
+    const http = served(app);
 
     return {
       create: async (path: string, body: object): Promise<Body> => {
@@ -245,7 +244,7 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
     const slug = `acme-${randomUUID().slice(0, 8)}`;
     slugs.push(slug);
 
-    const opened = await request(app.getHttpServer())
+    const opened = await served(app)
       .post('/api/workspaces')
       .set(TEST_USER_HEADER, owner)
       .send({ name: 'Acme', slug, teamName: 'Core' });

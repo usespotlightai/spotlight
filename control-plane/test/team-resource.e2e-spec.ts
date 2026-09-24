@@ -18,7 +18,6 @@ import {
 } from '@work/domain/services/built-in-lines';
 import { DrizzleLineRepository } from '@work/infrastructure/persistence/drizzle/repositories/line.repository';
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import request from 'supertest';
 import {
   afterAll,
   afterEach,
@@ -28,7 +27,7 @@ import {
   expect,
   it,
 } from 'vitest';
-import { openApp, TEST_USER_HEADER } from './support/app';
+import { openApp, served, TEST_USER_HEADER } from './support/app';
 import {
   conformsAsResource,
   type ResourceFixture,
@@ -75,21 +74,21 @@ describe('a team, created through the resource API (e2e)', () => {
   let workspaceId: string;
 
   const create = (body: object) =>
-    request(app.getHttpServer())
+    served(app)
       .post(fixture.collection)
       .set(TEST_USER_HEADER, fixture.admin)
       .set('Idempotency-Key', randomUUID())
       .send(body);
 
   const change = (id: string, version: number, body: object) =>
-    request(app.getHttpServer())
+    served(app)
       .put(fixture.item(id))
       .set(TEST_USER_HEADER, fixture.admin)
       .set('If-Match', `"${version}"`)
       .send(body);
 
   const remove = (id: string, version: number) =>
-    request(app.getHttpServer())
+    served(app)
       .delete(fixture.item(id))
       .set(TEST_USER_HEADER, fixture.admin)
       .set('If-Match', `"${version}"`);

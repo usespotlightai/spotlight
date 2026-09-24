@@ -12,7 +12,6 @@ import {
   type TeamIntegrationsPort,
 } from '@work/application/ports/team-integrations.port';
 import { eq, inArray } from 'drizzle-orm';
-import request from 'supertest';
 import {
   afterAll,
   afterEach,
@@ -22,7 +21,7 @@ import {
   expect,
   it,
 } from 'vitest';
-import { openApp, TEST_USER_HEADER } from './support/app';
+import { openApp, served, TEST_USER_HEADER } from './support/app';
 import {
   conformsAsResource,
   type ResourceFixture,
@@ -94,13 +93,13 @@ describe('an integration, created through the resource API (e2e)', () => {
 
   const as = () => ({
     put: (id: string, version: number, body: unknown) =>
-      request(app.getHttpServer())
+      served(app)
         .put(fixture.item(id))
         .set(TEST_USER_HEADER, fixture.admin)
         .set('If-Match', `"${version}"`)
         .send(body as object),
     delete: (id: string, version: number) =>
-      request(app.getHttpServer())
+      served(app)
         .delete(fixture.item(id))
         .set(TEST_USER_HEADER, fixture.admin)
         .set('If-Match', `"${version}"`),
@@ -135,7 +134,7 @@ describe('an integration, created through the resource API (e2e)', () => {
   };
 
   const create = (body: unknown) =>
-    request(app.getHttpServer())
+    served(app)
       .post(fixture.collection)
       .set(TEST_USER_HEADER, fixture.admin)
       .set('Idempotency-Key', randomUUID())
@@ -182,7 +181,7 @@ describe('an integration, created through the resource API (e2e)', () => {
 
   it('keeps the host it was created for', async () => {
     const made = await create(LINEAR);
-    const moved = await request(app.getHttpServer())
+    const moved = await served(app)
       .put(fixture.item(made.body.id))
       .set(TEST_USER_HEADER, fixture.admin)
       .set('If-Match', `"${made.body.version}"`)
