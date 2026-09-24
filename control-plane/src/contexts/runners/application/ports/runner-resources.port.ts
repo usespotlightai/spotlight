@@ -29,6 +29,21 @@ export interface KeptWorkspaceRunners {
   readonly workspaceId: WorkspaceId;
   readonly runners: readonly string[];
   readonly trusts: readonly string[];
+  readonly pools: readonly string[];
+}
+
+export interface KeptPool {
+  readonly id: string;
+  readonly version: number;
+  readonly workspaceId: WorkspaceId;
+  readonly key: string;
+  readonly labels: readonly string[];
+  readonly maxRuns: number | null;
+  readonly tokenVersion: number | null;
+  readonly provision: {
+    readonly url: string;
+    readonly secretVersion: number | null;
+  } | null;
 }
 
 export interface RunnerResourcesPort {
@@ -44,6 +59,14 @@ export interface RunnerResourcesPort {
   trustAt(workspaceId: WorkspaceId, key: string): Promise<KeptTrust | null>;
 
   trustsIn(workspaceId: WorkspaceId): Promise<readonly KeptTrust[]>;
+
+  poolWithId(id: string): Promise<KeptPool | null>;
+
+  poolAt(workspaceId: WorkspaceId, key: string): Promise<KeptPool | null>;
+
+  poolsIn(workspaceId: WorkspaceId): Promise<readonly KeptPool[]>;
+
+  provisioningPools(): Promise<readonly KeptPool[]>;
 
   declaredWithId(id: string): Promise<KeptWorkspaceRunners | null>;
 

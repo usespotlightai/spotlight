@@ -98,7 +98,10 @@ describe('workspaceTerraform', () => {
     const quiet: HeldConfigurationDto = {
       ...HELD,
       resources: HELD.resources.filter(
-        (each) => each.kind !== 'runner' && each.kind !== 'secret',
+        (each) =>
+          each.kind !== 'runner' &&
+          each.kind !== 'runner-pool' &&
+          each.kind !== 'secret',
       ),
     };
 
@@ -130,6 +133,8 @@ describe('workspaceTerraform', () => {
       ['spotlight_secret', 'linear_api_key', 'LINEAR_API_KEY'],
       ['spotlight_runner', 'build-1', 'build-1'],
       ['spotlight_runner_trust', 'production-cluster', 'production-cluster'],
+      ['spotlight_runner_pool', 'burst', 'burst'],
+      ['spotlight_runner_pool', 'k8s-jobs', 'k8s-jobs'],
       ['spotlight_workspace_runners', 'acme', 'acme'],
       ['spotlight_team', 'core', 'core'],
       ['spotlight_line', 'core_delivery', 'core/delivery'],
@@ -277,7 +282,87 @@ describe('workspaceTerraform', () => {
       'resource "spotlight_runner_trust" "production-cluster" {\n  workspace_id = spotlight_workspace.acme.id\n  key          = "production-cluster"\n',
     );
     expect(main).toContain(
-      'resource "spotlight_workspace_runners" "acme" {\n  workspace_id = spotlight_workspace.acme.id\n  runners      = [spotlight_runner.build-1.name, "gone-1"]\n  trusts       = [spotlight_runner_trust.production-cluster.key]\n}\n',
+      'resource "spotlight_workspace_runners" "acme" {\n  workspace_id = spotlight_workspace.acme.id\n  runners      = [spotlight_runner.build-1.name, "gone-1"]\n  trusts       = [spotlight_runner_trust.production-cluster.key]\n',
+    );
+  });
+
+  it('writes a pool that pulls with its token read from an optional sensitive variable', () => {
+    expect(mainOf(HELD)).toContain(
+      [
+        'resource "spotlight_runner_pool" "burst" {',
+        '  workspace_id  = spotlight_workspace.acme.id',
+        '  key           = "burst"',
+        '  labels        = ["gpu"]',
+        '  max_runs      = 4',
+        '  token         = var.runner_pool_burst_token',
+        '  token_version = 2',
+        '}',
+      ].join('\n'),
+    );
+    expect(fileOf(HELD, 'variables.tf')).toContain(
+      'variable "runner_pool_burst_token" {\n  description = "The token the runner pool burst claims with; left null, Spotlight issues one when it creates the pool"\n  type        = string\n  sensitive   = true\n  default     = null\n}\n',
+    );
+  });
+
+  it('writes a pool that is pushed to with where it is called and its signing secret read from a variable', () => {
+    const pool = blockOf(
+      mainOf(HELD),
+      'resource "spotlight_runner_pool" "k8s-jobs"',
+    );
+
+    expect(pool).toBe(
+      [
+        'resource "spotlight_runner_pool" "k8s-jobs" {',
+        '  workspace_id = spotlight_workspace.acme.id',
+        '  key          = "k8s-jobs"',
+        '  labels       = []',
+        '  provision = {',
+        '    url            = "https://provisioner.acme.dev/runs"',
+        '    secret         = var.runner_pool_k8s-jobs_provision_secret',
+        '    secret_version = 1',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
+    expect(fileOf(HELD, 'variables.tf')).toContain(
+      'variable "runner_pool_k8s-jobs_provision_secret" {\n  description = "The secret the runner pool k8s-jobs signs its provision calls with, as whsec_ and base64 bytes"\n  type        = string\n  sensitive   = true\n}\n',
+    );
+    expect(fileOf(HELD, 'variables.tf')).not.toContain(
+      'runner_pool_k8s-jobs_token',
+    );
+  });
+
+  it('writes no limit, token version or secret version a pool does not hold', () => {
+    const configuration: HeldConfigurationDto = {
+      ...HELD,
+      resources: HELD.resources.map((each) =>
+        each.kind === 'runner-pool'
+          ? {
+              ...each,
+              maxRuns: null,
+              tokenVersion: null,
+              provision: each.provision
+                ? { ...each.provision, secretVersion: null }
+                : null,
+            }
+          : each,
+      ),
+    };
+    const main = mainOf(configuration);
+
+    expect(
+      blockOf(main, 'resource "spotlight_runner_pool" "burst"'),
+    ).not.toMatch(/max_runs|token_version/);
+    expect(
+      blockOf(main, 'resource "spotlight_runner_pool" "k8s-jobs"'),
+    ).not.toContain('secret_version');
+  });
+
+  it('refers to the pools the workspace declares, and leaves a pool it does not hold as written', () => {
+    expect(
+      blockOf(mainOf(HELD), 'resource "spotlight_workspace_runners" "acme"'),
+    ).toContain(
+      '  pools        = [spotlight_runner_pool.burst.key, spotlight_runner_pool.k8s-jobs.key, "retired"]\n',
     );
   });
 
@@ -346,6 +431,8 @@ describe('workspaceTerraform', () => {
       '"spotlight_secret" "sentry_token"',
       '"spotlight_runner" "build-1"',
       '"spotlight_runner_trust" "production-cluster"',
+      '"spotlight_runner_pool" "burst"',
+      '"spotlight_runner_pool" "k8s-jobs"',
       '"spotlight_workspace_runners" "acme"',
       '"spotlight_team" "_3d"',
       '"spotlight_team" "core"',
@@ -404,6 +491,12 @@ describe('resourceHcl', () => {
         content: 'Implement the task.\n\n',
       },
     ]);
+  });
+
+  it('writes a pool after the variable its token is read from', () => {
+    expect(resourceHcl(HELD, heldAs('runner-pool', 'burst')).hcl).toMatch(
+      /^variable "runner_pool_burst_token" {\n[\s\S]*\n}\n\nimport {\n {2}to = spotlight_runner_pool\.burst\n/,
+    );
   });
 
   it('writes a secret after the variable its value is read from', () => {

@@ -95,6 +95,8 @@ export class ResourceConfigurationHandler
         return workspaceOfHeld(await this.runners.runnerWithId(id));
       case 'runner-trust':
         return workspaceOfHeld(await this.runners.trustWithId(id));
+      case 'runner-pool':
+        return workspaceOfHeld(await this.runners.poolWithId(id));
       case 'workspace-runners':
         return workspaceOfHeld(await this.runners.declaredWithId(id));
     }

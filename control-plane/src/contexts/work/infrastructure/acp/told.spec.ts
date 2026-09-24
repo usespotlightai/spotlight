@@ -333,6 +333,43 @@ describe('Told', () => {
       expect(said?.kind).toBe('said');
     });
 
+    it('shows a pool failing to provision a runner as a failed hook step', () => {
+      const told = new Told();
+      told.take({
+        type: 'provision.failed',
+        at: clock(2),
+        message: 'Provisioning failed · unreachable',
+        data: Buffer.from('connect ECONNREFUSED 10.0.0.4:443').toString(
+          'base64',
+        ),
+      });
+
+      const [failed] = told.steps();
+      expect(failed?.kind).toBe('hook');
+      expect(failed?.status).toBe('failed');
+      expect(failed?.text).toBe('Provisioning failed · unreachable');
+      expect(failed?.detail).toBe('connect ECONNREFUSED 10.0.0.4:443');
+    });
+
+    it('keeps apart each failure to provision a runner', () => {
+      const told = new Told();
+      for (const at of [1, 2]) {
+        told.take({
+          type: 'provision.failed',
+          at: clock(at),
+          message: 'Provisioning failed · refused',
+          data: null,
+        });
+      }
+
+      expect(
+        told.steps().map((each) => [each.kind, each.status, each.detail]),
+      ).toEqual([
+        ['hook', 'failed', null],
+        ['hook', 'failed', null],
+      ]);
+    });
+
     it('says where the run turned from preparing to working', () => {
       const told = new Told(clock(0));
       told.take({

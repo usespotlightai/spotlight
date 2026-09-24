@@ -7,9 +7,11 @@ import {
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
+import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
@@ -27,7 +29,7 @@ import type { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
-import { and, eq, inArray, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 
 type Row = typeof run.$inferSelect;
 
@@ -62,6 +64,7 @@ export class DrizzleRunRepository implements RunRepository {
       message: added.outcome?.message ?? null,
       stopped: added.outcome?.stopped ?? false,
       placement: added.placement.clauses,
+      ...reservationOf(added),
     });
   }
 
@@ -89,6 +92,11 @@ export class DrizzleRunRepository implements RunRepository {
           claimed_by        AS "claimedBy",
           lease_expires_at  AS "leaseExpiresAt",
           stop_requested_at AS "stopRequestedAt",
+          reserved_for      AS "reservedFor",
+          reserved_pool     AS "reservedPool",
+          reserved_until    AS "reservedUntil",
+          provision_failures AS "provisionFailures",
+          next_provision_at AS "nextProvisionAt",
           exit_code         AS "exitCode",
           message,
           stopped,
@@ -99,6 +107,11 @@ export class DrizzleRunRepository implements RunRepository {
           AND state = 'queued'
           AND workspace_id = ${by.workspaceId.value}
           AND (target_runner_id IS NULL OR target_runner_id = ${by.runner.value})
+          AND ${
+            by.claims === 'reserved'
+              ? sql`reserved_for = ${by.runner.value} AND reserved_until > ${now.toISOString()}::timestamp`
+              : sql`(reserved_for IS NULL OR reserved_for = ${by.runner.value} OR reserved_until <= ${now.toISOString()}::timestamp)`
+          }
           AND ${everyClauseMet(run.placement, by.terms.values)}
         -- ClaimOrder.next, said in SQL because the claim must be one statement.
         ORDER BY priority DESC, created_at
@@ -109,7 +122,7 @@ export class DrizzleRunRepository implements RunRepository {
       const [row] = locked.rows;
       const found = row ? toRun(row) : null;
 
-      if (!found || !ClaimOrder.takeable(found, by)) {
+      if (!found || !ClaimOrder.takeable(found, by, now)) {
         return null;
       }
 
@@ -150,6 +163,7 @@ export class DrizzleRunRepository implements RunRepository {
         exitCode: saved.outcome?.exitCode ?? null,
         message: saved.outcome?.message ?? null,
         stopped: saved.outcome?.stopped ?? false,
+        ...reservationOf(saved),
       })
       .where(and(eq(run.id, saved.id.value), eq(run.version, saved.version)))
       .returning({ id: run.id });
@@ -168,6 +182,49 @@ export class DrizzleRunRepository implements RunRepository {
     return rows.map(toRun);
   }
 
+  async waitingFor(runner: RunnerId): Promise<Run | null> {
+    const [found] = await this.context.db
+      .select()
+      .from(run)
+      .where(and(eq(run.state, 'queued'), eq(run.reservedFor, runner.value)))
+      .limit(1);
+
+    return found ? toRun(found) : null;
+  }
+
+  async awaitingProvision(
+    workspaceId: WorkspaceId,
+    now: Date,
+    page: { readonly skip: number; readonly most: number },
+  ): Promise<readonly Run[]> {
+    const rows = await this.context.db
+      .select()
+      .from(run)
+      .where(
+        and(
+          eq(run.workspaceId, workspaceId.value),
+          eq(run.state, 'queued'),
+          isNull(run.targetRunnerId),
+          isNull(run.reservedFor),
+          or(isNull(run.nextProvisionAt), lte(run.nextProvisionAt, now)),
+        ),
+      )
+      .orderBy(desc(run.priority), run.createdAt, run.id)
+      .limit(page.most)
+      .offset(page.skip);
+
+    return rows.map(toRun);
+  }
+
+  async withLapsedReservations(now: Date): Promise<readonly Run[]> {
+    const rows = await this.context.db
+      .select()
+      .from(run)
+      .where(and(eq(run.state, 'queued'), lte(run.reservedUntil, now)));
+
+    return rows.map(toRun);
+  }
+
   async claimedBy(runner: RunnerId): Promise<readonly Run[]> {
     const rows = await this.context.db
       .select()
@@ -178,12 +235,18 @@ export class DrizzleRunRepository implements RunRepository {
   }
 }
 
-// Raw sql returns timestamps as strings; the typed query path returns Dates.
+const ZONED = /(Z|[+-]\d{2}(:?\d{2})?)$/;
+
+// Raw sql returns timestamps as zone-less strings in UTC; the typed query path returns Dates.
 const asDate = (value: Date | string | null): Date | null => {
   if (value === null || value === undefined) {
     return null;
   }
-  return value instanceof Date ? value : new Date(value);
+  if (value instanceof Date) {
+    return value;
+  }
+  const iso = value.replace(' ', 'T');
+  return new Date(ZONED.test(iso) ? iso : `${iso}Z`);
 };
 
 const specOf = (row: Row): RunSpec => {
@@ -197,6 +260,26 @@ const specOf = (row: Row): RunSpec => {
   }
 
   return spec;
+};
+
+const reservationOf = (held: Run) => ({
+  reservedFor: held.reservation?.runner.value ?? null,
+  reservedPool: held.reservation?.pool ?? null,
+  reservedUntil: held.reservation?.until ?? null,
+  provisionFailures: held.provisioning.failures,
+  nextProvisionAt: held.provisioning.nextAt,
+});
+
+const reservationFrom = (row: Row): RunnerReservation | null => {
+  const until = asDate(row.reservedUntil);
+
+  return row.reservedFor && row.reservedPool && until
+    ? RunnerReservation.of(
+        RunnerId.of(row.reservedFor),
+        row.reservedPool,
+        until,
+      )
+    : null;
 };
 
 const toRun = (row: Row): Run =>
@@ -217,6 +300,11 @@ const toRun = (row: Row): Run =>
     claimedBy: row.claimedBy ? RunnerId.of(row.claimedBy) : null,
     leaseExpiresAt: asDate(row.leaseExpiresAt),
     stopRequestedAt: asDate(row.stopRequestedAt),
+    reservation: reservationFrom(row),
+    provisioning: Provisioning.rehydrate(
+      row.provisionFailures ?? 0,
+      asDate(row.nextProvisionAt),
+    ),
     outcome:
       row.exitCode === null
         ? null

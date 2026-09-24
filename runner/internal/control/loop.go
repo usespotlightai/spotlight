@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"math/rand/v2"
 	"time"
@@ -25,6 +26,7 @@ type Work struct {
 }
 
 type Limits struct {
+	Once        bool
 	MaxRuns     int
 	IdleTimeout time.Duration
 	RetireAt    time.Time
@@ -63,6 +65,9 @@ func Poll(
 			if ctx.Err() != nil {
 				return nil
 			}
+			if errors.Is(err, ErrRefused) {
+				return err
+			}
 			log.Warn("claim failed", "error", err, "retryIn", backoff)
 			if !sleep(ctx, jitter(backoff)) {
 				return nil
@@ -89,6 +94,11 @@ func Poll(
 		default:
 			log.Warn("claimed something it does not know how to do", "kind", claimed.Kind)
 			continue
+		}
+
+		if limits.Once {
+			log.Info("served its one piece of work")
+			return nil
 		}
 
 		idleSince = time.Now()
@@ -126,6 +136,9 @@ func Register(ctx context.Context, registrar Registrar, log *slog.Logger) error 
 		}
 		if ctx.Err() != nil {
 			return ctx.Err()
+		}
+		if errors.Is(err, ErrRefused) {
+			return err
 		}
 
 		log.Warn("could not register, still trying", "error", err, "retryIn", backoff)

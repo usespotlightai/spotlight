@@ -18,6 +18,7 @@ func setRequired(t *testing.T) {
 		"SPOTLIGHT_MAX_RUNS",
 		"SPOTLIGHT_IDLE_TIMEOUT", "SPOTLIGHT_RETIRE_AT", "SPOTLIGHT_AGENT_USER",
 		"SPOTLIGHT_RUNNER_OIDC_TOKEN_FILE", "SPOTLIGHT_RUNNER_TRUST", "SPOTLIGHT_RUNNER_NAME",
+		"SPOTLIGHT_POOL_TOKEN", "SPOTLIGHT_ONCE",
 	} {
 		t.Setenv(name, "")
 	}
@@ -35,7 +36,7 @@ func TestLoadReadsTheWholeSurface(t *testing.T) {
 	t.Setenv("SPOTLIGHT_IDLE_TIMEOUT", "30m")
 	t.Setenv("SPOTLIGHT_RETIRE_AT", "1700000000")
 
-	cfg, err := config.Load()
+	cfg, err := config.Load(nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -54,7 +55,7 @@ func TestLoadReadsTheWholeSurface(t *testing.T) {
 func TestLoadDefaultsToServingForever(t *testing.T) {
 	setRequired(t)
 
-	cfg, err := config.Load()
+	cfg, err := config.Load(nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -71,7 +72,7 @@ func TestLoadReportsEveryProblemAtOnce(t *testing.T) {
 	t.Setenv("SPOTLIGHT_URL", "")
 	t.Setenv("SPOTLIGHT_TOKEN", "")
 
-	_, err := config.Load()
+	_, err := config.Load(nil)
 	if err == nil {
 		t.Fatal("expected an error")
 	}
@@ -93,7 +94,7 @@ func TestLoadRejectsMalformedValues(t *testing.T) {
 			setRequired(t)
 			t.Setenv(env.key, env.value)
 
-			if _, err := config.Load(); err == nil {
+			if _, err := config.Load(nil); err == nil {
 				t.Fatalf("expected %s=%q to be rejected", env.key, env.value)
 			}
 		})
@@ -103,7 +104,7 @@ func TestLoadRejectsMalformedValues(t *testing.T) {
 func TestLoadDefaultWorkspaceRootIsACleanPath(t *testing.T) {
 	setRequired(t)
 
-	cfg, err := config.Load()
+	cfg, err := config.Load(nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -126,7 +127,7 @@ func TestLoadFallsBackToThePersistedFile(t *testing.T) {
 		t.Fatalf("merge: %v", err)
 	}
 
-	cfg, err := config.Load()
+	cfg, err := config.Load(nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -144,7 +145,7 @@ func TestLoadLetsTheEnvironmentWinOverTheFile(t *testing.T) {
 	}
 	t.Setenv("SPOTLIGHT_URL", "https://env.test")
 
-	cfg, err := config.Load()
+	cfg, err := config.Load(nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -179,7 +180,7 @@ func TestLoadEnrolsAsAWorkloadWithNoToken(t *testing.T) {
 	t.Setenv("SPOTLIGHT_RUNNER_TRUST", "trust_1")
 	t.Setenv("SPOTLIGHT_RUNNER_NAME", "pod-a")
 
-	cfg, err := config.Load()
+	cfg, err := config.Load(nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -196,7 +197,7 @@ func TestLoadNamesAWorkloadAfterItsHost(t *testing.T) {
 	t.Setenv("SPOTLIGHT_RUNNER_TRUST", "trust_1")
 	t.Setenv("SPOTLIGHT_RUNNER_NAME", "")
 
-	cfg, err := config.Load()
+	cfg, err := config.Load(nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -212,7 +213,7 @@ func TestLoadRefusesAWorkloadWithNoTrust(t *testing.T) {
 	t.Setenv("SPOTLIGHT_RUNNER_OIDC_TOKEN_FILE", "/var/run/secrets/spotlight/token")
 	t.Setenv("SPOTLIGHT_RUNNER_TRUST", "")
 
-	if _, err := config.Load(); err == nil || !strings.Contains(err.Error(), "SPOTLIGHT_RUNNER_TRUST") {
+	if _, err := config.Load(nil); err == nil || !strings.Contains(err.Error(), "SPOTLIGHT_RUNNER_TRUST") {
 		t.Fatalf("expected the missing trust named, got %v", err)
 	}
 }
@@ -222,7 +223,104 @@ func TestLoadRefusesBothWaysToEnrol(t *testing.T) {
 	t.Setenv("SPOTLIGHT_RUNNER_OIDC_TOKEN_FILE", "/var/run/secrets/spotlight/token")
 	t.Setenv("SPOTLIGHT_RUNNER_TRUST", "trust_1")
 
-	if _, err := config.Load(); err == nil {
+	if _, err := config.Load(nil); err == nil {
 		t.Fatal("expected a token and a workload token file together to be refused")
+	}
+}
+
+func TestLoadServesOnceWhenAskedByFlag(t *testing.T) {
+	setRequired(t)
+
+	cfg, err := config.Load([]string{"--once"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !cfg.Once {
+		t.Error("expected once mode")
+	}
+	if cfg.IdleTimeout != 5*time.Minute {
+		t.Errorf("idle timeout %v, want five minutes by default when serving once", cfg.IdleTimeout)
+	}
+}
+
+func TestLoadServesOnceWhenAskedByTheEnvironment(t *testing.T) {
+	setRequired(t)
+	t.Setenv("SPOTLIGHT_ONCE", "true")
+	t.Setenv("SPOTLIGHT_IDLE_TIMEOUT", "30s")
+
+	cfg, err := config.Load(nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !cfg.Once || cfg.IdleTimeout != 30*time.Second {
+		t.Errorf("once %v, idle timeout %v", cfg.Once, cfg.IdleTimeout)
+	}
+}
+
+func TestLoadRefusesWhatItCannotRead(t *testing.T) {
+	setRequired(t)
+	t.Setenv("SPOTLIGHT_ONCE", "sometimes")
+
+	if _, err := config.Load(nil); err == nil || !strings.Contains(err.Error(), "SPOTLIGHT_ONCE") {
+		t.Fatalf("expected SPOTLIGHT_ONCE named, got %v", err)
+	}
+
+	t.Setenv("SPOTLIGHT_ONCE", "")
+	for _, args := range [][]string{{"--twice"}, {"serve"}} {
+		if _, err := config.Load(args); err == nil || !strings.Contains(err.Error(), "--once") {
+			t.Errorf("%v: expected usage, got %v", args, err)
+		}
+	}
+}
+
+func TestLoadClaimsFromAPoolOnce(t *testing.T) {
+	setRequired(t)
+	t.Setenv("SPOTLIGHT_TOKEN", "")
+	t.Setenv("SPOTLIGHT_POOL_TOKEN", "pool-tok")
+
+	cfg, err := config.Load([]string{"--once"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if cfg.PoolToken != "pool-tok" || cfg.Token != "" {
+		t.Errorf("pool token %q, token %q", cfg.PoolToken, cfg.Token)
+	}
+}
+
+func TestLoadRefusesAPoolTokenThatWouldServeForever(t *testing.T) {
+	setRequired(t)
+	t.Setenv("SPOTLIGHT_TOKEN", "")
+	t.Setenv("SPOTLIGHT_POOL_TOKEN", "pool-tok")
+
+	if _, err := config.Load(nil); err == nil || !strings.Contains(err.Error(), "--once") {
+		t.Fatalf("expected once mode asked for, got %v", err)
+	}
+}
+
+func TestLoadRefusesAPoolTokenBesideAnotherCredential(t *testing.T) {
+	for name, env := range map[string]struct{ key, value string }{
+		"token":    {"SPOTLIGHT_TOKEN", "tok"},
+		"workload": {"SPOTLIGHT_RUNNER_OIDC_TOKEN_FILE", "/var/run/secrets/spotlight/token"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			setRequired(t)
+			t.Setenv("SPOTLIGHT_TOKEN", "")
+			t.Setenv("SPOTLIGHT_RUNNER_TRUST", "trust_1")
+			t.Setenv("SPOTLIGHT_POOL_TOKEN", "pool-tok")
+			t.Setenv(env.key, env.value)
+
+			_, err := config.Load([]string{"--once"})
+			if err == nil {
+				t.Fatal("expected two credentials to be refused")
+			}
+			for _, want := range []string{"SPOTLIGHT_POOL_TOKEN", env.key} {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("error does not name %s: %v", want, err)
+				}
+			}
+		})
 	}
 }

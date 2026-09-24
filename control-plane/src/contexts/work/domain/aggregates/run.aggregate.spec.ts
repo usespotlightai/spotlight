@@ -1,4 +1,6 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
+import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -63,6 +65,8 @@ const onAttempt = (attempt: number, leaseUntil: Date) =>
     leaseExpiresAt: leaseUntil,
     outcome: null,
     attempt,
+    reservation: null,
+    provisioning: Provisioning.none(),
   });
 
 describe('Run', () => {
@@ -494,6 +498,190 @@ describe('Run', () => {
 
       expect(held.pullEvents()).toHaveLength(0);
       expect(held.state).toBe('claimed');
+    });
+  });
+
+  describe('waiting for a runner provisioned for it', () => {
+    const later = (ms: number) => new Date(noon.getTime() + ms);
+    const reserved = () =>
+      queued().reservedFor(runner('pooled_1'), 'burst', noon);
+
+    it('holds itself for the provisioned runner for five minutes', () => {
+      const run = reserved();
+
+      expect(run.reservation?.runner.value).toBe('pooled_1');
+      expect(run.reservation?.pool).toBe('burst');
+      expect(run.reservation?.until).toEqual(later(5 * 60_000));
+      expect(run.isReservedAt(later(5 * 60_000 - 1))).toBe(true);
+      expect(run.isReservedAt(later(5 * 60_000))).toBe(false);
+    });
+
+    it('is provisionable only while queued, open and unreserved', () => {
+      expect(queued().provisionableAt(noon)).toBe(true);
+      expect(reserved().provisionableAt(noon)).toBe(false);
+      expect(claimed().provisionableAt(noon)).toBe(false);
+      expect(openedFor('runner_2').provisionableAt(noon)).toBe(false);
+    });
+
+    it('refuses to be reserved twice', () => {
+      expect(() =>
+        reserved().reservedFor(runner('pooled_2'), 'burst', noon),
+      ).toThrow(InvalidRunTransitionError);
+    });
+
+    it('refuses to be reserved while it waits for the runner it was opened for', () => {
+      expect(() =>
+        openedFor('runner_2').reservedFor(runner('pooled_1'), 'burst', noon),
+      ).toThrow(InvalidRunTransitionError);
+    });
+
+    it('refuses to be reserved once a runner holds it', () => {
+      expect(() =>
+        claimed().reservedFor(runner('pooled_1'), 'burst', noon),
+      ).toThrow(InvalidRunTransitionError);
+    });
+
+    it('refuses another runner while the reservation holds', () => {
+      expect(() => reserved().claim(runner('runner_9'), later(1_000))).toThrow(
+        InvalidRunTransitionError,
+      );
+    });
+
+    it('lets another runner take it once the reservation lapses', () => {
+      const run = reserved().claim(runner('runner_9'), later(5 * 60_000));
+
+      expect(run.claimedBy?.value).toBe('runner_9');
+      expect(run.reservation).toBeNull();
+    });
+
+    it('is taken by the provisioned runner, dropping the reservation', () => {
+      const run = reserved().claim(runner('pooled_1'), later(1_000));
+
+      expect(run.state).toBe('claimed');
+      expect(run.claimedBy?.value).toBe('pooled_1');
+      expect(run.reservation).toBeNull();
+    });
+
+    it('knows its reservation lapsed only once it is behind it while still queued', () => {
+      expect(reserved().reservationLapsedAt(later(1_000))).toBe(false);
+      expect(reserved().reservationLapsedAt(later(5 * 60_000))).toBe(true);
+      expect(queued().reservationLapsedAt(later(5 * 60_000))).toBe(false);
+    });
+
+    it('drops its reservation when unreserved by its runner', () => {
+      const run = reserved().unreservedFor(runner('pooled_1'));
+
+      expect(run.reservation).toBeNull();
+      expect(run.provisionableAt(noon)).toBe(true);
+    });
+
+    it('keeps its reservation when another runner lets it go', () => {
+      const run = reserved();
+
+      expect(run.unreservedFor(runner('pooled_2'))).toBe(run);
+    });
+
+    it('is left as it is when unreserved with nothing reserved', () => {
+      const run = queued();
+
+      expect(run.unreservedFor(runner('pooled_1'))).toBe(run);
+    });
+
+    it('is left as it is when unreserved once a runner holds it', () => {
+      const run = claimed(runner('pooled_1'));
+
+      expect(run.unreservedFor(runner('pooled_1'))).toBe(run);
+    });
+  });
+
+  describe('failing to be provisioned', () => {
+    const later = (ms: number) => new Date(noon.getTime() + ms);
+    const refused = ProvisionFailure.of('refused', 'the pool said no');
+    const pooled = runner('pooled_1');
+    const failedAgain = (run: Run) => {
+      const due = run.provisioning.nextAt ?? noon;
+
+      return run
+        .reservedFor(pooled, 'burst', due)
+        .provisionFailed(pooled, refused, due);
+    };
+
+    it('stays queued, unreserved and backs off before the next try', () => {
+      const run = failedAgain(queued());
+
+      expect(run.state).toBe('queued');
+      expect(run.reservation).toBeNull();
+      expect(run.provisioning.failures).toBe(1);
+      expect(run.provisioning.nextAt).toEqual(later(5_000));
+      expect(run.provisionableAt(later(4_999))).toBe(false);
+      expect(run.provisionableAt(later(5_000))).toBe(true);
+    });
+
+    it('backs off longer after each failure', () => {
+      const twice = failedAgain(failedAgain(queued()));
+
+      expect(twice.provisioning.nextAt).toEqual(later(15_000));
+    });
+
+    it('fails for good after five failures, saying why', () => {
+      let run = queued();
+      for (let failure = 0; failure < 5; failure += 1) {
+        run = failedAgain(run);
+      }
+
+      expect(run.state).toBe('failed');
+      expect(run.hasEnded).toBe(true);
+      expect(run.outcome?.failed).toBe(true);
+      expect(run.outcome).toEqual(RunOutcome.unprovisioned(refused, 5));
+      expect(run.outcome?.message).toBe(
+        'No runner was provisioned for it in 5 attempts; the last was refused: the pool said no',
+      );
+
+      const events = run.pullEvents();
+      expect(events).toHaveLength(1);
+      expect(events[0]).toBeInstanceOf(RunCompleted);
+      expect((events[0] as RunCompleted).workedBy).toBeNull();
+    });
+
+    it('announces nothing while it still has tries left', () => {
+      expect(failedAgain(queued()).pullEvents()).toHaveLength(0);
+    });
+
+    it('counts no failure when another runner reports one', () => {
+      const run = queued().reservedFor(pooled, 'burst', noon);
+
+      expect(run.provisionFailed(runner('pooled_2'), refused, noon)).toBe(run);
+    });
+
+    it('counts no failure when nothing is reserved for it', () => {
+      const run = queued();
+
+      expect(run.provisionFailed(pooled, refused, noon)).toBe(run);
+    });
+
+    it('counts no failure once a runner holds it', () => {
+      const run = claimed(pooled);
+
+      expect(run.provisionFailed(pooled, refused, noon)).toBe(run);
+    });
+
+    it('starts provisioning afresh when requeued', () => {
+      const again = failedAgain(queued())
+        .claim(runner(), later(5_000))
+        .requeue(later(10 * 60_000));
+
+      expect(again.provisioning.failures).toBe(0);
+      expect(again.provisioning.nextAt).toBeNull();
+      expect(again.reservation).toBeNull();
+    });
+
+    it('starts provisioning afresh when released', () => {
+      const again = failedAgain(queued())
+        .claim(runner(), later(5_000))
+        .release();
+
+      expect(again.provisioning.failures).toBe(0);
+      expect(again.provisionableAt(later(5_000))).toBe(true);
     });
   });
 });

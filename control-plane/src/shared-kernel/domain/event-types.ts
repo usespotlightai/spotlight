@@ -15,11 +15,14 @@ import {
   PersonPrincipal,
   TokenPrincipal,
 } from '@shared-kernel/domain/value-objects/principal.vo';
+import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
+import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
+import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
 import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -64,4 +67,7 @@ export const SHARED_KERNEL_EVENT_TYPES = [
   UserId,
   WorkspaceId,
   WorkspaceTokenId,
+  ProvisionFailure,
+  Provisioning,
+  RunnerReservation,
 ] as const;

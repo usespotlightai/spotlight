@@ -65,9 +65,21 @@ export type HeldResourceDto =
       readonly labels: readonly string[];
     })
   | (HeldByWorkspace & {
+      readonly kind: 'runner-pool';
+      readonly key: string;
+      readonly labels: readonly string[];
+      readonly maxRuns: number | null;
+      readonly tokenVersion: number | null;
+      readonly provision: {
+        readonly url: string;
+        readonly secretVersion: number | null;
+      } | null;
+    })
+  | (HeldByWorkspace & {
       readonly kind: 'workspace-runners';
       readonly runners: readonly string[];
       readonly trusts: readonly string[];
+      readonly pools: readonly string[];
     })
   | (HeldByTeam & {
       readonly kind: 'line';

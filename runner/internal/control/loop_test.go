@@ -3,6 +3,7 @@ package control_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"testing"
@@ -203,5 +204,112 @@ func TestPollPassesOverWorkItDoesNotKnow(t *testing.T) {
 
 	if len(served) != 1 || served[0] != "a" {
 		t.Errorf("served %v", served)
+	}
+}
+
+func TestPollServesOnceThenStops(t *testing.T) {
+	for name, first := range map[string]*protocol.Claimed{
+		"run":   {Kind: protocol.ClaimedRun, Run: &protocol.Run{ID: "a"}},
+		"check": {Kind: protocol.ClaimedCheck, Check: &protocol.StackCheck{StackID: "s1"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			claimer := &claims{work: []*protocol.Claimed{
+				first,
+				{Kind: protocol.ClaimedRun, Run: &protocol.Run{ID: "b"}},
+			}}
+
+			served := 0
+			err := control.Poll(
+				context.Background(),
+				claimer,
+				control.Limits{Once: true},
+				quiet(),
+				control.Work{
+					Run:   func(context.Context, protocol.Run) { served++ },
+					Check: func(context.Context, protocol.StackCheck) { served++ },
+				},
+			)
+			if err != nil {
+				t.Fatalf("poll: %v", err)
+			}
+
+			if served != 1 || claimer.calls != 1 {
+				t.Errorf("served %d after %d claims, want one of each", served, claimer.calls)
+			}
+		})
+	}
+}
+
+func TestPollServingOnceGivesUpWhenNothingArrives(t *testing.T) {
+	claimer := &claims{}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- control.Poll(
+			context.Background(),
+			claimer,
+			control.Limits{Once: true, IdleTimeout: 50 * time.Millisecond},
+			quiet(),
+			control.Work{
+				Run:   func(context.Context, protocol.Run) { t.Error("nothing should have been served") },
+				Check: func(context.Context, protocol.StackCheck) { t.Error("nothing should have been served") },
+			},
+		)
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("poll: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("poll did not give up when idle")
+	}
+	if claimer.calls == 0 {
+		t.Error("expected it to ask for work before giving up")
+	}
+}
+
+func TestPollServingOnceRetriesAfterTheControlPlaneFails(t *testing.T) {
+	claimer := &claims{
+		errs: []error{errors.New("connection refused"), nil},
+		work: []*protocol.Claimed{nil, {Kind: protocol.ClaimedRun, Run: &protocol.Run{ID: "a"}}},
+	}
+
+	var served []string
+	err := control.Poll(
+		context.Background(),
+		claimer,
+		control.Limits{Once: true, IdleTimeout: time.Minute},
+		quiet(),
+		running(&served),
+	)
+	if err != nil {
+		t.Fatalf("poll: %v", err)
+	}
+
+	if len(served) != 1 || served[0] != "a" {
+		t.Errorf("served %v after recovering", served)
+	}
+}
+
+func TestPollGivesUpWhenItsCredentialIsRefused(t *testing.T) {
+	claimer := &claims{errs: []error{fmt.Errorf("claim: %w", control.ErrRefused)}}
+
+	err := control.Poll(
+		context.Background(),
+		claimer,
+		control.Limits{Once: true},
+		quiet(),
+		control.Work{
+			Run:   func(context.Context, protocol.Run) { t.Error("nothing should have been served") },
+			Check: func(context.Context, protocol.StackCheck) { t.Error("nothing should have been served") },
+		},
+	)
+	if !errors.Is(err, control.ErrRefused) {
+		t.Fatalf("expected the refusal back, got %v", err)
+	}
+	if claimer.calls != 1 {
+		t.Errorf("asked %d times, want no retry after a refusal", claimer.calls)
 	}
 }

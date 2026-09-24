@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,6 +16,8 @@ import (
 )
 
 const PollTimeout = 10 * time.Second
+
+var ErrRefused = errors.New("the control plane refused the credential")
 
 type Client struct {
 	base  *url.URL
@@ -38,6 +41,8 @@ func New(baseURL, token string) (*Client, error) {
 }
 
 func (c *Client) RunnerID() string { return c.runnerID }
+
+func (c *Client) Token() string { return c.token }
 
 func (c *Client) Register(ctx context.Context, in protocol.Registration) error {
 	var out protocol.Registered

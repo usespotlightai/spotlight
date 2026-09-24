@@ -1,5 +1,10 @@
-import { madeBy, problemsIn } from '@platform/definitions/definition-schema';
+import {
+  madeBy,
+  problemsIn,
+  refinedBy,
+} from '@platform/definitions/definition-schema';
 import type {
+  CompiledPool,
   CompiledRunner,
   CompiledTrust,
   CompiledWorkspaceRunners,
@@ -7,9 +12,14 @@ import type {
 } from '@runners/application/ports/runner-definitions.port';
 import {
   RUNNER,
+  RUNNER_POOL,
   RUNNER_TRUST,
   WORKSPACE_RUNNERS,
 } from '@runners/application/rendering/runner-problems';
+import { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
+import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
+import { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
+import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerName } from '@runners/domain/value-objects/runner-name.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
@@ -35,17 +45,57 @@ const labels = z
   .default([])
   .superRefine(once);
 
+const token = z
+  .string()
+  .regex(
+    TOKEN,
+    'is 32 to 255 URL-safe characters, as a generated password would be',
+  );
+
+const writeOnlyVersion = z
+  .number({ error: 'is a whole number that changes to rotate the value' })
+  .int('is a whole number that changes to rotate the value')
+  .min(0, 'is a whole number that changes to rotate the value')
+  .nullish();
+
 const runnerSchema = z.object({
   name: madeBy(RunnerName.of),
   labels,
-  token: z
-    .string()
-    .regex(
-      TOKEN,
-      'is 32 to 255 URL-safe characters, as a generated password would be',
-    )
-    .optional(),
+  token: token.optional(),
 });
+
+const PULL_ONLY =
+  'is only for a pool that is pulled from; a pool that provisions is called instead, and has no token';
+
+const poolSchema = z
+  .object({
+    key: madeBy(PoolKey.of),
+    labels,
+    maxRuns: z
+      .number({ error: 'is a whole number of runs' })
+      .superRefine(refinedBy(MaxRuns.of))
+      .nullish(),
+    token: token.nullish(),
+    tokenVersion: writeOnlyVersion,
+    provision: z
+      .object({
+        url: madeBy(ProvisionUrl.of),
+        secret: madeBy(ProvisionSecret.of).nullish(),
+        secretVersion: writeOnlyVersion,
+      })
+      .nullish(),
+  })
+  .superRefine((pool, context) => {
+    if (!pool.provision) {
+      return;
+    }
+
+    for (const field of ['token', 'tokenVersion'] as const) {
+      if (pool[field] !== null && pool[field] !== undefined) {
+        context.addIssue({ code: 'custom', path: [field], message: PULL_ONLY });
+      }
+    }
+  });
 
 const trustSchema = z.object({
   key: madeBy(TrustKey.of),
@@ -58,6 +108,7 @@ const trustSchema = z.object({
 const workspaceRunnersSchema = z.object({
   runners: z.array(madeBy(RunnerName.of)).default([]).superRefine(once),
   trusts: z.array(madeBy(TrustKey.of)).default([]).superRefine(once),
+  pools: z.array(madeBy(PoolKey.of)).default([]).superRefine(once),
 });
 
 export class RunnerDefinitions implements RunnerDefinitionsPort {
@@ -87,6 +138,40 @@ export class RunnerDefinitions implements RunnerDefinitionsPort {
       : { ok: false, problems: problemsIn(RUNNER_TRUST, read.error) };
   }
 
+  pool(held: unknown): CompiledPool {
+    const read = poolSchema.safeParse(held);
+
+    if (!read.success) {
+      return { ok: false, problems: problemsIn(RUNNER_POOL, read.error) };
+    }
+
+    const { provision } = read.data;
+
+    return {
+      ok: true,
+      key: PoolKey.of(read.data.key),
+      labels: RunnerLabels.of(read.data.labels),
+      maxRuns:
+        read.data.maxRuns === null || read.data.maxRuns === undefined
+          ? null
+          : MaxRuns.of(read.data.maxRuns),
+      access: provision
+        ? {
+            mode: 'push',
+            url: ProvisionUrl.of(provision.url),
+            secret: provision.secret
+              ? ProvisionSecret.of(provision.secret)
+              : null,
+            secretVersion: provision.secretVersion ?? null,
+          }
+        : {
+            mode: 'pull',
+            token: read.data.token ?? null,
+            tokenVersion: read.data.tokenVersion ?? null,
+          },
+    };
+  }
+
   workspaceRunners(held: unknown): CompiledWorkspaceRunners {
     const read = workspaceRunnersSchema.safeParse(held);
 
@@ -95,6 +180,7 @@ export class RunnerDefinitions implements RunnerDefinitionsPort {
           ok: true,
           runners: read.data.runners.map(RunnerName.of),
           trusts: read.data.trusts.map(TrustKey.of),
+          pools: read.data.pools.map(PoolKey.of),
         }
       : { ok: false, problems: problemsIn(WORKSPACE_RUNNERS, read.error) };
   }

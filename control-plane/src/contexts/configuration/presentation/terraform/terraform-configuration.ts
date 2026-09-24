@@ -48,6 +48,7 @@ interface Neighbours {
   readonly sources: ReadonlySet<string>;
   readonly runners: ReadonlySet<string>;
   readonly trusts: ReadonlySet<string>;
+  readonly pools: ReadonlySet<string>;
   readonly secrets: ReadonlySet<string>;
 }
 
@@ -73,12 +74,13 @@ const PLACE: Readonly<Record<HeldResourceDto['kind'], number>> = {
   secret: 1,
   runner: 2,
   'runner-trust': 3,
-  'workspace-runners': 4,
-  team: 5,
-  line: 6,
-  skill: 7,
-  integration: 8,
-  'harness-profile': 9,
+  'runner-pool': 4,
+  'workspace-runners': 5,
+  team: 6,
+  line: 7,
+  skill: 8,
+  integration: 9,
+  'harness-profile': 10,
 };
 
 const teamOf = (held: HeldResourceDto): string => {
@@ -170,6 +172,7 @@ const neighboursIn = (configuration: HeldConfigurationDto): Neighbours => {
     sources: of('integration', (each) => inTeam(each.teamKey, each.source)),
     runners: of('runner', (each) => each.name),
     trusts: of('runner-trust', (each) => each.key),
+    pools: of('runner-pool', (each) => each.key),
     secrets: of('secret', (each) => each.name),
   };
 };
@@ -223,6 +226,12 @@ const References = (neighbours: Neighbours) => ({
   trust(key: string): HclValue {
     return neighbours.trusts.has(key)
       ? referenceTo('runner-trust', nameOf(key), 'key')
+      : key;
+  },
+
+  pool(key: string): HclValue {
+    return neighbours.pools.has(key)
+      ? referenceTo('runner-pool', nameOf(key), 'key')
       : key;
   },
 
@@ -557,6 +566,59 @@ const runner = (
   );
 };
 
+const pool = (
+  held: HeldBy<'runner-pool'>,
+  importedAs: string,
+  refer: Referring,
+): Rendered => {
+  const token = `runner_pool_${held.key}_token`;
+  const secret = `runner_pool_${held.key}_provision_secret`;
+  const { provision } = held;
+
+  return adopted(
+    held,
+    nameOf(held.key),
+    importedAs,
+    [
+      ...refer.owner(held),
+      attribute('key', held.key),
+      attribute('labels', [...held.labels]),
+      ...(held.maxRuns === null ? [] : [attribute('max_runs', held.maxRuns)]),
+      ...(provision
+        ? [
+            attribute('provision', {
+              url: provision.url,
+              secret: HclExpression.traversal('var', secret),
+              ...(provision.secretVersion === null
+                ? {}
+                : { secret_version: provision.secretVersion }),
+            }),
+          ]
+        : [
+            attribute('token', HclExpression.traversal('var', token)),
+            ...(held.tokenVersion === null
+              ? []
+              : [attribute('token_version', held.tokenVersion)]),
+          ]),
+    ],
+    {
+      variables: [
+        provision
+          ? variable(
+              secret,
+              `The secret the runner pool ${held.key} signs its provision calls with, as whsec_ and base64 bytes`,
+              false,
+            )
+          : variable(
+              token,
+              `The token the runner pool ${held.key} claims with; left null, Spotlight issues one when it creates the pool`,
+              true,
+            ),
+      ],
+    },
+  );
+};
+
 const rendered = (
   held: HeldResourceDto,
   configuration: HeldConfigurationDto,
@@ -600,7 +662,13 @@ const rendered = (
           'trusts',
           held.trusts.map((each) => refer.trust(each)),
         ),
+        attribute(
+          'pools',
+          held.pools.map((each) => refer.pool(each)),
+        ),
       ]);
+    case 'runner-pool':
+      return pool(held, importedAs, refer);
     case 'line':
       return line(held, importedAs, refer);
     case 'skill':

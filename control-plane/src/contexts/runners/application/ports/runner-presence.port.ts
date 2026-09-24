@@ -5,14 +5,17 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const RUNNER_PRESENCE = Symbol('RUNNER_PRESENCE');
 
+export type RunnerClaims = 'any' | 'reserved' | 'nothing';
+
 export interface SeenRunner {
   readonly workspaceId: WorkspaceId;
   readonly harnesses: readonly HarnessId[];
   readonly terms: RunnerTerms;
+  readonly claims: RunnerClaims;
 }
 
 export interface RunnerPresencePort {
   seen(runnerId: RunnerId, at: Date): Promise<SeenRunner | null>;
 
-  termsOf(runnerId: RunnerId): Promise<RunnerTerms>;
+  pinnableTerms(runnerId: RunnerId): Promise<RunnerTerms | null>;
 }

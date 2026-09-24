@@ -5,11 +5,14 @@ import type { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-ter
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 
+type Claims = 'any' | 'reserved';
+
 export interface Claimant {
   readonly runner: RunnerId;
   readonly workspaceId: WorkspaceId;
   readonly harnesses: readonly HarnessId[];
   readonly terms: RunnerTerms;
+  readonly claims: Claims;
 }
 
 export interface RunRepository {
@@ -23,6 +26,16 @@ export interface RunRepository {
   lapsedClaims(now: Date): Promise<readonly Run[]>;
 
   claimedBy(runner: RunnerId): Promise<readonly Run[]>;
+
+  waitingFor(runner: RunnerId): Promise<Run | null>;
+
+  awaitingProvision(
+    workspaceId: WorkspaceId,
+    now: Date,
+    page: { readonly skip: number; readonly most: number },
+  ): Promise<readonly Run[]>;
+
+  withLapsedReservations(now: Date): Promise<readonly Run[]>;
 
   save(run: Run): Promise<void>;
 }

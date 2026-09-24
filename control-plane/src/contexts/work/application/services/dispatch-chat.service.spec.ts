@@ -86,7 +86,7 @@ const enqueued = async (chat: Chat): Promise<Run> => {
     } as unknown as LineRepository,
     { now: () => NOW } as ClockPort,
     {
-      termsOf: async () => RunnerTerms.none(),
+      pinnableTerms: async () => RunnerTerms.none(),
     } as unknown as RunnerPresencePort,
   ).enqueue(chat, RunId.of('run_1'));
 

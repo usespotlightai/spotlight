@@ -10,6 +10,7 @@ const SAID: Readonly<Record<SkipCode, string>> = {
   'no-room': 'The runner had no room to check the layers.',
   'out-of-time': 'There was no time left to check the layers.',
   'nobody-checked': 'No runner checked the layers in time.',
+  unprovisioned: 'No runner could be provisioned to check the layers.',
 };
 
 export interface UncheckedFor {

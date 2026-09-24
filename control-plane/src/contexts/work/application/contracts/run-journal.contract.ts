@@ -1,6 +1,8 @@
 import type { Money } from '@work/domain/value-objects/money.vo';
 import type { StepKind } from '@work/domain/value-objects/step-kind';
 
+export const PROVISION_FAILED = 'provision.failed';
+
 export interface StepLocation {
   readonly path: string;
   readonly line: number | null;

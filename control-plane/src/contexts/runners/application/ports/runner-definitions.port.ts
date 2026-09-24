@@ -1,3 +1,7 @@
+import type { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
+import type { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
+import type { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
+import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import type { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import type { RunnerName } from '@runners/domain/value-objects/runner-name.vo';
 import type { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
@@ -29,11 +33,35 @@ export type CompiledTrust =
     }
   | Refused;
 
+export type CompiledPoolAccess =
+  | {
+      readonly mode: 'pull';
+      readonly token: string | null;
+      readonly tokenVersion: number | null;
+    }
+  | {
+      readonly mode: 'push';
+      readonly url: ProvisionUrl;
+      readonly secret: ProvisionSecret | null;
+      readonly secretVersion: number | null;
+    };
+
+export type CompiledPool =
+  | {
+      readonly ok: true;
+      readonly key: PoolKey;
+      readonly labels: RunnerLabels;
+      readonly maxRuns: MaxRuns | null;
+      readonly access: CompiledPoolAccess;
+    }
+  | Refused;
+
 export type CompiledWorkspaceRunners =
   | {
       readonly ok: true;
       readonly runners: readonly RunnerName[];
       readonly trusts: readonly TrustKey[];
+      readonly pools: readonly PoolKey[];
     }
   | Refused;
 
@@ -41,6 +69,8 @@ export interface RunnerDefinitionsPort {
   runner(held: unknown): CompiledRunner;
 
   trust(held: unknown): CompiledTrust;
+
+  pool(held: unknown): CompiledPool;
 
   workspaceRunners(held: unknown): CompiledWorkspaceRunners;
 }

@@ -1,5 +1,6 @@
 import { reviseRunner } from '@runners/application/services/runner-revisions';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
+import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import type { WorkspaceRunnersRepository } from '@runners/domain/repositories/workspace-runners.repository';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -12,6 +13,7 @@ export class AbandonWorkspaceRunners {
     private readonly runners: RunnerRepository,
     private readonly trusts: RunnerTrustRepository,
     private readonly declarations: WorkspaceRunnersRepository,
+    private readonly pools: RunnerPoolRepository,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
   ) {}
@@ -31,6 +33,14 @@ export class AbandonWorkspaceRunners {
 
     for (const trust of await this.trusts.inWorkspace(workspaceId)) {
       await this.transaction.run(() => this.trusts.save(trust.withdrawn(by)));
+    }
+  }
+
+  async poolsOf(workspaceId: WorkspaceId): Promise<void> {
+    const by = Attribution.spotlight(workspaceId);
+
+    for (const pool of await this.pools.inWorkspace(workspaceId)) {
+      await this.transaction.run(() => this.pools.save(pool.retired(by)));
     }
   }
 

@@ -3,6 +3,7 @@ import type { DecisionReactions } from '@change-review/application/events/handle
 import type { ReviewReactions } from '@change-review/application/events/handlers/review-reactions.handler';
 import type { StackCheckReactions } from '@change-review/application/events/handlers/stack-check-reactions.handler';
 import type { ChangeStackAnnouncerPort } from '@change-review/application/ports/change-stack-announcer.port';
+import type { CheckRunnersPort } from '@change-review/application/ports/check-runners.port';
 import type { AskForDecisions } from '@change-review/application/services/ask-for-decisions.service';
 import type { ForgetTaskAcrossAggregates } from '@change-review/application/services/forget-task-across-aggregates.service';
 import type { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
@@ -66,7 +67,13 @@ export const changeReviewSubscribers = (
   deciding: AskForDecisions,
   settling: SettleDecisions,
   decisions: DecisionReactions,
+  runners: CheckRunnersPort,
 ): readonly DomainEventSubscriber[] => [
+  subscribing<ChangeStackChecked | LayersFailedCheck>(
+    'change-review.release-runner-of-checked-stack',
+    ['change-stack.checked', 'change-stack.layers-failed-check'],
+    (event) => runners.released(event.stackId),
+  ),
   subscribing<ChangeStackSettled>(
     'change-review.begin-check',
     ['change-stack.settled'],

@@ -47,3 +47,16 @@ export class EnqueueRunCommand {
     readonly targetRunnerId: string | null = null,
   ) {}
 }
+
+export interface PoolHarnessReport {
+  readonly id: string;
+  readonly models: readonly string[];
+  readonly version?: string;
+}
+
+export class ClaimPoolWorkCommand {
+  constructor(
+    readonly token: string | undefined,
+    readonly harnesses: readonly PoolHarnessReport[],
+  ) {}
+}

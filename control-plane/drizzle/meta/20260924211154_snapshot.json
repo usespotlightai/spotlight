@@ -1,5 +1,5 @@
 {
-  "id": "85c613f4-b078-4118-bfc8-96d77b51a04d",
+  "id": "e67c43f7-dbad-4794-bf0f-69a28dabbb19",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -1371,6 +1371,37 @@
           "primaryKey": false,
           "notNull": true
         },
+        "reserved_for": {
+          "name": "reserved_for",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reserved_pool": {
+          "name": "reserved_pool",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reserved_until": {
+          "name": "reserved_until",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "provision_failures": {
+          "name": "provision_failures",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "next_provision_at": {
+          "name": "next_provision_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
         "version": {
           "name": "version",
           "type": "integer",
@@ -1406,6 +1437,42 @@
             },
             {
               "expression": "phase",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "stack_check_reserved_idx": {
+          "name": "stack_check_reserved_idx",
+          "columns": [
+            {
+              "expression": "reserved_for",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "stack_check_overdue_idx": {
+          "name": "stack_check_overdue_idx",
+          "columns": [
+            {
+              "expression": "phase",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "waiting_since",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -3143,6 +3210,173 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.pool_runner": {
+      "name": "pool_runner",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pool_id": {
+          "name": "pool_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "labels": {
+          "name": "labels",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "harnesses": {
+          "name": "harnesses",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "advertised_models": {
+          "name": "advertised_models",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "harness_versions": {
+          "name": "harness_versions",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "work_kind": {
+          "name": "work_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "work_id": {
+          "name": "work_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "claim_by": {
+          "name": "claim_by",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_seen_at": {
+          "name": "last_seen_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ended_at": {
+          "name": "ended_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "pool_runner_token_hash_idx": {
+          "name": "pool_runner_token_hash_idx",
+          "columns": [
+            {
+              "expression": "token_hash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pool_runner_standing_idx": {
+          "name": "pool_runner_standing_idx",
+          "columns": [
+            {
+              "expression": "pool_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"pool_runner\".\"ended_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pool_runner_work_idx": {
+          "name": "pool_runner_work_idx",
+          "columns": [
+            {
+              "expression": "work_kind",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "work_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"pool_runner\".\"ended_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "pool_runner_whole_work": {
+          "name": "pool_runner_whole_work",
+          "value": "(\"pool_runner\".\"work_kind\" is null) = (\"pool_runner\".\"work_id\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.runner": {
       "name": "runner",
       "schema": "",
@@ -3315,6 +3549,136 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.runner_pool": {
+      "name": "runner_pool",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "labels": {
+          "name": "labels",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "max_runs": {
+          "name": "max_runs",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "token_version": {
+          "name": "token_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "provision_url": {
+          "name": "provision_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "provision_secret": {
+          "name": "provision_secret",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "provision_secret_version": {
+          "name": "provision_secret_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "runner_pool_workspace_key_idx": {
+          "name": "runner_pool_workspace_key_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "runner_pool_token_hash_idx": {
+          "name": "runner_pool_token_hash_idx",
+          "columns": [
+            {
+              "expression": "token_hash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "runner_pool_one_mode": {
+          "name": "runner_pool_one_mode",
+          "value": "(\"runner_pool\".\"token_hash\" is null) <> (\"runner_pool\".\"provision_url\" is null) and (\"runner_pool\".\"provision_url\" is null) = (\"runner_pool\".\"provision_secret\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.runner_trust": {
       "name": "runner_trust",
       "schema": "",
@@ -3432,6 +3796,13 @@
         },
         "trusts": {
           "name": "trusts",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "pools": {
+          "name": "pools",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true,
@@ -4968,6 +5339,37 @@
           "primaryKey": false,
           "notNull": false
         },
+        "reserved_for": {
+          "name": "reserved_for",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reserved_pool": {
+          "name": "reserved_pool",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reserved_until": {
+          "name": "reserved_until",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "provision_failures": {
+          "name": "provision_failures",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "next_provision_at": {
+          "name": "next_provision_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
         "exit_code": {
           "name": "exit_code",
           "type": "integer",
@@ -5093,6 +5495,21 @@
           "columns": [
             {
               "expression": "chat_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "run_reserved_idx": {
+          "name": "run_reserved_idx",
+          "columns": [
+            {
+              "expression": "reserved_for",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

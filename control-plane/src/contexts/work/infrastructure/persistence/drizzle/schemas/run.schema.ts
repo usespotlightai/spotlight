@@ -38,6 +38,11 @@ export const run = pgTable(
     claimedBy: text('claimed_by'),
     leaseExpiresAt: timestamp('lease_expires_at'),
     stopRequestedAt: timestamp('stop_requested_at'),
+    reservedFor: text('reserved_for'),
+    reservedPool: text('reserved_pool'),
+    reservedUntil: timestamp('reserved_until'),
+    provisionFailures: integer('provision_failures').notNull().default(0),
+    nextProvisionAt: timestamp('next_provision_at'),
     exitCode: integer('exit_code'),
     message: text('message'),
     stopped: boolean('stopped').notNull().default(false),
@@ -59,6 +64,7 @@ export const run = pgTable(
     index('run_lease_idx').on(table.leaseExpiresAt),
     index('run_workspace_idx').on(table.workspaceId),
     index('run_chat_idx').on(table.chatId),
+    index('run_reserved_idx').on(table.reservedFor),
   ],
 );
 

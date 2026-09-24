@@ -19,6 +19,23 @@ export interface StackCheckRepository {
 
   dueForCheck(by: CheckClaimant, now: Date): Promise<StackCheck | null>;
 
+  reservedTo(runner: RunnerId, now: Date): Promise<StackCheck | null>;
+
+  overdue(now: Date, most: number): Promise<readonly StackCheck[]>;
+
+  awaitingProvision(
+    workspaceId: WorkspaceId,
+    now: Date,
+    page: { readonly skip: number; readonly most: number },
+  ): Promise<readonly StackCheck[]>;
+
+  withLapsedReservations(now: Date): Promise<readonly StackCheck[]>;
+
+  waitingIn(
+    workspaceId: WorkspaceId,
+    now: Date,
+  ): Promise<readonly StackCheck[]>;
+
   isClaimedBy(runId: string, runner: RunnerId, now: Date): Promise<boolean>;
 
   removeForStacks(stackIds: readonly ChangeStackId[]): Promise<void>;

@@ -1,8 +1,10 @@
 import { AbandonWorkspaceRunners } from '@runners/application/services/abandon-workspace-runners.service';
 import { Runner } from '@runners/domain/aggregates/runner.aggregate';
+import { aPullPool } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import { WorkspaceRunners } from '@runners/domain/aggregates/workspace-runners.aggregate';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
+import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import type { WorkspaceRunnersRepository } from '@runners/domain/repositories/workspace-runners.repository';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
@@ -52,8 +54,12 @@ const declared = WorkspaceRunners.rehydrate({
   workspaceId: WORKSPACE,
   runners: [RunnerName.of('build-1')],
   trusts: [],
+  pools: [],
   version: 0,
 });
+
+const pool = aPullPool();
+pool.pullEvents();
 
 const abandoning = () => {
   const saved: { pullEvents(): DomainEvent[] }[] = [];
@@ -74,6 +80,10 @@ const abandoning = () => {
       declaredIn: async () => declared,
       save,
     } as unknown as WorkspaceRunnersRepository,
+    {
+      inWorkspace: async () => [pool],
+      save,
+    } as unknown as RunnerPoolRepository,
     { now: () => NOW } as ClockPort,
     { run: (work: () => Promise<unknown>) => work() } as TransactionPort,
   );
@@ -102,6 +112,14 @@ describe('AbandonWorkspaceRunners', () => {
     await service.trustsOf(WORKSPACE);
 
     expect(changes()).toEqual([['runner-trust', 'deleted', null]]);
+  });
+
+  it('retires the pools a closed workspace still has, as Spotlight', async () => {
+    const { service, changes } = abandoning();
+
+    await service.poolsOf(WORKSPACE);
+
+    expect(changes()).toEqual([['runner-pool', 'deleted', null]]);
   });
 
   it('drops what a closed workspace declared of its runners, as Spotlight', async () => {

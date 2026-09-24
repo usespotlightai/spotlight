@@ -1,0 +1,97 @@
+import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type { UpdateRunnerPoolCommand } from '@runners/application/commands/runner-resource.commands';
+import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-definitions.port';
+import { RunnerProblems } from '@runners/application/rendering/runner-problems';
+import { givenAccess } from '@runners/application/services/pool-access-given';
+import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
+import { PoolTokenTakenError } from '@runners/domain/exceptions/pool-token-taken.error';
+import { RunnerPoolFixedError } from '@runners/domain/exceptions/runner-pool-fixed.error';
+import { RunnerPoolMovedOnError } from '@runners/domain/exceptions/runner-pool-moved-on.error';
+import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
+import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
+import {
+  forbiddenTo,
+  type ResourceUpdated,
+} from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
+import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+
+export class UpdateRunnerPoolHandler
+  implements CommandHandlerPort<UpdateRunnerPoolCommand, ResourceUpdated | null>
+{
+  constructor(
+    private readonly access: WorkspaceAccessPort,
+    private readonly definitions: RunnerDefinitionsPort,
+    private readonly pools: RunnerPoolRepository,
+    private readonly tokens: TokenMintPort,
+    private readonly transaction: TransactionPort,
+  ) {}
+
+  async execute(
+    command: UpdateRunnerPoolCommand,
+  ): Promise<ResourceUpdated | null> {
+    const id = RunnerPoolId.of(command.poolId);
+
+    try {
+      const standing = await this.pools.find(id);
+      const cleared = standing
+        ? await this.access.clearanceIn(
+            standing.workspaceId,
+            command.actor.principal,
+          )
+        : null;
+
+      if (!standing || !cleared) {
+        return null;
+      }
+
+      if (!cleared.managesRunners) {
+        return forbiddenTo('manage-runners');
+      }
+
+      standing.expecting(command.expectedVersion);
+
+      const compiled = this.definitions.pool(command.definition);
+
+      if (!compiled.ok) {
+        return { outcome: 'invalid', problems: compiled.problems };
+      }
+
+      await this.transaction.run(() =>
+        this.pools.save(
+          standing.redefinedAs(
+            compiled,
+            givenAccess(compiled.access, this.tokens),
+            Attribution.of(command.actor, cleared.workspaceId),
+          ),
+        ),
+      );
+
+      return { outcome: 'updated', id: id.value };
+    } catch (error) {
+      if (error instanceof RunnerPoolMovedOnError) {
+        const current = await this.pools.find(id);
+
+        return current
+          ? { outcome: 'moved-on', currentVersion: current.version }
+          : null;
+      }
+
+      if (
+        error instanceof RunnerPoolFixedError ||
+        error instanceof PoolTokenTakenError ||
+        error instanceof InvalidRunnerPoolError
+      ) {
+        return {
+          outcome: 'invalid',
+          problems: [RunnerProblems.poolRefused(error)],
+        };
+      }
+
+      rethrowAsFault(error);
+    }
+  }
+}

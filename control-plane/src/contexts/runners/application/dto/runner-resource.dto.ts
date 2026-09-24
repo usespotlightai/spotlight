@@ -23,13 +23,31 @@ export interface RunnerTrustResourceDto extends ResourceDto {
   readonly labels: readonly string[];
 }
 
+export interface RunnerPoolResourceDto extends ResourceDto {
+  readonly key: string;
+  readonly labels: readonly string[];
+  readonly maxRuns: number | null;
+  readonly mode: 'pull' | 'push';
+  readonly tokenVersion: number | null;
+  readonly provision: {
+    readonly url: string;
+    readonly secretVersion: number | null;
+  } | null;
+}
+
 export interface WorkspaceRunnersResourceDto extends ResourceDto {
   readonly runners: readonly string[];
   readonly trusts: readonly string[];
+  readonly pools: readonly string[];
   readonly drift: readonly string[];
 }
 
 export interface RunnerCreatedDto {
+  readonly created: ResourceCreated;
+  readonly token: string | null;
+}
+
+export interface RunnerPoolCreatedDto {
   readonly created: ResourceCreated;
   readonly token: string | null;
 }

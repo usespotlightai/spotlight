@@ -1,20 +1,24 @@
 import type {
+  RunnerPoolResourceDto,
   RunnerResourceDto,
   RunnerTrustResourceDto,
   WorkspaceRunnersResourceDto,
 } from '@runners/application/dto/runner-resource.dto';
 import type {
   ConfiguredRunner,
+  ConfiguredRunnerPool,
   ConfiguredRunnerTrust,
   ConfiguredWorkspaceRunners,
 } from '@runners/application/ports/runner-configuration.port';
 import type {
+  KeptPool,
   KeptRunner,
   KeptTrust,
   KeptWorkspaceRunners,
 } from '@runners/application/ports/runner-resources.port';
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
 import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
+import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import type { WorkspaceRunners } from '@runners/domain/aggregates/workspace-runners.aggregate';
 import {
@@ -64,6 +68,43 @@ export const RunnerResourceMapper = {
     };
   },
 
+  pool(pool: KeptPool): RunnerPoolResourceDto {
+    return {
+      id: pool.id,
+      version: pool.version,
+      address: pool.key,
+      workspaceId: pool.workspaceId.value,
+      key: pool.key,
+      labels: pool.labels,
+      maxRuns: pool.maxRuns,
+      mode: pool.provision ? 'push' : 'pull',
+      tokenVersion: pool.tokenVersion,
+      provision: pool.provision,
+      warnings:
+        pool.provision && !/^https:/i.test(pool.provision.url)
+          ? [RunnerProblems.provisionedInTheClear()]
+          : [],
+    };
+  },
+
+  configuredPool(pool: RunnerPool): ConfiguredRunnerPool {
+    const { access } = pool;
+
+    return {
+      id: pool.id.value,
+      address: pool.key.value,
+      workspaceId: pool.workspaceId,
+      key: pool.key.value,
+      labels: pool.labels.values,
+      maxRuns: pool.maxRuns?.value ?? null,
+      tokenVersion: access.mode === 'pull' ? access.tokenVersion : null,
+      provision:
+        access.mode === 'push'
+          ? { url: access.url.value, secretVersion: access.secretVersion }
+          : null,
+    };
+  },
+
   configuredRunner(runner: Runner): ConfiguredRunner {
     return {
       id: runner.id.value,
@@ -97,6 +138,7 @@ export const RunnerResourceMapper = {
       workspaceId: declared.workspaceId,
       runners: declared.runners.map((each) => each.value),
       trusts: declared.trusts.map((each) => each.value),
+      pools: declared.pools.map((each) => each.value),
     };
   },
 
@@ -114,6 +156,7 @@ export const RunnerResourceMapper = {
       workspaceId: declared.workspaceId.value,
       runners: declared.runners,
       trusts: declared.trusts,
+      pools: declared.pools,
       drift: drift.undeclared,
       warnings: [
         ...declared.runners.flatMap((name, at) =>
@@ -124,6 +167,11 @@ export const RunnerResourceMapper = {
         ...declared.trusts.flatMap((key, at) =>
           drift.unknownTrusts.includes(key)
             ? [RunnerProblems.noSuchTrust(key, at)]
+            : [],
+        ),
+        ...declared.pools.flatMap((key, at) =>
+          drift.unknownPools.includes(key)
+            ? [RunnerProblems.noSuchPool(key, at)]
             : [],
         ),
         ...drift.undeclared.map(RunnerProblems.drifted),

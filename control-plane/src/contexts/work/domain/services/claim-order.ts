@@ -6,11 +6,15 @@ export interface WaitingRun {
   readonly queuedAt: Date;
 }
 
-const takeable = (run: Run, by: Claimant): boolean =>
+const takeable = (run: Run, by: Claimant, now: Date): boolean =>
   run.state === 'queued' &&
   run.workspaceId.equals(by.workspaceId) &&
   by.harnesses.some((each) => each.equals(run.harness)) &&
   (run.targetRunner === null || run.targetRunner.equals(by.runner)) &&
+  (by.claims === 'reserved'
+    ? run.isReservedAt(now) && (run.reservation?.heldFor(by.runner) ?? false)
+    : !run.isReservedAt(now) ||
+      (run.reservation?.heldFor(by.runner) ?? false)) &&
   run.placement.admits(by.terms);
 
 const sooner = (a: WaitingRun, b: WaitingRun): number =>
@@ -20,10 +24,10 @@ const sooner = (a: WaitingRun, b: WaitingRun): number =>
 export const ClaimOrder = {
   takeable,
 
-  next(waiting: readonly WaitingRun[], by: Claimant): Run | null {
+  next(waiting: readonly WaitingRun[], by: Claimant, now: Date): Run | null {
     return (
-      waiting.filter((each) => takeable(each.run, by)).sort(sooner)[0]?.run ??
-      null
+      waiting.filter((each) => takeable(each.run, by, now)).sort(sooner)[0]
+        ?.run ?? null
     );
   },
 };

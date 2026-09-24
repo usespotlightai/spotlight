@@ -1,4 +1,5 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type { RunnerPoolsPort } from '@runners/application/ports/runner-pools.port';
 import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -6,8 +7,10 @@ import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.p
 import {
   HarnessCatalogueHandler,
   ListHarnessesHandler,
+  PoolHarnessesHandler,
 } from '@work/application/queries/handlers/list-harnesses.handler';
 import { ListHarnessesQuery } from '@work/application/queries/list-harnesses.query';
+import { PoolHarnessesQuery } from '@work/application/queries/pool.queries';
 import { describe, expect, it, vi } from 'vitest';
 
 const launch = {
@@ -72,5 +75,28 @@ describe('listing harnesses for a workspace', () => {
     expect(listed).toEqual([
       expect.objectContaining({ id: 'claude-code', models: [] }),
     ]);
+  });
+
+  describe('for a pool looking for what its runners should carry', () => {
+    const pools = {
+      pulledWith: async (token: string | undefined) =>
+        token === 'pool-token' ? { poolId: 'pool_1' } : null,
+    } as unknown as RunnerPoolsPort;
+
+    it('tells a pool what to look for without any workspace’s models', async () => {
+      expect(
+        await new PoolHarnessesHandler(launch, pools).execute(
+          new PoolHarnessesQuery('pool-token'),
+        ),
+      ).toEqual([expect.objectContaining({ id: 'claude-code', models: [] })]);
+    });
+
+    it('answers nothing to a token no pool pulls with', async () => {
+      expect(
+        await new PoolHarnessesHandler(launch, pools).execute(
+          new PoolHarnessesQuery('stolen'),
+        ),
+      ).toBeNull();
+    });
   });
 });

@@ -13,6 +13,7 @@ const E2E_ENV = {
   BETTER_AUTH_SECRET: 'test-better-auth-secret-not-a-real-one',
   BETTER_AUTH_URL: 'http://localhost:3000',
   SPOTLIGHT_SECRETS_KEY: 'S9+m23g9lI8X4VNFd0ayFXJH7P14Q3GZGsNvjCglc/Q=',
+  OUTBOUND_ALLOWED_HOSTS: '127.0.0.1',
 };
 
 const shared = {

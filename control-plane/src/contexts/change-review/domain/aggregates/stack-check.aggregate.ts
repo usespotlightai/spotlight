@@ -15,13 +15,17 @@ import type {
 } from '@change-review/domain/value-objects/stack-check.vo';
 import {
   nobodyChecked,
+  unprovisioned,
   WHOLE_STEP,
 } from '@change-review/domain/value-objects/stack-check.vo';
 import type { LayerId } from '@change-review/domain/value-objects/stack-ids';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
+import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const MOST_CHECK_OUTPUT = 16_000;
@@ -54,6 +58,8 @@ export class StackCheck extends EventRecorder {
     readonly outcome: CheckOutcome | null,
     readonly claim: CheckClaim,
     readonly waitingSince: Date,
+    readonly reservation: RunnerReservation | null,
+    readonly provisioning: Provisioning,
     readonly version: number,
   ) {
     super();
@@ -78,6 +84,8 @@ export class StackCheck extends EventRecorder {
       null,
       CheckClaim.none(),
       input.now,
+      null,
+      Provisioning.none(),
       0,
     );
   }
@@ -93,6 +101,8 @@ export class StackCheck extends EventRecorder {
     outcome: CheckOutcome | null;
     claim: CheckClaim;
     waitingSince: Date;
+    reservation: RunnerReservation | null;
+    provisioning: Provisioning;
     version: number;
   }): StackCheck {
     const found = input.outcome?.state ?? null;
@@ -121,6 +131,8 @@ export class StackCheck extends EventRecorder {
       input.outcome,
       input.claim,
       input.waitingSince,
+      input.reservation,
+      input.provisioning,
       input.version,
     );
   }
@@ -163,23 +175,124 @@ export class StackCheck extends EventRecorder {
       : [];
   }
 
-  claimableAt(now: Date): boolean {
+  claimableAt(now: Date, by: RunnerId | null = null): boolean {
     return (
       this.phase === 'waiting' &&
       this.stateAt(now) === 'waiting' &&
       !this.claim.heldAt(now) &&
-      !this.claim.exhausted
+      !this.claim.exhausted &&
+      (!this.isReservedAt(now) ||
+        (by !== null && (this.reservation?.heldFor(by) ?? false)))
     );
   }
 
   claimedFor(runner: RunnerId, now: Date): StackCheck {
-    if (!this.claimableAt(now)) {
+    if (!this.claimableAt(now, runner)) {
       throw InvalidChangeStackError.because(
         'has no check waiting for a runner to take up',
       );
     }
 
-    return this.with({ claim: this.claim.claimed(runner, now) });
+    return this.with({
+      claim: this.claim.claimed(runner, now),
+      reservation: null,
+    });
+  }
+
+  isReservedAt(now: Date): boolean {
+    return this.reservation?.holdsAt(now) ?? false;
+  }
+
+  reservationLapsedAt(now: Date): boolean {
+    return (
+      this.phase === 'waiting' &&
+      this.reservation !== null &&
+      !this.reservation.holdsAt(now)
+    );
+  }
+
+  provisionableAt(now: Date): boolean {
+    return (
+      this.claimableAt(now) &&
+      this.reservation === null &&
+      this.provisioning.dueAt(now)
+    );
+  }
+
+  reservedFor(runner: RunnerId, pool: string, now: Date): StackCheck {
+    if (!this.provisionableAt(now)) {
+      throw InvalidChangeStackError.because(
+        'cannot be reserved for a runner to be provisioned while it is not waiting for one',
+      );
+    }
+
+    return this.with({
+      reservation: RunnerReservation.from(runner, pool, now),
+    });
+  }
+
+  unreservedFor(runner: RunnerId): StackCheck {
+    return this.reservation?.heldFor(runner)
+      ? this.with({ reservation: null })
+      : this;
+  }
+
+  provisionFailed(
+    runner: RunnerId,
+    failure: ProvisionFailure,
+    now: Date,
+  ): StackCheck {
+    if (!this.reservation?.heldFor(runner) || this.claim.heldAt(now)) {
+      return this;
+    }
+
+    if (this.phase !== 'waiting' || this.stateAt(now) !== 'waiting') {
+      return this.unreservedFor(runner);
+    }
+
+    const provisioning = this.provisioning.failedAt(now);
+
+    if (!provisioning.exhausted) {
+      return this.with({ reservation: null, provisioning });
+    }
+
+    return this.with({ reservation: null, provisioning }).found(
+      {
+        state: 'skipped',
+        skip: unprovisioned(failure, provisioning.failures),
+        whole: null,
+        layers: [],
+        checkedAt: now,
+      },
+      now,
+    );
+  }
+
+  overdueAt(now: Date): boolean {
+    return (
+      this.phase === 'waiting' &&
+      this.stateAt(now) === 'skipped' &&
+      !this.claim.heldAt(now)
+    );
+  }
+
+  settledOverdue(now: Date): StackCheck {
+    if (!this.overdueAt(now)) {
+      throw InvalidChangeStackError.because(
+        'is not overdue, so nobody failed to check it yet',
+      );
+    }
+
+    return this.with({ reservation: null }).found(
+      {
+        state: 'skipped',
+        skip: nobodyChecked(),
+        whole: null,
+        layers: [],
+        checkedAt: now,
+      },
+      now,
+    );
   }
 
   renewedFor(runner: RunnerId, now: Date): StackCheck {
@@ -258,6 +371,8 @@ export class StackCheck extends EventRecorder {
       outcome: null,
       waitingSince: now,
       claim: this.claim.released(),
+      reservation: null,
+      provisioning: Provisioning.none(),
     });
   }
 
@@ -316,6 +431,8 @@ export class StackCheck extends EventRecorder {
     outcome?: CheckOutcome | null;
     claim?: CheckClaim;
     waitingSince?: Date;
+    reservation?: RunnerReservation | null;
+    provisioning?: Provisioning;
   }): StackCheck {
     const next = new StackCheck(
       this.stackId,
@@ -328,6 +445,8 @@ export class StackCheck extends EventRecorder {
       change.outcome !== undefined ? change.outcome : this.outcome,
       change.claim ?? this.claim,
       change.waitingSince ?? this.waitingSince,
+      change.reservation !== undefined ? change.reservation : this.reservation,
+      change.provisioning ?? this.provisioning,
       this.version,
     );
 

@@ -29,6 +29,10 @@ import {
   type ChangeStackReaderPort,
 } from '@change-review/application/ports/change-stack-reader.port';
 import {
+  CHECK_RUNNERS,
+  type CheckRunnersPort,
+} from '@change-review/application/ports/check-runners.port';
+import {
   CODE_READING,
   type CodeReadingPort,
 } from '@change-review/application/ports/code-reading.port';
@@ -97,15 +101,18 @@ import { DecisionAccess } from '@change-review/application/services/decision-acc
 import { DecisionsForBriefing } from '@change-review/application/services/decisions-for-briefing.service';
 import { DraftChangeStack } from '@change-review/application/services/draft-change-stack.service';
 import { ForgetTaskAcrossAggregates } from '@change-review/application/services/forget-task-across-aggregates.service';
+import { ProvisionChangeStackChecks } from '@change-review/application/services/provision-change-stack-checks.service';
 import { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
 import { ReorderChangeStack } from '@change-review/application/services/reorder-change-stack.service';
 import { ReviewAccess } from '@change-review/application/services/review-access.service';
 import { SettleDecisions } from '@change-review/application/services/settle-decisions.service';
+import { SettleOverdueChecks } from '@change-review/application/services/settle-overdue-checks.service';
 import { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
 import { SyncReviews } from '@change-review/application/services/sync-reviews.service';
 import { WorkChangeStacks } from '@change-review/application/services/work-change-stacks.service';
 import { WorkDecisionSets } from '@change-review/application/services/work-decision-sets.service';
 import { CHANGE_REVIEW_EVENT_TYPES } from '@change-review/domain/event-types';
+import { CheckRunners } from '@change-review/infrastructure/acl/check-runners.adapter';
 import { GitHubConnections } from '@change-review/infrastructure/acl/github-connections.adapter';
 import { People } from '@change-review/infrastructure/acl/people.adapter';
 import { Work } from '@change-review/infrastructure/acl/work.adapter';
@@ -187,6 +194,11 @@ import {
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
 import { CHECK_ACCESS } from '@work/application/ports/check-access.port';
+import {
+  CHECK_ENDINGS,
+  type CheckEndingsPort,
+} from '@work/application/ports/check-endings.port';
+import { CHECK_PROVISIONING } from '@work/application/ports/check-provisioning.port';
 import { CHECK_WORK } from '@work/application/ports/check-work.port';
 import { PULL_REQUEST_REVIEWING } from '@work/application/ports/pull-request-reviewing.port';
 import { TASK_DECISIONS } from '@work/application/ports/task-decisions.port';
@@ -229,6 +241,11 @@ const upstream: Provider[] = [
     inject: [WORK_LOOKUP],
     useFactory: (work: WorkLookupPort) => new Work(work),
   },
+  {
+    provide: CHECK_RUNNERS,
+    inject: [CHECK_ENDINGS],
+    useFactory: (endings: CheckEndingsPort) => new CheckRunners(endings),
+  },
 ];
 
 const adapters: Provider[] = [
@@ -242,6 +259,12 @@ const adapters: Provider[] = [
     inject: [DrizzleStackCheckRepository],
     useFactory: (checks: DrizzleStackCheckRepository) =>
       new CheckAccess(checks),
+  },
+  {
+    provide: CHECK_PROVISIONING,
+    inject: [DrizzleStackCheckRepository],
+    useFactory: (checks: DrizzleStackCheckRepository) =>
+      new ProvisionChangeStackChecks(checks),
   },
   {
     provide: CHECK_WORK,
@@ -476,12 +499,30 @@ const services: Provider[] = [
   },
   {
     provide: OwedWorkWorker,
-    inject: [WorkChangeStacks, WorkDecisionSets, LOGGER],
+    inject: [
+      WorkChangeStacks,
+      WorkDecisionSets,
+      DrizzleStackCheckRepository,
+      CHECK_RUNNERS,
+      CLOCK,
+      LOGGER,
+    ],
     useFactory: (
       stacks: WorkChangeStacks,
       decisions: WorkDecisionSets,
+      checks: DrizzleStackCheckRepository,
+      runners: CheckRunnersPort,
+      clock: ClockPort,
       logger: LoggerPort,
-    ) => new OwedWorkWorker([stacks, decisions], logger),
+    ) =>
+      new OwedWorkWorker(
+        [
+          stacks,
+          decisions,
+          new SettleOverdueChecks(checks, runners, clock, logger),
+        ],
+        logger,
+      ),
   },
   {
     provide: AnnounceChangeStack,
@@ -683,7 +724,7 @@ const handlers: Provider[] = [
   ...bindCommandHandler(
     RecordChangeStackCheckCommand,
     RecordChangeStackCheckHandler,
-    [DrizzleChangeStackRepository, CLOCK],
+    [DrizzleStackCheckRepository, DrizzleChangeStackRepository, CLOCK],
   ),
   ...bindQueryHandler(ReadRunReviewQuery, ReadRunReviewHandler, [
     ReviewAccess,
@@ -743,6 +784,7 @@ const published: Provider[] = [
       AskForDecisions,
       SettleDecisions,
       DecisionReactions,
+      CHECK_RUNNERS,
     ],
     useFactory: (
       types: EventTypes,
@@ -760,6 +802,7 @@ const published: Provider[] = [
       deciding: AskForDecisions,
       settling: SettleDecisions,
       decisions: DecisionReactions,
+      runners: CheckRunnersPort,
     ) => {
       types.register('change-review', CHANGE_REVIEW_EVENT_TYPES);
       subscribers.register(
@@ -774,6 +817,7 @@ const published: Provider[] = [
           deciding,
           settling,
           decisions,
+          runners,
         ),
       );
       return true;

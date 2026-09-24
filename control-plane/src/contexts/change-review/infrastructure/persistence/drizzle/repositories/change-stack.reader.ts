@@ -10,8 +10,8 @@ import { checkReasonOf } from '@change-review/application/rendering/check-reason
 import { WAITING_LIMIT_MS } from '@change-review/domain/aggregates/stack-check.aggregate';
 import { tallyOf } from '@change-review/domain/value-objects/diff.vo';
 import {
+  keptSkipOf,
   nobodyChecked,
-  skipOf,
 } from '@change-review/domain/value-objects/stack-check.vo';
 import {
   checkedStepOf,
@@ -61,7 +61,7 @@ const checkOf = (row: CheckRow | null, now: Date): StackCheckDto | null => {
   const skipped =
     state === 'skipped'
       ? row.outcome?.skip
-        ? skipOf(row.outcome.skip.code, row.outcome.skip.detail)
+        ? keptSkipOf(row.outcome.skip.code, row.outcome.skip.detail)
         : nobodyChecked()
       : null;
 

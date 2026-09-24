@@ -35,10 +35,17 @@ export const stackCheck = pgTable(
     attempts: integer('attempts').notNull().default(0),
     leaseExpiresAt: timestamp('lease_expires_at'),
     waitingSince: timestamp('waiting_since').notNull(),
+    reservedFor: text('reserved_for'),
+    reservedPool: text('reserved_pool'),
+    reservedUntil: timestamp('reserved_until'),
+    provisionFailures: integer('provision_failures').notNull().default(0),
+    nextProvisionAt: timestamp('next_provision_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
     index('stack_check_run_idx').on(table.runId),
     index('stack_check_waiting_idx').on(table.workspaceId, table.phase),
+    index('stack_check_reserved_idx').on(table.reservedFor),
+    index('stack_check_overdue_idx').on(table.phase, table.waitingSince),
   ],
 );

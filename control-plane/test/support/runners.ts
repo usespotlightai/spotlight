@@ -20,6 +20,12 @@ export const forgetRunnersOf = async (
     .delete(schema.runnerTrust)
     .where(eq(schema.runnerTrust.workspaceId, workspaceId));
   await db
+    .delete(schema.poolRunner)
+    .where(eq(schema.poolRunner.workspaceId, workspaceId));
+  await db
+    .delete(schema.runnerPool)
+    .where(eq(schema.runnerPool.workspaceId, workspaceId));
+  await db
     .delete(schema.workspaceRunners)
     .where(eq(schema.workspaceRunners.workspaceId, workspaceId));
 };

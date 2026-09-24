@@ -7,10 +7,10 @@ export const pinnedRunner = async (
   continuity: Continuity,
   placement: RunnerPlacement,
   runners: RunnerPresencePort,
-): Promise<RunnerId | null> =>
-  continuity.pinnedTo
-    ? continuity.pinnedWithin(
-        placement,
-        await runners.termsOf(continuity.pinnedTo),
-      )
+): Promise<RunnerId | null> => {
+  const terms = continuity.pinnedTo
+    ? await runners.pinnableTerms(continuity.pinnedTo)
     : null;
+
+  return terms ? continuity.pinnedWithin(placement, terms) : null;
+};

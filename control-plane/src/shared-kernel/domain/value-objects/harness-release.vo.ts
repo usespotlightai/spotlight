@@ -11,6 +11,10 @@ export class HarnessRelease {
     return new HarnessRelease(harness, version);
   }
 
+  static isTerm(selector: string): boolean {
+    return /^[^@\s]+@[^@\s]+$/.test(selector);
+  }
+
   get term(): string {
     return `${this.harness.value}@${this.version.value}`;
   }

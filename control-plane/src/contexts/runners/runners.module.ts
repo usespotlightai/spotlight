@@ -1,17 +1,20 @@
 import { IdentityModule } from '@identity/identity.module';
 import { Module } from '@nestjs/common';
 import { INSTALLER_ASSETS } from '@runners/application/ports/installer-assets.port';
+import { POOL_RUNNERS } from '@runners/application/ports/pool-runners.port';
 import { RUNNER_CONFIGURATION } from '@runners/application/ports/runner-configuration.port';
+import { RUNNER_POOLS } from '@runners/application/ports/runner-pools.port';
 import { RUNNER_PRESENCE } from '@runners/application/ports/runner-presence.port';
 import { RUNNER_READER } from '@runners/application/ports/runner-reader.port';
 import {
   RUNNERS_CONTROLLERS,
   RUNNERS_PROVIDERS,
 } from '@runners/runners.wiring';
+import { SecretsModule } from '@secrets/secrets.module';
 import { RUNNER_IDENTITY } from '@shared-kernel/application/ports/runner-identity.port';
 
 @Module({
-  imports: [IdentityModule],
+  imports: [IdentityModule, SecretsModule],
   controllers: [...RUNNERS_CONTROLLERS],
   providers: [...RUNNERS_PROVIDERS],
   exports: [
@@ -20,6 +23,8 @@ import { RUNNER_IDENTITY } from '@shared-kernel/application/ports/runner-identit
     RUNNER_READER,
     INSTALLER_ASSETS,
     RUNNER_CONFIGURATION,
+    RUNNER_POOLS,
+    POOL_RUNNERS,
   ],
 })
 export class RunnersModule {}

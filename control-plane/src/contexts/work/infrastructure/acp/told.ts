@@ -1,9 +1,10 @@
-import type {
-  JournalStep,
-  RunMarks,
-  RunSpent,
-  StepChange,
-  StepLocation,
+import {
+  type JournalStep,
+  PROVISION_FAILED,
+  type RunMarks,
+  type RunSpent,
+  type StepChange,
+  type StepLocation,
 } from '@work/application/contracts/run-journal.contract';
 import { Money } from '@work/domain/value-objects/money.vo';
 import type { StepKind } from '@work/domain/value-objects/step-kind';
@@ -176,6 +177,9 @@ export class Told {
       case 'output':
         this.output(event);
         break;
+      case PROVISION_FAILED:
+        this.failedToProvision(event);
+        break;
       default:
         break;
     }
@@ -244,6 +248,18 @@ export class Told {
       this.#seen ?? event.at,
     );
     step.endedAt = event.at;
+    step.detail = event.data
+      ? decoded(event.data).slice(0, DETAIL_LIMIT)
+      : null;
+
+    this.#steps.push(step);
+  }
+
+  private failedToProvision(event: Journalled): void {
+    this.settle();
+
+    const step = bare('hook', event.message ?? 'Provisioning failed', event.at);
+    step.status = 'failed';
     step.detail = event.data
       ? decoded(event.data).slice(0, DETAIL_LIMIT)
       : null;

@@ -1,4 +1,5 @@
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -28,4 +29,11 @@ export interface CheckWorkPort {
     terms: RunnerTerms,
     now: Date,
   ): Promise<ClaimedCheck | null>;
+
+  claimReserved(runner: RunnerId, now: Date): Promise<ClaimedCheck | null>;
+
+  waitingPlacements(
+    workspaceId: WorkspaceId,
+    now: Date,
+  ): Promise<readonly RunnerPlacement[]>;
 }
