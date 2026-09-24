@@ -6,7 +6,7 @@ import { WorkspaceTokenMovedOnError } from '@identity/domain/exceptions/workspac
 import { WorkspaceTokenTermsFixedError } from '@identity/domain/exceptions/workspace-token-terms-fixed.error';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
 import {
-  FORBIDDEN,
+  FORBIDDEN_TO_ADMINISTER,
   type ResourceUpdated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
@@ -45,7 +45,7 @@ export class UpdateWorkspaceTokenHandler
       }
 
       if (!cleared.administers) {
-        return FORBIDDEN;
+        return FORBIDDEN_TO_ADMINISTER;
       }
 
       standing.expecting(command.expectedVersion);

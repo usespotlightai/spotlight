@@ -6,6 +6,11 @@ import {
   answerUpdated,
   found,
 } from '@platform/http/resources/resource-answers';
+import {
+  FORBIDDEN,
+  FORBIDDEN_TO_ADMINISTER,
+  FORBIDDEN_TO_OPEN_WORKSPACES,
+} from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { describe, expect, it } from 'vitest';
@@ -62,7 +67,7 @@ describe('resource answers', () => {
     [INVALID, 422, 'invalid'],
     [{ outcome: 'taken' as const, address: 'core/x' }, 409, 'already-exists'],
     [{ outcome: 'key-reused' as const }, 422, 'idempotency-key-reused'],
-    [{ outcome: 'forbidden' as const }, 403, 'forbidden'],
+    [FORBIDDEN, 403, 'forbidden'],
   ])('refuses a create that came to %j', async (outcome, status, slug) => {
     expect(
       await problemOf(() => answerCreated('line', outcome, answer)),
@@ -74,11 +79,32 @@ describe('resource answers', () => {
     [INVALID, 422, 'invalid'],
     [{ outcome: 'moved-on' as const, currentVersion: 4 }, 409, 'moved-on'],
     [{ outcome: 'in-use' as const, reason: 'held' }, 409, 'in-use'],
-    [{ outcome: 'forbidden' as const }, 403, 'forbidden'],
+    [FORBIDDEN, 403, 'forbidden'],
   ])('refuses an update that came to %j', async (outcome, status, slug) => {
     expect(
       await problemOf(() => answerUpdated('line', outcome, answer)),
     ).toMatchObject({ status, type: `urn:spotlight:problem:${slug}` });
+  });
+
+  it('says why a refusal was forbidden, by what it was forbidden to do', async () => {
+    expect(
+      await problemOf(() =>
+        answerCreated('workspace', FORBIDDEN_TO_OPEN_WORKSPACES, answer),
+      ),
+    ).toMatchObject({
+      status: 403,
+      detail: expect.stringContaining(
+        'acts only inside its own workspace and cannot open one',
+      ),
+    });
+    expect(
+      await problemOf(() =>
+        answerDeleted('workspace', FORBIDDEN_TO_ADMINISTER),
+      ),
+    ).toMatchObject({
+      status: 403,
+      detail: expect.stringContaining('a token never administers'),
+    });
   });
 
   it('answers a delete with nothing, and refuses one that did not happen', async () => {

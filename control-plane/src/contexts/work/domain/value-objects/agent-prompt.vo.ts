@@ -17,7 +17,7 @@ export class AgentPrompt {
       );
     }
 
-    return new AgentPrompt(trimmed);
+    return new AgentPrompt(raw);
   }
 
   equals(other: AgentPrompt): boolean {

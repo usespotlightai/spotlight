@@ -17,16 +17,35 @@ import {
   workspaces,
 } from '@identity/identity.resources.fake-spec';
 import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
-import { FORBIDDEN } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import {
+  FORBIDDEN,
+  FORBIDDEN_TO_ADMINISTER,
+  FORBIDDEN_TO_OPEN_WORKSPACES,
+} from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
-import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { TokenPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
+import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const ACME = { name: 'Acme', slug: 'acme' };
 
+const CONFIGURE_TOKEN = Actor.of(
+  TokenPrincipal.of({
+    tokenId: WorkspaceTokenId.of('token_1'),
+    workspaceId: WorkspaceId.of('ws_1'),
+    scopes: TokenScopes.named(['configure']),
+    issuedBy: OWNER,
+  }),
+  Client.named('terraform-provider/0.1.0'),
+);
+
 describe('CreateWorkspaceHandler', () => {
-  const creating = (over: { taken?: boolean } = {}) => {
+  const creating = (over: { taken?: boolean; by?: Actor } = {}) => {
     const kept = workspaces({ taken: over.taken });
     const keys = creates();
     const handler = new CreateWorkspaceHandler(
@@ -41,7 +60,7 @@ describe('CreateWorkspaceHandler', () => {
       create: (definition: unknown) =>
         handler.execute(
           new CreateWorkspaceCommand(
-            actorFor(OWNER.value),
+            over.by ?? actorFor(OWNER.value),
             'key-1',
             definition,
           ),
@@ -64,6 +83,13 @@ describe('CreateWorkspaceHandler', () => {
 
     expect(added.roleOf(OWNER)?.isOwner).toBe(true);
     expect(keys.created).toHaveBeenCalledWith(expect.anything(), 'ws_new');
+  });
+
+  it('forbids a token to open a workspace, since it acts only inside its own', async () => {
+    const { create, kept } = creating({ by: CONFIGURE_TOKEN });
+
+    expect(await create(ACME)).toEqual(FORBIDDEN_TO_OPEN_WORKSPACES);
+    expect(kept.add).not.toHaveBeenCalled();
   });
 
   it('says a slug somebody holds is taken', async () => {
@@ -171,10 +197,8 @@ describe('DeleteWorkspaceHandler', () => {
     );
 
     return {
-      remove: (by = OWNER) =>
-        handler.execute(
-          new DeleteWorkspaceCommand('ws_1', actorFor(by.value), 3),
-        ),
+      remove: (by: Actor = actorFor(OWNER.value)) =>
+        handler.execute(new DeleteWorkspaceCommand('ws_1', by, 3)),
       kept,
     };
   };
@@ -217,6 +241,15 @@ describe('DeleteWorkspaceHandler', () => {
   });
 
   it('forbids a member who does not administer it', async () => {
-    expect(await deleting().remove(MEMBER)).toEqual(FORBIDDEN);
+    expect(await deleting().remove(actorFor(MEMBER.value))).toEqual(
+      FORBIDDEN_TO_ADMINISTER,
+    );
+  });
+
+  it('forbids a token that configures it, since closing is administration', async () => {
+    const { remove, kept } = deleting();
+
+    expect(await remove(CONFIGURE_TOKEN)).toEqual(FORBIDDEN_TO_ADMINISTER);
+    expect(kept.save).not.toHaveBeenCalled();
   });
 });

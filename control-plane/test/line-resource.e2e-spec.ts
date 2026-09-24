@@ -150,6 +150,27 @@ describe('a line, created through the resource API (e2e)', () => {
     );
   });
 
+  it('keeps a prompt exactly as written, so applying it again reads back the same', async () => {
+    const written = {
+      ...DELIVERY,
+      stations: DELIVERY.stations.map((each, at) =>
+        at === 1 ? { ...each, prompt: 'Implement the task.\n' } : each,
+      ),
+    };
+    const made = await create(written);
+    const read = await request(app.getHttpServer())
+      .get(fixture.item(made.body.id))
+      .set(TEST_USER_HEADER, fixture.admin);
+    const again = await change(made.body.id, made.body.version, written);
+
+    expect(made.status).toBe(201);
+    expect(read.body.definition.stations[1].prompt).toBe(
+      'Implement the task.\n',
+    );
+    expect(again.status).toBe(200);
+    expect(again.body.definition).toEqual(read.body.definition);
+  });
+
   it('keeps the key it was created with', async () => {
     const made = await create(DELIVERY);
     const moved = await change(made.body.id, made.body.version, {

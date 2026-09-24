@@ -81,4 +81,46 @@ describe('renderLineRows', () => {
   it('renders a definition that compiles', () => {
     expect(compileLine(renderLineRows(ROWS)).ok).toBe(true);
   });
+
+  it('renders the text a station was defined with byte for byte, trailing newlines included', () => {
+    const written = {
+      description: 'Builds the change.\n',
+      prompt: 'Implement the task.\n',
+      check: 'npm test\n',
+      setup: ' npm ci\n',
+    };
+    const compiled = compileLine({
+      key: 'delivery',
+      name: 'Delivery',
+      stations: [
+        {
+          key: 'backlog',
+          name: 'Backlog',
+          kind: 'backlog',
+          passesTo: ['build'],
+        },
+        { key: 'build', name: 'Build', ends: true, ...written },
+        { key: 'completed', name: 'Completed', kind: 'completed' },
+      ],
+    });
+    const build = compiled.ok ? compiled.line.stations[1] : undefined;
+    const rendered = renderLineRows({
+      ...ROWS,
+      stations: [
+        station('build', {
+          description: build?.description?.value ?? null,
+          agentPrompt: build?.agentPrompt?.value ?? null,
+          check: build?.check?.value ?? null,
+          setup: build?.setup?.value ?? null,
+          finishes: true,
+        }),
+      ],
+      routes: [],
+      tools: [],
+      skills: [],
+      reactions: [],
+    });
+
+    expect(rendered.stations[0]).toMatchObject(written);
+  });
 });

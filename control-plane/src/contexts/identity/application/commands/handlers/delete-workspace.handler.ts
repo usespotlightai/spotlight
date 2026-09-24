@@ -8,7 +8,7 @@ import { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
 import {
-  FORBIDDEN,
+  FORBIDDEN_TO_ADMINISTER,
   type ResourceDeleted,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
@@ -41,8 +41,8 @@ export class DeleteWorkspaceHandler
         return null;
       }
 
-      if (!cleared.configures) {
-        return FORBIDDEN;
+      if (!cleared.administers) {
+        return FORBIDDEN_TO_ADMINISTER;
       }
 
       standing.expecting(command.expectedVersion);

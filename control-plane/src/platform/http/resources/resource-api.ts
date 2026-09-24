@@ -90,7 +90,7 @@ export const resourceApi = (resource: ResourceKind) => {
 
   const forbidden = ApiProblemResponse(
     HttpStatus.FORBIDDEN,
-    `You may read the ${resource.kind}, but not change it`,
+    `Not allowed to do this to the ${resource.kind}: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which`,
   );
 
   return {

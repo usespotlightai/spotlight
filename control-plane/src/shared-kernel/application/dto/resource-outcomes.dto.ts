@@ -5,11 +5,25 @@ export interface Invalid {
   readonly problems: readonly ConfigurationProblem[];
 }
 
+export type ForbiddenAct = 'change' | 'administer' | 'open-workspace' | 'plan';
+
 export interface Forbidden {
   readonly outcome: 'forbidden';
+  readonly act: ForbiddenAct;
 }
 
-export const FORBIDDEN: Forbidden = { outcome: 'forbidden' };
+const forbiddenTo = (act: ForbiddenAct): Forbidden => ({
+  outcome: 'forbidden',
+  act,
+});
+
+export const FORBIDDEN = forbiddenTo('change');
+
+export const FORBIDDEN_TO_ADMINISTER = forbiddenTo('administer');
+
+export const FORBIDDEN_TO_OPEN_WORKSPACES = forbiddenTo('open-workspace');
+
+export const FORBIDDEN_TO_PLAN = forbiddenTo('plan');
 
 export type Refused =
   | { readonly outcome: 'moved-on'; readonly currentVersion: number }

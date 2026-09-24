@@ -6,7 +6,7 @@ export class SkillKeyReservedError extends InvalidSkillError {
   constructor(skill: string) {
     super(
       skill,
-      "is named as Spotlight names its own, and a name starting spotlight- is Spotlight's own: name it without spotlight-",
+      'cannot start spotlight-, which is reserved for the skills Spotlight ships; pick a key without it',
     );
     this.name = 'SkillKeyReservedError';
   }

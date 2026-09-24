@@ -14,7 +14,7 @@ const refused = (kind: string, outcome: Refused): never => {
     case 'in-use':
       throw ProblemException.inUse(kind, outcome.reason);
     case 'forbidden':
-      throw ProblemException.forbidden(kind);
+      throw ProblemException.forbidden(kind, outcome.act);
   }
 };
 
@@ -48,7 +48,7 @@ export const answerCreated = async <R extends object>(
     case 'key-reused':
       throw ProblemException.idempotencyKeyReused();
     case 'forbidden':
-      throw ProblemException.forbidden(kind);
+      throw ProblemException.forbidden(kind, created.act);
     default:
       throw ProblemException.notFound(kind);
   }

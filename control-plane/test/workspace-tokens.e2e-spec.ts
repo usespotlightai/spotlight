@@ -165,6 +165,23 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
 
   const teams = () => `/api/resources/workspaces/${seat.held}/teams`;
 
+  const revoke = async (token: string) => {
+    const [issued] = await db
+      .select({ id: schema.workspaceToken.id })
+      .from(schema.workspaceToken)
+      .where(eq(schema.workspaceToken.tokenHash, sha(token)));
+
+    return http()
+      .delete(`/api/resources/tokens/${issued?.id}`)
+      .set(TEST_USER_HEADER, seat.owner)
+      .set('If-Match', '"0"');
+  };
+
+  const FORBIDDEN_PROBLEM = {
+    type: 'urn:spotlight:problem:forbidden',
+    status: 403,
+  };
+
   const audit = (who: string) =>
     http()
       .get(`/api/workspaces/${seat.held}/configuration-changes`)
@@ -213,19 +230,25 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
 
   it('lets a read token read its workspace, and nothing more', async () => {
     const read = as(tokens.read);
+    const checked = await read.post('/api/expressions/check', {
+      position: WHEN,
+      expression: 'body.type == "Issue"',
+      definition: LINEAR,
+    });
 
     expect(
       (await read.get(`/api/resources/workspaces/${seat.held}`)).status,
     ).toBe(200);
-    expect(
-      (
-        await read.post('/api/expressions/check', {
-          position: WHEN,
-          expression: 'body.type == "Issue"',
-          definition: LINEAR,
-        })
-      ).status,
-    ).toBe(403);
+    expect(checked.status).toBe(403);
+    expect(checked.headers['content-type']).toContain(
+      'application/problem+json',
+    );
+    expect(checked.body).toEqual({
+      ...FORBIDDEN_PROBLEM,
+      title: 'Not allowed to plan',
+      detail:
+        'Checking an expression is planning, which this token’s scopes do not allow',
+    });
   });
 
   it('lets a plan token read and check expressions, but never apply', async () => {
@@ -440,8 +463,12 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
           name: 'Elsewhere',
           slug: `elsewhere-${randomUUID().slice(0, 8)}`,
         })
-      ).status,
-    ).toBe(403);
+      ).body,
+    ).toMatchObject({
+      ...FORBIDDEN_PROBLEM,
+      detail:
+        'A workspace token acts only inside its own workspace and cannot open one; a person with a Spotlight account creates workspaces',
+    });
     expect(
       (
         await configure.get(
@@ -523,18 +550,28 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
     );
 
     for (const token of Object.values(tokens)) {
-      const [issued] = await db
-        .select({ id: schema.workspaceToken.id })
-        .from(schema.workspaceToken)
-        .where(eq(schema.workspaceToken.tokenHash, sha(token)));
-
-      await http()
-        .delete(`/api/resources/tokens/${issued?.id}`)
-        .set(TEST_USER_HEADER, seat.owner)
-        .set('If-Match', '"0"');
+      await revoke(token);
     }
 
     expect((await close()).status).toBe(204);
+  });
+
+  it('never lets a configure token close its workspace, even one that holds nothing but that token', async () => {
+    await db.delete(schema.team).where(eq(schema.team.workspaceId, seat.held));
+
+    for (const token of [tokens.read, tokens.plan, tokens.secrets]) {
+      expect((await revoke(token)).status).toBe(204);
+    }
+
+    const workspace = `/api/resources/workspaces/${seat.held}`;
+    const refused = await as(tokens.configure).delete(workspace, 0);
+
+    expect(refused.status).toBe(403);
+    expect(refused.body).toMatchObject({
+      ...FORBIDDEN_PROBLEM,
+      detail: expect.stringContaining('a token never administers'),
+    });
+    expect((await as(tokens.configure).get(workspace)).status).toBe(200);
   });
 
   it('is never taken by the routes only people use', async () => {

@@ -200,7 +200,7 @@
             }
           },
           "403": {
-            "description": "You may read the line, but not change it",
+            "description": "Not allowed to do this to the line: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -483,7 +483,7 @@
             }
           },
           "403": {
-            "description": "You may read the line, but not change it",
+            "description": "Not allowed to do this to the line: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -618,7 +618,7 @@
             }
           },
           "403": {
-            "description": "You may read the line, but not change it",
+            "description": "Not allowed to do this to the line: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2980,7 +2980,7 @@
             }
           },
           "403": {
-            "description": "You may read the workspace, but not change it",
+            "description": "Not allowed to do this to the workspace: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3248,7 +3248,7 @@
             }
           },
           "403": {
-            "description": "You may read the workspace, but not change it",
+            "description": "Not allowed to do this to the workspace: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3383,7 +3383,7 @@
             }
           },
           "403": {
-            "description": "You may read the workspace, but not change it",
+            "description": "Not allowed to do this to the workspace: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3559,7 +3559,7 @@
             }
           },
           "403": {
-            "description": "You may read the team, but not change it",
+            "description": "Not allowed to do this to the team: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3827,7 +3827,7 @@
             }
           },
           "403": {
-            "description": "You may read the team, but not change it",
+            "description": "Not allowed to do this to the team: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3962,7 +3962,7 @@
             }
           },
           "403": {
-            "description": "You may read the team, but not change it",
+            "description": "Not allowed to do this to the team: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4282,7 +4282,7 @@
             }
           },
           "403": {
-            "description": "You may read the workspace-token, but not change it",
+            "description": "Not allowed to do this to the workspace-token: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4575,7 +4575,7 @@
             }
           },
           "403": {
-            "description": "You may read the workspace-token, but not change it",
+            "description": "Not allowed to do this to the workspace-token: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4710,7 +4710,7 @@
             }
           },
           "403": {
-            "description": "You may read the workspace-token, but not change it",
+            "description": "Not allowed to do this to the workspace-token: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -5519,7 +5519,7 @@
             }
           },
           "403": {
-            "description": "You may read the secret, but not change it",
+            "description": "Not allowed to do this to the secret: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -5839,7 +5839,7 @@
             }
           },
           "403": {
-            "description": "You may read the secret, but not change it",
+            "description": "Not allowed to do this to the secret: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -5974,7 +5974,7 @@
             }
           },
           "403": {
-            "description": "You may read the secret, but not change it",
+            "description": "Not allowed to do this to the secret: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -6896,7 +6896,7 @@
             }
           },
           "403": {
-            "description": "You may read the skill, but not change it",
+            "description": "Not allowed to do this to the skill: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -7169,7 +7169,7 @@
             }
           },
           "403": {
-            "description": "You may read the skill, but not change it",
+            "description": "Not allowed to do this to the skill: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -7304,7 +7304,7 @@
             }
           },
           "403": {
-            "description": "You may read the skill, but not change it",
+            "description": "Not allowed to do this to the skill: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -8247,7 +8247,7 @@
             }
           },
           "403": {
-            "description": "You may read the integration, but not change it",
+            "description": "Not allowed to do this to the integration: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -8513,7 +8513,7 @@
             }
           },
           "403": {
-            "description": "You may read the integration, but not change it",
+            "description": "Not allowed to do this to the integration: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -8648,7 +8648,7 @@
             }
           },
           "403": {
-            "description": "You may read the integration, but not change it",
+            "description": "Not allowed to do this to the integration: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which",
             "content": {
               "application/problem+json": {
                 "schema": {

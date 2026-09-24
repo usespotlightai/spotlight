@@ -18,7 +18,7 @@ export class StationCheck {
       );
     }
 
-    return new StationCheck(trimmed);
+    return new StationCheck(raw);
   }
 
   equals(other: StationCheck): boolean {
