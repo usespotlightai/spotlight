@@ -19,6 +19,7 @@ import type { ResourceResponseDto } from '@platform/http/dto/resource.response.d
 import {
   ApiProblemResponse,
   ConventionalApiController,
+  capitalised,
 } from '@platform/http/resources/conventional-api';
 import {
   ETAG_HEADER,
@@ -60,12 +61,6 @@ const IF_MATCH = ApiHeader({
     'The ETag of the version this write was based on; a write to any other version is refused with 409',
   schema: { type: 'string', example: '"3"' },
 });
-
-const capitalised = (word: string): string =>
-  word
-    .split('-')
-    .map((each) => each.charAt(0).toUpperCase() + each.slice(1))
-    .join('');
 
 export const resourceApi = (resource: ResourceKind) => {
   const operation = (name: ResourceOperation, summary: string) =>

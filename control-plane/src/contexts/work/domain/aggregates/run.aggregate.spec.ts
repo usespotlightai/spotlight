@@ -7,6 +7,7 @@ import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
+import { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
 import { Declaration } from '@work/domain/value-objects/declaration.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
@@ -345,6 +346,36 @@ describe('Run', () => {
 
     it('was worked by nobody while it waits', () => {
       expect(queued().wasWorkedBy(runner())).toBe(false);
+    });
+  });
+
+  describe('being refused before a runner takes it up', () => {
+    const LAPSED = RunOutcome.withheld([
+      CatalogWithheld.of({
+        id: 'catalog.web-search@1.1.0',
+        reason: 'lapsed',
+        because:
+          'catalog.web-search@1.1.0 needs the Team plan, and this workspace is on the Free plan',
+      }),
+    ]);
+
+    it('ends failed, saying why, so whoever handed it over hears of it', () => {
+      const refused = queued().refused(LAPSED);
+
+      expect(refused.state).toBe('failed');
+      expect(refused.outcome?.message).toBe(
+        'entitlement_lapsed: catalog.web-search@1.1.0 needs the Team plan, and this workspace is on the Free plan',
+      );
+
+      const [completed] = refused.pullEvents();
+      expect(completed).toBeInstanceOf(RunCompleted);
+      expect((completed as RunCompleted).workedBy).toBeNull();
+    });
+
+    it('cannot be refused once a runner holds it', () => {
+      expect(() => claimed().refused(LAPSED)).toThrow(
+        InvalidRunTransitionError,
+      );
     });
   });
 

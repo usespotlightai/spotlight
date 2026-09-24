@@ -19,6 +19,7 @@ import type { CreateLineCommand } from '@work/application/commands/create-line.c
 import type { LineCompilerPort } from '@work/application/ports/line-compiler.port';
 import type { ApplyLines } from '@work/application/services/apply-lines.service';
 import { lineRefusal } from '@work/application/services/line-refusals';
+import type { StationCatalog } from '@work/application/services/station-catalog.service';
 import { LineAlreadyOpenedError } from '@work/domain/exceptions/line-already-opened.error';
 
 export class CreateLineHandler
@@ -31,6 +32,7 @@ export class CreateLineHandler
     private readonly applying: ApplyLines,
     private readonly creates: IdempotentCreatesPort,
     private readonly transaction: TransactionPort,
+    private readonly catalog: StationCatalog,
   ) {}
 
   async execute(command: CreateLineCommand): Promise<ResourceCreated | null> {
@@ -57,6 +59,15 @@ export class CreateLineHandler
 
       if (!compiled.ok) {
         return { outcome: 'invalid', problems: compiled.problems };
+      }
+
+      const refused = await this.catalog.refusedIn(
+        team.workspaceId,
+        compiled.line,
+      );
+
+      if (refused.length > 0) {
+        return { outcome: 'invalid', problems: refused };
       }
 
       const key = compiled.line.key.value;

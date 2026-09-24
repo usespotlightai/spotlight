@@ -11,6 +11,7 @@ export interface GivenToRun {
   readonly tools: readonly Tool[];
   readonly builtInSkills: readonly SkillKey[];
   readonly teamSkills: readonly ReadySkill[];
+  readonly pinned: readonly Tool[];
 }
 
 export const givenAt = (
@@ -32,7 +33,9 @@ export const givenAt = (
     }),
   ]);
 
-  return { tools, builtInSkills, teamSkills };
+  const pinned = tools.filter((each) => each.origin === 'catalog');
+
+  return { tools, builtInSkills, teamSkills, pinned };
 };
 
 export const describedTools = (

@@ -1,3 +1,4 @@
+import { CatalogModule } from '@catalog/catalog.module';
 import { GitHubModule } from '@github/github.module';
 import { IdentityModule } from '@identity/identity.module';
 import { Module } from '@nestjs/common';
@@ -16,6 +17,7 @@ import { ContextBindingsModule } from './context-bindings.module';
     RunnersModule,
     IdentityModule,
     SecretsModule,
+    CatalogModule,
     GitHubModule,
     ContextBindingsModule,
   ],

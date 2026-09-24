@@ -29,6 +29,7 @@ const shared = {
       '@configuration': resolve(__dirname, 'src/contexts/configuration'),
       '@identity': resolve(__dirname, 'src/contexts/identity'),
       '@secrets': resolve(__dirname, 'src/contexts/secrets'),
+      '@catalog': resolve(__dirname, 'src/contexts/catalog'),
       '@': resolve(__dirname, 'src'),
     },
   },

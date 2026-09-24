@@ -6141,6 +6141,268 @@
         }
       }
     },
+    "/resources/workspaces/{workspaceId}/catalog/tools": {
+      "get": {
+        "operationId": "readCatalogTool",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "Spotlight-Client",
+            "in": "header",
+            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "terraform-provider/0.1.0"
+            }
+          },
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "required": true,
+            "in": "query",
+            "description": "Its name in the catalog",
+            "schema": {
+              "example": "web-search"
+            }
+          },
+          {
+            "name": "version",
+            "required": true,
+            "in": "query",
+            "description": "The versions you accept, as Terraform writes a constraint; the newest it accepts is answered",
+            "schema": {
+              "example": "~> 1.0"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The catalog-tool it resolves to",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogToolResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The workspace’s plan does not include the catalog-tool; the detail names the plan it needs",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such catalog-tool, or no workspace here that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What is wrong with the query, field by field",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Resolve a catalog tool by name and version constraint, if the workspace’s plan includes it",
+        "tags": [
+          "catalog"
+        ],
+        "x-spotlight-data-source": {
+          "kind": "catalog-tool"
+        }
+      }
+    },
+    "/resources/workspaces/{workspaceId}/catalog/skills": {
+      "get": {
+        "operationId": "readCatalogSkill",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "Spotlight-Client",
+            "in": "header",
+            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "terraform-provider/0.1.0"
+            }
+          },
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "required": true,
+            "in": "query",
+            "description": "Its name in the catalog",
+            "schema": {
+              "example": "research"
+            }
+          },
+          {
+            "name": "version",
+            "required": true,
+            "in": "query",
+            "description": "The versions you accept, as Terraform writes a constraint; the newest it accepts is answered",
+            "schema": {
+              "example": "~> 1.0"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The catalog-skill it resolves to",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogSkillResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The workspace’s plan does not include the catalog-skill; the detail names the plan it needs",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such catalog-skill, or no workspace here that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What is wrong with the query, field by field",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Resolve a catalog skill by name and version constraint, if the workspace’s plan includes it",
+        "tags": [
+          "catalog"
+        ],
+        "x-spotlight-data-source": {
+          "kind": "catalog-skill"
+        }
+      }
+    },
     "/workspaces/{slug}/repositories": {
       "get": {
         "operationId": "listRepositories",
@@ -12287,6 +12549,110 @@
           "bindings",
           "valueWoVersion",
           "rotatedAt"
+        ]
+      },
+      "CatalogToolResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "catalog.web-search@1.1.0",
+            "description": "What a station gives it by; it carries the version, so an upgrade shows as a change to the station"
+          },
+          "name": {
+            "type": "string",
+            "example": "web-search"
+          },
+          "version": {
+            "type": "string",
+            "example": "1.1.0",
+            "description": "The newest version the constraint accepts"
+          },
+          "constraint": {
+            "type": "string",
+            "example": "~> 1.0",
+            "description": "The constraint it was resolved against"
+          },
+          "plan": {
+            "type": "string",
+            "example": "team",
+            "enum": [
+              "free",
+              "team",
+              "enterprise"
+            ],
+            "description": "The plan it needs"
+          },
+          "description": {
+            "type": "string",
+            "example": "Search the web, and answer with the pages…"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "version",
+          "constraint",
+          "plan",
+          "description"
+        ]
+      },
+      "CatalogSkillResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "catalog.web-search@1.1.0",
+            "description": "What a station gives it by; it carries the version, so an upgrade shows as a change to the station"
+          },
+          "name": {
+            "type": "string",
+            "example": "web-search"
+          },
+          "version": {
+            "type": "string",
+            "example": "1.1.0",
+            "description": "The newest version the constraint accepts"
+          },
+          "constraint": {
+            "type": "string",
+            "example": "~> 1.0",
+            "description": "The constraint it was resolved against"
+          },
+          "plan": {
+            "type": "string",
+            "example": "team",
+            "enum": [
+              "free",
+              "team",
+              "enterprise"
+            ],
+            "description": "The plan it needs"
+          },
+          "description": {
+            "type": "string",
+            "example": "Search the web, and answer with the pages…"
+          },
+          "tools": {
+            "example": [
+              "catalog.web-search@1.1.0",
+              "catalog.fetch-page@1.0.0"
+            ],
+            "description": "The catalog tools it brings, given wherever the skill is; its files never leave Spotlight except into a run",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "version",
+          "constraint",
+          "plan",
+          "description",
+          "tools"
         ]
       },
       "RepositoryResponseDto": {

@@ -119,12 +119,15 @@ export class ProblemException extends HttpException {
     });
   }
 
-  static notFound(kind: string): ProblemException {
+  static notFound(
+    kind: string,
+    detail = `There is no ${kind} here that you may see`,
+  ): ProblemException {
     return new ProblemException({
       type: problemType('not-found'),
       title: `No such ${kind}`,
       status: HttpStatus.NOT_FOUND,
-      detail: `There is no ${kind} here that you may see`,
+      detail,
     });
   }
 
@@ -176,6 +179,15 @@ export class ProblemException extends HttpException {
       title: 'This API version is not served here',
       status: HttpStatus.BAD_REQUEST,
       detail: `Asked for ${asked}; this server serves ${supported.join(', ')}`,
+    });
+  }
+
+  static notEntitled(kind: string, detail: string): ProblemException {
+    return new ProblemException({
+      type: problemType('not-entitled'),
+      title: `The workspace’s plan does not include this ${kind}`,
+      status: HttpStatus.FORBIDDEN,
+      detail,
     });
   }
 }

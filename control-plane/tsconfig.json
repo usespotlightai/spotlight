@@ -26,6 +26,7 @@
       "@configuration/*": ["./src/contexts/configuration/*"],
       "@identity/*": ["./src/contexts/identity/*"],
       "@secrets/*": ["./src/contexts/secrets/*"],
+      "@catalog/*": ["./src/contexts/catalog/*"],
       "@/*": ["./src/*"]
     },
     "strict": true,

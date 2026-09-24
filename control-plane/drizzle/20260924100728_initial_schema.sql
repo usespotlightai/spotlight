@@ -38,6 +38,24 @@ CREATE TABLE "idempotent_create" (
 	CONSTRAINT "idempotent_create_scope_key_pk" PRIMARY KEY("scope","key")
 );
 --> statement-breakpoint
+CREATE TABLE "catalog_call" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"run_id" text NOT NULL,
+	"item" text NOT NULL,
+	"called_at" timestamp NOT NULL,
+	"ms" integer NOT NULL,
+	"succeeded" boolean NOT NULL,
+	"billable" boolean NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "workspace_plan" (
+	"workspace_id" text PRIMARY KEY NOT NULL,
+	"plan" text NOT NULL,
+	"lapses_at" timestamp,
+	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "change_stack" (
 	"id" text PRIMARY KEY NOT NULL,
 	"run_id" text NOT NULL,
@@ -648,6 +666,7 @@ ALTER TABLE "task_attachment" ADD CONSTRAINT "task_attachment_task_id_task_id_fk
 ALTER TABLE "task_mark" ADD CONSTRAINT "task_mark_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "task_note" ADD CONSTRAINT "task_note_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "event_delivery_due_idx" ON "event_delivery" USING btree ("due_at");--> statement-breakpoint
+CREATE INDEX "catalog_call_workspace_called_idx" ON "catalog_call" USING btree ("workspace_id","called_at");--> statement-breakpoint
 CREATE INDEX "change_stack_run_idx" ON "change_stack" USING btree ("run_id","drafted_at");--> statement-breakpoint
 CREATE INDEX "change_stack_task_idx" ON "change_stack" USING btree ("task_id","drafted_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "decision_position_idx" ON "decision" USING btree ("set_id","position");--> statement-breakpoint

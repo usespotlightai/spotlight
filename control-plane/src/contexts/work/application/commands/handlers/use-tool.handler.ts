@@ -2,9 +2,8 @@ import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fau
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { UseToolCommand } from '@work/application/commands/use-tool.command';
 import type { ToolAnswerDto } from '@work/application/dto/tool-answer.dto';
-import type { IntegrationToolsPort } from '@work/application/ports/integration-tools.port';
-import type { BuiltInTools } from '@work/application/services/built-in-tools.service';
 import type { RunWorks } from '@work/application/services/run-works.service';
+import type { ToolSources } from '@work/application/services/tool-sources.service';
 import { ToolApprovalRefusedError } from '@work/domain/exceptions/tool-approval-refused.error';
 import { ToolAwaitsApprovalError } from '@work/domain/exceptions/tool-awaits-approval.error';
 import { ToolNeedsWorkError } from '@work/domain/exceptions/tool-needs-work.error';
@@ -18,8 +17,7 @@ export class UseToolHandler
 {
   constructor(
     private readonly works: RunWorks,
-    private readonly builtIns: BuiltInTools,
-    private readonly integrationTools: IntegrationToolsPort,
+    private readonly sources: ToolSources,
   ) {}
 
   async execute(command: UseToolCommand): Promise<ToolAnswerDto> {
@@ -39,9 +37,7 @@ export class UseToolHandler
       }
 
       const context = await work.toolContext();
-      const reachable = tool.integration
-        ? await this.integrationTools.reach(tool, context)
-        : this.builtIns.reach(tool, context);
+      const reachable = await this.sources.reach(tool, run, context);
 
       if (!reachable) {
         throw new UnknownToolError(tool.value);

@@ -7,6 +7,7 @@ import type { OpenRemark, Task } from '@work/domain/aggregates/task.aggregate';
 import { HANDOVER_COMMAND } from '@work/domain/services/run-reasoning';
 import { DONE, REVIEW } from '@work/domain/value-objects/handover-word';
 import { RemarkHandle } from '@work/domain/value-objects/remark-handle.vo';
+import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
 
 const closing = (line: Line, stationId: StationId): string => {
@@ -80,7 +81,7 @@ const listing = (
         skills
           .map(
             (each) =>
-              `- \`${listedIn}/${each.key}/${SKILL_FILE}\` — ${each.description}`,
+              `- \`${listedIn}/${SkillKey.of(each.key).folder}/${SKILL_FILE}\` — ${each.description}`,
           )
           .join('\n'),
       ].join('\n\n')

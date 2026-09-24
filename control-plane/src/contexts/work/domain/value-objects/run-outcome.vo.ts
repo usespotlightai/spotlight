@@ -1,4 +1,5 @@
 import { InvalidRunOutcomeError } from '@work/domain/exceptions/invalid-run-outcome.error';
+import type { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
 
 export class RunOutcome {
   private constructor(
@@ -37,6 +38,14 @@ export class RunOutcome {
       input.failed,
       input.message,
       input.stopped,
+    );
+  }
+
+  static withheld(withheld: readonly CatalogWithheld[]): RunOutcome {
+    return new RunOutcome(
+      -1,
+      true,
+      withheld.map((each) => each.saying).join('; '),
     );
   }
 

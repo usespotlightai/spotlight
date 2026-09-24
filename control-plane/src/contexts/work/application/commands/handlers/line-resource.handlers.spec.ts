@@ -18,6 +18,7 @@ import { UpdateLineHandler } from '@work/application/commands/handlers/update-li
 import { UpdateLineCommand } from '@work/application/commands/update-line.command';
 import type { StationTalliesPort } from '@work/application/ports/station-tallies.port';
 import type { ApplyLines } from '@work/application/services/apply-lines.service';
+import { StationCatalog } from '@work/application/services/station-catalog.service';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { LineAlreadyOpenedError } from '@work/domain/exceptions/line-already-opened.error';
 import { LineInUseError } from '@work/domain/exceptions/line-in-use.error';
@@ -82,6 +83,43 @@ const teams = {
 
 const transaction: TransactionPort = { run: (work) => work() };
 
+const NEEDS_TEAM = (id: string) =>
+  `${id} needs the Team plan, and this workspace is on the Free plan`;
+
+const catalog = new StationCatalog({
+  givenTo: async (_workspace, named) => ({
+    tools: [],
+    skills: named.skills
+      .filter((each) => each.startsWith('catalog.research@'))
+      .map((id) => ({
+        id,
+        description: 'Research on the web.',
+        files: [],
+        tools: ['catalog.web-search@1.1.0'],
+      })),
+    refused: [
+      ...named.tools.filter((each) => each.startsWith('catalog.web-search@')),
+      ...(named.skills.some((each) => each.startsWith('catalog.research@'))
+        ? ['catalog.web-search@1.1.0']
+        : []),
+    ].map((id) => ({
+      id,
+      reason: 'not-entitled' as const,
+      because: NEEDS_TEAM(id),
+    })),
+  }),
+  call: async () => {
+    throw new Error('not called here');
+  },
+});
+
+const giving = (tools: string[], skills: string[] = []) => ({
+  ...DELIVERY,
+  stations: DELIVERY.stations.map((each, at) =>
+    at === 1 ? { ...each, tools, skills } : each,
+  ),
+});
+
 const creates = () =>
   ({
     claim: vi.fn(async () => ({ kind: 'fresh' as const })),
@@ -121,6 +159,7 @@ describe('CreateLineHandler', () => {
       { open } as unknown as ApplyLines,
       creates(),
       transaction,
+      catalog,
     );
 
     return {
@@ -157,6 +196,40 @@ describe('CreateLineHandler', () => {
         refused.problems.map((each) => dottedOf(each.field)),
     ).toEqual(['stations']);
     expect(open).not.toHaveBeenCalled();
+  });
+
+  it('refuses a catalog item the workspace’s plan does not include, pointing at where the station names it', async () => {
+    const { create, open } = creating();
+    const refused = await create(
+      giving(['pull-request', 'catalog.web-search@1.1.0']),
+    );
+
+    expect(refused).toEqual({
+      outcome: 'invalid',
+      problems: [
+        expect.objectContaining({
+          reason: NEEDS_TEAM('catalog.web-search@1.1.0'),
+        }),
+      ],
+    });
+    expect(
+      refused?.outcome === 'invalid' &&
+        refused.problems.map((each) => dottedOf(each.field)),
+    ).toEqual(['stations.1.tools.1']);
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('refuses a catalog skill at the skill, where a tool it brings is not included', async () => {
+    const refused = await creating().create(
+      giving([], ['catalog.research@1.0.0']),
+    );
+
+    expect(
+      refused?.outcome === 'invalid' &&
+        refused.problems.map((each) => [dottedOf(each.field), each.reason]),
+    ).toEqual([
+      ['stations.1.skills.0', NEEDS_TEAM('catalog.web-search@1.1.0')],
+    ]);
   });
 
   it('says a key the team already has is taken', async () => {
@@ -208,6 +281,7 @@ describe('UpdateLineHandler', () => {
       kept,
       { reconcile } as unknown as ApplyLines,
       transaction,
+      catalog,
     );
 
     return {
@@ -248,6 +322,15 @@ describe('UpdateLineHandler', () => {
         thenAt: standingAt(4),
       }).update(DELIVERY),
     ).toEqual({ outcome: 'moved-on', currentVersion: 4 });
+  });
+
+  it('refuses a change to a catalog item the plan does not include, and reconciles nothing', async () => {
+    const { update, reconcile } = updating();
+
+    expect(await update(giving(['catalog.web-search@1.1.0']))).toMatchObject({
+      outcome: 'invalid',
+    });
+    expect(reconcile).not.toHaveBeenCalled();
   });
 
   it('refuses a change that would strand work, as the line being in use', async () => {

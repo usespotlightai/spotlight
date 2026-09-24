@@ -86,6 +86,7 @@ Beyond `.env`:
 | `SECRETS_AWS_SECRETS_MANAGER` | `true` lets a secret be read from AWS Secrets Manager when it is worn |
 | `OUTBOUND_ALLOWED_HOSTS` | comma-separated hosts integrations and their tools may call; empty allows none (`compose.yml` defaults it to `slack.com`) |
 | `OAUTH_CLIENTS` | shared OAuth2 apps as JSON, e.g. `{"slack":{"id":"…","secret":"…"}}` |
+| `SPOTLIGHT_CATALOG_URL`, `SPOTLIGHT_CATALOG_TOKEN` | where catalog tools are called, and the token sent with each call; the catalog host is always allowed, whatever `OUTBOUND_ALLOWED_HOSTS` says (defaults to `https://catalog.usespotlight.ai`) |
 
 ### Attachments
 
