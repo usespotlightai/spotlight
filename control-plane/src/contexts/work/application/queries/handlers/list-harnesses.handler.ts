@@ -77,6 +77,7 @@ const dtoFor = (
     defaultModel: models[0]?.id ?? '',
     efforts: [...entry.efforts],
     discovery: [...entry.discovery],
+    versionProbe: [...entry.versionProbe],
   };
 };
 

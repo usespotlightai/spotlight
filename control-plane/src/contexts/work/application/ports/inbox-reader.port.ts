@@ -5,6 +5,7 @@ import type {
   TaskNoteKind,
 } from '@work/domain/entities/task-note.entity';
 import type { ApprovalStanding } from '@work/domain/value-objects/approval.vo';
+import type { ApprovalSubjectKind } from '@work/domain/value-objects/approval-subject.vo';
 import type { SpokenBy } from '@work/domain/value-objects/voice.vo';
 
 interface InboxAuthor {
@@ -19,7 +20,8 @@ interface InboxApprovalInput {
 }
 
 export interface InboxApproval {
-  readonly tool: string;
+  readonly kind: ApprovalSubjectKind;
+  readonly name: string;
   readonly because: string;
   readonly inputs: readonly InboxApprovalInput[];
   readonly standing: ApprovalStanding;

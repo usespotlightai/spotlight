@@ -4,14 +4,14 @@ import { CreateSkillHandler } from '@configuration/application/commands/handlers
 import { DeleteSkillHandler } from '@configuration/application/commands/handlers/delete-skill.handler';
 import { UpdateSkillHandler } from '@configuration/application/commands/handlers/update-skill.handler';
 import { UpdateSkillCommand } from '@configuration/application/commands/update-skill.command';
-import type { SkillsGiven } from '@configuration/application/services/skills-given.service';
+import type { StationGifts } from '@configuration/application/services/station-gifts.service';
 import { SkillDefinition } from '@configuration/domain/aggregates/skill-definition.aggregate';
 import { SkillAlreadyDefinedError } from '@configuration/domain/exceptions/skill-already-defined.error';
 import type { SkillDefinitionRepository } from '@configuration/domain/repositories/skill-definition.repository';
 import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
 import { SkillFiles } from '@configuration/domain/value-objects/skill-files.vo';
 import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
-import { SkillUses } from '@configuration/domain/value-objects/skill-uses.vo';
+import { StationUses } from '@configuration/domain/value-objects/station-uses.vo';
 import { SkillCompiler } from '@configuration/infrastructure/skills/skill.compile';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import { teamAccess } from '@identity/application/ports/workspace-access.fake-spec';
@@ -205,12 +205,12 @@ describe('UpdateSkillHandler', () => {
 });
 
 describe('DeleteSkillHandler', () => {
-  const deleting = (given = SkillUses.none()) => {
+  const deleting = (given = StationUses.none()) => {
     const kept = definitions({ standing: standingAt(3) });
     const handler = new DeleteSkillHandler(
       access(),
       kept,
-      { onTeam: vi.fn(async () => given) } as unknown as SkillsGiven,
+      { onTeam: vi.fn(async () => given) } as unknown as StationGifts,
       transaction,
     );
 
@@ -234,7 +234,7 @@ describe('DeleteSkillHandler', () => {
 
   it('will not retire a skill a station gives', async () => {
     const { remove, kept } = deleting(
-      SkillUses.of([{ skill: 'grafana', by: 'delivery/implementation' }]),
+      StationUses.of([{ name: 'grafana', by: 'delivery/implementation' }]),
     );
 
     expect(await remove()).toMatchObject({ outcome: 'in-use' });

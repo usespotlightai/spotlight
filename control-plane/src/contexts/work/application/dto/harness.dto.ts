@@ -11,4 +11,5 @@ export interface HarnessDto {
   readonly defaultModel: string;
   readonly efforts: readonly string[];
   readonly discovery: readonly string[];
+  readonly versionProbe: readonly string[];
 }

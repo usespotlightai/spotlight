@@ -33,6 +33,7 @@ import {
   type ApprovalDecision,
 } from '@work/domain/value-objects/approval.vo';
 import type { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
+import type { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import type { Clearance } from '@work/domain/value-objects/clearance';
@@ -51,7 +52,6 @@ import type { TaskDescription } from '@work/domain/value-objects/task-descriptio
 import type { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import type { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
-import type { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
 import type { Voice } from '@work/domain/value-objects/voice.vo';
 
@@ -631,14 +631,14 @@ export class Task extends EventRecorder {
   }
 
   clearFor(
-    call: ToolCall,
+    subject: ApprovalSubject,
     needed: ApprovalNeeded,
     asking: Saying,
     by: RunId,
   ): Cleared {
     this.refuseAnotherRun(by, 'use a tool on it');
 
-    const standing = this.approvalFor(call);
+    const standing = this.approvalFor(subject);
 
     if (standing?.approval.refuses) {
       return {
@@ -664,7 +664,7 @@ export class Task extends EventRecorder {
         {
           ...asking,
           form: 'approval',
-          approval: Approval.asked(call, this.stationId, needed.because),
+          approval: Approval.asked(subject, this.stationId, needed.because),
         },
         by,
       ),
@@ -676,12 +676,12 @@ export class Task extends EventRecorder {
     return this.withApprovalAt(at, (note) => note.approvalReturned());
   }
 
-  approvalFor(call: ToolCall): StandingApproval | null {
+  approvalFor(subject: ApprovalSubject): StandingApproval | null {
     for (let at = this.notes.length - 1; at >= 0; at--) {
       const note = this.notes[at];
       const approval = note?.approval;
 
-      if (note && approval?.standsFor(call, this.stationId)) {
+      if (note && approval?.standsFor(subject, this.stationId)) {
         return { at: note.position, approval };
       }
     }

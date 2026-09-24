@@ -1,3 +1,4 @@
+import { HarnessVersion } from '@shared-kernel/domain/value-objects/harness-version.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { InvalidLinePlanError } from '@work/domain/exceptions/invalid-line-plan.error';
@@ -27,6 +28,8 @@ const station = (
   harness: null,
   model: null,
   effort: null,
+  profile: null,
+  harnessVersion: null,
   agentPrompt: null,
   check: null,
   setup: null,
@@ -258,6 +261,28 @@ describe('LinePlan', () => {
     );
 
     expect(refused.part).toEqual({ of: 'line', field: 'repositories' });
+  });
+
+  it('refuses a station pinning a release of no harness', () => {
+    const refused = refusal(() =>
+      plan({
+        stations: [
+          backlog({ passesTo: [StationKey.of('code-review')] }),
+          station('code-review', {
+            ends: true,
+            harnessVersion: HarnessVersion.of('2.1.270'),
+          }),
+          completed(),
+        ],
+      }),
+    );
+
+    expect(refused.message).toMatch(/pins a release of its harness/);
+    expect(refused.part).toEqual({
+      of: 'station',
+      station: 'code-review',
+      field: 'harnessVersion',
+    });
   });
 
   it('says whether it names a station at all', () => {

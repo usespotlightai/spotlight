@@ -1,10 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
+import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
+import { HarnessPermission } from '@work/domain/value-objects/harness-permission.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
@@ -24,9 +27,11 @@ const NEEDED = ApprovalNeeded.of(
   'It posts publicly, under the team’s name.',
 );
 
-const CALL = ToolCall.of(
-  Tool.of('linear.comment'),
-  ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+const CALL = ApprovalSubject.toolCall(
+  ToolCall.of(
+    Tool.of('linear.comment'),
+    ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+  ),
 );
 
 let held: TestDatabase;
@@ -56,7 +61,7 @@ const readBack = async (task: Task): Promise<Task> => {
 };
 
 describe('an approval a run asked for', () => {
-  const asking = async () => {
+  const asking = async (subject: ApprovalSubject = CALL) => {
     const { list, owner } = await openTeam(
       db,
       tasks,
@@ -77,7 +82,7 @@ describe('an approval a run asked for', () => {
 
     await tasks.save(
       Task.rehydrate({ ...settled, currentRunId: runId }).clearFor(
-        CALL,
+        subject,
         NEEDED,
         {
           station: StationName.of('Backlog'),
@@ -101,14 +106,45 @@ describe('an approval a run asked for', () => {
     expect(task.awaitingReview).toBe(true);
   });
 
+  it('is read back as a harness permission, which a tool named like it does not match', async () => {
+    const permission = ApprovalSubject.harnessPermission(
+      HarnessPermission.asked({
+        harness: HarnessId.of('claude-code'),
+        kind: 'execute',
+        title: 'git push',
+        input: { command: 'git push' },
+      }),
+    );
+    const { task } = await asking(permission);
+    const standing = task.approvalFor(permission);
+
+    expect(standing?.approval.subject.kind).toBe('harness-permission');
+    expect(standing?.approval.subject.name).toBe('claude-code execute');
+    expect(
+      task.approvalFor(
+        ApprovalSubject.toolCall(
+          ToolCall.of(
+            Tool.of('claude-code.execute'),
+            ToolInputs.of({
+              title: 'git push',
+              input: '{"command":"git push"}',
+            }),
+          ),
+        ),
+      ),
+    ).toBeNull();
+  });
+
   it('matches nothing where the run would send something else', async () => {
     const { task } = await asking();
 
     expect(
       task.approvalFor(
-        ToolCall.of(
-          Tool.of('linear.comment'),
-          ToolInputs.of({ issue: 'ENG-12', body: 'Something else.' }),
+        ApprovalSubject.toolCall(
+          ToolCall.of(
+            Tool.of('linear.comment'),
+            ToolInputs.of({ issue: 'ENG-12', body: 'Something else.' }),
+          ),
         ),
       ),
     ).toBeNull();

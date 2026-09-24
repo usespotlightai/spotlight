@@ -1,7 +1,10 @@
+import { InvalidHarnessVersionError } from '@shared-kernel/domain/exceptions/invalid-harness-version.error';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
+import { HarnessVersion } from '@shared-kernel/domain/value-objects/harness-version.vo';
 import { EFFORTS } from '@work/domain/value-objects/effort.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
+import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import { REVIEW_STARTS } from '@work/domain/value-objects/review-policy.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
@@ -18,7 +21,8 @@ const identifier = (make: (raw: string) => unknown) =>
       context.addIssue({
         code: 'custom',
         message:
-          error instanceof InvalidIdentifierError
+          error instanceof InvalidIdentifierError ||
+          error instanceof InvalidHarnessVersionError
             ? error.because
             : String(error),
       });
@@ -37,6 +41,8 @@ const stationSchema = z.object({
   harness: z.string().min(1).optional(),
   model: z.string().min(1).optional(),
   effort: z.enum(EFFORTS).optional(),
+  profile: identifier(ProfileKey.of).optional(),
+  harnessVersion: identifier(HarnessVersion.of).optional(),
   prompt: z.string().optional(),
   check: z.string().optional(),
   setup: z.string().optional(),

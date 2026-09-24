@@ -20,7 +20,7 @@ export class RegisterRunnerHandler
   async execute(command: RegisterRunnerCommand): Promise<RegisteredRunnerDto> {
     try {
       const installed = command.harnesses.map((each) =>
-        InstalledHarness.reported(each.id, each.models),
+        InstalledHarness.reported(each.id, each.models, each.version),
       );
 
       const registered = await reviseRunner(

@@ -1,4 +1,5 @@
 import type { IntegrationLinksPort } from '@configuration/application/ports/integration-links.port';
+import type { AbandonTeamProfiles } from '@configuration/application/services/abandon-team-profiles.service';
 import type { AbandonTeamSkills } from '@configuration/application/services/abandon-team-skills.service';
 import { configurationSubscribers } from '@configuration/presentation/events/configuration.subscribers';
 import type { HostConnectedIntegrationEvent } from '@shared-kernel/application/integration-events/host-connected.integration-event';
@@ -19,6 +20,7 @@ describe('configuration hearing a host connect', () => {
     const subscriber = configurationSubscribers(
       { linked } as unknown as IntegrationLinksPort,
       { of: vi.fn() } as unknown as AbandonTeamSkills,
+      { of: vi.fn() } as unknown as AbandonTeamProfiles,
     ).find((each) => each.name === 'configuration.track-integration-link');
 
     if (!subscriber) {
@@ -57,6 +59,7 @@ describe('configuration hearing a team disband', () => {
     const subscriber = configurationSubscribers(
       {} as IntegrationLinksPort,
       abandoning as unknown as AbandonTeamSkills,
+      { of: vi.fn() } as unknown as AbandonTeamProfiles,
     ).find(
       (each) => each.name === 'configuration.abandon-skills-of-disbanded-team',
     );

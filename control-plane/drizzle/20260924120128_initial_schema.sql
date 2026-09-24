@@ -190,6 +190,18 @@ CREATE TABLE "stack_check" (
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "harness_profile" (
+	"id" text PRIMARY KEY NOT NULL,
+	"team_id" text NOT NULL,
+	"key" text NOT NULL,
+	"permissions" jsonb NOT NULL,
+	"mcp_servers" jsonb NOT NULL,
+	"native" jsonb NOT NULL,
+	"version" integer DEFAULT 1 NOT NULL,
+	"defined_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "harness_profile_team_id_key_unique" UNIQUE("team_id","key")
+);
+--> statement-breakpoint
 CREATE TABLE "integration_link" (
 	"team_id" text NOT NULL,
 	"source" text NOT NULL,
@@ -362,6 +374,7 @@ CREATE TABLE "runner" (
 	"trust_id" text,
 	"harnesses" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"advertised_models" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"harness_versions" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"revoked_at" timestamp,
 	"registered_at" timestamp DEFAULT now() NOT NULL,
 	"last_seen_at" timestamp,
@@ -517,6 +530,8 @@ CREATE TABLE "station" (
 	"harness" text,
 	"model" text,
 	"effort" text,
+	"profile" text,
+	"harness_version" text,
 	"agent_prompt" text,
 	"check" text,
 	"setup" text,

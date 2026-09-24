@@ -331,6 +331,22 @@ describe('Runner', () => {
       ]);
     });
 
+    it('answers to each release of a harness it reports, as harness@version', () => {
+      const reporting = trusted().register(
+        [
+          InstalledHarness.reported('claude-code', [], '2.1.270'),
+          InstalledHarness.reported('cursor', []),
+        ],
+        NOW,
+      );
+
+      expect(reporting.termsWith(null).values).toEqual([
+        'pod-a',
+        'gpu',
+        'claude-code@2.1.270',
+      ]);
+    });
+
     it('answers only to its name and labels without the trust it enrolled through', () => {
       expect(trusted().termsWith(null).values).toEqual(['pod-a', 'gpu']);
       expect(

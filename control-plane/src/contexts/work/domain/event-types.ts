@@ -24,6 +24,7 @@ import { TaskProposed } from '@work/domain/events/task-proposed.event';
 import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import { Approval } from '@work/domain/value-objects/approval.vo';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
+import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
@@ -44,6 +45,7 @@ import { Happening } from '@work/domain/value-objects/happening.vo';
 import { Harness } from '@work/domain/value-objects/harness.vo';
 import { HarnessCommand } from '@work/domain/value-objects/harness-command.vo';
 import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
+import { HarnessPermission } from '@work/domain/value-objects/harness-permission.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
@@ -55,6 +57,8 @@ import { Mark } from '@work/domain/value-objects/mark.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { Money } from '@work/domain/value-objects/money.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
+import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
+import { ProfileMissing } from '@work/domain/value-objects/profile-missing.vo';
 import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
@@ -91,6 +95,7 @@ export const WORK_EVENT_TYPES = [
   AgentPrompt,
   Approval,
   ApprovalNeeded,
+  ApprovalSubject,
   AttachmentId,
   Attachment,
   Branch,
@@ -105,6 +110,9 @@ export const WORK_EVENT_TYPES = [
   Declaration,
   DeclaredTool,
   Effort,
+  HarnessPermission,
+  ProfileKey,
+  ProfileMissing,
   HandoverOption,
   HandoverReport,
   Happening,

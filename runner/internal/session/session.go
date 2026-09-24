@@ -38,6 +38,7 @@ type Journal interface {
 	Said(ctx context.Context, runID string) ([]protocol.Said, error)
 	Delivered(ctx context.Context, runID string, upTo int) error
 	Attachment(ctx context.Context, runID, attachmentID string, into io.Writer) error
+	AskPermission(ctx context.Context, runID string, asked protocol.PermissionAsked) (protocol.PermissionAnswer, error)
 }
 
 const (
@@ -130,6 +131,12 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
+	for _, file := range run.Spec.HarnessSetup.Files {
+		if err := setUp(space, file); err != nil {
+			return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+		}
+	}
+
 	if opts.AgentUser != nil {
 		if err := space.GiveTo(opts.AgentUser.UID, opts.AgentUser.GID); err != nil {
 			return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("hand over workspace: %w", err))
@@ -174,13 +181,17 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		}
 	}()
 
+	var putToPerson atomic.Bool
+
 	harness, err := acp.Start(ctx, acp.Options{
 		Executable: run.Spec.Command.Executable,
 		Args:       run.Spec.Command.Args,
 		Env:        granted(run.Spec.Command.Env, channel, state, telemetry.URL),
 		Root:       cwd,
 		RunAs:      opts.AgentUser,
-		Answer:     func(string) bool { return true },
+		Answer:     answering(run, opts.Journal, &putToPerson, log),
+		Session:    run.Spec.HarnessSetup.Session,
+		McpServers: serversOf(run.Spec.HarnessSetup.McpServers),
 	})
 	if err != nil {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("start agent: %w", err))
@@ -201,7 +212,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		return fetch(ctx, opts.Journal, run.ID, space, opts.AgentUser, attachment)
 	}
 
-	exitCode, stopped := work(ctx, harness, sessionID, run, journal, opts.Journal, attached, log)
+	exitCode, stopped := work(ctx, harness, sessionID, run, journal, opts.Journal, attached, &putToPerson, log)
 
 	if err := lifecycle.reach(AgentExited); err != nil {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
@@ -318,6 +329,7 @@ func work(
 	journal *journalWriter,
 	lease Journal,
 	attached func(context.Context, protocol.Attachment) error,
+	putToPerson *atomic.Bool,
 	log *slog.Logger,
 ) (int, bool) {
 	renewing, stopRenewing := context.WithCancel(ctx)
@@ -356,6 +368,11 @@ func work(
 			return 0, true
 		}
 
+		if putToPerson.Load() {
+			log.Info("a person was asked for permission; letting the run go")
+			return 0, false
+		}
+
 		if err != nil {
 			log.Warn("the agent stopped short", "error", err)
 			return -1, false
@@ -390,6 +407,57 @@ func work(
 		log.Info("a person said something", "upTo", upTo)
 		prompt = said
 	}
+}
+
+func answering(
+	run protocol.Run, lease Journal, putToPerson *atomic.Bool, log *slog.Logger,
+) acp.Permission {
+	asks := run.Spec.HarnessSetup.Asks
+
+	return func(ctx context.Context, asked acp.Asked) acp.Verdict {
+		if !slices.Contains(asks, asked.Kind) {
+			return acp.Allow
+		}
+
+		if putToPerson.Load() {
+			return acp.Cancel
+		}
+
+		answer, err := lease.AskPermission(ctx, run.ID, protocol.PermissionAsked{
+			SessionID: asked.SessionID,
+			Kind:      asked.Kind,
+			Title:     asked.Title,
+			Input:     asked.Input,
+		})
+		if err != nil {
+			log.Warn("could not ask for permission; refusing", "tool", asked.Title, "error", err)
+			return acp.Reject
+		}
+
+		switch answer.Decision {
+		case protocol.PermissionAllow:
+			return acp.Allow
+		case protocol.PermissionPutToPerson:
+			putToPerson.Store(true)
+			return acp.Cancel
+		default:
+			return acp.Reject
+		}
+	}
+}
+
+func serversOf(given []protocol.McpServer) []acp.McpServer {
+	servers := make([]acp.McpServer, 0, len(given))
+	for _, server := range given {
+		env := make([]acp.EnvVariable, 0, len(server.Env))
+		for _, variable := range server.Env {
+			env = append(env, acp.EnvVariable{Name: variable.Name, Value: variable.Value})
+		}
+		servers = append(servers, acp.McpServer{
+			Name: server.Name, Command: server.Command, Args: server.Args, Env: env,
+		})
+	}
+	return servers
 }
 
 func steer(
@@ -512,15 +580,30 @@ func homeOf(homes map[string][]string, path string) string {
 }
 
 func lay(space *workspace.Workspace, skill protocol.SkillFile) error {
-	err := space.Replace(skill.Path, nil, func(into io.Writer) error {
-		_, err := io.WriteString(into, skill.Text)
-		return err
-	})
-	if err != nil {
+	if err := space.Replace(skill.Path, nil, writing(skill.Text)); err != nil {
 		return fmt.Errorf("lay skill %s: %w", skill.Path, err)
 	}
 
 	return nil
+}
+
+func setUp(space *workspace.Workspace, file protocol.SetupFile) error {
+	if !filepath.IsLocal(file.Path) {
+		return fmt.Errorf("harness file %q escapes the state directory", file.Path)
+	}
+
+	if err := space.Replace(filepath.Join(workspace.StatePath, file.Path), nil, writing(file.Text)); err != nil {
+		return fmt.Errorf("lay harness file %s: %w", file.Path, err)
+	}
+
+	return nil
+}
+
+func writing(text string) func(io.Writer) error {
+	return func(into io.Writer) error {
+		_, err := io.WriteString(into, text)
+		return err
+	}
 }
 
 func renew(

@@ -29,7 +29,6 @@ import { ListInboxQuery } from '@work/application/queries/list-inbox.query';
 import { ReadTaskJournalQuery } from '@work/application/queries/read-task-journal.query';
 import {
   AnswerInboxItemRequestDto,
-  InboxApprovalInputResponseDto,
   InboxApprovalResponseDto,
   InboxAuthorResponseDto,
   InboxItemResponseDto,
@@ -122,18 +121,7 @@ export class InboxController {
                     )
                   : null,
                 note.approval
-                  ? new InboxApprovalResponseDto(
-                      note.approval.tool,
-                      note.approval.because,
-                      note.approval.inputs.map(
-                        (input) =>
-                          new InboxApprovalInputResponseDto(
-                            input.name,
-                            input.value,
-                          ),
-                      ),
-                      note.approval.standing,
-                    )
+                  ? new InboxApprovalResponseDto(note.approval)
                   : null,
               ),
           ),

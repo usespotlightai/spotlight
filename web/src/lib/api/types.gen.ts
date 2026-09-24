@@ -173,6 +173,10 @@ export type InstallableHarnessResponseDto = {
    * What to run to list this harness’s models, argv-style. Empty where the CLI cannot enumerate them.
    */
   discovery: Array<string>;
+  /**
+   * What to run to learn which release of this harness is installed, argv-style; the first version-shaped word it prints is the release.
+   */
+  versionProbe: Array<string>;
 };
 
 export type KeptWorkspacesResponseDto = {
@@ -398,6 +402,34 @@ export type ToolAnswerResponseDto = {
   } | Array<unknown> | null;
 };
 
+export type AskPermissionRequestDto = {
+  /**
+   * The harness session asking, so the run that takes the task up again after the answer carries on in it
+   */
+  sessionId?: string;
+  /**
+   * The ACP tool kind the harness gave, as in read, edit or execute
+   */
+  kind?: string;
+  /**
+   * What the harness said it wants to do
+   */
+  title?: string;
+  /**
+   * The tool call’s raw input, as the harness gave it
+   */
+  input?: {
+    [key: string]: unknown;
+  };
+};
+
+export type PermissionAnswerResponseDto = {
+  /**
+   * allow or reject answers the harness now; asked means a person was asked in their inbox, so the run should end its turn and let the task go
+   */
+  decision: 'allow' | 'reject' | 'asked';
+};
+
 export type AnswerRemarkRequestDto = {
   /**
    * Which remark, as briefed
@@ -496,13 +528,20 @@ export type InboxApprovalInputResponseDto = {
 };
 
 export type InboxApprovalResponseDto = {
-  tool: string;
   /**
-   * Why the tool cannot run until a person says so
+   * Whether a tool call or a harness asking permission waits on a person
+   */
+  kind: 'tool-call' | 'harness-permission';
+  /**
+   * The tool, or the harness and the kind of action it asked about, as in claude-code execute
+   */
+  name: string;
+  /**
+   * Why it cannot go ahead until a person says so
    */
   because: string;
   /**
-   * What the tool would be called with, exactly as it stands
+   * What it would go ahead with, exactly as it stands
    */
   inputs: Array<InboxApprovalInputResponseDto>;
   standing: 'asked' | 'granted' | 'refused';
@@ -1200,7 +1239,7 @@ export type ConfigurationChangeResponseDto = {
    * Rises with every change; pass it as before to page back
    */
   seq: number;
-  resource: 'workspace' | 'team' | 'line' | 'skill' | 'integration' | 'secret' | 'workspace-token' | 'runner' | 'runner-trust' | 'workspace-runners';
+  resource: 'workspace' | 'team' | 'line' | 'skill' | 'harness-profile' | 'integration' | 'secret' | 'workspace-token' | 'runner' | 'runner-trust' | 'workspace-runners';
   resourceId: string;
   /**
    * The key it had within its team or workspace
@@ -1678,6 +1717,74 @@ export type SkillResourceResponseDto = {
    * The tools SKILL.md uses; not settable
    */
   tools: Array<string>;
+};
+
+export type PermissionsResponseDto = {
+  /**
+   * What the harness may do without asking: read, edit or execute, alone or with a pattern
+   */
+  allow: Array<string>;
+  /**
+   * What the harness asks a person about first; the ask reaches their inbox as an approval
+   */
+  ask: Array<string>;
+  /**
+   * What the harness may never do
+   */
+  deny: Array<string>;
+};
+
+export type McpServerResponseDto = {
+  name: string;
+  command: string;
+  args: Array<string>;
+  /**
+   * Environment for the server, never credentials: these values are stored and shown in plain text, in this resource (and so in Terraform state), in the run spec and in what the runner receives. A server that needs a key reads it from the runner’s own environment, as harness API keys do. Secret references come with SPO-97.
+   */
+  env: {
+    [key: string]: string;
+  };
+};
+
+export type HarnessProfileResourceResponseDto = {
+  /**
+   * Issued by Spotlight when the resource is created, and never changed
+   */
+  id: string;
+  /**
+   * Rises with every change; the ETag carries it, and a write sends it back as If-Match
+   */
+  version: number;
+  /**
+   * Names the resource within its workspace; terraform import takes it
+   */
+  address: string;
+  /**
+   * What would work better, though nothing stops it working; not settable
+   */
+  warnings: Array<FieldErrorResponseDto>;
+  /**
+   * The team it belongs to
+   */
+  teamId: string;
+  /**
+   * What stations name it by; fixed for its life, so changing it means replacing the profile
+   */
+  key: string;
+  /**
+   * Coarse rules every harness is told in its own terms; where one cannot say a rule, warnings name the approximation
+   */
+  permissions: PermissionsResponseDto;
+  /**
+   * Stdio MCP servers, handed to each harness in its own format
+   */
+  mcpServers: Array<McpServerResponseDto>;
+  /**
+   * Each harness’s own settings, passed through as it reads them: Claude Code settings JSON, Codex config.toml text, Cursor CLI config JSON
+   */
+  native: {
+    [key: string]: unknown;
+  };
 };
 
 export type DiffHunkResponseDto = {
@@ -2822,6 +2929,32 @@ export type UseToolResponses = {
 };
 
 export type UseToolResponse = UseToolResponses[keyof UseToolResponses];
+
+export type AskPermissionData = {
+  body: AskPermissionRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/permissions';
+};
+
+export type AskPermissionErrors = {
+  /**
+   * Missing or wrong enrollment token
+   */
+  401: unknown;
+  /**
+   * The run is not held by this runner
+   */
+  409: unknown;
+};
+
+export type AskPermissionResponses = {
+  200: PermissionAnswerResponseDto;
+};
+
+export type AskPermissionResponse = AskPermissionResponses[keyof AskPermissionResponses];
 
 export type AnswerRemarkData = {
   body: AnswerRemarkRequestDto;
@@ -6798,6 +6931,330 @@ export type ImportSkillResponses = {
 };
 
 export type ImportSkillResponse = ImportSkillResponses[keyof ImportSkillResponses];
+
+export type CreateHarnessProfileData = {
+  body: {
+    key: string;
+    permissions?: {
+      allow?: Array<string>;
+      ask?: Array<string>;
+      deny?: Array<string>;
+    };
+    mcpServers?: Array<{
+      name: string;
+      command: string;
+      args?: Array<string>;
+      /**
+       * Environment for the server, never credentials: these values are stored and shown in plain text, in this resource (and so in Terraform state), in the run spec and in what the runner receives. A server that needs a key reads it from the runner’s own environment, as harness API keys do. Secret references come with SPO-97.
+       */
+      env?: {
+        [key: string]: string;
+      };
+    }>;
+    native?: {
+      [key: string]: unknown;
+    };
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     */
+    'Idempotency-Key': string;
+  };
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/resources/teams/{teamId}/harness-profiles';
+};
+
+export type CreateHarnessProfileErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the harness-profile: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such harness-profile that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * There is already a harness-profile at that address
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field; or the Idempotency-Key was used for a different request
+   */
+  422: ProblemResponseDto;
+};
+
+export type CreateHarnessProfileError = CreateHarnessProfileErrors[keyof CreateHarnessProfileErrors];
+
+export type CreateHarnessProfileResponses = {
+  /**
+   * The harness-profile, as a read would answer it
+   */
+  201: HarnessProfileResourceResponseDto;
+};
+
+export type CreateHarnessProfileResponse = CreateHarnessProfileResponses[keyof CreateHarnessProfileResponses];
+
+export type DeleteHarnessProfileData = {
+  body?: never;
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/harness-profiles/{id}';
+};
+
+export type DeleteHarnessProfileErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the harness-profile: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such harness-profile that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type DeleteHarnessProfileError = DeleteHarnessProfileErrors[keyof DeleteHarnessProfileErrors];
+
+export type DeleteHarnessProfileResponses = {
+  /**
+   * Deleted
+   */
+  204: void;
+};
+
+export type DeleteHarnessProfileResponse = DeleteHarnessProfileResponses[keyof DeleteHarnessProfileResponses];
+
+export type ReadHarnessProfileData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/harness-profiles/{id}';
+};
+
+export type ReadHarnessProfileErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such harness-profile that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadHarnessProfileError = ReadHarnessProfileErrors[keyof ReadHarnessProfileErrors];
+
+export type ReadHarnessProfileResponses = {
+  /**
+   * The harness-profile, every field of it
+   */
+  200: HarnessProfileResourceResponseDto;
+};
+
+export type ReadHarnessProfileResponse = ReadHarnessProfileResponses[keyof ReadHarnessProfileResponses];
+
+export type UpdateHarnessProfileData = {
+  body: {
+    key: string;
+    permissions?: {
+      allow?: Array<string>;
+      ask?: Array<string>;
+      deny?: Array<string>;
+    };
+    mcpServers?: Array<{
+      name: string;
+      command: string;
+      args?: Array<string>;
+      /**
+       * Environment for the server, never credentials: these values are stored and shown in plain text, in this resource (and so in Terraform state), in the run spec and in what the runner receives. A server that needs a key reads it from the runner’s own environment, as harness API keys do. Secret references come with SPO-97.
+       */
+      env?: {
+        [key: string]: string;
+      };
+    }>;
+    native?: {
+      [key: string]: unknown;
+    };
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/harness-profiles/{id}';
+};
+
+export type UpdateHarnessProfileErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the harness-profile: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such harness-profile that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field
+   */
+  422: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type UpdateHarnessProfileError = UpdateHarnessProfileErrors[keyof UpdateHarnessProfileErrors];
+
+export type UpdateHarnessProfileResponses = {
+  /**
+   * The harness-profile, as a read would answer it
+   */
+  200: HarnessProfileResourceResponseDto;
+};
+
+export type UpdateHarnessProfileResponse = UpdateHarnessProfileResponses[keyof UpdateHarnessProfileResponses];
+
+export type ImportHarnessProfileData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query: {
+    /**
+     * The harness-profile's address within the workspace
+     */
+    address: unknown;
+  };
+  url: '/resources/workspaces/{workspaceId}/harness-profiles/import';
+};
+
+export type ImportHarnessProfileErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such harness-profile that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ImportHarnessProfileError = ImportHarnessProfileErrors[keyof ImportHarnessProfileErrors];
+
+export type ImportHarnessProfileResponses = {
+  /**
+   * The harness-profile, as a read would answer it
+   */
+  200: HarnessProfileResourceResponseDto;
+};
+
+export type ImportHarnessProfileResponse = ImportHarnessProfileResponses[keyof ImportHarnessProfileResponses];
 
 export type ListRunChangeStacksData = {
   body?: never;

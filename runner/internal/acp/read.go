@@ -2,6 +2,7 @@ package acp
 
 import (
 	"bufio"
+	"cmp"
 	"encoding/json"
 	"io"
 	"os"
@@ -91,7 +92,7 @@ func (c *Client) told(method string, params json.RawMessage) {
 func (c *Client) asked(id json.RawMessage, method string, params json.RawMessage) {
 	switch method {
 	case "session/request_permission":
-		c.permit(id, params)
+		go c.permit(id, params)
 	case "fs/read_text_file":
 		c.readFile(id, params)
 	case "fs/write_text_file":
@@ -101,29 +102,44 @@ func (c *Client) asked(id json.RawMessage, method string, params json.RawMessage
 	}
 }
 
+type option struct {
+	OptionID string `json:"optionId"`
+	Kind     string `json:"kind"`
+}
+
 func (c *Client) permit(id json.RawMessage, params json.RawMessage) {
 	var asked struct {
-		Options []struct {
-			OptionID string `json:"optionId"`
-			Kind     string `json:"kind"`
-		} `json:"options"`
+		SessionID string `json:"sessionId"`
+		ToolCall  struct {
+			Kind     string          `json:"kind"`
+			Title    string          `json:"title"`
+			RawInput json.RawMessage `json:"rawInput"`
+		} `json:"toolCall"`
+		Options []option `json:"options"`
 	}
 	_ = json.Unmarshal(params, &asked)
 
-	allow := ""
-	reject := ""
-	for _, option := range asked.Options {
-		if strings.HasPrefix(option.Kind, "allow") && allow == "" {
-			allow = option.OptionID
-		}
-		if strings.HasPrefix(option.Kind, "reject") && reject == "" {
-			reject = option.OptionID
-		}
+	input := asked.ToolCall.RawInput
+	if string(input) == "null" {
+		input = nil
 	}
 
-	chosen := reject
-	if c.answer("") && allow != "" {
-		chosen = allow
+	verdict := c.answer(c.life, Asked{
+		SessionID: asked.SessionID,
+		Kind:      asked.ToolCall.Kind,
+		Title:     asked.ToolCall.Title,
+		Input:     input,
+	})
+
+	if verdict == Cancel {
+		_ = c.Cancel(asked.SessionID)
+		c.reply(id, map[string]any{"outcome": map[string]any{"outcome": "cancelled"}})
+		return
+	}
+
+	chosen := pick(asked.Options, "reject")
+	if verdict == Allow {
+		chosen = cmp.Or(pick(asked.Options, "allow"), chosen)
 	}
 
 	if chosen == "" {
@@ -134,6 +150,19 @@ func (c *Client) permit(id json.RawMessage, params json.RawMessage) {
 	c.reply(id, map[string]any{
 		"outcome": map[string]any{"outcome": "selected", "optionId": chosen},
 	})
+}
+
+func pick(options []option, kind string) string {
+	fallback := ""
+	for _, each := range options {
+		if each.Kind == kind+"_once" {
+			return each.OptionID
+		}
+		if fallback == "" && strings.HasPrefix(each.Kind, kind+"_") {
+			fallback = each.OptionID
+		}
+	}
+	return fallback
 }
 
 func (c *Client) within(path string) (string, bool) {

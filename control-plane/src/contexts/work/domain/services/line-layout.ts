@@ -22,7 +22,7 @@ export type LinePart =
   | {
       readonly of: 'station';
       readonly station: string;
-      readonly field: 'passesTo' | 'tools' | 'skills';
+      readonly field: 'passesTo' | 'tools' | 'skills' | 'harnessVersion';
     }
   | {
       readonly of: 'reaction';

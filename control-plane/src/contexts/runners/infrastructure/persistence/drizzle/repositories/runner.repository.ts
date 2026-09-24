@@ -20,6 +20,7 @@ import {
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
+import { HarnessVersion } from '@shared-kernel/domain/value-objects/harness-version.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -44,6 +45,9 @@ const toRunner = (row: Row): Runner =>
       InstalledHarness.of(
         HarnessId.of(id),
         (row.advertisedModels[id] ?? []).map(HarnessModel.of),
+        row.harnessVersions[id]
+          ? HarnessVersion.of(row.harnessVersions[id])
+          : null,
       ),
     ),
     revokedAt: row.revokedAt,
@@ -63,6 +67,15 @@ const advertisedOf = (
       each.id.value,
       each.models.map((model) => model.value),
     ]),
+  );
+
+const versionsOf = (
+  installed: readonly InstalledHarness[],
+): Record<string, string> =>
+  Object.fromEntries(
+    installed.flatMap((each) =>
+      each.version ? [[each.id.value, each.version.value]] : [],
+    ),
   );
 
 @Injectable()
@@ -91,6 +104,7 @@ export class DrizzleRunnerRepository implements RunnerRepository {
         trustId: added.trustId?.value ?? null,
         harnesses: harnessesOf(added.installed),
         advertisedModels: advertisedOf(added.installed),
+        harnessVersions: versionsOf(added.installed),
         revokedAt: added.revokedAt,
         lastSeenAt: added.lastSeenAt,
         revision: added.revision,
@@ -124,6 +138,7 @@ export class DrizzleRunnerRepository implements RunnerRepository {
         lastSeenAt: saved.lastSeenAt,
         harnesses: harnessesOf(saved.installed),
         advertisedModels: advertisedOf(saved.installed),
+        harnessVersions: versionsOf(saved.installed),
       })
       .where(
         and(eq(runner.id, saved.id.value), eq(runner.version, saved.version)),

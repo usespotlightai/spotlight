@@ -36,11 +36,12 @@ import { TaskDescription } from '@work/domain/value-objects/task-description.vo'
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
-import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
-import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { claimAttachments } from '@work/infrastructure/persistence/drizzle/attachment-claims';
+import {
+  toApprovalSubject,
+  toApprovalSubjectRow,
+} from '@work/infrastructure/persistence/drizzle/repositories/approval-subject.rows';
 import {
   line,
   station,
@@ -69,7 +70,7 @@ const toAttachments = (
 
 const toApproval = (row: ApprovalRow): Approval =>
   Approval.rehydrate({
-    call: ToolCall.of(Tool.of(row.tool), ToolInputs.of(row.inputs)),
+    subject: toApprovalSubject(row.subject),
     at: StationId.of(row.stationId),
     because: row.because,
     standing: row.standing,
@@ -85,8 +86,7 @@ const toApproval = (row: ApprovalRow): Approval =>
   });
 
 const toApprovalRow = (approval: Approval): ApprovalRow => ({
-  tool: approval.call.tool.value,
-  inputs: approval.call.inputs.values,
+  subject: toApprovalSubjectRow(approval.subject),
   stationId: approval.at.value,
   because: approval.because,
   standing: approval.standing,

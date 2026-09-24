@@ -11,6 +11,7 @@ import {
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
+import { HarnessVersion } from '@shared-kernel/domain/value-objects/harness-version.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -29,6 +30,7 @@ import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
+import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
@@ -88,6 +90,10 @@ const toStation = (row: StationRow, ways: Ways): Station =>
     harness: row.harness ? HarnessId.of(row.harness) : null,
     model: row.model ? HarnessModel.of(row.model) : null,
     effort: row.effort ? Effort.of(row.effort) : null,
+    profile: row.profile ? ProfileKey.of(row.profile) : null,
+    harnessVersion: row.harnessVersion
+      ? HarnessVersion.of(row.harnessVersion)
+      : null,
     agentPrompt: row.agentPrompt ? AgentPrompt.of(row.agentPrompt) : null,
     check: row.check ? StationCheck.of(row.check) : null,
     setup: row.setup ? StationSetup.of(row.setup) : null,
@@ -174,6 +180,8 @@ const columnsOf = (each: Station) => ({
   harness: each.harness?.value ?? null,
   model: each.model?.value ?? null,
   effort: each.effort?.value ?? null,
+  profile: each.profile?.value ?? null,
+  harnessVersion: each.harnessVersion?.value ?? null,
   agentPrompt: each.agentPrompt?.value ?? null,
   check: each.check?.value ?? null,
   setup: each.setup?.value ?? null,

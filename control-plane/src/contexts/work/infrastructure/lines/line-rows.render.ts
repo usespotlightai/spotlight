@@ -21,6 +21,8 @@ type StationRow = Pick<
   | 'harness'
   | 'model'
   | 'effort'
+  | 'profile'
+  | 'harnessVersion'
   | 'agentPrompt'
   | 'check'
   | 'setup'
@@ -81,6 +83,8 @@ export const renderLineRows = (rows: LineRows): Rendered<LineFields> => {
     ...(present('effort', row.effort) as Partial<
       Pick<StationFields, 'effort'>
     >),
+    ...present('profile', row.profile),
+    ...present('harnessVersion', row.harnessVersion),
     ...present('prompt', row.agentPrompt),
     ...present('check', row.check),
     ...present('setup', row.setup),

@@ -1,5 +1,8 @@
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { everyClauseMet } from '@platform/persistence/drizzle/every-clause-met';
+import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { HarnessRelease } from '@shared-kernel/domain/value-objects/harness-release.vo';
+import { HarnessVersion } from '@shared-kernel/domain/value-objects/harness-version.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { sql } from 'drizzle-orm';
@@ -18,12 +21,21 @@ afterAll(async () => {
   await held?.close();
 });
 
+const release = (harness: string, version: string): string =>
+  HarnessRelease.of(HarnessId.of(harness), HarnessVersion.of(version)).term;
+
+const PINNED = release('claude-code', '2.1.270');
+const EARLIER = release('claude-code', '2.1.269');
+const CURSOR = release('cursor', '2026.09.01');
+
 const PLACEMENTS: readonly (readonly (readonly string[])[])[] = [
   [],
   [['gpu']],
   [['vpc-internal', 'build-1']],
   [['vpc-a', 'build-1'], ['gpu']],
   [['vpc-a'], ['vpc-b'], ['gpu', 'pod-a']],
+  [[PINNED]],
+  [['gpu'], [PINNED]],
 ];
 
 const TERMS: readonly (readonly string[])[] = [
@@ -34,6 +46,9 @@ const TERMS: readonly (readonly string[])[] = [
   ['vpc-a', 'gpu'],
   ['vpc-a', 'vpc-b', 'pod-a'],
   ['laptop', 'vpc-internal'],
+  ['runner-1', PINNED, CURSOR],
+  ['runner-1', 'gpu', EARLIER],
+  ['runner-1', 'gpu', PINNED],
 ];
 
 const admittedInSql = async (

@@ -24,9 +24,22 @@ export interface SaidRow {
   readonly remark: string | null;
 }
 
+export type ApprovalSubjectRow =
+  | {
+      readonly kind: 'tool-call';
+      readonly tool: string;
+      readonly inputs: Readonly<Record<string, string | number | boolean>>;
+    }
+  | {
+      readonly kind: 'harness-permission';
+      readonly harness: string;
+      readonly asks: string;
+      readonly title: string;
+      readonly input: string;
+    };
+
 export interface ApprovalRow {
-  readonly tool: string;
-  readonly inputs: Readonly<Record<string, string | number | boolean>>;
+  readonly subject: ApprovalSubjectRow;
   readonly stationId: string;
   readonly because: string;
   readonly standing: ApprovalStanding;

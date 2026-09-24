@@ -18,6 +18,7 @@ const launch = {
       executable: 'claude',
       efforts: ['low', 'high'],
       discovery: ['claude --version'],
+      versionProbe: [],
     },
   ],
 } as unknown as HarnessLaunchPort;

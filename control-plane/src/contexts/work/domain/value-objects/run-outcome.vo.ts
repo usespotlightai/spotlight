@@ -1,5 +1,8 @@
 import { InvalidRunOutcomeError } from '@work/domain/exceptions/invalid-run-outcome.error';
-import type { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
+
+export interface RefusalReason {
+  readonly saying: string;
+}
 
 export class RunOutcome {
   private constructor(
@@ -41,11 +44,11 @@ export class RunOutcome {
     );
   }
 
-  static withheld(withheld: readonly CatalogWithheld[]): RunOutcome {
+  static refused(reasons: readonly RefusalReason[]): RunOutcome {
     return new RunOutcome(
       -1,
       true,
-      withheld.map((each) => each.saying).join('; '),
+      reasons.map((each) => each.saying).join('; '),
     );
   }
 

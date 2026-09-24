@@ -1,3 +1,5 @@
+import type { RefusalReason } from '@work/domain/value-objects/run-outcome.vo';
+
 export type WithheldReason =
   | 'unknown'
   | 'wrong-kind'
@@ -11,7 +13,7 @@ const CODES: Readonly<Record<WithheldReason, string>> = {
   lapsed: 'entitlement_lapsed',
 };
 
-export class CatalogWithheld {
+export class CatalogWithheld implements RefusalReason {
   private constructor(
     readonly id: string,
     readonly reason: WithheldReason,

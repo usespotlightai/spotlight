@@ -40,6 +40,7 @@ import {
   REVIEW_COMMENT,
 } from '@work/domain/services/built-in-tools';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
+import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
@@ -543,11 +544,12 @@ describe('UseToolHandler', () => {
     const asked = standing().notes[standing().notes.length - 1];
     expect(asked?.kind).toBe('asked');
     expect(asked?.form).toBe('approval');
-    expect(asked?.approval?.call.tool.value).toBe('linear.comment');
-    expect(asked?.approval?.call.inputs.values).toEqual({
-      issue: 'ENG-12',
-      body: 'Fixed.',
-    });
+    expect(asked?.approval?.subject.kind).toBe('tool-call');
+    expect(asked?.approval?.subject.name).toBe('linear.comment');
+    expect(asked?.approval?.subject.given).toEqual([
+      { name: 'body', value: 'Fixed.' },
+      { name: 'issue', value: 'ENG-12' },
+    ]);
     expect(asked?.approval?.because).toBe(NEEDS_APPROVAL.because);
     expect(asked?.approval?.standing).toBe('asked');
     expect(asked?.approval?.at.value).toBe('station_1');
@@ -570,9 +572,11 @@ describe('UseToolHandler', () => {
 
   it('calls a tool the person approved, and spends that approval on the one call', async () => {
     const approved = task().clearFor(
-      ToolCall.of(
-        Tool.of('linear.comment'),
-        ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+      ApprovalSubject.toolCall(
+        ToolCall.of(
+          Tool.of('linear.comment'),
+          ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+        ),
       ),
       NEEDS_APPROVAL,
       {
@@ -612,9 +616,11 @@ describe('UseToolHandler', () => {
 
   it('hands the approval back where the call it was spent on failed', async () => {
     const asked = task().clearFor(
-      ToolCall.of(
-        Tool.of('linear.comment'),
-        ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+      ApprovalSubject.toolCall(
+        ToolCall.of(
+          Tool.of('linear.comment'),
+          ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+        ),
       ),
       NEEDS_APPROVAL,
       {
@@ -653,9 +659,11 @@ describe('UseToolHandler', () => {
 
   it('refuses a tool the person rejected, in their own words, without asking again', async () => {
     const asked = task().clearFor(
-      ToolCall.of(
-        Tool.of('linear.comment'),
-        ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+      ApprovalSubject.toolCall(
+        ToolCall.of(
+          Tool.of('linear.comment'),
+          ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+        ),
       ),
       NEEDS_APPROVAL,
       {
@@ -692,9 +700,11 @@ describe('UseToolHandler', () => {
 
   it('asks again where the person answered in words without deciding', async () => {
     const asked = task().clearFor(
-      ToolCall.of(
-        Tool.of('linear.comment'),
-        ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+      ApprovalSubject.toolCall(
+        ToolCall.of(
+          Tool.of('linear.comment'),
+          ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+        ),
       ),
       NEEDS_APPROVAL,
       {
@@ -729,9 +739,11 @@ describe('UseToolHandler', () => {
 
   it('asks again where the agent changed what it would send', async () => {
     const asked = task().clearFor(
-      ToolCall.of(
-        Tool.of('linear.comment'),
-        ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+      ApprovalSubject.toolCall(
+        ToolCall.of(
+          Tool.of('linear.comment'),
+          ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+        ),
       ),
       NEEDS_APPROVAL,
       {

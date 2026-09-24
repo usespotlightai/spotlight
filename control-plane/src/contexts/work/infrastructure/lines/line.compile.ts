@@ -2,6 +2,7 @@ import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/config
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
+import { HarnessVersion } from '@shared-kernel/domain/value-objects/harness-version.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type {
@@ -21,6 +22,7 @@ import {
   type StationPlan,
 } from '@work/domain/value-objects/line-plan.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
+import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import { StationCheck } from '@work/domain/value-objects/station-check.vo';
@@ -127,6 +129,10 @@ const compileStation = (
       harness: station.harness ? HarnessId.of(station.harness) : null,
       model: station.model ? HarnessModel.of(station.model) : null,
       effort: station.effort ? Effort.of(station.effort) : null,
+      profile: station.profile ? ProfileKey.of(station.profile) : null,
+      harnessVersion: station.harnessVersion
+        ? HarnessVersion.of(station.harnessVersion)
+        : null,
       agentPrompt,
       check,
       setup,

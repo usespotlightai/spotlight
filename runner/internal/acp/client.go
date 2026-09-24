@@ -23,14 +23,57 @@ type Client struct {
 	answer   Permission
 	watching func(Update)
 
-	root string
+	root    string
+	meta    json.RawMessage
+	servers []McpServer
+
+	life context.Context
+	end  context.CancelFunc
 
 	closeOnce sync.Once
 	done      chan struct{}
 	failed    error
 }
 
-type Permission func(kind string) bool
+type Asked struct {
+	SessionID string
+	Kind      string
+	Title     string
+	Input     json.RawMessage
+}
+
+type McpServer struct {
+	Name    string        `json:"name"`
+	Command string        `json:"command"`
+	Args    []string      `json:"args"`
+	Env     []EnvVariable `json:"env"`
+}
+
+func (s McpServer) MarshalJSON() ([]byte, error) {
+	type plain McpServer
+	if s.Args == nil {
+		s.Args = []string{}
+	}
+	if s.Env == nil {
+		s.Env = []EnvVariable{}
+	}
+	return json.Marshal(plain(s))
+}
+
+type EnvVariable struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+type Verdict int
+
+const (
+	Reject Verdict = iota
+	Allow
+	Cancel
+)
+
+type Permission func(ctx context.Context, asked Asked) Verdict
 
 type Options struct {
 	Executable string
@@ -39,6 +82,8 @@ type Options struct {
 	Root       string
 	RunAs      *account.User
 	Answer     Permission
+	Session    json.RawMessage
+	McpServers []McpServer
 }
 
 func Start(ctx context.Context, opts Options) (*Client, error) {
@@ -62,8 +107,10 @@ func Start(ctx context.Context, opts Options) (*Client, error) {
 
 	answer := opts.Answer
 	if answer == nil {
-		answer = func(string) bool { return false }
+		answer = func(context.Context, Asked) Verdict { return Reject }
 	}
+
+	life, end := context.WithCancel(ctx)
 
 	client := &Client{
 		command: command,
@@ -71,6 +118,10 @@ func Start(ctx context.Context, opts Options) (*Client, error) {
 		waiting: map[int]chan response{},
 		answer:  answer,
 		root:    opts.Root,
+		meta:    opts.Session,
+		servers: opts.McpServers,
+		life:    life,
+		end:     end,
 		done:    make(chan struct{}),
 	}
 
@@ -102,10 +153,9 @@ func (c *Client) NewSession(ctx context.Context) (string, error) {
 		SessionID string `json:"sessionId"`
 	}
 
-	if err := c.call(ctx, "session/new", map[string]any{
-		"cwd":        c.root,
-		"mcpServers": []any{},
-	}, &out); err != nil {
+	if err := c.call(ctx, "session/new", c.opening(map[string]any{
+		"cwd": c.root,
+	}), &out); err != nil {
 		return "", err
 	}
 
@@ -113,11 +163,24 @@ func (c *Client) NewSession(ctx context.Context) (string, error) {
 }
 
 func (c *Client) Resume(ctx context.Context, sessionID string) error {
-	return c.call(ctx, "session/load", map[string]any{
-		"sessionId":  sessionID,
-		"cwd":        c.root,
-		"mcpServers": []any{},
-	}, nil)
+	return c.call(ctx, "session/load", c.opening(map[string]any{
+		"sessionId": sessionID,
+		"cwd":       c.root,
+	}), nil)
+}
+
+func (c *Client) opening(params map[string]any) map[string]any {
+	servers := c.servers
+	if servers == nil {
+		servers = []McpServer{}
+	}
+	params["mcpServers"] = servers
+
+	if len(c.meta) > 0 && string(c.meta) != "null" {
+		params["_meta"] = c.meta
+	}
+
+	return params
 }
 
 func (c *Client) Prompt(
@@ -160,6 +223,7 @@ func (c *Client) notify(method string, params any) error {
 
 func (c *Client) Close() error {
 	c.closeOnce.Do(func() {
+		c.end()
 		_ = c.stdin.Close()
 		if c.command.Process != nil {
 			_ = syscall.Kill(-c.command.Process.Pid, syscall.SIGTERM)

@@ -78,6 +78,7 @@ import { AddTaskCommand } from '@work/application/commands/add-task.command';
 import { AnalyseTraceCommand } from '@work/application/commands/analyse-trace.command';
 import { AnswerInboxItemCommand } from '@work/application/commands/answer-inbox-item.command';
 import { AnswerRemarkCommand } from '@work/application/commands/answer-remark.command';
+import { AskPermissionCommand } from '@work/application/commands/ask-permission.command';
 import { AssignTaskCommand } from '@work/application/commands/assign-task.command';
 import {
   AcceptProposalCommand,
@@ -97,6 +98,7 @@ import { AnalyseTraceHandler } from '@work/application/commands/handlers/analyse
 import { AnswerInboxItemHandler } from '@work/application/commands/handlers/answer-inbox-item.handler';
 import { AnswerRemarkHandler } from '@work/application/commands/handlers/answer-remark.handler';
 import { AppendRunJournalHandler } from '@work/application/commands/handlers/append-run-journal.handler';
+import { AskPermissionHandler } from '@work/application/commands/handlers/ask-permission.handler';
 import { AssignTaskHandler } from '@work/application/commands/handlers/assign-task.handler';
 import { ClaimRunHandler } from '@work/application/commands/handlers/claim-run.handler';
 import { CompleteRunHandler } from '@work/application/commands/handlers/complete-run.handler';
@@ -159,13 +161,13 @@ import {
 } from '@work/application/ports/check-access.port';
 import { CHECK_WORK } from '@work/application/ports/check-work.port';
 import { GIT_GATEWAY } from '@work/application/ports/git-gateway.port';
-import { GIVEN_SKILLS } from '@work/application/ports/given-skills.port';
-import { GIVEN_TOOLS } from '@work/application/ports/given-tools.port';
+import { GIVEN_AT_STATIONS } from '@work/application/ports/given-at-stations.port';
 import { HAPPENING_REACTIONS } from '@work/application/ports/happening-reactions.port';
 import {
   HARNESS_LAUNCH,
   type HarnessLaunchPort,
 } from '@work/application/ports/harness-launch.port';
+import { HARNESS_PROFILE_REVIEW } from '@work/application/ports/harness-profile-review.port';
 import { HELD_RUN_READER } from '@work/application/ports/held-run-reader.port';
 import { INBOX_READER } from '@work/application/ports/inbox-reader.port';
 import {
@@ -207,6 +209,10 @@ import {
   type RunnerRevocationPort,
 } from '@work/application/ports/runner-revocation.port';
 import { RUNNER_TRACE_READER } from '@work/application/ports/runner-trace-reader.port';
+import {
+  STATION_PROFILES,
+  type StationProfilesPort,
+} from '@work/application/ports/station-profiles.port';
 import {
   STATION_TALLIES,
   type StationTalliesPort,
@@ -344,8 +350,7 @@ import {
 import { LineCompiler } from '@work/infrastructure/lines/line.compile';
 import { DrizzleAttachmentReader } from '@work/infrastructure/persistence/drizzle/readers/attachment.reader';
 import { DrizzleChatReader } from '@work/infrastructure/persistence/drizzle/readers/chat.reader';
-import { DrizzleGivenSkills } from '@work/infrastructure/persistence/drizzle/readers/given-skills.reader';
-import { DrizzleGivenTools } from '@work/infrastructure/persistence/drizzle/readers/given-tools.reader';
+import { DrizzleGivenAtStations } from '@work/infrastructure/persistence/drizzle/readers/given-at-stations.reader';
 import { DrizzleHeldRunReader } from '@work/infrastructure/persistence/drizzle/readers/held-run.reader';
 import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/readers/inbox.reader';
 import { DrizzleKeptWorkspaceReader } from '@work/infrastructure/persistence/drizzle/readers/kept-workspace.reader';
@@ -406,8 +411,7 @@ export const WORK_CONTROLLERS: readonly Type[] = [
 ];
 
 export const WORK_PROVIDERS: readonly Provider[] = [
-  { provide: GIVEN_TOOLS, useClass: DrizzleGivenTools },
-  { provide: GIVEN_SKILLS, useClass: DrizzleGivenSkills },
+  { provide: GIVEN_AT_STATIONS, useClass: DrizzleGivenAtStations },
   DrizzleLinesHeld,
   {
     provide: WORK_HOLDINGS,
@@ -457,6 +461,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   { provide: RUNNER_TRACE_READER, useClass: DrizzleRunnerTraceReader },
 
   { provide: HARNESS_LAUNCH, useExisting: BuiltInHarnesses },
+
+  { provide: HARNESS_PROFILE_REVIEW, useExisting: BuiltInHarnesses },
 
   { provide: KEPT_WORKSPACE_READER, useClass: DrizzleKeptWorkspaceReader },
 
@@ -758,6 +764,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       TASK_DECISIONS,
       StationCatalog,
       RUNNER_PRESENCE,
+      STATION_PROFILES,
     ],
     useFactory: (
       runs: DrizzleRunRepository,
@@ -771,6 +778,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       decisions: TaskDecisionsPort,
       catalog: StationCatalog,
       runners: RunnerPresencePort,
+      profiles: StationProfilesPort,
     ) =>
       new DispatchTask(
         runs,
@@ -784,6 +792,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         decisions,
         catalog,
         runners,
+        profiles,
       ),
   },
 
@@ -1132,6 +1141,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     RunWorks,
     ToolSources,
   ]),
+
+  ...bindCommandHandler(AskPermissionCommand, AskPermissionHandler, [RunWorks]),
 
   ...bindCommandHandler(StartChatCommand, StartChatHandler, [
     WORKSPACE_READER,

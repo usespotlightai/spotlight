@@ -160,6 +160,9 @@ export const seatTeam = async (db: DrizzleDatabase, id: string) => {
       await db
         .delete(schema.skillDefinition)
         .where(eq(schema.skillDefinition.teamId, id));
+      await db
+        .delete(schema.harnessProfile)
+        .where(eq(schema.harnessProfile.teamId, id));
       await db.delete(schema.team).where(eq(schema.team.workspaceId, id));
       await db.delete(schema.workspace).where(eq(schema.workspace.id, id));
       await db

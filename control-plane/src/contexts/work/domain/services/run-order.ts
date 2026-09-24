@@ -1,6 +1,6 @@
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
-import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { type GivenToRun, givenAt } from '@work/domain/services/given-to-run';
@@ -11,6 +11,7 @@ import type { Continuity } from '@work/domain/value-objects/continuity.vo';
 import type { Effort } from '@work/domain/value-objects/effort.vo';
 import type { HandoverOption } from '@work/domain/value-objects/handover-option.vo';
 import type { Harness } from '@work/domain/value-objects/harness.vo';
+import type { ReadyProfile } from '@work/domain/value-objects/ready-profile';
 import type { ReadySkill } from '@work/domain/value-objects/ready-skill';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
@@ -62,12 +63,14 @@ export const orderFor = ({
   line,
   harnesses,
   ready,
+  profiles,
   withheld = [],
 }: {
   task: Task;
   line: Line;
   harnesses: HarnessCatalog;
   ready: readonly ReadySkill[];
+  profiles: readonly ReadyProfile[];
   withheld?: readonly CatalogWithheld[];
 }): RunOrder | null => {
   const station = line.stationAt(task.stationId);
@@ -83,6 +86,8 @@ export const orderFor = ({
   }
 
   const continuity = task.continuity();
+  const given = givenAt(station, ready, profiles);
+  const refusals = [...withheld, ...given.refusals];
 
   return {
     harness,
@@ -90,13 +95,16 @@ export const orderFor = ({
     effort: station.effort,
     stationId: station.id,
     priority: RunPriority.of(line.depthOf(station.id)),
-    placement: line.placementOf(station.id),
+    placement: RunnerPlacement.every([
+      line.placementOf(station.id),
+      station.releasePlacement,
+    ]),
     options: line.optionsFrom(station.id),
     noteLimit: 0,
     continuity,
     checkouts: checkoutsFor(task, line),
-    given: givenAt(station, ready),
+    given,
     diffs: station.diffs,
-    refusal: withheld.length > 0 ? RunOutcome.withheld(withheld) : null,
+    refusal: refusals.length > 0 ? RunOutcome.refused(refusals) : null,
   };
 };

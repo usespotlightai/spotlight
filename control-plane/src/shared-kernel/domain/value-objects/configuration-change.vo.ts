@@ -5,6 +5,7 @@ export const CONFIGURED_RESOURCES = [
   'team',
   'line',
   'skill',
+  'harness-profile',
   'integration',
   'secret',
   'workspace-token',

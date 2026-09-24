@@ -150,7 +150,8 @@ const INBOX: InboxItemResponseDto[] = [
         at: '2026-09-15T11:10:00.000Z',
         body: 'I need your approval before I use `linear.comment`.',
         approval: {
-          tool: 'linear.comment',
+          kind: 'tool-call',
+          name: 'linear.comment',
           because: 'It posts publicly on the issue, under the team’s name.',
           inputs: [
             { name: 'issue', value: 'ENG-412' },

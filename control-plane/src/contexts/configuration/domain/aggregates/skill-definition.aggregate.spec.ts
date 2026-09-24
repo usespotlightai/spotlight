@@ -9,7 +9,7 @@ import { SkillKeyFixedError } from '@configuration/domain/exceptions/skill-key-f
 import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
 import { SkillFiles } from '@configuration/domain/value-objects/skill-files.vo';
 import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
-import { SkillUses } from '@configuration/domain/value-objects/skill-uses.vo';
+import { StationUses } from '@configuration/domain/value-objects/station-uses.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
@@ -42,8 +42,8 @@ const BY = attributedIn();
 
 const GRAFANA = { resource: 'skill' as const, id: 'skill_1', key: 'grafana' };
 
-const GIVEN = SkillUses.of([
-  { skill: 'grafana', by: 'delivery/implementation' },
+const GIVEN = StationUses.of([
+  { name: 'grafana', by: 'delivery/implementation' },
 ]);
 
 describe('SkillDefinition', () => {
@@ -98,7 +98,7 @@ describe('SkillDefinition', () => {
 
   it('retires when no station gives it, and cannot change after', () => {
     const retired = kept().retired(
-      SkillUses.of([{ skill: 'loki', by: 'delivery/implementation' }]),
+      StationUses.of([{ name: 'loki', by: 'delivery/implementation' }]),
       BY,
     );
 

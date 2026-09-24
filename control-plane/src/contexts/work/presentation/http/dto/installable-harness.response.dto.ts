@@ -20,9 +20,25 @@ export class InstallableHarnessResponseDto {
   })
   readonly discovery: readonly string[];
 
-  constructor(id: string, executable: string, discovery: readonly string[]) {
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    example: ['cursor-agent', '--version'],
+    description:
+      'What to run to learn which release of this harness is installed, ' +
+      'argv-style; the first version-shaped word it prints is the release.',
+  })
+  readonly versionProbe: readonly string[];
+
+  constructor(
+    id: string,
+    executable: string,
+    discovery: readonly string[],
+    versionProbe: readonly string[],
+  ) {
     this.id = id;
     this.executable = executable;
     this.discovery = discovery;
+    this.versionProbe = versionProbe;
   }
 }

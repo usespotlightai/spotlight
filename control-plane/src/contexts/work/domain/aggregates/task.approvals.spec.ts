@@ -1,3 +1,4 @@
+import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -6,7 +7,9 @@ import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
+import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import type { Clearance } from '@work/domain/value-objects/clearance';
+import { HarnessPermission } from '@work/domain/value-objects/harness-permission.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
@@ -58,9 +61,11 @@ const line = Line.rehydrate({
 });
 
 const NEEDED = ApprovalNeeded.of('linear.comment', 'It posts publicly.');
-const CALL = ToolCall.of(
-  Tool.of('linear.comment'),
-  ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+const CALL = ApprovalSubject.toolCall(
+  ToolCall.of(
+    Tool.of('linear.comment'),
+    ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+  ),
 );
 
 const asking = (body = 'Approve linear.comment?') => ({
@@ -92,7 +97,7 @@ const working = () =>
     }),
   );
 
-const clear = (task: Task, call: ToolCall = CALL) =>
+const clear = (task: Task, call: ApprovalSubject = CALL) =>
   task.clearFor(call, NEEDED, asking(), RUN);
 
 const askedOnce = () => {
@@ -174,12 +179,53 @@ describe('clearing a tool call that needs approval', () => {
 
   it('asks again where the call would send something else', () => {
     const { task } = decided('granted');
-    const other = ToolCall.of(
-      Tool.of('linear.comment'),
-      ToolInputs.of({ issue: 'ENG-12', body: 'Something else.' }),
+    const other = ApprovalSubject.toolCall(
+      ToolCall.of(
+        Tool.of('linear.comment'),
+        ToolInputs.of({ issue: 'ENG-12', body: 'Something else.' }),
+      ),
     );
 
     expect(kindOf(clear(heldAt(task), other).clearance)).toBe('asked');
+  });
+
+  it('keeps a harness permission and a tool named like it apart, each way', () => {
+    const permission = ApprovalSubject.harnessPermission(
+      HarnessPermission.asked({
+        harness: HarnessId.of('claude-code'),
+        kind: 'execute',
+        title: 'git push',
+        input: undefined,
+      }),
+    );
+    const lookalike = ApprovalSubject.toolCall(
+      ToolCall.of(
+        Tool.of('claude-code.execute'),
+        ToolInputs.of({ title: 'git push' }),
+      ),
+    );
+    const grantedFor = (subject: ApprovalSubject) => {
+      const asked = clear(working(), subject).task;
+      const at = asked.approvalFor(subject)?.at;
+
+      if (!at) {
+        throw new Error('nothing was asked');
+      }
+
+      return heldAt(asked.answered(at, person('Go ahead.'), 'granted'));
+    };
+
+    expect(grantedFor(permission).approvalFor(lookalike)).toBeNull();
+    expect(kindOf(clear(grantedFor(permission), lookalike).clearance)).toBe(
+      'asked',
+    );
+    expect(grantedFor(lookalike).approvalFor(permission)).toBeNull();
+    expect(kindOf(clear(grantedFor(lookalike), permission).clearance)).toBe(
+      'asked',
+    );
+    expect(kindOf(clear(grantedFor(permission), permission).clearance)).toBe(
+      'given',
+    );
   });
 
   it('refuses a run that does not hold the task', () => {

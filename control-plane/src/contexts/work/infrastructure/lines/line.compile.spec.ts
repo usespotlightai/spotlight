@@ -191,6 +191,22 @@ describe('compileLine', () => {
     });
   });
 
+  it('places a release pinned without a harness at that station', () => {
+    expect(
+      refused(
+        withStation(1, {
+          key: 'code-review',
+          name: 'Code Review',
+          ends: true,
+          harnessVersion: '2.1.270',
+        }),
+      )[0],
+    ).toMatchObject({
+      path: 'lines/delivery',
+      field: FieldPath.dotted('stations.1.harnessVersion'),
+    });
+  });
+
   it('places a problem with a reaction at that reaction', () => {
     expect(
       refused({

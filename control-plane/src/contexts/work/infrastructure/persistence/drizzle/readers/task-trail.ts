@@ -13,6 +13,7 @@ import type { TaskNoteKind } from '@work/domain/entities/task-note.entity';
 import { owedIn, reviewsIn } from '@work/domain/services/conversations';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
+import { toApprovalSubject } from '@work/infrastructure/persistence/drizzle/repositories/approval-subject.rows';
 import { station } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import {
@@ -83,17 +84,21 @@ export const attachmentsFor = async (
   return held;
 };
 
-const asked = (parts: ApprovalRow | null): InboxApproval | null =>
-  parts
-    ? {
-        tool: parts.tool,
-        because: parts.because,
-        inputs: Object.keys(parts.inputs)
-          .sort()
-          .map((name) => ({ name, value: String(parts.inputs[name]) })),
-        standing: parts.standing,
-      }
-    : null;
+const asked = (parts: ApprovalRow | null): InboxApproval | null => {
+  if (!parts) {
+    return null;
+  }
+
+  const subject = toApprovalSubject(parts.subject);
+
+  return {
+    kind: subject.kind,
+    name: subject.name,
+    because: parts.because,
+    inputs: subject.given,
+    standing: parts.standing,
+  };
+};
 
 export const trailsFor = async (
   db: DrizzleDatabase,

@@ -6,9 +6,9 @@ import { DiscoveryModule } from '@nestjs/core';
 import { RunnersModule } from '@runners/runners.module';
 import { SecretsModule } from '@secrets/secrets.module';
 import { SHIPPED_SKILL_KEYS } from '@work/application/ports/built-in-skills.port';
-import { GIVEN_SKILLS } from '@work/application/ports/given-skills.port';
-import { GIVEN_TOOLS } from '@work/application/ports/given-tools.port';
+import { GIVEN_AT_STATIONS } from '@work/application/ports/given-at-stations.port';
 import { HAPPENING_REACTIONS } from '@work/application/ports/happening-reactions.port';
+import { HARNESS_PROFILE_REVIEW } from '@work/application/ports/harness-profile-review.port';
 import { WORK_LOOKUP } from '@work/application/ports/work-lookup.port';
 import { WORK_CONTROLLERS, WORK_PROVIDERS } from '@work/work.wiring';
 
@@ -27,8 +27,8 @@ import { WORK_CONTROLLERS, WORK_PROVIDERS } from '@work/work.wiring';
     WORK_LOOKUP,
     SHIPPED_SKILL_KEYS,
     HAPPENING_REACTIONS,
-    GIVEN_TOOLS,
-    GIVEN_SKILLS,
+    GIVEN_AT_STATIONS,
+    HARNESS_PROFILE_REVIEW,
   ],
 })
 export class WorkModule {}

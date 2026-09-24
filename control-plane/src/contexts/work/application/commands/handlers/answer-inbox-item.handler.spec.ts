@@ -18,6 +18,7 @@ import { Station } from '@work/domain/entities/station.entity';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
+import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
@@ -111,9 +112,11 @@ const asking = () =>
   })
     .handedTo(RunId.of('run_1'), line())
     .clearFor(
-      ToolCall.of(
-        Tool.of('linear.comment'),
-        ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+      ApprovalSubject.toolCall(
+        ToolCall.of(
+          Tool.of('linear.comment'),
+          ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+        ),
       ),
       NEEDS_APPROVAL,
       {

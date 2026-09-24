@@ -28,6 +28,7 @@ import {
 import { CurrentRunner } from '@platform/http/decorators/current-runner.decorator';
 import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
 import { AnswerRemarkCommand } from '@work/application/commands/answer-remark.command';
+import { AskPermissionCommand } from '@work/application/commands/ask-permission.command';
 import { DeliverSaidCommand } from '@work/application/commands/deliver-said.command';
 import {
   AppendRunJournalCommand,
@@ -38,6 +39,7 @@ import {
 import { UseToolCommand } from '@work/application/commands/use-tool.command';
 import type { HarnessDto } from '@work/application/dto/harness.dto';
 import type { PendingMessageDto } from '@work/application/dto/pending-message.dto';
+import type { PermissionAnswerDto } from '@work/application/dto/permission-answer.dto';
 import type { ClaimedWorkDto } from '@work/application/dto/run.dto';
 import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
 import type { ToolAnswerDto } from '@work/application/dto/tool-answer.dto';
@@ -53,6 +55,7 @@ import { KeptWorkspacesResponseDto } from '@work/presentation/http/dto/kept-work
 import {
   AnswerRemarkRequestDto,
   AppendRunEventsRequestDto,
+  AskPermissionRequestDto,
   CompleteRunRequestDto,
   DeliverSaidRequestDto,
   PendingMessageResponseDto,
@@ -63,6 +66,7 @@ import {
   ClaimedCheckStepResponseDto,
   ClaimedRunResponseDto,
   ClaimedWorkResponseDto,
+  PermissionAnswerResponseDto,
   RenewLeaseResponseDto,
   ToolAnswerResponseDto,
 } from '@work/presentation/http/dto/runner.response.dto';
@@ -101,6 +105,7 @@ export class RunnerController {
           harness.id,
           harness.executable,
           harness.discovery,
+          harness.versionProbe,
         ),
     );
   }
@@ -365,6 +370,38 @@ export class RunnerController {
     >(new UseToolCommand(runId, runnerId, tool, input ?? {}));
 
     return new ToolAnswerResponseDto(answered.output);
+  }
+
+  @Post('runs/:runId/permissions')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    operationId: 'askPermission',
+    summary: 'Ask whether the harness may do what it asked to',
+    description:
+      'Only for a run whose station names a harness profile. An approval the ' +
+      'task already holds for this exact call is spent on it; otherwise a ' +
+      'person is asked in their inbox and the run lets the task go.',
+  })
+  @ApiOkResponse({ type: PermissionAnswerResponseDto })
+  @ApiConflictResponse({ description: 'The run is not held by this runner' })
+  async askPermission(
+    @Param('runId') runId: string,
+    @CurrentRunner() runnerId: string,
+    @Body() body: AskPermissionRequestDto,
+  ): Promise<PermissionAnswerResponseDto> {
+    const answered = await this.commandBus.execute<
+      AskPermissionCommand,
+      PermissionAnswerDto
+    >(
+      new AskPermissionCommand(runId, runnerId, {
+        sessionId: body.sessionId || null,
+        kind: body.kind ?? '',
+        title: body.title ?? '',
+        input: body.input,
+      }),
+    );
+
+    return new PermissionAnswerResponseDto(answered.decision);
   }
 
   @Post('runs/:runId/remark')

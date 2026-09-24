@@ -182,9 +182,9 @@ import {
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import {
-  GIVEN_TOOLS,
-  type GivenToolsPort,
-} from '@work/application/ports/given-tools.port';
+  GIVEN_AT_STATIONS,
+  type GivenAtStationsPort,
+} from '@work/application/ports/given-at-stations.port';
 import {
   HAPPENING_REACTIONS,
   HappeningReactionsPort,
@@ -287,8 +287,8 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: ToolsGiven,
-    inject: [GIVEN_TOOLS],
-    useFactory: (given: GivenToolsPort) => new ToolsGiven(given),
+    inject: [GIVEN_AT_STATIONS],
+    useFactory: (given: GivenAtStationsPort) => new ToolsGiven(given),
   },
 
   {

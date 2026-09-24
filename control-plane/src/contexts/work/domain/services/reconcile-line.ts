@@ -100,6 +100,8 @@ const assemble = (
       harness: planned.harness,
       model: planned.model,
       effort: planned.effort,
+      profile: planned.profile,
+      harnessVersion: planned.harnessVersion,
       agentPrompt: planned.agentPrompt,
       check: planned.check,
       setup: planned.setup,

@@ -218,6 +218,14 @@ describe('a team, created through the resource API (e2e)', () => {
       definition: { integration: 'linear' },
       offers: [],
     });
+    await db.insert(schema.harnessProfile).values({
+      id: randomUUID(),
+      teamId,
+      key: 'careful',
+      permissions: { allow: [], ask: ['execute'], deny: [] },
+      mcpServers: [],
+      native: {},
+    });
   };
 
   const heldBy = async (teamId: string) => {
@@ -236,6 +244,10 @@ describe('a team, created through the resource API (e2e)', () => {
         .select({ key: schema.integrationDefinition.source })
         .from(schema.integrationDefinition)
         .where(eq(schema.integrationDefinition.teamId, teamId))),
+      ...(await db
+        .select({ key: schema.harnessProfile.key })
+        .from(schema.harnessProfile)
+        .where(eq(schema.harnessProfile.teamId, teamId))),
     ];
   };
 
@@ -262,6 +274,7 @@ describe('a team, created through the resource API (e2e)', () => {
         `line ${(BUILT_IN_LINES[0] as LineOpening).key.value}`,
         'skill grafana',
         'integration linear',
+        'harness profile careful',
       ]),
     );
 
@@ -281,6 +294,7 @@ describe('a team, created through the resource API (e2e)', () => {
         .map((each) => each.name)
         .sort(),
     ).toEqual([
+      'configuration.abandon-harness-profiles-of-disbanded-team',
       'configuration.abandon-skills-of-disbanded-team',
       'integrations.abandon-integrations-of-disbanded-team',
       'work.abandon-lines-of-disbanded-team',

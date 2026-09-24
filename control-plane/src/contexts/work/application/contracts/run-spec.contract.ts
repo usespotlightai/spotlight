@@ -9,7 +9,9 @@ import {
   type RunCheckout,
   type RunCommand,
   type RunContinuity,
-  type RunSkillFile,
+  type RunFile,
+  type RunHarnessSetup,
+  type RunMcpServer,
   RunSpec,
   type RunSpecParts,
   type RunToolInput,
@@ -17,9 +19,10 @@ import {
 } from '@work/domain/value-objects/run-spec.vo';
 
 export type ToolManifestShape = RunToolManifest;
-export type SkillFileShape = RunSkillFile;
+export type SkillFileShape = RunFile;
 export type AttachmentShape = RunAttachment;
 export type RunSpecShape = RunSpecParts;
+export type HarnessSetupShape = RunHarnessSetup;
 
 export const THROUGH_SPOTLIGHT = 'spotlight:repository';
 
@@ -138,14 +141,16 @@ const toolOf = (raw: unknown): RunToolManifest => {
   };
 };
 
-const skillOf = (raw: unknown): RunSkillFile => {
-  const given = objectAt(raw, 'its skills');
+const fileOf =
+  (where: string) =>
+  (raw: unknown): RunFile => {
+    const given = objectAt(raw, where);
 
-  return {
-    path: stringAt(given.path, 'its skills'),
-    text: stringAt(given.text, 'its skills'),
+    return {
+      path: stringAt(given.path, where),
+      text: stringAt(given.text, where),
+    };
   };
-};
 
 const attachmentOf = (raw: unknown): RunAttachment => {
   const given = objectAt(raw, 'its attachments');
@@ -153,6 +158,45 @@ const attachmentOf = (raw: unknown): RunAttachment => {
   return {
     id: stringAt(given.id, 'its attachments'),
     path: stringAt(given.path, 'its attachments'),
+  };
+};
+
+const mcpServerOf = (raw: unknown): RunMcpServer => {
+  const given = objectAt(raw, 'its MCP servers');
+
+  return {
+    name: stringAt(given.name, 'its MCP servers'),
+    command: stringAt(given.command, 'its MCP servers'),
+    args: listAt(given.args, 'its MCP servers', (arg) =>
+      stringAt(arg, 'its MCP servers'),
+    ),
+    env: listAt(given.env, 'its MCP servers', (each) => {
+      const variable = objectAt(each, 'its MCP servers');
+
+      return {
+        name: stringAt(variable.name, 'its MCP servers'),
+        value: stringAt(variable.value, 'its MCP servers'),
+      };
+    }),
+  };
+};
+
+const harnessSetupOf = (raw: unknown): RunHarnessSetup => {
+  const given = objectAt(raw, 'how its harness is set up');
+
+  return {
+    files: listAt(
+      given.files,
+      'how its harness is set up',
+      fileOf('how its harness is set up'),
+    ),
+    ...(given.session === undefined
+      ? {}
+      : { session: objectAt(given.session, 'how its harness is set up') }),
+    mcpServers: listAt(given.mcpServers, 'its MCP servers', mcpServerOf),
+    asks: listAt(given.asks, 'what its harness asks about', (each) =>
+      stringAt(each, 'what its harness asks about'),
+    ),
   };
 };
 
@@ -188,7 +232,11 @@ const read = (raw: unknown): RunSpec => {
     'its checkouts',
     checkoutOf,
   );
-  const skills = optionalListAt(given.skills, 'its skills', skillOf);
+  const skills = optionalListAt(
+    given.skills,
+    'its skills',
+    fileOf('its skills'),
+  );
   const manifest = optionalListAt(given.manifest, 'its tools', toolOf);
   const catalog = optionalListAt(given.catalog, 'its catalog tools', (each) =>
     stringAt(each, 'its catalog tools'),
@@ -200,6 +248,10 @@ const read = (raw: unknown): RunSpec => {
   );
 
   const diffs = given.diffs;
+  const harnessSetup =
+    given.harnessSetup === undefined
+      ? undefined
+      : harnessSetupOf(given.harnessSetup);
 
   return RunSpec.of({
     ...(checkouts ? { checkouts } : {}),
@@ -216,6 +268,7 @@ const read = (raw: unknown): RunSpec => {
       : {
           diffs: booleanAt(diffs, 'whether it reports the diff it leaves'),
         }),
+    ...(harnessSetup ? { harnessSetup } : {}),
   });
 };
 
