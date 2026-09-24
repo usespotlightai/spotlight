@@ -5,7 +5,10 @@ import { IdentityProblems } from '@identity/application/rendering/identity-probl
 import { TeamKeyFixedError } from '@identity/domain/exceptions/team-key-fixed.error';
 import { TeamMovedOnError } from '@identity/domain/exceptions/team-moved-on.error';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
-import type { ResourceUpdated } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import {
+  FORBIDDEN,
+  type ResourceUpdated,
+} from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -34,8 +37,12 @@ export class UpdateTeamHandler
           )
         : null;
 
-      if (!standing || !membership?.administers) {
+      if (!standing || !membership) {
         return null;
+      }
+
+      if (!membership.administers) {
+        return FORBIDDEN;
       }
 
       standing.expecting(command.expectedVersion);

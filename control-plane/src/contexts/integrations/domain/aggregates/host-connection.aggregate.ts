@@ -6,10 +6,12 @@ import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const RENEWAL_AHEAD_MS = 5 * 60 * 1000;
 
 interface State {
+  readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
   readonly source: SourceKey;
   readonly accessToken: AccessToken;
@@ -27,11 +29,13 @@ export class HostConnection extends EventRecorder {
   }
 
   static linkedFrom(input: {
+    workspaceId: WorkspaceId;
     teamId: TeamId;
     source: SourceKey;
     grant: HostGrant;
   }): HostConnection {
     const connection = new HostConnection({
+      workspaceId: input.workspaceId,
       teamId: input.teamId,
       source: input.source,
       accessToken: input.grant.accessToken,
@@ -70,6 +74,10 @@ export class HostConnection extends EventRecorder {
 
   static renewalHorizon(now: Date): Date {
     return new Date(now.getTime() + RENEWAL_AHEAD_MS);
+  }
+
+  get workspaceId(): WorkspaceId {
+    return this.state.workspaceId;
   }
 
   get teamId(): TeamId {

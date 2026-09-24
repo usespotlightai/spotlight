@@ -29,9 +29,11 @@ export const envSchema = databaseSchema
     GITHUB_APP_ID: z.string().min(1),
     GITHUB_APP_PRIVATE_KEY: z.string().min(1),
     GITHUB_WEBHOOK_SECRET: z.string().default(''),
-    SPOTLIGHT_SECRETS_KEY: z.string().min(1),
+    SPOTLIGHT_SECRETS_KEY: z.string().min(1).optional(),
+    SECRETS_KMS_KEY_ID: z.string().min(1).optional(),
+    SECRETS_AWS_SECRETS_MANAGER: z.stringbool().default(false),
     SPOTLIGHT_PUBLIC_URL: z.url().optional(),
-    // Empty allows none: templated URLs carry secrets, so the deployment decides.
+    // Empty allows none: where Spotlight may call is the deployment's to decide.
     OUTBOUND_ALLOWED_HOSTS: z.string().default(''),
     OAUTH_CLIENTS: z.string().default('{}'),
     S3_BUCKET: z.string().default(''),
@@ -49,6 +51,11 @@ export const envSchema = databaseSchema
     CHANGE_STACK_MODEL: z.string().min(1).default('google/gemini-3.8-flash'),
     DECISIONS_MODEL: z.string().min(1).default('google/gemini-3.8-flash'),
     LOG_LEVEL: z.enum(LOG_LEVELS).optional(),
+  })
+  .refine((env) => env.SPOTLIGHT_SECRETS_KEY || env.SECRETS_KMS_KEY_ID, {
+    path: ['SPOTLIGHT_SECRETS_KEY'],
+    message:
+      'wraps each workspace data key when SECRETS_KMS_KEY_ID names no AWS KMS key; generate one with: openssl rand -base64 32',
   })
   .transform((env) => ({
     ...env,

@@ -3,6 +3,7 @@ import { IdentityModule } from '@identity/identity.module';
 import { Module } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
 import { RunnersModule } from '@runners/runners.module';
+import { SecretsModule } from '@secrets/secrets.module';
 import { SHIPPED_SKILL_KEYS } from '@work/application/ports/built-in-skills.port';
 import { GIVEN_SKILLS } from '@work/application/ports/given-skills.port';
 import { GIVEN_TOOLS } from '@work/application/ports/given-tools.port';
@@ -11,7 +12,13 @@ import { WORK_LOOKUP } from '@work/application/ports/work-lookup.port';
 import { WORK_CONTROLLERS, WORK_PROVIDERS } from '@work/work.wiring';
 
 @Module({
-  imports: [DiscoveryModule, IdentityModule, GitHubModule, RunnersModule],
+  imports: [
+    DiscoveryModule,
+    IdentityModule,
+    SecretsModule,
+    GitHubModule,
+    RunnersModule,
+  ],
   controllers: [...WORK_CONTROLLERS],
   providers: [...WORK_PROVIDERS],
   exports: [

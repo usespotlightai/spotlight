@@ -1,15 +1,13 @@
-import type { TeamKey } from '@identity/domain/value-objects/team-key.vo';
+import type { Holdings } from '@identity/domain/value-objects/holdings.vo';
 
 export class WorkspaceInUseError extends Error {
   readonly violation = 'conflict' as const;
 
-  constructor(slug: string, teams: readonly TeamKey[]) {
+  constructor(slug: string, holdings: Holdings) {
     super(
       `The ${slug} workspace still holds ${
-        teams.length > 0
-          ? `the teams ${teams.map((each) => each.value).join(', ')}`
-          : 'a team'
-      }; delete them first`,
+        holdings.isEmpty ? 'a team' : holdings.held.join(', ')
+      }; delete those first`,
     );
     this.name = 'WorkspaceInUseError';
   }

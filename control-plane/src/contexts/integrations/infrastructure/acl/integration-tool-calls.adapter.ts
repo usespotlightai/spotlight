@@ -19,6 +19,7 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
   async reach(
     tool: string,
     task: BoundTaskDto,
+    runId: string,
   ): Promise<IntegrationTool | null> {
     const teamId = TeamId.of(task.teamId);
     const definitions = await this.defined.ofTeam(teamId);
@@ -38,7 +39,15 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
       call: async (inputs) =>
         reachable.call(
           inputs,
-          await this.hosts.of(teamId, reachable.integration),
+          await this.hosts.forRun(
+            {
+              teamId,
+              workspaceId: task.workspaceId,
+              runId,
+              wears: reachable.wears,
+            },
+            reachable.integration,
+          ),
         ),
     };
   }

@@ -5,6 +5,7 @@ import {
   timingSafeEqual,
   verify as verifySignature,
 } from 'node:crypto';
+import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
 import type {
   Delivered,
   HappeningDeclaration,
@@ -49,6 +50,7 @@ export class WebhookRuntime implements WebhookSourcePort {
     private readonly now: () => number = () => Date.now(),
     private readonly jwks: JwksResolver | null = null,
     private readonly outbound: HttpOutbound | null = null,
+    private readonly credentials: Credentials | null = null,
   ) {}
 
   get key(): string {
@@ -288,32 +290,33 @@ export class WebhookRuntime implements WebhookSourcePort {
       this.bindings(delivered),
       (against) => (mine ? holds(mine, against) : false),
       (event, against) => this.enriched(event, against),
-      this.outbound
+      this.outbound && this.credentials
         ? (request, against) => this.fetched(request, against)
         : null,
     );
   }
 
   private fetched(request: RequestIR, against: Bindings): Promise<Uint8Array> {
-    return (this.outbound as HttpOutbound).bytes(request, {
-      ...against,
-      secret: Object.fromEntries(this.secrets),
-    });
+    return (this.outbound as HttpOutbound).bytes(
+      request,
+      against,
+      this.credentials as Credentials,
+    );
   }
 
   private async enriched(event: EventIR, against: Bindings): Promise<Bindings> {
-    if (!event.lookup || !this.outbound) {
+    if (!event.lookup || !this.outbound || !this.credentials) {
       return against;
     }
 
-    const secret = Object.fromEntries(this.secrets);
     let result: Awaited<ReturnType<HttpOutbound['run']>>;
 
     try {
-      result = await this.outbound.run(event.lookup.request, {
-        ...against,
-        secret,
-      });
+      result = await this.outbound.run(
+        event.lookup.request,
+        against,
+        this.credentials,
+      );
     } catch (error) {
       if (error instanceof ExpressionFailedError) {
         return against;
@@ -326,7 +329,7 @@ export class WebhookRuntime implements WebhookSourcePort {
       return against;
     }
 
-    const beside = { ...against, secret, response: bound(result.response) };
+    const beside = { ...against, response: bound(result.response) };
     const captured: Record<string, unknown> = {};
 
     for (const each of event.lookup.capture) {

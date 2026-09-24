@@ -4,7 +4,10 @@ import { IdentityProblems } from '@identity/application/rendering/identity-probl
 import { WorkspaceMovedOnError } from '@identity/domain/exceptions/workspace-moved-on.error';
 import { WorkspaceSlugFixedError } from '@identity/domain/exceptions/workspace-slug-fixed.error';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
-import type { ResourceUpdated } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import {
+  FORBIDDEN,
+  type ResourceUpdated,
+} from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -28,8 +31,14 @@ export class UpdateWorkspaceHandler
     try {
       const standing = await this.workspaces.find(id);
 
-      if (!standing?.administeredBy(UserId.of(command.requesterId))) {
+      const requester = UserId.of(command.requesterId);
+
+      if (!standing?.holds(requester)) {
         return null;
+      }
+
+      if (!standing.administeredBy(requester)) {
+        return FORBIDDEN;
       }
 
       standing.expecting(command.expectedVersion);

@@ -5,7 +5,10 @@ import { Team } from '@identity/domain/aggregates/team.aggregate';
 import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-workspace.error';
 import { TeamAlreadyDefinedError } from '@identity/domain/exceptions/team-already-defined.error';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
-import type { ResourceCreated } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import {
+  FORBIDDEN,
+  type ResourceCreated,
+} from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -40,8 +43,12 @@ export class CreateTeamHandler
         requester,
       );
 
-      if (!membership?.administers) {
+      if (!membership) {
         return null;
+      }
+
+      if (!membership.administers) {
+        return FORBIDDEN;
       }
 
       const compiled = this.definitions.team(command.definition);

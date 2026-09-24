@@ -1191,6 +1191,76 @@ export type JoinedTeamResponseDto = {
   teamName: string;
 };
 
+export type SecretSourceResponseDto = {
+  /**
+   * Where the value lives: kept by Spotlight, or read from AWS Secrets Manager when it is used
+   */
+  kind: 'built-in' | 'aws-secrets-manager';
+  /**
+   * The name or ARN of the secret in AWS Secrets Manager
+   */
+  secretId: string | null;
+  /**
+   * The key to read when that secret holds JSON
+   */
+  field: string | null;
+};
+
+export type SecretBindingResponseDto = {
+  /**
+   * A host the secret may be sent to, over HTTPS only
+   */
+  host: string;
+  /**
+   * The request header it is worn in
+   */
+  header: string;
+  /**
+   * Written before the value in that header
+   */
+  prefix: string;
+};
+
+export type SecretResourceResponseDto = {
+  /**
+   * Issued by Spotlight when the resource is created, and never changed
+   */
+  id: string;
+  /**
+   * Rises with every change; the ETag carries it, and a write sends it back as If-Match
+   */
+  version: number;
+  /**
+   * Names the resource within its workspace; terraform import takes it
+   */
+  address: string;
+  /**
+   * What would work better, though nothing stops it working; not settable
+   */
+  warnings: Array<FieldErrorResponseDto>;
+  /**
+   * The workspace it belongs to
+   */
+  workspaceId: string;
+  /**
+   * What integrations call it; fixed for its life, so changing it means replacing the secret
+   */
+  name: string;
+  source: SecretSourceResponseDto;
+  /**
+   * The only hosts the secret is ever sent to, and how; a request anywhere else goes without it
+   */
+  bindings: Array<SecretBindingResponseDto>;
+  /**
+   * Changing it rotates the value to the valueWo sent with it; the value itself is write-only and never answered
+   */
+  valueWoVersion: number | null;
+  /**
+   * When the value was last set; not settable
+   */
+  rotatedAt: string;
+};
+
 export type RepositoryResponseDto = {
   /**
    * Named the way GitHub names it, owner and all
@@ -1912,6 +1982,10 @@ export type CreateLineErrors = {
    */
   401: ProblemResponseDto;
   /**
+   * You may read the line, but not change it
+   */
+  403: ProblemResponseDto;
+  /**
    * No such line that you may see
    */
   404: ProblemResponseDto;
@@ -1964,6 +2038,10 @@ export type DeleteLineErrors = {
    * No valid credentials
    */
   401: ProblemResponseDto;
+  /**
+   * You may read the line, but not change it
+   */
+  403: ProblemResponseDto;
   /**
    * No such line that you may see
    */
@@ -2060,6 +2138,10 @@ export type UpdateLineErrors = {
    * No valid credentials
    */
   401: ProblemResponseDto;
+  /**
+   * You may read the line, but not change it
+   */
+  403: ProblemResponseDto;
   /**
    * No such line that you may see
    */
@@ -3429,6 +3511,10 @@ export type CreateWorkspaceErrors = {
    */
   401: ProblemResponseDto;
   /**
+   * You may read the workspace, but not change it
+   */
+  403: ProblemResponseDto;
+  /**
    * No such workspace that you may see
    */
   404: ProblemResponseDto;
@@ -3481,6 +3567,10 @@ export type DeleteWorkspaceErrors = {
    * No valid credentials
    */
   401: ProblemResponseDto;
+  /**
+   * You may read the workspace, but not change it
+   */
+  403: ProblemResponseDto;
   /**
    * No such workspace that you may see
    */
@@ -3579,6 +3669,10 @@ export type UpdateWorkspaceErrors = {
    */
   401: ProblemResponseDto;
   /**
+   * You may read the workspace, but not change it
+   */
+  403: ProblemResponseDto;
+  /**
    * No such workspace that you may see
    */
   404: ProblemResponseDto;
@@ -3639,6 +3733,10 @@ export type CreateTeamErrors = {
    */
   401: ProblemResponseDto;
   /**
+   * You may read the team, but not change it
+   */
+  403: ProblemResponseDto;
+  /**
    * No such team that you may see
    */
   404: ProblemResponseDto;
@@ -3691,6 +3789,10 @@ export type DeleteTeamErrors = {
    * No valid credentials
    */
   401: ProblemResponseDto;
+  /**
+   * You may read the team, but not change it
+   */
+  403: ProblemResponseDto;
   /**
    * No such team that you may see
    */
@@ -3788,6 +3890,10 @@ export type UpdateTeamErrors = {
    * No valid credentials
    */
   401: ProblemResponseDto;
+  /**
+   * You may read the team, but not change it
+   */
+  403: ProblemResponseDto;
   /**
    * No such team that you may see
    */
@@ -4147,6 +4253,308 @@ export type AcceptInviteResponses = {
 
 export type AcceptInviteResponse = AcceptInviteResponses[keyof AcceptInviteResponses];
 
+export type CreateSecretData = {
+  body: {
+    name: string;
+    source?: {
+      kind: 'built-in' | 'aws-secrets-manager';
+      secretId?: string;
+      field?: string;
+    };
+    bindings?: Array<{
+      host: string;
+      header?: string;
+      prefix?: string;
+    }>;
+    /**
+     * The value to keep; accepted on create and whenever valueWoVersion changes, and never answered
+     */
+    valueWo?: string;
+    /**
+     * Change it to rotate the value to the valueWo sent with it
+     */
+    valueWoVersion?: number;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     */
+    'Idempotency-Key': string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{workspaceId}/secrets';
+};
+
+export type CreateSecretErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * You may read the secret, but not change it
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such secret that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * There is already a secret at that address
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field; or the Idempotency-Key was used for a different request
+   */
+  422: ProblemResponseDto;
+};
+
+export type CreateSecretError = CreateSecretErrors[keyof CreateSecretErrors];
+
+export type CreateSecretResponses = {
+  /**
+   * The secret, as a read would answer it
+   */
+  201: SecretResourceResponseDto;
+};
+
+export type CreateSecretResponse = CreateSecretResponses[keyof CreateSecretResponses];
+
+export type DeleteSecretData = {
+  body?: never;
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/secrets/{id}';
+};
+
+export type DeleteSecretErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * You may read the secret, but not change it
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such secret that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type DeleteSecretError = DeleteSecretErrors[keyof DeleteSecretErrors];
+
+export type DeleteSecretResponses = {
+  /**
+   * Deleted
+   */
+  204: void;
+};
+
+export type DeleteSecretResponse = DeleteSecretResponses[keyof DeleteSecretResponses];
+
+export type ReadSecretData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/secrets/{id}';
+};
+
+export type ReadSecretErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such secret that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadSecretError = ReadSecretErrors[keyof ReadSecretErrors];
+
+export type ReadSecretResponses = {
+  /**
+   * The secret, every field of it
+   */
+  200: SecretResourceResponseDto;
+};
+
+export type ReadSecretResponse = ReadSecretResponses[keyof ReadSecretResponses];
+
+export type UpdateSecretData = {
+  body: {
+    name: string;
+    source?: {
+      kind: 'built-in' | 'aws-secrets-manager';
+      secretId?: string;
+      field?: string;
+    };
+    bindings?: Array<{
+      host: string;
+      header?: string;
+      prefix?: string;
+    }>;
+    /**
+     * The value to keep; accepted on create and whenever valueWoVersion changes, and never answered
+     */
+    valueWo?: string;
+    /**
+     * Change it to rotate the value to the valueWo sent with it
+     */
+    valueWoVersion?: number;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/secrets/{id}';
+};
+
+export type UpdateSecretErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * You may read the secret, but not change it
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such secret that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field
+   */
+  422: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type UpdateSecretError = UpdateSecretErrors[keyof UpdateSecretErrors];
+
+export type UpdateSecretResponses = {
+  /**
+   * The secret, as a read would answer it
+   */
+  200: SecretResourceResponseDto;
+};
+
+export type UpdateSecretResponse = UpdateSecretResponses[keyof UpdateSecretResponses];
+
+export type ImportSecretData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+  };
+  path: {
+    workspaceId: string;
+  };
+  query: {
+    /**
+     * The secret's address within the workspace
+     */
+    address: unknown;
+  };
+  url: '/resources/workspaces/{workspaceId}/secrets/import';
+};
+
+export type ImportSecretErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such secret that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ImportSecretError = ImportSecretErrors[keyof ImportSecretErrors];
+
+export type ImportSecretResponses = {
+  /**
+   * The secret, as a read would answer it
+   */
+  200: SecretResourceResponseDto;
+};
+
+export type ImportSecretResponse = ImportSecretResponses[keyof ImportSecretResponses];
+
 export type ListRepositoriesData = {
   body?: never;
   path: {
@@ -4432,6 +4840,10 @@ export type CreateSkillErrors = {
    */
   401: ProblemResponseDto;
   /**
+   * You may read the skill, but not change it
+   */
+  403: ProblemResponseDto;
+  /**
    * No such skill that you may see
    */
   404: ProblemResponseDto;
@@ -4484,6 +4896,10 @@ export type DeleteSkillErrors = {
    * No valid credentials
    */
   401: ProblemResponseDto;
+  /**
+   * You may read the skill, but not change it
+   */
+  403: ProblemResponseDto;
   /**
    * No such skill that you may see
    */
@@ -4583,6 +4999,10 @@ export type UpdateSkillErrors = {
    * No valid credentials
    */
   401: ProblemResponseDto;
+  /**
+   * You may read the skill, but not change it
+   */
+  403: ProblemResponseDto;
   /**
    * No such skill that you may see
    */
@@ -5047,6 +5467,10 @@ export type CreateIntegrationErrors = {
    */
   401: ProblemResponseDto;
   /**
+   * You may read the integration, but not change it
+   */
+  403: ProblemResponseDto;
+  /**
    * No such integration that you may see
    */
   404: ProblemResponseDto;
@@ -5099,6 +5523,10 @@ export type DeleteIntegrationErrors = {
    * No valid credentials
    */
   401: ProblemResponseDto;
+  /**
+   * You may read the integration, but not change it
+   */
+  403: ProblemResponseDto;
   /**
    * No such integration that you may see
    */
@@ -5195,6 +5623,10 @@ export type UpdateIntegrationErrors = {
    * No valid credentials
    */
   401: ProblemResponseDto;
+  /**
+   * You may read the integration, but not change it
+   */
+  403: ProblemResponseDto;
   /**
    * No such integration that you may see
    */

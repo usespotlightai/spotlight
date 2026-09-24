@@ -6,7 +6,10 @@ import type { SkillDefinitionRepository } from '@configuration/domain/repositori
 import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import type { ResourceCreated } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import {
+  FORBIDDEN,
+  type ResourceCreated,
+} from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -39,9 +42,15 @@ export class CreateSkillHandler
         command.teamId,
         UserId.of(command.requesterId),
       );
-      const team = membership?.administers
-        ? await this.teams.find(membership.teamId)
-        : null;
+      if (!membership) {
+        return null;
+      }
+
+      if (!membership.administers) {
+        return FORBIDDEN;
+      }
+
+      const team = await this.teams.find(membership.teamId);
 
       if (!team) {
         return null;

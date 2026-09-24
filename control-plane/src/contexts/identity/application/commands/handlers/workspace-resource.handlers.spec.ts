@@ -4,6 +4,7 @@ import { CreateWorkspaceHandler } from '@identity/application/commands/handlers/
 import { DeleteWorkspaceHandler } from '@identity/application/commands/handlers/delete-workspace.handler';
 import { UpdateWorkspaceHandler } from '@identity/application/commands/handlers/update-workspace.handler';
 import { UpdateWorkspaceCommand } from '@identity/application/commands/update-workspace.command';
+import { HoldingsRegistry } from '@identity/application/services/holdings-registry.service';
 import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceMovedOnError } from '@identity/domain/exceptions/workspace-moved-on.error';
 import {
@@ -16,7 +17,9 @@ import {
   workspaces,
 } from '@identity/identity.resources.fake-spec';
 import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
+import { FORBIDDEN } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const ACME = { name: 'Acme', slug: 'acme' };
@@ -133,18 +136,23 @@ describe('UpdateWorkspaceHandler', () => {
     ).toEqual({ outcome: 'moved-on', currentVersion: 4 });
   });
 
-  it('answers nothing to someone who does not administer it', async () => {
-    expect(await updating().update(ACME, { by: MEMBER })).toBeNull();
+  it('forbids a member who does not administer it, and answers no one else', async () => {
+    expect(await updating().update(ACME, { by: MEMBER })).toEqual(FORBIDDEN);
     expect(await updating({ standing: null }).update(ACME)).toBeNull();
   });
 });
 
 describe('DeleteWorkspaceHandler', () => {
-  const deleting = (over: { held?: boolean } = {}) => {
+  const deleting = (
+    over: { held?: boolean; holding?: readonly string[] } = {},
+  ) => {
     const kept = workspaces({ standing: workspaceAt(3) });
+    const holdings = new HoldingsRegistry<WorkspaceId>();
+    holdings.register({ heldBy: async () => over.holding ?? [] });
     const handler = new DeleteWorkspaceHandler(
       kept,
       teamKeys(over.held ? ['core'] : []),
+      holdings,
       transaction,
     );
 
@@ -172,7 +180,17 @@ describe('DeleteWorkspaceHandler', () => {
     expect(kept.save).not.toHaveBeenCalled();
   });
 
-  it('answers nothing to someone who does not administer it', async () => {
-    expect(await deleting().remove(MEMBER)).toBeNull();
+  it('will not close a workspace another context still holds something in', async () => {
+    const { remove, kept } = deleting({ holding: ['secret LINEAR_API_KEY'] });
+
+    expect(await remove()).toMatchObject({
+      outcome: 'in-use',
+      reason: expect.stringContaining('secret LINEAR_API_KEY'),
+    });
+    expect(kept.save).not.toHaveBeenCalled();
+  });
+
+  it('forbids a member who does not administer it', async () => {
+    expect(await deleting().remove(MEMBER)).toEqual(FORBIDDEN);
   });
 });

@@ -70,14 +70,17 @@ export class FinishOAuth2ConnectionHandler
         return null;
       }
 
-      if (
-        !(await this.access.onTeam(authorized.teamId, UserId.of(authorized.by)))
-          ?.administers
-      ) {
+      const membership = await this.access.onTeam(
+        authorized.teamId,
+        UserId.of(authorized.by),
+      );
+
+      if (!membership?.administers) {
         return null;
       }
 
       const connection = HostConnection.linkedFrom({
+        workspaceId: membership.workspaceId,
         teamId: TeamId.of(authorized.teamId),
         source: SourceKey.of(authorized.source),
         grant: authorized.grant,

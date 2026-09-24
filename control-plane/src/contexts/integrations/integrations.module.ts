@@ -8,6 +8,8 @@ import {
 } from '@integrations/integrations.wiring';
 import { Module } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
+import { SECRET_USES } from '@secrets/application/ports/secret-uses.port';
+import { SecretsModule } from '@secrets/secrets.module';
 import { INTEGRATION_TOOL_CALLS } from '@work/application/ports/integration-tool-calls.port';
 import { TASK_NOTICES } from '@work/application/ports/task-notices.port';
 import { TEAM_INTEGRATIONS } from '@work/application/ports/team-integrations.port';
@@ -17,6 +19,7 @@ import { WorkModule } from '@work/work.module';
   imports: [
     DiscoveryModule,
     IdentityModule,
+    SecretsModule,
     GitHubModule,
     WorkModule,
     ConfigurationModule,
@@ -28,6 +31,7 @@ import { WorkModule } from '@work/work.module';
     INTEGRATION_READER,
     TASK_NOTICES,
     INTEGRATION_TOOL_CALLS,
+    SECRET_USES,
   ],
 })
 export class IntegrationsModule {}

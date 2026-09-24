@@ -110,6 +110,15 @@ export class ProblemException extends HttpException {
     });
   }
 
+  static forbidden(kind: string): ProblemException {
+    return new ProblemException({
+      type: problemType('forbidden'),
+      title: `Not allowed to change the ${kind}`,
+      status: HttpStatus.FORBIDDEN,
+      detail: `You may read this ${kind}, but only an admin of its workspace may change it`,
+    });
+  }
+
   static notFound(kind: string): ProblemException {
     return new ProblemException({
       type: problemType('not-found'),

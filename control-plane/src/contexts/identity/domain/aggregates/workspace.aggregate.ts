@@ -13,6 +13,7 @@ import {
   refusalToGive,
   rolesGivable,
 } from '@identity/domain/services/role-giving';
+import { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import type { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import type { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
@@ -111,11 +112,15 @@ export class Workspace extends EventRecorder {
     return redefined;
   }
 
-  closed(teams: readonly TeamKey[]): Workspace {
+  closed(teams: readonly TeamKey[], holdings: Holdings): Workspace {
     this.guardOpen();
 
-    if (teams.length > 0) {
-      throw new WorkspaceInUseError(this.slug.value, teams);
+    const held = Holdings.of(teams.map((each) => `team ${each.value}`)).and(
+      holdings,
+    );
+
+    if (!held.isEmpty) {
+      throw new WorkspaceInUseError(this.slug.value, held);
     }
 
     const closed = this.with({ members: this.members, closed: true });

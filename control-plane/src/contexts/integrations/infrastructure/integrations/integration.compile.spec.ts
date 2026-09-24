@@ -227,8 +227,8 @@ poll:
   request:
     method: GET
     url: https://api.linear.app/issues
-    headers:
-      authorization: \${{ "Bearer " + secret.LINEAR_TOKEN }}
+    auth:
+      secrets: [secret.LINEAR_TOKEN]
   cursor: \${{ body.lastId }}
   events:
     - forEach: \${{ body.issues }}
@@ -394,8 +394,7 @@ webhook:
           query:
             user: \${{ body.event.user }}
           auth:
-            token:
-              secret: secret.SLACK_BOT_TOKEN
+            secrets: [secret.SLACK_BOT_TOKEN]
         capture:
           email: \${{ response.user.profile.email }}
       raise:
@@ -616,7 +615,9 @@ actions:
       method: POST
       url: https://hooks.example.com/\${{ target.channel }}/messages
       headers:
-        authorization: Bearer \${{ secret.DEMO_TOKEN }}
+        x-line: line-\${{ task.line }}
+      auth:
+        secrets: [secret.DEMO_TOKEN, secret.DEMO_TOKEN]
       body:
         text: '\${{ ask.body }}'
         thread: '\${{ target.thread }}'
@@ -635,13 +636,50 @@ actions:
     expect(request(ACTION)?.headers[0]?.value.parts).toHaveLength(2);
   });
 
-  it('collects a secret read inside a string', () => {
+  it('collects each secret the request wears, once', () => {
     const read = compileIntegration(parseYaml(ACTION), expressions);
 
     expect(
       read.ok &&
         read.readable.integration.credentials.map((each) => each.value),
     ).toEqual(['DEMO_TOKEN']);
+    expect(request(ACTION)?.auth).toEqual({
+      kind: 'secrets',
+      secrets: ['DEMO_TOKEN'],
+    });
+  });
+
+  it('refuses a request that reads a secret’s value, rather than wearing it', () => {
+    const read = compileIntegration(
+      parseYaml(
+        ACTION.replace(
+          'x-line: line-',
+          // biome-ignore lint/suspicious/noTemplateCurlyInString: the file's own expression syntax
+          'authorization: Bearer ${{ secret.DEMO_TOKEN }}\n        x-line: line-',
+        ),
+      ),
+      expressions,
+    );
+
+    expect(read.ok).toBe(false);
+    expect(
+      !read.ok && read.problems.map((each) => dottedOf(each.field)),
+    ).toEqual(['actions.post.request.headers.authorization']);
+    expect(!read.ok && read.problems[0]?.reason).toMatch(/auth\.secrets/);
+  });
+
+  it('refuses a request that authenticates by a token it would have to read', () => {
+    const read = compileIntegration(
+      parseYaml(
+        ACTION.replace(
+          'secrets: [secret.DEMO_TOKEN, secret.DEMO_TOKEN]',
+          'token:\n          secret: secret.DEMO_TOKEN',
+        ),
+      ),
+      expressions,
+    );
+
+    expect(read.ok).toBe(false);
   });
 
   it('keeps a body written as a map as the map it is', () => {
@@ -673,8 +711,7 @@ actions:
       method: POST
       url: https://api.linear.app/graphql
       auth:
-        token:
-          secret: secret.LINEAR_API_KEY
+        secrets: [secret.LINEAR_API_KEY]
       body:
         query: 'mutation($id: String!, $body: String!) { commentCreate(input: { issueId: $id, body: $body }) { comment { url } } }'
         variables:

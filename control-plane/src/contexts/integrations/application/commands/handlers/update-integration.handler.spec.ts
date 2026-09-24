@@ -13,6 +13,7 @@ import {
   toolsGiven,
   transaction,
 } from '@integrations/integrations.resources.fake-spec';
+import { FORBIDDEN } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -124,8 +125,10 @@ describe('UpdateIntegrationHandler', () => {
     });
   });
 
-  it('answers nothing for an integration it cannot find or may not change', async () => {
+  it('answers nothing for an integration it cannot find, and forbids one it may not change', async () => {
     expect(await updating({ standing: null }).update(LINEAR)).toBeNull();
-    expect(await updating({ administers: false }).update(LINEAR)).toBeNull();
+    expect(await updating({ administers: false }).update(LINEAR)).toEqual(
+      FORBIDDEN,
+    );
   });
 });

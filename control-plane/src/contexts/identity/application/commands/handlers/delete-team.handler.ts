@@ -4,8 +4,11 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import { TeamInUseError } from '@identity/domain/exceptions/team-in-use.error';
 import { TeamMovedOnError } from '@identity/domain/exceptions/team-moved-on.error';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
-import { TeamHoldings } from '@identity/domain/value-objects/team-holdings.vo';
-import type { ResourceDeleted } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { Holdings } from '@identity/domain/value-objects/holdings.vo';
+import {
+  FORBIDDEN,
+  type ResourceDeleted,
+} from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -34,13 +37,17 @@ export class DeleteTeamHandler
           )
         : null;
 
-      if (!standing || !membership?.administers) {
+      if (!standing || !membership) {
         return null;
+      }
+
+      if (!membership.administers) {
+        return FORBIDDEN;
       }
 
       standing.expecting(command.expectedVersion);
 
-      const held = TeamHoldings.of(await this.holdings.of(id));
+      const held = Holdings.of(await this.holdings.of(id));
 
       await this.transaction.run(() =>
         this.teams.save(standing.disbanded(held)),

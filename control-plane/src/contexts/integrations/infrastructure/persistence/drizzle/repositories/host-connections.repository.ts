@@ -6,15 +6,21 @@ import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { hostConnection } from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import type { SecretCipher } from '@platform/secrets/secret.cipher';
+import type { CredentialSealingPort } from '@secrets/application/ports/credential-sealing.port';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, isNotNull, isNull, lt, sql } from 'drizzle-orm';
 
 type Row = typeof hostConnection.$inferSelect;
+
+type Held = 'access' | 'refresh';
+
+const labelFor = (teamId: string, source: string, held: Held): string =>
+  ['host-connection', teamId, source, held].join(':');
 
 @Injectable()
 export class DrizzleHostConnections implements HostConnectionRepository {
@@ -22,7 +28,7 @@ export class DrizzleHostConnections implements HostConnectionRepository {
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
     private readonly events: DomainEventDispatcher,
-    private readonly cipher: SecretCipher,
+    private readonly sealing: CredentialSealingPort,
   ) {}
 
   async of(teamId: TeamId, source: SourceKey): Promise<HostConnection | null> {
@@ -37,7 +43,7 @@ export class DrizzleHostConnections implements HostConnectionRepository {
       )
       .limit(1);
 
-    return found ? this.rehydrate(found) : null;
+    return found ? await this.rehydrate(found) : null;
   }
 
   async save(connection: HostConnection): Promise<void> {
@@ -59,14 +65,22 @@ export class DrizzleHostConnections implements HostConnectionRepository {
         ),
       );
 
-    return rows.map((row) => this.rehydrate(row));
+    return Promise.all(rows.map((row) => this.rehydrate(row)));
   }
 
   private async stored(connection: HostConnection): Promise<void> {
     const written = {
-      accessToken: this.cipher.encrypt(connection.accessToken.value),
+      accessToken: await this.sealed(
+        connection,
+        'access',
+        connection.accessToken.value,
+      ),
       refreshToken: connection.refreshToken
-        ? this.cipher.encrypt(connection.refreshToken.value)
+        ? await this.sealed(
+            connection,
+            'refresh',
+            connection.refreshToken.value,
+          )
         : null,
       expiresAt: connection.expiresAt,
       scopes: connection.scopes.join(' '),
@@ -78,6 +92,7 @@ export class DrizzleHostConnections implements HostConnectionRepository {
       await this.context.db
         .insert(hostConnection)
         .values({
+          workspaceId: connection.workspaceId.value,
           teamId: connection.teamId.value,
           source: connection.source.value,
           ...written,
@@ -107,13 +122,36 @@ export class DrizzleHostConnections implements HostConnectionRepository {
     }
   }
 
-  private rehydrate(row: Row): HostConnection {
+  private sealed(
+    connection: HostConnection,
+    held: Held,
+    plain: string,
+  ): Promise<string> {
+    return this.sealing.seal(
+      connection.workspaceId.value,
+      labelFor(connection.teamId.value, connection.source.value, held),
+      plain,
+    );
+  }
+
+  private opened(row: Row, held: Held, sealed: string): Promise<string> {
+    return this.sealing.open(
+      row.workspaceId,
+      labelFor(row.teamId, row.source, held),
+      sealed,
+    );
+  }
+
+  private async rehydrate(row: Row): Promise<HostConnection> {
     return HostConnection.rehydrate({
+      workspaceId: WorkspaceId.of(row.workspaceId),
       teamId: TeamId.of(row.teamId),
       source: SourceKey.of(row.source),
-      accessToken: AccessToken.of(this.cipher.decrypt(row.accessToken)),
+      accessToken: AccessToken.of(
+        await this.opened(row, 'access', row.accessToken),
+      ),
       refreshToken: row.refreshToken
-        ? AccessToken.of(this.cipher.decrypt(row.refreshToken))
+        ? AccessToken.of(await this.opened(row, 'refresh', row.refreshToken))
         : null,
       expiresAt: row.expiresAt,
       scopes: row.scopes ? row.scopes.split(' ') : [],

@@ -14,6 +14,7 @@ import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const expressions = new CelExpressionEngine();
@@ -57,6 +58,7 @@ const config = () => [defined(CONFIG)];
 
 const nearing = (over: { refreshToken?: string | null } = {}) =>
   HostConnection.rehydrate({
+    workspaceId: WorkspaceId.of('ws_1'),
     teamId: TEAM,
     source: SLACK,
     accessToken: AccessToken.of('xoxb-old'),

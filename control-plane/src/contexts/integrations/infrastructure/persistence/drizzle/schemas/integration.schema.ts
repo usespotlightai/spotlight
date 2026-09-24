@@ -22,6 +22,7 @@ export const integrationCursor = pgTable(
 export const hostConnection = pgTable(
   'host_connection',
   {
+    workspaceId: text('workspace_id').notNull(),
     teamId: text('team_id').notNull(),
     source: text('source').notNull(),
     accessToken: text('access_token').notNull(),

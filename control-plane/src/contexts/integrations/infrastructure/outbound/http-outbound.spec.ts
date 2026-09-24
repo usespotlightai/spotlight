@@ -1,9 +1,14 @@
+import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
 import { EgressRefusedError } from '@integrations/domain/exceptions/egress-refused.error';
 import {
   compileIntegration,
   type RequestIR,
 } from '@integrations/infrastructure/integrations/integration.compile';
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import {
+  credentialsFor,
+  injecting,
+} from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { ExpressionFailedError } from '@platform/expressions/expression.errors';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
@@ -19,8 +24,8 @@ actions:
     request:
       method: POST
       url: https://slack.com/api/chat.postMessage
-      headers:
-        authorization: '\${{ "Bearer " + secret.TOKEN }}'
+      auth:
+        secrets: [secret.TOKEN]
       body: '\${{ {"channel": target.channel, "text": ask.body} }}'
       expect:
         success: '\${{ response.ok }}'
@@ -44,15 +49,18 @@ const replying = (body: unknown, status = 200) =>
 const against = {
   ask: { body: 'The queue is stuck.' },
   target: { channel: 'C0DELIVERY' },
-  secret: { TOKEN: 'xoxb-1' },
 };
+
+const SLACK = credentialsFor({
+  TOKEN: { host: 'slack.com', prefix: 'Bearer ', value: 'xoxb-1' },
+});
 
 describe('HttpOutbound', () => {
   it('makes the call the file describes, with the templated body and headers', async () => {
     const fetch = replying({ ok: true, ts: '170.5' });
     const out = new HttpOutbound(['slack.com'], fetch);
 
-    await out.run(action(), against);
+    await out.run(action(), against, SLACK);
 
     const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe('https://slack.com/api/chat.postMessage');
@@ -70,7 +78,7 @@ describe('HttpOutbound', () => {
     const fetch = replying({ ok: true, ts: '1' });
     const out = new HttpOutbound(['slack.com'], fetch);
 
-    await out.run(action(), against);
+    await out.run(action(), against, SLACK);
 
     const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
     expect((init.headers as Record<string, string>)['content-type']).toBe(
@@ -100,7 +108,7 @@ actions:
     const fetch = replying({ ok: true });
     const out = new HttpOutbound(['slack.com'], fetch);
 
-    await out.run(request, against);
+    await out.run(request, against, SLACK);
 
     const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
     expect((init.headers as Record<string, string>)['content-type']).toBe(
@@ -114,7 +122,7 @@ actions:
       replying({ ok: true, ts: '170.5' }),
     );
 
-    const result = await out.run(action(), against);
+    const result = await out.run(action(), against, SLACK);
 
     expect(result.ok).toBe(true);
     expect(result.capture.thread).toBe('170.5');
@@ -126,14 +134,16 @@ actions:
       replying({ ok: false, error: 'channel_not_found' }),
     );
 
-    expect((await out.run(action(), against)).ok).toBe(false);
+    expect((await out.run(action(), against, SLACK)).ok).toBe(false);
   });
 
   it('sends nothing where the body cannot be read, and says where', async () => {
     const fetch = replying({ ok: true });
     const out = new HttpOutbound(['slack.com'], fetch);
 
-    await expect(out.run(action(), { ...against, ask: {} })).rejects.toThrow(
+    await expect(
+      out.run(action(), { ...against, ask: {} }, SLACK),
+    ).rejects.toThrow(
       new ExpressionFailedError(
         'actions.post-message.request.body',
         '',
@@ -143,21 +153,69 @@ actions:
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('sends nothing where a header cannot be read', async () => {
+  it('sends nothing where the secret it wears is not bound to the host', async () => {
     const fetch = replying({ ok: true });
     const out = new HttpOutbound(['slack.com'], fetch);
 
     await expect(
-      out.run(action(), { ...against, secret: {} }),
-    ).rejects.toBeInstanceOf(ExpressionFailedError);
+      out.run(
+        action(),
+        against,
+        credentialsFor({ TOKEN: { host: 'api.linear.app', value: 'lin-1' } }),
+      ),
+    ).rejects.toThrow('The TOKEN secret is not bound to slack.com');
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('asks for the secret only once the deployment allows the host', async () => {
+    const fetch = replying({ ok: true });
+    const { injection, forSpotlight } = injecting({
+      TOKEN: { host: 'slack.com', value: 'xoxb-1' },
+    });
+    const out = new HttpOutbound(['example.com'], fetch);
+
+    await expect(
+      out.run(
+        action(),
+        against,
+        new SpotlightCredentials(injection, async () => 'ws_1'),
+      ),
+    ).rejects.toBeInstanceOf(EgressRefusedError);
+    expect(forSpotlight).not.toHaveBeenCalled();
+  });
+
+  it('asks for the secrets the action names, toward the address it calls', async () => {
+    const { injection, forSpotlight } = injecting({
+      TOKEN: { host: 'slack.com', value: 'xoxb-1' },
+    });
+
+    await new HttpOutbound(['slack.com'], replying({ ok: true })).run(
+      action(),
+      against,
+      new SpotlightCredentials(injection, async () => 'ws_1'),
+    );
+
+    expect(forSpotlight).toHaveBeenCalledWith({
+      workspaceId: 'ws_1',
+      secrets: ['TOKEN'],
+      url: 'https://slack.com/api/chat.postMessage',
+    });
+  });
+
+  it('follows no redirect while wearing a secret', async () => {
+    const fetch = replying({ ok: true });
+
+    await new HttpOutbound(['slack.com'], fetch).run(action(), against, SLACK);
+
+    const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect(init.redirect).toBe('manual');
   });
 
   it('refuses a host the deployment did not allow', async () => {
     const fetch = replying({ ok: true });
     const out = new HttpOutbound(['example.com'], fetch);
 
-    await expect(out.run(action(), against)).rejects.toBeInstanceOf(
+    await expect(out.run(action(), against, SLACK)).rejects.toBeInstanceOf(
       EgressRefusedError,
     );
     expect(fetch).not.toHaveBeenCalled();
@@ -167,7 +225,7 @@ actions:
     const fetch = replying({ ok: true, ts: '1' });
     const out = new HttpOutbound(['slack.com'], fetch);
 
-    await out.run(action(), against);
+    await out.run(action(), against, SLACK);
     expect(fetch).toHaveBeenCalled();
   });
 
@@ -197,7 +255,7 @@ actions:
     const fetch = replying({ ok: true });
     const out = new HttpOutbound(['slack.com'], fetch);
 
-    await out.run(request, { ...against, connection: 'xoxb-live' });
+    await out.run(request, { ...against, connection: 'xoxb-live' }, SLACK);
 
     const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
     expect((init.headers as Record<string, string>).authorization).toBe(
@@ -214,8 +272,7 @@ actions:
       method: GET
       url: '\${{ file.url }}'
       auth:
-        token:
-          secret: secret.TOKEN
+        secrets: [secret.TOKEN]
       expect:
         success: '\${{ status == 200 && !headers["content-type"].startsWith("text/html") }}'
 `;
@@ -232,8 +289,11 @@ actions:
 
     const named = {
       file: { url: 'https://files.slack.com/files-pri/T1-F1/queue.png' },
-      secret: { TOKEN: 'xoxb-1' },
     };
+
+    const FILES = credentialsFor({
+      TOKEN: { host: 'files.slack.com', prefix: 'Bearer ', value: 'xoxb-1' },
+    });
 
     const answering = (body: BodyInit, type: string) =>
       vi.fn(
@@ -248,7 +308,7 @@ actions:
       const fetch = answering(new Uint8Array([1, 2, 3]), 'image/png');
 
       await expect(
-        new HttpOutbound(['slack.com'], fetch).bytes(fetching(), named),
+        new HttpOutbound(['slack.com'], fetch).bytes(fetching(), named, FILES),
       ).resolves.toEqual(new Uint8Array([1, 2, 3]));
 
       const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
@@ -264,13 +324,17 @@ actions:
       );
 
       await expect(
-        new HttpOutbound(['slack.com'], fetch).bytes(fetching(), named),
+        new HttpOutbound(['slack.com'], fetch).bytes(fetching(), named, FILES),
       ).rejects.toThrow(UpstreamRefusedError);
     });
 
     it('refuses a host the deployment does not allow', async () => {
       await expect(
-        new HttpOutbound(['github.com'], vi.fn()).bytes(fetching(), named),
+        new HttpOutbound(['github.com'], vi.fn()).bytes(
+          fetching(),
+          named,
+          FILES,
+        ),
       ).rejects.toThrow(EgressRefusedError);
     });
   });
@@ -284,8 +348,8 @@ actions:
     request:
       method: POST
       url: https://slack.com/api/\${{ target.method }}
-      headers:
-        authorization: Bearer \${{ secret.TOKEN }}
+      auth:
+        secrets: [secret.TOKEN]
       body:
         channel: '\${{ target.channel }}'
         text: 'Asked at \${{ ask.station }}: \${{ ask.body }}'
@@ -310,7 +374,6 @@ actions:
       thread: '170.5',
       method: 'chat.postMessage',
     },
-    secret: { TOKEN: 'xoxb-1', SLACK_BOT_TOKEN: 'xoxb-1' },
     task: {
       marks: { 'git.pull-request': 'https://github.com/acme/api/pull/9' },
     },
@@ -319,7 +382,7 @@ actions:
   it('sends the structure the file wrote, each piece read in', async () => {
     const fetch = replying({ ok: true });
 
-    await new HttpOutbound(['slack.com'], fetch).run(written(), asked);
+    await new HttpOutbound(['slack.com'], fetch).run(written(), asked, SLACK);
 
     const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe('https://slack.com/api/chat.postMessage');
@@ -338,10 +401,11 @@ actions:
     const fetch = replying({ ok: true });
 
     await expect(
-      new HttpOutbound(['slack.com'], fetch).run(written(), {
-        ...asked,
-        ask: { station: 'Triage' },
-      }),
+      new HttpOutbound(['slack.com'], fetch).run(
+        written(),
+        { ...asked, ask: { station: 'Triage' } },
+        SLACK,
+      ),
     ).rejects.toThrow(/actions\.post\.request\.body\.text/);
     expect(fetch).not.toHaveBeenCalled();
   });

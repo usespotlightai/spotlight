@@ -1,3 +1,4 @@
+import type { RunGrantsPort } from '@secrets/application/ports/run-grants.port';
 import {
   RUNNER_REGISTERED,
   type RunnerRegisteredIntegrationEvent,
@@ -45,6 +46,7 @@ import type { ProposalAccepted } from '@work/domain/events/proposal-accepted.eve
 import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import type { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
+import type { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
 import type { TaskAsked } from '@work/domain/events/task-asked.event';
 import type { TaskHandedToRun } from '@work/domain/events/task-handed-to-run.event';
 import type { TaskLetGoOfRun } from '@work/domain/events/task-let-go-of-run.event';
@@ -84,7 +86,13 @@ export const workSubscribers = (reactions: {
   chatRuns: EnqueueChatRun;
   setup: SettleSetup;
   abandoning: AbandonTeamLines;
+  runGrants: RunGrantsPort;
 }): readonly DomainEventSubscriber[] => [
+  subscribing<RunCompleted | RunAbandoned | RunWithdrawn>(
+    'work.end-secret-grants-of-ended-run',
+    ['run.completed', 'run.abandoned', 'run.withdrawn'],
+    (event) => reactions.runGrants.endedFor(event.runId.value),
+  ),
   subscribing<TeamDisbandedIntegrationEvent>(
     'work.abandon-lines-of-disbanded-team',
     [TEAM_DISBANDED],

@@ -93,6 +93,11 @@ export const resourceApi = (resource: ResourceKind) => {
     `No such ${resource.kind} that you may see`,
   );
 
+  const forbidden = ApiProblemResponse(
+    HttpStatus.FORBIDDEN,
+    `You may read the ${resource.kind}, but not change it`,
+  );
+
   return {
     Controller: () => ConventionalApiController(RESOURCES, resource.tag),
 
@@ -121,6 +126,7 @@ export const resourceApi = (resource: ResourceKind) => {
           },
         }),
         missing,
+        forbidden,
         ApiProblemResponse(
           HttpStatus.CONFLICT,
           `There is already a ${resource.kind} at that address`,
@@ -149,6 +155,7 @@ export const resourceApi = (resource: ResourceKind) => {
           `The ${resource.kind}, as a read would answer it`,
         ),
         missing,
+        forbidden,
         ApiProblemResponse(
           HttpStatus.CONFLICT,
           'It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove',
@@ -171,6 +178,7 @@ export const resourceApi = (resource: ResourceKind) => {
         IF_MATCH,
         ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Deleted' }),
         missing,
+        forbidden,
         ApiProblemResponse(
           HttpStatus.CONFLICT,
           'It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove',

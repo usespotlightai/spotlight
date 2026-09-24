@@ -3,6 +3,7 @@ import { AccessToken } from '@integrations/domain/value-objects/access-token.vo'
 import { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const TEAM = TeamId.of('team_1');
@@ -27,6 +28,7 @@ const rehydrated = (
   } = {},
 ) =>
   HostConnection.rehydrate({
+    workspaceId: WorkspaceId.of('ws_1'),
     teamId: TEAM,
     source: SLACK,
     accessToken: AccessToken.of('xoxb-old'),
@@ -43,6 +45,7 @@ const rehydrated = (
 describe('HostConnection', () => {
   it('announces the host was connected when first linked', () => {
     const connection = HostConnection.linkedFrom({
+      workspaceId: WorkspaceId.of('ws_1'),
       teamId: TEAM,
       source: SLACK,
       grant: grant(),
@@ -140,6 +143,7 @@ describe('HostConnection', () => {
   it('refuses to be read back without a version', () => {
     expect(() =>
       HostConnection.rehydrate({
+        workspaceId: WorkspaceId.of('ws_1'),
         teamId: TEAM,
         source: SLACK,
         accessToken: AccessToken.of('x'),

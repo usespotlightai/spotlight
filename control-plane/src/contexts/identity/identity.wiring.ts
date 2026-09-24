@@ -30,6 +30,7 @@ import { PERSON_READER } from '@identity/application/ports/person-reader.port';
 import { TEAM_DIRECTORY } from '@identity/application/ports/team-directory.port';
 import { TEAM_HOLDINGS } from '@identity/application/ports/team-holdings.port';
 import { WORKSPACE_ACCESS } from '@identity/application/ports/workspace-access.port';
+import { WORKSPACE_HOLDINGS } from '@identity/application/ports/workspace-holdings.port';
 import {
   WORKSPACE_READER,
   type WorkspaceReaderPort,
@@ -53,10 +54,10 @@ import { ReadInviteQuery } from '@identity/application/queries/read-invite.query
 import { ReadTeamQuery } from '@identity/application/queries/read-team.query';
 import { ReadWorkspaceQuery } from '@identity/application/queries/read-workspace.query';
 import { FirstTeam } from '@identity/application/services/first-team.service';
+import { HoldingsRegistry } from '@identity/application/services/holdings-registry.service';
 import { InviteMemberships } from '@identity/application/services/invite-memberships.service';
 import { TeamAdministration } from '@identity/application/services/team-administration.service';
 import { TeamDirectory } from '@identity/application/services/team-directory.service';
-import { TeamHoldingsRegistry } from '@identity/application/services/team-holdings-registry.service';
 import { WorkspaceAccess } from '@identity/application/services/workspace-access.service';
 import { IDENTITY_EVENT_TYPES } from '@identity/domain/event-types';
 import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
@@ -99,6 +100,8 @@ import {
 } from '@shared-kernel/application/ports/logger.port';
 import { TOKEN_MINT } from '@shared-kernel/application/ports/token-mint.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const IDENTITY_EVENTS = Symbol('IDENTITY_EVENTS');
 
@@ -121,7 +124,11 @@ const adapters: Provider[] = [
   { provide: MEMBER_READER, useClass: DrizzleMemberReader },
   { provide: INVITE_READER, useClass: DrizzleInviteReader },
   { provide: IDENTITY_DEFINITIONS, useClass: IdentityDefinitions },
-  { provide: TEAM_HOLDINGS, useFactory: () => new TeamHoldingsRegistry() },
+  { provide: TEAM_HOLDINGS, useFactory: () => new HoldingsRegistry<TeamId>() },
+  {
+    provide: WORKSPACE_HOLDINGS,
+    useFactory: () => new HoldingsRegistry<WorkspaceId>(),
+  },
   { provide: IDENTITY_RESOURCES, useClass: DrizzleIdentityResources },
   {
     provide: INVITE_MAIL,
@@ -178,6 +185,7 @@ const handlers: Provider[] = [
   ...bindCommandHandler(DeleteWorkspaceCommand, DeleteWorkspaceHandler, [
     DrizzleWorkspaceRepository,
     IDENTITY_RESOURCES,
+    WORKSPACE_HOLDINGS,
     TRANSACTION,
   ]),
   ...bindQueryHandler(ReadWorkspaceQuery, ReadWorkspaceHandler, [

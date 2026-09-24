@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-use.error';
+import { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import { DrizzleWorkspaceRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace.repository';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
@@ -195,7 +196,7 @@ describe('a workspace, created through the resource API (e2e)', () => {
     });
 
     await expect(
-      workspaces.save(standing?.closed([]) as Workspace),
+      workspaces.save(standing?.closed([], Holdings.none()) as Workspace),
     ).rejects.toThrow(WorkspaceInUseError);
   });
 });

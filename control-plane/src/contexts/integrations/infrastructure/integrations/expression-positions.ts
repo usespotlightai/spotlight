@@ -14,7 +14,6 @@ import {
   MARKING,
   POLLED,
   POLLING,
-  requesting,
 } from '@integrations/infrastructure/integrations/scopes';
 import type { Scope } from '@platform/expressions/scope';
 import {
@@ -44,24 +43,18 @@ const each = (
   alsoSees: readonly ExpressionAlsoSees[],
 ) => fields.map((field) => at(`${prefix}.${field}`, scope, { alsoSees }));
 
-const authAt = (
-  prefix: string,
-  scope: Scope,
-  alsoSees: readonly ExpressionAlsoSees[] = [],
-) =>
+const verifyAt = (prefix: string, scope: Scope) =>
   each(
     prefix,
     [
       'hmac.signed',
       'hmac.freshness.at',
-      'basic.username',
-      'basic.password',
       'asymmetric.key',
       'asymmetric.signed',
       'asymmetric.freshness.at',
     ],
     scope,
-    alsoSees,
+    [],
   );
 
 const requestAt = (
@@ -75,7 +68,6 @@ const requestAt = (
     scope,
     alsoSees,
   ),
-  ...authAt(`${prefix}.auth`, scope, alsoSees),
   at(`${prefix}.expect.success`, answered(scope), {
     returns: 'bool',
     alsoSees,
@@ -108,19 +100,18 @@ const raiseAt = (prefix: string, scope: Scope) => {
       carried,
       alsoSees,
     ),
-    ...requestAt(`${prefix}.attaches.fetch`, requesting(carried), alsoSees),
+    ...requestAt(`${prefix}.attaches.fetch`, carried, alsoSees),
   ];
 };
 
 const eventsAt = (prefix: string, trigger: Scope) => {
   const alsoSees: readonly ExpressionAlsoSees[] = ['item'];
-  const looked = requesting(trigger);
 
   return [
     at(`${prefix}.forEach`, trigger, { returns: 'list' }),
     at(`${prefix}.when`, trigger, { returns: 'bool', alsoSees }),
-    ...requestAt(`${prefix}.lookup.request`, looked, alsoSees),
-    at(`${prefix}.lookup.capture.${ANY_SEGMENT}`, answered(looked), {
+    ...requestAt(`${prefix}.lookup.request`, trigger, alsoSees),
+    at(`${prefix}.lookup.capture.${ANY_SEGMENT}`, answered(trigger), {
       alsoSees,
     }),
     ...raiseAt(`${prefix}.raise`, trigger),
@@ -128,7 +119,7 @@ const eventsAt = (prefix: string, trigger: Scope) => {
 };
 
 export const EXPRESSION_POSITIONS: readonly ExpressionPosition[] = [
-  ...authAt('webhook.verify', DELIVERED),
+  ...verifyAt('webhook.verify', DELIVERED),
   at('webhook.respond.when', DELIVERED, { returns: 'bool' }),
   at('webhook.respond.body', DELIVERED),
   at('webhook.mine', DELIVERED, { returns: 'bool' }),

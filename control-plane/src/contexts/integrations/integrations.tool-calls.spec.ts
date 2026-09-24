@@ -1,20 +1,20 @@
-import type { HeldSecretsPort } from '@configuration/application/ports/held-secrets.port';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
-import { HostReach } from '@integrations/application/services/host-reach.service';
-import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
 import { IntegrationToolCalls } from '@integrations/infrastructure/acl/integration-tool-calls.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-clients';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
-import type {
+import {
   HttpOutbound,
-  OutboundResult,
+  type OutboundResult,
 } from '@integrations/infrastructure/outbound/http-outbound';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
+import {
+  injecting,
+  reachFor,
+} from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
-import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type { ToolInputValues } from '@work/application/contracts/tools.contract';
 import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
 import type { IntegrationTool } from '@work/application/ports/integration-tool-calls.port';
@@ -80,7 +80,7 @@ const using = (
     response: { url: 'https://linear.app/acme/issue/ENG-12#comment-1' },
     capture: { url: 'https://linear.app/acme/issue/ENG-12#comment-1' },
   },
-  over: { file?: string; held?: readonly string[] } = {},
+  over: { file?: string } = {},
 ) => {
   const run = vi.fn(
     async (_action: unknown, _against: Record<string, unknown>) => reply,
@@ -91,16 +91,11 @@ const using = (
       ofTeam: vi.fn(async () => [defined(over.file ?? LINEAR)]),
     } as unknown as DefinedIntegrationsPort,
     runtimeWith({ run } as unknown as HttpOutbound),
-    new HostReach(
-      {
-        held: async () => (over.held ?? []).map((each) => SecretName.of(each)),
-      } satisfies HeldSecretsPort,
-      { of: async () => null } as unknown as HostConnectionRepository,
-    ),
+    reachFor(),
   );
 
   const reaching = (tool: string, marked = true) =>
-    tools.reach(tool, task(marked));
+    tools.reach(tool, task(marked), 'run_1');
 
   const comment = async (inputs: ToolInputValues, marked = true) => {
     const reached = (await reaching(
@@ -174,33 +169,109 @@ describe('IntegrationToolCalls', () => {
     });
   });
 
-  describe('an action that reads a secret', () => {
-    const READS_A_SECRET = LINEAR.replace(
+  describe('an action that wears a secret', () => {
+    const WEARS_A_SECRET = LINEAR.replace(
       '      url: https://api.linear.app/graphql\n',
-      '      url: https://api.linear.app/graphql\n      auth:\n        token:\n          secret: secret.LINEAR_API_KEY\n',
+      '      url: https://api.linear.app/graphql\n      auth:\n        secrets: [secret.LINEAR_API_KEY]\n',
     );
 
-    it('is refused where the team does not hold the secret', async () => {
-      const { comment, run } = using(undefined, { file: READS_A_SECRET });
+    const wearing = (
+      bound: Parameters<typeof injecting>[0],
+      allowed: readonly string[] = ['api.linear.app'],
+    ) => {
+      const fetch = vi.fn(
+        async () =>
+          new Response(JSON.stringify({ url: 'https://linear.app/c/1' }), {
+            status: 200,
+          }),
+      );
+      const secrets = injecting(bound);
+      const tools = new IntegrationToolCalls(
+        {
+          ofTeam: vi.fn(async () => [defined(WEARS_A_SECRET)]),
+        } as unknown as DefinedIntegrationsPort,
+        runtimeWith(new HttpOutbound(allowed, fetch)),
+        reachFor(secrets.injection),
+      );
 
-      await expect(comment({ body: 'x' })).rejects.toMatchObject({
-        violation: 'conflict',
-        message:
-          'The linear integration reads secret.LINEAR_API_KEY, which the team does not hold',
+      const comment = async () => {
+        const reached = (await tools.reach(
+          'linear.comment',
+          task(),
+          'run_1',
+        )) as IntegrationTool;
+
+        return reached.call({ issue: 'ENG-12', body: 'Fixed.' });
+      };
+
+      return { comment, fetch, ...secrets };
+    };
+
+    const headersOf = (fetch: ReturnType<typeof vi.fn>) =>
+      (fetch.mock.calls[0] as unknown as [string, RequestInit])[1]
+        .headers as Record<string, string>;
+
+    it('reaches the host wearing a secret bound to it', async () => {
+      const { comment, fetch } = wearing({
+        LINEAR_API_KEY: { host: 'api.linear.app', value: 'lin_api_1' },
       });
-      expect(run).not.toHaveBeenCalled();
+
+      await comment();
+
+      expect(headersOf(fetch).authorization).toBe('lin_api_1');
     });
 
-    it('is made where the team holds the secret', async () => {
-      const { comment, run } = using(undefined, {
-        file: READS_A_SECRET,
-        held: ['LINEAR_API_KEY'],
+    it('grants the run only the secrets the tool’s action wears', async () => {
+      const { comment, grant, forRun } = wearing({
+        LINEAR_API_KEY: { host: 'api.linear.app', value: 'lin_api_1' },
       });
 
-      await comment({ body: 'x' });
+      await comment();
 
-      expect(run).toHaveBeenCalledTimes(1);
+      expect(grant).toHaveBeenCalledWith({
+        workspaceId: 'ws_1',
+        runId: 'run_1',
+        secrets: ['LINEAR_API_KEY'],
+      });
+      expect(forRun).toHaveBeenCalledWith({
+        workspaceId: 'ws_1',
+        runId: 'run_1',
+        secrets: ['LINEAR_API_KEY'],
+        url: 'https://api.linear.app/graphql',
+      });
     });
+
+    it('sends nothing where the secret is bound to another host', async () => {
+      const { comment, fetch } = wearing({
+        LINEAR_API_KEY: { host: 'api.example.com', value: 'lin_api_1' },
+      });
+
+      await expect(comment()).rejects.toMatchObject({
+        violation: 'not-allowed',
+      });
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it('sends nothing where the workspace holds no such secret', async () => {
+      const { comment, fetch } = wearing({});
+
+      await expect(comment()).rejects.toThrow(
+        'The workspace holds no secret named LINEAR_API_KEY',
+      );
+      expect(fetch).not.toHaveBeenCalled();
+    });
+  });
+
+  it('carries no secret into an action that wears none', async () => {
+    const { comment, run } = using();
+
+    await comment({ body: 'x' });
+
+    const [, against] = run.mock.calls[0] as unknown as [
+      unknown,
+      Record<string, unknown>,
+    ];
+    expect(against).not.toHaveProperty('secret');
   });
 
   it('reads an input the agent left out from the task', async () => {

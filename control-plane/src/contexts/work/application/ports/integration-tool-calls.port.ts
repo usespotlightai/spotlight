@@ -14,5 +14,9 @@ export interface IntegrationTool {
 }
 
 export interface IntegrationToolCallsPort {
-  reach(tool: string, task: BoundTaskDto): Promise<IntegrationTool | null>;
+  reach(
+    tool: string,
+    task: BoundTaskDto,
+    runId: string,
+  ): Promise<IntegrationTool | null>;
 }

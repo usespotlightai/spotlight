@@ -5,9 +5,16 @@ export interface Invalid {
   readonly problems: readonly ConfigurationProblem[];
 }
 
+export interface Forbidden {
+  readonly outcome: 'forbidden';
+}
+
+export const FORBIDDEN: Forbidden = { outcome: 'forbidden' };
+
 export type Refused =
   | { readonly outcome: 'moved-on'; readonly currentVersion: number }
-  | { readonly outcome: 'in-use'; readonly reason: string };
+  | { readonly outcome: 'in-use'; readonly reason: string }
+  | Forbidden;
 
 export type ResourceCreated =
   | {
@@ -17,7 +24,8 @@ export type ResourceCreated =
     }
   | Invalid
   | { readonly outcome: 'taken'; readonly address: string }
-  | { readonly outcome: 'key-reused' };
+  | { readonly outcome: 'key-reused' }
+  | Forbidden;
 
 export type ResourceUpdated =
   | { readonly outcome: 'updated'; readonly id: string }

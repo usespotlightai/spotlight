@@ -81,7 +81,9 @@ Beyond `.env`:
 |---|---|
 | `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` | session signing; public app URL |
 | `SPOTLIGHT_PUBLIC_URL` | base for install script and invite links; defaults to `BETTER_AUTH_URL` |
-| `SPOTLIGHT_SECRETS_KEY` | encrypts host connection tokens in the database; losing it means reconnecting each integration (`openssl rand -base64 32`) |
+| `SPOTLIGHT_SECRETS_KEY` | wraps each workspace's data key, which seals secrets and host connection tokens; losing it means setting every secret again and reconnecting each integration (`openssl rand -base64 32`); not needed with `SECRETS_KMS_KEY_ID` |
+| `SECRETS_KMS_KEY_ID` | an AWS KMS key that wraps workspace data keys instead of `SPOTLIGHT_SECRETS_KEY` |
+| `SECRETS_AWS_SECRETS_MANAGER` | `true` lets a secret be read from AWS Secrets Manager when it is worn |
 | `OUTBOUND_ALLOWED_HOSTS` | comma-separated hosts integrations and their tools may call; empty allows none (`compose.yml` defaults it to `slack.com`) |
 | `OAUTH_CLIENTS` | shared OAuth2 apps as JSON, e.g. `{"slack":{"id":"…","secret":"…"}}` |
 

@@ -16,6 +16,7 @@ import {
   transaction,
 } from '@identity/identity.resources.fake-spec';
 import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
+import { FORBIDDEN } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { describe, expect, it } from 'vitest';
 
@@ -66,8 +67,10 @@ describe('CreateTeamHandler', () => {
     ).toEqual({ outcome: 'taken', address: 'core' });
   });
 
-  it('answers nothing to someone who does not administer the workspace', async () => {
-    expect(await creating({ administers: false }).create(CORE)).toBeNull();
+  it('forbids a member who does not administer the workspace', async () => {
+    expect(await creating({ administers: false }).create(CORE)).toEqual(
+      FORBIDDEN,
+    );
   });
 });
 
@@ -118,8 +121,8 @@ describe('UpdateTeamHandler', () => {
     });
   });
 
-  it('answers nothing to someone who does not administer the workspace', async () => {
-    expect(await updating(false).update(CORE)).toBeNull();
+  it('forbids a member who does not administer the workspace', async () => {
+    expect(await updating(false).update(CORE)).toEqual(FORBIDDEN);
   });
 });
 

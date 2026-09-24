@@ -79,10 +79,11 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       return { kind: 'read', cursor, happenings: [] };
     }
 
-    const result = await this.outbound.run(poll.request, {
-      cursor: cursor ?? '',
-      ...reached(reach),
-    });
+    const result = await this.outbound.run(
+      poll.request,
+      { cursor: cursor ?? '', ...reached(reach) },
+      reach.credentials,
+    );
 
     if (!result.ok) {
       return { kind: 'refused', refusal: refusalOf(result) };
@@ -120,7 +121,11 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       return { kind: 'nothing-to-do' };
     }
 
-    const result = await this.outbound.run(request, reached(reach));
+    const result = await this.outbound.run(
+      request,
+      reached(reach),
+      reach.credentials,
+    );
 
     return result.ok
       ? { kind: 'done' }
@@ -167,7 +172,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     }
 
     const bindings = { ...against, target, ...reached(reach) };
-    const result = await this.outbound.run(action, bindings);
+    const result = await this.outbound.run(action, bindings, reach.credentials);
 
     if (!result.ok) {
       return { kind: 'refused', refusal: refusalOf(result), target };
@@ -210,6 +215,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
 
     return {
       integration: readable.integration,
+      wears: action.auth?.kind === 'secrets' ? action.auth.secrets : [],
       declared: {
         tool: declared.tool,
         description: declared.description,
@@ -226,7 +232,11 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       },
       call: async (inputs, reach) => {
         const bindings = { ...bound, inputs, ...reached(reach) };
-        const result = await this.outbound.run(action, bindings);
+        const result = await this.outbound.run(
+          action,
+          bindings,
+          reach.credentials,
+        );
 
         if (!result.ok) {
           throw new UpstreamRefusedError(

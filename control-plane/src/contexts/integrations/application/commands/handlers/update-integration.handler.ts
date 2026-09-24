@@ -8,7 +8,10 @@ import { IntegrationHostFixedError } from '@integrations/domain/exceptions/integ
 import { IntegrationToolsInUseError } from '@integrations/domain/exceptions/integration-tools-in-use.error';
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
-import type { ResourceUpdated } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import {
+  FORBIDDEN,
+  type ResourceUpdated,
+} from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -40,8 +43,12 @@ export class UpdateIntegrationHandler
           )
         : null;
 
-      if (!standing || !membership?.administers) {
+      if (!standing || !membership) {
         return null;
+      }
+
+      if (!membership.administers) {
+        return FORBIDDEN;
       }
 
       standing.expecting(command.expectedVersion);

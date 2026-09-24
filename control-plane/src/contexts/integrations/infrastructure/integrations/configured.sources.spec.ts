@@ -6,6 +6,7 @@ import { ConfiguredSources } from '@integrations/infrastructure/integrations/con
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
+import { injecting } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -50,6 +51,7 @@ const holding = (integrations: DefinedIntegration[]) => {
       new IntegrationReader(expressions),
       { keys: async () => new Map() },
       new HttpOutbound([]),
+      injecting().injection,
     ),
   };
 };
