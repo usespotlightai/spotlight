@@ -8,7 +8,7 @@ import {
 import {
   ApiProblemResponse,
   ConventionalApiController,
-  capitalised,
+  operationIdOf,
 } from '@platform/http/resources/conventional-api';
 import { DATA_SOURCE_EXTENSION } from '@platform/http/resources/resource-headers';
 import { RESOURCES } from '@platform/http/routes';
@@ -33,7 +33,7 @@ export const dataSourceApi = (source: DataSourceKind) => ({
     applyDecorators(
       Get(path),
       ApiOperation({
-        operationId: `read${capitalised(source.kind)}`,
+        operationId: operationIdOf('read', source.kind),
         summary,
       }),
       ApiExtension(DATA_SOURCE_EXTENSION, { kind: source.kind }),
@@ -50,10 +50,6 @@ export const dataSourceApi = (source: DataSourceKind) => ({
         description: `The ${source.kind} it resolves to`,
         type: source.representation,
       }),
-      ApiProblemResponse(
-        HttpStatus.FORBIDDEN,
-        `The workspace’s plan does not include the ${source.kind}; the detail names the plan it needs`,
-      ),
       ApiProblemResponse(
         HttpStatus.NOT_FOUND,
         `No such ${source.kind}, or no workspace here that you may see`,

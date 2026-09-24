@@ -2,12 +2,12 @@ import type {
   CatalogItemDto,
   CatalogResolution,
 } from '@catalog/application/dto/catalog-item.dto';
+import type { WorkspacePlansPort } from '@catalog/application/ports/workspace-plans.port';
 import type { ResolveCatalogItemQuery } from '@catalog/application/queries/resolve-catalog-item.query';
 import { CatalogProblems } from '@catalog/application/rendering/catalog-problems';
 import type { CatalogItem } from '@catalog/domain/entities/catalog-item.entity';
 import { InvalidCatalogEntryError } from '@catalog/domain/exceptions/invalid-catalog-entry.error';
 import type { CatalogRepository } from '@catalog/domain/repositories/catalog.repository';
-import type { WorkspacePlanRepository } from '@catalog/domain/repositories/workspace-plan.repository';
 import { entitlementTo } from '@catalog/domain/services/entitlement';
 import { newestAdmitted } from '@catalog/domain/services/newest-admitted';
 import { CatalogName } from '@catalog/domain/value-objects/catalog-name.vo';
@@ -54,7 +54,7 @@ export class ResolveCatalogItemHandler
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly catalog: CatalogRepository,
-    private readonly plans: WorkspacePlanRepository,
+    private readonly plans: WorkspacePlansPort,
     private readonly clock: ClockPort,
   ) {}
 

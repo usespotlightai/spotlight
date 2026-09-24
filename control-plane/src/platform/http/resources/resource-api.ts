@@ -19,7 +19,7 @@ import type { ResourceResponseDto } from '@platform/http/dto/resource.response.d
 import {
   ApiProblemResponse,
   ConventionalApiController,
-  capitalised,
+  operationIdOf,
 } from '@platform/http/resources/conventional-api';
 import {
   ETAG_HEADER,
@@ -66,7 +66,7 @@ export const resourceApi = (resource: ResourceKind) => {
   const operation = (name: ResourceOperation, summary: string) =>
     applyDecorators(
       ApiOperation({
-        operationId: `${name}${capitalised(resource.kind)}`,
+        operationId: operationIdOf(name, resource.kind),
         summary,
       }),
       ApiExtension(RESOURCE_EXTENSION, {

@@ -37,17 +37,27 @@ export const isDottedName = (named: string): boolean =>
 export const isToolName = (named: string): boolean =>
   EXACTLY_TOOL_NAME.test(named);
 
-export const CATALOG = 'catalog';
+export const CATALOG_SOURCE = 'catalog';
 
 export const CATALOG_VERSION =
   '(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)';
 
 const EXACTLY_CATALOG_REFERENCE = new RegExp(
-  `^${CATALOG}\\.${WORDS}@${CATALOG_VERSION}$`,
+  `^${CATALOG_SOURCE}\\.${WORDS}@${CATALOG_VERSION}$`,
 );
 
 export const isCatalogReference = (named: string): boolean =>
   EXACTLY_CATALOG_REFERENCE.test(named) && named.length <= 128;
+
+export const catalogReferenceParts = (
+  reference: string,
+): { readonly name: string; readonly version: string } => {
+  const [name = '', version = ''] = reference
+    .slice(CATALOG_SOURCE.length + 1)
+    .split('@');
+
+  return { name, version };
+};
 
 export const unversioned = (named: string): string =>
   named.split('@', 1)[0] ?? named;

@@ -1,6 +1,6 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import {
-  CATALOG,
+  CATALOG_SOURCE,
   isCatalogReference,
   isToolName,
   unversioned,
@@ -45,7 +45,7 @@ export class Tool {
       return 'built-in';
     }
 
-    return integration === CATALOG ? 'catalog' : 'integration';
+    return integration === CATALOG_SOURCE ? 'catalog' : 'integration';
   }
 
   equals(other: Tool): boolean {

@@ -3,7 +3,7 @@ import {
   TOOL_INPUT_TYPES,
 } from '@integrations/domain/value-objects/offered-tool.vo';
 import {
-  CATALOG,
+  CATALOG_SOURCE,
   DOTTED_NAME,
   SECRET_NAME_SHAPE,
   SOURCE_WORD,
@@ -278,7 +278,7 @@ export const integrationSchema = z
       .string()
       .regex(NAME, 'is the name this host is addressed by, as in slack')
       .refine(
-        (named) => named !== CATALOG,
+        (named) => named !== CATALOG_SOURCE,
         'is catalog, which names Spotlight’s catalog: address this host by another name',
       ),
     name: z.string().min(1).optional(),

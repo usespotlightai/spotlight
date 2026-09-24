@@ -7,6 +7,10 @@ import {
   CATALOG_SERVICE,
   type CatalogServicePort,
 } from '@catalog/application/ports/catalog-service.port';
+import {
+  WORKSPACE_PLANS,
+  type WorkspacePlansPort,
+} from '@catalog/application/ports/workspace-plans.port';
 import { ResolveCatalogItemHandler } from '@catalog/application/queries/handlers/resolve-catalog-item.handler';
 import { ResolveCatalogItemQuery } from '@catalog/application/queries/resolve-catalog-item.query';
 import { CatalogGivings } from '@catalog/application/services/catalog-givings.service';
@@ -35,7 +39,7 @@ export const CATALOG_CONTROLLERS: readonly Type[] = [CatalogController];
 export const CATALOG_PROVIDERS: readonly Provider[] = [
   { provide: SeededCatalog, useValue: new SeededCatalog(CATALOG_ITEMS) },
 
-  DrizzleWorkspacePlans,
+  { provide: WORKSPACE_PLANS, useClass: DrizzleWorkspacePlans },
 
   { provide: CALL_METER, useClass: DrizzleMeteredCalls },
 
@@ -53,14 +57,14 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
     provide: CATALOG,
     inject: [
       SeededCatalog,
-      DrizzleWorkspacePlans,
+      WORKSPACE_PLANS,
       CALL_METER,
       CATALOG_SERVICE,
       CLOCK,
     ],
     useFactory: (
       catalog: SeededCatalog,
-      plans: DrizzleWorkspacePlans,
+      plans: WorkspacePlansPort,
       meter: CallMeterPort,
       service: CatalogServicePort,
       clock: ClockPort,
@@ -69,10 +73,10 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
 
   {
     provide: CATALOG_EVENTS,
-    inject: [EventSubscribers, DrizzleWorkspacePlans, CALL_METER],
+    inject: [EventSubscribers, WORKSPACE_PLANS, CALL_METER],
     useFactory: (
       subscribers: EventSubscribers,
-      plans: DrizzleWorkspacePlans,
+      plans: WorkspacePlansPort,
       meter: CallMeterPort,
     ) => {
       subscribers.register(catalogSubscribers({ plans, meter }));
@@ -83,7 +87,7 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ResolveCatalogItemQuery, ResolveCatalogItemHandler, [
     WORKSPACE_ACCESS,
     SeededCatalog,
-    DrizzleWorkspacePlans,
+    WORKSPACE_PLANS,
     CLOCK,
   ]),
 ];
