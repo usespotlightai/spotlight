@@ -13,6 +13,7 @@ import type {
   Within,
 } from '@platform/expressions/expression-engine.port';
 import type { Scope } from '@platform/expressions/scope';
+import { suggestionFor } from '@platform/expressions/suggestion';
 
 const LONGEST_EXPRESSION = 2_000;
 
@@ -35,15 +36,30 @@ export class CelExpressionEngine implements ExpressionEnginePort {
   private readonly environments = new WeakMap<Scope, Environment>();
 
   check(source: string, scope: Scope): ExpressionCheck {
+    if (source.length > LONGEST_EXPRESSION) {
+      return {
+        valid: false,
+        reason: `is longer than ${LONGEST_EXPRESSION} characters`,
+        span: null,
+        suggestion: null,
+      };
+    }
+
     const checked = this.environmentOf(scope).check(source);
 
-    return checked.valid
-      ? { valid: true, type: checked.type ?? 'dyn' }
-      : {
-          valid: false,
-          reason: firstLine(checked.error, 'does not check'),
-          span: spanOf(checked.error),
-        };
+    if (checked.valid) {
+      return { valid: true, type: checked.type ?? 'dyn' };
+    }
+
+    const reason = firstLine(checked.error, 'does not check');
+    const span = spanOf(checked.error);
+
+    return {
+      valid: false,
+      reason,
+      span,
+      suggestion: suggestionFor(source, reason, span, scope),
+    };
   }
 
   compile(source: string, within: Within = {}): Expression {
@@ -70,12 +86,9 @@ export class CelExpressionEngine implements ExpressionEnginePort {
       throw new ExpressionError(written, firstLine(error, 'will not parse'));
     }
 
-    const checked = within.scope ? this.check(written, within.scope) : null;
-
     return {
       source: written,
       at: within.at ?? null,
-      doubt: checked && !checked.valid ? checked.reason : null,
       evaluate: (against: Bindings) => evaluator(against),
     };
   }

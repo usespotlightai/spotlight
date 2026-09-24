@@ -1744,6 +1744,97 @@ export type IntegrationResourceResponseDto = {
   };
 };
 
+export type CheckExpressionRequestDto = {
+  /**
+   * The attribute that holds the expression, within the definition, written as its problems would name it
+   */
+  position: string;
+  /**
+   * The CEL expression alone, without ${{ }}; a templated attribute is checked one ${{ }} at a time
+   */
+  expression: string;
+  /**
+   * The integration’s whole definition, as it would be created, which says what the position sees
+   */
+  definition: {
+    [key: string]: unknown;
+  };
+};
+
+export type ExpressionSpanResponseDto = {
+  /**
+   * Where it starts, in characters
+   */
+  start: number;
+  /**
+   * Where it ends, exclusive
+   */
+  end: number;
+};
+
+export type ExpressionErrorResponseDto = {
+  message: string;
+  /**
+   * The part of the expression it is about
+   */
+  span: ExpressionSpanResponseDto | null;
+  /**
+   * The declared name nearest one that is not there
+   */
+  suggestion: string | null;
+};
+
+export type ExpressionWarningResponseDto = {
+  /**
+   * The attribute it is about
+   */
+  position: string;
+  message: string;
+};
+
+export type ExpressionCheckResponseDto = {
+  /**
+   * The CEL type it evaluates to; dyn where that depends on what the host sends, null where it does not check at all
+   */
+  type: string | null;
+  /**
+   * Empty when the expression is sound where it is written
+   */
+  errors: Array<ExpressionErrorResponseDto>;
+  /**
+   * What the definition does that the expression may not expect, such as a capture shadowing a built-in name
+   */
+  warnings: Array<ExpressionWarningResponseDto>;
+};
+
+export type ExpressionDeclarationResponseDto = {
+  name: string;
+  /**
+   * A CEL type, or object where it has fields
+   */
+  type: string;
+  fields: Array<ExpressionDeclarationResponseDto>;
+};
+
+export type ExpressionPositionResponseDto = {
+  /**
+   * Where an expression is written, with [*] for any list index or map key; a check names the concrete attribute and resolves it against the supplied definition
+   */
+  position: string;
+  /**
+   * What an expression here must return, where it matters
+   */
+  returns: 'bool' | 'list';
+  /**
+   * The names an expression here may read before the definition adds its own; type hints in the definition refine body and response
+   */
+  sees: Array<ExpressionDeclarationResponseDto>;
+  /**
+   * What the definition adds here: item where the event has a forEach, the names its lookup captures, the inputs of the tools that do the action
+   */
+  alsoSees: Array<'item' | 'captures' | 'inputs'>;
+};
+
 export type HappeningResponseDto = {
   happening: string;
   source: string;
@@ -5178,6 +5269,77 @@ export type ImportIntegrationResponses = {
 };
 
 export type ImportIntegrationResponse = ImportIntegrationResponses[keyof ImportIntegrationResponses];
+
+export type CheckExpressionData = {
+  body: CheckExpressionRequestDto;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+  };
+  path?: never;
+  query?: never;
+  url: '/expressions/check';
+};
+
+export type CheckExpressionErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * The request is not shaped as a check, the definition holds errors, each listed under definition, or the position names no expression in it
+   */
+  422: ProblemResponseDto;
+};
+
+export type CheckExpressionError = CheckExpressionErrors[keyof CheckExpressionErrors];
+
+export type CheckExpressionResponses = {
+  /**
+   * What it evaluates to, and anything wrong with it
+   */
+  200: ExpressionCheckResponseDto;
+};
+
+export type CheckExpressionResponse = CheckExpressionResponses[keyof CheckExpressionResponses];
+
+export type ListExpressionPositionsData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+  };
+  path?: never;
+  query?: never;
+  url: '/expressions/positions';
+};
+
+export type ListExpressionPositionsErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+};
+
+export type ListExpressionPositionsError = ListExpressionPositionsErrors[keyof ListExpressionPositionsErrors];
+
+export type ListExpressionPositionsResponses = {
+  200: Array<ExpressionPositionResponseDto>;
+};
+
+export type ListExpressionPositionsResponse = ListExpressionPositionsResponses[keyof ListExpressionPositionsResponses];
 
 export type ListHappeningsData = {
   body?: never;

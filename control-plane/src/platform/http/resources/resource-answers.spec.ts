@@ -7,6 +7,7 @@ import {
   found,
 } from '@platform/http/resources/resource-answers';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
+import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { describe, expect, it } from 'vitest';
 
 const answer = async (id: string) => ({ id });
@@ -27,7 +28,13 @@ const problemOf = async (answering: () => unknown) => {
 
 const INVALID = {
   outcome: 'invalid' as const,
-  problems: [ConfigurationProblem.of({ path: 'x', at: 'name', reason: 'no' })],
+  problems: [
+    ConfigurationProblem.of({
+      path: 'x',
+      at: FieldPath.of(['name']),
+      reason: 'no',
+    }),
+  ],
 };
 
 describe('resource answers', () => {

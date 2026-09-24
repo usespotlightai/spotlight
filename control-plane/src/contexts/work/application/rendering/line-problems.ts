@@ -1,4 +1,5 @@
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
+import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import type { RoleClaimedTwice } from '@work/domain/services/line-roles';
 
 export const LINES = 'lines';
@@ -9,7 +10,7 @@ export const LineProblems = {
   roleClaimedTwice(claim: RoleClaimedTwice): ConfigurationProblem {
     return ConfigurationProblem.of({
       path: lineAt(claim.line.value),
-      at: 'role',
+      at: FieldPath.of(['role']),
       reason: `claims the role "${claim.role.value}", which ${
         claim.others.length > 0
           ? claim.others.map((each) => each.value).join(', ')
@@ -21,12 +22,12 @@ export const LineProblems = {
   keyFixed(key: string, because: string): ConfigurationProblem {
     return ConfigurationProblem.of({
       path: lineAt(key),
-      at: 'key',
+      at: FieldPath.of(['key']),
       reason: because,
     });
   },
 
-  unapplied(key: string, at: string, error: Error): ConfigurationProblem {
+  unapplied(key: string, at: FieldPath, error: Error): ConfigurationProblem {
     return ConfigurationProblem.of({
       path: lineAt(key),
       at,

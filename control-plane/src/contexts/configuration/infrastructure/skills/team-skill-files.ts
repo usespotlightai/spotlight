@@ -12,6 +12,7 @@ import { readSkillFolder } from '@configuration/infrastructure/skills/skill-file
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import type { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
+import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { SKILL_FILE } from '@work/application/contracts/run-spec.contract';
 
 interface Read {
@@ -28,7 +29,7 @@ const readFolder = (
   const refused = (reason: string): Read => ({
     problem: ConfigurationProblem.of({
       path: main?.path ?? (files[0] as ConfigurationFile).path,
-      at: '',
+      at: FieldPath.root(),
       reason,
     }),
   });
@@ -82,7 +83,7 @@ export class TeamSkillFiles implements SkillReaderPort {
         problems.push(
           ConfigurationProblem.of({
             path: file.path,
-            at: '',
+            at: FieldPath.root(),
             reason: `sits in ${SKILLS_UNDER} itself, where no skill reads it: put it in the folder of the skill it belongs to`,
             severity: 'warning',
           }),

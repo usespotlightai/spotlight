@@ -164,54 +164,86 @@ describe('checking an expression against what it may read', () => {
     body: 'dyn',
     task: { schema: { line: 'string', marks: 'map<string, string>' } },
   });
+  const reason = (source: string) => {
+    const checked = expressions.check(source, scope);
 
-  it('has no doubt about one that reads only what is there', () => {
-    expect(compile('task.marks["linear.issue"]', { scope }).doubt).toBeNull();
-    expect(compile('body.anything.at.all', { scope }).doubt).toBeNull();
+    return checked.valid ? null : checked.reason;
+  };
+
+  it('finds nothing wrong with one that reads only what is there', () => {
+    expect(reason('task.marks["linear.issue"]')).toBeNull();
+    expect(reason('body.anything.at.all')).toBeNull();
   });
 
-  it('doubts one that misspells a field Spotlight shapes', () => {
-    expect(compile('task.lnie', { scope }).doubt).toMatch(/No such key: lnie/);
+  it('refuses one that misspells a field Spotlight shapes', () => {
+    expect(reason('task.lnie')).toMatch(/No such key: lnie/);
   });
 
-  it('doubts one that names something not there at all', () => {
-    expect(compile('tsak.line', { scope }).doubt).toMatch(
-      /Unknown variable: tsak/,
-    );
+  it('refuses one that names something not there at all', () => {
+    expect(reason('tsak.line')).toMatch(/Unknown variable: tsak/);
   });
 
-  it('doubts one that could never evaluate', () => {
-    expect(compile('task.line + 1', { scope }).doubt).toMatch(
-      /no such overload/,
-    );
+  it('refuses one that could never evaluate', () => {
+    expect(reason('task.line + 1')).toMatch(/no such overload/);
   });
 
-  it('still reads one it doubts, the way it always read', () => {
-    const doubted = compile('ask.body', { scope });
+  it('refuses one longer than anybody would write', () => {
+    expect(reason(`"${'a'.repeat(2_100)}"`)).toMatch(/longer than/);
+  });
 
-    expect(doubted.doubt).not.toBeNull();
-    expect(reads(doubted, { ask: { body: 'The queue is stuck.' } })).toBe(
-      'The queue is stuck.',
-    );
+  it('still compiles one it refuses, to read the way it always read', () => {
+    expect(
+      reads(compile('ask.body'), { ask: { body: 'The queue is stuck.' } }),
+    ).toBe('The queue is stuck.');
   });
 
   it('reads a map that mixes what it holds', () => {
-    const mixed = compile('{"channel": body.channel, "text": "Got it."}', {
-      scope,
-    });
+    const source = '{"channel": body.channel, "text": "Got it."}';
 
-    expect(mixed.doubt).toBeNull();
-    expect(mixed.evaluate({ body: bound({ channel: 'C1' }) })).toEqual({
-      channel: 'C1',
-      text: 'Got it.',
-    });
+    expect(reason(source)).toBeNull();
+    expect(
+      compile(source).evaluate({ body: bound({ channel: 'C1' }) }),
+    ).toEqual({ channel: 'C1', text: 'Got it.' });
   });
 
   it('remembers where in the file it is written', () => {
-    expect(compile('body.x', { scope, at: 'actions.post.body' }).at).toBe(
+    expect(compile('body.x', { at: 'actions.post.body' }).at).toBe(
       'actions.post.body',
     );
     expect(compile('body.x').at).toBeNull();
+  });
+});
+
+describe('suggesting what a misspelling meant', () => {
+  const scope = Scope.of({
+    event: { schema: { arguments: { issue: 'string' }, name: 'string' } },
+    task: { schema: { line: 'string', stationKey: 'string' } },
+    issue: 'Issue',
+  }).typed([['Issue', { identifier: 'string', state: { name: 'string' } }]]);
+  const suggestion = (source: string) => {
+    const checked = expressions.check(source, scope);
+
+    return checked.valid ? undefined : checked.suggestion;
+  };
+
+  it('suggests the declared name nearest a misspelt one', () => {
+    expect(suggestion('tsak.line')).toBe('task');
+  });
+
+  it('suggests the field nearest a misspelt one, with the way to it', () => {
+    expect(suggestion('event.argumnts')).toBe('event.arguments');
+    expect(suggestion('event.arguments.isue')).toBe('event.arguments.issue');
+    expect(suggestion('task.stationkey == "x"')).toBe('task.stationKey');
+  });
+
+  it('follows a field into the type it names', () => {
+    expect(suggestion('issue.state.nmae')).toBe('issue.state.name');
+  });
+
+  it('suggests nothing where nothing declared is near', () => {
+    expect(suggestion('whatever.line')).toBeNull();
+    expect(suggestion('task.somethingelse')).toBeNull();
+    expect(suggestion('task.line + 1')).toBeNull();
   });
 });
 
@@ -260,10 +292,8 @@ describe('checking an expression without compiling it', () => {
 
     expect(checked).toMatchObject({ valid: false });
     expect(checked.valid ? null : checked.reason).toMatch(/No such key: lnie/);
-    expect(checked.valid ? null : checked.span).toEqual({
-      start: expect.any(Number),
-      end: expect.any(Number),
-    });
+    expect(checked.valid ? null : checked.span).toEqual({ start: 5, end: 9 });
+    expect(checked.valid ? null : checked.suggestion).toBe('task.line');
   });
 
   it('refuses one that will not parse', () => {

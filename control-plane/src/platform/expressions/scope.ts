@@ -25,4 +25,25 @@ export class Scope {
   get names(): readonly string[] {
     return Object.keys(this.declared).sort();
   }
+
+  fieldsAt(path: readonly string[]): readonly string[] {
+    const [name, ...within] = path;
+    const declared = name === undefined ? undefined : this.declared[name];
+    let held: string | SchemaFields | undefined =
+      typeof declared === 'object' ? declared.schema : declared;
+
+    for (const field of within) {
+      held = this.fieldsOf(held)?.[field];
+    }
+
+    return Object.keys(this.fieldsOf(held) ?? {}).sort();
+  }
+
+  private fieldsOf(
+    held: string | SchemaFields | undefined,
+  ): SchemaFields | undefined {
+    return typeof held === 'string'
+      ? this.types.find(([name]) => name === held)?.[1]
+      : held;
+  }
 }

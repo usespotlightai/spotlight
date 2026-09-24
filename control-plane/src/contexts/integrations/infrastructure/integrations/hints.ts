@@ -1,3 +1,5 @@
+import type { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
+
 type Hint = string | { readonly [field: string]: Hint };
 
 export type Shape = { readonly [field: string]: Hint };
@@ -64,16 +66,16 @@ const namesIn = (hint: Hint, into: Set<string>): Set<string> => {
 
 export const refusedHints = (
   shape: Shape,
-  at: string,
+  at: FieldPath,
   known: ReadonlySet<string>,
-): { at: string; reason: string }[] =>
+): { at: FieldPath; reason: string }[] =>
   Object.entries(shape).flatMap(([field, hint]) => {
     if (typeof hint !== 'string') {
-      return refusedHints(hint, `${at}.${field}`, known);
+      return refusedHints(hint, at.to(field), known);
     }
 
     const reason = refusalOfType(hint, known);
-    return reason ? [{ at: `${at}.${field}`, reason }] : [];
+    return reason ? [{ at: at.to(field), reason }] : [];
   });
 
 export const orderedTypes = (

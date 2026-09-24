@@ -66,7 +66,7 @@ const compileStation = (
     problems: [
       ConfigurationProblem.of({
         path,
-        at: `stations.${at}.${field}`,
+        at: FieldPath.of(['stations', at, field]),
         reason: reasoned(error),
       }),
     ],
@@ -133,19 +133,23 @@ const compileStation = (
   };
 };
 
-const placed = (definition: LineFields, part: LinePart): string => {
+const placed = (definition: LineFields, part: LinePart): FieldPath => {
   switch (part.of) {
     case 'station': {
       const at = definition.stations.findIndex(
         (each) => each.key === part.station,
       );
 
-      return at < 0 ? 'stations' : `stations.${at}.${part.field}`;
+      return FieldPath.of(at < 0 ? ['stations'] : ['stations', at, part.field]);
     }
     case 'reaction':
-      return `reactions.${part.place}${part.field ? `.${part.field}` : ''}`;
+      return FieldPath.of([
+        'reactions',
+        part.place,
+        ...(part.field ? [part.field] : []),
+      ]);
     default:
-      return part.field ?? '';
+      return FieldPath.of(part.field ? [part.field] : []);
   }
 };
 
@@ -180,7 +184,7 @@ export const compileLine = (held: unknown): CompiledLine => {
       problems.push(
         ConfigurationProblem.of({
           path,
-          at: `repositories.${at}`,
+          at: FieldPath.of(['repositories', at]),
           reason: reasoned(error),
         }),
       );
@@ -193,7 +197,11 @@ export const compileLine = (held: unknown): CompiledLine => {
     reviews = definition.reviews ? ReviewPolicy.of(definition.reviews) : null;
   } catch (error) {
     problems.push(
-      ConfigurationProblem.of({ path, at: 'reviews', reason: reasoned(error) }),
+      ConfigurationProblem.of({
+        path,
+        at: FieldPath.of(['reviews']),
+        reason: reasoned(error),
+      }),
     );
   }
 

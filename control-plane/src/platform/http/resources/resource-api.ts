@@ -1,6 +1,5 @@
 import {
   applyDecorators,
-  Controller,
   Delete,
   Get,
   HttpCode,
@@ -8,33 +7,25 @@ import {
   Post,
   Put,
   type Type,
-  UseFilters,
-  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiExtension,
-  ApiExtraModels,
   ApiHeader,
   ApiOperation,
   ApiQuery,
   ApiResponse,
-  ApiTags,
-  getSchemaPath,
 } from '@nestjs/swagger';
-import { ProblemResponseDto } from '@platform/http/dto/problem.response.dto';
 import type { ResourceResponseDto } from '@platform/http/dto/resource.response.dto';
-import { ProblemFilter } from '@platform/http/resources/problem.filter';
-import { ResourceInterceptor } from '@platform/http/resources/resource.interceptor';
 import {
-  API_VERSION,
-  API_VERSION_HEADER,
+  ApiProblemResponse,
+  ConventionalApiController,
+} from '@platform/http/resources/conventional-api';
+import {
   ETAG_HEADER,
   IDEMPOTENCY_KEY_HEADER,
   IDEMPOTENT_REPLAY_HEADER,
   IF_MATCH_HEADER,
-  PROBLEM_CONTENT_TYPE,
   RESOURCE_EXTENSION,
-  SUPPORTED_API_VERSIONS,
 } from '@platform/http/resources/resource-headers';
 import { RESOURCES } from '@platform/http/routes';
 
@@ -54,17 +45,6 @@ export interface ResourceKind {
   readonly representation: Type<ResourceResponseDto>;
   readonly addressExample: string;
 }
-
-const problem = (status: number, description: string) =>
-  ApiResponse({
-    status,
-    description,
-    content: {
-      [PROBLEM_CONTENT_TYPE]: {
-        schema: { $ref: getSchemaPath(ProblemResponseDto) },
-      },
-    },
-  });
 
 const ETAG = {
   [ETAG_HEADER]: {
@@ -108,36 +88,13 @@ export const resourceApi = (resource: ResourceKind) => {
       headers: ETAG,
     });
 
-  const missing = problem(
+  const missing = ApiProblemResponse(
     HttpStatus.NOT_FOUND,
     `No such ${resource.kind} that you may see`,
   );
 
   return {
-    Controller: () =>
-      applyDecorators(
-        Controller(RESOURCES),
-        ApiTags(resource.tag),
-        ApiExtraModels(ProblemResponseDto),
-        UseFilters(ProblemFilter),
-        UseInterceptors(ResourceInterceptor),
-        ApiHeader({
-          name: API_VERSION_HEADER,
-          required: false,
-          description:
-            'The API version the client was written against; every response names the version it was answered in',
-          schema: {
-            type: 'string',
-            enum: [...SUPPORTED_API_VERSIONS],
-            default: API_VERSION,
-          },
-        }),
-        problem(
-          HttpStatus.BAD_REQUEST,
-          'Malformed, or asking for an API version this server does not serve',
-        ),
-        problem(HttpStatus.UNAUTHORIZED, 'No valid credentials'),
-      ),
+    Controller: () => ConventionalApiController(RESOURCES, resource.tag),
 
     Create: (path: string, summary: string) =>
       applyDecorators(
@@ -164,11 +121,11 @@ export const resourceApi = (resource: ResourceKind) => {
           },
         }),
         missing,
-        problem(
+        ApiProblemResponse(
           HttpStatus.CONFLICT,
           `There is already a ${resource.kind} at that address`,
         ),
-        problem(
+        ApiProblemResponse(
           HttpStatus.UNPROCESSABLE_ENTITY,
           'What is wrong, field by field; or the Idempotency-Key was used for a different request',
         ),
@@ -192,15 +149,18 @@ export const resourceApi = (resource: ResourceKind) => {
           `The ${resource.kind}, as a read would answer it`,
         ),
         missing,
-        problem(
+        ApiProblemResponse(
           HttpStatus.CONFLICT,
           'It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove',
         ),
-        problem(
+        ApiProblemResponse(
           HttpStatus.UNPROCESSABLE_ENTITY,
           'What is wrong, field by field',
         ),
-        problem(HttpStatus.PRECONDITION_REQUIRED, 'If-Match is missing'),
+        ApiProblemResponse(
+          HttpStatus.PRECONDITION_REQUIRED,
+          'If-Match is missing',
+        ),
       ),
 
     Delete: (path: string, summary: string) =>
@@ -211,11 +171,14 @@ export const resourceApi = (resource: ResourceKind) => {
         IF_MATCH,
         ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Deleted' }),
         missing,
-        problem(
+        ApiProblemResponse(
           HttpStatus.CONFLICT,
           'It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove',
         ),
-        problem(HttpStatus.PRECONDITION_REQUIRED, 'If-Match is missing'),
+        ApiProblemResponse(
+          HttpStatus.PRECONDITION_REQUIRED,
+          'If-Match is missing',
+        ),
       ),
 
     Import: (path: string, summary: string) =>

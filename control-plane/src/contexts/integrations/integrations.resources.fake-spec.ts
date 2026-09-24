@@ -19,6 +19,7 @@ import type {
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
+import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -51,7 +52,7 @@ export const compiler: IntegrationCompilerPort = {
             problems: [
               ConfigurationProblem.of({
                 path: 'integrations/linear',
-                at: 'actions.comment.request.url',
+                at: FieldPath.dotted('actions.comment.request.url'),
                 reason: 'is required',
               }),
             ],

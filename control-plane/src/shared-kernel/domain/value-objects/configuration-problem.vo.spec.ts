@@ -3,10 +3,10 @@ import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/config
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { describe, expect, it } from 'vitest';
 
-const problem = (over: Record<string, string> = {}) =>
+const problem = (over: { at?: FieldPath; reason?: string } = {}) =>
   ConfigurationProblem.of({
     path: 'integrations/linear',
-    at: 'happenings.0.when',
+    at: FieldPath.of(['happenings', 0, 'when']),
     reason: 'must be an expression',
     ...over,
   });
@@ -19,7 +19,7 @@ describe('ConfigurationProblem', () => {
   });
 
   it('points at the whole document where it points at nothing narrower', () => {
-    expect(problem({ at: '' }).field.isRoot).toBe(true);
+    expect(problem({ at: FieldPath.root() }).field.isRoot).toBe(true);
   });
 
   it('refuses one that says nothing to act on', () => {
@@ -32,7 +32,7 @@ describe('ConfigurationProblem', () => {
     expect(
       ConfigurationProblem.of({
         path: 'x.yml',
-        at: 'on.task.asked.to.thread',
+        at: FieldPath.of(['on', 'task.asked', 'to', 'thread']),
         reason: 'does not check',
         severity: 'warning',
       }).isWarning,
