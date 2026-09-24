@@ -1,8 +1,3 @@
-import {
-  type Bindings,
-  holds,
-  value,
-} from '@integrations/infrastructure/integrations/expression';
 import type { RequestIR } from '@integrations/infrastructure/integrations/integration.compile';
 import {
   asJson,
@@ -11,6 +6,8 @@ import {
   type Templated,
 } from '@integrations/infrastructure/integrations/templating';
 import { Egress } from '@integrations/infrastructure/outbound/egress';
+import type { Bindings } from '@platform/expressions/bindings';
+import { holds, value } from '@platform/expressions/readings';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 
 export interface OutboundResult {

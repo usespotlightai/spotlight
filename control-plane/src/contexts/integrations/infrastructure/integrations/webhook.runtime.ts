@@ -12,14 +12,6 @@ import type {
   WebhookSourcePort,
 } from '@integrations/application/ports/webhook-source.port';
 import type { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
-import {
-  type Bindings,
-  bound,
-  ExpressionFailedError,
-  holds,
-  reads,
-  value,
-} from '@integrations/infrastructure/integrations/expression';
 import { readEvents } from '@integrations/infrastructure/integrations/happenings';
 import type {
   AuthIR,
@@ -33,6 +25,9 @@ import {
   textOf,
 } from '@integrations/infrastructure/integrations/templating';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import { type Bindings, bound } from '@platform/expressions/bindings';
+import { ExpressionFailedError } from '@platform/expressions/expression.errors';
+import { holds, reads, value } from '@platform/expressions/readings';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
 

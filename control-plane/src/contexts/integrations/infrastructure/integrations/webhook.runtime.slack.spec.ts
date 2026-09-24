@@ -5,10 +5,13 @@ import {
 } from '@integrations/infrastructure/integrations/integration.compile';
 import { WebhookRuntime } from '@integrations/infrastructure/integrations/webhook.runtime';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 import { parse as parseYaml } from 'yaml';
+
+const expressions = new CelExpressionEngine();
 
 const SIGNING = 'slack_signing_secret';
 const WORKSPACE = WorkspaceId.of('ws_1');
@@ -87,7 +90,7 @@ on:
 `;
 
 const compiled = (): ReadableIntegration => {
-  const read = compileIntegration(parseYaml(SLACK));
+  const read = compileIntegration(parseYaml(SLACK), expressions);
 
   if (!read.ok) {
     throw new Error(
@@ -259,7 +262,7 @@ webhook:
 `;
 
     const looking = (response: unknown, ok = true) => {
-      const read = compileIntegration(parseYaml(WITH_LOOKUP));
+      const read = compileIntegration(parseYaml(WITH_LOOKUP), expressions);
       if (!read.ok) {
         throw new Error(read.problems.map((each) => each.reason).join(', '));
       }

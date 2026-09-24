@@ -1,13 +1,16 @@
 import { EgressRefusedError } from '@integrations/domain/exceptions/egress-refused.error';
-import { ExpressionFailedError } from '@integrations/infrastructure/integrations/expression';
 import {
   compileIntegration,
   type RequestIR,
 } from '@integrations/infrastructure/integrations/integration.compile';
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { ExpressionFailedError } from '@platform/expressions/expression.errors';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 import { describe, expect, it, vi } from 'vitest';
 import { parse as parseYaml } from 'yaml';
+
+const expressions = new CelExpressionEngine();
 
 const FIXTURE = `
 integration: demo
@@ -26,7 +29,7 @@ actions:
 `;
 
 const action = (): RequestIR => {
-  const read = compileIntegration(parseYaml(FIXTURE));
+  const read = compileIntegration(parseYaml(FIXTURE), expressions);
 
   if (!read.ok) {
     throw new Error(read.problems.map((each) => each.reason).join(', '));
@@ -87,7 +90,7 @@ actions:
         content-type: application/x-www-form-urlencoded
       body: '\${{ {"channel": target.channel} }}'
 `;
-    const read = compileIntegration(parseYaml(FORM));
+    const read = compileIntegration(parseYaml(FORM), expressions);
     const request = read.ok
       ? (read.readable.actions.get('post-message') as RequestIR)
       : (() => {
@@ -184,7 +187,7 @@ actions:
         oauth2:
           connection: true
 `;
-    const read = compileIntegration(parseYaml(OAUTH));
+    const read = compileIntegration(parseYaml(OAUTH), expressions);
     const request = read.ok
       ? (read.readable.actions.get('post-message') as RequestIR)
       : (() => {
@@ -218,7 +221,7 @@ actions:
 `;
 
     const fetching = (): RequestIR => {
-      const read = compileIntegration(parseYaml(FILE));
+      const read = compileIntegration(parseYaml(FILE), expressions);
 
       if (!read.ok) {
         throw new Error(read.problems.map((each) => each.reason).join(', '));
@@ -291,7 +294,7 @@ actions:
 `;
 
   const written = (text = WRITTEN, name = 'post') => {
-    const read = compileIntegration(parseYaml(text));
+    const read = compileIntegration(parseYaml(text), expressions);
 
     if (!read.ok) {
       throw new Error(read.problems.map((each) => each.reason).join(', '));

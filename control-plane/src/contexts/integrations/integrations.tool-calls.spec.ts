@@ -12,6 +12,7 @@ import type {
   OutboundResult,
 } from '@integrations/infrastructure/outbound/http-outbound';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
+import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type { ToolInputValues } from '@work/application/contracts/tools.contract';
@@ -19,13 +20,15 @@ import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
 import type { IntegrationTool } from '@work/application/ports/integration-tool-calls.port';
 import { describe, expect, it, vi } from 'vitest';
 
+const expressions = new CelExpressionEngine();
+
 const runtimeWith = (
   outbound: unknown,
   exchange: unknown = {},
   clients: OAuth2Clients = OAuth2Clients.from('{}'),
 ) =>
   new CompiledIntegrationRuntime(
-    new IntegrationReader(),
+    new IntegrationReader(expressions),
     outbound as HttpOutbound,
     clients,
     exchange as OAuth2Exchange,

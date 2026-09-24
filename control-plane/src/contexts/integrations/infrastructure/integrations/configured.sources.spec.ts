@@ -6,9 +6,12 @@ import { ConfiguredSources } from '@integrations/infrastructure/integrations/con
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
+import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
+
+const expressions = new CelExpressionEngine();
 
 const WORKSPACE = WorkspaceId.of('ws_1');
 
@@ -44,7 +47,7 @@ const holding = (integrations: DefinedIntegration[]) => {
         ofTeam: vi.fn(async () => integrations),
         everywhere: vi.fn(),
       } satisfies DefinedIntegrationsPort,
-      new IntegrationReader(),
+      new IntegrationReader(expressions),
       { keys: async () => new Map() },
       new HttpOutbound([]),
     ),

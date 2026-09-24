@@ -14,8 +14,11 @@ import type {
 } from '@integrations/infrastructure/outbound/http-outbound';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { WebInboxLinks } from '@integrations/presentation/http/web-inbox-links';
+import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
 import { describe, expect, it, vi } from 'vitest';
+
+const expressions = new CelExpressionEngine();
 
 const runtimeWith = (
   outbound: unknown,
@@ -23,7 +26,7 @@ const runtimeWith = (
   clients: OAuth2Clients = OAuth2Clients.from('{}'),
 ) =>
   new CompiledIntegrationRuntime(
-    new IntegrationReader(),
+    new IntegrationReader(expressions),
     outbound as HttpOutbound,
     clients,
     exchange as OAuth2Exchange,
