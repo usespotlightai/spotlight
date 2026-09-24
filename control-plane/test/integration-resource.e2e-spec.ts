@@ -11,7 +11,7 @@ import {
   TEAM_INTEGRATIONS,
   type TeamIntegrationsPort,
 } from '@work/application/ports/team-integrations.port';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import request from 'supertest';
 import {
   afterAll,
@@ -213,34 +213,5 @@ describe('an integration, created through the resource API (e2e)', () => {
         detail: expect.stringContaining('delivery/implementation'),
       });
     }
-  });
-
-  it('publishes each change to the integration for other contexts', async () => {
-    const made = await create(LINEAR);
-    const changed = await as().put(
-      made.body.id,
-      made.body.version,
-      WITHOUT_TOOLS,
-    );
-
-    await as().delete(made.body.id, changed.body.version);
-
-    const recorded = await app
-      .get<DrizzleDatabase>(DRIZZLE)
-      .select({ kind: schema.eventOutbox.kind })
-      .from(schema.eventOutbox)
-      .where(
-        and(
-          sql`${schema.eventOutbox.kind} like 'integrations.integration-%.v1'`,
-          sql`${schema.eventOutbox.payload}::text like ${`%${made.body.id}%`}`,
-        ),
-      )
-      .orderBy(schema.eventOutbox.recordedAt);
-
-    expect(recorded.map((each) => each.kind)).toEqual([
-      'integrations.integration-defined.v1',
-      'integrations.integration-redefined.v1',
-      'integrations.integration-retired.v1',
-    ]);
   });
 });

@@ -4,7 +4,6 @@ import { CreateSkillHandler } from '@configuration/application/commands/handlers
 import { DeleteSkillHandler } from '@configuration/application/commands/handlers/delete-skill.handler';
 import { UpdateSkillHandler } from '@configuration/application/commands/handlers/update-skill.handler';
 import { UpdateSkillCommand } from '@configuration/application/commands/update-skill.command';
-import { CONFIGURATION_PUBLICATIONS } from '@configuration/application/integration-events/configuration.publications';
 import {
   APPLIED_CONFIGURATION,
   type AppliedConfigurationPort,
@@ -78,7 +77,6 @@ import {
 import type { Provider, Type } from '@nestjs/common';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
-import { EventPublications } from '@platform/events/event-publications';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { EventTypes } from '@platform/events/event-types';
 import {
@@ -226,7 +224,6 @@ export const CONFIGURATION_PROVIDERS: readonly Provider[] = [
     provide: CONFIGURATION_EVENTS,
     inject: [
       EventTypes,
-      EventPublications,
       EventSubscribers,
       INTEGRATION_LINKS,
       SKILL_DEFINITIONS,
@@ -234,14 +231,12 @@ export const CONFIGURATION_PROVIDERS: readonly Provider[] = [
     ],
     useFactory: (
       types: EventTypes,
-      publications: EventPublications,
       subscribers: EventSubscribers,
       links: IntegrationLinksPort,
       skills: SkillDefinitionRepository,
       transaction: TransactionPort,
     ) => {
       types.register('configuration', CONFIGURATION_EVENT_TYPES);
-      publications.register(CONFIGURATION_PUBLICATIONS);
       subscribers.register(
         configurationSubscribers(
           links,
