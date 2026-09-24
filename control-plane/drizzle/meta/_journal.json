@@ -12,15 +12,8 @@
     {
       "idx": 1,
       "version": "7",
-      "when": 1790195284326,
-      "tag": "20260923202804_initial_schema",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1790230053976,
-      "tag": "20260924060733_secrets",
+      "when": 1790240674526,
+      "tag": "20260924090434_initial_schema",
       "breakpoints": true
     }
   ]
