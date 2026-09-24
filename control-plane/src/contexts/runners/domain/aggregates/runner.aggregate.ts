@@ -19,6 +19,7 @@ import type { Attribution } from '@shared-kernel/domain/value-objects/attributio
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
+import type { HarnessRelease } from '@shared-kernel/domain/value-objects/harness-release.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -147,6 +148,12 @@ export class Runner extends EventRecorder {
     return this.installed.map((each) => each.id);
   }
 
+  private get releases(): readonly HarnessRelease[] {
+    return this.installed.flatMap((each) =>
+      each.release ? [each.release] : [],
+    );
+  }
+
   modelsOf(harness: HarnessId): readonly HarnessModel[] {
     return this.installed.find((each) => each.id.equals(harness))?.models ?? [];
   }
@@ -176,7 +183,11 @@ export class Runner extends EventRecorder {
         ? this.labels.joinedWith(trust.labels)
         : this.labels;
 
-    return RunnerTerms.of([this.name.value, ...labels.values]);
+    return RunnerTerms.of([
+      this.name.value,
+      ...labels.values,
+      ...this.releases.map((each) => each.term),
+    ]);
   }
 
   belongsTo(workspaceId: WorkspaceId): boolean {

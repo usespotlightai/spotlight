@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   APPROVAL_STANDING,
+  APPROVAL_SUBJECTS,
+  type InboxApprovalDto,
   NOTE_FORMS,
   NOTE_KINDS,
   NOTE_VOICES,
@@ -38,35 +40,45 @@ export class InboxApprovalInputResponseDto {
 }
 
 export class InboxApprovalResponseDto {
-  @ApiProperty({ example: 'linear.comment' })
-  readonly tool: string;
+  @ApiProperty({
+    example: 'tool-call',
+    enum: [...APPROVAL_SUBJECTS],
+    description:
+      'Whether a tool call or a harness asking permission waits on a person',
+  })
+  readonly kind: string;
+
+  @ApiProperty({
+    example: 'linear.comment',
+    description:
+      'The tool, or the harness and the kind of action it asked about, as in claude-code execute',
+  })
+  readonly name: string;
 
   @ApiProperty({
     example: 'It posts publicly, under the team’s name.',
-    description: 'Why the tool cannot run until a person says so',
+    description: 'Why it cannot go ahead until a person says so',
   })
   readonly because: string;
 
   @ApiProperty({
     type: InboxApprovalInputResponseDto,
     isArray: true,
-    description: 'What the tool would be called with, exactly as it stands',
+    description: 'What it would go ahead with, exactly as it stands',
   })
   readonly inputs: readonly InboxApprovalInputResponseDto[];
 
   @ApiProperty({ example: 'asked', enum: [...APPROVAL_STANDING] })
   readonly standing: string;
 
-  constructor(
-    tool: string,
-    because: string,
-    inputs: readonly InboxApprovalInputResponseDto[],
-    standing: string,
-  ) {
-    this.tool = tool;
-    this.because = because;
-    this.inputs = inputs;
-    this.standing = standing;
+  constructor(approval: InboxApprovalDto) {
+    this.kind = approval.kind;
+    this.name = approval.name;
+    this.because = approval.because;
+    this.inputs = approval.inputs.map(
+      (input) => new InboxApprovalInputResponseDto(input.name, input.value),
+    );
+    this.standing = approval.standing;
   }
 }
 

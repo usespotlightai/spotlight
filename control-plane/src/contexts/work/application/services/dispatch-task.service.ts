@@ -3,17 +3,23 @@ import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-genera
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunId as RunIdOf } from '@shared-kernel/domain/value-objects/run-id.vo';
 import {
+  type HarnessSetupShape,
   RunSpecContract,
   type SkillFileShape,
   THROUGH_SPOTLIGHT,
   type ToolManifestShape,
   TRACE_PARENT_VAR,
 } from '@work/application/contracts/run-spec.contract';
+import { ReadyProfileMapper } from '@work/application/mappers/ready-profile.mapper';
 import { ReadySkillMapper } from '@work/application/mappers/ready-skill.mapper';
 import { skillFilesOf } from '@work/application/mappers/skill-files.mapper';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
-import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
+import type {
+  HarnessLaunchPort,
+  PreparedHarness,
+} from '@work/application/ports/harness-launch.port';
+import type { StationProfilesPort } from '@work/application/ports/station-profiles.port';
 import type { TaskDecisionsPort } from '@work/application/ports/task-decisions.port';
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { Attached } from '@work/application/rendering/attached';
@@ -26,11 +32,13 @@ import type { TeamIntegrations } from '@work/application/services/team-integrati
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
+import type { Station } from '@work/domain/entities/station.entity';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { describedTools } from '@work/domain/services/given-to-run';
 import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
 import { orderFor, type RunOrder } from '@work/domain/services/run-order';
 import type { HarnessCommand } from '@work/domain/value-objects/harness-command.vo';
+import type { ReadyProfile } from '@work/domain/value-objects/ready-profile';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 
@@ -39,6 +47,7 @@ const written = (
   order: RunOrder,
   task: Task,
   command: HarnessCommand,
+  setup: HarnessSetupShape | null,
   briefing: string,
   naming: string,
   skills: readonly SkillFileShape[],
@@ -65,6 +74,7 @@ const written = (
     ...(catalog.length > 0 ? { catalog } : {}),
     attachments: Attached.shapes(task.allAttachments),
     diffs: order.diffs,
+    ...(setup ? { harnessSetup: setup } : {}),
   });
 
 export class DispatchTask implements TaskDispatching {
@@ -80,7 +90,27 @@ export class DispatchTask implements TaskDispatching {
     private readonly decisions: TaskDecisionsPort,
     private readonly catalog: StationCatalog,
     private readonly runners: RunnerPresencePort,
+    private readonly profiles: StationProfilesPort,
   ) {}
+
+  private async profilesAt(
+    line: Line,
+    station: Station | null,
+  ): Promise<readonly ReadyProfile[]> {
+    const shape = station?.profile
+      ? await this.profiles.named(line.teamId, station.profile.value)
+      : null;
+
+    return shape ? [ReadyProfileMapper.toReady(shape)] : [];
+  }
+
+  private prepared(order: RunOrder): PreparedHarness | null {
+    return this.launch.preparedFor(order.harness.id, {
+      model: order.model,
+      effort: order.effort,
+      profile: order.given.profile,
+    });
+  }
 
   async runIdFor({
     task,
@@ -96,18 +126,16 @@ export class DispatchTask implements TaskDispatching {
       line,
       harnesses: this.harnesses,
       ready: ready.map(ReadySkillMapper.toReady),
+      profiles: await this.profilesAt(line, station ?? null),
     });
 
     if (!order) {
       return null;
     }
 
-    const command = this.launch.commandFor(order.harness.id, {
-      model: order.model,
-      effort: order.effort,
-    });
+    const prepared = this.prepared(order);
 
-    if (!command || !this.launch.skillsFor(order.harness.id)) {
+    if (!prepared || !this.launch.skillsFor(order.harness.id)) {
       return null;
     }
 
@@ -132,6 +160,7 @@ export class DispatchTask implements TaskDispatching {
       line,
       harnesses: this.harnesses,
       ready: ready.map(ReadySkillMapper.toReady),
+      profiles: await this.profilesAt(line, station ?? null),
       withheld: catalog?.withheld ?? [],
     });
 
@@ -139,12 +168,9 @@ export class DispatchTask implements TaskDispatching {
       return false;
     }
 
-    const command = this.launch.commandFor(order.harness.id, {
-      model: order.model,
-      effort: order.effort,
-    });
+    const prepared = this.prepared(order);
 
-    if (!command) {
+    if (!prepared) {
       return false;
     }
 
@@ -198,7 +224,8 @@ export class DispatchTask implements TaskDispatching {
       spec: written(
         order,
         task,
-        command,
+        prepared.command,
+        prepared.setup,
         briefing,
         this.tracing.for(task.id, id),
         skillFilesOf(folders, home),

@@ -1,13 +1,17 @@
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
+import { HarnessRelease } from '@shared-kernel/domain/value-objects/harness-release.vo';
+import type { HarnessVersion } from '@shared-kernel/domain/value-objects/harness-version.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { InvalidStationChangeError } from '@work/domain/exceptions/invalid-station-change.error';
 import {
   skillsRefused,
   toolsRefused,
 } from '@work/domain/services/station-gives';
+import { releaseRefused } from '@work/domain/services/station-release';
 import type { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import type { Effort } from '@work/domain/value-objects/effort.vo';
+import type { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import type { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import type { StationCheck } from '@work/domain/value-objects/station-check.vo';
 import type { StationColor } from '@work/domain/value-objects/station-color.vo';
@@ -29,6 +33,8 @@ type Part = {
   harness?: HarnessId | null;
   model?: HarnessModel | null;
   effort?: Effort | null;
+  profile?: ProfileKey | null;
+  harnessVersion?: HarnessVersion | null;
   agentPrompt?: AgentPrompt | null;
   check?: StationCheck | null;
   setup?: StationSetup | null;
@@ -50,6 +56,8 @@ export type StationInput = {
   harness?: HarnessId | null;
   model?: HarnessModel | null;
   effort?: Effort | null;
+  profile?: ProfileKey | null;
+  harnessVersion?: HarnessVersion | null;
   agentPrompt?: AgentPrompt | null;
   check?: StationCheck | null;
   setup?: StationSetup | null;
@@ -79,6 +87,8 @@ export abstract class Station {
   abstract readonly harness: HarnessId | null;
   abstract readonly model: HarnessModel | null;
   abstract readonly effort: Effort | null;
+  abstract readonly profile: ProfileKey | null;
+  abstract readonly harnessVersion: HarnessVersion | null;
   abstract readonly agentPrompt: AgentPrompt | null;
   abstract readonly check: StationCheck | null;
   abstract readonly setup: StationSetup | null;
@@ -88,6 +98,15 @@ export abstract class Station {
 
   static of(input: StationInput): Station {
     Station.guardWhatItGives(input.tools ?? [], input.skills ?? []);
+
+    const release = releaseRefused(
+      input.harness ?? null,
+      input.harnessVersion ?? null,
+    );
+
+    if (release) {
+      throw new InvalidStationChangeError(release);
+    }
 
     const ends = [
       input.id,
@@ -112,6 +131,8 @@ export abstract class Station {
           input.harness ?? null,
           input.model ?? null,
           input.effort ?? null,
+          input.profile ?? null,
+          input.harnessVersion ?? null,
           input.agentPrompt ?? null,
           input.check ?? null,
           input.setup ?? null,
@@ -132,6 +153,14 @@ export abstract class Station {
 
   get isWorked(): boolean {
     return this.kind === 'work';
+  }
+
+  get releasePlacement(): RunnerPlacement {
+    return this.harness && this.harnessVersion
+      ? RunnerPlacement.of([
+          HarnessRelease.of(this.harness, this.harnessVersion).term,
+        ])
+      : RunnerPlacement.anywhere();
   }
 
   rename(name: StationName): Station {
@@ -195,6 +224,8 @@ class WorkStation extends Station {
     readonly harness: HarnessId | null,
     readonly model: HarnessModel | null,
     readonly effort: Effort | null,
+    readonly profile: ProfileKey | null,
+    readonly harnessVersion: HarnessVersion | null,
     readonly agentPrompt: AgentPrompt | null,
     readonly check: StationCheck | null,
     readonly setup: StationSetup | null,
@@ -210,6 +241,8 @@ class WorkStation extends Station {
       harness,
       model: harness ? model : null,
       effort: harness ? this.effort : null,
+      harnessVersion:
+        harness && this.harness?.equals(harness) ? this.harnessVersion : null,
     });
   }
 
@@ -235,6 +268,10 @@ class WorkStation extends Station {
       part.harness !== undefined ? part.harness : this.harness,
       part.model !== undefined ? part.model : this.model,
       part.effort !== undefined ? part.effort : this.effort,
+      part.profile !== undefined ? part.profile : this.profile,
+      part.harnessVersion !== undefined
+        ? part.harnessVersion
+        : this.harnessVersion,
       part.agentPrompt !== undefined ? part.agentPrompt : this.agentPrompt,
       part.check !== undefined ? part.check : this.check,
       part.setup !== undefined ? part.setup : this.setup,
@@ -250,6 +287,8 @@ class Backlog extends Station {
   readonly harness = null;
   readonly model = null;
   readonly effort = null;
+  readonly profile = null;
+  readonly harnessVersion = null;
   readonly agentPrompt = null;
   readonly check = null;
   readonly setup = null;
@@ -295,6 +334,8 @@ class Completed extends Station {
   readonly harness = null;
   readonly model = null;
   readonly effort = null;
+  readonly profile = null;
+  readonly harnessVersion = null;
   readonly agentPrompt = null;
   readonly check = null;
   readonly setup = null;

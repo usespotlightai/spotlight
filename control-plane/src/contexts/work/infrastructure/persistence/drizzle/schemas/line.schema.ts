@@ -70,6 +70,8 @@ export const station = pgTable(
     harness: text('harness'),
     model: text('model'),
     effort: text('effort'),
+    profile: text('profile'),
+    harnessVersion: text('harness_version'),
     agentPrompt: text('agent_prompt'),
     check: text('check'),
     setup: text('setup'),

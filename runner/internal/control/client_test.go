@@ -369,3 +369,70 @@ func TestRecordChangeStackCheckPostsEachStep(t *testing.T) {
 		t.Errorf("seen %+v", seen)
 	}
 }
+
+func TestAskPermissionPostsWhatWasAskedAndReadsTheDecision(t *testing.T) {
+	var seenPath, seenMethod, carried string
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		seenPath, seenMethod = r.URL.Path, r.Method
+		body := new(bytes.Buffer)
+		_, _ = body.ReadFrom(r.Body)
+		carried = body.String()
+		_, _ = w.Write([]byte(`{"decision":"asked"}`))
+	})
+
+	answer, err := client.AskPermission(context.Background(), "run_1", protocol.PermissionAsked{
+		SessionID: "sess-1",
+		Kind:      "execute",
+		Title:     "`rm -rf build`",
+		Input:     json.RawMessage(`{"command":"rm -rf build"}`),
+	})
+	if err != nil {
+		t.Fatalf("ask: %v", err)
+	}
+
+	if seenMethod != http.MethodPost || seenPath != "/api/runs/run_1/permissions" {
+		t.Errorf("%s %s", seenMethod, seenPath)
+	}
+	want := `{"sessionId":"sess-1","kind":"execute","title":"` + "`rm -rf build`" + `","input":{"command":"rm -rf build"}}`
+	if carried != want {
+		t.Errorf("carried %s, want %s", carried, want)
+	}
+	if answer.Decision != protocol.PermissionPutToPerson {
+		t.Errorf("decision %q", answer.Decision)
+	}
+}
+
+func TestAskPermissionLeavesOutAnInputThereWasNone(t *testing.T) {
+	var seen map[string]any
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&seen)
+		_, _ = w.Write([]byte(`{"decision":"allow"}`))
+	})
+
+	answer, err := client.AskPermission(context.Background(), "run_1", protocol.PermissionAsked{SessionID: "sess-1"})
+	if err != nil {
+		t.Fatalf("ask: %v", err)
+	}
+
+	if _, carried := seen["input"]; carried {
+		t.Errorf("carried an input: %v", seen)
+	}
+	if answer.Decision != protocol.PermissionAllow {
+		t.Errorf("decision %q", answer.Decision)
+	}
+}
+
+func TestAskPermissionFailsRatherThanDecidingOnItsOwn(t *testing.T) {
+	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "no such run", http.StatusNotFound)
+	})
+
+	answer, err := client.AskPermission(context.Background(), "run_1", protocol.PermissionAsked{})
+
+	if err == nil || !strings.Contains(err.Error(), "404") {
+		t.Fatalf("expected a 404, got %v", err)
+	}
+	if answer.Decision != "" {
+		t.Errorf("decided %q without an answer", answer.Decision)
+	}
+}

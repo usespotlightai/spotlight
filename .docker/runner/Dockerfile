@@ -11,7 +11,8 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 RUN useradd -m -u 2000 -s /bin/bash agent
-RUN npm install -g @anthropic-ai/claude-code @zed-industries/claude-agent-acp
+RUN npm install -g @anthropic-ai/claude-code @agentclientprotocol/claude-agent-acp \
+    @agentclientprotocol/codex-acp
 RUN mkdir -p /opt/cursor \
     && HOME=/opt/cursor bash -c 'curl https://cursor.com/install -fsS | bash' \
     && ln -sf /opt/cursor/.local/bin/cursor-agent /usr/local/bin/cursor-agent \

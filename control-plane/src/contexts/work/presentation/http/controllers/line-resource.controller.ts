@@ -54,6 +54,8 @@ const DEFINITION = ApiBody({
           key: 'implementation',
           name: 'Implementation',
           harness: 'claude-code',
+          harnessVersion: '0.23.1',
+          profile: 'careful',
           prompt: 'Implement the task.',
           passesTo: ['completed'],
         },

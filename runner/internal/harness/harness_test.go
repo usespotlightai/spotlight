@@ -110,3 +110,49 @@ func TestSkipsAnEntryThatNamesNothing(t *testing.T) {
 		t.Fatalf("got %v", found)
 	}
 }
+
+func TestReadsTheVersionTheHarnessReports(t *testing.T) {
+	for _, expected := range []struct {
+		said    string
+		version string
+	}{
+		{"2.1.270 (Claude Code)", "2.1.270"},
+		{"v1.4.0", "1.4.0"},
+		{"cursor-agent 2026.09.01-abc", "2026.09.01-abc"},
+		{"codex-cli\n0.46.0\n", "0.46.0"},
+		{"garbage", ""},
+		{"", ""},
+	} {
+		dir := t.TempDir()
+		script := "#!/bin/sh\nprintf '%s\\n' '" + expected.said + "'\n"
+		if err := os.WriteFile(filepath.Join(dir, "versioned"), []byte(script), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("PATH", dir)
+
+		found := harness.Installed(context.Background(), []protocol.Installable{
+			{ID: "versioned", Executable: "versioned", VersionProbe: []string{"versioned", "--version"}},
+		})
+
+		if len(found) != 1 || found[0].Version != expected.version {
+			t.Errorf("%q: got %+v, want version %q", expected.said, found, expected.version)
+		}
+	}
+}
+
+func TestReportsNoVersionWhenItCannotBeRead(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "broken"), []byte("#!/bin/sh\necho 1.2.3\nexit 1\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir)
+
+	found := harness.Installed(context.Background(), []protocol.Installable{
+		{ID: "broken", Executable: "broken", VersionProbe: []string{"broken"}},
+		{ID: "unasked", Executable: "broken"},
+	})
+
+	if len(found) != 2 || found[0].Version != "" || found[1].Version != "" {
+		t.Fatalf("got %+v", found)
+	}
+}

@@ -8,6 +8,7 @@ import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
+import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
@@ -111,9 +112,11 @@ describe('TaskBindings', () => {
       ...task(),
       currentRunId: RunId.of('run_1'),
     }).clearFor(
-      ToolCall.of(
-        Tool.of('linear.comment'),
-        ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+      ApprovalSubject.toolCall(
+        ToolCall.of(
+          Tool.of('linear.comment'),
+          ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+        ),
       ),
       ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
       {

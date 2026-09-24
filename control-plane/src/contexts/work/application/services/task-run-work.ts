@@ -3,7 +3,12 @@ import type { Repository } from '@shared-kernel/domain/value-objects/repository.
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { TaskToolContext } from '@work/application/ports/integration-tools.port';
 import { ApprovalAsked } from '@work/application/rendering/approval-asked';
-import type { Cleared, RunWork } from '@work/application/services/run-work';
+import { PermissionAsked } from '@work/application/rendering/permission-asked';
+import type {
+  Cleared,
+  PermissionCleared,
+  RunWork,
+} from '@work/application/services/run-work';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
@@ -11,8 +16,12 @@ import { UnknownStationError } from '@work/domain/exceptions/unknown-station.err
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { repositoryNamedIn } from '@work/domain/services/repository-named';
+import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
+import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
+import type { HarnessPermission } from '@work/domain/value-objects/harness-permission.vo';
+import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
@@ -65,7 +74,7 @@ export class TaskRunWork implements RunWork {
 
     const line = await this.lines.holding(this.task.stationId);
     const { task, clearance } = this.task.clearFor(
-      call,
+      ApprovalSubject.toolCall(call),
       needed,
       {
         station:
@@ -89,6 +98,40 @@ export class TaskRunWork implements RunWork {
           kind: 'given',
           returned: () => this.returned(task, clearance.claimed),
         };
+  }
+
+  async clearPermission(
+    permission: HarnessPermission,
+    session: HarnessSession | null,
+  ): Promise<PermissionCleared> {
+    const line = await this.lines.holding(this.task.stationId);
+    const station = line?.stationAt(this.task.stationId) ?? null;
+    const subject = ApprovalSubject.harnessPermission(permission);
+    const needed = ApprovalNeeded.of(
+      subject.name,
+      PermissionAsked.because(station?.profile?.value ?? null),
+    );
+    const worked =
+      session && this.run.claimedBy
+        ? this.task.workedIn(session, this.run.claimedBy)
+        : this.task;
+    const { task, clearance } = worked.clearFor(
+      subject,
+      needed,
+      {
+        station: station?.name ?? StationName.unknown(),
+        body: TaskNoteBody.of(PermissionAsked.body(permission, needed)),
+        at: this.clock.now(),
+        voice: Voice.station(this.run.id),
+      },
+      this.run.id,
+    );
+
+    if (clearance.kind !== 'refused') {
+      await this.tasks.save(task);
+    }
+
+    return clearance.kind;
   }
 
   private async returned(claimed: Task, at: NotePosition): Promise<void> {

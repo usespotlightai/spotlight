@@ -1,20 +1,25 @@
 package protocol
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type Registration struct {
 	Harnesses []HarnessReport `json:"harnesses"`
 }
 
 type HarnessReport struct {
-	ID     string   `json:"id"`
-	Models []string `json:"models,omitempty"`
+	ID      string   `json:"id"`
+	Models  []string `json:"models,omitempty"`
+	Version string   `json:"version,omitempty"`
 }
 
 type Installable struct {
-	ID         string   `json:"id"`
-	Executable string   `json:"executable"`
-	Discovery  []string `json:"discovery,omitempty"`
+	ID           string   `json:"id"`
+	Executable   string   `json:"executable"`
+	Discovery    []string `json:"discovery,omitempty"`
+	VersionProbe []string `json:"versionProbe,omitempty"`
 }
 
 type Registered struct {
@@ -60,15 +65,57 @@ type Handover struct {
 }
 
 type Spec struct {
-	Checkouts   []Checkout     `json:"checkouts,omitempty"`
-	Command     Command        `json:"command"`
-	Briefing    string         `json:"briefing,omitempty"`
-	Handover    Handover       `json:"handover,omitzero"`
-	Manifest    []ToolManifest `json:"manifest,omitempty"`
-	Continuity  Continuity     `json:"continuity,omitzero"`
-	Attachments []Attachment   `json:"attachments,omitempty"`
-	Skills      []SkillFile    `json:"skills,omitempty"`
-	Diffs       bool           `json:"diffs,omitempty"`
+	Checkouts    []Checkout     `json:"checkouts,omitempty"`
+	Command      Command        `json:"command"`
+	Briefing     string         `json:"briefing,omitempty"`
+	Handover     Handover       `json:"handover,omitzero"`
+	Manifest     []ToolManifest `json:"manifest,omitempty"`
+	Continuity   Continuity     `json:"continuity,omitzero"`
+	Attachments  []Attachment   `json:"attachments,omitempty"`
+	Skills       []SkillFile    `json:"skills,omitempty"`
+	Diffs        bool           `json:"diffs,omitempty"`
+	HarnessSetup HarnessSetup   `json:"harnessSetup,omitzero"`
+}
+
+type HarnessSetup struct {
+	Files      []SetupFile     `json:"files,omitempty"`
+	Session    json.RawMessage `json:"session,omitempty"`
+	McpServers []McpServer     `json:"mcpServers,omitempty"`
+	Asks       []string        `json:"asks,omitempty"`
+}
+
+type SetupFile struct {
+	Path string `json:"path"`
+	Text string `json:"text"`
+}
+
+type McpServer struct {
+	Name    string        `json:"name"`
+	Command string        `json:"command"`
+	Args    []string      `json:"args"`
+	Env     []EnvVariable `json:"env"`
+}
+
+type EnvVariable struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+const (
+	PermissionAllow       = "allow"
+	PermissionReject      = "reject"
+	PermissionPutToPerson = "asked"
+)
+
+type PermissionAsked struct {
+	SessionID string          `json:"sessionId"`
+	Kind      string          `json:"kind"`
+	Title     string          `json:"title"`
+	Input     json.RawMessage `json:"input,omitempty"`
+}
+
+type PermissionAnswer struct {
+	Decision string `json:"decision"`
 }
 
 type Attachment struct {

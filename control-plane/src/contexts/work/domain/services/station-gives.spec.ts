@@ -36,6 +36,8 @@ const laid = (key: string, over: Partial<StationPlan> = {}): StationPlan => ({
   harness: null,
   model: null,
   effort: null,
+  profile: null,
+  harnessVersion: null,
   agentPrompt: null,
   check: null,
   setup: null,

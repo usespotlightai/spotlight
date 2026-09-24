@@ -18,7 +18,6 @@ import {
   describe,
   expect,
   it,
-  vi,
 } from 'vitest';
 import { openApp, TEST_USER_HEADER } from './support/app';
 import { forgetRunnersOf } from './support/runners';
@@ -343,23 +342,18 @@ describe('a runner enrolling as a platform workload, with no token (e2e)', () =>
 
     await claim(exchanged.body.token).expect(401);
 
-    await vi.waitFor(
-      async () => {
-        await app.get(EventDelivery).drain();
+    await app.get(EventDelivery).drain();
 
-        const [runner] = await db
-          .select({ revokedAt: schema.runner.revokedAt })
-          .from(schema.runner)
-          .where(eq(schema.runner.id, exchanged.body.runnerId));
-        const [run] = await db
-          .select({ state: schema.run.state, claimedBy: schema.run.claimedBy })
-          .from(schema.run)
-          .where(eq(schema.run.id, placed));
+    const [runner] = await db
+      .select({ revokedAt: schema.runner.revokedAt })
+      .from(schema.runner)
+      .where(eq(schema.runner.id, exchanged.body.runnerId));
+    const [run] = await db
+      .select({ state: schema.run.state, claimedBy: schema.run.claimedBy })
+      .from(schema.run)
+      .where(eq(schema.run.id, placed));
 
-        expect(runner?.revokedAt).not.toBeNull();
-        expect(run).toEqual({ state: 'queued', claimedBy: null });
-      },
-      { timeout: 10_000, interval: 100 },
-    );
+    expect(runner?.revokedAt).not.toBeNull();
+    expect(run).toEqual({ state: 'queued', claimedBy: null });
   });
 });

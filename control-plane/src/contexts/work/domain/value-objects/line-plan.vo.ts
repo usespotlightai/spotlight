@@ -1,5 +1,6 @@
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
+import type { HarnessVersion } from '@shared-kernel/domain/value-objects/harness-version.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { StationKind } from '@work/domain/entities/station.entity';
@@ -12,6 +13,7 @@ import {
   skillsRefused,
   toolsRefused,
 } from '@work/domain/services/station-gives';
+import { releaseRefused } from '@work/domain/services/station-release';
 import type { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import type { Effort } from '@work/domain/value-objects/effort.vo';
 import type { Happening } from '@work/domain/value-objects/happening.vo';
@@ -19,6 +21,7 @@ import type { LineKey } from '@work/domain/value-objects/line-key.vo';
 import type { LineName } from '@work/domain/value-objects/line-name.vo';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
+import type { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import type { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import { reviewsOn } from '@work/domain/value-objects/review-policy.vo';
 import type { SkillKey } from '@work/domain/value-objects/skill-key.vo';
@@ -39,6 +42,8 @@ export interface StationPlan {
   readonly harness: HarnessId | null;
   readonly model: HarnessModel | null;
   readonly effort: Effort | null;
+  readonly profile: ProfileKey | null;
+  readonly harnessVersion: HarnessVersion | null;
   readonly agentPrompt: AgentPrompt | null;
   readonly check: StationCheck | null;
   readonly setup: StationSetup | null;
@@ -50,6 +55,29 @@ export interface StationPlan {
   readonly passesTo: readonly StationKey[];
   readonly ends: boolean;
 }
+
+type RefusedStation = {
+  readonly field: 'skills' | 'tools' | 'harnessVersion';
+  readonly reason: string;
+} | null;
+
+const stationRefused = (station: StationPlan): RefusedStation => {
+  const skills = skillsRefused(station.skills);
+
+  if (skills) {
+    return { field: 'skills', reason: skills };
+  }
+
+  const tools = toolsRefused(station.tools);
+
+  if (tools) {
+    return { field: 'tools', reason: tools };
+  }
+
+  const release = releaseRefused(station.harness, station.harnessVersion);
+
+  return release ? { field: 'harnessVersion', reason: release } : null;
+};
 
 export interface ReactionPlan {
   readonly happening: Happening;
@@ -98,18 +126,16 @@ export class LinePlan {
     }
 
     for (const station of input.stations) {
-      const skills = skillsRefused(station.skills);
-      const tools = toolsRefused(station.tools);
-      const refused = skills ?? tools;
+      const refused = stationRefused(station);
 
       if (refused) {
         throw new InvalidLinePlanError(
           input.key.value,
-          `has ${station.key.value}, which ${refused}`,
+          `has ${station.key.value}, which ${refused.reason}`,
           {
             of: 'station',
             station: station.key.value,
-            field: skills ? 'skills' : 'tools',
+            field: refused.field,
           },
         );
       }

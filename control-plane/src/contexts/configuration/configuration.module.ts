@@ -7,6 +7,7 @@ import { IdentityModule } from '@identity/identity.module';
 import { Module } from '@nestjs/common';
 import { SecretsModule } from '@secrets/secrets.module';
 import { BUILT_IN_SKILLS } from '@work/application/ports/built-in-skills.port';
+import { STATION_PROFILES } from '@work/application/ports/station-profiles.port';
 import { TEAM_SKILLS } from '@work/application/ports/team-skills.port';
 import { WorkModule } from '@work/work.module';
 
@@ -14,6 +15,11 @@ import { WorkModule } from '@work/work.module';
   imports: [IdentityModule, SecretsModule, WorkModule],
   controllers: [...CONFIGURATION_CONTROLLERS],
   providers: [...CONFIGURATION_PROVIDERS],
-  exports: [APPLIED_CONFIGURATION, TEAM_SKILLS, BUILT_IN_SKILLS],
+  exports: [
+    APPLIED_CONFIGURATION,
+    TEAM_SKILLS,
+    BUILT_IN_SKILLS,
+    STATION_PROFILES,
+  ],
 })
 export class ConfigurationModule {}

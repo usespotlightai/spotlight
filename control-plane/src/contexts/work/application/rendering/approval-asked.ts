@@ -4,7 +4,7 @@ import type { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 
 const LONG = 400;
 
-const shortened = (value: string): string =>
+export const shortened = (value: string): string =>
   value.length > LONG ? `${value.slice(0, LONG)}…` : value;
 
 const written = (name: string, value: string): string =>

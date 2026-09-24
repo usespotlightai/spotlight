@@ -35,6 +35,8 @@ type journal struct {
 	delivered []int
 	files     map[string]string
 	drafted   []drafted
+	decision  string
+	asked     []protocol.PermissionAsked
 }
 
 func (j *journal) AppendEvents(_ context.Context, _ string, events []protocol.Event) error {
@@ -115,6 +117,18 @@ func (j *journal) Attachment(_ context.Context, _ string, id string, into io.Wri
 	}
 	_, err := io.WriteString(into, content)
 	return err
+}
+
+func (j *journal) AskPermission(
+	_ context.Context, _ string, asked protocol.PermissionAsked,
+) (protocol.PermissionAnswer, error) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	j.asked = append(j.asked, asked)
+	if j.decision == "" {
+		return protocol.PermissionAnswer{}, errors.New("503 Service Unavailable")
+	}
+	return protocol.PermissionAnswer{Decision: j.decision}, nil
 }
 
 func (j *journal) typed(kind protocol.EventType) []protocol.Event {
@@ -236,6 +250,8 @@ type runOptions struct {
 	attachments []protocol.Attachment
 	skills      []protocol.SkillFile
 	files       map[string]string
+	setup       protocol.HarnessSetup
+	decision    string
 }
 
 func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
@@ -246,16 +262,22 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 		adjust(&settings)
 	}
 
-	written := &journal{said: settings.said, stopAfter: settings.stopAfter, files: settings.files}
+	written := &journal{
+		said:      settings.said,
+		stopAfter: settings.stopAfter,
+		files:     settings.files,
+		decision:  settings.decision,
+	}
 	err := session.Execute(context.Background(), protocol.Run{
 		ID: "run_1",
 		Spec: protocol.Spec{
-			Command:     protocol.Command{Executable: executable, Env: settings.env},
-			Briefing:    settings.briefing,
-			Handover:    protocol.Handover{Options: settings.handover},
-			Continuity:  settings.continuity,
-			Attachments: settings.attachments,
-			Skills:      settings.skills,
+			Command:      protocol.Command{Executable: executable, Env: settings.env},
+			Briefing:     settings.briefing,
+			Handover:     protocol.Handover{Options: settings.handover},
+			Continuity:   settings.continuity,
+			Attachments:  settings.attachments,
+			Skills:       settings.skills,
+			HarnessSetup: settings.setup,
 		},
 	}, session.Options{
 		WorkspaceRoot: settings.root,
@@ -760,4 +782,161 @@ func TestWhatWasSaidIsSaidAgainWhereTheHarnessLetsItGoUnread(t *testing.T) {
 		}
 	}
 	t.Fatal("what the person said never reached the agent")
+}
+
+func TestHarnessFilesAreLaidInTheStateDirectory(t *testing.T) {
+	written := run(t, harness(t, reading(workspace.StatePath+"/claude/settings.json"), "end_turn"), func(o *runOptions) {
+		o.setup = protocol.HarnessSetup{Files: []protocol.SetupFile{
+			{Path: "claude/settings.json", Text: `{"permissions":{"deny":["Bash(rm *)"]}}`},
+		}}
+	})
+
+	if heard := said(t, written); heard != `{"permissions":{"deny":["Bash(rm *)"]}}` {
+		t.Errorf("the agent found %q", heard)
+	}
+}
+
+func TestAHarnessFileOutsideTheStateDirectoryFailsTheRun(t *testing.T) {
+	written := &journal{}
+	err := session.Execute(context.Background(), protocol.Run{
+		ID: "run_1",
+		Spec: protocol.Spec{
+			Command: protocol.Command{Executable: harness(t, `said = "worked";`, "end_turn")},
+			HarnessSetup: protocol.HarnessSetup{Files: []protocol.SetupFile{
+				{Path: "../settings.json", Text: "{}"},
+			}},
+		},
+	}, session.Options{
+		WorkspaceRoot: t.TempDir(),
+		Journal:       written,
+		Log:           slog.New(slog.NewTextHandler(io.Discard, nil)),
+		HookTimeout:   30 * time.Second,
+	})
+
+	if err == nil || !strings.Contains(err.Error(), "escapes the state directory") {
+		t.Fatalf("expected the file to fail the run, got %v", err)
+	}
+	if written.done == nil || !written.done.Failed {
+		t.Fatalf("completion %+v", written.done)
+	}
+	if heard := said(t, written); heard != "" {
+		t.Errorf("the agent was started anyway and said %q", heard)
+	}
+}
+
+func permitting(t *testing.T) string {
+	t.Helper()
+
+	script := `#!/usr/bin/env node
+const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
+let buffered = "", promptId = null;
+process.stdin.on("data", (chunk) => {
+  buffered += chunk.toString();
+  const lines = buffered.split("\n");
+  buffered = lines.pop();
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const msg = JSON.parse(line);
+    if (msg.method === "initialize") send({ jsonrpc: "2.0", id: msg.id, result: { protocolVersion: 1 } });
+    if (msg.method === "session/new") send({ jsonrpc: "2.0", id: msg.id, result: { sessionId: "session_opened" } });
+    if (msg.method === "session/prompt") {
+      promptId = msg.id;
+      send({ jsonrpc: "2.0", id: 900, method: "session/request_permission",
+             params: { sessionId: msg.params.sessionId,
+                       toolCall: { toolCallId: "toolu_1", kind: "execute", title: "rm -rf build",
+                                   rawInput: { command: "rm -rf build" } },
+                       options: [{ optionId: "allowed", kind: "allow_once" },
+                                 { optionId: "refused", kind: "reject_once" }] } });
+    }
+    if (msg.id === 900) {
+      const outcome = msg.result.outcome;
+      const told = outcome.outcome === "selected" ? outcome.optionId : outcome.outcome;
+      send({ jsonrpc: "2.0", method: "session/update",
+             params: { update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: told } } } });
+      send({ jsonrpc: "2.0", id: promptId, result: { stopReason: told === "cancelled" ? "cancelled" : "end_turn" } });
+    }
+  }
+});
+`
+
+	dir, err := os.MkdirTemp("", "harness")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	if err := os.Chmod(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	path := filepath.Join(dir, "harness")
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestAPermissionIsAnsweredAsTheControlPlaneDecides(t *testing.T) {
+	for _, expected := range []struct {
+		name     string
+		asks     []string
+		decision string
+		told     string
+		asked    int
+	}{
+		{"no profile", nil, protocol.PermissionReject, "allowed", 0},
+		{"a kind the profile never asks about", []string{"edit", "delete"}, protocol.PermissionReject, "allowed", 0},
+		{"allowed", []string{"execute"}, protocol.PermissionAllow, "allowed", 1},
+		{"rejected", []string{"execute"}, protocol.PermissionReject, "refused", 1},
+		{"unreachable", []string{"execute"}, "", "refused", 1},
+	} {
+		written := run(t, permitting(t), func(o *runOptions) {
+			o.setup = protocol.HarnessSetup{Asks: expected.asks}
+			o.decision = expected.decision
+		})
+
+		if heard := said(t, written); heard != expected.told {
+			t.Errorf("%s: the agent was told %q, wanted %q", expected.name, heard, expected.told)
+		}
+		if len(written.asked) != expected.asked {
+			t.Fatalf("%s: asked the control plane %d times, wanted %d", expected.name, len(written.asked), expected.asked)
+		}
+		if written.done == nil || written.done.Failed {
+			t.Errorf("%s: completion %+v", expected.name, written.done)
+		}
+		if expected.asked == 0 {
+			continue
+		}
+
+		want := protocol.PermissionAsked{
+			SessionID: "session_opened",
+			Kind:      "execute",
+			Title:     "rm -rf build",
+			Input:     json.RawMessage(`{"command":"rm -rf build"}`),
+		}
+		if got := written.asked[0]; got.SessionID != want.SessionID ||
+			got.Kind != want.Kind || got.Title != want.Title || string(got.Input) != string(want.Input) {
+			t.Errorf("%s: asked %+v, wanted %+v", expected.name, got, want)
+		}
+	}
+}
+
+func TestAPermissionPutToAPersonLetsTheRunGo(t *testing.T) {
+	written := run(t, permitting(t), func(o *runOptions) {
+		o.setup = protocol.HarnessSetup{Asks: []string{"execute"}}
+		o.decision = protocol.PermissionPutToPerson
+		o.said = [][]protocol.Said{{{Position: 1, Body: "not yet"}}}
+	})
+
+	if heard := said(t, written); heard != "cancelled" {
+		t.Errorf("the agent was told %q", heard)
+	}
+	if written.done == nil || written.done.Failed || written.done.Stopped {
+		t.Fatalf("completion %+v", written.done)
+	}
+	if written.done.SessionID != "session_opened" {
+		t.Errorf("reported session %q", written.done.SessionID)
+	}
+	if len(written.delivered) != 0 {
+		t.Errorf("waited on what was said: delivered %v", written.delivered)
+	}
 }

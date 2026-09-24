@@ -8,6 +8,8 @@ import { DefinitionDocument } from '@shared-kernel/domain/value-objects/definiti
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
+import { HarnessRelease } from '@shared-kernel/domain/value-objects/harness-release.vo';
+import { HarnessVersion } from '@shared-kernel/domain/value-objects/harness-version.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import {
   PersonPrincipal,
@@ -41,6 +43,8 @@ export const SHARED_KERNEL_EVENT_TYPES = [
   FieldPath,
   HarnessId,
   HarnessModel,
+  HarnessRelease,
+  HarnessVersion,
   IdempotencyKey,
   PersonPrincipal,
   PullRequestUrl,

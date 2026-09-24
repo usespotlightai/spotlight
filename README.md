@@ -31,7 +31,8 @@ docker compose up -d
 | `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY` | cloning and pushing; required to start |
 | `GITHUB_WEBHOOK_SECRET`, `CLOUDFLARE_TUNNEL_TOKEN` | GitHub webhooks reaching this machine |
 | `RUNNER_ONE_TOKEN`, `RUNNER_TWO_TOKEN` | the two compose runners, from Settings > Runners |
-| `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` | agents on those runners |
+| `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` | Claude Code agents on those runners |
+| `OPENAI_API_KEY` | Codex agents on those runners |
 
 | URL | Service |
 |---|---|
@@ -59,6 +60,71 @@ production runner image installs the same way (`.docker/runner/Dockerfile`).
 Tagging triggers `release.yml`, which starts the `infrastructure` repo's build:
 service images, plus binaries published to `usespotlightai/cli`, since this
 repository is private.
+
+## Harness profiles
+
+A `spotlight_harness_profile` (`/api/resources/teams/{teamId}/harness-profiles`)
+says once what a team's agents may do, and a station names it with `profile`.
+Claude Code, Codex and Cursor each get it in their own terms.
+
+```json
+{
+  "key": "careful",
+  "permissions": {
+    "allow": ["read", "edit", "execute(npm test *)"],
+    "ask": ["execute(git push *)"],
+    "deny": ["read(.env)"]
+  },
+  "mcpServers": [{ "name": "linear", "command": "npx", "args": ["-y", "linear-mcp"] }],
+  "native": {
+    "claude-code": { "includeCoAuthoredBy": false },
+    "codex": "model_verbosity = \"low\"\n",
+    "cursor": { "editor": { "vimMode": true } }
+  }
+}
+```
+
+- **Permissions** are `read`, `edit` or `execute`, alone or with a pattern.
+  A rule with a pattern outranks a bare one; anything unlisted is allowed.
+  Where a harness can't say a rule, the resource's `warnings` name the
+  approximation, e.g. Cursor has no ask rules, and Codex can't restrict reads.
+- **Ask** becomes a Spotlight approval. When the harness asks about a kind of
+  action an `ask` rule covers, its ACP permission request goes to the inbox,
+  the run lets the task go, and once a person approves, the next run resumes
+  the same session and the same call goes through once. Anything else the
+  harness asks about, including tools outside read, edit and execute such as
+  web fetches, is allowed.
+- **Native** settings pass through as the harness reads them: Claude Code
+  settings JSON, Codex `config.toml` text, Cursor CLI config JSON. Where they
+  set a key the permissions also write, the native value wins, with a warning.
+- **MCP servers** run over stdio, written out in each harness's own format.
+  Their `env` values are never credentials: they're stored and shown in plain
+  text, in the resource (and so in Terraform state), in the run spec, and in
+  what the runner receives. A server that needs a key reads it from the
+  runner's own environment, as harness API keys do today. Secret references
+  come with SPO-97.
+- **Where they're written.** The common layer lands at user level, under the
+  run's state directory: `claude/settings.json` (`CLAUDE_CONFIG_DIR`),
+  `codex/config.toml` and `codex/rules/spotlight.rules` (`CODEX_HOME`),
+  `cursor/cli-config.json` and `cursor/mcp.json` (`CURSOR_CONFIG_DIR`). A
+  repository's own `.claude/settings.json`, `AGENTS.md` and the like still
+  apply on top. What must hold goes where the repository can't reach: Claude
+  Code's ask and deny rules as managed settings in the ACP session. Codex's
+  approvals come to Spotlight through codex-acp's `read-only` mode, which sets
+  approval policy and a workspace-write sandbox on every turn; its model and
+  effort go in `CODEX_CONFIG`, which codex-acp merges into Codex's `-c`
+  override layer. Cursor has no such layer.
+- **Harness version.** A station's `harnessVersion` pins the run to runners
+  that reported that exact release of the CLI the harness runs: the Claude Code
+  binary `claude-agent-acp` resolves, `codex` behind `codex-acp`, and
+  `cursor-agent`. A runner answers to `<harness>@<version>` beside its name and
+  labels, and the pin is one more placement clause, so it composes with
+  `runners`.
+
+**Harness permissions are guardrails, not the security boundary.** An agent can
+still find a way around its own harness's rules, and a repository can loosen
+what isn't enforced. What contains an agent is the sandbox it runs in and
+egress, the only way out of it.
 
 ## Schema changes
 

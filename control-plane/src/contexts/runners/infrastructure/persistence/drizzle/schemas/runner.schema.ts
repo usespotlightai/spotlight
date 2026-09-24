@@ -23,6 +23,10 @@ export const runner = pgTable(
       .$type<Record<string, string[]>>()
       .notNull()
       .default({}),
+    harnessVersions: jsonb('harness_versions')
+      .$type<Record<string, string>>()
+      .notNull()
+      .default({}),
     revokedAt: timestamp('revoked_at'),
     registeredAt: timestamp('registered_at').defaultNow().notNull(),
     lastSeenAt: timestamp('last_seen_at'),

@@ -26,6 +26,23 @@ describe('Continuity, pinned within a placement', () => {
     expect(pinned().pinnedWithin(GPU, RunnerTerms.none())).toBeNull();
   });
 
+  it('lets go of a pinned runner holding another release of the harness the station pins', () => {
+    const release = RunnerPlacement.of(['claude-code@2.1.270']);
+
+    expect(
+      pinned().pinnedWithin(
+        release,
+        RunnerTerms.of(['runner-1', 'claude-code@2.1.269']),
+      ),
+    ).toBeNull();
+    expect(
+      pinned().pinnedWithin(
+        release,
+        RunnerTerms.of(['runner-1', 'claude-code@2.1.270']),
+      ),
+    ).toBe(RUNNER);
+  });
+
   it('pins nothing it was never pinned to', () => {
     expect(pinned(null).pinnedWithin(GPU, RunnerTerms.of(['gpu']))).toBeNull();
   });

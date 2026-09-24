@@ -84,6 +84,19 @@ func (c *Client) UseTool(
 	return out, nil
 }
 
+func (c *Client) AskPermission(
+	ctx context.Context, runID string, asked protocol.PermissionAsked,
+) (protocol.PermissionAnswer, error) {
+	var out protocol.PermissionAnswer
+	path := fmt.Sprintf("/api/runs/%s/permissions", url.PathEscape(runID))
+
+	if err := c.do(ctx, http.MethodPost, path, asked, &out); err != nil {
+		return protocol.PermissionAnswer{}, fmt.Errorf("ask for permission: %w", err)
+	}
+
+	return out, nil
+}
+
 func (c *Client) AnswerRemark(
 	ctx context.Context, runID string, said protocol.Remark,
 ) error {

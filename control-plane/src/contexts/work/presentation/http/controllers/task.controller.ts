@@ -52,7 +52,6 @@ import { AddTaskRequestDto } from '@work/presentation/http/dto/add-task.request.
 import { AnalyseTracesRequestDto } from '@work/presentation/http/dto/analyse-traces.request.dto';
 import { AssignTaskRequestDto } from '@work/presentation/http/dto/assign-task.request.dto';
 import {
-  InboxApprovalInputResponseDto,
   InboxApprovalResponseDto,
   InboxAuthorResponseDto,
   InboxMessageResponseDto,
@@ -221,20 +220,7 @@ export class TaskController {
                   note.author.image,
                 )
               : null,
-            note.approval
-              ? new InboxApprovalResponseDto(
-                  note.approval.tool,
-                  note.approval.because,
-                  note.approval.inputs.map(
-                    (input) =>
-                      new InboxApprovalInputResponseDto(
-                        input.name,
-                        input.value,
-                      ),
-                  ),
-                  note.approval.standing,
-                )
-              : null,
+            note.approval ? new InboxApprovalResponseDto(note.approval) : null,
           ),
       ),
     );

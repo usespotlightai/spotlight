@@ -9,7 +9,7 @@ import { SkillKeyFixedError } from '@configuration/domain/exceptions/skill-key-f
 import type { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
 import type { SkillFiles } from '@configuration/domain/value-objects/skill-files.vo';
 import type { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
-import type { SkillUses } from '@configuration/domain/value-objects/skill-uses.vo';
+import type { StationUses } from '@configuration/domain/value-objects/station-uses.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
@@ -119,7 +119,7 @@ export class SkillDefinition extends EventRecorder {
     return redefined;
   }
 
-  retired(given: SkillUses, by: Attribution): SkillDefinition {
+  retired(given: StationUses, by: Attribution): SkillDefinition {
     this.guardLive();
 
     const using = given.of(this.key);

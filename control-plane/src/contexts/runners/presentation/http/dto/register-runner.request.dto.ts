@@ -13,6 +13,14 @@ export class RegisteredHarnessRequestDto {
       'the runner from the CLI. Empty where the CLI could not enumerate them.',
   })
   readonly models?: string[];
+
+  @ApiPropertyOptional({
+    example: '2.1.270',
+    description:
+      'The release of this harness the runner found installed, so a station ' +
+      'pinned to a release only runs where that release is.',
+  })
+  readonly version?: string;
 }
 
 export class RegisterRunnerRequestDto {

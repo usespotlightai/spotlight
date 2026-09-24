@@ -1,5 +1,5 @@
 import type { DeleteSkillCommand } from '@configuration/application/commands/delete-skill.command';
-import type { SkillsGiven } from '@configuration/application/services/skills-given.service';
+import type { StationGifts } from '@configuration/application/services/station-gifts.service';
 import { SkillDefinitionMovedOnError } from '@configuration/domain/exceptions/skill-definition-moved-on.error';
 import { SkillInUseError } from '@configuration/domain/exceptions/skill-in-use.error';
 import type { SkillDefinitionRepository } from '@configuration/domain/repositories/skill-definition.repository';
@@ -20,7 +20,7 @@ export class DeleteSkillHandler
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly definitions: SkillDefinitionRepository,
-    private readonly given: SkillsGiven,
+    private readonly given: StationGifts,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -46,7 +46,7 @@ export class DeleteSkillHandler
 
       standing.expecting(command.expectedVersion);
 
-      const given = await this.given.onTeam(standing.teamId);
+      const given = await this.given.onTeam(standing.teamId, 'skill');
 
       await this.transaction.run(() =>
         this.definitions.save(

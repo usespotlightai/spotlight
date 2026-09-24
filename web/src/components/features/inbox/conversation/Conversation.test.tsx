@@ -43,7 +43,8 @@ const note = (
 });
 
 const APPROVAL = {
-  tool: 'linear.comment',
+  kind: 'tool-call' as const,
+  name: 'linear.comment',
   because: 'It posts publicly, under the team’s name.',
   inputs: [
     { name: 'issue', value: 'ENG-12' },

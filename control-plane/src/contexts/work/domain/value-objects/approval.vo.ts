@@ -1,7 +1,7 @@
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { InvalidApprovalAnswerError } from '@work/domain/exceptions/invalid-approval-answer.error';
+import type { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
-import type { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 
 export const APPROVAL_STANDINGS = ['asked', 'granted', 'refused'] as const;
 
@@ -17,7 +17,7 @@ export interface Decided {
 
 export class Approval {
   private constructor(
-    readonly call: ToolCall,
+    readonly subject: ApprovalSubject,
     readonly at: StationId,
     readonly because: string,
     readonly standing: ApprovalStanding,
@@ -25,12 +25,16 @@ export class Approval {
     readonly spent: boolean,
   ) {}
 
-  static asked(call: ToolCall, at: StationId, because: string): Approval {
-    return new Approval(call, at, because, 'asked', null, false);
+  static asked(
+    subject: ApprovalSubject,
+    at: StationId,
+    because: string,
+  ): Approval {
+    return new Approval(subject, at, because, 'asked', null, false);
   }
 
   static rehydrate(input: {
-    call: ToolCall;
+    subject: ApprovalSubject;
     at: StationId;
     because: string;
     standing: ApprovalStanding;
@@ -38,7 +42,7 @@ export class Approval {
     spent: boolean;
   }): Approval {
     return new Approval(
-      input.call,
+      input.subject,
       input.at,
       input.because,
       input.standing,
@@ -59,8 +63,8 @@ export class Approval {
     return this.standing === 'refused';
   }
 
-  standsFor(call: ToolCall, at: StationId): boolean {
-    return this.call.equals(call) && this.at.equals(at);
+  standsFor(subject: ApprovalSubject, at: StationId): boolean {
+    return this.subject.equals(subject) && this.at.equals(at);
   }
 
   decide(decision: ApprovalDecision, decided: Decided): Approval {
@@ -71,7 +75,7 @@ export class Approval {
     }
 
     return new Approval(
-      this.call,
+      this.subject,
       this.at,
       this.because,
       decision,
@@ -98,7 +102,7 @@ export class Approval {
 
   private withSpent(spent: boolean): Approval {
     return new Approval(
-      this.call,
+      this.subject,
       this.at,
       this.because,
       this.standing,

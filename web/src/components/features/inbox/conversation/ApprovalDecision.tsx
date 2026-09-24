@@ -32,7 +32,7 @@ export function ApprovalDecision({
             className="size-4 shrink-0 text-muted-foreground"
           />
           <p className="min-w-0 font-medium text-foreground text-sm leading-5">
-            {approval.tool} needs your approval
+            {approval.name} needs your approval
           </p>
         </div>
         <p className="pl-6 text-muted-foreground text-xs leading-5">
@@ -70,7 +70,7 @@ export function ApprovalDecision({
               onChange={(event) => setSaid(event.target.value)}
               placeholder="Reasoning"
               className="rounded-lg border border-border bg-muted/60"
-              aria-label={`What to say about ${approval.tool}`}
+              aria-label={`What to say about ${approval.name}`}
             />
 
             <div className="flex items-center gap-2">
@@ -78,7 +78,7 @@ export function ApprovalDecision({
                 size="sm"
                 disabled={pending}
                 onClick={() => onDecide(true, said)}
-                aria-label={`Approve ${approval.tool}`}
+                aria-label={`Approve ${approval.name}`}
               >
                 Approve
               </Button>
@@ -87,7 +87,7 @@ export function ApprovalDecision({
                 variant="outline"
                 disabled={pending}
                 onClick={() => onDecide(false, said)}
-                aria-label={`Reject ${approval.tool}`}
+                aria-label={`Reject ${approval.name}`}
               >
                 Reject
               </Button>

@@ -5,6 +5,7 @@ import type {
 import type { RunnerPresencePort } from '@runners/application/ports/runner-presence.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { HarnessVersion } from '@shared-kernel/domain/value-objects/harness-version.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -12,6 +13,7 @@ import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { HarnessProfileShape } from '@work/application/contracts/harness-profile.contract';
 import {
   RunSpecContract,
   type RunSpecShape,
@@ -44,6 +46,7 @@ import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
+import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
@@ -82,17 +85,43 @@ let skillsHome: SkillsHome = {
   readByHarness: true,
 };
 
+const commandFor: HarnessLaunchPort['commandFor'] = (id, chosen) =>
+  id.equals(DEV.id)
+    ? HarnessCommand.of({
+        executable: DEV_EXECUTABLE,
+        args: DEV_ARGS,
+        env: chosen.model ? { DEV_MODEL: chosen.model.value } : {},
+      })
+    : null;
+
 const launch: HarnessLaunchPort = {
   skillsFor: () => skillsHome,
-  commandFor: (id, chosen) =>
-    id.equals(DEV.id)
-      ? HarnessCommand.of({
-          executable: DEV_EXECUTABLE,
-          args: DEV_ARGS,
-          env: chosen.model ? { DEV_MODEL: chosen.model.value } : {},
-        })
-      : null,
+  commandFor,
+  preparedFor: (id, chosen) => {
+    const command = commandFor(id, chosen);
+
+    return command
+      ? {
+          command,
+          setup: chosen.profile
+            ? {
+                files: [
+                  { path: 'dev/settings.json', text: chosen.profile.key.value },
+                ],
+                mcpServers: [],
+                asks: ['execute'],
+              }
+            : null,
+        }
+      : null;
+  },
   catalogue: () => [],
+};
+
+let teamProfiles: Record<string, HarnessProfileShape> = {};
+
+const profiles = {
+  named: async (_teamId: TeamId, key: string) => teamProfiles[key] ?? null,
 };
 
 const at = (
@@ -267,6 +296,7 @@ const dispatch = async (
     {
       termsOf: async () => RunnerTerms.none(),
     } as unknown as RunnerPresencePort,
+    profiles,
   );
   const working = standing ?? task(station.id.value);
   const line = held(station, repositories);
@@ -473,6 +503,66 @@ describe('DispatchTask', () => {
       await dispatch(stations[1] as Station);
 
       expect(written(queued[0]).checkouts).toEqual([]);
+    });
+  });
+
+  describe('the harness profile a station names', () => {
+    const careful: HarnessProfileShape = {
+      key: 'careful',
+      rules: [],
+      mcpServers: [],
+      native: {},
+    };
+
+    const naming = (profile: string) =>
+      Station.of({
+        id: StationId.of('station_2'),
+        key: StationKey.of('triage'),
+        name: StationName.of('Triage'),
+        position: 1,
+        color: StationColor.of('#a3a8b0'),
+        harness: DEV.id,
+        profile: ProfileKey.of(profile),
+        harnessVersion: HarnessVersion.of('2.1.270'),
+        wayOut: WayOut.of({ stations: [StationId.of('station_3')] }),
+      });
+
+    beforeEach(() => {
+      teamProfiles = { careful };
+    });
+
+    it('sets the harness up as the profile says, asking through Spotlight', async () => {
+      await dispatch(naming('careful'));
+
+      expect(written(queued[0]).harnessSetup).toEqual({
+        files: [{ path: 'dev/settings.json', text: 'careful' }],
+        mcpServers: [],
+        asks: ['execute'],
+      });
+    });
+
+    it('places the run on a runner holding the release of the harness the station names', async () => {
+      await dispatch(naming('careful'));
+
+      expect(queued[0]?.placement.clauses).toEqual([['dev@2.1.270']]);
+    });
+
+    it('fails the run, saying why, where the team holds no such profile', async () => {
+      const id = await dispatch(naming('reckless'));
+
+      expect(id).not.toBeNull();
+      expect(queued[0]?.state).toBe('failed');
+      expect(queued[0]?.outcome?.message).toBe(
+        'harness_profile_unknown: The Triage station names the reckless harness profile, which its team does not hold',
+      );
+      expect(written(queued[0]).harnessSetup).toBeUndefined();
+    });
+
+    it('sets nothing up for a station that names no profile', async () => {
+      await dispatch(stations[1] as Station);
+
+      expect(written(queued[0]).harnessSetup).toBeUndefined();
+      expect(queued[0]?.placement.isAnywhere).toBe(true);
     });
   });
 

@@ -159,3 +159,33 @@ export class AnswerRemarkRequestDto {
   })
   readonly resolve?: boolean;
 }
+
+export class AskPermissionRequestDto {
+  @ApiPropertyOptional({
+    example: '0f6c2b1e-4d7a-4b8e-9c21-5a3e7d9f1b60',
+    description:
+      'The harness session asking, so the run that takes the task up again after the answer carries on in it',
+  })
+  readonly sessionId?: string;
+
+  @ApiPropertyOptional({
+    example: 'execute',
+    description:
+      'The ACP tool kind the harness gave, as in read, edit or execute',
+  })
+  readonly kind?: string;
+
+  @ApiPropertyOptional({
+    example: '`git push origin main`',
+    description: 'What the harness said it wants to do',
+  })
+  readonly title?: string;
+
+  @ApiPropertyOptional({
+    type: 'object',
+    additionalProperties: true,
+    example: { command: 'git push origin main' },
+    description: 'The tool call’s raw input, as the harness gave it',
+  })
+  readonly input?: unknown;
+}

@@ -43,9 +43,23 @@ export interface RunToolManifest {
   readonly inputs: readonly RunToolInput[];
 }
 
-export interface RunSkillFile {
+export interface RunFile {
   readonly path: string;
   readonly text: string;
+}
+
+export interface RunMcpServer {
+  readonly name: string;
+  readonly command: string;
+  readonly args: readonly string[];
+  readonly env: readonly { readonly name: string; readonly value: string }[];
+}
+
+export interface RunHarnessSetup {
+  readonly files: readonly RunFile[];
+  readonly session?: Readonly<Record<string, unknown>>;
+  readonly mcpServers: readonly RunMcpServer[];
+  readonly asks: readonly string[];
 }
 
 export interface RunAttachment {
@@ -59,17 +73,32 @@ export interface RunSpecParts {
   readonly briefing: string;
   readonly handover: RunHandover;
   readonly continuity: RunContinuity;
-  readonly skills?: readonly RunSkillFile[];
+  readonly skills?: readonly RunFile[];
   readonly manifest?: readonly RunToolManifest[];
   readonly catalog?: readonly string[];
   readonly attachments?: readonly RunAttachment[];
   readonly diffs?: boolean;
+  readonly harnessSetup?: RunHarnessSetup;
 }
 
 const outside = (path: string): boolean =>
   path.startsWith('/') || path.includes('..');
 
 const blank = (text: string): boolean => text.trim().length === 0;
+
+const setupCopied = (setup: RunHarnessSetup): RunHarnessSetup => ({
+  files: setup.files.map(({ path, text }) => ({ path, text })),
+  ...(setup.session
+    ? { session: JSON.parse(JSON.stringify(setup.session)) }
+    : {}),
+  mcpServers: setup.mcpServers.map((server) => ({
+    name: server.name,
+    command: server.command,
+    args: [...server.args],
+    env: server.env.map(({ name, value }) => ({ name, value })),
+  })),
+  asks: [...setup.asks],
+});
 
 const copied = (parts: RunSpecParts): RunSpecParts => ({
   ...(parts.checkouts
@@ -126,6 +155,9 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
     ? { attachments: parts.attachments.map(({ id, path }) => ({ id, path })) }
     : {}),
   ...(parts.diffs === undefined ? {} : { diffs: parts.diffs }),
+  ...(parts.harnessSetup
+    ? { harnessSetup: setupCopied(parts.harnessSetup) }
+    : {}),
 });
 
 const samePart = (a: unknown, b: unknown): boolean => {
@@ -186,6 +218,14 @@ export class RunSpec {
     for (const skill of parts.skills ?? []) {
       if (!skill.path || outside(skill.path)) {
         throw new InvalidRunSpecError('must keep a skill in the workspace');
+      }
+    }
+
+    for (const file of parts.harnessSetup?.files ?? []) {
+      if (!file.path || outside(file.path)) {
+        throw new InvalidRunSpecError(
+          'must keep a harness setting in the state directory',
+        );
       }
     }
 

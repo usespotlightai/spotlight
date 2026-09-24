@@ -1,7 +1,11 @@
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { ChatToolContext } from '@work/application/ports/integration-tools.port';
-import type { Cleared, RunWork } from '@work/application/services/run-work';
+import type {
+  Cleared,
+  PermissionCleared,
+  RunWork,
+} from '@work/application/services/run-work';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
@@ -44,6 +48,10 @@ export class ChatRunWork implements RunWork {
           reason: `${declared.tool.value} has to be approved by a person on a task, and a chat has nobody to put it to.`,
         }
       : { kind: 'given', returned: async () => {} };
+  }
+
+  async clearPermission(): Promise<PermissionCleared> {
+    return 'refused';
   }
 
   async toolContext(): Promise<ChatToolContext> {

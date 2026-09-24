@@ -134,6 +134,8 @@
                       "key": "implementation",
                       "name": "Implementation",
                       "harness": "claude-code",
+                      "harnessVersion": "0.23.1",
+                      "profile": "careful",
                       "prompt": "Implement the task.",
                       "passesTo": [
                         "completed"
@@ -426,6 +428,8 @@
                       "key": "implementation",
                       "name": "Implementation",
                       "harness": "claude-code",
+                      "harnessVersion": "0.23.1",
+                      "profile": "careful",
                       "prompt": "Implement the task.",
                       "passesTo": [
                         "completed"
@@ -1269,6 +1273,54 @@
           }
         },
         "summary": "Do what a tool the run was given does",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/permissions": {
+      "post": {
+        "description": "Only for a run whose station names a harness profile. An approval the task already holds for this exact call is spent on it; otherwise a person is asked in their inbox and the run lets the task go.",
+        "operationId": "askPermission",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskPermissionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PermissionAnswerResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong enrollment token"
+          },
+          "409": {
+            "description": "The run is not held by this runner"
+          }
+        },
+        "summary": "Ask whether the harness may do what it asked to",
         "tags": [
           "runners"
         ]
@@ -9660,6 +9712,843 @@
         }
       }
     },
+    "/resources/teams/{teamId}/harness-profiles": {
+      "post": {
+        "operationId": "createHarnessProfile",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "Spotlight-Client",
+            "in": "header",
+            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "terraform-provider/0.1.0"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "key"
+                ],
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "example": "careful"
+                  },
+                  "permissions": {
+                    "type": "object",
+                    "properties": {
+                      "allow": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "ask": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "deny": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "example": {
+                      "allow": [
+                        "read",
+                        "edit",
+                        "execute(npm test *)"
+                      ],
+                      "ask": [
+                        "execute(git push *)"
+                      ],
+                      "deny": [
+                        "read(.env)"
+                      ]
+                    }
+                  },
+                  "mcpServers": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "name",
+                        "command"
+                      ],
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "example": "linear"
+                        },
+                        "command": {
+                          "type": "string",
+                          "example": "npx"
+                        },
+                        "args": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "env": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "description": "Environment for the server, never credentials: these values are stored and shown in plain text, in this resource (and so in Terraform state), in the run spec and in what the runner receives. A server that needs a key reads it from the runner’s own environment, as harness API keys do. Secret references come with SPO-97."
+                        }
+                      }
+                    }
+                  },
+                  "native": {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "example": {
+                      "claude-code": {
+                        "includeCoAuthoredBy": false
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The harness-profile, as a read would answer it",
+            "headers": {
+              "ETag": {
+                "description": "The version answered, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              },
+              "Idempotent-Replayed": {
+                "description": "true when this answers an earlier attempt",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HarnessProfileResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed to do this to the harness-profile: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such harness-profile that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "There is already a harness-profile at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What is wrong, field by field; or the Idempotency-Key was used for a different request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Define a harness profile for a team",
+        "tags": [
+          "harness-profiles"
+        ],
+        "x-spotlight-resource": {
+          "kind": "harness-profile",
+          "operation": "create"
+        }
+      }
+    },
+    "/resources/harness-profiles/{id}": {
+      "get": {
+        "operationId": "readHarnessProfile",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "Spotlight-Client",
+            "in": "header",
+            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "terraform-provider/0.1.0"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "3f8a2c6e-9b14-4d7a-a5e2-6c0b1d9f4e73",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The harness-profile, every field of it",
+            "headers": {
+              "ETag": {
+                "description": "The version answered, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HarnessProfileResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such harness-profile that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Read a harness profile, with what each harness cannot say of it",
+        "tags": [
+          "harness-profiles"
+        ],
+        "x-spotlight-resource": {
+          "kind": "harness-profile",
+          "operation": "read"
+        }
+      },
+      "put": {
+        "operationId": "updateHarnessProfile",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "Spotlight-Client",
+            "in": "header",
+            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "terraform-provider/0.1.0"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "3f8a2c6e-9b14-4d7a-a5e2-6c0b1d9f4e73",
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The ETag of the version this write was based on; a write to any other version is refused with 409",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "\"3\""
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "key"
+                ],
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "example": "careful"
+                  },
+                  "permissions": {
+                    "type": "object",
+                    "properties": {
+                      "allow": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "ask": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "deny": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "example": {
+                      "allow": [
+                        "read",
+                        "edit",
+                        "execute(npm test *)"
+                      ],
+                      "ask": [
+                        "execute(git push *)"
+                      ],
+                      "deny": [
+                        "read(.env)"
+                      ]
+                    }
+                  },
+                  "mcpServers": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "name",
+                        "command"
+                      ],
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "example": "linear"
+                        },
+                        "command": {
+                          "type": "string",
+                          "example": "npx"
+                        },
+                        "args": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "env": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "description": "Environment for the server, never credentials: these values are stored and shown in plain text, in this resource (and so in Terraform state), in the run spec and in what the runner receives. A server that needs a key reads it from the runner’s own environment, as harness API keys do. Secret references come with SPO-97."
+                        }
+                      }
+                    }
+                  },
+                  "native": {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "example": {
+                      "claude-code": {
+                        "includeCoAuthoredBy": false
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The harness-profile, as a read would answer it",
+            "headers": {
+              "ETag": {
+                "description": "The version answered, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HarnessProfileResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed to do this to the harness-profile: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such harness-profile that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What is wrong, field by field",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match is missing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Replace a harness profile’s settings",
+        "tags": [
+          "harness-profiles"
+        ],
+        "x-spotlight-resource": {
+          "kind": "harness-profile",
+          "operation": "update"
+        }
+      },
+      "delete": {
+        "operationId": "deleteHarnessProfile",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "Spotlight-Client",
+            "in": "header",
+            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "terraform-provider/0.1.0"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "3f8a2c6e-9b14-4d7a-a5e2-6c0b1d9f4e73",
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The ETag of the version this write was based on; a write to any other version is refused with 409",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "\"3\""
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed to do this to the harness-profile: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such harness-profile that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match is missing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete a harness profile no station names",
+        "tags": [
+          "harness-profiles"
+        ],
+        "x-spotlight-resource": {
+          "kind": "harness-profile",
+          "operation": "delete"
+        }
+      }
+    },
+    "/resources/workspaces/{workspaceId}/harness-profiles/import": {
+      "get": {
+        "operationId": "importHarnessProfile",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "Spotlight-Client",
+            "in": "header",
+            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "terraform-provider/0.1.0"
+            }
+          },
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
+              "type": "string"
+            }
+          },
+          {
+            "name": "address",
+            "required": true,
+            "in": "query",
+            "description": "The harness-profile's address within the workspace",
+            "schema": {
+              "example": "core/careful"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The harness-profile, as a read would answer it",
+            "headers": {
+              "ETag": {
+                "description": "The version answered, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HarnessProfileResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such harness-profile that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Find the harness profile at an address in a workspace, to import it",
+        "tags": [
+          "harness-profiles"
+        ],
+        "x-spotlight-resource": {
+          "kind": "harness-profile",
+          "operation": "import"
+        }
+      }
+    },
     "/teams/{teamId}/runs/{runId}/change-stacks": {
       "get": {
         "operationId": "listRunChangeStacks",
@@ -11641,12 +12530,24 @@
             "items": {
               "type": "string"
             }
+          },
+          "versionProbe": {
+            "example": [
+              "cursor-agent",
+              "--version"
+            ],
+            "description": "What to run to learn which release of this harness is installed, argv-style; the first version-shaped word it prints is the release.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
           "id",
           "executable",
-          "discovery"
+          "discovery",
+          "versionProbe"
         ]
       },
       "KeptWorkspacesResponseDto": {
@@ -12251,6 +13152,52 @@
           "output"
         ]
       },
+      "AskPermissionRequestDto": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "example": "0f6c2b1e-4d7a-4b8e-9c21-5a3e7d9f1b60",
+            "description": "The harness session asking, so the run that takes the task up again after the answer carries on in it"
+          },
+          "kind": {
+            "type": "string",
+            "example": "execute",
+            "description": "The ACP tool kind the harness gave, as in read, edit or execute"
+          },
+          "title": {
+            "type": "string",
+            "example": "`git push origin main`",
+            "description": "What the harness said it wants to do"
+          },
+          "input": {
+            "type": "object",
+            "additionalProperties": true,
+            "example": {
+              "command": "git push origin main"
+            },
+            "description": "The tool call’s raw input, as the harness gave it"
+          }
+        }
+      },
+      "PermissionAnswerResponseDto": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "allow",
+              "reject",
+              "asked"
+            ],
+            "example": "asked",
+            "description": "allow or reject answers the harness now; asked means a person was asked in their inbox, so the run should end its turn and let the task go"
+          }
+        },
+        "required": [
+          "decision"
+        ]
+      },
       "AnswerRemarkRequestDto": {
         "type": "object",
         "properties": {
@@ -12517,17 +13464,27 @@
       "InboxApprovalResponseDto": {
         "type": "object",
         "properties": {
-          "tool": {
+          "kind": {
             "type": "string",
-            "example": "linear.comment"
+            "example": "tool-call",
+            "enum": [
+              "tool-call",
+              "harness-permission"
+            ],
+            "description": "Whether a tool call or a harness asking permission waits on a person"
+          },
+          "name": {
+            "type": "string",
+            "example": "linear.comment",
+            "description": "The tool, or the harness and the kind of action it asked about, as in claude-code execute"
           },
           "because": {
             "type": "string",
             "example": "It posts publicly, under the team’s name.",
-            "description": "Why the tool cannot run until a person says so"
+            "description": "Why it cannot go ahead until a person says so"
           },
           "inputs": {
-            "description": "What the tool would be called with, exactly as it stands",
+            "description": "What it would go ahead with, exactly as it stands",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/InboxApprovalInputResponseDto"
@@ -12544,7 +13501,8 @@
           }
         },
         "required": [
-          "tool",
+          "kind",
+          "name",
           "because",
           "inputs",
           "standing"
@@ -14400,6 +15358,7 @@
               "team",
               "line",
               "skill",
+              "harness-profile",
               "integration",
               "secret",
               "workspace-token",
@@ -15443,6 +16402,167 @@
           "description",
           "secrets",
           "tools"
+        ]
+      },
+      "PermissionsResponseDto": {
+        "type": "object",
+        "properties": {
+          "allow": {
+            "example": [
+              "read",
+              "edit",
+              "execute(npm test *)"
+            ],
+            "description": "What the harness may do without asking: read, edit or execute, alone or with a pattern",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ask": {
+            "example": [
+              "execute(git push *)"
+            ],
+            "description": "What the harness asks a person about first; the ask reaches their inbox as an approval",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "deny": {
+            "example": [
+              "read(.env)",
+              "execute(rm -rf *)"
+            ],
+            "description": "What the harness may never do",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "allow",
+          "ask",
+          "deny"
+        ]
+      },
+      "McpServerResponseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "linear"
+          },
+          "command": {
+            "type": "string",
+            "example": "npx"
+          },
+          "args": {
+            "example": [
+              "-y",
+              "@linear/mcp-server"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "env": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "example": {
+              "LINEAR_TEAM": "core"
+            },
+            "description": "Environment for the server, never credentials: these values are stored and shown in plain text, in this resource (and so in Terraform state), in the run spec and in what the runner receives. A server that needs a key reads it from the runner’s own environment, as harness API keys do. Secret references come with SPO-97."
+          }
+        },
+        "required": [
+          "name",
+          "command",
+          "args",
+          "env"
+        ]
+      },
+      "HarnessProfileResourceResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "0d6f3c1e-8a52-4f7b-9c1d-5e2a7b3f9c40",
+            "description": "Issued by Spotlight when the resource is created, and never changed"
+          },
+          "version": {
+            "type": "number",
+            "example": 3,
+            "description": "Rises with every change; the ETag carries it, and a write sends it back as If-Match"
+          },
+          "address": {
+            "type": "string",
+            "example": "core/linear",
+            "description": "Names the resource within its workspace; terraform import takes it"
+          },
+          "warnings": {
+            "description": "What would work better, though nothing stops it working; not settable",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldErrorResponseDto"
+            }
+          },
+          "teamId": {
+            "type": "string",
+            "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+            "description": "The team it belongs to"
+          },
+          "key": {
+            "type": "string",
+            "example": "careful",
+            "description": "What stations name it by; fixed for its life, so changing it means replacing the profile"
+          },
+          "permissions": {
+            "description": "Coarse rules every harness is told in its own terms; where one cannot say a rule, warnings name the approximation",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PermissionsResponseDto"
+              }
+            ]
+          },
+          "mcpServers": {
+            "description": "Stdio MCP servers, handed to each harness in its own format",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/McpServerResponseDto"
+            }
+          },
+          "native": {
+            "type": "object",
+            "additionalProperties": true,
+            "example": {
+              "claude-code": {
+                "includeCoAuthoredBy": false
+              },
+              "codex": "model_verbosity = \"low\"\n",
+              "cursor": {
+                "editor": {
+                  "vimMode": true
+                }
+              }
+            },
+            "description": "Each harness’s own settings, passed through as it reads them: Claude Code settings JSON, Codex config.toml text, Cursor CLI config JSON"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "address",
+          "warnings",
+          "teamId",
+          "key",
+          "permissions",
+          "mcpServers",
+          "native"
         ]
       },
       "DiffHunkResponseDto": {

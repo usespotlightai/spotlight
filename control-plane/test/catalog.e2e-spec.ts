@@ -440,7 +440,7 @@ describe('a catalog call (e2e)', () => {
           catalog: ['catalog.web-search@1.1.0'],
         }),
       }).refused(
-        RunOutcome.withheld([
+        RunOutcome.refused([
           CatalogWithheld.of({
             id: 'catalog.web-search@1.1.0',
             reason: 'lapsed',

@@ -52,6 +52,8 @@ const station = (key: string): StationPlan => ({
   harness: null,
   model: null,
   effort: null,
+  profile: null,
+  harnessVersion: null,
   agentPrompt: null,
   check: null,
   setup: null,

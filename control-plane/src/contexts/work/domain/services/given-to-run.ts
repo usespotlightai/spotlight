@@ -3,7 +3,10 @@ import type { Station } from '@work/domain/entities/station.entity';
 import { HANDING_OVER } from '@work/domain/services/built-in-skills';
 import { builtInTool } from '@work/domain/services/built-in-tools';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
+import { ProfileMissing } from '@work/domain/value-objects/profile-missing.vo';
+import type { ReadyProfile } from '@work/domain/value-objects/ready-profile';
 import type { ReadySkill } from '@work/domain/value-objects/ready-skill';
+import type { RefusalReason } from '@work/domain/value-objects/run-outcome.vo';
 import type { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
 
@@ -12,11 +15,32 @@ export interface GivenToRun {
   readonly builtInSkills: readonly SkillKey[];
   readonly teamSkills: readonly ReadySkill[];
   readonly pinned: readonly Tool[];
+  readonly profile: ReadyProfile | null;
+  readonly refusals: readonly RefusalReason[];
 }
+
+const profileAt = (
+  station: Station,
+  profiles: readonly ReadyProfile[],
+): Pick<GivenToRun, 'profile' | 'refusals'> => {
+  const named = station.profile;
+
+  if (!named) {
+    return { profile: null, refusals: [] };
+  }
+
+  const profile = profiles.find((each) => each.key.equals(named)) ?? null;
+
+  return {
+    profile,
+    refusals: profile ? [] : [ProfileMissing.at(station.name, named)],
+  };
+};
 
 export const givenAt = (
   station: Station,
   ready: readonly ReadySkill[],
+  profiles: readonly ReadyProfile[],
 ): GivenToRun => {
   const teamSkills = station.skills.flatMap((key) =>
     ready.filter((skill) => skill.key.equals(key)),
@@ -35,7 +59,13 @@ export const givenAt = (
 
   const pinned = tools.filter((each) => each.origin === 'catalog');
 
-  return { tools, builtInSkills, teamSkills, pinned };
+  return {
+    tools,
+    builtInSkills,
+    teamSkills,
+    pinned,
+    ...profileAt(station, profiles),
+  };
 };
 
 export const describedTools = (

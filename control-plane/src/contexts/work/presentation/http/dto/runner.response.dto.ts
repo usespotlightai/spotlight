@@ -1,4 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
+import {
+  PERMISSION_ANSWERS,
+  type PermissionAnswer,
+} from '@work/application/dto/permission-answer.dto';
 
 export class ToolAnswerResponseDto {
   @ApiProperty({
@@ -174,5 +178,19 @@ export class RenewLeaseResponseDto {
 
   constructor(stop: boolean) {
     this.stop = stop;
+  }
+}
+
+export class PermissionAnswerResponseDto {
+  @ApiProperty({
+    enum: PERMISSION_ANSWERS,
+    example: 'asked',
+    description:
+      'allow or reject answers the harness now; asked means a person was asked in their inbox, so the run should end its turn and let the task go',
+  })
+  readonly decision: PermissionAnswer;
+
+  constructor(decision: PermissionAnswer) {
+    this.decision = decision;
   }
 }

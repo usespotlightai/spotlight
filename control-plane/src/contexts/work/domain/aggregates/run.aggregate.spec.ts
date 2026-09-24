@@ -350,7 +350,7 @@ describe('Run', () => {
   });
 
   describe('being refused before a runner takes it up', () => {
-    const LAPSED = RunOutcome.withheld([
+    const LAPSED = RunOutcome.refused([
       CatalogWithheld.of({
         id: 'catalog.web-search@1.1.0',
         reason: 'lapsed',
