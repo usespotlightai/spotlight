@@ -15,11 +15,6 @@ import type {
 import type { Integration } from '@integrations/domain/entities/integration.entity';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
-import {
-  bound,
-  reads,
-  value,
-} from '@integrations/infrastructure/integrations/expression';
 import { readEvents } from '@integrations/infrastructure/integrations/happenings';
 import type { ReadableIntegration } from '@integrations/infrastructure/integrations/integration.compile';
 import type { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
@@ -34,6 +29,8 @@ import type {
   OutboundResult,
 } from '@integrations/infrastructure/outbound/http-outbound';
 import { taskBinding } from '@integrations/infrastructure/outbound/task-binding';
+import { bound } from '@platform/expressions/bindings';
+import { reads, value } from '@platform/expressions/readings';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 import type { MarkWorn } from '@work/application/contracts/happenings.contract';
 

@@ -5,9 +5,12 @@ import {
 } from '@integrations/infrastructure/integrations/integration.compile';
 import { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import { Egress } from '@integrations/infrastructure/outbound/egress';
+import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { describe, expect, it, vi } from 'vitest';
 import { parse as parseYaml } from 'yaml';
+
+const expressions = new CelExpressionEngine();
 
 const NOW = new Date('2026-09-07T10:00:00.000Z');
 const CLIENT = { id: 'c-1', secret: 's-1' };
@@ -35,7 +38,7 @@ webhook:
 `;
 
 const oauth2 = (): NonNullable<ConnectionIR['oauth2']> => {
-  const read = compileIntegration(parseYaml(FIXTURE));
+  const read = compileIntegration(parseYaml(FIXTURE), expressions);
 
   if (!read.ok || !read.readable.connection?.oauth2) {
     throw new Error('fixture did not compile with an oauth2 connection');

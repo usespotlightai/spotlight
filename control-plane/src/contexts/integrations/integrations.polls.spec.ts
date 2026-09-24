@@ -18,6 +18,7 @@ import type {
 } from '@integrations/infrastructure/outbound/http-outbound';
 import { FakeIntegrationCursors } from '@integrations/integrations.cursors.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
+import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -25,13 +26,15 @@ import type { Happened } from '@work/application/contracts/happenings.contract';
 import type { HappeningReactionsPort } from '@work/application/ports/happening-reactions.port';
 import { describe, expect, it, vi } from 'vitest';
 
+const expressions = new CelExpressionEngine();
+
 const runtimeWith = (
   outbound: unknown,
   exchange: unknown = {},
   clients: OAuth2Clients = OAuth2Clients.from('{}'),
 ) =>
   new CompiledIntegrationRuntime(
-    new IntegrationReader(),
+    new IntegrationReader(expressions),
     outbound as HttpOutbound,
     clients,
     exchange as OAuth2Exchange,

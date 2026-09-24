@@ -5,15 +5,18 @@ import {
 } from '@integrations/infrastructure/integrations/integration.compile';
 import type { JwksResolver } from '@integrations/infrastructure/integrations/jwks';
 import { WebhookRuntime } from '@integrations/infrastructure/integrations/webhook.runtime';
+import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
+
+const expressions = new CelExpressionEngine();
 
 const WORKSPACE = WorkspaceId.of('ws_1');
 const NOW = 1_700_000_000;
 
 const compiled = (text: string): ReadableIntegration => {
-  const read = compileIntegration(parseYaml(text));
+  const read = compileIntegration(parseYaml(text), expressions);
   if (!read.ok) {
     throw new Error(read.problems.map((each) => each.reason).join(', '));
   }

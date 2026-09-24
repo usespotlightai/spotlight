@@ -10,6 +10,8 @@ import { EventOutbox } from '@platform/events/event-outbox';
 import { EventPublications } from '@platform/events/event-publications';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { EventTypes } from '@platform/events/event-types';
+import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { EXPRESSION_ENGINE } from '@platform/expressions/expression-engine.port';
 import { HealthController } from '@platform/http/controllers/health.controller';
 import { ServerFaultFilter } from '@platform/http/filters/server-fault.filter';
 import { UseCaseFaultFilter } from '@platform/http/filters/use-case-fault.filter';
@@ -67,6 +69,7 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
     EventDeliveryWorker,
     { provide: ID_GENERATOR, useClass: CryptoIdGenerator },
     { provide: CLOCK, useClass: SystemClock },
+    { provide: EXPRESSION_ENGINE, useClass: CelExpressionEngine },
     TokenMint,
     { provide: TOKEN_MINT, useClass: TokenMint },
     { provide: IDEMPOTENT_CREATES, useClass: DrizzleIdempotentCreates },
@@ -92,6 +95,7 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
     EventDelivery,
     ID_GENERATOR,
     CLOCK,
+    EXPRESSION_ENGINE,
     TokenMint,
     TOKEN_MINT,
     IDEMPOTENT_CREATES,

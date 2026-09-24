@@ -2,11 +2,12 @@ import type { ReadIntegrations } from '@configuration/application/ports/integrat
 import type { DefinedIntegration } from '@integrations/application/ports/defined-integrations.port';
 import type { ReadableIntegration } from '@integrations/infrastructure/integrations/integration.compile';
 import { compileIntegration } from '@integrations/infrastructure/integrations/integration.compile';
-import { Injectable } from '@nestjs/common';
+import type { ExpressionEnginePort } from '@platform/expressions/expression-engine.port';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 
-@Injectable()
 export class IntegrationReader {
+  constructor(private readonly expressions: ExpressionEnginePort) {}
+
   read(definitions: readonly DefinedIntegration[]): ReadIntegrations {
     const readable = this.readable(definitions);
 
@@ -36,7 +37,7 @@ export class IntegrationReader {
     const problems: ConfigurationProblem[] = [];
 
     for (const each of definitions) {
-      const read = compileIntegration(each.definition);
+      const read = compileIntegration(each.definition, this.expressions);
 
       if (read.ok) {
         integrations.push(read.readable);

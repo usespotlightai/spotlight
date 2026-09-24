@@ -1,12 +1,10 @@
 import { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
-import {
-  bound,
-  type Expression,
-  value,
-} from '@integrations/infrastructure/integrations/expression';
 import type { ConnectionIR } from '@integrations/infrastructure/integrations/integration.compile';
 import type { OAuth2Client } from '@integrations/infrastructure/integrations/oauth2-clients';
 import type { Egress } from '@integrations/infrastructure/outbound/egress';
+import { bound } from '@platform/expressions/bindings';
+import type { Expression } from '@platform/expressions/expression-engine.port';
+import { value } from '@platform/expressions/readings';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 
 type Fetch = typeof globalThis.fetch;

@@ -1,8 +1,4 @@
 import {
-  compile,
-  ExpressionFailedError,
-} from '@integrations/infrastructure/integrations/expression';
-import {
   asJson,
   requiredTextOf,
   requiredValueOf,
@@ -10,7 +6,12 @@ import {
   type Templated,
   textOf,
 } from '@integrations/infrastructure/integrations/templating';
+import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { ExpressionFailedError } from '@platform/expressions/expression.errors';
 import { describe, expect, it } from 'vitest';
+
+const expressions = new CelExpressionEngine();
+const compile = expressions.compile.bind(expressions);
 
 const at = 'actions.post.request.body';
 const templated = (...parts: (string | ReturnType<typeof compile>)[]) =>

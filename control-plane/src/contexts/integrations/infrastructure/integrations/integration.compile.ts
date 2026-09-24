@@ -27,14 +27,6 @@ import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { Webhook } from '@integrations/domain/value-objects/webhook.vo';
 import { cronCalendar } from '@integrations/infrastructure/integrations/cron-calendar';
 import {
-  compile as compileExpression,
-  type Expression,
-  ExpressionError,
-  type NamedType,
-  type SchemaFields,
-  type Scope,
-} from '@integrations/infrastructure/integrations/expression';
-import {
   orderedTypes,
   refusedHints,
   type Shape,
@@ -72,6 +64,16 @@ import {
   type Structured,
   type Templated,
 } from '@integrations/infrastructure/integrations/templating';
+import { ExpressionError } from '@platform/expressions/expression.errors';
+import type {
+  Expression,
+  ExpressionEnginePort,
+} from '@platform/expressions/expression-engine.port';
+import type {
+  NamedType,
+  SchemaFields,
+  Scope,
+} from '@platform/expressions/scope';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
@@ -282,6 +284,7 @@ class Compiler {
   private readonly typedScopes = new WeakMap<Scope, Scope>();
 
   constructor(
+    private readonly expressions: ExpressionEnginePort,
     private readonly path: string,
     private readonly types: readonly NamedType[] = [],
     private readonly hinting = false,
@@ -354,7 +357,7 @@ class Compiler {
     }
 
     try {
-      const compiled = compileExpression(written(held), {
+      const compiled = this.expressions.compile(written(held), {
         scope: this.typed(scope),
         at,
       });
@@ -725,7 +728,10 @@ const addressOf = (held: unknown): string => {
   }
 };
 
-export const compileIntegration = (held: unknown): Compiled => {
+export const compileIntegration = (
+  held: unknown,
+  expressions: ExpressionEnginePort,
+): Compiled => {
   const read = integrationSchema.safeParse(held);
 
   if (!read.success) {
@@ -749,6 +755,7 @@ export const compileIntegration = (held: unknown): Compiled => {
   const hinting = hintWarnings.length === 0;
   const typeOrder = orderedTypes(file.types as Record<string, Shape>).order;
   const compiler = new Compiler(
+    expressions,
     path,
     hinting
       ? typeOrder.map(
@@ -1120,8 +1127,10 @@ const hintProblemsOf = (
 };
 
 export class IntegrationCompiler implements IntegrationCompilerPort {
+  constructor(private readonly expressions: ExpressionEnginePort) {}
+
   compile(held: unknown): CompiledIntegration {
-    const compiled = compileIntegration(held);
+    const compiled = compileIntegration(held, this.expressions);
 
     return compiled.ok
       ? {

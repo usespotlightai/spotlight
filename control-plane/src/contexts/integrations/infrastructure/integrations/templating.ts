@@ -1,10 +1,6 @@
-import {
-  type Bindings,
-  type Expression,
-  reads,
-  required,
-  requiredText,
-} from '@integrations/infrastructure/integrations/expression';
+import type { Bindings } from '@platform/expressions/bindings';
+import type { Expression } from '@platform/expressions/expression-engine.port';
+import { reads, required, requiredText } from '@platform/expressions/readings';
 
 export interface Templated {
   readonly parts: readonly (string | Expression)[];

@@ -1,7 +1,4 @@
-import {
-  type Declared,
-  Scope,
-} from '@integrations/infrastructure/integrations/expression';
+import { type Declared, Scope } from '@platform/expressions/scope';
 
 const OUTSIDE = 'dyn';
 

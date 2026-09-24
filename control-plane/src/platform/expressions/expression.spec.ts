@@ -1,15 +1,20 @@
+import { bound } from '@platform/expressions/bindings';
+import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import {
-  bound,
-  compile,
   ExpressionError,
   ExpressionFailedError,
+} from '@platform/expressions/expression.errors';
+import {
   holds,
   reads,
   required,
   requiredText,
-  Scope,
-} from '@integrations/infrastructure/integrations/expression';
+} from '@platform/expressions/readings';
+import { Scope } from '@platform/expressions/scope';
 import { describe, expect, it } from 'vitest';
+
+const expressions = new CelExpressionEngine();
+const compile = expressions.compile.bind(expressions);
 
 const delivery = {
   body: bound({
@@ -231,5 +236,39 @@ describe('what a call cannot be made without', () => {
   it('is nothing, not a failure, where it plainly reads as nothing', () => {
     expect(requiredText(compile('""'), delivery)).toBeNull();
     expect(requiredText(compile('body.data'), delivery)).toBeNull();
+  });
+});
+
+describe('checking an expression without compiling it', () => {
+  const scope = Scope.of({
+    task: { schema: { line: 'string', marks: 'map<string, string>' } },
+  });
+
+  it('names the type a sound one evaluates to', () => {
+    expect(expressions.check('task.line == "core"', scope)).toEqual({
+      valid: true,
+      type: 'bool',
+    });
+    expect(expressions.check('task.marks["linear.issue"]', scope)).toEqual({
+      valid: true,
+      type: 'string',
+    });
+  });
+
+  it('says why one does not check, and where in it', () => {
+    const checked = expressions.check('task.lnie', scope);
+
+    expect(checked).toMatchObject({ valid: false });
+    expect(checked.valid ? null : checked.reason).toMatch(/No such key: lnie/);
+    expect(checked.valid ? null : checked.span).toEqual({
+      start: expect.any(Number),
+      end: expect.any(Number),
+    });
+  });
+
+  it('refuses one that will not parse', () => {
+    expect(expressions.check('task. ==', scope)).toMatchObject({
+      valid: false,
+    });
   });
 });

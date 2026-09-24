@@ -149,6 +149,10 @@ import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventPublications } from '@platform/events/event-publications';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { EventTypes } from '@platform/events/event-types';
+import {
+  EXPRESSION_ENGINE,
+  type ExpressionEnginePort,
+} from '@platform/expressions/expression-engine.port';
 import { API_PREFIX } from '@platform/http/routes';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { SecretCipher } from '@platform/secrets/secret.cipher';
@@ -234,7 +238,12 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   { provide: INTEGRATION_DEFINITIONS, useClass: DrizzleIntegrationDefinitions },
 
-  { provide: INTEGRATION_COMPILER, useClass: IntegrationCompiler },
+  {
+    provide: INTEGRATION_COMPILER,
+    inject: [EXPRESSION_ENGINE],
+    useFactory: (expressions: ExpressionEnginePort) =>
+      new IntegrationCompiler(expressions),
+  },
 
   { provide: INTEGRATION_RESOURCES, useExisting: DrizzleDefinedIntegrations },
 
@@ -506,7 +515,12 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     useFactory: (env: Env) => OAuth2NonceCookie.forPublicUrl(publicUrlOf(env)),
   },
 
-  IntegrationReader,
+  {
+    provide: IntegrationReader,
+    inject: [EXPRESSION_ENGINE],
+    useFactory: (expressions: ExpressionEnginePort) =>
+      new IntegrationReader(expressions),
+  },
 
   {
     provide: INTEGRATION_READER,

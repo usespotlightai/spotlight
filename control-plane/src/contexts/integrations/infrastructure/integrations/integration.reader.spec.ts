@@ -1,6 +1,9 @@
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
+import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { describe, expect, it } from 'vitest';
+
+const expressions = new CelExpressionEngine();
 
 const WHOLE = `
 integration: linear
@@ -23,7 +26,7 @@ webhook:
 
 describe('IntegrationReader', () => {
   it('reads every integration a team defined', () => {
-    const read = new IntegrationReader().read([defined(WHOLE)]);
+    const read = new IntegrationReader(expressions).read([defined(WHOLE)]);
 
     expect(read.integrations.map((each) => each.source)).toEqual(['linear']);
     expect(read.integrations[0]?.path).toBe('integrations/linear');
@@ -31,7 +34,7 @@ describe('IntegrationReader', () => {
   });
 
   it('keeps reading past a definition that will not', () => {
-    const read = new IntegrationReader().read([
+    const read = new IntegrationReader(expressions).read([
       defined('integration: sentry'),
       defined(WHOLE),
     ]);
@@ -41,7 +44,7 @@ describe('IntegrationReader', () => {
   });
 
   it('reads nothing at all from nothing at all', () => {
-    expect(new IntegrationReader().read([])).toEqual({
+    expect(new IntegrationReader(expressions).read([])).toEqual({
       integrations: [],
       problems: [],
     });

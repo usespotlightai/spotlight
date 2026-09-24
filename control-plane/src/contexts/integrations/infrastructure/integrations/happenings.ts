@@ -1,17 +1,12 @@
 import type { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
-import {
-  type Bindings,
-  bound,
-  holds,
-  reads,
-  value,
-} from '@integrations/infrastructure/integrations/expression';
 import type {
   AttachesIR,
   EventIR,
   RaiseIR,
   RequestIR,
 } from '@integrations/infrastructure/integrations/integration.compile';
+import { type Bindings, bound } from '@platform/expressions/bindings';
+import { holds, reads, value } from '@platform/expressions/readings';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 import type {
   Arriving,
