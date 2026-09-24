@@ -2,6 +2,7 @@ import type {
   Invalid,
   Refused,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { LineProblems } from '@work/application/rendering/line-problems';
 import { InvalidReviewPolicyError } from '@work/domain/exceptions/invalid-review-policy.error';
 import { InvalidStationLayoutError } from '@work/domain/exceptions/invalid-station-layout.error';
@@ -35,14 +36,16 @@ export const lineRefusal = (
   if (error instanceof InvalidStationLayoutError) {
     return {
       outcome: 'invalid',
-      problems: [LineProblems.unapplied(key, 'stations', error)],
+      problems: [
+        LineProblems.unapplied(key, FieldPath.of(['stations']), error),
+      ],
     };
   }
 
   if (error instanceof InvalidReviewPolicyError) {
     return {
       outcome: 'invalid',
-      problems: [LineProblems.unapplied(key, 'reviews', error)],
+      problems: [LineProblems.unapplied(key, FieldPath.of(['reviews']), error)],
     };
   }
 

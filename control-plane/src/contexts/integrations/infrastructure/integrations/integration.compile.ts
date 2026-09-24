@@ -1,3 +1,4 @@
+import type { ExpressionErrorDto } from '@integrations/application/dto/expression-check.dto';
 import type {
   CompiledIntegration,
   IntegrationCompilerPort,
@@ -26,6 +27,7 @@ import { Schedule } from '@integrations/domain/value-objects/schedule.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { Webhook } from '@integrations/domain/value-objects/webhook.vo';
 import { cronCalendar } from '@integrations/infrastructure/integrations/cron-calendar';
+import type { Additions } from '@integrations/infrastructure/integrations/expression-position';
 import {
   orderedTypes,
   refusedHints,
@@ -43,22 +45,8 @@ import {
   secretOf,
   written,
 } from '@integrations/infrastructure/integrations/integration.schema';
-import {
-  ACTING,
-  ADDRESSING,
-  answered,
-  attaching,
-  capturing,
-  DEFAULTING,
-  DELIVERED,
-  iterating,
-  LINKED,
-  MARKING,
-  POLLED,
-  POLLING,
-  requesting,
-  withInputs,
-} from '@integrations/infrastructure/integrations/scopes';
+import { Place } from '@integrations/infrastructure/integrations/place';
+import { seenAs } from '@integrations/infrastructure/integrations/scopes';
 import {
   PIECE,
   type Structured,
@@ -69,11 +57,7 @@ import type {
   Expression,
   ExpressionEnginePort,
 } from '@platform/expressions/expression-engine.port';
-import type {
-  NamedType,
-  SchemaFields,
-  Scope,
-} from '@platform/expressions/scope';
+import type { NamedType, SchemaFields } from '@platform/expressions/scope';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
@@ -248,8 +232,12 @@ export type Compiled =
       readonly readable: ReadableIntegration;
       readonly definition: IntegrationFile;
       readonly warnings: readonly ConfigurationProblem[];
+      readonly places: ReadonlyMap<string, Place>;
     }
-  | { readonly ok: false; readonly problems: readonly ConfigurationProblem[] };
+  | {
+      readonly ok: false;
+      readonly problems: readonly ConfigurationProblem[];
+    };
 
 const reasoned = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -261,47 +249,30 @@ const becauseOf = (error: unknown): string =>
     ? error.because
     : reasoned(error);
 
-const AS_CEL: Record<ToolInputType, string> = {
-  string: 'string',
-  number: 'dyn',
-  boolean: 'bool',
-};
-
 const SECRET_IN = new RegExp(`secret\\.(${SECRET_NAME_SHAPE})`, 'g');
 
 const secretsIn = (text: string): string[] =>
   [...text.matchAll(SECRET_IN)].map((match) => match[1] as string);
 
-const doubted = (doubt: string, scope: Scope): string =>
-  doubt.startsWith('Unknown variable')
-    ? `does not check: ${doubt}. Here it may read ${scope.names.join(', ')}`
-    : `does not check: ${doubt}`;
+const doubted = (error: ExpressionErrorDto): string =>
+  error.suggestion
+    ? `does not check: ${error.message}; did you mean ${error.suggestion}?`
+    : `does not check: ${error.message}`;
 
 class Compiler {
   readonly problems: ConfigurationProblem[] = [];
   readonly warnings: ConfigurationProblem[] = [];
   readonly secrets = new Set<string>();
-  private readonly typedScopes = new WeakMap<Scope, Scope>();
+  readonly places = new Map<string, Place>();
+  private readonly warned = new Set<string>();
 
   constructor(
     private readonly expressions: ExpressionEnginePort,
     private readonly path: string,
-    private readonly types: readonly NamedType[] = [],
-    private readonly hinting = false,
+    private readonly hinting: boolean,
   ) {}
 
-  private typed(scope: Scope): Scope {
-    if (this.types.length === 0) {
-      return scope;
-    }
-
-    const held = this.typedScopes.get(scope) ?? scope.typed(this.types);
-    this.typedScopes.set(scope, held);
-
-    return held;
-  }
-
-  part<T>(at: string, build: () => T): T | null {
+  part<T>(at: FieldPath, build: () => T): T | null {
     try {
       return build();
     } catch (error) {
@@ -319,15 +290,15 @@ class Compiler {
 
   declared(
     event: EventFile,
-    where: string,
+    where: FieldPath,
     source: SourceKey,
   ): DeclaredHappening | null {
-    const happening = this.part(`${where}.raise.happening`, () =>
+    const happening = this.part(where.to('raise', 'happening'), () =>
       source.claim(HappeningName.of(event.raise.happening)),
     );
     const opens = event.raise.opens;
     const opening = opens
-      ? this.part(`${where}.raise.opens`, () =>
+      ? this.part(where.to('raise', 'opens'), () =>
           Opening.of({ onto: opens.onto, at: opens.at ?? null }),
         )
       : null;
@@ -336,7 +307,7 @@ class Compiler {
       return null;
     }
 
-    return this.part(`${where}.raise`, () =>
+    return this.part(where.to('raise'), () =>
       DeclaredHappening.of({
         happening,
         label: event.raise.label ?? event.raise.happening,
@@ -351,26 +322,27 @@ class Compiler {
     );
   }
 
-  expression(held: string, at: string, scope: Scope): Expression | null {
+  expression(held: string, place: Place): Expression | null {
     for (const name of secretsIn(held)) {
       this.secrets.add(name);
     }
 
-    try {
-      const compiled = this.expressions.compile(written(held), {
-        scope: this.typed(scope),
-        at,
-      });
+    const source = written(held);
 
-      if (compiled.doubt) {
-        this.warnings.push(
-          ConfigurationProblem.of({
-            path: this.path,
-            at,
-            reason: doubted(compiled.doubt, scope),
-            severity: 'warning',
-          }),
-        );
+    try {
+      const compiled = this.expressions.compile(source, {
+        at: place.field.rendered,
+      });
+      const verdict = place.checked(this.expressions, source);
+
+      this.places.set(place.field.rendered, place);
+
+      for (const error of verdict.errors) {
+        this.warn(place.field, doubted(error));
+      }
+
+      for (const warning of verdict.warnings) {
+        this.warn(warning.field, warning.message);
       }
 
       return compiled;
@@ -378,7 +350,7 @@ class Compiler {
       this.problems.push(
         ConfigurationProblem.of({
           path: this.path,
-          at,
+          at: place.field,
           reason:
             error instanceof ExpressionError ? error.message : reasoned(error),
         }),
@@ -388,9 +360,25 @@ class Compiler {
     }
   }
 
-  templated(held: string, at: string, scope: Scope): Templated {
+  private warn(at: FieldPath, reason: string): void {
+    const key = `${at.rendered} ${reason}`;
+
+    if (!this.warned.has(key)) {
+      this.warned.add(key);
+      this.warnings.push(
+        ConfigurationProblem.of({
+          path: this.path,
+          at,
+          reason,
+          severity: 'warning',
+        }),
+      );
+    }
+  }
+
+  templated(held: string, place: Place): Templated {
     if (isExpression(held)) {
-      const whole = this.expression(held, at, scope);
+      const whole = this.expression(held, place);
 
       return { parts: whole ? [whole] : [] };
     }
@@ -405,7 +393,7 @@ class Compiler {
         parts.push(held.slice(from, start));
       }
 
-      const piece = this.expression(found[0], at, scope);
+      const piece = this.expression(found[0], place);
       if (piece) {
         parts.push(piece);
       }
@@ -420,16 +408,16 @@ class Compiler {
     return { parts };
   }
 
-  structured(held: unknown, at: string, scope: Scope): Structured {
+  structured(held: unknown, place: Place): Structured {
     if (typeof held === 'string') {
-      return { kind: 'templated', templated: this.templated(held, at, scope) };
+      return { kind: 'templated', templated: this.templated(held, place) };
     }
 
     if (Array.isArray(held)) {
       return {
         kind: 'list',
         items: held.map((each, index) =>
-          this.structured(each, `${at}.${index}`, scope),
+          this.structured(each, place.inside(index)),
         ),
       };
     }
@@ -439,7 +427,7 @@ class Compiler {
         kind: 'map',
         entries: Object.entries(held).map(([key, each]) => ({
           key,
-          value: this.structured(each, `${at}.${key}`, scope),
+          value: this.structured(each, place.inside(key)),
         })),
       };
     }
@@ -453,20 +441,19 @@ class Compiler {
 
   freshness(
     freshness: { at: string; within: string } | undefined,
-    at: string,
-    scope: Scope,
+    place: Place,
   ): Freshness | null {
     if (!freshness) {
       return null;
     }
 
     return {
-      at: this.expression(freshness.at, `${at}.at`, scope) as Expression,
+      at: this.expression(freshness.at, place.to('at')) as Expression,
       within: Number.parseInt(freshness.within, 10),
     };
   }
 
-  auth(auth: AuthFile, at: string, scope: Scope): AuthIR {
+  auth(auth: AuthFile, place: Place): AuthIR {
     if (auth.hmac) {
       this.secrets.add(secretOf(auth.hmac.secret));
 
@@ -475,15 +462,14 @@ class Compiler {
         algorithm: auth.hmac.algorithm,
         secret: secretOf(auth.hmac.secret),
         signed: auth.hmac.signed
-          ? this.expression(auth.hmac.signed, `${at}.hmac.signed`, scope)
+          ? this.expression(auth.hmac.signed, place.to('hmac.signed'))
           : null,
         encoding: auth.hmac.encoding,
         prefix: auth.hmac.prefix,
         header: auth.hmac.header ?? null,
         freshness: this.freshness(
           auth.hmac.freshness,
-          `${at}.hmac.freshness`,
-          scope,
+          place.to('hmac.freshness'),
         ),
       };
     }
@@ -504,13 +490,11 @@ class Compiler {
         kind: 'basic',
         username: this.templated(
           auth.basic.username,
-          `${at}.basic.username`,
-          scope,
+          place.to('basic.username'),
         ),
         password: this.templated(
           auth.basic.password,
-          `${at}.basic.password`,
-          scope,
+          place.to('basic.password'),
         ),
       };
     }
@@ -519,20 +503,18 @@ class Compiler {
       return {
         kind: 'asymmetric',
         algorithm: auth.asymmetric.algorithm,
-        key: this.templated(auth.asymmetric.key, `${at}.asymmetric.key`, scope),
+        key: this.templated(auth.asymmetric.key, place.to('asymmetric.key')),
         signed: auth.asymmetric.signed
           ? this.expression(
               auth.asymmetric.signed,
-              `${at}.asymmetric.signed`,
-              scope,
+              place.to('asymmetric.signed'),
             )
           : null,
         encoding: auth.asymmetric.encoding,
         header: auth.asymmetric.header ?? null,
         freshness: this.freshness(
           auth.asymmetric.freshness,
-          `${at}.asymmetric.freshness`,
-          scope,
+          place.to('asymmetric.freshness'),
         ),
       };
     }
@@ -550,37 +532,35 @@ class Compiler {
     return { kind: 'oauth2' };
   }
 
-  request(request: RequestFile, at: string, scope: Scope): RequestIR {
-    const replied =
+  request(request: RequestFile, at: Place): RequestIR {
+    const place = at.adding(
       this.hinting && request.response
-        ? answered(scope).and({
-            response: { schema: request.response as SchemaFields },
-          })
-        : answered(scope);
+        ? { response: request.response as SchemaFields }
+        : {},
+    );
 
     return {
       method: request.method,
-      url: this.templated(request.url, `${at}.url`, scope),
+      url: this.templated(request.url, place.to('url')),
       query: Object.entries(request.query).map(([name, value]) => ({
         name,
-        value: this.templated(value, `${at}.query.${name}`, scope),
+        value: this.templated(value, place.to('query').each(name)),
       })),
       headers: Object.entries(request.headers).map(([name, value]) => ({
         name,
-        value: this.templated(value, `${at}.headers.${name}`, scope),
+        value: this.templated(value, place.to('headers').each(name)),
       })),
       body:
         request.body !== undefined
-          ? this.structured(request.body, `${at}.body`, scope)
+          ? this.structured(request.body, place.to('body'))
           : null,
-      auth: request.auth ? this.auth(request.auth, `${at}.auth`, scope) : null,
+      auth: request.auth ? this.auth(request.auth, place.to('auth')) : null,
       expect: request.expect
         ? {
             success: request.expect.success
               ? this.expression(
                   request.expect.success,
-                  `${at}.expect.success`,
-                  replied,
+                  place.to('expect.success'),
                 )
               : null,
             status: request.expect.status ?? null,
@@ -590,89 +570,82 @@ class Compiler {
         name,
         value: this.expression(
           value,
-          `${at}.capture.${name}`,
-          replied,
+          place.to('capture').each(name),
         ) as Expression,
       })),
     };
   }
 
-  event(event: EventFile, where: string, trigger: Scope): EventIR {
-    const each = event.forEach ? iterating(trigger) : trigger;
-    const looked = requesting(each);
-    const kept = Object.keys(event.lookup?.capture ?? {});
+  event(event: EventFile, place: Place): EventIR {
+    const each = place.adding(event.forEach ? { iterates: true } : {});
+    const captured = Object.keys(event.lookup?.capture ?? {}).map((name) => ({
+      name,
+      field: place.field.to('lookup', 'capture', name),
+    }));
 
     return {
       forEach: event.forEach
-        ? this.expression(event.forEach, `${where}.forEach`, trigger)
+        ? this.expression(event.forEach, place.to('forEach'))
         : null,
-      when: this.expression(event.when, `${where}.when`, each) as Expression,
+      when: this.expression(event.when, each.to('when')) as Expression,
       lookup: event.lookup
         ? {
             request: this.request(
               event.lookup.request,
-              `${where}.lookup.request`,
-              looked,
+              each.to('lookup.request'),
             ),
             capture: Object.entries(event.lookup.capture).map(
               ([name, value]) => ({
                 name,
                 value: this.expression(
                   value,
-                  `${where}.lookup.capture.${name}`,
-                  answered(looked),
+                  each.to('lookup.capture').each(name),
                 ) as Expression,
               }),
             ),
           }
         : null,
-      raise: this.raise(event.raise, `${where}.raise`, capturing(each, kept)),
+      raise: this.raise(event.raise, each.to('raise').adding({ captured })),
     };
   }
 
-  raise(raise: RaiseFile, at: string, scope: Scope): RaiseIR {
-    const carried = attaching(scope);
-
+  raise(raise: RaiseFile, place: Place): RaiseIR {
     return {
       happening: raise.happening,
       spoken: raise.spoken,
-      say: raise.say ? this.expression(raise.say, `${at}.say`, scope) : null,
+      say: raise.say ? this.expression(raise.say, place.to('say')) : null,
       opens: raise.opens
         ? {
             onto: raise.opens.onto,
             at: raise.opens.at ?? null,
             title: this.expression(
               raise.opens.title,
-              `${at}.opens.title`,
-              scope,
+              place.to('opens.title'),
             ) as Expression,
             description: raise.opens.description
               ? this.expression(
                   raise.opens.description,
-                  `${at}.opens.description`,
-                  scope,
+                  place.to('opens.description'),
                 )
               : null,
             assignBy: raise.opens.assignBy
               ? {
                   email: this.expression(
                     raise.opens.assignBy.email,
-                    `${at}.opens.assignBy.email`,
-                    scope,
+                    place.to('opens.assignBy.email'),
                   ) as Expression,
                 }
               : null,
           }
         : null,
       branch: raise.branch
-        ? this.expression(raise.branch, `${at}.branch`, scope)
+        ? this.expression(raise.branch, place.to('branch'))
         : null,
       marks: raise.marks.map((mark, index) => ({
         kind: MarkKind.of(mark.kind),
         value: this.expression(
           mark.value,
-          `${at}.marks.${index}.value`,
-          scope,
+          place.to('marks').each(index).to('value'),
         ) as Expression,
         finds: mark.find,
       })),
@@ -680,32 +653,21 @@ class Compiler {
         ? {
             each: this.expression(
               raise.attaches.each,
-              `${at}.attaches.each`,
-              scope,
+              place.to('attaches.each'),
             ) as Expression,
             name: this.expression(
               raise.attaches.name,
-              `${at}.attaches.name`,
-              carried,
+              place.to('attaches.name'),
             ) as Expression,
             type: raise.attaches.type
-              ? this.expression(
-                  raise.attaches.type,
-                  `${at}.attaches.type`,
-                  carried,
-                )
+              ? this.expression(raise.attaches.type, place.to('attaches.type'))
               : null,
             size: raise.attaches.size
-              ? this.expression(
-                  raise.attaches.size,
-                  `${at}.attaches.size`,
-                  carried,
-                )
+              ? this.expression(raise.attaches.size, place.to('attaches.size'))
               : null,
             fetch: this.request(
               raise.attaches.fetch,
-              `${at}.attaches.fetch`,
-              requesting(carried),
+              place.to('attaches.fetch'),
             ),
           }
         : null,
@@ -754,77 +716,71 @@ export const compileIntegration = (
   const hintWarnings = hintProblemsOf(path, file);
   const hinting = hintWarnings.length === 0;
   const typeOrder = orderedTypes(file.types as Record<string, Shape>).order;
-  const compiler = new Compiler(
-    expressions,
-    path,
-    hinting
-      ? typeOrder.map(
-          (name): NamedType => [name, file.types[name] as SchemaFields],
-        )
-      : [],
-    hinting,
-  );
+  const compiler = new Compiler(expressions, path, hinting);
   compiler.warnings.push(...hintWarnings);
 
-  const delivered =
-    hinting && file.webhook?.shape
-      ? DELIVERED.and({ body: { schema: file.webhook.shape as SchemaFields } })
-      : DELIVERED;
-  const polled =
-    hinting && file.poll?.shape
-      ? POLLED.and({ body: { schema: file.poll.shape as SchemaFields } })
-      : POLLED;
+  const hinted = (additions: Additions): Additions =>
+    hinting ? additions : {};
+  const root = Place.root().adding(
+    hinted({
+      types: typeOrder.map(
+        (name): NamedType => [name, file.types[name] as SchemaFields],
+      ),
+    }),
+  );
+  const hooked = root
+    .to('webhook')
+    .adding(
+      hinted(
+        file.webhook?.shape ? { body: file.webhook.shape as SchemaFields } : {},
+      ),
+    );
+  const polled = root
+    .to('poll')
+    .adding(
+      hinted(file.poll?.shape ? { body: file.poll.shape as SchemaFields } : {}),
+    );
   const source = SourceKey.of(file.integration);
 
   const webhook: WebhookIR | null = file.webhook
     ? {
-        verify: compiler.auth(file.webhook.verify, 'webhook.verify', delivered),
+        verify: compiler.auth(file.webhook.verify, hooked.to('verify')),
         respond: file.webhook.respond
           ? {
               when: compiler.expression(
                 file.webhook.respond.when,
-                'webhook.respond.when',
-                delivered,
+                hooked.to('respond.when'),
               ) as Expression,
               body: compiler.expression(
                 file.webhook.respond.body,
-                'webhook.respond.body',
-                delivered,
+                hooked.to('respond.body'),
               ) as Expression,
             }
           : null,
         mine: file.webhook.mine
-          ? compiler.expression(file.webhook.mine, 'webhook.mine', delivered)
+          ? compiler.expression(file.webhook.mine, hooked.to('mine'))
           : null,
         route: file.webhook.route
-          ? compiler.expression(
-              file.webhook.route.by,
-              'webhook.route.by',
-              delivered,
-            )
+          ? compiler.expression(file.webhook.route.by, hooked.to('route.by'))
           : null,
         parse: file.webhook.parse,
         delivery: file.webhook.delivery
-          ? compiler.expression(
-              file.webhook.delivery,
-              'webhook.delivery',
-              delivered,
-            )
+          ? compiler.expression(file.webhook.delivery, hooked.to('delivery'))
           : null,
         events: file.webhook.events.map((event, at) =>
-          compiler.event(event, `webhook.events.${at}`, delivered),
+          compiler.event(event, hooked.to('events').each(at)),
         ),
       }
     : null;
 
   const poll: PollIR | null = file.poll
     ? {
-        request: compiler.request(file.poll.request, 'poll.request', POLLING),
+        request: compiler.request(file.poll.request, polled.to('request')),
         cursor: file.poll.cursor
-          ? compiler.expression(file.poll.cursor, 'poll.cursor', polled)
+          ? compiler.expression(file.poll.cursor, polled.to('cursor'))
           : null,
         events: file.poll.events.map((event, at) =>
-          compiler.event(event, `poll.events.${at}`, polled),
+          compiler.event(event, polled.to('events').each(at)),
         ),
       }
     : null;
@@ -833,7 +789,7 @@ export const compileIntegration = (
   for (const tool of Object.values(file.tools)) {
     const held = inputsOf.get(tool.does) ?? {};
     for (const [name, input] of Object.entries(tool.inputs)) {
-      const type = AS_CEL[input.type];
+      const type = seenAs(input.type);
       held[name] =
         held[name] === undefined || held[name] === type ? type : 'dyn';
     }
@@ -842,29 +798,33 @@ export const compileIntegration = (
 
   const actions = new Map<string, RequestIR>();
   for (const [name, action] of Object.entries(file.actions)) {
+    const inputs = inputsOf.get(name);
+
     actions.set(
       name,
       compiler.request(
         action.request,
-        `actions.${name}.request`,
-        inputsOf.has(name)
-          ? withInputs(ACTING, inputsOf.get(name) ?? {})
-          : ACTING,
+        root
+          .to('actions')
+          .each(name)
+          .to('request')
+          .adding(inputs ? { inputs } : {}),
       ),
     );
   }
 
-  const defined = compiler.part('actions', () =>
+  const defined = compiler.part(FieldPath.of(['actions']), () =>
     DefinedActions.of(Object.keys(file.actions)),
   );
 
   const tools = new Map<string, ToolIR>();
   for (const [name, tool] of Object.entries(file.tools)) {
     const at = `tools.${name}`;
+    const offered = root.to('tools').each(name);
 
-    compiler.part(`${at}.does`, () => defined?.named(tool.does, at));
-
-    const inputs = inputsOf.get(tool.does) ?? {};
+    compiler.part(FieldPath.of(['tools', name, 'does']), () =>
+      defined?.named(tool.does, at),
+    );
 
     tools.set(name, {
       name,
@@ -878,18 +838,16 @@ export const compileIntegration = (
           declared.default !== undefined
             ? compiler.templated(
                 declared.default,
-                `${at}.inputs.${input}.default`,
-                DEFAULTING,
+                offered.to('inputs').each(input).to('default'),
               )
             : null,
       })),
       output: tool.output
         ? compiler.expression(
             tool.output,
-            `${at}.output`,
-            answered(withInputs(ACTING, inputs)).and({
-              capture: 'map<string, dyn>',
-            }),
+            offered
+              .to('output')
+              .adding({ inputs: inputsOf.get(tool.does) ?? {} }),
           )
         : null,
     });
@@ -905,8 +863,7 @@ export const compileIntegration = (
               identity: file.connection.oauth2.identity
                 ? compiler.expression(
                     file.connection.oauth2.identity,
-                    'connection.oauth2.identity',
-                    LINKED,
+                    root.to('connection.oauth2.identity'),
                   )
                 : null,
             }
@@ -926,10 +883,10 @@ export const compileIntegration = (
   const schedule = file.schedule
     ? (() => {
         const written = file.schedule;
-        const cron = compiler.part('schedule.cron', () =>
+        const cron = compiler.part(FieldPath.of(['schedule', 'cron']), () =>
           CronExpression.of(written.cron, cronCalendar),
         );
-        const does = compiler.part('schedule.do', () =>
+        const does = compiler.part(FieldPath.of(['schedule', 'do']), () =>
           defined?.named(written.do, 'schedule'),
         );
 
@@ -939,10 +896,10 @@ export const compileIntegration = (
 
   const bindings: Binding[] = [];
   const on: OnBindingIR[] = Object.entries(file.on).map(([event, binding]) => {
-    const bound = compiler.part(`on.${event}`, () =>
+    const bound = compiler.part(FieldPath.of(['on', event]), () =>
       Binding.of({ event, does: binding.do, known: ON_EVENTS }),
     );
-    const does = compiler.part(`on.${event}.do`, () =>
+    const does = compiler.part(FieldPath.of(['on', event, 'do']), () =>
       defined?.named(binding.do, `binding on ${event}`),
     );
 
@@ -956,8 +913,7 @@ export const compileIntegration = (
         name,
         value: compiler.expression(
           value,
-          `on.${event}.to.${name}`,
-          ADDRESSING,
+          root.to('on').each(event).to('to').each(name),
         ) as Expression,
       })),
       routes: new Map(Object.entries(binding.routes)),
@@ -965,18 +921,17 @@ export const compileIntegration = (
         kind: MarkKind.of(mark.kind),
         value: compiler.expression(
           mark.value,
-          `on.${event}.mark.${index}.value`,
-          MARKING,
+          root.to('on').each(event).to('mark').each(index).to('value'),
         ) as Expression,
       })),
     };
   });
 
   const webhookDeclares = (file.webhook?.events ?? []).map((event, at) =>
-    compiler.declared(event, `webhook.events.${at}`, source),
+    compiler.declared(event, FieldPath.of(['webhook', 'events', at]), source),
   );
   const pollDeclares = (file.poll?.events ?? []).map((event, at) =>
-    compiler.declared(event, `poll.events.${at}`, source),
+    compiler.declared(event, FieldPath.of(['poll', 'events', at]), source),
   );
   const approvalOf = (
     written: { because: string } | undefined,
@@ -985,7 +940,7 @@ export const compileIntegration = (
     written ? ApprovalNeeded.of(written, `tools.${name}.approval`) : null;
 
   const offers = [...tools.values()].map((tool) =>
-    compiler.part(`tools.${tool.name}`, () =>
+    compiler.part(FieldPath.of(['tools', tool.name]), () =>
       OfferedTool.of({
         source,
         name: tool.name,
@@ -1046,6 +1001,7 @@ export const compileIntegration = (
       },
       definition: file,
       warnings: compiler.warnings,
+      places: compiler.places,
     };
   } catch (error) {
     return {
@@ -1053,7 +1009,7 @@ export const compileIntegration = (
       problems: [
         ConfigurationProblem.of({
           path,
-          at: '',
+          at: FieldPath.root(),
           reason: reasoned(error),
         }),
         ...compiler.warnings,
@@ -1069,22 +1025,22 @@ const hintProblemsOf = (
   file: IntegrationFile,
 ): ConfigurationProblem[] => {
   const known = new Set(Object.keys(file.types));
-  const shapes: [Shape, string][] = [
-    ...Object.entries(file.types).map(([name, shape]): [Shape, string] => [
+  const shapes: [Shape, FieldPath][] = [
+    ...Object.entries(file.types).map(([name, shape]): [Shape, FieldPath] => [
       shape as Shape,
-      `types.${name}`,
+      FieldPath.of(['types', name]),
     ]),
     ...(file.webhook?.shape
-      ? [[file.webhook.shape as Shape, 'webhook.shape'] as [Shape, string]]
+      ? [[file.webhook.shape as Shape, FieldPath.of(['webhook', 'shape'])]]
       : []),
     ...(file.poll?.shape
-      ? [[file.poll.shape as Shape, 'poll.shape'] as [Shape, string]]
+      ? [[file.poll.shape as Shape, FieldPath.of(['poll', 'shape'])]]
       : []),
     ...(file.poll?.request.response
       ? [
-          [file.poll.request.response as Shape, 'poll.request.response'] as [
-            Shape,
-            string,
+          [
+            file.poll.request.response as Shape,
+            FieldPath.of(['poll', 'request', 'response']),
           ],
         ]
       : []),
@@ -1093,12 +1049,12 @@ const hintProblemsOf = (
         ? [
             [
               action.request.response as Shape,
-              `actions.${name}.request.response`,
-            ] as [Shape, string],
+              FieldPath.of(['actions', name, 'request', 'response']),
+            ],
           ]
         : [],
     ),
-  ];
+  ] as [Shape, FieldPath][];
 
   const refused = shapes.flatMap(([shape, at]) =>
     refusedHints(shape, at, known),
@@ -1110,7 +1066,7 @@ const hintProblemsOf = (
     ...(cycle
       ? [
           {
-            at: `types.${cycle}`,
+            at: FieldPath.of(['types', cycle]),
             reason:
               'names itself, however far round, which a check cannot follow',
           },

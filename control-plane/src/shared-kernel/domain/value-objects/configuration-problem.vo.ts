@@ -15,7 +15,7 @@ export class ConfigurationProblem {
 
   static of(input: {
     path: string;
-    at: string | FieldPath;
+    at: FieldPath;
     reason: string;
     severity?: ProblemSeverity;
   }): ConfigurationProblem {
@@ -30,7 +30,7 @@ export class ConfigurationProblem {
 
     return new ConfigurationProblem(
       input.path.trim(),
-      typeof input.at === 'string' ? FieldPath.dotted(input.at) : input.at,
+      input.at,
       reason,
       input.severity ?? 'error',
     );

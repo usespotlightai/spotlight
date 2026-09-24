@@ -133,7 +133,6 @@ const requestSchema = z.object({
       backoff: z.string().optional(),
     })
     .optional(),
-  paginate: z.object({ cursor: expression, until: expression }).optional(),
 });
 
 const actionSchema = z.object({

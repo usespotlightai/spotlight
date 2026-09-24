@@ -10,6 +10,7 @@ import { API_VERSION } from '@platform/http/resources/resource-headers';
 import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
+import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const answering = (exception: unknown) => {
@@ -54,7 +55,7 @@ describe('ProblemFilter', () => {
       ProblemException.invalid('line', [
         ConfigurationProblem.of({
           path: 'lines/delivery',
-          at: 'stations.2.check',
+          at: FieldPath.dotted('stations.2.check'),
           reason: 'must not be empty',
         }),
       ]),

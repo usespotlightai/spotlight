@@ -3,6 +3,7 @@ import {
   refusalOfType,
   refusedHints,
 } from '@integrations/infrastructure/integrations/hints';
+import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { describe, expect, it } from 'vitest';
 
 const known = new Set(['Issue', 'User']);
@@ -34,12 +35,12 @@ describe('a hinted type', () => {
     expect(
       refusedHints(
         { data: { issue: 'Isue', title: 'string' } },
-        'webhook.shape',
+        FieldPath.of(['webhook', 'shape']),
         known,
       ),
     ).toEqual([
       {
-        at: 'webhook.shape.data.issue',
+        at: FieldPath.of(['webhook', 'shape', 'data', 'issue']),
         reason: expect.stringMatching(/not a type/),
       },
     ]);

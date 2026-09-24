@@ -34,4 +34,46 @@ describe('FieldPath', () => {
       ),
     ).toBe(false);
   });
+
+  it('is written the way the Terraform provider points at an attribute', () => {
+    expect(FieldPath.of(['stations', 2, 'check']).rendered).toBe(
+      'stations[2].check',
+    );
+    expect(FieldPath.root().rendered).toBe('');
+  });
+
+  it('quotes a key that is not a plain name', () => {
+    expect(
+      FieldPath.of(['egress', 'api.linear.app', 'headers', 0]).rendered,
+    ).toBe('egress["api.linear.app"].headers[0]');
+    expect(FieldPath.of(['on', 'task.opened', 'to', 'thread']).rendered).toBe(
+      'on["task.opened"].to.thread',
+    );
+    expect(FieldPath.of(['responses', '200']).rendered).toBe(
+      'responses["200"]',
+    );
+  });
+
+  it('writes any index or key as a splat', () => {
+    expect(FieldPath.of(['events', '*', 'when']).rendered).toBe(
+      'events[*].when',
+    );
+  });
+
+  it('reads back every path it writes', () => {
+    for (const field of [
+      FieldPath.of(['stations', 2, 'check']),
+      FieldPath.of(['on', 'task.opened', 'to', 'thread']),
+      FieldPath.of(['responses', '200', 'say "hi"']),
+      FieldPath.of(['webhook', 'events', '*', 'when']),
+    ]) {
+      expect(FieldPath.parsed(field.rendered)).toEqual(field);
+    }
+  });
+
+  it('reads nothing from what is not a path', () => {
+    for (const written of ['', '.on', 'on..to', 'on[x]', 'on["open]', '0.on']) {
+      expect(FieldPath.parsed(written)).toBeNull();
+    }
+  });
 });

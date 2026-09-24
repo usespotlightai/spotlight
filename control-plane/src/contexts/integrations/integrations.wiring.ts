@@ -56,6 +56,7 @@ import {
   DELIVERY_WORK,
   DeliveryWorkPort,
 } from '@integrations/application/ports/delivery-work.port';
+import { EXPRESSION_CHECKS } from '@integrations/application/ports/expression-checks.port';
 import {
   INBOX_LINKS,
   type InboxLinksPort,
@@ -81,10 +82,14 @@ import {
   OAUTH2_NONCES,
   type OAuth2NoncesPort,
 } from '@integrations/application/ports/oauth2-nonces.port';
+import { CheckExpressionQuery } from '@integrations/application/queries/check-expression.query';
+import { CheckExpressionHandler } from '@integrations/application/queries/handlers/check-expression.handler';
 import { ImportIntegrationHandler } from '@integrations/application/queries/handlers/import-integration.handler';
+import { ListExpressionPositionsHandler } from '@integrations/application/queries/handlers/list-expression-positions.handler';
 import { ListHappeningsHandler } from '@integrations/application/queries/handlers/list-happenings.handler';
 import { ReadIntegrationHandler } from '@integrations/application/queries/handlers/read-integration.handler';
 import { ImportIntegrationQuery } from '@integrations/application/queries/import-integration.query';
+import { ListExpressionPositionsQuery } from '@integrations/application/queries/list-expression-positions.query';
 import { ListHappeningsQuery } from '@integrations/application/queries/list-happenings.query';
 import { ReadIntegrationQuery } from '@integrations/application/queries/read-integration.query';
 import { AbandonTeamIntegrations } from '@integrations/application/services/abandon-team-integrations.service';
@@ -109,6 +114,7 @@ import { IntegrationToolCalls } from '@integrations/infrastructure/acl/integrati
 import { TaskNotices } from '@integrations/infrastructure/acl/task-notices.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { ConfiguredSources } from '@integrations/infrastructure/integrations/configured.sources';
+import { ExpressionChecks } from '@integrations/infrastructure/integrations/expression-checks';
 import { IntegrationCompiler } from '@integrations/infrastructure/integrations/integration.compile';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { JwksCache } from '@integrations/infrastructure/integrations/jwks';
@@ -128,6 +134,7 @@ import { DrizzleOAuth2Nonces } from '@integrations/infrastructure/persistence/dr
 import { GitHubSource } from '@integrations/infrastructure/sources/github.source';
 import { markedSources } from '@integrations/infrastructure/webhooks/registered-sources';
 import { integrationsSubscribers } from '@integrations/presentation/events/integrations.subscribers';
+import { ExpressionCheckController } from '@integrations/presentation/http/controllers/expression-check.controller';
 import { HappeningController } from '@integrations/presentation/http/controllers/happening.controller';
 import { IntegrationResourceController } from '@integrations/presentation/http/controllers/integration-resource.controller';
 import { OAuth2ConnectionController } from '@integrations/presentation/http/controllers/oauth2-connection.controller';
@@ -188,6 +195,7 @@ const INTEGRATIONS_HOLDINGS = Symbol('INTEGRATIONS_HOLDINGS');
 export const INTEGRATIONS_CONTROLLERS: readonly Type[] = [
   OAuth2ConnectionController,
   IntegrationResourceController,
+  ExpressionCheckController,
   HappeningController,
   WebhookController,
 ];
@@ -246,6 +254,23 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
   },
 
   { provide: INTEGRATION_RESOURCES, useExisting: DrizzleDefinedIntegrations },
+
+  {
+    provide: EXPRESSION_CHECKS,
+    inject: [EXPRESSION_ENGINE],
+    useFactory: (expressions: ExpressionEnginePort) =>
+      new ExpressionChecks(expressions),
+  },
+
+  ...bindQueryHandler(CheckExpressionQuery, CheckExpressionHandler, [
+    EXPRESSION_CHECKS,
+  ]),
+
+  ...bindQueryHandler(
+    ListExpressionPositionsQuery,
+    ListExpressionPositionsHandler,
+    [EXPRESSION_CHECKS],
+  ),
 
   {
     provide: IntegrationViews,

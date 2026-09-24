@@ -6,12 +6,10 @@ export const EXPRESSION_ENGINE = Symbol('EXPRESSION_ENGINE');
 export interface Expression {
   readonly source: string;
   readonly at: string | null;
-  readonly doubt: string | null;
   evaluate(against: Bindings): unknown;
 }
 
 export interface Within {
-  readonly scope?: Scope;
   readonly at?: string;
 }
 
@@ -26,6 +24,7 @@ export type ExpressionCheck =
       readonly valid: false;
       readonly reason: string;
       readonly span: ExpressionSpan | null;
+      readonly suggestion: string | null;
     };
 
 export interface ExpressionEnginePort {

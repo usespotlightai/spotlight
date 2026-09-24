@@ -1,6 +1,9 @@
+import type { ToolInputType } from '@integrations/domain/value-objects/offered-tool.vo';
 import { type Declared, Scope } from '@platform/expressions/scope';
 
-const OUTSIDE = 'dyn';
+export const OUTSIDE = 'dyn';
+
+export const ITEM = 'item';
 
 const TASK: Declared = {
   schema: {
@@ -52,21 +55,19 @@ export const MARKING = ACTING.and({
 
 export const LINKED = Scope.of({ response: OUTSIDE });
 
-export const iterating = (scope: Scope): Scope => scope.and({ item: OUTSIDE });
+export const DEFAULTING = Scope.of({ task: TASK });
 
 export const attaching = (scope: Scope): Scope => scope.and({ file: OUTSIDE });
-
-export const capturing = (scope: Scope, names: readonly string[]): Scope =>
-  scope.and(Object.fromEntries(names.map((name) => [name, OUTSIDE])));
 
 export const requesting = (scope: Scope): Scope => scope.and(SECRETS);
 
 export const answered = (scope: Scope): Scope =>
   scope.and({ response: OUTSIDE, status: OUTSIDE, headers: OUTSIDE });
 
-export const DEFAULTING = Scope.of({ task: TASK });
+const TOOL_INPUTS_AS: Readonly<Record<ToolInputType, string>> = {
+  string: 'string',
+  number: 'dyn',
+  boolean: 'bool',
+};
 
-export const withInputs = (
-  scope: Scope,
-  inputs: Readonly<Record<string, string>>,
-): Scope => scope.and({ inputs: { schema: { ...inputs } } });
+export const seenAs = (type: ToolInputType): string => TOOL_INPUTS_AS[type];

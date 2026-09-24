@@ -1,5 +1,4 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
-import { attributePath } from '@platform/http/field-paths';
 import type {
   ConfigurationProblem,
   ProblemSeverity,
@@ -40,7 +39,7 @@ const TITLES: Readonly<Record<number, [slug: string, title: string]>> = {
 const problemType = (slug: string): string => `urn:spotlight:problem:${slug}`;
 
 export const fieldErrorOf = (problem: ConfigurationProblem): FieldError => ({
-  path: attributePath(problem.field),
+  path: problem.field.rendered,
   message: problem.reason,
   severity: problem.severity,
 });

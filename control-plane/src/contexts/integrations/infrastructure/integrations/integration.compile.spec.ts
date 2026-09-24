@@ -527,18 +527,32 @@ on:
 
       expect(read.ok).toBe(true);
       expect(warnings(text)).toHaveLength(1);
-      expect(dottedOf(warnings(text)[0]?.field)).toBe(
-        'on.task.asked.to.thread',
+      expect(warnings(text)[0]?.field.rendered).toBe(
+        'on["task.asked"].to.thread',
       );
-      expect(warnings(text)[0]?.reason).toMatch(/No such key: makrs/);
+      expect(warnings(text)[0]?.reason).toMatch(
+        /No such key: makrs; did you mean task\.marks\?/,
+      );
     });
 
-    it('tells a name that is not there what may be read instead', () => {
+    it('suggests the name that is there nearest one that is not', () => {
       const [warning] = warnings(BINDING.replace('ask.body', 'asked.body'));
 
       expect(dottedOf(warning?.field)).toBe('actions.post.request.body');
-      expect(warning?.reason).toMatch(/Unknown variable: asked/);
-      expect(warning?.reason).toMatch(/ask, connection, secret, target, task/);
+      expect(warning?.reason).toMatch(
+        /Unknown variable: asked; did you mean ask\?/,
+      );
+    });
+
+    it('warns about a rule that does not say yes or no', () => {
+      const [warning] = warnings(
+        WHOLE.replace('body.type == "Issue"', '"Issue"'),
+      );
+
+      expect(dottedOf(warning?.field)).toBe('webhook.events.0.when');
+      expect(warning?.reason).toBe(
+        'does not check: must return a bool, not a string',
+      );
     });
 
     it('lets a rule that walks a list read each item, and nothing else', () => {
@@ -551,6 +565,32 @@ on:
 
       expect(warnings(list)).toEqual([]);
       expect(warnings(WHOLE.replace('body.type', 'item.type'))).toHaveLength(1);
+    });
+
+    it('warns, at the capture, where a lookup capture shadows a built-in name', () => {
+      const shadowing = WHOLE.replace(
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: the file's own expression syntax
+        '    - when: ${{ body.type == "Issue" }}',
+        `    - when: \${{ body.type == "Issue" }}
+      lookup:
+        request:
+          url: https://api.linear.app/graphql
+        capture:
+          body: \${{ response.data }}
+          issue: \${{ response.issue }}`,
+      );
+
+      expect(
+        warnings(shadowing).map((each) => ({
+          at: each.field.rendered,
+          reason: each.reason,
+        })),
+      ).toEqual([
+        {
+          at: 'webhook.events[0].lookup.capture.body',
+          reason: 'shadows the built-in body',
+        },
+      ]);
     });
 
     it('warns about a raised word reading a name no lookup kept', () => {
