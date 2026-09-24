@@ -17,7 +17,7 @@ import {
   transaction,
   WORKSPACE,
 } from '@secrets/secrets.fakes.fake-spec';
-import { FORBIDDEN } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { changesConfiguration } from '@shared-kernel/domain/events/configuration-changed';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { describe, expect, it } from 'vitest';
@@ -113,7 +113,7 @@ describe('CreateSecretHandler', () => {
   it('forbids someone who reads the workspace but may not manage its secrets', async () => {
     const { create, secrets } = holding(false);
 
-    expect(await create()).toEqual(FORBIDDEN);
+    expect(await create()).toEqual(forbiddenTo('manage-secrets'));
     expect(await secrets.withId(SecretId.of(ID))).toBeNull();
   });
 
@@ -205,7 +205,7 @@ describe('UpdateSecretHandler', () => {
 
     expect(
       await update({ ...LINEAR, valueWo: 'lin_api_2', valueWoVersion: 2 }),
-    ).toEqual(FORBIDDEN);
+    ).toEqual(forbiddenTo('manage-secrets'));
     expect(await keptValue()).toBe('lin_api_1');
   });
 
@@ -265,7 +265,7 @@ describe('DeleteSecretHandler', () => {
 
     demoted();
 
-    expect(await remove()).toEqual(FORBIDDEN);
+    expect(await remove()).toEqual(forbiddenTo('manage-secrets'));
     expect(await keptValue()).toBe('lin_api_1');
   });
 });

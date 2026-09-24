@@ -5,7 +5,7 @@ import type { WorkspaceRepository } from '@identity/domain/repositories/workspac
 import { WorkspaceRegistration } from '@identity/domain/services/workspace-registration';
 import { Clearance } from '@identity/domain/value-objects/clearance.vo';
 import {
-  FORBIDDEN_TO_OPEN_WORKSPACES,
+  forbiddenTo,
   type ResourceCreated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
@@ -43,7 +43,7 @@ export class CreateWorkspaceHandler
       const { principal } = command.actor;
 
       if (!Clearance.beyondWorkspaces(principal).opensWorkspaces) {
-        return FORBIDDEN_TO_OPEN_WORKSPACES;
+        return forbiddenTo('open-workspaces');
       }
 
       const compiled = this.definitions.workspace(command.definition);

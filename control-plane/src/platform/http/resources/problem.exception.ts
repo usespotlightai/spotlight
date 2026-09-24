@@ -37,18 +37,21 @@ const TITLES: Readonly<Record<number, [slug: string, title: string]>> = {
   [HttpStatus.BAD_GATEWAY]: ['refused-upstream', 'An upstream service refused'],
 };
 
-const REFUSALS: Readonly<
-  Record<ForbiddenAct, (kind: string) => [title: string, detail: string]>
-> = {
-  change: (kind) => [
-    `Not allowed to change the ${kind}`,
-    `You may read this ${kind}, but your role in its workspace, or your token’s scopes, do not let you change it`,
-  ],
+type Refusal = (kind: string) => [title: string, detail: string];
+
+const changing: Refusal = (kind) => [
+  `Not allowed to change the ${kind}`,
+  `You may read this ${kind}, but your role in its workspace, or your token’s scopes, do not let you change it`,
+];
+
+const REFUSALS: Readonly<Record<ForbiddenAct, Refusal>> = {
+  configure: changing,
+  'manage-secrets': changing,
   administer: (kind) => [
     `Not allowed to administer the ${kind}`,
     `You may read this ${kind}, but only the workspace’s admins may do this; a token never administers`,
   ],
-  'open-workspace': () => [
+  'open-workspaces': () => [
     'Not allowed to open a workspace',
     'A workspace token acts only inside its own workspace and cannot open one; a person with a Spotlight account creates workspaces',
   ],

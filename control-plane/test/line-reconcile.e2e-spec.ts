@@ -5,7 +5,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import {
-  FORBIDDEN,
+  forbiddenTo,
   type ResourceCreated,
   type ResourceUpdated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
@@ -168,7 +168,9 @@ describe('a line reconciled with its definition (e2e)', () => {
   });
 
   it('forbids a member who does not administer the workspace, defining nothing', async () => {
-    expect(await define(DELIVERY, seat.member)).toEqual(FORBIDDEN);
+    expect(await define(DELIVERY, seat.member)).toEqual(
+      forbiddenTo('configure'),
+    );
     expect(await lines.ofTeam(TeamId.of(held))).toEqual([]);
   });
 });

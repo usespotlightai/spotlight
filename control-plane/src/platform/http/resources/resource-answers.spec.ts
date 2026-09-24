@@ -6,11 +6,7 @@ import {
   answerUpdated,
   found,
 } from '@platform/http/resources/resource-answers';
-import {
-  FORBIDDEN,
-  FORBIDDEN_TO_ADMINISTER,
-  FORBIDDEN_TO_OPEN_WORKSPACES,
-} from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { describe, expect, it } from 'vitest';
@@ -67,7 +63,7 @@ describe('resource answers', () => {
     [INVALID, 422, 'invalid'],
     [{ outcome: 'taken' as const, address: 'core/x' }, 409, 'already-exists'],
     [{ outcome: 'key-reused' as const }, 422, 'idempotency-key-reused'],
-    [FORBIDDEN, 403, 'forbidden'],
+    [forbiddenTo('configure'), 403, 'forbidden'],
   ])('refuses a create that came to %j', async (outcome, status, slug) => {
     expect(
       await problemOf(() => answerCreated('line', outcome, answer)),
@@ -79,7 +75,7 @@ describe('resource answers', () => {
     [INVALID, 422, 'invalid'],
     [{ outcome: 'moved-on' as const, currentVersion: 4 }, 409, 'moved-on'],
     [{ outcome: 'in-use' as const, reason: 'held' }, 409, 'in-use'],
-    [FORBIDDEN, 403, 'forbidden'],
+    [forbiddenTo('configure'), 403, 'forbidden'],
   ])('refuses an update that came to %j', async (outcome, status, slug) => {
     expect(
       await problemOf(() => answerUpdated('line', outcome, answer)),
@@ -89,7 +85,7 @@ describe('resource answers', () => {
   it('says why a refusal was forbidden, by what it was forbidden to do', async () => {
     expect(
       await problemOf(() =>
-        answerCreated('workspace', FORBIDDEN_TO_OPEN_WORKSPACES, answer),
+        answerCreated('workspace', forbiddenTo('open-workspaces'), answer),
       ),
     ).toMatchObject({
       status: 403,
@@ -99,7 +95,7 @@ describe('resource answers', () => {
     });
     expect(
       await problemOf(() =>
-        answerDeleted('workspace', FORBIDDEN_TO_ADMINISTER),
+        answerDeleted('workspace', forbiddenTo('administer')),
       ),
     ).toMatchObject({
       status: 403,

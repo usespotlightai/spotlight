@@ -5,8 +5,8 @@ import type {
 } from '@integrations/application/ports/expression-checks.port';
 import type { CheckExpressionQuery } from '@integrations/application/queries/check-expression.query';
 import {
-  FORBIDDEN_TO_PLAN,
   type Forbidden,
+  forbiddenTo,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -23,7 +23,7 @@ export class CheckExpressionHandler
     query: CheckExpressionQuery,
   ): Promise<CheckedExpression | Forbidden> {
     if (!this.access.mayPlan(query.principal)) {
-      return FORBIDDEN_TO_PLAN;
+      return forbiddenTo('plan');
     }
 
     return this.checks.check(

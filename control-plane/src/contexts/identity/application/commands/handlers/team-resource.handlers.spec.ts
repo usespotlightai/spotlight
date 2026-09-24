@@ -16,7 +16,7 @@ import {
   transaction,
 } from '@identity/identity.resources.fake-spec';
 import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
-import { FORBIDDEN } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { describe, expect, it } from 'vitest';
@@ -75,7 +75,7 @@ describe('CreateTeamHandler', () => {
 
   it('forbids a member who does not administer the workspace', async () => {
     expect(await creating({ administers: false }).create(CORE)).toEqual(
-      FORBIDDEN,
+      forbiddenTo('configure'),
     );
   });
 });
@@ -133,7 +133,9 @@ describe('UpdateTeamHandler', () => {
   });
 
   it('forbids a member who does not administer the workspace', async () => {
-    expect(await updating(false).update(CORE)).toEqual(FORBIDDEN);
+    expect(await updating(false).update(CORE)).toEqual(
+      forbiddenTo('configure'),
+    );
   });
 });
 

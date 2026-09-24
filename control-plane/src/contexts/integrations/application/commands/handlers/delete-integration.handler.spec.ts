@@ -10,7 +10,7 @@ import {
   toolsGiven,
   transaction,
 } from '@integrations/integrations.resources.fake-spec';
-import { FORBIDDEN } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { describe, expect, it } from 'vitest';
 
@@ -82,6 +82,8 @@ describe('DeleteIntegrationHandler', () => {
 
   it('answers nothing for an integration it cannot find, and forbids one it may not delete', async () => {
     expect(await deleting({ standing: null }).remove()).toBeNull();
-    expect(await deleting({ administers: false }).remove()).toEqual(FORBIDDEN);
+    expect(await deleting({ administers: false }).remove()).toEqual(
+      forbiddenTo('configure'),
+    );
   });
 });

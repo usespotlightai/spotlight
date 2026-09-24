@@ -5,7 +5,7 @@ import { WorkspaceMovedOnError } from '@identity/domain/exceptions/workspace-mov
 import { WorkspaceSlugFixedError } from '@identity/domain/exceptions/workspace-slug-fixed.error';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import {
-  FORBIDDEN,
+  forbiddenTo,
   type ResourceUpdated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
@@ -38,7 +38,7 @@ export class UpdateWorkspaceHandler
       }
 
       if (!cleared.configures) {
-        return FORBIDDEN;
+        return forbiddenTo('configure');
       }
 
       standing.expecting(command.expectedVersion);

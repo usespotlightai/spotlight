@@ -17,11 +17,7 @@ import {
   workspaces,
 } from '@identity/identity.resources.fake-spec';
 import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
-import {
-  FORBIDDEN,
-  FORBIDDEN_TO_ADMINISTER,
-  FORBIDDEN_TO_OPEN_WORKSPACES,
-} from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
@@ -88,7 +84,7 @@ describe('CreateWorkspaceHandler', () => {
   it('forbids a token to open a workspace, since it acts only inside its own', async () => {
     const { create, kept } = creating({ by: CONFIGURE_TOKEN });
 
-    expect(await create(ACME)).toEqual(FORBIDDEN_TO_OPEN_WORKSPACES);
+    expect(await create(ACME)).toEqual(forbiddenTo('open-workspaces'));
     expect(kept.add).not.toHaveBeenCalled();
   });
 
@@ -173,7 +169,9 @@ describe('UpdateWorkspaceHandler', () => {
   });
 
   it('forbids a member who does not administer it, and answers no one else', async () => {
-    expect(await updating().update(ACME, { by: MEMBER })).toEqual(FORBIDDEN);
+    expect(await updating().update(ACME, { by: MEMBER })).toEqual(
+      forbiddenTo('configure'),
+    );
     expect(await updating({ standing: null }).update(ACME)).toBeNull();
   });
 });
@@ -242,14 +240,14 @@ describe('DeleteWorkspaceHandler', () => {
 
   it('forbids a member who does not administer it', async () => {
     expect(await deleting().remove(actorFor(MEMBER.value))).toEqual(
-      FORBIDDEN_TO_ADMINISTER,
+      forbiddenTo('administer'),
     );
   });
 
   it('forbids a token that configures it, since closing is administration', async () => {
     const { remove, kept } = deleting();
 
-    expect(await remove(CONFIGURE_TOKEN)).toEqual(FORBIDDEN_TO_ADMINISTER);
+    expect(await remove(CONFIGURE_TOKEN)).toEqual(forbiddenTo('administer'));
     expect(kept.save).not.toHaveBeenCalled();
   });
 });

@@ -6,7 +6,7 @@ import { IntegrationToolsInUseError } from '@integrations/domain/exceptions/inte
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
 import {
-  FORBIDDEN,
+  forbiddenTo,
   type ResourceDeleted,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
@@ -44,7 +44,7 @@ export class DeleteIntegrationHandler
       }
 
       if (!cleared.configures) {
-        return FORBIDDEN;
+        return forbiddenTo('configure');
       }
 
       standing.expecting(command.expectedVersion);

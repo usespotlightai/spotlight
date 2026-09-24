@@ -8,7 +8,7 @@ import type { IntegrationDefinitionRepository } from '@integrations/domain/repos
 import { IntegrationAddress } from '@integrations/domain/value-objects/integration-address.vo';
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
 import {
-  FORBIDDEN,
+  forbiddenTo,
   type ResourceCreated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
@@ -50,7 +50,7 @@ export class CreateIntegrationHandler
       }
 
       if (!cleared.configures) {
-        return FORBIDDEN;
+        return forbiddenTo('configure');
       }
 
       const team = await this.teams.find(cleared.teamId);

@@ -7,7 +7,7 @@ import type { SecretRepository } from '@secrets/domain/repositories/secret.repos
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import { SecretUses } from '@secrets/domain/value-objects/secret-uses.vo';
 import {
-  FORBIDDEN,
+  forbiddenTo,
   type ResourceDeleted,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
@@ -42,7 +42,7 @@ export class DeleteSecretHandler
       }
 
       if (!cleared.managesSecrets) {
-        return FORBIDDEN;
+        return forbiddenTo('manage-secrets');
       }
 
       standing.expecting(command.expectedVersion);

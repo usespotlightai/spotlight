@@ -6,7 +6,7 @@ import { TeamKeyFixedError } from '@identity/domain/exceptions/team-key-fixed.er
 import { TeamMovedOnError } from '@identity/domain/exceptions/team-moved-on.error';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import {
-  FORBIDDEN,
+  forbiddenTo,
   type ResourceUpdated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
@@ -42,7 +42,7 @@ export class UpdateTeamHandler
       }
 
       if (!cleared.configures) {
-        return FORBIDDEN;
+        return forbiddenTo('configure');
       }
 
       standing.expecting(command.expectedVersion);
