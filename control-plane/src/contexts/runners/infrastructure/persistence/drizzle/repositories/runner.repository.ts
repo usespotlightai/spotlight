@@ -1,10 +1,18 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import {
+  UNIQUE_VIOLATION,
+  violates,
+} from '@platform/persistence/drizzle/violations';
 import { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import { RunnerMovedOnError } from '@runners/domain/exceptions/runner-moved-on.error';
+import { RunnerNameTakenError } from '@runners/domain/exceptions/runner-name-taken.error';
+import { RunnerTokenTakenError } from '@runners/domain/exceptions/runner-token-taken.error';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
+import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerName } from '@runners/domain/value-objects/runner-name.vo';
+import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { runner } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
 import {
   DOMAIN_EVENT_DISPATCHER,
@@ -15,9 +23,14 @@ import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 
 type Row = typeof runner.$inferSelect;
+
+const tokenTakenOr = (error: unknown): unknown =>
+  violates(error, UNIQUE_VIOLATION, 'runner_token_hash')
+    ? new RunnerTokenTakenError()
+    : error;
 
 const toRunner = (row: Row): Runner =>
   Runner.rehydrate({
@@ -25,6 +38,8 @@ const toRunner = (row: Row): Runner =>
     workspaceId: WorkspaceId.of(row.workspaceId),
     name: RunnerName.of(row.name),
     tokenHash: TokenHash.of(row.tokenHash),
+    labels: RunnerLabels.of(row.labels),
+    trustId: row.trustId ? RunnerTrustId.of(row.trustId) : null,
     installed: row.harnesses.map((id) =>
       InstalledHarness.of(
         HarnessId.of(id),
@@ -33,6 +48,7 @@ const toRunner = (row: Row): Runner =>
     ),
     revokedAt: row.revokedAt,
     lastSeenAt: row.lastSeenAt,
+    revision: row.revision,
     version: row.version,
   });
 
@@ -65,17 +81,28 @@ export class DrizzleRunnerRepository implements RunnerRepository {
   }
 
   private async inserted(added: Runner): Promise<void> {
-    await this.context.db.insert(runner).values({
-      id: added.id.value,
-      workspaceId: added.workspaceId.value,
-      name: added.name.value,
-      tokenHash: added.tokenHash.value,
-      harnesses: harnessesOf(added.installed),
-      advertisedModels: advertisedOf(added.installed),
-      revokedAt: added.revokedAt,
-      lastSeenAt: added.lastSeenAt,
-      version: added.version,
-    });
+    try {
+      await this.context.db.insert(runner).values({
+        id: added.id.value,
+        workspaceId: added.workspaceId.value,
+        name: added.name.value,
+        tokenHash: added.tokenHash.value,
+        labels: [...added.labels.values],
+        trustId: added.trustId?.value ?? null,
+        harnesses: harnessesOf(added.installed),
+        advertisedModels: advertisedOf(added.installed),
+        revokedAt: added.revokedAt,
+        lastSeenAt: added.lastSeenAt,
+        revision: added.revision,
+        version: added.version,
+      });
+    } catch (error) {
+      if (violates(error, UNIQUE_VIOLATION, 'runner_workspace_name')) {
+        throw new RunnerNameTakenError(added.name.value);
+      }
+
+      throw tokenTakenOr(error);
+    }
   }
 
   async save(saved: Runner): Promise<void> {
@@ -90,6 +117,9 @@ export class DrizzleRunnerRepository implements RunnerRepository {
       .update(runner)
       .set({
         version: saved.version + 1,
+        revision: saved.revision,
+        tokenHash: saved.tokenHash.value,
+        labels: [...saved.labels.values],
         revokedAt: saved.revokedAt,
         lastSeenAt: saved.lastSeenAt,
         harnesses: harnessesOf(saved.installed),
@@ -98,7 +128,10 @@ export class DrizzleRunnerRepository implements RunnerRepository {
       .where(
         and(eq(runner.id, saved.id.value), eq(runner.version, saved.version)),
       )
-      .returning({ id: runner.id });
+      .returning({ id: runner.id })
+      .catch((error: unknown) => {
+        throw tokenTakenOr(error);
+      });
 
     if (written.length === 0) {
       throw new RunnerMovedOnError(saved.id.value);
@@ -113,6 +146,48 @@ export class DrizzleRunnerRepository implements RunnerRepository {
       .limit(1);
 
     return found ? toRunner(found) : null;
+  }
+
+  async enrolledUnder(
+    trustId: RunnerTrustId,
+    name: RunnerName,
+  ): Promise<Runner | null> {
+    const [found] = await this.context.db
+      .select()
+      .from(runner)
+      .where(
+        and(
+          eq(runner.trustId, trustId.value),
+          eq(runner.name, name.value),
+          isNull(runner.revokedAt),
+        ),
+      )
+      .limit(1);
+
+    return found ? toRunner(found) : null;
+  }
+
+  async underTrust(trustId: RunnerTrustId): Promise<readonly Runner[]> {
+    const rows = await this.context.db
+      .select()
+      .from(runner)
+      .where(and(eq(runner.trustId, trustId.value), isNull(runner.revokedAt)));
+
+    return rows.map(toRunner);
+  }
+
+  async standingIn(workspaceId: WorkspaceId): Promise<readonly Runner[]> {
+    const rows = await this.context.db
+      .select()
+      .from(runner)
+      .where(
+        and(
+          eq(runner.workspaceId, workspaceId.value),
+          isNull(runner.revokedAt),
+        ),
+      );
+
+    return rows.map(toRunner);
   }
 
   async findByTokenHash(hash: TokenHash): Promise<Runner | null> {

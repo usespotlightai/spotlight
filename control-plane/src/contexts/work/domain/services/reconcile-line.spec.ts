@@ -1,4 +1,5 @@
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Line } from '@work/domain/aggregates/line.aggregate';
@@ -50,6 +51,7 @@ const station = (
   agentPrompt: null,
   check: null,
   setup: null,
+  placement: RunnerPlacement.anywhere(),
   diffs: false,
   decisions: false,
   tools: [],

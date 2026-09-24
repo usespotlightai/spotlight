@@ -45,6 +45,7 @@ export const accessFor = (managesSecrets: () => boolean): WorkspaceAccessPort =>
             slug: 'acme',
             configures: true,
             managesSecrets: managesSecrets(),
+            managesRunners: false,
             administers: false,
           }
         : null,

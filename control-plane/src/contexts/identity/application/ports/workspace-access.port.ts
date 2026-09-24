@@ -21,6 +21,7 @@ export interface WorkspaceClearance {
   readonly slug: string;
   readonly configures: boolean;
   readonly managesSecrets: boolean;
+  readonly managesRunners: boolean;
   readonly administers: boolean;
 }
 

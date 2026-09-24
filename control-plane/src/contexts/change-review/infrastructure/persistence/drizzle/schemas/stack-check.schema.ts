@@ -23,6 +23,10 @@ export const stackCheck = pgTable(
     workspaceId: text('workspace_id').notNull(),
     command: text('command').notNull(),
     setup: text('setup'),
+    placement: jsonb('placement')
+      .$type<readonly (readonly string[])[]>()
+      .notNull()
+      .default([]),
     phase: checkPhase('phase').notNull(),
     entries: jsonb('entries').$type<StoredCheckEntry[]>().notNull().default([]),
     rounds: integer('rounds').notNull().default(0),

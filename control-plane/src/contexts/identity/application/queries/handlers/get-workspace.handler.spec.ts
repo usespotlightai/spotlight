@@ -19,6 +19,7 @@ const reader = (found: WorkspaceDetail | null): WorkspaceReaderPort => ({
   listForMember: vi.fn().mockResolvedValue([]),
   identify: vi.fn(),
   slugOf: vi.fn(),
+  isOpen: vi.fn(),
   identifyTeam: vi.fn(),
   findTeamForMember: vi.fn(),
   findForMember: vi.fn().mockResolvedValue(found),

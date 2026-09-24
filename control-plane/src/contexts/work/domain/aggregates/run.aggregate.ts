@@ -3,6 +3,7 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
@@ -34,6 +35,7 @@ export class Run extends EventRecorder {
     readonly subject: RunSubject | null,
     readonly spec: RunSpec,
     readonly targetRunner: RunnerId | null,
+    readonly placement: RunnerPlacement,
     readonly state: RunState,
     readonly claimedBy: RunnerId | null,
     readonly leaseExpiresAt: Date | null,
@@ -53,6 +55,7 @@ export class Run extends EventRecorder {
     subject?: RunSubject | null;
     spec: RunSpec;
     targetRunner?: RunnerId | null;
+    placement?: RunnerPlacement;
   }): Run {
     return new Run(
       input.id,
@@ -62,6 +65,7 @@ export class Run extends EventRecorder {
       input.subject ?? null,
       input.spec,
       input.targetRunner ?? null,
+      input.placement ?? RunnerPlacement.anywhere(),
       'queued',
       null,
       null,
@@ -79,6 +83,7 @@ export class Run extends EventRecorder {
     subject: RunSubject | null;
     spec: RunSpec;
     targetRunner: RunnerId | null;
+    placement?: RunnerPlacement;
     state: RunState;
     claimedBy: RunnerId | null;
     leaseExpiresAt: Date | null;
@@ -97,6 +102,7 @@ export class Run extends EventRecorder {
       input.subject,
       input.spec,
       input.targetRunner,
+      input.placement ?? RunnerPlacement.anywhere(),
       input.state,
       input.claimedBy,
       input.leaseExpiresAt,
@@ -360,6 +366,7 @@ export class Run extends EventRecorder {
       this.subject,
       this.spec,
       this.targetRunner,
+      this.placement,
       part.state ?? this.state,
       part.claimedBy !== undefined ? part.claimedBy : this.claimedBy,
       part.leaseExpiresAt !== undefined

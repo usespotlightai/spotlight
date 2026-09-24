@@ -1,14 +1,23 @@
 import { InvalidTokenScopeError } from '@shared-kernel/domain/exceptions/invalid-token-scope.error';
 
-export const TOKEN_SCOPES = ['read', 'plan', 'configure', 'secrets'] as const;
+export const TOKEN_SCOPES = [
+  'read',
+  'plan',
+  'configure',
+  'secrets',
+  'runners',
+] as const;
 
 export type TokenScopeName = (typeof TOKEN_SCOPES)[number];
+
+const EXTRA_GRANTS: readonly TokenScopeName[] = ['secrets', 'runners'];
 
 const GRANTS: Readonly<Record<TokenScopeName, readonly TokenScopeName[]>> = {
   read: ['read'],
   plan: ['plan', 'read'],
   configure: ['configure', 'plan', 'read'],
   secrets: ['secrets', 'read'],
+  runners: ['runners', 'read'],
 };
 
 export class TokenScope {
@@ -16,6 +25,7 @@ export class TokenScope {
   static readonly plan = new TokenScope('plan');
   static readonly configure = new TokenScope('configure');
   static readonly secrets = new TokenScope('secrets');
+  static readonly runners = new TokenScope('runners');
 
   private constructor(readonly value: TokenScopeName) {}
 
@@ -38,11 +48,12 @@ export class TokenScope {
       TokenScope.plan,
       TokenScope.configure,
       TokenScope.secrets,
+      TokenScope.runners,
     ];
   }
 
   get isLadder(): boolean {
-    return this.value !== 'secrets';
+    return !EXTRA_GRANTS.includes(this.value);
   }
 
   grants(scope: TokenScope): boolean {

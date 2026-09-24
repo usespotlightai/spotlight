@@ -1,6 +1,7 @@
 package config_test
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -16,6 +17,7 @@ func setRequired(t *testing.T) {
 		"SPOTLIGHT_URL", "SPOTLIGHT_TOKEN", "SPOTLIGHT_WORKSPACE",
 		"SPOTLIGHT_MAX_RUNS",
 		"SPOTLIGHT_IDLE_TIMEOUT", "SPOTLIGHT_RETIRE_AT", "SPOTLIGHT_AGENT_USER",
+		"SPOTLIGHT_RUNNER_OIDC_TOKEN_FILE", "SPOTLIGHT_RUNNER_TRUST", "SPOTLIGHT_RUNNER_NAME",
 	} {
 		t.Setenv(name, "")
 	}
@@ -167,5 +169,60 @@ func TestMergeKeepsWhatItIsNotChanging(t *testing.T) {
 	}
 	if saved["SPOTLIGHT_URL"] != "https://saved.test" || saved["SPOTLIGHT_TOKEN"] != "saved-tok" {
 		t.Errorf("merge lost a value: %+v", saved)
+	}
+}
+
+func TestLoadEnrolsAsAWorkloadWithNoToken(t *testing.T) {
+	setRequired(t)
+	t.Setenv("SPOTLIGHT_TOKEN", "")
+	t.Setenv("SPOTLIGHT_RUNNER_OIDC_TOKEN_FILE", "/var/run/secrets/spotlight/token")
+	t.Setenv("SPOTLIGHT_RUNNER_TRUST", "trust_1")
+	t.Setenv("SPOTLIGHT_RUNNER_NAME", "pod-a")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !cfg.Workload.Enrols() || cfg.Workload.Trust != "trust_1" || cfg.Workload.Name != "pod-a" {
+		t.Errorf("workload %+v", cfg.Workload)
+	}
+}
+
+func TestLoadNamesAWorkloadAfterItsHost(t *testing.T) {
+	setRequired(t)
+	t.Setenv("SPOTLIGHT_TOKEN", "")
+	t.Setenv("SPOTLIGHT_RUNNER_OIDC_TOKEN_FILE", "/var/run/secrets/spotlight/token")
+	t.Setenv("SPOTLIGHT_RUNNER_TRUST", "trust_1")
+	t.Setenv("SPOTLIGHT_RUNNER_NAME", "")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if host, _ := os.Hostname(); cfg.Workload.Name != host {
+		t.Errorf("named %q, not %q", cfg.Workload.Name, host)
+	}
+}
+
+func TestLoadRefusesAWorkloadWithNoTrust(t *testing.T) {
+	setRequired(t)
+	t.Setenv("SPOTLIGHT_TOKEN", "")
+	t.Setenv("SPOTLIGHT_RUNNER_OIDC_TOKEN_FILE", "/var/run/secrets/spotlight/token")
+	t.Setenv("SPOTLIGHT_RUNNER_TRUST", "")
+
+	if _, err := config.Load(); err == nil || !strings.Contains(err.Error(), "SPOTLIGHT_RUNNER_TRUST") {
+		t.Fatalf("expected the missing trust named, got %v", err)
+	}
+}
+
+func TestLoadRefusesBothWaysToEnrol(t *testing.T) {
+	setRequired(t)
+	t.Setenv("SPOTLIGHT_RUNNER_OIDC_TOKEN_FILE", "/var/run/secrets/spotlight/token")
+	t.Setenv("SPOTLIGHT_RUNNER_TRUST", "trust_1")
+
+	if _, err := config.Load(); err == nil {
+		t.Fatal("expected a token and a workload token file together to be refused")
 	}
 }

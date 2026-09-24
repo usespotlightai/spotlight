@@ -1,0 +1,78 @@
+import { JoseWorkloadTokens } from '@runners/infrastructure/workload/jose-workload-tokens';
+import {
+  openWorkloadIssuer,
+  type WorkloadIssuer,
+} from '@runners/infrastructure/workload/workload-issuer.fake-spec';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
+const SUBJECT = 'system:serviceaccount:spotlight:runner';
+
+const quiet: LoggerPort = {
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+};
+
+describe('JoseWorkloadTokens', () => {
+  let platform: WorkloadIssuer;
+  let tokens: JoseWorkloadTokens;
+
+  const expected = () => ({ issuer: platform.issuer, audience: 'spotlight' });
+
+  beforeAll(async () => {
+    platform = await openWorkloadIssuer();
+    tokens = new JoseWorkloadTokens(quiet);
+  });
+
+  afterAll(async () => {
+    await platform.close();
+  });
+
+  it('answers the claims of a token its issuer signed, finding the keys by discovery', async () => {
+    const token = await platform.issue({ sub: SUBJECT, aud: 'spotlight' });
+
+    await expect(tokens.verify(token, expected())).resolves.toEqual({
+      issuer: platform.issuer,
+      subject: SUBJECT,
+      audiences: ['spotlight'],
+    });
+  });
+
+  it('refuses a token signed with any other key', async () => {
+    const token = await platform.forge({ sub: SUBJECT, aud: 'spotlight' });
+
+    await expect(tokens.verify(token, expected())).resolves.toBeNull();
+  });
+
+  it('refuses a token issued for another audience', async () => {
+    const token = await platform.issue({ sub: SUBJECT, aud: 'vault' });
+
+    await expect(tokens.verify(token, expected())).resolves.toBeNull();
+  });
+
+  it('refuses a token that has expired', async () => {
+    const token = await platform.issue(
+      { sub: SUBJECT, aud: 'spotlight' },
+      '-5m',
+    );
+
+    await expect(tokens.verify(token, expected())).resolves.toBeNull();
+  });
+
+  it('refuses a token when the issuer cannot be discovered', async () => {
+    const token = await platform.issue({ sub: SUBJECT, aud: 'spotlight' });
+
+    await expect(
+      tokens.verify(token, {
+        issuer: 'http://127.0.0.1:1',
+        audience: 'spotlight',
+      }),
+    ).resolves.toBeNull();
+  });
+
+  it('refuses what is not a token at all', async () => {
+    await expect(tokens.verify('nonsense', expected())).resolves.toBeNull();
+  });
+});

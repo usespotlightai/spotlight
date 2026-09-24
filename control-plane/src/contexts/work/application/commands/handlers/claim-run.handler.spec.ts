@@ -2,6 +2,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { ClaimRunHandler } from '@work/application/commands/handlers/claim-run.handler';
 import { ClaimRunCommand } from '@work/application/commands/runner.commands';
@@ -53,7 +54,9 @@ const claiming = (
       seen: vi.fn(async () => ({
         workspaceId: WorkspaceId.of('ws_1'),
         harnesses: [HarnessId.of('claude-code')],
+        terms: RunnerTerms.of(['runner-1']),
       })),
+      termsOf: vi.fn(async () => RunnerTerms.none()),
     },
     { now: () => NOW, sleep: async () => {} } as ClockPort,
     { claimNext: claimCheck },
@@ -85,6 +88,17 @@ describe('ClaimRunHandler', () => {
     );
   });
 
+  it('looks only for work placed where the runner answers', async () => {
+    const claimNext = vi.fn(async () => queued());
+
+    await claiming(claimNext).execute(new ClaimRunCommand('runner_1'));
+
+    expect(claimNext).toHaveBeenCalledWith(
+      expect.objectContaining({ terms: RunnerTerms.of(['runner-1']) }),
+      NOW,
+    );
+  });
+
   it('survives the round trip a runner actually makes', async () => {
     const claimed = await claiming().execute(new ClaimRunCommand('runner_1'));
 
@@ -106,6 +120,7 @@ describe('ClaimRunHandler', () => {
     expect(claimCheck).toHaveBeenCalledWith(
       WorkspaceId.of('ws_1'),
       RunnerId.of('runner_1'),
+      RunnerTerms.of(['runner-1']),
       NOW,
     );
   });

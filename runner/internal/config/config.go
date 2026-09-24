@@ -13,6 +13,7 @@ import (
 type Config struct {
 	URL           string
 	Token         string
+	Workload      Workload
 	WorkspaceRoot string
 	MaxRuns       int
 	IdleTimeout   time.Duration
@@ -22,6 +23,14 @@ type Config struct {
 	AgentUser     string
 	RetireAt      time.Time
 }
+
+type Workload struct {
+	TokenFile string
+	Trust     string
+	Name      string
+}
+
+func (w Workload) Enrols() bool { return w.TokenFile != "" }
 
 const defaultHookTimeout = 10 * time.Minute
 
@@ -36,6 +45,9 @@ const (
 	envPrepareHook = "SPOTLIGHT_PREPARE_HOOK"
 	envPublishHook = "SPOTLIGHT_PUBLISH_HOOK"
 	envHookTimeout = "SPOTLIGHT_HOOK_TIMEOUT"
+	envTokenFile   = "SPOTLIGHT_RUNNER_OIDC_TOKEN_FILE"
+	envTrust       = "SPOTLIGHT_RUNNER_TRUST"
+	envName        = "SPOTLIGHT_RUNNER_NAME"
 )
 
 func Load() (Config, error) {
@@ -64,17 +76,29 @@ func Load() (Config, error) {
 		AgentUser:     get(envAgentUser),
 		PrepareHook:   get(envPrepareHook),
 		PublishHook:   get(envPublishHook),
+		Workload: Workload{
+			TokenFile: get(envTokenFile),
+			Trust:     get(envTrust),
+			Name:      get(envName),
+		},
 	}
 
-	for _, required := range []struct {
-		name, value string
-	}{
-		{envURL, cfg.URL},
-		{envToken, cfg.Token},
-	} {
-		if required.value == "" {
-			note(fmt.Errorf("%s is required", required.name))
-		}
+	if cfg.URL == "" {
+		note(fmt.Errorf("%s is required", envURL))
+	}
+
+	switch {
+	case cfg.Token != "" && cfg.Workload.Enrols():
+		note(fmt.Errorf("%s and %s are two ways to enrol; give one", envToken, envTokenFile))
+	case cfg.Workload.Enrols() && cfg.Workload.Trust == "":
+		note(fmt.Errorf("%s names the runner trust to enrol through, and is required with %s", envTrust, envTokenFile))
+	case cfg.Token == "" && !cfg.Workload.Enrols():
+		note(fmt.Errorf("%s is required, or %s and %s to enrol as a platform workload", envToken, envTokenFile, envTrust))
+	}
+
+	if cfg.Workload.Enrols() && cfg.Workload.Name == "" {
+		cfg.Workload.Name, err = os.Hostname()
+		note(err)
 	}
 
 	if cfg.WorkspaceRoot == "" {

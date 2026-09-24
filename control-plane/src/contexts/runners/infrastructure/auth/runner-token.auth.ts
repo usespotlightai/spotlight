@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleRunnerRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner.repository';
+import { DrizzleRunnerTrustRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-trust.repository';
 import type { RunnerIdentityPort } from '@shared-kernel/application/ports/runner-identity.port';
 import {
   TOKEN_MINT,
@@ -12,6 +13,7 @@ import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 export class RunnerTokenAuth implements RunnerIdentityPort {
   constructor(
     private readonly runners: DrizzleRunnerRepository,
+    private readonly trusts: DrizzleRunnerTrustRepository,
     @Inject(TOKEN_MINT) private readonly tokens: TokenMintPort,
   ) {}
 
@@ -24,6 +26,8 @@ export class RunnerTokenAuth implements RunnerIdentityPort {
       TokenHash.of(this.tokens.hash(token)),
     );
 
-    return found && !found.revoked ? found.id : null;
+    const trust = found?.trustId ? await this.trusts.find(found.trustId) : null;
+
+    return found?.standsWith(trust) ? found.id : null;
   }
 }

@@ -12,6 +12,7 @@ import { InstalledHarness } from '@runners/domain/value-objects/installed-harnes
 import { RunnerName } from '@runners/domain/value-objects/runner-name.vo';
 import { DrizzleRunnerReader } from '@runners/infrastructure/persistence/drizzle/readers/runner.reader';
 import { DrizzleRunnerRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner.repository';
+import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -197,12 +198,13 @@ describe('whether a workspace has a runner that offers work', () => {
       dispatch: async () => {},
     });
 
-  const enrolled = (workspaceId: WorkspaceId) =>
+  const enrolled = (workspaceId: WorkspaceId, name = 'Laptop') =>
     Runner.enrol({
       id: RunnerId.of(randomUUID()),
       workspaceId,
-      name: RunnerName.of('Laptop'),
+      name: RunnerName.of(name),
       tokenHash: TokenHash.of(randomUUID().replaceAll('-', '').repeat(2)),
+      by: attributedIn(workspaceId),
     });
 
   const claude = [InstalledHarness.reported('claude-code', [])];
@@ -212,8 +214,8 @@ describe('whether a workspace has a runner that offers work', () => {
     'connected with a harness': (runner) => runner.register(claude, NOW),
     'connected with no harness': (runner) => runner.register([], NOW),
     'revoked after connecting': (runner) =>
-      runner.register(claude, NOW).revoke(NOW),
-    'revoked before connecting': (runner) => runner.revoke(NOW),
+      runner.register(claude, NOW).revoke(NOW, attributedIn()),
+    'revoked before connecting': (runner) => runner.revoke(NOW, attributedIn()),
   };
 
   afterEach(async () => {
@@ -237,8 +239,8 @@ describe('whether a workspace has a runner that offers work', () => {
   it('finds the one that offers work among those that do not', async () => {
     const workspace = WorkspaceId.of(randomUUID());
 
-    for (const shaped of Object.values(standing)) {
-      await repository().add(shaped(enrolled(workspace)));
+    for (const [state, shaped] of Object.entries(standing)) {
+      await repository().add(shaped(enrolled(workspace, state)));
     }
 
     await expect(runners().anyOffersWork(workspace)).resolves.toBe(true);

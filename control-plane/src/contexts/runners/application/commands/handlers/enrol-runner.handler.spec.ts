@@ -9,6 +9,7 @@ import type { RunnerRepository } from '@runners/domain/repositories/runner.repos
 import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -41,7 +42,7 @@ const enrolling = (given: { membership?: WorkspaceMembership | null } = {}) => {
   return { handler, add };
 };
 
-const enrol = new EnrolRunnerCommand('acme', 'user_1', 'runner-1');
+const enrol = new EnrolRunnerCommand('acme', actorFor(), 'runner-1');
 
 describe('EnrolRunnerHandler', () => {
   it('hands back the token the runner is to use', async () => {

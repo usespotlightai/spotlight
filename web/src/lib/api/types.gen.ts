@@ -1120,9 +1120,9 @@ export type WorkspaceTokenResourceResponseDto = {
    */
   description: string;
   /**
-   * What it may do: read reads; plan also checks expressions; configure also changes configuration as a workspace admin may; secrets, granted beside one of those, manages secrets. Fixed for its life
+   * What it may do: read reads; plan also checks expressions; configure also changes configuration as a workspace admin may, except secrets and runners; secrets, granted beside one of those, manages secrets; runners, granted the same way, manages runners, runner trusts and the workspace’s runners. Fixed for its life
    */
-  scopes: Array<'read' | 'plan' | 'configure' | 'secrets'>;
+  scopes: Array<'read' | 'plan' | 'configure' | 'secrets' | 'runners'>;
   /**
    * The person who issued it
    */
@@ -1200,7 +1200,7 @@ export type ConfigurationChangeResponseDto = {
    * Rises with every change; pass it as before to page back
    */
   seq: number;
-  resource: 'workspace' | 'team' | 'line' | 'skill' | 'integration' | 'secret' | 'workspace-token';
+  resource: 'workspace' | 'team' | 'line' | 'skill' | 'integration' | 'secret' | 'workspace-token' | 'runner' | 'runner-trust' | 'workspace-runners';
   resourceId: string;
   /**
    * The key it had within its team or workspace
@@ -1458,6 +1458,142 @@ export type RegisterRunnerRequestDto = {
 
 export type RegisteredRunnerResponseDto = {
   runnerId: string;
+};
+
+export type ExchangeWorkloadTokenRequestDto = {
+  /**
+   * The id of the runner trust to enrol through
+   */
+  trust: string;
+  /**
+   * The OIDC token the platform issued this workload, such as a projected Kubernetes service account token
+   */
+  token: string;
+  /**
+   * What to call the runner; exchanging again under the same name issues it a new token
+   */
+  name: string;
+};
+
+export type ExchangedTokenResponseDto = {
+  runnerId: string;
+  /**
+   * The runner token to call with from now on; any token issued before under this name no longer works
+   */
+  token: string;
+};
+
+export type RunnerResourceResponseDto = {
+  /**
+   * Issued by Spotlight when the resource is created, and never changed
+   */
+  id: string;
+  /**
+   * Rises with every change; the ETag carries it, and a write sends it back as If-Match
+   */
+  version: number;
+  /**
+   * Names the resource within its workspace; terraform import takes it
+   */
+  address: string;
+  /**
+   * What would work better, though nothing stops it working; not settable
+   */
+  warnings: Array<FieldErrorResponseDto>;
+  /**
+   * The workspace it belongs to
+   */
+  workspaceId: string;
+  /**
+   * What the runner is called, and its address; fixed for its life, so changing it means replacing the runner
+   */
+  name: string;
+  /**
+   * What a line or station may name in runners to place its work here, beside the runner name
+   */
+  labels: Array<string>;
+  /**
+   * The key of the runner trust it enrolled through, or null when it holds a token; not settable
+   */
+  trust: string | null;
+};
+
+export type RunnerTrustResourceResponseDto = {
+  /**
+   * Issued by Spotlight when the resource is created, and never changed
+   */
+  id: string;
+  /**
+   * Rises with every change; the ETag carries it, and a write sends it back as If-Match
+   */
+  version: number;
+  /**
+   * Names the resource within its workspace; terraform import takes it
+   */
+  address: string;
+  /**
+   * What would work better, though nothing stops it working; not settable
+   */
+  warnings: Array<FieldErrorResponseDto>;
+  /**
+   * The workspace it belongs to
+   */
+  workspaceId: string;
+  /**
+   * Names the trust; fixed for its life
+   */
+  key: string;
+  /**
+   * The issuer of the tokens the platform gives its workloads; its keys are found through OIDC discovery
+   */
+  issuer: string;
+  /**
+   * The workload a token must be issued to, exactly
+   */
+  subject: string;
+  /**
+   * The audience a token must be issued for
+   */
+  audience: string;
+  /**
+   * What a line or station may name in runners to place its work here, beside the runner name
+   */
+  labels: Array<string>;
+};
+
+export type WorkspaceRunnersResourceResponseDto = {
+  /**
+   * Issued by Spotlight when the resource is created, and never changed
+   */
+  id: string;
+  /**
+   * Rises with every change; the ETag carries it, and a write sends it back as If-Match
+   */
+  version: number;
+  /**
+   * Names the resource within its workspace; terraform import takes it
+   */
+  address: string;
+  /**
+   * What would work better, though nothing stops it working; not settable
+   */
+  warnings: Array<FieldErrorResponseDto>;
+  /**
+   * The workspace it belongs to
+   */
+  workspaceId: string;
+  /**
+   * The runners, by name, the workspace means to have
+   */
+  runners: Array<string>;
+  /**
+   * The runner trusts, by key, whose runners it means to have
+   */
+  trusts: Array<string>;
+  /**
+   * Runners enrolled all the same, outside what is declared; not settable
+   */
+  drift: Array<string>;
 };
 
 export type ConfiguredIntegrationResponseDto = {
@@ -4160,7 +4296,7 @@ export type ImportTeamResponse = ImportTeamResponses[keyof ImportTeamResponses];
 export type CreateWorkspaceTokenData = {
   body: {
     name: string;
-    scopes: Array<'read' | 'plan' | 'configure' | 'secrets'>;
+    scopes: Array<'read' | 'plan' | 'configure' | 'secrets' | 'runners'>;
     description?: string;
     expiresAt?: string | null;
   };
@@ -4334,7 +4470,7 @@ export type ReadWorkspaceTokenResponse = ReadWorkspaceTokenResponses[keyof ReadW
 export type UpdateWorkspaceTokenData = {
   body: {
     name: string;
-    scopes: Array<'read' | 'plan' | 'configure' | 'secrets'>;
+    scopes: Array<'read' | 'plan' | 'configure' | 'secrets' | 'runners'>;
     description?: string;
     expiresAt?: string | null;
   };
@@ -5414,6 +5550,910 @@ export type RegisterRunnerResponses = {
 };
 
 export type RegisterRunnerResponse = RegisterRunnerResponses[keyof RegisterRunnerResponses];
+
+export type ExchangeWorkloadTokenData = {
+  body: ExchangeWorkloadTokenRequestDto;
+  path?: never;
+  query?: never;
+  url: '/runners/exchange';
+};
+
+export type ExchangeWorkloadTokenErrors = {
+  /**
+   * No such trust, or the token is not one it admits
+   */
+  401: unknown;
+  /**
+   * A runner outside this trust already has that name
+   */
+  409: unknown;
+};
+
+export type ExchangeWorkloadTokenResponses = {
+  200: ExchangedTokenResponseDto;
+};
+
+export type ExchangeWorkloadTokenResponse = ExchangeWorkloadTokenResponses[keyof ExchangeWorkloadTokenResponses];
+
+export type CreateRunnerData = {
+  body: {
+    name: string;
+    labels?: Array<string>;
+    /**
+     * Write-only: the token the runner will call with, kept only as a hash and never answered. Left out on create, Spotlight issues one and answers it once in Spotlight-Runner-Token; given on update, it replaces the runner token
+     */
+    token?: string;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     */
+    'Idempotency-Key': string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{workspaceId}/runners';
+};
+
+export type CreateRunnerErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the runner: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such runner that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * There is already a runner at that address
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field; or the Idempotency-Key was used for a different request
+   */
+  422: ProblemResponseDto;
+};
+
+export type CreateRunnerError = CreateRunnerErrors[keyof CreateRunnerErrors];
+
+export type CreateRunnerResponses = {
+  /**
+   * The runner, as a read would answer it
+   *
+   * The runner, as a read would answer it
+   */
+  201: RunnerResourceResponseDto;
+};
+
+export type CreateRunnerResponse = CreateRunnerResponses[keyof CreateRunnerResponses];
+
+export type DeleteRunnerData = {
+  body?: never;
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/runners/{id}';
+};
+
+export type DeleteRunnerErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the runner: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such runner that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type DeleteRunnerError = DeleteRunnerErrors[keyof DeleteRunnerErrors];
+
+export type DeleteRunnerResponses = {
+  /**
+   * Deleted
+   */
+  204: void;
+};
+
+export type DeleteRunnerResponse = DeleteRunnerResponses[keyof DeleteRunnerResponses];
+
+export type ReadRunnerData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/runners/{id}';
+};
+
+export type ReadRunnerErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such runner that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadRunnerError = ReadRunnerErrors[keyof ReadRunnerErrors];
+
+export type ReadRunnerResponses = {
+  /**
+   * The runner, every field of it
+   */
+  200: RunnerResourceResponseDto;
+};
+
+export type ReadRunnerResponse = ReadRunnerResponses[keyof ReadRunnerResponses];
+
+export type UpdateRunnerData = {
+  body: {
+    name: string;
+    labels?: Array<string>;
+    /**
+     * Write-only: the token the runner will call with, kept only as a hash and never answered. Left out on create, Spotlight issues one and answers it once in Spotlight-Runner-Token; given on update, it replaces the runner token
+     */
+    token?: string;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/runners/{id}';
+};
+
+export type UpdateRunnerErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the runner: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such runner that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field
+   */
+  422: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type UpdateRunnerError = UpdateRunnerErrors[keyof UpdateRunnerErrors];
+
+export type UpdateRunnerResponses = {
+  /**
+   * The runner, as a read would answer it
+   */
+  200: RunnerResourceResponseDto;
+};
+
+export type UpdateRunnerResponse = UpdateRunnerResponses[keyof UpdateRunnerResponses];
+
+export type ImportRunnerData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query: {
+    /**
+     * The runner's address within the workspace
+     */
+    address: unknown;
+  };
+  url: '/resources/workspaces/{workspaceId}/runners/import';
+};
+
+export type ImportRunnerErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such runner that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ImportRunnerError = ImportRunnerErrors[keyof ImportRunnerErrors];
+
+export type ImportRunnerResponses = {
+  /**
+   * The runner, as a read would answer it
+   */
+  200: RunnerResourceResponseDto;
+};
+
+export type ImportRunnerResponse = ImportRunnerResponses[keyof ImportRunnerResponses];
+
+export type CreateRunnerTrustData = {
+  body: {
+    key: string;
+    issuer: string;
+    subject: string;
+    audience?: string;
+    labels?: Array<string>;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     */
+    'Idempotency-Key': string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{workspaceId}/runner-trusts';
+};
+
+export type CreateRunnerTrustErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the runner-trust: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such runner-trust that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * There is already a runner-trust at that address
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field; or the Idempotency-Key was used for a different request
+   */
+  422: ProblemResponseDto;
+};
+
+export type CreateRunnerTrustError = CreateRunnerTrustErrors[keyof CreateRunnerTrustErrors];
+
+export type CreateRunnerTrustResponses = {
+  /**
+   * The runner-trust, as a read would answer it
+   */
+  201: RunnerTrustResourceResponseDto;
+};
+
+export type CreateRunnerTrustResponse = CreateRunnerTrustResponses[keyof CreateRunnerTrustResponses];
+
+export type DeleteRunnerTrustData = {
+  body?: never;
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/runner-trusts/{id}';
+};
+
+export type DeleteRunnerTrustErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the runner-trust: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such runner-trust that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type DeleteRunnerTrustError = DeleteRunnerTrustErrors[keyof DeleteRunnerTrustErrors];
+
+export type DeleteRunnerTrustResponses = {
+  /**
+   * Deleted
+   */
+  204: void;
+};
+
+export type DeleteRunnerTrustResponse = DeleteRunnerTrustResponses[keyof DeleteRunnerTrustResponses];
+
+export type ReadRunnerTrustData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/runner-trusts/{id}';
+};
+
+export type ReadRunnerTrustErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such runner-trust that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadRunnerTrustError = ReadRunnerTrustErrors[keyof ReadRunnerTrustErrors];
+
+export type ReadRunnerTrustResponses = {
+  /**
+   * The runner-trust, every field of it
+   */
+  200: RunnerTrustResourceResponseDto;
+};
+
+export type ReadRunnerTrustResponse = ReadRunnerTrustResponses[keyof ReadRunnerTrustResponses];
+
+export type UpdateRunnerTrustData = {
+  body: {
+    key: string;
+    issuer: string;
+    subject: string;
+    audience?: string;
+    labels?: Array<string>;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/runner-trusts/{id}';
+};
+
+export type UpdateRunnerTrustErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the runner-trust: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such runner-trust that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field
+   */
+  422: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type UpdateRunnerTrustError = UpdateRunnerTrustErrors[keyof UpdateRunnerTrustErrors];
+
+export type UpdateRunnerTrustResponses = {
+  /**
+   * The runner-trust, as a read would answer it
+   */
+  200: RunnerTrustResourceResponseDto;
+};
+
+export type UpdateRunnerTrustResponse = UpdateRunnerTrustResponses[keyof UpdateRunnerTrustResponses];
+
+export type ImportRunnerTrustData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query: {
+    /**
+     * The runner-trust's address within the workspace
+     */
+    address: unknown;
+  };
+  url: '/resources/workspaces/{workspaceId}/runner-trusts/import';
+};
+
+export type ImportRunnerTrustErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such runner-trust that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ImportRunnerTrustError = ImportRunnerTrustErrors[keyof ImportRunnerTrustErrors];
+
+export type ImportRunnerTrustResponses = {
+  /**
+   * The runner-trust, as a read would answer it
+   */
+  200: RunnerTrustResourceResponseDto;
+};
+
+export type ImportRunnerTrustResponse = ImportRunnerTrustResponses[keyof ImportRunnerTrustResponses];
+
+export type CreateWorkspaceRunnersData = {
+  body: {
+    runners?: Array<string>;
+    trusts?: Array<string>;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     */
+    'Idempotency-Key': string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{workspaceId}/workspace-runners';
+};
+
+export type CreateWorkspaceRunnersErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the workspace-runners: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such workspace-runners that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * There is already a workspace-runners at that address
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field; or the Idempotency-Key was used for a different request
+   */
+  422: ProblemResponseDto;
+};
+
+export type CreateWorkspaceRunnersError = CreateWorkspaceRunnersErrors[keyof CreateWorkspaceRunnersErrors];
+
+export type CreateWorkspaceRunnersResponses = {
+  /**
+   * The workspace-runners, as a read would answer it
+   */
+  201: WorkspaceRunnersResourceResponseDto;
+};
+
+export type CreateWorkspaceRunnersResponse = CreateWorkspaceRunnersResponses[keyof CreateWorkspaceRunnersResponses];
+
+export type DeleteWorkspaceRunnersData = {
+  body?: never;
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/workspace-runners/{id}';
+};
+
+export type DeleteWorkspaceRunnersErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the workspace-runners: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such workspace-runners that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type DeleteWorkspaceRunnersError = DeleteWorkspaceRunnersErrors[keyof DeleteWorkspaceRunnersErrors];
+
+export type DeleteWorkspaceRunnersResponses = {
+  /**
+   * Deleted
+   */
+  204: void;
+};
+
+export type DeleteWorkspaceRunnersResponse = DeleteWorkspaceRunnersResponses[keyof DeleteWorkspaceRunnersResponses];
+
+export type ReadWorkspaceRunnersData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/workspace-runners/{id}';
+};
+
+export type ReadWorkspaceRunnersErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace-runners that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadWorkspaceRunnersError = ReadWorkspaceRunnersErrors[keyof ReadWorkspaceRunnersErrors];
+
+export type ReadWorkspaceRunnersResponses = {
+  /**
+   * The workspace-runners, every field of it
+   */
+  200: WorkspaceRunnersResourceResponseDto;
+};
+
+export type ReadWorkspaceRunnersResponse = ReadWorkspaceRunnersResponses[keyof ReadWorkspaceRunnersResponses];
+
+export type UpdateWorkspaceRunnersData = {
+  body: {
+    runners?: Array<string>;
+    trusts?: Array<string>;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/workspace-runners/{id}';
+};
+
+export type UpdateWorkspaceRunnersErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the workspace-runners: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such workspace-runners that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field
+   */
+  422: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type UpdateWorkspaceRunnersError = UpdateWorkspaceRunnersErrors[keyof UpdateWorkspaceRunnersErrors];
+
+export type UpdateWorkspaceRunnersResponses = {
+  /**
+   * The workspace-runners, as a read would answer it
+   */
+  200: WorkspaceRunnersResourceResponseDto;
+};
+
+export type UpdateWorkspaceRunnersResponse = UpdateWorkspaceRunnersResponses[keyof UpdateWorkspaceRunnersResponses];
+
+export type ImportWorkspaceRunnersData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query: {
+    /**
+     * The workspace-runners's address within the workspace
+     */
+    address: unknown;
+  };
+  url: '/resources/workspaces/{workspaceId}/workspace-runners/import';
+};
+
+export type ImportWorkspaceRunnersErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace-runners that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ImportWorkspaceRunnersError = ImportWorkspaceRunnersErrors[keyof ImportWorkspaceRunnersErrors];
+
+export type ImportWorkspaceRunnersResponses = {
+  /**
+   * The workspace-runners, as a read would answer it
+   */
+  200: WorkspaceRunnersResourceResponseDto;
+};
+
+export type ImportWorkspaceRunnersResponse = ImportWorkspaceRunnersResponses[keyof ImportWorkspaceRunnersResponses];
 
 export type ReadConfigurationData = {
   body?: never;

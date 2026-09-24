@@ -103,6 +103,7 @@ const assemble = (
       agentPrompt: planned.agentPrompt,
       check: planned.check,
       setup: planned.setup,
+      placement: planned.placement,
       diffs: planned.diffs,
       decisions: planned.decisions,
       tools: planned.tools,
@@ -120,6 +121,7 @@ const assemble = (
     role: plan.role,
     repositories: plan.repositories,
     reviews: plan.reviews,
+    placement: plan.placement,
     stations,
     reactions: plan.reactions.map((planned) =>
       Reaction.of({

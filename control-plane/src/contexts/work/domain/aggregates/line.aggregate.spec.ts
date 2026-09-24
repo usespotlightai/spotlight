@@ -24,6 +24,7 @@ import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fa
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
@@ -108,6 +109,33 @@ const opened = () => {
 };
 
 describe('Line', () => {
+  it('places a station’s work where the station says, or else where its line does', () => {
+    const placed = Station.of({
+      id: StationId.of('station_2'),
+      key: StationKey.of('station-2'),
+      name: StationName.of('Station 2'),
+      position: 2,
+      color: StationColor.of('#a3a8b0'),
+      placement: RunnerPlacement.of(['gpu']),
+    });
+    const line = Line.rehydrate({
+      id: LineId.of('line_1'),
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
+      key: LineKey.of('default'),
+      name: LineName.of('Default'),
+      stations: [backlog(), at(1), placed, completed(3)],
+      placement: RunnerPlacement.of(['vpc-internal']),
+    });
+
+    expect(line.placementOf(StationId.of('station_1')).selectors).toEqual([
+      'vpc-internal',
+    ]);
+    expect(line.placementOf(StationId.of('station_2')).selectors).toEqual([
+      'gpu',
+    ]);
+  });
+
   it('takes the name of the line it opens', () => {
     expect(opened().name.value).toBe('Delivery');
   });

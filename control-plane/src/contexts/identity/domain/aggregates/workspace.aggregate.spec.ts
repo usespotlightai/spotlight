@@ -457,6 +457,7 @@ describe('Workspace', () => {
         plans: clearance.plans,
         configures: clearance.configures,
         managesSecrets: clearance.managesSecrets,
+        managesRunners: clearance.managesRunners,
         administers: clearance.administers,
       };
     };
@@ -466,13 +467,14 @@ describe('Workspace', () => {
       ['admin', true, true],
       ['member', false, false],
     ])(
-      'lets its %s read and plan, configuring, managing secrets and administering only as an admin',
+      'lets its %s read and plan, configuring, managing secrets and runners, and administering only as an admin',
       (who, configures, administers) => {
         expect(cleared(person(who))).toEqual({
           reads: true,
           plans: true,
           configures,
           managesSecrets: configures,
+          managesRunners: configures,
           administers,
         });
       },
@@ -484,23 +486,26 @@ describe('Workspace', () => {
         plans: false,
         configures: false,
         managesSecrets: false,
+        managesRunners: false,
         administers: false,
       });
     });
 
     it.each([
-      [['read'], false, false, false],
-      [['plan'], true, false, false],
-      [['configure'], true, true, false],
-      [['configure', 'secrets'], true, true, true],
+      [['read'], false, false, false, false],
+      [['plan'], true, false, false, false],
+      [['configure'], true, true, false, false],
+      [['configure', 'secrets'], true, true, true, false],
+      [['configure', 'runners'], true, true, false, true],
     ])(
       'lets a %j token of its own read, and never administer',
-      (scopes, plans, configures, managesSecrets) => {
+      (scopes, plans, configures, managesSecrets, managesRunners) => {
         expect(cleared(token(scopes))).toEqual({
           reads: true,
           plans,
           configures,
           managesSecrets,
+          managesRunners,
           administers: false,
         });
       },
@@ -512,6 +517,7 @@ describe('Workspace', () => {
         plans: false,
         configures: false,
         managesSecrets: false,
+        managesRunners: false,
         administers: false,
       });
     });

@@ -21,6 +21,7 @@ const station = (
   agentPrompt: null,
   check: null,
   setup: null,
+  runners: [],
   diffs: false,
   decisions: false,
   finishes: false,
@@ -28,7 +29,13 @@ const station = (
 });
 
 const ROWS: LineRows = {
-  line: { key: 'delivery', name: 'Delivery', role: null, reviews: null },
+  line: {
+    key: 'delivery',
+    name: 'Delivery',
+    role: null,
+    reviews: null,
+    runners: [],
+  },
   stations: [
     station('backlog', { kind: 'backlog' }),
     station('build', {
@@ -76,6 +83,24 @@ describe('renderLineRows', () => {
     expect(Object.keys(renderLineRows(ROWS).stations[0] ?? {})).not.toContain(
       'harness',
     );
+  });
+
+  it('renders where a line and its stations may run, and leaves it out when anywhere', () => {
+    const rendered = renderLineRows({
+      ...ROWS,
+      line: { ...ROWS.line, runners: ['vpc-internal'] },
+      stations: [
+        ...ROWS.stations.slice(0, 1),
+        station('build', { runners: ['gpu'], finishes: true }),
+        ...ROWS.stations.slice(2),
+      ],
+    });
+
+    expect(rendered.runners).toEqual(['vpc-internal']);
+    expect(rendered.stations[1]?.runners).toEqual(['gpu']);
+    expect(Object.keys(rendered.stations[0] ?? {})).not.toContain('runners');
+    expect(Object.keys(renderLineRows(ROWS))).not.toContain('runners');
+    expect(compileLine(rendered).ok).toBe(true);
   });
 
   it('renders a definition that compiles', () => {

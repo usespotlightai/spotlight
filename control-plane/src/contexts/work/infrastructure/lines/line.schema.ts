@@ -40,6 +40,7 @@ const stationSchema = z.object({
   prompt: z.string().optional(),
   check: z.string().optional(),
   setup: z.string().optional(),
+  runners: z.array(z.string()).optional(),
   diffs: z.boolean().optional(),
   decisions: z.boolean().optional(),
   tools: z.array(identifier(Tool.of)).default([]),
@@ -90,6 +91,7 @@ export const lineSchema = z.object({
     ),
   reactions: z.array(reactionSchema).default([]),
   reviews: reviewsSchema.optional(),
+  runners: z.array(z.string()).optional(),
 });
 
 export type LineFields = z.output<typeof lineSchema>;

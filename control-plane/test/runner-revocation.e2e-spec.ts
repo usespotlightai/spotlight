@@ -15,6 +15,7 @@ import {
 } from '@runners/application/commands/runner-fleet.commands';
 import { type EnrolledRunnerDto } from '@runners/application/dto/runner.dto';
 import { runner } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
+import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -62,7 +63,7 @@ beforeAll(async () => {
     EnrolRunnerCommand,
     EnrolledRunnerDto | null
   >(
-    new EnrolRunnerCommand(slug, ownerId, `Doomed ${Date.now()}`),
+    new EnrolRunnerCommand(slug, actorFor(ownerId), `Doomed ${Date.now()}`),
   )) as EnrolledRunnerDto;
 
   runId = `run_${Date.now()}`;
@@ -96,7 +97,7 @@ describe('Revoking a runner', () => {
     expect(before[0].state).toBe('claimed');
 
     await commands.execute(
-      new RevokeRunnerCommand(slug, ownerId, enrolled.runnerId),
+      new RevokeRunnerCommand(slug, actorFor(ownerId), enrolled.runnerId),
     );
     await app.get(EventDelivery).drain();
 

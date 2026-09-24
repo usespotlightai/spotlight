@@ -38,6 +38,10 @@ export class DrizzleWorkspaceReader implements WorkspaceReaderPort {
     return found?.slug ?? null;
   }
 
+  async isOpen(workspaceId: string): Promise<boolean> {
+    return (await this.slugOf(workspaceId)) !== null;
+  }
+
   async identifyTeam(
     slug: string,
     teamKey: string,

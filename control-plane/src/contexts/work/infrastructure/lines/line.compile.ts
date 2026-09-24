@@ -3,6 +3,7 @@ import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type {
   CompiledLine,
   LineCompilerPort,
@@ -96,6 +97,14 @@ const compileStation = (
     return refused('setup', error);
   }
 
+  let placement = RunnerPlacement.anywhere();
+
+  try {
+    placement = RunnerPlacement.of(station.runners ?? []);
+  } catch (error) {
+    return refused('runners', error);
+  }
+
   if (check && station.diffs && !setup) {
     return refused(
       'setup',
@@ -121,6 +130,7 @@ const compileStation = (
       agentPrompt,
       check,
       setup,
+      placement,
       diffs: station.diffs ?? false,
       decisions: station.decisions ?? false,
       tools: station.tools.map((each) => Tool.of(each)),
@@ -203,6 +213,20 @@ export const compileLine = (held: unknown): CompiledLine => {
     );
   }
 
+  let placement = RunnerPlacement.anywhere();
+
+  try {
+    placement = RunnerPlacement.of(definition.runners ?? []);
+  } catch (error) {
+    problems.push(
+      ConfigurationProblem.of({
+        path,
+        at: FieldPath.of(['runners']),
+        reason: reasoned(error),
+      }),
+    );
+  }
+
   const stations: StationPlan[] = [];
 
   for (const [at, station] of definition.stations.entries()) {
@@ -234,6 +258,7 @@ export const compileLine = (held: unknown): CompiledLine => {
         role: definition.role ? LineRole.of(definition.role) : null,
         repositories,
         reviews,
+        placement,
       }),
     };
   } catch (error) {

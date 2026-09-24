@@ -46,6 +46,7 @@ export class ClaimRunHandler
             runner: runnerId,
             workspaceId: seen.workspaceId,
             harnesses: seen.harnesses,
+            terms: seen.terms,
           },
           this.clock.now(),
         );
@@ -63,6 +64,7 @@ export class ClaimRunHandler
         const check = await this.checks.claimNext(
           seen.workspaceId,
           runnerId,
+          seen.terms,
           this.clock.now(),
         );
 

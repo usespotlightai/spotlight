@@ -8,6 +8,9 @@ export const CONFIGURED_RESOURCES = [
   'integration',
   'secret',
   'workspace-token',
+  'runner',
+  'runner-trust',
+  'workspace-runners',
 ] as const;
 
 export type ConfiguredResource = (typeof CONFIGURED_RESOURCES)[number];

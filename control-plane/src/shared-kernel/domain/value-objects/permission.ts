@@ -3,5 +3,6 @@ export type Permission =
   | 'plan'
   | 'configure'
   | 'manage-secrets'
+  | 'manage-runners'
   | 'administer'
   | 'open-workspaces';

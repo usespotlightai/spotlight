@@ -31,6 +31,7 @@ const clearanceIn = (
         slug: workspace.slug.value,
         configures: cleared.configures,
         managesSecrets: cleared.managesSecrets,
+        managesRunners: cleared.managesRunners,
         administers: cleared.administers,
       }
     : null;

@@ -45,7 +45,10 @@ import { EventTypes } from '@platform/events/event-types';
 import { AuthenticatedGuard } from '@platform/http/guards/authenticated.guard';
 import { RunnerGuard } from '@platform/http/guards/runner.guard';
 import { CryptoIdGenerator } from '@platform/ids/crypto-id.generator';
-import { RUNNER_PRESENCE } from '@runners/application/ports/runner-presence.port';
+import {
+  RUNNER_PRESENCE,
+  type RunnerPresencePort,
+} from '@runners/application/ports/runner-presence.port';
 import {
   RUNNER_READER,
   type RunnerReaderPort,
@@ -687,6 +690,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       TEAM_DIRECTORY,
       DrizzleLineRepository,
       CLOCK,
+      RUNNER_PRESENCE,
     ],
     useFactory: (
       runs: DrizzleRunRepository,
@@ -696,7 +700,18 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       teams: TeamDirectoryPort,
       lines: DrizzleLineRepository,
       clock: ClockPort,
-    ) => new DispatchChat(runs, ids, launch, tracing, teams, lines, clock),
+      runners: RunnerPresencePort,
+    ) =>
+      new DispatchChat(
+        runs,
+        ids,
+        launch,
+        tracing,
+        teams,
+        lines,
+        clock,
+        runners,
+      ),
   },
 
   {
@@ -742,6 +757,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       TeamIntegrations,
       TASK_DECISIONS,
       StationCatalog,
+      RUNNER_PRESENCE,
     ],
     useFactory: (
       runs: DrizzleRunRepository,
@@ -754,6 +770,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       integrations: TeamIntegrations,
       decisions: TaskDecisionsPort,
       catalog: StationCatalog,
+      runners: RunnerPresencePort,
     ) =>
       new DispatchTask(
         runs,
@@ -766,6 +783,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         integrations,
         decisions,
         catalog,
+        runners,
       ),
   },
 

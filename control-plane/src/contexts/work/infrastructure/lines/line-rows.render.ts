@@ -24,6 +24,7 @@ type StationRow = Pick<
   | 'agentPrompt'
   | 'check'
   | 'setup'
+  | 'runners'
   | 'diffs'
   | 'decisions'
   | 'finishes'
@@ -37,7 +38,7 @@ interface Given {
 export interface LineRows {
   readonly line: Pick<
     typeof line.$inferSelect,
-    'key' | 'name' | 'role' | 'reviews'
+    'key' | 'name' | 'role' | 'reviews' | 'runners'
   >;
   readonly stations: readonly StationRow[];
   readonly routes: readonly Pick<
@@ -58,6 +59,9 @@ const present = <K extends string, V>(
   held: V | null,
 ): Partial<Record<K, V>> =>
   held === null ? {} : ({ [key]: held } as Record<K, V>);
+
+const placed = (runners: readonly string[]): string[] | null =>
+  runners.length > 0 ? [...runners] : null;
 
 const givenAt = (given: readonly Given[], stationId: string): string[] =>
   given.filter((each) => each.stationId === stationId).map((each) => each.name);
@@ -80,6 +84,7 @@ export const renderLineRows = (rows: LineRows): Rendered<LineFields> => {
     ...present('prompt', row.agentPrompt),
     ...present('check', row.check),
     ...present('setup', row.setup),
+    ...present('runners', placed(row.runners)),
     diffs: row.diffs,
     decisions: row.decisions,
     tools: givenAt(rows.tools, row.id),
@@ -95,6 +100,7 @@ export const renderLineRows = (rows: LineRows): Rendered<LineFields> => {
     name: rows.line.name,
     ...present('role', rows.line.role),
     repositories: [...rows.repositories],
+    ...present('runners', placed(rows.line.runners)),
     stations: rows.stations.map(renderStation),
     reactions: rows.reactions.map((each) => ({
       happening: each.happening,

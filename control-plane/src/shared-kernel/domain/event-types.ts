@@ -17,6 +17,8 @@ import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
+import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
@@ -45,6 +47,8 @@ export const SHARED_KERNEL_EVENT_TYPES = [
   Repository,
   RunId,
   RunnerId,
+  RunnerPlacement,
+  RunnerTerms,
   SecretName,
   TaskId,
   TeamAddress,
