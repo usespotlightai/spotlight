@@ -1,11 +1,8 @@
 import { IDENTITY_PUBLICATIONS } from '@identity/application/integration-events/identity.publications';
 import { TeamCreated } from '@identity/domain/events/team-created.event';
 import { TeamDisbanded } from '@identity/domain/events/team-disbanded.event';
-import { TeamRedefined } from '@identity/domain/events/team-redefined.event';
 import { WorkspaceClosed } from '@identity/domain/events/workspace-closed.event';
-import { WorkspaceRedefined } from '@identity/domain/events/workspace-redefined.event';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
-import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { changed } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
@@ -29,12 +26,14 @@ const TEAM = [
 ] as const;
 
 describe('IDENTITY_PUBLICATIONS', () => {
-  it.each([
-    [new TeamRedefined(...TEAM), 'identity.team-redefined.v1'],
-    [new TeamDisbanded(...TEAM), 'identity.team-disbanded.v1'],
-  ])('publishes %o as plain data', (event, kind) => {
-    expect(published(event)).toEqual([
-      { kind, workspaceId: 'ws_1', teamId: 'team_1', key: 'core' },
+  it('publishes a disbanded team as plain data', () => {
+    expect(published(new TeamDisbanded(...TEAM))).toEqual([
+      {
+        kind: 'identity.team-disbanded.v1',
+        workspaceId: 'ws_1',
+        teamId: 'team_1',
+        key: 'core',
+      },
     ]);
   });
 
@@ -60,28 +59,16 @@ describe('IDENTITY_PUBLICATIONS', () => {
     ]);
   });
 
-  it('publishes a workspace’s new name and its closing', () => {
-    expect([
-      ...published(
-        new WorkspaceRedefined(
-          WORKSPACE,
-          WorkspaceName.of('Acme'),
-          changed('workspace', 'ws_1', 'acme'),
-        ),
-      ),
-      ...published(
+  it('publishes a workspace’s closing', () => {
+    expect(
+      published(
         new WorkspaceClosed(
           WORKSPACE,
           WorkspaceSlug.of('acme'),
           changed('workspace', 'ws_1', 'acme'),
         ),
       ),
-    ]).toEqual([
-      {
-        kind: 'identity.workspace-redefined.v1',
-        workspaceId: 'ws_1',
-        name: 'Acme',
-      },
+    ).toEqual([
       {
         kind: 'identity.workspace-closed.v1',
         workspaceId: 'ws_1',

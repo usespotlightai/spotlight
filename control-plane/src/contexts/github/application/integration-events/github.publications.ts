@@ -1,7 +1,6 @@
 import type { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
 import type { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
 import type { WorkspaceConnected } from '@github/domain/events/workspace-connected.event';
-import type { WorkspaceDisconnected } from '@github/domain/events/workspace-disconnected.event';
 import {
   PULL_REQUEST_CLOSED,
   type PullRequestClosedIntegrationEvent,
@@ -14,10 +13,6 @@ import {
   WORKSPACE_CONNECTED,
   type WorkspaceConnectedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/workspace-connected.integration-event';
-import {
-  WORKSPACE_DISCONNECTED,
-  type WorkspaceDisconnectedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/workspace-disconnected.integration-event';
 import { publishing } from '@shared-kernel/application/ports/event-publication.port';
 
 export const GITHUB_PUBLICATIONS = [
@@ -25,13 +20,6 @@ export const GITHUB_PUBLICATIONS = [
     'workspace.connected',
     (event): WorkspaceConnectedIntegrationEvent => ({
       kind: WORKSPACE_CONNECTED,
-      workspaceId: event.workspaceId.value,
-    }),
-  ),
-  publishing<WorkspaceDisconnected>(
-    'workspace.disconnected',
-    (event): WorkspaceDisconnectedIntegrationEvent => ({
-      kind: WORKSPACE_DISCONNECTED,
       workspaceId: event.workspaceId.value,
     }),
   ),
