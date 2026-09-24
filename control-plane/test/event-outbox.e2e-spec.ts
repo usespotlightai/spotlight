@@ -53,7 +53,7 @@ class Answered implements DomainEvent {
 
 let held: TestDatabase;
 let context: DrizzleContext;
-let now = new Date(Date.now() + 60_000);
+let now = new Date();
 const heard: string[] = [];
 let failing = 0;
 
@@ -107,6 +107,7 @@ const outboxWith = () => {
   projections.register(
     identityProjections(new DrizzleConfigurationAudit(context)),
   );
+  const clock = { now: () => now } as ClockPort;
   const outbox = new EventOutbox(
     context,
     subscribers,
@@ -114,12 +115,13 @@ const outboxWith = () => {
     publications,
     projections,
     { generate: () => randomUUID() },
+    clock,
   );
   const delivery = new EventDelivery(
     context,
     outbox,
     subscribers,
-    { now: () => now } as ClockPort,
+    clock,
     logger,
   );
 
