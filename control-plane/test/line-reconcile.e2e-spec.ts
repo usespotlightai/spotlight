@@ -9,6 +9,7 @@ import {
   type ResourceCreated,
   type ResourceUpdated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { CreateLineCommand } from '@work/application/commands/create-line.command';
@@ -68,13 +69,13 @@ describe('a line reconciled with its definition (e2e)', () => {
       ? commands.execute<UpdateLineCommand, ResourceUpdated | null>(
           new UpdateLineCommand(
             standing.id.value,
-            by,
+            actorFor(by),
             standing.version,
             definition,
           ),
         )
       : commands.execute<CreateLineCommand, ResourceCreated | null>(
-          new CreateLineCommand(held, by, randomUUID(), definition),
+          new CreateLineCommand(held, actorFor(by), randomUUID(), definition),
         );
   };
 

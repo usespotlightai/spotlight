@@ -3,7 +3,11 @@ import type { IdentityDefinitionsPort } from '@identity/application/ports/identi
 import { WorkspaceSlugTakenError } from '@identity/domain/exceptions/workspace-slug-taken.error';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import { WorkspaceRegistration } from '@identity/domain/services/workspace-registration';
-import type { ResourceCreated } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { Clearance } from '@identity/domain/value-objects/clearance.vo';
+import {
+  FORBIDDEN,
+  type ResourceCreated,
+} from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -13,12 +17,12 @@ import type {
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { createdOnce } from '@shared-kernel/application/services/created-once';
+import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class CreateWorkspaceHandler
-  implements CommandHandlerPort<CreateWorkspaceCommand, ResourceCreated>
+  implements CommandHandlerPort<CreateWorkspaceCommand, ResourceCreated | null>
 {
   private readonly registration: WorkspaceRegistration;
 
@@ -32,8 +36,16 @@ export class CreateWorkspaceHandler
     this.registration = new WorkspaceRegistration(workspaces);
   }
 
-  async execute(command: CreateWorkspaceCommand): Promise<ResourceCreated> {
+  async execute(
+    command: CreateWorkspaceCommand,
+  ): Promise<ResourceCreated | null> {
     try {
+      const { principal } = command.actor;
+
+      if (!Clearance.beyondWorkspaces(principal).opensWorkspaces) {
+        return FORBIDDEN;
+      }
+
       const compiled = this.definitions.workspace(command.definition);
 
       if (!compiled.ok) {
@@ -41,7 +53,7 @@ export class CreateWorkspaceHandler
       }
 
       const create: IdempotentCreate = {
-        by: command.requesterId,
+        by: principal.toString(),
         key: IdempotencyKey.of(command.idempotencyKey),
         request: { workspace: 'create', definition: command.definition },
       };
@@ -49,11 +61,13 @@ export class CreateWorkspaceHandler
       try {
         return await this.transaction.run(() =>
           createdOnce(this.creates, create, async () => {
+            const id = WorkspaceId.of(this.ids.generate());
             const opened = await this.registration.register({
-              id: WorkspaceId.of(this.ids.generate()),
+              id,
               name: compiled.name,
               slug: compiled.slug,
-              owner: UserId.of(command.requesterId),
+              owner: principal.userId,
+              by: Attribution.of(command.actor, id),
             });
 
             await this.workspaces.add(opened);

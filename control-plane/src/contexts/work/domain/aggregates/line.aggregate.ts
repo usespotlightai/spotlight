@@ -1,5 +1,7 @@
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -95,6 +97,7 @@ export class Line extends EventRecorder {
     teamId: TeamId;
     line: LineOpening;
     newId: () => string;
+    by: Attribution;
   }): Line {
     const named = input.line.stations;
     const ids = named.map(() => StationId.of(input.newId()));
@@ -115,6 +118,7 @@ export class Line extends EventRecorder {
       id: LineId.of(input.newId()),
       workspaceId: input.workspaceId,
       teamId: input.teamId,
+      by: input.by,
       key: input.line.key,
       name: input.line.name,
       role: input.line.role,
@@ -145,11 +149,17 @@ export class Line extends EventRecorder {
     });
   }
 
-  static laidOut(input: LineIdentity & LineLayout): Line {
+  static laidOut(input: LineIdentity & LineLayout & { by: Attribution }): Line {
     const opened = Line.built(input, input, 0);
 
     opened.record(
-      new LineOpened(opened.id, opened.workspaceId, opened.teamId, opened.key),
+      new LineOpened(
+        opened.id,
+        opened.workspaceId,
+        opened.teamId,
+        opened.key,
+        ConfigurationChange.created(opened.whatChanged, input.by),
+      ),
     );
 
     return opened;
@@ -229,7 +239,7 @@ export class Line extends EventRecorder {
     }
   }
 
-  relaidAs(layout: LineLayout): Line {
+  relaidAs(layout: LineLayout, by: Attribution): Line {
     if (!layout.key.equals(this.key)) {
       throw new LineKeyFixedError(
         this.key.value,
@@ -240,13 +250,19 @@ export class Line extends EventRecorder {
     const relaid = this.changed(layout);
 
     relaid.record(
-      new LineRedefined(this.id, this.workspaceId, this.teamId, this.key),
+      new LineRedefined(
+        this.id,
+        this.workspaceId,
+        this.teamId,
+        this.key,
+        ConfigurationChange.updated(this.whatChanged, by),
+      ),
     );
 
     return relaid;
   }
 
-  retired(standing: TasksStanding): Line {
+  retired(standing: TasksStanding, by: Attribution): Line {
     const stranded = this.stations
       .map((each) => ({
         key: each.key.value,
@@ -276,7 +292,13 @@ export class Line extends EventRecorder {
 
     retired.inheritEvents(this);
     retired.record(
-      new LineRetired(this.id, this.workspaceId, this.teamId, this.key),
+      new LineRetired(
+        this.id,
+        this.workspaceId,
+        this.teamId,
+        this.key,
+        ConfigurationChange.deleted(this.whatChanged, by),
+      ),
     );
 
     return retired;
@@ -305,6 +327,14 @@ export class Line extends EventRecorder {
     this.recordChangesInto(next);
 
     return next;
+  }
+
+  private get whatChanged() {
+    return {
+      resource: 'line' as const,
+      id: this.id.value,
+      key: this.key.value,
+    };
   }
 
   private recordChangesInto(next: Line): void {

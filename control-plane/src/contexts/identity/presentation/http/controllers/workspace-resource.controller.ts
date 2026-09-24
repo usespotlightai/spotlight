@@ -8,7 +8,8 @@ import { WorkspaceResourceResponseDto } from '@identity/presentation/http/dto/wo
 import { Body, Param, Query } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiBody, ApiParam } from '@nestjs/swagger';
-import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
+import { CurrentActor } from '@platform/http/decorators/current-actor.decorator';
+import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
 import {
@@ -23,7 +24,8 @@ import type {
   ResourceDeleted,
   ResourceUpdated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
+import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
+import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
 const KIND = 'workspace';
 
@@ -66,14 +68,14 @@ export class WorkspaceResourceController {
   )
   async import(
     @Query('address') address: string | undefined,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentPrincipal() principal: Principal,
   ): Promise<WorkspaceResourceResponseDto> {
     return found(
       KIND,
       await this.queryBus.execute<
         ImportWorkspaceQuery,
         WorkspaceResourceDto | null
-      >(new ImportWorkspaceQuery(address ?? '', user.id)),
+      >(new ImportWorkspaceQuery(address ?? '', principal)),
       representation,
     );
   }
@@ -86,14 +88,14 @@ export class WorkspaceResourceController {
   async create(
     @IdempotencyKeyHeader() key: string,
     @Body() body: unknown,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentActor() actor: Actor,
   ): Promise<WorkspaceResourceResponseDto> {
     return answerCreated(
       KIND,
       await this.commandBus.execute<CreateWorkspaceCommand, ResourceCreated>(
-        new CreateWorkspaceCommand(user.id, key, body),
+        new CreateWorkspaceCommand(actor, key, body),
       ),
-      (id) => this.answer(id, user),
+      (id) => this.answer(id, actor.principal),
     );
   }
 
@@ -101,9 +103,9 @@ export class WorkspaceResourceController {
   @ID
   read(
     @Param('id') id: string,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentPrincipal() principal: Principal,
   ): Promise<WorkspaceResourceResponseDto> {
-    return this.answer(id, user);
+    return this.answer(id, principal);
   }
 
   @WorkspaceResource.Update('workspaces/:id', 'Rename a workspace')
@@ -113,15 +115,15 @@ export class WorkspaceResourceController {
     @Param('id') id: string,
     @IfMatch() version: number,
     @Body() body: unknown,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentActor() actor: Actor,
   ): Promise<WorkspaceResourceResponseDto> {
     return answerUpdated(
       KIND,
       await this.commandBus.execute<
         UpdateWorkspaceCommand,
         ResourceUpdated | null
-      >(new UpdateWorkspaceCommand(id, user.id, version, body)),
-      (updated) => this.answer(updated, user),
+      >(new UpdateWorkspaceCommand(id, actor, version, body)),
+      (updated) => this.answer(updated, actor.principal),
     );
   }
 
@@ -133,27 +135,27 @@ export class WorkspaceResourceController {
   async delete(
     @Param('id') id: string,
     @IfMatch() version: number,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentActor() actor: Actor,
   ): Promise<void> {
     answerDeleted(
       KIND,
       await this.commandBus.execute<
         DeleteWorkspaceCommand,
         ResourceDeleted | null
-      >(new DeleteWorkspaceCommand(id, user.id, version)),
+      >(new DeleteWorkspaceCommand(id, actor, version)),
     );
   }
 
   private async answer(
     id: string,
-    user: AuthenticatedUser,
+    principal: Principal,
   ): Promise<WorkspaceResourceResponseDto> {
     return found(
       KIND,
       await this.queryBus.execute<
         ReadWorkspaceQuery,
         WorkspaceResourceDto | null
-      >(new ReadWorkspaceQuery(id, user.id)),
+      >(new ReadWorkspaceQuery(id, principal)),
       representation,
     );
   }

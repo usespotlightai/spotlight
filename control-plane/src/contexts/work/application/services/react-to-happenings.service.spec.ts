@@ -3,6 +3,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -533,6 +534,7 @@ describe('ReactToHappenings', () => {
 
     let next = 0;
     const opening = Line.open({
+      by: attributedIn(),
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
       line: BUILT_IN_LINES[0] as LineOpening,
@@ -613,6 +615,7 @@ describe('ReactToHappenings', () => {
 
     let next = 0;
     const opening = Line.open({
+      by: attributedIn(),
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
       line: BUILT_IN_LINES[0] as LineOpening,
@@ -691,6 +694,7 @@ describe('ReactToHappenings', () => {
 
     let next = 0;
     const opening = Line.open({
+      by: attributedIn(),
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
       line: BUILT_IN_LINES[0] as LineOpening,
@@ -768,6 +772,7 @@ describe('ReactToHappenings', () => {
     const delivery = (key: string) => {
       let next = 0;
       return Line.open({
+        by: attributedIn(),
         workspaceId: WorkspaceId.of('ws_1'),
         teamId: TeamId.of('team_1'),
         line: {

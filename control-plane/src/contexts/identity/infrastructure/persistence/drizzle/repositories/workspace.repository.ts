@@ -14,23 +14,17 @@ import {
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
+  codeOf,
+  RESTRICT_VIOLATION,
+  UNIQUE_VIOLATION,
+} from '@platform/persistence/drizzle/violations';
+import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, notInArray } from 'drizzle-orm';
-
-const UNIQUE_VIOLATION = '23505';
-
-const RESTRICT_VIOLATION = '23001';
-
-const codeOf = (error: unknown): string | undefined =>
-  (
-    ((error as { cause?: unknown } | null)?.cause ?? error) as {
-      code?: string;
-    } | null
-  )?.code;
 
 const isSlugCollision = (error: unknown): boolean =>
   typeof error === 'object' &&

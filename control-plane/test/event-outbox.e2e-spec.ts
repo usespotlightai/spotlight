@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto';
+import { DrizzleConfigurationAudit } from '@identity/infrastructure/persistence/drizzle/configuration-audit';
+import { configurationChange } from '@identity/infrastructure/persistence/drizzle/schemas/configuration-change.schema';
+import { identityProjections } from '@identity/presentation/events/identity.projections';
 import { EventDelivery, MOST_ATTEMPTS } from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
+import { EventProjections } from '@platform/events/event-projections';
 import { EventPublications } from '@platform/events/event-publications';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { EventTypes } from '@platform/events/event-types';
@@ -9,7 +13,15 @@ import { eventDelivery } from '@platform/persistence/drizzle/schemas/event.schem
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { subscribing } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import { publishing } from '@shared-kernel/application/ports/event-publication.port';
+import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
+import type { ConfigurationChanged } from '@shared-kernel/domain/events/configuration-changed';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import {
+  actorFor,
+  attributedIn,
+} from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 
@@ -25,6 +37,12 @@ class Rang implements DomainEvent {
   readonly kind = 'bell.rang';
 
   constructor(readonly marker: Marker) {}
+}
+
+class Reconfigured implements ConfigurationChanged {
+  readonly kind = 'bell.reconfigured';
+
+  constructor(readonly change: ConfigurationChange) {}
 }
 
 class Answered implements DomainEvent {
@@ -48,7 +66,8 @@ const logger = {
 
 const outboxWith = () => {
   const types = new EventTypes();
-  types.register('test', [Marker, Rang, Answered]);
+  types.register('test', [Marker, Rang, Answered, Reconfigured]);
+  types.register('shared-kernel', SHARED_KERNEL_EVENT_TYPES);
   const subscribers = new EventSubscribers();
   subscribers.register([
     subscribing<Rang>('test.answer', ['bell.rang'], async (event) => {
@@ -84,9 +103,18 @@ const outboxWith = () => {
       marker: event.marker.value,
     })),
   ]);
-  const outbox = new EventOutbox(context, subscribers, types, publications, {
-    generate: () => randomUUID(),
-  });
+  const projections = new EventProjections();
+  projections.register(
+    identityProjections(new DrizzleConfigurationAudit(context)),
+  );
+  const outbox = new EventOutbox(
+    context,
+    subscribers,
+    types,
+    publications,
+    projections,
+    { generate: () => randomUUID() },
+  );
   const delivery = new EventDelivery(
     context,
     outbox,
@@ -120,6 +148,39 @@ describe('the event outbox', () => {
     await delivery.workOff();
 
     expect(heard).toEqual([]);
+  });
+
+  it('records who changed configuration in the same transaction as the change, and never apart from it', async () => {
+    const { outbox } = outboxWith();
+    const changedBy = (key: string) =>
+      new Reconfigured(
+        ConfigurationChange.updated(
+          { resource: 'team', id: `team-${key}`, key },
+          attributedIn('ws_audited', actorFor('user_audited')),
+        ),
+      );
+
+    await context
+      .run(async () => {
+        await outbox.record([changedBy('lost')]);
+        throw new Error('the command failed');
+      })
+      .catch(() => undefined);
+    await outbox.record([changedBy('kept')]);
+
+    expect(
+      await held.db
+        .select({
+          key: configurationChange.key,
+          actor: configurationChange.actor,
+          userId: configurationChange.userId,
+          client: configurationChange.client,
+        })
+        .from(configurationChange)
+        .where(eq(configurationChange.workspaceId, 'ws_audited')),
+    ).toEqual([
+      { key: 'kept', actor: 'person', userId: 'user_audited', client: 'web' },
+    ]);
   });
 
   it('delivers what was recorded to every subscriber, and what they raise in turn', async () => {

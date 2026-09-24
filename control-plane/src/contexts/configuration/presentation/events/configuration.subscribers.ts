@@ -13,6 +13,7 @@ import {
   subscribing,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const configurationSubscribers = (
   links: IntegrationLinksPort,
@@ -21,7 +22,8 @@ export const configurationSubscribers = (
   subscribing<TeamDisbandedIntegrationEvent>(
     'configuration.abandon-skills-of-disbanded-team',
     [TEAM_DISBANDED],
-    (event) => abandoning.of(TeamId.of(event.teamId)),
+    (event) =>
+      abandoning.of(TeamId.of(event.teamId), WorkspaceId.of(event.workspaceId)),
   ),
   subscribing<HostConnectedIntegrationEvent>(
     'configuration.track-integration-link',

@@ -12,6 +12,7 @@ import {
 
 import { AuthenticationModule } from '@identity/infrastructure/auth/auth.module';
 import { Module } from '@nestjs/common';
+import { WORKSPACE_TOKEN_IDENTITY } from '@shared-kernel/application/ports/workspace-token-identity.port';
 
 @Module({
   imports: [AuthenticationModule],
@@ -25,6 +26,7 @@ import { Module } from '@nestjs/common';
     WORKSPACE_READER,
     PERSON_READER,
     MEMBER_READER,
+    WORKSPACE_TOKEN_IDENTITY,
     AuthenticationModule,
   ],
 })

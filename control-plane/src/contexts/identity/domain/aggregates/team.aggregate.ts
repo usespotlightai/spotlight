@@ -10,6 +10,8 @@ import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -20,6 +22,7 @@ interface Opening {
   readonly name: TeamName;
   readonly key?: TeamKey;
   readonly openedBy: UserId;
+  readonly by: Attribution;
 }
 
 export class Team extends EventRecorder {
@@ -39,7 +42,13 @@ export class Team extends EventRecorder {
     const team = Team.founded(input);
 
     team.record(
-      new TeamCreated(input.workspaceId, input.id, input.openedBy, 'sign-up'),
+      new TeamCreated(
+        input.workspaceId,
+        input.id,
+        input.openedBy,
+        'sign-up',
+        ConfigurationChange.created(team.whatChanged, input.by),
+      ),
     );
 
     return team;
@@ -54,6 +63,7 @@ export class Team extends EventRecorder {
         input.id,
         input.openedBy,
         'configuration',
+        ConfigurationChange.created(team.whatChanged, input.by),
       ),
     );
 
@@ -118,7 +128,10 @@ export class Team extends EventRecorder {
     }
   }
 
-  redefinedAs(definition: { key: TeamKey; name: TeamName }): Team {
+  redefinedAs(
+    definition: { key: TeamKey; name: TeamName },
+    by: Attribution,
+  ): Team {
     this.guardStanding();
 
     if (!definition.key.equals(this.key)) {
@@ -130,12 +143,19 @@ export class Team extends EventRecorder {
 
     const redefined = this.reshaped({ name: definition.name });
 
-    redefined.record(new TeamRedefined(this.workspaceId, this.id, this.key));
+    redefined.record(
+      new TeamRedefined(
+        this.workspaceId,
+        this.id,
+        this.key,
+        ConfigurationChange.updated(this.whatChanged, by),
+      ),
+    );
 
     return redefined;
   }
 
-  disbanded(holdings: Holdings): Team {
+  disbanded(holdings: Holdings, by: Attribution): Team {
     this.guardStanding();
 
     if (!holdings.isEmpty) {
@@ -144,9 +164,24 @@ export class Team extends EventRecorder {
 
     const disbanded = this.reshaped({ disbanded: true });
 
-    disbanded.record(new TeamDisbanded(this.workspaceId, this.id, this.key));
+    disbanded.record(
+      new TeamDisbanded(
+        this.workspaceId,
+        this.id,
+        this.key,
+        ConfigurationChange.deleted(this.whatChanged, by),
+      ),
+    );
 
     return disbanded;
+  }
+
+  private get whatChanged() {
+    return {
+      resource: 'team' as const,
+      id: this.id.value,
+      key: this.key.value,
+    };
   }
 
   equals(other: Team): boolean {

@@ -20,6 +20,8 @@ import {
 
 const BUILT_IN_STATIONS = BUILT_IN_LINES[0]?.stations ?? [];
 
+import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -97,6 +99,7 @@ const sends = (to: string, from?: string) =>
 const opened = () => {
   let next = 0;
   return Line.open({
+    by: attributedIn(),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     line: BUILT_IN_LINES[0] as LineOpening,
@@ -745,21 +748,42 @@ describe('Line, what it records of its changes', () => {
       const line = opened();
 
       expect(line.pullEvents()).toEqual([
-        new LineOpened(line.id, line.workspaceId, line.teamId, line.key),
+        new LineOpened(
+          line.id,
+          line.workspaceId,
+          line.teamId,
+          line.key,
+          ConfigurationChange.created(
+            { resource: 'line', id: line.id.value, key: line.key.value },
+            attributedIn(),
+          ),
+        ),
       ]);
     });
 
     it('says it was redefined when laid out again', () => {
       const line = kept();
-      const relaid = line.relaidAs({
-        key: line.key,
-        name: line.name,
-        stations: line.stations,
-        reactions: line.reactions,
-      });
+      const relaid = line.relaidAs(
+        {
+          key: line.key,
+          name: line.name,
+          stations: line.stations,
+          reactions: line.reactions,
+        },
+        attributedIn(),
+      );
 
       expect(relaid.pullEvents()).toContainEqual(
-        new LineRedefined(line.id, line.workspaceId, line.teamId, line.key),
+        new LineRedefined(
+          line.id,
+          line.workspaceId,
+          line.teamId,
+          line.key,
+          ConfigurationChange.updated(
+            { resource: 'line', id: line.id.value, key: line.key.value },
+            attributedIn(),
+          ),
+        ),
       );
     });
 
@@ -772,22 +796,34 @@ describe('Line, what it records of its changes', () => {
       const line = kept();
 
       expect(() =>
-        line.relaidAs({
-          key: LineKey.of('shipping'),
-          name: line.name,
-          stations: line.stations,
-          reactions: line.reactions,
-        }),
+        line.relaidAs(
+          {
+            key: LineKey.of('shipping'),
+            name: line.name,
+            stations: line.stations,
+            reactions: line.reactions,
+          },
+          attributedIn(),
+        ),
       ).toThrow(LineKeyFixedError);
     });
 
     it('retires once no task stands on it, and says so', () => {
       const line = kept();
-      const retired = line.retired(new Map());
+      const retired = line.retired(new Map(), attributedIn());
 
       expect(retired.isRetired).toBe(true);
       expect(retired.pullEvents()).toEqual([
-        new LineRetired(line.id, line.workspaceId, line.teamId, line.key),
+        new LineRetired(
+          line.id,
+          line.workspaceId,
+          line.teamId,
+          line.key,
+          ConfigurationChange.deleted(
+            { resource: 'line', id: line.id.value, key: line.key.value },
+            attributedIn(),
+          ),
+        ),
       ]);
       expect(() => retired.worksIn([])).toThrow(/after it retired/);
     });
@@ -797,10 +833,10 @@ describe('Line, what it records of its changes', () => {
       const [, working] = line.stations;
 
       expect(() =>
-        line.retired(new Map([[working?.id.value ?? '', 2]])),
+        line.retired(new Map([[working?.id.value ?? '', 2]]), attributedIn()),
       ).toThrow(LineInUseError);
       expect(() =>
-        line.retired(new Map([[working?.id.value ?? '', 2]])),
+        line.retired(new Map([[working?.id.value ?? '', 2]]), attributedIn()),
       ).toThrow(`${working?.name.value} (2 standing there)`);
     });
   });

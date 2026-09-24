@@ -40,8 +40,10 @@ import {
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
+import { CurrentActor } from '@platform/http/decorators/current-actor.decorator';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
+import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 
 @ApiTags('workspaces')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
@@ -62,12 +64,12 @@ export class WorkspaceController {
   @ApiUnprocessableEntityResponse({ description: 'Invalid name or URL' })
   async create(
     @Body() body: CreateWorkspaceRequestDto,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentActor() actor: Actor,
   ): Promise<CreatedWorkspaceResponseDto> {
     const workspace = await this.commandBus.execute<
       OpenWorkspaceCommand,
       WorkspaceDto
-    >(new OpenWorkspaceCommand(body.name, body.slug, body.teamName, user.id));
+    >(new OpenWorkspaceCommand(body.name, body.slug, body.teamName, actor));
 
     return WorkspaceHttpMapper.createdToResponse(workspace);
   }

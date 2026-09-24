@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { bearerIn } from '@platform/http/bearer';
 import {
   REQUEST_RUNNER,
   type RequestWithRunner,
@@ -40,7 +41,7 @@ export class RunnerGuard implements CanActivate {
       >();
 
     const runner = await this.runners.identify(
-      bearer(request.headers.authorization),
+      bearerIn(request.headers.authorization),
     );
     if (!runner) {
       throw new UnauthorizedException();
@@ -51,6 +52,3 @@ export class RunnerGuard implements CanActivate {
     return true;
   }
 }
-
-const bearer = (header: string | undefined): string | undefined =>
-  header?.startsWith('Bearer ') ? header.slice('Bearer '.length) : undefined;

@@ -64,12 +64,15 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
       await db
         .delete(schema.idempotentCreate)
         .where(
-          inArray(schema.idempotentCreate.scope, [seat.owner, seat.member]),
+          inArray(schema.idempotentCreate.scope, [
+            `person:${seat.owner}`,
+            `person:${seat.member}`,
+          ]),
         );
       await db.delete(schema.secret).where(eq(schema.secret.workspaceId, held));
       await db
-        .delete(schema.secretAudit)
-        .where(eq(schema.secretAudit.workspaceId, held));
+        .delete(schema.configurationChange)
+        .where(eq(schema.configurationChange.workspaceId, held));
       await db
         .delete(schema.secretDataKey)
         .where(eq(schema.secretDataKey.workspaceId, held));
@@ -246,7 +249,7 @@ describe('a secret, set through the resource API (e2e)', () => {
     expect(await worn()).toEqual({ authorization: `Bearer ${VALUE}` });
   });
 
-  it('lets only a workspace admin set, rotate or delete it', async () => {
+  it('lets only a workspace admin, or a token with the secrets scope, set, rotate or delete it', async () => {
     const member = as(fixture.viewer);
     const stranger = as(randomUUID());
 
@@ -275,31 +278,64 @@ describe('a secret, set through the resource API (e2e)', () => {
     expect(await worn()).toEqual({ authorization: `Bearer ${VALUE}` });
   });
 
-  it('audits every change: who made it and what changed, never the value', async () => {
+  it('records every change as a configuration change: who made it and what moved, never the value', async () => {
     const made = await admin().create(LINEAR);
-    const rotated = await admin().update(made.body.id, made.body.version, {
+    const rebound = await admin().update(made.body.id, made.body.version, {
       ...LINEAR,
-      bindings: [{ host: 'api.linear.app', header: 'x-api-key' }],
+      bindings: [{ host: 'uploads.linear.app' }],
+    });
+    const rotated = await admin().update(made.body.id, rebound.body.version, {
+      ...LINEAR,
+      bindings: [{ host: 'uploads.linear.app' }],
       valueWo: `${VALUE}_2`,
       valueWoVersion: 2,
     });
     await admin().remove(made.body.id, rotated.body.version);
 
-    const audit = await db
-      .select()
-      .from(schema.secretAudit)
-      .where(eq(schema.secretAudit.secretId, made.body.id))
-      .orderBy(schema.secretAudit.at);
+    const audit = await request(app.getHttpServer())
+      .get(`/api/workspaces/${workspaceId}/configuration-changes`)
+      .set(TEST_USER_HEADER, fixture.admin);
+    const changes = (
+      audit.body as {
+        resource: string;
+        resourceId: string;
+        action: string;
+        by: { kind: string; userId: string | null };
+        details: object;
+      }[]
+    ).filter((each) => each.resourceId === made.body.id);
 
     expect(
-      audit.map((each) => [each.change, each.by, each.valueVersion]),
+      changes
+        .reverse()
+        .map((each) => [each.resource, each.action, each.by, each.details]),
     ).toEqual([
-      ['set', fixture.admin, 1],
-      ['redefined', fixture.admin, null],
-      ['rotated', fixture.admin, 2],
-      ['deleted', fixture.admin, null],
+      [
+        'secret',
+        'created',
+        { kind: 'person', userId: fixture.admin, tokenId: null },
+        { valueVersion: 1, boundTo: ['api.linear.app'] },
+      ],
+      [
+        'secret',
+        'updated',
+        { kind: 'person', userId: fixture.admin, tokenId: null },
+        { boundTo: ['uploads.linear.app'] },
+      ],
+      [
+        'secret',
+        'updated',
+        { kind: 'person', userId: fixture.admin, tokenId: null },
+        { valueVersion: 2 },
+      ],
+      [
+        'secret',
+        'deleted',
+        { kind: 'person', userId: fixture.admin, tokenId: null },
+        {},
+      ],
     ]);
-    expect(JSON.stringify(audit)).not.toContain(VALUE);
+    expect(audit.text).not.toContain(VALUE);
   });
 
   it('forgets its value when deleted', async () => {

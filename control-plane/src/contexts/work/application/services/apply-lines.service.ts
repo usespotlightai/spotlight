@@ -1,5 +1,6 @@
 import type { TeamProfile } from '@identity/application/ports/team-directory.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import type { StationTalliesPort } from '@work/application/ports/station-tallies.port';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import { LineAlreadyOpenedError } from '@work/domain/exceptions/line-already-opened.error';
@@ -18,7 +19,11 @@ export class ApplyLines {
     private readonly ids: IdGeneratorPort,
   ) {}
 
-  async open(team: TeamProfile, plan: LinePlan): Promise<Line> {
+  async open(
+    team: TeamProfile,
+    plan: LinePlan,
+    by: Attribution,
+  ): Promise<Line> {
     const standing = await this.lines.ofTeam(team.id);
 
     if (standing.some((each) => each.key.equals(plan.key))) {
@@ -35,6 +40,7 @@ export class ApplyLines {
       },
       plan,
       newId: () => this.ids.generate(),
+      by,
     });
 
     await this.lines.add(opened);
@@ -42,7 +48,7 @@ export class ApplyLines {
     return opened;
   }
 
-  async reconcile(line: Line, plan: LinePlan): Promise<Line> {
+  async reconcile(line: Line, plan: LinePlan, by: Attribution): Promise<Line> {
     this.guardRoles(
       (await this.lines.ofTeam(line.teamId)).filter(
         (each) => !each.equals(line),
@@ -57,6 +63,7 @@ export class ApplyLines {
         line.stations.map((each) => each.id),
       ),
       newId: () => this.ids.generate(),
+      by,
     });
 
     if (!reconciled.ok) {

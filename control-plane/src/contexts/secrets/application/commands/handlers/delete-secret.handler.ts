@@ -13,7 +13,7 @@ import {
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 
 export class DeleteSecretHandler
   implements CommandHandlerPort<DeleteSecretCommand, ResourceDeleted | null>
@@ -29,17 +29,19 @@ export class DeleteSecretHandler
     const id = SecretId.of(command.secretId);
 
     try {
-      const requester = UserId.of(command.requesterId);
       const standing = await this.secrets.withId(id);
-      const membership = standing
-        ? await this.access.inWorkspaceWithId(standing.workspaceId, requester)
+      const cleared = standing
+        ? await this.access.clearanceIn(
+            standing.workspaceId,
+            command.actor.principal,
+          )
         : null;
 
-      if (!standing || !membership) {
+      if (!standing || !cleared) {
         return null;
       }
 
-      if (!membership.administers) {
+      if (!cleared.managesSecrets) {
         return FORBIDDEN;
       }
 
@@ -53,7 +55,12 @@ export class DeleteSecretHandler
       );
 
       await this.transaction.run(() =>
-        this.secrets.save(standing.deleted(requester, uses)),
+        this.secrets.save(
+          standing.deleted(
+            uses,
+            Attribution.of(command.actor, standing.workspaceId),
+          ),
+        ),
       );
 
       return { outcome: 'deleted' };

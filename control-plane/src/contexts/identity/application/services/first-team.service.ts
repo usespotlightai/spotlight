@@ -15,6 +15,7 @@ export class FirstTeam {
       workspaceId: opened.workspaceId,
       name: opened.firstTeam.name,
       openedBy: opened.owner,
+      by: opened.change.by,
     });
 
     await this.teams.add(team);

@@ -7,17 +7,27 @@ import {
   ExpressionCheckResponseDto,
   ExpressionPositionResponseDto,
 } from '@integrations/presentation/http/dto/expression-check.response.dto';
-import { Body, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  ForbiddenException,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+} from '@nestjs/common';
 import { QueryBus } from '@nestjs/cqrs';
 import { ApiBody, ApiOkResponse, ApiOperation } from '@nestjs/swagger';
+import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
 import {
   ApiProblemResponse,
   ConventionalApiController,
 } from '@platform/http/resources/conventional-api';
 import { ProblemException } from '@platform/http/resources/problem.exception';
 import { EXPRESSIONS } from '@platform/http/routes';
+import type { Forbidden } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
+import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
 const REQUEST = 'request';
 
@@ -75,7 +85,14 @@ export class ExpressionCheckController {
     HttpStatus.UNPROCESSABLE_ENTITY,
     'The request is not shaped as a check, the definition holds errors, each listed under definition, or the position names no expression in it',
   )
-  async check(@Body() body: unknown): Promise<ExpressionCheckResponseDto> {
+  @ApiProblemResponse(
+    HttpStatus.FORBIDDEN,
+    'A workspace token whose scopes do not let it plan',
+  )
+  async check(
+    @Body() body: unknown,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<ExpressionCheckResponseDto> {
     const { position, expression, definition } = (body ?? {}) as Record<
       string,
       unknown
@@ -99,8 +116,14 @@ export class ExpressionCheckController {
 
     const checked = await this.queryBus.execute<
       CheckExpressionQuery,
-      CheckedExpression
-    >(new CheckExpressionQuery(field, expression, definition));
+      CheckedExpression | Forbidden
+    >(new CheckExpressionQuery(field, expression, definition, principal));
+
+    if (checked.outcome === 'forbidden') {
+      throw new ForbiddenException(
+        'Checking an expression is planning, which this token’s scopes do not allow',
+      );
+    }
 
     if (checked.outcome !== 'checked') {
       throw ProblemException.invalid(REQUEST, refusalOf(checked));

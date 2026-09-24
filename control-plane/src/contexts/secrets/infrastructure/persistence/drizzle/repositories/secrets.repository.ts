@@ -1,23 +1,14 @@
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
-import { SecretAbandoned } from '@secrets/domain/events/secret-abandoned.event';
-import { SecretDeleted } from '@secrets/domain/events/secret-deleted.event';
-import { SecretRedefined } from '@secrets/domain/events/secret-redefined.event';
-import { SecretRotated } from '@secrets/domain/events/secret-rotated.event';
-import { SecretSet } from '@secrets/domain/events/secret-set.event';
 import { SecretAlreadyDefinedError } from '@secrets/domain/exceptions/secret-already-defined.error';
 import { SecretMovedOnError } from '@secrets/domain/exceptions/secret-moved-on.error';
 import type { SecretRepository } from '@secrets/domain/repositories/secret.repository';
 import { SecretBindings } from '@secrets/domain/value-objects/secret-bindings.vo';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
-import {
-  secret,
-  secretAudit,
-} from '@secrets/infrastructure/persistence/drizzle/schemas/secret.schema';
+import { secret } from '@secrets/infrastructure/persistence/drizzle/schemas/secret.schema';
 import type { BuiltInSecretStore } from '@secrets/infrastructure/sources/built-in-secret.store';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
-import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, type SQL } from 'drizzle-orm';
@@ -56,63 +47,6 @@ const rehydrated = (row: Row): Secret =>
 const inPlace = (held: Secret) =>
   and(eq(secret.id, held.id.value), eq(secret.version, held.version));
 
-const audited = (event: DomainEvent) => {
-  if (event instanceof SecretSet) {
-    return {
-      workspaceId: event.workspaceId.value,
-      secretId: event.secretId.value,
-      secretName: event.secretName.value,
-      change: 'set',
-      by: event.by.value,
-      valueVersion: event.valueVersion,
-    };
-  }
-
-  if (event instanceof SecretRedefined) {
-    return {
-      workspaceId: event.workspaceId.value,
-      secretId: event.secretId.value,
-      secretName: event.secretName.value,
-      change: 'redefined',
-      by: event.by.value,
-      hosts: [...event.hosts],
-    };
-  }
-
-  if (event instanceof SecretRotated) {
-    return {
-      workspaceId: event.workspaceId.value,
-      secretId: event.secretId.value,
-      secretName: event.secretName.value,
-      change: 'rotated',
-      by: event.by.value,
-      valueVersion: event.valueVersion,
-    };
-  }
-
-  if (event instanceof SecretDeleted) {
-    return {
-      workspaceId: event.workspaceId.value,
-      secretId: event.secretId.value,
-      secretName: event.secretName.value,
-      change: 'deleted',
-      by: event.by.value,
-    };
-  }
-
-  if (event instanceof SecretAbandoned) {
-    return {
-      workspaceId: event.workspaceId.value,
-      secretId: event.secretId.value,
-      secretName: event.secretName.value,
-      change: 'abandoned',
-      by: null,
-    };
-  }
-
-  return null;
-};
-
 export class DrizzleSecrets implements SecretRepository {
   constructor(
     private readonly context: DrizzleContext,
@@ -147,14 +81,7 @@ export class DrizzleSecrets implements SecretRepository {
       await this.stored(held);
       await this.settled(held);
 
-      const events = held.pullEvents();
-      const entries = events.map(audited).filter((each) => each !== null);
-
-      if (entries.length > 0) {
-        await this.context.db.insert(secretAudit).values(entries);
-      }
-
-      await this.events.dispatch(events);
+      await this.events.dispatch(held.pullEvents());
     });
   }
 

@@ -19,9 +19,9 @@ import type {
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { createdOnce } from '@shared-kernel/application/services/created-once';
+import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class CreateSkillHandler
   implements CommandHandlerPort<CreateSkillCommand, ResourceCreated | null>
@@ -38,19 +38,19 @@ export class CreateSkillHandler
 
   async execute(command: CreateSkillCommand): Promise<ResourceCreated | null> {
     try {
-      const membership = await this.access.onTeam(
+      const cleared = await this.access.clearanceOnTeam(
         command.teamId,
-        UserId.of(command.requesterId),
+        command.actor.principal,
       );
-      if (!membership) {
+      if (!cleared) {
         return null;
       }
 
-      if (!membership.administers) {
+      if (!cleared.configures) {
         return FORBIDDEN;
       }
 
-      const team = await this.teams.find(membership.teamId);
+      const team = await this.teams.find(cleared.teamId);
 
       if (!team) {
         return null;
@@ -63,7 +63,7 @@ export class CreateSkillHandler
       }
 
       const create: IdempotentCreate = {
-        by: command.requesterId,
+        by: command.actor.principal.toString(),
         key: IdempotencyKey.of(command.idempotencyKey),
         request: {
           skill: 'create',
@@ -79,6 +79,7 @@ export class CreateSkillHandler
               ...compiled,
               id: SkillDefinitionId.of(this.ids.generate()),
               teamId: team.id,
+              by: Attribution.of(command.actor, team.workspaceId),
             });
 
             await this.definitions.save(defined);

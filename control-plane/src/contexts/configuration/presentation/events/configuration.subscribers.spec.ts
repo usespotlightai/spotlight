@@ -3,6 +3,7 @@ import type { AbandonTeamSkills } from '@configuration/application/services/aban
 import { configurationSubscribers } from '@configuration/presentation/events/configuration.subscribers';
 import type { HostConnectedIntegrationEvent } from '@shared-kernel/application/integration-events/host-connected.integration-event';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 describe('configuration hearing a host connect', () => {
@@ -67,6 +68,9 @@ describe('configuration hearing a team disband', () => {
       key: 'core',
     } as never);
 
-    expect(abandoning.of).toHaveBeenCalledWith(TeamId.of('team_1'));
+    expect(abandoning.of).toHaveBeenCalledWith(
+      TeamId.of('team_1'),
+      WorkspaceId.of('ws_1'),
+    );
   });
 });

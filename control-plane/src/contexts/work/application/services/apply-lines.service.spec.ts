@@ -1,5 +1,6 @@
 import type { TeamProfile } from '@identity/application/ports/team-directory.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { StationTalliesPort } from '@work/application/ports/station-tallies.port';
@@ -33,6 +34,7 @@ const line = () => {
   let next = 0;
 
   return Line.open({
+    by: attributedIn(),
     workspaceId: WORKSPACE,
     teamId: TeamId.of('team_1'),
     line: BUILT_IN_LINES[0] as LineOpening,
@@ -141,8 +143,8 @@ const applying = (
   return {
     applied: (): Promise<Line> =>
       plan.key.equals(held.key)
-        ? applier.reconcile(held, plan)
-        : applier.open(TEAM_PROFILE, plan),
+        ? applier.reconcile(held, plan, attributedIn())
+        : applier.open(TEAM_PROFILE, plan, attributedIn()),
     save,
     add,
     held,
@@ -261,9 +263,9 @@ describe('ApplyLines', () => {
       { generate: () => 'new' },
     );
 
-    await expect(applier.open(TEAM_PROFILE, asStanding(held))).rejects.toThrow(
-      LineAlreadyOpenedError,
-    );
+    await expect(
+      applier.open(TEAM_PROFILE, asStanding(held), attributedIn()),
+    ).rejects.toThrow(LineAlreadyOpenedError);
     expect(add).not.toHaveBeenCalled();
   });
 

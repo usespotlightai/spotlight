@@ -18,6 +18,7 @@ import {
 } from '@identity/identity.resources.fake-spec';
 import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
 import { FORBIDDEN } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -39,7 +40,11 @@ describe('CreateWorkspaceHandler', () => {
     return {
       create: (definition: unknown) =>
         handler.execute(
-          new CreateWorkspaceCommand(OWNER.value, 'key-1', definition),
+          new CreateWorkspaceCommand(
+            actorFor(OWNER.value),
+            'key-1',
+            definition,
+          ),
         ),
       kept,
       keys,
@@ -92,7 +97,12 @@ describe('UpdateWorkspaceHandler', () => {
     return {
       update: (definition: unknown, { by = OWNER, version = 3 } = {}) =>
         handler.execute(
-          new UpdateWorkspaceCommand('ws_1', by.value, version, definition),
+          new UpdateWorkspaceCommand(
+            'ws_1',
+            actorFor(by.value),
+            version,
+            definition,
+          ),
         ),
       kept,
     };
@@ -144,21 +154,27 @@ describe('UpdateWorkspaceHandler', () => {
 
 describe('DeleteWorkspaceHandler', () => {
   const deleting = (
-    over: { held?: boolean; holding?: readonly string[] } = {},
+    over: {
+      held?: boolean;
+      issued?: boolean;
+      holding?: readonly string[];
+    } = {},
   ) => {
     const kept = workspaces({ standing: workspaceAt(3) });
     const holdings = new HoldingsRegistry<WorkspaceId>();
     holdings.register({ heldBy: async () => over.holding ?? [] });
     const handler = new DeleteWorkspaceHandler(
       kept,
-      teamKeys(over.held ? ['core'] : []),
+      teamKeys(over.held ? ['core'] : [], over.issued ? ['ci'] : []),
       holdings,
       transaction,
     );
 
     return {
       remove: (by = OWNER) =>
-        handler.execute(new DeleteWorkspaceCommand('ws_1', by.value, 3)),
+        handler.execute(
+          new DeleteWorkspaceCommand('ws_1', actorFor(by.value), 3),
+        ),
       kept,
     };
   };
@@ -176,6 +192,16 @@ describe('DeleteWorkspaceHandler', () => {
     expect(await remove()).toMatchObject({
       outcome: 'in-use',
       reason: expect.stringContaining('core'),
+    });
+    expect(kept.save).not.toHaveBeenCalled();
+  });
+
+  it('will not close a workspace that still holds a token', async () => {
+    const { remove, kept } = deleting({ issued: true });
+
+    expect(await remove()).toMatchObject({
+      outcome: 'in-use',
+      reason: expect.stringContaining('token ci'),
     });
     expect(kept.save).not.toHaveBeenCalled();
   });

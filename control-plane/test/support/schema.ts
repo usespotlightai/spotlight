@@ -4,6 +4,7 @@ export * from '@change-review/infrastructure/persistence/drizzle/schemas/review.
 export * from '@configuration/infrastructure/persistence/drizzle/schemas/configuration.schema';
 export * from '@github/infrastructure/persistence/drizzle/schemas/github-connection.schema';
 export * from '@identity/infrastructure/persistence/drizzle/schemas/auth.schema';
+export * from '@identity/infrastructure/persistence/drizzle/schemas/configuration-change.schema';
 export * from '@identity/infrastructure/persistence/drizzle/schemas/workspace.schema';
 export * from '@integrations/infrastructure/persistence/drizzle/schemas/delivery.schema';
 export * from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';

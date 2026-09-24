@@ -1,7 +1,6 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { LineResourceDto } from '@work/application/dto/line-resource.dto';
 import type { LineResourcesPort } from '@work/application/ports/line-resources.port';
 import type { ReadLineQuery } from '@work/application/queries/read-line.query';
@@ -22,10 +21,7 @@ export class ReadLineHandler
 
       if (
         !kept ||
-        !(await this.access.onTeam(
-          kept.teamId.value,
-          UserId.of(query.viewerId),
-        ))
+        !(await this.access.clearanceOnTeam(kept.teamId.value, query.principal))
       ) {
         return null;
       }

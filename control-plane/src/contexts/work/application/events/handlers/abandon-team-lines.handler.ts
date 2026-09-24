@@ -1,5 +1,6 @@
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { StationTalliesPort } from '@work/application/ports/station-tallies.port';
 import { LineInUseError } from '@work/domain/exceptions/line-in-use.error';
@@ -22,7 +23,9 @@ export class AbandonTeamLines {
             line.stations.map((each) => each.id),
           );
 
-          await this.lines.save(line.retired(tasks));
+          await this.lines.save(
+            line.retired(tasks, Attribution.spotlight(line.workspaceId)),
+          );
         });
       } catch (error) {
         if (

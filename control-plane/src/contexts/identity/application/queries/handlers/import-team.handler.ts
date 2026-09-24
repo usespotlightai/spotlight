@@ -6,7 +6,6 @@ import type { ImportTeamQuery } from '@identity/application/queries/import-team.
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class ImportTeamHandler
@@ -19,9 +18,9 @@ export class ImportTeamHandler
 
   async execute(query: ImportTeamQuery): Promise<TeamResourceDto | null> {
     try {
-      const membership = await this.access.inWorkspaceWithId(
+      const membership = await this.access.clearanceIn(
         WorkspaceId.of(query.workspaceId),
-        UserId.of(query.viewerId),
+        query.principal,
       );
       const kept = membership
         ? await this.resources.teamAt(

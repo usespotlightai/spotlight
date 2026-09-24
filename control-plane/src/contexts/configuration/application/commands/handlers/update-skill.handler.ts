@@ -13,7 +13,7 @@ import {
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 
 export class UpdateSkillHandler
   implements CommandHandlerPort<UpdateSkillCommand, ResourceUpdated | null>
@@ -30,18 +30,18 @@ export class UpdateSkillHandler
 
     try {
       const standing = await this.definitions.withId(id);
-      const membership = standing
-        ? await this.access.onTeam(
+      const cleared = standing
+        ? await this.access.clearanceOnTeam(
             standing.teamId.value,
-            UserId.of(command.requesterId),
+            command.actor.principal,
           )
         : null;
 
-      if (!standing || !membership) {
+      if (!standing || !cleared) {
         return null;
       }
 
-      if (!membership.administers) {
+      if (!cleared.configures) {
         return FORBIDDEN;
       }
 
@@ -54,7 +54,12 @@ export class UpdateSkillHandler
       }
 
       await this.transaction.run(() =>
-        this.definitions.save(standing.redefinedAs(compiled)),
+        this.definitions.save(
+          standing.redefinedAs(
+            compiled,
+            Attribution.of(command.actor, cleared.workspaceId),
+          ),
+        ),
       );
 
       return { outcome: 'updated', id: id.value };

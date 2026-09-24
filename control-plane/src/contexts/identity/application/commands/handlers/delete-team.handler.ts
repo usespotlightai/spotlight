@@ -12,8 +12,8 @@ import {
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class DeleteTeamHandler
   implements CommandHandlerPort<DeleteTeamCommand, ResourceDeleted | null>
@@ -30,18 +30,18 @@ export class DeleteTeamHandler
 
     try {
       const standing = await this.teams.find(id);
-      const membership = standing
-        ? await this.access.inWorkspaceWithId(
+      const cleared = standing
+        ? await this.access.clearanceIn(
             standing.workspaceId,
-            UserId.of(command.requesterId),
+            command.actor.principal,
           )
         : null;
 
-      if (!standing || !membership) {
+      if (!standing || !cleared) {
         return null;
       }
 
-      if (!membership.administers) {
+      if (!cleared.configures) {
         return FORBIDDEN;
       }
 
@@ -50,7 +50,12 @@ export class DeleteTeamHandler
       const held = Holdings.of(await this.holdings.of(id));
 
       await this.transaction.run(() =>
-        this.teams.save(standing.disbanded(held)),
+        this.teams.save(
+          standing.disbanded(
+            held,
+            Attribution.of(command.actor, standing.workspaceId),
+          ),
+        ),
       );
 
       return { outcome: 'deleted' };

@@ -1,3 +1,4 @@
+import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Line, type LineLayout } from '@work/domain/aggregates/line.aggregate';
@@ -32,6 +33,7 @@ export const reconcileLine = (input: {
   plan: LinePlan;
   tasksStanding: TasksStanding;
   newId: () => string;
+  by: Attribution;
 }): Reconciled => {
   const held = new Map(
     input.standing.stations.map((each) => [each.key.value, each]),
@@ -55,6 +57,7 @@ export const reconcileLine = (input: {
     ok: true,
     line: input.standing.relaidAs(
       assemble(input.plan, (key) => held.get(key)?.id ?? null, input.newId),
+      input.by,
     ),
   };
 };
@@ -63,9 +66,11 @@ export const openLine = (input: {
   identity: LineIdentity;
   plan: LinePlan;
   newId: () => string;
+  by: Attribution;
 }): Line =>
   Line.laidOut({
     ...input.identity,
+    by: input.by,
     ...assemble(input.plan, () => null, input.newId),
   });
 

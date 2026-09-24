@@ -14,6 +14,7 @@ import {
   transaction,
 } from '@integrations/integrations.resources.fake-spec';
 import { FORBIDDEN } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -37,7 +38,7 @@ const updating = (
       handler.execute(
         new UpdateIntegrationCommand(
           'integration_1',
-          'user_1',
+          actorFor('user_1'),
           version,
           definition,
         ),

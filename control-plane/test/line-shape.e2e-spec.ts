@@ -5,6 +5,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type { ResourceCreated } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import {
+  actorFor,
+  attributedIn,
+} from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { CreateLineCommand } from '@work/application/commands/create-line.command';
@@ -78,7 +82,7 @@ describe('a line, defined and read back (e2e)', () => {
     >(
       new CreateLineCommand(
         held,
-        seat.owner,
+        actorFor(seat.owner),
         randomUUID(),
         definitionOf(BUILT_IN),
       ),
@@ -91,6 +95,7 @@ describe('a line, defined and read back (e2e)', () => {
     const read = (await lines.find(LineId.of(defined.id))) as Line;
     let next = 0;
     const opened = Line.open({
+      by: attributedIn(),
       workspaceId: WorkspaceId.of(held),
       teamId: TeamId.of(held),
       line: BUILT_IN,

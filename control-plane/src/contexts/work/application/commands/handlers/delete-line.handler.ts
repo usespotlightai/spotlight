@@ -6,7 +6,7 @@ import {
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import type { DeleteLineCommand } from '@work/application/commands/delete-line.command';
 import type { StationTalliesPort } from '@work/application/ports/station-tallies.port';
 import { LineInUseError } from '@work/domain/exceptions/line-in-use.error';
@@ -30,18 +30,18 @@ export class DeleteLineHandler
 
     try {
       const standing = await this.lines.find(id);
-      const membership = standing
-        ? await this.access.onTeam(
+      const cleared = standing
+        ? await this.access.clearanceOnTeam(
             standing.teamId.value,
-            UserId.of(command.requesterId),
+            command.actor.principal,
           )
         : null;
 
-      if (!standing || !membership) {
+      if (!standing || !cleared) {
         return null;
       }
 
-      if (!membership.administers) {
+      if (!cleared.configures) {
         return FORBIDDEN;
       }
 
@@ -52,7 +52,12 @@ export class DeleteLineHandler
           standing.stations.map((each) => each.id),
         );
 
-        await this.lines.save(standing.retired(tasks));
+        await this.lines.save(
+          standing.retired(
+            tasks,
+            Attribution.of(command.actor, standing.workspaceId),
+          ),
+        );
       });
 
       return { outcome: 'deleted' };

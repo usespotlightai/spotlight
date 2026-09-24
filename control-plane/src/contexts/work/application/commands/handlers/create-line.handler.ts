@@ -12,9 +12,9 @@ import type {
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { createdOnce } from '@shared-kernel/application/services/created-once';
+import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { CreateLineCommand } from '@work/application/commands/create-line.command';
 import type { LineCompilerPort } from '@work/application/ports/line-compiler.port';
 import type { ApplyLines } from '@work/application/services/apply-lines.service';
@@ -35,19 +35,19 @@ export class CreateLineHandler
 
   async execute(command: CreateLineCommand): Promise<ResourceCreated | null> {
     try {
-      const membership = await this.access.onTeam(
+      const cleared = await this.access.clearanceOnTeam(
         command.teamId,
-        UserId.of(command.requesterId),
+        command.actor.principal,
       );
-      if (!membership) {
+      if (!cleared) {
         return null;
       }
 
-      if (!membership.administers) {
+      if (!cleared.configures) {
         return FORBIDDEN;
       }
 
-      const team = await this.teams.find(membership.teamId);
+      const team = await this.teams.find(cleared.teamId);
 
       if (!team) {
         return null;
@@ -61,7 +61,7 @@ export class CreateLineHandler
 
       const key = compiled.line.key.value;
       const create: IdempotentCreate = {
-        by: command.requesterId,
+        by: command.actor.principal.toString(),
         key: IdempotencyKey.of(command.idempotencyKey),
         request: {
           line: 'create',
@@ -76,7 +76,13 @@ export class CreateLineHandler
             this.creates,
             create,
             async () =>
-              (await this.applying.open(team, compiled.line)).id.value,
+              (
+                await this.applying.open(
+                  team,
+                  compiled.line,
+                  Attribution.of(command.actor, team.workspaceId),
+                )
+              ).id.value,
           ),
         );
       } catch (error) {

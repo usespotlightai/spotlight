@@ -4,19 +4,31 @@ import { WorkspaceOpened } from '@identity/domain/events/workspace-opened.event'
 import { WorkspaceRedefined } from '@identity/domain/events/workspace-redefined.event';
 import { LastOwnerError } from '@identity/domain/exceptions/last-owner.error';
 import { NotYoursToGiveError } from '@identity/domain/exceptions/not-yours-to-give.error';
-import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-use.error';
 import { WorkspaceMovedOnError } from '@identity/domain/exceptions/workspace-moved-on.error';
 import { WorkspaceSlugFixedError } from '@identity/domain/exceptions/workspace-slug-fixed.error';
 import { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
+import { TokenName } from '@identity/domain/value-objects/token-name.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
+import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
+import {
+  PersonPrincipal,
+  TokenPrincipal,
+} from '@shared-kernel/domain/value-objects/principal.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 import { describe, expect, it } from 'vitest';
+
+const BY = attributedIn('ws_1');
+
+const ACME = { resource: 'workspace' as const, id: 'ws_1', key: 'acme-inc' };
 
 const FIRST_TEAM = { id: TeamId.of('team_1'), name: TeamName.of('Platform') };
 
@@ -27,6 +39,7 @@ const build = (id = 'ws_1') =>
     slug: WorkspaceSlug.of('acme-inc'),
     owner: UserId.of('user_1'),
     firstTeam: FIRST_TEAM,
+    by: BY,
   });
 
 describe('Workspace', () => {
@@ -42,6 +55,7 @@ describe('Workspace', () => {
         WorkspaceId.of('ws_1'),
         UserId.of('user_1'),
         FIRST_TEAM,
+        ConfigurationChange.created(ACME, BY),
       ),
     ]);
   });
@@ -347,10 +361,16 @@ describe('Workspace', () => {
         name: WorkspaceName.of('Acme Inc.'),
         slug: WorkspaceSlug.of('acme-inc'),
         owner: UserId.of('user_1'),
+        by: BY,
       });
 
       expect(opened.pullEvents()).toEqual([
-        new WorkspaceOpened(WorkspaceId.of('ws_1'), UserId.of('user_1'), null),
+        new WorkspaceOpened(
+          WorkspaceId.of('ws_1'),
+          UserId.of('user_1'),
+          null,
+          ConfigurationChange.created(ACME, BY),
+        ),
       ]);
     });
 
@@ -359,46 +379,148 @@ describe('Workspace', () => {
     });
 
     it('takes a new name, and says so', () => {
-      const renamed = kept().redefinedAs({
-        name: WorkspaceName.of('Acme'),
-        slug: WorkspaceSlug.of('acme-inc'),
-      });
+      const renamed = kept().redefinedAs(
+        { name: WorkspaceName.of('Acme'), slug: WorkspaceSlug.of('acme-inc') },
+        BY,
+      );
 
       expect(renamed.name.value).toBe('Acme');
       expect(renamed.pullEvents()).toEqual([
         new WorkspaceRedefined(
           WorkspaceId.of('ws_1'),
           WorkspaceName.of('Acme'),
+          ConfigurationChange.updated(ACME, BY),
         ),
       ]);
     });
 
     it('keeps its slug for its whole life', () => {
       expect(() =>
-        kept().redefinedAs({
-          name: WorkspaceName.of('Acme'),
-          slug: WorkspaceSlug.of('acme'),
-        }),
+        kept().redefinedAs(
+          { name: WorkspaceName.of('Acme'), slug: WorkspaceSlug.of('acme') },
+          BY,
+        ),
       ).toThrow(WorkspaceSlugFixedError);
     });
 
-    it('closes only once it holds no team and nothing else', () => {
+    it('closes only once it holds no team, no token and nothing else', () => {
       expect(() =>
-        kept().closed([TeamKey.of('core')], Holdings.none()),
-      ).toThrow(WorkspaceInUseError);
+        kept().closed([TeamKey.of('core')], [], Holdings.none(), BY),
+      ).toThrow(/still holds team core/);
       expect(() =>
-        kept().closed([], Holdings.of(['secret LINEAR_API_KEY'])),
+        kept().closed([], [TokenName.of('ci')], Holdings.none(), BY),
+      ).toThrow(/still holds token ci/);
+      expect(() =>
+        kept().closed([], [], Holdings.of(['secret LINEAR_API_KEY']), BY),
       ).toThrow(/still holds secret LINEAR_API_KEY/);
 
-      const closed = kept().closed([], Holdings.none());
+      const closed = kept().closed([], [], Holdings.none(), BY);
 
       expect(closed.isClosed).toBe(true);
       expect(closed.pullEvents()).toEqual([
         new WorkspaceClosed(
           WorkspaceId.of('ws_1'),
           WorkspaceSlug.of('acme-inc'),
+          ConfigurationChange.deleted(ACME, BY),
         ),
       ]);
+    });
+  });
+
+  describe('what a principal is cleared to do in it', () => {
+    const acme = Workspace.rehydrate({
+      id: WorkspaceId.of('ws_1'),
+      name: WorkspaceName.of('Acme Inc.'),
+      slug: WorkspaceSlug.of('acme-inc'),
+      members: [
+        { userId: UserId.of('owner'), role: WorkspaceRole.owner },
+        { userId: UserId.of('admin'), role: WorkspaceRole.admin },
+        { userId: UserId.of('member'), role: WorkspaceRole.member },
+      ],
+    });
+
+    const person = (id: string) => PersonPrincipal.of(UserId.of(id));
+
+    const token = (scopes: readonly string[], workspace = 'ws_1') =>
+      TokenPrincipal.of({
+        tokenId: WorkspaceTokenId.of('token_1'),
+        workspaceId: WorkspaceId.of(workspace),
+        scopes: TokenScopes.named(scopes),
+        issuedBy: UserId.of('admin'),
+      });
+
+    const cleared = (principal: PersonPrincipal | TokenPrincipal) => {
+      const clearance = acme.clearanceFor(principal);
+
+      return {
+        reads: clearance.reads,
+        plans: clearance.plans,
+        configures: clearance.configures,
+        managesSecrets: clearance.managesSecrets,
+        administers: clearance.administers,
+      };
+    };
+
+    it.each([
+      ['owner', true, true],
+      ['admin', true, true],
+      ['member', false, false],
+    ])(
+      'lets its %s read and plan, configuring, managing secrets and administering only as an admin',
+      (who, configures, administers) => {
+        expect(cleared(person(who))).toEqual({
+          reads: true,
+          plans: true,
+          configures,
+          managesSecrets: configures,
+          administers,
+        });
+      },
+    );
+
+    it('clears nothing for someone outside it', () => {
+      expect(cleared(person('stranger'))).toEqual({
+        reads: false,
+        plans: false,
+        configures: false,
+        managesSecrets: false,
+        administers: false,
+      });
+    });
+
+    it.each([
+      [['read'], false, false, false],
+      [['plan'], true, false, false],
+      [['configure'], true, true, false],
+      [['configure', 'secrets'], true, true, true],
+    ])(
+      'lets a %j token of its own read, and never administer',
+      (scopes, plans, configures, managesSecrets) => {
+        expect(cleared(token(scopes))).toEqual({
+          reads: true,
+          plans,
+          configures,
+          managesSecrets,
+          administers: false,
+        });
+      },
+    );
+
+    it('clears nothing for a token of another workspace, whatever its scope', () => {
+      expect(cleared(token(['configure', 'secrets'], 'ws_2'))).toEqual({
+        reads: false,
+        plans: false,
+        configures: false,
+        managesSecrets: false,
+        administers: false,
+      });
+    });
+
+    it('clears nothing once it has closed', () => {
+      expect(
+        acme.closed([], [], Holdings.none(), BY).clearanceFor(person('owner'))
+          .reads,
+      ).toBe(false);
     });
   });
 });

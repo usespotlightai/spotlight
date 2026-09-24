@@ -5,6 +5,7 @@ import { SkillRetired } from '@configuration/domain/events/skill-retired.event';
 import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
 import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { changed } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -17,6 +18,7 @@ const SKILL = [
   SkillDefinitionId.of('skill_1'),
   TeamId.of('team_1'),
   SkillKey.of('grafana'),
+  changed('skill', 'skill_1', 'grafana'),
 ] as const;
 
 describe('CONFIGURATION_PUBLICATIONS', () => {

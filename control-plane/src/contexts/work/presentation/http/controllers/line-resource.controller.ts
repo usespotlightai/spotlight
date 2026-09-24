@@ -1,7 +1,8 @@
 import { Body, Param, Query } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiBody, ApiParam } from '@nestjs/swagger';
-import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
+import { CurrentActor } from '@platform/http/decorators/current-actor.decorator';
+import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
 import {
@@ -16,7 +17,8 @@ import type {
   ResourceDeleted,
   ResourceUpdated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
+import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
+import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { CreateLineCommand } from '@work/application/commands/create-line.command';
 import { DeleteLineCommand } from '@work/application/commands/delete-line.command';
 import { UpdateLineCommand } from '@work/application/commands/update-line.command';
@@ -83,14 +85,14 @@ export class LineResourceController {
     @Param('teamId') teamId: string,
     @IdempotencyKeyHeader() key: string,
     @Body() body: unknown,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentActor() actor: Actor,
   ): Promise<LineResourceResponseDto> {
     return answerCreated(
       KIND,
       await this.commandBus.execute<CreateLineCommand, ResourceCreated | null>(
-        new CreateLineCommand(teamId, user.id, key, body),
+        new CreateLineCommand(teamId, actor, key, body),
       ),
-      (id) => this.answer(id, user),
+      (id) => this.answer(id, actor.principal),
     );
   }
 
@@ -98,9 +100,9 @@ export class LineResourceController {
   @ID
   read(
     @Param('id') id: string,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentPrincipal() principal: Principal,
   ): Promise<LineResourceResponseDto> {
-    return this.answer(id, user);
+    return this.answer(id, principal);
   }
 
   @LineResource.Update(
@@ -113,14 +115,14 @@ export class LineResourceController {
     @Param('id') id: string,
     @IfMatch() version: number,
     @Body() body: unknown,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentActor() actor: Actor,
   ): Promise<LineResourceResponseDto> {
     return answerUpdated(
       KIND,
       await this.commandBus.execute<UpdateLineCommand, ResourceUpdated | null>(
-        new UpdateLineCommand(id, user.id, version, body),
+        new UpdateLineCommand(id, actor, version, body),
       ),
-      (updated) => this.answer(updated, user),
+      (updated) => this.answer(updated, actor.principal),
     );
   }
 
@@ -129,12 +131,12 @@ export class LineResourceController {
   async delete(
     @Param('id') id: string,
     @IfMatch() version: number,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentActor() actor: Actor,
   ): Promise<void> {
     answerDeleted(
       KIND,
       await this.commandBus.execute<DeleteLineCommand, ResourceDeleted | null>(
-        new DeleteLineCommand(id, user.id, version),
+        new DeleteLineCommand(id, actor, version),
       ),
     );
   }
@@ -150,12 +152,12 @@ export class LineResourceController {
   async import(
     @Param('workspaceId') workspaceId: string,
     @Query('address') address: string | undefined,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentPrincipal() principal: Principal,
   ): Promise<LineResourceResponseDto> {
     return found(
       KIND,
       await this.queryBus.execute<ImportLineQuery, LineResourceDto | null>(
-        new ImportLineQuery(workspaceId, address ?? '', user.id),
+        new ImportLineQuery(workspaceId, address ?? '', principal),
       ),
       representation,
     );
@@ -163,12 +165,12 @@ export class LineResourceController {
 
   private async answer(
     id: string,
-    user: AuthenticatedUser,
+    principal: Principal,
   ): Promise<LineResourceResponseDto> {
     return found(
       KIND,
       await this.queryBus.execute<ReadLineQuery, LineResourceDto | null>(
-        new ReadLineQuery(id, user.id),
+        new ReadLineQuery(id, principal),
       ),
       representation,
     );

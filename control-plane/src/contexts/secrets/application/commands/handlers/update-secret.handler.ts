@@ -15,7 +15,7 @@ import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fau
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 
 export class UpdateSecretHandler
   implements CommandHandlerPort<UpdateSecretCommand, ResourceUpdated | null>
@@ -32,17 +32,19 @@ export class UpdateSecretHandler
     const id = SecretId.of(command.secretId);
 
     try {
-      const requester = UserId.of(command.requesterId);
       const standing = await this.secrets.withId(id);
-      const membership = standing
-        ? await this.access.inWorkspaceWithId(standing.workspaceId, requester)
+      const cleared = standing
+        ? await this.access.clearanceIn(
+            standing.workspaceId,
+            command.actor.principal,
+          )
         : null;
 
-      if (!standing || !membership) {
+      if (!standing || !cleared) {
         return null;
       }
 
-      if (!membership.administers) {
+      if (!cleared.managesSecrets) {
         return FORBIDDEN;
       }
 
@@ -56,7 +58,7 @@ export class UpdateSecretHandler
 
       const redefined = standing.redefinedAs(
         compiled,
-        requester,
+        Attribution.of(command.actor, standing.workspaceId),
         this.clock.now(),
       );
 

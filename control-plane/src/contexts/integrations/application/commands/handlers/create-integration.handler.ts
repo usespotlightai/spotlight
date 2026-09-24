@@ -20,8 +20,8 @@ import type {
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { createdOnce } from '@shared-kernel/application/services/created-once';
+import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class CreateIntegrationHandler
   implements
@@ -41,19 +41,19 @@ export class CreateIntegrationHandler
     command: CreateIntegrationCommand,
   ): Promise<ResourceCreated | null> {
     try {
-      const membership = await this.access.onTeam(
+      const cleared = await this.access.clearanceOnTeam(
         command.teamId,
-        UserId.of(command.requesterId),
+        command.actor.principal,
       );
-      if (!membership) {
+      if (!cleared) {
         return null;
       }
 
-      if (!membership.administers) {
+      if (!cleared.configures) {
         return FORBIDDEN;
       }
 
-      const team = await this.teams.find(membership.teamId);
+      const team = await this.teams.find(cleared.teamId);
 
       if (!team) {
         return null;
@@ -70,7 +70,7 @@ export class CreateIntegrationHandler
         compiled.integration.source,
       );
       const create: IdempotentCreate = {
-        by: command.requesterId,
+        by: command.actor.principal.toString(),
         key: IdempotencyKey.of(command.idempotencyKey),
         request: {
           integration: 'create',
@@ -85,7 +85,8 @@ export class CreateIntegrationHandler
             const defined = IntegrationDefinition.define({
               ...compiled,
               id: IntegrationDefinitionId.of(this.ids.generate()),
-              teamId: membership.teamId,
+              teamId: cleared.teamId,
+              by: Attribution.of(command.actor, cleared.workspaceId),
             });
 
             await this.definitions.save(defined);

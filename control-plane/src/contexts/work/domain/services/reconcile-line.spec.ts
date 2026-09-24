@@ -1,3 +1,4 @@
+import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Line } from '@work/domain/aggregates/line.aggregate';
@@ -26,6 +27,7 @@ const standing = () => {
   let next = 0;
 
   return Line.open({
+    by: attributedIn(),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     line: BUILT_IN_LINES[0] as LineOpening,
@@ -89,6 +91,7 @@ const reconciling = (
   return {
     line,
     result: reconcileLine({
+      by: attributedIn(),
       standing: line,
       plan,
       tasksStanding: new Map(

@@ -5,7 +5,6 @@ import type { SkillViews } from '@configuration/application/services/skill-views
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class ReadSkillHandler
   implements QueryHandlerPort<ReadSkillQuery, SkillResourceDto | null>
@@ -22,10 +21,7 @@ export class ReadSkillHandler
 
       if (
         !kept ||
-        !(await this.access.onTeam(
-          kept.teamId.value,
-          UserId.of(query.viewerId),
-        ))
+        !(await this.access.clearanceOnTeam(kept.teamId.value, query.principal))
       ) {
         return null;
       }

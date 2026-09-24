@@ -1,5 +1,6 @@
 import { WORKSPACE_ROLES } from '@identity/domain/value-objects/workspace-role.vo';
 import { user } from '@identity/infrastructure/persistence/drizzle/schemas/auth.schema';
+import { TOKEN_SCOPES } from '@shared-kernel/domain/value-objects/token-scope.vo';
 import { sql } from 'drizzle-orm';
 import {
   index,
@@ -13,6 +14,11 @@ import {
 } from 'drizzle-orm/pg-core';
 
 export const workspaceRole = pgEnum('workspace_role', WORKSPACE_ROLES);
+
+export const workspaceTokenScope = pgEnum(
+  'workspace_token_scope',
+  TOKEN_SCOPES,
+);
 
 export const workspace = pgTable('workspace', {
   id: text('id').primaryKey(),
@@ -113,5 +119,29 @@ export const teamInvite = pgTable(
       .where(sql`${table.acceptedAt} is null and ${table.revokedAt} is null`),
     index('team_invite_team_idx').on(table.teamId, table.email),
     index('team_invite_workspace_idx').on(table.workspaceId),
+  ],
+);
+
+export const workspaceToken = pgTable(
+  'workspace_token',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspace.id, { onDelete: 'restrict' }),
+    name: text('name').notNull(),
+    description: text('description').notNull().default(''),
+    scopes: workspaceTokenScope('scopes').array().notNull(),
+    tokenHash: text('token_hash').notNull().unique(),
+    issuedBy: text('issued_by').notNull(),
+    issuedAt: timestamp('issued_at').notNull(),
+    expiresAt: timestamp('expires_at'),
+    version: integer('version').default(0).notNull(),
+  },
+  (table) => [
+    uniqueIndex('workspace_token_workspace_name_idx').on(
+      table.workspaceId,
+      table.name,
+    ),
   ],
 );

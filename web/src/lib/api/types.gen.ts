@@ -1090,6 +1090,50 @@ export type TeamResourceResponseDto = {
   name: string;
 };
 
+export type WorkspaceTokenResourceResponseDto = {
+  /**
+   * Issued by Spotlight when the resource is created, and never changed
+   */
+  id: string;
+  /**
+   * Rises with every change; the ETag carries it, and a write sends it back as If-Match
+   */
+  version: number;
+  /**
+   * Names the resource within its workspace; terraform import takes it
+   */
+  address: string;
+  /**
+   * What would work better, though nothing stops it working; not settable
+   */
+  warnings: Array<FieldErrorResponseDto>;
+  /**
+   * The workspace it acts in, and the only one
+   */
+  workspaceId: string;
+  /**
+   * Names the token within its workspace; fixed for its life, so changing it means replacing the token
+   */
+  name: string;
+  /**
+   * What the token is for
+   */
+  description: string;
+  /**
+   * What it may do: read reads; plan also checks expressions; configure also changes configuration as a workspace admin may; secrets, granted beside one of those, manages secrets. Fixed for its life
+   */
+  scopes: Array<'read' | 'plan' | 'configure' | 'secrets'>;
+  /**
+   * The person who issued it
+   */
+  issuedBy: string;
+  issuedAt: string;
+  /**
+   * After this it admits nobody; null never expires. Fixed for its life
+   */
+  expiresAt: string | null;
+};
+
 export type CreateWorkspaceRequestDto = {
   name: string;
   /**
@@ -1137,6 +1181,44 @@ export type ChangeMemberRoleRequestDto = {
    * What they are to be in this workspace, which is what they may do in every team of it.
    */
   role: 'owner' | 'admin' | 'member';
+};
+
+export type ChangedByResponseDto = {
+  /**
+   * A person signed in, a workspace token, or Spotlight itself following on from another change
+   */
+  kind: 'person' | 'token' | 'spotlight';
+  /**
+   * The person, or for a token the person who issued it
+   */
+  userId: string | null;
+  tokenId: string | null;
+};
+
+export type ConfigurationChangeResponseDto = {
+  /**
+   * Rises with every change; pass it as before to page back
+   */
+  seq: number;
+  resource: 'workspace' | 'team' | 'line' | 'skill' | 'integration' | 'secret' | 'workspace-token';
+  resourceId: string;
+  /**
+   * The key it had within its team or workspace
+   */
+  key: string;
+  action: 'created' | 'updated' | 'deleted';
+  by: ChangedByResponseDto;
+  /**
+   * What the change was made through, as it named itself in Spotlight-Client; unknown when it did not
+   */
+  client: string | null;
+  /**
+   * What moved beyond the action itself, where that is worth keeping, as the resource’s kind records it; a secret records the value version it moved to and the hosts it is bound to once changed, never the value
+   */
+  details: {
+    [key: string]: unknown;
+  };
+  at: string;
 };
 
 export type MemberResponseDto = {
@@ -1961,6 +2043,10 @@ export type CreateLineData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
      * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
@@ -2018,6 +2104,10 @@ export type DeleteLineData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
      * The ETag of the version this write was based on; a write to any other version is refused with 409
      */
     'If-Match': string;
@@ -2074,6 +2164,10 @@ export type ReadLineData = {
      * The API version the client was written against; every response names the version it was answered in
      */
     'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
   };
   path: {
     id: string;
@@ -2117,6 +2211,10 @@ export type UpdateLineData = {
      * The API version the client was written against; every response names the version it was answered in
      */
     'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
     /**
      * The ETag of the version this write was based on; a write to any other version is refused with 409
      */
@@ -2178,6 +2276,10 @@ export type ImportLineData = {
      * The API version the client was written against; every response names the version it was answered in
      */
     'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
   };
   path: {
     workspaceId: string;
@@ -3444,6 +3546,10 @@ export type ImportWorkspaceData = {
      * The API version the client was written against; every response names the version it was answered in
      */
     'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
   };
   path?: never;
   query: {
@@ -3491,6 +3597,10 @@ export type CreateWorkspaceData = {
      * The API version the client was written against; every response names the version it was answered in
      */
     'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
     /**
      * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
      */
@@ -3546,6 +3656,10 @@ export type DeleteWorkspaceData = {
      * The API version the client was written against; every response names the version it was answered in
      */
     'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
     /**
      * The ETag of the version this write was based on; a write to any other version is refused with 409
      */
@@ -3603,6 +3717,10 @@ export type ReadWorkspaceData = {
      * The API version the client was written against; every response names the version it was answered in
      */
     'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
   };
   path: {
     id: string;
@@ -3647,6 +3765,10 @@ export type UpdateWorkspaceData = {
      * The API version the client was written against; every response names the version it was answered in
      */
     'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
     /**
      * The ETag of the version this write was based on; a write to any other version is refused with 409
      */
@@ -3712,6 +3834,10 @@ export type CreateTeamData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
      * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
@@ -3769,6 +3895,10 @@ export type DeleteTeamData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
      * The ETag of the version this write was based on; a write to any other version is refused with 409
      */
     'If-Match': string;
@@ -3825,6 +3955,10 @@ export type ReadTeamData = {
      * The API version the client was written against; every response names the version it was answered in
      */
     'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
   };
   path: {
     id: string;
@@ -3869,6 +4003,10 @@ export type UpdateTeamData = {
      * The API version the client was written against; every response names the version it was answered in
      */
     'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
     /**
      * The ETag of the version this write was based on; a write to any other version is refused with 409
      */
@@ -3930,6 +4068,10 @@ export type ImportTeamData = {
      * The API version the client was written against; every response names the version it was answered in
      */
     'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
   };
   path: {
     workspaceId: string;
@@ -3968,6 +4110,300 @@ export type ImportTeamResponses = {
 };
 
 export type ImportTeamResponse = ImportTeamResponses[keyof ImportTeamResponses];
+
+export type CreateWorkspaceTokenData = {
+  body: {
+    name: string;
+    scopes: Array<'read' | 'plan' | 'configure' | 'secrets'>;
+    description?: string;
+    expiresAt?: string | null;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     */
+    'Idempotency-Key': string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{workspaceId}/tokens';
+};
+
+export type CreateWorkspaceTokenErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * You may read the workspace-token, but not change it
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such workspace-token that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * There is already a workspace-token at that address
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field; or the Idempotency-Key was used for a different request
+   */
+  422: ProblemResponseDto;
+};
+
+export type CreateWorkspaceTokenError = CreateWorkspaceTokenErrors[keyof CreateWorkspaceTokenErrors];
+
+export type CreateWorkspaceTokenResponses = {
+  /**
+   * The workspace-token, as a read would answer it
+   *
+   * The token, as a read would answer it
+   */
+  201: WorkspaceTokenResourceResponseDto;
+};
+
+export type CreateWorkspaceTokenResponse = CreateWorkspaceTokenResponses[keyof CreateWorkspaceTokenResponses];
+
+export type DeleteWorkspaceTokenData = {
+  body?: never;
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/tokens/{id}';
+};
+
+export type DeleteWorkspaceTokenErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * You may read the workspace-token, but not change it
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such workspace-token that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type DeleteWorkspaceTokenError = DeleteWorkspaceTokenErrors[keyof DeleteWorkspaceTokenErrors];
+
+export type DeleteWorkspaceTokenResponses = {
+  /**
+   * Deleted
+   */
+  204: void;
+};
+
+export type DeleteWorkspaceTokenResponse = DeleteWorkspaceTokenResponses[keyof DeleteWorkspaceTokenResponses];
+
+export type ReadWorkspaceTokenData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/tokens/{id}';
+};
+
+export type ReadWorkspaceTokenErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace-token that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadWorkspaceTokenError = ReadWorkspaceTokenErrors[keyof ReadWorkspaceTokenErrors];
+
+export type ReadWorkspaceTokenResponses = {
+  /**
+   * The workspace-token, every field of it
+   */
+  200: WorkspaceTokenResourceResponseDto;
+};
+
+export type ReadWorkspaceTokenResponse = ReadWorkspaceTokenResponses[keyof ReadWorkspaceTokenResponses];
+
+export type UpdateWorkspaceTokenData = {
+  body: {
+    name: string;
+    scopes: Array<'read' | 'plan' | 'configure' | 'secrets'>;
+    description?: string;
+    expiresAt?: string | null;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/tokens/{id}';
+};
+
+export type UpdateWorkspaceTokenErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * You may read the workspace-token, but not change it
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such workspace-token that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field
+   */
+  422: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type UpdateWorkspaceTokenError = UpdateWorkspaceTokenErrors[keyof UpdateWorkspaceTokenErrors];
+
+export type UpdateWorkspaceTokenResponses = {
+  /**
+   * The workspace-token, as a read would answer it
+   */
+  200: WorkspaceTokenResourceResponseDto;
+};
+
+export type UpdateWorkspaceTokenResponse = UpdateWorkspaceTokenResponses[keyof UpdateWorkspaceTokenResponses];
+
+export type ImportWorkspaceTokenData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query: {
+    /**
+     * The workspace-token's address within the workspace
+     */
+    address: unknown;
+  };
+  url: '/resources/workspaces/{workspaceId}/tokens/import';
+};
+
+export type ImportWorkspaceTokenErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace-token that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ImportWorkspaceTokenError = ImportWorkspaceTokenErrors[keyof ImportWorkspaceTokenErrors];
+
+export type ImportWorkspaceTokenResponses = {
+  /**
+   * The workspace-token, as a read would answer it
+   */
+  200: WorkspaceTokenResourceResponseDto;
+};
+
+export type ImportWorkspaceTokenResponse = ImportWorkspaceTokenResponses[keyof ImportWorkspaceTokenResponses];
 
 export type ListWorkspacesData = {
   body?: never;
@@ -4084,6 +4520,41 @@ export type ChangeMemberRoleResponses = {
 };
 
 export type ChangeMemberRoleResponse = ChangeMemberRoleResponses[keyof ChangeMemberRoleResponses];
+
+export type ListConfigurationChangesData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: {
+    /**
+     * At most this many, up to 200
+     */
+    limit?: number;
+    /**
+     * Only changes older than this seq
+     */
+    before?: number;
+  };
+  url: '/workspaces/{slug}/configuration-changes';
+};
+
+export type ListConfigurationChangesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace that you administer
+   */
+  404: unknown;
+};
+
+export type ListConfigurationChangesResponses = {
+  200: Array<ConfigurationChangeResponseDto>;
+};
+
+export type ListConfigurationChangesResponse = ListConfigurationChangesResponses[keyof ListConfigurationChangesResponses];
 
 export type ListMembersData = {
   body?: never;
@@ -4281,6 +4752,10 @@ export type CreateSecretData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
      * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
@@ -4338,6 +4813,10 @@ export type DeleteSecretData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
      * The ETag of the version this write was based on; a write to any other version is refused with 409
      */
     'If-Match': string;
@@ -4394,6 +4873,10 @@ export type ReadSecretData = {
      * The API version the client was written against; every response names the version it was answered in
      */
     'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
   };
   path: {
     id: string;
@@ -4456,6 +4939,10 @@ export type UpdateSecretData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
      * The ETag of the version this write was based on; a write to any other version is refused with 409
      */
     'If-Match': string;
@@ -4516,6 +5003,10 @@ export type ImportSecretData = {
      * The API version the client was written against; every response names the version it was answered in
      */
     'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
   };
   path: {
     workspaceId: string;
@@ -4819,6 +5310,10 @@ export type CreateSkillData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
      * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
@@ -4876,6 +5371,10 @@ export type DeleteSkillData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
      * The ETag of the version this write was based on; a write to any other version is refused with 409
      */
     'If-Match': string;
@@ -4932,6 +5431,10 @@ export type ReadSkillData = {
      * The API version the client was written against; every response names the version it was answered in
      */
     'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
   };
   path: {
     id: string;
@@ -4978,6 +5481,10 @@ export type UpdateSkillData = {
      * The API version the client was written against; every response names the version it was answered in
      */
     'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
     /**
      * The ETag of the version this write was based on; a write to any other version is refused with 409
      */
@@ -5039,6 +5546,10 @@ export type ImportSkillData = {
      * The API version the client was written against; every response names the version it was answered in
      */
     'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
   };
   path: {
     workspaceId: string;
@@ -5446,6 +5957,10 @@ export type CreateIntegrationData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
      * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
@@ -5503,6 +6018,10 @@ export type DeleteIntegrationData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
      * The ETag of the version this write was based on; a write to any other version is refused with 409
      */
     'If-Match': string;
@@ -5559,6 +6078,10 @@ export type ReadIntegrationData = {
      * The API version the client was written against; every response names the version it was answered in
      */
     'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
   };
   path: {
     id: string;
@@ -5602,6 +6125,10 @@ export type UpdateIntegrationData = {
      * The API version the client was written against; every response names the version it was answered in
      */
     'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
     /**
      * The ETag of the version this write was based on; a write to any other version is refused with 409
      */
@@ -5663,6 +6190,10 @@ export type ImportIntegrationData = {
      * The API version the client was written against; every response names the version it was answered in
      */
     'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
   };
   path: {
     workspaceId: string;
@@ -5709,6 +6240,10 @@ export type CheckExpressionData = {
      * The API version the client was written against; every response names the version it was answered in
      */
     'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
   };
   path?: never;
   query?: never;
@@ -5724,6 +6259,10 @@ export type CheckExpressionErrors = {
    * No valid credentials
    */
   401: ProblemResponseDto;
+  /**
+   * A workspace token whose scopes do not let it plan
+   */
+  403: ProblemResponseDto;
   /**
    * The request is not shaped as a check, the definition holds errors, each listed under definition, or the position names no expression in it
    */
@@ -5748,6 +6287,10 @@ export type ListExpressionPositionsData = {
      * The API version the client was written against; every response names the version it was answered in
      */
     'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
   };
   path?: never;
   query?: never;

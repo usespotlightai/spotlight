@@ -5,7 +5,6 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import type { ReadWorkspaceQuery } from '@identity/application/queries/read-workspace.query';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class ReadWorkspaceHandler
@@ -24,11 +23,7 @@ export class ReadWorkspaceHandler
         WorkspaceId.of(query.workspaceId),
       );
 
-      return kept &&
-        (await this.access.inWorkspaceWithId(
-          kept.id,
-          UserId.of(query.viewerId),
-        ))
+      return kept && (await this.access.clearanceIn(kept.id, query.principal))
         ? ResourceMapper.workspace(kept)
         : null;
     } catch (error) {

@@ -1,3 +1,4 @@
+import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -36,6 +37,7 @@ const openingFor = (role: LineRole) => {
 
 const lineOf = (role: LineRole) =>
   Line.open({
+    by: attributedIn(),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     line: {

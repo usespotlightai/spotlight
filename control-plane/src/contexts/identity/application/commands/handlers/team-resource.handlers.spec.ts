@@ -17,6 +17,7 @@ import {
 } from '@identity/identity.resources.fake-spec';
 import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
 import { FORBIDDEN } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { describe, expect, it } from 'vitest';
 
@@ -37,7 +38,12 @@ describe('CreateTeamHandler', () => {
     return {
       create: (definition: unknown) =>
         handler.execute(
-          new CreateTeamCommand('ws_1', OWNER.value, 'key-1', definition),
+          new CreateTeamCommand(
+            'ws_1',
+            actorFor(OWNER.value),
+            'key-1',
+            definition,
+          ),
         ),
       kept,
     };
@@ -87,7 +93,12 @@ describe('UpdateTeamHandler', () => {
     return {
       update: (definition: unknown, version = 3) =>
         handler.execute(
-          new UpdateTeamCommand('team_1', OWNER.value, version, definition),
+          new UpdateTeamCommand(
+            'team_1',
+            actorFor(OWNER.value),
+            version,
+            definition,
+          ),
         ),
       kept,
     };
@@ -138,7 +149,9 @@ describe('DeleteTeamHandler', () => {
 
     return {
       remove: () =>
-        handler.execute(new DeleteTeamCommand('team_1', OWNER.value, 3)),
+        handler.execute(
+          new DeleteTeamCommand('team_1', actorFor(OWNER.value), 3),
+        ),
       kept,
     };
   };

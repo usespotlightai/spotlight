@@ -13,14 +13,22 @@ import {
   refusalToGive,
   rolesGivable,
 } from '@identity/domain/services/role-giving';
+import { Clearance } from '@identity/domain/value-objects/clearance.vo';
 import { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import type { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
+import type { TokenName } from '@identity/domain/value-objects/token-name.vo';
 import type { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import type { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
+import {
+  PersonPrincipal,
+  type Principal,
+} from '@shared-kernel/domain/value-objects/principal.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -48,13 +56,19 @@ export class Workspace extends EventRecorder {
     slug: WorkspaceSlug;
     owner: UserId;
     firstTeam?: { id: TeamId; name: TeamName };
+    by: Attribution;
   }): Workspace {
     const opened = new Workspace(input.id, input.name, input.slug, [
       { userId: input.owner, role: WorkspaceRole.owner },
     ]);
 
     opened.record(
-      new WorkspaceOpened(input.id, input.owner, input.firstTeam ?? null),
+      new WorkspaceOpened(
+        input.id,
+        input.owner,
+        input.firstTeam ?? null,
+        ConfigurationChange.created(opened.whatChanged, input.by),
+      ),
     );
 
     return opened;
@@ -89,10 +103,10 @@ export class Workspace extends EventRecorder {
     }
   }
 
-  redefinedAs(definition: {
-    name: WorkspaceName;
-    slug: WorkspaceSlug;
-  }): Workspace {
+  redefinedAs(
+    definition: { name: WorkspaceName; slug: WorkspaceSlug },
+    by: Attribution,
+  ): Workspace {
     this.guardOpen();
 
     if (!definition.slug.equals(this.slug)) {
@@ -107,17 +121,29 @@ export class Workspace extends EventRecorder {
       name: definition.name,
     });
 
-    redefined.record(new WorkspaceRedefined(this.id, definition.name));
+    redefined.record(
+      new WorkspaceRedefined(
+        this.id,
+        definition.name,
+        ConfigurationChange.updated(this.whatChanged, by),
+      ),
+    );
 
     return redefined;
   }
 
-  closed(teams: readonly TeamKey[], holdings: Holdings): Workspace {
+  closed(
+    teams: readonly TeamKey[],
+    tokens: readonly TokenName[],
+    holdings: Holdings,
+    by: Attribution,
+  ): Workspace {
     this.guardOpen();
 
-    const held = Holdings.of(teams.map((each) => `team ${each.value}`)).and(
-      holdings,
-    );
+    const held = Holdings.of([
+      ...teams.map((each) => `team ${each.value}`),
+      ...tokens.map((each) => `token ${each.value}`),
+    ]).and(holdings);
 
     if (!held.isEmpty) {
       throw new WorkspaceInUseError(this.slug.value, held);
@@ -125,7 +151,13 @@ export class Workspace extends EventRecorder {
 
     const closed = this.with({ members: this.members, closed: true });
 
-    closed.record(new WorkspaceClosed(this.id, this.slug));
+    closed.record(
+      new WorkspaceClosed(
+        this.id,
+        this.slug,
+        ConfigurationChange.deleted(this.whatChanged, by),
+      ),
+    );
 
     return closed;
   }
@@ -146,11 +178,35 @@ export class Workspace extends EventRecorder {
   }
 
   holds(userId: UserId): boolean {
-    return this.roleOf(userId) !== null;
+    return this.clearanceFor(PersonPrincipal.of(userId)).reads;
   }
 
   administeredBy(userId: UserId): boolean {
-    return this.roleOf(userId)?.rankedAtLeast(WorkspaceRole.admin) ?? false;
+    return this.clearanceFor(PersonPrincipal.of(userId)).administers;
+  }
+
+  clearanceFor(principal: Principal): Clearance {
+    if (this.isClosed) {
+      return Clearance.none;
+    }
+
+    if (principal.kind === 'token') {
+      return principal.workspaceId.equals(this.id)
+        ? Clearance.ofScopes(principal.scopes)
+        : Clearance.none;
+    }
+
+    const role = this.roleOf(principal.userId);
+
+    return role ? Clearance.ofRole(role) : Clearance.none;
+  }
+
+  private get whatChanged() {
+    return {
+      resource: 'workspace' as const,
+      id: this.id.value,
+      key: this.slug.value,
+    };
   }
 
   private isLastOwner(userId: UserId): boolean {

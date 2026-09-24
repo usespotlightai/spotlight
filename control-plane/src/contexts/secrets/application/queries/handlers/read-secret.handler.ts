@@ -5,7 +5,6 @@ import type { SecretResourcesPort } from '@secrets/application/ports/secret-reso
 import type { ReadSecretQuery } from '@secrets/application/queries/read-secret.query';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class ReadSecretHandler
   implements QueryHandlerPort<ReadSecretQuery, SecretResourceDto | null>
@@ -20,10 +19,7 @@ export class ReadSecretHandler
       const kept = await this.resources.withId(query.secretId);
 
       return kept &&
-        (await this.access.inWorkspaceWithId(
-          kept.workspaceId,
-          UserId.of(query.viewerId),
-        ))
+        (await this.access.clearanceIn(kept.workspaceId, query.principal))
         ? SecretResourceMapper.toDto(kept)
         : null;
     } catch (error) {

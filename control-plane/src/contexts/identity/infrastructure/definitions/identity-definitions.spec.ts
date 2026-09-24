@@ -1,6 +1,7 @@
 import type {
   CompiledTeam,
   CompiledWorkspace,
+  CompiledWorkspaceToken,
 } from '@identity/application/ports/identity-definitions.port';
 import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
@@ -9,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 const definitions = new IdentityDefinitions();
 
 const refusedAt = (
-  compiled: CompiledWorkspace | CompiledTeam,
+  compiled: CompiledWorkspace | CompiledTeam | CompiledWorkspaceToken,
 ): (string | undefined)[] =>
   compiled.ok ? [] : compiled.problems.map((each) => dottedOf(each.field));
 
@@ -48,5 +49,57 @@ describe('IdentityDefinitions', () => {
     expect(
       refusedAt(definitions.team({ key: 'Core Team', name: 'Core' })),
     ).toEqual(['key']);
+  });
+
+  it('reads a workspace token as its terms, never expiring and undescribed unless told', () => {
+    const compiled = definitions.workspaceToken({
+      name: 'ci',
+      scopes: ['plan'],
+    });
+
+    expect(
+      compiled.ok && [
+        compiled.terms.name.value,
+        compiled.terms.scopes.toString(),
+        compiled.terms.description.value,
+        compiled.terms.expiresAt,
+      ],
+    ).toEqual(['ci', 'plan', '', null]);
+  });
+
+  it('reads when a workspace token expires', () => {
+    const compiled = definitions.workspaceToken({
+      name: 'ci',
+      scopes: ['configure'],
+      expiresAt: '2026-12-31T23:59:59Z',
+    });
+
+    expect(compiled.ok && compiled.terms.expiresAt?.toISOString()).toBe(
+      '2026-12-31T23:59:59.000Z',
+    );
+  });
+
+  it('points at each workspace token field it cannot read', () => {
+    expect(
+      refusedAt(
+        definitions.workspaceToken({
+          name: 'CI token',
+          scopes: ['plan', 'apply'],
+          expiresAt: 'next week',
+        }),
+      ),
+    ).toEqual(['name', 'scopes.1', 'expiresAt']);
+  });
+
+  it.each([
+    [['secrets'], /beside one of them/],
+    [['plan', 'plan'], /each scope once/],
+    [[], /beside one of them/],
+  ])('refuses a token whose scopes are %j', (scopes, reason) => {
+    const compiled = definitions.workspaceToken({ name: 'ci', scopes });
+
+    expect(
+      compiled.ok ? [] : compiled.problems.map((each) => each.reason),
+    ).toEqual([expect.stringMatching(reason)]);
   });
 });

@@ -11,7 +11,7 @@ import {
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class UpdateWorkspaceHandler
@@ -31,13 +31,13 @@ export class UpdateWorkspaceHandler
     try {
       const standing = await this.workspaces.find(id);
 
-      const requester = UserId.of(command.requesterId);
+      const cleared = standing?.clearanceFor(command.actor.principal);
 
-      if (!standing?.holds(requester)) {
+      if (!standing || !cleared?.reads) {
         return null;
       }
 
-      if (!standing.administeredBy(requester)) {
+      if (!cleared.configures) {
         return FORBIDDEN;
       }
 
@@ -50,7 +50,9 @@ export class UpdateWorkspaceHandler
       }
 
       await this.transaction.run(() =>
-        this.workspaces.save(standing.redefinedAs(compiled)),
+        this.workspaces.save(
+          standing.redefinedAs(compiled, Attribution.of(command.actor, id)),
+        ),
       );
 
       return { outcome: 'updated', id: id.value };

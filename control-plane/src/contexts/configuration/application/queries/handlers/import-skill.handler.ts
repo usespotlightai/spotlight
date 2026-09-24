@@ -8,7 +8,6 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class ImportSkillHandler
@@ -24,10 +23,9 @@ export class ImportSkillHandler
   async execute(query: ImportSkillQuery): Promise<SkillResourceDto | null> {
     try {
       const address = TeamAddress.parse(query.address);
-      const viewer = UserId.of(query.viewerId);
-      const workspace = await this.access.inWorkspaceWithId(
+      const workspace = await this.access.clearanceIn(
         WorkspaceId.of(query.workspaceId),
-        viewer,
+        query.principal,
       );
       const team = workspace
         ? (await this.teams.inWorkspace(workspace.workspaceId)).find(
@@ -35,7 +33,7 @@ export class ImportSkillHandler
           )
         : undefined;
 
-      if (!team || !(await this.access.onTeam(team.id.value, viewer))) {
+      if (!team) {
         return null;
       }
 

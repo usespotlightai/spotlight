@@ -18,9 +18,9 @@ import type {
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { createdOnce } from '@shared-kernel/application/services/created-once';
+import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class CreateTeamHandler
@@ -37,17 +37,17 @@ export class CreateTeamHandler
 
   async execute(command: CreateTeamCommand): Promise<ResourceCreated | null> {
     try {
-      const requester = UserId.of(command.requesterId);
-      const membership = await this.access.inWorkspaceWithId(
+      const { principal } = command.actor;
+      const cleared = await this.access.clearanceIn(
         WorkspaceId.of(command.workspaceId),
-        requester,
+        principal,
       );
 
-      if (!membership) {
+      if (!cleared) {
         return null;
       }
 
-      if (!membership.administers) {
+      if (!cleared.configures) {
         return FORBIDDEN;
       }
 
@@ -58,7 +58,7 @@ export class CreateTeamHandler
       }
 
       const create: IdempotentCreate = {
-        by: command.requesterId,
+        by: principal.toString(),
         key: IdempotencyKey.of(command.idempotencyKey),
         request: {
           team: 'create',
@@ -72,10 +72,11 @@ export class CreateTeamHandler
           createdOnce(this.creates, create, async () => {
             const defined = Team.define({
               id: TeamId.of(this.ids.generate()),
-              workspaceId: membership.workspaceId,
+              workspaceId: cleared.workspaceId,
               key: compiled.key,
               name: compiled.name,
-              openedBy: requester,
+              openedBy: principal.userId,
+              by: Attribution.of(command.actor, cleared.workspaceId),
             });
 
             await this.teams.add(defined);
