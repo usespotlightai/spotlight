@@ -1,13 +1,11 @@
-import type { HeldSecretsPort } from '@configuration/application/ports/held-secrets.port';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type {
   DefinedIntegrationsPort,
   TeamDefinedIntegrations,
 } from '@integrations/application/ports/defined-integrations.port';
 import type { PollState } from '@integrations/application/ports/integration-cursors.port';
-import { HostReach } from '@integrations/application/services/host-reach.service';
+import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
 import { WorkOffPolls } from '@integrations/application/services/work-off-polls.service';
-import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-clients';
@@ -18,7 +16,12 @@ import type {
 } from '@integrations/infrastructure/outbound/http-outbound';
 import { FakeIntegrationCursors } from '@integrations/integrations.cursors.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
+import {
+  injecting,
+  reachFor,
+} from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -63,8 +66,8 @@ ${headers}  cursor: '\${{ body.lastId }}'
             value: '\${{ item.id }}'
 `;
 
-const READS_A_SECRET = `    headers:
-      authorization: '\${{ "Bearer " + secret.LINEAR_TOKEN }}'
+const READS_A_SECRET = `    auth:
+      secrets: [secret.LINEAR_TOKEN]
 `;
 
 const config = (file: string): TeamDefinedIntegrations => ({
@@ -90,9 +93,11 @@ const polling = (
   run: (
     request: unknown,
     against: { cursor: string },
+    credentials?: Credentials,
   ) => Promise<OutboundResult>,
   react: HappeningReactionsPort['react'],
   file = poll(),
+  injection: SecretInjectionPort = injecting().injection,
 ) =>
   new WorkOffPolls(
     {
@@ -107,9 +112,7 @@ const polling = (
         members: [],
       }),
     } as unknown as TeamDirectoryPort,
-    new HostReach({ held: async () => [] } satisfies HeldSecretsPort, {
-      of: async () => null,
-    } as unknown as HostConnectionRepository),
+    reachFor(injection),
     cursors,
     { react } as HappeningReactionsPort,
     { now: () => NOW } as ClockPort,
@@ -206,19 +209,36 @@ describe('WorkOffPolls', () => {
     });
   });
 
-  it('does not poll a host whose file reads a secret, since none is held', async () => {
-    const run = vi.fn(async () => REPLY);
-    const react = vi.fn(async () => undefined);
+  it('lets the call wear the workspace’s secrets as Spotlight’s own', async () => {
+    const { injection, forSpotlight } = injecting({
+      LINEAR_TOKEN: { host: 'api.linear.app', value: 'lin-1' },
+    });
+    const run = vi.fn(
+      async (
+        _request: unknown,
+        _against: unknown,
+        _credentials?: Credentials,
+      ) => REPLY,
+    );
 
     await polling(
       new FakeIntegrationCursors(),
       run,
-      react,
+      vi.fn(async () => undefined),
       poll(READS_A_SECRET),
+      injection,
     ).workOff();
 
-    expect(run).not.toHaveBeenCalled();
-    expect(react).not.toHaveBeenCalled();
+    const credentials = run.mock.calls[0]?.[2] as Credentials;
+    await credentials.wornToward('https://api.linear.app/issues', [
+      'LINEAR_TOKEN',
+    ]);
+
+    expect(forSpotlight).toHaveBeenCalledWith({
+      workspaceId: 'ws_1',
+      secrets: ['LINEAR_TOKEN'],
+      url: 'https://api.linear.app/issues',
+    });
   });
 
   it('polls a slot once when two workers reach it together', async () => {

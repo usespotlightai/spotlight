@@ -193,6 +193,16 @@ describe('checking an expression where a definition holds it', () => {
     );
   });
 
+  it('lets no expression read a secret, not even a request’s', () => {
+    expect(
+      checked('integration.actions.comment.request.body.query', 'secret.KEY')
+        .errors[0]?.message,
+    ).toBe('Unknown variable: secret');
+    expect(
+      EXPRESSION_POSITIONS.filter((each) => 'secret' in each.scope.declared),
+    ).toEqual([]);
+  });
+
   it('reads the type hints the definition declares', () => {
     const position = 'integration.webhook.events[0].raise.marks[0].value';
 
@@ -401,9 +411,9 @@ describe('the positions an expression is written at', () => {
   describe('against every expression an integration can hold', () => {
     const NOPE = e('nope');
     const FRESH = { at: NOPE, within: '300s' };
-    const AUTHS = [
+    const WEARS = { secrets: ['secret.KITCHEN_KEY'] };
+    const VERIFIES = [
       { hmac: { secret: 'secret.SIGNING', signed: NOPE, freshness: FRESH } },
-      { basic: { username: NOPE, password: NOPE } },
       {
         asymmetric: {
           algorithm: 'ed25519',
@@ -414,20 +424,20 @@ describe('the positions an expression is written at', () => {
       },
     ];
 
-    const request = (auth: object) => ({
+    const request = {
       url: NOPE,
       query: { k: NOPE },
       headers: { k: NOPE },
       body: NOPE,
-      auth,
+      auth: WEARS,
       expect: { success: NOPE },
       capture: { k: NOPE },
-    });
+    };
 
-    const event = (auth: object, happening: string) => ({
+    const event = (happening: string) => ({
       forEach: NOPE,
       when: NOPE,
-      lookup: { request: request(auth), capture: { k: NOPE } },
+      lookup: { request, capture: { k: NOPE } },
       raise: {
         happening,
         say: NOPE,
@@ -444,12 +454,12 @@ describe('the positions an expression is written at', () => {
           name: NOPE,
           type: NOPE,
           size: NOPE,
-          fetch: request(auth),
+          fetch: request,
         },
       },
     });
 
-    const holding = (auth: object) => ({
+    const holding = (verify: object) => ({
       integration: 'kitchen',
       connection: {
         oauth2: {
@@ -459,20 +469,20 @@ describe('the positions an expression is written at', () => {
         },
       },
       webhook: {
-        verify: auth,
+        verify,
         respond: { when: NOPE, body: NOPE },
         mine: NOPE,
         route: { by: NOPE },
         delivery: NOPE,
-        events: [event(auth, 'kitchen.hooked')],
+        events: [event('kitchen.hooked')],
       },
       poll: {
         every: '60s',
-        request: request(auth),
+        request,
         cursor: NOPE,
-        events: [event(auth, 'kitchen.polled')],
+        events: [event('kitchen.polled')],
       },
-      actions: { k: { request: request(auth) } },
+      actions: { k: { request } },
       tools: {
         k: {
           does: 'k',
@@ -491,9 +501,9 @@ describe('the positions an expression is written at', () => {
     });
 
     const reached = new Set(
-      AUTHS.flatMap((auth) => [...placesOf(holding(auth)).places.values()]).map(
-        (place) => place.position.position.rendered,
-      ),
+      VERIFIES.flatMap((verify) => [
+        ...placesOf(holding(verify)).places.values(),
+      ]).map((place) => place.position.position.rendered),
     );
 
     it('lists every position an integration holds an expression at, and no other', () => {

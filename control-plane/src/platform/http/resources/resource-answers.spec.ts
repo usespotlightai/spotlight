@@ -62,6 +62,7 @@ describe('resource answers', () => {
     [INVALID, 422, 'invalid'],
     [{ outcome: 'taken' as const, address: 'core/x' }, 409, 'already-exists'],
     [{ outcome: 'key-reused' as const }, 422, 'idempotency-key-reused'],
+    [{ outcome: 'forbidden' as const }, 403, 'forbidden'],
   ])('refuses a create that came to %j', async (outcome, status, slug) => {
     expect(
       await problemOf(() => answerCreated('line', outcome, answer)),
@@ -73,6 +74,7 @@ describe('resource answers', () => {
     [INVALID, 422, 'invalid'],
     [{ outcome: 'moved-on' as const, currentVersion: 4 }, 409, 'moved-on'],
     [{ outcome: 'in-use' as const, reason: 'held' }, 409, 'in-use'],
+    [{ outcome: 'forbidden' as const }, 403, 'forbidden'],
   ])('refuses an update that came to %j', async (outcome, status, slug) => {
     expect(
       await problemOf(() => answerUpdated('line', outcome, answer)),

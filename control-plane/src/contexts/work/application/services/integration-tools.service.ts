@@ -28,7 +28,9 @@ export class IntegrationTools implements IntegrationToolsPort {
       this.lines.holding(context.stationId),
     ]);
     const bound = task && line ? await this.bindings.of(task, line) : null;
-    const found = bound ? await this.calls.reach(tool.value, bound) : null;
+    const found = bound
+      ? await this.calls.reach(tool.value, bound, context.runId.value)
+      : null;
 
     return found
       ? {

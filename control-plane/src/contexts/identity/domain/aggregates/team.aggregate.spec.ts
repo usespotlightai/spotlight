@@ -4,7 +4,7 @@ import { TeamDisbanded } from '@identity/domain/events/team-disbanded.event';
 import { TeamRedefined } from '@identity/domain/events/team-redefined.event';
 import { TeamKeyFixedError } from '@identity/domain/exceptions/team-key-fixed.error';
 import { TeamMovedOnError } from '@identity/domain/exceptions/team-moved-on.error';
-import { TeamHoldings } from '@identity/domain/value-objects/team-holdings.vo';
+import { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -173,16 +173,16 @@ describe('Team', () => {
 
     it('disbands only once it holds nothing', () => {
       expect(() =>
-        kept().disbanded(TeamHoldings.of(['line delivery', 'skill grafana'])),
+        kept().disbanded(Holdings.of(['line delivery', 'skill grafana'])),
       ).toThrow(/still holds line delivery, skill grafana/);
 
-      const disbanded = kept().disbanded(TeamHoldings.none());
+      const disbanded = kept().disbanded(Holdings.none());
 
       expect(disbanded.isDisbanded).toBe(true);
       expect(disbanded.pullEvents()).toEqual([
         new TeamDisbanded(WORKSPACE, TeamId.of('team_1'), TeamKey.of('core')),
       ]);
-      expect(() => disbanded.disbanded(TeamHoldings.none())).toThrow(
+      expect(() => disbanded.disbanded(Holdings.none())).toThrow(
         InconsistentStateError,
       );
     });

@@ -189,6 +189,16 @@
               }
             }
           },
+          "403": {
+            "description": "You may read the line, but not change it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
           "404": {
             "description": "No such line that you may see",
             "content": {
@@ -432,6 +442,16 @@
               }
             }
           },
+          "403": {
+            "description": "You may read the line, but not change it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
           "404": {
             "description": "No such line that you may see",
             "content": {
@@ -534,6 +554,16 @@
           },
           "401": {
             "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "You may read the line, but not change it",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2849,6 +2879,16 @@
               }
             }
           },
+          "403": {
+            "description": "You may read the workspace, but not change it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
           "404": {
             "description": "No such workspace that you may see",
             "content": {
@@ -3077,6 +3117,16 @@
               }
             }
           },
+          "403": {
+            "description": "You may read the workspace, but not change it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
           "404": {
             "description": "No such workspace that you may see",
             "content": {
@@ -3179,6 +3229,16 @@
           },
           "401": {
             "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "You may read the workspace, but not change it",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3330,6 +3390,16 @@
           },
           "401": {
             "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "You may read the team, but not change it",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3566,6 +3636,16 @@
               }
             }
           },
+          "403": {
+            "description": "You may read the team, but not change it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
           "404": {
             "description": "No such team that you may see",
             "content": {
@@ -3668,6 +3748,16 @@
           },
           "401": {
             "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "You may read the team, but not change it",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4224,6 +4314,726 @@
         ]
       }
     },
+    "/resources/workspaces/{workspaceId}/secrets": {
+      "post": {
+        "operationId": "createSecret",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "LINEAR_API_KEY"
+                  },
+                  "source": {
+                    "type": "object",
+                    "required": [
+                      "kind"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "built-in",
+                          "aws-secrets-manager"
+                        ],
+                        "default": "built-in"
+                      },
+                      "secretId": {
+                        "type": "string"
+                      },
+                      "field": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "bindings": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "host"
+                      ],
+                      "properties": {
+                        "host": {
+                          "type": "string",
+                          "example": "api.linear.app"
+                        },
+                        "header": {
+                          "type": "string",
+                          "default": "authorization"
+                        },
+                        "prefix": {
+                          "type": "string",
+                          "default": "",
+                          "example": "Bearer "
+                        }
+                      }
+                    }
+                  },
+                  "valueWo": {
+                    "type": "string",
+                    "writeOnly": true,
+                    "description": "The value to keep; accepted on create and whenever valueWoVersion changes, and never answered"
+                  },
+                  "valueWoVersion": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "example": 1,
+                    "description": "Change it to rotate the value to the valueWo sent with it"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The secret, as a read would answer it",
+            "headers": {
+              "ETag": {
+                "description": "The version answered, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              },
+              "Idempotent-Replayed": {
+                "description": "true when this answers an earlier attempt",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecretResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "You may read the secret, but not change it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such secret that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "There is already a secret at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What is wrong, field by field; or the Idempotency-Key was used for a different request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Set a secret in a workspace; only workspace admins may",
+        "tags": [
+          "secrets"
+        ],
+        "x-spotlight-resource": {
+          "kind": "secret",
+          "operation": "create"
+        }
+      }
+    },
+    "/resources/secrets/{id}": {
+      "get": {
+        "operationId": "readSecret",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "3f8a2c1d-6b4e-4d9a-8c7f-1e2d3c4b5a69",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The secret, every field of it",
+            "headers": {
+              "ETag": {
+                "description": "The version answered, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecretResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such secret that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read a secret, never its value",
+        "tags": [
+          "secrets"
+        ],
+        "x-spotlight-resource": {
+          "kind": "secret",
+          "operation": "read"
+        }
+      },
+      "put": {
+        "operationId": "updateSecret",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "3f8a2c1d-6b4e-4d9a-8c7f-1e2d3c4b5a69",
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The ETag of the version this write was based on; a write to any other version is refused with 409",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "\"3\""
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "LINEAR_API_KEY"
+                  },
+                  "source": {
+                    "type": "object",
+                    "required": [
+                      "kind"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "built-in",
+                          "aws-secrets-manager"
+                        ],
+                        "default": "built-in"
+                      },
+                      "secretId": {
+                        "type": "string"
+                      },
+                      "field": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "bindings": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "host"
+                      ],
+                      "properties": {
+                        "host": {
+                          "type": "string",
+                          "example": "api.linear.app"
+                        },
+                        "header": {
+                          "type": "string",
+                          "default": "authorization"
+                        },
+                        "prefix": {
+                          "type": "string",
+                          "default": "",
+                          "example": "Bearer "
+                        }
+                      }
+                    }
+                  },
+                  "valueWo": {
+                    "type": "string",
+                    "writeOnly": true,
+                    "description": "The value to keep; accepted on create and whenever valueWoVersion changes, and never answered"
+                  },
+                  "valueWoVersion": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "example": 1,
+                    "description": "Change it to rotate the value to the valueWo sent with it"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The secret, as a read would answer it",
+            "headers": {
+              "ETag": {
+                "description": "The version answered, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecretResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "You may read the secret, but not change it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such secret that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What is wrong, field by field",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match is missing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Rebind a secret, or rotate its value by changing valueWoVersion",
+        "tags": [
+          "secrets"
+        ],
+        "x-spotlight-resource": {
+          "kind": "secret",
+          "operation": "update"
+        }
+      },
+      "delete": {
+        "operationId": "deleteSecret",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "3f8a2c1d-6b4e-4d9a-8c7f-1e2d3c4b5a69",
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The ETag of the version this write was based on; a write to any other version is refused with 409",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "\"3\""
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "You may read the secret, but not change it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such secret that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match is missing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete a secret and its value",
+        "tags": [
+          "secrets"
+        ],
+        "x-spotlight-resource": {
+          "kind": "secret",
+          "operation": "delete"
+        }
+      }
+    },
+    "/resources/workspaces/{workspaceId}/secrets/import": {
+      "get": {
+        "operationId": "importSecret",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
+              "type": "string"
+            }
+          },
+          {
+            "name": "address",
+            "required": true,
+            "in": "query",
+            "description": "The secret's address within the workspace",
+            "schema": {
+              "example": "LINEAR_API_KEY"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The secret, as a read would answer it",
+            "headers": {
+              "ETag": {
+                "description": "The version answered, to send back as If-Match",
+                "schema": {
+                  "type": "string",
+                  "example": "\"3\""
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecretResourceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such secret that you may see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Find the secret with a name in a workspace, to import it",
+        "tags": [
+          "secrets"
+        ],
+        "x-spotlight-resource": {
+          "kind": "secret",
+          "operation": "import"
+        }
+      }
+    },
     "/workspaces/{slug}/repositories": {
       "get": {
         "operationId": "listRepositories",
@@ -4706,6 +5516,16 @@
               }
             }
           },
+          "403": {
+            "description": "You may read the skill, but not change it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
           "404": {
             "description": "No such skill that you may see",
             "content": {
@@ -4939,6 +5759,16 @@
               }
             }
           },
+          "403": {
+            "description": "You may read the skill, but not change it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
           "404": {
             "description": "No such skill that you may see",
             "content": {
@@ -5041,6 +5871,16 @@
           },
           "401": {
             "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "You may read the skill, but not change it",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -5952,6 +6792,16 @@
               }
             }
           },
+          "403": {
+            "description": "You may read the integration, but not change it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
           "404": {
             "description": "No such integration that you may see",
             "content": {
@@ -6178,6 +7028,16 @@
               }
             }
           },
+          "403": {
+            "description": "You may read the integration, but not change it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
           "404": {
             "description": "No such integration that you may see",
             "content": {
@@ -6280,6 +7140,16 @@
           },
           "401": {
             "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "You may read the integration, but not change it",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -9799,6 +10669,132 @@
           "workspaceSlug",
           "teamId",
           "teamName"
+        ]
+      },
+      "SecretSourceResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "built-in",
+              "aws-secrets-manager"
+            ],
+            "example": "built-in",
+            "description": "Where the value lives: kept by Spotlight, or read from AWS Secrets Manager when it is used"
+          },
+          "secretId": {
+            "type": "string",
+            "nullable": true,
+            "example": null,
+            "description": "The name or ARN of the secret in AWS Secrets Manager"
+          },
+          "field": {
+            "type": "string",
+            "nullable": true,
+            "example": null,
+            "description": "The key to read when that secret holds JSON"
+          }
+        },
+        "required": [
+          "kind",
+          "secretId",
+          "field"
+        ]
+      },
+      "SecretBindingResponseDto": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "example": "api.linear.app",
+            "description": "A host the secret may be sent to, over HTTPS only"
+          },
+          "header": {
+            "type": "string",
+            "example": "authorization",
+            "description": "The request header it is worn in"
+          },
+          "prefix": {
+            "type": "string",
+            "example": "Bearer ",
+            "description": "Written before the value in that header"
+          }
+        },
+        "required": [
+          "host",
+          "header",
+          "prefix"
+        ]
+      },
+      "SecretResourceResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "0d6f3c1e-8a52-4f7b-9c1d-5e2a7b3f9c40",
+            "description": "Issued by Spotlight when the resource is created, and never changed"
+          },
+          "version": {
+            "type": "number",
+            "example": 3,
+            "description": "Rises with every change; the ETag carries it, and a write sends it back as If-Match"
+          },
+          "address": {
+            "type": "string",
+            "example": "core/linear",
+            "description": "Names the resource within its workspace; terraform import takes it"
+          },
+          "warnings": {
+            "description": "What would work better, though nothing stops it working; not settable",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldErrorResponseDto"
+            }
+          },
+          "workspaceId": {
+            "type": "string",
+            "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
+            "description": "The workspace it belongs to"
+          },
+          "name": {
+            "type": "string",
+            "example": "LINEAR_API_KEY",
+            "description": "What integrations call it; fixed for its life, so changing it means replacing the secret"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SecretSourceResponseDto"
+          },
+          "bindings": {
+            "description": "The only hosts the secret is ever sent to, and how; a request anywhere else goes without it",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SecretBindingResponseDto"
+            }
+          },
+          "valueWoVersion": {
+            "type": "number",
+            "nullable": true,
+            "example": 1,
+            "description": "Changing it rotates the value to the valueWo sent with it; the value itself is write-only and never answered"
+          },
+          "rotatedAt": {
+            "type": "string",
+            "example": "2026-09-23T12:00:00.000Z",
+            "description": "When the value was last set; not settable"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "address",
+          "warnings",
+          "workspaceId",
+          "name",
+          "source",
+          "bindings",
+          "valueWoVersion",
+          "rotatedAt"
         ]
       },
       "RepositoryResponseDto": {

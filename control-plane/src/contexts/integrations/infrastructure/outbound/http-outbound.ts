@@ -1,3 +1,4 @@
+import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
 import type { RequestIR } from '@integrations/infrastructure/integrations/integration.compile';
 import {
   asJson,
@@ -29,8 +30,12 @@ export class HttpOutbound {
     this.egress = new Egress(allowed);
   }
 
-  async run(request: RequestIR, against: Bindings): Promise<OutboundResult> {
-    const reply = await this.send(request, against);
+  async run(
+    request: RequestIR,
+    against: Bindings,
+    credentials: Credentials,
+  ): Promise<OutboundResult> {
+    const reply = await this.send(request, against, credentials);
 
     if (!reply) {
       return { ok: false, status: 0, response: null, capture: {} };
@@ -48,8 +53,12 @@ export class HttpOutbound {
     return { ok: succeeded(request, beside), status, response, capture };
   }
 
-  async bytes(request: RequestIR, against: Bindings): Promise<Uint8Array> {
-    const reply = await this.send(request, against);
+  async bytes(
+    request: RequestIR,
+    against: Bindings,
+    credentials: Credentials,
+  ): Promise<Uint8Array> {
+    const reply = await this.send(request, against, credentials);
 
     if (!reply) {
       throw new UpstreamRefusedError(
@@ -79,6 +88,7 @@ export class HttpOutbound {
   private async send(
     request: RequestIR,
     against: Bindings,
+    credentials: Credentials,
   ): Promise<Response | null> {
     const url = this.templated(request.url, against);
 
@@ -95,7 +105,6 @@ export class HttpOutbound {
         headers[header.name] = read;
       }
     }
-    this.authorize(request, against, headers);
 
     const query = new URLSearchParams();
     for (const each of request.query) {
@@ -111,10 +120,19 @@ export class HttpOutbound {
       headers['content-type'] = 'application/json';
     }
 
+    const wearsSecrets = await this.authorize(
+      request,
+      against,
+      url,
+      headers,
+      credentials,
+    );
+
     return this.fetch(target, {
       method: request.method,
       headers,
       body: body?.text,
+      redirect: wearsSecrets ? 'manual' : 'follow',
     });
   }
 
@@ -142,41 +160,29 @@ export class HttpOutbound {
       : { text: asJson(read), json: true };
   }
 
-  private authorize(
+  private async authorize(
     request: RequestIR,
     against: Bindings,
+    url: string,
     headers: Record<string, string>,
-  ): void {
+    credentials: Credentials,
+  ): Promise<boolean> {
     const auth = request.auth;
 
-    if (!auth) {
-      return;
-    }
-
-    const secrets = (against.secret ?? {}) as Record<string, string>;
-
-    if (auth.kind === 'oauth2') {
+    if (auth?.kind === 'oauth2') {
       const token = against.connection;
       if (typeof token === 'string' && token !== '') {
         headers.authorization = `Bearer ${token}`;
       }
-      return;
+      return false;
     }
 
-    if (auth.kind === 'token') {
-      const token = secrets[auth.secret];
-      if (token !== undefined) {
-        headers[auth.header ?? 'authorization'] =
-          auth.scheme === 'bearer' ? `Bearer ${token}` : token;
-      }
-      return;
+    if (auth?.kind === 'secrets') {
+      (await credentials.wornToward(url, auth.secrets)).applyTo(headers);
+      return true;
     }
 
-    if (auth.kind === 'basic') {
-      const username = this.templated(auth.username, against) ?? '';
-      const password = this.templated(auth.password, against) ?? '';
-      headers.authorization = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
-    }
+    return false;
   }
 }
 

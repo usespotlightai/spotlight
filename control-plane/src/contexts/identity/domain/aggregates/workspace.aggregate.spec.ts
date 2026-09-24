@@ -7,6 +7,7 @@ import { NotYoursToGiveError } from '@identity/domain/exceptions/not-yours-to-gi
 import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-use.error';
 import { WorkspaceMovedOnError } from '@identity/domain/exceptions/workspace-moved-on.error';
 import { WorkspaceSlugFixedError } from '@identity/domain/exceptions/workspace-slug-fixed.error';
+import { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
@@ -381,12 +382,15 @@ describe('Workspace', () => {
       ).toThrow(WorkspaceSlugFixedError);
     });
 
-    it('closes only once it holds no team', () => {
-      expect(() => kept().closed([TeamKey.of('core')])).toThrow(
-        WorkspaceInUseError,
-      );
+    it('closes only once it holds no team and nothing else', () => {
+      expect(() =>
+        kept().closed([TeamKey.of('core')], Holdings.none()),
+      ).toThrow(WorkspaceInUseError);
+      expect(() =>
+        kept().closed([], Holdings.of(['secret LINEAR_API_KEY'])),
+      ).toThrow(/still holds secret LINEAR_API_KEY/);
 
-      const closed = kept().closed([]);
+      const closed = kept().closed([], Holdings.none());
 
       expect(closed.isClosed).toBe(true);
       expect(closed.pullEvents()).toEqual([

@@ -6,7 +6,10 @@ import { SkillKeyFixedError } from '@configuration/domain/exceptions/skill-key-f
 import type { SkillDefinitionRepository } from '@configuration/domain/repositories/skill-definition.repository';
 import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import type { ResourceUpdated } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import {
+  FORBIDDEN,
+  type ResourceUpdated,
+} from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -34,8 +37,12 @@ export class UpdateSkillHandler
           )
         : null;
 
-      if (!standing || !membership?.administers) {
+      if (!standing || !membership) {
         return null;
+      }
+
+      if (!membership.administers) {
+        return FORBIDDEN;
       }
 
       standing.expecting(command.expectedVersion);

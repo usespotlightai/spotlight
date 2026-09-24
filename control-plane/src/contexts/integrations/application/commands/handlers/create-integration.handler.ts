@@ -7,7 +7,10 @@ import { IntegrationAlreadyDefinedError } from '@integrations/domain/exceptions/
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
 import { IntegrationAddress } from '@integrations/domain/value-objects/integration-address.vo';
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
-import type { ResourceCreated } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import {
+  FORBIDDEN,
+  type ResourceCreated,
+} from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -42,11 +45,17 @@ export class CreateIntegrationHandler
         command.teamId,
         UserId.of(command.requesterId),
       );
-      const team = membership?.administers
-        ? await this.teams.find(membership.teamId)
-        : null;
+      if (!membership) {
+        return null;
+      }
 
-      if (!membership || !team) {
+      if (!membership.administers) {
+        return FORBIDDEN;
+      }
+
+      const team = await this.teams.find(membership.teamId);
+
+      if (!team) {
         return null;
       }
 

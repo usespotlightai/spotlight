@@ -10,6 +10,7 @@ export * from '@integrations/infrastructure/persistence/drizzle/schemas/integrat
 export * from '@platform/persistence/drizzle/schemas/event.schema';
 export * from '@platform/persistence/drizzle/schemas/idempotency.schema';
 export * from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
+export * from '@secrets/infrastructure/persistence/drizzle/schemas/secret.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/attachment.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/line.schema';

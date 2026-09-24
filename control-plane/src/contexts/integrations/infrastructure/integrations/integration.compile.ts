@@ -62,7 +62,6 @@ import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
-import { SECRET_NAME_SHAPE } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
 interface Freshness {
@@ -85,13 +84,8 @@ export type AuthIR =
       readonly kind: 'token';
       readonly secret: string;
       readonly header: string | null;
-      readonly scheme: 'bearer' | 'raw';
     }
-  | {
-      readonly kind: 'basic';
-      readonly username: Templated;
-      readonly password: Templated;
-    }
+  | { readonly kind: 'secrets'; readonly secrets: readonly string[] }
   | { readonly kind: 'oauth2' }
   | {
       readonly kind: 'asymmetric';
@@ -249,10 +243,7 @@ const becauseOf = (error: unknown): string =>
     ? error.because
     : reasoned(error);
 
-const SECRET_IN = new RegExp(`secret\\.(${SECRET_NAME_SHAPE})`, 'g');
-
-const secretsIn = (text: string): string[] =>
-  [...text.matchAll(SECRET_IN)].map((match) => match[1] as string);
+const READS_A_SECRET = /(^|[^A-Za-z0-9_.])secret\s*(\.|\[)/;
 
 const doubted = (error: ExpressionErrorDto): string =>
   error.suggestion
@@ -323,8 +314,17 @@ class Compiler {
   }
 
   expression(held: string, place: Place): Expression | null {
-    for (const name of secretsIn(held)) {
-      this.secrets.add(name);
+    if (READS_A_SECRET.test(held)) {
+      this.problems.push(
+        ConfigurationProblem.of({
+          path: this.path,
+          at: place.field,
+          reason:
+            'reads a secret’s value, which nothing may; name the secret in auth.secrets and Spotlight wears it toward the hosts it is bound to',
+        }),
+      );
+
+      return null;
     }
 
     const source = written(held);
@@ -481,22 +481,17 @@ class Compiler {
         kind: 'token',
         secret: secretOf(auth.token.secret),
         header: auth.token.header ?? null,
-        scheme: auth.token.scheme,
       };
     }
 
-    if (auth.basic) {
-      return {
-        kind: 'basic',
-        username: this.templated(
-          auth.basic.username,
-          place.to('basic.username'),
-        ),
-        password: this.templated(
-          auth.basic.password,
-          place.to('basic.password'),
-        ),
-      };
+    if (auth.secrets) {
+      const secrets = [...new Set(auth.secrets.map(secretOf))];
+
+      for (const name of secrets) {
+        this.secrets.add(name);
+      }
+
+      return { kind: 'secrets', secrets };
     }
 
     if (auth.asymmetric) {

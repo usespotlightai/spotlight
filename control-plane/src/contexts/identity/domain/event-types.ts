@@ -11,8 +11,8 @@ import { WorkspaceMemberRoleChanged } from '@identity/domain/events/workspace-me
 import { WorkspaceOpened } from '@identity/domain/events/workspace-opened.event';
 import { WorkspaceRedefined } from '@identity/domain/events/workspace-redefined.event';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
+import { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
-import { TeamHoldings } from '@identity/domain/value-objects/team-holdings.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
@@ -22,7 +22,7 @@ import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo'
 export const IDENTITY_EVENT_TYPES = [
   EmailAddress,
   InviteId,
-  TeamHoldings,
+  Holdings,
   TeamKey,
   TeamName,
   WorkspaceName,

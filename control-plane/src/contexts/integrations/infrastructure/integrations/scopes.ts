@@ -22,8 +22,6 @@ const ASK: Declared = {
   },
 };
 
-const SECRETS = { secret: 'map<string, string>' } as const;
-
 export const DELIVERED = Scope.of({
   body: OUTSIDE,
   headers: OUTSIDE,
@@ -32,7 +30,6 @@ export const DELIVERED = Scope.of({
 
 export const POLLING = Scope.of({
   cursor: 'string',
-  ...SECRETS,
   connection: 'string',
 });
 
@@ -42,7 +39,6 @@ export const ACTING = Scope.of({
   task: TASK,
   ask: ASK,
   target: 'map<string, string>',
-  ...SECRETS,
   connection: 'string',
 });
 
@@ -58,8 +54,6 @@ export const LINKED = Scope.of({ response: OUTSIDE });
 export const DEFAULTING = Scope.of({ task: TASK });
 
 export const attaching = (scope: Scope): Scope => scope.and({ file: OUTSIDE });
-
-export const requesting = (scope: Scope): Scope => scope.and(SECRETS);
 
 export const answered = (scope: Scope): Scope =>
   scope.and({ response: OUTSIDE, status: OUTSIDE, headers: OUTSIDE });

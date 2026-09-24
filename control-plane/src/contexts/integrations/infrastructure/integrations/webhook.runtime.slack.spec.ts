@@ -5,6 +5,7 @@ import {
 } from '@integrations/infrastructure/integrations/integration.compile';
 import { WebhookRuntime } from '@integrations/infrastructure/integrations/webhook.runtime';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import { credentialsFor } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -68,8 +69,8 @@ actions:
     request:
       method: POST
       url: https://slack.com/api/chat.postMessage
-      headers:
-        authorization: '\${{ "Bearer " + secret.SLACK_BOT_TOKEN }}'
+      auth:
+        secrets: [secret.SLACK_BOT_TOKEN]
       body: '\${{ {"channel": target.channel, "text": ask.body} }}'
       expect:
         success: '\${{ response.ok }}'
@@ -245,8 +246,7 @@ webhook:
           query:
             user: '\${{ body.event.user }}'
           auth:
-            token:
-              secret: secret.SLACK_BOT_TOKEN
+            secrets: [secret.SLACK_BOT_TOKEN]
         capture:
           email: '\${{ response.user.profile.email }}'
       raise:
@@ -260,6 +260,10 @@ webhook:
           - kind: slack.thread
             value: '\${{ body.event.ts }}'
 `;
+
+    const SLACK = credentialsFor({
+      SLACK_BOT_TOKEN: { host: 'slack.com', value: 'xoxb-1' },
+    });
 
     const looking = (response: unknown, ok = true) => {
       const read = compileIntegration(parseYaml(WITH_LOOKUP), expressions);
@@ -277,10 +281,11 @@ webhook:
       const runtime = new WebhookRuntime(
         read.readable,
         WORKSPACE,
-        new Map([['SLACK_BOT_TOKEN', 'xoxb-1']]),
+        new Map(),
         () => NOW * 1000,
         null,
         { run } as unknown as HttpOutbound,
+        SLACK,
       );
 
       return { runtime, run };

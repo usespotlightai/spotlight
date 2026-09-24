@@ -1,12 +1,10 @@
-import type { HeldSecretsPort } from '@configuration/application/ports/held-secrets.port';
 import type {
   DefinedIntegrationsPort,
   TeamDefinedIntegrations,
 } from '@integrations/application/ports/defined-integrations.port';
 import type { PollState } from '@integrations/application/ports/integration-cursors.port';
-import { HostReach } from '@integrations/application/services/host-reach.service';
+import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
 import { RunSchedules } from '@integrations/application/services/run-schedules.service';
-import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-clients';
@@ -17,7 +15,12 @@ import type {
 } from '@integrations/infrastructure/outbound/http-outbound';
 import { FakeIntegrationCursors } from '@integrations/integrations.cursors.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
+import {
+  injecting,
+  reachFor,
+} from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -51,8 +54,8 @@ actions:
       url: https://api.linear.app/digest
 ${headers}`;
 
-const READS_A_SECRET = `      headers:
-        authorization: '\${{ "Bearer " + secret.LINEAR_TOKEN }}'
+const READS_A_SECRET = `      auth:
+        secrets: [secret.LINEAR_TOKEN]
 `;
 
 const config = (file: string): TeamDefinedIntegrations => ({
@@ -66,18 +69,21 @@ const KEY = 'linear:schedule';
 
 const scheduling = (
   cursors: FakeIntegrationCursors,
-  run: (request: unknown) => Promise<OutboundResult>,
+  run: (
+    request: unknown,
+    against?: unknown,
+    credentials?: Credentials,
+  ) => Promise<OutboundResult>,
   now: Date = NOW,
   file = schedule(),
+  injection: SecretInjectionPort = injecting().injection,
 ) =>
   new RunSchedules(
     {
       everywhere: async () => [config(file)],
     } as unknown as DefinedIntegrationsPort,
     runtimeWith({ run } as unknown as HttpOutbound),
-    new HostReach({ held: async () => [] } satisfies HeldSecretsPort, {
-      of: async () => null,
-    } as unknown as HostConnectionRepository),
+    reachFor(injection),
     cursors,
     { now: () => now } as ClockPort,
     { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -141,17 +147,42 @@ describe('RunSchedules', () => {
     expect(run).toHaveBeenCalledTimes(1);
   });
 
-  it('does not run an action whose file reads a secret, since none is held', async () => {
-    const { schedules, run, cursors } = working(
-      { cursor: null, ranAt: new Date('2026-09-07T08:00:00.000Z') },
-      NOW,
-      schedule(READS_A_SECRET),
+  it('lets the call wear the workspace’s secrets as Spotlight’s own', async () => {
+    const { injection, forSpotlight } = injecting({
+      LINEAR_TOKEN: { host: 'api.linear.app', value: 'lin-1' },
+    });
+    const run = vi.fn(
+      async (
+        _request: unknown,
+        _against: unknown,
+        _credentials?: Credentials,
+      ) => OK,
     );
 
-    await schedules.runDue();
+    const cursors = new FakeIntegrationCursors();
+    cursors.keep(TEAM, KEY, {
+      cursor: null,
+      ranAt: new Date('2026-09-07T08:00:00.000Z'),
+    });
 
-    expect(run).not.toHaveBeenCalled();
-    expect(cursors.kept(TEAM, KEY)?.ranAt).toEqual(NOW);
+    await scheduling(
+      cursors,
+      run,
+      NOW,
+      schedule(READS_A_SECRET),
+      injection,
+    ).runDue();
+
+    const credentials = run.mock.calls[0]?.[2] as Credentials;
+    await credentials.wornToward('https://api.linear.app/digest', [
+      'LINEAR_TOKEN',
+    ]);
+
+    expect(forSpotlight).toHaveBeenCalledWith({
+      workspaceId: 'ws_1',
+      secrets: ['LINEAR_TOKEN'],
+      url: 'https://api.linear.app/digest',
+    });
   });
 
   it('runs the action once when two workers reach the slot together', async () => {

@@ -5,7 +5,7 @@ import { TeamRedefined } from '@identity/domain/events/team-redefined.event';
 import { TeamInUseError } from '@identity/domain/exceptions/team-in-use.error';
 import { TeamKeyFixedError } from '@identity/domain/exceptions/team-key-fixed.error';
 import { TeamMovedOnError } from '@identity/domain/exceptions/team-moved-on.error';
-import type { TeamHoldings } from '@identity/domain/value-objects/team-holdings.vo';
+import type { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
@@ -135,7 +135,7 @@ export class Team extends EventRecorder {
     return redefined;
   }
 
-  disbanded(holdings: TeamHoldings): Team {
+  disbanded(holdings: Holdings): Team {
     this.guardStanding();
 
     if (!holdings.isEmpty) {

@@ -8,9 +8,14 @@ import type {
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 
 const refused = (kind: string, outcome: Refused): never => {
-  throw outcome.outcome === 'moved-on'
-    ? ProblemException.movedOn(kind, outcome.currentVersion)
-    : ProblemException.inUse(kind, outcome.reason);
+  switch (outcome.outcome) {
+    case 'moved-on':
+      throw ProblemException.movedOn(kind, outcome.currentVersion);
+    case 'in-use':
+      throw ProblemException.inUse(kind, outcome.reason);
+    case 'forbidden':
+      throw ProblemException.forbidden(kind);
+  }
 };
 
 export const found = <T, R>(
@@ -42,6 +47,8 @@ export const answerCreated = async <R extends object>(
       throw ProblemException.taken(kind, created.address);
     case 'key-reused':
       throw ProblemException.idempotencyKeyReused();
+    case 'forbidden':
+      throw ProblemException.forbidden(kind);
     default:
       throw ProblemException.notFound(kind);
   }

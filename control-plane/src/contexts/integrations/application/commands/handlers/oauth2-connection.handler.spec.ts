@@ -128,6 +128,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
     });
     const connection = save.mock.calls[0]?.[0];
     expect(connection?.teamId.value).toBe('team_1');
+    expect(connection?.workspaceId.value).toBe('ws_1');
     expect(connection?.accessToken.value).toBe('xoxb-1');
     expect(dispatch.mock.calls[0]?.[0]?.map((each) => each.kind)).toContain(
       'integrations.host-connected',

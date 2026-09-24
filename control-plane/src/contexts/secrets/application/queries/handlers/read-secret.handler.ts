@@ -1,0 +1,33 @@
+import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type { SecretResourceDto } from '@secrets/application/dto/secret-resource.dto';
+import { SecretResourceMapper } from '@secrets/application/mappers/secret-resource.mapper';
+import type { SecretResourcesPort } from '@secrets/application/ports/secret-resources.port';
+import type { ReadSecretQuery } from '@secrets/application/queries/read-secret.query';
+import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+
+export class ReadSecretHandler
+  implements QueryHandlerPort<ReadSecretQuery, SecretResourceDto | null>
+{
+  constructor(
+    private readonly access: WorkspaceAccessPort,
+    private readonly resources: SecretResourcesPort,
+  ) {}
+
+  async execute(query: ReadSecretQuery): Promise<SecretResourceDto | null> {
+    try {
+      const kept = await this.resources.withId(query.secretId);
+
+      return kept &&
+        (await this.access.inWorkspaceWithId(
+          kept.workspaceId,
+          UserId.of(query.viewerId),
+        ))
+        ? SecretResourceMapper.toDto(kept)
+        : null;
+    } catch (error) {
+      rethrowAsFault(error);
+    }
+  }
+}

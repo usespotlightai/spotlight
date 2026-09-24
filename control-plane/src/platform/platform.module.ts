@@ -1,9 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { APP_FILTER, HttpAdapterHost } from '@nestjs/core';
 import { CqrsModule } from '@nestjs/cqrs';
-import { ENV } from '@platform/config/config.constants';
 import { ConfigModule } from '@platform/config/config.module';
-import type { Env } from '@platform/config/env.schema';
 import { EventDelivery } from '@platform/events/event-delivery';
 import { EventDeliveryWorker } from '@platform/events/event-delivery.worker';
 import { EventOutbox } from '@platform/events/event-outbox';
@@ -21,7 +19,6 @@ import { GracefulShutdown } from '@platform/lifecycle/graceful-shutdown';
 import { LoggingModule } from '@platform/logging/logging.module';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { DrizzleModule } from '@platform/persistence/drizzle/drizzle.module';
-import { SecretCipher } from '@platform/secrets/secret.cipher';
 import { SystemClock } from '@platform/time/system-clock';
 import { TokenMint } from '@platform/tokens/token-mint.service';
 import { BACKGROUND } from '@shared-kernel/application/ports/background.port';
@@ -73,11 +70,6 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
     TokenMint,
     { provide: TOKEN_MINT, useClass: TokenMint },
     { provide: IDEMPOTENT_CREATES, useClass: DrizzleIdempotentCreates },
-    {
-      provide: SecretCipher,
-      inject: [ENV],
-      useFactory: (env: Env) => new SecretCipher(env.SPOTLIGHT_SECRETS_KEY),
-    },
   ],
   exports: [
     ConfigModule,
@@ -99,7 +91,6 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
     TokenMint,
     TOKEN_MINT,
     IDEMPOTENT_CREATES,
-    SecretCipher,
   ],
 })
 export class PlatformModule {}

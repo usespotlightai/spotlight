@@ -1,8 +1,6 @@
-import type { HeldSecretsPort } from '@configuration/application/ports/held-secrets.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
-import { HostReach } from '@integrations/application/services/host-reach.service';
-import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
+import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
 import { TaskNotices } from '@integrations/infrastructure/acl/task-notices.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
@@ -13,8 +11,13 @@ import type {
   OutboundResult,
 } from '@integrations/infrastructure/outbound/http-outbound';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
+import {
+  injecting,
+  reachFor,
+} from '@integrations/integrations.secrets.fake-spec';
 import { WebInboxLinks } from '@integrations/presentation/http/web-inbox-links';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
 import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -73,8 +76,8 @@ on:
         value: '\${{ capture.thread }}'
 `;
 
-const READS_A_SECRET = `      headers:
-        authorization: '\${{ "Bearer " + secret.SLACK_BOT_TOKEN }}'
+const READS_A_SECRET = `      auth:
+        secrets: [secret.SLACK_BOT_TOKEN]
 `;
 
 const asked = (
@@ -103,9 +106,14 @@ const notifying = (
     capture: { thread: '170.9' },
   },
   file = slack(),
+  injection: SecretInjectionPort = injecting().injection,
 ) => {
   const run = vi.fn(
-    async (_action: unknown, _against: Record<string, unknown>) => reply,
+    async (
+      _action: unknown,
+      _against: Record<string, unknown>,
+      _credentials?: Credentials,
+    ) => reply,
   );
 
   const notifier = new TaskNotices(
@@ -113,9 +121,7 @@ const notifying = (
       ofTeam: vi.fn(async () => [defined(file)]),
     } as unknown as DefinedIntegrationsPort,
     runtimeWith({ run } as unknown as HttpOutbound),
-    new HostReach({ held: async () => [] } satisfies HeldSecretsPort, {
-      of: async () => null,
-    } as unknown as HostConnectionRepository),
+    reachFor(injection),
     new WebInboxLinks(
       { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,
       'https://app.example',
@@ -189,11 +195,28 @@ describe('TaskNotices', () => {
     expect(await notifier.notify(asked(), 'task.asked')).toEqual([]);
   });
 
-  it('posts nothing, and keeps nothing, for a host whose file reads a secret', async () => {
-    const { notifier, run } = notifying(undefined, slack(READS_A_SECRET));
+  it('lets the post wear the workspace’s secrets as Spotlight’s own', async () => {
+    const { injection, forSpotlight } = injecting({
+      SLACK_BOT_TOKEN: { host: 'slack.com', value: 'xoxb-1' },
+    });
+    const { notifier, run } = notifying(
+      undefined,
+      slack(READS_A_SECRET),
+      injection,
+    );
 
-    expect(await notifier.notify(asked(), 'task.asked')).toEqual([]);
-    expect(run).not.toHaveBeenCalled();
+    await notifier.notify(asked({ 'slack.thread': '170.1' }), 'task.asked');
+
+    const credentials = run.mock.calls[0]?.[2] as Credentials;
+    await credentials.wornToward('https://slack.com/api/chat.postMessage', [
+      'SLACK_BOT_TOKEN',
+    ]);
+
+    expect(forSpotlight).toHaveBeenCalledWith({
+      workspaceId: 'ws_1',
+      secrets: ['SLACK_BOT_TOKEN'],
+      url: 'https://slack.com/api/chat.postMessage',
+    });
   });
 
   it('runs the binding for the event it is given', async () => {

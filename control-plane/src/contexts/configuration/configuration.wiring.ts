@@ -50,12 +50,12 @@ import { BuiltInSkills } from '@configuration/infrastructure/acl/built-in-skills
 import { DefinedConfiguration } from '@configuration/infrastructure/acl/defined-configuration.adapter';
 import { TeamSkills } from '@configuration/infrastructure/acl/team-skills.adapter';
 import { Teams } from '@configuration/infrastructure/acl/teams.adapter';
+import { WorkspaceSecrets } from '@configuration/infrastructure/acl/workspace-secrets.adapter';
 import { DrizzleAppliedSkills } from '@configuration/infrastructure/persistence/drizzle/readers/applied-skills.reader';
 import { DrizzleIntegrationLinks } from '@configuration/infrastructure/persistence/drizzle/readers/integration-links.reader';
 import { DrizzleSkillResources } from '@configuration/infrastructure/persistence/drizzle/readers/skill-resources.reader';
 import { DrizzleSkillsHeld } from '@configuration/infrastructure/persistence/drizzle/readers/skills-held.reader';
 import { DrizzleSkillDefinitions } from '@configuration/infrastructure/persistence/drizzle/repositories/skill-definitions.repository';
-import { NoHeldSecrets } from '@configuration/infrastructure/secrets/no-held-secrets';
 import { BuiltInSkillFiles } from '@configuration/infrastructure/skills/built-in-skill-files';
 import { SkillCompiler } from '@configuration/infrastructure/skills/skill.compile';
 import { TeamSkillFiles } from '@configuration/infrastructure/skills/team-skill-files';
@@ -81,6 +81,10 @@ import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventPublications } from '@platform/events/event-publications';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { EventTypes } from '@platform/events/event-types';
+import {
+  DEFINED_SECRETS,
+  type DefinedSecretsPort,
+} from '@secrets/application/ports/defined-secrets.port';
 import { ID_GENERATOR } from '@shared-kernel/application/ports/id-generator.port';
 import { IDEMPOTENT_CREATES } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -121,7 +125,12 @@ const adapters: Provider[] = [
       new BuiltInSkills(new BuiltInSkillFiles(keys)),
   },
   { provide: SKILL_READER, useFactory: () => new TeamSkillFiles() },
-  { provide: HELD_SECRETS, useFactory: () => new NoHeldSecrets() },
+  {
+    provide: HELD_SECRETS,
+    inject: [TEAM_DIRECTORY, DEFINED_SECRETS],
+    useFactory: (teams: TeamDirectoryPort, secrets: DefinedSecretsPort) =>
+      new WorkspaceSecrets(teams, secrets),
+  },
   {
     provide: CONFIGURATION_READER,
     inject: [INTEGRATION_READER],

@@ -1,8 +1,4 @@
 import {
-  HELD_SECRETS,
-  type HeldSecretsPort,
-} from '@configuration/application/ports/held-secrets.port';
-import {
   INTEGRATION_READER,
   type IntegrationReaderPort,
 } from '@configuration/application/ports/integration-reader.port';
@@ -111,6 +107,7 @@ import type { IntegrationDefinitionRepository } from '@integrations/domain/repos
 import { INTEGRATION_DEFINITIONS } from '@integrations/domain/repositories/integration-definition.repository';
 import { IntegrationReadings } from '@integrations/infrastructure/acl/integration-readings.adapter';
 import { IntegrationToolCalls } from '@integrations/infrastructure/acl/integration-tool-calls.adapter';
+import { IntegrationSecretUses } from '@integrations/infrastructure/acl/secret-uses.adapter';
 import { TaskNotices } from '@integrations/infrastructure/acl/task-notices.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { ConfiguredSources } from '@integrations/infrastructure/integrations/configured.sources';
@@ -162,7 +159,15 @@ import {
 } from '@platform/expressions/expression-engine.port';
 import { API_PREFIX } from '@platform/http/routes';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { SecretCipher } from '@platform/secrets/secret.cipher';
+import {
+  CREDENTIAL_SEALING,
+  type CredentialSealingPort,
+} from '@secrets/application/ports/credential-sealing.port';
+import {
+  SECRET_INJECTION,
+  type SecretInjectionPort,
+} from '@secrets/application/ports/secret-injection.port';
+import { SECRET_USES } from '@secrets/application/ports/secret-uses.port';
 import { CLOCK, ClockPort } from '@shared-kernel/application/ports/clock.port';
 import {
   DOMAIN_EVENT_DISPATCHER,
@@ -416,12 +421,12 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: HOST_CONNECTIONS,
-    inject: [DrizzleContext, DOMAIN_EVENT_DISPATCHER, SecretCipher],
+    inject: [DrizzleContext, DOMAIN_EVENT_DISPATCHER, CREDENTIAL_SEALING],
     useFactory: (
       context: DrizzleContext,
       events: DomainEventDispatcher,
-      cipher: SecretCipher,
-    ) => new DrizzleHostConnections(context, events, cipher),
+      sealing: CredentialSealingPort,
+    ) => new DrizzleHostConnections(context, events, sealing),
   },
 
   {
@@ -442,11 +447,12 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: HostReach,
-    inject: [HELD_SECRETS, HOST_CONNECTIONS],
+    inject: [HOST_CONNECTIONS, TEAM_DIRECTORY, SECRET_INJECTION],
     useFactory: (
-      secrets: HeldSecretsPort,
       connections: HostConnectionRepository,
-    ) => new HostReach(secrets, connections),
+      teams: TeamDirectoryPort,
+      injection: SecretInjectionPort,
+    ) => new HostReach(connections, teams, injection),
   },
 
   {
@@ -558,13 +564,20 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: CONFIGURED_SOURCES,
-    inject: [DEFINED_INTEGRATIONS, IntegrationReader, JwksCache, HttpOutbound],
+    inject: [
+      DEFINED_INTEGRATIONS,
+      IntegrationReader,
+      JwksCache,
+      HttpOutbound,
+      SECRET_INJECTION,
+    ],
     useFactory: (
       defined: DefinedIntegrationsPort,
       reader: IntegrationReader,
       jwks: JwksCache,
       outbound: HttpOutbound,
-    ) => new ConfiguredSources(defined, reader, jwks, outbound),
+      injection: SecretInjectionPort,
+    ) => new ConfiguredSources(defined, reader, jwks, outbound, injection),
   },
 
   {
@@ -667,5 +680,15 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       runtime: IntegrationRuntimePort,
       reach: HostReach,
     ) => new IntegrationToolCalls(defined, runtime, reach),
+  },
+
+  {
+    provide: SECRET_USES,
+    inject: [TEAM_DIRECTORY, DEFINED_INTEGRATIONS, IntegrationReader],
+    useFactory: (
+      teams: TeamDirectoryPort,
+      defined: DefinedIntegrationsPort,
+      reader: IntegrationReader,
+    ) => new IntegrationSecretUses(teams, defined, reader),
   },
 ];

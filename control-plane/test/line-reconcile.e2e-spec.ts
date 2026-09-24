@@ -4,9 +4,10 @@ import { CommandBus } from '@nestjs/cqrs';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import type {
-  ResourceCreated,
-  ResourceUpdated,
+import {
+  FORBIDDEN,
+  type ResourceCreated,
+  type ResourceUpdated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -165,8 +166,8 @@ describe('a line reconciled with its definition (e2e)', () => {
     expect((await lines.find(opened.id))?.name.value).toBe(DELIVERY.name);
   });
 
-  it('defines nothing for a member who does not administer the workspace', async () => {
-    expect(await define(DELIVERY, seat.member)).toBeNull();
+  it('forbids a member who does not administer the workspace, defining nothing', async () => {
+    expect(await define(DELIVERY, seat.member)).toEqual(FORBIDDEN);
     expect(await lines.ofTeam(TeamId.of(held))).toEqual([]);
   });
 });

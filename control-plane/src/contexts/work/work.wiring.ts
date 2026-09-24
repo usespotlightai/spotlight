@@ -47,6 +47,10 @@ import {
   type RunnerReaderPort,
 } from '@runners/application/ports/runner-reader.port';
 import {
+  RUN_GRANTS,
+  type RunGrantsPort,
+} from '@secrets/application/ports/run-grants.port';
+import {
   CLOCK,
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
@@ -784,6 +788,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       TRANSACTION,
       STATION_TALLIES,
       LOGGER,
+      RUN_GRANTS,
     ],
     useFactory: (
       types: EventTypes,
@@ -807,6 +812,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       transaction: TransactionPort,
       tallies: StationTalliesPort,
       logger: LoggerPort,
+      runGrants: RunGrantsPort,
     ) => {
       types.register('work', WORK_EVENT_TYPES);
       publications.register(WORK_PUBLICATIONS);
@@ -830,6 +836,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           chatRuns: new EnqueueChatRun(chats, runs, chatDispatch),
           setup,
           abandoning: new AbandonTeamLines(lines, tallies, transaction, logger),
+          runGrants,
         }),
       ]);
       return true;

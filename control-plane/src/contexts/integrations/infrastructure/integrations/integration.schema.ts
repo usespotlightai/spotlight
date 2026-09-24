@@ -32,7 +32,7 @@ const key = (what: string) =>
 
 const secretRef = z
   .string()
-  .regex(SECRET_REF, 'names a team secret, as in secret.SLACK_BOT_TOKEN');
+  .regex(SECRET_REF, 'names a workspace secret, as in secret.SLACK_BOT_TOKEN');
 
 type HintFile = string | { [field: string]: HintFile };
 
@@ -65,12 +65,6 @@ const hmacSchema = z.object({
 const tokenSchema = z.object({
   secret: secretRef,
   header: z.string().optional(),
-  scheme: z.enum(['bearer', 'raw']).default('bearer'),
-});
-
-const basicSchema = z.object({
-  username: templated,
-  password: templated,
 });
 
 const oauth2UseSchema = z.object({
@@ -93,19 +87,35 @@ const jwtSchema = z.object({
   issuer: z.string().optional(),
 });
 
-const authSchema = z
-  .object({
-    hmac: hmacSchema.optional(),
-    token: tokenSchema.optional(),
-    basic: basicSchema.optional(),
-    oauth2: oauth2UseSchema.optional(),
-    asymmetric: asymmetricSchema.optional(),
-    jwt: jwtSchema.optional(),
-  })
+const authOptions = z.object({
+  hmac: hmacSchema.optional(),
+  token: tokenSchema.optional(),
+  oauth2: oauth2UseSchema.optional(),
+  asymmetric: asymmetricSchema.optional(),
+  jwt: jwtSchema.optional(),
+  secrets: z
+    .array(secretRef)
+    .min(1, 'names each secret the request wears, as in secret.LINEAR_API_KEY')
+    .optional(),
+});
+
+type AuthOptions = z.infer<typeof authOptions>;
+
+const namesOne = (auth: AuthOptions): boolean =>
+  Object.values(auth).filter((each) => each !== undefined).length === 1;
+
+const verifySchema = authOptions
+  .refine(namesOne, 'names exactly one way to authenticate')
   .refine(
-    (auth) =>
-      Object.values(auth).filter((each) => each !== undefined).length === 1,
-    'names exactly one way to authenticate',
+    (auth) => !auth.oauth2 && !auth.secrets,
+    'verifies a delivery by hmac, token, asymmetric or jwt',
+  );
+
+const requestAuthSchema = authOptions
+  .refine(namesOne, 'names exactly one way to authenticate')
+  .refine(
+    (auth) => auth.oauth2 !== undefined || auth.secrets !== undefined,
+    'authenticates a request by its oauth2 connection, or by the secrets it wears toward the hosts they are bound to',
   );
 
 const captureSchema = z.record(z.string(), expression);
@@ -119,7 +129,7 @@ const requestSchema = z.object({
   body: z
     .union([templated, z.array(z.unknown()), z.record(z.string(), z.unknown())])
     .optional(),
-  auth: authSchema.optional(),
+  auth: requestAuthSchema.optional(),
   expect: z
     .object({
       success: expression.optional(),
@@ -225,7 +235,7 @@ const eventSchema = z.object({
 
 const webhookSchema = z.object({
   shape: shapeSchema.optional(),
-  verify: authSchema,
+  verify: verifySchema,
   respond: z.object({ when: expression, body: expression }).optional(),
   mine: expression.optional(),
   route: z.object({ by: expression }).optional(),
@@ -303,7 +313,7 @@ export const integrationSchema = z
 
 export type IntegrationFile = z.infer<typeof integrationSchema>;
 export type EventFile = z.infer<typeof eventSchema>;
-export type AuthFile = z.infer<typeof authSchema>;
+export type AuthFile = AuthOptions;
 export type RequestFile = z.infer<typeof requestSchema>;
 export type RaiseFile = z.infer<typeof raiseSchema>;
 

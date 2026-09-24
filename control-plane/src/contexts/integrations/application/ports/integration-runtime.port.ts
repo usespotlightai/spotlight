@@ -3,6 +3,7 @@ import type { Integration } from '@integrations/domain/entities/integration.enti
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import type { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
 import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import type { WornSecrets } from '@secrets/application/contracts/worn-secrets.contract';
 import type {
   Happened,
   MarkWorn,
@@ -32,8 +33,13 @@ export interface BoundTask {
 
 export const INTEGRATION_RUNTIME = Symbol('INTEGRATION_RUNTIME');
 
+export interface Credentials {
+  wornToward(url: string, secrets: readonly string[]): Promise<WornSecrets>;
+}
+
 export interface Reach {
   readonly connection: AccessToken | null;
+  readonly credentials: Credentials;
 }
 
 export interface HostRefusal {
@@ -88,6 +94,7 @@ export type Renewed =
 export interface ReachableTool {
   readonly integration: Integration;
   readonly declared: ToolDeclaration;
+  readonly wears: readonly string[];
   defaultFor(input: ToolInputDeclaration): unknown;
   call(inputs: ToolInputValues, reach: Reach): Promise<ToolOutput>;
 }

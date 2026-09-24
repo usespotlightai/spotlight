@@ -211,9 +211,9 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       ).toMatchObject({ in: 'query', required: true });
 
       for (const [operation, statuses] of [
-        [create, ['409', '422']],
-        [update, ['409', '422', '428']],
-        [remove, ['409', '428']],
+        [create, ['403', '409', '422']],
+        [update, ['403', '409', '422', '428']],
+        [remove, ['403', '409', '428']],
       ] as const) {
         for (const status of statuses) {
           expect(operation.responses[status]?.content).toHaveProperty([
@@ -417,15 +417,15 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       expect((await viewer.read(made.id)).body).toEqual(made);
 
       if (!fixture.anyoneCreates) {
-        problem(await viewer.create(fixture.changed), 404, 'not-found');
+        problem(await viewer.create(fixture.changed), 403, 'forbidden');
       }
 
       problem(
         await viewer.update(made.id, fixture.changed, made.version),
-        404,
-        'not-found',
+        403,
+        'forbidden',
       );
-      problem(await viewer.remove(made.id, made.version), 404, 'not-found');
+      problem(await viewer.remove(made.id, made.version), 403, 'forbidden');
     });
 
     it('answers someone with no credentials with a problem', async () => {

@@ -25,6 +25,7 @@
       "@integrations/*": ["./src/contexts/integrations/*"],
       "@configuration/*": ["./src/contexts/configuration/*"],
       "@identity/*": ["./src/contexts/identity/*"],
+      "@secrets/*": ["./src/contexts/secrets/*"],
       "@/*": ["./src/*"]
     },
     "strict": true,

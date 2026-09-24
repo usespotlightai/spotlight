@@ -1,10 +1,15 @@
 import type { DeleteWorkspaceCommand } from '@identity/application/commands/delete-workspace.command';
 import type { IdentityResourcesPort } from '@identity/application/ports/identity-resources.port';
+import type { WorkspaceHoldingsPort } from '@identity/application/ports/workspace-holdings.port';
 import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-use.error';
 import { WorkspaceMovedOnError } from '@identity/domain/exceptions/workspace-moved-on.error';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
+import { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
-import type { ResourceDeleted } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import {
+  FORBIDDEN,
+  type ResourceDeleted,
+} from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -17,6 +22,7 @@ export class DeleteWorkspaceHandler
   constructor(
     private readonly workspaces: WorkspaceRepository,
     private readonly resources: IdentityResourcesPort,
+    private readonly holdings: WorkspaceHoldingsPort,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -28,17 +34,28 @@ export class DeleteWorkspaceHandler
     try {
       const standing = await this.workspaces.find(id);
 
-      if (!standing?.administeredBy(UserId.of(command.requesterId))) {
+      const requester = UserId.of(command.requesterId);
+
+      if (!standing?.holds(requester)) {
         return null;
+      }
+
+      if (!standing.administeredBy(requester)) {
+        return FORBIDDEN;
       }
 
       standing.expecting(command.expectedVersion);
 
+      const held = Holdings.of(await this.holdings.of(id));
+
       await this.transaction.run(async () => {
-        const held = await this.resources.teamKeysIn(id);
+        const teams = await this.resources.teamKeysIn(id);
 
         await this.workspaces.save(
-          standing.closed(held.map((each) => TeamKey.of(each))),
+          standing.closed(
+            teams.map((each) => TeamKey.of(each)),
+            held,
+          ),
         );
       });
 

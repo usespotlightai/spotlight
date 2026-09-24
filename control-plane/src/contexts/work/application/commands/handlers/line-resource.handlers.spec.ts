@@ -1,5 +1,6 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import { FORBIDDEN } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type { IdempotentCreatesPort } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
@@ -180,8 +181,10 @@ describe('CreateLineHandler', () => {
     ).toEqual(['role']);
   });
 
-  it('answers nothing to someone who does not administer the team', async () => {
-    expect(await creating({ administers: false }).create(DELIVERY)).toBeNull();
+  it('forbids someone on the team who does not administer it', async () => {
+    expect(await creating({ administers: false }).create(DELIVERY)).toEqual(
+      FORBIDDEN,
+    );
   });
 });
 
@@ -254,8 +257,10 @@ describe('UpdateLineHandler', () => {
     });
   });
 
-  it('answers nothing to someone who does not administer the team', async () => {
-    expect(await updating({ administers: false }).update(DELIVERY)).toBeNull();
+  it('forbids someone on the team who does not administer it', async () => {
+    expect(await updating({ administers: false }).update(DELIVERY)).toEqual(
+      FORBIDDEN,
+    );
   });
 });
 

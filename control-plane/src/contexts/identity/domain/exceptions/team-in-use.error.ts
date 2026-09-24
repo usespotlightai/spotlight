@@ -1,9 +1,9 @@
-import type { TeamHoldings } from '@identity/domain/value-objects/team-holdings.vo';
+import type { Holdings } from '@identity/domain/value-objects/holdings.vo';
 
 export class TeamInUseError extends Error {
   readonly violation = 'conflict' as const;
 
-  constructor(key: string, holdings: TeamHoldings) {
+  constructor(key: string, holdings: Holdings) {
     super(
       `The ${key} team still holds ${holdings.held.join(', ')}; delete those first`,
     );

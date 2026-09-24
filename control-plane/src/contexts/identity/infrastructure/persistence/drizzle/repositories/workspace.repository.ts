@@ -3,6 +3,7 @@ import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-us
 import { WorkspaceMovedOnError } from '@identity/domain/exceptions/workspace-moved-on.error';
 import { WorkspaceSlugTakenError } from '@identity/domain/exceptions/workspace-slug-taken.error';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
+import { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
@@ -143,7 +144,7 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
       .returning({ id: workspace.id })
       .catch((error: unknown) => {
         throw codeOf(error) === RESTRICT_VIOLATION
-          ? new WorkspaceInUseError(saved.slug.value, [])
+          ? new WorkspaceInUseError(saved.slug.value, Holdings.none())
           : error;
       });
 
