@@ -11,7 +11,6 @@ export const workspacePlan = pgTable('workspace_plan', {
   workspaceId: text('workspace_id').primaryKey(),
   plan: text('plan').notNull(),
   lapsesAt: timestamp('lapses_at'),
-  version: integer('version').notNull().default(0),
 });
 
 export const catalogCall = pgTable(

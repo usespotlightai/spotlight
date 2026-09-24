@@ -71,6 +71,20 @@ export class ProblemException extends HttpException {
     super(problem, problem.status);
   }
 
+  static of(problem: {
+    readonly slug: string;
+    readonly title: string;
+    readonly status: number;
+    readonly detail: string;
+  }): ProblemException {
+    return new ProblemException({
+      type: problemType(problem.slug),
+      title: problem.title,
+      status: problem.status,
+      detail: problem.detail,
+    });
+  }
+
   static withStatus(status: number, detail: string): ProblemException {
     const [slug, title] =
       TITLES[status] ??
@@ -78,12 +92,7 @@ export class ProblemException extends HttpException {
         ? ['server-fault', 'Something went wrong on our side']
         : ['error', 'The request failed']);
 
-    return new ProblemException({
-      type: problemType(slug),
-      title,
-      status,
-      detail,
-    });
+    return ProblemException.of({ slug, title, status, detail });
   }
 
   static invalid(
@@ -203,15 +212,6 @@ export class ProblemException extends HttpException {
       title: 'This API version is not served here',
       status: HttpStatus.BAD_REQUEST,
       detail: `Asked for ${asked}; this server serves ${supported.join(', ')}`,
-    });
-  }
-
-  static notEntitled(kind: string, detail: string): ProblemException {
-    return new ProblemException({
-      type: problemType('not-entitled'),
-      title: `The workspace’s plan does not include this ${kind}`,
-      status: HttpStatus.FORBIDDEN,
-      detail,
     });
   }
 }

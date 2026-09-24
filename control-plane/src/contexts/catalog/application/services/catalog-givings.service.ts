@@ -12,6 +12,7 @@ import type {
   CatalogPort,
 } from '@catalog/application/ports/catalog.port';
 import type { CatalogServicePort } from '@catalog/application/ports/catalog-service.port';
+import type { WorkspacePlansPort } from '@catalog/application/ports/workspace-plans.port';
 import type {
   CatalogItem,
   CatalogKind,
@@ -19,7 +20,6 @@ import type {
   CatalogTool,
 } from '@catalog/domain/entities/catalog-item.entity';
 import type { CatalogRepository } from '@catalog/domain/repositories/catalog.repository';
-import type { WorkspacePlanRepository } from '@catalog/domain/repositories/workspace-plan.repository';
 import { entitlementTo } from '@catalog/domain/services/entitlement';
 import { CatalogItemId } from '@catalog/domain/value-objects/catalog-item-id.vo';
 import { MeteredCall } from '@catalog/domain/value-objects/metered-call.vo';
@@ -55,7 +55,7 @@ const refused = (
 export class CatalogGivings implements CatalogPort {
   constructor(
     private readonly catalog: CatalogRepository,
-    private readonly plans: WorkspacePlanRepository,
+    private readonly plans: WorkspacePlansPort,
     private readonly meter: CallMeterPort,
     private readonly service: CatalogServicePort,
     private readonly clock: ClockPort,

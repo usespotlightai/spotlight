@@ -1,4 +1,4 @@
-import type { WorkspacePlanRepository } from '@catalog/domain/repositories/workspace-plan.repository';
+import type { WorkspacePlansPort } from '@catalog/application/ports/workspace-plans.port';
 import { Plan } from '@catalog/domain/value-objects/plan.vo';
 import { WorkspacePlan } from '@catalog/domain/value-objects/workspace-plan.vo';
 import { workspacePlan } from '@catalog/infrastructure/persistence/drizzle/schemas/catalog.schema';
@@ -9,7 +9,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 import { eq } from 'drizzle-orm';
 
 @Injectable()
-export class DrizzleWorkspacePlans implements WorkspacePlanRepository {
+export class DrizzleWorkspacePlans implements WorkspacePlansPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
   async of(workspaceId: WorkspaceId): Promise<WorkspacePlan> {

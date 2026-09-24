@@ -1,4 +1,5 @@
 import type { CatalogItemDto } from '@catalog/application/dto/catalog-item.dto';
+import { PLANS } from '@catalog/domain/value-objects/plan.vo';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CatalogToolResponseDto {
@@ -26,7 +27,7 @@ export class CatalogToolResponseDto {
 
   @ApiProperty({
     example: 'team',
-    enum: ['free', 'team', 'enterprise'],
+    enum: PLANS,
     description: 'The plan it needs',
   })
   readonly plan: string;

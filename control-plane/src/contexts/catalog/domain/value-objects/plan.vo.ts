@@ -1,6 +1,6 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
-const PLANS = ['free', 'team', 'enterprise'] as const;
+export const PLANS = ['free', 'team', 'enterprise'] as const;
 
 type PlanName = (typeof PLANS)[number];
 

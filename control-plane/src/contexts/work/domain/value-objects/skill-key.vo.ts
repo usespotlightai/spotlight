@@ -1,7 +1,8 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import {
   areWords,
-  CATALOG,
+  CATALOG_SOURCE,
+  catalogReferenceParts,
   isCatalogReference,
   LONGEST_WORDS,
   unversioned,
@@ -37,7 +38,7 @@ export class SkillKey {
 
   get folder(): string {
     return this.catalogued
-      ? `spotlight-${CATALOG}-${this.unversioned.slice(CATALOG.length + 1)}`
+      ? `spotlight-${CATALOG_SOURCE}-${catalogReferenceParts(this.value).name}`
       : this.value;
   }
 

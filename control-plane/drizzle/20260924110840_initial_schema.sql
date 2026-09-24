@@ -52,8 +52,7 @@ CREATE TABLE "catalog_call" (
 CREATE TABLE "workspace_plan" (
 	"workspace_id" text PRIMARY KEY NOT NULL,
 	"plan" text NOT NULL,
-	"lapses_at" timestamp,
-	"version" integer DEFAULT 0 NOT NULL
+	"lapses_at" timestamp
 );
 --> statement-breakpoint
 CREATE TABLE "change_stack" (
