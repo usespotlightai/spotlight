@@ -161,7 +161,7 @@ export const TaskBriefing = {
     );
 
     return [
-      station?.agentPrompt?.value,
+      station?.agentPrompt?.value.trim(),
       `## ${input.task.title.value}`,
       input.task.description?.value,
       Attached.listed(input.task.attachments),

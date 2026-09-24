@@ -18,7 +18,7 @@ export class StationSetup {
       );
     }
 
-    return new StationSetup(trimmed);
+    return new StationSetup(raw);
   }
 
   equals(other: StationSetup): boolean {

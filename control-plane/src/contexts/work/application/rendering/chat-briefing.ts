@@ -22,7 +22,7 @@ const linesOf = (lines: readonly Line[]): string =>
               .map((station) =>
                 [
                   `- \`${station.key.value}\` — ${station.name.value}`,
-                  station.description?.value,
+                  station.description?.value.trim(),
                 ]
                   .filter(Boolean)
                   .join(': '),

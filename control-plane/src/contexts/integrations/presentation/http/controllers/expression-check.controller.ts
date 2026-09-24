@@ -7,14 +7,7 @@ import {
   ExpressionCheckResponseDto,
   ExpressionPositionResponseDto,
 } from '@integrations/presentation/http/dto/expression-check.response.dto';
-import {
-  Body,
-  ForbiddenException,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Post,
-} from '@nestjs/common';
+import { Body, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { QueryBus } from '@nestjs/cqrs';
 import { ApiBody, ApiOkResponse, ApiOperation } from '@nestjs/swagger';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
@@ -120,9 +113,7 @@ export class ExpressionCheckController {
     >(new CheckExpressionQuery(field, expression, definition, principal));
 
     if (checked.outcome === 'forbidden') {
-      throw new ForbiddenException(
-        'Checking an expression is planning, which this token’s scopes do not allow',
-      );
+      throw ProblemException.forbidden(REQUEST, checked.act);
     }
 
     if (checked.outcome !== 'checked') {

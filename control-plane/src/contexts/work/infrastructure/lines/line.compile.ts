@@ -75,9 +75,7 @@ const compileStation = (
   let agentPrompt: AgentPrompt | null = null;
 
   try {
-    agentPrompt = station.prompt?.trim()
-      ? AgentPrompt.of(station.prompt)
-      : null;
+    agentPrompt = station.prompt ? AgentPrompt.of(station.prompt) : null;
   } catch (error) {
     return refused('prompt', error);
   }

@@ -1,4 +1,5 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
+import type { ForbiddenAct } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type {
   ConfigurationProblem,
   ProblemSeverity,
@@ -34,6 +35,27 @@ const TITLES: Readonly<Record<number, [slug: string, title: string]>> = {
     'The request must be conditional',
   ],
   [HttpStatus.BAD_GATEWAY]: ['refused-upstream', 'An upstream service refused'],
+};
+
+const REFUSALS: Readonly<
+  Record<ForbiddenAct, (kind: string) => [title: string, detail: string]>
+> = {
+  change: (kind) => [
+    `Not allowed to change the ${kind}`,
+    `You may read this ${kind}, but your role in its workspace, or your token’s scopes, do not let you change it`,
+  ],
+  administer: (kind) => [
+    `Not allowed to administer the ${kind}`,
+    `You may read this ${kind}, but only the workspace’s admins may do this; a token never administers`,
+  ],
+  'open-workspace': () => [
+    'Not allowed to open a workspace',
+    'A workspace token acts only inside its own workspace and cannot open one; a person with a Spotlight account creates workspaces',
+  ],
+  plan: () => [
+    'Not allowed to plan',
+    'Checking an expression is planning, which this token’s scopes do not allow',
+  ],
 };
 
 const problemType = (slug: string): string => `urn:spotlight:problem:${slug}`;
@@ -110,12 +132,14 @@ export class ProblemException extends HttpException {
     });
   }
 
-  static forbidden(kind: string): ProblemException {
+  static forbidden(kind: string, act: ForbiddenAct): ProblemException {
+    const [title, detail] = REFUSALS[act](kind);
+
     return new ProblemException({
       type: problemType('forbidden'),
-      title: `Not allowed to change the ${kind}`,
+      title,
       status: HttpStatus.FORBIDDEN,
-      detail: `You may read this ${kind}, but your role in its workspace, or your token’s scopes, do not let you change it`,
+      detail,
     });
   }
 

@@ -51,13 +51,26 @@ describe('compileLine', () => {
     ).toEqual(['backlog', 'code-review', 'completed']);
   });
 
-  it('reads a station’s prompt, and none where it has none', () => {
+  it('reads a station’s prompt exactly as written, and none where it has none', () => {
     const compiled = compileLine(DELIVERY);
 
     expect(compiled.ok && compiled.line.stations[1]?.agentPrompt?.value).toBe(
-      '## Code review\n\nReview it.',
+      '## Code review\n\nReview it.\n',
     );
     expect(compiled.ok && compiled.line.stations[0]?.agentPrompt).toBeNull();
+  });
+
+  it('refuses a prompt of nothing but space', () => {
+    expect(
+      refused(
+        withStation(1, {
+          key: 'code-review',
+          name: 'Code Review',
+          ends: true,
+          prompt: ' \n\n',
+        }),
+      )[0],
+    ).toMatchObject({ field: FieldPath.dotted('stations.1.prompt') });
   });
 
   it('reads the reactions along with the stations', () => {

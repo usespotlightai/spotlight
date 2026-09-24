@@ -5,6 +5,11 @@ import {
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import { DONE, REVIEW } from '@work/domain/value-objects/handover-word';
 
+const RESERVED: ReadonlyMap<string, string> = new Map([
+  [REVIEW, 'hand its task over to a person'],
+  [DONE, 'finish its task'],
+]);
+
 export class StationKey {
   private readonly kind = 'station-key';
 
@@ -20,10 +25,12 @@ export class StationKey {
       );
     }
 
-    if (named === REVIEW || named === DONE) {
+    const reserved = RESERVED.get(named);
+
+    if (reserved) {
       throw new InvalidIdentifierError(
         'station key',
-        `is never ${named}, which a run says to reach a person or to finish`,
+        `cannot be ${named}, which is reserved because a run says ${named} to ${reserved}; pick another key, as in code-review`,
       );
     }
 

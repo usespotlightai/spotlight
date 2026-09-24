@@ -17,7 +17,7 @@ export class StationDescription {
       );
     }
 
-    return new StationDescription(trimmed);
+    return new StationDescription(raw);
   }
 
   equals(other: StationDescription): boolean {

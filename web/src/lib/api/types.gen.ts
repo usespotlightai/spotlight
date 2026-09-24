@@ -2114,7 +2114,7 @@ export type CreateLineErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * You may read the line, but not change it
+   * Not allowed to do this to the line: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
    */
   403: ProblemResponseDto;
   /**
@@ -2175,7 +2175,7 @@ export type DeleteLineErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * You may read the line, but not change it
+   * Not allowed to do this to the line: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
    */
   403: ProblemResponseDto;
   /**
@@ -2283,7 +2283,7 @@ export type UpdateLineErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * You may read the line, but not change it
+   * Not allowed to do this to the line: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
    */
   403: ProblemResponseDto;
   /**
@@ -3667,7 +3667,7 @@ export type CreateWorkspaceErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * You may read the workspace, but not change it
+   * Not allowed to do this to the workspace: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
    */
   403: ProblemResponseDto;
   /**
@@ -3728,7 +3728,7 @@ export type DeleteWorkspaceErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * You may read the workspace, but not change it
+   * Not allowed to do this to the workspace: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
    */
   403: ProblemResponseDto;
   /**
@@ -3837,7 +3837,7 @@ export type UpdateWorkspaceErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * You may read the workspace, but not change it
+   * Not allowed to do this to the workspace: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
    */
   403: ProblemResponseDto;
   /**
@@ -3905,7 +3905,7 @@ export type CreateTeamErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * You may read the team, but not change it
+   * Not allowed to do this to the team: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
    */
   403: ProblemResponseDto;
   /**
@@ -3966,7 +3966,7 @@ export type DeleteTeamErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * You may read the team, but not change it
+   * Not allowed to do this to the team: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
    */
   403: ProblemResponseDto;
   /**
@@ -4075,7 +4075,7 @@ export type UpdateTeamErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * You may read the team, but not change it
+   * Not allowed to do this to the team: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
    */
   403: ProblemResponseDto;
   /**
@@ -4195,7 +4195,7 @@ export type CreateWorkspaceTokenErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * You may read the workspace-token, but not change it
+   * Not allowed to do this to the workspace-token: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
    */
   403: ProblemResponseDto;
   /**
@@ -4258,7 +4258,7 @@ export type DeleteWorkspaceTokenErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * You may read the workspace-token, but not change it
+   * Not allowed to do this to the workspace-token: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
    */
   403: ProblemResponseDto;
   /**
@@ -4369,7 +4369,7 @@ export type UpdateWorkspaceTokenErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * You may read the workspace-token, but not change it
+   * Not allowed to do this to the workspace-token: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
    */
   403: ProblemResponseDto;
   /**
@@ -4823,7 +4823,7 @@ export type CreateSecretErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * You may read the secret, but not change it
+   * Not allowed to do this to the secret: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
    */
   403: ProblemResponseDto;
   /**
@@ -4884,7 +4884,7 @@ export type DeleteSecretErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * You may read the secret, but not change it
+   * Not allowed to do this to the secret: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
    */
   403: ProblemResponseDto;
   /**
@@ -5010,7 +5010,7 @@ export type UpdateSecretErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * You may read the secret, but not change it
+   * Not allowed to do this to the secret: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
    */
   403: ProblemResponseDto;
   /**
@@ -5505,7 +5505,7 @@ export type CreateSkillErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * You may read the skill, but not change it
+   * Not allowed to do this to the skill: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
    */
   403: ProblemResponseDto;
   /**
@@ -5566,7 +5566,7 @@ export type DeleteSkillErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * You may read the skill, but not change it
+   * Not allowed to do this to the skill: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
    */
   403: ProblemResponseDto;
   /**
@@ -5677,7 +5677,7 @@ export type UpdateSkillErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * You may read the skill, but not change it
+   * Not allowed to do this to the skill: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
    */
   403: ProblemResponseDto;
   /**
@@ -6152,7 +6152,7 @@ export type CreateIntegrationErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * You may read the integration, but not change it
+   * Not allowed to do this to the integration: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
    */
   403: ProblemResponseDto;
   /**
@@ -6213,7 +6213,7 @@ export type DeleteIntegrationErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * You may read the integration, but not change it
+   * Not allowed to do this to the integration: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
    */
   403: ProblemResponseDto;
   /**
@@ -6321,7 +6321,7 @@ export type UpdateIntegrationErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * You may read the integration, but not change it
+   * Not allowed to do this to the integration: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
    */
   403: ProblemResponseDto;
   /**

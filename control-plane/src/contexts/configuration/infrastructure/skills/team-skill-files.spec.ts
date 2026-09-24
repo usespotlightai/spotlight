@@ -114,7 +114,9 @@ describe('TeamSkillFiles', () => {
       );
 
       expect(found.skills).toEqual([]);
-      expect(reasons(found)[0]).toContain("is Spotlight's own");
+      expect(reasons(found)[0]).toContain(
+        'cannot start spotlight-, which is reserved for the skills Spotlight ships',
+      );
     });
 
     it('holds no more than is laid for a run', () => {
