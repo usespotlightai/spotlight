@@ -21,8 +21,8 @@ import type {
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { createdOnce } from '@shared-kernel/application/services/created-once';
+import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const withoutValue = (definition: unknown): unknown => {
@@ -50,17 +50,17 @@ export class CreateSecretHandler
 
   async execute(command: CreateSecretCommand): Promise<ResourceCreated | null> {
     try {
-      const requester = UserId.of(command.requesterId);
-      const membership = await this.access.inWorkspaceWithId(
+      const { principal } = command.actor;
+      const cleared = await this.access.clearanceIn(
         WorkspaceId.of(command.workspaceId),
-        requester,
+        principal,
       );
 
-      if (!membership) {
+      if (!cleared) {
         return null;
       }
 
-      if (!membership.administers) {
+      if (!cleared.managesSecrets) {
         return FORBIDDEN;
       }
 
@@ -72,12 +72,12 @@ export class CreateSecretHandler
 
       const secret = Secret.set(compiled, {
         id: SecretId.of(this.ids.generate()),
-        workspaceId: membership.workspaceId,
-        by: requester,
+        workspaceId: cleared.workspaceId,
+        by: Attribution.of(command.actor, cleared.workspaceId),
         at: this.clock.now(),
       });
       const create: IdempotentCreate = {
-        by: command.requesterId,
+        by: principal.toString(),
         key: IdempotencyKey.of(command.idempotencyKey),
         request: {
           secret: 'create',

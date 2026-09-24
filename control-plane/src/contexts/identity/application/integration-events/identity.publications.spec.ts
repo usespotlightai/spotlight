@@ -8,6 +8,7 @@ import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { changed } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -20,7 +21,12 @@ const published = (event: DomainEvent) =>
 
 const WORKSPACE = WorkspaceId.of('ws_1');
 
-const TEAM = [WORKSPACE, TeamId.of('team_1'), TeamKey.of('core')] as const;
+const TEAM = [
+  WORKSPACE,
+  TeamId.of('team_1'),
+  TeamKey.of('core'),
+  changed('team', 'team_1', 'core'),
+] as const;
 
 describe('IDENTITY_PUBLICATIONS', () => {
   it.each([
@@ -40,6 +46,7 @@ describe('IDENTITY_PUBLICATIONS', () => {
           TeamId.of('team_1'),
           UserId.of('user_1'),
           'configuration',
+          changed('team', 'team_1', 'core'),
         ),
       ),
     ).toEqual([
@@ -55,8 +62,20 @@ describe('IDENTITY_PUBLICATIONS', () => {
 
   it('publishes a workspace’s new name and its closing', () => {
     expect([
-      ...published(new WorkspaceRedefined(WORKSPACE, WorkspaceName.of('Acme'))),
-      ...published(new WorkspaceClosed(WORKSPACE, WorkspaceSlug.of('acme'))),
+      ...published(
+        new WorkspaceRedefined(
+          WORKSPACE,
+          WorkspaceName.of('Acme'),
+          changed('workspace', 'ws_1', 'acme'),
+        ),
+      ),
+      ...published(
+        new WorkspaceClosed(
+          WORKSPACE,
+          WorkspaceSlug.of('acme'),
+          changed('workspace', 'ws_1', 'acme'),
+        ),
+      ),
     ]).toEqual([
       {
         kind: 'identity.workspace-redefined.v1',

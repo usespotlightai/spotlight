@@ -1,11 +1,14 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import { teamAccess } from '@identity/application/ports/workspace-access.fake-spec';
 import { FORBIDDEN } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type { IdempotentCreatesPort } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import {
+  actorFor,
+  attributedIn,
+} from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { CreateLineCommand } from '@work/application/commands/create-line.command';
 import { DeleteLineCommand } from '@work/application/commands/delete-line.command';
@@ -45,6 +48,7 @@ const DELIVERY = {
 const standingAt = (version: number): Line => {
   let next = 0;
   const opened = Line.open({
+    by: attributedIn(),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TEAM,
     line: BUILT_IN_LINES[0] as LineOpening,
@@ -63,16 +67,7 @@ const standingAt = (version: number): Line => {
   });
 };
 
-const access = (administers = true): WorkspaceAccessPort =>
-  ({
-    onTeam: vi.fn(async () => ({
-      workspaceId: WorkspaceId.of('ws_1'),
-      teamId: TEAM,
-      slug: 'acme',
-      viewer: UserId.of('user_1'),
-      administers,
-    })),
-  }) as unknown as WorkspaceAccessPort;
+const access = (administers = true) => teamAccess(TEAM, administers);
 
 const teams = {
   find: vi.fn(async () => ({
@@ -131,7 +126,12 @@ describe('CreateLineHandler', () => {
     return {
       create: (definition: unknown) =>
         handler.execute(
-          new CreateLineCommand(TEAM.value, 'user_1', 'key-1', definition),
+          new CreateLineCommand(
+            TEAM.value,
+            actorFor('user_1'),
+            'key-1',
+            definition,
+          ),
         ),
       open,
     };
@@ -144,6 +144,7 @@ describe('CreateLineHandler', () => {
     expect(open).toHaveBeenCalledWith(
       expect.objectContaining({ key: 'core' }),
       expect.objectContaining({ key: LineKey.of('delivery') }),
+      attributedIn('ws_1', actorFor('user_1')),
     );
   });
 
@@ -212,7 +213,12 @@ describe('UpdateLineHandler', () => {
     return {
       update: (definition: unknown, version = 3) =>
         handler.execute(
-          new UpdateLineCommand('line_1', 'user_1', version, definition),
+          new UpdateLineCommand(
+            'line_1',
+            actorFor('user_1'),
+            version,
+            definition,
+          ),
         ),
       reconcile,
     };
@@ -284,7 +290,9 @@ describe('DeleteLineHandler', () => {
 
     return {
       remove: (version = 3) =>
-        handler.execute(new DeleteLineCommand('line_1', 'user_1', version)),
+        handler.execute(
+          new DeleteLineCommand('line_1', actorFor('user_1'), version),
+        ),
       kept,
       standing,
     };

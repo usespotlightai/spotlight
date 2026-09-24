@@ -133,7 +133,7 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
   afterEach(async () => {
     await db
       .delete(schema.idempotentCreate)
-      .where(inArray(schema.idempotentCreate.scope, [seat.owner]));
+      .where(inArray(schema.idempotentCreate.scope, [`person:${seat.owner}`]));
     await db
       .delete(schema.integrationDefinition)
       .where(eq(schema.integrationDefinition.teamId, held));
@@ -142,8 +142,8 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
       .where(eq(schema.hostConnection.teamId, held));
     await db.delete(schema.secret).where(eq(schema.secret.workspaceId, held));
     await db
-      .delete(schema.secretAudit)
-      .where(eq(schema.secretAudit.workspaceId, held));
+      .delete(schema.configurationChange)
+      .where(eq(schema.configurationChange.workspaceId, held));
     await db
       .delete(schema.secretDataKey)
       .where(eq(schema.secretDataKey.workspaceId, held));

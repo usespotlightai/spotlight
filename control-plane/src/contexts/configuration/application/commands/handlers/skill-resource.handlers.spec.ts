@@ -14,13 +14,13 @@ import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import { SkillUses } from '@configuration/domain/value-objects/skill-uses.vo';
 import { SkillCompiler } from '@configuration/infrastructure/skills/skill.compile';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import { teamAccess } from '@identity/application/ports/workspace-access.fake-spec';
 import { FORBIDDEN } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type { IdempotentCreatesPort } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -34,16 +34,7 @@ const GRAFANA = {
   },
 };
 
-const access = (administers = true): WorkspaceAccessPort =>
-  ({
-    onTeam: vi.fn(async () => ({
-      workspaceId: WorkspaceId.of('ws_1'),
-      teamId: TEAM,
-      slug: 'acme',
-      viewer: UserId.of('user_1'),
-      administers,
-    })),
-  }) as unknown as WorkspaceAccessPort;
+const access = (administers = true) => teamAccess(TEAM, administers);
 
 const teams = {
   find: vi.fn(async () => ({
@@ -103,7 +94,12 @@ describe('CreateSkillHandler', () => {
     return {
       create: (definition: unknown) =>
         handler.execute(
-          new CreateSkillCommand(TEAM.value, 'user_1', 'key-1', definition),
+          new CreateSkillCommand(
+            TEAM.value,
+            actorFor('user_1'),
+            'key-1',
+            definition,
+          ),
         ),
       kept,
     };
@@ -161,7 +157,12 @@ describe('UpdateSkillHandler', () => {
     return {
       update: (definition: unknown, version = 3) =>
         handler.execute(
-          new UpdateSkillCommand('skill_1', 'user_1', version, definition),
+          new UpdateSkillCommand(
+            'skill_1',
+            actorFor('user_1'),
+            version,
+            definition,
+          ),
         ),
       kept,
     };
@@ -215,7 +216,9 @@ describe('DeleteSkillHandler', () => {
 
     return {
       remove: () =>
-        handler.execute(new DeleteSkillCommand('skill_1', 'user_1', 3)),
+        handler.execute(
+          new DeleteSkillCommand('skill_1', actorFor('user_1'), 3),
+        ),
       kept,
     };
   };

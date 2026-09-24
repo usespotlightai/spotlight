@@ -6,5 +6,10 @@ export default defineConfig({
     path: 'src/lib/api',
     postProcess: [],
   },
-  plugins: ['@hey-api/client-fetch'],
+  plugins: [
+    {
+      name: '@hey-api/client-fetch',
+      runtimeConfigPath: './src/lib/api-client',
+    },
+  ],
 });

@@ -4,6 +4,8 @@ export const SUPPORTED_API_VERSIONS: readonly string[] = [API_VERSION];
 
 export const API_VERSION_HEADER = 'Spotlight-Api-Version';
 
+export const CLIENT_HEADER = 'Spotlight-Client';
+
 export const IDEMPOTENCY_KEY_HEADER = 'Idempotency-Key';
 
 export const IDEMPOTENT_REPLAY_HEADER = 'Idempotent-Replayed';

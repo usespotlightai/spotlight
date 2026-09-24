@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { WorkspaceAccess } from '@identity/application/services/workspace-access.service';
+import { DrizzleIdentityResources } from '@identity/infrastructure/persistence/drizzle/readers/identity-resources.reader';
 import { DrizzlePersonReader } from '@identity/infrastructure/persistence/drizzle/readers/person.reader';
 import { DrizzleViewableWorkspaces } from '@identity/infrastructure/persistence/drizzle/readers/viewable-workspaces.reader';
 import { DrizzleWorkspaceReader } from '@identity/infrastructure/persistence/drizzle/readers/workspace.reader';
@@ -32,10 +33,10 @@ import { openTeam as opening } from './support/team';
 const access = (db: DrizzleDatabase) =>
   new WorkspaceAccess(
     new DrizzleViewableWorkspaces(db),
-    new DrizzleWorkspaceReader(db),
     new DrizzleWorkspaceRepository(new DrizzleContext(db), {
       dispatch: async () => {},
     }),
+    new DrizzleIdentityResources(new DrizzleContext(db)),
   );
 
 const NOW = new Date('2026-01-02T03:04:05.000Z');

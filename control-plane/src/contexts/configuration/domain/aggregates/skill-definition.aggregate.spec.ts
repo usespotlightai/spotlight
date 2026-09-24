@@ -11,6 +11,8 @@ import { SkillFiles } from '@configuration/domain/value-objects/skill-files.vo';
 import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import { SkillUses } from '@configuration/domain/value-objects/skill-uses.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -36,18 +38,32 @@ const kept = (version = 3) =>
     version,
   });
 
+const BY = attributedIn();
+
+const GRAFANA = { resource: 'skill' as const, id: 'skill_1', key: 'grafana' };
+
 const GIVEN = SkillUses.of([
   { skill: 'grafana', by: 'delivery/implementation' },
 ]);
 
 describe('SkillDefinition', () => {
   it('is defined for a team under its skill’s key, and says so', () => {
-    const defined = SkillDefinition.define({ ...read(), id: ID, teamId: TEAM });
+    const defined = SkillDefinition.define({
+      ...read(),
+      id: ID,
+      teamId: TEAM,
+      by: BY,
+    });
 
     expect(defined.key.value).toBe('grafana');
     expect(defined.isNew).toBe(true);
     expect(defined.pullEvents()).toEqual([
-      new SkillDefined(ID, TEAM, SkillKey.of('grafana')),
+      new SkillDefined(
+        ID,
+        TEAM,
+        SkillKey.of('grafana'),
+        ConfigurationChange.created(GRAFANA, BY),
+      ),
     ]);
   });
 
@@ -56,41 +72,61 @@ describe('SkillDefinition', () => {
   });
 
   it('takes new files, and says so', () => {
-    const redefined = kept().redefinedAs(read('grafana', 'Search twice.'));
+    const redefined = kept().redefinedAs(read('grafana', 'Search twice.'), BY);
 
     expect(redefined.files.fields).toEqual({ 'SKILL.md': 'Search twice.' });
     expect(redefined.pullEvents()).toEqual([
-      new SkillRedefined(ID, TEAM, SkillKey.of('grafana')),
+      new SkillRedefined(
+        ID,
+        TEAM,
+        SkillKey.of('grafana'),
+        ConfigurationChange.updated(GRAFANA, BY),
+      ),
     ]);
   });
 
   it('keeps its key for its whole life', () => {
-    expect(() => kept().redefinedAs(read('loki'))).toThrow(SkillKeyFixedError);
+    expect(() => kept().redefinedAs(read('loki'), BY)).toThrow(
+      SkillKeyFixedError,
+    );
   });
 
   it('will not retire while a station gives it', () => {
-    expect(() => kept().retired(GIVEN)).toThrow(SkillInUseError);
-    expect(() => kept().retired(GIVEN)).toThrow(/delivery\/implementation/);
+    expect(() => kept().retired(GIVEN, BY)).toThrow(SkillInUseError);
+    expect(() => kept().retired(GIVEN, BY)).toThrow(/delivery\/implementation/);
   });
 
   it('retires when no station gives it, and cannot change after', () => {
     const retired = kept().retired(
       SkillUses.of([{ skill: 'loki', by: 'delivery/implementation' }]),
+      BY,
     );
 
     expect(retired.isRetired).toBe(true);
     expect(retired.pullEvents()).toEqual([
-      new SkillRetired(ID, TEAM, SkillKey.of('grafana')),
+      new SkillRetired(
+        ID,
+        TEAM,
+        SkillKey.of('grafana'),
+        ConfigurationChange.deleted(GRAFANA, BY),
+      ),
     ]);
-    expect(() => retired.redefinedAs(read())).toThrow(InconsistentStateError);
+    expect(() => retired.redefinedAs(read(), BY)).toThrow(
+      InconsistentStateError,
+    );
   });
 
   it('is abandoned with its team, whoever still gives it', () => {
-    const abandoned = kept().abandoned();
+    const abandoned = kept().abandoned(BY);
 
     expect(abandoned.isRetired).toBe(true);
     expect(abandoned.pullEvents()).toEqual([
-      new SkillRetired(ID, TEAM, SkillKey.of('grafana')),
+      new SkillRetired(
+        ID,
+        TEAM,
+        SkillKey.of('grafana'),
+        ConfigurationChange.deleted(GRAFANA, BY),
+      ),
     ]);
   });
 });

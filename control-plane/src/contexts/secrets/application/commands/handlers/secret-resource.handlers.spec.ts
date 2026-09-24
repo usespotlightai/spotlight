@@ -9,6 +9,7 @@ import { SecretDefinitions } from '@secrets/infrastructure/definitions/secret-de
 import {
   ADMIN,
   accessFor,
+  BY,
   InMemoryCreates,
   InMemorySecrets,
   InMemoryStore,
@@ -17,6 +18,7 @@ import {
   WORKSPACE,
 } from '@secrets/secrets.fakes.fake-spec';
 import { FORBIDDEN } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { changesConfiguration } from '@shared-kernel/domain/events/configuration-changed';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { describe, expect, it } from 'vitest';
 
@@ -29,12 +31,12 @@ const LINEAR = {
 
 const ID = 'secret_new';
 
-const holding = (administers = true) => {
+const holding = (managesSecrets = true) => {
   const store = new InMemoryStore();
   const secrets = new InMemorySecrets(store);
   const creates = new InMemoryCreates();
-  const as = { administers };
-  const access = accessFor(() => as.administers);
+  const as = { managesSecrets };
+  const access = accessFor(() => as.managesSecrets);
   const clock = { now: () => NOW, sleep: async () => undefined };
   const definitions = new SecretDefinitions();
 
@@ -71,21 +73,19 @@ const holding = (administers = true) => {
   return {
     create: (definition: unknown = LINEAR, key = 'key-1') =>
       creating.execute(
-        new CreateSecretCommand(WORKSPACE.value, ADMIN.value, key, definition),
+        new CreateSecretCommand(WORKSPACE.value, ADMIN, key, definition),
       ),
     update: (definition: unknown, version = 1) =>
-      updating.execute(
-        new UpdateSecretCommand(ID, ADMIN.value, version, definition),
-      ),
+      updating.execute(new UpdateSecretCommand(ID, ADMIN, version, definition)),
     remove: (version = 1) =>
-      deleting.execute(new DeleteSecretCommand(ID, ADMIN.value, version)),
+      deleting.execute(new DeleteSecretCommand(ID, ADMIN, version)),
     secrets,
     store,
     creates,
     uses,
     keptValue,
     demoted: () => {
-      as.administers = false;
+      as.managesSecrets = false;
     },
   };
 };
@@ -110,7 +110,7 @@ describe('CreateSecretHandler', () => {
     expect(secrets.events.map((each) => each.kind)).toEqual(['secret.set']);
   });
 
-  it('forbids a member who does not administer the workspace', async () => {
+  it('forbids someone who reads the workspace but may not manage its secrets', async () => {
     const { create, secrets } = holding(false);
 
     expect(await create()).toEqual(FORBIDDEN);
@@ -198,7 +198,7 @@ describe('UpdateSecretHandler', () => {
     });
   });
 
-  it('forbids a member who does not administer the workspace', async () => {
+  it('forbids someone who may no longer manage the workspace’s secrets', async () => {
     const { update, keptValue, demoted } = await created();
 
     demoted();
@@ -209,12 +209,12 @@ describe('UpdateSecretHandler', () => {
     expect(await keptValue()).toBe('lin_api_1');
   });
 
-  it('records who changed what, and never the value', async () => {
+  it('records one change saying who rebound and rotated it, and never the value', async () => {
     const { update, secrets } = await created();
 
     await update({
       ...LINEAR,
-      bindings: [{ host: 'api.linear.app', header: 'x-api-key' }],
+      bindings: [{ host: 'uploads.linear.app' }],
       valueWo: 'lin_api_2',
       valueWoVersion: 2,
     });
@@ -222,8 +222,16 @@ describe('UpdateSecretHandler', () => {
     expect(secrets.events.map((each) => each.kind)).toEqual([
       'secret.set',
       'secret.redefined',
-      'secret.rotated',
     ]);
+    expect(secrets.events[1]).toMatchObject({
+      change: { action: 'updated', by: BY },
+    });
+    expect(
+      secrets.events.filter(changesConfiguration)[1]?.change.recordedDetail,
+    ).toEqual({
+      valueVersion: 2,
+      boundTo: ['uploads.linear.app'],
+    });
     expect(JSON.stringify(secrets.events)).not.toMatch(/lin_api_/);
   });
 });
@@ -236,7 +244,7 @@ describe('DeleteSecretHandler', () => {
     expect(store.holds(SecretId.of(ID))).toBe(false);
     expect(secrets.events[secrets.events.length - 1]).toMatchObject({
       kind: 'secret.deleted',
-      by: ADMIN,
+      change: { action: 'deleted', by: BY },
     });
   });
 
@@ -252,7 +260,7 @@ describe('DeleteSecretHandler', () => {
     expect(await keptValue()).toBe('lin_api_1');
   });
 
-  it('forbids a member who does not administer the workspace', async () => {
+  it('forbids someone who may no longer manage the workspace’s secrets', async () => {
     const { remove, keptValue, demoted } = await created();
 
     demoted();

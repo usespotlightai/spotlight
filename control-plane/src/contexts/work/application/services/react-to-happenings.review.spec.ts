@@ -2,6 +2,7 @@ import type { MemberReaderPort } from '@identity/application/ports/member-reader
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -80,6 +81,7 @@ const opened = (
   repositories: readonly string[] = [],
 ) =>
   Line.open({
+    by: attributedIn(),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     line: { ...opening(role), ...over },

@@ -115,7 +115,7 @@ export class ProblemException extends HttpException {
       type: problemType('forbidden'),
       title: `Not allowed to change the ${kind}`,
       status: HttpStatus.FORBIDDEN,
-      detail: `You may read this ${kind}, but only an admin of its workspace may change it`,
+      detail: `You may read this ${kind}, but your role in its workspace, or your token’s scopes, do not let you change it`,
     });
   }
 

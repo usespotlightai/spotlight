@@ -5,7 +5,6 @@ import type { ReadIntegrationQuery } from '@integrations/application/queries/rea
 import type { IntegrationViews } from '@integrations/application/services/integration-views.service';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class ReadIntegrationHandler
   implements
@@ -25,10 +24,7 @@ export class ReadIntegrationHandler
 
       if (
         !kept ||
-        !(await this.access.onTeam(
-          kept.teamId.value,
-          UserId.of(query.viewerId),
-        ))
+        !(await this.access.clearanceOnTeam(kept.teamId.value, query.principal))
       ) {
         return null;
       }

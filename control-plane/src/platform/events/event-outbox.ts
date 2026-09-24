@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { EventCodec } from '@platform/events/event-codec';
+import { EventProjections } from '@platform/events/event-projections';
 import { EventPublications } from '@platform/events/event-publications';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { EventTypes } from '@platform/events/event-types';
@@ -25,6 +26,7 @@ export class EventOutbox implements DomainEventDispatcher {
     private readonly subscribers: EventSubscribers,
     types: EventTypes,
     private readonly publications: EventPublications,
+    private readonly projections: EventProjections,
     @Inject(ID_GENERATOR) private readonly ids: IdGeneratorPort,
   ) {
     this.#codec = new EventCodec(types);
@@ -45,6 +47,10 @@ export class EventOutbox implements DomainEventDispatcher {
     }
 
     await this.context.run(async () => {
+      for (const event of events) {
+        await this.projections.project(event);
+      }
+
       for (const event of events.flatMap((each) => [
         each,
         ...this.publications.of(each),

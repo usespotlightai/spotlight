@@ -6,6 +6,7 @@ import { WorkspaceMovedOnError } from '@identity/domain/exceptions/workspace-mov
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
+import { TokenName } from '@identity/domain/value-objects/token-name.vo';
 import {
   FORBIDDEN,
   type ResourceDeleted,
@@ -13,7 +14,7 @@ import {
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class DeleteWorkspaceHandler
@@ -34,13 +35,13 @@ export class DeleteWorkspaceHandler
     try {
       const standing = await this.workspaces.find(id);
 
-      const requester = UserId.of(command.requesterId);
+      const cleared = standing?.clearanceFor(command.actor.principal);
 
-      if (!standing?.holds(requester)) {
+      if (!standing || !cleared?.reads) {
         return null;
       }
 
-      if (!standing.administeredBy(requester)) {
+      if (!cleared.configures) {
         return FORBIDDEN;
       }
 
@@ -50,11 +51,14 @@ export class DeleteWorkspaceHandler
 
       await this.transaction.run(async () => {
         const teams = await this.resources.teamKeysIn(id);
+        const tokens = await this.resources.tokenNamesIn(id);
 
         await this.workspaces.save(
           standing.closed(
             teams.map((each) => TeamKey.of(each)),
+            tokens.map((each) => TokenName.of(each)),
             held,
+            Attribution.of(command.actor, id),
           ),
         );
       });

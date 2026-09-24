@@ -6,7 +6,7 @@ import {
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import type { UpdateLineCommand } from '@work/application/commands/update-line.command';
 import type { LineCompilerPort } from '@work/application/ports/line-compiler.port';
 import type { ApplyLines } from '@work/application/services/apply-lines.service';
@@ -31,18 +31,18 @@ export class UpdateLineHandler
 
     try {
       const standing = await this.lines.find(id);
-      const membership = standing
-        ? await this.access.onTeam(
+      const cleared = standing
+        ? await this.access.clearanceOnTeam(
             standing.teamId.value,
-            UserId.of(command.requesterId),
+            command.actor.principal,
           )
         : null;
 
-      if (!standing || !membership) {
+      if (!standing || !cleared) {
         return null;
       }
 
-      if (!membership.administers) {
+      if (!cleared.configures) {
         return FORBIDDEN;
       }
 
@@ -56,7 +56,11 @@ export class UpdateLineHandler
 
       try {
         await this.transaction.run(() =>
-          this.applying.reconcile(standing, compiled.line),
+          this.applying.reconcile(
+            standing,
+            compiled.line,
+            Attribution.of(command.actor, standing.workspaceId),
+          ),
         );
       } catch (error) {
         const refused = lineRefusal(standing.key.value, error);

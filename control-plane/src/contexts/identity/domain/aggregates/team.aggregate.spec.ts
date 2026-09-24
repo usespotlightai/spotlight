@@ -8,6 +8,8 @@ import { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -15,6 +17,8 @@ import { describe, expect, it } from 'vitest';
 
 const WORKSPACE = WorkspaceId.of('ws_1');
 const OWNER = UserId.of('user_1');
+const BY = attributedIn(WORKSPACE);
+const CORE = { resource: 'team' as const, id: 'team_1', key: 'core' };
 
 const open = (name = 'Platform') => {
   let next = 0;
@@ -24,6 +28,7 @@ const open = (name = 'Platform') => {
     name: TeamName.of(name),
     openedBy: OWNER,
     id: TeamId.of(`team_${++next}`),
+    by: BY,
   });
 };
 
@@ -45,6 +50,7 @@ describe('Team', () => {
         key: TeamKey.of('core'),
         openedBy: OWNER,
         id: TeamId.of('team_1'),
+        by: BY,
       }).key.value,
     ).toBe('core');
   });
@@ -123,6 +129,7 @@ describe('Team', () => {
         key: TeamKey.of('core'),
         name: TeamName.of('Core'),
         openedBy: OWNER,
+        by: BY,
       });
 
     const kept = (version = 3) =>
@@ -137,7 +144,13 @@ describe('Team', () => {
 
     it('says it was created through configuration, which opens no lines for it', () => {
       expect(defined().pullEvents()).toEqual([
-        new TeamCreated(WORKSPACE, TeamId.of('team_1'), OWNER, 'configuration'),
+        new TeamCreated(
+          WORKSPACE,
+          TeamId.of('team_1'),
+          OWNER,
+          'configuration',
+          ConfigurationChange.created(CORE, BY),
+        ),
       ]);
     });
 
@@ -151,38 +164,48 @@ describe('Team', () => {
     });
 
     it('takes a new name, and says so', () => {
-      const renamed = kept().redefinedAs({
-        key: TeamKey.of('core'),
-        name: TeamName.of('Core platform'),
-      });
+      const renamed = kept().redefinedAs(
+        { key: TeamKey.of('core'), name: TeamName.of('Core platform') },
+        BY,
+      );
 
       expect(renamed.name.value).toBe('Core platform');
       expect(renamed.pullEvents()).toEqual([
-        new TeamRedefined(WORKSPACE, TeamId.of('team_1'), TeamKey.of('core')),
+        new TeamRedefined(
+          WORKSPACE,
+          TeamId.of('team_1'),
+          TeamKey.of('core'),
+          ConfigurationChange.updated(CORE, BY),
+        ),
       ]);
     });
 
     it('keeps its key for its whole life', () => {
       expect(() =>
-        kept().redefinedAs({
-          key: TeamKey.of('platform'),
-          name: TeamName.of('Core'),
-        }),
+        kept().redefinedAs(
+          { key: TeamKey.of('platform'), name: TeamName.of('Core') },
+          BY,
+        ),
       ).toThrow(TeamKeyFixedError);
     });
 
     it('disbands only once it holds nothing', () => {
       expect(() =>
-        kept().disbanded(Holdings.of(['line delivery', 'skill grafana'])),
+        kept().disbanded(Holdings.of(['line delivery', 'skill grafana']), BY),
       ).toThrow(/still holds line delivery, skill grafana/);
 
-      const disbanded = kept().disbanded(Holdings.none());
+      const disbanded = kept().disbanded(Holdings.none(), BY);
 
       expect(disbanded.isDisbanded).toBe(true);
       expect(disbanded.pullEvents()).toEqual([
-        new TeamDisbanded(WORKSPACE, TeamId.of('team_1'), TeamKey.of('core')),
+        new TeamDisbanded(
+          WORKSPACE,
+          TeamId.of('team_1'),
+          TeamKey.of('core'),
+          ConfigurationChange.deleted(CORE, BY),
+        ),
       ]);
-      expect(() => disbanded.disbanded(Holdings.none())).toThrow(
+      expect(() => disbanded.disbanded(Holdings.none(), BY)).toThrow(
         InconsistentStateError,
       );
     });

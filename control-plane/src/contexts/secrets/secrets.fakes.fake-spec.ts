@@ -24,25 +24,31 @@ import type {
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export const ADMIN = UserId.of('user_admin');
+export const ADMIN = actorFor('user_admin');
 
 export const WORKSPACE = WorkspaceId.of('ws_1');
 
-export const accessFor = (administers: () => boolean): WorkspaceAccessPort => ({
-  viewableBy: async () => new Set([WORKSPACE.value]),
-  mayView: async () => true,
-  inWorkspace: async () => null,
-  onTeam: async () => null,
-  inWorkspaceWithId: async (workspaceId, viewer) =>
-    workspaceId.equals(WORKSPACE)
-      ? { workspaceId, slug: 'acme', viewer, administers: administers() }
-      : null,
-});
+export const BY = Attribution.of(ADMIN, WORKSPACE);
+
+export const accessFor = (managesSecrets: () => boolean): WorkspaceAccessPort =>
+  ({
+    clearanceIn: async (workspaceId: WorkspaceId) =>
+      workspaceId.equals(WORKSPACE)
+        ? {
+            workspaceId,
+            slug: 'acme',
+            configures: true,
+            managesSecrets: managesSecrets(),
+            administers: false,
+          }
+        : null,
+  }) as unknown as WorkspaceAccessPort;
 
 export const transaction: TransactionPort = { run: (work) => work() };
 

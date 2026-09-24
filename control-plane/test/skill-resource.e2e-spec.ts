@@ -70,7 +70,10 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
       await db
         .delete(schema.idempotentCreate)
         .where(
-          inArray(schema.idempotentCreate.scope, [seat.owner, seat.member]),
+          inArray(schema.idempotentCreate.scope, [
+            `person:${seat.owner}`,
+            `person:${seat.member}`,
+          ]),
         );
       await seat.unseat();
     },

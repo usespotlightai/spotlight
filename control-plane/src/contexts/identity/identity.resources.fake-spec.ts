@@ -99,16 +99,22 @@ export const teams = (
 
 export const access = (administers = true): WorkspaceAccessPort =>
   ({
-    inWorkspaceWithId: vi.fn(async () => ({
+    clearanceIn: vi.fn(async () => ({
       workspaceId: WORKSPACE,
       slug: 'acme',
-      viewer: OWNER,
+      configures: administers,
       administers,
     })),
   }) as unknown as WorkspaceAccessPort;
 
-export const teamKeys = (keys: readonly string[]): IdentityResourcesPort =>
-  ({ teamKeysIn: vi.fn(async () => keys) }) as unknown as IdentityResourcesPort;
+export const teamKeys = (
+  keys: readonly string[],
+  tokens: readonly string[] = [],
+): IdentityResourcesPort =>
+  ({
+    teamKeysIn: vi.fn(async () => keys),
+    tokenNamesIn: vi.fn(async () => tokens),
+  }) as unknown as IdentityResourcesPort;
 
 export const holdings = (held: readonly string[] = []) =>
   ({

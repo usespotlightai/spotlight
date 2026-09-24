@@ -1,8 +1,10 @@
+import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
+
 export class OpenWorkspaceCommand {
   constructor(
     readonly name: string,
     readonly slug: string,
     readonly teamName: string,
-    readonly ownerId: string,
+    readonly actor: Actor,
   ) {}
 }

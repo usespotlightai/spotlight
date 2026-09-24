@@ -167,7 +167,7 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
 
     await db
       .delete(schema.idempotentCreate)
-      .where(eq(schema.idempotentCreate.scope, owner));
+      .where(eq(schema.idempotentCreate.scope, `person:${owner}`));
     await db.delete(schema.user).where(eq(schema.user.id, owner));
   });
 

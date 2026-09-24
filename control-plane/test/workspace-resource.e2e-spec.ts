@@ -6,6 +6,7 @@ import { DrizzleWorkspaceRepository } from '@identity/infrastructure/persistence
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { eq, inArray } from 'drizzle-orm';
 import request from 'supertest';
@@ -70,7 +71,10 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
       await db
         .delete(schema.idempotentCreate)
         .where(
-          inArray(schema.idempotentCreate.scope, [seat.owner, seat.member]),
+          inArray(schema.idempotentCreate.scope, [
+            `person:${seat.owner}`,
+            `person:${seat.member}`,
+          ]),
         );
       await seat.unseat();
     },
@@ -196,7 +200,14 @@ describe('a workspace, created through the resource API (e2e)', () => {
     });
 
     await expect(
-      workspaces.save(standing?.closed([], Holdings.none()) as Workspace),
+      workspaces.save(
+        standing?.closed(
+          [],
+          [],
+          Holdings.none(),
+          attributedIn(made.body.id),
+        ) as Workspace,
+      ),
     ).rejects.toThrow(WorkspaceInUseError);
   });
 });

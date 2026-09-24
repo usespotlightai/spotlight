@@ -8,7 +8,8 @@ import { TeamResourceResponseDto } from '@identity/presentation/http/dto/team-re
 import { Body, Param, Query } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiBody, ApiParam } from '@nestjs/swagger';
-import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
+import { CurrentActor } from '@platform/http/decorators/current-actor.decorator';
+import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
 import {
@@ -23,7 +24,8 @@ import type {
   ResourceDeleted,
   ResourceUpdated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
+import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
+import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
 const KIND = 'team';
 
@@ -75,14 +77,14 @@ export class TeamResourceController {
     @Param('workspaceId') workspaceId: string,
     @IdempotencyKeyHeader() key: string,
     @Body() body: unknown,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentActor() actor: Actor,
   ): Promise<TeamResourceResponseDto> {
     return answerCreated(
       KIND,
       await this.commandBus.execute<CreateTeamCommand, ResourceCreated | null>(
-        new CreateTeamCommand(workspaceId, user.id, key, body),
+        new CreateTeamCommand(workspaceId, actor, key, body),
       ),
-      (id) => this.answer(id, user),
+      (id) => this.answer(id, actor.principal),
     );
   }
 
@@ -90,9 +92,9 @@ export class TeamResourceController {
   @ID
   read(
     @Param('id') id: string,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentPrincipal() principal: Principal,
   ): Promise<TeamResourceResponseDto> {
-    return this.answer(id, user);
+    return this.answer(id, principal);
   }
 
   @TeamResource.Update('teams/:id', 'Rename a team')
@@ -102,14 +104,14 @@ export class TeamResourceController {
     @Param('id') id: string,
     @IfMatch() version: number,
     @Body() body: unknown,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentActor() actor: Actor,
   ): Promise<TeamResourceResponseDto> {
     return answerUpdated(
       KIND,
       await this.commandBus.execute<UpdateTeamCommand, ResourceUpdated | null>(
-        new UpdateTeamCommand(id, user.id, version, body),
+        new UpdateTeamCommand(id, actor, version, body),
       ),
-      (updated) => this.answer(updated, user),
+      (updated) => this.answer(updated, actor.principal),
     );
   }
 
@@ -121,12 +123,12 @@ export class TeamResourceController {
   async delete(
     @Param('id') id: string,
     @IfMatch() version: number,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentActor() actor: Actor,
   ): Promise<void> {
     answerDeleted(
       KIND,
       await this.commandBus.execute<DeleteTeamCommand, ResourceDeleted | null>(
-        new DeleteTeamCommand(id, user.id, version),
+        new DeleteTeamCommand(id, actor, version),
       ),
     );
   }
@@ -139,12 +141,12 @@ export class TeamResourceController {
   async import(
     @Param('workspaceId') workspaceId: string,
     @Query('address') address: string | undefined,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentPrincipal() principal: Principal,
   ): Promise<TeamResourceResponseDto> {
     return found(
       KIND,
       await this.queryBus.execute<ImportTeamQuery, TeamResourceDto | null>(
-        new ImportTeamQuery(workspaceId, address ?? '', user.id),
+        new ImportTeamQuery(workspaceId, address ?? '', principal),
       ),
       representation,
     );
@@ -152,12 +154,12 @@ export class TeamResourceController {
 
   private async answer(
     id: string,
-    user: AuthenticatedUser,
+    principal: Principal,
   ): Promise<TeamResourceResponseDto> {
     return found(
       KIND,
       await this.queryBus.execute<ReadTeamQuery, TeamResourceDto | null>(
-        new ReadTeamQuery(id, user.id),
+        new ReadTeamQuery(id, principal),
       ),
       representation,
     );

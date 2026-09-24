@@ -8,7 +8,7 @@ import { SecretNotGrantedError } from '@secrets/domain/exceptions/secret-not-gra
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
 import {
-  ADMIN,
+  BY,
   definition,
   InMemoryGrants,
   InMemorySecrets,
@@ -34,7 +34,7 @@ const holding = async () => {
     Secret.set(definition(), {
       id: SecretId.of('secret_linear'),
       workspaceId: WORKSPACE,
-      by: ADMIN,
+      by: BY,
       at: NOW,
     }),
   );
@@ -49,7 +49,7 @@ const holding = async () => {
       {
         id: SecretId.of('secret_sentry'),
         workspaceId: WORKSPACE,
-        by: ADMIN,
+        by: BY,
         at: NOW,
       },
     ),
@@ -132,7 +132,7 @@ describe('SecretInjection', () => {
       )) as Secret;
       const rotated = standing.redefinedAs(
         definition({ value: 'lin_api_2', valueVersion: 2 }),
-        ADMIN,
+        BY,
         NOW,
       );
 
@@ -261,7 +261,7 @@ describe('SecretInjection', () => {
       await secrets.save(
         standing.redefinedAs(
           definition({ bindings: [{ host: 'uploads.linear.app' }] }),
-          ADMIN,
+          BY,
           NOW,
         ),
       );

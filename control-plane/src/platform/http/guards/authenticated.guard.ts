@@ -6,7 +6,13 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { bearerIn } from '@platform/http/bearer';
+import { ADMITS_WORKSPACE_TOKENS } from '@platform/http/decorators/admits-workspace-tokens.decorator';
 import { ALLOW_ANONYMOUS } from '@platform/http/decorators/allow-anonymous.decorator';
+import {
+  REQUEST_PRINCIPAL,
+  type RequestWithPrincipal,
+} from '@platform/http/decorators/current-principal.decorator';
 import {
   REQUEST_USER,
   type RequestWithUser,
@@ -17,36 +23,62 @@ import {
   SESSION_READER,
   type SessionReaderPort,
 } from '@shared-kernel/application/ports/session.port';
+import {
+  WORKSPACE_TOKEN_IDENTITY,
+  type WorkspaceTokenIdentityPort,
+} from '@shared-kernel/application/ports/workspace-token-identity.port';
+import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+
+type AuthenticatedRequest = { headers: RequestHeaders } & RequestWithUser &
+  RequestWithPrincipal;
 
 @Injectable()
 export class AuthenticatedGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     @Inject(SESSION_READER) private readonly sessions: SessionReaderPort,
+    @Inject(WORKSPACE_TOKEN_IDENTITY)
+    private readonly tokens: WorkspaceTokenIdentityPort,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const skip = [ALLOW_ANONYMOUS, RUNNER_ONLY].some((marker) =>
+    const marked = (marker: symbol) =>
       this.reflector.getAllAndOverride<boolean>(marker, [
         context.getHandler(),
         context.getClass(),
-      ]),
-    );
+      ]) === true;
 
-    if (skip) {
+    if (marked(ALLOW_ANONYMOUS) || marked(RUNNER_ONLY)) {
       return true;
     }
 
-    const request = context
-      .switchToHttp()
-      .getRequest<{ headers: RequestHeaders } & RequestWithUser>();
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const { authorization } = request.headers;
+    const bearer = bearerIn(
+      typeof authorization === 'string' ? authorization : undefined,
+    );
+
+    if (bearer && marked(ADMITS_WORKSPACE_TOKENS)) {
+      const principal = await this.tokens.identify(bearer);
+
+      if (!principal) {
+        throw new UnauthorizedException();
+      }
+
+      request[REQUEST_PRINCIPAL] = principal;
+
+      return true;
+    }
 
     const user = await this.sessions.read(request.headers);
+
     if (!user) {
       throw new UnauthorizedException();
     }
 
     request[REQUEST_USER] = user;
+    request[REQUEST_PRINCIPAL] = PersonPrincipal.of(UserId.of(user.id));
 
     return true;
   }

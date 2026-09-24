@@ -9,6 +9,7 @@ CREATE TYPE "public"."review_sync_state" AS ENUM('pending', 'done', 'failed');--
 CREATE TYPE "public"."review_verdict" AS ENUM('comment', 'approve', 'request-changes');--> statement-breakpoint
 CREATE TYPE "public"."check_phase" AS ENUM('waiting', 'reordering', 'checked', 'skipped');--> statement-breakpoint
 CREATE TYPE "public"."workspace_role" AS ENUM('owner', 'admin', 'member');--> statement-breakpoint
+CREATE TYPE "public"."workspace_token_scope" AS ENUM('read', 'plan', 'configure', 'secrets');--> statement-breakpoint
 CREATE TYPE "public"."run_state" AS ENUM('queued', 'claimed', 'completed', 'failed');--> statement-breakpoint
 CREATE TABLE "event_delivery" (
 	"event_id" uuid NOT NULL,
@@ -196,6 +197,21 @@ CREATE TABLE "github_connection" (
 	CONSTRAINT "github_connection_installation_id_unique" UNIQUE("installation_id")
 );
 --> statement-breakpoint
+CREATE TABLE "configuration_change" (
+	"seq" bigserial PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"resource" text NOT NULL,
+	"resource_id" text NOT NULL,
+	"key" text NOT NULL,
+	"action" text NOT NULL,
+	"actor" text NOT NULL,
+	"user_id" text,
+	"token_id" text,
+	"client" text,
+	"details" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"recorded_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "team" (
 	"id" text PRIMARY KEY NOT NULL,
 	"key" text NOT NULL,
@@ -245,6 +261,20 @@ CREATE TABLE "workspace_member" (
 	"role" "workspace_role" NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "workspace_member_workspace_id_user_id_pk" PRIMARY KEY("workspace_id","user_id")
+);
+--> statement-breakpoint
+CREATE TABLE "workspace_token" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"name" text NOT NULL,
+	"description" text DEFAULT '' NOT NULL,
+	"scopes" "workspace_token_scope"[] NOT NULL,
+	"token_hash" text NOT NULL,
+	"issued_by" text NOT NULL,
+	"issued_at" timestamp NOT NULL,
+	"expires_at" timestamp,
+	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "workspace_token_token_hash_unique" UNIQUE("token_hash")
 );
 --> statement-breakpoint
 CREATE TABLE "inbound_delivery" (
@@ -330,18 +360,6 @@ CREATE TABLE "secret" (
 	"version" integer DEFAULT 1 NOT NULL,
 	"defined_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "secret_workspace_id_name_unique" UNIQUE("workspace_id","name")
-);
---> statement-breakpoint
-CREATE TABLE "secret_audit" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"workspace_id" text NOT NULL,
-	"secret_id" text NOT NULL,
-	"secret_name" text NOT NULL,
-	"change" text NOT NULL,
-	"by" text,
-	"value_version" integer,
-	"hosts" jsonb,
-	"at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "secret_data_key" (
@@ -605,6 +623,7 @@ ALTER TABLE "team_member" ADD CONSTRAINT "team_member_team_id_team_id_fk" FOREIG
 ALTER TABLE "team_member" ADD CONSTRAINT "team_member_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "workspace_member" ADD CONSTRAINT "workspace_member_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "workspace_member" ADD CONSTRAINT "workspace_member_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace_token" ADD CONSTRAINT "workspace_token_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "secret_grant" ADD CONSTRAINT "secret_grant_secret_id_secret_id_fk" FOREIGN KEY ("secret_id") REFERENCES "public"."secret"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "secret_value" ADD CONSTRAINT "secret_value_secret_id_secret_id_fk" FOREIGN KEY ("secret_id") REFERENCES "public"."secret"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "attachment_claim" ADD CONSTRAINT "attachment_claim_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -644,6 +663,7 @@ CREATE INDEX "review_sync_due_idx" ON "review_sync" USING btree ("state","due_at
 CREATE INDEX "review_sync_task_idx" ON "review_sync" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "stack_check_run_idx" ON "stack_check" USING btree ("run_id");--> statement-breakpoint
 CREATE INDEX "stack_check_waiting_idx" ON "stack_check" USING btree ("workspace_id","phase");--> statement-breakpoint
+CREATE INDEX "configuration_change_workspace_idx" ON "configuration_change" USING btree ("workspace_id","seq");--> statement-breakpoint
 CREATE INDEX "team_workspace_idx" ON "team" USING btree ("workspace_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "team_workspace_key_idx" ON "team" USING btree ("workspace_id","key");--> statement-breakpoint
 CREATE UNIQUE INDEX "team_invite_team_email_idx" ON "team_invite" USING btree ("team_id","email") WHERE "team_invite"."accepted_at" is null and "team_invite"."revoked_at" is null;--> statement-breakpoint
@@ -651,10 +671,10 @@ CREATE INDEX "team_invite_team_idx" ON "team_invite" USING btree ("team_id","ema
 CREATE INDEX "team_invite_workspace_idx" ON "team_invite" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "team_member_user_idx" ON "team_member" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "workspace_member_user_idx" ON "workspace_member" USING btree ("user_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "workspace_token_workspace_name_idx" ON "workspace_token" USING btree ("workspace_id","name");--> statement-breakpoint
 CREATE INDEX "inbound_delivery_state_idx" ON "inbound_delivery" USING btree ("state","due_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_token_hash_idx" ON "runner" USING btree ("token_hash");--> statement-breakpoint
 CREATE INDEX "runner_workspace_idx" ON "runner" USING btree ("workspace_id");--> statement-breakpoint
-CREATE INDEX "secret_audit_secret_idx" ON "secret_audit" USING btree ("workspace_id","secret_id");--> statement-breakpoint
 CREATE INDEX "attachment_claim_task_idx" ON "attachment_claim" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "attachment_claim_chat_idx" ON "attachment_claim" USING btree ("chat_id");--> statement-breakpoint
 CREATE INDEX "chat_team_starter_idx" ON "chat" USING btree ("team_id","started_by_id","updated_at");--> statement-breakpoint

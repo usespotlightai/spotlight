@@ -23,7 +23,6 @@ const authorizing = (allowed: boolean) =>
     viewableBy: vi.fn(),
     mayView: vi.fn(),
     inWorkspace: vi.fn(),
-    inWorkspaceWithId: vi.fn(),
     onTeam: vi.fn(async () => ({
       workspaceId: WorkspaceId.of('ws_1'),
       slug: 'acme',
@@ -31,6 +30,9 @@ const authorizing = (allowed: boolean) =>
       teamId: TeamId.of('team_1'),
       administers: allowed,
     })),
+    clearanceIn: vi.fn(),
+    clearanceOnTeam: vi.fn(),
+    mayPlan: vi.fn(),
   }) satisfies WorkspaceAccessPort;
 
 const BEGUN = {

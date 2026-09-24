@@ -1,5 +1,5 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import { teamAccess } from '@identity/application/ports/workspace-access.fake-spec';
 import type {
   CompiledIntegration,
   IntegrationCompilerPort,
@@ -21,7 +21,6 @@ import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/config
 import { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { vi } from 'vitest';
 
@@ -72,16 +71,7 @@ export const standingAt = (
     version,
   });
 
-export const access = (administers = true): WorkspaceAccessPort =>
-  ({
-    onTeam: vi.fn(async () => ({
-      workspaceId: WorkspaceId.of('ws_1'),
-      teamId: TEAM,
-      slug: 'acme',
-      viewer: UserId.of('user_1'),
-      administers,
-    })),
-  }) as unknown as WorkspaceAccessPort;
+export const access = (administers = true) => teamAccess(TEAM, administers);
 
 export const teams = (): TeamDirectoryPort => ({
   find: vi.fn(async () => ({

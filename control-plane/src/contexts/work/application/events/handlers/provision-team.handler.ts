@@ -1,5 +1,6 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -82,6 +83,7 @@ export class ProvisionTeam {
       teamId: team.teamId,
       line: opening,
       newId: () => this.ids.generate(),
+      by: Attribution.spotlight(team.workspaceId),
     });
 
     return built.worked.reduce(

@@ -1,3 +1,4 @@
+import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { AbandonTeamLines } from '@work/application/events/handlers/abandon-team-lines.handler';
@@ -15,6 +16,7 @@ const TEAM = TeamId.of('team_1');
 const standing = (): Line => {
   let next = 0;
   const opened = Line.open({
+    by: attributedIn(),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TEAM,
     line: BUILT_IN_LINES[0] as LineOpening,

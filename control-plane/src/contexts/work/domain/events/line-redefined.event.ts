@@ -1,10 +1,11 @@
-import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import type { ConfigurationChanged } from '@shared-kernel/domain/events/configuration-changed';
+import type { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { LineId } from '@work/domain/value-objects/line-id.vo';
 import type { LineKey } from '@work/domain/value-objects/line-key.vo';
 
-export class LineRedefined implements DomainEvent {
+export class LineRedefined implements ConfigurationChanged {
   readonly kind = 'line.redefined';
 
   constructor(
@@ -12,5 +13,6 @@ export class LineRedefined implements DomainEvent {
     readonly workspaceId: WorkspaceId,
     readonly teamId: TeamId,
     readonly key: LineKey,
+    readonly change: ConfigurationChange,
   ) {}
 }

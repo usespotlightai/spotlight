@@ -268,6 +268,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
   },
 
   ...bindQueryHandler(CheckExpressionQuery, CheckExpressionHandler, [
+    WORKSPACE_ACCESS,
     EXPRESSION_CHECKS,
   ]),
 

@@ -11,6 +11,8 @@ import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo
 import type { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
@@ -54,7 +56,11 @@ export class IntegrationDefinition extends EventRecorder {
   }
 
   static define(
-    input: Compiled & { id: IntegrationDefinitionId; teamId: TeamId },
+    input: Compiled & {
+      id: IntegrationDefinitionId;
+      teamId: TeamId;
+      by: Attribution;
+    },
   ): IntegrationDefinition {
     guardDescribes(input);
 
@@ -74,6 +80,7 @@ export class IntegrationDefinition extends EventRecorder {
         defined.teamId,
         defined.source,
         defined.offers,
+        ConfigurationChange.created(defined.whatChanged, input.by),
       ),
     );
 
@@ -104,7 +111,11 @@ export class IntegrationDefinition extends EventRecorder {
     }
   }
 
-  redefinedAs(compiled: Compiled, given: ToolUses): IntegrationDefinition {
+  redefinedAs(
+    compiled: Compiled,
+    given: ToolUses,
+    by: Attribution,
+  ): IntegrationDefinition {
     this.guardLive();
     guardDescribes(compiled);
 
@@ -125,35 +136,55 @@ export class IntegrationDefinition extends EventRecorder {
     const redefined = this.with({ document: compiled.document, offers });
 
     redefined.record(
-      new IntegrationRedefined(this.id, this.teamId, this.source, offers),
+      new IntegrationRedefined(
+        this.id,
+        this.teamId,
+        this.source,
+        offers,
+        ConfigurationChange.updated(this.whatChanged, by),
+      ),
     );
 
     return redefined;
   }
 
-  retired(given: ToolUses): IntegrationDefinition {
+  retired(given: ToolUses, by: Attribution): IntegrationDefinition {
     this.guardLive();
     this.guardUnused(given, this.offers);
 
     const retired = this.with({ retired: true });
 
-    retired.record(
-      new IntegrationRetired(this.id, this.teamId, this.source, this.offers),
-    );
+    retired.record(this.retiredBy(by));
 
     return retired;
   }
 
-  abandoned(): IntegrationDefinition {
+  abandoned(by: Attribution): IntegrationDefinition {
     this.guardLive();
 
     const abandoned = this.with({ retired: true });
 
-    abandoned.record(
-      new IntegrationRetired(this.id, this.teamId, this.source, this.offers),
-    );
+    abandoned.record(this.retiredBy(by));
 
     return abandoned;
+  }
+
+  private retiredBy(by: Attribution): IntegrationRetired {
+    return new IntegrationRetired(
+      this.id,
+      this.teamId,
+      this.source,
+      this.offers,
+      ConfigurationChange.deleted(this.whatChanged, by),
+    );
+  }
+
+  private get whatChanged() {
+    return {
+      resource: 'integration' as const,
+      id: this.id.value,
+      key: this.source.value,
+    };
   }
 
   get id(): IntegrationDefinitionId {

@@ -1,6 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
+  RESTRICT_VIOLATION,
+  UNIQUE_VIOLATION,
+  violates,
+} from '@platform/persistence/drizzle/violations';
+import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
@@ -45,11 +50,6 @@ import {
   stationSkill,
   stationTool,
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
-import {
-  RESTRICT_VIOLATION,
-  UNIQUE_VIOLATION,
-  violates,
-} from '@work/infrastructure/persistence/drizzle/violations';
 import { and, eq, inArray } from 'drizzle-orm';
 
 type LineRow = typeof line.$inferSelect;

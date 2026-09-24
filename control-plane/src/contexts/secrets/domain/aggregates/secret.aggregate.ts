@@ -1,7 +1,6 @@
 import { SecretAbandoned } from '@secrets/domain/events/secret-abandoned.event';
 import { SecretDeleted } from '@secrets/domain/events/secret-deleted.event';
 import { SecretRedefined } from '@secrets/domain/events/secret-redefined.event';
-import { SecretRotated } from '@secrets/domain/events/secret-rotated.event';
 import { SecretSet } from '@secrets/domain/events/secret-set.event';
 import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.error';
 import { SecretInUseError } from '@secrets/domain/exceptions/secret-in-use.error';
@@ -14,6 +13,7 @@ import type {
   WornHeader,
 } from '@secrets/domain/value-objects/secret-binding.vo';
 import type { SecretBindings } from '@secrets/domain/value-objects/secret-bindings.vo';
+import { SecretChangeDetail } from '@secrets/domain/value-objects/secret-change-detail.vo';
 import { SecretGrant } from '@secrets/domain/value-objects/secret-grant.vo';
 import type { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import type { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
@@ -21,9 +21,10 @@ import type { SecretUses } from '@secrets/domain/value-objects/secret-uses.vo';
 import type { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface SecretDefinition {
@@ -77,7 +78,12 @@ export class Secret extends EventRecorder {
 
   static set(
     definition: SecretDefinition,
-    input: { id: SecretId; workspaceId: WorkspaceId; by: UserId; at: Date },
+    input: {
+      id: SecretId;
+      workspaceId: WorkspaceId;
+      by: Attribution;
+      at: Date;
+    },
   ): Secret {
     const keeping = definition.source.isBuiltIn
       ? valueFor(
@@ -109,8 +115,11 @@ export class Secret extends EventRecorder {
         set.workspaceId,
         set.id,
         set.name,
-        input.by,
-        set.valueVersion,
+        ConfigurationChange.created(
+          set.whatChanged,
+          input.by,
+          SecretChangeDetail.set(set.valueVersion, set.bindings.hosts),
+        ),
       ),
     );
 
@@ -136,7 +145,7 @@ export class Secret extends EventRecorder {
     }
   }
 
-  redefinedAs(definition: SecretDefinition, by: UserId, at: Date): Secret {
+  redefinedAs(definition: SecretDefinition, by: Attribution, at: Date): Secret {
     this.guardStanding();
 
     if (!definition.name.equals(this.name)) {
@@ -177,34 +186,26 @@ export class Secret extends EventRecorder {
       forgetting: this.source.isBuiltIn && !definition.source.isBuiltIn,
     });
 
-    if (rebound) {
-      redefined.record(
-        new SecretRedefined(
-          this.workspaceId,
-          this.id,
-          this.name,
-          by,
-          definition.bindings.hosts,
-        ),
-      );
-    }
+    const moved = SecretChangeDetail.redefined({
+      valueMoved: keeping !== null || rotating,
+      valueVersion: definition.valueVersion,
+      rebound,
+      boundTo: definition.bindings.hosts,
+    });
 
-    if (keeping || rotating) {
-      redefined.record(
-        new SecretRotated(
-          this.workspaceId,
-          this.id,
-          this.name,
-          by,
-          definition.valueVersion,
-        ),
-      );
-    }
+    redefined.record(
+      new SecretRedefined(
+        this.workspaceId,
+        this.id,
+        this.name,
+        ConfigurationChange.updated(this.whatChanged, by, moved),
+      ),
+    );
 
     return redefined;
   }
 
-  deleted(by: UserId, uses: SecretUses): Secret {
+  deleted(uses: SecretUses, by: Attribution): Secret {
     this.guardStanding();
 
     if (!uses.isEmpty) {
@@ -213,17 +214,31 @@ export class Secret extends EventRecorder {
 
     const deleted = this.removed();
 
-    deleted.record(new SecretDeleted(this.workspaceId, this.id, this.name, by));
+    deleted.record(
+      new SecretDeleted(
+        this.workspaceId,
+        this.id,
+        this.name,
+        ConfigurationChange.deleted(this.whatChanged, by),
+      ),
+    );
 
     return deleted;
   }
 
-  abandoned(): Secret {
+  abandoned(by: Attribution): Secret {
     this.guardStanding();
 
     const abandoned = this.removed();
 
-    abandoned.record(new SecretAbandoned(this.workspaceId, this.id, this.name));
+    abandoned.record(
+      new SecretAbandoned(
+        this.workspaceId,
+        this.id,
+        this.name,
+        ConfigurationChange.deleted(this.whatChanged, by),
+      ),
+    );
 
     return abandoned;
   }
@@ -322,6 +337,14 @@ export class Secret extends EventRecorder {
 
   get forgetsValue(): boolean {
     return this.state.forgetting;
+  }
+
+  private get whatChanged() {
+    return {
+      resource: 'secret' as const,
+      id: this.id.value,
+      key: this.name.value,
+    };
   }
 
   private with(change: Partial<State>): Secret {

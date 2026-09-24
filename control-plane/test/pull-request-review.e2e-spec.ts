@@ -12,6 +12,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -76,6 +77,7 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
       each.role?.equals(LineRole.REVIEW),
     );
     const line = Line.open({
+      by: attributedIn(),
       workspaceId: WorkspaceId.of(held),
       teamId: TeamId.of(held),
       // biome-ignore lint/style/noNonNullAssertion: Spotlight ships a review line

@@ -1,4 +1,5 @@
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { changed } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WORK_PUBLICATIONS } from '@work/application/integration-events/work.publications';
@@ -19,6 +20,7 @@ const IDENTITY = [
   WorkspaceId.of('ws_1'),
   TeamId.of('team_1'),
   LineKey.of('delivery'),
+  changed('line', 'line_1', 'delivery'),
 ] as const;
 
 describe('WORK_PUBLICATIONS for lines', () => {

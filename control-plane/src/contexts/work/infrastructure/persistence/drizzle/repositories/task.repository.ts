@@ -1,6 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
+  FOREIGN_KEY_VIOLATION,
+  violates,
+} from '@platform/persistence/drizzle/violations';
+import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
@@ -48,10 +52,6 @@ import {
   taskMark,
   taskNote,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import {
-  FOREIGN_KEY_VIOLATION,
-  violates,
-} from '@work/infrastructure/persistence/drizzle/violations';
 import { and, eq, gt, inArray, not, notExists, or, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 

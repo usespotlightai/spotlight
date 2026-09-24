@@ -1,5 +1,4 @@
 import {
-  index,
   integer,
   jsonb,
   pgTable,
@@ -7,7 +6,6 @@ import {
   text,
   timestamp,
   unique,
-  uuid,
 } from 'drizzle-orm/pg-core';
 
 export interface SecretBindingRow {
@@ -65,23 +63,5 @@ export const secretGrant = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.runId, table.secretId, table.host] }),
-  ],
-);
-
-export const secretAudit = pgTable(
-  'secret_audit',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    workspaceId: text('workspace_id').notNull(),
-    secretId: text('secret_id').notNull(),
-    secretName: text('secret_name').notNull(),
-    change: text('change').notNull(),
-    by: text('by'),
-    valueVersion: integer('value_version'),
-    hosts: jsonb('hosts').$type<string[]>(),
-    at: timestamp('at').defaultNow().notNull(),
-  },
-  (table) => [
-    index('secret_audit_secret_idx').on(table.workspaceId, table.secretId),
   ],
 );

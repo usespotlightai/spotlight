@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AcceptInviteData, AcceptInviteErrors, AcceptInviteResponses, AcceptProposalData, AcceptProposalErrors, AcceptProposalResponses, AddTaskData, AddTaskErrors, AddTaskResponses, AnalyseTracesData, AnalyseTracesErrors, AnalyseTracesResponses, AnswerInboxItemData, AnswerInboxItemErrors, AnswerInboxItemResponses, AnswerRemarkData, AnswerRemarkErrors, AnswerRemarkResponses, AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, AssignTaskData, AssignTaskErrors, AssignTaskResponses, ChangeMemberRoleData, ChangeMemberRoleErrors, ChangeMemberRoleResponses, CheckExpressionData, CheckExpressionErrors, CheckExpressionResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, ConnectGitHubData, ConnectGitHubErrors, ConnectGitHubResponses, ConnectIntegrationData, ConnectIntegrationErrors, ConnectIntegrationResponses, CreateIntegrationData, CreateIntegrationErrors, CreateIntegrationResponses, CreateLineData, CreateLineErrors, CreateLineResponses, CreateSecretData, CreateSecretErrors, CreateSecretResponses, CreateSkillData, CreateSkillErrors, CreateSkillResponses, CreateTeamData, CreateTeamErrors, CreateTeamResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, DeleteIntegrationData, DeleteIntegrationErrors, DeleteIntegrationResponses, DeleteLineData, DeleteLineErrors, DeleteLineResponses, DeleteReviewCommentData, DeleteReviewCommentErrors, DeleteReviewCommentResponses, DeleteSecretData, DeleteSecretErrors, DeleteSecretResponses, DeleteSkillData, DeleteSkillErrors, DeleteSkillResponses, DeleteTaskData, DeleteTaskErrors, DeleteTaskResponses, DeleteTeamData, DeleteTeamErrors, DeleteTeamResponses, DeleteWorkspaceData, DeleteWorkspaceErrors, DeleteWorkspaceResponses, DeliverSaidData, DeliverSaidErrors, DeliverSaidResponses, DismissProposalData, DismissProposalErrors, DismissProposalResponses, DisputeDecisionData, DisputeDecisionErrors, DisputeDecisionResponses, DraftChangeStackData, DraftChangeStackErrors, DraftChangeStackResponses, DraftReviewCommentData, DraftReviewCommentErrors, DraftReviewCommentResponses, EditReviewCommentData, EditReviewCommentErrors, EditReviewCommentResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, EnrolRunnerData, EnrolRunnerErrors, EnrolRunnerResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, GrantAttachmentUploadData, GrantAttachmentUploadErrors, GrantAttachmentUploadResponses, ImportIntegrationData, ImportIntegrationErrors, ImportIntegrationResponses, ImportLineData, ImportLineErrors, ImportLineResponses, ImportSecretData, ImportSecretErrors, ImportSecretResponses, ImportSkillData, ImportSkillErrors, ImportSkillResponses, ImportTeamData, ImportTeamErrors, ImportTeamResponses, ImportWorkspaceData, ImportWorkspaceErrors, ImportWorkspaceResponses, InstallableHarnessesData, InstallableHarnessesErrors, InstallableHarnessesResponses, InviteToTeamData, InviteToTeamErrors, InviteToTeamResponses, KeptWorkspacesData, KeptWorkspacesErrors, KeptWorkspacesResponses, ListChatsData, ListChatsErrors, ListChatsResponses, ListExpressionPositionsData, ListExpressionPositionsErrors, ListExpressionPositionsResponses, ListHappeningsData, ListHappeningsErrors, ListHappeningsResponses, ListHarnessesData, ListHarnessesErrors, ListHarnessesResponses, ListInboxData, ListInboxErrors, ListInboxResponses, ListInvitesData, ListInvitesErrors, ListInvitesResponses, ListLinesData, ListLinesErrors, ListLinesResponses, ListMembersData, ListMembersErrors, ListMembersResponses, ListRepositoriesData, ListRepositoriesErrors, ListRepositoriesResponses, ListRunChangeStacksData, ListRunChangeStacksErrors, ListRunChangeStacksResponses, ListRunnerActivityData, ListRunnerActivityErrors, ListRunnerActivityResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListStandingDecisionsData, ListStandingDecisionsErrors, ListStandingDecisionsResponses, ListTaskRunsData, ListTaskRunsErrors, ListTaskRunsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListTeamRunsData, ListTeamRunsErrors, ListTeamRunsResponses, ListTeamSkillsData, ListTeamSkillsErrors, ListTeamSkillsResponses, ListTeamTracesData, ListTeamTracesErrors, ListTeamTracesResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, MoveTaskData, MoveTaskErrors, MoveTaskResponses, OpenWorkspaceData, OpenWorkspaceErrors, OpenWorkspaceResponses, PendingMessagesData, PendingMessagesErrors, PendingMessagesResponses, ReadAttachmentData, ReadAttachmentErrors, ReadChatData, ReadChatErrors, ReadChatJournalData, ReadChatJournalErrors, ReadChatJournalResponses, ReadChatResponses, ReadConfigurationData, ReadConfigurationErrors, ReadConfigurationResponses, ReadGitHubData, ReadGitHubErrors, ReadGitHubResponses, ReadInboxItemData, ReadInboxItemErrors, ReadInboxItemResponses, ReadIntegrationData, ReadIntegrationErrors, ReadIntegrationResponses, ReadInviteData, ReadInviteErrors, ReadInviteResponses, ReadLineData, ReadLineErrors, ReadLineResponses, ReadOnboardingData, ReadOnboardingErrors, ReadOnboardingResponses, ReadRunAttachmentData, ReadRunAttachmentErrors, ReadRunAttachmentResponses, ReadRunConversationData, ReadRunConversationErrors, ReadRunConversationResponses, ReadRunReviewData, ReadRunReviewErrors, ReadRunReviewResponses, ReadRunTraceData, ReadRunTraceErrors, ReadRunTraceResponses, ReadSecretData, ReadSecretErrors, ReadSecretResponses, ReadSkillData, ReadSkillErrors, ReadSkillResponses, ReadTaskChangeStackData, ReadTaskChangeStackErrors, ReadTaskChangeStackResponses, ReadTaskDecisionsData, ReadTaskDecisionsErrors, ReadTaskDecisionsResponses, ReadTaskJournalData, ReadTaskJournalErrors, ReadTaskJournalResponses, ReadTaskTraceData, ReadTaskTraceErrors, ReadTaskTraceResponses, ReadTeamData, ReadTeamErrors, ReadTeamResponses, ReadWorkspaceData, ReadWorkspaceErrors, ReadWorkspaceResponses, RecordChangeStackCheckData, RecordChangeStackCheckErrors, RecordChangeStackCheckResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, RevokeInviteData, RevokeInviteErrors, RevokeInviteResponses, RevokeRunnerData, RevokeRunnerErrors, RevokeRunnerResponses, SayInChatData, SayInChatErrors, SayInChatResponses, SayToRunData, SayToRunErrors, SayToRunResponses, StartChatData, StartChatErrors, StartChatResponses, StopChatData, StopChatErrors, StopChatResponses, StopRunData, StopRunErrors, StopRunResponses, StreamRunData, StreamRunErrors, StreamRunResponses, SubmitReviewData, SubmitReviewErrors, SubmitReviewResponses, UpdateIntegrationData, UpdateIntegrationErrors, UpdateIntegrationResponses, UpdateLineData, UpdateLineErrors, UpdateLineResponses, UpdateSecretData, UpdateSecretErrors, UpdateSecretResponses, UpdateSkillData, UpdateSkillErrors, UpdateSkillResponses, UpdateTeamData, UpdateTeamErrors, UpdateTeamResponses, UpdateWorkspaceData, UpdateWorkspaceErrors, UpdateWorkspaceResponses, UseToolData, UseToolErrors, UseToolResponses } from './types.gen';
+import type { AcceptInviteData, AcceptInviteErrors, AcceptInviteResponses, AcceptProposalData, AcceptProposalErrors, AcceptProposalResponses, AddTaskData, AddTaskErrors, AddTaskResponses, AnalyseTracesData, AnalyseTracesErrors, AnalyseTracesResponses, AnswerInboxItemData, AnswerInboxItemErrors, AnswerInboxItemResponses, AnswerRemarkData, AnswerRemarkErrors, AnswerRemarkResponses, AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, AssignTaskData, AssignTaskErrors, AssignTaskResponses, ChangeMemberRoleData, ChangeMemberRoleErrors, ChangeMemberRoleResponses, CheckExpressionData, CheckExpressionErrors, CheckExpressionResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, ConnectGitHubData, ConnectGitHubErrors, ConnectGitHubResponses, ConnectIntegrationData, ConnectIntegrationErrors, ConnectIntegrationResponses, CreateIntegrationData, CreateIntegrationErrors, CreateIntegrationResponses, CreateLineData, CreateLineErrors, CreateLineResponses, CreateSecretData, CreateSecretErrors, CreateSecretResponses, CreateSkillData, CreateSkillErrors, CreateSkillResponses, CreateTeamData, CreateTeamErrors, CreateTeamResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, CreateWorkspaceTokenData, CreateWorkspaceTokenErrors, CreateWorkspaceTokenResponses, DeleteIntegrationData, DeleteIntegrationErrors, DeleteIntegrationResponses, DeleteLineData, DeleteLineErrors, DeleteLineResponses, DeleteReviewCommentData, DeleteReviewCommentErrors, DeleteReviewCommentResponses, DeleteSecretData, DeleteSecretErrors, DeleteSecretResponses, DeleteSkillData, DeleteSkillErrors, DeleteSkillResponses, DeleteTaskData, DeleteTaskErrors, DeleteTaskResponses, DeleteTeamData, DeleteTeamErrors, DeleteTeamResponses, DeleteWorkspaceData, DeleteWorkspaceErrors, DeleteWorkspaceResponses, DeleteWorkspaceTokenData, DeleteWorkspaceTokenErrors, DeleteWorkspaceTokenResponses, DeliverSaidData, DeliverSaidErrors, DeliverSaidResponses, DismissProposalData, DismissProposalErrors, DismissProposalResponses, DisputeDecisionData, DisputeDecisionErrors, DisputeDecisionResponses, DraftChangeStackData, DraftChangeStackErrors, DraftChangeStackResponses, DraftReviewCommentData, DraftReviewCommentErrors, DraftReviewCommentResponses, EditReviewCommentData, EditReviewCommentErrors, EditReviewCommentResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, EnrolRunnerData, EnrolRunnerErrors, EnrolRunnerResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, GrantAttachmentUploadData, GrantAttachmentUploadErrors, GrantAttachmentUploadResponses, ImportIntegrationData, ImportIntegrationErrors, ImportIntegrationResponses, ImportLineData, ImportLineErrors, ImportLineResponses, ImportSecretData, ImportSecretErrors, ImportSecretResponses, ImportSkillData, ImportSkillErrors, ImportSkillResponses, ImportTeamData, ImportTeamErrors, ImportTeamResponses, ImportWorkspaceData, ImportWorkspaceErrors, ImportWorkspaceResponses, ImportWorkspaceTokenData, ImportWorkspaceTokenErrors, ImportWorkspaceTokenResponses, InstallableHarnessesData, InstallableHarnessesErrors, InstallableHarnessesResponses, InviteToTeamData, InviteToTeamErrors, InviteToTeamResponses, KeptWorkspacesData, KeptWorkspacesErrors, KeptWorkspacesResponses, ListChatsData, ListChatsErrors, ListChatsResponses, ListConfigurationChangesData, ListConfigurationChangesErrors, ListConfigurationChangesResponses, ListExpressionPositionsData, ListExpressionPositionsErrors, ListExpressionPositionsResponses, ListHappeningsData, ListHappeningsErrors, ListHappeningsResponses, ListHarnessesData, ListHarnessesErrors, ListHarnessesResponses, ListInboxData, ListInboxErrors, ListInboxResponses, ListInvitesData, ListInvitesErrors, ListInvitesResponses, ListLinesData, ListLinesErrors, ListLinesResponses, ListMembersData, ListMembersErrors, ListMembersResponses, ListRepositoriesData, ListRepositoriesErrors, ListRepositoriesResponses, ListRunChangeStacksData, ListRunChangeStacksErrors, ListRunChangeStacksResponses, ListRunnerActivityData, ListRunnerActivityErrors, ListRunnerActivityResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListStandingDecisionsData, ListStandingDecisionsErrors, ListStandingDecisionsResponses, ListTaskRunsData, ListTaskRunsErrors, ListTaskRunsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListTeamRunsData, ListTeamRunsErrors, ListTeamRunsResponses, ListTeamSkillsData, ListTeamSkillsErrors, ListTeamSkillsResponses, ListTeamTracesData, ListTeamTracesErrors, ListTeamTracesResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, MoveTaskData, MoveTaskErrors, MoveTaskResponses, OpenWorkspaceData, OpenWorkspaceErrors, OpenWorkspaceResponses, PendingMessagesData, PendingMessagesErrors, PendingMessagesResponses, ReadAttachmentData, ReadAttachmentErrors, ReadChatData, ReadChatErrors, ReadChatJournalData, ReadChatJournalErrors, ReadChatJournalResponses, ReadChatResponses, ReadConfigurationData, ReadConfigurationErrors, ReadConfigurationResponses, ReadGitHubData, ReadGitHubErrors, ReadGitHubResponses, ReadInboxItemData, ReadInboxItemErrors, ReadInboxItemResponses, ReadIntegrationData, ReadIntegrationErrors, ReadIntegrationResponses, ReadInviteData, ReadInviteErrors, ReadInviteResponses, ReadLineData, ReadLineErrors, ReadLineResponses, ReadOnboardingData, ReadOnboardingErrors, ReadOnboardingResponses, ReadRunAttachmentData, ReadRunAttachmentErrors, ReadRunAttachmentResponses, ReadRunConversationData, ReadRunConversationErrors, ReadRunConversationResponses, ReadRunReviewData, ReadRunReviewErrors, ReadRunReviewResponses, ReadRunTraceData, ReadRunTraceErrors, ReadRunTraceResponses, ReadSecretData, ReadSecretErrors, ReadSecretResponses, ReadSkillData, ReadSkillErrors, ReadSkillResponses, ReadTaskChangeStackData, ReadTaskChangeStackErrors, ReadTaskChangeStackResponses, ReadTaskDecisionsData, ReadTaskDecisionsErrors, ReadTaskDecisionsResponses, ReadTaskJournalData, ReadTaskJournalErrors, ReadTaskJournalResponses, ReadTaskTraceData, ReadTaskTraceErrors, ReadTaskTraceResponses, ReadTeamData, ReadTeamErrors, ReadTeamResponses, ReadWorkspaceData, ReadWorkspaceErrors, ReadWorkspaceResponses, ReadWorkspaceTokenData, ReadWorkspaceTokenErrors, ReadWorkspaceTokenResponses, RecordChangeStackCheckData, RecordChangeStackCheckErrors, RecordChangeStackCheckResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, RevokeInviteData, RevokeInviteErrors, RevokeInviteResponses, RevokeRunnerData, RevokeRunnerErrors, RevokeRunnerResponses, SayInChatData, SayInChatErrors, SayInChatResponses, SayToRunData, SayToRunErrors, SayToRunResponses, StartChatData, StartChatErrors, StartChatResponses, StopChatData, StopChatErrors, StopChatResponses, StopRunData, StopRunErrors, StopRunResponses, StreamRunData, StreamRunErrors, StreamRunResponses, SubmitReviewData, SubmitReviewErrors, SubmitReviewResponses, UpdateIntegrationData, UpdateIntegrationErrors, UpdateIntegrationResponses, UpdateLineData, UpdateLineErrors, UpdateLineResponses, UpdateSecretData, UpdateSecretErrors, UpdateSecretResponses, UpdateSkillData, UpdateSkillErrors, UpdateSkillResponses, UpdateTeamData, UpdateTeamErrors, UpdateTeamResponses, UpdateWorkspaceData, UpdateWorkspaceErrors, UpdateWorkspaceResponses, UpdateWorkspaceTokenData, UpdateWorkspaceTokenErrors, UpdateWorkspaceTokenResponses, UseToolData, UseToolErrors, UseToolResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -32,6 +32,7 @@ export const listLines = <ThrowOnError extends boolean = false>(options: Options
  * Open a line for a team
  */
 export const createLine = <ThrowOnError extends boolean = false>(options: Options<CreateLineData, ThrowOnError>): RequestResult<CreateLineResponses, CreateLineErrors, ThrowOnError> => (options.client ?? client).post<CreateLineResponses, CreateLineErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
   url: '/resources/teams/{teamId}/lines',
   ...options,
   headers: {
@@ -43,17 +44,26 @@ export const createLine = <ThrowOnError extends boolean = false>(options: Option
 /**
  * Delete a line no task stands on
  */
-export const deleteLine = <ThrowOnError extends boolean = false>(options: Options<DeleteLineData, ThrowOnError>): RequestResult<DeleteLineResponses, DeleteLineErrors, ThrowOnError> => (options.client ?? client).delete<DeleteLineResponses, DeleteLineErrors, ThrowOnError>({ url: '/resources/lines/{id}', ...options });
+export const deleteLine = <ThrowOnError extends boolean = false>(options: Options<DeleteLineData, ThrowOnError>): RequestResult<DeleteLineResponses, DeleteLineErrors, ThrowOnError> => (options.client ?? client).delete<DeleteLineResponses, DeleteLineErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/lines/{id}',
+  ...options
+});
 
 /**
  * Read a line as it stands
  */
-export const readLine = <ThrowOnError extends boolean = false>(options: Options<ReadLineData, ThrowOnError>): RequestResult<ReadLineResponses, ReadLineErrors, ThrowOnError> => (options.client ?? client).get<ReadLineResponses, ReadLineErrors, ThrowOnError>({ url: '/resources/lines/{id}', ...options });
+export const readLine = <ThrowOnError extends boolean = false>(options: Options<ReadLineData, ThrowOnError>): RequestResult<ReadLineResponses, ReadLineErrors, ThrowOnError> => (options.client ?? client).get<ReadLineResponses, ReadLineErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/lines/{id}',
+  ...options
+});
 
 /**
  * Reconcile a line with its definition, keeping each station it keeps
  */
 export const updateLine = <ThrowOnError extends boolean = false>(options: Options<UpdateLineData, ThrowOnError>): RequestResult<UpdateLineResponses, UpdateLineErrors, ThrowOnError> => (options.client ?? client).put<UpdateLineResponses, UpdateLineErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
   url: '/resources/lines/{id}',
   ...options,
   headers: {
@@ -65,7 +75,11 @@ export const updateLine = <ThrowOnError extends boolean = false>(options: Option
 /**
  * Find the line at an address in a workspace, to import it
  */
-export const importLine = <ThrowOnError extends boolean = false>(options: Options<ImportLineData, ThrowOnError>): RequestResult<ImportLineResponses, ImportLineErrors, ThrowOnError> => (options.client ?? client).get<ImportLineResponses, ImportLineErrors, ThrowOnError>({ url: '/resources/workspaces/{workspaceId}/lines/import', ...options });
+export const importLine = <ThrowOnError extends boolean = false>(options: Options<ImportLineData, ThrowOnError>): RequestResult<ImportLineResponses, ImportLineErrors, ThrowOnError> => (options.client ?? client).get<ImportLineResponses, ImportLineErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/workspaces/{workspaceId}/lines/import',
+  ...options
+});
 
 /**
  * Queue a run for a pool to pick up
@@ -409,12 +423,17 @@ export const readOnboarding = <ThrowOnError extends boolean = false>(options: Op
 /**
  * Find the workspace with a slug, to import it
  */
-export const importWorkspace = <ThrowOnError extends boolean = false>(options: Options<ImportWorkspaceData, ThrowOnError>): RequestResult<ImportWorkspaceResponses, ImportWorkspaceErrors, ThrowOnError> => (options.client ?? client).get<ImportWorkspaceResponses, ImportWorkspaceErrors, ThrowOnError>({ url: '/resources/workspaces/import', ...options });
+export const importWorkspace = <ThrowOnError extends boolean = false>(options: Options<ImportWorkspaceData, ThrowOnError>): RequestResult<ImportWorkspaceResponses, ImportWorkspaceErrors, ThrowOnError> => (options.client ?? client).get<ImportWorkspaceResponses, ImportWorkspaceErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/workspaces/import',
+  ...options
+});
 
 /**
  * Create a workspace, owned by whoever creates it
  */
 export const createWorkspace = <ThrowOnError extends boolean = false>(options: Options<CreateWorkspaceData, ThrowOnError>): RequestResult<CreateWorkspaceResponses, CreateWorkspaceErrors, ThrowOnError> => (options.client ?? client).post<CreateWorkspaceResponses, CreateWorkspaceErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
   url: '/resources/workspaces',
   ...options,
   headers: {
@@ -426,17 +445,26 @@ export const createWorkspace = <ThrowOnError extends boolean = false>(options: O
 /**
  * Delete a workspace that holds no teams
  */
-export const deleteWorkspace = <ThrowOnError extends boolean = false>(options: Options<DeleteWorkspaceData, ThrowOnError>): RequestResult<DeleteWorkspaceResponses, DeleteWorkspaceErrors, ThrowOnError> => (options.client ?? client).delete<DeleteWorkspaceResponses, DeleteWorkspaceErrors, ThrowOnError>({ url: '/resources/workspaces/{id}', ...options });
+export const deleteWorkspace = <ThrowOnError extends boolean = false>(options: Options<DeleteWorkspaceData, ThrowOnError>): RequestResult<DeleteWorkspaceResponses, DeleteWorkspaceErrors, ThrowOnError> => (options.client ?? client).delete<DeleteWorkspaceResponses, DeleteWorkspaceErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/workspaces/{id}',
+  ...options
+});
 
 /**
  * Read a workspace
  */
-export const readWorkspace = <ThrowOnError extends boolean = false>(options: Options<ReadWorkspaceData, ThrowOnError>): RequestResult<ReadWorkspaceResponses, ReadWorkspaceErrors, ThrowOnError> => (options.client ?? client).get<ReadWorkspaceResponses, ReadWorkspaceErrors, ThrowOnError>({ url: '/resources/workspaces/{id}', ...options });
+export const readWorkspace = <ThrowOnError extends boolean = false>(options: Options<ReadWorkspaceData, ThrowOnError>): RequestResult<ReadWorkspaceResponses, ReadWorkspaceErrors, ThrowOnError> => (options.client ?? client).get<ReadWorkspaceResponses, ReadWorkspaceErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/workspaces/{id}',
+  ...options
+});
 
 /**
  * Rename a workspace
  */
 export const updateWorkspace = <ThrowOnError extends boolean = false>(options: Options<UpdateWorkspaceData, ThrowOnError>): RequestResult<UpdateWorkspaceResponses, UpdateWorkspaceErrors, ThrowOnError> => (options.client ?? client).put<UpdateWorkspaceResponses, UpdateWorkspaceErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
   url: '/resources/workspaces/{id}',
   ...options,
   headers: {
@@ -449,6 +477,7 @@ export const updateWorkspace = <ThrowOnError extends boolean = false>(options: O
  * Create a team in a workspace, holding nothing yet
  */
 export const createTeam = <ThrowOnError extends boolean = false>(options: Options<CreateTeamData, ThrowOnError>): RequestResult<CreateTeamResponses, CreateTeamErrors, ThrowOnError> => (options.client ?? client).post<CreateTeamResponses, CreateTeamErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
   url: '/resources/workspaces/{workspaceId}/teams',
   ...options,
   headers: {
@@ -460,17 +489,26 @@ export const createTeam = <ThrowOnError extends boolean = false>(options: Option
 /**
  * Delete a team that holds no lines, skills or integrations
  */
-export const deleteTeam = <ThrowOnError extends boolean = false>(options: Options<DeleteTeamData, ThrowOnError>): RequestResult<DeleteTeamResponses, DeleteTeamErrors, ThrowOnError> => (options.client ?? client).delete<DeleteTeamResponses, DeleteTeamErrors, ThrowOnError>({ url: '/resources/teams/{id}', ...options });
+export const deleteTeam = <ThrowOnError extends boolean = false>(options: Options<DeleteTeamData, ThrowOnError>): RequestResult<DeleteTeamResponses, DeleteTeamErrors, ThrowOnError> => (options.client ?? client).delete<DeleteTeamResponses, DeleteTeamErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/teams/{id}',
+  ...options
+});
 
 /**
  * Read a team
  */
-export const readTeam = <ThrowOnError extends boolean = false>(options: Options<ReadTeamData, ThrowOnError>): RequestResult<ReadTeamResponses, ReadTeamErrors, ThrowOnError> => (options.client ?? client).get<ReadTeamResponses, ReadTeamErrors, ThrowOnError>({ url: '/resources/teams/{id}', ...options });
+export const readTeam = <ThrowOnError extends boolean = false>(options: Options<ReadTeamData, ThrowOnError>): RequestResult<ReadTeamResponses, ReadTeamErrors, ThrowOnError> => (options.client ?? client).get<ReadTeamResponses, ReadTeamErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/teams/{id}',
+  ...options
+});
 
 /**
  * Rename a team
  */
 export const updateTeam = <ThrowOnError extends boolean = false>(options: Options<UpdateTeamData, ThrowOnError>): RequestResult<UpdateTeamResponses, UpdateTeamErrors, ThrowOnError> => (options.client ?? client).put<UpdateTeamResponses, UpdateTeamErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
   url: '/resources/teams/{id}',
   ...options,
   headers: {
@@ -482,7 +520,64 @@ export const updateTeam = <ThrowOnError extends boolean = false>(options: Option
 /**
  * Find the team with a key in a workspace, to import it
  */
-export const importTeam = <ThrowOnError extends boolean = false>(options: Options<ImportTeamData, ThrowOnError>): RequestResult<ImportTeamResponses, ImportTeamErrors, ThrowOnError> => (options.client ?? client).get<ImportTeamResponses, ImportTeamErrors, ThrowOnError>({ url: '/resources/workspaces/{workspaceId}/teams/import', ...options });
+export const importTeam = <ThrowOnError extends boolean = false>(options: Options<ImportTeamData, ThrowOnError>): RequestResult<ImportTeamResponses, ImportTeamErrors, ThrowOnError> => (options.client ?? client).get<ImportTeamResponses, ImportTeamErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/workspaces/{workspaceId}/teams/import',
+  ...options
+});
+
+/**
+ * Issue a token that acts in a workspace within its scopes; only a workspace admin may
+ */
+export const createWorkspaceToken = <ThrowOnError extends boolean = false>(options: Options<CreateWorkspaceTokenData, ThrowOnError>): RequestResult<CreateWorkspaceTokenResponses, CreateWorkspaceTokenErrors, ThrowOnError> => (options.client ?? client).post<CreateWorkspaceTokenResponses, CreateWorkspaceTokenErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/workspaces/{workspaceId}/tokens',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Revoke a workspace token; it admits nobody from this moment
+ */
+export const deleteWorkspaceToken = <ThrowOnError extends boolean = false>(options: Options<DeleteWorkspaceTokenData, ThrowOnError>): RequestResult<DeleteWorkspaceTokenResponses, DeleteWorkspaceTokenErrors, ThrowOnError> => (options.client ?? client).delete<DeleteWorkspaceTokenResponses, DeleteWorkspaceTokenErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/tokens/{id}',
+  ...options
+});
+
+/**
+ * Read a workspace token
+ */
+export const readWorkspaceToken = <ThrowOnError extends boolean = false>(options: Options<ReadWorkspaceTokenData, ThrowOnError>): RequestResult<ReadWorkspaceTokenResponses, ReadWorkspaceTokenErrors, ThrowOnError> => (options.client ?? client).get<ReadWorkspaceTokenResponses, ReadWorkspaceTokenErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/tokens/{id}',
+  ...options
+});
+
+/**
+ * Describe a workspace token anew; its name, scopes and expiry stay as issued
+ */
+export const updateWorkspaceToken = <ThrowOnError extends boolean = false>(options: Options<UpdateWorkspaceTokenData, ThrowOnError>): RequestResult<UpdateWorkspaceTokenResponses, UpdateWorkspaceTokenErrors, ThrowOnError> => (options.client ?? client).put<UpdateWorkspaceTokenResponses, UpdateWorkspaceTokenErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/tokens/{id}',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Find the token with a name in a workspace, to import it
+ */
+export const importWorkspaceToken = <ThrowOnError extends boolean = false>(options: Options<ImportWorkspaceTokenData, ThrowOnError>): RequestResult<ImportWorkspaceTokenResponses, ImportWorkspaceTokenErrors, ThrowOnError> => (options.client ?? client).get<ImportWorkspaceTokenResponses, ImportWorkspaceTokenErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/workspaces/{workspaceId}/tokens/import',
+  ...options
+});
 
 /**
  * List the workspaces the caller belongs to
@@ -519,6 +614,11 @@ export const changeMemberRole = <ThrowOnError extends boolean = false>(options: 
     ...options.headers
   }
 });
+
+/**
+ * Who changed the workspace’s configuration, what they changed and through which client, newest first; only its admins may see
+ */
+export const listConfigurationChanges = <ThrowOnError extends boolean = false>(options: Options<ListConfigurationChangesData, ThrowOnError>): RequestResult<ListConfigurationChangesResponses, ListConfigurationChangesErrors, ThrowOnError> => (options.client ?? client).get<ListConfigurationChangesResponses, ListConfigurationChangesErrors, ThrowOnError>({ url: '/workspaces/{slug}/configuration-changes', ...options });
 
 /**
  * List the team’s members, what each is, and what may be set
@@ -558,9 +658,10 @@ export const readInvite = <ThrowOnError extends boolean = false>(options: Option
 export const acceptInvite = <ThrowOnError extends boolean = false>(options: Options<AcceptInviteData, ThrowOnError>): RequestResult<AcceptInviteResponses, AcceptInviteErrors, ThrowOnError> => (options.client ?? client).post<AcceptInviteResponses, AcceptInviteErrors, ThrowOnError>({ url: '/invites/{token}/accept', ...options });
 
 /**
- * Set a secret in a workspace; only workspace admins may
+ * Set a secret in a workspace; only workspace admins and tokens with the secrets scope may
  */
 export const createSecret = <ThrowOnError extends boolean = false>(options: Options<CreateSecretData, ThrowOnError>): RequestResult<CreateSecretResponses, CreateSecretErrors, ThrowOnError> => (options.client ?? client).post<CreateSecretResponses, CreateSecretErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
   url: '/resources/workspaces/{workspaceId}/secrets',
   ...options,
   headers: {
@@ -572,17 +673,26 @@ export const createSecret = <ThrowOnError extends boolean = false>(options: Opti
 /**
  * Delete a secret and its value
  */
-export const deleteSecret = <ThrowOnError extends boolean = false>(options: Options<DeleteSecretData, ThrowOnError>): RequestResult<DeleteSecretResponses, DeleteSecretErrors, ThrowOnError> => (options.client ?? client).delete<DeleteSecretResponses, DeleteSecretErrors, ThrowOnError>({ url: '/resources/secrets/{id}', ...options });
+export const deleteSecret = <ThrowOnError extends boolean = false>(options: Options<DeleteSecretData, ThrowOnError>): RequestResult<DeleteSecretResponses, DeleteSecretErrors, ThrowOnError> => (options.client ?? client).delete<DeleteSecretResponses, DeleteSecretErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/secrets/{id}',
+  ...options
+});
 
 /**
  * Read a secret, never its value
  */
-export const readSecret = <ThrowOnError extends boolean = false>(options: Options<ReadSecretData, ThrowOnError>): RequestResult<ReadSecretResponses, ReadSecretErrors, ThrowOnError> => (options.client ?? client).get<ReadSecretResponses, ReadSecretErrors, ThrowOnError>({ url: '/resources/secrets/{id}', ...options });
+export const readSecret = <ThrowOnError extends boolean = false>(options: Options<ReadSecretData, ThrowOnError>): RequestResult<ReadSecretResponses, ReadSecretErrors, ThrowOnError> => (options.client ?? client).get<ReadSecretResponses, ReadSecretErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/secrets/{id}',
+  ...options
+});
 
 /**
  * Rebind a secret, or rotate its value by changing valueWoVersion
  */
 export const updateSecret = <ThrowOnError extends boolean = false>(options: Options<UpdateSecretData, ThrowOnError>): RequestResult<UpdateSecretResponses, UpdateSecretErrors, ThrowOnError> => (options.client ?? client).put<UpdateSecretResponses, UpdateSecretErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
   url: '/resources/secrets/{id}',
   ...options,
   headers: {
@@ -594,7 +704,11 @@ export const updateSecret = <ThrowOnError extends boolean = false>(options: Opti
 /**
  * Find the secret with a name in a workspace, to import it
  */
-export const importSecret = <ThrowOnError extends boolean = false>(options: Options<ImportSecretData, ThrowOnError>): RequestResult<ImportSecretResponses, ImportSecretErrors, ThrowOnError> => (options.client ?? client).get<ImportSecretResponses, ImportSecretErrors, ThrowOnError>({ url: '/resources/workspaces/{workspaceId}/secrets/import', ...options });
+export const importSecret = <ThrowOnError extends boolean = false>(options: Options<ImportSecretData, ThrowOnError>): RequestResult<ImportSecretResponses, ImportSecretErrors, ThrowOnError> => (options.client ?? client).get<ImportSecretResponses, ImportSecretErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/workspaces/{workspaceId}/secrets/import',
+  ...options
+});
 
 /**
  * List the repositories a task can be raised against
@@ -666,6 +780,7 @@ export const listTeamSkills = <ThrowOnError extends boolean = false>(options: Op
  * Define a skill for a team
  */
 export const createSkill = <ThrowOnError extends boolean = false>(options: Options<CreateSkillData, ThrowOnError>): RequestResult<CreateSkillResponses, CreateSkillErrors, ThrowOnError> => (options.client ?? client).post<CreateSkillResponses, CreateSkillErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
   url: '/resources/teams/{teamId}/skills',
   ...options,
   headers: {
@@ -677,17 +792,26 @@ export const createSkill = <ThrowOnError extends boolean = false>(options: Optio
 /**
  * Delete a skill no station gives
  */
-export const deleteSkill = <ThrowOnError extends boolean = false>(options: Options<DeleteSkillData, ThrowOnError>): RequestResult<DeleteSkillResponses, DeleteSkillErrors, ThrowOnError> => (options.client ?? client).delete<DeleteSkillResponses, DeleteSkillErrors, ThrowOnError>({ url: '/resources/skills/{id}', ...options });
+export const deleteSkill = <ThrowOnError extends boolean = false>(options: Options<DeleteSkillData, ThrowOnError>): RequestResult<DeleteSkillResponses, DeleteSkillErrors, ThrowOnError> => (options.client ?? client).delete<DeleteSkillResponses, DeleteSkillErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/skills/{id}',
+  ...options
+});
 
 /**
  * Read a skill, files and all
  */
-export const readSkill = <ThrowOnError extends boolean = false>(options: Options<ReadSkillData, ThrowOnError>): RequestResult<ReadSkillResponses, ReadSkillErrors, ThrowOnError> => (options.client ?? client).get<ReadSkillResponses, ReadSkillErrors, ThrowOnError>({ url: '/resources/skills/{id}', ...options });
+export const readSkill = <ThrowOnError extends boolean = false>(options: Options<ReadSkillData, ThrowOnError>): RequestResult<ReadSkillResponses, ReadSkillErrors, ThrowOnError> => (options.client ?? client).get<ReadSkillResponses, ReadSkillErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/skills/{id}',
+  ...options
+});
 
 /**
  * Replace a skill’s files
  */
 export const updateSkill = <ThrowOnError extends boolean = false>(options: Options<UpdateSkillData, ThrowOnError>): RequestResult<UpdateSkillResponses, UpdateSkillErrors, ThrowOnError> => (options.client ?? client).put<UpdateSkillResponses, UpdateSkillErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
   url: '/resources/skills/{id}',
   ...options,
   headers: {
@@ -699,7 +823,11 @@ export const updateSkill = <ThrowOnError extends boolean = false>(options: Optio
 /**
  * Find the skill at an address in a workspace, to import it
  */
-export const importSkill = <ThrowOnError extends boolean = false>(options: Options<ImportSkillData, ThrowOnError>): RequestResult<ImportSkillResponses, ImportSkillErrors, ThrowOnError> => (options.client ?? client).get<ImportSkillResponses, ImportSkillErrors, ThrowOnError>({ url: '/resources/workspaces/{workspaceId}/skills/import', ...options });
+export const importSkill = <ThrowOnError extends boolean = false>(options: Options<ImportSkillData, ThrowOnError>): RequestResult<ImportSkillResponses, ImportSkillErrors, ThrowOnError> => (options.client ?? client).get<ImportSkillResponses, ImportSkillErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/workspaces/{workspaceId}/skills/import',
+  ...options
+});
 
 /**
  * The change stacks drafted of what a run changed, newest first
@@ -814,6 +942,7 @@ export const connectIntegration = <ThrowOnError extends boolean = false>(options
  * Create an integration for a team
  */
 export const createIntegration = <ThrowOnError extends boolean = false>(options: Options<CreateIntegrationData, ThrowOnError>): RequestResult<CreateIntegrationResponses, CreateIntegrationErrors, ThrowOnError> => (options.client ?? client).post<CreateIntegrationResponses, CreateIntegrationErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
   url: '/resources/teams/{teamId}/integrations',
   ...options,
   headers: {
@@ -825,17 +954,26 @@ export const createIntegration = <ThrowOnError extends boolean = false>(options:
 /**
  * Delete an integration
  */
-export const deleteIntegration = <ThrowOnError extends boolean = false>(options: Options<DeleteIntegrationData, ThrowOnError>): RequestResult<DeleteIntegrationResponses, DeleteIntegrationErrors, ThrowOnError> => (options.client ?? client).delete<DeleteIntegrationResponses, DeleteIntegrationErrors, ThrowOnError>({ url: '/resources/integrations/{id}', ...options });
+export const deleteIntegration = <ThrowOnError extends boolean = false>(options: Options<DeleteIntegrationData, ThrowOnError>): RequestResult<DeleteIntegrationResponses, DeleteIntegrationErrors, ThrowOnError> => (options.client ?? client).delete<DeleteIntegrationResponses, DeleteIntegrationErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/integrations/{id}',
+  ...options
+});
 
 /**
  * Read an integration
  */
-export const readIntegration = <ThrowOnError extends boolean = false>(options: Options<ReadIntegrationData, ThrowOnError>): RequestResult<ReadIntegrationResponses, ReadIntegrationErrors, ThrowOnError> => (options.client ?? client).get<ReadIntegrationResponses, ReadIntegrationErrors, ThrowOnError>({ url: '/resources/integrations/{id}', ...options });
+export const readIntegration = <ThrowOnError extends boolean = false>(options: Options<ReadIntegrationData, ThrowOnError>): RequestResult<ReadIntegrationResponses, ReadIntegrationErrors, ThrowOnError> => (options.client ?? client).get<ReadIntegrationResponses, ReadIntegrationErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/integrations/{id}',
+  ...options
+});
 
 /**
  * Replace an integration’s definition
  */
 export const updateIntegration = <ThrowOnError extends boolean = false>(options: Options<UpdateIntegrationData, ThrowOnError>): RequestResult<UpdateIntegrationResponses, UpdateIntegrationErrors, ThrowOnError> => (options.client ?? client).put<UpdateIntegrationResponses, UpdateIntegrationErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
   url: '/resources/integrations/{id}',
   ...options,
   headers: {
@@ -847,12 +985,17 @@ export const updateIntegration = <ThrowOnError extends boolean = false>(options:
 /**
  * Find the integration at an address in a workspace, to import it
  */
-export const importIntegration = <ThrowOnError extends boolean = false>(options: Options<ImportIntegrationData, ThrowOnError>): RequestResult<ImportIntegrationResponses, ImportIntegrationErrors, ThrowOnError> => (options.client ?? client).get<ImportIntegrationResponses, ImportIntegrationErrors, ThrowOnError>({ url: '/resources/workspaces/{workspaceId}/integrations/import', ...options });
+export const importIntegration = <ThrowOnError extends boolean = false>(options: Options<ImportIntegrationData, ThrowOnError>): RequestResult<ImportIntegrationResponses, ImportIntegrationErrors, ThrowOnError> => (options.client ?? client).get<ImportIntegrationResponses, ImportIntegrationErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/workspaces/{workspaceId}/integrations/import',
+  ...options
+});
 
 /**
  * Type-check an expression where it is written, as a plan does
  */
 export const checkExpression = <ThrowOnError extends boolean = false>(options: Options<CheckExpressionData, ThrowOnError>): RequestResult<CheckExpressionResponses, CheckExpressionErrors, ThrowOnError> => (options.client ?? client).post<CheckExpressionResponses, CheckExpressionErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
   url: '/expressions/check',
   ...options,
   headers: {
@@ -864,7 +1007,11 @@ export const checkExpression = <ThrowOnError extends boolean = false>(options: O
 /**
  * Every position an expression is written at, and what it sees
  */
-export const listExpressionPositions = <ThrowOnError extends boolean = false>(options?: Options<ListExpressionPositionsData, ThrowOnError>): RequestResult<ListExpressionPositionsResponses, ListExpressionPositionsErrors, ThrowOnError> => (options?.client ?? client).get<ListExpressionPositionsResponses, ListExpressionPositionsErrors, ThrowOnError>({ url: '/expressions/positions', ...options });
+export const listExpressionPositions = <ThrowOnError extends boolean = false>(options?: Options<ListExpressionPositionsData, ThrowOnError>): RequestResult<ListExpressionPositionsResponses, ListExpressionPositionsErrors, ThrowOnError> => (options?.client ?? client).get<ListExpressionPositionsResponses, ListExpressionPositionsErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/expressions/positions',
+  ...options
+});
 
 /**
  * The words a station here can be set to wait for

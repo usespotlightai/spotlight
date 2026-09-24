@@ -6,7 +6,6 @@ import type { ImportSecretQuery } from '@secrets/application/queries/import-secr
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class ImportSecretHandler
@@ -19,13 +18,13 @@ export class ImportSecretHandler
 
   async execute(query: ImportSecretQuery): Promise<SecretResourceDto | null> {
     try {
-      const membership = await this.access.inWorkspaceWithId(
+      const cleared = await this.access.clearanceIn(
         WorkspaceId.of(query.workspaceId),
-        UserId.of(query.viewerId),
+        query.principal,
       );
-      const kept = membership
+      const kept = cleared
         ? await this.resources.named(
-            membership.workspaceId,
+            cleared.workspaceId,
             SecretName.of(query.address).value,
           )
         : null;

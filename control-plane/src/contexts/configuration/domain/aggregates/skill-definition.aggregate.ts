@@ -12,6 +12,8 @@ import type { SkillKey } from '@configuration/domain/value-objects/skill-key.vo'
 import type { SkillUses } from '@configuration/domain/value-objects/skill-uses.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 interface Kept {
@@ -46,7 +48,11 @@ export class SkillDefinition extends EventRecorder {
   }
 
   static define(
-    input: ReadSkill & { id: SkillDefinitionId; teamId: TeamId },
+    input: ReadSkill & {
+      id: SkillDefinitionId;
+      teamId: TeamId;
+      by: Attribution;
+    },
   ): SkillDefinition {
     guardDefinedHere(input);
 
@@ -59,7 +65,14 @@ export class SkillDefinition extends EventRecorder {
       retired: false,
     });
 
-    defined.record(new SkillDefined(defined.id, defined.teamId, defined.key));
+    defined.record(
+      new SkillDefined(
+        defined.id,
+        defined.teamId,
+        defined.key,
+        ConfigurationChange.created(defined.whatChanged, input.by),
+      ),
+    );
 
     return defined;
   }
@@ -81,7 +94,7 @@ export class SkillDefinition extends EventRecorder {
     }
   }
 
-  redefinedAs(read: ReadSkill): SkillDefinition {
+  redefinedAs(read: ReadSkill, by: Attribution): SkillDefinition {
     this.guardLive();
     guardDefinedHere(read);
 
@@ -94,12 +107,19 @@ export class SkillDefinition extends EventRecorder {
 
     const redefined = this.with({ files: read.files });
 
-    redefined.record(new SkillRedefined(this.id, this.teamId, this.key));
+    redefined.record(
+      new SkillRedefined(
+        this.id,
+        this.teamId,
+        this.key,
+        ConfigurationChange.updated(this.whatChanged, by),
+      ),
+    );
 
     return redefined;
   }
 
-  retired(given: SkillUses): SkillDefinition {
+  retired(given: SkillUses, by: Attribution): SkillDefinition {
     this.guardLive();
 
     const using = given.of(this.key);
@@ -110,17 +130,17 @@ export class SkillDefinition extends EventRecorder {
 
     const retired = this.with({ retired: true });
 
-    retired.record(new SkillRetired(this.id, this.teamId, this.key));
+    retired.record(this.retiredBy(by));
 
     return retired;
   }
 
-  abandoned(): SkillDefinition {
+  abandoned(by: Attribution): SkillDefinition {
     this.guardLive();
 
     const abandoned = this.with({ retired: true });
 
-    abandoned.record(new SkillRetired(this.id, this.teamId, this.key));
+    abandoned.record(this.retiredBy(by));
 
     return abandoned;
   }
@@ -151,6 +171,23 @@ export class SkillDefinition extends EventRecorder {
 
   get isRetired(): boolean {
     return this.state.retired;
+  }
+
+  private retiredBy(by: Attribution): SkillRetired {
+    return new SkillRetired(
+      this.id,
+      this.teamId,
+      this.key,
+      ConfigurationChange.deleted(this.whatChanged, by),
+    );
+  }
+
+  private get whatChanged() {
+    return {
+      resource: 'skill' as const,
+      id: this.id.value,
+      key: this.key.value,
+    };
   }
 
   private with(change: Partial<State>): SkillDefinition {

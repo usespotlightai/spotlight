@@ -1,3 +1,4 @@
+import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -34,6 +35,7 @@ const fresh = () => {
 const [opening] = BUILT_IN_LINES;
 
 const line = Line.open({
+  by: attributedIn(),
   workspaceId: WORKSPACE,
   teamId: TeamId.of('team_1'),
   // biome-ignore lint/style/noNonNullAssertion: Spotlight ships lines

@@ -6,18 +6,21 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import {
+  ApiBearerAuth,
   ApiExtraModels,
   ApiHeader,
   ApiResponse,
   ApiTags,
   getSchemaPath,
 } from '@nestjs/swagger';
+import { AdmitsWorkspaceTokens } from '@platform/http/decorators/admits-workspace-tokens.decorator';
 import { ProblemResponseDto } from '@platform/http/dto/problem.response.dto';
 import { ProblemFilter } from '@platform/http/resources/problem.filter';
 import { ResourceInterceptor } from '@platform/http/resources/resource.interceptor';
 import {
   API_VERSION,
   API_VERSION_HEADER,
+  CLIENT_HEADER,
   PROBLEM_CONTENT_TYPE,
   SUPPORTED_API_VERSIONS,
 } from '@platform/http/resources/resource-headers';
@@ -40,6 +43,8 @@ export const ConventionalApiController = (path: string, tag: string) =>
     ApiExtraModels(ProblemResponseDto),
     UseFilters(ProblemFilter),
     UseInterceptors(ResourceInterceptor),
+    AdmitsWorkspaceTokens(),
+    ApiBearerAuth(),
     ApiHeader({
       name: API_VERSION_HEADER,
       required: false,
@@ -50,6 +55,13 @@ export const ConventionalApiController = (path: string, tag: string) =>
         enum: [...SUPPORTED_API_VERSIONS],
         default: API_VERSION,
       },
+    }),
+    ApiHeader({
+      name: CLIENT_HEADER,
+      required: false,
+      description:
+        'Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown',
+      schema: { type: 'string', example: 'terraform-provider/0.1.0' },
     }),
     ApiProblemResponse(
       HttpStatus.BAD_REQUEST,

@@ -8,8 +8,8 @@ import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo'
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class OpenWorkspaceHandler
@@ -36,7 +36,8 @@ export class OpenWorkspaceHandler
         name: WorkspaceName.of(command.name),
         slug: WorkspaceSlug.of(command.slug),
         firstTeam,
-        owner: UserId.of(command.ownerId),
+        owner: command.actor.principal.userId,
+        by: Attribution.of(command.actor, id),
       });
 
       await this.workspaces.add(workspace);

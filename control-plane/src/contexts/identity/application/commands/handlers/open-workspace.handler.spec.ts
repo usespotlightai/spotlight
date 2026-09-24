@@ -8,6 +8,7 @@ import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo'
 import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -22,7 +23,7 @@ let repository: WorkspaceRepository;
 
 const handle = (name = 'Acme Inc.', slug = 'acme-inc', teamName = 'Platform') =>
   new OpenWorkspaceHandler(repository, ids()).execute(
-    new OpenWorkspaceCommand(name, slug, teamName, 'user_1'),
+    new OpenWorkspaceCommand(name, slug, teamName, actorFor('user_1')),
   );
 
 beforeEach(() => {

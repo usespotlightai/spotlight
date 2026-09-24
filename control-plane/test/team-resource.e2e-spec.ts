@@ -8,6 +8,7 @@ import { EventSubscribers } from '@platform/events/event-subscribers';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { TEAM_DISBANDED } from '@shared-kernel/application/integration-events/team-disbanded.integration-event';
+import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Line } from '@work/domain/aggregates/line.aggregate';
@@ -56,7 +57,10 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
       await db
         .delete(schema.idempotentCreate)
         .where(
-          inArray(schema.idempotentCreate.scope, [seat.owner, seat.member]),
+          inArray(schema.idempotentCreate.scope, [
+            `person:${seat.owner}`,
+            `person:${seat.member}`,
+          ]),
         );
       await seat.unseat();
     },
@@ -191,6 +195,7 @@ describe('a team, created through the resource API (e2e)', () => {
 
     await app.get(DrizzleLineRepository).add(
       Line.open({
+        by: attributedIn(),
         workspaceId: WorkspaceId.of(workspaceId),
         teamId: TeamId.of(teamId),
         line: BUILT_IN_LINES[0] as LineOpening,

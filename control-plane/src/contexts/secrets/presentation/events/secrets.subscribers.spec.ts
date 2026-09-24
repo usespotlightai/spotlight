@@ -3,7 +3,7 @@ import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import { secretsSubscribers } from '@secrets/presentation/events/secrets.subscribers';
 import {
-  ADMIN,
+  BY,
   definition,
   InMemorySecrets,
   InMemoryStore,
@@ -30,7 +30,7 @@ const holding = async () => {
     Secret.set(definition(), {
       id: SecretId.of('secret_linear'),
       workspaceId: WORKSPACE,
-      by: ADMIN,
+      by: BY,
       at: NOW,
     }),
   );

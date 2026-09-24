@@ -8,7 +8,8 @@ import { SkillResourceResponseDto } from '@configuration/presentation/http/dto/s
 import { Body, Param, Query } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiBody, ApiParam } from '@nestjs/swagger';
-import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
+import { CurrentActor } from '@platform/http/decorators/current-actor.decorator';
+import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
 import {
@@ -23,7 +24,8 @@ import type {
   ResourceDeleted,
   ResourceUpdated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
+import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
+import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
 const KIND = 'skill';
 
@@ -74,14 +76,14 @@ export class SkillResourceController {
     @Param('teamId') teamId: string,
     @IdempotencyKeyHeader() key: string,
     @Body() body: unknown,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentActor() actor: Actor,
   ): Promise<SkillResourceResponseDto> {
     return answerCreated(
       KIND,
       await this.commandBus.execute<CreateSkillCommand, ResourceCreated | null>(
-        new CreateSkillCommand(teamId, user.id, key, body),
+        new CreateSkillCommand(teamId, actor, key, body),
       ),
-      (id) => this.answer(id, user),
+      (id) => this.answer(id, actor.principal),
     );
   }
 
@@ -89,9 +91,9 @@ export class SkillResourceController {
   @ID
   read(
     @Param('id') id: string,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentPrincipal() principal: Principal,
   ): Promise<SkillResourceResponseDto> {
-    return this.answer(id, user);
+    return this.answer(id, principal);
   }
 
   @SkillResource.Update('skills/:id', 'Replace a skill’s files')
@@ -101,14 +103,14 @@ export class SkillResourceController {
     @Param('id') id: string,
     @IfMatch() version: number,
     @Body() body: unknown,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentActor() actor: Actor,
   ): Promise<SkillResourceResponseDto> {
     return answerUpdated(
       KIND,
       await this.commandBus.execute<UpdateSkillCommand, ResourceUpdated | null>(
-        new UpdateSkillCommand(id, user.id, version, body),
+        new UpdateSkillCommand(id, actor, version, body),
       ),
-      (updated) => this.answer(updated, user),
+      (updated) => this.answer(updated, actor.principal),
     );
   }
 
@@ -117,12 +119,12 @@ export class SkillResourceController {
   async delete(
     @Param('id') id: string,
     @IfMatch() version: number,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentActor() actor: Actor,
   ): Promise<void> {
     answerDeleted(
       KIND,
       await this.commandBus.execute<DeleteSkillCommand, ResourceDeleted | null>(
-        new DeleteSkillCommand(id, user.id, version),
+        new DeleteSkillCommand(id, actor, version),
       ),
     );
   }
@@ -138,12 +140,12 @@ export class SkillResourceController {
   async import(
     @Param('workspaceId') workspaceId: string,
     @Query('address') address: string | undefined,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentPrincipal() principal: Principal,
   ): Promise<SkillResourceResponseDto> {
     return found(
       KIND,
       await this.queryBus.execute<ImportSkillQuery, SkillResourceDto | null>(
-        new ImportSkillQuery(workspaceId, address ?? '', user.id),
+        new ImportSkillQuery(workspaceId, address ?? '', principal),
       ),
       representation,
     );
@@ -151,12 +153,12 @@ export class SkillResourceController {
 
   private async answer(
     id: string,
-    user: AuthenticatedUser,
+    principal: Principal,
   ): Promise<SkillResourceResponseDto> {
     return found(
       KIND,
       await this.queryBus.execute<ReadSkillQuery, SkillResourceDto | null>(
-        new ReadSkillQuery(id, user.id),
+        new ReadSkillQuery(id, principal),
       ),
       representation,
     );

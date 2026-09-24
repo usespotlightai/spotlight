@@ -1,7 +1,9 @@
+import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
+
 export class DeleteTeamCommand {
   constructor(
     readonly teamId: string,
-    readonly requesterId: string,
+    readonly actor: Actor,
     readonly expectedVersion: number,
   ) {}
 }

@@ -5,6 +5,7 @@ import { ConfigModule } from '@platform/config/config.module';
 import { EventDelivery } from '@platform/events/event-delivery';
 import { EventDeliveryWorker } from '@platform/events/event-delivery.worker';
 import { EventOutbox } from '@platform/events/event-outbox';
+import { EventProjections } from '@platform/events/event-projections';
 import { EventPublications } from '@platform/events/event-publications';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { EventTypes } from '@platform/events/event-types';
@@ -60,6 +61,7 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
     },
     EventSubscribers,
     EventPublications,
+    EventProjections,
     EventOutbox,
     { provide: DOMAIN_EVENT_DISPATCHER, useExisting: EventOutbox },
     EventDelivery,
@@ -82,6 +84,7 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
     EventTypes,
     EventSubscribers,
     EventPublications,
+    EventProjections,
     EventOutbox,
     DOMAIN_EVENT_DISPATCHER,
     EventDelivery,

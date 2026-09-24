@@ -1,7 +1,8 @@
 import { Body, Param, Query } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiBody, ApiParam } from '@nestjs/swagger';
-import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
+import { CurrentActor } from '@platform/http/decorators/current-actor.decorator';
+import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
 import {
@@ -24,7 +25,8 @@ import type {
   ResourceDeleted,
   ResourceUpdated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
+import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
+import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
 const KIND = 'secret';
 
@@ -105,7 +107,7 @@ export class SecretResourceController {
 
   @SecretResource.Create(
     'workspaces/:workspaceId/secrets',
-    'Set a secret in a workspace; only workspace admins may',
+    'Set a secret in a workspace; only workspace admins and tokens with the secrets scope may',
   )
   @WORKSPACE
   @DEFINITION
@@ -113,15 +115,15 @@ export class SecretResourceController {
     @Param('workspaceId') workspaceId: string,
     @IdempotencyKeyHeader() key: string,
     @Body() body: unknown,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentActor() actor: Actor,
   ): Promise<SecretResourceResponseDto> {
     return answerCreated(
       KIND,
       await this.commandBus.execute<
         CreateSecretCommand,
         ResourceCreated | null
-      >(new CreateSecretCommand(workspaceId, user.id, key, body)),
-      (id) => this.answer(id, user),
+      >(new CreateSecretCommand(workspaceId, actor, key, body)),
+      (id) => this.answer(id, actor.principal),
     );
   }
 
@@ -129,9 +131,9 @@ export class SecretResourceController {
   @ID
   read(
     @Param('id') id: string,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentPrincipal() principal: Principal,
   ): Promise<SecretResourceResponseDto> {
-    return this.answer(id, user);
+    return this.answer(id, principal);
   }
 
   @SecretResource.Update(
@@ -144,15 +146,15 @@ export class SecretResourceController {
     @Param('id') id: string,
     @IfMatch() version: number,
     @Body() body: unknown,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentActor() actor: Actor,
   ): Promise<SecretResourceResponseDto> {
     return answerUpdated(
       KIND,
       await this.commandBus.execute<
         UpdateSecretCommand,
         ResourceUpdated | null
-      >(new UpdateSecretCommand(id, user.id, version, body)),
-      (updated) => this.answer(updated, user),
+      >(new UpdateSecretCommand(id, actor, version, body)),
+      (updated) => this.answer(updated, actor.principal),
     );
   }
 
@@ -161,14 +163,14 @@ export class SecretResourceController {
   async delete(
     @Param('id') id: string,
     @IfMatch() version: number,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentActor() actor: Actor,
   ): Promise<void> {
     answerDeleted(
       KIND,
       await this.commandBus.execute<
         DeleteSecretCommand,
         ResourceDeleted | null
-      >(new DeleteSecretCommand(id, user.id, version)),
+      >(new DeleteSecretCommand(id, actor, version)),
     );
   }
 
@@ -180,12 +182,12 @@ export class SecretResourceController {
   async import(
     @Param('workspaceId') workspaceId: string,
     @Query('address') address: string | undefined,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentPrincipal() principal: Principal,
   ): Promise<SecretResourceResponseDto> {
     return found(
       KIND,
       await this.queryBus.execute<ImportSecretQuery, SecretResourceDto | null>(
-        new ImportSecretQuery(workspaceId, address ?? '', user.id),
+        new ImportSecretQuery(workspaceId, address ?? '', principal),
       ),
       representation,
     );
@@ -193,12 +195,12 @@ export class SecretResourceController {
 
   private async answer(
     id: string,
-    user: AuthenticatedUser,
+    principal: Principal,
   ): Promise<SecretResourceResponseDto> {
     return found(
       KIND,
       await this.queryBus.execute<ReadSecretQuery, SecretResourceDto | null>(
-        new ReadSecretQuery(id, user.id),
+        new ReadSecretQuery(id, principal),
       ),
       representation,
     );

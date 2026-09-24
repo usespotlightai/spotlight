@@ -57,10 +57,12 @@ const connecting = (
       viewableBy: vi.fn(),
       mayView: vi.fn(),
       onTeam: vi.fn(),
-      inWorkspaceWithId: vi.fn(),
       inWorkspace: vi.fn(async () =>
         over.membership === undefined ? membership() : over.membership,
       ),
+      clearanceIn: vi.fn(),
+      clearanceOnTeam: vi.fn(),
+      mayPlan: vi.fn(),
     } satisfies WorkspaceAccessPort,
     {
       of: vi.fn(async (id: WorkspaceId) => GitHubConnection.none(id)),

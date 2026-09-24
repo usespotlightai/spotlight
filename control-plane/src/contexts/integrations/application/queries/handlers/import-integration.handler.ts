@@ -7,7 +7,6 @@ import type { IntegrationViews } from '@integrations/application/services/integr
 import { IntegrationAddress } from '@integrations/domain/value-objects/integration-address.vo';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class ImportIntegrationHandler
@@ -26,10 +25,9 @@ export class ImportIntegrationHandler
   ): Promise<IntegrationResourceDto | null> {
     try {
       const address = IntegrationAddress.parse(query.address);
-      const viewer = UserId.of(query.viewerId);
-      const workspace = await this.access.inWorkspaceWithId(
+      const workspace = await this.access.clearanceIn(
         WorkspaceId.of(query.workspaceId),
-        viewer,
+        query.principal,
       );
       const team = workspace
         ? (await this.teams.inWorkspace(workspace.workspaceId)).find(
@@ -40,11 +38,7 @@ export class ImportIntegrationHandler
         ? await this.resources.at(team.id, address.source.value)
         : null;
 
-      if (!kept || !(await this.access.onTeam(kept.teamId.value, viewer))) {
-        return null;
-      }
-
-      return this.views.of(kept);
+      return kept ? this.views.of(kept) : null;
     } catch (error) {
       rethrowAsFault(error);
     }

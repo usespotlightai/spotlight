@@ -1,27 +1,71 @@
 import { type ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { ADMITS_WORKSPACE_TOKENS } from '@platform/http/decorators/admits-workspace-tokens.decorator';
+import { ALLOW_ANONYMOUS } from '@platform/http/decorators/allow-anonymous.decorator';
+import { REQUEST_PRINCIPAL } from '@platform/http/decorators/current-principal.decorator';
 import { AuthenticatedGuard } from '@platform/http/guards/authenticated.guard';
 import type { SessionReaderPort } from '@shared-kernel/application/ports/session.port';
+import type { WorkspaceTokenIdentityPort } from '@shared-kernel/application/ports/workspace-token-identity.port';
+import {
+  PersonPrincipal,
+  TokenPrincipal,
+} from '@shared-kernel/domain/value-objects/principal.vo';
+import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const USER = { id: 'u1', email: 'dev@example.com', name: 'Dev' };
 
-function setup(options: { anonymous?: boolean; session?: boolean } = {}) {
+const TOKEN = TokenPrincipal.of({
+  tokenId: WorkspaceTokenId.of('token_1'),
+  workspaceId: WorkspaceId.of('ws_1'),
+  scopes: TokenScopes.named(['plan']),
+  issuedBy: UserId.of('u1'),
+});
+
+function setup(
+  options: {
+    anonymous?: boolean;
+    admitsTokens?: boolean;
+    session?: boolean;
+    bearer?: string;
+    known?: boolean;
+  } = {},
+) {
   const reflector = new Reflector();
-  vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(
-    options.anonymous ?? false,
+  vi.spyOn(reflector, 'getAllAndOverride').mockImplementation(
+    (marker) =>
+      (marker === ALLOW_ANONYMOUS && options.anonymous) ||
+      (marker === ADMITS_WORKSPACE_TOKENS && options.admitsTokens) ||
+      false,
   );
 
   const read = vi.fn().mockResolvedValue(options.session ? USER : null);
   const sessions = { read } as unknown as SessionReaderPort;
+  const identify = vi.fn().mockResolvedValue(options.known ? TOKEN : null);
+  const tokens = { identify } satisfies WorkspaceTokenIdentityPort;
 
+  const request: Record<string | symbol, unknown> = {
+    headers: {
+      cookie: 'x',
+      ...(options.bearer ? { authorization: `Bearer ${options.bearer}` } : {}),
+    },
+  };
   const context = {
     getHandler: () => undefined,
     getClass: () => undefined,
-    switchToHttp: () => ({ getRequest: () => ({ headers: { cookie: 'x' } }) }),
+    switchToHttp: () => ({ getRequest: () => request }),
   } as unknown as ExecutionContext;
 
-  return { guard: new AuthenticatedGuard(reflector, sessions), context, read };
+  return {
+    guard: new AuthenticatedGuard(reflector, sessions, tokens),
+    context,
+    read,
+    identify,
+    request,
+  };
 }
 
 describe('AuthenticatedGuard', () => {
@@ -35,10 +79,13 @@ describe('AuthenticatedGuard', () => {
     );
   });
 
-  it('admits a request with a session', async () => {
-    const { guard, context } = setup({ session: true });
+  it('admits a request with a session, as the person signed in', async () => {
+    const { guard, context, request } = setup({ session: true });
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
+    expect(request[REQUEST_PRINCIPAL]).toEqual(
+      PersonPrincipal.of(UserId.of('u1')),
+    );
   });
 
   it('admits a route marked anonymous without reading the session', async () => {
@@ -46,5 +93,43 @@ describe('AuthenticatedGuard', () => {
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
     expect(read).not.toHaveBeenCalled();
+  });
+
+  it('admits a workspace token where the route admits tokens, as that token', async () => {
+    const { guard, context, request, identify, read } = setup({
+      admitsTokens: true,
+      bearer: 'abc',
+      known: true,
+    });
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+    expect(identify).toHaveBeenCalledWith('abc');
+    expect(read).not.toHaveBeenCalled();
+    expect(request[REQUEST_PRINCIPAL]).toBe(TOKEN);
+  });
+
+  it('refuses a token it does not know, rather than falling back to the session', async () => {
+    const { guard, context } = setup({
+      admitsTokens: true,
+      bearer: 'revoked',
+      known: false,
+      session: true,
+    });
+
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+  });
+
+  it('never takes a workspace token on a route that admits only people', async () => {
+    const { guard, context, identify } = setup({
+      bearer: 'abc',
+      known: true,
+    });
+
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+    expect(identify).not.toHaveBeenCalled();
   });
 });

@@ -13,6 +13,7 @@ import {
 } from '@integrations/integrations.resources.fake-spec';
 import { FORBIDDEN } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type { IdempotentClaim } from '@shared-kernel/application/ports/idempotent-creates.port';
+import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -67,7 +68,12 @@ const creating = (
     within,
     create: (definition: unknown) =>
       handler.execute(
-        new CreateIntegrationCommand(TEAM.value, 'user_1', 'key-1', definition),
+        new CreateIntegrationCommand(
+          TEAM.value,
+          actorFor('user_1'),
+          'key-1',
+          definition,
+        ),
       ),
     kept,
     keys,
@@ -97,7 +103,7 @@ describe('CreateIntegrationHandler', () => {
     expect(saved.isNew).toBe(true);
     expect(saved.teamId).toEqual(TEAM);
     expect(keys.created).toHaveBeenCalledWith(
-      expect.objectContaining({ by: 'user_1' }),
+      expect.objectContaining({ by: 'person:user_1' }),
       'integration_new',
     );
   });

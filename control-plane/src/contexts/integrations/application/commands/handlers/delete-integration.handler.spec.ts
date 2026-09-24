@@ -11,6 +11,7 @@ import {
   transaction,
 } from '@integrations/integrations.resources.fake-spec';
 import { FORBIDDEN } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const deleting = (
@@ -30,7 +31,11 @@ const deleting = (
   return {
     remove: (version = 3) =>
       handler.execute(
-        new DeleteIntegrationCommand('integration_1', 'user_1', version),
+        new DeleteIntegrationCommand(
+          'integration_1',
+          actorFor('user_1'),
+          version,
+        ),
       ),
     kept,
   };

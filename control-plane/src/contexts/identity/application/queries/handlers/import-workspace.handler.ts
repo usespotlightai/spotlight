@@ -6,7 +6,6 @@ import type { ImportWorkspaceQuery } from '@identity/application/queries/import-
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class ImportWorkspaceHandler
   implements QueryHandlerPort<ImportWorkspaceQuery, WorkspaceResourceDto | null>
@@ -24,11 +23,7 @@ export class ImportWorkspaceHandler
         WorkspaceSlug.of(query.address).value,
       );
 
-      return kept &&
-        (await this.access.inWorkspaceWithId(
-          kept.id,
-          UserId.of(query.viewerId),
-        ))
+      return kept && (await this.access.clearanceIn(kept.id, query.principal))
         ? ResourceMapper.workspace(kept)
         : null;
     } catch (error) {
