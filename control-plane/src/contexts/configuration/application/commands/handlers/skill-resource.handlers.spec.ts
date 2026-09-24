@@ -15,7 +15,7 @@ import { SkillUses } from '@configuration/domain/value-objects/skill-uses.vo';
 import { SkillCompiler } from '@configuration/infrastructure/skills/skill.compile';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import { teamAccess } from '@identity/application/ports/workspace-access.fake-spec';
-import { FORBIDDEN } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type { IdempotentCreatesPort } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
@@ -139,7 +139,7 @@ describe('CreateSkillHandler', () => {
 
   it('forbids someone on the team who does not administer it', async () => {
     expect(await creating({ administers: false }).create(GRAFANA)).toEqual(
-      FORBIDDEN,
+      forbiddenTo('configure'),
     );
   });
 });

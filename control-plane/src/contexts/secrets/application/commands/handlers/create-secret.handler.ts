@@ -8,7 +8,7 @@ import { SecretAlreadyDefinedError } from '@secrets/domain/exceptions/secret-alr
 import type { SecretRepository } from '@secrets/domain/repositories/secret.repository';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import {
-  FORBIDDEN,
+  forbiddenTo,
   type ResourceCreated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
@@ -61,7 +61,7 @@ export class CreateSecretHandler
       }
 
       if (!cleared.managesSecrets) {
-        return FORBIDDEN;
+        return forbiddenTo('manage-secrets');
       }
 
       const compiled = this.definitions.secret(command.definition);

@@ -7,7 +7,7 @@ import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-def
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import {
-  FORBIDDEN,
+  forbiddenTo,
   type ResourceCreated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
@@ -47,7 +47,7 @@ export class CreateSkillHandler
       }
 
       if (!cleared.configures) {
-        return FORBIDDEN;
+        return forbiddenTo('configure');
       }
 
       const team = await this.teams.find(cleared.teamId);

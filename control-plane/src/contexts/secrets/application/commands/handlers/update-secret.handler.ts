@@ -8,7 +8,7 @@ import { SecretNameFixedError } from '@secrets/domain/exceptions/secret-name-fix
 import type { SecretRepository } from '@secrets/domain/repositories/secret.repository';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import {
-  FORBIDDEN,
+  forbiddenTo,
   type ResourceUpdated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
@@ -45,7 +45,7 @@ export class UpdateSecretHandler
       }
 
       if (!cleared.managesSecrets) {
-        return FORBIDDEN;
+        return forbiddenTo('manage-secrets');
       }
 
       standing.expecting(command.expectedVersion);

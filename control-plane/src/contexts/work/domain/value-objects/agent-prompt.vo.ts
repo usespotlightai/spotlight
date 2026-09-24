@@ -1,23 +1,15 @@
 import { InvalidAgentPromptError } from '@work/domain/exceptions/invalid-agent-prompt.error';
+import { WrittenText } from '@work/domain/value-objects/written-text';
 
 const MAX_LENGTH = 20_000;
 
 export class AgentPrompt {
   private constructor(readonly value: string) {}
 
-  static of(raw: string): AgentPrompt {
-    const trimmed = raw.trim();
-
-    if (trimmed.length === 0) {
-      throw new InvalidAgentPromptError('must not be empty');
-    }
-    if (trimmed.length > MAX_LENGTH) {
-      throw new InvalidAgentPromptError(
-        `must be at most ${MAX_LENGTH} characters`,
-      );
-    }
-
-    return new AgentPrompt(raw);
+  static of(written: string): AgentPrompt {
+    return new AgentPrompt(
+      WrittenText.prose(written, MAX_LENGTH, InvalidAgentPromptError),
+    );
   }
 
   equals(other: AgentPrompt): boolean {

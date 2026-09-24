@@ -11,7 +11,7 @@ import {
 } from '@identity/identity.resources.fake-spec';
 import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
 import { TokenMint } from '@platform/tokens/token-mint.service';
-import { FORBIDDEN_TO_ADMINISTER } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type { IdempotentClaim } from '@shared-kernel/application/ports/idempotent-creates.port';
 import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
@@ -103,7 +103,7 @@ describe('CreateWorkspaceTokenHandler', () => {
     const { issue, add } = issuing({ administers: false });
 
     expect(await issue(CI)).toEqual({
-      created: FORBIDDEN_TO_ADMINISTER,
+      created: forbiddenTo('administer'),
       token: null,
     });
     expect(add).not.toHaveBeenCalled();

@@ -3,7 +3,7 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import { WorkspaceTokenMovedOnError } from '@identity/domain/exceptions/workspace-token-moved-on.error';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
 import {
-  FORBIDDEN_TO_ADMINISTER,
+  forbiddenTo,
   type ResourceDeleted,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
@@ -41,7 +41,7 @@ export class DeleteWorkspaceTokenHandler
       }
 
       if (!cleared.administers) {
-        return FORBIDDEN_TO_ADMINISTER;
+        return forbiddenTo('administer');
       }
 
       standing.expecting(command.expectedVersion);

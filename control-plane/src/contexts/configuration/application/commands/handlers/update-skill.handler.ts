@@ -7,7 +7,7 @@ import type { SkillDefinitionRepository } from '@configuration/domain/repositori
 import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import {
-  FORBIDDEN,
+  forbiddenTo,
   type ResourceUpdated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
@@ -42,7 +42,7 @@ export class UpdateSkillHandler
       }
 
       if (!cleared.configures) {
-        return FORBIDDEN;
+        return forbiddenTo('configure');
       }
 
       standing.expecting(command.expectedVersion);

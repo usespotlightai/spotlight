@@ -1,15 +1,8 @@
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
+import type { Permission } from '@shared-kernel/domain/value-objects/permission';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { TokenScope } from '@shared-kernel/domain/value-objects/token-scope.vo';
 import type { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
-
-type Permission =
-  | 'read'
-  | 'plan'
-  | 'configure'
-  | 'manage-secrets'
-  | 'administer'
-  | 'open';
 
 const SCOPED: readonly (readonly [TokenScope, Permission])[] = [
   [TokenScope.read, 'read'],
@@ -54,7 +47,7 @@ export class Clearance {
 
   static beyondWorkspaces(principal: Principal): Clearance {
     return principal.kind === 'person'
-      ? new Clearance(['plan', 'open'])
+      ? new Clearance(['plan', 'open-workspaces'])
       : new Clearance(principal.scopes.allow(TokenScope.plan) ? ['plan'] : []);
   }
 
@@ -79,6 +72,6 @@ export class Clearance {
   }
 
   get opensWorkspaces(): boolean {
-    return this.granted.has('open');
+    return this.granted.has('open-workspaces');
   }
 }

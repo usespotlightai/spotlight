@@ -6,7 +6,7 @@ import { TeamMovedOnError } from '@identity/domain/exceptions/team-moved-on.erro
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import {
-  FORBIDDEN,
+  forbiddenTo,
   type ResourceDeleted,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
@@ -42,7 +42,7 @@ export class DeleteTeamHandler
       }
 
       if (!cleared.configures) {
-        return FORBIDDEN;
+        return forbiddenTo('configure');
       }
 
       standing.expecting(command.expectedVersion);

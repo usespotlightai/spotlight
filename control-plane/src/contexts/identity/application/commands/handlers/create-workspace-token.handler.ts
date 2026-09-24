@@ -9,7 +9,7 @@ import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-worksp
 import { WorkspaceTokenAlreadyIssuedError } from '@identity/domain/exceptions/workspace-token-already-issued.error';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
 import {
-  FORBIDDEN_TO_ADMINISTER,
+  forbiddenTo,
   type ResourceCreated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
@@ -67,7 +67,7 @@ export class CreateWorkspaceTokenHandler
       }
 
       if (!cleared.administers) {
-        return refused(FORBIDDEN_TO_ADMINISTER);
+        return refused(forbiddenTo('administer'));
       }
 
       const compiled = this.definitions.workspaceToken(command.definition);

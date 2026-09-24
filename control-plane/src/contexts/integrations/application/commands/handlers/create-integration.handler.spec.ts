@@ -11,7 +11,7 @@ import {
   TEAM,
   teams,
 } from '@integrations/integrations.resources.fake-spec';
-import { FORBIDDEN } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type { IdempotentClaim } from '@shared-kernel/application/ports/idempotent-creates.port';
 import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
@@ -154,7 +154,7 @@ describe('CreateIntegrationHandler', () => {
   it('forbids someone on the team who does not administer it', async () => {
     const { create, kept } = creating({ administers: false });
 
-    expect(await create(LINEAR)).toEqual(FORBIDDEN);
+    expect(await create(LINEAR)).toEqual(forbiddenTo('configure'));
     expect(kept.save).not.toHaveBeenCalled();
   });
 });
