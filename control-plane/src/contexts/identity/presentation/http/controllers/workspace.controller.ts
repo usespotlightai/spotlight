@@ -76,7 +76,7 @@ export class WorkspaceController {
 
   @Get()
   @ApiOperation({
-    operationId: 'listWorkspaces',
+    operationId: 'listMemberWorkspaces',
     summary: 'List the workspaces the caller belongs to',
   })
   @ApiOkResponse({ type: WorkspaceListingResponseDto, isArray: true })

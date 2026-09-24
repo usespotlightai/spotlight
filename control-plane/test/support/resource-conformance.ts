@@ -11,6 +11,13 @@ import {
   PROBLEM_CONTENT_TYPE,
   RESOURCE_EXTENSION,
 } from '@platform/http/resources/resource-headers';
+import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import {
+  TOKEN_MINT,
+  type TokenMintPort,
+} from '@shared-kernel/application/ports/token-mint.port';
+import { eq } from 'drizzle-orm';
 import type { Response, Test } from 'supertest';
 import {
   afterAll,
@@ -22,6 +29,7 @@ import {
   it,
 } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './app';
+import * as schema from './schema';
 
 type Body = Readonly<Record<string, unknown>>;
 
@@ -31,6 +39,9 @@ export interface ResourceFixture {
   readonly collection: string;
   readonly item: (id: string) => string;
   readonly importing: (address: string) => string;
+  readonly listing: (workspaceId: string) => string;
+  readonly workspaceOf: (created: Body & { id: string }) => string;
+  readonly listsAcrossWorkspaces?: boolean;
   readonly address: string;
   readonly valid: Body;
   readonly changed: Body;
@@ -58,7 +69,9 @@ interface DocumentedOperation {
       string,
       {
         readonly headers?: Readonly<Record<string, unknown>>;
-        readonly content?: Readonly<Record<string, unknown>>;
+        readonly content?: Readonly<
+          Record<string, { readonly schema?: { readonly $ref?: string } }>
+        >;
       }
     >
   >;
@@ -95,6 +108,9 @@ const documented = (
   return found;
 };
 
+const answeredSchema = (operation: DocumentedOperation | undefined) =>
+  operation?.responses['200']?.content?.['application/json']?.schema?.$ref;
+
 const header = (operation: DocumentedOperation, name: string) =>
   operation.parameters?.find(
     (each) => each.in === 'header' && each.name === name,
@@ -129,6 +145,71 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
         },
         import: (address: string) =>
           signed(http.get(fixture.importing(address))),
+        list: (workspaceId: string) =>
+          signed(http.get(fixture.listing(workspaceId))),
+      };
+    };
+
+    const listed = (answer: Response): Body[] => {
+      expect(answer.status).toBe(200);
+      expect(answer.body).toEqual({ items: expect.any(Array) });
+
+      return answer.body.items;
+    };
+
+    const memberElsewhere = async () => {
+      const db = app.get<DrizzleDatabase>(DRIZZLE);
+      const person = randomUUID();
+      const workspaceId = randomUUID();
+
+      await db
+        .insert(schema.user)
+        .values({ id: person, name: 'Cy', email: `${person}@example.com` });
+      await db.insert(schema.workspace).values({
+        id: workspaceId,
+        name: 'Elsewhere',
+        slug: `elsewhere-${workspaceId.slice(0, 8)}`,
+      });
+      await db
+        .insert(schema.workspaceMember)
+        .values({ workspaceId, userId: person, role: 'owner' });
+
+      return {
+        person,
+        workspaceId,
+        leave: async () => {
+          await db
+            .delete(schema.workspace)
+            .where(eq(schema.workspace.id, workspaceId));
+          await db.delete(schema.user).where(eq(schema.user.id, person));
+        },
+      };
+    };
+
+    const readOnlyToken = async (workspaceId: string) => {
+      const db = app.get<DrizzleDatabase>(DRIZZLE);
+      const bearer = randomUUID();
+      const id = randomUUID();
+
+      await db.insert(schema.workspaceToken).values({
+        id,
+        workspaceId,
+        name: `reader-${id.slice(0, 8)}`,
+        scopes: ['read'],
+        tokenHash: app.get<TokenMintPort>(TOKEN_MINT).hash(bearer),
+        issuedBy: fixture.admin,
+        issuedAt: new Date(),
+      });
+
+      return {
+        list: () =>
+          served(app)
+            .get(fixture.listing(workspaceId))
+            .set('Authorization', `Bearer ${bearer}`),
+        revoke: () =>
+          db
+            .delete(schema.workspaceToken)
+            .where(eq(schema.workspaceToken.id, id)),
       };
     };
 
@@ -170,14 +251,23 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       for (const [name, operation] of operations) {
         expect(header(operation, 'Spotlight-Api-Version'), name).toBeDefined();
 
-        for (const status of ['400', '401', '404']) {
+        const statuses =
+          name === 'list' && fixture.listsAcrossWorkspaces
+            ? ['400', '401']
+            : ['400', '401', '404'];
+
+        for (const status of statuses) {
           expect(
             operation.responses[status]?.content,
             `${name} ${status}`,
           ).toHaveProperty([PROBLEM_CONTENT_TYPE]);
         }
 
-        if (name !== 'delete') {
+        if (name === 'list' && fixture.listsAcrossWorkspaces) {
+          expect(operation.responses['404'], name).toBeUndefined();
+        }
+
+        if (name !== 'delete' && name !== 'list') {
           const answered =
             operation.responses[name === 'create' ? '201' : '200'];
 
@@ -203,6 +293,18 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       const update = operations.get('update') as DocumentedOperation;
       const remove = operations.get('delete') as DocumentedOperation;
       const importing = operations.get('import') as DocumentedOperation;
+
+      const read = answeredSchema(operations.get('read'));
+      const list = answeredSchema(operations.get('list'));
+      const schemas = buildOpenApiDocument(app).components?.schemas ?? {};
+
+      expect(read).toBeDefined();
+      expect(
+        schemas[list?.split('/').pop() ?? ''] as Record<string, unknown>,
+      ).toMatchObject({
+        required: ['items'],
+        properties: { items: { type: 'array', items: { $ref: read } } },
+      });
 
       expect(header(create, 'Idempotency-Key')?.required).toBe(true);
       expect(header(update, 'If-Match')?.required).toBe(true);
@@ -268,6 +370,53 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       expect(imported.status).toBe(200);
       expect(imported.body).toEqual(made);
       expect(imported.headers.etag).toBe(`"${made.version}"`);
+    });
+
+    it('lists it in its workspace, as a read would answer it', async () => {
+      const made = await created();
+
+      expect(
+        listed(await admin().list(fixture.workspaceOf(made))),
+      ).toContainEqual(made);
+    });
+
+    it('lists it to a token that may only read', async () => {
+      const made = await created();
+      const token = await readOnlyToken(fixture.workspaceOf(made));
+
+      try {
+        const items = listed(await token.list());
+
+        expect(items).toContainEqual(made);
+
+        if (fixture.listsAcrossWorkspaces) {
+          expect(items.map((each) => each.id)).toEqual([made.id]);
+        }
+      } finally {
+        await token.revoke();
+      }
+    });
+
+    it('lists nothing of a workspace to a member of another', async () => {
+      const made = await created();
+      const elsewhere = await memberElsewhere();
+
+      try {
+        const stranger = await as(elsewhere.person).list(
+          fixture.workspaceOf(made),
+        );
+
+        if (fixture.listsAcrossWorkspaces) {
+          expect(listed(stranger).map((each) => each.id)).toEqual([
+            elsewhere.workspaceId,
+          ]);
+        } else {
+          problem(stranger, 404, 'not-found');
+          problem(await admin().list(randomUUID()), 404, 'not-found');
+        }
+      } finally {
+        await elsewhere.leave();
+      }
     });
 
     it('refuses a create without an Idempotency-Key, creating nothing', async () => {
@@ -407,6 +556,11 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       expect(removed.status).toBe(204);
       problem(await admin().read(made.id), 404, 'not-found');
       problem(await admin().import(fixture.address), 404, 'not-found');
+      expect(
+        listed(await admin().list(fixture.workspaceOf(made))).map(
+          (each) => each.id,
+        ),
+      ).not.toContain(made.id);
     });
 
     it('lets someone who may not configure it read it, and nothing more', async () => {
@@ -416,6 +570,9 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       await fixture.admit?.(made);
 
       expect((await viewer.read(made.id)).body).toEqual(made);
+      expect(
+        listed(await viewer.list(fixture.workspaceOf(made))),
+      ).toContainEqual(made);
 
       const refusals = [
         ...(fixture.anyoneCreates

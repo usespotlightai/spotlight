@@ -9,14 +9,14 @@ export class LineViews {
   async of(kept: KeptLine): Promise<LineResourceDto | null> {
     const team = await this.teams.find(kept.teamId);
 
-    if (!team) {
-      return null;
-    }
+    return team ? this.onTeam(kept, team.key) : null;
+  }
 
+  onTeam(kept: KeptLine, teamKey: string): LineResourceDto {
     return {
       id: kept.id,
       version: kept.version,
-      address: TeamAddress.of(team.key, kept.key).toString(),
+      address: TeamAddress.of(teamKey, kept.key).toString(),
       teamId: kept.teamId.value,
       key: kept.key,
       definition: kept.definition,

@@ -58,6 +58,8 @@ import {
 import { TEAMS } from '@configuration/application/ports/teams.port';
 import { ImportHarnessProfileHandler } from '@configuration/application/queries/handlers/import-harness-profile.handler';
 import { ImportSkillHandler } from '@configuration/application/queries/handlers/import-skill.handler';
+import { ListHarnessProfileResourcesHandler } from '@configuration/application/queries/handlers/list-harness-profile-resources.handler';
+import { ListSkillResourcesHandler } from '@configuration/application/queries/handlers/list-skill-resources.handler';
 import { ConfigurationHandler } from '@configuration/application/queries/handlers/read-configuration.handler';
 import { ReadHarnessProfileHandler } from '@configuration/application/queries/handlers/read-harness-profile.handler';
 import { ReadSkillHandler } from '@configuration/application/queries/handlers/read-skill.handler';
@@ -66,6 +68,8 @@ import { TeamSkillsHandler } from '@configuration/application/queries/handlers/t
 import { WorkspaceConfigurationHandler } from '@configuration/application/queries/handlers/workspace-configuration.handler';
 import { ImportHarnessProfileQuery } from '@configuration/application/queries/import-harness-profile.query';
 import { ImportSkillQuery } from '@configuration/application/queries/import-skill.query';
+import { ListHarnessProfileResourcesQuery } from '@configuration/application/queries/list-harness-profile-resources.query';
+import { ListSkillResourcesQuery } from '@configuration/application/queries/list-skill-resources.query';
 import { ConfigurationQuery } from '@configuration/application/queries/read-configuration.query';
 import { ReadHarnessProfileQuery } from '@configuration/application/queries/read-harness-profile.query';
 import { ReadSkillQuery } from '@configuration/application/queries/read-skill.query';
@@ -344,6 +348,16 @@ const handlers: Provider[] = [
     HARNESS_PROFILE_RESOURCES,
     HarnessProfileViews,
   ]),
+  ...bindQueryHandler(
+    ListHarnessProfileResourcesQuery,
+    ListHarnessProfileResourcesHandler,
+    [
+      WORKSPACE_ACCESS,
+      TEAM_DIRECTORY,
+      HARNESS_PROFILE_RESOURCES,
+      HarnessProfileViews,
+    ],
+  ),
   ...bindQueryHandler(ReadSkillQuery, ReadSkillHandler, [
     WORKSPACE_ACCESS,
     SKILL_RESOURCES,
@@ -371,6 +385,12 @@ const handlers: Provider[] = [
     ],
   ),
   ...bindQueryHandler(ImportSkillQuery, ImportSkillHandler, [
+    WORKSPACE_ACCESS,
+    TEAM_DIRECTORY,
+    SKILL_RESOURCES,
+    SkillViews,
+  ]),
+  ...bindQueryHandler(ListSkillResourcesQuery, ListSkillResourcesHandler, [
     WORKSPACE_ACCESS,
     TEAM_DIRECTORY,
     SKILL_RESOURCES,

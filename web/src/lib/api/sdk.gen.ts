@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AcceptInviteData, AcceptInviteErrors, AcceptInviteResponses, AcceptProposalData, AcceptProposalErrors, AcceptProposalResponses, AddTaskData, AddTaskErrors, AddTaskResponses, AnalyseTracesData, AnalyseTracesErrors, AnalyseTracesResponses, AnswerInboxItemData, AnswerInboxItemErrors, AnswerInboxItemResponses, AnswerRemarkData, AnswerRemarkErrors, AnswerRemarkResponses, AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, AskPermissionData, AskPermissionErrors, AskPermissionResponses, AssignTaskData, AssignTaskErrors, AssignTaskResponses, ChangeMemberRoleData, ChangeMemberRoleErrors, ChangeMemberRoleResponses, CheckExpressionData, CheckExpressionErrors, CheckExpressionResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, ConnectGitHubData, ConnectGitHubErrors, ConnectGitHubResponses, ConnectIntegrationData, ConnectIntegrationErrors, ConnectIntegrationResponses, CreateHarnessProfileData, CreateHarnessProfileErrors, CreateHarnessProfileResponses, CreateIntegrationData, CreateIntegrationErrors, CreateIntegrationResponses, CreateLineData, CreateLineErrors, CreateLineResponses, CreateRunnerData, CreateRunnerErrors, CreateRunnerResponses, CreateRunnerTrustData, CreateRunnerTrustErrors, CreateRunnerTrustResponses, CreateSecretData, CreateSecretErrors, CreateSecretResponses, CreateSkillData, CreateSkillErrors, CreateSkillResponses, CreateTeamData, CreateTeamErrors, CreateTeamResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, CreateWorkspaceRunnersData, CreateWorkspaceRunnersErrors, CreateWorkspaceRunnersResponses, CreateWorkspaceTokenData, CreateWorkspaceTokenErrors, CreateWorkspaceTokenResponses, DeleteHarnessProfileData, DeleteHarnessProfileErrors, DeleteHarnessProfileResponses, DeleteIntegrationData, DeleteIntegrationErrors, DeleteIntegrationResponses, DeleteLineData, DeleteLineErrors, DeleteLineResponses, DeleteReviewCommentData, DeleteReviewCommentErrors, DeleteReviewCommentResponses, DeleteRunnerData, DeleteRunnerErrors, DeleteRunnerResponses, DeleteRunnerTrustData, DeleteRunnerTrustErrors, DeleteRunnerTrustResponses, DeleteSecretData, DeleteSecretErrors, DeleteSecretResponses, DeleteSkillData, DeleteSkillErrors, DeleteSkillResponses, DeleteTaskData, DeleteTaskErrors, DeleteTaskResponses, DeleteTeamData, DeleteTeamErrors, DeleteTeamResponses, DeleteWorkspaceData, DeleteWorkspaceErrors, DeleteWorkspaceResponses, DeleteWorkspaceRunnersData, DeleteWorkspaceRunnersErrors, DeleteWorkspaceRunnersResponses, DeleteWorkspaceTokenData, DeleteWorkspaceTokenErrors, DeleteWorkspaceTokenResponses, DeliverSaidData, DeliverSaidErrors, DeliverSaidResponses, DismissProposalData, DismissProposalErrors, DismissProposalResponses, DisputeDecisionData, DisputeDecisionErrors, DisputeDecisionResponses, DraftChangeStackData, DraftChangeStackErrors, DraftChangeStackResponses, DraftReviewCommentData, DraftReviewCommentErrors, DraftReviewCommentResponses, EditReviewCommentData, EditReviewCommentErrors, EditReviewCommentResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, EnrolRunnerData, EnrolRunnerErrors, EnrolRunnerResponses, ExchangeWorkloadTokenData, ExchangeWorkloadTokenErrors, ExchangeWorkloadTokenResponses, ExportWorkspaceData, ExportWorkspaceErrors, ExportWorkspaceResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, GrantAttachmentUploadData, GrantAttachmentUploadErrors, GrantAttachmentUploadResponses, ImportHarnessProfileData, ImportHarnessProfileErrors, ImportHarnessProfileResponses, ImportIntegrationData, ImportIntegrationErrors, ImportIntegrationResponses, ImportLineData, ImportLineErrors, ImportLineResponses, ImportRunnerData, ImportRunnerErrors, ImportRunnerResponses, ImportRunnerTrustData, ImportRunnerTrustErrors, ImportRunnerTrustResponses, ImportSecretData, ImportSecretErrors, ImportSecretResponses, ImportSkillData, ImportSkillErrors, ImportSkillResponses, ImportTeamData, ImportTeamErrors, ImportTeamResponses, ImportWorkspaceData, ImportWorkspaceErrors, ImportWorkspaceResponses, ImportWorkspaceRunnersData, ImportWorkspaceRunnersErrors, ImportWorkspaceRunnersResponses, ImportWorkspaceTokenData, ImportWorkspaceTokenErrors, ImportWorkspaceTokenResponses, InstallableHarnessesData, InstallableHarnessesErrors, InstallableHarnessesResponses, InviteToTeamData, InviteToTeamErrors, InviteToTeamResponses, KeptWorkspacesData, KeptWorkspacesErrors, KeptWorkspacesResponses, ListChatsData, ListChatsErrors, ListChatsResponses, ListConfigurationChangesData, ListConfigurationChangesErrors, ListConfigurationChangesResponses, ListExpressionPositionsData, ListExpressionPositionsErrors, ListExpressionPositionsResponses, ListHappeningsData, ListHappeningsErrors, ListHappeningsResponses, ListHarnessesData, ListHarnessesErrors, ListHarnessesResponses, ListInboxData, ListInboxErrors, ListInboxResponses, ListInvitesData, ListInvitesErrors, ListInvitesResponses, ListLinesData, ListLinesErrors, ListLinesResponses, ListMembersData, ListMembersErrors, ListMembersResponses, ListRepositoriesData, ListRepositoriesErrors, ListRepositoriesResponses, ListRunChangeStacksData, ListRunChangeStacksErrors, ListRunChangeStacksResponses, ListRunnerActivityData, ListRunnerActivityErrors, ListRunnerActivityResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListStandingDecisionsData, ListStandingDecisionsErrors, ListStandingDecisionsResponses, ListTaskRunsData, ListTaskRunsErrors, ListTaskRunsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListTeamRunsData, ListTeamRunsErrors, ListTeamRunsResponses, ListTeamSkillsData, ListTeamSkillsErrors, ListTeamSkillsResponses, ListTeamTracesData, ListTeamTracesErrors, ListTeamTracesResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, MoveTaskData, MoveTaskErrors, MoveTaskResponses, OpenWorkspaceData, OpenWorkspaceErrors, OpenWorkspaceResponses, PendingMessagesData, PendingMessagesErrors, PendingMessagesResponses, ReadAttachmentData, ReadAttachmentErrors, ReadCatalogSkillData, ReadCatalogSkillErrors, ReadCatalogSkillResponses, ReadCatalogToolData, ReadCatalogToolErrors, ReadCatalogToolResponses, ReadChatData, ReadChatErrors, ReadChatJournalData, ReadChatJournalErrors, ReadChatJournalResponses, ReadChatResponses, ReadConfigurationData, ReadConfigurationErrors, ReadConfigurationResponses, ReadGitHubData, ReadGitHubErrors, ReadGitHubResponses, ReadHarnessProfileData, ReadHarnessProfileErrors, ReadHarnessProfileResponses, ReadInboxItemData, ReadInboxItemErrors, ReadInboxItemResponses, ReadIntegrationData, ReadIntegrationErrors, ReadIntegrationResponses, ReadInviteData, ReadInviteErrors, ReadInviteResponses, ReadLineData, ReadLineErrors, ReadLineResponses, ReadOnboardingData, ReadOnboardingErrors, ReadOnboardingResponses, ReadResourceHclData, ReadResourceHclErrors, ReadResourceHclResponses, ReadRunAttachmentData, ReadRunAttachmentErrors, ReadRunAttachmentResponses, ReadRunConversationData, ReadRunConversationErrors, ReadRunConversationResponses, ReadRunnerData, ReadRunnerErrors, ReadRunnerResponses, ReadRunnerTrustData, ReadRunnerTrustErrors, ReadRunnerTrustResponses, ReadRunReviewData, ReadRunReviewErrors, ReadRunReviewResponses, ReadRunTraceData, ReadRunTraceErrors, ReadRunTraceResponses, ReadSecretData, ReadSecretErrors, ReadSecretResponses, ReadSkillData, ReadSkillErrors, ReadSkillResponses, ReadTaskChangeStackData, ReadTaskChangeStackErrors, ReadTaskChangeStackResponses, ReadTaskDecisionsData, ReadTaskDecisionsErrors, ReadTaskDecisionsResponses, ReadTaskJournalData, ReadTaskJournalErrors, ReadTaskJournalResponses, ReadTaskTraceData, ReadTaskTraceErrors, ReadTaskTraceResponses, ReadTeamData, ReadTeamErrors, ReadTeamResponses, ReadWorkspaceData, ReadWorkspaceErrors, ReadWorkspaceResponses, ReadWorkspaceRunnersData, ReadWorkspaceRunnersErrors, ReadWorkspaceRunnersResponses, ReadWorkspaceTokenData, ReadWorkspaceTokenErrors, ReadWorkspaceTokenResponses, RecordChangeStackCheckData, RecordChangeStackCheckErrors, RecordChangeStackCheckResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, RevokeInviteData, RevokeInviteErrors, RevokeInviteResponses, RevokeRunnerData, RevokeRunnerErrors, RevokeRunnerResponses, SayInChatData, SayInChatErrors, SayInChatResponses, SayToRunData, SayToRunErrors, SayToRunResponses, StartChatData, StartChatErrors, StartChatResponses, StopChatData, StopChatErrors, StopChatResponses, StopRunData, StopRunErrors, StopRunResponses, StreamRunData, StreamRunErrors, StreamRunResponses, SubmitReviewData, SubmitReviewErrors, SubmitReviewResponses, UpdateHarnessProfileData, UpdateHarnessProfileErrors, UpdateHarnessProfileResponses, UpdateIntegrationData, UpdateIntegrationErrors, UpdateIntegrationResponses, UpdateLineData, UpdateLineErrors, UpdateLineResponses, UpdateRunnerData, UpdateRunnerErrors, UpdateRunnerResponses, UpdateRunnerTrustData, UpdateRunnerTrustErrors, UpdateRunnerTrustResponses, UpdateSecretData, UpdateSecretErrors, UpdateSecretResponses, UpdateSkillData, UpdateSkillErrors, UpdateSkillResponses, UpdateTeamData, UpdateTeamErrors, UpdateTeamResponses, UpdateWorkspaceData, UpdateWorkspaceErrors, UpdateWorkspaceResponses, UpdateWorkspaceRunnersData, UpdateWorkspaceRunnersErrors, UpdateWorkspaceRunnersResponses, UpdateWorkspaceTokenData, UpdateWorkspaceTokenErrors, UpdateWorkspaceTokenResponses, UseToolData, UseToolErrors, UseToolResponses } from './types.gen';
+import type { AcceptInviteData, AcceptInviteErrors, AcceptInviteResponses, AcceptProposalData, AcceptProposalErrors, AcceptProposalResponses, AddTaskData, AddTaskErrors, AddTaskResponses, AnalyseTracesData, AnalyseTracesErrors, AnalyseTracesResponses, AnswerInboxItemData, AnswerInboxItemErrors, AnswerInboxItemResponses, AnswerRemarkData, AnswerRemarkErrors, AnswerRemarkResponses, AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, AskPermissionData, AskPermissionErrors, AskPermissionResponses, AssignTaskData, AssignTaskErrors, AssignTaskResponses, ChangeMemberRoleData, ChangeMemberRoleErrors, ChangeMemberRoleResponses, CheckExpressionData, CheckExpressionErrors, CheckExpressionResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, ConnectGitHubData, ConnectGitHubErrors, ConnectGitHubResponses, ConnectIntegrationData, ConnectIntegrationErrors, ConnectIntegrationResponses, CreateHarnessProfileData, CreateHarnessProfileErrors, CreateHarnessProfileResponses, CreateIntegrationData, CreateIntegrationErrors, CreateIntegrationResponses, CreateLineData, CreateLineErrors, CreateLineResponses, CreateRunnerData, CreateRunnerErrors, CreateRunnerResponses, CreateRunnerTrustData, CreateRunnerTrustErrors, CreateRunnerTrustResponses, CreateSecretData, CreateSecretErrors, CreateSecretResponses, CreateSkillData, CreateSkillErrors, CreateSkillResponses, CreateTeamData, CreateTeamErrors, CreateTeamResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, CreateWorkspaceRunnersData, CreateWorkspaceRunnersErrors, CreateWorkspaceRunnersResponses, CreateWorkspaceTokenData, CreateWorkspaceTokenErrors, CreateWorkspaceTokenResponses, DeleteHarnessProfileData, DeleteHarnessProfileErrors, DeleteHarnessProfileResponses, DeleteIntegrationData, DeleteIntegrationErrors, DeleteIntegrationResponses, DeleteLineData, DeleteLineErrors, DeleteLineResponses, DeleteReviewCommentData, DeleteReviewCommentErrors, DeleteReviewCommentResponses, DeleteRunnerData, DeleteRunnerErrors, DeleteRunnerResponses, DeleteRunnerTrustData, DeleteRunnerTrustErrors, DeleteRunnerTrustResponses, DeleteSecretData, DeleteSecretErrors, DeleteSecretResponses, DeleteSkillData, DeleteSkillErrors, DeleteSkillResponses, DeleteTaskData, DeleteTaskErrors, DeleteTaskResponses, DeleteTeamData, DeleteTeamErrors, DeleteTeamResponses, DeleteWorkspaceData, DeleteWorkspaceErrors, DeleteWorkspaceResponses, DeleteWorkspaceRunnersData, DeleteWorkspaceRunnersErrors, DeleteWorkspaceRunnersResponses, DeleteWorkspaceTokenData, DeleteWorkspaceTokenErrors, DeleteWorkspaceTokenResponses, DeliverSaidData, DeliverSaidErrors, DeliverSaidResponses, DismissProposalData, DismissProposalErrors, DismissProposalResponses, DisputeDecisionData, DisputeDecisionErrors, DisputeDecisionResponses, DraftChangeStackData, DraftChangeStackErrors, DraftChangeStackResponses, DraftReviewCommentData, DraftReviewCommentErrors, DraftReviewCommentResponses, EditReviewCommentData, EditReviewCommentErrors, EditReviewCommentResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, EnrolRunnerData, EnrolRunnerErrors, EnrolRunnerResponses, ExchangeWorkloadTokenData, ExchangeWorkloadTokenErrors, ExchangeWorkloadTokenResponses, ExportWorkspaceData, ExportWorkspaceErrors, ExportWorkspaceResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, GrantAttachmentUploadData, GrantAttachmentUploadErrors, GrantAttachmentUploadResponses, ImportHarnessProfileData, ImportHarnessProfileErrors, ImportHarnessProfileResponses, ImportIntegrationData, ImportIntegrationErrors, ImportIntegrationResponses, ImportLineData, ImportLineErrors, ImportLineResponses, ImportRunnerData, ImportRunnerErrors, ImportRunnerResponses, ImportRunnerTrustData, ImportRunnerTrustErrors, ImportRunnerTrustResponses, ImportSecretData, ImportSecretErrors, ImportSecretResponses, ImportSkillData, ImportSkillErrors, ImportSkillResponses, ImportTeamData, ImportTeamErrors, ImportTeamResponses, ImportWorkspaceData, ImportWorkspaceErrors, ImportWorkspaceResponses, ImportWorkspaceRunnersData, ImportWorkspaceRunnersErrors, ImportWorkspaceRunnersResponses, ImportWorkspaceTokenData, ImportWorkspaceTokenErrors, ImportWorkspaceTokenResponses, InstallableHarnessesData, InstallableHarnessesErrors, InstallableHarnessesResponses, InviteToTeamData, InviteToTeamErrors, InviteToTeamResponses, KeptWorkspacesData, KeptWorkspacesErrors, KeptWorkspacesResponses, ListChatsData, ListChatsErrors, ListChatsResponses, ListConfigurationChangesData, ListConfigurationChangesErrors, ListConfigurationChangesResponses, ListConnectedRunnersData, ListConnectedRunnersErrors, ListConnectedRunnersResponses, ListExpressionPositionsData, ListExpressionPositionsErrors, ListExpressionPositionsResponses, ListHappeningsData, ListHappeningsErrors, ListHappeningsResponses, ListHarnessesData, ListHarnessesErrors, ListHarnessesResponses, ListHarnessProfilesData, ListHarnessProfilesErrors, ListHarnessProfilesResponses, ListInboxData, ListInboxErrors, ListInboxResponses, ListIntegrationsData, ListIntegrationsErrors, ListIntegrationsResponses, ListInvitesData, ListInvitesErrors, ListInvitesResponses, ListLinesData, ListLinesErrors, ListLinesResponses, ListMembersData, ListMembersErrors, ListMembersResponses, ListMemberWorkspacesData, ListMemberWorkspacesErrors, ListMemberWorkspacesResponses, ListRepositoriesData, ListRepositoriesErrors, ListRepositoriesResponses, ListRunChangeStacksData, ListRunChangeStacksErrors, ListRunChangeStacksResponses, ListRunnerActivityData, ListRunnerActivityErrors, ListRunnerActivityResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListRunnerTrustsData, ListRunnerTrustsErrors, ListRunnerTrustsResponses, ListSecretsData, ListSecretsErrors, ListSecretsResponses, ListSkillsData, ListSkillsErrors, ListSkillsResponses, ListStandingDecisionsData, ListStandingDecisionsErrors, ListStandingDecisionsResponses, ListTaskRunsData, ListTaskRunsErrors, ListTaskRunsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListTeamLinesData, ListTeamLinesErrors, ListTeamLinesResponses, ListTeamRunsData, ListTeamRunsErrors, ListTeamRunsResponses, ListTeamsData, ListTeamsErrors, ListTeamSkillsData, ListTeamSkillsErrors, ListTeamSkillsResponses, ListTeamsResponses, ListTeamTracesData, ListTeamTracesErrors, ListTeamTracesResponses, ListWorkspaceRunnersData, ListWorkspaceRunnersErrors, ListWorkspaceRunnersResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, ListWorkspaceTokensData, ListWorkspaceTokensErrors, ListWorkspaceTokensResponses, MoveTaskData, MoveTaskErrors, MoveTaskResponses, OpenWorkspaceData, OpenWorkspaceErrors, OpenWorkspaceResponses, PendingMessagesData, PendingMessagesErrors, PendingMessagesResponses, ReadAttachmentData, ReadAttachmentErrors, ReadCatalogSkillData, ReadCatalogSkillErrors, ReadCatalogSkillResponses, ReadCatalogToolData, ReadCatalogToolErrors, ReadCatalogToolResponses, ReadChatData, ReadChatErrors, ReadChatJournalData, ReadChatJournalErrors, ReadChatJournalResponses, ReadChatResponses, ReadConfigurationData, ReadConfigurationErrors, ReadConfigurationResponses, ReadGitHubData, ReadGitHubErrors, ReadGitHubResponses, ReadHarnessProfileData, ReadHarnessProfileErrors, ReadHarnessProfileResponses, ReadInboxItemData, ReadInboxItemErrors, ReadInboxItemResponses, ReadIntegrationData, ReadIntegrationErrors, ReadIntegrationResponses, ReadInviteData, ReadInviteErrors, ReadInviteResponses, ReadLineData, ReadLineErrors, ReadLineResponses, ReadOnboardingData, ReadOnboardingErrors, ReadOnboardingResponses, ReadResourceHclData, ReadResourceHclErrors, ReadResourceHclResponses, ReadRunAttachmentData, ReadRunAttachmentErrors, ReadRunAttachmentResponses, ReadRunConversationData, ReadRunConversationErrors, ReadRunConversationResponses, ReadRunnerData, ReadRunnerErrors, ReadRunnerResponses, ReadRunnerTrustData, ReadRunnerTrustErrors, ReadRunnerTrustResponses, ReadRunReviewData, ReadRunReviewErrors, ReadRunReviewResponses, ReadRunTraceData, ReadRunTraceErrors, ReadRunTraceResponses, ReadSecretData, ReadSecretErrors, ReadSecretResponses, ReadSkillData, ReadSkillErrors, ReadSkillResponses, ReadTaskChangeStackData, ReadTaskChangeStackErrors, ReadTaskChangeStackResponses, ReadTaskDecisionsData, ReadTaskDecisionsErrors, ReadTaskDecisionsResponses, ReadTaskJournalData, ReadTaskJournalErrors, ReadTaskJournalResponses, ReadTaskTraceData, ReadTaskTraceErrors, ReadTaskTraceResponses, ReadTeamData, ReadTeamErrors, ReadTeamResponses, ReadWorkspaceData, ReadWorkspaceErrors, ReadWorkspaceResponses, ReadWorkspaceRunnersData, ReadWorkspaceRunnersErrors, ReadWorkspaceRunnersResponses, ReadWorkspaceTokenData, ReadWorkspaceTokenErrors, ReadWorkspaceTokenResponses, RecordChangeStackCheckData, RecordChangeStackCheckErrors, RecordChangeStackCheckResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, RevokeInviteData, RevokeInviteErrors, RevokeInviteResponses, RevokeRunnerData, RevokeRunnerErrors, RevokeRunnerResponses, SayInChatData, SayInChatErrors, SayInChatResponses, SayToRunData, SayToRunErrors, SayToRunResponses, StartChatData, StartChatErrors, StartChatResponses, StopChatData, StopChatErrors, StopChatResponses, StopRunData, StopRunErrors, StopRunResponses, StreamRunData, StreamRunErrors, StreamRunResponses, SubmitReviewData, SubmitReviewErrors, SubmitReviewResponses, UpdateHarnessProfileData, UpdateHarnessProfileErrors, UpdateHarnessProfileResponses, UpdateIntegrationData, UpdateIntegrationErrors, UpdateIntegrationResponses, UpdateLineData, UpdateLineErrors, UpdateLineResponses, UpdateRunnerData, UpdateRunnerErrors, UpdateRunnerResponses, UpdateRunnerTrustData, UpdateRunnerTrustErrors, UpdateRunnerTrustResponses, UpdateSecretData, UpdateSecretErrors, UpdateSecretResponses, UpdateSkillData, UpdateSkillErrors, UpdateSkillResponses, UpdateTeamData, UpdateTeamErrors, UpdateTeamResponses, UpdateWorkspaceData, UpdateWorkspaceErrors, UpdateWorkspaceResponses, UpdateWorkspaceRunnersData, UpdateWorkspaceRunnersErrors, UpdateWorkspaceRunnersResponses, UpdateWorkspaceTokenData, UpdateWorkspaceTokenErrors, UpdateWorkspaceTokenResponses, UseToolData, UseToolErrors, UseToolResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -26,7 +26,7 @@ export const getHealth = <ThrowOnError extends boolean = false>(options?: Option
 /**
  * List a team’s lines, each with its stations in order
  */
-export const listLines = <ThrowOnError extends boolean = false>(options: Options<ListLinesData, ThrowOnError>): RequestResult<ListLinesResponses, ListLinesErrors, ThrowOnError> => (options.client ?? client).get<ListLinesResponses, ListLinesErrors, ThrowOnError>({ url: '/teams/{teamId}/lines', ...options });
+export const listTeamLines = <ThrowOnError extends boolean = false>(options: Options<ListTeamLinesData, ThrowOnError>): RequestResult<ListTeamLinesResponses, ListTeamLinesErrors, ThrowOnError> => (options.client ?? client).get<ListTeamLinesResponses, ListTeamLinesErrors, ThrowOnError>({ url: '/teams/{teamId}/lines', ...options });
 
 /**
  * Open a line for a team
@@ -78,6 +78,15 @@ export const updateLine = <ThrowOnError extends boolean = false>(options: Option
 export const importLine = <ThrowOnError extends boolean = false>(options: Options<ImportLineData, ThrowOnError>): RequestResult<ImportLineResponses, ImportLineErrors, ThrowOnError> => (options.client ?? client).get<ImportLineResponses, ImportLineErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
   url: '/resources/workspaces/{workspaceId}/lines/import',
+  ...options
+});
+
+/**
+ * List every line in a workspace, across its teams, each as it stands
+ */
+export const listLines = <ThrowOnError extends boolean = false>(options: Options<ListLinesData, ThrowOnError>): RequestResult<ListLinesResponses, ListLinesErrors, ThrowOnError> => (options.client ?? client).get<ListLinesResponses, ListLinesErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/workspaces/{workspaceId}/lines',
   ...options
 });
 
@@ -444,6 +453,15 @@ export const importWorkspace = <ThrowOnError extends boolean = false>(options: O
 });
 
 /**
+ * List every workspace you may read; a token reads only its own
+ */
+export const listWorkspaces = <ThrowOnError extends boolean = false>(options?: Options<ListWorkspacesData, ThrowOnError>): RequestResult<ListWorkspacesResponses, ListWorkspacesErrors, ThrowOnError> => (options?.client ?? client).get<ListWorkspacesResponses, ListWorkspacesErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/workspaces',
+  ...options
+});
+
+/**
  * Create a workspace, owned by whoever creates it
  */
 export const createWorkspace = <ThrowOnError extends boolean = false>(options: Options<CreateWorkspaceData, ThrowOnError>): RequestResult<CreateWorkspaceResponses, CreateWorkspaceErrors, ThrowOnError> => (options.client ?? client).post<CreateWorkspaceResponses, CreateWorkspaceErrors, ThrowOnError>({
@@ -485,6 +503,15 @@ export const updateWorkspace = <ThrowOnError extends boolean = false>(options: O
     'Content-Type': 'application/json',
     ...options.headers
   }
+});
+
+/**
+ * List every team in a workspace
+ */
+export const listTeams = <ThrowOnError extends boolean = false>(options: Options<ListTeamsData, ThrowOnError>): RequestResult<ListTeamsResponses, ListTeamsErrors, ThrowOnError> => (options.client ?? client).get<ListTeamsResponses, ListTeamsErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/workspaces/{workspaceId}/teams',
+  ...options
 });
 
 /**
@@ -537,6 +564,15 @@ export const updateTeam = <ThrowOnError extends boolean = false>(options: Option
 export const importTeam = <ThrowOnError extends boolean = false>(options: Options<ImportTeamData, ThrowOnError>): RequestResult<ImportTeamResponses, ImportTeamErrors, ThrowOnError> => (options.client ?? client).get<ImportTeamResponses, ImportTeamErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
   url: '/resources/workspaces/{workspaceId}/teams/import',
+  ...options
+});
+
+/**
+ * List every token that acts in a workspace, never the tokens themselves
+ */
+export const listWorkspaceTokens = <ThrowOnError extends boolean = false>(options: Options<ListWorkspaceTokensData, ThrowOnError>): RequestResult<ListWorkspaceTokensResponses, ListWorkspaceTokensErrors, ThrowOnError> => (options.client ?? client).get<ListWorkspaceTokensResponses, ListWorkspaceTokensErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/workspaces/{workspaceId}/tokens',
   ...options
 });
 
@@ -596,7 +632,7 @@ export const importWorkspaceToken = <ThrowOnError extends boolean = false>(optio
 /**
  * List the workspaces the caller belongs to
  */
-export const listWorkspaces = <ThrowOnError extends boolean = false>(options?: Options<ListWorkspacesData, ThrowOnError>): RequestResult<ListWorkspacesResponses, ListWorkspacesErrors, ThrowOnError> => (options?.client ?? client).get<ListWorkspacesResponses, ListWorkspacesErrors, ThrowOnError>({ url: '/workspaces', ...options });
+export const listMemberWorkspaces = <ThrowOnError extends boolean = false>(options?: Options<ListMemberWorkspacesData, ThrowOnError>): RequestResult<ListMemberWorkspacesResponses, ListMemberWorkspacesErrors, ThrowOnError> => (options?.client ?? client).get<ListMemberWorkspacesResponses, ListMemberWorkspacesErrors, ThrowOnError>({ url: '/workspaces', ...options });
 
 /**
  * Create a workspace, along with the team it starts with
@@ -670,6 +706,15 @@ export const readInvite = <ThrowOnError extends boolean = false>(options: Option
  * Take up an invitation, joining the team it was sent for
  */
 export const acceptInvite = <ThrowOnError extends boolean = false>(options: Options<AcceptInviteData, ThrowOnError>): RequestResult<AcceptInviteResponses, AcceptInviteErrors, ThrowOnError> => (options.client ?? client).post<AcceptInviteResponses, AcceptInviteErrors, ThrowOnError>({ url: '/invites/{token}/accept', ...options });
+
+/**
+ * List every secret in a workspace, never their values
+ */
+export const listSecrets = <ThrowOnError extends boolean = false>(options: Options<ListSecretsData, ThrowOnError>): RequestResult<ListSecretsResponses, ListSecretsErrors, ThrowOnError> => (options.client ?? client).get<ListSecretsResponses, ListSecretsErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/workspaces/{workspaceId}/secrets',
+  ...options
+});
 
 /**
  * Set a secret in a workspace; only workspace admins and tokens with the secrets scope may
@@ -767,7 +812,7 @@ export const connectGitHub = <ThrowOnError extends boolean = false>(options: Opt
 /**
  * List the workspace’s runners and whether each is still answering
  */
-export const listRunners = <ThrowOnError extends boolean = false>(options: Options<ListRunnersData, ThrowOnError>): RequestResult<ListRunnersResponses, ListRunnersErrors, ThrowOnError> => (options.client ?? client).get<ListRunnersResponses, ListRunnersErrors, ThrowOnError>({ url: '/workspaces/{slug}/runners', ...options });
+export const listConnectedRunners = <ThrowOnError extends boolean = false>(options: Options<ListConnectedRunnersData, ThrowOnError>): RequestResult<ListConnectedRunnersResponses, ListConnectedRunnersErrors, ThrowOnError> => (options.client ?? client).get<ListConnectedRunnersResponses, ListConnectedRunnersErrors, ThrowOnError>({ url: '/workspaces/{slug}/runners', ...options });
 
 /**
  * Enrol a runner and mint the token it registers with
@@ -808,6 +853,15 @@ export const exchangeWorkloadToken = <ThrowOnError extends boolean = false>(opti
     'Content-Type': 'application/json',
     ...options.headers
   }
+});
+
+/**
+ * List every runner a workspace holds, enrolled by hand; runners a trust enrolled are held through their trust
+ */
+export const listRunners = <ThrowOnError extends boolean = false>(options: Options<ListRunnersData, ThrowOnError>): RequestResult<ListRunnersResponses, ListRunnersErrors, ThrowOnError> => (options.client ?? client).get<ListRunnersResponses, ListRunnersErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/workspaces/{workspaceId}/runners',
+  ...options
 });
 
 /**
@@ -864,6 +918,15 @@ export const importRunner = <ThrowOnError extends boolean = false>(options: Opti
 });
 
 /**
+ * List every runner trust in a workspace
+ */
+export const listRunnerTrusts = <ThrowOnError extends boolean = false>(options: Options<ListRunnerTrustsData, ThrowOnError>): RequestResult<ListRunnerTrustsResponses, ListRunnerTrustsErrors, ThrowOnError> => (options.client ?? client).get<ListRunnerTrustsResponses, ListRunnerTrustsErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/workspaces/{workspaceId}/runner-trusts',
+  ...options
+});
+
+/**
  * Trust a platform workload to enrol runners with the token its platform issues it
  */
 export const createRunnerTrust = <ThrowOnError extends boolean = false>(options: Options<CreateRunnerTrustData, ThrowOnError>): RequestResult<CreateRunnerTrustResponses, CreateRunnerTrustErrors, ThrowOnError> => (options.client ?? client).post<CreateRunnerTrustResponses, CreateRunnerTrustErrors, ThrowOnError>({
@@ -913,6 +976,15 @@ export const updateRunnerTrust = <ThrowOnError extends boolean = false>(options:
 export const importRunnerTrust = <ThrowOnError extends boolean = false>(options: Options<ImportRunnerTrustData, ThrowOnError>): RequestResult<ImportRunnerTrustResponses, ImportRunnerTrustErrors, ThrowOnError> => (options.client ?? client).get<ImportRunnerTrustResponses, ImportRunnerTrustErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
   url: '/resources/workspaces/{workspaceId}/runner-trusts/import',
+  ...options
+});
+
+/**
+ * List what a workspace declares of its runners: one declaration, or none
+ */
+export const listWorkspaceRunners = <ThrowOnError extends boolean = false>(options: Options<ListWorkspaceRunnersData, ThrowOnError>): RequestResult<ListWorkspaceRunnersResponses, ListWorkspaceRunnersErrors, ThrowOnError> => (options.client ?? client).get<ListWorkspaceRunnersResponses, ListWorkspaceRunnersErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/workspaces/{workspaceId}/workspace-runners',
   ...options
 });
 
@@ -1033,6 +1105,15 @@ export const importSkill = <ThrowOnError extends boolean = false>(options: Optio
 });
 
 /**
+ * List every skill in a workspace, across its teams, files and all
+ */
+export const listSkills = <ThrowOnError extends boolean = false>(options: Options<ListSkillsData, ThrowOnError>): RequestResult<ListSkillsResponses, ListSkillsErrors, ThrowOnError> => (options.client ?? client).get<ListSkillsResponses, ListSkillsErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/workspaces/{workspaceId}/skills',
+  ...options
+});
+
+/**
  * Define a harness profile for a team
  */
 export const createHarnessProfile = <ThrowOnError extends boolean = false>(options: Options<CreateHarnessProfileData, ThrowOnError>): RequestResult<CreateHarnessProfileResponses, CreateHarnessProfileErrors, ThrowOnError> => (options.client ?? client).post<CreateHarnessProfileResponses, CreateHarnessProfileErrors, ThrowOnError>({
@@ -1082,6 +1163,15 @@ export const updateHarnessProfile = <ThrowOnError extends boolean = false>(optio
 export const importHarnessProfile = <ThrowOnError extends boolean = false>(options: Options<ImportHarnessProfileData, ThrowOnError>): RequestResult<ImportHarnessProfileResponses, ImportHarnessProfileErrors, ThrowOnError> => (options.client ?? client).get<ImportHarnessProfileResponses, ImportHarnessProfileErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
   url: '/resources/workspaces/{workspaceId}/harness-profiles/import',
+  ...options
+});
+
+/**
+ * List every harness profile in a workspace, across its teams
+ */
+export const listHarnessProfiles = <ThrowOnError extends boolean = false>(options: Options<ListHarnessProfilesData, ThrowOnError>): RequestResult<ListHarnessProfilesResponses, ListHarnessProfilesErrors, ThrowOnError> => (options.client ?? client).get<ListHarnessProfilesResponses, ListHarnessProfilesErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/workspaces/{workspaceId}/harness-profiles',
   ...options
 });
 
@@ -1262,6 +1352,15 @@ export const updateIntegration = <ThrowOnError extends boolean = false>(options:
 export const importIntegration = <ThrowOnError extends boolean = false>(options: Options<ImportIntegrationData, ThrowOnError>): RequestResult<ImportIntegrationResponses, ImportIntegrationErrors, ThrowOnError> => (options.client ?? client).get<ImportIntegrationResponses, ImportIntegrationErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
   url: '/resources/workspaces/{workspaceId}/integrations/import',
+  ...options
+});
+
+/**
+ * List every integration in a workspace, across its teams
+ */
+export const listIntegrations = <ThrowOnError extends boolean = false>(options: Options<ListIntegrationsData, ThrowOnError>): RequestResult<ListIntegrationsResponses, ListIntegrationsErrors, ThrowOnError> => (options.client ?? client).get<ListIntegrationsResponses, ListIntegrationsErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/workspaces/{workspaceId}/integrations',
   ...options
 });
 

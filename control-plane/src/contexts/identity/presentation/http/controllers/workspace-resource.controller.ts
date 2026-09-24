@@ -3,6 +3,7 @@ import { DeleteWorkspaceCommand } from '@identity/application/commands/delete-wo
 import { UpdateWorkspaceCommand } from '@identity/application/commands/update-workspace.command';
 import type { WorkspaceResourceDto } from '@identity/application/dto/workspace-resource.dto';
 import { ImportWorkspaceQuery } from '@identity/application/queries/import-workspace.query';
+import { ListWorkspaceResourcesQuery } from '@identity/application/queries/list-workspace-resources.query';
 import { ReadWorkspaceQuery } from '@identity/application/queries/read-workspace.query';
 import { WorkspaceResourceResponseDto } from '@identity/presentation/http/dto/workspace-resource.response.dto';
 import { Body, Param, Query } from '@nestjs/common';
@@ -10,6 +11,7 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiBody, ApiParam } from '@nestjs/swagger';
 import { CurrentActor } from '@platform/http/decorators/current-actor.decorator';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
+import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
 import {
@@ -17,6 +19,7 @@ import {
   answerDeleted,
   answerUpdated,
   found,
+  listed,
 } from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
 import type {
@@ -31,6 +34,7 @@ const KIND = 'workspace';
 
 const WorkspaceResource = resourceApi({
   kind: KIND,
+  plural: 'workspaces',
   tag: 'workspaces',
   representation: WorkspaceResourceResponseDto,
   addressExample: 'acme',
@@ -76,6 +80,22 @@ export class WorkspaceResourceController {
         ImportWorkspaceQuery,
         WorkspaceResourceDto | null
       >(new ImportWorkspaceQuery(address ?? '', principal)),
+      representation,
+    );
+  }
+
+  @WorkspaceResource.ListVisible(
+    'workspaces',
+    'List every workspace you may read; a token reads only its own',
+  )
+  async list(
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<ResourceList<WorkspaceResourceResponseDto>> {
+    return listed(
+      await this.queryBus.execute<
+        ListWorkspaceResourcesQuery,
+        readonly WorkspaceResourceDto[]
+      >(new ListWorkspaceResourcesQuery(principal)),
       representation,
     );
   }

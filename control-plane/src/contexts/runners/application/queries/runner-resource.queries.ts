@@ -44,3 +44,24 @@ export class ImportWorkspaceRunnersQuery {
     readonly principal: Principal,
   ) {}
 }
+
+export class ListRunnerResourcesQuery {
+  constructor(
+    readonly workspaceId: string,
+    readonly principal: Principal,
+  ) {}
+}
+
+export class ListRunnerTrustResourcesQuery {
+  constructor(
+    readonly workspaceId: string,
+    readonly principal: Principal,
+  ) {}
+}
+
+export class ListWorkspaceRunnersResourcesQuery {
+  constructor(
+    readonly workspaceId: string,
+    readonly principal: Principal,
+  ) {}
+}

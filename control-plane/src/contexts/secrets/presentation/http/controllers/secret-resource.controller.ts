@@ -3,6 +3,7 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiBody, ApiParam } from '@nestjs/swagger';
 import { CurrentActor } from '@platform/http/decorators/current-actor.decorator';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
+import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
 import {
@@ -10,6 +11,7 @@ import {
   answerDeleted,
   answerUpdated,
   found,
+  listed,
 } from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
 import { CreateSecretCommand } from '@secrets/application/commands/create-secret.command';
@@ -17,6 +19,7 @@ import { DeleteSecretCommand } from '@secrets/application/commands/delete-secret
 import { UpdateSecretCommand } from '@secrets/application/commands/update-secret.command';
 import type { SecretResourceDto } from '@secrets/application/dto/secret-resource.dto';
 import { ImportSecretQuery } from '@secrets/application/queries/import-secret.query';
+import { ListSecretResourcesQuery } from '@secrets/application/queries/list-secret-resources.query';
 import { ReadSecretQuery } from '@secrets/application/queries/read-secret.query';
 import { SECRET_SOURCE_KINDS } from '@secrets/domain/value-objects/secret-source.vo';
 import { SecretResourceResponseDto } from '@secrets/presentation/http/dto/secret-resource.response.dto';
@@ -32,6 +35,7 @@ const KIND = 'secret';
 
 const SecretResource = resourceApi({
   kind: KIND,
+  plural: 'secrets',
   tag: 'secrets',
   representation: SecretResourceResponseDto,
   addressExample: 'LINEAR_API_KEY',
@@ -189,6 +193,24 @@ export class SecretResourceController {
       await this.queryBus.execute<ImportSecretQuery, SecretResourceDto | null>(
         new ImportSecretQuery(workspaceId, address ?? '', principal),
       ),
+      representation,
+    );
+  }
+
+  @SecretResource.List(
+    'workspaces/:workspaceId/secrets',
+    'List every secret in a workspace, never their values',
+  )
+  @WORKSPACE
+  async list(
+    @Param('workspaceId') workspaceId: string,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<ResourceList<SecretResourceResponseDto>> {
+    return listed(
+      await this.queryBus.execute<
+        ListSecretResourcesQuery,
+        readonly SecretResourceDto[] | null
+      >(new ListSecretResourcesQuery(workspaceId, principal)),
       representation,
     );
   }

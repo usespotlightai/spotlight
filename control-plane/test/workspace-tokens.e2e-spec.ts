@@ -96,6 +96,8 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
     item: (id) => `/api/resources/tokens/${id}`,
     importing: (address) =>
       `/api/resources/workspaces/${seat.held}/tokens/import?address=${encodeURIComponent(address)}`,
+    listing: (workspaceId) => `/api/resources/workspaces/${workspaceId}/tokens`,
+    workspaceOf: () => seat.held,
     address: 'ci',
     valid: { name: 'ci', scopes: ['plan'], description: 'Plans every PR' },
     changed: { name: 'ci', scopes: ['plan'], description: 'Plans, again' },
@@ -509,6 +511,24 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
           )
         ).status,
       ).toBe(404);
+
+      const listed = await as(tokens.read).get('/api/resources/workspaces');
+
+      expect(listed.status).toBe(200);
+      expect(listed.body.items.map((each: { id: string }) => each.id)).toEqual([
+        seat.held,
+      ]);
+
+      for (const kind of ['teams', 'lines']) {
+        expect(
+          (
+            await as(tokens.read).get(
+              `/api/resources/workspaces/${elsewhere.held}/${kind}`,
+            )
+          ).status,
+          kind,
+        ).toBe(404);
+      }
     } finally {
       await elsewhere.unseat();
     }

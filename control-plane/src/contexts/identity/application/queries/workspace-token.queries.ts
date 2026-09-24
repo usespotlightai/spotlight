@@ -14,3 +14,10 @@ export class ImportWorkspaceTokenQuery {
     readonly principal: Principal,
   ) {}
 }
+
+export class ListWorkspaceTokenResourcesQuery {
+  constructor(
+    readonly workspaceId: string,
+    readonly principal: Principal,
+  ) {}
+}

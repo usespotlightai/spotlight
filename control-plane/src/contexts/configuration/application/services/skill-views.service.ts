@@ -13,16 +13,16 @@ export class SkillViews {
   async of(kept: KeptSkill): Promise<SkillResourceDto | null> {
     const team = await this.teams.find(kept.teamId);
 
-    if (!team) {
-      return null;
-    }
+    return team ? this.onTeam(kept, team.key) : null;
+  }
 
+  onTeam(kept: KeptSkill, teamKey: string): SkillResourceDto {
     const read = this.compiler.compile({ key: kept.key, files: kept.files });
 
     return {
       id: kept.id,
       version: kept.version,
-      address: TeamAddress.of(team.key, kept.key).toString(),
+      address: TeamAddress.of(teamKey, kept.key).toString(),
       teamId: kept.teamId.value,
       key: kept.key,
       files: kept.files,

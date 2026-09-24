@@ -3,6 +3,7 @@ import { DeleteTeamCommand } from '@identity/application/commands/delete-team.co
 import { UpdateTeamCommand } from '@identity/application/commands/update-team.command';
 import type { TeamResourceDto } from '@identity/application/dto/team-resource.dto';
 import { ImportTeamQuery } from '@identity/application/queries/import-team.query';
+import { ListTeamResourcesQuery } from '@identity/application/queries/list-team-resources.query';
 import { ReadTeamQuery } from '@identity/application/queries/read-team.query';
 import { TeamResourceResponseDto } from '@identity/presentation/http/dto/team-resource.response.dto';
 import { Body, Param, Query } from '@nestjs/common';
@@ -10,6 +11,7 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiBody, ApiParam } from '@nestjs/swagger';
 import { CurrentActor } from '@platform/http/decorators/current-actor.decorator';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
+import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
 import {
@@ -17,6 +19,7 @@ import {
   answerDeleted,
   answerUpdated,
   found,
+  listed,
 } from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
 import type {
@@ -31,6 +34,7 @@ const KIND = 'team';
 
 const TeamResource = resourceApi({
   kind: KIND,
+  plural: 'teams',
   tag: 'teams',
   representation: TeamResourceResponseDto,
   addressExample: 'core',
@@ -148,6 +152,24 @@ export class TeamResourceController {
       await this.queryBus.execute<ImportTeamQuery, TeamResourceDto | null>(
         new ImportTeamQuery(workspaceId, address ?? '', principal),
       ),
+      representation,
+    );
+  }
+
+  @TeamResource.List(
+    'workspaces/:workspaceId/teams',
+    'List every team in a workspace',
+  )
+  @WORKSPACE
+  async list(
+    @Param('workspaceId') workspaceId: string,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<ResourceList<TeamResourceResponseDto>> {
+    return listed(
+      await this.queryBus.execute<
+        ListTeamResourcesQuery,
+        readonly TeamResourceDto[] | null
+      >(new ListTeamResourcesQuery(workspaceId, principal)),
       representation,
     );
   }

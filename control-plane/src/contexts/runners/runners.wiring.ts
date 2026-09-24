@@ -54,7 +54,10 @@ import { WORKLOAD_TOKENS } from '@runners/application/ports/workload-tokens.port
 import { ImportRunnerHandler } from '@runners/application/queries/handlers/import-runner.handler';
 import { ImportRunnerTrustHandler } from '@runners/application/queries/handlers/import-runner-trust.handler';
 import { ImportWorkspaceRunnersHandler } from '@runners/application/queries/handlers/import-workspace-runners.handler';
+import { ListRunnerResourcesHandler } from '@runners/application/queries/handlers/list-runner-resources.handler';
+import { ListRunnerTrustResourcesHandler } from '@runners/application/queries/handlers/list-runner-trust-resources.handler';
 import { ListRunnersHandler } from '@runners/application/queries/handlers/list-runners.handler';
+import { ListWorkspaceRunnersResourcesHandler } from '@runners/application/queries/handlers/list-workspace-runners-resources.handler';
 import { ReadRunnerHandler } from '@runners/application/queries/handlers/read-runner.handler';
 import { ReadRunnerTrustHandler } from '@runners/application/queries/handlers/read-runner-trust.handler';
 import { ReadWorkspaceRunnersHandler } from '@runners/application/queries/handlers/read-workspace-runners.handler';
@@ -63,6 +66,9 @@ import {
   ImportRunnerQuery,
   ImportRunnerTrustQuery,
   ImportWorkspaceRunnersQuery,
+  ListRunnerResourcesQuery,
+  ListRunnerTrustResourcesQuery,
+  ListWorkspaceRunnersResourcesQuery,
   ReadRunnerQuery,
   ReadRunnerTrustQuery,
   ReadWorkspaceRunnersQuery,
@@ -263,6 +269,10 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
     WORKSPACE_ACCESS,
     RUNNER_RESOURCES,
   ]),
+  ...bindQueryHandler(ListRunnerResourcesQuery, ListRunnerResourcesHandler, [
+    WORKSPACE_ACCESS,
+    DrizzleRunnerRepository,
+  ]),
 
   ...bindCommandHandler(CreateRunnerTrustCommand, CreateRunnerTrustHandler, [
     WORKSPACE_ACCESS,
@@ -291,6 +301,11 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
     WORKSPACE_ACCESS,
     RUNNER_RESOURCES,
   ]),
+  ...bindQueryHandler(
+    ListRunnerTrustResourcesQuery,
+    ListRunnerTrustResourcesHandler,
+    [WORKSPACE_ACCESS, RUNNER_RESOURCES],
+  ),
 
   ...bindCommandHandler(
     CreateWorkspaceRunnersCommand,
@@ -326,6 +341,11 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(
     ImportWorkspaceRunnersQuery,
     ImportWorkspaceRunnersHandler,
+    [WORKSPACE_ACCESS, RUNNER_RESOURCES],
+  ),
+  ...bindQueryHandler(
+    ListWorkspaceRunnersResourcesQuery,
+    ListWorkspaceRunnersResourcesHandler,
     [WORKSPACE_ACCESS, RUNNER_RESOURCES],
   ),
 

@@ -145,6 +145,11 @@ const handlers = (over: { cleared?: boolean } = {}) => {
         ? [lineOf(teamId, 'triage'), lineOf(teamId, 'delivery')]
         : [],
     ),
+    ofTeams: vi.fn(async (teamIds: readonly TeamId[]) =>
+      teamIds.some((each) => each.equals(CORE.id))
+        ? [lineOf(CORE.id, 'triage'), lineOf(CORE.id, 'delivery')]
+        : [],
+    ),
   } satisfies LineResourcesPort;
   const skills = {
     withId: vi.fn(async () => null),

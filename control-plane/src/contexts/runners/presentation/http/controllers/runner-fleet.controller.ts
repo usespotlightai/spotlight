@@ -50,7 +50,7 @@ export class RunnerFleetController {
 
   @Get()
   @ApiOperation({
-    operationId: 'listRunners',
+    operationId: 'listConnectedRunners',
     summary: 'List the workspace’s runners and whether each is still answering',
   })
   @ApiOkResponse({ type: ConnectedRunnerResponseDto, isArray: true })

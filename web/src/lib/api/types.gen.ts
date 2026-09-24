@@ -138,6 +138,13 @@ export type LineResourceResponseDto = {
   };
 };
 
+export type LineResourceListResponseDto = {
+  /**
+   * Every one there is, each as a read would answer it, in address order
+   */
+  items: Array<LineResourceResponseDto>;
+};
+
 export type EnqueueRunRequestDto = {
   /**
    * The harness to work this run. Only runners that have it may take it.
@@ -1102,6 +1109,13 @@ export type WorkspaceResourceResponseDto = {
   slug: string;
 };
 
+export type WorkspaceResourceListResponseDto = {
+  /**
+   * Every one there is, each as a read would answer it, in address order
+   */
+  items: Array<WorkspaceResourceResponseDto>;
+};
+
 export type TeamResourceResponseDto = {
   /**
    * Issued by Spotlight when the resource is created, and never changed
@@ -1131,6 +1145,13 @@ export type TeamResourceResponseDto = {
    * What the team is called
    */
   name: string;
+};
+
+export type TeamResourceListResponseDto = {
+  /**
+   * Every one there is, each as a read would answer it, in address order
+   */
+  items: Array<TeamResourceResponseDto>;
 };
 
 export type WorkspaceTokenResourceResponseDto = {
@@ -1175,6 +1196,13 @@ export type WorkspaceTokenResourceResponseDto = {
    * After this it admits nobody; null never expires. Fixed for its life
    */
   expiresAt: string | null;
+};
+
+export type WorkspaceTokenResourceListResponseDto = {
+  /**
+   * Every one there is, each as a read would answer it, in address order
+   */
+  items: Array<WorkspaceTokenResourceResponseDto>;
 };
 
 export type CreateWorkspaceRequestDto = {
@@ -1386,6 +1414,13 @@ export type SecretResourceResponseDto = {
   rotatedAt: string;
 };
 
+export type SecretResourceListResponseDto = {
+  /**
+   * Every one there is, each as a read would answer it, in address order
+   */
+  items: Array<SecretResourceResponseDto>;
+};
+
 export type CatalogToolResponseDto = {
   /**
    * What a station gives it by; it carries the version, so an upgrade shows as a change to the station
@@ -1561,6 +1596,13 @@ export type RunnerResourceResponseDto = {
   trust: string | null;
 };
 
+export type RunnerResourceListResponseDto = {
+  /**
+   * Every one there is, each as a read would answer it, in address order
+   */
+  items: Array<RunnerResourceResponseDto>;
+};
+
 export type RunnerTrustResourceResponseDto = {
   /**
    * Issued by Spotlight when the resource is created, and never changed
@@ -1604,6 +1646,13 @@ export type RunnerTrustResourceResponseDto = {
   labels: Array<string>;
 };
 
+export type RunnerTrustResourceListResponseDto = {
+  /**
+   * Every one there is, each as a read would answer it, in address order
+   */
+  items: Array<RunnerTrustResourceResponseDto>;
+};
+
 export type WorkspaceRunnersResourceResponseDto = {
   /**
    * Issued by Spotlight when the resource is created, and never changed
@@ -1637,6 +1686,13 @@ export type WorkspaceRunnersResourceResponseDto = {
    * Runners enrolled all the same, outside what is declared; not settable
    */
   drift: Array<string>;
+};
+
+export type WorkspaceRunnersResourceListResponseDto = {
+  /**
+   * Every one there is, each as a read would answer it, in address order
+   */
+  items: Array<WorkspaceRunnersResourceResponseDto>;
 };
 
 export type ConfiguredIntegrationResponseDto = {
@@ -1723,6 +1779,13 @@ export type SkillResourceResponseDto = {
   tools: Array<string>;
 };
 
+export type SkillResourceListResponseDto = {
+  /**
+   * Every one there is, each as a read would answer it, in address order
+   */
+  items: Array<SkillResourceResponseDto>;
+};
+
 export type PermissionsResponseDto = {
   /**
    * What the harness may do without asking: read, edit or execute, alone or with a pattern
@@ -1789,6 +1852,13 @@ export type HarnessProfileResourceResponseDto = {
   native: {
     [key: string]: unknown;
   };
+};
+
+export type HarnessProfileResourceListResponseDto = {
+  /**
+   * Every one there is, each as a read would answer it, in address order
+   */
+  items: Array<HarnessProfileResourceResponseDto>;
 };
 
 export type TerraformFileResponseDto = {
@@ -2215,6 +2285,13 @@ export type IntegrationResourceResponseDto = {
   };
 };
 
+export type IntegrationResourceListResponseDto = {
+  /**
+   * Every one there is, each as a read would answer it, in address order
+   */
+  items: Array<IntegrationResourceResponseDto>;
+};
+
 export type CheckExpressionRequestDto = {
   /**
    * The attribute that holds the expression, within the definition, written as its problems would name it
@@ -2326,7 +2403,7 @@ export type GetHealthResponses = {
 
 export type GetHealthResponse = GetHealthResponses[keyof GetHealthResponses];
 
-export type ListLinesData = {
+export type ListTeamLinesData = {
   body?: never;
   path: {
     teamId: string;
@@ -2335,7 +2412,7 @@ export type ListLinesData = {
   url: '/teams/{teamId}/lines';
 };
 
-export type ListLinesErrors = {
+export type ListTeamLinesErrors = {
   /**
    * No valid session
    */
@@ -2346,11 +2423,11 @@ export type ListLinesErrors = {
   404: unknown;
 };
 
-export type ListLinesResponses = {
+export type ListTeamLinesResponses = {
   200: Array<LineResponseDto>;
 };
 
-export type ListLinesResponse = ListLinesResponses[keyof ListLinesResponses];
+export type ListTeamLinesResponse = ListTeamLinesResponses[keyof ListTeamLinesResponses];
 
 export type CreateLineData = {
   body: {
@@ -2637,6 +2714,51 @@ export type ImportLineResponses = {
 };
 
 export type ImportLineResponse = ImportLineResponses[keyof ImportLineResponses];
+
+export type ListLinesData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{workspaceId}/lines';
+};
+
+export type ListLinesErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ListLinesError = ListLinesErrors[keyof ListLinesErrors];
+
+export type ListLinesResponses = {
+  /**
+   * Every line there, each as a read would answer it, in address order
+   */
+  200: LineResourceListResponseDto;
+};
+
+export type ListLinesResponse = ListLinesResponses[keyof ListLinesResponses];
 
 export type EnqueueRunData = {
   body: EnqueueRunRequestDto;
@@ -3932,6 +4054,45 @@ export type ImportWorkspaceResponses = {
 
 export type ImportWorkspaceResponse = ImportWorkspaceResponses[keyof ImportWorkspaceResponses];
 
+export type ListWorkspacesData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path?: never;
+  query?: never;
+  url: '/resources/workspaces';
+};
+
+export type ListWorkspacesErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+};
+
+export type ListWorkspacesError = ListWorkspacesErrors[keyof ListWorkspacesErrors];
+
+export type ListWorkspacesResponses = {
+  /**
+   * Every workspace there, each as a read would answer it, in address order
+   */
+  200: WorkspaceResourceListResponseDto;
+};
+
+export type ListWorkspacesResponse = ListWorkspacesResponses[keyof ListWorkspacesResponses];
+
 export type CreateWorkspaceData = {
   body: {
     name: string;
@@ -4167,6 +4328,51 @@ export type UpdateWorkspaceResponses = {
 };
 
 export type UpdateWorkspaceResponse = UpdateWorkspaceResponses[keyof UpdateWorkspaceResponses];
+
+export type ListTeamsData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{workspaceId}/teams';
+};
+
+export type ListTeamsErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ListTeamsError = ListTeamsErrors[keyof ListTeamsErrors];
+
+export type ListTeamsResponses = {
+  /**
+   * Every team there, each as a read would answer it, in address order
+   */
+  200: TeamResourceListResponseDto;
+};
+
+export type ListTeamsResponse = ListTeamsResponses[keyof ListTeamsResponses];
 
 export type CreateTeamData = {
   body: {
@@ -4455,6 +4661,51 @@ export type ImportTeamResponses = {
 };
 
 export type ImportTeamResponse = ImportTeamResponses[keyof ImportTeamResponses];
+
+export type ListWorkspaceTokensData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{workspaceId}/tokens';
+};
+
+export type ListWorkspaceTokensErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ListWorkspaceTokensError = ListWorkspaceTokensErrors[keyof ListWorkspaceTokensErrors];
+
+export type ListWorkspaceTokensResponses = {
+  /**
+   * Every workspace-token there, each as a read would answer it, in address order
+   */
+  200: WorkspaceTokenResourceListResponseDto;
+};
+
+export type ListWorkspaceTokensResponse = ListWorkspaceTokensResponses[keyof ListWorkspaceTokensResponses];
 
 export type CreateWorkspaceTokenData = {
   body: {
@@ -4750,25 +5001,25 @@ export type ImportWorkspaceTokenResponses = {
 
 export type ImportWorkspaceTokenResponse = ImportWorkspaceTokenResponses[keyof ImportWorkspaceTokenResponses];
 
-export type ListWorkspacesData = {
+export type ListMemberWorkspacesData = {
   body?: never;
   path?: never;
   query?: never;
   url: '/workspaces';
 };
 
-export type ListWorkspacesErrors = {
+export type ListMemberWorkspacesErrors = {
   /**
    * No valid session
    */
   401: unknown;
 };
 
-export type ListWorkspacesResponses = {
+export type ListMemberWorkspacesResponses = {
   200: Array<WorkspaceListingResponseDto>;
 };
 
-export type ListWorkspacesResponse = ListWorkspacesResponses[keyof ListWorkspacesResponses];
+export type ListMemberWorkspacesResponse = ListMemberWorkspacesResponses[keyof ListMemberWorkspacesResponses];
 
 export type OpenWorkspaceData = {
   body: CreateWorkspaceRequestDto;
@@ -5068,6 +5319,51 @@ export type AcceptInviteResponses = {
 };
 
 export type AcceptInviteResponse = AcceptInviteResponses[keyof AcceptInviteResponses];
+
+export type ListSecretsData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{workspaceId}/secrets';
+};
+
+export type ListSecretsErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ListSecretsError = ListSecretsErrors[keyof ListSecretsErrors];
+
+export type ListSecretsResponses = {
+  /**
+   * Every secret there, each as a read would answer it, in address order
+   */
+  200: SecretResourceListResponseDto;
+};
+
+export type ListSecretsResponse = ListSecretsResponses[keyof ListSecretsResponses];
 
 export type CreateSecretData = {
   body: {
@@ -5604,7 +5900,7 @@ export type ConnectGitHubResponses = {
 
 export type ConnectGitHubResponse = ConnectGitHubResponses[keyof ConnectGitHubResponses];
 
-export type ListRunnersData = {
+export type ListConnectedRunnersData = {
   body?: never;
   path: {
     slug: string;
@@ -5613,7 +5909,7 @@ export type ListRunnersData = {
   url: '/workspaces/{slug}/runners';
 };
 
-export type ListRunnersErrors = {
+export type ListConnectedRunnersErrors = {
   /**
    * No valid session
    */
@@ -5624,11 +5920,11 @@ export type ListRunnersErrors = {
   404: unknown;
 };
 
-export type ListRunnersResponses = {
+export type ListConnectedRunnersResponses = {
   200: Array<ConnectedRunnerResponseDto>;
 };
 
-export type ListRunnersResponse = ListRunnersResponses[keyof ListRunnersResponses];
+export type ListConnectedRunnersResponse = ListConnectedRunnersResponses[keyof ListConnectedRunnersResponses];
 
 export type EnrolRunnerData = {
   body: EnrolRunnerRequestDto;
@@ -5737,6 +6033,51 @@ export type ExchangeWorkloadTokenResponses = {
 };
 
 export type ExchangeWorkloadTokenResponse = ExchangeWorkloadTokenResponses[keyof ExchangeWorkloadTokenResponses];
+
+export type ListRunnersData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{workspaceId}/runners';
+};
+
+export type ListRunnersErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ListRunnersError = ListRunnersErrors[keyof ListRunnersErrors];
+
+export type ListRunnersResponses = {
+  /**
+   * Every runner there, each as a read would answer it, in address order
+   */
+  200: RunnerResourceListResponseDto;
+};
+
+export type ListRunnersResponse = ListRunnersResponses[keyof ListRunnersResponses];
 
 export type CreateRunnerData = {
   body: {
@@ -6036,6 +6377,51 @@ export type ImportRunnerResponses = {
 
 export type ImportRunnerResponse = ImportRunnerResponses[keyof ImportRunnerResponses];
 
+export type ListRunnerTrustsData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{workspaceId}/runner-trusts';
+};
+
+export type ListRunnerTrustsErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ListRunnerTrustsError = ListRunnerTrustsErrors[keyof ListRunnerTrustsErrors];
+
+export type ListRunnerTrustsResponses = {
+  /**
+   * Every runner-trust there, each as a read would answer it, in address order
+   */
+  200: RunnerTrustResourceListResponseDto;
+};
+
+export type ListRunnerTrustsResponse = ListRunnerTrustsResponses[keyof ListRunnerTrustsResponses];
+
 export type CreateRunnerTrustData = {
   body: {
     key: string;
@@ -6329,6 +6715,51 @@ export type ImportRunnerTrustResponses = {
 };
 
 export type ImportRunnerTrustResponse = ImportRunnerTrustResponses[keyof ImportRunnerTrustResponses];
+
+export type ListWorkspaceRunnersData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{workspaceId}/workspace-runners';
+};
+
+export type ListWorkspaceRunnersErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ListWorkspaceRunnersError = ListWorkspaceRunnersErrors[keyof ListWorkspaceRunnersErrors];
+
+export type ListWorkspaceRunnersResponses = {
+  /**
+   * Every workspace-runners there, each as a read would answer it, in address order
+   */
+  200: WorkspaceRunnersResourceListResponseDto;
+};
+
+export type ListWorkspaceRunnersResponse = ListWorkspaceRunnersResponses[keyof ListWorkspaceRunnersResponses];
 
 export type CreateWorkspaceRunnersData = {
   body: {
@@ -6962,6 +7393,51 @@ export type ImportSkillResponses = {
 
 export type ImportSkillResponse = ImportSkillResponses[keyof ImportSkillResponses];
 
+export type ListSkillsData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{workspaceId}/skills';
+};
+
+export type ListSkillsErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ListSkillsError = ListSkillsErrors[keyof ListSkillsErrors];
+
+export type ListSkillsResponses = {
+  /**
+   * Every skill there, each as a read would answer it, in address order
+   */
+  200: SkillResourceListResponseDto;
+};
+
+export type ListSkillsResponse = ListSkillsResponses[keyof ListSkillsResponses];
+
 export type CreateHarnessProfileData = {
   body: {
     key: string;
@@ -7285,6 +7761,51 @@ export type ImportHarnessProfileResponses = {
 };
 
 export type ImportHarnessProfileResponse = ImportHarnessProfileResponses[keyof ImportHarnessProfileResponses];
+
+export type ListHarnessProfilesData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{workspaceId}/harness-profiles';
+};
+
+export type ListHarnessProfilesErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ListHarnessProfilesError = ListHarnessProfilesErrors[keyof ListHarnessProfilesErrors];
+
+export type ListHarnessProfilesResponses = {
+  /**
+   * Every harness-profile there, each as a read would answer it, in address order
+   */
+  200: HarnessProfileResourceListResponseDto;
+};
+
+export type ListHarnessProfilesResponse = ListHarnessProfilesResponses[keyof ListHarnessProfilesResponses];
 
 export type ExportWorkspaceData = {
   body?: never;
@@ -8014,6 +8535,51 @@ export type ImportIntegrationResponses = {
 };
 
 export type ImportIntegrationResponse = ImportIntegrationResponses[keyof ImportIntegrationResponses];
+
+export type ListIntegrationsData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{workspaceId}/integrations';
+};
+
+export type ListIntegrationsErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ListIntegrationsError = ListIntegrationsErrors[keyof ListIntegrationsErrors];
+
+export type ListIntegrationsResponses = {
+  /**
+   * Every integration there, each as a read would answer it, in address order
+   */
+  200: IntegrationResourceListResponseDto;
+};
+
+export type ListIntegrationsResponse = ListIntegrationsResponses[keyof ListIntegrationsResponses];
 
 export type CheckExpressionData = {
   body: CheckExpressionRequestDto;

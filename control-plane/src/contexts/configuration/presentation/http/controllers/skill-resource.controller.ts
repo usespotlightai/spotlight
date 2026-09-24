@@ -3,6 +3,7 @@ import { DeleteSkillCommand } from '@configuration/application/commands/delete-s
 import { UpdateSkillCommand } from '@configuration/application/commands/update-skill.command';
 import type { SkillResourceDto } from '@configuration/application/dto/skill-resource.dto';
 import { ImportSkillQuery } from '@configuration/application/queries/import-skill.query';
+import { ListSkillResourcesQuery } from '@configuration/application/queries/list-skill-resources.query';
 import { ReadSkillQuery } from '@configuration/application/queries/read-skill.query';
 import { SkillResourceResponseDto } from '@configuration/presentation/http/dto/skill-resource.response.dto';
 import { Body, Param, Query } from '@nestjs/common';
@@ -10,6 +11,7 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiBody, ApiParam } from '@nestjs/swagger';
 import { CurrentActor } from '@platform/http/decorators/current-actor.decorator';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
+import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
 import {
@@ -17,6 +19,7 @@ import {
   answerDeleted,
   answerUpdated,
   found,
+  listed,
 } from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
 import type {
@@ -31,6 +34,7 @@ const KIND = 'skill';
 
 const SkillResource = resourceApi({
   kind: KIND,
+  plural: 'skills',
   tag: 'skills',
   representation: SkillResourceResponseDto,
   addressExample: 'core/grafana',
@@ -57,6 +61,11 @@ const DEFINITION = ApiBody({
 const ID = ApiParam({
   name: 'id',
   example: '7e4b1a9d-2c5f-4d3e-8b6a-0f9c2d7e5a18',
+});
+
+const WORKSPACE = ApiParam({
+  name: 'workspaceId',
+  example: '5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57',
 });
 
 const representation = (skill: SkillResourceDto) =>
@@ -133,10 +142,7 @@ export class SkillResourceController {
     'workspaces/:workspaceId/skills/import',
     'Find the skill at an address in a workspace, to import it',
   )
-  @ApiParam({
-    name: 'workspaceId',
-    example: '5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57',
-  })
+  @WORKSPACE
   async import(
     @Param('workspaceId') workspaceId: string,
     @Query('address') address: string | undefined,
@@ -147,6 +153,24 @@ export class SkillResourceController {
       await this.queryBus.execute<ImportSkillQuery, SkillResourceDto | null>(
         new ImportSkillQuery(workspaceId, address ?? '', principal),
       ),
+      representation,
+    );
+  }
+
+  @SkillResource.List(
+    'workspaces/:workspaceId/skills',
+    'List every skill in a workspace, across its teams, files and all',
+  )
+  @WORKSPACE
+  async list(
+    @Param('workspaceId') workspaceId: string,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<ResourceList<SkillResourceResponseDto>> {
+    return listed(
+      await this.queryBus.execute<
+        ListSkillResourcesQuery,
+        readonly SkillResourceDto[] | null
+      >(new ListSkillResourcesQuery(workspaceId, principal)),
       representation,
     );
   }

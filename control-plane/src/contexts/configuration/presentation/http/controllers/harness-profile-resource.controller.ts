@@ -3,6 +3,7 @@ import { DeleteHarnessProfileCommand } from '@configuration/application/commands
 import { UpdateHarnessProfileCommand } from '@configuration/application/commands/update-harness-profile.command';
 import type { HarnessProfileResourceDto } from '@configuration/application/dto/harness-profile-resource.dto';
 import { ImportHarnessProfileQuery } from '@configuration/application/queries/import-harness-profile.query';
+import { ListHarnessProfileResourcesQuery } from '@configuration/application/queries/list-harness-profile-resources.query';
 import { ReadHarnessProfileQuery } from '@configuration/application/queries/read-harness-profile.query';
 import {
   HarnessProfileResourceResponseDto,
@@ -13,6 +14,7 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiBody, ApiParam } from '@nestjs/swagger';
 import { CurrentActor } from '@platform/http/decorators/current-actor.decorator';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
+import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
 import {
@@ -20,6 +22,7 @@ import {
   answerDeleted,
   answerUpdated,
   found,
+  listed,
 } from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
 import type {
@@ -34,6 +37,7 @@ const KIND = 'harness-profile';
 
 const HarnessProfileResource = resourceApi({
   kind: KIND,
+  plural: 'harness-profiles',
   tag: 'harness-profiles',
   representation: HarnessProfileResourceResponseDto,
   addressExample: 'core/careful',
@@ -85,6 +89,11 @@ const DEFINITION = ApiBody({
 const ID = ApiParam({
   name: 'id',
   example: '3f8a2c6e-9b14-4d7a-a5e2-6c0b1d9f4e73',
+});
+
+const WORKSPACE = ApiParam({
+  name: 'workspaceId',
+  example: '5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57',
 });
 
 const representation = (profile: HarnessProfileResourceDto) =>
@@ -176,10 +185,7 @@ export class HarnessProfileResourceController {
     'workspaces/:workspaceId/harness-profiles/import',
     'Find the harness profile at an address in a workspace, to import it',
   )
-  @ApiParam({
-    name: 'workspaceId',
-    example: '5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57',
-  })
+  @WORKSPACE
   async import(
     @Param('workspaceId') workspaceId: string,
     @Query('address') address: string | undefined,
@@ -191,6 +197,24 @@ export class HarnessProfileResourceController {
         ImportHarnessProfileQuery,
         HarnessProfileResourceDto | null
       >(new ImportHarnessProfileQuery(workspaceId, address ?? '', principal)),
+      representation,
+    );
+  }
+
+  @HarnessProfileResource.List(
+    'workspaces/:workspaceId/harness-profiles',
+    'List every harness profile in a workspace, across its teams',
+  )
+  @WORKSPACE
+  async list(
+    @Param('workspaceId') workspaceId: string,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<ResourceList<HarnessProfileResourceResponseDto>> {
+    return listed(
+      await this.queryBus.execute<
+        ListHarnessProfileResourcesQuery,
+        readonly HarnessProfileResourceDto[] | null
+      >(new ListHarnessProfileResourcesQuery(workspaceId, principal)),
       representation,
     );
   }

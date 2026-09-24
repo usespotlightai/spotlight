@@ -23,7 +23,7 @@ export class LineController {
 
   @Get()
   @ApiOperation({
-    operationId: 'listLines',
+    operationId: 'listTeamLines',
     summary: 'List a team’s lines, each with its stations in order',
   })
   @ApiParam({ name: 'teamId', example: '9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84' })

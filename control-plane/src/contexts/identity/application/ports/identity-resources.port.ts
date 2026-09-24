@@ -1,4 +1,5 @@
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 
@@ -36,13 +37,19 @@ export interface IdentityResourcesPort {
 
   workspaceWithSlug(slug: string): Promise<KeptWorkspace | null>;
 
+  workspacesJoinedBy(userId: UserId): Promise<readonly KeptWorkspace[]>;
+
   teamWithId(id: TeamId): Promise<KeptTeam | null>;
 
   teamAt(workspaceId: WorkspaceId, key: string): Promise<KeptTeam | null>;
 
+  teamsIn(workspaceId: WorkspaceId): Promise<readonly KeptTeam[]>;
+
   teamKeysIn(workspaceId: WorkspaceId): Promise<readonly string[]>;
 
   tokenNamesIn(workspaceId: WorkspaceId): Promise<readonly string[]>;
+
+  tokensIn(workspaceId: WorkspaceId): Promise<readonly KeptWorkspaceToken[]>;
 
   tokenWithId(id: WorkspaceTokenId): Promise<KeptWorkspaceToken | null>;
 

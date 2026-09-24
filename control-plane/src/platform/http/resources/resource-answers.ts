@@ -1,5 +1,7 @@
+import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { ProblemException } from '@platform/http/resources/problem.exception';
 import { replayed } from '@platform/http/resources/replayed';
+import { inCodePointOrderOf } from '@platform/ordering/code-point-order';
 import type {
   Refused,
   ResourceCreated,
@@ -28,6 +30,19 @@ export const found = <T, R>(
   }
 
   return answer(held);
+};
+
+export const listed = <T, R extends { readonly address: string }>(
+  held: readonly T[] | null,
+  answer: (held: T) => R,
+): ResourceList<R> => {
+  if (held === null) {
+    throw ProblemException.notFound('workspace');
+  }
+
+  return {
+    items: held.map(answer).sort(inCodePointOrderOf((each) => each.address)),
+  };
 };
 
 export const answerCreated = async <R extends object>(

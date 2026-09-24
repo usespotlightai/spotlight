@@ -3,6 +3,7 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiBody, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { CurrentActor } from '@platform/http/decorators/current-actor.decorator';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
+import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
 import {
@@ -10,6 +11,7 @@ import {
   answerDeleted,
   answerUpdated,
   found,
+  listed,
 } from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
 import {
@@ -27,6 +29,7 @@ import type {
 } from '@runners/application/dto/runner-resource.dto';
 import {
   ImportRunnerQuery,
+  ListRunnerResourcesQuery,
   ReadRunnerQuery,
 } from '@runners/application/queries/runner-resource.queries';
 import { RunnerResourceResponseDto } from '@runners/presentation/http/dto/runner-resource.response.dto';
@@ -43,6 +46,7 @@ export const RUNNER_TOKEN_HEADER = 'Spotlight-Runner-Token';
 
 const RunnerResource = resourceApi({
   kind: KIND,
+  plural: 'runners',
   tag: 'runners',
   representation: RunnerResourceResponseDto,
   addressExample: 'build-1',
@@ -210,6 +214,24 @@ export class RunnerResourceController {
       await this.queryBus.execute<ImportRunnerQuery, RunnerResourceDto | null>(
         new ImportRunnerQuery(workspaceId, address ?? '', principal),
       ),
+      representation,
+    );
+  }
+
+  @RunnerResource.List(
+    'workspaces/:workspaceId/runners',
+    'List every runner a workspace holds, enrolled by hand; runners a trust enrolled are held through their trust',
+  )
+  @WORKSPACE
+  async list(
+    @Param('workspaceId') workspaceId: string,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<ResourceList<RunnerResourceResponseDto>> {
+    return listed(
+      await this.queryBus.execute<
+        ListRunnerResourcesQuery,
+        readonly RunnerResourceDto[] | null
+      >(new ListRunnerResourcesQuery(workspaceId, principal)),
       representation,
     );
   }

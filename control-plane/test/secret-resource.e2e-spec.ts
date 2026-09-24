@@ -45,6 +45,9 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
     item: (id) => `/api/resources/secrets/${id}`,
     importing: (address) =>
       `/api/resources/workspaces/${held}/secrets/import?address=${encodeURIComponent(address)}`,
+    listing: (workspaceId) =>
+      `/api/resources/workspaces/${workspaceId}/secrets`,
+    workspaceOf: () => held,
     address: 'LINEAR_API_KEY',
     valid: LINEAR,
     changed: {

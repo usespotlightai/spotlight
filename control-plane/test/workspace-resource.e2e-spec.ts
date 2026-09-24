@@ -39,6 +39,9 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
     item: (id) => `/api/resources/workspaces/${id}`,
     importing: (address) =>
       `/api/resources/workspaces/import?address=${encodeURIComponent(address)}`,
+    listing: () => '/api/resources/workspaces',
+    workspaceOf: (created) => created.id,
+    listsAcrossWorkspaces: true,
     address: slug,
     valid: { name: 'Acme', slug },
     changed: { name: 'Acme, again', slug },

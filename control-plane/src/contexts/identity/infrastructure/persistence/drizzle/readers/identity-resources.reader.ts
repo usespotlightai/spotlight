@@ -7,11 +7,13 @@ import type {
 import {
   team,
   workspace,
+  workspaceMember,
   workspaceToken,
 } from '@identity/infrastructure/persistence/drizzle/schemas/workspace.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 import { and, asc, eq, type SQL } from 'drizzle-orm';
@@ -43,6 +45,27 @@ const KEPT_TOKEN = {
   expiresAt: workspaceToken.expiresAt,
 };
 
+type Row<Kept> = Omit<Kept, 'id' | 'workspaceId'> & {
+  readonly id: string;
+  readonly workspaceId: string;
+};
+
+const keptWorkspace = (
+  row: Omit<KeptWorkspace, 'id'> & { readonly id: string },
+): KeptWorkspace => ({ ...row, id: WorkspaceId.of(row.id) });
+
+const keptTeam = (row: Row<KeptTeam>): KeptTeam => ({
+  ...row,
+  id: TeamId.of(row.id),
+  workspaceId: WorkspaceId.of(row.workspaceId),
+});
+
+const keptToken = (row: Row<KeptWorkspaceToken>): KeptWorkspaceToken => ({
+  ...row,
+  id: WorkspaceTokenId.of(row.id),
+  workspaceId: WorkspaceId.of(row.workspaceId),
+});
+
 @Injectable()
 export class DrizzleIdentityResources implements IdentityResourcesPort {
   constructor(private readonly context: DrizzleContext) {}
@@ -55,6 +78,19 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
     return this.workspace(eq(workspace.slug, slug));
   }
 
+  async workspacesJoinedBy(userId: UserId): Promise<readonly KeptWorkspace[]> {
+    return (
+      await this.context.db
+        .select(KEPT_WORKSPACE)
+        .from(workspace)
+        .innerJoin(
+          workspaceMember,
+          eq(workspaceMember.workspaceId, workspace.id),
+        )
+        .where(eq(workspaceMember.userId, userId.value))
+    ).map(keptWorkspace);
+  }
+
   teamWithId(id: TeamId): Promise<KeptTeam | null> {
     return this.team(eq(team.id, id.value));
   }
@@ -63,6 +99,15 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
     return this.team(
       and(eq(team.workspaceId, workspaceId.value), eq(team.key, key)),
     );
+  }
+
+  async teamsIn(workspaceId: WorkspaceId): Promise<readonly KeptTeam[]> {
+    return (
+      await this.context.db
+        .select(KEPT_TEAM)
+        .from(team)
+        .where(eq(team.workspaceId, workspaceId.value))
+    ).map(keptTeam);
   }
 
   async teamKeysIn(workspaceId: WorkspaceId): Promise<readonly string[]> {
@@ -83,6 +128,17 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
         .where(eq(workspaceToken.workspaceId, workspaceId.value))
         .orderBy(asc(workspaceToken.name))
     ).map((each) => each.name);
+  }
+
+  async tokensIn(
+    workspaceId: WorkspaceId,
+  ): Promise<readonly KeptWorkspaceToken[]> {
+    return (
+      await this.context.db
+        .select(KEPT_TOKEN)
+        .from(workspaceToken)
+        .where(eq(workspaceToken.workspaceId, workspaceId.value))
+    ).map(keptToken);
   }
 
   tokenWithId(id: WorkspaceTokenId): Promise<KeptWorkspaceToken | null> {
@@ -110,13 +166,7 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
       .where(where)
       .limit(1);
 
-    return found
-      ? {
-          ...found,
-          id: WorkspaceTokenId.of(found.id),
-          workspaceId: WorkspaceId.of(found.workspaceId),
-        }
-      : null;
+    return found ? keptToken(found) : null;
   }
 
   private async workspace(where: SQL): Promise<KeptWorkspace | null> {
@@ -126,7 +176,7 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
       .where(where)
       .limit(1);
 
-    return found ? { ...found, id: WorkspaceId.of(found.id) } : null;
+    return found ? keptWorkspace(found) : null;
   }
 
   private async team(where: SQL | undefined): Promise<KeptTeam | null> {
@@ -136,12 +186,6 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
       .where(where)
       .limit(1);
 
-    return found
-      ? {
-          ...found,
-          id: TeamId.of(found.id),
-          workspaceId: WorkspaceId.of(found.workspaceId),
-        }
-      : null;
+    return found ? keptTeam(found) : null;
   }
 }

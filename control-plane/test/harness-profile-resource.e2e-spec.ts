@@ -69,6 +69,9 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
     item: (id) => `/api/resources/harness-profiles/${id}`,
     importing: (address) =>
       `/api/resources/workspaces/${held}/harness-profiles/import?address=${encodeURIComponent(address)}`,
+    listing: (workspaceId) =>
+      `/api/resources/workspaces/${workspaceId}/harness-profiles`,
+    workspaceOf: () => held,
     address: 'team/careful',
     valid: CAREFUL,
     changed: {

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { listRunnerActivity, listRunners } from '@/lib/api';
+import { listConnectedRunners, listRunnerActivity } from '@/lib/api';
 import { withActivity } from '@/lib/runner';
 
 export const runnerKeys = {
@@ -18,7 +18,7 @@ export function useRunners(slug: string | undefined) {
     queryFn: async () => {
       const path = { slug: slug as string };
       const [runners, activity] = await Promise.all([
-        listRunners({ path, throwOnError: true }),
+        listConnectedRunners({ path, throwOnError: true }),
         listRunnerActivity({ path, throwOnError: true }),
       ]);
       return withActivity(runners.data, activity.data);

@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -49,6 +49,9 @@ const seated =
       item: (id) => `/api/resources/${kind}/${id}`,
       importing: (address) =>
         `/api/resources/workspaces/${held}/${kind}/import?address=${encodeURIComponent(address)}`,
+      listing: (workspaceId) =>
+        `/api/resources/workspaces/${workspaceId}/${kind}`,
+      workspaceOf: () => held,
       address: bodies.address ?? held,
       ...bodies,
       close: async () => {
@@ -610,5 +613,38 @@ describe('runners and what the workspace declares of them (e2e)', () => {
       expect.objectContaining({ path: 'runners[1]', severity: 'warning' }),
       expect.objectContaining({ path: 'runners', severity: 'warning' }),
     ]);
+  });
+
+  it('lists only the runners the workspace holds, leaving those a trust enrolled to their trust', async () => {
+    const byHand = await enrol({ name: 'build-1' });
+    const trust = await http()
+      .post(`/api/resources/workspaces/${held}/runner-trusts`)
+      .set(TEST_USER_HEADER, owner)
+      .set('Idempotency-Key', randomUUID())
+      .send({ key: 'production', issuer: ISSUER, subject: SUBJECT });
+    const ephemeral = randomUUID();
+
+    expect(byHand.status).toBe(201);
+    expect(trust.status).toBe(201);
+
+    await db.insert(schema.runner).values({
+      id: ephemeral,
+      workspaceId: held,
+      name: 'pod-a',
+      tokenHash: createHash('sha256').update(randomUUID()).digest('hex'),
+      trustId: trust.body.id,
+    });
+
+    const read = await http()
+      .get(`/api/resources/runners/${ephemeral}`)
+      .set(TEST_USER_HEADER, owner);
+    const listed = await http()
+      .get(`/api/resources/workspaces/${held}/runners`)
+      .set(TEST_USER_HEADER, owner);
+
+    expect(read.status).toBe(200);
+    expect(read.body).toMatchObject({ name: 'pod-a', trust: 'production' });
+    expect(listed.status).toBe(200);
+    expect(listed.body).toEqual({ items: [byHand.body] });
   });
 });

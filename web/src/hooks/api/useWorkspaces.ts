@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { listWorkspaces } from '@/lib/api';
+import { listMemberWorkspaces } from '@/lib/api';
 
 export const workspaceKeys = {
   all: ['workspaces'] as const,
@@ -11,7 +11,7 @@ export function useWorkspaces(enabled = true) {
     queryKey: workspaceKeys.all,
     enabled,
     queryFn: async () => {
-      const { data } = await listWorkspaces({ throwOnError: true });
+      const { data } = await listMemberWorkspaces({ throwOnError: true });
       return data;
     },
   });

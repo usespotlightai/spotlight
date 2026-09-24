@@ -33,8 +33,10 @@ import {
 } from '@secrets/application/ports/secret-source.port';
 import { SECRET_USES } from '@secrets/application/ports/secret-uses.port';
 import { ImportSecretHandler } from '@secrets/application/queries/handlers/import-secret.handler';
+import { ListSecretResourcesHandler } from '@secrets/application/queries/handlers/list-secret-resources.handler';
 import { ReadSecretHandler } from '@secrets/application/queries/handlers/read-secret.handler';
 import { ImportSecretQuery } from '@secrets/application/queries/import-secret.query';
+import { ListSecretResourcesQuery } from '@secrets/application/queries/list-secret-resources.query';
 import { ReadSecretQuery } from '@secrets/application/queries/read-secret.query';
 import { AbandonWorkspaceSecrets } from '@secrets/application/services/abandon-workspace-secrets.service';
 import { RunGrants } from '@secrets/application/services/run-grants.service';
@@ -221,6 +223,10 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
     SECRET_RESOURCES,
   ]),
   ...bindQueryHandler(ImportSecretQuery, ImportSecretHandler, [
+    WORKSPACE_ACCESS,
+    SECRET_RESOURCES,
+  ]),
+  ...bindQueryHandler(ListSecretResourcesQuery, ListSecretResourcesHandler, [
     WORKSPACE_ACCESS,
     SECRET_RESOURCES,
   ]),
