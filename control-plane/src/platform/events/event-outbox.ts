@@ -9,6 +9,10 @@ import {
   eventDelivery,
   eventOutbox,
 } from '@platform/persistence/drizzle/schemas/event.schema';
+import {
+  CLOCK,
+  type ClockPort,
+} from '@shared-kernel/application/ports/clock.port';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import {
   ID_GENERATOR,
@@ -28,6 +32,7 @@ export class EventOutbox implements DomainEventDispatcher {
     private readonly publications: EventPublications,
     private readonly projections: EventProjections,
     @Inject(ID_GENERATOR) private readonly ids: IdGeneratorPort,
+    @Inject(CLOCK) private readonly clock: ClockPort,
   ) {
     this.#codec = new EventCodec(types);
   }
@@ -46,6 +51,8 @@ export class EventOutbox implements DomainEventDispatcher {
       return;
     }
 
+    const at = this.clock.now();
+
     await this.context.run(async () => {
       for (const event of events) {
         await this.projections.project(event);
@@ -62,6 +69,7 @@ export class EventOutbox implements DomainEventDispatcher {
           id,
           kind: event.kind,
           payload: this.#codec.encode(event),
+          recordedAt: at,
         });
 
         if (listening.length > 0) {
@@ -69,6 +77,7 @@ export class EventOutbox implements DomainEventDispatcher {
             listening.map((each) => ({
               eventId: id,
               subscriber: each.name,
+              dueAt: at,
             })),
           );
         }
