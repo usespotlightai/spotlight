@@ -1343,6 +1343,52 @@ export type SecretResourceResponseDto = {
   rotatedAt: string;
 };
 
+export type CatalogToolResponseDto = {
+  /**
+   * What a station gives it by; it carries the version, so an upgrade shows as a change to the station
+   */
+  id: string;
+  name: string;
+  /**
+   * The newest version the constraint accepts
+   */
+  version: string;
+  /**
+   * The constraint it was resolved against
+   */
+  constraint: string;
+  /**
+   * The plan it needs
+   */
+  plan: 'free' | 'team' | 'enterprise';
+  description: string;
+};
+
+export type CatalogSkillResponseDto = {
+  /**
+   * What a station gives it by; it carries the version, so an upgrade shows as a change to the station
+   */
+  id: string;
+  name: string;
+  /**
+   * The newest version the constraint accepts
+   */
+  version: string;
+  /**
+   * The constraint it was resolved against
+   */
+  constraint: string;
+  /**
+   * The plan it needs
+   */
+  plan: 'free' | 'team' | 'enterprise';
+  description: string;
+  /**
+   * The catalog tools it brings, given wherever the skill is; its files never leave Spotlight except into a run
+   */
+  tools: Array<string>;
+};
+
 export type RepositoryResponseDto = {
   /**
    * Named the way GitHub names it, owner and all
@@ -5045,6 +5091,130 @@ export type ImportSecretResponses = {
 };
 
 export type ImportSecretResponse = ImportSecretResponses[keyof ImportSecretResponses];
+
+export type ReadCatalogToolData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query: {
+    /**
+     * Its name in the catalog
+     */
+    name: unknown;
+    /**
+     * The versions you accept, as Terraform writes a constraint; the newest it accepts is answered
+     */
+    version: unknown;
+  };
+  url: '/resources/workspaces/{workspaceId}/catalog/tools';
+};
+
+export type ReadCatalogToolErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * The workspace’s plan does not include the catalog-tool; the detail names the plan it needs
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such catalog-tool, or no workspace here that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * What is wrong with the query, field by field
+   */
+  422: ProblemResponseDto;
+};
+
+export type ReadCatalogToolError = ReadCatalogToolErrors[keyof ReadCatalogToolErrors];
+
+export type ReadCatalogToolResponses = {
+  /**
+   * The catalog-tool it resolves to
+   */
+  200: CatalogToolResponseDto;
+};
+
+export type ReadCatalogToolResponse = ReadCatalogToolResponses[keyof ReadCatalogToolResponses];
+
+export type ReadCatalogSkillData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query: {
+    /**
+     * Its name in the catalog
+     */
+    name: unknown;
+    /**
+     * The versions you accept, as Terraform writes a constraint; the newest it accepts is answered
+     */
+    version: unknown;
+  };
+  url: '/resources/workspaces/{workspaceId}/catalog/skills';
+};
+
+export type ReadCatalogSkillErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * The workspace’s plan does not include the catalog-skill; the detail names the plan it needs
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such catalog-skill, or no workspace here that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * What is wrong with the query, field by field
+   */
+  422: ProblemResponseDto;
+};
+
+export type ReadCatalogSkillError = ReadCatalogSkillErrors[keyof ReadCatalogSkillErrors];
+
+export type ReadCatalogSkillResponses = {
+  /**
+   * The catalog-skill it resolves to
+   */
+  200: CatalogSkillResponseDto;
+};
+
+export type ReadCatalogSkillResponse = ReadCatalogSkillResponses[keyof ReadCatalogSkillResponses];
 
 export type ListRepositoriesData = {
   body?: never;

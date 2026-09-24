@@ -55,6 +55,9 @@ export class DrizzleRunRepository implements RunRepository {
       state: added.state,
       spec: RunSpecContract.toWire(added.spec),
       targetRunnerId: added.targetRunner?.value ?? null,
+      exitCode: added.outcome?.exitCode ?? null,
+      message: added.outcome?.message ?? null,
+      stopped: added.outcome?.stopped ?? false,
     });
   }
 

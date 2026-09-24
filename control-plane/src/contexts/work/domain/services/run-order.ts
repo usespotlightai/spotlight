@@ -6,11 +6,13 @@ import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { type GivenToRun, givenAt } from '@work/domain/services/given-to-run';
 import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
 import type { Branch } from '@work/domain/value-objects/branch.vo';
+import type { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
 import type { Continuity } from '@work/domain/value-objects/continuity.vo';
 import type { Effort } from '@work/domain/value-objects/effort.vo';
 import type { HandoverOption } from '@work/domain/value-objects/handover-option.vo';
 import type { Harness } from '@work/domain/value-objects/harness.vo';
 import type { ReadySkill } from '@work/domain/value-objects/ready-skill';
+import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
 
@@ -52,6 +54,7 @@ export interface RunOrder {
   readonly checkouts: readonly OrderedCheckout[];
   readonly given: GivenToRun;
   readonly diffs: boolean;
+  readonly refusal: RunOutcome | null;
 }
 
 export const orderFor = ({
@@ -59,11 +62,13 @@ export const orderFor = ({
   line,
   harnesses,
   ready,
+  withheld = [],
 }: {
   task: Task;
   line: Line;
   harnesses: HarnessCatalog;
   ready: readonly ReadySkill[];
+  withheld?: readonly CatalogWithheld[];
 }): RunOrder | null => {
   const station = line.stationAt(task.stationId);
 
@@ -92,5 +97,6 @@ export const orderFor = ({
     checkouts: checkoutsFor(task, line),
     given: givenAt(station, ready),
     diffs: station.diffs,
+    refusal: withheld.length > 0 ? RunOutcome.withheld(withheld) : null,
   };
 };

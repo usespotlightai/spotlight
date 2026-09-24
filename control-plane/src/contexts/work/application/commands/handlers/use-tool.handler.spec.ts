@@ -1,3 +1,7 @@
+import type {
+  CatalogRefusal,
+  CatalogRefusalReason,
+} from '@catalog/application/contracts/catalog.contract';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -17,6 +21,8 @@ import type {
 } from '@work/application/ports/integration-tools.port';
 import { BuiltInTools } from '@work/application/services/built-in-tools.service';
 import { RunWorks } from '@work/application/services/run-works.service';
+import { StationCatalog } from '@work/application/services/station-catalog.service';
+import { ToolSources } from '@work/application/services/tool-sources.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
@@ -150,7 +156,11 @@ const describedAs = (tool: string) => {
 
 const claimed = (
   given: string[] = ['pull-request'],
-  over: { dispatchedAt?: string; subject?: RunSubject | null } = {},
+  over: {
+    dispatchedAt?: string;
+    subject?: RunSubject | null;
+    catalog?: string[];
+  } = {},
 ) =>
   Run.enqueue({
     id: RunId.of('run_1'),
@@ -169,6 +179,7 @@ const claimed = (
       handover: { options: [], noteLimit: 4_000 },
       continuity: { key: 'task:station', keep: true },
       manifest: given.map(describedAs),
+      ...(over.catalog ? { catalog: over.catalog } : {}),
     }),
   }).claim(RunnerId.of('runner_1'), NOW);
 
@@ -187,9 +198,58 @@ const using = (
     task?: Task;
     approval?: ApprovalNeeded | null;
     failing?: boolean;
+    withheld?: {
+      readonly when: 'before' | 'during';
+      readonly reason: CatalogRefusalReason;
+    };
   } = {},
 ) => {
   const called: Called[] = [];
+  const refusal = (id: string): CatalogRefusal => ({
+    id,
+    reason: over.withheld?.reason ?? 'lapsed',
+    because: 'withheld here',
+  });
+  const catalog = new StationCatalog({
+    givenTo: async (_workspace, named) =>
+      over.withheld?.when === 'before'
+        ? {
+            tools: [],
+            skills: [],
+            refused: named.tools.map(refusal),
+          }
+        : {
+            tools: named.tools.map((id) => ({
+              id,
+              description: 'Search the web.',
+              inputs: [
+                {
+                  name: 'query',
+                  type: 'string' as const,
+                  description: null,
+                  required: true,
+                  defaulted: false,
+                  piped: false,
+                },
+              ],
+            })),
+            skills: [],
+            refused: [],
+          },
+    call: async (request) => {
+      if (over.withheld?.when === 'during') {
+        return { kind: 'refused', refusal: refusal(request.id) };
+      }
+
+      called.push({
+        tool: request.id,
+        context: { kind: 'task' } as TaskToolContext,
+        inputs: ToolInputs.of(request.inputs),
+      });
+
+      return { kind: 'answered', output: 'Three pages.' };
+    },
+  });
   let standing = over.task ?? task();
   const tasks = {
     find: async () => standing,
@@ -259,8 +319,7 @@ const using = (
       } as unknown as LineRepository,
       { now: () => NOW, sleep: async () => {} },
     ),
-    builtIns,
-    integrationTools,
+    new ToolSources(builtIns, integrationTools, catalog),
   );
 
   const reach = (tool: string, input: unknown = { title: 'Fix the queue' }) =>
@@ -270,6 +329,71 @@ const using = (
 };
 
 describe('UseToolHandler', () => {
+  describe('a catalog tool', () => {
+    const searching = () =>
+      claimed(['catalog.web-search'], {
+        catalog: ['catalog.web-search@1.1.0'],
+      });
+
+    it('is called by name, at the version the run was dispatched with', async () => {
+      const { reach, called } = using(searching());
+
+      await expect(
+        reach('catalog.web-search', { query: 'queues' }),
+      ).resolves.toEqual({ output: 'Three pages.' });
+      expect(called[0]?.tool).toBe('catalog.web-search@1.1.0');
+      expect(called[0]?.inputs.values).toEqual({ query: 'queues' });
+    });
+
+    it('is refused as entitlement_lapsed once the plan no longer covers it, and nothing is called', async () => {
+      const { reach, called } = using(searching(), {
+        withheld: { when: 'before', reason: 'lapsed' },
+      });
+
+      await expect(
+        reach('catalog.web-search', { query: 'queues' }),
+      ).rejects.toMatchObject({
+        kind: 'not-allowed',
+        message: expect.stringContaining('entitlement_lapsed'),
+      });
+      expect(called).toEqual([]);
+    });
+
+    it('is refused as entitlement_lapsed when the plan lapses as it is called', async () => {
+      const { reach } = using(searching(), {
+        withheld: { when: 'during', reason: 'lapsed' },
+      });
+
+      await expect(
+        reach('catalog.web-search', { query: 'queues' }),
+      ).rejects.toMatchObject({
+        message: expect.stringContaining('entitlement_lapsed'),
+      });
+    });
+
+    it('is refused as catalog_item_unknown, not as a lapse, once the catalog no longer has it', async () => {
+      const { reach, called } = using(searching(), {
+        withheld: { when: 'before', reason: 'unknown' },
+      });
+
+      await expect(
+        reach('catalog.web-search', { query: 'queues' }),
+      ).rejects.toMatchObject({
+        kind: 'not-allowed',
+        message: 'catalog_item_unknown: withheld here',
+      });
+      expect(called).toEqual([]);
+    });
+
+    it('is not found where the run pinned no version of it', async () => {
+      const { reach } = using(claimed(['catalog.web-search']));
+
+      await expect(
+        reach('catalog.web-search', { query: 'queues' }),
+      ).rejects.toMatchObject({ kind: 'not-found' });
+    });
+  });
+
   it('gives no tool to a run its task has let go of', async () => {
     const { reach, called } = using(claimed(), { task: added() });
 

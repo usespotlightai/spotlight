@@ -9,13 +9,13 @@ export const skillsRefused = (skills: readonly SkillKey[]): string | null => {
     return `names ${own.value}, which is Spotlight’s own and given wherever it applies: take it away`;
   }
 
-  const twice = repeatedIn(skills);
+  const twice = repeatedIn(skills.map((each) => each.unversioned));
 
-  return twice ? `names the skill ${twice.value} twice: name it once` : null;
+  return twice ? `names the skill ${twice} twice: name it once` : null;
 };
 
 export const toolsRefused = (tools: readonly Tool[]): string | null => {
-  const twice = repeatedIn(tools);
+  const twice = repeatedIn(tools.map((each) => each.called));
 
-  return twice ? `names the tool ${twice.value} twice: name it once` : null;
+  return twice ? `names the tool ${twice} twice: name it once` : null;
 };

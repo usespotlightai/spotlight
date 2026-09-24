@@ -89,6 +89,33 @@ describe('what a station gives', () => {
     );
   });
 
+  it('names a catalog tool or skill at one version only', () => {
+    expect(() =>
+      station({
+        tools: ['catalog.web-search@1.0.0', 'catalog.web-search@1.1.0'],
+      }),
+    ).toThrow(/catalog.web-search twice/);
+    expect(() =>
+      station({ skills: ['catalog.research@1.0.0', 'catalog.research@2.0.0'] }),
+    ).toThrow(/catalog.research twice/);
+  });
+
+  it('gives catalog tools and skills beside the team’s own', () => {
+    const giving = station({
+      tools: ['pull-request', 'catalog.web-search@1.1.0'],
+      skills: ['frontend', 'catalog.research@1.0.0'],
+    });
+
+    expect(giving.tools.map((each) => each.value)).toEqual([
+      'pull-request',
+      'catalog.web-search@1.1.0',
+    ]);
+    expect(giving.skills.map((each) => each.folder)).toEqual([
+      'frontend',
+      'spotlight-catalog-research',
+    ]);
+  });
+
   it('keeps what it gives through other changes', () => {
     const giving = station({ tools: ['pull-request'], skills: ['frontend'] });
     const renamed = giving.rename(StationName.of('Build'));

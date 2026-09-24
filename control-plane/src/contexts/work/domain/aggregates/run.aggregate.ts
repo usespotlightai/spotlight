@@ -243,6 +243,30 @@ export class Run extends EventRecorder {
     return ended;
   }
 
+  refused(outcome: RunOutcome): Run {
+    if (this.state !== 'queued') {
+      throw new InvalidRunTransitionError(
+        `cannot be refused while it is ${this.state}`,
+      );
+    }
+
+    const refused = this.with({ state: 'failed', outcome });
+
+    refused.record(
+      new RunCompleted(
+        this.id,
+        this.workspaceId,
+        this.subject,
+        outcome,
+        null,
+        null,
+        null,
+      ),
+    );
+
+    return refused;
+  }
+
   withdrawn(reason: string): Run {
     if (this.state !== 'queued') {
       throw new InvalidRunTransitionError(
@@ -306,6 +330,10 @@ export class Run extends EventRecorder {
 
   wasGiven(tool: Tool): boolean {
     return this.spec.gives(tool);
+  }
+
+  pinnedFor(tool: Tool): Tool | null {
+    return this.spec.pinned(tool);
   }
 
   lapsed(now: Date): boolean {

@@ -1,4 +1,8 @@
 import {
+  CATALOG,
+  type CatalogPort,
+} from '@catalog/application/ports/catalog.port';
+import {
   PULL_REQUESTS,
   type PullRequestPort,
 } from '@github/application/ports/pull-request.port';
@@ -165,7 +169,10 @@ import {
   INTEGRATION_TOOL_CALLS,
   type IntegrationToolCallsPort,
 } from '@work/application/ports/integration-tool-calls.port';
-import { INTEGRATION_TOOLS } from '@work/application/ports/integration-tools.port';
+import {
+  INTEGRATION_TOOLS,
+  type IntegrationToolsPort,
+} from '@work/application/ports/integration-tools.port';
 import { KEPT_WORKSPACE_READER } from '@work/application/ports/kept-workspace-reader.port';
 import { LINE_COMPILER } from '@work/application/ports/line-compiler.port';
 import { LINE_READER } from '@work/application/ports/line-reader.port';
@@ -314,6 +321,7 @@ import { RunAtHand } from '@work/application/services/run-at-hand.service';
 import { RunLeases } from '@work/application/services/run-leases.service';
 import { RunWorks } from '@work/application/services/run-works.service';
 import { SettleSetup } from '@work/application/services/settle-setup.service';
+import { StationCatalog } from '@work/application/services/station-catalog.service';
 import { StationSkills } from '@work/application/services/station-skills.service';
 import { TaskBindings } from '@work/application/services/task-bindings.service';
 import {
@@ -321,6 +329,7 @@ import {
   type TaskDispatching,
 } from '@work/application/services/task-dispatch';
 import { TeamIntegrations } from '@work/application/services/team-integrations.service';
+import { ToolSources } from '@work/application/services/tool-sources.service';
 import { WorkLookup } from '@work/application/services/work-lookup.service';
 import { WorkspaceSetup } from '@work/application/services/workspace-setup.service';
 import { WORK_EVENT_TYPES } from '@work/domain/event-types';
@@ -508,6 +517,22 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       connections: WorkspaceConnectionsPort,
       runners: RunnerReaderPort,
     ) => new WorkspaceSetup(connections, runners),
+  },
+
+  {
+    provide: StationCatalog,
+    inject: [CATALOG],
+    useFactory: (catalog: CatalogPort) => new StationCatalog(catalog),
+  },
+
+  {
+    provide: ToolSources,
+    inject: [BuiltInTools, INTEGRATION_TOOLS, StationCatalog],
+    useFactory: (
+      builtIns: BuiltInTools,
+      integrations: IntegrationToolsPort,
+      catalog: StationCatalog,
+    ) => new ToolSources(builtIns, integrations, catalog),
   },
 
   {
@@ -716,6 +741,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       StationSkills,
       TeamIntegrations,
       TASK_DECISIONS,
+      StationCatalog,
     ],
     useFactory: (
       runs: DrizzleRunRepository,
@@ -727,6 +753,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       teamSkills: StationSkills,
       integrations: TeamIntegrations,
       decisions: TaskDecisionsPort,
+      catalog: StationCatalog,
     ) =>
       new DispatchTask(
         runs,
@@ -738,6 +765,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         teamSkills,
         integrations,
         decisions,
+        catalog,
       ),
   },
 
@@ -953,6 +981,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     ApplyLines,
     IDEMPOTENT_CREATES,
     TRANSACTION,
+    StationCatalog,
   ]),
 
   ...bindCommandHandler(UpdateLineCommand, UpdateLineHandler, [
@@ -961,6 +990,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     DrizzleLineRepository,
     ApplyLines,
     TRANSACTION,
+    StationCatalog,
   ]),
 
   ...bindCommandHandler(DeleteLineCommand, DeleteLineHandler, [
@@ -1082,8 +1112,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindCommandHandler(UseToolCommand, UseToolHandler, [
     RunWorks,
-    BuiltInTools,
-    INTEGRATION_TOOLS,
+    ToolSources,
   ]),
 
   ...bindCommandHandler(StartChatCommand, StartChatHandler, [

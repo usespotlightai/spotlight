@@ -17,6 +17,7 @@ import type { TaskDecisionsPort } from '@work/application/ports/task-decisions.p
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { Attached } from '@work/application/rendering/attached';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
+import type { StationCatalog } from '@work/application/services/station-catalog.service';
 import type { StationSkills } from '@work/application/services/station-skills.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import type { TeamIntegrations } from '@work/application/services/team-integrations.service';
@@ -40,6 +41,7 @@ const written = (
   naming: string,
   skills: readonly SkillFileShape[],
   manifest: readonly ToolManifestShape[],
+  catalog: readonly string[],
 ): RunSpec =>
   RunSpec.of({
     checkouts: order.checkouts.map((checkout) => ({
@@ -58,6 +60,7 @@ const written = (
     continuity: RunSpecContract.continuityOf(order.continuity),
     skills,
     manifest,
+    ...(catalog.length > 0 ? { catalog } : {}),
     attachments: Attached.shapes(task.allAttachments),
     diffs: order.diffs,
   });
@@ -73,6 +76,7 @@ export class DispatchTask implements TaskDispatching {
     private readonly teamSkills: StationSkills,
     private readonly integrations: TeamIntegrations,
     private readonly decisions: TaskDecisionsPort,
+    private readonly catalog: StationCatalog,
   ) {}
 
   async runIdFor({
@@ -117,12 +121,15 @@ export class DispatchTask implements TaskDispatching {
     runId: RunId;
   }): Promise<boolean> {
     const station = line.stationAt(task.stationId);
-    const ready = station ? await this.teamSkills.readyAt(line, station) : [];
+    const kept = station ? await this.teamSkills.readyAt(line, station) : [];
+    const catalog = station ? await this.catalog.givenAt(line, station) : null;
+    const ready = [...kept, ...(catalog?.skills ?? [])];
     const order = orderFor({
       task,
       line,
       harnesses: this.harnesses,
       ready: ready.map(ReadySkillMapper.toReady),
+      withheld: catalog?.withheld ?? [],
     });
 
     if (!order) {
@@ -153,10 +160,15 @@ export class DispatchTask implements TaskDispatching {
         ready.filter((each) => each.skill.key === skill.key.value),
       ),
     ];
-    const offered = order.given.tools.some((each) => each.integration)
+    const offered = order.given.tools.some(
+      (each) => each.origin === 'integration',
+    )
       ? await this.integrations.offered(line)
       : [];
-    const described = describedTools(order.given.tools, offered);
+    const described = describedTools(order.given.tools, [
+      ...offered,
+      ...(catalog?.tools ?? []),
+    ]);
 
     const id = runId;
 
@@ -183,10 +195,11 @@ export class DispatchTask implements TaskDispatching {
         this.tracing.for(task.id, id),
         skillFilesOf(folders, home),
         described.map(toolManifestOf),
+        order.given.pinned.map((each) => each.value),
       ),
     });
 
-    await this.runs.add(queued);
+    await this.runs.add(order.refusal ? queued.refused(order.refusal) : queued);
 
     return true;
   }

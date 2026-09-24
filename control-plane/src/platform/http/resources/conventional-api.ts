@@ -25,6 +25,12 @@ import {
   SUPPORTED_API_VERSIONS,
 } from '@platform/http/resources/resource-headers';
 
+export const capitalised = (word: string): string =>
+  word
+    .split('-')
+    .map((each) => each.charAt(0).toUpperCase() + each.slice(1))
+    .join('');
+
 export const ApiProblemResponse = (status: number, description: string) =>
   ApiResponse({
     status,

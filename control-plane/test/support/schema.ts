@@ -1,3 +1,4 @@
+export * from '@catalog/infrastructure/persistence/drizzle/schemas/catalog.schema';
 export * from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.schema';
 export * from '@change-review/infrastructure/persistence/drizzle/schemas/decision.schema';
 export * from '@change-review/infrastructure/persistence/drizzle/schemas/review.schema';

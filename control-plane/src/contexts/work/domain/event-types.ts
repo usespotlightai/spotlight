@@ -27,6 +27,7 @@ import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
+import { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
@@ -93,6 +94,7 @@ export const WORK_EVENT_TYPES = [
   AttachmentId,
   Attachment,
   Branch,
+  CatalogWithheld,
   ChatId,
   ChatMessageBody,
   ChatTitle,

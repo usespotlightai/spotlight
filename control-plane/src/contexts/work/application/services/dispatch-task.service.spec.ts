@@ -1,3 +1,7 @@
+import type {
+  CatalogGiving,
+  CatalogNamed,
+} from '@catalog/application/contracts/catalog.contract';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -17,6 +21,7 @@ import type {
   SkillsHome,
 } from '@work/application/ports/harness-launch.port';
 import { DispatchTask } from '@work/application/services/dispatch-task.service';
+import { StationCatalog } from '@work/application/services/station-catalog.service';
 import type { StationSkills } from '@work/application/services/station-skills.service';
 import type { TeamIntegrations } from '@work/application/services/team-integrations.service';
 import { Line } from '@work/domain/aggregates/line.aggregate';
@@ -215,6 +220,32 @@ const tracing = {
     `trace:${chatId.value}:${runId.value}`,
 };
 
+let catalogGiving: CatalogGiving = { tools: [], skills: [], refused: [] };
+let catalogAsked: CatalogNamed[] = [];
+
+const catalog = new StationCatalog({
+  givenTo: async (_workspace, named) => {
+    catalogAsked.push(named);
+    return catalogGiving;
+  },
+  call: async () => ({ kind: 'answered', output: null }),
+});
+
+const WEB_SEARCH = {
+  id: 'catalog.web-search@1.1.0',
+  description: 'Search the web.',
+  inputs: [
+    {
+      name: 'query',
+      type: 'string' as const,
+      description: null,
+      required: true,
+      defaulted: false,
+      piped: false,
+    },
+  ],
+};
+
 const dispatch = async (
   station: Station,
   standing?: Task,
@@ -230,6 +261,7 @@ const dispatch = async (
     teamSkills,
     integrations,
     { ofTask: async () => [] },
+    catalog,
   );
   const working = standing ?? task(station.id.value);
   const line = held(station, repositories);
@@ -245,6 +277,136 @@ const dispatch = async (
 describe('DispatchTask', () => {
   beforeEach(() => {
     queued = [];
+    catalogGiving = { tools: [], skills: [], refused: [] };
+    catalogAsked = [];
+  });
+
+  describe('what it gives from the catalog', () => {
+    it('asks the catalog only for what the station names from it', async () => {
+      await dispatch(
+        triage({
+          tools: ['pull-request', 'catalog.web-search@1.1.0'],
+          skills: [SkillKey.of('catalog.research@1.0.0')],
+        }),
+      );
+
+      expect(catalogAsked).toEqual([
+        {
+          tools: ['catalog.web-search@1.1.0'],
+          skills: ['catalog.research@1.0.0'],
+        },
+      ]);
+    });
+
+    it('asks it nothing where the station names nothing from it', async () => {
+      await dispatch(triage({ tools: ['pull-request'] }));
+
+      expect(catalogAsked).toEqual([]);
+    });
+
+    it('names a catalog tool without its version, and pins the version in the run', async () => {
+      catalogGiving = { tools: [WEB_SEARCH], skills: [], refused: [] };
+
+      await dispatch(triage({ tools: ['catalog.web-search@1.1.0'] }));
+
+      expect(toolsGiven(queued[0])).toEqual(['catalog.web-search']);
+      expect(written(queued[0]).catalog).toEqual(['catalog.web-search@1.1.0']);
+      expect(queued[0]?.state).toBe('queued');
+    });
+
+    it('lays a catalog skill in its own folder and gives the tools it brings', async () => {
+      catalogGiving = {
+        tools: [WEB_SEARCH],
+        skills: [
+          {
+            id: 'catalog.research@1.0.0',
+            description: 'Research on the web.',
+            files: [{ path: 'SKILL.md', text: '---\nname: research\n---\n' }],
+            tools: [WEB_SEARCH.id],
+          },
+        ],
+        refused: [],
+      };
+
+      await dispatch(
+        triage({ skills: [SkillKey.of('catalog.research@1.0.0')] }),
+      );
+
+      expect(written(queued[0]).skills?.map((each) => each.path)).toContain(
+        '.claude/skills/spotlight-catalog-research/SKILL.md',
+      );
+      expect(toolsGiven(queued[0])).toEqual(['catalog.web-search']);
+    });
+
+    it('fails the run as entitlement_lapsed, rather than running without it, when the plan has lapsed', async () => {
+      catalogGiving = {
+        tools: [],
+        skills: [],
+        refused: [
+          {
+            id: WEB_SEARCH.id,
+            reason: 'lapsed',
+            because:
+              'catalog.web-search@1.1.0 needs the Team plan, and this workspace’s Team plan lapsed at 2026-09-01T00:00:00.000Z',
+          },
+        ],
+      };
+
+      await dispatch(triage({ tools: ['catalog.web-search@1.1.0'] }));
+
+      expect(queued[0]?.state).toBe('failed');
+      expect(queued[0]?.outcome?.message).toBe(
+        'entitlement_lapsed: catalog.web-search@1.1.0 needs the Team plan, and this workspace’s Team plan lapsed at 2026-09-01T00:00:00.000Z',
+      );
+      expect(queued[0]?.pullEvents().map((each) => each.kind)).toEqual([
+        'run.completed',
+      ]);
+    });
+  });
+
+  describe('why it refuses a run the catalog withholds from', () => {
+    it.each([
+      ['unknown', 'catalog_item_unknown'],
+      ['wrong-kind', 'catalog_item_wrong_kind'],
+      ['not-entitled', 'not_entitled'],
+      ['lapsed', 'entitlement_lapsed'],
+    ] as const)('names a refusal for %s as %s', async (reason, code) => {
+      catalogGiving = {
+        tools: [],
+        skills: [],
+        refused: [{ id: WEB_SEARCH.id, reason, because: 'withheld here' }],
+      };
+
+      await dispatch(triage({ tools: ['catalog.web-search@1.1.0'] }));
+
+      expect(queued[0]?.outcome?.message).toBe(`${code}: withheld here`);
+    });
+
+    it('names every refusal, each by its own reason', async () => {
+      catalogGiving = {
+        tools: [],
+        skills: [],
+        refused: [
+          { id: WEB_SEARCH.id, reason: 'lapsed', because: 'lapsed here' },
+          {
+            id: 'catalog.research@9.0.0',
+            reason: 'unknown',
+            because: 'unknown here',
+          },
+        ],
+      };
+
+      await dispatch(
+        triage({
+          tools: ['catalog.web-search@1.1.0'],
+          skills: [SkillKey.of('catalog.research@9.0.0')],
+        }),
+      );
+
+      expect(queued[0]?.outcome?.message).toBe(
+        'entitlement_lapsed: lapsed here; catalog_item_unknown: unknown here',
+      );
+    });
   });
 
   describe('the codebases a run works in', () => {

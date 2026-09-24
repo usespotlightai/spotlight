@@ -85,6 +85,15 @@ describe('compiling an integration', () => {
       expect(problem?.path).toBe('integrations');
     });
 
+    it('refuses to address a host as catalog, which names Spotlight’s catalog', () => {
+      expect(
+        complaining(
+          WHOLE.replace('integration: linear', 'integration: catalog'),
+          'integration',
+        ),
+      ).not.toHaveLength(0);
+    });
+
     it('refuses what is not an integration at all', () => {
       expect(compileIntegration('linear', expressions)).toMatchObject({
         ok: false,

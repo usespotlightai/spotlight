@@ -10,7 +10,7 @@ const told = (declared: DeclaredTool): string =>
     : declared.description;
 
 export const toolManifestOf = (declared: DeclaredTool): ToolManifestShape => ({
-  name: declared.tool.value,
+  name: declared.tool.called,
   description: told(declared),
   inputs: declared.inputs.map((each) => ({
     name: each.name,

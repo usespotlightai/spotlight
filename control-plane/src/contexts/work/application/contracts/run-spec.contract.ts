@@ -190,6 +190,9 @@ const read = (raw: unknown): RunSpec => {
   );
   const skills = optionalListAt(given.skills, 'its skills', skillOf);
   const manifest = optionalListAt(given.manifest, 'its tools', toolOf);
+  const catalog = optionalListAt(given.catalog, 'its catalog tools', (each) =>
+    stringAt(each, 'its catalog tools'),
+  );
   const attachments = optionalListAt(
     given.attachments,
     'its attachments',
@@ -206,6 +209,7 @@ const read = (raw: unknown): RunSpec => {
     continuity: continuityOf(given.continuity),
     ...(skills ? { skills } : {}),
     ...(manifest ? { manifest } : {}),
+    ...(catalog ? { catalog } : {}),
     ...(attachments ? { attachments } : {}),
     ...(diffs === undefined
       ? {}

@@ -49,11 +49,6 @@ const reactionAt = (place: number, field: 'to' | 'from' | null): LinePart => ({
   field,
 });
 
-const keyed = (value: string) => ({
-  value,
-  equals: (other: { value: string }) => other.value === value,
-});
-
 export const stationsRefused = (
   stations: readonly LaidStation[],
 ): LayoutRefusal | null => {
@@ -61,11 +56,11 @@ export const stationsRefused = (
     return { reason: 'must number at least one', part: STATIONS };
   }
 
-  const twice = repeatedIn(stations.map((each) => keyed(each.key)));
+  const twice = repeatedIn(stations.map((each) => each.key));
 
   if (twice) {
     return {
-      reason: `must each be named once, but two are named ${twice.value}`,
+      reason: `must each be named once, but two are named ${twice}`,
       part: STATIONS,
     };
   }

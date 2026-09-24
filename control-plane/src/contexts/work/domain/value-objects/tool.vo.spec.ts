@@ -52,3 +52,32 @@ describe('a tool named for its integration', () => {
     expect(() => Tool.of('.comment')).toThrow();
   });
 });
+
+describe('a catalog tool', () => {
+  it('is given by its id, and called by its name without the version', () => {
+    const tool = Tool.of('catalog.web-search@1.1.0');
+
+    expect(tool.origin).toBe('catalog');
+    expect(tool.called).toBe('catalog.web-search');
+    expect(tool.name).toBe('web-search');
+  });
+
+  it('is a different tool at another version', () => {
+    expect(
+      Tool.of('catalog.web-search@1.1.0').equals(
+        Tool.of('catalog.web-search@1.2.0'),
+      ),
+    ).toBe(false);
+  });
+
+  it('carries a version only when it comes from the catalog', () => {
+    expect(() => Tool.of('linear.comment@1.0.0')).toThrow(
+      InvalidIdentifierError,
+    );
+    expect(() => Tool.of('catalog.web-search@1.1')).toThrow(
+      InvalidIdentifierError,
+    );
+    expect(Tool.of('linear.comment').origin).toBe('integration');
+    expect(Tool.of('pull-request').origin).toBe('built-in');
+  });
+});

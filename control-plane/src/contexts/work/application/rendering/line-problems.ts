@@ -27,6 +27,14 @@ export const LineProblems = {
     });
   },
 
+  catalogRefused(
+    key: string,
+    at: FieldPath,
+    because: string,
+  ): ConfigurationProblem {
+    return ConfigurationProblem.of({ path: lineAt(key), at, reason: because });
+  },
+
   unapplied(key: string, at: FieldPath, error: Error): ConfigurationProblem {
     return ConfigurationProblem.of({
       path: lineAt(key),

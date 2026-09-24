@@ -18,6 +18,8 @@ export const PROBLEM_CONTENT_TYPE = 'application/problem+json';
 
 export const RESOURCE_EXTENSION = 'x-spotlight-resource';
 
+export const DATA_SOURCE_EXTENSION = 'x-spotlight-data-source';
+
 const ENTITY_TAG = /^"(\d+)"$/;
 
 export const entityTagOf = (version: number): string => `"${version}"`;
