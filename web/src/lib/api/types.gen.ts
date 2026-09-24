@@ -1787,6 +1787,32 @@ export type HarnessProfileResourceResponseDto = {
   };
 };
 
+export type TerraformFileResponseDto = {
+  /**
+   * Where the file goes, relative to the Terraform module
+   */
+  path: string;
+  content: string;
+};
+
+export type WorkspaceTerraformResponseDto = {
+  /**
+   * main.tf, with an import block beside each resource and references between them; variables.tf, declaring a sensitive variable for each value Spotlight never answers (secret values, runner tokens); and every prompt and skill file main.tf reads with file(), byte for byte; ordered by path
+   */
+  files: Array<TerraformFileResponseDto>;
+};
+
+export type ResourceHclResponseDto = {
+  /**
+   * The resource as HCL, formatted as terraform fmt would: any variable it reads, then an import block that adopts it, then the resource, referring to the resources it names
+   */
+  hcl: string;
+  /**
+   * The prompt and skill files the HCL reads with file()
+   */
+  files: Array<TerraformFileResponseDto>;
+};
+
 export type DiffHunkResponseDto = {
   id: string;
   oldStart: number;
@@ -7255,6 +7281,91 @@ export type ImportHarnessProfileResponses = {
 };
 
 export type ImportHarnessProfileResponse = ImportHarnessProfileResponses[keyof ImportHarnessProfileResponses];
+
+export type ExportWorkspaceData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{id}/export';
+};
+
+export type ExportWorkspaceErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ExportWorkspaceError = ExportWorkspaceErrors[keyof ExportWorkspaceErrors];
+
+export type ExportWorkspaceResponses = {
+  200: WorkspaceTerraformResponseDto;
+};
+
+export type ExportWorkspaceResponse = ExportWorkspaceResponses[keyof ExportWorkspaceResponses];
+
+export type ReadResourceHclData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    collection: 'workspaces' | 'teams' | 'lines' | 'skills' | 'harness-profiles' | 'integrations' | 'secrets' | 'runners' | 'runner-trusts' | 'workspace-runners';
+    id: string;
+  };
+  query?: never;
+  url: '/resources/{collection}/{id}/hcl';
+};
+
+export type ReadResourceHclErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such resource that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadResourceHclError = ReadResourceHclErrors[keyof ReadResourceHclErrors];
+
+export type ReadResourceHclResponses = {
+  200: ResourceHclResponseDto;
+};
+
+export type ReadResourceHclResponse = ReadResourceHclResponses[keyof ReadResourceHclResponses];
 
 export type ListRunChangeStacksData = {
   body?: never;

@@ -1,3 +1,4 @@
+import { HELD_INTEGRATIONS } from '@configuration/application/ports/held-integrations.port';
 import {
   INTEGRATION_READER,
   type IntegrationReaderPort,
@@ -65,7 +66,10 @@ import {
   INTEGRATION_CURSORS,
   IntegrationCursorsPort,
 } from '@integrations/application/ports/integration-cursors.port';
-import { INTEGRATION_RESOURCES } from '@integrations/application/ports/integration-resources.port';
+import {
+  INTEGRATION_RESOURCES,
+  type IntegrationResourcesPort,
+} from '@integrations/application/ports/integration-resources.port';
 import {
   INTEGRATION_RUNTIME,
   type IntegrationRuntimePort,
@@ -105,6 +109,7 @@ import {
 } from '@integrations/domain/repositories/host-connection.repository';
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
 import { INTEGRATION_DEFINITIONS } from '@integrations/domain/repositories/integration-definition.repository';
+import { HeldIntegrations } from '@integrations/infrastructure/acl/held-integrations.adapter';
 import { IntegrationReadings } from '@integrations/infrastructure/acl/integration-readings.adapter';
 import { IntegrationToolCalls } from '@integrations/infrastructure/acl/integration-tool-calls.adapter';
 import { IntegrationSecretUses } from '@integrations/infrastructure/acl/secret-uses.adapter';
@@ -559,6 +564,15 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     inject: [DEFINED_INTEGRATIONS, IntegrationReader],
     useFactory: (defined: DefinedIntegrationsPort, reader: IntegrationReader) =>
       new IntegrationReadings(defined, reader),
+  },
+
+  {
+    provide: HELD_INTEGRATIONS,
+    inject: [INTEGRATION_RESOURCES, TEAM_DIRECTORY],
+    useFactory: (
+      resources: IntegrationResourcesPort,
+      teams: TeamDirectoryPort,
+    ) => new HeldIntegrations(resources, teams),
   },
 
   { provide: JwksCache, useFactory: () => new JwksCache() },

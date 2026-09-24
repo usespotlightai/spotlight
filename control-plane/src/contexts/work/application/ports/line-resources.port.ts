@@ -14,4 +14,6 @@ export interface LineResourcesPort {
   withId(id: string): Promise<KeptLine | null>;
 
   at(teamId: TeamId, key: string): Promise<KeptLine | null>;
+
+  ofTeam(teamId: TeamId): Promise<readonly KeptLine[]>;
 }

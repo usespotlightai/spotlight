@@ -3,6 +3,7 @@
   "drizzle": false,
   "entry": ["src/main.ts", "scripts/*.ts", "drizzle.config.ts"],
   "ignoreDependencies": ["pino-pretty"],
+  "ignoreBinaries": ["terraform"],
   "ignoreIssues": {
     "src/**/persistence/drizzle/schemas/*.schema.ts": ["exports", "types"]
   }

@@ -14,4 +14,6 @@ export interface IntegrationResourcesPort {
   withId(id: string): Promise<KeptIntegration | null>;
 
   at(teamId: TeamId, source: string): Promise<KeptIntegration | null>;
+
+  ofTeam(teamId: TeamId): Promise<readonly KeptIntegration[]>;
 }

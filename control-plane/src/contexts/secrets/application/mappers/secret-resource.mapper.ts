@@ -1,5 +1,7 @@
 import type { SecretResourceDto } from '@secrets/application/dto/secret-resource.dto';
+import type { ConfiguredSecret } from '@secrets/application/ports/secret-configuration.port';
 import type { KeptSecret } from '@secrets/application/ports/secret-resources.port';
+import type { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 
 export const SecretResourceMapper = {
   toDto(secret: KeptSecret): SecretResourceDto {
@@ -14,6 +16,27 @@ export const SecretResourceMapper = {
       valueWoVersion: secret.valueVersion,
       rotatedAt: secret.rotatedAt.toISOString(),
       warnings: [],
+    };
+  },
+
+  configured(secret: Secret): ConfiguredSecret {
+    return {
+      id: secret.id.value,
+      address: secret.name.value,
+      workspaceId: secret.workspaceId,
+      name: secret.name.value,
+      source: {
+        kind: secret.source.kind,
+        secretId: secret.source.secretId,
+        field: secret.source.field,
+      },
+      bindings: secret.bindings.all.map((each) => ({
+        host: each.host,
+        header: each.header,
+        prefix: each.prefix,
+      })),
+      keepsValue: secret.source.isBuiltIn,
+      valueVersion: secret.valueVersion,
     };
   },
 };

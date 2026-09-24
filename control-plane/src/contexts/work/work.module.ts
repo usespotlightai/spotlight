@@ -9,6 +9,7 @@ import { SHIPPED_SKILL_KEYS } from '@work/application/ports/built-in-skills.port
 import { GIVEN_AT_STATIONS } from '@work/application/ports/given-at-stations.port';
 import { HAPPENING_REACTIONS } from '@work/application/ports/happening-reactions.port';
 import { HARNESS_PROFILE_REVIEW } from '@work/application/ports/harness-profile-review.port';
+import { LINE_RESOURCES } from '@work/application/ports/line-resources.port';
 import { WORK_LOOKUP } from '@work/application/ports/work-lookup.port';
 import { WORK_CONTROLLERS, WORK_PROVIDERS } from '@work/work.wiring';
 
@@ -29,6 +30,7 @@ import { WORK_CONTROLLERS, WORK_PROVIDERS } from '@work/work.wiring';
     HAPPENING_REACTIONS,
     GIVEN_AT_STATIONS,
     HARNESS_PROFILE_REVIEW,
+    LINE_RESOURCES,
   ],
 })
 export class WorkModule {}

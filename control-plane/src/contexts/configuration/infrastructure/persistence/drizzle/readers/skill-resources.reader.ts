@@ -33,6 +33,15 @@ export class DrizzleSkillResources implements SkillResourcesPort {
     );
   }
 
+  async ofTeam(teamId: TeamId): Promise<readonly KeptSkill[]> {
+    const found = await this.context.db
+      .select(KEPT)
+      .from(skillDefinition)
+      .where(eq(skillDefinition.teamId, teamId.value));
+
+    return found.map((each) => ({ ...each, teamId }));
+  }
+
   private async kept(where: SQL | undefined): Promise<KeptSkill | null> {
     const [found] = await this.context.db
       .select(KEPT)

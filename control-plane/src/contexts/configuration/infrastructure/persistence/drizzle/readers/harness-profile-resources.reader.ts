@@ -8,6 +8,20 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { and, eq, type SQL } from 'drizzle-orm';
 
+type ProfileRow = typeof harnessProfile.$inferSelect;
+
+const keptFrom = (found: ProfileRow): KeptProfile => ({
+  id: found.id,
+  version: found.version,
+  teamId: TeamId.of(found.teamId),
+  definition: {
+    key: found.key,
+    permissions: found.permissions,
+    mcpServers: found.mcpServers,
+    native: found.native,
+  },
+});
+
 @Injectable()
 export class DrizzleHarnessProfileResources
   implements HarnessProfileResourcesPort
@@ -24,6 +38,15 @@ export class DrizzleHarnessProfileResources
     );
   }
 
+  async ofTeam(teamId: TeamId): Promise<readonly KeptProfile[]> {
+    return (
+      await this.context.db
+        .select()
+        .from(harnessProfile)
+        .where(eq(harnessProfile.teamId, teamId.value))
+    ).map(keptFrom);
+  }
+
   private async kept(where: SQL | undefined): Promise<KeptProfile | null> {
     const [found] = await this.context.db
       .select()
@@ -31,18 +54,6 @@ export class DrizzleHarnessProfileResources
       .where(where)
       .limit(1);
 
-    return found
-      ? {
-          id: found.id,
-          version: found.version,
-          teamId: TeamId.of(found.teamId),
-          definition: {
-            key: found.key,
-            permissions: found.permissions,
-            mcpServers: found.mcpServers,
-            native: found.native,
-          },
-        }
-      : null;
+    return found ? keptFrom(found) : null;
   }
 }

@@ -3,7 +3,10 @@ import {
   WORKSPACE_HOLDINGS,
   type WorkspaceHoldingsPort,
 } from '@identity/application/ports/workspace-holdings.port';
-import { WORKSPACE_READER } from '@identity/application/ports/workspace-reader.port';
+import {
+  WORKSPACE_READER,
+  type WorkspaceReaderPort,
+} from '@identity/application/ports/workspace-reader.port';
 import type { Provider, Type } from '@nestjs/common';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
@@ -42,6 +45,7 @@ import {
 } from '@runners/application/commands/runner-resource.commands';
 import { RUNNERS_PUBLICATIONS } from '@runners/application/integration-events/runners.publications';
 import { INSTALLER_ASSETS } from '@runners/application/ports/installer-assets.port';
+import { RUNNER_CONFIGURATION } from '@runners/application/ports/runner-configuration.port';
 import { RUNNER_DEFINITIONS } from '@runners/application/ports/runner-definitions.port';
 import { RUNNER_PRESENCE } from '@runners/application/ports/runner-presence.port';
 import { RUNNER_READER } from '@runners/application/ports/runner-reader.port';
@@ -65,6 +69,7 @@ import {
 } from '@runners/application/queries/runner-resource.queries';
 import { AbandonWorkspaceRunners } from '@runners/application/services/abandon-workspace-runners.service';
 import { RevokeTrustedRunners } from '@runners/application/services/revoke-trusted-runners.service';
+import { RunnerConfiguration } from '@runners/application/services/runner-configuration.service';
 import { RunnerHoldings } from '@runners/application/services/runner-holdings.service';
 import { RunnerPresence } from '@runners/application/services/runner-presence.service';
 import { RUNNERS_EVENT_TYPES } from '@runners/domain/event-types';
@@ -169,6 +174,21 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       holdings.register(new RunnerHoldings(runners, trusts, declarations));
       return true;
     },
+  },
+  {
+    provide: RUNNER_CONFIGURATION,
+    inject: [
+      DrizzleRunnerRepository,
+      DrizzleRunnerTrustRepository,
+      DrizzleWorkspaceRunnersRepository,
+      WORKSPACE_READER,
+    ],
+    useFactory: (
+      runners: DrizzleRunnerRepository,
+      trusts: DrizzleRunnerTrustRepository,
+      declarations: DrizzleWorkspaceRunnersRepository,
+      workspaces: WorkspaceReaderPort,
+    ) => new RunnerConfiguration(runners, trusts, declarations, workspaces),
   },
   {
     provide: RUNNER_PRESENCE,

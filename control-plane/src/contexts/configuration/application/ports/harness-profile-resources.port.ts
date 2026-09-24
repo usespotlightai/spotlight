@@ -13,4 +13,6 @@ export interface HarnessProfileResourcesPort {
   withId(id: string): Promise<KeptProfile | null>;
 
   at(teamId: TeamId, key: string): Promise<KeptProfile | null>;
+
+  ofTeam(teamId: TeamId): Promise<readonly KeptProfile[]>;
 }

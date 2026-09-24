@@ -16,7 +16,7 @@ const NAME = new RegExp(`^${SOURCE_WORD}$`);
 const HAPPENING = new RegExp(`^${DOTTED_NAME}$`);
 const MARK_KIND = HAPPENING;
 const KEY = new RegExp(`^${WORDS}$`);
-const SECRET_REF = new RegExp(`^secret\\.${SECRET_NAME_SHAPE}$`);
+export const SECRET_REF = new RegExp(`^secret\\.${SECRET_NAME_SHAPE}$`);
 const WITHIN = /^\d+s$/;
 
 const EXPRESSION = /^\s*\$\{\{(.+)\}\}\s*$/s;

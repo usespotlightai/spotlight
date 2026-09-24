@@ -21,6 +21,12 @@ export interface WorkspaceDetail {
   readonly role: WorkspaceRoleName;
 }
 
+export interface WorkspaceProfile {
+  readonly id: string;
+  readonly name: string;
+  readonly slug: string;
+}
+
 export const WORKSPACE_READER = Symbol('WORKSPACE_READER');
 
 export interface WorkspaceReaderPort {
@@ -30,6 +36,8 @@ export interface WorkspaceReaderPort {
   identify(slug: string): Promise<string | null>;
 
   slugOf(workspaceId: string): Promise<string | null>;
+
+  profileOf(workspaceId: string): Promise<WorkspaceProfile | null>;
 
   isOpen(workspaceId: string): Promise<boolean>;
 

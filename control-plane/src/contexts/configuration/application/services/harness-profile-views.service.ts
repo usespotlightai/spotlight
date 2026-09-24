@@ -15,10 +15,10 @@ export class HarnessProfileViews {
   async of(kept: KeptProfile): Promise<HarnessProfileResourceDto | null> {
     const team = await this.teams.find(kept.teamId);
 
-    if (!team) {
-      return null;
-    }
+    return team ? this.onTeam(kept, team.key) : null;
+  }
 
+  onTeam(kept: KeptProfile, teamKey: string): HarnessProfileResourceDto {
     const read = this.compiler.read(kept.definition);
 
     if (!read.ok) {
@@ -31,7 +31,7 @@ export class HarnessProfileViews {
     return {
       id: kept.id,
       version: kept.version,
-      address: TeamAddress.of(team.key, read.key.value).toString(),
+      address: TeamAddress.of(teamKey, read.key.value).toString(),
       teamId: kept.teamId.value,
       key: read.key.value,
       permissions: read.settings.permissions,
