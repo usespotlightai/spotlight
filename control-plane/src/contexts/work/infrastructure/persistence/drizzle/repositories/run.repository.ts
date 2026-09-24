@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { everyClauseMet } from '@platform/persistence/drizzle/every-clause-met';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
@@ -8,6 +9,7 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
@@ -17,6 +19,7 @@ import type {
   Claimant,
   RunRepository,
 } from '@work/domain/repositories/run.repository';
+import { ClaimOrder } from '@work/domain/services/claim-order';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
@@ -58,6 +61,7 @@ export class DrizzleRunRepository implements RunRepository {
       exitCode: added.outcome?.exitCode ?? null,
       message: added.outcome?.message ?? null,
       stopped: added.outcome?.stopped ?? false,
+      placement: added.placement.clauses,
     });
   }
 
@@ -81,6 +85,7 @@ export class DrizzleRunRepository implements RunRepository {
           state,
           spec,
           target_runner_id  AS "targetRunnerId",
+          placement,
           claimed_by        AS "claimedBy",
           lease_expires_at  AS "leaseExpiresAt",
           stop_requested_at AS "stopRequestedAt",
@@ -94,6 +99,7 @@ export class DrizzleRunRepository implements RunRepository {
           AND state = 'queued'
           AND workspace_id = ${by.workspaceId.value}
           AND (target_runner_id IS NULL OR target_runner_id = ${by.runner.value})
+          AND ${everyClauseMet(run.placement, by.terms.values)}
         -- ClaimOrder.next, said in SQL because the claim must be one statement.
         ORDER BY priority DESC, created_at
         FOR UPDATE SKIP LOCKED
@@ -101,11 +107,13 @@ export class DrizzleRunRepository implements RunRepository {
       `);
 
       const [row] = locked.rows;
-      if (!row) {
+      const found = row ? toRun(row) : null;
+
+      if (!found || !ClaimOrder.takeable(found, by)) {
         return null;
       }
 
-      const claimed = toRun(row).claim(by.runner, now);
+      const claimed = found.claim(by.runner, now);
       await this.save(claimed);
 
       return claimed;
@@ -204,6 +212,7 @@ const toRun = (row: Row): Run =>
     }),
     spec: specOf(row),
     targetRunner: row.targetRunnerId ? RunnerId.of(row.targetRunnerId) : null,
+    placement: RunnerPlacement.ofClauses(row.placement),
     state: row.state,
     claimedBy: row.claimedBy ? RunnerId.of(row.claimedBy) : null,
     leaseExpiresAt: asDate(row.leaseExpiresAt),

@@ -31,6 +31,8 @@ export interface WorkspaceReaderPort {
 
   slugOf(workspaceId: string): Promise<string | null>;
 
+  isOpen(workspaceId: string): Promise<boolean>;
+
   // Not viewer-scoped: only for webhook callers whose signature has been verified.
   identifyTeam(
     slug: string,

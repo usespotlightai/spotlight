@@ -1,6 +1,7 @@
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -13,6 +14,7 @@ export interface RunLookup {
   readonly taskId: TaskId | null;
   readonly check: string | null;
   readonly setup: string | null;
+  readonly placement: RunnerPlacement;
   readonly decisions: boolean;
   readonly ended: boolean;
   readonly completed: boolean;

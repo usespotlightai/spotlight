@@ -1,6 +1,7 @@
 import type { TeamProfile } from '@identity/application/ports/team-directory.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { StationTalliesPort } from '@work/application/ports/station-tallies.port';
@@ -54,6 +55,7 @@ const station = (key: string): StationPlan => ({
   agentPrompt: null,
   check: null,
   setup: null,
+  placement: RunnerPlacement.anywhere(),
   diffs: false,
   decisions: false,
   tools: [],

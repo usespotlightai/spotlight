@@ -34,6 +34,7 @@ export const line = pgTable(
     name: text('name').notNull(),
     role: text('role'),
     reviews: jsonb('reviews').$type<ReviewsRow>(),
+    runners: jsonb('runners').$type<string[]>().notNull().default([]),
     version: integer('version').notNull().default(0),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
@@ -72,6 +73,7 @@ export const station = pgTable(
     agentPrompt: text('agent_prompt'),
     check: text('check'),
     setup: text('setup'),
+    runners: jsonb('runners').$type<string[]>().notNull().default([]),
     diffs: boolean('diffs').notNull().default(false),
     decisions: boolean('decisions').notNull().default(false),
     createdAt: timestamp('created_at').defaultNow().notNull(),

@@ -1,3 +1,4 @@
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { Station } from '@work/domain/entities/station.entity';
 import { InvalidLinePlanError } from '@work/domain/exceptions/invalid-line-plan.error';
 import { InvalidStationChangeError } from '@work/domain/exceptions/invalid-station-change.error';
@@ -38,6 +39,7 @@ const laid = (key: string, over: Partial<StationPlan> = {}): StationPlan => ({
   agentPrompt: null,
   check: null,
   setup: null,
+  placement: RunnerPlacement.anywhere(),
   diffs: false,
   decisions: false,
   tools: [],

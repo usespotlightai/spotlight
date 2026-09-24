@@ -1,5 +1,6 @@
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { InvalidStationChangeError } from '@work/domain/exceptions/invalid-station-change.error';
 import {
   skillsRefused,
@@ -31,6 +32,7 @@ type Part = {
   agentPrompt?: AgentPrompt | null;
   check?: StationCheck | null;
   setup?: StationSetup | null;
+  placement?: RunnerPlacement;
   diffs?: boolean;
   decisions?: boolean;
   wayOut?: WayOut;
@@ -51,6 +53,7 @@ export type StationInput = {
   agentPrompt?: AgentPrompt | null;
   check?: StationCheck | null;
   setup?: StationSetup | null;
+  placement?: RunnerPlacement;
   diffs?: boolean;
   decisions?: boolean;
   kind?: StationKind;
@@ -79,6 +82,7 @@ export abstract class Station {
   abstract readonly agentPrompt: AgentPrompt | null;
   abstract readonly check: StationCheck | null;
   abstract readonly setup: StationSetup | null;
+  abstract readonly placement: RunnerPlacement;
   abstract readonly diffs: boolean;
   abstract readonly decisions: boolean;
 
@@ -111,6 +115,7 @@ export abstract class Station {
           input.agentPrompt ?? null,
           input.check ?? null,
           input.setup ?? null,
+          input.placement ?? RunnerPlacement.anywhere(),
           input.diffs ?? false,
           input.decisions ?? false,
         );
@@ -193,6 +198,7 @@ class WorkStation extends Station {
     readonly agentPrompt: AgentPrompt | null,
     readonly check: StationCheck | null,
     readonly setup: StationSetup | null,
+    readonly placement: RunnerPlacement,
     readonly diffs: boolean,
     readonly decisions: boolean,
   ) {
@@ -232,6 +238,7 @@ class WorkStation extends Station {
       part.agentPrompt !== undefined ? part.agentPrompt : this.agentPrompt,
       part.check !== undefined ? part.check : this.check,
       part.setup !== undefined ? part.setup : this.setup,
+      part.placement ?? this.placement,
       part.diffs !== undefined ? part.diffs : this.diffs,
       part.decisions !== undefined ? part.decisions : this.decisions,
     );
@@ -246,6 +253,7 @@ class Backlog extends Station {
   readonly agentPrompt = null;
   readonly check = null;
   readonly setup = null;
+  readonly placement = RunnerPlacement.anywhere();
   readonly diffs = false;
   readonly decisions = false;
 
@@ -290,6 +298,7 @@ class Completed extends Station {
   readonly agentPrompt = null;
   readonly check = null;
   readonly setup = null;
+  readonly placement = RunnerPlacement.anywhere();
   readonly diffs = false;
   readonly decisions = false;
 

@@ -94,6 +94,42 @@ describe('compileLine', () => {
     ]);
   });
 
+  it('reads where a line and its stations may run', () => {
+    const compiled = compileLine({
+      ...withStation(1, {
+        ...DELIVERY.stations[1],
+        runners: ['gpu'],
+      }),
+      runners: ['vpc-internal'],
+    });
+
+    expect(compiled.ok && compiled.line.placement.selectors).toEqual([
+      'vpc-internal',
+    ]);
+    expect(
+      compiled.ok && compiled.line.stations[1]?.placement.selectors,
+    ).toEqual(['gpu']);
+    expect(compiled.ok && compiled.line.stations[0]?.placement.isAnywhere).toBe(
+      true,
+    );
+  });
+
+  it('points at runners a station names twice', () => {
+    expect(
+      dottedOf(
+        refused(
+          withStation(1, { ...DELIVERY.stations[1], runners: ['gpu', 'gpu'] }),
+        )[0]?.field,
+      ),
+    ).toBe('stations.1.runners');
+  });
+
+  it('points at an empty runner the line names', () => {
+    expect(dottedOf(refused({ ...DELIVERY, runners: [' '] })[0]?.field)).toBe(
+      'runners',
+    );
+  });
+
   it('places every problem at the line it is about', () => {
     expect(refused({ ...DELIVERY, name: '' })[0]).toMatchObject({
       path: 'lines/delivery',

@@ -12,6 +12,7 @@ import {
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Line } from '@work/domain/aggregates/line.aggregate';
@@ -90,6 +91,7 @@ const toStation = (row: StationRow, ways: Ways): Station =>
     agentPrompt: row.agentPrompt ? AgentPrompt.of(row.agentPrompt) : null,
     check: row.check ? StationCheck.of(row.check) : null,
     setup: row.setup ? StationSetup.of(row.setup) : null,
+    placement: RunnerPlacement.of(row.runners),
     diffs: row.diffs,
     decisions: row.decisions,
     kind: row.kind,
@@ -118,6 +120,7 @@ const toLine = (
     reactions,
     role: line.role ? LineRole.of(line.role) : null,
     reviews: line.reviews ? ReviewPolicy.of(line.reviews) : null,
+    placement: RunnerPlacement.of(line.runners),
     repositories,
     version: line.version,
   });
@@ -174,6 +177,7 @@ const columnsOf = (each: Station) => ({
   agentPrompt: each.agentPrompt?.value ?? null,
   check: each.check?.value ?? null,
   setup: each.setup?.value ?? null,
+  runners: [...each.placement.selectors],
   diffs: each.diffs,
   decisions: each.decisions,
   kind: each.kind,
@@ -217,6 +221,7 @@ export class DrizzleLineRepository implements LineRepository {
         name: added.name.value,
         role: added.role?.value ?? null,
         reviews: reviewsRow(added.reviews),
+        runners: [...added.placement.selectors],
       });
     } catch (error) {
       if (violates(error, UNIQUE_VIOLATION, 'line_team_key')) {
@@ -251,6 +256,7 @@ export class DrizzleLineRepository implements LineRepository {
         name: saved.name.value,
         role: saved.role?.value ?? null,
         reviews: reviewsRow(saved.reviews),
+        runners: [...saved.placement.selectors],
       })
       .where(and(eq(line.id, saved.id.value), eq(line.version, saved.version)))
       .returning({ id: line.id })

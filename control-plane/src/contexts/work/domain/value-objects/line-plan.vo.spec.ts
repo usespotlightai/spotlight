@@ -1,4 +1,5 @@
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { InvalidLinePlanError } from '@work/domain/exceptions/invalid-line-plan.error';
 import { Happening } from '@work/domain/value-objects/happening.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
@@ -29,6 +30,7 @@ const station = (
   agentPrompt: null,
   check: null,
   setup: null,
+  placement: RunnerPlacement.anywhere(),
   diffs: false,
   decisions: false,
   tools: [],

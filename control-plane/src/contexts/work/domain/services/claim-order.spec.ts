@@ -1,6 +1,8 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
+import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { ClaimOrder } from '@work/domain/services/claim-order';
@@ -13,6 +15,7 @@ const BY = {
   runner: RunnerId.of('runner_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   harnesses: [DEV],
+  terms: RunnerTerms.of(['runner-1', 'laptop']),
 };
 
 const waiting = (
@@ -23,6 +26,7 @@ const waiting = (
     harness?: string;
     targetRunner?: string;
     workspace?: string;
+    placement?: string[];
   } = {},
 ) => ({
   run: Run.enqueue({
@@ -37,6 +41,7 @@ const waiting = (
       continuity: { key: 'task:station', keep: true },
     }),
     targetRunner: over.targetRunner ? RunnerId.of(over.targetRunner) : null,
+    placement: RunnerPlacement.of(over.placement ?? []),
   }),
   queuedAt: new Date(over.queuedAt ?? '2026-09-17T09:00:00.000Z'),
 });
@@ -87,6 +92,21 @@ describe('ClaimOrder', () => {
 
   it('hands a runner the run pinned to it', () => {
     expect(next(waiting('mine', { targetRunner: 'runner_1' }))).toBe('mine');
+  });
+
+  it('never hands a runner a run placed on runners it does not answer to', () => {
+    expect(
+      next(
+        waiting('placed', { placement: ['vpc-internal'], priority: 9 }),
+        waiting('open'),
+      ),
+    ).toBe('open');
+  });
+
+  it('hands a runner a run placed on a label it carries', () => {
+    expect(
+      next(waiting('placed', { placement: ['vpc-internal', 'laptop'] })),
+    ).toBe('placed');
   });
 
   it('hands out nothing already claimed', () => {

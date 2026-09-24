@@ -1,3 +1,4 @@
+import type { RunnerPresencePort } from '@runners/application/ports/runner-presence.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunId as RunIdOf } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -17,6 +18,7 @@ import type { TaskDecisionsPort } from '@work/application/ports/task-decisions.p
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { Attached } from '@work/application/rendering/attached';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
+import { pinnedRunner } from '@work/application/services/pinned-runner';
 import type { StationCatalog } from '@work/application/services/station-catalog.service';
 import type { StationSkills } from '@work/application/services/station-skills.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
@@ -77,6 +79,7 @@ export class DispatchTask implements TaskDispatching {
     private readonly integrations: TeamIntegrations,
     private readonly decisions: TaskDecisionsPort,
     private readonly catalog: StationCatalog,
+    private readonly runners: RunnerPresencePort,
   ) {}
 
   async runIdFor({
@@ -186,7 +189,12 @@ export class DispatchTask implements TaskDispatching {
       harness: order.harness.id,
       priority: order.priority,
       subject: RunSubject.task(task.id, order.stationId),
-      targetRunner: order.pinnedTo,
+      targetRunner: await pinnedRunner(
+        order.continuity,
+        order.placement,
+        this.runners,
+      ),
+      placement: order.placement,
       spec: written(
         order,
         task,

@@ -1,6 +1,6 @@
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
-import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { type GivenToRun, givenAt } from '@work/domain/services/given-to-run';
@@ -47,7 +47,7 @@ export interface RunOrder {
   readonly effort: Effort | null;
   readonly stationId: StationId;
   readonly priority: RunPriority;
-  readonly pinnedTo: RunnerId | null;
+  readonly placement: RunnerPlacement;
   readonly options: readonly HandoverOption[];
   readonly noteLimit: number;
   readonly continuity: Continuity;
@@ -90,7 +90,7 @@ export const orderFor = ({
     effort: station.effort,
     stationId: station.id,
     priority: RunPriority.of(line.depthOf(station.id)),
-    pinnedTo: continuity.pinnedTo,
+    placement: line.placementOf(station.id),
     options: line.optionsFrom(station.id),
     noteLimit: 0,
     continuity,

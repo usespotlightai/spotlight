@@ -42,6 +42,7 @@ const asking = (
       {
         identify: async () => 'ws_1',
         slugOf: async () => 'acme',
+        isOpen: async () => true,
         identifyTeam: async (_slug: string, teamKey: string) =>
           teamKey === 'platform'
             ? { workspaceId: 'ws_1', teamId: 'team_1' }

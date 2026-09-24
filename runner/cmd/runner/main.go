@@ -49,6 +49,18 @@ func run() error {
 		return err
 	}
 
+	if cfg.Workload.Enrols() {
+		cfg.Token, err = control.Enrol(ctx, cfg.URL, control.Enrolment{
+			TokenFile: cfg.Workload.TokenFile,
+			Trust:     cfg.Workload.Trust,
+			Name:      cfg.Workload.Name,
+		}, log)
+		if err != nil {
+			log.Info("runner stopped before enrolling")
+			return nil
+		}
+	}
+
 	client, err := control.New(cfg.URL, cfg.Token)
 	if err != nil {
 		return err

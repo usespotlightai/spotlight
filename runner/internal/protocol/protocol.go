@@ -21,6 +21,17 @@ type Registered struct {
 	RunnerID string `json:"runnerId"`
 }
 
+type Exchange struct {
+	Trust string `json:"trust"`
+	Token string `json:"token"`
+	Name  string `json:"name"`
+}
+
+type Exchanged struct {
+	RunnerID string `json:"runnerId"`
+	Token    string `json:"token"`
+}
+
 type Kept struct {
 	Keys []string `json:"keys"`
 }

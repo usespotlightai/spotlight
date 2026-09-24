@@ -47,6 +47,7 @@ const changing: Refusal = (kind) => [
 const REFUSALS: Readonly<Record<ForbiddenAct, Refusal>> = {
   configure: changing,
   'manage-secrets': changing,
+  'manage-runners': changing,
   administer: (kind) => [
     `Not allowed to administer the ${kind}`,
     `You may read this ${kind}, but only the workspace’s admins may do this; a token never administers`,

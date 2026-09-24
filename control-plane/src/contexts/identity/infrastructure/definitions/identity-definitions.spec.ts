@@ -93,6 +93,7 @@ describe('IdentityDefinitions', () => {
 
   it.each([
     [['secrets'], /beside one of them/],
+    [['runners'], /beside one of them/],
     [['plan', 'plan'], /each scope once/],
     [[], /beside one of them/],
   ])('refuses a token whose scopes are %j', (scopes, reason) => {

@@ -31,6 +31,10 @@ export const run = pgTable(
     spec: jsonb('spec').$type<unknown>().notNull(),
     attempt: integer('attempt').notNull().default(1),
     targetRunnerId: text('target_runner_id'),
+    placement: jsonb('placement')
+      .$type<readonly (readonly string[])[]>()
+      .notNull()
+      .default([]),
     claimedBy: text('claimed_by'),
     leaseExpiresAt: timestamp('lease_expires_at'),
     stopRequestedAt: timestamp('stop_requested_at'),

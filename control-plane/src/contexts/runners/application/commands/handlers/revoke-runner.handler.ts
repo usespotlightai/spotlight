@@ -7,8 +7,8 @@ import type { RunnerRepository } from '@runners/domain/repositories/runner.repos
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
+import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class RevokeRunnerHandler
   implements CommandHandlerPort<RevokeRunnerCommand, void>
@@ -21,10 +21,11 @@ export class RevokeRunnerHandler
 
   async execute(command: RevokeRunnerCommand): Promise<void> {
     try {
-      const membership = await this.access.inWorkspace(
-        command.slug,
-        UserId.of(command.viewerId),
-      );
+      const { principal } = command.actor;
+      const membership =
+        principal.kind === 'person'
+          ? await this.access.inWorkspace(command.slug, principal.userId)
+          : null;
 
       if (!membership) {
         throw new UnknownRunnerError(command.runnerId);
@@ -42,7 +43,10 @@ export class RevokeRunnerHandler
             throw new UnknownRunnerError(command.runnerId);
           }
 
-          return runner.revoke(this.clock.now());
+          return runner.revoke(
+            this.clock.now(),
+            Attribution.of(command.actor, membership.workspaceId),
+          );
         },
       );
 

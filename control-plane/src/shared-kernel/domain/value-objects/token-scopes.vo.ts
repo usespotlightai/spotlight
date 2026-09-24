@@ -13,7 +13,7 @@ export class TokenScopes {
 
     if (!scopes.some((each) => each.isLadder)) {
       throw new InvalidTokenScopeError(
-        'include read, plan or configure; secrets is granted beside one of them',
+        'include read, plan or configure; secrets and runners are granted beside one of them',
       );
     }
 

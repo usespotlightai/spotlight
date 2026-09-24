@@ -1,6 +1,7 @@
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -96,7 +97,11 @@ describe('WorkLookup, finding the task a pull request belongs to', () => {
 });
 
 describe('WorkLookup, looking up a run', () => {
-  const runAt = (key: string, state = 'completed') => {
+  const runAt = (
+    key: string,
+    state = 'completed',
+    placement = RunnerPlacement.anywhere(),
+  ) => {
     const station = line.stations.find((each) => each.key.value === key);
 
     return new WorkLookup(
@@ -108,6 +113,7 @@ describe('WorkLookup, looking up a run', () => {
           stationId: station?.id ?? null,
           hasEnded: true,
           hasCompleted: state === 'completed',
+          placement,
         }),
       } as unknown as RunRepository,
       {} as TaskRepository,
@@ -122,6 +128,17 @@ describe('WorkLookup, looking up a run', () => {
 
   it('says it records none where its station does not', async () => {
     expect((await runAt('spec'))?.decisions).toBe(false);
+  });
+
+  it('asks a check to run where its station runs', async () => {
+    expect((await runAt('implementation'))?.placement.isAnywhere).toBe(true);
+  });
+
+  it('asks a check to run where its run was placed once its station is gone', async () => {
+    expect(
+      (await runAt('gone', 'completed', RunnerPlacement.of(['vpc-internal'])))
+        ?.placement.clauses,
+    ).toEqual([['vpc-internal']]);
   });
 
   it('says whether the run completed, not only whether it ended', async () => {

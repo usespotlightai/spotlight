@@ -9,6 +9,10 @@ import type { RunnerRepository } from '@runners/domain/repositories/runner.repos
 import { RunnerName } from '@runners/domain/value-objects/runner-name.vo';
 import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import {
+  actorFor,
+  attributedIn,
+} from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -34,6 +38,7 @@ const ours = () =>
     workspaceId: WorkspaceId.of('ws_ours'),
     name: RunnerName.of('runner-1'),
     tokenHash: TokenHash.of('a'.repeat(64)),
+    by: attributedIn('ws_ours'),
   });
 
 const revoking = (membership: WorkspaceMembership | null) => {
@@ -50,7 +55,7 @@ const revoking = (membership: WorkspaceMembership | null) => {
   return { handler, save };
 };
 
-const revoke = (slug: string) => new RevokeRunnerCommand(slug, 'user_1', ID);
+const revoke = (slug: string) => new RevokeRunnerCommand(slug, actorFor(), ID);
 
 describe('RevokeRunnerHandler', () => {
   it('retires the token of a runner in the workspace it administers', async () => {

@@ -10,7 +10,8 @@ const takeable = (run: Run, by: Claimant): boolean =>
   run.state === 'queued' &&
   run.workspaceId.equals(by.workspaceId) &&
   by.harnesses.some((each) => each.equals(run.harness)) &&
-  (run.targetRunner === null || run.targetRunner.equals(by.runner));
+  (run.targetRunner === null || run.targetRunner.equals(by.runner)) &&
+  run.placement.admits(by.terms);
 
 const sooner = (a: WaitingRun, b: WaitingRun): number =>
   b.run.priority.value - a.run.priority.value ||

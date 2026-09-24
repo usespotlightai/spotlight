@@ -1,4 +1,5 @@
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import type { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const CHECK_WORK = Symbol('CHECK_WORK');
@@ -24,6 +25,7 @@ export interface CheckWorkPort {
   claimNext(
     workspaceId: WorkspaceId,
     runner: RunnerId,
+    terms: RunnerTerms,
     now: Date,
   ): Promise<ClaimedCheck | null>;
 }

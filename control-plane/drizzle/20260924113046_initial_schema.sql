@@ -9,7 +9,7 @@ CREATE TYPE "public"."review_sync_state" AS ENUM('pending', 'done', 'failed');--
 CREATE TYPE "public"."review_verdict" AS ENUM('comment', 'approve', 'request-changes');--> statement-breakpoint
 CREATE TYPE "public"."check_phase" AS ENUM('waiting', 'reordering', 'checked', 'skipped');--> statement-breakpoint
 CREATE TYPE "public"."workspace_role" AS ENUM('owner', 'admin', 'member');--> statement-breakpoint
-CREATE TYPE "public"."workspace_token_scope" AS ENUM('read', 'plan', 'configure', 'secrets');--> statement-breakpoint
+CREATE TYPE "public"."workspace_token_scope" AS ENUM('read', 'plan', 'configure', 'secrets', 'runners');--> statement-breakpoint
 CREATE TYPE "public"."run_state" AS ENUM('queued', 'claimed', 'completed', 'failed');--> statement-breakpoint
 CREATE TABLE "event_delivery" (
 	"event_id" uuid NOT NULL,
@@ -71,6 +71,7 @@ CREATE TABLE "change_stack" (
 	"facts" jsonb NOT NULL,
 	"check_command" text,
 	"check_setup" text,
+	"check_placement" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"reordering" boolean DEFAULT false NOT NULL,
 	"work_attempts" integer DEFAULT 0 NOT NULL,
 	"work_due_at" timestamp,
@@ -177,6 +178,7 @@ CREATE TABLE "stack_check" (
 	"workspace_id" text NOT NULL,
 	"command" text NOT NULL,
 	"setup" text,
+	"placement" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"phase" "check_phase" NOT NULL,
 	"entries" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"rounds" integer DEFAULT 0 NOT NULL,
@@ -356,11 +358,34 @@ CREATE TABLE "runner" (
 	"workspace_id" text NOT NULL,
 	"name" text NOT NULL,
 	"token_hash" text NOT NULL,
+	"labels" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"trust_id" text,
 	"harnesses" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"advertised_models" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"revoked_at" timestamp,
 	"registered_at" timestamp DEFAULT now() NOT NULL,
 	"last_seen_at" timestamp,
+	"revision" integer DEFAULT 0 NOT NULL,
+	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "runner_trust" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"key" text NOT NULL,
+	"issuer" text NOT NULL,
+	"subject" text NOT NULL,
+	"audience" text NOT NULL,
+	"labels" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"version" integer DEFAULT 0 NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "workspace_runners" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"runners" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"trusts" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -460,6 +485,7 @@ CREATE TABLE "line" (
 	"name" text NOT NULL,
 	"role" text,
 	"reviews" jsonb,
+	"runners" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
@@ -494,6 +520,7 @@ CREATE TABLE "station" (
 	"agent_prompt" text,
 	"check" text,
 	"setup" text,
+	"runners" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"diffs" boolean DEFAULT false NOT NULL,
 	"decisions" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
@@ -532,6 +559,7 @@ CREATE TABLE "run" (
 	"spec" jsonb NOT NULL,
 	"attempt" integer DEFAULT 1 NOT NULL,
 	"target_runner_id" text,
+	"placement" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"claimed_by" text,
 	"lease_expires_at" timestamp,
 	"stop_requested_at" timestamp,
@@ -693,6 +721,10 @@ CREATE UNIQUE INDEX "workspace_token_workspace_name_idx" ON "workspace_token" US
 CREATE INDEX "inbound_delivery_state_idx" ON "inbound_delivery" USING btree ("state","due_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_token_hash_idx" ON "runner" USING btree ("token_hash");--> statement-breakpoint
 CREATE INDEX "runner_workspace_idx" ON "runner" USING btree ("workspace_id");--> statement-breakpoint
+CREATE INDEX "runner_trust_id_idx" ON "runner" USING btree ("trust_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "runner_workspace_name_idx" ON "runner" USING btree ("workspace_id","name") WHERE "runner"."revoked_at" is null;--> statement-breakpoint
+CREATE UNIQUE INDEX "runner_trust_workspace_key_idx" ON "runner_trust" USING btree ("workspace_id","key");--> statement-breakpoint
+CREATE UNIQUE INDEX "workspace_runners_workspace_idx" ON "workspace_runners" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "attachment_claim_task_idx" ON "attachment_claim" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "attachment_claim_chat_idx" ON "attachment_claim" USING btree ("chat_id");--> statement-breakpoint
 CREATE INDEX "chat_team_starter_idx" ON "chat" USING btree ("team_id","started_by_id","updated_at");--> statement-breakpoint

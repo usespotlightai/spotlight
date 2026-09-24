@@ -41,6 +41,10 @@ export const changeStack = pgTable(
     facts: jsonb('facts').$type<StoredFacts>().notNull(),
     checkCommand: text('check_command'),
     checkSetup: text('check_setup'),
+    checkPlacement: jsonb('check_placement')
+      .$type<readonly (readonly string[])[]>()
+      .notNull()
+      .default([]),
     reordering: boolean('reordering').notNull().default(false),
     workAttempts: integer('work_attempts').notNull().default(0),
     workDueAt: timestamp('work_due_at'),

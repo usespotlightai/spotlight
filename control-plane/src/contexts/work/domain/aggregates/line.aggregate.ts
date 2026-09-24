@@ -5,6 +5,7 @@ import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configu
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Station } from '@work/domain/entities/station.entity';
@@ -66,6 +67,7 @@ export interface LineLayout {
   readonly role?: LineRole | null;
   readonly repositories?: readonly Repository[];
   readonly reviews?: ReviewPolicy | null;
+  readonly placement?: RunnerPlacement;
 }
 
 interface LineIdentity {
@@ -86,6 +88,7 @@ export class Line extends EventRecorder {
     readonly role: LineRole | null,
     readonly repositories: LineRepositories,
     readonly reviews: ReviewPolicy | null,
+    readonly placement: RunnerPlacement,
     readonly version: number,
     readonly isRetired = false,
   ) {
@@ -229,6 +232,7 @@ export class Line extends EventRecorder {
       layout.role ?? null,
       LineRepositories.of(layout.repositories ?? []),
       layout.reviews ?? null,
+      layout.placement ?? RunnerPlacement.anywhere(),
       version,
     );
   }
@@ -286,6 +290,7 @@ export class Line extends EventRecorder {
       this.role,
       this.repositories,
       this.reviews,
+      this.placement,
       this.version,
       true,
     );
@@ -319,6 +324,7 @@ export class Line extends EventRecorder {
         role: part.role !== undefined ? part.role : this.role,
         repositories: part.repositories ?? this.repositories.all,
         reviews: part.reviews !== undefined ? part.reviews : this.reviews,
+        placement: part.placement ?? this.placement,
       },
       this.version,
     );
@@ -369,6 +375,12 @@ export class Line extends EventRecorder {
     if (!this.repositories.equals(next.repositories)) {
       next.record(new LineRepositoriesChanged(this.id, next.repositories));
     }
+  }
+
+  placementOf(stationId: StationId): RunnerPlacement {
+    return (
+      this.stationAt(stationId)?.placement.or(this.placement) ?? this.placement
+    );
   }
 
   get harness(): HarnessId | null {

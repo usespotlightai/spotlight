@@ -3,6 +3,7 @@ import type { ChangeStackRepository } from '@change-review/domain/repositories/c
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import type { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   CheckWorkPort,
@@ -20,12 +21,16 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
   claimNext(
     workspaceId: WorkspaceId,
     runner: RunnerId,
+    terms: RunnerTerms,
     now: Date,
   ): Promise<ClaimedCheck | null> {
     return this.transaction.run(async () => {
-      const due = await this.checks.dueForCheck({ workspaceId, runner }, now);
+      const due = await this.checks.dueForCheck(
+        { workspaceId, runner, terms },
+        now,
+      );
 
-      if (!due) {
+      if (!due?.request.placement.admits(terms)) {
         return null;
       }
 

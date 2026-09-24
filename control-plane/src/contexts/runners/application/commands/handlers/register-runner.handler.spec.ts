@@ -6,6 +6,7 @@ import type { RunnerRepository } from '@runners/domain/repositories/runner.repos
 import { RunnerName } from '@runners/domain/value-objects/runner-name.vo';
 import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -21,6 +22,7 @@ const enrolled = () =>
     workspaceId: WorkspaceId.of('ws_1'),
     name: RunnerName.of('runner-1'),
     tokenHash: TokenHash.of('a'.repeat(64)),
+    by: attributedIn('ws_1'),
   });
 
 const registering = (

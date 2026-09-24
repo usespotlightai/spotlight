@@ -20,6 +20,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { CurrentActor } from '@platform/http/decorators/current-actor.decorator';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import {
   EnrolRunnerCommand,
@@ -35,6 +36,7 @@ import {
 import { EnrolRunnerRequestDto } from '@runners/presentation/http/dto/enrol-runner.request.dto';
 import { ConnectedRunnerHttpMapper } from '@runners/presentation/http/mappers/connected-runner.http.mapper';
 import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
+import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 
 @ApiTags('runners')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
@@ -79,13 +81,13 @@ export class RunnerFleetController {
   @ApiForbiddenResponse({ description: 'Not an owner or admin' })
   async enrol(
     @Param('slug') slug: string,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentActor() actor: Actor,
     @Body() body: EnrolRunnerRequestDto,
   ): Promise<EnrolledRunnerResponseDto> {
     const enrolled = await this.commandBus.execute<
       EnrolRunnerCommand,
       EnrolledRunnerDto | null
-    >(new EnrolRunnerCommand(slug, user.id, body.name));
+    >(new EnrolRunnerCommand(slug, actor, body.name));
 
     if (!enrolled) {
       throw new NotFoundException();
@@ -111,10 +113,10 @@ export class RunnerFleetController {
   async revoke(
     @Param('slug') slug: string,
     @Param('runnerId') runnerId: string,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentActor() actor: Actor,
   ): Promise<void> {
     await this.commandBus.execute<RevokeRunnerCommand, void>(
-      new RevokeRunnerCommand(slug, user.id, runnerId),
+      new RevokeRunnerCommand(slug, actor, runnerId),
     );
   }
 }

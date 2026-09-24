@@ -9,9 +9,9 @@ import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fau
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class EnrolRunnerHandler
   implements CommandHandlerPort<EnrolRunnerCommand, EnrolledRunnerDto | null>
@@ -27,10 +27,11 @@ export class EnrolRunnerHandler
     command: EnrolRunnerCommand,
   ): Promise<EnrolledRunnerDto | null> {
     try {
-      const membership = await this.access.inWorkspace(
-        command.slug,
-        UserId.of(command.viewerId),
-      );
+      const { principal } = command.actor;
+      const membership =
+        principal.kind === 'person'
+          ? await this.access.inWorkspace(command.slug, principal.userId)
+          : null;
 
       if (!membership) {
         return null;
@@ -48,6 +49,7 @@ export class EnrolRunnerHandler
         workspaceId: membership.workspaceId,
         name,
         tokenHash: TokenHash.of(minted.hash),
+        by: Attribution.of(command.actor, membership.workspaceId),
       });
 
       await this.runners.add(enrolled);

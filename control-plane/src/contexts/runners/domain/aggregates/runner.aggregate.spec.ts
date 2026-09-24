@@ -1,10 +1,19 @@
 import { Runner } from '@runners/domain/aggregates/runner.aggregate';
+import { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import { RunnerEnrolled } from '@runners/domain/events/runner-enrolled.event';
 import { RunnerRevoked } from '@runners/domain/events/runner-revoked.event';
 import { RevokedRunnerError } from '@runners/domain/exceptions/revoked-runner.error';
+import { RunnerNameFixedError } from '@runners/domain/exceptions/runner-name-fixed.error';
+import { RunnerRevisedError } from '@runners/domain/exceptions/runner-revised.error';
 import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
+import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerName } from '@runners/domain/value-objects/runner-name.vo';
+import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
+import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
+import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
+import { changesConfiguration } from '@shared-kernel/domain/events/configuration-changed';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -19,6 +28,7 @@ const LATER = new Date('2026-08-25T11:00:00.000Z');
 
 const HASH = 'a'.repeat(64);
 const WORKSPACE = WorkspaceId.of('ws_1');
+const BY = attributedIn(WORKSPACE);
 
 const fresh = () =>
   Runner.enrol({
@@ -26,6 +36,7 @@ const fresh = () =>
     workspaceId: WORKSPACE,
     name: RunnerName.of('Laptop'),
     tokenHash: TokenHash.of(HASH),
+    by: BY,
   });
 
 const enrolled = () => {
@@ -75,7 +86,7 @@ describe('Runner', () => {
     expect(
       enrolled()
         .register([has('claude-code')], NOW)
-        .revoke(LATER).offersWork,
+        .revoke(LATER, BY).offersWork,
     ).toBe(false);
   });
 
@@ -136,7 +147,7 @@ describe('Runner', () => {
   });
 
   it('will not hear from a runner whose token was retired', () => {
-    const runner = enrolled().revoke(NOW);
+    const runner = enrolled().revoke(NOW, BY);
 
     expect(() => runner.register([has('claude-code')], LATER)).toThrow(
       RevokedRunnerError,
@@ -156,13 +167,13 @@ describe('Runner', () => {
   });
 
   it('refuses to be seen once its token is revoked', () => {
-    const runner = enrolled().revoke(NOW);
+    const runner = enrolled().revoke(NOW, BY);
 
     expect(() => runner.seen(LATER)).toThrow(RevokedRunnerError);
   });
 
   it('keeps the moment it was first revoked', () => {
-    const events = enrolled().revoke(NOW).revoke(LATER).pullEvents();
+    const events = enrolled().revoke(NOW, BY).revoke(LATER, BY).pullEvents();
 
     expect(events).toHaveLength(1);
     expect(events[0]).toBeInstanceOf(RunnerRevoked);
@@ -171,7 +182,7 @@ describe('Runner', () => {
 
   it('leaves the runner it was revoked from untouched', () => {
     const runner = enrolled();
-    runner.revoke(NOW);
+    runner.revoke(NOW, BY);
 
     expect(runner.pullEvents()).toHaveLength(0);
     expect(runner.revoked).toBe(false);
@@ -207,5 +218,144 @@ describe('Runner', () => {
         version: -1,
       }),
     ).toThrow(InconsistentStateError);
+  });
+
+  it('takes new labels as a new revision, and says so', () => {
+    const redefined = enrolled().redefinedAs(
+      {
+        name: RunnerName.of('Laptop'),
+        labels: RunnerLabels.of(['vpc-internal']),
+        tokenHash: null,
+      },
+      BY,
+    );
+
+    expect(redefined.labels.values).toEqual(['vpc-internal']);
+    expect(redefined.revision).toBe(1);
+    expect(kinds(redefined)).toEqual(['runner.redefined']);
+  });
+
+  it('keeps its name for its whole life', () => {
+    expect(() =>
+      enrolled().redefinedAs(
+        {
+          name: RunnerName.of('Desktop'),
+          labels: RunnerLabels.none(),
+          tokenHash: null,
+        },
+        BY,
+      ),
+    ).toThrow(RunnerNameFixedError);
+  });
+
+  it('refuses a change to a revision no longer current', () => {
+    expect(() => enrolled().expecting(1)).toThrow(RunnerRevisedError);
+  });
+
+  it('takes a new token without becoming a new revision', () => {
+    const rekeyed = enrolled().rekeyed(TokenHash.of('b'.repeat(64)), BY);
+
+    expect(rekeyed.tokenHash.value).toBe('b'.repeat(64));
+    expect(rekeyed.revision).toBe(0);
+    expect(kinds(rekeyed)).toEqual(['runner.rekeyed']);
+  });
+
+  it('records each change to it for the audit, token rotations included', () => {
+    const changes = (runner: Runner) =>
+      runner
+        .pullEvents()
+        .filter(changesConfiguration)
+        .map(({ change }) => [
+          change.action,
+          change.key,
+          change.recordedDetail,
+        ]);
+
+    expect(changes(fresh())).toEqual([['created', 'Laptop', {}]]);
+    expect(
+      changes(
+        enrolled().redefinedAs(
+          {
+            name: RunnerName.of('Laptop'),
+            labels: RunnerLabels.none(),
+            tokenHash: TokenHash.of('b'.repeat(64)),
+          },
+          BY,
+        ),
+      ),
+    ).toEqual([['updated', 'Laptop', { rekeyed: true }]]);
+    expect(changes(enrolled().revoke(NOW, BY))).toEqual([
+      ['deleted', 'Laptop', {}],
+    ]);
+  });
+
+  it('takes no new token once revoked', () => {
+    expect(() =>
+      enrolled()
+        .revoke(NOW, BY)
+        .rekeyed(TokenHash.of('b'.repeat(64)), BY),
+    ).toThrow(RevokedRunnerError);
+  });
+
+  describe('standing under a trust', () => {
+    const TRUST_ID = RunnerTrustId.of('trust_1');
+    const trust = (id = TRUST_ID) =>
+      RunnerTrust.rehydrate({
+        id,
+        workspaceId: WORKSPACE,
+        key: TrustKey.of('production'),
+        workload: TrustedWorkload.of({
+          issuer: 'https://oidc.example.com',
+          subject: 'runner',
+          audience: 'spotlight',
+        }),
+        labels: RunnerLabels.of(['vpc-internal', 'gpu']),
+        version: 0,
+      });
+    const trusted = () =>
+      Runner.enrol({
+        id: RunnerId.of('runner_2'),
+        workspaceId: WORKSPACE,
+        name: RunnerName.of('pod-a'),
+        tokenHash: TokenHash.of(HASH),
+        labels: RunnerLabels.of(['gpu']),
+        trustId: TRUST_ID,
+        by: BY,
+      });
+
+    it('answers to its name, its own labels and its trust’s, each once', () => {
+      expect(trusted().termsWith(trust()).values).toEqual([
+        'pod-a',
+        'gpu',
+        'vpc-internal',
+      ]);
+    });
+
+    it('answers only to its name and labels without the trust it enrolled through', () => {
+      expect(trusted().termsWith(null).values).toEqual(['pod-a', 'gpu']);
+      expect(
+        trusted().termsWith(trust(RunnerTrustId.of('trust_2'))).values,
+      ).toEqual(['pod-a', 'gpu']);
+    });
+
+    it('stands only while the trust it enrolled through stands', () => {
+      expect(trusted().standsWith(trust())).toBe(true);
+      expect(trusted().standsWith(null)).toBe(false);
+      expect(trusted().standsWith(trust().withdrawn(BY))).toBe(false);
+      expect(trusted().standsWith(trust(RunnerTrustId.of('trust_2')))).toBe(
+        false,
+      );
+    });
+
+    it('leaves holding its workspace to its trust, where one enrolled it by hand holds it until revoked', () => {
+      expect(trusted().holdsWorkspace).toBe(false);
+      expect(enrolled().holdsWorkspace).toBe(true);
+      expect(enrolled().revoke(NOW, BY).holdsWorkspace).toBe(false);
+    });
+
+    it('stands with no trust when it was enrolled by hand, until revoked', () => {
+      expect(enrolled().standsWith(null)).toBe(true);
+      expect(enrolled().revoke(NOW, BY).standsWith(null)).toBe(false);
+    });
   });
 });

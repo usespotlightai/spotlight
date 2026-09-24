@@ -2,11 +2,13 @@ import type {
   CatalogGiving,
   CatalogNamed,
 } from '@catalog/application/contracts/catalog.contract';
+import type { RunnerPresencePort } from '@runners/application/ports/runner-presence.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -262,6 +264,9 @@ const dispatch = async (
     integrations,
     { ofTask: async () => [] },
     catalog,
+    {
+      termsOf: async () => RunnerTerms.none(),
+    } as unknown as RunnerPresencePort,
   );
   const working = standing ?? task(station.id.value);
   const line = held(station, repositories);

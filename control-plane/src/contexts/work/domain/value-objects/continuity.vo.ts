@@ -1,4 +1,6 @@
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
+import type { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import type { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 
@@ -19,6 +21,13 @@ export class Continuity {
       input.sessionId ?? null,
       input.pinnedTo ?? null,
     );
+  }
+
+  pinnedWithin(
+    placement: RunnerPlacement,
+    pinned: RunnerTerms,
+  ): RunnerId | null {
+    return this.pinnedTo && placement.admits(pinned) ? this.pinnedTo : null;
   }
 
   equals(other: Continuity): boolean {

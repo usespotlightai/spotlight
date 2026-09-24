@@ -21,12 +21,14 @@ import {
 import { stackCheck } from '@change-review/infrastructure/persistence/drizzle/schemas/stack-check.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { everyClauseMet } from '@platform/persistence/drizzle/every-clause-met';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, gt, inArray, isNull, lt, lte, or } from 'drizzle-orm';
 
@@ -37,7 +39,11 @@ const toStackCheck = (row: Row): StackCheck =>
     stackId: ChangeStackId.of(row.stackId),
     runId: RunId.of(row.runId),
     workspaceId: WorkspaceId.of(row.workspaceId),
-    request: CheckRequest.of(row.command, row.setup),
+    request: CheckRequest.of(
+      row.command,
+      row.setup,
+      RunnerPlacement.ofClauses(row.placement),
+    ),
     phase: row.phase,
     entries: row.entries.map(entryOf),
     rounds: row.rounds,
@@ -97,6 +103,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
           workspaceId: added.workspaceId.value,
           command: added.request.command,
           setup: added.request.setup,
+          placement: added.request.placement.clauses,
           version: added.version,
           ...valuesOf(added),
         })
@@ -157,6 +164,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
             lte(stackCheck.leaseExpiresAt, now),
           ),
           lt(stackCheck.attempts, MOST_CHECK_ATTEMPTS),
+          everyClauseMet(stackCheck.placement, by.terms.values),
         ),
       )
       .orderBy(asc(stackCheck.waitingSince))

@@ -1,6 +1,7 @@
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { StationKind } from '@work/domain/entities/station.entity';
 import { InvalidLinePlanError } from '@work/domain/exceptions/invalid-line-plan.error';
 import {
@@ -41,6 +42,7 @@ export interface StationPlan {
   readonly agentPrompt: AgentPrompt | null;
   readonly check: StationCheck | null;
   readonly setup: StationSetup | null;
+  readonly placement: RunnerPlacement;
   readonly diffs: boolean;
   readonly decisions: boolean;
   readonly tools: readonly Tool[];
@@ -64,6 +66,7 @@ export class LinePlan {
     readonly role: LineRole | null,
     readonly repositories: readonly Repository[],
     readonly reviews: ReviewPolicy | null,
+    readonly placement: RunnerPlacement,
   ) {}
 
   static of(input: {
@@ -74,6 +77,7 @@ export class LinePlan {
     role?: LineRole | null;
     repositories?: readonly Repository[];
     reviews?: ReviewPolicy | null;
+    placement?: RunnerPlacement;
   }): LinePlan {
     const reactions = input.reactions ?? [];
     const laid = stationsRefused(
@@ -154,6 +158,7 @@ export class LinePlan {
       input.role ?? null,
       input.repositories ?? [],
       input.reviews ?? null,
+      input.placement ?? RunnerPlacement.anywhere(),
     );
   }
 

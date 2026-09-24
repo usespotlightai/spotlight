@@ -36,7 +36,7 @@ export class Work implements WorkPort {
         workspaceId: run.workspaceId,
         taskId: run.taskId,
         request: run.check?.trim()
-          ? CheckRequest.of(run.check, run.setup)
+          ? CheckRequest.of(run.check, run.setup, run.placement)
           : null,
         ended: run.ended,
         completed: run.completed,

@@ -26,6 +26,7 @@ describe('Clearance of a token’s scopes', () => {
       plans: cleared.plans,
       configures: cleared.configures,
       managesSecrets: cleared.managesSecrets,
+      managesRunners: cleared.managesRunners,
       administers: cleared.administers,
     };
   };
@@ -36,13 +37,14 @@ describe('Clearance of a token’s scopes', () => {
     [['configure'], true, true],
     [['read', 'configure'], true, true],
   ])(
-    'climbs the ladder for %j without managing secrets or administering',
+    'climbs the ladder for %j without managing secrets or runners, or administering',
     (scopes, plans, configures) => {
       expect(granted(scopes)).toEqual({
         reads: true,
         plans,
         configures,
         managesSecrets: false,
+        managesRunners: false,
         administers: false,
       });
     },
@@ -58,6 +60,23 @@ describe('Clearance of a token’s scopes', () => {
         reads: true,
         configures,
         managesSecrets: true,
+        managesRunners: false,
+        administers: false,
+      });
+    },
+  );
+
+  it.each([
+    [['read', 'runners'], false],
+    [['configure', 'runners'], true],
+  ])(
+    'manages runners for %j, without secrets, and still never administers',
+    (scopes, configures) => {
+      expect(granted(scopes)).toMatchObject({
+        reads: true,
+        configures,
+        managesSecrets: false,
+        managesRunners: true,
         administers: false,
       });
     },
@@ -76,6 +95,7 @@ describe('Clearance beyond any one workspace', () => {
   it.each([
     [['read'], false],
     [['read', 'secrets'], false],
+    [['read', 'runners'], false],
     [['plan'], true],
     [['configure', 'secrets'], true],
   ])(
