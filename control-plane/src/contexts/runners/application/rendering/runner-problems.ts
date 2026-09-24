@@ -1,4 +1,5 @@
 import type { RunnerNameFixedError } from '@runners/domain/exceptions/runner-name-fixed.error';
+import type { RunnerTokenSpentError } from '@runners/domain/exceptions/runner-token-spent.error';
 import type { RunnerTokenTakenError } from '@runners/domain/exceptions/runner-token-taken.error';
 import type { RunnerTrustKeyFixedError } from '@runners/domain/exceptions/runner-trust-key-fixed.error';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
@@ -19,7 +20,9 @@ export const RunnerProblems = {
     });
   },
 
-  tokenTaken(error: RunnerTokenTakenError): ConfigurationProblem {
+  tokenRefused(
+    error: RunnerTokenTakenError | RunnerTokenSpentError,
+  ): ConfigurationProblem {
     return ConfigurationProblem.of({
       path: RUNNER,
       at: FieldPath.of([error.field]),

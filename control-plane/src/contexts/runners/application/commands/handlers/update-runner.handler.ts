@@ -5,8 +5,10 @@ import { RunnerProblems } from '@runners/application/rendering/runner-problems';
 import { reviseRunner } from '@runners/application/services/runner-revisions';
 import { RunnerNameFixedError } from '@runners/domain/exceptions/runner-name-fixed.error';
 import { RunnerRevisedError } from '@runners/domain/exceptions/runner-revised.error';
+import { RunnerTokenSpentError } from '@runners/domain/exceptions/runner-token-spent.error';
 import { RunnerTokenTakenError } from '@runners/domain/exceptions/runner-token-taken.error';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
+import { refuseTokenHeldElsewhere } from '@runners/domain/services/token-holding';
 import {
   forbiddenTo,
   type ResourceUpdated,
@@ -62,6 +64,13 @@ export class UpdateRunnerHandler
         : null;
       const by = Attribution.of(command.actor, cleared.workspaceId);
 
+      if (tokenHash) {
+        refuseTokenHeldElsewhere(
+          await this.runners.findByTokenHash(tokenHash),
+          id,
+        );
+      }
+
       await reviseRunner(this.runners, id, (runner) => {
         runner.expecting(command.expectedVersion);
 
@@ -88,10 +97,13 @@ export class UpdateRunnerHandler
         };
       }
 
-      if (error instanceof RunnerTokenTakenError) {
+      if (
+        error instanceof RunnerTokenTakenError ||
+        error instanceof RunnerTokenSpentError
+      ) {
         return {
           outcome: 'invalid',
-          problems: [RunnerProblems.tokenTaken(error)],
+          problems: [RunnerProblems.tokenRefused(error)],
         };
       }
 

@@ -3,7 +3,6 @@ import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { eq, inArray } from 'drizzle-orm';
-import request from 'supertest';
 import {
   afterAll,
   afterEach,
@@ -13,7 +12,7 @@ import {
   expect,
   it,
 } from 'vitest';
-import { openApp, TEST_USER_HEADER } from './support/app';
+import { openApp, served, TEST_USER_HEADER } from './support/app';
 import {
   conformsAsResource,
   type ResourceFixture,
@@ -121,7 +120,7 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
   let seat: Awaited<ReturnType<typeof seats>>;
   let tokens: Record<'read' | 'plan' | 'configure' | 'secrets', string>;
 
-  const http = () => request(app.getHttpServer());
+  const http = () => served(app);
 
   const issue = async (scopes: readonly string[], name = scopes.join('-')) => {
     const answer = await http()
@@ -248,6 +247,7 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
       title: 'Not allowed to plan',
       detail:
         'Checking an expression is planning, which this token’s scopes do not allow',
+      permission: 'plan',
     });
   });
 
@@ -386,7 +386,14 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
       bindings: [{ host: 'attacker.example' }],
     };
 
-    expect((await as(tokens.configure).post(secrets, linear)).status).toBe(403);
+    const refused = await as(tokens.configure).post(secrets, linear);
+
+    expect(refused.status).toBe(403);
+    expect(refused.body).toMatchObject({
+      ...FORBIDDEN_PROBLEM,
+      title: 'Not allowed to change the secret',
+      permission: 'manage-secrets',
+    });
 
     const made = await as(tokens.secrets).post(secrets, linear);
     const item = `/api/resources/secrets/${made.body.id}`;

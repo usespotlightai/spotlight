@@ -1,4 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { FORBIDDEN_ACTS } from '@platform/http/resources/problem.exception';
+import type { ForbiddenAct } from '@shared-kernel/application/dto/resource-outcomes.dto';
 
 export class FieldErrorResponseDto {
   @ApiProperty({
@@ -46,4 +48,12 @@ export class ProblemResponseDto {
     description: 'The version the resource is at now, when a write conflicted',
   })
   readonly currentVersion?: number;
+
+  @ApiPropertyOptional({
+    enum: FORBIDDEN_ACTS,
+    example: 'manage-secrets',
+    description:
+      'The permission the caller lacks, when it was refused as forbidden: one its role in the workspace, or its token’s scopes, do not grant',
+  })
+  readonly permission?: ForbiddenAct;
 }

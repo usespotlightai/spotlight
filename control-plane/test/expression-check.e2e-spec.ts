@@ -3,9 +3,8 @@ import {
   API_VERSION,
   PROBLEM_CONTENT_TYPE,
 } from '@platform/http/resources/resource-headers';
-import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { openApp, TEST_USER_HEADER } from './support/app';
+import { openApp, served, TEST_USER_HEADER } from './support/app';
 
 const WHEN = 'integration.webhook.events[0].when';
 
@@ -41,7 +40,7 @@ describe('checking expressions for a plan', () => {
   let app: INestApplication;
 
   const check = (body: object) =>
-    request(app.getHttpServer())
+    served(app)
       .post('/api/expressions/check')
       .set(TEST_USER_HEADER, 'expression-checker')
       .send({ definition: DEFINITION, ...body });
@@ -136,7 +135,7 @@ describe('checking expressions for a plan', () => {
   });
 
   it('lists every position with what it sees', async () => {
-    const answer = await request(app.getHttpServer())
+    const answer = await served(app)
       .get('/api/expressions/positions')
       .set(TEST_USER_HEADER, 'expression-checker');
 
@@ -151,7 +150,7 @@ describe('checking expressions for a plan', () => {
   });
 
   it('answers only a signed-in caller', async () => {
-    const answer = await request(app.getHttpServer())
+    const answer = await served(app)
       .post('/api/expressions/check')
       .send({ position: WHEN, expression: 'true', definition: DEFINITION });
 

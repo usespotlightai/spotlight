@@ -22,7 +22,6 @@ import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
 import { eq } from 'drizzle-orm';
-import request from 'supertest';
 import {
   afterAll,
   afterEach,
@@ -32,7 +31,7 @@ import {
   expect,
   it,
 } from 'vitest';
-import { openApp, TEST_USER_HEADER } from './support/app';
+import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { definitionOf } from './support/line-definition';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
@@ -57,7 +56,7 @@ describe('the catalog, read as Terraform data sources (e2e)', () => {
     query: Record<string, string>,
     as: string = seat.member,
   ) =>
-    request(app.getHttpServer())
+    served(app)
       .get(`/api/resources/workspaces/${workspace}/catalog/${kind}`)
       .query(query)
       .set(TEST_USER_HEADER, as);
@@ -181,13 +180,13 @@ describe('the catalog, read as Terraform data sources (e2e)', () => {
   it('answers a workspace token that may read the workspace', async () => {
     await onPlan('team');
 
-    const issued = await request(app.getHttpServer())
+    const issued = await served(app)
       .post(`/api/resources/workspaces/${workspace}/tokens`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', randomUUID())
       .send({ name: 'terraform', scopes: ['read'] });
 
-    const answer = await request(app.getHttpServer())
+    const answer = await served(app)
       .get(`/api/resources/workspaces/${workspace}/catalog/tools`)
       .query({ name: 'web-search', version: '~> 1.0' })
       .set(
@@ -284,7 +283,7 @@ describe('a station giving catalog tools and skills (e2e)', () => {
     db.insert(schema.workspacePlan).values({ workspaceId: team, plan: 'team' });
 
   const created = (body: object) =>
-    request(app.getHttpServer())
+    served(app)
       .post(`/api/resources/teams/${team}/lines`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', randomUUID())
@@ -321,7 +320,7 @@ describe('a station giving catalog tools and skills (e2e)', () => {
 
   it('keeps the versions it names, so an upgrade reads back as a change to the station', async () => {
     await onTheTeamPlan();
-    const http = request(app.getHttpServer());
+    const http = served(app);
     const made = await http
       .post(`/api/resources/teams/${team}/lines`)
       .set(TEST_USER_HEADER, seat.owner)
@@ -351,7 +350,7 @@ describe('a station giving catalog tools and skills (e2e)', () => {
   });
 
   it('refuses one catalog tool named at two versions, pointing at the station', async () => {
-    const refused = await request(app.getHttpServer())
+    const refused = await served(app)
       .post(`/api/resources/teams/${team}/lines`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', randomUUID())

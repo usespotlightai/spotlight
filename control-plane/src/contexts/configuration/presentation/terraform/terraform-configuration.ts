@@ -508,11 +508,11 @@ const secret = (
       ),
       attribute('bindings', hclOf(held.bindings)),
       ...(held.keepsValue
-        ? [
-            attribute('value_wo', HclExpression.traversal('var', value)),
-            attribute('value_wo_version', held.valueVersion ?? 1),
-          ]
+        ? [attribute('value_wo', HclExpression.traversal('var', value))]
         : []),
+      ...(held.valueVersion === null
+        ? []
+        : [attribute('value_wo_version', held.valueVersion)]),
     ],
     {
       variables: held.keepsValue

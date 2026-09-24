@@ -27,18 +27,26 @@ async function request(
   const middleware =
     through === 'auth' ? httpLogger : pinoHttp(params.pinoHttp as Options);
 
-  const server: Server = createServer((req, res) => {
-    middleware(req, res, () => undefined);
-    req.log.info('handling request');
-    res.setHeader('set-cookie', `${SESSION_COOKIE}; Path=/; HttpOnly`);
-    res.end('ok');
+  const server: Server = createServer();
+  const answered = new Promise<void>((resolve) => {
+    server.on('request', (req, res) => {
+      middleware(req, res, () => undefined);
+      res.on('close', resolve);
+      req.log.info('handling request');
+      res.setHeader('set-cookie', `${SESSION_COOKIE}; Path=/; HttpOnly`);
+      res.end('ok');
+    });
   });
 
   try {
-    await new Promise<void>((resolve) => server.listen(0, resolve));
+    await new Promise<void>((resolve) =>
+      server.listen(0, '127.0.0.1', resolve),
+    );
     const { port } = server.address() as AddressInfo;
-    await fetch(`http://127.0.0.1:${port}${path}`, { headers });
-    await new Promise((resolve) => setImmediate(resolve));
+    await Promise.all([
+      fetch(`http://127.0.0.1:${port}${path}`, { headers }),
+      answered,
+    ]);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

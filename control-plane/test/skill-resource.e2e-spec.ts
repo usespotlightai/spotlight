@@ -8,7 +8,6 @@ import {
   type TeamSkillsPort,
 } from '@work/application/ports/team-skills.port';
 import { eq, inArray } from 'drizzle-orm';
-import request from 'supertest';
 import {
   afterAll,
   afterEach,
@@ -18,7 +17,7 @@ import {
   expect,
   it,
 } from 'vitest';
-import { openApp, TEST_USER_HEADER } from './support/app';
+import { openApp, served, TEST_USER_HEADER } from './support/app';
 import {
   conformsAsResource,
   type ResourceFixture,
@@ -88,7 +87,7 @@ describe('a skill, created through the resource API (e2e)', () => {
   let teamId: string;
 
   const create = (body: object) =>
-    request(app.getHttpServer())
+    served(app)
       .post(fixture.collection)
       .set(TEST_USER_HEADER, fixture.admin)
       .set('Idempotency-Key', randomUUID())
@@ -176,7 +175,7 @@ describe('a skill, created through the resource API (e2e)', () => {
       .insert(schema.stationSkill)
       .values({ stationId, skill: 'grafana', position: 0 });
 
-    const refused = await request(app.getHttpServer())
+    const refused = await served(app)
       .delete(fixture.item(made.body.id))
       .set(TEST_USER_HEADER, fixture.admin)
       .set('If-Match', `"${made.body.version}"`);

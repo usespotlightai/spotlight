@@ -103,6 +103,41 @@ describe('resource answers', () => {
     });
   });
 
+  it.each([
+    ['configure', 'Not allowed to change the secret'],
+    ['manage-secrets', 'Not allowed to change the secret'],
+    ['manage-runners', 'Not allowed to change the secret'],
+    ['administer', 'Not allowed to administer the secret'],
+  ] as const)(
+    'names the permission %s a refusal lacked, whatever its title says',
+    async (act, title) => {
+      for (const refusing of [
+        () => answerCreated('secret', forbiddenTo(act), answer),
+        () => answerUpdated('secret', forbiddenTo(act), answer),
+        () => answerDeleted('secret', forbiddenTo(act)),
+      ]) {
+        expect(await problemOf(refusing)).toMatchObject({
+          type: 'urn:spotlight:problem:forbidden',
+          status: 403,
+          title,
+          permission: act,
+        });
+      }
+    },
+  );
+
+  it('names no permission on a problem that is not a refusal', async () => {
+    expect(
+      await problemOf(() =>
+        answerUpdated(
+          'line',
+          { outcome: 'moved-on', currentVersion: 4 },
+          answer,
+        ),
+      ),
+    ).not.toHaveProperty('permission');
+  });
+
   it('answers a delete with nothing, and refuses one that did not happen', async () => {
     expect(answerDeleted('line', { outcome: 'deleted' })).toBeUndefined();
     expect(

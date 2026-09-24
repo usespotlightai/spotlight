@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { buildOpenApiDocument } from '@platform/http/openapi';
+import { FORBIDDEN_ACTS } from '@platform/http/resources/problem.exception';
 import {
   RESOURCE_OPERATIONS,
   type ResourceOperation,
@@ -10,7 +11,7 @@ import {
   PROBLEM_CONTENT_TYPE,
   RESOURCE_EXTENSION,
 } from '@platform/http/resources/resource-headers';
-import request, { type Response } from 'supertest';
+import type { Response, Test } from 'supertest';
 import {
   afterAll,
   afterEach,
@@ -20,7 +21,7 @@ import {
   expect,
   it,
 } from 'vitest';
-import { openApp, TEST_USER_HEADER } from './app';
+import { openApp, served, TEST_USER_HEADER } from './app';
 
 type Body = Readonly<Record<string, unknown>>;
 
@@ -105,8 +106,8 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
     let fixture: ResourceFixture;
 
     const as = (user: string | null) => {
-      const http = request(app.getHttpServer());
-      const signed = <T extends request.Test>(test: T): T =>
+      const http = served(app);
+      const signed = <T extends Test>(test: T): T =>
         (user ? test.set(TEST_USER_HEADER, user) : test) as T;
 
       return {
@@ -416,16 +417,21 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
 
       expect((await viewer.read(made.id)).body).toEqual(made);
 
-      if (!fixture.anyoneCreates) {
-        problem(await viewer.create(fixture.changed), 403, 'forbidden');
-      }
+      const refusals = [
+        ...(fixture.anyoneCreates
+          ? []
+          : [problem(await viewer.create(fixture.changed), 403, 'forbidden')]),
+        problem(
+          await viewer.update(made.id, fixture.changed, made.version),
+          403,
+          'forbidden',
+        ),
+        problem(await viewer.remove(made.id, made.version), 403, 'forbidden'),
+      ];
 
-      problem(
-        await viewer.update(made.id, fixture.changed, made.version),
-        403,
-        'forbidden',
-      );
-      problem(await viewer.remove(made.id, made.version), 403, 'forbidden');
+      for (const refusal of refusals) {
+        expect(FORBIDDEN_ACTS).toContain(refusal.permission);
+      }
     });
 
     it('answers someone with no credentials with a problem', async () => {

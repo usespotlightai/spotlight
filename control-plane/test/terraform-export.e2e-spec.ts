@@ -1,5 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import type { HeldResourceDto } from '@configuration/application/dto/held-configuration.dto';
+import { HELD } from '@configuration/presentation/terraform/held-configuration.fake-spec';
+import { workspaceTerraform } from '@configuration/presentation/terraform/terraform-configuration';
 import type { INestApplication } from '@nestjs/common';
+import { blockOf } from '@platform/hcl/hcl-block.fake-spec';
 import {
   formattedByTerraform,
   TERRAFORM_INSTALLED,
@@ -11,7 +15,6 @@ import {
   type LineOpening,
 } from '@work/domain/services/built-in-lines';
 import { eq, inArray } from 'drizzle-orm';
-import request from 'supertest';
 import {
   afterAll,
   afterEach,
@@ -21,7 +24,7 @@ import {
   expect,
   it,
 } from 'vitest';
-import { openApp, TEST_USER_HEADER } from './support/app';
+import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { definitionOf } from './support/line-definition';
 import { forgetRunnersOf } from './support/runners';
 import * as schema from './support/schema';
@@ -108,7 +111,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
   let seat: Awaited<ReturnType<typeof seatTeam>>;
   const made: Record<string, string> = {};
 
-  const http = () => request(app.getHttpServer());
+  const http = () => served(app);
 
   const as = (user: string) => ({
     get: (path: string) => http().get(path).set(TEST_USER_HEADER, user),
@@ -301,6 +304,36 @@ describe('a workspace exported as Terraform (e2e)', () => {
     expect(variables).toContain('variable "runner_build-1_token" {');
   });
 
+  it('writes each secret’s value version exactly as the API answers it, so adopting one plans no rotation', async () => {
+    const unversioned = await as(seat.owner).post(
+      `/api/resources/workspaces/${held}/secrets`,
+      {
+        name: 'SENTRY_TOKEN',
+        bindings: [{ host: 'sentry.io', prefix: 'Bearer ' }],
+        valueWo: VALUE,
+      },
+    );
+
+    expect(unversioned.status).toBe(201);
+
+    const main = fileOf(await exported(), 'main.tf');
+
+    for (const id of [made.secret, unversioned.body.id]) {
+      const answered = await as(seat.owner).get(`/api/resources/secrets/${id}`);
+      const block = blockOf(
+        main,
+        `resource "spotlight_secret" "${answered.body.name.toLowerCase()}"`,
+      );
+
+      expect(block).toMatch(/\n {2}value_wo += var\.secret_/);
+      expect(block.match(/value_wo_version += (\d+)/)?.[1] ?? null).toBe(
+        answered.body.valueWoVersion === null
+          ? null
+          : String(answered.body.valueWoVersion),
+      );
+    }
+  });
+
   it('keeps each prompt and skill file byte for byte', async () => {
     const files = await exported();
 
@@ -436,4 +469,193 @@ describe('a workspace exported as Terraform (e2e)', () => {
       }
     },
   );
+});
+
+const bodyOf = (held: HeldResourceDto): object => {
+  switch (held.kind) {
+    case 'workspace':
+      return { slug: held.slug, name: held.name };
+    case 'team':
+      return { key: held.key, name: held.name };
+    case 'secret':
+      return {
+        name: held.name,
+        source: {
+          kind: held.source.kind,
+          ...(held.source.secretId ? { secretId: held.source.secretId } : {}),
+          ...(held.source.field ? { field: held.source.field } : {}),
+        },
+        bindings: held.bindings,
+        ...(held.keepsValue ? { valueWo: VALUE } : {}),
+        ...(held.valueVersion === null
+          ? {}
+          : { valueWoVersion: held.valueVersion }),
+      };
+    case 'runner':
+      return { name: held.name, labels: held.labels };
+    case 'runner-trust':
+      return {
+        key: held.key,
+        issuer: held.issuer,
+        subject: held.subject,
+        audience: held.audience,
+        labels: held.labels,
+      };
+    case 'workspace-runners':
+      return { runners: held.runners, trusts: held.trusts };
+    case 'line':
+    case 'integration':
+      return held.definition;
+    case 'skill':
+      return { key: held.key, files: held.files };
+    case 'harness-profile':
+      return {
+        key: held.key,
+        permissions: held.permissions,
+        mcpServers: held.mcpServers,
+        native: held.native,
+      };
+  }
+};
+
+const COLLECTIONS: Readonly<
+  Record<Exclude<HeldResourceDto['kind'], 'workspace'>, string>
+> = {
+  secret: 'secrets',
+  runner: 'runners',
+  'runner-trust': 'runner-trusts',
+  'workspace-runners': 'workspace-runners',
+  team: 'teams',
+  skill: 'skills',
+  integration: 'integrations',
+  'harness-profile': 'harness-profiles',
+  line: 'lines',
+};
+
+const CREATION_ORDER = Object.keys(COLLECTIONS);
+
+describe('the configuration the export spec renders (e2e)', () => {
+  let app: INestApplication;
+  let db: DrizzleDatabase;
+  let held: string;
+  let seat: Awaited<ReturnType<typeof seatTeam>>;
+  const teams = new Map<string, string>();
+
+  beforeAll(async () => {
+    app = await openApp();
+    db = app.get<DrizzleDatabase>(DRIZZLE);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(async () => {
+    held = `fixture-${randomUUID().slice(0, 8)}`;
+    seat = await seatTeam(db, held);
+    teams.clear();
+    await db
+      .insert(schema.workspacePlan)
+      .values({ workspaceId: held, plan: 'team' });
+  });
+
+  afterEach(async () => {
+    const teamIds = [held, ...teams.values()];
+
+    await db
+      .delete(schema.integrationDefinition)
+      .where(inArray(schema.integrationDefinition.teamId, teamIds));
+    await db.delete(schema.line).where(inArray(schema.line.teamId, teamIds));
+    await db
+      .delete(schema.skillDefinition)
+      .where(inArray(schema.skillDefinition.teamId, teamIds));
+    await db
+      .delete(schema.harnessProfile)
+      .where(inArray(schema.harnessProfile.teamId, teamIds));
+    await db.delete(schema.secret).where(eq(schema.secret.workspaceId, held));
+    await db
+      .delete(schema.secretDataKey)
+      .where(eq(schema.secretDataKey.workspaceId, held));
+    await db
+      .delete(schema.configurationChange)
+      .where(eq(schema.configurationChange.workspaceId, held));
+    await db
+      .delete(schema.idempotentCreate)
+      .where(eq(schema.idempotentCreate.scope, `person:${seat.owner}`));
+    await db
+      .delete(schema.workspacePlan)
+      .where(eq(schema.workspacePlan.workspaceId, held));
+    await forgetRunnersOf(db, held);
+    await seat.unseat();
+  });
+
+  it('is configuration the API accepts, and exports exactly as the spec renders it', async () => {
+    const creating = HELD.resources
+      .filter(
+        (each): each is Exclude<HeldResourceDto, { kind: 'workspace' }> =>
+          each.kind !== 'workspace',
+      )
+      .sort(
+        (one, other) =>
+          CREATION_ORDER.indexOf(one.kind) - CREATION_ORDER.indexOf(other.kind),
+      );
+
+    for (const each of creating) {
+      const owner =
+        each.heldBy === 'team'
+          ? `teams/${teams.get(each.teamKey)}`
+          : `workspaces/${held}`;
+      const created = await served(app)
+        .post(`/api/resources/${owner}/${COLLECTIONS[each.kind]}`)
+        .set(TEST_USER_HEADER, seat.owner)
+        .set('Idempotency-Key', randomUUID())
+        .send(bodyOf(each));
+
+      expect(
+        created.status,
+        `${each.kind} ${each.address}: ${JSON.stringify(created.body)}`,
+      ).toBe(201);
+
+      if (each.kind === 'team') {
+        teams.set(each.key, created.body.id);
+      }
+    }
+
+    const exported = await served(app)
+      .get(`/api/resources/workspaces/${held}/export`)
+      .set(TEST_USER_HEADER, seat.owner);
+
+    expect(exported.body.files).toEqual(
+      workspaceTerraform({
+        workspaceId: held,
+        workspaceSlug: held,
+        resources: [
+          ...HELD.resources.map((each) => {
+            switch (each.kind) {
+              case 'workspace':
+                return {
+                  ...each,
+                  id: held,
+                  address: held,
+                  slug: held,
+                  name: held,
+                };
+              case 'workspace-runners':
+                return { ...each, address: held };
+              default:
+                return each;
+            }
+          }),
+          {
+            kind: 'team',
+            heldBy: 'workspace',
+            id: held,
+            address: 'team',
+            key: 'team',
+            name: held,
+          },
+        ],
+      }),
+    );
+  });
 });

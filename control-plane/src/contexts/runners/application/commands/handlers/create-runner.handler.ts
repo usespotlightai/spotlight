@@ -5,8 +5,10 @@ import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-de
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
 import { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import { RunnerNameTakenError } from '@runners/domain/exceptions/runner-name-taken.error';
+import { RunnerTokenSpentError } from '@runners/domain/exceptions/runner-token-spent.error';
 import { RunnerTokenTakenError } from '@runners/domain/exceptions/runner-token-taken.error';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
+import { refuseTokenHeldElsewhere } from '@runners/domain/services/token-holding';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -82,13 +84,21 @@ export class CreateRunnerHandler
       try {
         const created = await this.transaction.run(() =>
           createdOnce(this.creates, create, async () => {
+            const id = RunnerId.of(this.ids.generate());
+            const tokenHash = TokenHash.of(given.hash);
+
+            refuseTokenHeldElsewhere(
+              await this.runners.findByTokenHash(tokenHash),
+              id,
+            );
+
             const enrolled = Runner.enrol({
-              id: RunnerId.of(this.ids.generate()),
+              id,
               workspaceId: cleared.workspaceId,
               by: Attribution.of(command.actor, cleared.workspaceId),
               name: compiled.name,
               labels: compiled.labels,
-              tokenHash: TokenHash.of(given.hash),
+              tokenHash,
             });
 
             await this.runners.add(enrolled);
@@ -112,11 +122,14 @@ export class CreateRunnerHandler
           };
         }
 
-        if (error instanceof RunnerTokenTakenError) {
+        if (
+          error instanceof RunnerTokenTakenError ||
+          error instanceof RunnerTokenSpentError
+        ) {
           return {
             created: {
               outcome: 'invalid',
-              problems: [RunnerProblems.tokenTaken(error)],
+              problems: [RunnerProblems.tokenRefused(error)],
             },
             token: null,
           };

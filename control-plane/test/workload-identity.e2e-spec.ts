@@ -9,7 +9,6 @@ import {
 } from '@runners/infrastructure/workload/workload-issuer.fake-spec';
 import { RUNNER_TOKEN_HEADER } from '@runners/presentation/http/controllers/runner-resource.controller';
 import { eq } from 'drizzle-orm';
-import request from 'supertest';
 import {
   afterAll,
   afterEach,
@@ -19,7 +18,7 @@ import {
   expect,
   it,
 } from 'vitest';
-import { openApp, TEST_USER_HEADER } from './support/app';
+import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { forgetRunnersOf } from './support/runners';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
@@ -34,7 +33,7 @@ describe('a runner enrolling as a platform workload, with no token (e2e)', () =>
   let owner: string;
   let unseat: () => Promise<void>;
 
-  const http = () => request(app.getHttpServer());
+  const http = () => served(app);
 
   const trusted = async (labels: string[] = ['vpc-internal']) => {
     const made = await http()

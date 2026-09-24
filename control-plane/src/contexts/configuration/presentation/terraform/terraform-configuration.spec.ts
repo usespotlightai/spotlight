@@ -1,263 +1,19 @@
-import type {
-  HeldConfigurationDto,
-  HeldResourceDto,
-} from '@configuration/application/dto/held-configuration.dto';
+import type { HeldConfigurationDto } from '@configuration/application/dto/held-configuration.dto';
+import {
+  HELD,
+  heldAs,
+  WORKSPACE_ID,
+} from '@configuration/presentation/terraform/held-configuration.fake-spec';
 import {
   resourceHcl,
   workspaceTerraform,
 } from '@configuration/presentation/terraform/terraform-configuration';
+import { blockOf } from '@platform/hcl/hcl-block.fake-spec';
 import {
   formattedByTerraform,
   TERRAFORM_INSTALLED,
 } from '@platform/hcl/terraform-cli.fake-spec';
-import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { describe, expect, it } from 'vitest';
-
-const WORKSPACE_ID = '5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57';
-
-const DELIVERY = {
-  key: 'delivery',
-  name: 'Delivery',
-  role: 'delivery',
-  repositories: ['acme/api'],
-  runners: ['build-1', 'vpc-internal'],
-  stations: [
-    {
-      key: 'backlog',
-      name: 'Backlog',
-      kind: 'backlog',
-      color: '#a3a8b0',
-      diffs: false,
-      decisions: false,
-      tools: [],
-      skills: [],
-      passesTo: ['implementation'],
-      ends: false,
-    },
-    {
-      key: 'implementation',
-      name: 'Implementation',
-      kind: 'work',
-      color: '#6d78d5',
-      harness: 'claude-code',
-      profile: 'careful',
-      prompt: 'Implement the task.\n\n',
-      check: 'npm test',
-      diffs: true,
-      decisions: true,
-      tools: ['linear.comment', 'github.comment', 'catalog.summarize@1.0.0'],
-      skills: ['grafana', 'spotlight'],
-      runners: ['gpu'],
-      passesTo: ['completed'],
-      ends: false,
-    },
-  ],
-  reactions: [
-    {
-      happening: 'github.checks.failed',
-      from: 'implementation',
-      to: 'implementation',
-    },
-  ],
-  reviews: {
-    start: 'opened',
-    skip: {
-      spotlight: true,
-      drafts: true,
-      authors: ['dependabot[bot]', 'renovate[bot]'],
-    },
-  },
-};
-
-const LINEAR = {
-  integration: 'linear',
-  actions: {
-    comment: {
-      request: {
-        method: 'POST',
-        url: 'https://api.linear.app/graphql',
-        headers: { 'Content-Type': 'application/json' },
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: an integration expression
-        body: { query: '${{ inputs.body }}' },
-        auth: { secrets: ['secret.LINEAR_API_KEY', 'secret.ELSEWHERE'] },
-      },
-    },
-  },
-  webhook: { verify: { hmac: { secret: 'secret.LINEAR_SIGNING' } } },
-  tools: {
-    comment: {
-      does: 'comment',
-      description: 'Comment on the issue.\nUse it to say what you did.\n',
-      inputs: { body: { type: 'string', required: true, piped: false } },
-    },
-  },
-};
-
-const HELD: HeldConfigurationDto = {
-  workspaceId: WORKSPACE_ID,
-  workspaceSlug: 'acme',
-  resources: [
-    {
-      kind: 'workspace',
-      id: WORKSPACE_ID,
-      address: 'acme',
-      slug: 'acme',
-      name: 'Acme',
-    },
-    {
-      kind: 'secret',
-      heldBy: 'workspace',
-      id: 'secret_linear',
-      address: 'LINEAR_API_KEY',
-      name: 'LINEAR_API_KEY',
-      source: { kind: 'built-in', secretId: null, field: null },
-      bindings: [
-        { host: 'api.linear.app', header: 'authorization', prefix: 'Bearer ' },
-      ],
-      keepsValue: true,
-      valueVersion: 3,
-    },
-    {
-      kind: 'secret',
-      heldBy: 'workspace',
-      id: 'secret_signing',
-      address: 'LINEAR_SIGNING',
-      name: 'LINEAR_SIGNING',
-      source: {
-        kind: 'aws-secrets-manager',
-        secretId: 'linear/signing',
-        field: 'secret',
-      },
-      bindings: [],
-      keepsValue: false,
-      valueVersion: null,
-    },
-    {
-      kind: 'runner',
-      heldBy: 'workspace',
-      id: 'runner_build',
-      address: 'build-1',
-      name: 'build-1',
-      labels: ['vpc-internal'],
-    },
-    {
-      kind: 'runner-trust',
-      heldBy: 'workspace',
-      id: 'trust_cluster',
-      address: 'production-cluster',
-      key: 'production-cluster',
-      issuer: 'https://oidc.eks.eu-west-1.amazonaws.com/id/EXAMPLE',
-      subject: 'system:serviceaccount:spotlight:runner',
-      audience: 'spotlight',
-      labels: ['gpu'],
-    },
-    {
-      kind: 'workspace-runners',
-      heldBy: 'workspace',
-      id: 'declared_acme',
-      address: 'acme',
-      runners: ['build-1', 'gone-1'],
-      trusts: ['production-cluster'],
-    },
-    {
-      kind: 'team',
-      heldBy: 'workspace',
-      id: 'team_core',
-      address: 'core',
-      key: 'core',
-      name: 'Core',
-    },
-    {
-      kind: 'line',
-      heldBy: 'team',
-      id: 'line_delivery',
-      address: 'core/delivery',
-      teamKey: 'core',
-      key: 'delivery',
-      definition: DELIVERY,
-    },
-    {
-      kind: 'skill',
-      heldBy: 'team',
-      id: 'skill_grafana',
-      address: 'core/grafana',
-      teamKey: 'core',
-      key: 'grafana',
-      files: {
-        'SKILL.md':
-          '---\nname: grafana\ndescription: Look up dashboards\n---\n',
-        'queries/latency.promql': 'histogram_quantile(0.99, rate(x[5m]))',
-      },
-    },
-    {
-      kind: 'integration',
-      heldBy: 'team',
-      id: 'integration_linear',
-      address: 'core/linear',
-      teamKey: 'core',
-      source: 'linear',
-      definition: LINEAR,
-      secretsWorn: [
-        {
-          path: FieldPath.of([
-            'actions',
-            'comment',
-            'request',
-            'auth',
-            'secrets',
-            0,
-          ]),
-          name: 'LINEAR_API_KEY',
-        },
-        {
-          path: FieldPath.of([
-            'actions',
-            'comment',
-            'request',
-            'auth',
-            'secrets',
-            1,
-          ]),
-          name: 'ELSEWHERE',
-        },
-        {
-          path: FieldPath.of(['webhook', 'verify', 'hmac', 'secret']),
-          name: 'LINEAR_SIGNING',
-        },
-      ],
-    },
-    {
-      kind: 'harness-profile',
-      heldBy: 'team',
-      id: 'profile_careful',
-      address: 'core/careful',
-      teamKey: 'core',
-      key: 'careful',
-      permissions: {
-        allow: ['read', 'execute(npm test *)'],
-        ask: [],
-        deny: ['read(.env)'],
-      },
-      mcpServers: [
-        {
-          name: 'linear',
-          command: 'npx',
-          args: ['-y', 'linear-mcp'],
-          env: { LINEAR_WORKSPACE: 'acme', 'log.level': 'debug' },
-        },
-      ],
-      native: { 'claude-code': { includeCoAuthoredBy: false } },
-    },
-    {
-      kind: 'team',
-      heldBy: 'workspace',
-      id: 'team_3d',
-      address: '3d',
-      key: '3d',
-      name: 'Three D',
-    },
-  ],
-};
 
 const fileOf = (configuration: HeldConfigurationDto, path: string): string =>
   workspaceTerraform(configuration).find((each) => each.path === path)
@@ -265,16 +21,6 @@ const fileOf = (configuration: HeldConfigurationDto, path: string): string =>
 
 const mainOf = (configuration: HeldConfigurationDto): string =>
   fileOf(configuration, 'main.tf');
-
-const heldAs = (kind: HeldResourceDto['kind']): HeldResourceDto => {
-  const held = HELD.resources.find((each) => each.kind === kind);
-
-  if (!held) {
-    throw new Error(`no ${kind} held`);
-  }
-
-  return held;
-};
 
 const LINE_RESOURCE = `resource "spotlight_line" "core_delivery" {
   team_id      = spotlight_team.core.id
@@ -306,12 +52,26 @@ const LINE_RESOURCE = `resource "spotlight_line" "core_delivery" {
     profile   = spotlight_harness_profile.core_careful.key
     prompt    = file("\${path.module}/prompts/core/delivery/implementation.md")
     check     = "npm test"
+    setup     = "npm ci"
+    runners   = ["gpu"]
     diffs     = true
     decisions = true
-    tools     = ["\${spotlight_integration.core_linear.source}.comment", "github.comment", "catalog.summarize@1.0.0"]
-    skills    = [spotlight_skill.core_grafana.key, "spotlight"]
-    runners   = ["gpu"]
-    passes_to = ["completed"]
+    tools     = ["\${spotlight_integration.core_linear.source}.comment", "github.comment", "catalog.web-search@1.1.0"]
+    skills    = [spotlight_skill.core_grafana.key, "catalog.research@1.0.0"]
+    passes_to = []
+    ends      = true
+  }
+
+  station {
+    key       = "completed"
+    name      = "Completed"
+    kind      = "completed"
+    color     = "#3fb950"
+    diffs     = false
+    decisions = false
+    tools     = []
+    skills    = []
+    passes_to = []
     ends      = false
   }
 
@@ -319,16 +79,6 @@ const LINE_RESOURCE = `resource "spotlight_line" "core_delivery" {
     happening = "github.checks.failed"
     from      = "implementation"
     to        = "implementation"
-  }
-
-  reviews {
-    start = "opened"
-
-    skip {
-      spotlight = true
-      drafts    = true
-      authors   = ["dependabot[bot]", "renovate[bot]"]
-    }
   }
 }
 `;
@@ -383,6 +133,7 @@ describe('workspaceTerraform', () => {
       ['spotlight_workspace_runners', 'acme', 'acme'],
       ['spotlight_team', 'core', 'core'],
       ['spotlight_line', 'core_delivery', 'core/delivery'],
+      ['spotlight_line', 'core_review', 'core/review'],
       ['spotlight_skill', 'core_grafana', 'core/grafana'],
       ['spotlight_integration', 'core_linear', 'core/linear'],
       ['spotlight_harness_profile', 'core_careful', 'core/careful'],
@@ -439,7 +190,7 @@ describe('workspaceTerraform', () => {
     );
     expect(main).toContain(
       // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
-      'secret = "secret.${spotlight_secret.linear_signing.name}"',
+      'secret    = "secret.${spotlight_secret.linear_signing.name}"',
     );
   });
 
@@ -475,15 +226,38 @@ describe('workspaceTerraform', () => {
     );
   });
 
-  it('asks no value of a secret read from elsewhere', () => {
-    const main = mainOf(HELD);
-    const signing = main.slice(
-      main.indexOf('resource "spotlight_secret" "linear_signing"'),
+  it('writes no value version for a secret that holds none, as the API answers it', () => {
+    expect(
+      blockOf(mainOf(HELD), 'resource "spotlight_secret" "sentry_token"'),
+    ).toMatch(/\n {2}value_wo = var\.secret_sentry_token\n}$/);
+    expect(fileOf(HELD, 'variables.tf')).toContain(
+      'variable "secret_sentry_token" {',
     );
+  });
 
-    expect(signing.slice(0, signing.indexOf('\n}\n'))).not.toContain(
-      'value_wo',
-    );
+  it('writes exactly the value version each secret holds, so importing it plans no rotation', () => {
+    const main = mainOf(HELD);
+
+    for (const each of HELD.resources) {
+      if (each.kind !== 'secret') {
+        continue;
+      }
+
+      const version = blockOf(
+        main,
+        `resource "spotlight_secret" "${each.name.toLowerCase()}"`,
+      ).match(/\n {2}value_wo_version = (\d+)/)?.[1];
+
+      expect(version === undefined ? null : Number(version)).toBe(
+        each.valueVersion,
+      );
+    }
+  });
+
+  it('asks no value of a secret read from elsewhere', () => {
+    expect(
+      blockOf(mainOf(HELD), 'resource "spotlight_secret" "linear_signing"'),
+    ).not.toContain('value_wo');
     expect(fileOf(HELD, 'variables.tf')).not.toContain('secret_linear_signing');
   });
 
@@ -524,7 +298,7 @@ describe('workspaceTerraform', () => {
         '      command = "npx"',
         '      env = {',
         '        LINEAR_WORKSPACE = "acme"',
-        '        "log.level"      = "debug"',
+        '        LOG_LEVEL        = "debug"',
         '      }',
         '      name = "linear"',
         '    },',
@@ -539,6 +313,25 @@ describe('workspaceTerraform', () => {
     );
   });
 
+  it('writes the review policy of the line whose role reviews pull requests', () => {
+    expect(resourceHcl(HELD, heldAs('line', 'core/review')).hcl).toContain(
+      [
+        '  reviews {',
+        '    start   = "opened"',
+        '    mention = "@spotlight"',
+        '',
+        '    skip {',
+        '      spotlight = true',
+        '      drafts    = true',
+        '      authors   = ["dependabot[bot]", "renovate[bot]"]',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
+    expect(LINE_RESOURCE).not.toContain('reviews');
+  });
+
   it('names a resource whose key starts with a digit so Terraform accepts it', () => {
     expect(mainOf(HELD)).toContain('resource "spotlight_team" "_3d" {');
   });
@@ -550,12 +343,14 @@ describe('workspaceTerraform', () => {
       '"spotlight_workspace" "acme"',
       '"spotlight_secret" "linear_api_key"',
       '"spotlight_secret" "linear_signing"',
+      '"spotlight_secret" "sentry_token"',
       '"spotlight_runner" "build-1"',
       '"spotlight_runner_trust" "production-cluster"',
       '"spotlight_workspace_runners" "acme"',
       '"spotlight_team" "_3d"',
       '"spotlight_team" "core"',
       '"spotlight_line" "core_delivery"',
+      '"spotlight_line" "core_review"',
       '"spotlight_skill" "core_grafana"',
       '"spotlight_integration" "core_linear"',
       '"spotlight_harness_profile" "core_careful"',

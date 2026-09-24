@@ -18,7 +18,6 @@ import {
   type LineOpening,
 } from '@work/domain/services/built-in-lines';
 import { eq, inArray } from 'drizzle-orm';
-import request from 'supertest';
 import {
   afterAll,
   afterEach,
@@ -28,7 +27,7 @@ import {
   expect,
   it,
 } from 'vitest';
-import { openApp, TEST_USER_HEADER } from './support/app';
+import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { definitionOf } from './support/line-definition';
 import {
   conformsAsResource,
@@ -116,13 +115,12 @@ describe('a harness profile, created through the resource API (e2e)', () => {
 
   const as = (user: string) => ({
     create: (path: string, body: object) =>
-      request(app.getHttpServer())
+      served(app)
         .post(path)
         .set(TEST_USER_HEADER, user)
         .set('Idempotency-Key', randomUUID())
         .send(body),
-    read: (path: string) =>
-      request(app.getHttpServer()).get(path).set(TEST_USER_HEADER, user),
+    read: (path: string) => served(app).get(path).set(TEST_USER_HEADER, user),
   });
 
   const create = (body: object) =>
@@ -277,17 +275,17 @@ describe('a harness profile, created through the resource API (e2e)', () => {
       ).headers['spotlight-workspace-token'] as string;
     const bearing = (token: string) => ({
       create: () =>
-        request(app.getHttpServer())
+        served(app)
           .post(fixture.collection)
           .set('Authorization', `Bearer ${token}`)
           .set('Idempotency-Key', randomUUID())
           .send(CAREFUL),
       read: (id: string) =>
-        request(app.getHttpServer())
+        served(app)
           .get(fixture.item(id))
           .set('Authorization', `Bearer ${token}`),
       delete: (id: string, version: number) =>
-        request(app.getHttpServer())
+        served(app)
           .delete(fixture.item(id))
           .set('Authorization', `Bearer ${token}`)
           .set('If-Match', `"${version}"`),
@@ -327,7 +325,7 @@ describe('a harness profile, created through the resource API (e2e)', () => {
       line,
     );
 
-    const refused = await request(app.getHttpServer())
+    const refused = await served(app)
       .delete(fixture.item(made.body.id))
       .set(TEST_USER_HEADER, fixture.admin)
       .set('If-Match', `"${made.body.version}"`);
