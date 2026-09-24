@@ -1,6 +1,7 @@
 import type {
   WorkspaceDetail,
   WorkspaceListing,
+  WorkspaceProfile,
   WorkspaceReaderPort,
 } from '@identity/application/ports/workspace-reader.port';
 import {
@@ -36,6 +37,16 @@ export class DrizzleWorkspaceReader implements WorkspaceReaderPort {
       .limit(1);
 
     return found?.slug ?? null;
+  }
+
+  async profileOf(workspaceId: string): Promise<WorkspaceProfile | null> {
+    const [found] = await this.db
+      .select({ id: workspace.id, name: workspace.name, slug: workspace.slug })
+      .from(workspace)
+      .where(eq(workspace.id, workspaceId))
+      .limit(1);
+
+    return found ?? null;
   }
 
   async isOpen(workspaceId: string): Promise<boolean> {

@@ -22,6 +22,7 @@ import { UpdateSecretCommand } from '@secrets/application/commands/update-secret
 import { CREDENTIAL_SEALING } from '@secrets/application/ports/credential-sealing.port';
 import { DEFINED_SECRETS } from '@secrets/application/ports/defined-secrets.port';
 import { RUN_GRANTS } from '@secrets/application/ports/run-grants.port';
+import { SECRET_CONFIGURATION } from '@secrets/application/ports/secret-configuration.port';
 import { SECRET_DEFINITIONS } from '@secrets/application/ports/secret-definitions.port';
 import { SECRET_INJECTION } from '@secrets/application/ports/secret-injection.port';
 import { SECRET_RESOURCES } from '@secrets/application/ports/secret-resources.port';
@@ -37,6 +38,7 @@ import { ImportSecretQuery } from '@secrets/application/queries/import-secret.qu
 import { ReadSecretQuery } from '@secrets/application/queries/read-secret.query';
 import { AbandonWorkspaceSecrets } from '@secrets/application/services/abandon-workspace-secrets.service';
 import { RunGrants } from '@secrets/application/services/run-grants.service';
+import { SecretConfiguration } from '@secrets/application/services/secret-configuration.service';
 import { SecretInjection } from '@secrets/application/services/secret-injection.service';
 import { SecretSources } from '@secrets/application/services/secret-sources.service';
 import { SECRETS_EVENT_TYPES } from '@secrets/domain/event-types';
@@ -120,6 +122,11 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
       events: DomainEventDispatcher,
       values: BuiltInSecretStore,
     ) => new DrizzleSecrets(context, events, values),
+  },
+  {
+    provide: SECRET_CONFIGURATION,
+    inject: [SECRETS],
+    useFactory: (secrets: SecretRepository) => new SecretConfiguration(secrets),
   },
   {
     provide: AWS_SECRETS_MANAGER,

@@ -31,15 +31,14 @@ export class DrizzleDefinedIntegrations
 {
   constructor(private readonly context: DrizzleContext) {}
 
-  async ofTeam(teamId: TeamId): Promise<readonly DefinedIntegration[]> {
-    return this.context.db
-      .select({
-        source: integrationDefinition.source,
-        definition: integrationDefinition.definition,
-      })
+  async ofTeam(teamId: TeamId): Promise<readonly KeptIntegration[]> {
+    const found = await this.context.db
+      .select(KEPT)
       .from(integrationDefinition)
       .where(eq(integrationDefinition.teamId, teamId.value))
       .orderBy(asc(integrationDefinition.source));
+
+    return found.map((each) => ({ ...each, teamId }));
   }
 
   async everywhere(): Promise<readonly TeamDefinedIntegrations[]> {

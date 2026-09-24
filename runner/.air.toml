@@ -3,7 +3,7 @@ tmp_dir = "tmp"
 
 [build]
   # Build then mv: overwriting a running binary fails with "text file busy".
-  cmd = "go build -o /tmp/runner.next ./cmd/runner && mv /tmp/runner.next /tmp/runner && go build -o /usr/local/bin/.spotlight.next ./cmd/spotlight && mv /usr/local/bin/.spotlight.next /usr/local/bin/spotlight"
+  cmd = "go build -o /tmp/runner.next ./cmd/runner && mv /tmp/runner.next /tmp/runner && go build -ldflags \"-X main.version=${SPOTLIGHT_VERSION:-dev}\" -o /usr/local/bin/.spotlight.next ./cmd/spotlight && mv /usr/local/bin/.spotlight.next /usr/local/bin/spotlight"
   entrypoint = "/tmp/runner"
   include_ext = ["go"]
   exclude_dir = ["tmp", "workspaces"]

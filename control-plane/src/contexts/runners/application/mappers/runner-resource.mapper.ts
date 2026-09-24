@@ -4,11 +4,19 @@ import type {
   WorkspaceRunnersResourceDto,
 } from '@runners/application/dto/runner-resource.dto';
 import type {
+  ConfiguredRunner,
+  ConfiguredRunnerTrust,
+  ConfiguredWorkspaceRunners,
+} from '@runners/application/ports/runner-configuration.port';
+import type {
   KeptRunner,
   KeptTrust,
   KeptWorkspaceRunners,
 } from '@runners/application/ports/runner-resources.port';
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
+import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
+import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
+import type { WorkspaceRunners } from '@runners/domain/aggregates/workspace-runners.aggregate';
 import {
   driftBetween,
   type Enrolment,
@@ -40,6 +48,42 @@ export const RunnerResourceMapper = {
       audience: trust.audience,
       labels: trust.labels,
       warnings: [],
+    };
+  },
+
+  configuredRunner(runner: Runner): ConfiguredRunner {
+    return {
+      id: runner.id.value,
+      address: runner.name.value,
+      workspaceId: runner.workspaceId,
+      name: runner.name.value,
+      labels: runner.labels.values,
+    };
+  },
+
+  configuredTrust(trust: RunnerTrust): ConfiguredRunnerTrust {
+    return {
+      id: trust.id.value,
+      address: trust.key.value,
+      workspaceId: trust.workspaceId,
+      key: trust.key.value,
+      issuer: trust.workload.issuer,
+      subject: trust.workload.subject,
+      audience: trust.workload.audience,
+      labels: trust.labels.values,
+    };
+  },
+
+  configuredDeclaration(
+    declared: WorkspaceRunners,
+    slug: string,
+  ): ConfiguredWorkspaceRunners {
+    return {
+      id: declared.id.value,
+      address: slug,
+      workspaceId: declared.workspaceId,
+      runners: declared.runners.map((each) => each.value),
+      trusts: declared.trusts.map((each) => each.value),
     };
   },
 

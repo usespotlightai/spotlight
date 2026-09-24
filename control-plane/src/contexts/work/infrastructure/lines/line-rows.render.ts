@@ -1,3 +1,4 @@
+import { inCodePointOrder } from '@platform/ordering/code-point-order';
 import type { LineFields } from '@work/infrastructure/lines/line.schema';
 import type {
   line,
@@ -68,9 +69,21 @@ const placed = (runners: readonly string[]): string[] | null =>
 const givenAt = (given: readonly Given[], stationId: string): string[] =>
   given.filter((each) => each.stationId === stationId).map((each) => each.name);
 
+type ReactionRow = LineRows['reactions'][number];
+
+const inReactionOrder =
+  (place: (stationId: string | null) => number) =>
+  (one: ReactionRow, other: ReactionRow): number =>
+    inCodePointOrder(one.happening, other.happening) ||
+    place(one.fromStationId) - place(other.fromStationId) ||
+    place(one.toStationId) - place(other.toStationId);
+
 export const renderLineRows = (rows: LineRows): Rendered<LineFields> => {
   const keyOf = new Map(rows.stations.map((each) => [each.id, each.key]));
+  const positionOf = new Map(rows.stations.map((each, at) => [each.id, at]));
   const at = (stationId: string): string => keyOf.get(stationId) ?? '';
+  const place = (stationId: string | null): number =>
+    stationId === null ? -1 : (positionOf.get(stationId) ?? -1);
 
   const renderStation = (row: StationRow): Rendered<StationFields> => ({
     key: row.key,
@@ -95,6 +108,7 @@ export const renderLineRows = (rows: LineRows): Rendered<LineFields> => {
     skills: givenAt(rows.skills, row.id),
     passesTo: rows.routes
       .filter((each) => each.stationId === row.id)
+      .sort((one, other) => place(one.toStationId) - place(other.toStationId))
       .map((each) => at(each.toStationId)),
     ends: row.finishes,
   });
@@ -103,10 +117,10 @@ export const renderLineRows = (rows: LineRows): Rendered<LineFields> => {
     key: rows.line.key,
     name: rows.line.name,
     ...present('role', rows.line.role),
-    repositories: [...rows.repositories],
+    repositories: [...rows.repositories].sort(inCodePointOrder),
     ...present('runners', placed(rows.line.runners)),
     stations: rows.stations.map(renderStation),
-    reactions: rows.reactions.map((each) => ({
+    reactions: [...rows.reactions].sort(inReactionOrder(place)).map((each) => ({
       happening: each.happening,
       ...(each.fromStationId ? { from: at(each.fromStationId) } : {}),
       to: at(each.toStationId),

@@ -28,6 +28,10 @@ import {
   type HarnessReviewPort,
 } from '@configuration/application/ports/harness-review.port';
 import {
+  HELD_INTEGRATIONS,
+  type HeldIntegrationsPort,
+} from '@configuration/application/ports/held-integrations.port';
+import {
   HELD_SECRETS,
   type HeldSecretsPort,
 } from '@configuration/application/ports/held-secrets.port';
@@ -47,23 +51,31 @@ import {
   SKILL_READER,
   type SkillReaderPort,
 } from '@configuration/application/ports/skill-reader.port';
-import { SKILL_RESOURCES } from '@configuration/application/ports/skill-resources.port';
+import {
+  SKILL_RESOURCES,
+  type SkillResourcesPort,
+} from '@configuration/application/ports/skill-resources.port';
 import { TEAMS } from '@configuration/application/ports/teams.port';
 import { ImportHarnessProfileHandler } from '@configuration/application/queries/handlers/import-harness-profile.handler';
 import { ImportSkillHandler } from '@configuration/application/queries/handlers/import-skill.handler';
 import { ConfigurationHandler } from '@configuration/application/queries/handlers/read-configuration.handler';
 import { ReadHarnessProfileHandler } from '@configuration/application/queries/handlers/read-harness-profile.handler';
 import { ReadSkillHandler } from '@configuration/application/queries/handlers/read-skill.handler';
+import { ResourceConfigurationHandler } from '@configuration/application/queries/handlers/resource-configuration.handler';
 import { TeamSkillsHandler } from '@configuration/application/queries/handlers/team-skills.handler';
+import { WorkspaceConfigurationHandler } from '@configuration/application/queries/handlers/workspace-configuration.handler';
 import { ImportHarnessProfileQuery } from '@configuration/application/queries/import-harness-profile.query';
 import { ImportSkillQuery } from '@configuration/application/queries/import-skill.query';
 import { ConfigurationQuery } from '@configuration/application/queries/read-configuration.query';
 import { ReadHarnessProfileQuery } from '@configuration/application/queries/read-harness-profile.query';
 import { ReadSkillQuery } from '@configuration/application/queries/read-skill.query';
+import { ResourceConfigurationQuery } from '@configuration/application/queries/resource-configuration.query';
 import { TeamSkillsQuery } from '@configuration/application/queries/team-skills.query';
+import { WorkspaceConfigurationQuery } from '@configuration/application/queries/workspace-configuration.query';
 import { AbandonTeamProfiles } from '@configuration/application/services/abandon-team-profiles.service';
 import { AbandonTeamSkills } from '@configuration/application/services/abandon-team-skills.service';
 import { HarnessProfileViews } from '@configuration/application/services/harness-profile-views.service';
+import { HeldConfigurations } from '@configuration/application/services/held-configurations.service';
 import { SkillViews } from '@configuration/application/services/skill-views.service';
 import { StationGifts } from '@configuration/application/services/station-gifts.service';
 import { CONFIGURATION_EVENT_TYPES } from '@configuration/domain/event-types';
@@ -97,6 +109,7 @@ import { ConfigurationController } from '@configuration/presentation/http/contro
 import { HarnessProfileResourceController } from '@configuration/presentation/http/controllers/harness-profile-resource.controller';
 import { SkillController } from '@configuration/presentation/http/controllers/skill.controller';
 import { SkillResourceController } from '@configuration/presentation/http/controllers/skill-resource.controller';
+import { TerraformController } from '@configuration/presentation/http/controllers/terraform.controller';
 import {
   TEAM_DIRECTORY,
   type TeamDirectoryPort,
@@ -109,15 +122,24 @@ import {
   WORKSPACE_ACCESS,
   type WorkspaceAccessPort,
 } from '@identity/application/ports/workspace-access.port';
+import { WORKSPACE_READER } from '@identity/application/ports/workspace-reader.port';
 import type { Provider, Type } from '@nestjs/common';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { EventTypes } from '@platform/events/event-types';
 import {
+  RUNNER_CONFIGURATION,
+  type RunnerConfigurationPort,
+} from '@runners/application/ports/runner-configuration.port';
+import {
   DEFINED_SECRETS,
   type DefinedSecretsPort,
 } from '@secrets/application/ports/defined-secrets.port';
+import {
+  SECRET_CONFIGURATION,
+  type SecretConfigurationPort,
+} from '@secrets/application/ports/secret-configuration.port';
 import { ID_GENERATOR } from '@shared-kernel/application/ports/id-generator.port';
 import { IDEMPOTENT_CREATES } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -134,6 +156,10 @@ import {
   HARNESS_PROFILE_REVIEW,
   type HarnessProfileReviewPort,
 } from '@work/application/ports/harness-profile-review.port';
+import {
+  LINE_RESOURCES,
+  type LineResourcesPort,
+} from '@work/application/ports/line-resources.port';
 import { STATION_PROFILES } from '@work/application/ports/station-profiles.port';
 import { TEAM_SKILLS } from '@work/application/ports/team-skills.port';
 
@@ -146,6 +172,7 @@ export const CONFIGURATION_CONTROLLERS: readonly Type[] = [
   SkillController,
   SkillResourceController,
   HarnessProfileResourceController,
+  TerraformController,
 ];
 
 const upstream: Provider[] = [
@@ -209,6 +236,39 @@ const adapters: Provider[] = [
       teams: TeamDirectoryPort,
       compiler: HarnessProfileCompilerPort,
     ) => new HarnessProfileViews(teams, compiler),
+  },
+  {
+    provide: HeldConfigurations,
+    inject: [
+      TEAM_DIRECTORY,
+      LINE_RESOURCES,
+      SKILL_RESOURCES,
+      HELD_INTEGRATIONS,
+      HARNESS_PROFILE_RESOURCES,
+      HarnessProfileViews,
+      SECRET_CONFIGURATION,
+      RUNNER_CONFIGURATION,
+    ],
+    useFactory: (
+      teams: TeamDirectoryPort,
+      lines: LineResourcesPort,
+      skills: SkillResourcesPort,
+      integrations: HeldIntegrationsPort,
+      profiles: HarnessProfileResourcesPort,
+      profileViews: HarnessProfileViews,
+      secrets: SecretConfigurationPort,
+      runners: RunnerConfigurationPort,
+    ) =>
+      new HeldConfigurations(
+        teams,
+        lines,
+        skills,
+        integrations,
+        profiles,
+        profileViews,
+        secrets,
+        runners,
+      ),
   },
   {
     provide: SkillViews,
@@ -289,6 +349,27 @@ const handlers: Provider[] = [
     SKILL_RESOURCES,
     SkillViews,
   ]),
+  ...bindQueryHandler(
+    WorkspaceConfigurationQuery,
+    WorkspaceConfigurationHandler,
+    [WORKSPACE_ACCESS, WORKSPACE_READER, HeldConfigurations],
+  ),
+  ...bindQueryHandler(
+    ResourceConfigurationQuery,
+    ResourceConfigurationHandler,
+    [
+      WORKSPACE_ACCESS,
+      WORKSPACE_READER,
+      TEAM_DIRECTORY,
+      LINE_RESOURCES,
+      SKILL_RESOURCES,
+      HELD_INTEGRATIONS,
+      HARNESS_PROFILE_RESOURCES,
+      SECRET_CONFIGURATION,
+      RUNNER_CONFIGURATION,
+      HeldConfigurations,
+    ],
+  ),
   ...bindQueryHandler(ImportSkillQuery, ImportSkillHandler, [
     WORKSPACE_ACCESS,
     TEAM_DIRECTORY,

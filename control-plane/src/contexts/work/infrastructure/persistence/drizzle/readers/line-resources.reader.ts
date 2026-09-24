@@ -29,6 +29,18 @@ export class DrizzleLineResources implements LineResourcesPort {
     return this.kept(and(eq(line.teamId, teamId.value), eq(line.key, key)));
   }
 
+  async ofTeam(teamId: TeamId): Promise<readonly KeptLine[]> {
+    const held = await this.context.db
+      .select({ id: line.id })
+      .from(line)
+      .where(eq(line.teamId, teamId.value));
+    const kept = await Promise.all(
+      held.map((each) => this.kept(eq(line.id, each.id))),
+    );
+
+    return kept.filter((each): each is KeptLine => each !== null);
+  }
+
   private async kept(where: SQL | undefined): Promise<KeptLine | null> {
     const db = this.context.db;
     const [found] = await db.select().from(line).where(where).limit(1);

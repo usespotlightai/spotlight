@@ -21,11 +21,12 @@ COPY runner/go.mod runner/go.sum ./
 RUN go mod download
 
 FROM deps AS development
-ENV CGO_ENABLED=0
+ARG SPOTLIGHT_VERSION=dev
+ENV CGO_ENABLED=0 SPOTLIGHT_VERSION=${SPOTLIGHT_VERSION}
 RUN go install github.com/air-verse/air@latest
 COPY .docker/runner/hooks/ /etc/spotlight/hooks/
 COPY runner/ ./
-RUN go build -o /usr/local/bin/spotlight ./cmd/spotlight
+RUN go build -ldflags "-X main.version=${SPOTLIGHT_VERSION}" -o /usr/local/bin/spotlight ./cmd/spotlight
 CMD ["air", "-c", ".air.toml"]
 
 FROM debian:bookworm-slim AS runtime

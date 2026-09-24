@@ -42,6 +42,7 @@ const asking = (
       {
         identify: async () => 'ws_1',
         slugOf: async () => 'acme',
+        profileOf: async () => null,
         isOpen: async () => true,
         identifyTeam: async (_slug: string, teamKey: string) =>
           teamKey === 'platform'

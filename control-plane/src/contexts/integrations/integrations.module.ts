@@ -1,3 +1,4 @@
+import { HELD_INTEGRATIONS } from '@configuration/application/ports/held-integrations.port';
 import { INTEGRATION_READER } from '@configuration/application/ports/integration-reader.port';
 import { ConfigurationModule } from '@configuration/configuration.module';
 import { GitHubModule } from '@github/github.module';
@@ -29,6 +30,7 @@ import { WorkModule } from '@work/work.module';
   exports: [
     TEAM_INTEGRATIONS,
     INTEGRATION_READER,
+    HELD_INTEGRATIONS,
     TASK_NOTICES,
     INTEGRATION_TOOL_CALLS,
     SECRET_USES,

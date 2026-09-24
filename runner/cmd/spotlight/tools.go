@@ -35,7 +35,7 @@ func manifest() ([]protocol.ToolManifest, error) {
 	}
 	request.Header.Set("Authorization", "Bearer "+token)
 
-	response, err := http.DefaultClient.Do(request)
+	response, err := client.Do(request)
 	if err != nil {
 		return nil, fmt.Errorf("reach Spotlight: %w", err)
 	}

@@ -14,4 +14,6 @@ export interface SkillResourcesPort {
   withId(id: string): Promise<KeptSkill | null>;
 
   at(teamId: TeamId, key: string): Promise<KeptSkill | null>;
+
+  ofTeam(teamId: TeamId): Promise<readonly KeptSkill[]>;
 }

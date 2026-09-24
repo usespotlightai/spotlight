@@ -105,6 +105,53 @@ describe('renderLineRows', () => {
     expect(compileLine(rendered).ok).toBe(true);
   });
 
+  it('renders routes and reactions in station order, whatever order they were read in', () => {
+    const rendered = renderLineRows({
+      ...ROWS,
+      routes: [
+        { stationId: 'backlog', toStationId: 'completed' },
+        { stationId: 'backlog', toStationId: 'build' },
+      ],
+      reactions: [
+        {
+          happening: 'github.pull_request.merged',
+          fromStationId: 'build',
+          toStationId: 'completed',
+        },
+        {
+          happening: 'github.checks.failed',
+          fromStationId: 'completed',
+          toStationId: 'build',
+        },
+        {
+          happening: 'github.pull_request.merged',
+          fromStationId: null,
+          toStationId: 'completed',
+        },
+      ],
+    });
+
+    expect(rendered.stations[0]?.passesTo).toEqual(['build', 'completed']);
+    expect(rendered.reactions).toEqual([
+      { happening: 'github.checks.failed', from: 'completed', to: 'build' },
+      { happening: 'github.pull_request.merged', to: 'completed' },
+      {
+        happening: 'github.pull_request.merged',
+        from: 'build',
+        to: 'completed',
+      },
+    ]);
+  });
+
+  it('renders repositories in code point order, whatever order they were read in', () => {
+    const rendered = renderLineRows({
+      ...ROWS,
+      repositories: ['acme/web', 'acme/api'],
+    });
+
+    expect(rendered.repositories).toEqual(['acme/api', 'acme/web']);
+  });
+
   it('renders a definition that compiles', () => {
     expect(compileLine(renderLineRows(ROWS)).ok).toBe(true);
   });
