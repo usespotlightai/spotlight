@@ -36,6 +36,19 @@ export const RunnerResourceMapper = {
     };
   },
 
+  heldRunner(runner: Runner): RunnerResourceDto {
+    return {
+      id: runner.id.value,
+      version: runner.revision,
+      address: runner.name.value,
+      workspaceId: runner.workspaceId.value,
+      name: runner.name.value,
+      labels: runner.labels.values,
+      trust: null,
+      warnings: [],
+    };
+  },
+
   trust(trust: KeptTrust): RunnerTrustResourceDto {
     return {
       id: trust.id,

@@ -87,10 +87,12 @@ import { CheckExpressionHandler } from '@integrations/application/queries/handle
 import { ImportIntegrationHandler } from '@integrations/application/queries/handlers/import-integration.handler';
 import { ListExpressionPositionsHandler } from '@integrations/application/queries/handlers/list-expression-positions.handler';
 import { ListHappeningsHandler } from '@integrations/application/queries/handlers/list-happenings.handler';
+import { ListIntegrationResourcesHandler } from '@integrations/application/queries/handlers/list-integration-resources.handler';
 import { ReadIntegrationHandler } from '@integrations/application/queries/handlers/read-integration.handler';
 import { ImportIntegrationQuery } from '@integrations/application/queries/import-integration.query';
 import { ListExpressionPositionsQuery } from '@integrations/application/queries/list-expression-positions.query';
 import { ListHappeningsQuery } from '@integrations/application/queries/list-happenings.query';
+import { ListIntegrationResourcesQuery } from '@integrations/application/queries/list-integration-resources.query';
 import { ReadIntegrationQuery } from '@integrations/application/queries/read-integration.query';
 import { AbandonTeamIntegrations } from '@integrations/application/services/abandon-team-integrations.service';
 import { HostReach } from '@integrations/application/services/host-reach.service';
@@ -676,6 +678,11 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     INTEGRATION_RESOURCES,
     IntegrationViews,
   ]),
+  ...bindQueryHandler(
+    ListIntegrationResourcesQuery,
+    ListIntegrationResourcesHandler,
+    [WORKSPACE_ACCESS, TEAM_DIRECTORY, INTEGRATION_RESOURCES, IntegrationViews],
+  ),
 
   ...bindCommandHandler(AcceptDeliveryCommand, AcceptDeliveryHandler, [
     SourceForDelivery,

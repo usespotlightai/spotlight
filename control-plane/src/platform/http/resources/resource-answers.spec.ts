@@ -5,6 +5,7 @@ import {
   answerDeleted,
   answerUpdated,
   found,
+  listed,
 } from '@platform/http/resources/resource-answers';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
@@ -152,5 +153,23 @@ describe('resource answers', () => {
     expect(
       await problemOf(() => found('line', null, (held) => held)),
     ).toMatchObject({ status: 404 });
+  });
+
+  it('lists what it holds in address order, and 404 for a workspace it may not see', async () => {
+    expect(
+      listed(['core/b', 'ops/a', 'core/a', 'Core/c'], (address) => ({
+        address,
+      })),
+    ).toEqual({
+      items: [
+        { address: 'Core/c' },
+        { address: 'core/a' },
+        { address: 'core/b' },
+        { address: 'ops/a' },
+      ],
+    });
+    expect(
+      await problemOf(() => listed(null, (address: string) => ({ address }))),
+    ).toMatchObject({ status: 404, title: 'No such workspace' });
   });
 });

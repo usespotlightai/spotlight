@@ -26,4 +26,6 @@ export interface SecretResourcesPort {
   withId(id: string): Promise<KeptSecret | null>;
 
   named(workspaceId: WorkspaceId, name: string): Promise<KeptSecret | null>;
+
+  secretsIn(workspaceId: WorkspaceId): Promise<readonly KeptSecret[]>;
 }

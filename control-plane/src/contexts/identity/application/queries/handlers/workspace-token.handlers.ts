@@ -4,6 +4,7 @@ import type { IdentityResourcesPort } from '@identity/application/ports/identity
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type {
   ImportWorkspaceTokenQuery,
+  ListWorkspaceTokenResourcesQuery,
   ReadWorkspaceTokenQuery,
 } from '@identity/application/queries/workspace-token.queries';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
@@ -67,6 +68,38 @@ export class ImportWorkspaceTokenHandler
         : null;
 
       return kept ? ResourceMapper.workspaceToken(kept) : null;
+    } catch (error) {
+      rethrowAsFault(error);
+    }
+  }
+}
+
+export class ListWorkspaceTokenResourcesHandler
+  implements
+    QueryHandlerPort<
+      ListWorkspaceTokenResourcesQuery,
+      readonly WorkspaceTokenResourceDto[] | null
+    >
+{
+  constructor(
+    private readonly access: WorkspaceAccessPort,
+    private readonly resources: IdentityResourcesPort,
+  ) {}
+
+  async execute(
+    query: ListWorkspaceTokenResourcesQuery,
+  ): Promise<readonly WorkspaceTokenResourceDto[] | null> {
+    try {
+      const cleared = await this.access.clearanceIn(
+        WorkspaceId.of(query.workspaceId),
+        query.principal,
+      );
+
+      return cleared
+        ? (await this.resources.tokensIn(cleared.workspaceId)).map(
+            ResourceMapper.workspaceToken,
+          )
+        : null;
     } catch (error) {
       rethrowAsFault(error);
     }

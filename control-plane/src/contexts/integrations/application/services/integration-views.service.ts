@@ -14,17 +14,17 @@ export class IntegrationViews {
   async of(kept: KeptIntegration): Promise<IntegrationResourceDto | null> {
     const team = await this.teams.find(kept.teamId);
 
-    if (!team) {
-      return null;
-    }
+    return team ? this.onTeam(kept, team.key) : null;
+  }
 
+  onTeam(kept: KeptIntegration, teamKey: string): IntegrationResourceDto {
     const compiled = this.compiler.compile(kept.definition);
 
     return {
       id: kept.id,
       version: kept.version,
       address: IntegrationAddress.of(
-        team.key,
+        teamKey,
         SourceKey.of(kept.source),
       ).toString(),
       teamId: kept.teamId.value,

@@ -56,6 +56,9 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
     item: (id) => `/api/resources/integrations/${id}`,
     importing: (address) =>
       `/api/resources/workspaces/${held}/integrations/import?address=${encodeURIComponent(address)}`,
+    listing: (workspaceId) =>
+      `/api/resources/workspaces/${workspaceId}/integrations`,
+    workspaceOf: () => held,
     address: 'team/linear',
     valid: LINEAR,
     changed: { ...LINEAR, name: 'Linear, again' },

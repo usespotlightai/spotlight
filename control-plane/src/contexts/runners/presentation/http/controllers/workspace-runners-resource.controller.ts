@@ -3,6 +3,7 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiBody, ApiParam } from '@nestjs/swagger';
 import { CurrentActor } from '@platform/http/decorators/current-actor.decorator';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
+import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
 import {
@@ -10,6 +11,7 @@ import {
   answerDeleted,
   answerUpdated,
   found,
+  listed,
 } from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
 import {
@@ -20,6 +22,7 @@ import {
 import type { WorkspaceRunnersResourceDto } from '@runners/application/dto/runner-resource.dto';
 import {
   ImportWorkspaceRunnersQuery,
+  ListWorkspaceRunnersResourcesQuery,
   ReadWorkspaceRunnersQuery,
 } from '@runners/application/queries/runner-resource.queries';
 import { WorkspaceRunnersResourceResponseDto } from '@runners/presentation/http/dto/runner-resource.response.dto';
@@ -35,6 +38,7 @@ const KIND = 'workspace-runners';
 
 const WorkspaceRunnersResource = resourceApi({
   kind: KIND,
+  plural: 'workspace-runners',
   tag: 'runners',
   representation: WorkspaceRunnersResourceResponseDto,
   addressExample: 'acme',
@@ -169,6 +173,24 @@ export class WorkspaceRunnersResourceController {
         ImportWorkspaceRunnersQuery,
         WorkspaceRunnersResourceDto | null
       >(new ImportWorkspaceRunnersQuery(workspaceId, address ?? '', principal)),
+      representation,
+    );
+  }
+
+  @WorkspaceRunnersResource.List(
+    'workspaces/:workspaceId/workspace-runners',
+    'List what a workspace declares of its runners: one declaration, or none',
+  )
+  @WORKSPACE
+  async list(
+    @Param('workspaceId') workspaceId: string,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<ResourceList<WorkspaceRunnersResourceResponseDto>> {
+    return listed(
+      await this.queryBus.execute<
+        ListWorkspaceRunnersResourcesQuery,
+        readonly WorkspaceRunnersResourceDto[] | null
+      >(new ListWorkspaceRunnersResourcesQuery(workspaceId, principal)),
       representation,
     );
   }

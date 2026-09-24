@@ -83,6 +83,15 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
     return found ? keptTrust(found) : null;
   }
 
+  async trustsIn(workspaceId: WorkspaceId): Promise<readonly KeptTrust[]> {
+    return (
+      await this.db
+        .select()
+        .from(runnerTrust)
+        .where(eq(runnerTrust.workspaceId, workspaceId.value))
+    ).map(keptTrust);
+  }
+
   async declaredWithId(id: string): Promise<KeptWorkspaceRunners | null> {
     const [found] = await this.db
       .select()

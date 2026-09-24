@@ -3,6 +3,7 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiBody, ApiParam } from '@nestjs/swagger';
 import { CurrentActor } from '@platform/http/decorators/current-actor.decorator';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
+import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
 import {
@@ -10,6 +11,7 @@ import {
   answerDeleted,
   answerUpdated,
   found,
+  listed,
 } from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
 import {
@@ -20,6 +22,7 @@ import {
 import type { RunnerTrustResourceDto } from '@runners/application/dto/runner-resource.dto';
 import {
   ImportRunnerTrustQuery,
+  ListRunnerTrustResourcesQuery,
   ReadRunnerTrustQuery,
 } from '@runners/application/queries/runner-resource.queries';
 import { RunnerTrustResourceResponseDto } from '@runners/presentation/http/dto/runner-resource.response.dto';
@@ -35,6 +38,7 @@ const KIND = 'runner-trust';
 
 const RunnerTrustResource = resourceApi({
   kind: KIND,
+  plural: 'runner-trusts',
   tag: 'runners',
   representation: RunnerTrustResourceResponseDto,
   addressExample: 'production-cluster',
@@ -172,6 +176,24 @@ export class RunnerTrustResourceController {
         ImportRunnerTrustQuery,
         RunnerTrustResourceDto | null
       >(new ImportRunnerTrustQuery(workspaceId, address ?? '', principal)),
+      representation,
+    );
+  }
+
+  @RunnerTrustResource.List(
+    'workspaces/:workspaceId/runner-trusts',
+    'List every runner trust in a workspace',
+  )
+  @WORKSPACE
+  async list(
+    @Param('workspaceId') workspaceId: string,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<ResourceList<RunnerTrustResourceResponseDto>> {
+    return listed(
+      await this.queryBus.execute<
+        ListRunnerTrustResourcesQuery,
+        readonly RunnerTrustResourceDto[] | null
+      >(new ListRunnerTrustResourcesQuery(workspaceId, principal)),
       representation,
     );
   }

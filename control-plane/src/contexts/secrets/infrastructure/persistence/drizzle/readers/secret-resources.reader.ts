@@ -42,6 +42,15 @@ export class DrizzleSecretResources
     );
   }
 
+  async secretsIn(workspaceId: WorkspaceId): Promise<readonly KeptSecret[]> {
+    return (
+      await this.context.db
+        .select()
+        .from(secret)
+        .where(eq(secret.workspaceId, workspaceId.value))
+    ).map(keptFrom);
+  }
+
   async namesIn(workspaceId: string): Promise<readonly string[]> {
     return (
       await this.context.db

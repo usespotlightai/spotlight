@@ -3,6 +3,7 @@ import { DeleteIntegrationCommand } from '@integrations/application/commands/del
 import { UpdateIntegrationCommand } from '@integrations/application/commands/update-integration.command';
 import type { IntegrationResourceDto } from '@integrations/application/dto/integration-resource.dto';
 import { ImportIntegrationQuery } from '@integrations/application/queries/import-integration.query';
+import { ListIntegrationResourcesQuery } from '@integrations/application/queries/list-integration-resources.query';
 import { ReadIntegrationQuery } from '@integrations/application/queries/read-integration.query';
 import { IntegrationResourceResponseDto } from '@integrations/presentation/http/dto/integration-resource.response.dto';
 import { Body, Param, Query } from '@nestjs/common';
@@ -10,6 +11,7 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiBody, ApiParam } from '@nestjs/swagger';
 import { CurrentActor } from '@platform/http/decorators/current-actor.decorator';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
+import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
 import {
@@ -17,6 +19,7 @@ import {
   answerDeleted,
   answerUpdated,
   found,
+  listed,
 } from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
 import type {
@@ -31,6 +34,7 @@ const KIND = 'integration';
 
 const IntegrationResource = resourceApi({
   kind: KIND,
+  plural: 'integrations',
   tag: 'integrations',
   representation: IntegrationResourceResponseDto,
   addressExample: 'core/linear',
@@ -54,6 +58,11 @@ const DEFINITION = ApiBody({
 const ID = ApiParam({
   name: 'id',
   example: '0d6f3c1e-8a52-4f7b-9c1d-5e2a7b3f9c40',
+});
+
+const WORKSPACE = ApiParam({
+  name: 'workspaceId',
+  example: '5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57',
 });
 
 const representation = (integration: IntegrationResourceDto) =>
@@ -139,10 +148,7 @@ export class IntegrationResourceController {
     'workspaces/:workspaceId/integrations/import',
     'Find the integration at an address in a workspace, to import it',
   )
-  @ApiParam({
-    name: 'workspaceId',
-    example: '5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57',
-  })
+  @WORKSPACE
   async import(
     @Param('workspaceId') workspaceId: string,
     @Query('address') address: string | undefined,
@@ -154,6 +160,24 @@ export class IntegrationResourceController {
         ImportIntegrationQuery,
         IntegrationResourceDto | null
       >(new ImportIntegrationQuery(workspaceId, address ?? '', principal)),
+      representation,
+    );
+  }
+
+  @IntegrationResource.List(
+    'workspaces/:workspaceId/integrations',
+    'List every integration in a workspace, across its teams',
+  )
+  @WORKSPACE
+  async list(
+    @Param('workspaceId') workspaceId: string,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<ResourceList<IntegrationResourceResponseDto>> {
+    return listed(
+      await this.queryBus.execute<
+        ListIntegrationResourcesQuery,
+        readonly IntegrationResourceDto[] | null
+      >(new ListIntegrationResourcesQuery(workspaceId, principal)),
       representation,
     );
   }

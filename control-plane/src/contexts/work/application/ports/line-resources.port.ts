@@ -16,4 +16,6 @@ export interface LineResourcesPort {
   at(teamId: TeamId, key: string): Promise<KeptLine | null>;
 
   ofTeam(teamId: TeamId): Promise<readonly KeptLine[]>;
+
+  ofTeams(teamIds: readonly TeamId[]): Promise<readonly KeptLine[]>;
 }

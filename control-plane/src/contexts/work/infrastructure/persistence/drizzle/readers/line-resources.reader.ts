@@ -17,93 +17,150 @@ import {
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { and, asc, eq, inArray, type SQL } from 'drizzle-orm';
 
+const byLine = <T>(
+  rows: readonly T[],
+  lineOf: (row: T) => string | undefined,
+): Map<string, T[]> => {
+  const grouped = new Map<string, T[]>();
+
+  for (const row of rows) {
+    const lineId = lineOf(row);
+
+    if (lineId === undefined) {
+      continue;
+    }
+
+    const group = grouped.get(lineId);
+
+    if (group) {
+      group.push(row);
+    } else {
+      grouped.set(lineId, [row]);
+    }
+  }
+
+  return grouped;
+};
+
 @Injectable()
 export class DrizzleLineResources implements LineResourcesPort {
   constructor(private readonly context: DrizzleContext) {}
 
-  withId(id: string): Promise<KeptLine | null> {
-    return this.kept(eq(line.id, id));
+  async withId(id: string): Promise<KeptLine | null> {
+    const [found] = await this.kept(eq(line.id, id));
+
+    return found ?? null;
   }
 
-  at(teamId: TeamId, key: string): Promise<KeptLine | null> {
-    return this.kept(and(eq(line.teamId, teamId.value), eq(line.key, key)));
-  }
-
-  async ofTeam(teamId: TeamId): Promise<readonly KeptLine[]> {
-    const held = await this.context.db
-      .select({ id: line.id })
-      .from(line)
-      .where(eq(line.teamId, teamId.value));
-    const kept = await Promise.all(
-      held.map((each) => this.kept(eq(line.id, each.id))),
+  async at(teamId: TeamId, key: string): Promise<KeptLine | null> {
+    const [found] = await this.kept(
+      and(eq(line.teamId, teamId.value), eq(line.key, key)),
     );
 
-    return kept.filter((each): each is KeptLine => each !== null);
+    return found ?? null;
   }
 
-  private async kept(where: SQL | undefined): Promise<KeptLine | null> {
-    const db = this.context.db;
-    const [found] = await db.select().from(line).where(where).limit(1);
+  ofTeam(teamId: TeamId): Promise<readonly KeptLine[]> {
+    return this.kept(eq(line.teamId, teamId.value));
+  }
 
-    if (!found) {
-      return null;
+  ofTeams(teamIds: readonly TeamId[]): Promise<readonly KeptLine[]> {
+    if (teamIds.length === 0) {
+      return Promise.resolve([]);
     }
 
+    return this.kept(
+      inArray(
+        line.teamId,
+        teamIds.map((each) => each.value),
+      ),
+    );
+  }
+
+  private async kept(where: SQL | undefined): Promise<KeptLine[]> {
+    const db = this.context.db;
+    const lines = await db.select().from(line).where(where);
+
+    if (lines.length === 0) {
+      return [];
+    }
+
+    const lineIds = lines.map((each) => each.id);
     const stations = await db
       .select()
       .from(station)
-      .where(eq(station.lineId, found.id))
+      .where(inArray(station.lineId, lineIds))
       .orderBy(asc(station.position));
-    const held = stations.map((each) => each.id);
+    const stationIds = stations.map((each) => each.id);
+    const lineOfStation = new Map(
+      stations.map((each) => [each.id, each.lineId]),
+    );
+    const onStation = (row: { readonly stationId: string }) =>
+      lineOfStation.get(row.stationId);
 
     const [routes, tools, skills, reactions, repositories] = await Promise.all([
-      held.length > 0
+      stationIds.length > 0
         ? db
             .select()
             .from(stationRoute)
-            .where(inArray(stationRoute.stationId, held))
+            .where(inArray(stationRoute.stationId, stationIds))
         : [],
-      held.length > 0
+      stationIds.length > 0
         ? db
             .select({
               stationId: stationTool.stationId,
               name: stationTool.tool,
             })
             .from(stationTool)
-            .where(inArray(stationTool.stationId, held))
+            .where(inArray(stationTool.stationId, stationIds))
             .orderBy(asc(stationTool.position))
         : [],
-      held.length > 0
+      stationIds.length > 0
         ? db
             .select({
               stationId: stationSkill.stationId,
               name: stationSkill.skill,
             })
             .from(stationSkill)
-            .where(inArray(stationSkill.stationId, held))
+            .where(inArray(stationSkill.stationId, stationIds))
             .orderBy(asc(stationSkill.position))
         : [],
-      db.select().from(lineReaction).where(eq(lineReaction.lineId, found.id)),
       db
-        .select({ repository: lineRepository.repository })
+        .select()
+        .from(lineReaction)
+        .where(inArray(lineReaction.lineId, lineIds)),
+      db
+        .select({
+          lineId: lineRepository.lineId,
+          repository: lineRepository.repository,
+        })
         .from(lineRepository)
-        .where(eq(lineRepository.lineId, found.id)),
+        .where(inArray(lineRepository.lineId, lineIds)),
     ]);
 
-    return {
+    const stationsOf = byLine(stations, (each) => each.lineId);
+    const routesOf = byLine(routes, onStation);
+    const toolsOf = byLine(tools, onStation);
+    const skillsOf = byLine(skills, onStation);
+    const reactionsOf = byLine(reactions, (each) => each.lineId);
+    const repositoriesOf = byLine(repositories, (each) => each.lineId);
+
+    return lines.map((found) => ({
       id: found.id,
       version: found.version,
       teamId: TeamId.of(found.teamId),
       key: found.key,
       definition: renderLineRows({
         line: found,
-        stations,
-        routes,
-        tools,
-        skills,
-        reactions,
-        repositories: repositories.map((each) => each.repository),
+        stations: stationsOf.get(found.id) ?? [],
+        routes: routesOf.get(found.id) ?? [],
+        tools: toolsOf.get(found.id) ?? [],
+        skills: skillsOf.get(found.id) ?? [],
+        reactions: reactionsOf.get(found.id) ?? [],
+        repositories: (repositoriesOf.get(found.id) ?? []).map(
+          (each) => each.repository,
+        ),
       }),
-    };
+    }));
   }
 }

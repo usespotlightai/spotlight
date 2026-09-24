@@ -54,12 +54,15 @@ import { ImportWorkspaceHandler } from '@identity/application/queries/handlers/i
 import { ListConfigurationChangesHandler } from '@identity/application/queries/handlers/list-configuration-changes.handler';
 import { ListInvitesHandler } from '@identity/application/queries/handlers/list-invites.handler';
 import { ListMembersHandler } from '@identity/application/queries/handlers/list-members.handler';
+import { ListTeamResourcesHandler } from '@identity/application/queries/handlers/list-team-resources.handler';
+import { ListWorkspaceResourcesHandler } from '@identity/application/queries/handlers/list-workspace-resources.handler';
 import { ListWorkspacesHandler } from '@identity/application/queries/handlers/list-workspaces.handler';
 import { ReadInviteHandler } from '@identity/application/queries/handlers/read-invite.handler';
 import { ReadTeamHandler } from '@identity/application/queries/handlers/read-team.handler';
 import { ReadWorkspaceHandler } from '@identity/application/queries/handlers/read-workspace.handler';
 import {
   ImportWorkspaceTokenHandler,
+  ListWorkspaceTokenResourcesHandler,
   ReadWorkspaceTokenHandler,
 } from '@identity/application/queries/handlers/workspace-token.handlers';
 import { ImportTeamQuery } from '@identity/application/queries/import-team.query';
@@ -67,12 +70,15 @@ import { ImportWorkspaceQuery } from '@identity/application/queries/import-works
 import { ListConfigurationChangesQuery } from '@identity/application/queries/list-configuration-changes.query';
 import { ListInvitesQuery } from '@identity/application/queries/list-invites.query';
 import { ListMembersQuery } from '@identity/application/queries/list-members.query';
+import { ListTeamResourcesQuery } from '@identity/application/queries/list-team-resources.query';
+import { ListWorkspaceResourcesQuery } from '@identity/application/queries/list-workspace-resources.query';
 import { ListWorkspacesQuery } from '@identity/application/queries/list-workspaces.query';
 import { ReadInviteQuery } from '@identity/application/queries/read-invite.query';
 import { ReadTeamQuery } from '@identity/application/queries/read-team.query';
 import { ReadWorkspaceQuery } from '@identity/application/queries/read-workspace.query';
 import {
   ImportWorkspaceTokenQuery,
+  ListWorkspaceTokenResourcesQuery,
   ReadWorkspaceTokenQuery,
 } from '@identity/application/queries/workspace-token.queries';
 import { FirstTeam } from '@identity/application/services/first-team.service';
@@ -231,6 +237,11 @@ const handlers: Provider[] = [
     WORKSPACE_ACCESS,
     IDENTITY_RESOURCES,
   ]),
+  ...bindQueryHandler(
+    ListWorkspaceResourcesQuery,
+    ListWorkspaceResourcesHandler,
+    [WORKSPACE_ACCESS, IDENTITY_RESOURCES],
+  ),
   ...bindCommandHandler(CreateTeamCommand, CreateTeamHandler, [
     WORKSPACE_ACCESS,
     IDENTITY_DEFINITIONS,
@@ -256,6 +267,10 @@ const handlers: Provider[] = [
     IDENTITY_RESOURCES,
   ]),
   ...bindQueryHandler(ImportTeamQuery, ImportTeamHandler, [
+    WORKSPACE_ACCESS,
+    IDENTITY_RESOURCES,
+  ]),
+  ...bindQueryHandler(ListTeamResourcesQuery, ListTeamResourcesHandler, [
     WORKSPACE_ACCESS,
     IDENTITY_RESOURCES,
   ]),
@@ -296,6 +311,11 @@ const handlers: Provider[] = [
     WORKSPACE_ACCESS,
     IDENTITY_RESOURCES,
   ]),
+  ...bindQueryHandler(
+    ListWorkspaceTokenResourcesQuery,
+    ListWorkspaceTokenResourcesHandler,
+    [WORKSPACE_ACCESS, IDENTITY_RESOURCES],
+  ),
   ...bindQueryHandler(
     ListConfigurationChangesQuery,
     ListConfigurationChangesHandler,

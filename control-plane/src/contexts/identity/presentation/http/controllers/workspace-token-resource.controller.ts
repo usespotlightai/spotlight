@@ -9,6 +9,7 @@ import type {
 } from '@identity/application/dto/workspace-token-resource.dto';
 import {
   ImportWorkspaceTokenQuery,
+  ListWorkspaceTokenResourcesQuery,
   ReadWorkspaceTokenQuery,
 } from '@identity/application/queries/workspace-token.queries';
 import { WorkspaceTokenResourceResponseDto } from '@identity/presentation/http/dto/workspace-token-resource.response.dto';
@@ -17,6 +18,7 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiBody, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { CurrentActor } from '@platform/http/decorators/current-actor.decorator';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
+import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
 import {
@@ -24,6 +26,7 @@ import {
   answerDeleted,
   answerUpdated,
   found,
+  listed,
 } from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
 import {
@@ -44,6 +47,7 @@ const WORKSPACE_TOKEN_HEADER = 'Spotlight-Workspace-Token';
 
 const WorkspaceTokenResource = resourceApi({
   kind: KIND,
+  plural: 'workspace-tokens',
   tag: 'workspace-tokens',
   representation: WorkspaceTokenResourceResponseDto,
   addressExample: 'ci',
@@ -220,6 +224,24 @@ export class WorkspaceTokenResourceController {
         ImportWorkspaceTokenQuery,
         WorkspaceTokenResourceDto | null
       >(new ImportWorkspaceTokenQuery(workspaceId, address ?? '', principal)),
+      representation,
+    );
+  }
+
+  @WorkspaceTokenResource.List(
+    'workspaces/:workspaceId/tokens',
+    'List every token that acts in a workspace, never the tokens themselves',
+  )
+  @WORKSPACE
+  async list(
+    @Param('workspaceId') workspaceId: string,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<ResourceList<WorkspaceTokenResourceResponseDto>> {
+    return listed(
+      await this.queryBus.execute<
+        ListWorkspaceTokenResourcesQuery,
+        readonly WorkspaceTokenResourceDto[] | null
+      >(new ListWorkspaceTokenResourcesQuery(workspaceId, principal)),
       representation,
     );
   }

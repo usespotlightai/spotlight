@@ -34,18 +34,23 @@ import { seatTeam } from './support/team';
 
 const DELIVERY = definitionOf(BUILT_IN_LINES[0] as LineOpening);
 
-const seated = async (app: INestApplication): Promise<ResourceFixture> => {
+const seated = async (
+  app: INestApplication,
+): Promise<ResourceFixture & { readonly held: string }> => {
   const db = app.get<DrizzleDatabase>(DRIZZLE);
   const held = `lines-${randomUUID().slice(0, 8)}`;
   const seat = await seatTeam(db, held);
 
   return {
+    held,
     admin: seat.owner,
     viewer: seat.member,
     collection: `/api/resources/teams/${held}/lines`,
     item: (id) => `/api/resources/lines/${id}`,
     importing: (address) =>
       `/api/resources/workspaces/${held}/lines/import?address=${encodeURIComponent(address)}`,
+    listing: (workspaceId) => `/api/resources/workspaces/${workspaceId}/lines`,
+    workspaceOf: () => held,
     address: `team/${DELIVERY.key}`,
     valid: DELIVERY,
     changed: { ...DELIVERY, name: 'Delivery, again' },
@@ -69,7 +74,7 @@ conformsAsResource({ kind: 'line', open: seated });
 
 describe('a line, created through the resource API (e2e)', () => {
   let app: INestApplication;
-  let fixture: ResourceFixture;
+  let fixture: Awaited<ReturnType<typeof seated>>;
 
   const create = (body: object) =>
     served(app)
@@ -212,7 +217,7 @@ describe('a line, created through the resource API (e2e)', () => {
 
   it('holds a role to one line per team even past the check before writing', async () => {
     const lines = app.get(DrizzleLineRepository);
-    const teamId = fixture.collection.split('/')[4] ?? '';
+    const teamId = fixture.held;
     const opening = BUILT_IN_LINES.find((each) => each.role) as LineOpening;
     let next = 0;
     const opened = (key: string) =>
@@ -229,5 +234,111 @@ describe('a line, created through the resource API (e2e)', () => {
     await expect(lines.add(opened('second'))).rejects.toThrow(
       LineRoleTakenError,
     );
+  });
+
+  it('lists every line across the workspace’s teams in address order, each as its read answers it', async () => {
+    const db = app.get<DrizzleDatabase>(DRIZZLE);
+    const workspaceId = fixture.held;
+    const alpha = await served(app)
+      .post(`/api/resources/workspaces/${workspaceId}/teams`)
+      .set(TEST_USER_HEADER, fixture.admin)
+      .set('Idempotency-Key', randomUUID())
+      .send({ key: 'alpha', name: 'Alpha' });
+
+    expect(alpha.status).toBe(201);
+
+    try {
+      const onTeam = await create(DELIVERY);
+      const onAlpha = await served(app)
+        .post(`/api/resources/teams/${alpha.body.id}/lines`)
+        .set(TEST_USER_HEADER, fixture.admin)
+        .set('Idempotency-Key', randomUUID())
+        .send(DELIVERY);
+      const listed = await served(app)
+        .get(fixture.listing(workspaceId))
+        .set(TEST_USER_HEADER, fixture.viewer);
+
+      expect(listed.status).toBe(200);
+      expect(listed.body).toEqual({ items: [onAlpha.body, onTeam.body] });
+      expect(
+        listed.body.items.map((each: { address: string }) => each.address),
+      ).toEqual([`alpha/${DELIVERY.key}`, `team/${DELIVERY.key}`]);
+    } finally {
+      await db.delete(schema.line).where(eq(schema.line.teamId, alpha.body.id));
+    }
+  });
+
+  it('reads several lines across teams at once, each exactly as it reads alone', async () => {
+    const db = app.get<DrizzleDatabase>(DRIZZLE);
+    const workspaceId = fixture.held;
+    const alpha = await served(app)
+      .post(`/api/resources/workspaces/${workspaceId}/teams`)
+      .set(TEST_USER_HEADER, fixture.admin)
+      .set('Idempotency-Key', randomUUID())
+      .send({ key: 'alpha', name: 'Alpha' });
+
+    expect(alpha.status).toBe(201);
+
+    try {
+      const definitions = BUILT_IN_LINES.map((each) => definitionOf(each));
+      const onTeam = await Promise.all(definitions.map((each) => create(each)));
+      const onAlpha = await Promise.all(
+        definitions.map((each) =>
+          served(app)
+            .post(`/api/resources/teams/${alpha.body.id}/lines`)
+            .set(TEST_USER_HEADER, fixture.admin)
+            .set('Idempotency-Key', randomUUID())
+            .send({
+              ...each,
+              repositories: ['acme/api', 'acme/web'],
+              stations: each.stations.map((station, at) =>
+                at === 0
+                  ? { ...station, skills: ['grafana', 'runbooks'] }
+                  : station,
+              ),
+            }),
+        ),
+      );
+
+      expect([...onTeam, ...onAlpha].map((each) => each.status)).toEqual(
+        [...onTeam, ...onAlpha].map(() => 201),
+      );
+
+      const alone = await Promise.all(
+        [...onTeam, ...onAlpha].map((each) =>
+          served(app)
+            .get(fixture.item(each.body.id))
+            .set(TEST_USER_HEADER, fixture.viewer),
+        ),
+      );
+      const listed = await served(app)
+        .get(fixture.listing(workspaceId))
+        .set(TEST_USER_HEADER, fixture.viewer);
+
+      expect(listed.status).toBe(200);
+      expect(listed.body.items).toHaveLength(alone.length);
+      expect(
+        [...listed.body.items].sort(
+          (one: { id: string }, other: { id: string }) =>
+            one.id.localeCompare(other.id),
+        ),
+      ).toEqual(
+        alone
+          .map((each) => each.body)
+          .sort((one, other) => one.id.localeCompare(other.id)),
+      );
+      expect(
+        listed.body.items
+          .filter((each: { address: string }) =>
+            each.address.startsWith('alpha/'),
+          )
+          .map(
+            (each: { definition: { repositories: string[] } }) =>
+              each.definition.repositories,
+          ),
+      ).toEqual(definitions.map(() => ['acme/api', 'acme/web']));
+    } finally {
+      await db.delete(schema.line).where(eq(schema.line.teamId, alpha.body.id));
+    }
   });
 });

@@ -257,6 +257,7 @@ import {
 } from '@work/application/queries/handlers/list-harnesses.handler';
 import { ListInboxHandler } from '@work/application/queries/handlers/list-inbox.handler';
 import { ListKeptWorkspacesHandler } from '@work/application/queries/handlers/list-kept-workspaces.handler';
+import { ListLineResourcesHandler } from '@work/application/queries/handlers/list-line-resources.handler';
 import { ListLinesHandler } from '@work/application/queries/handlers/list-lines.handler';
 import { ListRunnerActivityHandler } from '@work/application/queries/handlers/list-runner-activity.handler';
 import { ListTaskRunsHandler } from '@work/application/queries/handlers/list-task-runs.handler';
@@ -284,6 +285,7 @@ import {
 } from '@work/application/queries/list-harnesses.query';
 import { ListInboxQuery } from '@work/application/queries/list-inbox.query';
 import { ListKeptWorkspacesQuery } from '@work/application/queries/list-kept-workspaces.query';
+import { ListLineResourcesQuery } from '@work/application/queries/list-line-resources.query';
 import { ListLinesQuery } from '@work/application/queries/list-lines.query';
 import { ListRunnerActivityQuery } from '@work/application/queries/list-runner-activity.query';
 import { ListTaskRunsQuery } from '@work/application/queries/list-task-runs.query';
@@ -1034,6 +1036,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ]),
 
   ...bindQueryHandler(ImportLineQuery, ImportLineHandler, [
+    WORKSPACE_ACCESS,
+    TEAM_DIRECTORY,
+    LINE_RESOURCES,
+    LineViews,
+  ]),
+  ...bindQueryHandler(ListLineResourcesQuery, ListLineResourcesHandler, [
     WORKSPACE_ACCESS,
     TEAM_DIRECTORY,
     LINE_RESOURCES,

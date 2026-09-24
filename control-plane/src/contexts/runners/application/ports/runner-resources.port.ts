@@ -43,6 +43,8 @@ export interface RunnerResourcesPort {
 
   trustAt(workspaceId: WorkspaceId, key: string): Promise<KeptTrust | null>;
 
+  trustsIn(workspaceId: WorkspaceId): Promise<readonly KeptTrust[]>;
+
   declaredWithId(id: string): Promise<KeptWorkspaceRunners | null>;
 
   declaredIn(workspaceId: WorkspaceId): Promise<KeptWorkspaceRunners | null>;

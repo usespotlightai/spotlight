@@ -48,6 +48,8 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
     item: (id) => `/api/resources/skills/${id}`,
     importing: (address) =>
       `/api/resources/workspaces/${held}/skills/import?address=${encodeURIComponent(address)}`,
+    listing: (workspaceId) => `/api/resources/workspaces/${workspaceId}/skills`,
+    workspaceOf: () => held,
     address: 'team/grafana',
     valid: GRAFANA,
     changed: {

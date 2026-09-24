@@ -3,6 +3,7 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiBody, ApiParam } from '@nestjs/swagger';
 import { CurrentActor } from '@platform/http/decorators/current-actor.decorator';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
+import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
 import {
@@ -10,6 +11,7 @@ import {
   answerDeleted,
   answerUpdated,
   found,
+  listed,
 } from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
 import type {
@@ -24,6 +26,7 @@ import { DeleteLineCommand } from '@work/application/commands/delete-line.comman
 import { UpdateLineCommand } from '@work/application/commands/update-line.command';
 import type { LineResourceDto } from '@work/application/dto/line-resource.dto';
 import { ImportLineQuery } from '@work/application/queries/import-line.query';
+import { ListLineResourcesQuery } from '@work/application/queries/list-line-resources.query';
 import { ReadLineQuery } from '@work/application/queries/read-line.query';
 import { LineResourceResponseDto } from '@work/presentation/http/dto/line-resource.response.dto';
 
@@ -31,6 +34,7 @@ const KIND = 'line';
 
 const LineResource = resourceApi({
   kind: KIND,
+  plural: 'lines',
   tag: 'lines',
   representation: LineResourceResponseDto,
   addressExample: 'core/delivery',
@@ -68,6 +72,11 @@ const DEFINITION = ApiBody({
 const ID = ApiParam({
   name: 'id',
   example: '3f7a2c9e-5d18-4b6a-8e2f-1c9d7b4a6e03',
+});
+
+const WORKSPACE = ApiParam({
+  name: 'workspaceId',
+  example: '5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57',
 });
 
 const representation = (line: LineResourceDto) =>
@@ -147,10 +156,7 @@ export class LineResourceController {
     'workspaces/:workspaceId/lines/import',
     'Find the line at an address in a workspace, to import it',
   )
-  @ApiParam({
-    name: 'workspaceId',
-    example: '5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57',
-  })
+  @WORKSPACE
   async import(
     @Param('workspaceId') workspaceId: string,
     @Query('address') address: string | undefined,
@@ -161,6 +167,24 @@ export class LineResourceController {
       await this.queryBus.execute<ImportLineQuery, LineResourceDto | null>(
         new ImportLineQuery(workspaceId, address ?? '', principal),
       ),
+      representation,
+    );
+  }
+
+  @LineResource.List(
+    'workspaces/:workspaceId/lines',
+    'List every line in a workspace, across its teams, each as it stands',
+  )
+  @WORKSPACE
+  async list(
+    @Param('workspaceId') workspaceId: string,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<ResourceList<LineResourceResponseDto>> {
+    return listed(
+      await this.queryBus.execute<
+        ListLineResourcesQuery,
+        readonly LineResourceDto[] | null
+      >(new ListLineResourcesQuery(workspaceId, principal)),
       representation,
     );
   }

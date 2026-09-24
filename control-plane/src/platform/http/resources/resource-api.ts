@@ -16,6 +16,7 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import type { ResourceResponseDto } from '@platform/http/dto/resource.response.dto';
+import { resourceListOf } from '@platform/http/dto/resource-list.response.dto';
 import {
   ApiProblemResponse,
   ConventionalApiController,
@@ -36,12 +37,14 @@ export const RESOURCE_OPERATIONS = [
   'update',
   'delete',
   'import',
+  'list',
 ] as const;
 
 export type ResourceOperation = (typeof RESOURCE_OPERATIONS)[number];
 
 export interface ResourceKind {
   readonly kind: string;
+  readonly plural: string;
   readonly tag: string;
   readonly representation: Type<ResourceResponseDto>;
   readonly addressExample: string;
@@ -66,7 +69,10 @@ export const resourceApi = (resource: ResourceKind) => {
   const operation = (name: ResourceOperation, summary: string) =>
     applyDecorators(
       ApiOperation({
-        operationId: operationIdOf(name, resource.kind),
+        operationId: operationIdOf(
+          name,
+          name === 'list' ? resource.plural : resource.kind,
+        ),
         summary,
       }),
       ApiExtension(RESOURCE_EXTENSION, {
@@ -87,6 +93,12 @@ export const resourceApi = (resource: ResourceKind) => {
     HttpStatus.NOT_FOUND,
     `No such ${resource.kind} that you may see`,
   );
+
+  const listed = ApiResponse({
+    status: HttpStatus.OK,
+    description: `Every ${resource.kind} there, each as a read would answer it, in address order`,
+    type: resourceListOf(resource.representation),
+  });
 
   const forbidden = ApiProblemResponse(
     HttpStatus.FORBIDDEN,
@@ -200,5 +212,19 @@ export const resourceApi = (resource: ResourceKind) => {
         ),
         missing,
       ),
+
+    List: (path: string, summary: string) =>
+      applyDecorators(
+        Get(path),
+        operation('list', summary),
+        listed,
+        ApiProblemResponse(
+          HttpStatus.NOT_FOUND,
+          'No such workspace that you may see',
+        ),
+      ),
+
+    ListVisible: (path: string, summary: string) =>
+      applyDecorators(Get(path), operation('list', summary), listed),
   };
 };
