@@ -154,11 +154,19 @@ Beyond `.env`:
 | `OAUTH_CLIENTS` | shared OAuth2 apps as JSON, e.g. `{"slack":{"id":"…","secret":"…"}}` |
 | `SPOTLIGHT_CATALOG_URL`, `SPOTLIGHT_CATALOG_TOKEN` | where catalog tools are called, and the token sent with each call; the catalog host is always allowed, whatever `OUTBOUND_ALLOWED_HOSTS` says (defaults to `https://catalog.usespotlight.ai`) |
 
-### Attachments
+### Attachments and workspace archives
 
 Browsers upload straight to S3 through presigned URLs (15 minutes); a file
 joins a task only once its id is sent with one. In development MinIO serves the
 bucket under its own hostname, so addressing matches AWS.
+
+Runners keep a task's workspace, its checkout and the harness's conversation,
+in the same bucket, under `workspaces/<id>/archives/`, so a later run of the
+task restores it in a fresh sandbox. They upload and fetch through presigned
+URLs signed for `S3_RUNNER_ENDPOINT`, or `S3_ENDPOINT` when it is unset. An
+archive may be 2 GiB packed; one a later run will not restore is removed an
+hour after a newer one is kept, a week after its task finishes or moves on, and
+at once when its task or chat is deleted.
 
 | Variable | Development | Production |
 |---|---|---|
@@ -168,6 +176,7 @@ bucket under its own hostname, so addressing matches AWS.
 | `S3_FORCE_PATH_STYLE` | `true` | unset |
 | `S3_PUBLIC_ENDPOINT` | `https://dev.usespotlight.ai` | unset, or a CDN |
 | `S3_PUBLIC_FORCE_PATH_STYLE` | unset | unset |
+| `S3_RUNNER_ENDPOINT` | unset | unset, or where runners reach the bucket when `S3_ENDPOINT` is private |
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | `spotlight` / `spotlight-storage` | bucket user's keys |
 
 The bucket, not provisioned here, needs:
@@ -180,7 +189,9 @@ The bucket, not provisioned here, needs:
       "AllowedHeaders": ["content-type", "x-amz-meta-uploader", "x-amz-meta-name"],
       "ExposeHeaders": [], "MaxAgeSeconds": 3000 }]
    ```
-3. A lifecycle rule expiring unclaimed objects under `workspaces/`.
+3. A lifecycle rule expiring unclaimed objects under `workspaces/`. Whatever
+   it matches on, it must not match workspace archives: Spotlight removes
+   those itself, and expiring one loses a task's conversation.
 
 The key pair needs only `s3:PutObject`, `s3:GetObject` and `s3:DeleteObject` on
 `arn:aws:s3:::<bucket>/workspaces/*`.

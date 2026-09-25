@@ -118,11 +118,13 @@ import { DeliverSaidHandler } from '@work/application/commands/handlers/deliver-
 import { DismissProposalHandler } from '@work/application/commands/handlers/dismiss-proposal.handler';
 import { EnqueueRunHandler } from '@work/application/commands/handlers/enqueue-run.handler';
 import { GrantAttachmentUploadHandler } from '@work/application/commands/handlers/grant-attachment-upload.handler';
+import { GrantWorkspaceArchiveHandler } from '@work/application/commands/handlers/grant-workspace-archive.handler';
 import { MoveTaskHandler } from '@work/application/commands/handlers/move-task.handler';
 import { ReadInboxItemHandler } from '@work/application/commands/handlers/read-inbox-item.handler';
 import { RenewLeaseHandler } from '@work/application/commands/handlers/renew-lease.handler';
 import { SayInChatHandler } from '@work/application/commands/handlers/say-in-chat.handler';
 import { SayToRunHandler } from '@work/application/commands/handlers/say-to-run.handler';
+import { SealWorkspaceArchiveHandler } from '@work/application/commands/handlers/seal-workspace-archive.handler';
 import { StartChatHandler } from '@work/application/commands/handlers/start-chat.handler';
 import { StopChatHandler } from '@work/application/commands/handlers/stop-chat.handler';
 import { StopRunHandler } from '@work/application/commands/handlers/stop-run.handler';
@@ -142,6 +144,10 @@ import { SayToRunCommand } from '@work/application/commands/say-to-run.command';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
 import { UpdateLineCommand } from '@work/application/commands/update-line.command';
 import { UseToolCommand } from '@work/application/commands/use-tool.command';
+import {
+  GrantWorkspaceArchiveCommand,
+  SealWorkspaceArchiveCommand,
+} from '@work/application/commands/workspace-archive.commands';
 import { AbandonTeamLines } from '@work/application/events/handlers/abandon-team-lines.handler';
 import { ChatOutcomes } from '@work/application/events/handlers/chat-outcomes.handler';
 import { CreateTaskFromProposal } from '@work/application/events/handlers/create-task-from-proposal.handler';
@@ -154,6 +160,8 @@ import { ProvisionTeam } from '@work/application/events/handlers/provision-team.
 import { ReleaseHeldRuns } from '@work/application/events/handlers/release-held-runs.handler';
 import { StopLetGoRun } from '@work/application/events/handlers/stop-let-go-run.handler';
 import { WORK_PUBLICATIONS } from '@work/application/integration-events/work.publications';
+import type { ArchiveStandingsPort } from '@work/application/ports/archive-standings.port';
+import { ARCHIVE_STANDINGS } from '@work/application/ports/archive-standings.port';
 import { ATTACHMENT_READER } from '@work/application/ports/attachment-reader.port';
 import {
   ATTACHMENT_STORE,
@@ -263,10 +271,15 @@ import {
 } from '@work/application/ports/trace-parent.port';
 import { WORK_LOOKUP } from '@work/application/ports/work-lookup.port';
 import {
+  WORKSPACE_ARCHIVE_STORE,
+  type WorkspaceArchiveStorePort,
+} from '@work/application/ports/workspace-archive-store.port';
+import {
   ListChatsQuery,
   ReadChatJournalQuery,
   ReadChatQuery,
 } from '@work/application/queries/chat.queries';
+import { HeldWorkspaceArchiveHandler } from '@work/application/queries/handlers/held-workspace-archive.handler';
 import { ImportLineHandler } from '@work/application/queries/handlers/import-line.handler';
 import { ListChatsHandler } from '@work/application/queries/handlers/list-chats.handler';
 import {
@@ -298,6 +311,7 @@ import { ReadTaskJournalHandler } from '@work/application/queries/handlers/read-
 import { ReadTaskTraceHandler } from '@work/application/queries/handlers/read-task-trace.handler';
 import { RunStopRequestedHandler } from '@work/application/queries/handlers/run-stop-requested.handler';
 import { WatchRunHandler } from '@work/application/queries/handlers/watch-run.handler';
+import { HeldWorkspaceArchiveQuery } from '@work/application/queries/held-workspace-archive.query';
 import { ImportLineQuery } from '@work/application/queries/import-line.query';
 import {
   HarnessCatalogueQuery,
@@ -353,6 +367,7 @@ import { ProvisionWork } from '@work/application/services/provision-work.service
 import { PullRequestToolUse } from '@work/application/services/pull-request.tool-use';
 import { RaiseTask } from '@work/application/services/raise-task';
 import { ReactToHappenings } from '@work/application/services/react-to-happenings.service';
+import { RemoveReleasedArchives } from '@work/application/services/remove-released-archives.service';
 import { ReviewToolUse } from '@work/application/services/review.tool-use';
 import { ReviewCommentToolUse } from '@work/application/services/review-comment.tool-use';
 import { RunAtHand } from '@work/application/services/run-at-hand.service';
@@ -377,6 +392,7 @@ import {
   DEFAULT_HARNESS,
 } from '@work/infrastructure/harnesses/built-in-harnesses';
 import { LineCompiler } from '@work/infrastructure/lines/line.compile';
+import { DrizzleArchiveStandings } from '@work/infrastructure/persistence/drizzle/readers/archive-standings.reader';
 import { DrizzleAttachmentReader } from '@work/infrastructure/persistence/drizzle/readers/attachment.reader';
 import { DrizzleChatReader } from '@work/infrastructure/persistence/drizzle/readers/chat.reader';
 import { DrizzleGivenAtStations } from '@work/infrastructure/persistence/drizzle/readers/given-at-stations.reader';
@@ -402,7 +418,9 @@ import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/r
 import { DrizzleRunDigests } from '@work/infrastructure/persistence/drizzle/repositories/run-digest.repository';
 import { DrizzleRunJournal } from '@work/infrastructure/persistence/drizzle/repositories/run-journal.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
+import { DrizzleWorkspaceArchiveRepository } from '@work/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
 import { S3AttachmentStore } from '@work/infrastructure/storage/s3-attachment.store';
+import { S3WorkspaceArchiveStore } from '@work/infrastructure/storage/s3-workspace-archive.store';
 import { InMemoryRunStream } from '@work/infrastructure/streaming/in-memory-run-stream';
 import { HashedTraceParent } from '@work/infrastructure/tracing/hashed-trace-parent';
 import { workSubscribers } from '@work/presentation/events/work.subscribers';
@@ -420,7 +438,9 @@ import { RunStreamController } from '@work/presentation/http/controllers/run-str
 import { RunnerController } from '@work/presentation/http/controllers/runner.controller';
 import { RunnerActivityController } from '@work/presentation/http/controllers/runner-activity.controller';
 import { TaskController } from '@work/presentation/http/controllers/task.controller';
+import { WorkspaceArchiveController } from '@work/presentation/http/controllers/workspace-archive.controller';
 import { ProvisionWorkWorker } from '@work/presentation/workers/provision-work.worker';
+import { WorkspaceArchivesWorker } from '@work/presentation/workers/workspace-archives.worker';
 
 const WORK_EVENTS = Symbol('WORK_EVENTS');
 
@@ -432,6 +452,7 @@ export const WORK_CONTROLLERS: readonly Type[] = [
   RunController,
   RunStreamController,
   RunnerController,
+  WorkspaceArchiveController,
   PoolController,
   RunnerActivityController,
   HarnessController,
@@ -478,6 +499,10 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   DrizzleTaskRepository,
 
   DrizzleChatRepository,
+
+  DrizzleWorkspaceArchiveRepository,
+
+  { provide: ARCHIVE_STANDINGS, useClass: DrizzleArchiveStandings },
 
   { provide: CHAT_READER, useClass: DrizzleChatReader },
 
@@ -957,6 +982,66 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     HELD_RUN_READER,
     ATTACHMENT_STORE,
   ]),
+
+  {
+    provide: WORKSPACE_ARCHIVE_STORE,
+    inject: [ENV],
+    useFactory: (env: Env) => new S3WorkspaceArchiveStore(env),
+  },
+
+  ...bindQueryHandler(HeldWorkspaceArchiveQuery, HeldWorkspaceArchiveHandler, [
+    HELD_RUN_READER,
+    DrizzleWorkspaceArchiveRepository,
+    WORKSPACE_ARCHIVE_STORE,
+  ]),
+
+  ...bindCommandHandler(
+    GrantWorkspaceArchiveCommand,
+    GrantWorkspaceArchiveHandler,
+    [
+      HELD_RUN_READER,
+      DrizzleWorkspaceArchiveRepository,
+      WORKSPACE_ARCHIVE_STORE,
+      ID_GENERATOR,
+      CLOCK,
+    ],
+  ),
+
+  ...bindCommandHandler(
+    SealWorkspaceArchiveCommand,
+    SealWorkspaceArchiveHandler,
+    [
+      HELD_RUN_READER,
+      DrizzleWorkspaceArchiveRepository,
+      WORKSPACE_ARCHIVE_STORE,
+      CLOCK,
+    ],
+  ),
+
+  {
+    provide: RemoveReleasedArchives,
+    inject: [
+      ARCHIVE_STANDINGS,
+      DrizzleWorkspaceArchiveRepository,
+      WORKSPACE_ARCHIVE_STORE,
+      CLOCK,
+      LOGGER,
+    ],
+    useFactory: (
+      standings: ArchiveStandingsPort,
+      archives: DrizzleWorkspaceArchiveRepository,
+      store: WorkspaceArchiveStorePort,
+      clock: ClockPort,
+      logger: LoggerPort,
+    ) => new RemoveReleasedArchives(standings, archives, store, clock, logger),
+  },
+
+  {
+    provide: WorkspaceArchivesWorker,
+    inject: [RemoveReleasedArchives, LOGGER],
+    useFactory: (released: RemoveReleasedArchives, logger: LoggerPort) =>
+      new WorkspaceArchivesWorker(released, logger),
+  },
 
   ...bindQueryHandler(PendingMessagesQuery, PendingMessagesHandler, [
     HELD_RUN_READER,

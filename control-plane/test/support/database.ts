@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Client, Pool } from 'pg';
+import { databaseNamed } from './e2e-database-url';
 
 export interface TestDatabase {
   readonly db: DrizzleDatabase;
@@ -12,10 +13,7 @@ export interface TestDatabase {
 
 const migrations = join(__dirname, '..', '..', 'drizzle');
 
-const named = (url: string, database: string) =>
-  url.replace(/\/[^/?]*(\?|$)/, `/${database}$1`);
-
-const migrated = async (pool: Pool): Promise<void> => {
+export const migrated = async (pool: Pool): Promise<void> => {
   const files = (await readdir(migrations))
     .filter((each) => each.endsWith('.sql'))
     .sort();
@@ -39,7 +37,7 @@ export const openDatabase = async (about: string): Promise<TestDatabase> => {
   await admin.connect();
   await admin.query(`CREATE DATABASE "${database}"`);
 
-  const pool = new Pool({ connectionString: named(here, database) });
+  const pool = new Pool({ connectionString: databaseNamed(here, database) });
   await migrated(pool);
 
   return {

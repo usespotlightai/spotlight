@@ -3,13 +3,19 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   HeldAttachment,
+  HeldContinuity,
   HeldRunReaderPort,
   PendingSaying,
 } from '@work/application/ports/held-run-reader.port';
+import type { ArchiveHolder } from '@work/domain/value-objects/archive-holder.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
+import { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
+import { StationId } from '@work/domain/value-objects/station-id.vo';
 import {
   chatAttachment,
   chatMessage,
@@ -20,7 +26,7 @@ import {
   taskAttachment,
   taskNote,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import { and, asc, eq, isNull, ne } from 'drizzle-orm';
+import { and, asc, eq, isNull, ne, sql } from 'drizzle-orm';
 
 interface AttachedRow {
   readonly at: number | null;
@@ -29,6 +35,22 @@ interface AttachedRow {
   readonly contentType: string;
   readonly size: number;
 }
+
+const holderOf = (held: {
+  taskId: string | null;
+  stationId: string | null;
+  chatId: string | null;
+}): ArchiveHolder | null => {
+  if (held.taskId && held.stationId) {
+    return {
+      kind: 'task',
+      taskId: TaskId.of(held.taskId),
+      stationId: StationId.of(held.stationId),
+    };
+  }
+
+  return held.chatId ? { kind: 'chat', chatId: ChatId.of(held.chatId) } : null;
+};
 
 const sayings = (
   said: readonly { position: number; body: string }[],
@@ -92,6 +114,41 @@ export class DrizzleHeldRunReader implements HeldRunReaderPort {
           attachment: Attachment.rehydrate(found),
         }
       : null;
+  }
+
+  async continuityOf(
+    runId: RunId,
+    runnerId: RunnerId,
+  ): Promise<HeldContinuity | null> {
+    const [row] = await this.db
+      .select({
+        workspaceId: run.workspaceId,
+        taskId: run.taskId,
+        stationId: run.stationId,
+        chatId: run.chatId,
+        key: sql<string | null>`${run.spec}->'continuity'->>'key'`,
+        sessionId: sql<string | null>`${run.spec}->'continuity'->>'sessionId'`,
+      })
+      .from(run)
+      .where(
+        and(
+          eq(run.id, runId.value),
+          eq(run.claimedBy, runnerId.value),
+          eq(run.state, 'claimed'),
+        ),
+      )
+      .limit(1);
+
+    if (!row) {
+      return null;
+    }
+
+    return {
+      workspaceId: WorkspaceId.of(row.workspaceId),
+      continuity: row.key ? ContinuityKey.of(row.key) : null,
+      holder: holderOf(row),
+      continuing: Boolean(row.sessionId),
+    };
   }
 
   private async held(runId: RunId, runnerId: RunnerId) {

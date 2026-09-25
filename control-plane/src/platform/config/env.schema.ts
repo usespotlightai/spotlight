@@ -42,6 +42,7 @@ export const envSchema = databaseSchema
     S3_REGION: z.string().default('us-east-1'),
     S3_ENDPOINT: z.url().optional(),
     S3_PUBLIC_ENDPOINT: z.url().optional(),
+    S3_RUNNER_ENDPOINT: z.url().optional(),
     S3_ACCESS_KEY_ID: z.string().optional(),
     S3_SECRET_ACCESS_KEY: z.string().optional(),
     S3_FORCE_PATH_STYLE: z.stringbool().default(false),

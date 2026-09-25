@@ -3,7 +3,7 @@ import {
   HeadObjectCommand,
   type HeadObjectCommandOutput,
   PutObjectCommand,
-  S3Client,
+  type S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { Env } from '@platform/config/env.schema';
@@ -18,6 +18,7 @@ import type {
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
+import { missing, s3ClientsOf } from '@work/infrastructure/storage/s3-clients';
 
 const SIGNED_FOR = 15 * 60;
 
@@ -37,48 +38,17 @@ const decoded = (held: string | undefined, fallback: string): string => {
   }
 };
 
-const missing = (error: unknown): null => {
-  if (
-    (error as { $metadata?: { httpStatusCode?: number } })?.$metadata
-      ?.httpStatusCode === 404
-  ) {
-    return null;
-  }
-
-  throw error;
-};
-
 export class S3AttachmentStore implements AttachmentStorePort {
   private readonly store: S3Client;
   private readonly signer: S3Client;
   private readonly bucket: string;
 
   constructor(env: Env) {
-    const shared = {
-      region: env.S3_REGION,
-      // Otherwise presigned URLs carry a pre-upload checksum that S3 rejects.
-      requestChecksumCalculation: 'WHEN_REQUIRED' as const,
-      responseChecksumValidation: 'WHEN_REQUIRED' as const,
-      credentials:
-        env.S3_ACCESS_KEY_ID && env.S3_SECRET_ACCESS_KEY
-          ? {
-              accessKeyId: env.S3_ACCESS_KEY_ID,
-              secretAccessKey: env.S3_SECRET_ACCESS_KEY,
-            }
-          : undefined,
-    };
+    const clients = s3ClientsOf(env);
 
-    this.bucket = env.S3_BUCKET;
-    this.store = new S3Client({
-      ...shared,
-      endpoint: env.S3_ENDPOINT,
-      forcePathStyle: env.S3_FORCE_PATH_STYLE,
-    });
-    this.signer = new S3Client({
-      ...shared,
-      endpoint: env.S3_PUBLIC_ENDPOINT ?? env.S3_ENDPOINT,
-      forcePathStyle: env.S3_PUBLIC_FORCE_PATH_STYLE,
-    });
+    this.bucket = clients.bucket;
+    this.store = clients.store;
+    this.signer = clients.signer;
   }
 
   async grant(

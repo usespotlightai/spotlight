@@ -436,3 +436,70 @@ func TestAskPermissionFailsRatherThanDecidingOnItsOwn(t *testing.T) {
 		t.Errorf("decided %q without an answer", answer.Decision)
 	}
 }
+
+func TestAsksForTheWorkspaceToRestoreAndHearsWhenThereIsNone(t *testing.T) {
+	var asked string
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		asked = r.Method + " " + r.URL.Path
+		if strings.HasSuffix(r.URL.Path, "/run_2/workspace-archive") {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(protocol.HeldArchive{ID: "archive_1", URL: "https://storage.test/a", Size: 12, SHA256: "ab"})
+	})
+
+	held, err := client.WorkspaceArchive(context.Background(), "run_1")
+	if err != nil || held == nil || held.ID != "archive_1" || held.Size != 12 {
+		t.Fatalf("held %+v, %v", held, err)
+	}
+	if asked != "GET /api/runs/run_1/workspace-archive" {
+		t.Errorf("asked %s", asked)
+	}
+
+	none, err := client.WorkspaceArchive(context.Background(), "run_2")
+	if err != nil || none != nil {
+		t.Errorf("expected nothing to restore, got %+v, %v", none, err)
+	}
+}
+
+func TestAsksToKeepTheWorkspaceThenSealsIt(t *testing.T) {
+	var calls []string
+	var asked protocol.ArchiveRequest
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		calls = append(calls, r.Method+" "+r.URL.Path)
+		if r.URL.Path == "/api/runs/run_1/workspace-archive" {
+			_ = json.NewDecoder(r.Body).Decode(&asked)
+			_ = json.NewEncoder(w).Encode(protocol.ArchiveGrant{
+				ID: "archive_1", URL: "https://storage.test/put", Headers: map[string]string{"content-type": "application/gzip"},
+			})
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	grant, err := client.GrantArchive(context.Background(), "run_1", 42, "ab")
+	if err != nil || grant.ID != "archive_1" || grant.Headers["content-type"] != "application/gzip" {
+		t.Fatalf("grant %+v, %v", grant, err)
+	}
+	if asked.Size != 42 || asked.SHA256 != "ab" {
+		t.Errorf("asked for %+v", asked)
+	}
+
+	if err := client.SealArchive(context.Background(), "run_1", grant.ID); err != nil {
+		t.Fatalf("seal: %v", err)
+	}
+	if calls[1] != "POST /api/runs/run_1/workspace-archive/archive_1/sealed" {
+		t.Errorf("sealed with %s", calls[1])
+	}
+}
+
+func TestSaysWhyTheWorkspaceCannotBeKept(t *testing.T) {
+	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, `{"message":"A workspace archive cannot be kept, because this deployment has nowhere to keep one"}`, http.StatusUnprocessableEntity)
+	})
+
+	_, err := client.GrantArchive(context.Background(), "run_1", 42, "ab")
+	if err == nil || !strings.Contains(err.Error(), "nowhere to keep one") {
+		t.Errorf("err %v", err)
+	}
+}

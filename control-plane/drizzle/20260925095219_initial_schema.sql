@@ -716,6 +716,21 @@ CREATE TABLE "task_note" (
 	CONSTRAINT "task_note_task_id_position_pk" PRIMARY KEY("task_id","position")
 );
 --> statement-breakpoint
+CREATE TABLE "workspace_archive" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"continuity_key" text NOT NULL,
+	"task_id" text,
+	"station_id" text,
+	"chat_id" text,
+	"granted_to_run_id" text NOT NULL,
+	"size" bigint NOT NULL,
+	"sha256" text NOT NULL,
+	"granted_at" timestamp NOT NULL,
+	"sealed_at" timestamp,
+	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
 DROP INDEX "account_issuer_accountId_uidx";--> statement-breakpoint
 ALTER TABLE "event_delivery" ADD CONSTRAINT "event_delivery_event_id_event_outbox_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."event_outbox"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "decision" ADD CONSTRAINT "decision_set_id_decision_set_id_fk" FOREIGN KEY ("set_id") REFERENCES "public"."decision_set"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -819,4 +834,7 @@ CREATE INDEX "task_workspace_idx" ON "task" USING btree ("workspace_id");--> sta
 CREATE INDEX "task_attachment_task_idx" ON "task_attachment" USING btree ("task_id","note_position");--> statement-breakpoint
 CREATE INDEX "task_mark_task_idx" ON "task_mark" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "task_note_task_idx" ON "task_note" USING btree ("task_id","position");--> statement-breakpoint
+CREATE INDEX "workspace_archive_continuity_idx" ON "workspace_archive" USING btree ("workspace_id","continuity_key","sealed_at");--> statement-breakpoint
+CREATE INDEX "workspace_archive_task_idx" ON "workspace_archive" USING btree ("task_id");--> statement-breakpoint
+CREATE INDEX "workspace_archive_chat_idx" ON "workspace_archive" USING btree ("chat_id");--> statement-breakpoint
 ALTER TABLE "account" DROP COLUMN "issuer";

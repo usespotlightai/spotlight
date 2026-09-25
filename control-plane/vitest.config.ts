@@ -1,11 +1,14 @@
 import { resolve } from 'node:path';
 import swc from 'unplugin-swc';
 import { defineConfig } from 'vitest/config';
+import { databaseNamed, E2E_DATABASE } from './test/support/e2e-database-url';
 
+process.env.DATABASE_URL ??=
+  'postgres://postgres:postgres@localhost:5432/postgres';
+
+// Never the app's own database: a running control plane would take up the tests' work.
 const E2E_ENV = {
-  DATABASE_URL:
-    process.env.DATABASE_URL ??
-    'postgres://postgres:postgres@localhost:5432/postgres',
+  DATABASE_URL: databaseNamed(process.env.DATABASE_URL, E2E_DATABASE),
   GITHUB_CLIENT_ID: 'test-client-id',
   GITHUB_CLIENT_SECRET: 'test-client-secret',
   GITHUB_APP_ID: 'test-app-id',
@@ -56,6 +59,7 @@ export default defineConfig({
           include: ['test/**/*.e2e-spec.ts'],
           restoreMocks: true,
           env: E2E_ENV,
+          globalSetup: ['test/support/e2e-database.ts'],
           testTimeout: 30_000,
           hookTimeout: 30_000,
         },

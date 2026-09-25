@@ -7,7 +7,8 @@ import (
 )
 
 type Workspace struct {
-	Dir string
+	Dir   string
+	Fresh bool
 }
 
 func Create(root, key string) (*Workspace, error) {
@@ -16,11 +17,12 @@ func Create(root, key string) (*Workspace, error) {
 	}
 
 	dir := filepath.Join(root, key)
-	if err := os.Mkdir(dir, 0o700); err != nil && !os.IsExist(err) {
+	err := os.Mkdir(dir, 0o700)
+	if err != nil && !os.IsExist(err) {
 		return nil, fmt.Errorf("create workspace: %w", err)
 	}
 
-	return &Workspace{Dir: dir}, nil
+	return &Workspace{Dir: dir, Fresh: err == nil}, nil
 }
 
 const StatePath = ".spotlight/state"

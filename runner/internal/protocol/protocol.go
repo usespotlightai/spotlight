@@ -192,6 +192,24 @@ type Completion struct {
 	SessionID string   `json:"sessionId,omitempty"`
 }
 
+type HeldArchive struct {
+	ID     string `json:"id"`
+	URL    string `json:"url"`
+	Size   int64  `json:"size"`
+	SHA256 string `json:"sha256"`
+}
+
+type ArchiveRequest struct {
+	Size   int64  `json:"size"`
+	SHA256 string `json:"sha256"`
+}
+
+type ArchiveGrant struct {
+	ID      string            `json:"id"`
+	URL     string            `json:"url"`
+	Headers map[string]string `json:"headers"`
+}
+
 type Said struct {
 	Position    int          `json:"position"`
 	Body        string       `json:"body"`

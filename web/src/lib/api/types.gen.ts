@@ -479,6 +479,38 @@ export type CompleteRunRequestDto = {
   stopped?: boolean;
 };
 
+export type HeldArchiveResponseDto = {
+  id: string;
+  /**
+   * Where to GET the archive, for a quarter of an hour
+   */
+  url: string;
+  size: number;
+  sha256: string;
+};
+
+export type GrantWorkspaceArchiveRequestDto = {
+  /**
+   * The archive’s size in bytes, as it will be uploaded
+   */
+  size: number;
+  /**
+   * The archive’s SHA-256, as 64 hexadecimal digits
+   */
+  sha256: string;
+};
+
+export type ArchiveGrantResponseDto = {
+  id: string;
+  /**
+   * Where to PUT the archive, for a quarter of an hour; the upload must carry every header given
+   */
+  url: string;
+  headers: {
+    [key: string]: string;
+  };
+};
+
 export type ClaimPoolWorkRequestDto = {
   /**
    * The harnesses installed where the runner runs, as registering reports them
@@ -3260,6 +3292,97 @@ export type CompleteRunResponses = {
 };
 
 export type CompleteRunResponse = CompleteRunResponses[keyof CompleteRunResponses];
+
+export type ReadWorkspaceArchiveData = {
+  body?: never;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/workspace-archive';
+};
+
+export type ReadWorkspaceArchiveErrors = {
+  /**
+   * Missing or wrong enrollment token
+   */
+  401: unknown;
+  /**
+   * Not this runner’s run
+   */
+  404: unknown;
+};
+
+export type ReadWorkspaceArchiveResponses = {
+  200: HeldArchiveResponseDto;
+  /**
+   * Nothing to restore: the run starts its work afresh
+   */
+  204: void;
+};
+
+export type ReadWorkspaceArchiveResponse = ReadWorkspaceArchiveResponses[keyof ReadWorkspaceArchiveResponses];
+
+export type GrantWorkspaceArchiveData = {
+  body: GrantWorkspaceArchiveRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/workspace-archive';
+};
+
+export type GrantWorkspaceArchiveErrors = {
+  /**
+   * Missing or wrong enrollment token
+   */
+  401: unknown;
+  /**
+   * Not this runner’s run
+   */
+  404: unknown;
+  /**
+   * Too large, not a SHA-256, work that does not carry on, or nowhere to keep it
+   */
+  422: unknown;
+};
+
+export type GrantWorkspaceArchiveResponses = {
+  201: ArchiveGrantResponseDto;
+};
+
+export type GrantWorkspaceArchiveResponse = GrantWorkspaceArchiveResponses[keyof GrantWorkspaceArchiveResponses];
+
+export type SealWorkspaceArchiveData = {
+  body?: never;
+  path: {
+    runId: string;
+    archiveId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/workspace-archive/{archiveId}/sealed';
+};
+
+export type SealWorkspaceArchiveErrors = {
+  /**
+   * Missing or wrong enrollment token
+   */
+  401: unknown;
+  /**
+   * Not this runner’s run, or not an archive granted to it
+   */
+  404: unknown;
+  /**
+   * Not uploaded, or uploaded other than as granted
+   */
+  409: unknown;
+};
+
+export type SealWorkspaceArchiveResponses = {
+  204: void;
+};
+
+export type SealWorkspaceArchiveResponse = SealWorkspaceArchiveResponses[keyof SealWorkspaceArchiveResponses];
 
 export type PoolHarnessesData = {
   body?: never;

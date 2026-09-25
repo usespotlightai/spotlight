@@ -1,0 +1,231 @@
+import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { WorkspaceArchiveNotUploadedError } from '@work/domain/exceptions/workspace-archive-not-uploaded.error';
+import type { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
+import type {
+  ArchiveHolder,
+  HolderState,
+} from '@work/domain/value-objects/archive-holder.vo';
+import type { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
+import type { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
+import type { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
+
+const KEPT_AFTER_LET_GO_MS = 7 * 24 * 60 * 60_000;
+const KEPT_AFTER_SUPERSEDED_MS = 60 * 60_000;
+const AWAITED_UNSEALED_MS = 24 * 60 * 60_000;
+
+export interface StoredArchive {
+  readonly size: ArchiveSize;
+  readonly digest: ArchiveDigest;
+}
+
+export interface ArchiveFacts {
+  readonly holder: HolderState | null;
+  readonly supersededAt: Date | null;
+}
+
+interface State {
+  readonly id: WorkspaceArchiveId;
+  readonly workspaceId: WorkspaceId;
+  readonly continuity: ContinuityKey;
+  readonly holder: ArchiveHolder;
+  readonly grantedTo: RunId;
+  readonly size: ArchiveSize;
+  readonly digest: ArchiveDigest;
+  readonly grantedAt: Date;
+  readonly sealedAt: Date | null;
+  readonly version: number;
+}
+
+const after = (at: Date, ms: number): number => at.getTime() + ms;
+
+export class WorkspaceArchive extends EventRecorder {
+  private constructor(
+    private readonly state: State,
+    readonly isDiscarded: boolean,
+  ) {
+    super();
+  }
+
+  static granted(input: {
+    id: WorkspaceArchiveId;
+    workspaceId: WorkspaceId;
+    continuity: ContinuityKey;
+    holder: ArchiveHolder;
+    run: RunId;
+    size: ArchiveSize;
+    digest: ArchiveDigest;
+    at: Date;
+  }): WorkspaceArchive {
+    return new WorkspaceArchive(
+      {
+        id: input.id,
+        workspaceId: input.workspaceId,
+        continuity: input.continuity,
+        holder: input.holder,
+        grantedTo: input.run,
+        size: input.size,
+        digest: input.digest,
+        grantedAt: input.at,
+        sealedAt: null,
+        version: 0,
+      },
+      false,
+    );
+  }
+
+  static rehydrate(state: State): WorkspaceArchive {
+    if (!Number.isInteger(state.version) || state.version < 0) {
+      throw new InconsistentStateError(
+        'workspace archive',
+        `has an impossible version (${state.version})`,
+      );
+    }
+
+    if (state.sealedAt && state.sealedAt < state.grantedAt) {
+      throw new InconsistentStateError(
+        'workspace archive',
+        'was sealed before it was granted',
+      );
+    }
+
+    return new WorkspaceArchive(state, false);
+  }
+
+  get id(): WorkspaceArchiveId {
+    return this.state.id;
+  }
+
+  get workspaceId(): WorkspaceId {
+    return this.state.workspaceId;
+  }
+
+  get continuity(): ContinuityKey {
+    return this.state.continuity;
+  }
+
+  get holder(): ArchiveHolder {
+    return this.state.holder;
+  }
+
+  get grantedTo(): RunId {
+    return this.state.grantedTo;
+  }
+
+  get size(): ArchiveSize {
+    return this.state.size;
+  }
+
+  get digest(): ArchiveDigest {
+    return this.state.digest;
+  }
+
+  get grantedAt(): Date {
+    return this.state.grantedAt;
+  }
+
+  get sealedAt(): Date | null {
+    return this.state.sealedAt;
+  }
+
+  get isSealed(): boolean {
+    return this.state.sealedAt !== null;
+  }
+
+  get version(): number {
+    return this.state.version;
+  }
+
+  grantedFor(run: RunId): boolean {
+    return this.state.grantedTo.equals(run);
+  }
+
+  sealed(stored: StoredArchive | null, at: Date): WorkspaceArchive {
+    if (this.isSealed) {
+      return this;
+    }
+
+    if (!stored) {
+      throw new WorkspaceArchiveNotUploadedError(
+        this.state.id.value,
+        'was never uploaded',
+      );
+    }
+
+    if (
+      !stored.size.equals(this.state.size) ||
+      !stored.digest.equals(this.state.digest)
+    ) {
+      throw new WorkspaceArchiveNotUploadedError(
+        this.state.id.value,
+        'was uploaded with a size or SHA-256 other than the one granted',
+      );
+    }
+
+    return this.with({ sealedAt: at });
+  }
+
+  removableAt(now: Date, facts: ArchiveFacts): boolean {
+    const { sealedAt, grantedAt } = this.state;
+    const at = now.getTime();
+
+    if (!sealedAt) {
+      return at >= after(grantedAt, AWAITED_UNSEALED_MS);
+    }
+
+    if (!facts.holder) {
+      return true;
+    }
+
+    if (
+      facts.supersededAt &&
+      at >= after(facts.supersededAt, KEPT_AFTER_SUPERSEDED_MS)
+    ) {
+      return true;
+    }
+
+    if (this.letGoBy(facts.holder)) {
+      const since = Math.max(
+        sealedAt.getTime(),
+        facts.holder.changedAt.getTime(),
+      );
+
+      return at >= since + KEPT_AFTER_LET_GO_MS;
+    }
+
+    return false;
+  }
+
+  private letGoBy(now: HolderState): boolean {
+    if (now.finished || !now.conversing) {
+      return true;
+    }
+
+    const { holder } = this.state;
+
+    return (
+      holder.kind === 'task' &&
+      !(now.stationId?.equals(holder.stationId) ?? false)
+    );
+  }
+
+  removed(): WorkspaceArchive {
+    const discarded = new WorkspaceArchive(this.state, true);
+    discarded.inheritEvents(this);
+
+    return discarded;
+  }
+
+  private with(part: Partial<State>): WorkspaceArchive {
+    const next = new WorkspaceArchive(
+      { ...this.state, ...part },
+      this.isDiscarded,
+    );
+
+    next.inheritEvents(this);
+
+    return next;
+  }
+}
