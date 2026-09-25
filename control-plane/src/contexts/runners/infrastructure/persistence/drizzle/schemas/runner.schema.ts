@@ -74,6 +74,12 @@ export const runnerPool = pgTable(
   ],
 );
 
+export const poolToken = pgTable('pool_token', {
+  tokenHash: text('token_hash').primaryKey(),
+  poolId: text('pool_id').notNull(),
+  givenAt: timestamp('given_at').defaultNow().notNull(),
+});
+
 export const runner = pgTable(
   'runner',
   {

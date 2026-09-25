@@ -1,4 +1,5 @@
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
+import type { PoolTokenStanding } from '@runners/domain/value-objects/pool-token-standing.vo';
 import type { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -14,6 +15,8 @@ export interface RunnerPoolRepository {
   findForStart(id: RunnerPoolId): Promise<RunnerPool | null>;
 
   findByTokenHash(hash: TokenHash): Promise<RunnerPool | null>;
+
+  tokenStanding(hash: TokenHash): Promise<PoolTokenStanding>;
 
   inWorkspace(workspaceId: WorkspaceId): Promise<readonly RunnerPool[]>;
 }

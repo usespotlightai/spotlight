@@ -55,6 +55,7 @@ export class RunnerPool extends EventRecorder {
     readonly access: PoolAccess,
     readonly version: number,
     readonly isRetired: boolean,
+    readonly tokenGiven: TokenHash | null,
   ) {
     super();
   }
@@ -67,15 +68,17 @@ export class RunnerPool extends EventRecorder {
       by: Attribution;
     },
   ): RunnerPool {
+    const access = RunnerPool.firstAccess(input.access);
     const defined = new RunnerPool(
       input.id,
       input.workspaceId,
       input.key,
       input.labels,
       input.maxRuns,
-      RunnerPool.firstAccess(input.access),
+      access,
       0,
       false,
+      access.mode === 'pull' ? access.tokenHash : null,
     );
 
     defined.record(
@@ -118,6 +121,7 @@ export class RunnerPool extends EventRecorder {
       input.access,
       input.version,
       false,
+      null,
     );
   }
 
@@ -193,10 +197,15 @@ export class RunnerPool extends EventRecorder {
     }
 
     const access = this.nextAccess(given);
+    const rekeyed =
+      access.mode === 'pull' &&
+      this.access.mode === 'pull' &&
+      !access.tokenHash.equals(this.access.tokenHash);
     const redefined = this.reshaped({
       labels: definition.labels,
       maxRuns: definition.maxRuns,
       access,
+      tokenGiven: rekeyed ? access.tokenHash : null,
     });
 
     redefined.record(
@@ -208,10 +217,7 @@ export class RunnerPool extends EventRecorder {
           this.whatChanged,
           by,
           RunnerPoolChangeDetail.redefined(this.mode, {
-            rekeyed:
-              access.mode === 'pull' &&
-              this.access.mode === 'pull' &&
-              !access.tokenHash.equals(this.access.tokenHash),
+            rekeyed,
             secretRotated: given.mode === 'push' && given.secret !== null,
           }),
         ),
@@ -224,7 +230,7 @@ export class RunnerPool extends EventRecorder {
   retired(by: Attribution): RunnerPool {
     this.guardStanding();
 
-    const retired = this.reshaped({ retired: true });
+    const retired = this.reshaped({ retired: true, tokenGiven: null });
 
     retired.record(
       new RunnerPoolRetired(
@@ -296,6 +302,7 @@ export class RunnerPool extends EventRecorder {
     maxRuns?: MaxRuns | null;
     access?: PoolAccess;
     retired?: boolean;
+    tokenGiven?: TokenHash | null;
   }): RunnerPool {
     const next = new RunnerPool(
       this.id,
@@ -306,6 +313,7 @@ export class RunnerPool extends EventRecorder {
       part.access ?? this.access,
       this.version,
       part.retired ?? this.isRetired,
+      part.tokenGiven !== undefined ? part.tokenGiven : this.tokenGiven,
     );
 
     next.inheritEvents(this);
