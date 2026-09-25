@@ -4,7 +4,7 @@ export interface ArchiveGrantDto {
   readonly headers: Readonly<Record<string, string>>;
 }
 
-export interface HeldArchiveDto {
+interface HeldArchiveDto {
   readonly id: string;
   readonly url: string;
   readonly size: number;
