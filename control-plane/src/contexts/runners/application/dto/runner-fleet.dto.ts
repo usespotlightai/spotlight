@@ -5,12 +5,12 @@ export interface AdmittedThroughDto {
   readonly key: string | null;
 }
 
-export interface HostHarnessDto {
+interface HostHarnessDto {
   readonly id: string;
   readonly version: string | null;
 }
 
-export interface HostImageDto {
+interface HostImageDto {
   readonly image: string;
   readonly digest: string | null;
   readonly usual: boolean;

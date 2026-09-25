@@ -16,12 +16,12 @@ export interface LiveRunnerSummary {
   readonly lastSeenAt: Date | null;
 }
 
-export interface HostHarnessSummary {
+interface HostHarnessSummary {
   readonly id: string;
   readonly version: string | null;
 }
 
-export interface HostImageSummary {
+interface HostImageSummary {
   readonly image: string;
   readonly digest: string | null;
   readonly usual: boolean;

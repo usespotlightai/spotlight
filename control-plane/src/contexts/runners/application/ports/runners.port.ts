@@ -3,12 +3,6 @@ import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo'
 
 export const RUNNERS = Symbol('RUNNERS');
 
-export interface ReportedHarness {
-  readonly id: string;
-  readonly models: readonly string[];
-  readonly version?: string;
-}
-
 export interface HeldWork {
   readonly kind: 'run' | 'check';
   readonly id: string;
