@@ -1,5 +1,4 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
-import type { RunnerPresencePort } from '@runners/application/ports/runner-presence.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -85,9 +84,6 @@ const enqueued = async (chat: Chat): Promise<Run> => {
       ],
     } as unknown as LineRepository,
     { now: () => NOW } as ClockPort,
-    {
-      pinnableTerms: async () => RunnerTerms.none(),
-    } as unknown as RunnerPresencePort,
   ).enqueue(chat, RunId.of('run_1'));
 
   return add.mock.calls[0]?.[0] as Run;

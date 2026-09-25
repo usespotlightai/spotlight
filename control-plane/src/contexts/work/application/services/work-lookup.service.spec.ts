@@ -175,7 +175,7 @@ describe('WorkLookup, reading how a run reasoned', () => {
       command: { executable: 'claude', args: [] },
       briefing: 'Retry uploads',
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: 'task_1', keep: false },
+      continuity: { key: 'task_1' },
     });
 
   const reading = (

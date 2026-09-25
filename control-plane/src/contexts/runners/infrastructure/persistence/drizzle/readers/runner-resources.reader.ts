@@ -3,20 +3,18 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type {
   KeptPool,
-  KeptRunner,
   KeptTrust,
   KeptWorkspaceRunners,
   RunnerResourcesPort,
 } from '@runners/application/ports/runner-resources.port';
-import type { Enrolment } from '@runners/domain/services/runner-drift';
+import type { WaysIn } from '@runners/domain/services/runner-drift';
 import {
-  runner,
   runnerPool,
   runnerTrust,
   workspaceRunners,
 } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, isNotNull, isNull, type SQL } from 'drizzle-orm';
+import { and, eq, isNotNull } from 'drizzle-orm';
 
 type TrustRow = typeof runnerTrust.$inferSelect;
 type DeclaredRow = typeof workspaceRunners.$inferSelect;
@@ -50,7 +48,6 @@ const keptDeclared = (row: DeclaredRow): KeptWorkspaceRunners => ({
   id: row.id,
   version: row.version,
   workspaceId: WorkspaceId.of(row.workspaceId),
-  runners: row.runners,
   trusts: row.trusts,
   pools: row.pools,
 });
@@ -58,19 +55,6 @@ const keptDeclared = (row: DeclaredRow): KeptWorkspaceRunners => ({
 @Injectable()
 export class DrizzleRunnerResources implements RunnerResourcesPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
-
-  runnerWithId(id: string): Promise<KeptRunner | null> {
-    return this.runner(eq(runner.id, id));
-  }
-
-  runnerNamed(
-    workspaceId: WorkspaceId,
-    name: string,
-  ): Promise<KeptRunner | null> {
-    return this.runner(
-      and(eq(runner.workspaceId, workspaceId.value), eq(runner.name, name)),
-    );
-  }
 
   async trustWithId(id: string): Promise<KeptTrust | null> {
     const [found] = await this.db
@@ -177,19 +161,8 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
     return found ? keptDeclared(found) : null;
   }
 
-  async enrolmentIn(workspaceId: WorkspaceId): Promise<Enrolment> {
-    const [runners, trusts, pools] = await Promise.all([
-      this.db
-        .select({ name: runner.name, trustKey: runnerTrust.key })
-        .from(runner)
-        .leftJoin(runnerTrust, eq(runnerTrust.id, runner.trustId))
-        .where(
-          and(
-            eq(runner.workspaceId, workspaceId.value),
-            isNull(runner.revokedAt),
-          ),
-        )
-        .orderBy(runner.name),
+  async waysIn(workspaceId: WorkspaceId): Promise<WaysIn> {
+    const [trusts, pools] = await Promise.all([
       this.db
         .select({ key: runnerTrust.key })
         .from(runnerTrust)
@@ -201,29 +174,8 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
     ]);
 
     return {
-      runners,
       trusts: trusts.map((each) => each.key),
       pools: pools.map((each) => each.key),
     };
-  }
-
-  private async runner(where: SQL | undefined): Promise<KeptRunner | null> {
-    const [found] = await this.db
-      .select({
-        id: runner.id,
-        revision: runner.revision,
-        workspaceId: runner.workspaceId,
-        name: runner.name,
-        labels: runner.labels,
-        trustKey: runnerTrust.key,
-      })
-      .from(runner)
-      .leftJoin(runnerTrust, eq(runnerTrust.id, runner.trustId))
-      .where(and(where, isNull(runner.revokedAt)))
-      .limit(1);
-
-    return found
-      ? { ...found, workspaceId: WorkspaceId.of(found.workspaceId) }
-      : null;
   }
 }

@@ -172,16 +172,16 @@ describe('Chat', () => {
     );
   });
 
-  it('carries on in the same workspace, on the runner that holds its session', () => {
+  it('carries on in the same workspace, taking up the session it was worked in', () => {
     const plain = started().continuity();
     const worked = started()
       .workedIn(HarnessSession.of('session_1'), RunnerId.of('runner_1'))
       .continuity();
 
     expect(plain.key.value).toBe('chat-chat_1');
-    expect(plain.pinnedTo).toBeNull();
+    expect(plain.sessionId).toBeNull();
+    expect(worked.key.value).toBe('chat-chat_1');
     expect(worked.sessionId?.value).toBe('session_1');
-    expect(worked.pinnedTo?.value).toBe('runner_1');
   });
 
   it('takes a proposal only from the run working it', () => {

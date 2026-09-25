@@ -59,7 +59,6 @@ export class DrizzleRunRepository implements RunRepository {
       chatId: added.chatId?.value ?? null,
       state: added.state,
       spec: RunSpecContract.toWire(added.spec),
-      targetRunnerId: added.targetRunner?.value ?? null,
       exitCode: added.outcome?.exitCode ?? null,
       message: added.outcome?.message ?? null,
       stopped: added.outcome?.stopped ?? false,
@@ -87,7 +86,6 @@ export class DrizzleRunRepository implements RunRepository {
           chat_id           AS "chatId",
           state,
           spec,
-          target_runner_id  AS "targetRunnerId",
           placement,
           claimed_by        AS "claimedBy",
           lease_expires_at  AS "leaseExpiresAt",
@@ -106,7 +104,6 @@ export class DrizzleRunRepository implements RunRepository {
         WHERE ${inArray(run.harness, named)}
           AND state = 'queued'
           AND workspace_id = ${by.workspaceId.value}
-          AND (target_runner_id IS NULL OR target_runner_id = ${by.runner.value})
           AND ${
             by.claims === 'reserved'
               ? sql`reserved_for = ${by.runner.value} AND reserved_until > ${now.toISOString()}::timestamp`
@@ -204,7 +201,6 @@ export class DrizzleRunRepository implements RunRepository {
         and(
           eq(run.workspaceId, workspaceId.value),
           eq(run.state, 'queued'),
-          isNull(run.targetRunnerId),
           isNull(run.reservedFor),
           or(isNull(run.nextProvisionAt), lte(run.nextProvisionAt, now)),
         ),
@@ -294,7 +290,6 @@ const toRun = (row: Row): Run =>
       chatId: row.chatId ? ChatId.of(row.chatId) : null,
     }),
     spec: specOf(row),
-    targetRunner: row.targetRunnerId ? RunnerId.of(row.targetRunnerId) : null,
     placement: RunnerPlacement.ofClauses(row.placement),
     state: row.state,
     claimedBy: row.claimedBy ? RunnerId.of(row.claimedBy) : null,

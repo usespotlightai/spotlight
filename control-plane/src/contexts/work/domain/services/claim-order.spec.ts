@@ -32,7 +32,6 @@ const waiting = (
     priority?: number;
     queuedAt?: string;
     harness?: string;
-    targetRunner?: string;
     workspace?: string;
     placement?: string[];
   } = {},
@@ -46,9 +45,8 @@ const waiting = (
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
-      continuity: { key: 'task:station', keep: true },
+      continuity: { key: 'task:station' },
     }),
-    targetRunner: over.targetRunner ? RunnerId.of(over.targetRunner) : null,
     placement: RunnerPlacement.of(over.placement ?? []),
   }),
   queuedAt: new Date(over.queuedAt ?? '2026-09-17T09:00:00.000Z'),
@@ -96,19 +94,6 @@ describe('ClaimOrder', () => {
         waiting('ours'),
       ),
     ).toBe('ours');
-  });
-
-  it('never hands a runner a run pinned to another', () => {
-    expect(
-      next(
-        waiting('pinned', { targetRunner: 'runner_2', priority: 9 }),
-        waiting('open'),
-      ),
-    ).toBe('open');
-  });
-
-  it('hands a runner the run pinned to it', () => {
-    expect(next(waiting('mine', { targetRunner: 'runner_1' }))).toBe('mine');
   });
 
   it('never hands a runner a run placed on runners it does not answer to', () => {

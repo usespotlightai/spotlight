@@ -10,40 +10,6 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
-export const runner = pgTable(
-  'runner',
-  {
-    id: text('id').primaryKey(),
-    workspaceId: text('workspace_id').notNull(),
-    name: text('name').notNull(),
-    tokenHash: text('token_hash').notNull(),
-    labels: jsonb('labels').$type<string[]>().notNull().default([]),
-    trustId: text('trust_id'),
-    harnesses: jsonb('harnesses').$type<string[]>().notNull().default([]),
-    advertisedModels: jsonb('advertised_models')
-      .$type<Record<string, string[]>>()
-      .notNull()
-      .default({}),
-    harnessVersions: jsonb('harness_versions')
-      .$type<Record<string, string>>()
-      .notNull()
-      .default({}),
-    revokedAt: timestamp('revoked_at'),
-    registeredAt: timestamp('registered_at').defaultNow().notNull(),
-    lastSeenAt: timestamp('last_seen_at'),
-    revision: integer('revision').notNull().default(0),
-    version: integer('version').notNull().default(0),
-  },
-  (table) => [
-    uniqueIndex('runner_token_hash_idx').on(table.tokenHash),
-    index('runner_workspace_idx').on(table.workspaceId),
-    index('runner_trust_id_idx').on(table.trustId),
-    uniqueIndex('runner_workspace_name_idx')
-      .on(table.workspaceId, table.name)
-      .where(sql`${table.revokedAt} is null`),
-  ],
-);
-
 export const runnerTrust = pgTable(
   'runner_trust',
   {
@@ -70,7 +36,6 @@ export const workspaceRunners = pgTable(
   {
     id: text('id').primaryKey(),
     workspaceId: text('workspace_id').notNull(),
-    runners: jsonb('runners').$type<string[]>().notNull().default([]),
     trusts: jsonb('trusts').$type<string[]>().notNull().default([]),
     pools: jsonb('pools').$type<string[]>().notNull().default([]),
     version: integer('version').notNull().default(0),
@@ -109,12 +74,14 @@ export const runnerPool = pgTable(
   ],
 );
 
-export const poolRunner = pgTable(
-  'pool_runner',
+export const runner = pgTable(
+  'runner',
   {
     id: text('id').primaryKey(),
     workspaceId: text('workspace_id').notNull(),
-    poolId: text('pool_id').notNull(),
+    poolId: text('pool_id'),
+    trustId: text('trust_id'),
+    hostId: text('host_id'),
     labels: jsonb('labels').$type<string[]>().notNull().default([]),
     tokenHash: text('token_hash').notNull(),
     harnesses: jsonb('harnesses').$type<string[]>().notNull().default([]),
@@ -135,16 +102,55 @@ export const poolRunner = pgTable(
     version: integer('version').notNull().default(0),
   },
   (table) => [
-    uniqueIndex('pool_runner_token_hash_idx').on(table.tokenHash),
-    index('pool_runner_standing_idx')
+    uniqueIndex('runner_token_hash_idx').on(table.tokenHash),
+    index('runner_pool_standing_idx')
       .on(table.poolId)
       .where(sql`${table.endedAt} is null`),
-    index('pool_runner_work_idx')
+    index('runner_work_idx')
       .on(table.workKind, table.workId)
       .where(sql`${table.endedAt} is null`),
+    index('runner_workspace_standing_idx')
+      .on(table.workspaceId)
+      .where(sql`${table.endedAt} is null`),
     check(
-      'pool_runner_whole_work',
+      'runner_whole_work',
       sql`(${table.workKind} is null) = (${table.workId} is null)`,
+    ),
+    check(
+      'runner_one_admission',
+      sql`(${table.poolId} is null) <> (${table.trustId} is null)`,
+    ),
+  ],
+);
+
+export const runnerHost = pgTable(
+  'runner_host',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    poolId: text('pool_id'),
+    trustId: text('trust_id'),
+    name: text('name').notNull(),
+    release: text('release').notNull(),
+    executor: text('executor').notNull(),
+    capacity: integer('capacity').notNull(),
+    running: jsonb('running').$type<string[]>().notNull().default([]),
+    harnesses: jsonb('harnesses')
+      .$type<{ id: string; models: string[]; version?: string }[]>()
+      .notNull()
+      .default([]),
+    firstSeenAt: timestamp('first_seen_at').notNull(),
+    lastSeenAt: timestamp('last_seen_at').notNull(),
+    version: integer('version').notNull().default(0),
+  },
+  (table) => [
+    index('runner_host_workspace_idx').on(table.workspaceId),
+    index('runner_host_pool_idx').on(table.poolId),
+    index('runner_host_trust_idx').on(table.trustId),
+    index('runner_host_last_seen_idx').on(table.lastSeenAt),
+    check(
+      'runner_host_one_admission',
+      sql`(${table.poolId} is null) <> (${table.trustId} is null)`,
     ),
   ],
 );

@@ -346,14 +346,10 @@ describe('the continuity of a held run', () => {
     const key = ContinuityKey.for({ taskId, stationId }).value;
     const continuing = await aRun(
       'runner_1',
-      { continuity: { key, sessionId: 'session_1', keep: true } },
+      { continuity: { key, sessionId: 'session_1' } },
       taskId,
     );
-    const afresh = await aRun(
-      'runner_1',
-      { continuity: { key, keep: true } },
-      taskId,
-    );
+    const afresh = await aRun('runner_1', { continuity: { key } }, taskId);
 
     await expect(
       runs.continuityOf(continuing, RunnerId.of('runner_1')),

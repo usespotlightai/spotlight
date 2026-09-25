@@ -50,6 +50,7 @@ export const envSchema = databaseSchema
     SMTP_URL: z.string().min(1).optional(),
     MAIL_FROM: z.string().min(1).default('Spotlight <noreply@usespotlight.ai>'),
     SPOTLIGHT_INSTALLER_DIR: z.string().default('/opt/spotlight/installer'),
+    SPOTLIGHT_RELEASE: z.string().optional(),
     OPENROUTER_API_KEY: z.string().optional(),
     CHANGE_STACK_MODEL: z.string().min(1).default('google/gemini-3.8-flash'),
     DECISIONS_MODEL: z.string().min(1).default('google/gemini-3.8-flash'),

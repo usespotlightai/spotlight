@@ -89,7 +89,7 @@ export class WorkspaceRunnersResourceController {
 
   @WorkspaceRunnersResource.Create(
     'workspaces/:workspaceId/workspace-runners',
-    'Declare every runner a workspace means to have, so any other shows as drift',
+    'Declare the pools and trusts a workspace lets work through',
   )
   @WORKSPACE
   @DEFINITION
@@ -111,7 +111,7 @@ export class WorkspaceRunnersResourceController {
 
   @WorkspaceRunnersResource.Read(
     'workspace-runners/:id',
-    'Read the runners a workspace declares, and any enrolled outside them',
+    'Read the pools and trusts a workspace declares',
   )
   @ID
   read(
@@ -145,7 +145,7 @@ export class WorkspaceRunnersResourceController {
 
   @WorkspaceRunnersResource.Delete(
     'workspace-runners/:id',
-    'Stop declaring the workspace runners, leaving every runner enrolled',
+    'Stop declaring the workspace runners, leaving every pool and trust as it is',
   )
   @ID
   async delete(

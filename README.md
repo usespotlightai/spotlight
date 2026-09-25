@@ -4,8 +4,8 @@
 |---|---|
 | `control-plane/` | NestJS API on Postgres |
 | `web/` | React SPA (Vite) |
-| `runner/` | Go `runner` daemon and `spotlight` CLI |
-| `installer/` | `install.sh`, served by the control plane |
+| `data-plane/` | Go: `host/` (`spotlight-host`), `runner/` (one run in a sandbox), `cli/` (`spotlight`, for agents); only `internal/{protocol,control}` is shared |
+| `installer/` | `install.sh` for `spotlight-host`, served by the control plane |
 
 Locally everything runs in Docker behind Traefik, which terminates HTTPS and
 routes by host and path. Source is bind-mounted, so edits hot-reload.
@@ -30,9 +30,9 @@ docker compose up -d
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | sign-in; the control plane won't start without them |
 | `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY` | cloning and pushing; required to start |
 | `GITHUB_WEBHOOK_SECRET`, `CLOUDFLARE_TUNNEL_TOKEN` | GitHub webhooks reaching this machine |
-| `RUNNER_ONE_TOKEN`, `RUNNER_TWO_TOKEN` | the two compose runners, from Settings > Runners |
-| `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` | Claude Code agents on those runners |
-| `OPENAI_API_KEY` | Codex agents on those runners |
+| `DEV_POOL_TOKEN` | the dev pull pool the compose `host` serves (`scripts/dev-setup.mjs` creates it) |
+| `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` | Claude Code agents in the host's sandboxes |
+| `OPENAI_API_KEY` | Codex agents in the host's sandboxes |
 
 | URL | Service |
 |---|---|
@@ -42,24 +42,58 @@ docker compose up -d
 | http://localhost:8025 | mail (Mailpit; catches all outgoing mail) |
 
 Compose also runs `db`, `migrate` (applies migrations before the control plane
-starts), `storage-bucket` and `tunnel`.
+starts), `storage-bucket`, `tunnel`, and `host`: a `spotlight-host` serving the
+dev pool, which starts sandboxes from the `spotlight-runner:dev` image on the
+compose network. It reloads on edits to `data-plane/`; the image does not, so
+rebuild it with `docker compose build runner` after changing the runner or CLI.
 
-## Installing a runner
+## Hosts and runners
+
+Every run gets a fresh runner in a sandbox of its own, destroyed after the run.
+A *host* is any machine that starts them: set it up once with a pull pool's
+token, and it claims work for the pool, starts a container from the runner
+image for each piece of work and hands it that run's one-run credential, never
+its own.
 
 ```bash
-curl -fsSL https://app.dev.usespotlight.ai/api/install.sh | bash
-runner register [--token <token>] [--url <control-plane>]
+curl -fsSL https://app.dev.usespotlight.ai/api/install.sh | SPOTLIGHT_TOKEN=<pool token> sh
 ```
 
-The script installs `runner` and `spotlight` onto PATH from the public
-[`usespotlightai/cli`](https://github.com/usespotlightai/cli) releases (pin with
-`SPOTLIGHT_VERSION`). `register` checks the token (minted when you enrol a
-runner), saves it, and starts the runner, as a service where it can. The
-production runner image installs the same way (`.docker/runner/Dockerfile`).
+The script installs only `spotlight-host`, pinned to the control plane's
+release (`SPOTLIGHT_VERSION` overrides it), from the public
+[`usespotlightai/cli`](https://github.com/usespotlightai/cli) releases. It
+checks for Docker or Podman (on macOS: Docker Desktop, OrbStack or Colima),
+pulls the runner image, writes `/etc/spotlight/host.env` (as root) or
+`~/.spotlight/host.env`, and runs it as a systemd service or a launchd agent. It
+asks nothing, so cloud-init can run it. A platform workload claims through a
+runner trust instead: `SPOTLIGHT_TRUST=<trust id>` and
+`SPOTLIGHT_OIDC_TOKEN_FILE=<projected token>`.
+
+| Host variable | Default | What |
+|---|---|---|
+| `SPOTLIGHT_CAPACITY` | `1` | sandboxes at once |
+| `SPOTLIGHT_RUNNER_IMAGE` | `ghcr.io/usespotlightai/spotlight-runner:<release>` | comma-separated; each image is probed for its harnesses and claims for what it holds, so an image per harness version is a version pin |
+| `SPOTLIGHT_SANDBOX_ENV` | `sandbox.env` beside `host.env` | variables every sandbox gets, such as harness API keys |
+| `SPOTLIGHT_SANDBOX_PASS` | unset | names of the host's own variables to pass into sandboxes |
+| `SPOTLIGHT_RUN_TIMEOUT` | `6h` | a sandbox running longer is stopped and destroyed |
+| `SPOTLIGHT_SANDBOX_NETWORK`, `SPOTLIGHT_SANDBOX_HOSTS`, `SPOTLIGHT_SANDBOX_URL` | unset | the network sandboxes join, extra hosts entries, and the control plane's address as sandboxes reach it |
+| `SPOTLIGHT_STATE` | `/var/lib/spotlight-host` or `~/.spotlight/host` | the host's id and its git mirrors |
+
+The host keeps a bare mirror of each repository it has checked out and mounts
+it read-only into sandboxes: a run's clone borrows from it and dissociates, so
+a kept workspace restores on any host; a change stack check leans on it
+directly. It destroys every sandbox after success, failure, a stop, a timeout,
+and on start-up those a crashed host left behind. It reports its capacity,
+what it runs and the harnesses its images hold, which is what the Runners page
+shows.
+
+Harnesses live only in the runner image (`.docker/runner/Dockerfile`, built
+from this repository, with `CLAUDE_CODE_VERSION`, `CLAUDE_AGENT_ACP_VERSION`
+and `CODEX_ACP_VERSION` as build arguments).
 
 Tagging triggers `release.yml`, which starts the `infrastructure` repo's build:
-service images, plus binaries published to `usespotlightai/cli`, since this
-repository is private.
+service images and the runner image, plus the `spotlight-host` binaries
+published to `usespotlightai/cli`, since this repository is private.
 
 ## Harness profiles
 
@@ -114,11 +148,11 @@ Claude Code, Codex and Cursor each get it in their own terms.
   approval policy and a workspace-write sandbox on every turn; its model and
   effort go in `CODEX_CONFIG`, which codex-acp merges into Codex's `-c`
   override layer. Cursor has no such layer.
-- **Harness version.** A station's `harnessVersion` pins the run to runners
-  that reported that exact release of the CLI the harness runs: the Claude Code
-  binary `claude-agent-acp` resolves, `codex` behind `codex-acp`, and
-  `cursor-agent`. A runner answers to `<harness>@<version>` beside its name and
-  labels, and the pin is one more placement clause, so it composes with
+- **Harness version.** A station's `harnessVersion` pins the run to runner
+  images that hold that exact release of the CLI the harness runs: the Claude
+  Code binary `claude-agent-acp` resolves, `codex` behind `codex-acp`, and
+  `cursor-agent`. A runner answers to `<harness>@<version>` beside its pool's or
+  trust's labels, and the pin is one more placement clause, so it composes with
   `runners`.
 
 **Harness permissions are guardrails, not the security boundary.** An agent can
@@ -160,7 +194,7 @@ Browsers upload straight to S3 through presigned URLs (15 minutes); a file
 joins a task only once its id is sent with one. In development MinIO serves the
 bucket under its own hostname, so addressing matches AWS.
 
-Runners keep a task's workspace, its checkout and the harness's conversation,
+A runner keeps its task's workspace, its checkout and the harness's conversation,
 in the same bucket, under `workspaces/<id>/archives/`, so a later run of the
 task restores it in a fresh sandbox. They upload and fetch through presigned
 URLs signed for `S3_RUNNER_ENDPOINT`, or `S3_ENDPOINT` when it is unset. An

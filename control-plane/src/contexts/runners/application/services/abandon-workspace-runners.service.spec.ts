@@ -1,40 +1,22 @@
 import { AbandonWorkspaceRunners } from '@runners/application/services/abandon-workspace-runners.service';
-import { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import { aPullPool } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import { WorkspaceRunners } from '@runners/domain/aggregates/workspace-runners.aggregate';
-import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import type { WorkspaceRunnersRepository } from '@runners/domain/repositories/workspace-runners.repository';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
-import { RunnerName } from '@runners/domain/value-objects/runner-name.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
 import { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runners-id.vo';
-import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { changesConfiguration } from '@shared-kernel/domain/events/configuration-changed';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
-import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const WORKSPACE = WorkspaceId.of('ws_closed');
-const NOW = new Date('2026-09-24T10:00:00.000Z');
-
-const runner = Runner.rehydrate({
-  id: RunnerId.of('runner_1'),
-  workspaceId: WORKSPACE,
-  name: RunnerName.of('build-1'),
-  tokenHash: TokenHash.of('a'.repeat(64)),
-  installed: [],
-  revokedAt: null,
-  lastSeenAt: null,
-  version: 0,
-});
 
 const trust = RunnerTrust.rehydrate({
   id: RunnerTrustId.of('trust_1'),
@@ -52,8 +34,7 @@ const trust = RunnerTrust.rehydrate({
 const declared = WorkspaceRunners.rehydrate({
   id: WorkspaceRunnersId.of('declared_1'),
   workspaceId: WORKSPACE,
-  runners: [RunnerName.of('build-1')],
-  trusts: [],
+  trusts: [TrustKey.of('production')],
   pools: [],
   version: 0,
 });
@@ -68,11 +49,6 @@ const abandoning = () => {
   });
   const service = new AbandonWorkspaceRunners(
     {
-      standingIn: async () => [runner],
-      find: async () => runner,
-      save,
-    } as unknown as RunnerRepository,
-    {
       inWorkspace: async () => [trust],
       save,
     } as unknown as RunnerTrustRepository,
@@ -84,7 +60,6 @@ const abandoning = () => {
       inWorkspace: async () => [pool],
       save,
     } as unknown as RunnerPoolRepository,
-    { now: () => NOW } as ClockPort,
     { run: (work: () => Promise<unknown>) => work() } as TransactionPort,
   );
 
@@ -98,14 +73,6 @@ const abandoning = () => {
 };
 
 describe('AbandonWorkspaceRunners', () => {
-  it('revokes the runners a closed workspace still has, as Spotlight', async () => {
-    const { service, changes } = abandoning();
-
-    await service.runnersOf(WORKSPACE);
-
-    expect(changes()).toEqual([['runner', 'deleted', null]]);
-  });
-
   it('withdraws the trusts a closed workspace still has, as Spotlight', async () => {
     const { service, changes } = abandoning();
 

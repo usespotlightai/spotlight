@@ -36,7 +36,7 @@ export class ImportWorkspaceRunnersHandler
         ? RunnerResourceMapper.workspaceRunners(
             kept,
             cleared.slug,
-            await this.resources.enrolmentIn(kept.workspaceId),
+            await this.resources.waysIn(kept.workspaceId),
           )
         : null;
     } catch (error) {

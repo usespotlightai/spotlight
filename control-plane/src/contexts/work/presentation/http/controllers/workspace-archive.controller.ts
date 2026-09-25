@@ -43,7 +43,9 @@ interface Answerable {
 }
 
 @ApiTags('runners')
-@ApiUnauthorizedResponse({ description: 'Missing or wrong enrollment token' })
+@ApiUnauthorizedResponse({
+  description: 'Missing, spent or wrong runner token',
+})
 @RunnerOnly()
 @Controller('runs/:runId/workspace-archive')
 export class WorkspaceArchiveController {

@@ -45,22 +45,20 @@ import { EventTypes } from '@platform/events/event-types';
 import { AuthenticatedGuard } from '@platform/http/guards/authenticated.guard';
 import { RunnerGuard } from '@platform/http/guards/runner.guard';
 import { CryptoIdGenerator } from '@platform/ids/crypto-id.generator';
-import {
-  POOL_RUNNERS,
-  type PoolRunnersPort,
-} from '@runners/application/ports/pool-runners.port';
+import { RUNNER_ADMISSIONS } from '@runners/application/ports/runner-admissions.port';
 import {
   RUNNER_POOLS,
   type RunnerPoolsPort,
 } from '@runners/application/ports/runner-pools.port';
-import {
-  RUNNER_PRESENCE,
-  type RunnerPresencePort,
-} from '@runners/application/ports/runner-presence.port';
+import { RUNNER_PRESENCE } from '@runners/application/ports/runner-presence.port';
 import {
   RUNNER_READER,
   type RunnerReaderPort,
 } from '@runners/application/ports/runner-reader.port';
+import {
+  RUNNERS,
+  type RunnersPort,
+} from '@runners/application/ports/runners.port';
 import {
   RUN_GRANTS,
   type RunGrantsPort,
@@ -108,7 +106,7 @@ import { AnswerRemarkHandler } from '@work/application/commands/handlers/answer-
 import { AppendRunJournalHandler } from '@work/application/commands/handlers/append-run-journal.handler';
 import { AskPermissionHandler } from '@work/application/commands/handlers/ask-permission.handler';
 import { AssignTaskHandler } from '@work/application/commands/handlers/assign-task.handler';
-import { ClaimPoolWorkHandler } from '@work/application/commands/handlers/claim-pool-work.handler';
+import { ClaimHostWorkHandler } from '@work/application/commands/handlers/claim-host-work.handler';
 import { ClaimRunHandler } from '@work/application/commands/handlers/claim-run.handler';
 import { CompleteRunHandler } from '@work/application/commands/handlers/complete-run.handler';
 import { CreateLineHandler } from '@work/application/commands/handlers/create-line.handler';
@@ -134,7 +132,7 @@ import { MoveTaskCommand } from '@work/application/commands/move-task.command';
 import { ReadInboxItemCommand } from '@work/application/commands/read-inbox-item.command';
 import {
   AppendRunJournalCommand,
-  ClaimPoolWorkCommand,
+  ClaimHostWorkCommand,
   ClaimRunCommand,
   CompleteRunCommand,
   EnqueueRunCommand,
@@ -157,7 +155,6 @@ import { EnqueueTaskRun } from '@work/application/events/handlers/enqueue-task-r
 import { HandOver } from '@work/application/events/handlers/hand-over.handler';
 import { NotifyOutsideTools } from '@work/application/events/handlers/notify-outside-tools.handler';
 import { ProvisionTeam } from '@work/application/events/handlers/provision-team.handler';
-import { ReleaseHeldRuns } from '@work/application/events/handlers/release-held-runs.handler';
 import { StopLetGoRun } from '@work/application/events/handlers/stop-let-go-run.handler';
 import { WORK_PUBLICATIONS } from '@work/application/integration-events/work.publications';
 import type { ArchiveStandingsPort } from '@work/application/ports/archive-standings.port';
@@ -201,7 +198,6 @@ import {
   INTEGRATION_TOOLS,
   type IntegrationToolsPort,
 } from '@work/application/ports/integration-tools.port';
-import { KEPT_WORKSPACE_READER } from '@work/application/ports/kept-workspace-reader.port';
 import { LINE_COMPILER } from '@work/application/ports/line-compiler.port';
 import { LINE_READER } from '@work/application/ports/line-reader.port';
 import { LINE_RESOURCES } from '@work/application/ports/line-resources.port';
@@ -230,10 +226,6 @@ import { RUN_READER } from '@work/application/ports/run-reader.port';
 import type { RunStreamPort } from '@work/application/ports/run-stream.port';
 import { RUN_STREAM } from '@work/application/ports/run-stream.port';
 import { RUNNER_ACTIVITY_READER } from '@work/application/ports/runner-activity-reader.port';
-import {
-  RUNNER_REVOCATION,
-  type RunnerRevocationPort,
-} from '@work/application/ports/runner-revocation.port';
 import { RUNNER_TRACE_READER } from '@work/application/ports/runner-trace-reader.port';
 import {
   STATION_PROFILES,
@@ -284,11 +276,10 @@ import { ImportLineHandler } from '@work/application/queries/handlers/import-lin
 import { ListChatsHandler } from '@work/application/queries/handlers/list-chats.handler';
 import {
   HarnessCatalogueHandler,
+  HostHarnessesHandler,
   ListHarnessesHandler,
-  PoolHarnessesHandler,
 } from '@work/application/queries/handlers/list-harnesses.handler';
 import { ListInboxHandler } from '@work/application/queries/handlers/list-inbox.handler';
-import { ListKeptWorkspacesHandler } from '@work/application/queries/handlers/list-kept-workspaces.handler';
 import { ListLineResourcesHandler } from '@work/application/queries/handlers/list-line-resources.handler';
 import { ListLinesHandler } from '@work/application/queries/handlers/list-lines.handler';
 import { ListRunnerActivityHandler } from '@work/application/queries/handlers/list-runner-activity.handler';
@@ -312,13 +303,13 @@ import { ReadTaskTraceHandler } from '@work/application/queries/handlers/read-ta
 import { RunStopRequestedHandler } from '@work/application/queries/handlers/run-stop-requested.handler';
 import { WatchRunHandler } from '@work/application/queries/handlers/watch-run.handler';
 import { HeldWorkspaceArchiveQuery } from '@work/application/queries/held-workspace-archive.query';
+import { HostHarnessesQuery } from '@work/application/queries/host.queries';
 import { ImportLineQuery } from '@work/application/queries/import-line.query';
 import {
   HarnessCatalogueQuery,
   ListHarnessesQuery,
 } from '@work/application/queries/list-harnesses.query';
 import { ListInboxQuery } from '@work/application/queries/list-inbox.query';
-import { ListKeptWorkspacesQuery } from '@work/application/queries/list-kept-workspaces.query';
 import { ListLineResourcesQuery } from '@work/application/queries/list-line-resources.query';
 import { ListLinesQuery } from '@work/application/queries/list-lines.query';
 import { ListRunnerActivityQuery } from '@work/application/queries/list-runner-activity.query';
@@ -328,10 +319,7 @@ import { ListTeamRunsQuery } from '@work/application/queries/list-team-runs.quer
 import { ListTeamTracesQuery } from '@work/application/queries/list-team-traces.query';
 import { OnboardingQuery } from '@work/application/queries/onboarding.query';
 import { PendingMessagesQuery } from '@work/application/queries/pending-messages.query';
-import {
-  PoolHarnessesQuery,
-  PoolQueueQuery,
-} from '@work/application/queries/pool.queries';
+import { PoolQueueQuery } from '@work/application/queries/pool.queries';
 import { ReadAttachmentQuery } from '@work/application/queries/read-attachment.query';
 import { ReadLineQuery } from '@work/application/queries/read-line.query';
 import { ReadRunAttachmentQuery } from '@work/application/queries/read-run-attachment.query';
@@ -354,7 +342,7 @@ import { CHAT_DISPATCH } from '@work/application/services/chat-dispatch';
 import { ConversationAtHand } from '@work/application/services/conversation-at-hand.service';
 import { DispatchChat } from '@work/application/services/dispatch-chat.service';
 import { DispatchTask } from '@work/application/services/dispatch-task.service';
-import { EndPoolRunners } from '@work/application/services/end-pool-runners.service';
+import { EndRunners } from '@work/application/services/end-runners.service';
 import { FilesAtHand } from '@work/application/services/files-at-hand.service';
 import { IntegrationTools } from '@work/application/services/integration-tools.service';
 import { LineAtHand } from '@work/application/services/line-at-hand.service';
@@ -398,7 +386,6 @@ import { DrizzleChatReader } from '@work/infrastructure/persistence/drizzle/read
 import { DrizzleGivenAtStations } from '@work/infrastructure/persistence/drizzle/readers/given-at-stations.reader';
 import { DrizzleHeldRunReader } from '@work/infrastructure/persistence/drizzle/readers/held-run.reader';
 import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/readers/inbox.reader';
-import { DrizzleKeptWorkspaceReader } from '@work/infrastructure/persistence/drizzle/readers/kept-workspace.reader';
 import { DrizzleLineReader } from '@work/infrastructure/persistence/drizzle/readers/line.reader';
 import { DrizzleLineResources } from '@work/infrastructure/persistence/drizzle/readers/line-resources.reader';
 import { DrizzleLinesHeld } from '@work/infrastructure/persistence/drizzle/readers/lines-held.reader';
@@ -428,6 +415,7 @@ import { AttachmentController } from '@work/presentation/http/controllers/attach
 import { ChatController } from '@work/presentation/http/controllers/chat.controller';
 import { GitController } from '@work/presentation/http/controllers/git.controller';
 import { HarnessController } from '@work/presentation/http/controllers/harness.controller';
+import { HostWorkController } from '@work/presentation/http/controllers/host-work.controller';
 import { InboxController } from '@work/presentation/http/controllers/inbox.controller';
 import { LineController } from '@work/presentation/http/controllers/line.controller';
 import { LineResourceController } from '@work/presentation/http/controllers/line-resource.controller';
@@ -454,6 +442,7 @@ export const WORK_CONTROLLERS: readonly Type[] = [
   RunnerController,
   WorkspaceArchiveController,
   PoolController,
+  HostWorkController,
   RunnerActivityController,
   HarnessController,
   InboxController,
@@ -522,8 +511,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   { provide: HARNESS_PROFILE_REVIEW, useExisting: BuiltInHarnesses },
 
-  { provide: KEPT_WORKSPACE_READER, useClass: DrizzleKeptWorkspaceReader },
-
   { provide: RUN_JOURNAL_READER, useClass: DrizzleRunJournalReader },
 
   { provide: TEAM_TRACE_READER, useClass: DrizzleTeamTraceReader },
@@ -554,15 +541,9 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: RunLeases,
-    inject: [DrizzleRunRepository, POOL_RUNNERS],
-    useFactory: (runs: DrizzleRunRepository, pooled: PoolRunnersPort) =>
-      new RunLeases(runs, pooled),
-  },
-
-  {
-    provide: RUNNER_REVOCATION,
-    inject: [RunLeases],
-    useFactory: (leases: RunLeases) => new ReleaseHeldRuns(leases),
+    inject: [DrizzleRunRepository, RUNNERS],
+    useFactory: (runs: DrizzleRunRepository, runners: RunnersPort) =>
+      new RunLeases(runs, runners),
   },
 
   { provide: RUN_JOURNAL, useClass: DrizzleRunJournal },
@@ -755,7 +736,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       TEAM_DIRECTORY,
       DrizzleLineRepository,
       CLOCK,
-      RUNNER_PRESENCE,
     ],
     useFactory: (
       runs: DrizzleRunRepository,
@@ -765,18 +745,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       teams: TeamDirectoryPort,
       lines: DrizzleLineRepository,
       clock: ClockPort,
-      runners: RunnerPresencePort,
-    ) =>
-      new DispatchChat(
-        runs,
-        ids,
-        launch,
-        tracing,
-        teams,
-        lines,
-        clock,
-        runners,
-      ),
+    ) => new DispatchChat(runs, ids, launch, tracing, teams, lines, clock),
   },
 
   {
@@ -822,7 +791,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       TeamIntegrations,
       TASK_DECISIONS,
       StationCatalog,
-      RUNNER_PRESENCE,
       STATION_PROFILES,
     ],
     useFactory: (
@@ -836,7 +804,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       integrations: TeamIntegrations,
       decisions: TaskDecisionsPort,
       catalog: StationCatalog,
-      runners: RunnerPresencePort,
       profiles: StationProfilesPort,
     ) =>
       new DispatchTask(
@@ -850,7 +817,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         integrations,
         decisions,
         catalog,
-        runners,
         profiles,
       ),
   },
@@ -887,7 +853,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       DrizzleLineRepository,
       ID_GENERATOR,
       CLOCK,
-      RUNNER_REVOCATION,
       CreateTaskFromProposal,
       SettleSetup,
       DrizzleTaskRepository,
@@ -903,7 +868,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       STATION_TALLIES,
       LOGGER,
       RUN_GRANTS,
-      EndPoolRunners,
+      EndRunners,
     ],
     useFactory: (
       types: EventTypes,
@@ -912,7 +877,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       provisioningLines: DrizzleLineRepository,
       ids: IdGeneratorPort,
       clock: ClockPort,
-      revocation: RunnerRevocationPort,
       acceptances: CreateTaskFromProposal,
       setup: SettleSetup,
       tasks: DrizzleTaskRepository,
@@ -928,7 +892,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       tallies: StationTalliesPort,
       logger: LoggerPort,
       runGrants: RunGrantsPort,
-      ending: EndPoolRunners,
+      ending: EndRunners,
     ) => {
       types.register('work', WORK_EVENT_TYPES);
       publications.register(WORK_PUBLICATIONS);
@@ -944,7 +908,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
             clock,
             DEFAULT_HARNESS,
           ),
-          revocation,
           acceptances,
           outsideTools: new NotifyOutsideTools(tasks, notifier, transaction),
           taskRuns: new EnqueueTaskRun(tasks, lines, runs, taskDispatch),
@@ -953,7 +916,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           setup,
           abandoning: new AbandonTeamLines(lines, tallies, transaction, logger),
           runGrants,
-          poolRunners: ending,
+          runners: ending,
         }),
       ]);
       return true;
@@ -1072,9 +1035,9 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     HARNESS_LAUNCH,
   ]),
 
-  ...bindQueryHandler(PoolHarnessesQuery, PoolHarnessesHandler, [
+  ...bindQueryHandler(HostHarnessesQuery, HostHarnessesHandler, [
     HARNESS_LAUNCH,
-    RUNNER_POOLS,
+    RUNNER_ADMISSIONS,
   ]),
 
   ...bindQueryHandler(PoolQueueQuery, PoolQueueHandler, [
@@ -1087,13 +1050,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   { provide: QUEUED_PLACEMENTS, useClass: DrizzleQueuedPlacements },
 
   {
-    provide: EndPoolRunners,
-    inject: [POOL_RUNNERS, CLOCK],
-    useFactory: (pooled: PoolRunnersPort, clock: ClockPort) =>
-      new EndPoolRunners(pooled, clock),
+    provide: EndRunners,
+    inject: [RUNNERS, CLOCK],
+    useFactory: (runners: RunnersPort, clock: ClockPort) =>
+      new EndRunners(runners, clock),
   },
 
-  { provide: CHECK_ENDINGS, useExisting: EndPoolRunners },
+  { provide: CHECK_ENDINGS, useExisting: EndRunners },
 
   {
     provide: ProvisionFailures,
@@ -1111,7 +1074,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       DrizzleRunRepository,
       CHECK_PROVISIONING,
       RUNNER_POOLS,
-      POOL_RUNNERS,
+      RUNNERS,
       ProvisionFailures,
       ID_GENERATOR,
       CLOCK,
@@ -1120,11 +1083,11 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       runs: DrizzleRunRepository,
       checks: CheckProvisioningPort,
       pools: RunnerPoolsPort,
-      pooled: PoolRunnersPort,
+      runners: RunnersPort,
       failures: ProvisionFailures,
       ids: IdGeneratorPort,
       clock: ClockPort,
-    ) => new ProvisionWork(runs, checks, pools, pooled, failures, ids, clock),
+    ) => new ProvisionWork(runs, checks, pools, runners, failures, ids, clock),
   },
 
   {
@@ -1157,10 +1120,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindQueryHandler(ReadTaskJournalQuery, ReadTaskJournalHandler, [
     RUN_JOURNAL_READER,
-  ]),
-
-  ...bindQueryHandler(ListKeptWorkspacesQuery, ListKeptWorkspacesHandler, [
-    KEPT_WORKSPACE_READER,
   ]),
 
   ...bindQueryHandler(WatchRunQuery, WatchRunHandler, [RUN_EVENT_READER]),
@@ -1422,13 +1381,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     RUNNER_PRESENCE,
     CLOCK,
     CHECK_WORK,
-    POOL_RUNNERS,
+    RUNNERS,
     ProvisionFailures,
   ]),
 
-  ...bindCommandHandler(ClaimPoolWorkCommand, ClaimPoolWorkHandler, [
-    RUNNER_POOLS,
-    POOL_RUNNERS,
+  ...bindCommandHandler(ClaimHostWorkCommand, ClaimHostWorkHandler, [
+    RUNNER_ADMISSIONS,
+    RUNNERS,
     RUNNER_PRESENCE,
     DrizzleRunRepository,
     RunLeases,

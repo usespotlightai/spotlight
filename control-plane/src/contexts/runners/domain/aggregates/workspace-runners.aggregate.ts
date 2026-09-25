@@ -3,7 +3,6 @@ import { WorkspaceRunnersDropped } from '@runners/domain/events/workspace-runner
 import { WorkspaceRunnersRedeclared } from '@runners/domain/events/workspace-runners-redeclared.event';
 import { WorkspaceRunnersMovedOnError } from '@runners/domain/exceptions/workspace-runners-moved-on.error';
 import type { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
-import type { RunnerName } from '@runners/domain/value-objects/runner-name.vo';
 import type { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import type { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runners-id.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
@@ -13,7 +12,6 @@ import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configu
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 interface Declaration {
-  readonly runners: readonly RunnerName[];
   readonly trusts: readonly TrustKey[];
   readonly pools: readonly PoolKey[];
 }
@@ -22,7 +20,6 @@ export class WorkspaceRunners extends EventRecorder {
   private constructor(
     readonly id: WorkspaceRunnersId,
     readonly workspaceId: WorkspaceId,
-    readonly runners: readonly RunnerName[],
     readonly trusts: readonly TrustKey[],
     readonly pools: readonly PoolKey[],
     readonly version: number,
@@ -41,7 +38,6 @@ export class WorkspaceRunners extends EventRecorder {
     const declared = new WorkspaceRunners(
       input.id,
       input.workspaceId,
-      input.runners,
       input.trusts,
       input.pools,
       0,
@@ -76,7 +72,6 @@ export class WorkspaceRunners extends EventRecorder {
     return new WorkspaceRunners(
       input.id,
       input.workspaceId,
-      input.runners,
       input.trusts,
       input.pools,
       input.version,
@@ -94,7 +89,6 @@ export class WorkspaceRunners extends EventRecorder {
     this.guardStanding();
 
     const redeclared = this.reshaped({
-      runners: declaration.runners,
       trusts: declaration.trusts,
       pools: declaration.pools,
     });
@@ -144,7 +138,6 @@ export class WorkspaceRunners extends EventRecorder {
   }
 
   private reshaped(part: {
-    runners?: readonly RunnerName[];
     trusts?: readonly TrustKey[];
     pools?: readonly PoolKey[];
     dropped?: boolean;
@@ -152,7 +145,6 @@ export class WorkspaceRunners extends EventRecorder {
     const next = new WorkspaceRunners(
       this.id,
       this.workspaceId,
-      part.runners ?? this.runners,
       part.trusts ?? this.trusts,
       part.pools ?? this.pools,
       this.version,

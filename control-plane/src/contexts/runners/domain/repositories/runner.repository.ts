@@ -1,9 +1,8 @@
 import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
-import type { RunnerName } from '@runners/domain/value-objects/runner-name.vo';
-import type { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
+import type { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
+import type { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
-import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface RunnerRepository {
   add(runner: Runner): Promise<void>;
@@ -14,12 +13,7 @@ export interface RunnerRepository {
 
   findByTokenHash(hash: TokenHash): Promise<Runner | null>;
 
-  enrolledUnder(
-    trustId: RunnerTrustId,
-    name: RunnerName,
-  ): Promise<Runner | null>;
+  standingIn(poolId: RunnerPoolId, now: Date): Promise<readonly Runner[]>;
 
-  underTrust(trustId: RunnerTrustId): Promise<readonly Runner[]>;
-
-  standingIn(workspaceId: WorkspaceId): Promise<readonly Runner[]>;
+  holding(work: RunnerWork): Promise<readonly Runner[]>;
 }

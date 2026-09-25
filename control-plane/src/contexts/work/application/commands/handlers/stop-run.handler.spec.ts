@@ -23,7 +23,7 @@ const spec = RunSpec.of({
   command: { executable: 'claude-agent-acp', args: ['--acp'] },
   briefing: 'work out what is being asked for',
   handover: { options: ['Spec'], noteLimit: 4_000 },
-  continuity: { key: 'task_1-station_1', keep: true },
+  continuity: { key: 'task_1-station_1' },
 });
 
 const claimedRun = () =>

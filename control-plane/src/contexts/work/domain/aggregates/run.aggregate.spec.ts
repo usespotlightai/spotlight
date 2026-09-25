@@ -24,7 +24,7 @@ const aSpec = (executable = 'sh') =>
     command: { executable, args: [] },
     briefing: 'do the thing',
     handover: { options: [], noteLimit: 4_000 },
-    continuity: { key: 'task:station', keep: true },
+    continuity: { key: 'task:station' },
   });
 
 const at = (iso: string) => new Date(iso);
@@ -40,15 +40,6 @@ const queued = () =>
     spec: aSpec('sh'),
   });
 
-const openedFor = (target: string) =>
-  Run.enqueue({
-    id: RunId.of('run_1'),
-    workspaceId: WorkspaceId.of('ws_1'),
-    harness: HarnessId.of('dev'),
-    spec: aSpec('claude'),
-    targetRunner: runner(target),
-  });
-
 const claimed = (by = runner(), when = noon) => queued().claim(by, when);
 
 const onAttempt = (attempt: number, leaseUntil: Date) =>
@@ -59,7 +50,6 @@ const onAttempt = (attempt: number, leaseUntil: Date) =>
     priority: RunPriority.normal,
     subject: null,
     spec: aSpec(),
-    targetRunner: null,
     state: 'claimed',
     claimedBy: RunnerId.of('runner_1'),
     leaseExpiresAt: leaseUntil,
@@ -217,36 +207,7 @@ describe('Run', () => {
     ).toThrow(InvalidRunTransitionError);
   });
 
-  describe('opened against one runner', () => {
-    it('is claimable by the runner it was opened for', () => {
-      const run = openedFor('runner_2').claim(runner('runner_2'), noon);
-
-      expect(run.state).toBe('claimed');
-      expect(run.claimedBy?.value).toBe('runner_2');
-    });
-
-    it('refuses a runner it was not opened for', () => {
-      const run = openedFor('runner_2');
-
-      expect(() => run.claim(runner('runner_1'), noon)).toThrow(
-        InvalidRunTransitionError,
-      );
-      expect(run.state).toBe('queued');
-    });
-
-    it('still belongs to that runner after being requeued', () => {
-      const again = openedFor('runner_2')
-        .claim(runner('runner_2'), noon)
-        .requeue(at('2026-08-23T12:05:00.000Z'));
-
-      expect(again.targetRunner?.value).toBe('runner_2');
-      expect(() => again.claim(runner('runner_1'), noon)).toThrow(
-        InvalidRunTransitionError,
-      );
-    });
-  });
-
-  it('lets any runner claim a run opened against none', () => {
+  it('lets any runner claim a queued run nobody reserved', () => {
     expect(queued().claim(runner('runner_9'), noon).claimedBy?.value).toBe(
       'runner_9',
     );
@@ -311,7 +272,7 @@ describe('Run', () => {
           command: { executable: 'sh', args: [] },
           briefing: 'do the thing',
           handover: { options: [], noteLimit: 4_000 },
-          continuity: { key: 'task:station', keep: true },
+          continuity: { key: 'task:station' },
           manifest: tools.map((name) => ({
             name,
             description: name,
@@ -520,18 +481,11 @@ describe('Run', () => {
       expect(queued().provisionableAt(noon)).toBe(true);
       expect(reserved().provisionableAt(noon)).toBe(false);
       expect(claimed().provisionableAt(noon)).toBe(false);
-      expect(openedFor('runner_2').provisionableAt(noon)).toBe(false);
     });
 
     it('refuses to be reserved twice', () => {
       expect(() =>
         reserved().reservedFor(runner('pooled_2'), 'burst', noon),
-      ).toThrow(InvalidRunTransitionError);
-    });
-
-    it('refuses to be reserved while it waits for the runner it was opened for', () => {
-      expect(() =>
-        openedFor('runner_2').reservedFor(runner('pooled_1'), 'burst', noon),
       ).toThrow(InvalidRunTransitionError);
     });
 

@@ -1,5 +1,6 @@
 import type { AbandonWorkspaceRunners } from '@runners/application/services/abandon-workspace-runners.service';
-import type { RevokeTrustedRunners } from '@runners/application/services/revoke-trusted-runners.service';
+import type { ForgetHosts } from '@runners/application/services/forget-hosts.service';
+import type { RunnerPoolRetired } from '@runners/domain/events/runner-pool-retired.event';
 import type { RunnerTrustWithdrawn } from '@runners/domain/events/runner-trust-withdrawn.event';
 import {
   WORKSPACE_CLOSED,
@@ -12,19 +13,18 @@ import {
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const runnersSubscribers = (reactions: {
-  revoking: RevokeTrustedRunners;
   abandoning: AbandonWorkspaceRunners;
+  forgetting: ForgetHosts;
 }): readonly DomainEventSubscriber[] => [
-  subscribing<RunnerTrustWithdrawn>(
-    'runners.revoke-runners-of-withdrawn-trust',
-    ['runner-trust.withdrawn'],
-    (event) => reactions.revoking.withdrawn(event.trustId),
+  subscribing<RunnerPoolRetired>(
+    'runners.forget-hosts-of-retired-pool',
+    ['runner-pool.retired'],
+    (event) => reactions.forgetting.servingThrough(event.poolId),
   ),
-  subscribing<WorkspaceClosedIntegrationEvent>(
-    'runners.revoke-runners-of-closed-workspace',
-    [WORKSPACE_CLOSED],
-    (event) =>
-      reactions.abandoning.runnersOf(WorkspaceId.of(event.workspaceId)),
+  subscribing<RunnerTrustWithdrawn>(
+    'runners.forget-hosts-of-withdrawn-trust',
+    ['runner-trust.withdrawn'],
+    (event) => reactions.forgetting.servingThrough(event.trustId),
   ),
   subscribing<WorkspaceClosedIntegrationEvent>(
     'runners.withdraw-trusts-of-closed-workspace',

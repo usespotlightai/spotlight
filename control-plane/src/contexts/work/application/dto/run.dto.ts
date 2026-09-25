@@ -13,5 +13,4 @@ export interface EnqueuedRunDto {
   readonly id: string;
   readonly harness: string;
   readonly state: string;
-  readonly targetRunnerId: string | null;
 }

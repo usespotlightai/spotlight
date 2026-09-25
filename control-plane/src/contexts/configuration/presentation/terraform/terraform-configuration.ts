@@ -46,7 +46,6 @@ interface Neighbours {
   readonly skills: ReadonlySet<string>;
   readonly profiles: ReadonlySet<string>;
   readonly sources: ReadonlySet<string>;
-  readonly runners: ReadonlySet<string>;
   readonly trusts: ReadonlySet<string>;
   readonly pools: ReadonlySet<string>;
   readonly secrets: ReadonlySet<string>;
@@ -72,15 +71,14 @@ const byPath = inCodePointOrderOf((file: TerraformFile) => file.path);
 const PLACE: Readonly<Record<HeldResourceDto['kind'], number>> = {
   workspace: 0,
   secret: 1,
-  runner: 2,
-  'runner-trust': 3,
-  'runner-pool': 4,
-  'workspace-runners': 5,
-  team: 6,
-  line: 7,
-  skill: 8,
-  integration: 9,
-  'harness-profile': 10,
+  'runner-trust': 2,
+  'runner-pool': 3,
+  'workspace-runners': 4,
+  team: 5,
+  line: 6,
+  skill: 7,
+  integration: 8,
+  'harness-profile': 9,
 };
 
 const teamOf = (held: HeldResourceDto): string => {
@@ -170,7 +168,6 @@ const neighboursIn = (configuration: HeldConfigurationDto): Neighbours => {
     skills: of('skill', (each) => inTeam(each.teamKey, each.key)),
     profiles: of('harness-profile', (each) => inTeam(each.teamKey, each.key)),
     sources: of('integration', (each) => inTeam(each.teamKey, each.source)),
-    runners: of('runner', (each) => each.name),
     trusts: of('runner-trust', (each) => each.key),
     pools: of('runner-pool', (each) => each.key),
     secrets: of('secret', (each) => each.name),
@@ -215,12 +212,6 @@ const References = (neighbours: Neighbours) => ({
           `.${named.name}`,
         )
       : tool;
-  },
-
-  runner(selector: string): HclValue {
-    return neighbours.runners.has(selector)
-      ? referenceTo('runner', nameOf(selector), 'name')
-      : selector;
   },
 
   trust(key: string): HclValue {
@@ -317,17 +308,6 @@ const documentBody = (
   return [...attributes, ...blocks];
 };
 
-const placed = (
-  document: Readonly<Record<string, unknown>>,
-  refer: Referring,
-): Readonly<Record<string, unknown>> =>
-  Array.isArray(document.runners)
-    ? {
-        ...document,
-        runners: texts(document.runners).map((each) => refer.runner(each)),
-      }
-    : document;
-
 const line = (
   held: HeldBy<'line'>,
   importedAs: string,
@@ -349,32 +329,29 @@ const line = (
       files.push({ path, content: station.prompt });
     }
 
-    return placed(
-      {
-        ...station,
-        ...(Array.isArray(station.skills)
-          ? {
-              skills: texts(station.skills).map((each) =>
-                refer.skill(held.teamKey, each),
-              ),
-            }
-          : {}),
-        ...(Array.isArray(station.tools)
-          ? {
-              tools: texts(station.tools).map((each) =>
-                refer.tool(held.teamKey, each),
-              ),
-            }
-          : {}),
-        ...(typeof station.profile === 'string'
-          ? { profile: refer.profile(held.teamKey, station.profile) }
-          : {}),
-        ...(typeof station.prompt === 'string'
-          ? { prompt: HclExpression.moduleFile(path) }
-          : {}),
-      },
-      refer,
-    );
+    return {
+      ...station,
+      ...(Array.isArray(station.skills)
+        ? {
+            skills: texts(station.skills).map((each) =>
+              refer.skill(held.teamKey, each),
+            ),
+          }
+        : {}),
+      ...(Array.isArray(station.tools)
+        ? {
+            tools: texts(station.tools).map((each) =>
+              refer.tool(held.teamKey, each),
+            ),
+          }
+        : {}),
+      ...(typeof station.profile === 'string'
+        ? { profile: refer.profile(held.teamKey, station.profile) }
+        : {}),
+      ...(typeof station.prompt === 'string'
+        ? { prompt: HclExpression.moduleFile(path) }
+        : {}),
+    };
   });
 
   return adopted(
@@ -383,15 +360,10 @@ const line = (
     importedAs,
     [
       ...refer.owner(held),
-      ...documentBody(
-        placed(
-          {
-            ...held.definition,
-            stations: written,
-          },
-          refer,
-        ),
-      ),
+      ...documentBody({
+        ...held.definition,
+        stations: written,
+      }),
     ],
     { files },
   );
@@ -537,35 +509,6 @@ const secret = (
   );
 };
 
-const runner = (
-  held: HeldBy<'runner'>,
-  importedAs: string,
-  refer: Referring,
-): Rendered => {
-  const token = `runner_${held.name}_token`;
-
-  return adopted(
-    held,
-    nameOf(held.name),
-    importedAs,
-    [
-      ...refer.owner(held),
-      attribute('name', held.name),
-      attribute('labels', [...held.labels]),
-      attribute('token', HclExpression.traversal('var', token)),
-    ],
-    {
-      variables: [
-        variable(
-          token,
-          `The token the runner ${held.name} calls with; left null, Spotlight issues one when it creates the runner`,
-          true,
-        ),
-      ],
-    },
-  );
-};
-
 const pool = (
   held: HeldBy<'runner-pool'>,
   importedAs: string,
@@ -640,8 +583,6 @@ const rendered = (
       ]);
     case 'secret':
       return secret(held, importedAs, refer);
-    case 'runner':
-      return runner(held, importedAs, refer);
     case 'runner-trust':
       return adopted(held, nameOf(held.key), importedAs, [
         ...refer.owner(held),
@@ -654,10 +595,6 @@ const rendered = (
     case 'workspace-runners':
       return adopted(held, nameOf(held.address), importedAs, [
         ...refer.owner(held),
-        attribute(
-          'runners',
-          held.runners.map((each) => refer.runner(each)),
-        ),
         attribute(
           'trusts',
           held.trusts.map((each) => refer.trust(each)),

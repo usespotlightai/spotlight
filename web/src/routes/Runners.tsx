@@ -1,6 +1,8 @@
 import { useParams } from 'react-router';
-import { RunnerCard } from '@/components/features/runners/RunnerCard';
-import { RunnerCardSkeleton } from '@/components/features/runners/RunnerCardSkeleton';
+import { HostCard } from '@/components/features/runners/HostCard';
+import { HostCardSkeleton } from '@/components/features/runners/HostCardSkeleton';
+import { HostInstall } from '@/components/features/runners/HostInstall';
+import { ProvisionedRunnerCard } from '@/components/features/runners/ProvisionedRunnerCard';
 import { SettingsPage } from '@/components/features/settings/SettingsPage';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
@@ -12,16 +14,20 @@ import { harnessesOf } from '@/lib/runner';
 
 const FLEET = 'grid gap-2 sm:grid-cols-2';
 
+const HEADING =
+  'flex h-6 items-center font-medium text-muted-foreground text-xs';
+
 export function Runners() {
   const { slug } = useParams();
-  const runners = useRunners(slug);
+  const fleet = useRunners(slug);
   const { data: harnesses } = useHarnesses();
 
   if (!slug) {
     return null;
   }
 
-  const fleet = runners.data ?? [];
+  const hosts = fleet.data?.hosts ?? [];
+  const provisioned = fleet.data?.provisioned ?? [];
 
   return (
     <>
@@ -29,50 +35,56 @@ export function Runners() {
 
       <SettingsPage
         title="Runners"
-        description="The machines that do the work. A runner reports the harnesses it found installed, and is only given work it can carry out."
+        description="Every run gets a fresh runner. Hosts start them, one sandbox per run, from runner images whose harnesses they report; a run only goes where its harness is."
       >
         <section className="flex flex-col gap-2">
-          <h2 className="flex h-6 items-center font-medium text-muted-foreground text-xs">
-            Enrolled
-          </h2>
+          <h2 className={HEADING}>Hosts</h2>
 
-          {loading(runners) && (
-            <ul
-              role="status"
-              aria-label="Loading the runners"
-              className={FLEET}
-            >
-              <RunnerCardSkeleton />
+          {loading(fleet) && (
+            <ul role="status" aria-label="Loading the hosts" className={FLEET}>
+              <HostCardSkeleton />
             </ul>
           )}
 
-          {failed(runners) && (
+          {failed(fleet) && (
             <CouldNotLoad
               what="Runners"
-              retrying={runners.isFetching}
-              onRetry={() => void runners.refetch()}
+              retrying={fleet.isFetching}
+              onRetry={() => void fleet.refetch()}
               className="items-start"
             />
           )}
 
-          {runners.data?.length === 0 && (
-            <p className="text-muted-foreground text-xs">
-              No runner has registered with the control plane.
-            </p>
-          )}
+          {fleet.data && hosts.length === 0 && <HostInstall />}
 
-          {fleet.length > 0 && (
+          {hosts.length > 0 && (
             <ul className={FLEET}>
-              {fleet.map((runner) => (
-                <RunnerCard
-                  key={runner.id}
-                  runner={runner}
-                  harnesses={harnessesOf(runner, harnesses)}
+              {hosts.map((host) => (
+                <HostCard
+                  key={host.id}
+                  host={host}
+                  harnesses={harnessesOf(host.harnesses, harnesses)}
                 />
               ))}
             </ul>
           )}
         </section>
+
+        {provisioned.length > 0 && (
+          <section className="flex flex-col gap-2">
+            <h2 className={HEADING}>Provisioned by a pool</h2>
+
+            <ul className={FLEET}>
+              {provisioned.map((runner) => (
+                <ProvisionedRunnerCard
+                  key={runner.id}
+                  runner={runner}
+                  harnesses={harnessesOf(runner.harnesses, harnesses)}
+                />
+              ))}
+            </ul>
+          </section>
+        )}
       </SettingsPage>
     </>
   );

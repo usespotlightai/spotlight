@@ -1,4 +1,4 @@
-import type { PoolRunnersPort } from '@runners/application/ports/pool-runners.port';
+import type { RunnersPort } from '@runners/application/ports/runners.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -22,7 +22,7 @@ const claimedBy = (id: string, runner: string, at = NOON) =>
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
-      continuity: { key: 'task:station', keep: true },
+      continuity: { key: 'task:station' },
     }),
   }).claim(RunnerId.of(runner), at);
 
@@ -41,7 +41,7 @@ const holding = (held: Run[], movedOn: string[] = []) => {
   } as unknown as RunRepository;
 
   const letGo = vi.fn(async () => {});
-  const pooled = { letGo } as unknown as PoolRunnersPort;
+  const pooled = { letGo } as unknown as RunnersPort;
 
   return { leases: new RunLeases(runs, pooled), saved, letGo };
 };
@@ -85,18 +85,5 @@ describe('RunLeases', () => {
     await leases.requeueLapsed(LATER);
 
     expect(letGo).not.toHaveBeenCalled();
-  });
-
-  it('puts back only what the revoked runner was holding', async () => {
-    const { leases, saved } = holding([
-      claimedBy('run_1', 'runner_1'),
-      claimedBy('run_2', 'runner_2'),
-    ]);
-
-    await leases.releaseHeldBy(RunnerId.of('runner_1'));
-
-    expect(saved.map((each) => [each.id.value, each.state])).toEqual([
-      ['run_1', 'queued'],
-    ]);
   });
 });

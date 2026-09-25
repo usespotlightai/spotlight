@@ -2,7 +2,6 @@ import { ApiProperty } from '@nestjs/swagger';
 import { ResourceResponseDto } from '@platform/http/dto/resource.response.dto';
 import type {
   RunnerPoolResourceDto,
-  RunnerResourceDto,
   RunnerTrustResourceDto,
   WorkspaceRunnersResourceDto,
 } from '@runners/application/dto/runner-resource.dto';
@@ -17,40 +16,8 @@ const LABELS = {
   isArray: true,
   example: ['vpc-internal'],
   description:
-    'What a line or station may name in runners to place its work here, beside the runner name',
+    'What a line or station may name in runners to place its work here',
 };
-
-export class RunnerResourceResponseDto extends ResourceResponseDto {
-  @ApiProperty(WORKSPACE_ID)
-  readonly workspaceId: string;
-
-  @ApiProperty({
-    example: 'build-1',
-    description:
-      'What the runner is called, and its address; fixed for its life, so changing it means replacing the runner',
-  })
-  readonly name: string;
-
-  @ApiProperty(LABELS)
-  readonly labels: readonly string[];
-
-  @ApiProperty({
-    type: String,
-    nullable: true,
-    example: null,
-    description:
-      'The key of the runner trust it enrolled through, or null when it holds a token; not settable',
-  })
-  readonly trust: string | null;
-
-  constructor(runner: RunnerResourceDto) {
-    super(runner);
-    this.workspaceId = runner.workspaceId;
-    this.name = runner.name;
-    this.labels = runner.labels;
-    this.trust = runner.trust;
-  }
-}
 
 export class RunnerTrustResourceResponseDto extends ResourceResponseDto {
   @ApiProperty(WORKSPACE_ID)
@@ -143,7 +110,7 @@ export class RunnerPoolResourceResponseDto extends ResourceResponseDto {
     enum: ['pull', 'push'],
     example: 'pull',
     description:
-      'pull when runners claim with the pool token, push when Spotlight calls provision; fixed for its life, and not settable',
+      'pull when hosts claim with the pool token, push when Spotlight calls provision; fixed for its life, and not settable',
   })
   readonly mode: 'pull' | 'push';
 
@@ -187,16 +154,8 @@ export class WorkspaceRunnersResourceResponseDto extends ResourceResponseDto {
   @ApiProperty({
     type: String,
     isArray: true,
-    example: ['build-1'],
-    description: 'The runners, by name, the workspace means to have',
-  })
-  readonly runners: readonly string[];
-
-  @ApiProperty({
-    type: String,
-    isArray: true,
     example: ['production-cluster'],
-    description: 'The runner trusts, by key, whose runners it means to have',
+    description: 'The runner trusts, by key, the workspace lets work through',
   })
   readonly trusts: readonly string[];
 
@@ -204,25 +163,14 @@ export class WorkspaceRunnersResourceResponseDto extends ResourceResponseDto {
     type: String,
     isArray: true,
     example: ['ephemeral'],
-    description: 'The runner pools, by key, whose runners it means to have',
+    description: 'The runner pools, by key, the workspace lets work through',
   })
   readonly pools: readonly string[];
-
-  @ApiProperty({
-    type: String,
-    isArray: true,
-    example: [],
-    description:
-      'Runners enrolled all the same, outside what is declared; not settable',
-  })
-  readonly drift: readonly string[];
 
   constructor(declared: WorkspaceRunnersResourceDto) {
     super(declared);
     this.workspaceId = declared.workspaceId;
-    this.runners = declared.runners;
     this.trusts = declared.trusts;
     this.pools = declared.pools;
-    this.drift = declared.drift;
   }
 }

@@ -178,7 +178,7 @@ const claimed = (
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
-      continuity: { key: 'task:station', keep: true },
+      continuity: { key: 'task:station' },
       manifest: given.map(describedAs),
       ...(over.catalog ? { catalog: over.catalog } : {}),
     }),

@@ -30,7 +30,6 @@ export const run = pgTable(
     state: runState('state').notNull(),
     spec: jsonb('spec').$type<unknown>().notNull(),
     attempt: integer('attempt').notNull().default(1),
-    targetRunnerId: text('target_runner_id'),
     placement: jsonb('placement')
       .$type<readonly (readonly string[])[]>()
       .notNull()
@@ -60,7 +59,6 @@ export const run = pgTable(
       table.priority,
       table.createdAt,
     ),
-    index('run_target_idx').on(table.targetRunnerId),
     index('run_lease_idx').on(table.leaseExpiresAt),
     index('run_workspace_idx').on(table.workspaceId),
     index('run_chat_idx').on(table.chatId),

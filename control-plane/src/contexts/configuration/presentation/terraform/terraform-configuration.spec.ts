@@ -28,7 +28,7 @@ const LINE_RESOURCE = `resource "spotlight_line" "core_delivery" {
   name         = "Delivery"
   role         = "delivery"
   repositories = ["acme/api"]
-  runners      = [spotlight_runner.build-1.name, "vpc-internal"]
+  runners      = ["build-1", "vpc-internal"]
 
   station {
     key       = "backlog"
@@ -98,10 +98,7 @@ describe('workspaceTerraform', () => {
     const quiet: HeldConfigurationDto = {
       ...HELD,
       resources: HELD.resources.filter(
-        (each) =>
-          each.kind !== 'runner' &&
-          each.kind !== 'runner-pool' &&
-          each.kind !== 'secret',
+        (each) => each.kind !== 'runner-pool' && each.kind !== 'secret',
       ),
     };
 
@@ -131,7 +128,6 @@ describe('workspaceTerraform', () => {
 
     for (const [type, name, address] of [
       ['spotlight_secret', 'linear_api_key', 'LINEAR_API_KEY'],
-      ['spotlight_runner', 'build-1', 'build-1'],
       ['spotlight_runner_trust', 'production-cluster', 'production-cluster'],
       ['spotlight_runner_pool', 'burst', 'burst'],
       ['spotlight_runner_pool', 'k8s-jobs', 'k8s-jobs'],
@@ -266,13 +262,13 @@ describe('workspaceTerraform', () => {
     expect(fileOf(HELD, 'variables.tf')).not.toContain('secret_linear_signing');
   });
 
-  it('writes a runner with its token read from an optional sensitive variable', () => {
-    expect(mainOf(HELD)).toContain(
-      'resource "spotlight_runner" "build-1" {\n  workspace_id = spotlight_workspace.acme.id\n  name         = "build-1"\n  labels       = ["vpc-internal"]\n  token        = var.runner_build-1_token\n}\n',
-    );
-    expect(fileOf(HELD, 'variables.tf')).toContain(
-      'variable "runner_build-1_token" {\n  description = "The token the runner build-1 calls with; left null, Spotlight issues one when it creates the runner"\n  type        = string\n  sensitive   = true\n  default     = null\n}\n',
-    );
+  it('writes the runners a line and a station ask for as the labels they are, never as references', () => {
+    const line = resourceHcl(HELD, heldAs('line', 'core/delivery')).hcl;
+
+    expect(line).toContain('  runners      = ["build-1", "vpc-internal"]\n');
+    expect(line).toContain('    runners   = ["gpu"]\n');
+    expect(mainOf(HELD)).not.toContain('spotlight_runner.');
+    expect(fileOf(HELD, 'variables.tf')).not.toMatch(/variable "runner_[^p]/);
   });
 
   it('writes a runner trust and refers to what the workspace declares', () => {
@@ -282,7 +278,7 @@ describe('workspaceTerraform', () => {
       'resource "spotlight_runner_trust" "production-cluster" {\n  workspace_id = spotlight_workspace.acme.id\n  key          = "production-cluster"\n',
     );
     expect(main).toContain(
-      'resource "spotlight_workspace_runners" "acme" {\n  workspace_id = spotlight_workspace.acme.id\n  runners      = [spotlight_runner.build-1.name, "gone-1"]\n  trusts       = [spotlight_runner_trust.production-cluster.key]\n',
+      'resource "spotlight_workspace_runners" "acme" {\n  workspace_id = spotlight_workspace.acme.id\n  trusts       = [spotlight_runner_trust.production-cluster.key]\n',
     );
   });
 
@@ -429,7 +425,6 @@ describe('workspaceTerraform', () => {
       '"spotlight_secret" "linear_api_key"',
       '"spotlight_secret" "linear_signing"',
       '"spotlight_secret" "sentry_token"',
-      '"spotlight_runner" "build-1"',
       '"spotlight_runner_trust" "production-cluster"',
       '"spotlight_runner_pool" "burst"',
       '"spotlight_runner_pool" "k8s-jobs"',

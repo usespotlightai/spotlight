@@ -25,7 +25,6 @@ interface RunHandover {
 export interface RunContinuity {
   readonly key: string;
   readonly sessionId?: string;
-  readonly keep: boolean;
 }
 
 export interface RunToolInput {
@@ -127,7 +126,6 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
     ...(parts.continuity.sessionId !== undefined
       ? { sessionId: parts.continuity.sessionId }
       : {}),
-    keep: parts.continuity.keep,
   },
   ...(parts.skills
     ? { skills: parts.skills.map(({ path, text }) => ({ path, text })) }

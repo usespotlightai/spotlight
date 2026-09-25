@@ -59,14 +59,6 @@ const secretOf = (id: string, name: string) => ({
   valueVersion: 1,
 });
 
-const runnerOf = (id: string, name: string) => ({
-  id,
-  address: name,
-  workspaceId: WORKSPACE,
-  name,
-  labels: [],
-});
-
 const TRUST = {
   id: 'trust_1',
   address: 'cluster',
@@ -93,7 +85,6 @@ const DECLARED = {
   id: 'declared_1',
   address: 'acme',
   workspaceId: WORKSPACE,
-  runners: ['build-1'],
   trusts: ['cluster'],
   pools: ['burst'],
 };
@@ -245,17 +236,10 @@ const handlers = (over: { cleared?: boolean } = {}) => {
   } satisfies SecretConfigurationPort;
   const runners = {
     in: vi.fn(async () => ({
-      runners: [
-        runnerOf('runner_2', 'build-2'),
-        runnerOf('runner_1', 'build-1'),
-      ],
       trusts: [TRUST],
       pools: [POOL],
       declared: DECLARED,
     })),
-    runnerWithId: vi.fn(async (id: string) =>
-      id === 'runner_1' ? runnerOf('runner_1', 'build-1') : null,
-    ),
     trustWithId: vi.fn(async (id: string) => (id === TRUST.id ? TRUST : null)),
     poolWithId: vi.fn(async (id: string) => (id === POOL.id ? POOL : null)),
     declaredWithId: vi.fn(async (id: string) =>
@@ -309,8 +293,6 @@ describe('WorkspaceConfigurationHandler', () => {
         'workspace acme',
         'secret LINEAR_API_KEY',
         'secret SLACK_TOKEN',
-        'runner build-1',
-        'runner build-2',
         'runner-trust cluster',
         'runner-pool burst',
         'workspace-runners acme',
@@ -361,7 +343,6 @@ describe('ResourceConfigurationHandler', () => {
     ['integration', 'integration_linear', 'ops/linear'],
     ['harness-profile', 'profile_careful', 'core/careful'],
     ['secret', 'secret_1', 'LINEAR_API_KEY'],
-    ['runner', 'runner_1', 'build-1'],
     ['runner-trust', 'trust_1', 'cluster'],
     ['runner-pool', 'pool_1', 'burst'],
     ['workspace-runners', 'declared_1', 'acme'],
@@ -390,10 +371,11 @@ describe('ResourceConfigurationHandler', () => {
     });
   });
 
-  it('holds the pools the workspace declares', async () => {
-    expect(
-      (await one('workspace-runners', 'declared_1'))?.resource,
-    ).toMatchObject({ pools: ['burst'] });
+  it('holds the trusts and pools the workspace declares, and nothing more', async () => {
+    const declared = (await one('workspace-runners', 'declared_1'))?.resource;
+
+    expect(declared).toMatchObject({ trusts: ['cluster'], pools: ['burst'] });
+    expect(declared).not.toHaveProperty('runners');
   });
 
   it('holds nothing for someone who may not read the workspace', async () => {
@@ -402,7 +384,6 @@ describe('ResourceConfigurationHandler', () => {
 
   it('holds nothing its workspace does not hold', async () => {
     expect(await one('skill', 'skill_gone')).toBeNull();
-    expect(await one('runner', 'runner_enrolled_by_trust')).toBeNull();
     expect(await one('runner-pool', 'pool_gone')).toBeNull();
   });
 });

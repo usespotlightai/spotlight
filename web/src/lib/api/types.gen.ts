@@ -156,22 +156,12 @@ export type EnqueueRunRequestDto = {
   spec: {
     [key: string]: unknown;
   };
-  /**
-   * Runner this run belongs to. Omitted lets any runner with the harness take it.
-   */
-  targetRunnerId?: string;
 };
 
 export type EnqueuedRunResponseDto = {
   id: string;
   harness: string;
   state: string;
-  /**
-   * The runner it waits for, or null for whoever is free
-   */
-  targetRunnerId: {
-    [key: string]: unknown;
-  } | null;
 };
 
 export type InstallableHarnessResponseDto = {
@@ -188,13 +178,6 @@ export type InstallableHarnessResponseDto = {
    * What to run to learn which release of this harness is installed, argv-style; the first version-shaped word it prints is the release.
    */
   versionProbe: Array<string>;
-};
-
-export type KeptWorkspacesResponseDto = {
-  /**
-   * The workspace directories this runner should still be holding. Anything else under its workspace root has nothing left to resume and may be disposed of.
-   */
-  keys: Array<Array<string>>;
 };
 
 export type ClaimedRunResponseDto = {
@@ -511,25 +494,6 @@ export type ArchiveGrantResponseDto = {
   };
 };
 
-export type ClaimPoolWorkRequestDto = {
-  /**
-   * The harnesses installed where the runner runs, as registering reports them
-   */
-  harnesses?: Array<Array<unknown>>;
-};
-
-export type PoolClaimResponseDto = {
-  /**
-   * The one-run runner Spotlight started for this work
-   */
-  runnerId: string;
-  /**
-   * The one-run credential, good only for this work and only until it ends; every later call carries it instead of the pool token
-   */
-  token: string;
-  work: ClaimedWorkResponseDto;
-};
-
 export type PoolQueueResponseDto = {
   /**
    * Runs and checks waiting that this pool could take, for an autoscaler to start runners for
@@ -549,6 +513,29 @@ export type PoolQueueResponseDto = {
   labels: {
     [key: string]: number;
   };
+};
+
+export type ClaimHostWorkRequestDto = {
+  /**
+   * The host claiming, as it names itself in its presence
+   */
+  host: string;
+  /**
+   * The harnesses in the runner image this claim will run in, as the host found them
+   */
+  harnesses?: Array<Array<unknown>>;
+};
+
+export type HostClaimResponseDto = {
+  /**
+   * The one-run runner Spotlight started for this work
+   */
+  runnerId: string;
+  /**
+   * The one-run credential, good only for this work and only until it ends; every later call carries it instead of the host’s own credential
+   */
+  token: string;
+  work: ClaimedWorkResponseDto;
 };
 
 export type HeldRunResponseDto = {
@@ -1343,7 +1330,7 @@ export type ConfigurationChangeResponseDto = {
    * Rises with every change; pass it as before to page back
    */
   seq: number;
-  resource: 'workspace' | 'team' | 'line' | 'skill' | 'harness-profile' | 'integration' | 'secret' | 'workspace-token' | 'runner' | 'runner-trust' | 'runner-pool' | 'workspace-runners';
+  resource: 'workspace' | 'team' | 'line' | 'skill' | 'harness-profile' | 'integration' | 'secret' | 'workspace-token' | 'runner-trust' | 'runner-pool' | 'workspace-runners';
   resourceId: string;
   /**
    * The key it had within its team or workspace
@@ -1564,39 +1551,95 @@ export type ConnectGitHubRequestDto = {
   installationId: string;
 };
 
-export type ConnectedRunnerResponseDto = {
+export type HostPresenceRequestDto = {
+  /**
+   * What the host calls itself, usually its hostname
+   */
+  name: string;
+  /**
+   * The spotlight-host release it runs
+   */
+  release: string;
+  /**
+   * The container runtime its sandboxes run in
+   */
+  executor: string;
+  /**
+   * How many sandboxes it runs at once
+   */
+  capacity: number;
+  /**
+   * The one-run runners in its sandboxes now
+   */
+  running?: Array<string>;
+  /**
+   * The harnesses its runner images hold, each with the models it discovered
+   */
+  harnesses?: Array<Array<unknown>>;
+};
+
+export type HostStandingResponseDto = {
+  /**
+   * The workspace the host serves, which it keeps its mirrors under
+   */
+  workspace: string;
+};
+
+export type AdmittedThroughResponseDto = {
+  kind: 'pool' | 'trust';
+  /**
+   * The pool’s or trust’s key; null once it is gone
+   */
+  key: string | null;
+};
+
+export type HostResponseDto = {
   id: string;
   name: string;
+  through: AdmittedThroughResponseDto;
+  /**
+   * The spotlight-host release
+   */
+  release: string;
+  executor: string;
+  /**
+   * How many sandboxes it runs at once
+   */
+  capacity: number;
+  /**
+   * The one-run runners in its sandboxes now
+   */
+  running: Array<string>;
+  /**
+   * The harnesses its runner images hold
+   */
   harnesses: Array<string>;
-  registeredAt: string;
-  /**
-   * Null when the runner has never connected
-   */
-  lastSeenAt: string | null;
-  /**
-   * When its token was retired, if it has been
-   */
-  revokedAt: string | null;
+  firstSeenAt: string;
+  lastSeenAt: string;
   /**
    * Heard from recently enough to be counted on
    */
-  connected: boolean;
+  answering: boolean;
 };
 
-export type EnrolRunnerRequestDto = {
-  /**
-   * What to call this runner. Rejected if empty or over 60.
-   */
-  name: string;
-};
-
-export type EnrolledRunnerResponseDto = {
+export type LiveRunnerResponseDto = {
   id: string;
-  name: string;
+  through: AdmittedThroughResponseDto;
   /**
-   * Shown once. Nothing can recover it after this response.
+   * The host whose sandbox it runs in; null where a push pool provisioned it
    */
-  token: string;
+  hostId: string | null;
+  harnesses: Array<string>;
+  startedAt: string;
+  lastSeenAt: string | null;
+};
+
+export type RunnerFleetResponseDto = {
+  hosts: Array<HostResponseDto>;
+  /**
+   * Every runner at work now, one per run, on a host or provisioned by a push pool
+   */
+  runners: Array<LiveRunnerResponseDto>;
 };
 
 export type RegisterRunnerRequestDto = {
@@ -1608,71 +1651,6 @@ export type RegisterRunnerRequestDto = {
 
 export type RegisteredRunnerResponseDto = {
   runnerId: string;
-};
-
-export type ExchangeWorkloadTokenRequestDto = {
-  /**
-   * The id of the runner trust to enrol through
-   */
-  trust: string;
-  /**
-   * The OIDC token the platform issued this workload, such as a projected Kubernetes service account token
-   */
-  token: string;
-  /**
-   * What to call the runner; exchanging again under the same name issues it a new token
-   */
-  name: string;
-};
-
-export type ExchangedTokenResponseDto = {
-  runnerId: string;
-  /**
-   * The runner token to call with from now on; any token issued before under this name no longer works
-   */
-  token: string;
-};
-
-export type RunnerResourceResponseDto = {
-  /**
-   * Issued by Spotlight when the resource is created, and never changed
-   */
-  id: string;
-  /**
-   * Rises with every change; the ETag carries it, and a write sends it back as If-Match
-   */
-  version: number;
-  /**
-   * Names the resource within its workspace; terraform import takes it
-   */
-  address: string;
-  /**
-   * What would work better, though nothing stops it working; not settable
-   */
-  warnings: Array<FieldErrorResponseDto>;
-  /**
-   * The workspace it belongs to
-   */
-  workspaceId: string;
-  /**
-   * What the runner is called, and its address; fixed for its life, so changing it means replacing the runner
-   */
-  name: string;
-  /**
-   * What a line or station may name in runners to place its work here, beside the runner name
-   */
-  labels: Array<string>;
-  /**
-   * The key of the runner trust it enrolled through, or null when it holds a token; not settable
-   */
-  trust: string | null;
-};
-
-export type RunnerResourceListResponseDto = {
-  /**
-   * Every one there is, each as a read would answer it, in address order
-   */
-  items: Array<RunnerResourceResponseDto>;
 };
 
 export type RunnerTrustResourceResponseDto = {
@@ -1713,7 +1691,7 @@ export type RunnerTrustResourceResponseDto = {
    */
   audience: string;
   /**
-   * What a line or station may name in runners to place its work here, beside the runner name
+   * What a line or station may name in runners to place its work here
    */
   labels: Array<string>;
 };
@@ -1762,7 +1740,7 @@ export type RunnerPoolResourceResponseDto = {
    */
   key: string;
   /**
-   * What a line or station may name in runners to place its work here, beside the runner name
+   * What a line or station may name in runners to place its work here
    */
   labels: Array<string>;
   /**
@@ -1770,7 +1748,7 @@ export type RunnerPoolResourceResponseDto = {
    */
   maxRuns: number | null;
   /**
-   * pull when runners claim with the pool token, push when Spotlight calls provision; fixed for its life, and not settable
+   * pull when hosts claim with the pool token, push when Spotlight calls provision; fixed for its life, and not settable
    */
   mode: 'pull' | 'push';
   /**
@@ -1812,21 +1790,13 @@ export type WorkspaceRunnersResourceResponseDto = {
    */
   workspaceId: string;
   /**
-   * The runners, by name, the workspace means to have
-   */
-  runners: Array<string>;
-  /**
-   * The runner trusts, by key, whose runners it means to have
+   * The runner trusts, by key, the workspace lets work through
    */
   trusts: Array<string>;
   /**
-   * The runner pools, by key, whose runners it means to have
+   * The runner pools, by key, the workspace lets work through
    */
   pools: Array<string>;
-  /**
-   * Runners enrolled all the same, outside what is declared; not settable
-   */
-  drift: Array<string>;
 };
 
 export type WorkspaceRunnersResourceListResponseDto = {
@@ -2968,7 +2938,7 @@ export type InstallableHarnessesData = {
 
 export type InstallableHarnessesErrors = {
   /**
-   * Missing or wrong enrollment token
+   * Missing, spent or wrong runner token
    */
   401: unknown;
 };
@@ -2979,26 +2949,6 @@ export type InstallableHarnessesResponses = {
 
 export type InstallableHarnessesResponse = InstallableHarnessesResponses[keyof InstallableHarnessesResponses];
 
-export type KeptWorkspacesData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: '/runners/workspaces';
-};
-
-export type KeptWorkspacesErrors = {
-  /**
-   * Missing or wrong enrollment token
-   */
-  401: unknown;
-};
-
-export type KeptWorkspacesResponses = {
-  200: KeptWorkspacesResponseDto;
-};
-
-export type KeptWorkspacesResponse = KeptWorkspacesResponses[keyof KeptWorkspacesResponses];
-
 export type ClaimRunData = {
   body?: never;
   path?: never;
@@ -3008,7 +2958,7 @@ export type ClaimRunData = {
 
 export type ClaimRunErrors = {
   /**
-   * Missing or wrong enrollment token
+   * Missing, spent or wrong runner token
    */
   401: unknown;
 };
@@ -3034,7 +2984,7 @@ export type PendingMessagesData = {
 
 export type PendingMessagesErrors = {
   /**
-   * Missing or wrong enrollment token
+   * Missing, spent or wrong runner token
    */
   401: unknown;
   /**
@@ -3061,7 +3011,7 @@ export type ReadRunAttachmentData = {
 
 export type ReadRunAttachmentErrors = {
   /**
-   * Missing or wrong enrollment token
+   * Missing, spent or wrong runner token
    */
   401: unknown;
   /**
@@ -3089,7 +3039,7 @@ export type ReadRunTraceData = {
 
 export type ReadRunTraceErrors = {
   /**
-   * Missing or wrong enrollment token
+   * Missing, spent or wrong runner token
    */
   401: unknown;
   /**
@@ -3115,7 +3065,7 @@ export type DeliverSaidData = {
 
 export type DeliverSaidErrors = {
   /**
-   * Missing or wrong enrollment token
+   * Missing, spent or wrong runner token
    */
   401: unknown;
   /**
@@ -3141,7 +3091,7 @@ export type RenewLeaseData = {
 
 export type RenewLeaseErrors = {
   /**
-   * Missing or wrong enrollment token
+   * Missing, spent or wrong runner token
    */
   401: unknown;
 };
@@ -3163,7 +3113,7 @@ export type AppendRunEventsData = {
 
 export type AppendRunEventsErrors = {
   /**
-   * Missing or wrong enrollment token
+   * Missing, spent or wrong runner token
    */
   401: unknown;
   /**
@@ -3192,7 +3142,7 @@ export type UseToolData = {
 
 export type UseToolErrors = {
   /**
-   * Missing or wrong enrollment token
+   * Missing, spent or wrong runner token
    */
   401: unknown;
   /**
@@ -3234,7 +3184,7 @@ export type AskPermissionData = {
 
 export type AskPermissionErrors = {
   /**
-   * Missing or wrong enrollment token
+   * Missing, spent or wrong runner token
    */
   401: unknown;
   /**
@@ -3260,7 +3210,7 @@ export type AnswerRemarkData = {
 
 export type AnswerRemarkErrors = {
   /**
-   * Missing or wrong enrollment token
+   * Missing, spent or wrong runner token
    */
   401: unknown;
 };
@@ -3282,7 +3232,7 @@ export type CompleteRunData = {
 
 export type CompleteRunErrors = {
   /**
-   * Missing or wrong enrollment token
+   * Missing, spent or wrong runner token
    */
   401: unknown;
 };
@@ -3304,7 +3254,7 @@ export type ReadWorkspaceArchiveData = {
 
 export type ReadWorkspaceArchiveErrors = {
   /**
-   * Missing or wrong enrollment token
+   * Missing, spent or wrong runner token
    */
   401: unknown;
   /**
@@ -3334,7 +3284,7 @@ export type GrantWorkspaceArchiveData = {
 
 export type GrantWorkspaceArchiveErrors = {
   /**
-   * Missing or wrong enrollment token
+   * Missing, spent or wrong runner token
    */
   401: unknown;
   /**
@@ -3365,7 +3315,7 @@ export type SealWorkspaceArchiveData = {
 
 export type SealWorkspaceArchiveErrors = {
   /**
-   * Missing or wrong enrollment token
+   * Missing, spent or wrong runner token
    */
   401: unknown;
   /**
@@ -3383,50 +3333,6 @@ export type SealWorkspaceArchiveResponses = {
 };
 
 export type SealWorkspaceArchiveResponse = SealWorkspaceArchiveResponses[keyof SealWorkspaceArchiveResponses];
-
-export type PoolHarnessesData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: '/pools/harnesses';
-};
-
-export type PoolHarnessesErrors = {
-  /**
-   * Missing, rotated or unknown pool token
-   */
-  401: unknown;
-};
-
-export type PoolHarnessesResponses = {
-  200: Array<InstallableHarnessResponseDto>;
-};
-
-export type PoolHarnessesResponse = PoolHarnessesResponses[keyof PoolHarnessesResponses];
-
-export type ClaimPoolWorkData = {
-  body: ClaimPoolWorkRequestDto;
-  path?: never;
-  query?: never;
-  url: '/pools/claim';
-};
-
-export type ClaimPoolWorkErrors = {
-  /**
-   * Missing, rotated or unknown pool token
-   */
-  401: unknown;
-};
-
-export type ClaimPoolWorkResponses = {
-  200: PoolClaimResponseDto;
-  /**
-   * Nothing for this pool yet, or it is at maxRuns
-   */
-  204: void;
-};
-
-export type ClaimPoolWorkResponse = ClaimPoolWorkResponses[keyof ClaimPoolWorkResponses];
 
 export type PoolQueueData = {
   body?: never;
@@ -3449,6 +3355,66 @@ export type PoolQueueResponses = {
 };
 
 export type PoolQueueResponse = PoolQueueResponses[keyof PoolQueueResponses];
+
+export type HostHarnessesData = {
+  body?: never;
+  headers?: {
+    /**
+     * The runner trust to claim through; the bearer is then the workload’s token
+     */
+    'Spotlight-Trust'?: string;
+  };
+  path?: never;
+  query?: never;
+  url: '/hosts/harnesses';
+};
+
+export type HostHarnessesErrors = {
+  /**
+   * Missing, rotated or unknown pool token, or a workload the trust does not admit
+   */
+  401: unknown;
+};
+
+export type HostHarnessesResponses = {
+  200: Array<InstallableHarnessResponseDto>;
+};
+
+export type HostHarnessesResponse = HostHarnessesResponses[keyof HostHarnessesResponses];
+
+export type ClaimHostWorkData = {
+  body: ClaimHostWorkRequestDto;
+  headers?: {
+    /**
+     * The runner trust to claim through; the bearer is then the workload’s token
+     */
+    'Spotlight-Trust'?: string;
+  };
+  path?: never;
+  query?: never;
+  url: '/hosts/claim';
+};
+
+export type ClaimHostWorkErrors = {
+  /**
+   * Missing, rotated or unknown pool token, or a workload the trust does not admit
+   */
+  401: unknown;
+  /**
+   * The host has not reported through this pool or trust
+   */
+  409: unknown;
+};
+
+export type ClaimHostWorkResponses = {
+  200: HostClaimResponseDto;
+  /**
+   * Nothing waits for this pool or trust yet, or the pool is at maxRuns
+   */
+  204: void;
+};
+
+export type ClaimHostWorkResponse = ClaimHostWorkResponses[keyof ClaimHostWorkResponses];
 
 export type ListRunnerActivityData = {
   body?: never;
@@ -6198,95 +6164,94 @@ export type ConnectGitHubResponses = {
 
 export type ConnectGitHubResponse = ConnectGitHubResponses[keyof ConnectGitHubResponses];
 
-export type ListConnectedRunnersData = {
+export type LeaveAsHostData = {
   body?: never;
+  headers?: {
+    /**
+     * The runner trust to claim through; the bearer is then the workload’s token
+     */
+    'Spotlight-Trust'?: string;
+  };
   path: {
-    slug: string;
+    hostId: string;
   };
   query?: never;
-  url: '/workspaces/{slug}/runners';
+  url: '/hosts/{hostId}';
 };
 
-export type ListConnectedRunnersErrors = {
+export type LeaveAsHostErrors = {
   /**
-   * No valid session
+   * Missing, rotated or unknown pool token, or a workload the trust does not admit
    */
   401: unknown;
-  /**
-   * No such workspace for this caller
-   */
-  404: unknown;
 };
 
-export type ListConnectedRunnersResponses = {
-  200: Array<ConnectedRunnerResponseDto>;
-};
-
-export type ListConnectedRunnersResponse = ListConnectedRunnersResponses[keyof ListConnectedRunnersResponses];
-
-export type EnrolRunnerData = {
-  body: EnrolRunnerRequestDto;
-  path: {
-    slug: string;
-  };
-  query?: never;
-  url: '/workspaces/{slug}/runners';
-};
-
-export type EnrolRunnerErrors = {
+export type LeaveAsHostResponses = {
   /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * Not an owner or admin
-   */
-  403: unknown;
-  /**
-   * No such workspace for this caller
-   */
-  404: unknown;
-};
-
-export type EnrolRunnerResponses = {
-  201: EnrolledRunnerResponseDto;
-};
-
-export type EnrolRunnerResponse = EnrolRunnerResponses[keyof EnrolRunnerResponses];
-
-export type RevokeRunnerData = {
-  body?: never;
-  path: {
-    slug: string;
-    runnerId: string;
-  };
-  query?: never;
-  url: '/workspaces/{slug}/runners/{runnerId}/revoke';
-};
-
-export type RevokeRunnerErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * Not an owner or admin
-   */
-  403: unknown;
-  /**
-   * No such runner in this workspace
-   */
-  404: unknown;
-};
-
-export type RevokeRunnerResponses = {
-  /**
-   * The token no longer works
+   * Gone
    */
   204: void;
 };
 
-export type RevokeRunnerResponse = RevokeRunnerResponses[keyof RevokeRunnerResponses];
+export type LeaveAsHostResponse = LeaveAsHostResponses[keyof LeaveAsHostResponses];
+
+export type ReportHostPresenceData = {
+  body: HostPresenceRequestDto;
+  headers?: {
+    /**
+     * The runner trust to claim through; the bearer is then the workload’s token
+     */
+    'Spotlight-Trust'?: string;
+  };
+  path: {
+    hostId: string;
+  };
+  query?: never;
+  url: '/hosts/{hostId}';
+};
+
+export type ReportHostPresenceErrors = {
+  /**
+   * Missing, rotated or unknown pool token, or a workload the trust does not admit
+   */
+  401: unknown;
+  /**
+   * The host id serves another pool or trust
+   */
+  409: unknown;
+};
+
+export type ReportHostPresenceResponses = {
+  200: HostStandingResponseDto;
+};
+
+export type ReportHostPresenceResponse = ReportHostPresenceResponses[keyof ReportHostPresenceResponses];
+
+export type ListRunnersData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/runners';
+};
+
+export type ListRunnersErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type ListRunnersResponses = {
+  200: RunnerFleetResponseDto;
+};
+
+export type ListRunnersResponse = ListRunnersResponses[keyof ListRunnersResponses];
 
 export type RegisterRunnerData = {
   body: RegisterRunnerRequestDto;
@@ -6297,7 +6262,7 @@ export type RegisterRunnerData = {
 
 export type RegisterRunnerErrors = {
   /**
-   * Missing or wrong enrollment token
+   * Missing, spent or wrong runner token
    */
   401: unknown;
 };
@@ -6307,373 +6272,6 @@ export type RegisterRunnerResponses = {
 };
 
 export type RegisterRunnerResponse = RegisterRunnerResponses[keyof RegisterRunnerResponses];
-
-export type ExchangeWorkloadTokenData = {
-  body: ExchangeWorkloadTokenRequestDto;
-  path?: never;
-  query?: never;
-  url: '/runners/exchange';
-};
-
-export type ExchangeWorkloadTokenErrors = {
-  /**
-   * No such trust, or the token is not one it admits
-   */
-  401: unknown;
-  /**
-   * A runner outside this trust already has that name
-   */
-  409: unknown;
-};
-
-export type ExchangeWorkloadTokenResponses = {
-  200: ExchangedTokenResponseDto;
-};
-
-export type ExchangeWorkloadTokenResponse = ExchangeWorkloadTokenResponses[keyof ExchangeWorkloadTokenResponses];
-
-export type ListRunnersData = {
-  body?: never;
-  headers?: {
-    /**
-     * The API version the client was written against; every response names the version it was answered in
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-  };
-  path: {
-    workspaceId: string;
-  };
-  query?: never;
-  url: '/resources/workspaces/{workspaceId}/runners';
-};
-
-export type ListRunnersErrors = {
-  /**
-   * Malformed, or asking for an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * No such workspace that you may see
-   */
-  404: ProblemResponseDto;
-};
-
-export type ListRunnersError = ListRunnersErrors[keyof ListRunnersErrors];
-
-export type ListRunnersResponses = {
-  /**
-   * Every runner there, each as a read would answer it, in address order
-   */
-  200: RunnerResourceListResponseDto;
-};
-
-export type ListRunnersResponse = ListRunnersResponses[keyof ListRunnersResponses];
-
-export type CreateRunnerData = {
-  body: {
-    name: string;
-    labels?: Array<string>;
-    /**
-     * Write-only: the token the runner will call with, kept only as a hash and never answered. Left out on create, Spotlight issues one and answers it once in Spotlight-Runner-Token; given on update, it replaces the runner token
-     */
-    token?: string;
-  };
-  headers: {
-    /**
-     * The API version the client was written against; every response names the version it was answered in
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-    /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
-     */
-    'Idempotency-Key': string;
-  };
-  path: {
-    workspaceId: string;
-  };
-  query?: never;
-  url: '/resources/workspaces/{workspaceId}/runners';
-};
-
-export type CreateRunnerErrors = {
-  /**
-   * Malformed, or asking for an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * Not allowed to do this to the runner: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
-   */
-  403: ProblemResponseDto;
-  /**
-   * No such runner that you may see
-   */
-  404: ProblemResponseDto;
-  /**
-   * There is already a runner at that address
-   */
-  409: ProblemResponseDto;
-  /**
-   * What is wrong, field by field; or the Idempotency-Key was used for a different request
-   */
-  422: ProblemResponseDto;
-};
-
-export type CreateRunnerError = CreateRunnerErrors[keyof CreateRunnerErrors];
-
-export type CreateRunnerResponses = {
-  /**
-   * The runner, as a read would answer it
-   *
-   * The runner, as a read would answer it
-   */
-  201: RunnerResourceResponseDto;
-};
-
-export type CreateRunnerResponse = CreateRunnerResponses[keyof CreateRunnerResponses];
-
-export type DeleteRunnerData = {
-  body?: never;
-  headers: {
-    /**
-     * The API version the client was written against; every response names the version it was answered in
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-    /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
-     */
-    'If-Match': string;
-  };
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: '/resources/runners/{id}';
-};
-
-export type DeleteRunnerErrors = {
-  /**
-   * Malformed, or asking for an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * Not allowed to do this to the runner: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
-   */
-  403: ProblemResponseDto;
-  /**
-   * No such runner that you may see
-   */
-  404: ProblemResponseDto;
-  /**
-   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
-   */
-  409: ProblemResponseDto;
-  /**
-   * If-Match is missing
-   */
-  428: ProblemResponseDto;
-};
-
-export type DeleteRunnerError = DeleteRunnerErrors[keyof DeleteRunnerErrors];
-
-export type DeleteRunnerResponses = {
-  /**
-   * Deleted
-   */
-  204: void;
-};
-
-export type DeleteRunnerResponse = DeleteRunnerResponses[keyof DeleteRunnerResponses];
-
-export type ReadRunnerData = {
-  body?: never;
-  headers?: {
-    /**
-     * The API version the client was written against; every response names the version it was answered in
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-  };
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: '/resources/runners/{id}';
-};
-
-export type ReadRunnerErrors = {
-  /**
-   * Malformed, or asking for an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * No such runner that you may see
-   */
-  404: ProblemResponseDto;
-};
-
-export type ReadRunnerError = ReadRunnerErrors[keyof ReadRunnerErrors];
-
-export type ReadRunnerResponses = {
-  /**
-   * The runner, every field of it
-   */
-  200: RunnerResourceResponseDto;
-};
-
-export type ReadRunnerResponse = ReadRunnerResponses[keyof ReadRunnerResponses];
-
-export type UpdateRunnerData = {
-  body: {
-    name: string;
-    labels?: Array<string>;
-    /**
-     * Write-only: the token the runner will call with, kept only as a hash and never answered. Left out on create, Spotlight issues one and answers it once in Spotlight-Runner-Token; given on update, it replaces the runner token
-     */
-    token?: string;
-  };
-  headers: {
-    /**
-     * The API version the client was written against; every response names the version it was answered in
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-    /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
-     */
-    'If-Match': string;
-  };
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: '/resources/runners/{id}';
-};
-
-export type UpdateRunnerErrors = {
-  /**
-   * Malformed, or asking for an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * Not allowed to do this to the runner: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
-   */
-  403: ProblemResponseDto;
-  /**
-   * No such runner that you may see
-   */
-  404: ProblemResponseDto;
-  /**
-   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
-   */
-  409: ProblemResponseDto;
-  /**
-   * What is wrong, field by field
-   */
-  422: ProblemResponseDto;
-  /**
-   * If-Match is missing
-   */
-  428: ProblemResponseDto;
-};
-
-export type UpdateRunnerError = UpdateRunnerErrors[keyof UpdateRunnerErrors];
-
-export type UpdateRunnerResponses = {
-  /**
-   * The runner, as a read would answer it
-   */
-  200: RunnerResourceResponseDto;
-};
-
-export type UpdateRunnerResponse = UpdateRunnerResponses[keyof UpdateRunnerResponses];
-
-export type ImportRunnerData = {
-  body?: never;
-  headers?: {
-    /**
-     * The API version the client was written against; every response names the version it was answered in
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-  };
-  path: {
-    workspaceId: string;
-  };
-  query: {
-    /**
-     * The runner's address within the workspace
-     */
-    address: unknown;
-  };
-  url: '/resources/workspaces/{workspaceId}/runners/import';
-};
-
-export type ImportRunnerErrors = {
-  /**
-   * Malformed, or asking for an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * No such runner that you may see
-   */
-  404: ProblemResponseDto;
-};
-
-export type ImportRunnerError = ImportRunnerErrors[keyof ImportRunnerErrors];
-
-export type ImportRunnerResponses = {
-  /**
-   * The runner, as a read would answer it
-   */
-  200: RunnerResourceResponseDto;
-};
-
-export type ImportRunnerResponse = ImportRunnerResponses[keyof ImportRunnerResponses];
 
 export type ListRunnerTrustsData = {
   body?: never;
@@ -7068,7 +6666,7 @@ export type CreateRunnerPoolData = {
      */
     maxRuns?: number | null;
     /**
-     * Write-only, and only for a pool without provision: the token its runners claim with, kept only as a hash and never answered. Left out on create, Spotlight issues one and answers it once in Spotlight-Pool-Token
+     * Write-only, and only for a pool without provision: the token its hosts claim with, kept only as a hash and never answered. Left out on create, Spotlight issues one and answers it once in Spotlight-Pool-Token
      */
     token?: string;
     /**
@@ -7266,7 +6864,7 @@ export type UpdateRunnerPoolData = {
      */
     maxRuns?: number | null;
     /**
-     * Write-only, and only for a pool without provision: the token its runners claim with, kept only as a hash and never answered. Left out on create, Spotlight issues one and answers it once in Spotlight-Pool-Token
+     * Write-only, and only for a pool without provision: the token its hosts claim with, kept only as a hash and never answered. Left out on create, Spotlight issues one and answers it once in Spotlight-Pool-Token
      */
     token?: string;
     /**
@@ -8549,7 +8147,7 @@ export type ReadResourceHclData = {
     'Spotlight-Client'?: string;
   };
   path: {
-    collection: 'workspaces' | 'teams' | 'lines' | 'skills' | 'harness-profiles' | 'integrations' | 'secrets' | 'runners' | 'runner-trusts' | 'runner-pools' | 'workspace-runners';
+    collection: 'workspaces' | 'teams' | 'lines' | 'skills' | 'harness-profiles' | 'integrations' | 'secrets' | 'runner-trusts' | 'runner-pools' | 'workspace-runners';
     id: string;
   };
   query?: never;
@@ -8743,7 +8341,7 @@ export type DraftChangeStackData = {
 
 export type DraftChangeStackErrors = {
   /**
-   * Missing or wrong enrollment token
+   * Missing, spent or wrong runner token
    */
   401: unknown;
   /**
@@ -8770,7 +8368,7 @@ export type RecordChangeStackCheckData = {
 
 export type RecordChangeStackCheckErrors = {
   /**
-   * Missing or wrong enrollment token
+   * Missing, spent or wrong runner token
    */
   401: unknown;
   /**

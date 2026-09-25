@@ -22,7 +22,6 @@ export class DrizzleQueuedPlacements implements QueuedPlacementsPort {
         and(
           eq(run.workspaceId, workspaceId.value),
           eq(run.state, 'queued'),
-          isNull(run.targetRunnerId),
           or(isNull(run.reservedUntil), lte(run.reservedUntil, now)),
         ),
       );

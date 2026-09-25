@@ -4,7 +4,6 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { EnqueueRunCommand } from '@work/application/commands/runner.commands';
 import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
@@ -49,9 +48,6 @@ export class EnqueueRunHandler
         workspaceId: standing.workspaceId,
         harness,
         spec: RunSpecContract.ordered(command.spec, started.started()),
-        targetRunner: command.targetRunnerId
-          ? RunnerId.of(command.targetRunnerId)
-          : null,
       });
 
       await this.runs.add(queued);
@@ -60,7 +56,6 @@ export class EnqueueRunHandler
         id: queued.id.value,
         harness: queued.harness.value,
         state: queued.state,
-        targetRunnerId: queued.targetRunner?.value ?? null,
       };
     } catch (error) {
       rethrowAsFault(error);

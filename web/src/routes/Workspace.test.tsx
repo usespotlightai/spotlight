@@ -34,29 +34,14 @@ vi.mock('@/hooks/api/useRunners', () => ({
   useRunners: () => ({
     isPending: false,
     errorUpdateCount: 0,
-    data: [
-      {
-        id: 'r1',
-        name: 'one',
-        pool: 'dev',
-        connected: true,
-        currentRun: null,
-      },
-      {
-        id: 'r2',
-        name: 'two',
-        pool: 'dev',
-        connected: true,
-        currentRun: { id: 'run_1' },
-      },
-      {
-        id: 'r3',
-        name: 'three',
-        pool: 'dev',
-        connected: false,
-        currentRun: null,
-      },
-    ],
+    data: {
+      hosts: [
+        { id: 'h1', name: 'one', answering: true },
+        { id: 'h2', name: 'two', answering: true },
+        { id: 'h3', name: 'three', answering: false },
+      ],
+      provisioned: [],
+    },
   }),
 }));
 vi.mock('@/hooks/api/useSession', () => ({
@@ -192,7 +177,7 @@ describe('Workspace', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('counts every runner the control plane can still hear from', () => {
+  it('counts every host the control plane can still hear from', () => {
     loaded(acme);
 
     renderAt('acme-inc');

@@ -91,8 +91,6 @@ export class ResourceConfigurationHandler
         return this.teamWorkspaceOf(await this.profiles.withId(id));
       case 'secret':
         return workspaceOfHeld(await this.secrets.withId(id));
-      case 'runner':
-        return workspaceOfHeld(await this.runners.runnerWithId(id));
       case 'runner-trust':
         return workspaceOfHeld(await this.runners.trustWithId(id));
       case 'runner-pool':

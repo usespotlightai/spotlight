@@ -9,7 +9,6 @@ import { WorkspaceRunnersAlreadyDeclaredError } from '@runners/domain/exceptions
 import { WorkspaceRunnersMovedOnError } from '@runners/domain/exceptions/workspace-runners-moved-on.error';
 import type { WorkspaceRunnersRepository } from '@runners/domain/repositories/workspace-runners.repository';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
-import { RunnerName } from '@runners/domain/value-objects/runner-name.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runners-id.vo';
 import { workspaceRunners } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
@@ -21,7 +20,6 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { and, eq, type SQL } from 'drizzle-orm';
 
 const declarationOf = (declared: WorkspaceRunners) => ({
-  runners: declared.runners.map((each) => each.value),
   trusts: declared.trusts.map((each) => each.value),
   pools: declared.pools.map((each) => each.value),
 });
@@ -103,7 +101,6 @@ export class DrizzleWorkspaceRunnersRepository
       ? WorkspaceRunners.rehydrate({
           id: WorkspaceRunnersId.of(found.id),
           workspaceId: WorkspaceId.of(found.workspaceId),
-          runners: found.runners.map(RunnerName.of),
           trusts: found.trusts.map(TrustKey.of),
           pools: found.pools.map(PoolKey.of),
           version: found.version,

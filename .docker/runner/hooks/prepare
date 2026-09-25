@@ -24,6 +24,10 @@ printf '%s' "$spec" | jq -c '.checkouts[]?' | while read -r checkout; do
     echo "reusing $path"
     g remote set-url origin "$remote"
     g fetch --quiet origin
+  elif [ -n "${SPOTLIGHT_MIRRORS:-}" ] && [ -d "$SPOTLIGHT_MIRRORS/$path.git" ]; then
+    # Dissociated: a kept workspace is restored on hosts that hold no such mirror.
+    echo "cloning $remote into $path from the host's mirror"
+    git clone --quiet --reference-if-able "$SPOTLIGHT_MIRRORS/$path.git" --dissociate "$remote" "$path"
   else
     echo "cloning $remote into $path"
     git clone --quiet "$remote" "$path"

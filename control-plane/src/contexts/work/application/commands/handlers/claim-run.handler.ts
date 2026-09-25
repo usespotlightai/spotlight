@@ -1,8 +1,5 @@
-import type { PoolRunnersPort } from '@runners/application/ports/pool-runners.port';
-import type {
-  RunnerPresencePort,
-  SeenRunner,
-} from '@runners/application/ports/runner-presence.port';
+import type { RunnerPresencePort } from '@runners/application/ports/runner-presence.port';
+import type { RunnersPort } from '@runners/application/ports/runners.port';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -30,7 +27,7 @@ export class ClaimRunHandler
     private readonly presence: RunnerPresencePort,
     private readonly clock: ClockPort,
     private readonly checks: CheckWorkPort,
-    private readonly pooled: PoolRunnersPort,
+    private readonly runners: RunnersPort,
     private readonly failures: ProvisionFailures,
   ) {}
 
@@ -59,9 +56,7 @@ export class ClaimRunHandler
         claims: seen.claims,
       };
 
-      return seen.claims === 'reserved'
-        ? await this.reserved(claimant)
-        : await this.anything(claimant, seen);
+      return await this.reserved(claimant);
     } catch (error) {
       rethrowAsFault(error);
     }
@@ -80,7 +75,7 @@ export class ClaimRunHandler
         ProvisionFailure.harnessMissing(waiting.harness.value),
         this.clock.now(),
       );
-      await this.pooled.letGo(claimant.runner, this.clock.now());
+      await this.runners.letGo(claimant.runner, this.clock.now());
 
       return null;
     }
@@ -89,7 +84,7 @@ export class ClaimRunHandler
       const claimed = await this.runs.claimNext(claimant, this.clock.now());
 
       if (claimed) {
-        await this.pooled.took(
+        await this.runners.took(
           claimant.runner,
           { kind: 'run', id: claimed.id.value },
           this.clock.now(),
@@ -107,35 +102,13 @@ export class ClaimRunHandler
         return null;
       }
 
-      await this.pooled.took(
+      await this.runners.took(
         claimant.runner,
         { kind: 'check', id: check.stackId },
         this.clock.now(),
       );
 
       return { kind: 'check', check };
-    });
-  }
-
-  private anything(
-    claimant: Claimant,
-    seen: SeenRunner,
-  ): Promise<ClaimedWorkDto | null> {
-    return longPolled(this.clock, async () => {
-      const claimed = await this.runs.claimNext(claimant, this.clock.now());
-
-      if (claimed) {
-        return claimedRun(claimed);
-      }
-
-      const check = await this.checks.claimNext(
-        seen.workspaceId,
-        claimant.runner,
-        seen.terms,
-        this.clock.now(),
-      );
-
-      return check ? { kind: 'check', check } : null;
     });
   }
 }

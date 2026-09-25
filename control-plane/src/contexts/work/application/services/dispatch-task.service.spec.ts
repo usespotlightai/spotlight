@@ -2,14 +2,12 @@ import type {
   CatalogGiving,
   CatalogNamed,
 } from '@catalog/application/contracts/catalog.contract';
-import type { RunnerPresencePort } from '@runners/application/ports/runner-presence.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessVersion } from '@shared-kernel/domain/value-objects/harness-version.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -293,9 +291,6 @@ const dispatch = async (
     integrations,
     { ofTask: async () => [] },
     catalog,
-    {
-      pinnableTerms: async () => RunnerTerms.none(),
-    } as unknown as RunnerPresencePort,
     profiles,
   );
   const working = standing ?? task(station.id.value);
@@ -682,12 +677,6 @@ describe('DispatchTask', () => {
       expect(continuityOf(1).key).toBe('task_1-station_3');
     });
 
-    it('keeps the directory, since the conversation lives in it', async () => {
-      await dispatch(stations[1] as Station);
-
-      expect(continuityOf(0).keep).toBe(true);
-    });
-
     it('asks for the conversation the task was last worked in', async () => {
       const station = stations[1] as Station;
 
@@ -696,20 +685,11 @@ describe('DispatchTask', () => {
       expect(continuityOf(0).sessionId).toBe('session_1');
     });
 
-    it('goes back to the runner holding it', async () => {
-      const station = stations[1] as Station;
-
-      await dispatch(station, worked(station));
-
-      expect(queued[0]?.targetRunner?.value).toBe('runner_1');
-    });
-
-    it('is free to be worked anywhere when there is nothing to resume', async () => {
+    it('asks for no conversation when there is nothing to resume', async () => {
       const station = stations[1] as Station;
 
       await dispatch(station);
 
-      expect(queued[0]?.targetRunner).toBeNull();
       expect(continuityOf(0).sessionId).toBeUndefined();
     });
   });

@@ -27,28 +27,6 @@ x-control-plane-env: &control-plane-env
   CHANGE_STACK_MODEL: ${CHANGE_STACK_MODEL:-google/gemini-3.8-flash}
   DECISIONS_MODEL: ${DECISIONS_MODEL:-google/gemini-3.8-flash}
 
-x-runner-env: &runner-env
-  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-  CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
-  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-  SPOTLIGHT_URL: ${SPOTLIGHT_URL:-http://control-plane:3000}
-  SPOTLIGHT_WORKSPACE: /workspaces
-  SPOTLIGHT_AGENT_USER: agent
-  SPOTLIGHT_PREPARE_HOOK: /etc/spotlight/hooks/prepare
-  SPOTLIGHT_GIT_AUTHOR_NAME: ${SPOTLIGHT_GIT_AUTHOR_NAME:-Spotlight}
-  SPOTLIGHT_GIT_AUTHOR_EMAIL: ${SPOTLIGHT_GIT_AUTHOR_EMAIL:-noreply@usespotlight.ai}
-
-x-runner: &runner
-  image: spotlight-runner
-  build:
-    context: .
-    dockerfile: .docker/runner/Dockerfile
-    target: development
-  restart: unless-stopped
-  depends_on:
-    control-plane:
-      condition: service_healthy
-
 services:
   traefik:
     build:
@@ -163,25 +141,46 @@ services:
       - ./control-plane/openapi.json:/control-plane/openapi.json:ro
       - node-modules-web:/app/node_modules
 
-  runner-1:
-    <<: *runner
-    environment:
-      <<: *runner-env
-      SPOTLIGHT_TOKEN: ${RUNNER_ONE_TOKEN:-}
-    volumes:
-      - ./runner:/app
-      - runner-1-workspaces:/workspaces
-      - runner-1-agent:/home/agent
+  runner:
+    image: spotlight-runner:dev
+    build:
+      context: .
+      dockerfile: .docker/runner/Dockerfile
+      target: runner
+    command: ["harnesses", "[]"]
+    restart: "no"
 
-  runner-2:
-    <<: *runner
+  host:
+    build:
+      context: .
+      dockerfile: .docker/runner/Dockerfile
+      target: host-development
+    restart: unless-stopped
+    depends_on:
+      control-plane:
+        condition: service_healthy
+      runner:
+        condition: service_completed_successfully
     environment:
-      <<: *runner-env
-      SPOTLIGHT_TOKEN: ${RUNNER_TWO_TOKEN:-}
+      SPOTLIGHT_URL: ${SPOTLIGHT_URL:-http://control-plane:3000}
+      SPOTLIGHT_TOKEN: ${DEV_POOL_TOKEN:-}
+      SPOTLIGHT_CAPACITY: ${DEV_HOST_CAPACITY:-2}
+      SPOTLIGHT_RUNNER_IMAGE: spotlight-runner:dev
+      SPOTLIGHT_SANDBOX_NETWORK: spotlight_default
+      SPOTLIGHT_SANDBOX_PASS: ANTHROPIC_API_KEY,CLAUDE_CODE_OAUTH_TOKEN,OPENAI_API_KEY,CURSOR_API_KEY,SPOTLIGHT_GIT_AUTHOR_NAME,SPOTLIGHT_GIT_AUTHOR_EMAIL
+      # Mirrors are bind-mounted into sandboxes by the engine, so they live at the same path on both sides.
+      SPOTLIGHT_STATE: ${PWD}/.dev/host
+      SPOTLIGHT_HOST_NAME: dev-host
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      CURSOR_API_KEY: ${CURSOR_API_KEY:-}
+      SPOTLIGHT_GIT_AUTHOR_NAME: ${SPOTLIGHT_GIT_AUTHOR_NAME:-Spotlight}
+      SPOTLIGHT_GIT_AUTHOR_EMAIL: ${SPOTLIGHT_GIT_AUTHOR_EMAIL:-noreply@usespotlight.ai}
     volumes:
-      - ./runner:/app
-      - runner-2-workspaces:/workspaces
-      - runner-2-agent:/home/agent
+      - ./data-plane:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${PWD}/.dev/host:${PWD}/.dev/host
 
   mail:
     build:
@@ -260,10 +259,6 @@ services:
       - db-data:/var/lib/postgresql
 
 volumes:
-  runner-1-workspaces:
-  runner-2-workspaces:
-  runner-1-agent:
-  runner-2-agent:
   node-modules-web:
   node-modules-migrate:
   node-modules-control-plane:

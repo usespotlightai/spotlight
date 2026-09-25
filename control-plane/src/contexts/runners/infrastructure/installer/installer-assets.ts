@@ -17,6 +17,8 @@ export class InstallerAssets implements InstallerAssetsPort {
 
     const apiBase = this.env.SPOTLIGHT_PUBLIC_URL ?? this.env.BETTER_AUTH_URL;
 
-    return template.replaceAll('__API_BASE__', apiBase);
+    return template
+      .replaceAll('__API_BASE__', apiBase)
+      .replaceAll('__VERSION__', this.env.SPOTLIGHT_RELEASE || 'latest');
   }
 }

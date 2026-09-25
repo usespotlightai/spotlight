@@ -5,13 +5,11 @@ import {
 } from '@platform/definitions/definition-schema';
 import type {
   CompiledPool,
-  CompiledRunner,
   CompiledTrust,
   CompiledWorkspaceRunners,
   RunnerDefinitionsPort,
 } from '@runners/application/ports/runner-definitions.port';
 import {
-  RUNNER,
   RUNNER_POOL,
   RUNNER_TRUST,
   WORKSPACE_RUNNERS,
@@ -21,7 +19,6 @@ import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
-import { RunnerName } from '@runners/domain/value-objects/runner-name.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
 import { z } from 'zod';
@@ -57,12 +54,6 @@ const writeOnlyVersion = z
   .int('is a whole number that changes to rotate the value')
   .min(0, 'is a whole number that changes to rotate the value')
   .nullish();
-
-const runnerSchema = z.object({
-  name: madeBy(RunnerName.of),
-  labels,
-  token: token.optional(),
-});
 
 const PULL_ONLY =
   'is only for a pool that is pulled from; a pool that provisions is called instead, and has no token';
@@ -106,25 +97,11 @@ const trustSchema = z.object({
 });
 
 const workspaceRunnersSchema = z.object({
-  runners: z.array(madeBy(RunnerName.of)).default([]).superRefine(once),
   trusts: z.array(madeBy(TrustKey.of)).default([]).superRefine(once),
   pools: z.array(madeBy(PoolKey.of)).default([]).superRefine(once),
 });
 
 export class RunnerDefinitions implements RunnerDefinitionsPort {
-  runner(held: unknown): CompiledRunner {
-    const read = runnerSchema.safeParse(held);
-
-    return read.success
-      ? {
-          ok: true,
-          name: RunnerName.of(read.data.name),
-          labels: RunnerLabels.of(read.data.labels),
-          token: read.data.token ?? null,
-        }
-      : { ok: false, problems: problemsIn(RUNNER, read.error) };
-  }
-
   trust(held: unknown): CompiledTrust {
     const read = trustSchema.safeParse(held);
 
@@ -178,7 +155,6 @@ export class RunnerDefinitions implements RunnerDefinitionsPort {
     return read.success
       ? {
           ok: true,
-          runners: read.data.runners.map(RunnerName.of),
           trusts: read.data.trusts.map(TrustKey.of),
           pools: read.data.pools.map(PoolKey.of),
         }

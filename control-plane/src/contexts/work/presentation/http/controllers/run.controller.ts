@@ -46,25 +46,12 @@ export class RunController {
     const queued = await this.commandBus.execute<
       EnqueueRunCommand,
       EnqueuedRunDto | null
-    >(
-      new EnqueueRunCommand(
-        slug,
-        user.id,
-        body.harness,
-        body.spec,
-        body.targetRunnerId ?? null,
-      ),
-    );
+    >(new EnqueueRunCommand(slug, user.id, body.harness, body.spec));
 
     if (!queued) {
       throw new NotFoundException();
     }
 
-    return new EnqueuedRunResponseDto(
-      queued.id,
-      queued.harness,
-      queued.state,
-      queued.targetRunnerId,
-    );
+    return new EnqueuedRunResponseDto(queued.id, queued.harness, queued.state);
   }
 }

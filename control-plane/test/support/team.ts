@@ -21,36 +21,13 @@ import * as schema from './schema';
 
 const NOW = new Date('2026-01-02T03:04:05.000Z');
 
-export const openTeam = async (
+export const listSetUp = async (
   db: DrizzleDatabase,
   tasks: DrizzleTaskRepository,
-  slug: string,
+  of: { workspaceId: string; teamId: string; owner: string },
 ) => {
-  const workspaceId = randomUUID();
-  const teamId = randomUUID();
+  const { workspaceId, teamId, owner } = of;
   const stationId = randomUUID();
-  const owner = randomUUID();
-
-  await db.insert(schema.user).values({
-    id: owner,
-    name: 'Ada',
-    email: `${owner}@example.com`,
-  });
-
-  await db
-    .insert(schema.workspace)
-    .values({ id: workspaceId, name: slug, slug });
-
-  await db
-    .insert(schema.workspaceMember)
-    .values({ workspaceId, userId: owner, role: 'owner' });
-
-  await db
-    .insert(schema.team)
-    .values({ id: teamId, workspaceId, key: slug, name: slug });
-
-  await db.insert(schema.teamMember).values({ teamId, userId: owner });
-
   const lineId = randomUUID();
   await db.insert(schema.line).values({
     id: lineId,
@@ -119,12 +96,50 @@ export const openTeam = async (
 
   await tasks.add(list);
 
+  return { stationId: StationId.of(stationId), line, list };
+};
+
+export const openTeam = async (
+  db: DrizzleDatabase,
+  tasks: DrizzleTaskRepository,
+  slug: string,
+) => {
+  const workspaceId = randomUUID();
+  const teamId = randomUUID();
+  const owner = randomUUID();
+
+  await db.insert(schema.user).values({
+    id: owner,
+    name: 'Ada',
+    email: `${owner}@example.com`,
+  });
+
+  await db
+    .insert(schema.workspace)
+    .values({ id: workspaceId, name: slug, slug });
+
+  await db
+    .insert(schema.workspaceMember)
+    .values({ workspaceId, userId: owner, role: 'owner' });
+
+  await db
+    .insert(schema.team)
+    .values({ id: teamId, workspaceId, key: slug, name: slug });
+
+  await db.insert(schema.teamMember).values({ teamId, userId: owner });
+
+  const { stationId, line, list } = await listSetUp(db, tasks, {
+    workspaceId,
+    teamId,
+    owner,
+  });
+
   return {
     slug,
     owner: UserId.of(owner),
     workspaceId: WorkspaceId.of(workspaceId),
     teamId: TeamId.of(teamId),
-    stationId: StationId.of(stationId),
+    stationId,
     line,
     list,
   };

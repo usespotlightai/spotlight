@@ -1,348 +1,259 @@
+import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
-import { RunnerEnrolled } from '@runners/domain/events/runner-enrolled.event';
-import { RunnerRedefined } from '@runners/domain/events/runner-redefined.event';
-import { RunnerRegistered } from '@runners/domain/events/runner-registered.event';
-import { RunnerRekeyed } from '@runners/domain/events/runner-rekeyed.event';
-import { RunnerReportedHarnesses } from '@runners/domain/events/runner-reported-harnesses.event';
-import { RunnerRevoked } from '@runners/domain/events/runner-revoked.event';
-import { RevokedRunnerError } from '@runners/domain/exceptions/revoked-runner.error';
-import { RunnerNameFixedError } from '@runners/domain/exceptions/runner-name-fixed.error';
-import { RunnerRevisedError } from '@runners/domain/exceptions/runner-revised.error';
+import { RunnerSpentError } from '@runners/domain/exceptions/runner-spent.error';
+import { Admission } from '@runners/domain/value-objects/admission.vo';
+import type { HostId } from '@runners/domain/value-objects/host-id.vo';
 import type { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
-import { RunnerChangeDetail } from '@runners/domain/value-objects/runner-change-detail.vo';
-import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
-import type { RunnerName } from '@runners/domain/value-objects/runner-name.vo';
-import type { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
+import type { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
+import type {
+  RunnerWork,
+  RunnerWorkKind,
+} from '@runners/domain/value-objects/runner-work.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
-import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
-import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
-import type { HarnessRelease } from '@shared-kernel/domain/value-objects/harness-release.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-const sameInstalled = (
-  a: readonly InstalledHarness[],
-  b: readonly InstalledHarness[],
-): boolean =>
-  a.length === b.length && a.every((each, at) => each.equals(b[at]));
+export type RunnerClaims = 'reserved' | 'nothing';
+
+const HOLDS_UNSEEN_MS: Readonly<Record<RunnerWorkKind, number>> = {
+  run: 3 * 60_000,
+  check: 12 * 60_000,
+};
+
+const LONGEST_HOLD_UNSEEN_MS = Math.max(...Object.values(HOLDS_UNSEEN_MS));
+
+interface State {
+  readonly id: RunnerId;
+  readonly workspaceId: WorkspaceId;
+  readonly admission: Admission;
+  readonly hostId: HostId | null;
+  readonly labels: RunnerLabels;
+  readonly tokenHash: TokenHash;
+  readonly installed: readonly InstalledHarness[];
+  readonly work: RunnerWork | null;
+  readonly claimBy: Date;
+  readonly startedAt: Date;
+  readonly lastSeenAt: Date | null;
+  readonly endedAt: Date | null;
+  readonly version: number;
+}
 
 export class Runner extends EventRecorder {
   private constructor(
-    readonly id: RunnerId,
-    readonly workspaceId: WorkspaceId,
-    readonly name: RunnerName,
-    readonly tokenHash: TokenHash,
-    readonly labels: RunnerLabels,
-    readonly trustId: RunnerTrustId | null,
-    readonly installed: readonly InstalledHarness[],
-    readonly revokedAt: Date | null,
-    readonly lastSeenAt: Date | null,
-    readonly revision: number,
-    readonly version: number,
+    private readonly state: State,
+    readonly isDiscarded: boolean,
   ) {
     super();
   }
 
-  static enrol(input: {
+  static started(input: {
     id: RunnerId;
-    workspaceId: WorkspaceId;
-    name: RunnerName;
+    through: RunnerPool | RunnerTrust;
+    host: HostId | null;
     tokenHash: TokenHash;
-    labels?: RunnerLabels;
-    trustId?: RunnerTrustId | null;
-    by: Attribution;
-  }): Runner {
-    const enrolled = new Runner(
-      input.id,
-      input.workspaceId,
-      input.name,
-      input.tokenHash,
-      input.labels ?? RunnerLabels.none(),
-      input.trustId ?? null,
-      [],
-      null,
-      null,
-      0,
-      0,
-    );
-
-    enrolled.record(
-      new RunnerEnrolled(
-        input.id,
-        input.workspaceId,
-        ConfigurationChange.created(
-          enrolled.whatChanged,
-          input.by,
-          RunnerChangeDetail.enrolledUnder(enrolled.trustId),
-        ),
-      ),
-    );
-
-    return enrolled;
-  }
-
-  static rehydrate(input: {
-    id: RunnerId;
-    workspaceId: WorkspaceId;
-    name: RunnerName;
-    tokenHash: TokenHash;
-    labels?: RunnerLabels;
-    trustId?: RunnerTrustId | null;
     installed: readonly InstalledHarness[];
-    revokedAt: Date | null;
-    lastSeenAt: Date | null;
-    revision?: number;
-    version: number;
+    at: Date;
+    claimBy: Date;
   }): Runner {
+    const { through } = input;
+
     if (
-      input.revokedAt &&
-      input.lastSeenAt &&
-      input.lastSeenAt > input.revokedAt
+      through instanceof RunnerPool ? through.isRetired : through.isWithdrawn
     ) {
       throw new InconsistentStateError(
         'runner',
-        'was seen after it was revoked',
+        'was started through a pool or trust that is gone',
       );
     }
 
-    if (!Number.isInteger(input.version) || input.version < 0) {
+    if (input.claimBy.getTime() <= input.at.getTime()) {
       throw new InconsistentStateError(
         'runner',
-        `has an impossible version (${input.version})`,
+        'was given no time to claim its work',
       );
     }
 
     return new Runner(
-      input.id,
-      input.workspaceId,
-      input.name,
-      input.tokenHash,
-      input.labels ?? RunnerLabels.none(),
-      input.trustId ?? null,
-      [...input.installed],
-      input.revokedAt,
-      input.lastSeenAt,
-      input.revision ?? 0,
-      input.version,
+      {
+        id: input.id,
+        workspaceId: through.workspaceId,
+        admission: Admission.through(through.id),
+        hostId: input.host,
+        labels: through.labels,
+        tokenHash: input.tokenHash,
+        installed: [...input.installed],
+        work: null,
+        claimBy: input.claimBy,
+        startedAt: input.at,
+        lastSeenAt: null,
+        endedAt: null,
+        version: 0,
+      },
+      false,
     );
   }
 
-  get revoked(): boolean {
-    return this.revokedAt !== null;
+  static rehydrate(state: State): Runner {
+    if (!Number.isInteger(state.version) || state.version < 0) {
+      throw new InconsistentStateError(
+        'runner',
+        `has an impossible version (${state.version})`,
+      );
+    }
+
+    if (state.endedAt && state.endedAt < state.startedAt) {
+      throw new InconsistentStateError('runner', 'ended before it started');
+    }
+
+    return new Runner({ ...state, installed: [...state.installed] }, false);
   }
 
-  get hasConnected(): boolean {
-    return this.lastSeenAt !== null;
+  get id(): RunnerId {
+    return this.state.id;
   }
 
-  get offersWork(): boolean {
-    return this.hasConnected && !this.revoked && this.installed.length > 0;
+  get workspaceId(): WorkspaceId {
+    return this.state.workspaceId;
+  }
+
+  get admission(): Admission {
+    return this.state.admission;
+  }
+
+  get hostId(): HostId | null {
+    return this.state.hostId;
+  }
+
+  get labels(): RunnerLabels {
+    return this.state.labels;
+  }
+
+  get tokenHash(): TokenHash {
+    return this.state.tokenHash;
+  }
+
+  get installed(): readonly InstalledHarness[] {
+    return this.state.installed;
+  }
+
+  get work(): RunnerWork | null {
+    return this.state.work;
+  }
+
+  get claimBy(): Date {
+    return this.state.claimBy;
+  }
+
+  get startedAt(): Date {
+    return this.state.startedAt;
+  }
+
+  get lastSeenAt(): Date | null {
+    return this.state.lastSeenAt;
+  }
+
+  get endedAt(): Date | null {
+    return this.state.endedAt;
+  }
+
+  get version(): number {
+    return this.state.version;
+  }
+
+  get hasEnded(): boolean {
+    return this.state.endedAt !== null;
   }
 
   get harnesses(): readonly HarnessId[] {
-    return this.installed.map((each) => each.id);
+    return this.state.installed.map((each) => each.id);
   }
 
-  private get releases(): readonly HarnessRelease[] {
-    return this.installed.flatMap((each) =>
-      each.release ? [each.release] : [],
-    );
-  }
-
-  modelsOf(harness: HarnessId): readonly HarnessModel[] {
-    return this.installed.find((each) => each.id.equals(harness))?.models ?? [];
-  }
-
-  get holdsWorkspace(): boolean {
-    return !this.revoked && this.trustId === null;
-  }
-
-  enrolledUnder(trustId: RunnerTrustId): boolean {
-    return this.trustId?.equals(trustId) ?? false;
-  }
-
-  standsWith(trust: RunnerTrust | null): boolean {
-    if (this.revoked) {
-      return false;
-    }
-
-    return (
-      this.trustId === null ||
-      (trust !== null && this.enrolledUnder(trust.id) && !trust.isWithdrawn)
-    );
-  }
-
-  termsWith(trust: RunnerTrust | null): RunnerTerms {
-    const labels =
-      trust && this.enrolledUnder(trust.id)
-        ? this.labels.joinedWith(trust.labels)
-        : this.labels;
-
+  get terms(): RunnerTerms {
     return RunnerTerms.of([
-      this.name.value,
-      ...labels.values,
-      ...this.releases.map((each) => each.term),
+      ...this.state.labels.values,
+      ...this.state.installed.flatMap((each) =>
+        each.release ? [each.release.term] : [],
+      ),
     ]);
   }
 
-  belongsTo(workspaceId: WorkspaceId): boolean {
-    return this.workspaceId.equals(workspaceId);
+  standsAt(now: Date): boolean {
+    return !this.hasEnded && now.getTime() < this.standsUntil.getTime();
+  }
+
+  private get standsUntil(): Date {
+    const { work, lastSeenAt, claimBy } = this.state;
+
+    return work !== null && lastSeenAt
+      ? new Date(lastSeenAt.getTime() + HOLDS_UNSEEN_MS[work.kind])
+      : claimBy;
+  }
+
+  static unseenSinceLongestHold(now: Date): Date {
+    return new Date(now.getTime() - LONGEST_HOLD_UNSEEN_MS);
+  }
+
+  claimsAt(now: Date): RunnerClaims {
+    return this.state.work === null && this.standsAt(now)
+      ? 'reserved'
+      : 'nothing';
   }
 
   register(installed: readonly InstalledHarness[], at: Date): Runner {
-    const registered = this.seen(at);
+    this.refuseEnded();
 
-    registered.record(new RunnerRegistered(this.id, this.workspaceId));
-
-    if (sameInstalled(this.installed, installed)) {
-      return registered;
-    }
-
-    const reported = registered.with({ installed: [...installed] });
-
-    reported.record(
-      new RunnerReportedHarnesses(
-        this.id,
-        this.workspaceId,
-        reported.harnesses,
-      ),
-    );
-
-    return reported;
+    return this.with({ installed: [...installed], lastSeenAt: at });
   }
 
   seen(at: Date): Runner {
-    this.refuseRevoked();
+    this.refuseEnded();
 
     return this.with({ lastSeenAt: at });
   }
 
-  expecting(revision: number): void {
-    if (revision !== this.revision) {
-      throw new RunnerRevisedError(this.id.value);
-    }
-  }
-
-  redefinedAs(
-    definition: {
-      name: RunnerName;
-      labels: RunnerLabels;
-      tokenHash: TokenHash | null;
-    },
-    by: Attribution,
-  ): Runner {
-    this.refuseRevoked();
-
-    if (!definition.name.equals(this.name)) {
-      throw new RunnerNameFixedError(
-        this.name.value,
-        `keeps its name for its whole life, since it is the runner's address; replace it to call a runner ${definition.name.value}`,
-      );
+  took(work: RunnerWork, at: Date): Runner {
+    if (this.state.work !== null || !this.standsAt(at)) {
+      throw new RunnerSpentError(this.state.id.value);
     }
 
-    const redefined = this.with({
-      labels: definition.labels,
-      tokenHash: definition.tokenHash ?? undefined,
-      revision: this.revision + 1,
-    });
-
-    redefined.record(
-      new RunnerRedefined(
-        this.id,
-        this.workspaceId,
-        ConfigurationChange.updated(
-          this.whatChanged,
-          by,
-          RunnerChangeDetail.redefined(definition.tokenHash !== null),
-        ),
-      ),
-    );
-
-    return redefined;
+    return this.with({ work, lastSeenAt: at });
   }
 
-  rekeyed(tokenHash: TokenHash, by: Attribution): Runner {
-    this.refuseRevoked();
-
-    const rekeyed = this.with({ tokenHash });
-
-    rekeyed.record(
-      new RunnerRekeyed(
-        this.id,
-        this.workspaceId,
-        ConfigurationChange.updated(
-          this.whatChanged,
-          by,
-          RunnerChangeDetail.redefined(true),
-        ),
-      ),
-    );
-
-    return rekeyed;
+  holds(work: RunnerWork): boolean {
+    return this.state.work?.equals(work) ?? false;
   }
 
-  revoke(at: Date, by: Attribution): Runner {
-    if (this.revoked) {
+  ended(at: Date): Runner {
+    if (this.hasEnded) {
       return this;
     }
 
-    const revoked = this.with({ revokedAt: at });
-
-    revoked.record(
-      new RunnerRevoked(
-        this.id,
-        this.workspaceId,
-        ConfigurationChange.deleted(this.whatChanged, by),
-      ),
-    );
-
-    return revoked;
+    return this.with({ endedAt: at });
   }
 
-  equals(other: Runner): boolean {
-    return this.id.equals(other.id);
+  letGo(at: Date): Runner {
+    if (this.state.work !== null) {
+      return this.ended(at);
+    }
+
+    const discarded = new Runner(this.state, true);
+    discarded.inheritEvents(this);
+
+    return discarded;
   }
 
-  private get whatChanged() {
-    return {
-      resource: 'runner' as const,
-      id: this.id.value,
-      key: this.name.value,
-    };
-  }
-
-  private refuseRevoked(): void {
-    if (this.revoked) {
-      throw new RevokedRunnerError();
+  private refuseEnded(): void {
+    if (this.hasEnded) {
+      throw new RunnerSpentError(this.state.id.value);
     }
   }
 
-  private with(part: {
-    tokenHash?: TokenHash;
-    labels?: RunnerLabels;
-    installed?: readonly InstalledHarness[];
-    revokedAt?: Date;
-    lastSeenAt?: Date;
-    revision?: number;
-  }): Runner {
-    const next = new Runner(
-      this.id,
-      this.workspaceId,
-      this.name,
-      part.tokenHash ?? this.tokenHash,
-      part.labels ?? this.labels,
-      this.trustId,
-      part.installed ?? this.installed,
-      part.revokedAt ?? this.revokedAt,
-      part.lastSeenAt ?? this.lastSeenAt,
-      part.revision ?? this.revision,
-      this.version,
-    );
+  private with(part: Partial<State>): Runner {
+    const next = new Runner({ ...this.state, ...part }, this.isDiscarded);
 
     next.inheritEvents(this);
 

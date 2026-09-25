@@ -10,7 +10,7 @@ const parts = (over: Partial<RunSpecParts> = {}): RunSpecParts => ({
   command: { executable: 'claude-agent-acp', args: [] },
   briefing: 'do the thing',
   handover: { options: ['Spec'], noteLimit: 4_000 },
-  continuity: { key: 'task_1-station_1', keep: true },
+  continuity: { key: 'task_1-station_1' },
   ...over,
 });
 

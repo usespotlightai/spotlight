@@ -38,7 +38,9 @@ COPY control-plane/package.json control-plane/package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 FROM node:${NODE_VERSION} AS runtime
-ENV NODE_ENV=production
+ARG SPOTLIGHT_VERSION
+ENV NODE_ENV=production \
+    SPOTLIGHT_RELEASE=${SPOTLIGHT_VERSION}
 WORKDIR /app
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist

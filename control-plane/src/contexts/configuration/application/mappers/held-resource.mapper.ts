@@ -5,7 +5,6 @@ import type { KeptSkill } from '@configuration/application/ports/skill-resources
 import type { TeamProfile } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceProfile } from '@identity/application/ports/workspace-reader.port';
 import type {
-  ConfiguredRunner,
   ConfiguredRunnerPool,
   ConfiguredRunnerTrust,
   ConfiguredWorkspaceRunners,
@@ -50,17 +49,6 @@ export const HeldResourceMapper = {
     };
   },
 
-  runner(runner: ConfiguredRunner): HeldResourceDto {
-    return {
-      kind: 'runner',
-      heldBy: 'workspace',
-      id: runner.id,
-      address: runner.address,
-      name: runner.name,
-      labels: [...runner.labels],
-    };
-  },
-
   trust(trust: ConfiguredRunnerTrust): HeldResourceDto {
     return {
       kind: 'runner-trust',
@@ -95,7 +83,6 @@ export const HeldResourceMapper = {
       heldBy: 'workspace',
       id: declared.id,
       address: declared.address,
-      runners: [...declared.runners],
       trusts: [...declared.trusts],
       pools: [...declared.pools],
     };

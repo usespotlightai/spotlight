@@ -1,3 +1,4 @@
+import type { RunnerAdmissionsPort } from '@runners/application/ports/runner-admissions.port';
 import type {
   PoolAtWork,
   RunnerPoolsPort,
@@ -6,12 +7,10 @@ import type {
   KeptPool,
   RunnerResourcesPort,
 } from '@runners/application/ports/runner-resources.port';
-import type { PoolRunnerRepository } from '@runners/domain/repositories/pool-runner.repository';
+import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
 import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
-import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
 const atWork = (pool: KeptPool): PoolAtWork => ({
   poolId: pool.id,
@@ -24,19 +23,20 @@ const atWork = (pool: KeptPool): PoolAtWork => ({
 export class RunnerPools implements RunnerPoolsPort {
   constructor(
     private readonly pools: RunnerPoolRepository,
-    private readonly runners: PoolRunnerRepository,
+    private readonly runners: RunnerRepository,
     private readonly resources: RunnerResourcesPort,
-    private readonly tokens: TokenMintPort,
+    private readonly admissions: RunnerAdmissionsPort,
   ) {}
 
   async pulledWith(token: string | undefined): Promise<PoolAtWork | null> {
-    if (!token) {
-      return null;
-    }
-
-    const pool = await this.pools.findByTokenHash(
-      TokenHash.of(this.tokens.hash(token)),
-    );
+    const admitted = await this.admissions.admit({
+      bearer: token,
+      trust: undefined,
+    });
+    const pool =
+      admitted?.way.kind === 'pool'
+        ? await this.pools.find(RunnerPoolId.of(admitted.way.id))
+        : null;
 
     return pool
       ? {

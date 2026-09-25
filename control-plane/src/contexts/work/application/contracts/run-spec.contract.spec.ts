@@ -1,4 +1,3 @@
-import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
 import { InvalidRunSpecError } from '@work/domain/exceptions/invalid-run-spec.error';
 import { Continuity } from '@work/domain/value-objects/continuity.vo';
@@ -12,7 +11,7 @@ const parts = (over: Record<string, unknown> = {}) => ({
   command,
   briefing: 'do the thing',
   handover: { options: ['Spec'], noteLimit: 4_000 },
-  continuity: { key: 'task_1-station_1', keep: true },
+  continuity: { key: 'task_1-station_1' },
   ...over,
 });
 
@@ -32,7 +31,7 @@ const representative = {
   },
   briefing: 'do the thing',
   handover: { options: ['spec', 'review'], noteLimit: 4_000 },
-  continuity: { key: 'task_1-station_1', sessionId: 'session_1', keep: true },
+  continuity: { key: 'task_1-station_1', sessionId: 'session_1' },
   skills: [{ path: '.claude/skills/triage/SKILL.md', text: '# Triage' }],
   manifest: [
     {
@@ -113,7 +112,7 @@ describe('RunSpecContract.ordered', () => {
     const spec = RunSpecContract.ordered({ briefing: 'do the thing' }, command);
 
     expect(spec.value.handover).toEqual({ options: [], noteLimit: 0 });
-    expect(spec.value.continuity).toEqual({ key: '', keep: false });
+    expect(spec.value.continuity).toEqual({ key: '' });
   });
 
   it('refuses what is not a spec at all', () => {
@@ -137,10 +136,9 @@ describe('RunSpecContract.ordered', () => {
 describe('RunSpecContract.continuityOf', () => {
   const key = ContinuityKey.of('task_1-station_2');
 
-  it('tells the runner which directory to work in, and to keep it', () => {
+  it('tells the runner which directory to work in', () => {
     expect(RunSpecContract.continuityOf(Continuity.of({ key }))).toEqual({
       key: 'task_1-station_2',
-      keep: true,
     });
   });
 
@@ -150,13 +148,11 @@ describe('RunSpecContract.continuityOf', () => {
         Continuity.of({
           key,
           sessionId: HarnessSession.of('session_1'),
-          pinnedTo: RunnerId.of('runner_1'),
         }),
       ),
     ).toEqual({
       key: 'task_1-station_2',
       sessionId: 'session_1',
-      keep: true,
     });
   });
 

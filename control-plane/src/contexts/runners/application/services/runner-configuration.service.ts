@@ -1,7 +1,6 @@
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { RunnerResourceMapper } from '@runners/application/mappers/runner-resource.mapper';
 import type {
-  ConfiguredRunner,
   ConfiguredRunnerPool,
   ConfiguredRunners,
   ConfiguredRunnerTrust,
@@ -9,19 +8,16 @@ import type {
   RunnerConfigurationPort,
 } from '@runners/application/ports/runner-configuration.port';
 import type { WorkspaceRunners } from '@runners/domain/aggregates/workspace-runners.aggregate';
-import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import type { WorkspaceRunnersRepository } from '@runners/domain/repositories/workspace-runners.repository';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runners-id.vo';
-import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class RunnerConfiguration implements RunnerConfigurationPort {
   constructor(
-    private readonly runners: RunnerRepository,
     private readonly trusts: RunnerTrustRepository,
     private readonly declarations: WorkspaceRunnersRepository,
     private readonly workspaces: WorkspaceReaderPort,
@@ -29,29 +25,17 @@ export class RunnerConfiguration implements RunnerConfigurationPort {
   ) {}
 
   async in(workspaceId: WorkspaceId): Promise<ConfiguredRunners> {
-    const [runners, trusts, declared, pools] = await Promise.all([
-      this.runners.standingIn(workspaceId),
+    const [trusts, declared, pools] = await Promise.all([
       this.trusts.inWorkspace(workspaceId),
       this.declarations.declaredIn(workspaceId),
       this.pools.inWorkspace(workspaceId),
     ]);
 
     return {
-      runners: runners
-        .filter((each) => each.holdsWorkspace)
-        .map(RunnerResourceMapper.configuredRunner),
       trusts: trusts.map(RunnerResourceMapper.configuredTrust),
       pools: pools.map(RunnerResourceMapper.configuredPool),
       declared: declared ? await this.declaration(declared) : null,
     };
-  }
-
-  async runnerWithId(id: string): Promise<ConfiguredRunner | null> {
-    const runner = await this.runners.find(RunnerId.of(id));
-
-    return runner?.holdsWorkspace
-      ? RunnerResourceMapper.configuredRunner(runner)
-      : null;
   }
 
   async trustWithId(id: string): Promise<ConfiguredRunnerTrust | null> {

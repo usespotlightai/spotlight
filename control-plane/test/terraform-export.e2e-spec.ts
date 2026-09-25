@@ -32,8 +32,6 @@ import { seatTeam } from './support/team';
 
 const VALUE = 'lin_api_exported_never_7c1f';
 
-const RUNNER_TOKEN = 'r'.repeat(40);
-
 const POOL_TOKEN = 'p'.repeat(40);
 
 const PROVISION_SECRET = `whsec_${Buffer.from('s'.repeat(32)).toString('base64')}`;
@@ -171,11 +169,6 @@ describe('a workspace exported as Terraform (e2e)', () => {
         },
       ],
       [
-        'runner',
-        `workspaces/${held}/runners`,
-        { name: 'build-1', labels: ['vpc-internal'], token: RUNNER_TOKEN },
-      ],
-      [
         'runner-trust',
         `workspaces/${held}/runner-trusts`,
         {
@@ -197,7 +190,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
       [
         'workspace-runners',
         `workspaces/${held}/workspace-runners`,
-        { runners: ['build-1'], trusts: ['production'], pools: ['ephemeral'] },
+        { trusts: ['production'], pools: ['ephemeral'] },
       ],
       ['skill', `teams/${held}/skills`, GRAFANA],
       ['integration', `teams/${held}/integrations`, LINEAR],
@@ -264,7 +257,6 @@ describe('a workspace exported as Terraform (e2e)', () => {
     for (const [type, name, id] of [
       ['spotlight_workspace', held, held],
       ['spotlight_secret', 'linear_api_key', `${held}/LINEAR_API_KEY`],
-      ['spotlight_runner', 'build-1', `${held}/build-1`],
       ['spotlight_runner_trust', 'production', `${held}/production`],
       ['spotlight_runner_pool', 'ephemeral', `${held}/ephemeral`],
       ['spotlight_workspace_runners', held, `${held}/${held}`],
@@ -290,10 +282,9 @@ describe('a workspace exported as Terraform (e2e)', () => {
       // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
       'tools     = ["${spotlight_integration.team_linear.source}.comment"]',
       'profile   = spotlight_harness_profile.team_careful.key',
-      'runners      = [spotlight_runner.build-1.name, "vpc-internal"]',
+      'runners      = ["build-1", "vpc-internal"]',
       // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
       'secrets = ["secret.${spotlight_secret.linear_api_key.name}"]',
-      'runners      = [spotlight_runner.build-1.name]',
       'trusts       = [spotlight_runner_trust.production.key]',
       'pools        = [spotlight_runner_pool.ephemeral.key]',
     ]) {
@@ -301,24 +292,21 @@ describe('a workspace exported as Terraform (e2e)', () => {
     }
   });
 
-  it('never writes a secret value or a runner token, asking for them as sensitive variables', async () => {
+  it('never writes a secret value or a pool token, asking for them as sensitive variables', async () => {
     const files = await exported();
     const main = fileOf(files, 'main.tf');
     const variables = fileOf(files, 'variables.tf');
 
     for (const file of files) {
       expect(file.content).not.toContain(VALUE);
-      expect(file.content).not.toContain(RUNNER_TOKEN);
       expect(file.content).not.toContain(POOL_TOKEN);
     }
     expect(main).toContain(
       '  value_wo         = var.secret_linear_api_key\n  value_wo_version = 1\n',
     );
-    expect(main).toContain('  token        = var.runner_build-1_token\n');
     expect(variables).toContain(
       'variable "secret_linear_api_key" {\n  description = "The value of the secret LINEAR_API_KEY, which Spotlight keeps and never answers"\n  type        = string\n  sensitive   = true\n}\n',
     );
-    expect(variables).toContain('variable "runner_build-1_token" {');
     expect(
       blockOf(main, 'resource "spotlight_runner_pool" "ephemeral"'),
     ).toMatch(
@@ -424,7 +412,6 @@ describe('a workspace exported as Terraform (e2e)', () => {
         'spotlight_harness_profile',
       ],
       ['secrets', made.secret, 'spotlight_secret'],
-      ['runners', made.runner, 'spotlight_runner'],
       ['runner-trusts', made['runner-trust'], 'spotlight_runner_trust'],
       ['runner-pools', made['runner-pool'], 'spotlight_runner_pool'],
       [
@@ -514,8 +501,6 @@ const bodyOf = (held: HeldResourceDto): object => {
           ? {}
           : { valueWoVersion: held.valueVersion }),
       };
-    case 'runner':
-      return { name: held.name, labels: held.labels };
     case 'runner-trust':
       return {
         key: held.key,
@@ -540,7 +525,7 @@ const bodyOf = (held: HeldResourceDto): object => {
           : { token: POOL_TOKEN, tokenVersion: held.tokenVersion }),
       };
     case 'workspace-runners':
-      return { runners: held.runners, trusts: held.trusts, pools: held.pools };
+      return { trusts: held.trusts, pools: held.pools };
     case 'line':
     case 'integration':
       return held.definition;
@@ -560,7 +545,6 @@ const COLLECTIONS: Readonly<
   Record<Exclude<HeldResourceDto['kind'], 'workspace'>, string>
 > = {
   secret: 'secrets',
-  runner: 'runners',
   'runner-trust': 'runner-trusts',
   'runner-pool': 'runner-pools',
   'workspace-runners': 'workspace-runners',

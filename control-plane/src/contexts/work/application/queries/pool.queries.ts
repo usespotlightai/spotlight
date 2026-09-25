@@ -4,7 +4,3 @@ export class PoolQueueQuery {
     readonly poolId: string,
   ) {}
 }
-
-export class PoolHarnessesQuery {
-  constructor(readonly token: string | undefined) {}
-}

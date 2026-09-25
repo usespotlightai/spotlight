@@ -23,7 +23,9 @@ import { CurrentRunner } from '@platform/http/decorators/current-runner.decorato
 import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
 
 @ApiTags('runners')
-@ApiUnauthorizedResponse({ description: 'Missing or wrong enrollment token' })
+@ApiUnauthorizedResponse({
+  description: 'Missing, spent or wrong runner token',
+})
 @RunnerOnly()
 @Controller()
 export class RunnerChangeStackController {

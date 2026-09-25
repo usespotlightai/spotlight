@@ -32,7 +32,7 @@ vi.mock('@/hooks/api/useRunners', () => ({
     all: ['runners'],
     forWorkspace: (slug?: string) => ['runners', slug ?? null],
   },
-  useRunners: () => ({ data: [] }),
+  useRunners: () => ({ data: { hosts: [], provisioned: [] } }),
 }));
 vi.mock('@/hooks/api/useTeamSkills', () => ({
   useTeamSkills: () => ({
