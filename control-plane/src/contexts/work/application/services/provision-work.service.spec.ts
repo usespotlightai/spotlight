@@ -148,6 +148,58 @@ const provisioning = (
 };
 
 describe('ProvisionWork', () => {
+  it('releases what it reserved when provisioning throws, still provisions the rest, and says why', async () => {
+    const { provisioner, provision, run } = provisioning(
+      [waiting('run_1', ['broken']), waiting('run_2', ['gpu'])],
+      [aPool('broken', ['broken']), aPool('burst', ['gpu'])],
+    );
+    provision.mockImplementation(async (request: ProvisionRequest) => {
+      if (request.poolId === 'pool_broken') {
+        throw new Error('the provision secret does not open here');
+      }
+
+      return { outcome: 'provisioned' };
+    });
+
+    await expect(provisioner.due()).rejects.toThrow(
+      'the provision secret does not open here',
+    );
+
+    expect(run('run_1').reservation).toBeNull();
+    expect(run('run_1').provisioning.failures).toBe(0);
+    expect(run('run_2').reservation?.pool).toBe('pool_burst');
+  });
+
+  it('releases a check it reserved when provisioning throws', async () => {
+    const { provisioner, provision, checks } = provisioning(
+      [],
+      [aPool('burst', ['gpu'])],
+      {},
+      NOON,
+      0,
+      {
+        awaiting: [
+          {
+            stackId: 'stack_1',
+            runId: 'run_9',
+            placement: RunnerPlacement.of(['gpu']),
+          },
+        ],
+      },
+    );
+    provision.mockRejectedValue(
+      new Error('the provision secret does not open here'),
+    );
+
+    await expect(provisioner.due()).rejects.toThrow();
+
+    expect(checks.unreserve).toHaveBeenCalledWith(
+      'stack_1',
+      RunnerId.of('pooled_1'),
+    );
+    expect(checks.failed).not.toHaveBeenCalled();
+  });
+
   it('looks past runs no push pool fits, however many wait ahead of one it does', async () => {
     const { provisioner, provision } = provisioning(
       [
@@ -271,6 +323,99 @@ describe('ProvisionWork', () => {
     expect(run('run_1').provisionableAt(NOON)).toBe(false);
   });
 
+  it('tries the next fitting pool when the first fails, and counts nothing when it provisions', async () => {
+    const { provisioner, provision, run } = provisioning(
+      [waiting('run_1')],
+      [aPool('a-dead'), aPool('b-burst')],
+      {
+        'pool_a-dead': {
+          outcome: 'failed',
+          kind: 'unreachable',
+          detail: 'connect ECONNREFUSED',
+        },
+      },
+    );
+
+    await provisioner.due();
+
+    expect(provision.mock.calls.map(([request]) => request.poolId)).toEqual([
+      'pool_a-dead',
+      'pool_b-burst',
+    ]);
+    expect(run('run_1').reservation?.pool).toBe('pool_b-burst');
+    expect(run('run_1').provisioning.failures).toBe(0);
+  });
+
+  it('counts one failure, the last, when every fitting pool fails', async () => {
+    const { provisioner, run } = provisioning(
+      [waiting('run_1')],
+      [aPool('a-dead'), aPool('b-refusing')],
+      {
+        'pool_a-dead': {
+          outcome: 'failed',
+          kind: 'unreachable',
+          detail: 'connect ECONNREFUSED',
+        },
+        'pool_b-refusing': {
+          outcome: 'failed',
+          kind: 'unusable',
+          detail: 'the pool’s provision secret does not open',
+        },
+      },
+    );
+
+    await provisioner.due();
+
+    expect(run('run_1').reservation).toBeNull();
+    expect(run('run_1').provisioning.failures).toBe(1);
+  });
+
+  it('provisions on the next fitting pool when the first throws, and still says why', async () => {
+    const { provisioner, provision, run } = provisioning(
+      [waiting('run_1')],
+      [aPool('a-broken'), aPool('b-burst')],
+    );
+    provision.mockImplementation(async (request: ProvisionRequest) => {
+      if (request.poolId === 'pool_a-broken') {
+        throw new Error('the provision secret does not open here');
+      }
+
+      return { outcome: 'provisioned' };
+    });
+
+    await expect(provisioner.due()).rejects.toThrow(
+      'the provision secret does not open here',
+    );
+
+    expect(run('run_1').reservation?.pool).toBe('pool_b-burst');
+    expect(run('run_1').provisioning.failures).toBe(0);
+  });
+
+  it('says both when provisioning throws and releasing its reservation does too', async () => {
+    const { provisioner, provision, checks } = provisioning(
+      [],
+      [aPool('burst', ['gpu'])],
+      {},
+      NOON,
+      0,
+      {
+        awaiting: [
+          {
+            stackId: 'stack_1',
+            runId: 'run_9',
+            placement: RunnerPlacement.of(['gpu']),
+          },
+        ],
+      },
+    );
+    provision.mockRejectedValue(
+      new Error('the provision secret does not open'),
+    );
+    checks.unreserve.mockRejectedValue(new Error('the database went away'));
+
+    await expect(provisioner.due()).rejects.toBeInstanceOf(AggregateError);
+  });
+
   it('tries the next fitting pool when the first is full', async () => {
     const { provisioner, provision, run } = provisioning(
       [waiting('run_1')],
@@ -285,6 +430,26 @@ describe('ProvisionWork', () => {
       'pool_b-spare',
     ]);
     expect(run('run_1').reservation?.pool).toBe('pool_b-spare');
+    expect(run('run_1').provisioning.failures).toBe(0);
+  });
+
+  it('counts nothing when a failing pool is followed by one that filled up meanwhile', async () => {
+    const { provisioner, run } = provisioning(
+      [waiting('run_1')],
+      [aPool('a-dead'), aPool('b-burst')],
+      {
+        'pool_a-dead': {
+          outcome: 'failed',
+          kind: 'unreachable',
+          detail: 'connect ECONNREFUSED',
+        },
+        'pool_b-burst': { outcome: 'full' },
+      },
+    );
+
+    await provisioner.due();
+
+    expect(run('run_1').reservation).toBeNull();
     expect(run('run_1').provisioning.failures).toBe(0);
   });
 
@@ -517,6 +682,46 @@ describe('ProvisionWork', () => {
         NOON,
       );
       expect(checks.unreserve).not.toHaveBeenCalled();
+    });
+
+    it('records only the last fitting pool’s failure on the check', async () => {
+      const { provisioner, checks } = provisioning(
+        [],
+        [aPool('a-dead'), aPool('b-unusable')],
+        {
+          'pool_a-dead': {
+            outcome: 'failed',
+            kind: 'unreachable',
+            detail: 'connect ECONNREFUSED',
+          },
+          'pool_b-unusable': {
+            outcome: 'failed',
+            kind: 'unusable',
+            detail: 'the pool’s provision secret does not open',
+          },
+        },
+        NOON,
+        0,
+        { awaiting: [aWaitingCheck('stack_1')] },
+      );
+
+      await provisioner.due();
+
+      expect(checks.failed).toHaveBeenCalledOnce();
+      expect(checks.failed).toHaveBeenCalledWith(
+        'stack_1',
+        RunnerId.of('pooled_2'),
+        ProvisionFailure.of(
+          'unusable',
+          'the pool’s provision secret does not open',
+        ),
+        NOON,
+      );
+      expect(checks.unreserve).toHaveBeenCalledOnce();
+      expect(checks.unreserve).toHaveBeenCalledWith(
+        'stack_1',
+        RunnerId.of('pooled_1'),
+      );
     });
 
     it('lets the reservation go and tries the next fitting pool when the first is full', async () => {

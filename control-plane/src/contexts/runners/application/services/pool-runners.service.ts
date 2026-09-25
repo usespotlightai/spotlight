@@ -10,12 +10,14 @@ import type { ProvisionCallsPort } from '@runners/application/ports/provision-ca
 import { revisePoolRunner } from '@runners/application/services/pool-runner-revisions';
 import { PoolRunner } from '@runners/domain/aggregates/pool-runner.aggregate';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
+import { ProvisionSecretUnopenableError } from '@runners/domain/exceptions/provision-secret-unopenable.error';
 import type { PoolRunnerRepository } from '@runners/domain/repositories/pool-runner.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
 import { PoolWork } from '@runners/domain/value-objects/pool-work.vo';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -34,6 +36,7 @@ export class PoolRunners implements PoolRunnersPort {
     private readonly tokens: TokenMintPort,
     private readonly ids: IdGeneratorPort,
     private readonly transaction: TransactionPort,
+    private readonly logger: LoggerPort,
   ) {}
 
   async start(
@@ -67,16 +70,31 @@ export class PoolRunners implements PoolRunnersPort {
     at: Date,
   ): Promise<ProvisionedRunner> {
     const minted = this.tokens.mint();
-    const began = await this.began(request.poolId, 'push', at, (pool) =>
-      PoolRunner.started({
-        id: request.runnerId,
-        pool,
-        tokenHash: TokenHash.of(minted.hash),
-        installed: [],
-        at,
-        claimBy: request.claimBy,
-      }),
-    );
+    let began: Began;
+
+    try {
+      began = await this.began(request.poolId, 'push', at, (pool) =>
+        PoolRunner.started({
+          id: request.runnerId,
+          pool,
+          tokenHash: TokenHash.of(minted.hash),
+          installed: [],
+          at,
+          claimBy: request.claimBy,
+        }),
+      );
+    } catch (error) {
+      if (error instanceof ProvisionSecretUnopenableError) {
+        return {
+          outcome: 'failed',
+          kind: 'unusable',
+          detail:
+            'the pool’s provision secret does not open with this deployment’s keys',
+        };
+      }
+
+      throw error;
+    }
 
     if (began.outcome !== 'began') {
       return began;
@@ -109,7 +127,12 @@ export class PoolRunners implements PoolRunnersPort {
       return { outcome: 'provisioned' };
     }
 
-    await this.letGo(request.runnerId, at);
+    await this.letGo(request.runnerId, at).catch((error: unknown) => {
+      this.logger.error(
+        { err: error, runner: request.runnerId.value },
+        'Letting go of a runner its provision call refused',
+      );
+    });
 
     return { outcome: 'failed', kind: answer.outcome, detail: answer.detail };
   }

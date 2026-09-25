@@ -4,6 +4,7 @@ const PROVISION_FAILURES = [
   'unreachable',
   'refused',
   'not-allowed',
+  'unusable',
   'lapsed',
   'harness-missing',
 ] as const;

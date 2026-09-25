@@ -6,6 +6,7 @@ import {
 } from '@platform/persistence/drizzle/violations';
 import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import { PoolTokenTakenError } from '@runners/domain/exceptions/pool-token-taken.error';
+import { ProvisionSecretUnopenableError } from '@runners/domain/exceptions/provision-secret-unopenable.error';
 import { RunnerPoolAlreadyDefinedError } from '@runners/domain/exceptions/runner-pool-already-defined.error';
 import { RunnerPoolMovedOnError } from '@runners/domain/exceptions/runner-pool-moved-on.error';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
@@ -21,6 +22,7 @@ import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { runnerPool } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
+import { CredentialUnopenableError } from '@secrets/application/errors/credential-unopenable.error';
 import {
   CREDENTIAL_SEALING,
   type CredentialSealingPort,
@@ -182,11 +184,7 @@ export class DrizzleRunnerPoolRepository implements RunnerPoolRepository {
         ProvisionUrl.of(row.provisionUrl),
         opened
           ? ProvisionSecret.of(
-              await this.sealing.open(
-                row.workspaceId,
-                secretLabel(row.id),
-                row.provisionSecret,
-              ),
+              await this.secretOf(row.id, row.workspaceId, row.provisionSecret),
             )
           : null,
         row.provisionSecretVersion,
@@ -197,6 +195,22 @@ export class DrizzleRunnerPoolRepository implements RunnerPoolRepository {
       'runner pool',
       'was kept neither pulled from nor provisioning',
     );
+  }
+
+  private async secretOf(
+    poolId: string,
+    workspaceId: string,
+    sealed: string,
+  ): Promise<string> {
+    try {
+      return await this.sealing.open(workspaceId, secretLabel(poolId), sealed);
+    } catch (error) {
+      if (error instanceof CredentialUnopenableError) {
+        throw new ProvisionSecretUnopenableError(poolId);
+      }
+
+      throw error;
+    }
   }
 
   private async toPool(row: Row, opened: boolean): Promise<RunnerPool> {

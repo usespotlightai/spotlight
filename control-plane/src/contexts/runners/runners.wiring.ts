@@ -136,6 +136,10 @@ import {
   type IdGeneratorPort,
 } from '@shared-kernel/application/ports/id-generator.port';
 import { IDEMPOTENT_CREATES } from '@shared-kernel/application/ports/idempotent-creates.port';
+import {
+  LOGGER,
+  type LoggerPort,
+} from '@shared-kernel/application/ports/logger.port';
 import { RUNNER_IDENTITY } from '@shared-kernel/application/ports/runner-identity.port';
 import {
   TOKEN_MINT,
@@ -276,6 +280,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       TOKEN_MINT,
       ID_GENERATOR,
       TRANSACTION,
+      LOGGER,
     ],
     useFactory: (
       pools: DrizzleRunnerPoolRepository,
@@ -284,7 +289,9 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       tokens: TokenMintPort,
       ids: IdGeneratorPort,
       transaction: TransactionPort,
-    ) => new PoolRunners(pools, pooled, calls, tokens, ids, transaction),
+      logger: LoggerPort,
+    ) =>
+      new PoolRunners(pools, pooled, calls, tokens, ids, transaction, logger),
   },
   {
     provide: RUNNER_POOLS,

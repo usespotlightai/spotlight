@@ -32,7 +32,11 @@ export interface ProvisionRequest {
   readonly claimBy: Date;
 }
 
-type ProvisionFailureKind = 'unreachable' | 'refused' | 'not-allowed';
+type ProvisionFailureKind =
+  | 'unreachable'
+  | 'refused'
+  | 'not-allowed'
+  | 'unusable';
 
 export type ProvisionedRunner =
   | { readonly outcome: 'provisioned' }

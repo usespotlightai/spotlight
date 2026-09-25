@@ -30,10 +30,37 @@ const MOST_PAGES = 10;
 
 type Provisioned = 'settled' | 'try-another';
 
+interface Then {
+  readonly failed: (failure: ProvisionFailure) => Promise<unknown>;
+  readonly unreserved: () => Promise<unknown>;
+}
+
 interface Waiting {
   readonly placement: RunnerPlacement;
-  readonly on: (pool: PoolAtWork) => Promise<Provisioned>;
+  readonly on: (pool: PoolAtWork, last: boolean) => Promise<Provisioned>;
 }
+
+const rethrown = (thrown: readonly unknown[]): void => {
+  if (thrown.length > 1) {
+    throw new AggregateError(thrown, 'Several provisioning attempts threw');
+  }
+
+  if (thrown.length === 1) {
+    throw thrown[0];
+  }
+};
+
+const everySettled = async (
+  attempts: readonly Promise<unknown>[],
+): Promise<void> => {
+  rethrown(
+    (await Promise.allSettled(attempts))
+      .filter(
+        (each): each is PromiseRejectedResult => each.status === 'rejected',
+      )
+      .map((each) => each.reason),
+  );
+};
 
 const byWorkspace = (
   pools: readonly PoolAtWork[],
@@ -69,7 +96,7 @@ export class ProvisionWork {
   async due(): Promise<void> {
     await this.lapsed();
 
-    await Promise.all(
+    await everySettled(
       [...byWorkspace(await this.pools.provisioning()).values()].map((pools) =>
         this.inWorkspace(pools),
       ),
@@ -142,13 +169,24 @@ export class ProvisionWork {
       }
     }
 
-    await Promise.all(
+    await everySettled(
       placed.map(async ({ waiting, fitting }) => {
-        for (const pool of fitting) {
-          if ((await waiting.on(pool)) !== 'try-another') {
-            return;
+        const thrown: unknown[] = [];
+
+        for (const [at, pool] of fitting.entries()) {
+          try {
+            if (
+              (await waiting.on(pool, at === fitting.length - 1)) !==
+              'try-another'
+            ) {
+              break;
+            }
+          } catch (error) {
+            thrown.push(error);
           }
         }
+
+        rethrown(thrown);
       }),
     );
   }
@@ -184,18 +222,22 @@ export class ProvisionWork {
   private waitingRun(queued: Run): Waiting {
     return {
       placement: queued.placement,
-      on: (pool) => this.runOn(queued, pool),
+      on: (pool, last) => this.runOn(queued, pool, last),
     };
   }
 
   private waitingCheck(check: WaitingCheck): Waiting {
     return {
       placement: check.placement,
-      on: (pool) => this.checkOn(check, pool),
+      on: (pool, last) => this.checkOn(check, pool, last),
     };
   }
 
-  private async runOn(queued: Run, pool: PoolAtWork): Promise<Provisioned> {
+  private async runOn(
+    queued: Run,
+    pool: PoolAtWork,
+    last: boolean,
+  ): Promise<Provisioned> {
     const waiting = await this.runs.findById(queued.id);
 
     if (!waiting?.provisionableAt(this.clock.now())) {
@@ -224,14 +266,15 @@ export class ProvisionWork {
       throw error;
     }
 
-    return this.answered(
-      await this.provisioned(pool, runnerId, {
-        work: { kind: 'run', id: reserved.id.value },
-        runId: reserved.id.value,
-        taskId: reserved.taskId?.value ?? null,
-        placement: reserved.placement,
-        claimBy: reservation.until,
-      }),
+    return this.attempted(
+      () =>
+        this.provisioned(pool, runnerId, {
+          work: { kind: 'run', id: reserved.id.value },
+          runId: reserved.id.value,
+          taskId: reserved.taskId?.value ?? null,
+          placement: reserved.placement,
+          claimBy: reservation.until,
+        }),
       {
         failed: (failure) =>
           this.failures.failed(
@@ -242,12 +285,14 @@ export class ProvisionWork {
           ),
         unreserved: () => this.failures.unreserved(reserved.id, runnerId),
       },
+      last,
     );
   }
 
   private async checkOn(
     check: WaitingCheck,
     pool: PoolAtWork,
+    last: boolean,
   ): Promise<Provisioned> {
     const runnerId = RunnerId.of(this.ids.generate());
     const until = await this.checks.reserve(
@@ -261,14 +306,15 @@ export class ProvisionWork {
       return 'settled';
     }
 
-    return this.answered(
-      await this.provisioned(pool, runnerId, {
-        work: { kind: 'check', id: check.stackId },
-        runId: check.runId,
-        taskId: null,
-        placement: check.placement,
-        claimBy: until,
-      }),
+    return this.attempted(
+      () =>
+        this.provisioned(pool, runnerId, {
+          work: { kind: 'check', id: check.stackId },
+          runId: check.runId,
+          taskId: null,
+          placement: check.placement,
+          claimBy: until,
+        }),
       {
         failed: (failure) =>
           this.checks.failed(
@@ -279,6 +325,7 @@ export class ProvisionWork {
           ),
         unreserved: () => this.checks.unreserve(check.stackId, runnerId),
       },
+      last,
     );
   }
 
@@ -307,24 +354,45 @@ export class ProvisionWork {
     );
   }
 
+  private async attempted(
+    provisioning: () => Promise<ProvisionedRunner>,
+    then: Then,
+    last: boolean,
+  ): Promise<Provisioned> {
+    let provisioned: ProvisionedRunner;
+
+    try {
+      provisioned = await provisioning();
+    } catch (error) {
+      await then.unreserved().catch((released: unknown) => {
+        throw new AggregateError(
+          [error, released],
+          'Provisioning threw, and so did releasing its reservation',
+        );
+      });
+      throw error;
+    }
+
+    return this.answered(provisioned, then, last);
+  }
+
   private async answered(
     provisioned: ProvisionedRunner,
-    then: {
-      readonly failed: (failure: ProvisionFailure) => Promise<unknown>;
-      readonly unreserved: () => Promise<unknown>;
-    },
+    then: Then,
+    last: boolean,
   ): Promise<Provisioned> {
-    switch (provisioned.outcome) {
-      case 'provisioned':
-        return 'settled';
-      case 'failed':
-        await then.failed(
-          ProvisionFailure.of(provisioned.kind, provisioned.detail),
-        );
-        return 'settled';
-      default:
-        await then.unreserved();
-        return 'try-another';
+    if (provisioned.outcome === 'provisioned') {
+      return 'settled';
     }
+
+    if (provisioned.outcome === 'failed' && last) {
+      await then.failed(
+        ProvisionFailure.of(provisioned.kind, provisioned.detail),
+      );
+      return 'settled';
+    }
+
+    await then.unreserved();
+    return 'try-another';
   }
 }

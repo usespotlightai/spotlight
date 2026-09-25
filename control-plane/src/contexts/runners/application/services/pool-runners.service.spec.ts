@@ -13,10 +13,12 @@ import {
   POOL_ID,
   STARTED_AT,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
+import { ProvisionSecretUnopenableError } from '@runners/domain/exceptions/provision-secret-unopenable.error';
 import type { PoolRunnerRepository } from '@runners/domain/repositories/pool-runner.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import { PoolWork } from '@runners/domain/value-objects/pool-work.vo';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -25,19 +27,26 @@ import { describe, expect, it, vi } from 'vitest';
 const CLAIM_BY = new Date(STARTED_AT.getTime() + 60_000);
 
 const running = (
-  pool: RunnerPool | null,
+  pool: RunnerPool | Error | null,
   given: {
     standing?: readonly PoolRunner[];
     held?: PoolRunner | null;
     answer?: ProvisionAnswer;
+    unsaved?: Error;
   } = {},
 ) => {
   const added: PoolRunner[] = [];
+  const logged: unknown[] = [];
   const saved: PoolRunner[] = [];
   const called: ProvisionCall[] = [];
   const service = new PoolRunners(
     {
-      findForStart: vi.fn(async () => pool),
+      findForStart: vi.fn(async () => {
+        if (pool instanceof Error) {
+          throw pool;
+        }
+        return pool;
+      }),
     } as unknown as RunnerPoolRepository,
     {
       standingIn: vi.fn(async () => given.standing ?? []),
@@ -46,6 +55,9 @@ const running = (
       }),
       find: vi.fn(async () => given.held ?? added[added.length - 1] ?? null),
       save: vi.fn(async (runner: PoolRunner) => {
+        if (given.unsaved) {
+          throw given.unsaved;
+        }
         saved.push(runner);
       }),
       holding: vi.fn(async () => (given.held ? [given.held] : [])),
@@ -62,9 +74,14 @@ const running = (
     } as TokenMintPort,
     { generate: () => 'pooled_9' } as IdGeneratorPort,
     { run: (work: () => Promise<unknown>) => work() } as TransactionPort,
+    {
+      error: (fields: unknown) => {
+        logged.push(fields);
+      },
+    } as unknown as LoggerPort,
   );
 
-  return { service, added, saved, called };
+  return { service, added, saved, called, logged };
 };
 
 describe('PoolRunners', () => {
@@ -179,6 +196,36 @@ describe('PoolRunners', () => {
         detail: 'answered 500',
       });
       expect(saved[0]?.isDiscarded).toBe(true);
+    });
+
+    it('still says why provision failed when letting the runner go fails, and logs it', async () => {
+      const lost = new Error('the database is down');
+      const { service, logged } = running(aPushPool(), {
+        answer: { outcome: 'refused', detail: 'answered 500' },
+        unsaved: lost,
+      });
+
+      await expect(service.provision(request, STARTED_AT)).resolves.toEqual({
+        outcome: 'failed',
+        kind: 'refused',
+        detail: 'answered 500',
+      });
+      expect(logged).toEqual([{ err: lost, runner: 'pooled_1' }]);
+    });
+
+    it('fails as unusable when the pool’s secret does not open here', async () => {
+      const { service, added, called } = running(
+        new ProvisionSecretUnopenableError(POOL_ID.value),
+      );
+
+      await expect(service.provision(request, STARTED_AT)).resolves.toEqual({
+        outcome: 'failed',
+        kind: 'unusable',
+        detail:
+          'the pool’s provision secret does not open with this deployment’s keys',
+      });
+      expect(added).toEqual([]);
+      expect(called).toEqual([]);
     });
 
     it('calls nobody when the pool is full', async () => {

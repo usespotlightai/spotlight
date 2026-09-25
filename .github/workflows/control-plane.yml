@@ -68,8 +68,13 @@ jobs:
           git diff --exit-code -- control-plane/src/infrastructure/persistence/drizzle/schemas/auth.schema.ts \
             || { echo "::error::auth.schema.ts is stale. Run 'docker compose exec -T control-plane npm run auth:generate'."; exit 1; }
 
+      - name: e2e database
+        run: |
+          docker compose exec -T db createdb -U postgres e2e
+          docker compose exec -T -e DATABASE_URL=postgres://postgres:postgres@db:5432/e2e control-plane npm run db:migrate
+
       - name: e2e tests
-        run: docker compose exec -T control-plane npm run test:e2e
+        run: docker compose exec -T -e DATABASE_URL=postgres://postgres:postgres@db:5432/e2e control-plane npm run test:e2e
 
       - name: Container logs
         if: failure()
