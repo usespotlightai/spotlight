@@ -15,8 +15,6 @@ import (
 	"usespotlight.ai/runner/internal/protocol"
 )
 
-var version = "dev"
-
 var client = &http.Client{Timeout: 2 * time.Minute}
 
 func main() {
@@ -30,7 +28,6 @@ const usage = `usage:
   spotlight handover --next <where> [--note <text>]
   spotlight reply --to <handle> [--body <text>] [--resolve]
   spotlight trace --task <id> [--out <path>]
-  spotlight export --workspace <slug> [--out <dir>]
   spotlight tools
   spotlight <tool> [--<input> <value>...]   as spotlight linear comment --body "..."`
 
@@ -46,8 +43,6 @@ func run(args []string, in io.Reader, out io.Writer) error {
 		return reply(args[1:], in, out)
 	case "trace":
 		return traceCmd(args[1:], out)
-	case "export":
-		return exportCmd(args[1:], out)
 	case "tools":
 		return listTools(out)
 	default:

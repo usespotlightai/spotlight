@@ -1,6 +1,8 @@
 import { ChevronsUpDown } from 'lucide-react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { InitialAvatar } from '@/components/shared/avatar/InitialAvatar';
+import { DownloadTerraformItem } from '@/components/shell/layout/DownloadTerraformItem';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,18 +20,20 @@ import { useWorkspaces } from '@/hooks/api/useWorkspaces';
 import { workspacePath } from '@/lib/workspace';
 
 type WorkspaceMenuProps = {
+  id: string;
   name: string;
   slug: string;
 };
 
-export function WorkspaceMenu({ name, slug }: WorkspaceMenuProps) {
+export function WorkspaceMenu({ id, name, slug }: WorkspaceMenuProps) {
+  const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const signOut = useSignOut();
   const { data: session } = useSession();
   const { data: workspaces } = useWorkspaces();
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left outline-none transition-colors hover:bg-border/50 data-[popup-open]:bg-border/50">
         <InitialAvatar
           name={name}
@@ -79,6 +83,14 @@ export function WorkspaceMenu({ name, slug }: WorkspaceMenuProps) {
               Create or join a workspace
             </a>
           }
+        />
+
+        <DropdownMenuSeparator />
+
+        <DownloadTerraformItem
+          workspaceId={id}
+          slug={slug}
+          onDownloaded={() => setOpen(false)}
         />
 
         <DropdownMenuSeparator />

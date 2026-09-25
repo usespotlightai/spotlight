@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -8,6 +9,17 @@ const navigate = vi.fn();
 vi.mock('react-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('react-router')>()),
   useNavigate: () => navigate,
+}));
+
+const exportWorkspace = vi.fn();
+vi.mock('@/lib/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api')>()),
+  exportWorkspace: (options: unknown) => exportWorkspace(options),
+}));
+
+const saveFile = vi.fn();
+vi.mock('@/lib/download', () => ({
+  saveFile: (blob: Blob, name: string) => saveFile(blob, name),
 }));
 
 const signOut = vi.fn();
@@ -29,9 +41,11 @@ vi.mock('@/hooks/api/useWorkspaces', () => ({
 
 const renderMenu = () =>
   render(
-    <MemoryRouter>
-      <WorkspaceMenu name="Acme Inc." slug="acme-inc" />
-    </MemoryRouter>,
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter>
+        <WorkspaceMenu id="ws_1" name="Acme Inc." slug="acme-inc" />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 
 const open = async () => {
@@ -45,6 +59,8 @@ const open = async () => {
 beforeEach(() => {
   navigate.mockReset();
   signOut.mockReset();
+  exportWorkspace.mockReset();
+  saveFile.mockReset();
 });
 
 describe('WorkspaceMenu', () => {
@@ -98,6 +114,49 @@ describe('WorkspaceMenu', () => {
 
     expect(create).toHaveAttribute('href', '/workspaces/new');
     expect(create).toHaveAttribute('target', '_blank');
+  });
+
+  it('downloads the workspace as a Terraform module', async () => {
+    exportWorkspace.mockResolvedValue({
+      data: { files: [{ path: 'main.tf', content: '' }] },
+    });
+    const user = await open();
+
+    await user.click(
+      screen.getByRole('menuitem', { name: 'Download as Terraform' }),
+    );
+
+    await waitFor(() =>
+      expect(saveFile).toHaveBeenCalledWith(
+        expect.any(Blob),
+        'acme-inc-terraform.zip',
+      ),
+    );
+    expect(exportWorkspace).toHaveBeenCalledWith(
+      expect.objectContaining({ path: { id: 'ws_1' } }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument(),
+    );
+  });
+
+  it('stays open and offers to try again when the download fails', async () => {
+    exportWorkspace.mockRejectedValueOnce(new Error('offline'));
+    const user = await open();
+
+    await user.click(
+      screen.getByRole('menuitem', { name: 'Download as Terraform' }),
+    );
+
+    const retry = await screen.findByRole('menuitem', {
+      name: 'Could not download. Try again',
+    });
+    expect(saveFile).not.toHaveBeenCalled();
+
+    exportWorkspace.mockResolvedValue({ data: { files: [] } });
+    await user.click(retry);
+
+    await waitFor(() => expect(saveFile).toHaveBeenCalledOnce());
   });
 
   it('logs the user out', async () => {

@@ -68,7 +68,7 @@ export const ConventionalApiController = (path: string, tag: string) =>
       name: CLIENT_HEADER,
       required: false,
       description:
-        'Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown',
+        'Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown',
       schema: { type: 'string', example: 'terraform-provider/0.1.0' },
     }),
     ApiProblemResponse(

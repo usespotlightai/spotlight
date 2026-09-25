@@ -405,8 +405,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
       .set(
         'Authorization',
         `Bearer ${issued.headers['spotlight-workspace-token']}`,
-      )
-      .set('Spotlight-Client', 'cli/0.1.0');
+      );
 
     expect(answered.status).toBe(200);
     expect(answered.body.files).toEqual(await exported());
