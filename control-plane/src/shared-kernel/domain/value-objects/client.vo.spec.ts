@@ -4,7 +4,11 @@ import { describe, expect, it } from 'vitest';
 describe('Client', () => {
   it.each([
     ['terraform-provider/0.1.0', 'terraform-provider', '0.1.0'],
-    ['cli/1.2.3-rc.1+build', 'cli', '1.2.3-rc.1+build'],
+    [
+      'terraform-provider/1.2.3-rc.1+build',
+      'terraform-provider',
+      '1.2.3-rc.1+build',
+    ],
     [' web ', 'web', null],
   ])('knows %s as it names itself', (header, kind, version) => {
     expect(Client.named(header)).toMatchObject({ kind, version });
@@ -15,7 +19,7 @@ describe('Client', () => {
     [''],
     ['curl/8.0'],
     ['terraform-provider/'],
-    ['cli/1 2'],
+    ['terraform-provider/1 2'],
   ])('is unknown when %o names nothing it knows', (header) => {
     expect(Client.named(header).toString()).toBe('unknown');
   });

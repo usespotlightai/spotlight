@@ -11,6 +11,7 @@ import type { Team } from '@/lib/team';
 type WorkspaceSidebarProps = {
   slug: string;
   workspace: {
+    readonly id: string;
     readonly name: string;
     readonly teams: readonly Team[];
   };
@@ -24,7 +25,7 @@ export function WorkspaceSidebar({ slug, workspace }: WorkspaceSidebarProps) {
   return (
     <>
       <div className="flex h-12 shrink-0 items-center">
-        <WorkspaceMenu name={workspace.name} slug={slug} />
+        <WorkspaceMenu id={workspace.id} name={workspace.name} slug={slug} />
       </div>
 
       <nav className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pt-2">

@@ -2548,7 +2548,7 @@ export type CreateLineData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -2609,7 +2609,7 @@ export type DeleteLineData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -2670,7 +2670,7 @@ export type ReadLineData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -2717,7 +2717,7 @@ export type UpdateLineData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -2782,7 +2782,7 @@ export type ImportLineData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -2832,7 +2832,7 @@ export type ListLinesData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -4189,7 +4189,7 @@ export type ImportWorkspaceData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -4237,7 +4237,7 @@ export type ListWorkspacesData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -4279,7 +4279,7 @@ export type CreateWorkspaceData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -4338,7 +4338,7 @@ export type DeleteWorkspaceData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -4399,7 +4399,7 @@ export type ReadWorkspaceData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -4447,7 +4447,7 @@ export type UpdateWorkspaceData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -4512,7 +4512,7 @@ export type ListTeamsData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -4560,7 +4560,7 @@ export type CreateTeamData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -4621,7 +4621,7 @@ export type DeleteTeamData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -4682,7 +4682,7 @@ export type ReadTeamData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -4730,7 +4730,7 @@ export type UpdateTeamData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -4795,7 +4795,7 @@ export type ImportTeamData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -4845,7 +4845,7 @@ export type ListWorkspaceTokensData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -4895,7 +4895,7 @@ export type CreateWorkspaceTokenData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -4958,7 +4958,7 @@ export type DeleteWorkspaceTokenData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -5019,7 +5019,7 @@ export type ReadWorkspaceTokenData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -5069,7 +5069,7 @@ export type UpdateWorkspaceTokenData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -5134,7 +5134,7 @@ export type ImportWorkspaceTokenData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -5503,7 +5503,7 @@ export type ListSecretsData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -5568,7 +5568,7 @@ export type CreateSecretData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -5629,7 +5629,7 @@ export type DeleteSecretData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -5690,7 +5690,7 @@ export type ReadSecretData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -5755,7 +5755,7 @@ export type UpdateSecretData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -5820,7 +5820,7 @@ export type ImportSecretData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -5870,7 +5870,7 @@ export type ReadCatalogToolData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -5932,7 +5932,7 @@ export type ReadCatalogSkillData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -6217,7 +6217,7 @@ export type ListRunnersData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -6269,7 +6269,7 @@ export type CreateRunnerData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -6332,7 +6332,7 @@ export type DeleteRunnerData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -6393,7 +6393,7 @@ export type ReadRunnerData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -6445,7 +6445,7 @@ export type UpdateRunnerData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -6510,7 +6510,7 @@ export type ImportRunnerData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -6560,7 +6560,7 @@ export type ListRunnerTrustsData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -6611,7 +6611,7 @@ export type CreateRunnerTrustData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -6672,7 +6672,7 @@ export type DeleteRunnerTrustData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -6733,7 +6733,7 @@ export type ReadRunnerTrustData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -6784,7 +6784,7 @@ export type UpdateRunnerTrustData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -6849,7 +6849,7 @@ export type ImportRunnerTrustData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -6899,7 +6899,7 @@ export type ListRunnerPoolsData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -6973,7 +6973,7 @@ export type CreateRunnerPoolData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -7036,7 +7036,7 @@ export type DeleteRunnerPoolData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -7097,7 +7097,7 @@ export type ReadRunnerPoolData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -7171,7 +7171,7 @@ export type UpdateRunnerPoolData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -7236,7 +7236,7 @@ export type ImportRunnerPoolData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -7286,7 +7286,7 @@ export type ListWorkspaceRunnersData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -7335,7 +7335,7 @@ export type CreateWorkspaceRunnersData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -7396,7 +7396,7 @@ export type DeleteWorkspaceRunnersData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -7457,7 +7457,7 @@ export type ReadWorkspaceRunnersData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -7506,7 +7506,7 @@ export type UpdateWorkspaceRunnersData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -7571,7 +7571,7 @@ export type ImportWorkspaceRunnersData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -7678,7 +7678,7 @@ export type CreateSkillData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -7739,7 +7739,7 @@ export type DeleteSkillData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -7800,7 +7800,7 @@ export type ReadSkillData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -7850,7 +7850,7 @@ export type UpdateSkillData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -7915,7 +7915,7 @@ export type ImportSkillData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -7965,7 +7965,7 @@ export type ListSkillsData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -8031,7 +8031,7 @@ export type CreateHarnessProfileData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -8092,7 +8092,7 @@ export type DeleteHarnessProfileData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -8153,7 +8153,7 @@ export type ReadHarnessProfileData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -8219,7 +8219,7 @@ export type UpdateHarnessProfileData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -8284,7 +8284,7 @@ export type ImportHarnessProfileData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -8334,7 +8334,7 @@ export type ListHarnessProfilesData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -8379,7 +8379,7 @@ export type ExportWorkspaceData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -8421,7 +8421,7 @@ export type ReadResourceHclData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -8824,7 +8824,7 @@ export type CreateIntegrationData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -8885,7 +8885,7 @@ export type DeleteIntegrationData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -8946,7 +8946,7 @@ export type ReadIntegrationData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -8993,7 +8993,7 @@ export type UpdateIntegrationData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -9058,7 +9058,7 @@ export type ImportIntegrationData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -9108,7 +9108,7 @@ export type ListIntegrationsData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -9153,7 +9153,7 @@ export type CheckExpressionData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -9200,7 +9200,7 @@ export type ListExpressionPositionsData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
