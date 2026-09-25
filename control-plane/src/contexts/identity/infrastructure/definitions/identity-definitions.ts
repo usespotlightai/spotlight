@@ -2,17 +2,24 @@ import type {
   CompiledTeam,
   CompiledWorkspace,
   CompiledWorkspaceToken,
+  CompiledWorkspaceTokenTrust,
   IdentityDefinitionsPort,
 } from '@identity/application/ports/identity-definitions.port';
 import {
   TEAM,
   WORKSPACE,
   WORKSPACE_TOKEN,
+  WORKSPACE_TOKEN_TRUST,
 } from '@identity/application/rendering/identity-problems';
+import { InvalidTokenTrustError } from '@identity/domain/exceptions/invalid-token-trust.error';
+import { ClaimPattern } from '@identity/domain/value-objects/claim-pattern.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { TokenDescription } from '@identity/domain/value-objects/token-description.vo';
+import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
+import { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo';
+import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import {
@@ -34,13 +41,15 @@ const teamSchema = z.object({
   name: madeBy(TeamName.of),
 });
 
+const scopes = z
+  .array(madeBy(TokenScope.of), {
+    error: 'lists what the token may do, as in ["configure", "secrets"]',
+  })
+  .pipe(z.array(z.string()).superRefine(refinedBy(TokenScopes.named)));
+
 const workspaceTokenSchema = z.object({
   name: madeBy(TokenName.of),
-  scopes: z
-    .array(madeBy(TokenScope.of), {
-      error: 'lists what the token may do, as in ["configure", "secrets"]',
-    })
-    .pipe(z.array(z.string()).superRefine(refinedBy(TokenScopes.named))),
+  scopes,
   description: madeBy(TokenDescription.of).default(''),
   expiresAt: z.iso
     .datetime({
@@ -50,6 +59,44 @@ const workspaceTokenSchema = z.object({
     .nullable()
     .default(null),
 });
+
+const workspaceTokenTrustSchema = z
+  .object({
+    key: madeBy(TokenTrustKey.of),
+    issuer: madeBy(WorkloadRule.issuerOf),
+    audience: madeBy(WorkloadRule.audienceOf).default('spotlight'),
+    subject: madeBy((raw) => ClaimPattern.of(raw)),
+    claims: z
+      .record(
+        z.string().superRefine(refinedBy(WorkloadRule.claimNameOf)),
+        z.string(),
+        {
+          error:
+            'maps each claim the token must carry to the pattern it must match, as in { "ref": "refs/heads/main" }',
+        },
+      )
+      .default({}),
+    scopes,
+    lifetimeMinutes: z
+      .number({ error: 'is a whole number of minutes' })
+      .superRefine(refinedBy(TokenLifetime.ofMinutes))
+      .default(TokenLifetime.USUAL_MINUTES),
+  })
+  .superRefine((trust, context) => {
+    try {
+      WorkloadRule.of(trust);
+    } catch (error) {
+      if (!(error instanceof InvalidTokenTrustError)) {
+        throw error;
+      }
+
+      context.addIssue({
+        code: 'custom',
+        path: error.field.split('.'),
+        message: error.because,
+      });
+    }
+  });
 
 export class IdentityDefinitions implements IdentityDefinitionsPort {
   workspace(held: unknown): CompiledWorkspace {
@@ -93,5 +140,24 @@ export class IdentityDefinitions implements IdentityDefinitionsPort {
           },
         }
       : { ok: false, problems: problemsIn(WORKSPACE_TOKEN, read.error) };
+  }
+
+  workspaceTokenTrust(held: unknown): CompiledWorkspaceTokenTrust {
+    const read = workspaceTokenTrustSchema.safeParse(held);
+
+    return read.success
+      ? {
+          ok: true,
+          terms: {
+            key: TokenTrustKey.of(read.data.key),
+            workload: WorkloadRule.of(read.data),
+            scopes: TokenScopes.named(read.data.scopes),
+            lifetime: TokenLifetime.ofMinutes(read.data.lifetimeMinutes),
+          },
+        }
+      : {
+          ok: false,
+          problems: problemsIn(WORKSPACE_TOKEN_TRUST, read.error),
+        };
   }
 }

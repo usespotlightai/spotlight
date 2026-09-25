@@ -6,11 +6,16 @@ export const TOKEN_SCOPES = [
   'configure',
   'secrets',
   'runners',
+  'trusts',
 ] as const;
 
 export type TokenScopeName = (typeof TOKEN_SCOPES)[number];
 
-const EXTRA_GRANTS: readonly TokenScopeName[] = ['secrets', 'runners'];
+const EXTRA_GRANTS: readonly TokenScopeName[] = [
+  'secrets',
+  'runners',
+  'trusts',
+];
 
 const GRANTS: Readonly<Record<TokenScopeName, readonly TokenScopeName[]>> = {
   read: ['read'],
@@ -18,6 +23,7 @@ const GRANTS: Readonly<Record<TokenScopeName, readonly TokenScopeName[]>> = {
   configure: ['configure', 'plan', 'read'],
   secrets: ['secrets', 'read'],
   runners: ['runners', 'read'],
+  trusts: ['trusts', 'read'],
 };
 
 export class TokenScope {
@@ -26,6 +32,7 @@ export class TokenScope {
   static readonly configure = new TokenScope('configure');
   static readonly secrets = new TokenScope('secrets');
   static readonly runners = new TokenScope('runners');
+  static readonly trusts = new TokenScope('trusts');
 
   private constructor(readonly value: TokenScopeName) {}
 
@@ -49,6 +56,7 @@ export class TokenScope {
       TokenScope.configure,
       TokenScope.secrets,
       TokenScope.runners,
+      TokenScope.trusts,
     ];
   }
 

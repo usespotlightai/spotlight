@@ -10,6 +10,7 @@ const SCOPED: readonly (readonly [TokenScope, Permission])[] = [
   [TokenScope.configure, 'configure'],
   [TokenScope.secrets, 'manage-secrets'],
   [TokenScope.runners, 'manage-runners'],
+  [TokenScope.trusts, 'manage-token-trusts'],
 ];
 
 const MEMBER: readonly Permission[] = ['read', 'plan'];
@@ -20,6 +21,7 @@ const ADMIN: readonly Permission[] = [
   'configure',
   'manage-secrets',
   'manage-runners',
+  'manage-token-trusts',
   'administer',
 ];
 
@@ -71,6 +73,10 @@ export class Clearance {
 
   get managesRunners(): boolean {
     return this.granted.has('manage-runners');
+  }
+
+  get managesTokenTrusts(): boolean {
+    return this.granted.has('manage-token-trusts');
   }
 
   get administers(): boolean {

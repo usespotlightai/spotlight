@@ -2,6 +2,7 @@ import type { TokenScopes } from '@shared-kernel/domain/value-objects/token-scop
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
+import type { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/workspace-token-trust-id.vo';
 
 export class PersonPrincipal {
   readonly kind = 'person' as const;
@@ -25,6 +26,7 @@ export class TokenPrincipal {
     readonly workspaceId: WorkspaceId,
     readonly scopes: TokenScopes,
     readonly userId: UserId,
+    readonly trustId: WorkspaceTokenTrustId | null,
   ) {}
 
   static of(input: {
@@ -32,12 +34,14 @@ export class TokenPrincipal {
     workspaceId: WorkspaceId;
     scopes: TokenScopes;
     issuedBy: UserId;
+    mintedThrough?: WorkspaceTokenTrustId | null;
   }): TokenPrincipal {
     return new TokenPrincipal(
       input.tokenId,
       input.workspaceId,
       input.scopes,
       input.issuedBy,
+      input.mintedThrough ?? null,
     );
   }
 

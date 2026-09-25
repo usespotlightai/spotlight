@@ -32,6 +32,7 @@ const clearanceIn = (
         configures: cleared.configures,
         managesSecrets: cleared.managesSecrets,
         managesRunners: cleared.managesRunners,
+        managesTokenTrusts: cleared.managesTokenTrusts,
         administers: cleared.administers,
       }
     : null;

@@ -14,6 +14,7 @@ import type {
   TeamDirectoryPort,
   TeamProfile,
 } from '@identity/application/ports/team-directory.port';
+import type { TokenTrustConfigurationPort } from '@identity/application/ports/token-trust-configuration.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { RunnerConfigurationPort } from '@runners/application/ports/runner-configuration.port';
@@ -70,6 +71,19 @@ const TRUST = {
   labels: [],
 };
 
+const TOKEN_TRUST = {
+  id: 'token_trust_1',
+  address: 'github-main',
+  workspaceId: WORKSPACE,
+  key: 'github-main',
+  issuer: 'https://token.actions.githubusercontent.com',
+  audience: 'spotlight',
+  subject: 'repo:acme/platform:ref:refs/heads/main',
+  claims: { repository: 'acme/platform' },
+  scopes: ['configure'],
+  lifetimeMinutes: 15,
+};
+
 const POOL = {
   id: 'pool_1',
   address: 'burst',
@@ -100,6 +114,7 @@ const handlers = (over: { cleared?: boolean } = {}) => {
             configures: false,
             managesSecrets: false,
             managesRunners: false,
+            managesTokenTrusts: false,
             administers: false,
           },
     ),
@@ -247,6 +262,12 @@ const handlers = (over: { cleared?: boolean } = {}) => {
       id === DECLARED.id ? DECLARED : null,
     ),
   } satisfies RunnerConfigurationPort;
+  const tokenTrusts = {
+    in: vi.fn(async () => [TOKEN_TRUST]),
+    withId: vi.fn(async (id: string) =>
+      id === TOKEN_TRUST.id ? TOKEN_TRUST : null,
+    ),
+  } satisfies TokenTrustConfigurationPort;
   const held = new HeldConfigurations(
     teams,
     lines,
@@ -256,6 +277,7 @@ const handlers = (over: { cleared?: boolean } = {}) => {
     profileViews,
     secrets,
     runners,
+    tokenTrusts,
   );
 
   return {
@@ -271,6 +293,7 @@ const handlers = (over: { cleared?: boolean } = {}) => {
       profiles,
       secrets,
       runners,
+      tokenTrusts,
       held,
     ),
   };
@@ -294,6 +317,7 @@ describe('WorkspaceConfigurationHandler', () => {
         'workspace acme',
         'secret LINEAR_API_KEY',
         'secret SLACK_TOKEN',
+        'workspace-token-trust github-main',
         'runner-trust cluster',
         'runner-pool burst',
         'workspace-runners acme',
@@ -344,6 +368,7 @@ describe('ResourceConfigurationHandler', () => {
     ['integration', 'integration_linear', 'ops/linear'],
     ['harness-profile', 'profile_careful', 'core/careful'],
     ['secret', 'secret_1', 'LINEAR_API_KEY'],
+    ['workspace-token-trust', 'token_trust_1', 'github-main'],
     ['runner-trust', 'trust_1', 'cluster'],
     ['runner-pool', 'pool_1', 'burst'],
     ['workspace-runners', 'declared_1', 'acme'],

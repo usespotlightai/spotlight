@@ -48,6 +48,7 @@ describe('RunnerTrust', () => {
         issuer: ISSUER,
         subject: SUBJECT,
         audiences: ['sts.amazonaws.com', 'spotlight'],
+        named: {},
       }),
     ).toBe(true);
   });
@@ -60,6 +61,7 @@ describe('RunnerTrust', () => {
         issuer: 'https://elsewhere.example.com',
         subject: SUBJECT,
         audiences: ['spotlight'],
+        named: {},
       }),
     ).toBe(false);
     expect(
@@ -67,10 +69,16 @@ describe('RunnerTrust', () => {
         issuer: ISSUER,
         subject: 'system:serviceaccount:default:default',
         audiences: ['spotlight'],
+        named: {},
       }),
     ).toBe(false);
     expect(
-      trust.admits({ issuer: ISSUER, subject: SUBJECT, audiences: ['other'] }),
+      trust.admits({
+        issuer: ISSUER,
+        subject: SUBJECT,
+        audiences: ['other'],
+        named: {},
+      }),
     ).toBe(false);
   });
 
@@ -82,6 +90,7 @@ describe('RunnerTrust', () => {
         issuer: ISSUER,
         subject: SUBJECT,
         audiences: ['spotlight'],
+        named: {},
       }),
     ).toBe(false);
     expect(kinds(withdrawn)).toEqual(['runner-trust.withdrawn']);

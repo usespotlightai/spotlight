@@ -63,10 +63,6 @@ import {
   type RunnerResourcesPort,
 } from '@runners/application/ports/runner-resources.port';
 import { RUNNERS } from '@runners/application/ports/runners.port';
-import {
-  WORKLOAD_TOKENS,
-  type WorkloadTokensPort,
-} from '@runners/application/ports/workload-tokens.port';
 import { ImportRunnerPoolHandler } from '@runners/application/queries/handlers/import-runner-pool.handler';
 import { ImportRunnerTrustHandler } from '@runners/application/queries/handlers/import-runner-trust.handler';
 import { ImportWorkspaceRunnersHandler } from '@runners/application/queries/handlers/import-workspace-runners.handler';
@@ -110,7 +106,6 @@ import { DrizzleRunnerPoolRepository } from '@runners/infrastructure/persistence
 import { DrizzleRunnerTrustRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-trust.repository';
 import { DrizzleWorkspaceRunnersRepository } from '@runners/infrastructure/persistence/drizzle/repositories/workspace-runners.repository';
 import { SignedProvisionCalls } from '@runners/infrastructure/provision/signed-provision-calls';
-import { JoseWorkloadTokens } from '@runners/infrastructure/workload/jose-workload-tokens';
 import { runnersSubscribers } from '@runners/presentation/events/runners.subscribers';
 import { HostController } from '@runners/presentation/http/controllers/host.controller';
 import { InstallController } from '@runners/presentation/http/controllers/install.controller';
@@ -142,6 +137,10 @@ import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
+import {
+  WORKLOAD_TOKENS,
+  type WorkloadTokensPort,
+} from '@shared-kernel/application/ports/workload-tokens.port';
 
 const RUNNERS_EVENTS = Symbol('RUNNERS_EVENTS');
 
@@ -343,7 +342,6 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
   { provide: RUNNER_READER, useClass: DrizzleRunnerReader },
   { provide: RUNNER_RESOURCES, useClass: DrizzleRunnerResources },
   { provide: RUNNER_DEFINITIONS, useClass: RunnerDefinitions },
-  { provide: WORKLOAD_TOKENS, useClass: JoseWorkloadTokens },
 
   { provide: RUNNER_IDENTITY, useClass: RunnerTokenAuth },
 

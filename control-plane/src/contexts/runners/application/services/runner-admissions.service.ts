@@ -4,7 +4,6 @@ import type {
   HostCredential,
   RunnerAdmissionsPort,
 } from '@runners/application/ports/runner-admissions.port';
-import type { WorkloadTokensPort } from '@runners/application/ports/workload-tokens.port';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
@@ -12,6 +11,7 @@ import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-
 import { Admission } from '@runners/domain/value-objects/admission.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { WorkloadTokensPort } from '@shared-kernel/application/ports/workload-tokens.port';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
 export class RunnerAdmissions implements RunnerAdmissionsPort {

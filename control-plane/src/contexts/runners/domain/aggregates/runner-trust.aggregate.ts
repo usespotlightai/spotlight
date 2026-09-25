@@ -6,14 +6,12 @@ import { RunnerTrustMovedOnError } from '@runners/domain/exceptions/runner-trust
 import type { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import type { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import type { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
-import type {
-  TrustedWorkload,
-  WorkloadClaims,
-} from '@runners/domain/value-objects/trusted-workload.vo';
+import type { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
+import type { WorkloadClaims } from '@shared-kernel/domain/value-objects/workload-claims.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 interface TrustDefinition {

@@ -9,6 +9,7 @@ export const CONFIGURED_RESOURCES = [
   'integration',
   'secret',
   'workspace-token',
+  'workspace-token-trust',
   'runner-trust',
   'runner-pool',
   'workspace-runners',

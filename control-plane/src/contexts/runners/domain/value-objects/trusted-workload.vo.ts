@@ -1,14 +1,9 @@
 import { InvalidTrustedWorkloadError } from '@runners/domain/exceptions/invalid-trusted-workload.error';
+import type { WorkloadClaims } from '@shared-kernel/domain/value-objects/workload-claims.vo';
 
 const LONGEST = 255;
 
 const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]']);
-
-export interface WorkloadClaims {
-  readonly issuer: string;
-  readonly subject: string;
-  readonly audiences: readonly string[];
-}
 
 const bounded = (
   field: 'subject' | 'audience',

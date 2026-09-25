@@ -34,6 +34,7 @@ import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
+import { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/workspace-token-trust-id.vo';
 
 export const SHARED_KERNEL_EVENT_TYPES = [
   Actor,
@@ -67,6 +68,7 @@ export const SHARED_KERNEL_EVENT_TYPES = [
   UserId,
   WorkspaceId,
   WorkspaceTokenId,
+  WorkspaceTokenTrustId,
   ProvisionFailure,
   Provisioning,
   RunnerReservation,

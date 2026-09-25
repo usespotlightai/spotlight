@@ -1,4 +1,4 @@
-import type { WorkloadClaims } from '@runners/domain/value-objects/trusted-workload.vo';
+import type { WorkloadClaims } from '@shared-kernel/domain/value-objects/workload-claims.vo';
 
 export const WORKLOAD_TOKENS = Symbol('WORKLOAD_TOKENS');
 

@@ -505,6 +505,16 @@ const bodyOf = (held: HeldResourceDto): object => {
           ? {}
           : { valueWoVersion: held.valueVersion }),
       };
+    case 'workspace-token-trust':
+      return {
+        key: held.key,
+        issuer: held.issuer,
+        audience: held.audience,
+        subject: held.subject,
+        claims: held.claims,
+        scopes: held.scopes,
+        lifetimeMinutes: held.lifetimeMinutes,
+      };
     case 'runner-trust':
       return {
         key: held.key,
@@ -549,6 +559,7 @@ const COLLECTIONS: Readonly<
   Record<Exclude<HeldResourceDto['kind'], 'workspace'>, string>
 > = {
   secret: 'secrets',
+  'workspace-token-trust': 'token-trusts',
   'runner-trust': 'runner-trusts',
   'runner-pool': 'runner-pools',
   'workspace-runners': 'workspace-runners',
@@ -612,6 +623,9 @@ describe('the configuration the export spec renders (e2e)', () => {
     await db
       .delete(schema.workspacePlan)
       .where(eq(schema.workspacePlan.workspaceId, held));
+    await db
+      .delete(schema.workspaceTokenTrust)
+      .where(eq(schema.workspaceTokenTrust.workspaceId, held));
     await forgetRunnersOf(db, held);
     await seat.unseat();
   });

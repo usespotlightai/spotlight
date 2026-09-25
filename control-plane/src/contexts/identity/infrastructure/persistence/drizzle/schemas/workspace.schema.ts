@@ -3,8 +3,10 @@ import { user } from '@identity/infrastructure/persistence/drizzle/schemas/auth.
 import { TOKEN_SCOPES } from '@shared-kernel/domain/value-objects/token-scope.vo';
 import { sql } from 'drizzle-orm';
 import {
+  check,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   primaryKey,
@@ -136,12 +138,49 @@ export const workspaceToken = pgTable(
     issuedBy: text('issued_by').notNull(),
     issuedAt: timestamp('issued_at').notNull(),
     expiresAt: timestamp('expires_at'),
+    mintedThrough: text('minted_through'),
+    mintedUnder: integer('minted_under'),
     version: integer('version').default(0).notNull(),
   },
   (table) => [
-    uniqueIndex('workspace_token_workspace_name_idx').on(
+    uniqueIndex('workspace_token_workspace_name_idx')
+      .on(table.workspaceId, table.name)
+      .where(sql`${table.mintedThrough} is null`),
+    index('workspace_token_minted_through_idx').on(table.mintedThrough),
+    check(
+      'workspace_token_minted_under',
+      sql`(${table.mintedThrough} is null) = (${table.mintedUnder} is null)`,
+    ),
+    index('workspace_token_minted_expiry_idx')
+      .on(table.expiresAt)
+      .where(sql`${table.mintedThrough} is not null`),
+  ],
+);
+
+export const workspaceTokenTrust = pgTable(
+  'workspace_token_trust',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspace.id, { onDelete: 'restrict' }),
+    key: text('key').notNull(),
+    issuer: text('issuer').notNull(),
+    audience: text('audience').notNull(),
+    subject: text('subject').notNull(),
+    claims: jsonb('claims')
+      .$type<Record<string, string>>()
+      .notNull()
+      .default({}),
+    scopes: workspaceTokenScope('scopes').array().notNull(),
+    lifetimeMinutes: integer('lifetime_minutes').notNull(),
+    definedBy: text('defined_by').notNull(),
+    version: integer('version').default(0).notNull(),
+  },
+  (table) => [
+    uniqueIndex('workspace_token_trust_workspace_key_idx').on(
       table.workspaceId,
-      table.name,
+      table.key,
     ),
   ],
 );

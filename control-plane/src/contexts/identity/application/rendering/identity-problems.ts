@@ -1,5 +1,7 @@
+import type { InvalidTokenTrustError } from '@identity/domain/exceptions/invalid-token-trust.error';
 import type { InvalidWorkspaceTokenError } from '@identity/domain/exceptions/invalid-workspace-token.error';
 import type { TeamKeyFixedError } from '@identity/domain/exceptions/team-key-fixed.error';
+import type { TokenTrustKeyFixedError } from '@identity/domain/exceptions/token-trust-key-fixed.error';
 import type { WorkspaceSlugFixedError } from '@identity/domain/exceptions/workspace-slug-fixed.error';
 import type { WorkspaceTokenTermsFixedError } from '@identity/domain/exceptions/workspace-token-terms-fixed.error';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
@@ -10,6 +12,8 @@ export const WORKSPACE = 'workspace';
 export const TEAM = 'team';
 
 export const WORKSPACE_TOKEN = 'workspace-token';
+
+export const WORKSPACE_TOKEN_TRUST = 'workspace-token-trust';
 
 export const IdentityProblems = {
   slugFixed(error: WorkspaceSlugFixedError): ConfigurationProblem {
@@ -34,6 +38,16 @@ export const IdentityProblems = {
     return ConfigurationProblem.of({
       path: WORKSPACE_TOKEN,
       at: FieldPath.of([error.field]),
+      reason: error.because,
+    });
+  },
+
+  trustRefused(
+    error: InvalidTokenTrustError | TokenTrustKeyFixedError,
+  ): ConfigurationProblem {
+    return ConfigurationProblem.of({
+      path: WORKSPACE_TOKEN_TRUST,
+      at: FieldPath.of(error.field.split('.')),
       reason: error.because,
     });
   },

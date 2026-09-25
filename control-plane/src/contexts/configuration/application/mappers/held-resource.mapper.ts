@@ -3,6 +3,7 @@ import type { HeldResourceDto } from '@configuration/application/dto/held-config
 import type { HeldIntegration } from '@configuration/application/ports/held-integrations.port';
 import type { KeptSkill } from '@configuration/application/ports/skill-resources.port';
 import type { TeamProfile } from '@identity/application/ports/team-directory.port';
+import type { ConfiguredTokenTrust } from '@identity/application/ports/token-trust-configuration.port';
 import type { WorkspaceProfile } from '@identity/application/ports/workspace-reader.port';
 import type {
   ConfiguredRunnerPool,
@@ -46,6 +47,22 @@ export const HeldResourceMapper = {
       bindings: secret.bindings.map((each) => ({ ...each })),
       keepsValue: secret.keepsValue,
       valueVersion: secret.valueVersion,
+    };
+  },
+
+  tokenTrust(trust: ConfiguredTokenTrust): HeldResourceDto {
+    return {
+      kind: 'workspace-token-trust',
+      heldBy: 'workspace',
+      id: trust.id,
+      address: trust.address,
+      key: trust.key,
+      issuer: trust.issuer,
+      audience: trust.audience,
+      subject: trust.subject,
+      claims: { ...trust.claims },
+      scopes: [...trust.scopes],
+      lifetimeMinutes: trust.lifetimeMinutes,
     };
   },
 

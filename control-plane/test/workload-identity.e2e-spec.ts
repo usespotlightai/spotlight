@@ -5,7 +5,7 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import {
   openWorkloadIssuer,
   type WorkloadIssuer,
-} from '@runners/infrastructure/workload/workload-issuer.fake-spec';
+} from '@platform/workload/workload-issuer.fake-spec';
 import { eq } from 'drizzle-orm';
 import {
   afterAll,

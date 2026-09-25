@@ -10,6 +10,7 @@ import { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
+import { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
@@ -403,18 +404,27 @@ describe('Workspace', () => {
       ).toThrow(WorkspaceSlugFixedError);
     });
 
-    it('closes only once it holds no team, no token and nothing else', () => {
+    it('closes only once it holds no team, no token, no token trust and nothing else', () => {
       expect(() =>
-        kept().closed([TeamKey.of('core')], [], Holdings.none(), BY),
+        kept().closed([TeamKey.of('core')], [], [], Holdings.none(), BY),
       ).toThrow(/still holds team core/);
       expect(() =>
-        kept().closed([], [TokenName.of('ci')], Holdings.none(), BY),
+        kept().closed([], [TokenName.of('ci')], [], Holdings.none(), BY),
       ).toThrow(/still holds token ci/);
       expect(() =>
-        kept().closed([], [], Holdings.of(['secret LINEAR_API_KEY']), BY),
+        kept().closed(
+          [],
+          [],
+          [TokenTrustKey.of('github-main')],
+          Holdings.none(),
+          BY,
+        ),
+      ).toThrow(/still holds token trust github-main/);
+      expect(() =>
+        kept().closed([], [], [], Holdings.of(['secret LINEAR_API_KEY']), BY),
       ).toThrow(/still holds secret LINEAR_API_KEY/);
 
-      const closed = kept().closed([], [], Holdings.none(), BY);
+      const closed = kept().closed([], [], [], Holdings.none(), BY);
 
       expect(closed.isClosed).toBe(true);
       expect(closed.pullEvents()).toEqual([
@@ -458,6 +468,7 @@ describe('Workspace', () => {
         configures: clearance.configures,
         managesSecrets: clearance.managesSecrets,
         managesRunners: clearance.managesRunners,
+        managesTokenTrusts: clearance.managesTokenTrusts,
         administers: clearance.administers,
       };
     };
@@ -467,7 +478,7 @@ describe('Workspace', () => {
       ['admin', true, true],
       ['member', false, false],
     ])(
-      'lets its %s read and plan, configuring, managing secrets and runners, and administering only as an admin',
+      'lets its %s read and plan, configuring, managing secrets, runners and token trusts, and administering only as an admin',
       (who, configures, administers) => {
         expect(cleared(person(who))).toEqual({
           reads: true,
@@ -475,6 +486,7 @@ describe('Workspace', () => {
           configures,
           managesSecrets: configures,
           managesRunners: configures,
+          managesTokenTrusts: configures,
           administers,
         });
       },
@@ -487,25 +499,28 @@ describe('Workspace', () => {
         configures: false,
         managesSecrets: false,
         managesRunners: false,
+        managesTokenTrusts: false,
         administers: false,
       });
     });
 
     it.each([
-      [['read'], false, false, false, false],
-      [['plan'], true, false, false, false],
-      [['configure'], true, true, false, false],
-      [['configure', 'secrets'], true, true, true, false],
-      [['configure', 'runners'], true, true, false, true],
+      [['read'], false, false, false, false, false],
+      [['plan'], true, false, false, false, false],
+      [['configure'], true, true, false, false, false],
+      [['configure', 'secrets'], true, true, true, false, false],
+      [['configure', 'runners'], true, true, false, true, false],
+      [['configure', 'trusts'], true, true, false, false, true],
     ])(
       'lets a %j token of its own read, and never administer',
-      (scopes, plans, configures, managesSecrets, managesRunners) => {
+      (scopes, plans, configures, managesSecrets, managesRunners, managesTokenTrusts) => {
         expect(cleared(token(scopes))).toEqual({
           reads: true,
           plans,
           configures,
           managesSecrets,
           managesRunners,
+          managesTokenTrusts,
           administers: false,
         });
       },
@@ -518,14 +533,16 @@ describe('Workspace', () => {
         configures: false,
         managesSecrets: false,
         managesRunners: false,
+        managesTokenTrusts: false,
         administers: false,
       });
     });
 
     it('clears nothing once it has closed', () => {
       expect(
-        acme.closed([], [], Holdings.none(), BY).clearanceFor(person('owner'))
-          .reads,
+        acme
+          .closed([], [], [], Holdings.none(), BY)
+          .clearanceFor(person('owner')).reads,
       ).toBe(false);
     });
   });

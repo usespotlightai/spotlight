@@ -1,10 +1,12 @@
 import type { TeamResourceDto } from '@identity/application/dto/team-resource.dto';
 import type { WorkspaceResourceDto } from '@identity/application/dto/workspace-resource.dto';
 import type { WorkspaceTokenResourceDto } from '@identity/application/dto/workspace-token-resource.dto';
+import type { WorkspaceTokenTrustResourceDto } from '@identity/application/dto/workspace-token-trust-resource.dto';
 import type {
   KeptTeam,
   KeptWorkspace,
   KeptWorkspaceToken,
+  KeptWorkspaceTokenTrust,
 } from '@identity/application/ports/identity-resources.port';
 
 export const ResourceMapper = {
@@ -43,6 +45,26 @@ export const ResourceMapper = {
       issuedBy: token.issuedBy,
       issuedAt: token.issuedAt.toISOString(),
       expiresAt: token.expiresAt?.toISOString() ?? null,
+      warnings: [],
+    };
+  },
+
+  workspaceTokenTrust(
+    trust: KeptWorkspaceTokenTrust,
+  ): WorkspaceTokenTrustResourceDto {
+    return {
+      id: trust.id.value,
+      version: trust.version,
+      address: trust.key,
+      workspaceId: trust.workspaceId.value,
+      key: trust.key,
+      issuer: trust.issuer,
+      audience: trust.audience,
+      subject: trust.subject,
+      claims: { ...trust.claims },
+      scopes: trust.scopes,
+      lifetimeMinutes: trust.lifetimeMinutes,
+      definedBy: trust.definedBy,
       warnings: [],
     };
   },

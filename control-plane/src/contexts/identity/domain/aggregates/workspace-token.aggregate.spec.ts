@@ -58,6 +58,8 @@ const kept = (version = 2) =>
     hash: TokenHash.of('a'.repeat(64)),
     issuedBy: UserId.of('user_1'),
     issuedAt: NOW,
+    mintedThrough: null,
+    mintedUnder: null,
     version,
   });
 

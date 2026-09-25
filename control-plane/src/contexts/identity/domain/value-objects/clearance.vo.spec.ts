@@ -27,6 +27,7 @@ describe('Clearance of a token’s scopes', () => {
       configures: cleared.configures,
       managesSecrets: cleared.managesSecrets,
       managesRunners: cleared.managesRunners,
+      managesTokenTrusts: cleared.managesTokenTrusts,
       administers: cleared.administers,
     };
   };
@@ -37,7 +38,7 @@ describe('Clearance of a token’s scopes', () => {
     [['configure'], true, true],
     [['read', 'configure'], true, true],
   ])(
-    'climbs the ladder for %j without managing secrets or runners, or administering',
+    'climbs the ladder for %j without managing secrets, runners or token trusts, or administering',
     (scopes, plans, configures) => {
       expect(granted(scopes)).toEqual({
         reads: true,
@@ -45,6 +46,7 @@ describe('Clearance of a token’s scopes', () => {
         configures,
         managesSecrets: false,
         managesRunners: false,
+        managesTokenTrusts: false,
         administers: false,
       });
     },
@@ -77,6 +79,24 @@ describe('Clearance of a token’s scopes', () => {
         configures,
         managesSecrets: false,
         managesRunners: true,
+        administers: false,
+      });
+    },
+  );
+
+  it.each([
+    [['read', 'trusts'], false],
+    [['configure', 'trusts'], true],
+  ])(
+    'manages token trusts for %j, without secrets or runners, and still never administers',
+    (scopes, configures) => {
+      expect(granted(scopes)).toEqual({
+        reads: true,
+        plans: configures,
+        configures,
+        managesSecrets: false,
+        managesRunners: false,
+        managesTokenTrusts: true,
         administers: false,
       });
     },

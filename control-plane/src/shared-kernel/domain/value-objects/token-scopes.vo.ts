@@ -13,7 +13,7 @@ export class TokenScopes {
 
     if (!scopes.some((each) => each.isLadder)) {
       throw new InvalidTokenScopeError(
-        'include read, plan or configure; secrets and runners are granted beside one of them',
+        'include read, plan or configure; secrets, runners and trusts are granted beside one of them',
       );
     }
 
@@ -28,6 +28,10 @@ export class TokenScopes {
 
   allow(scope: TokenScope): boolean {
     return this.all.some((each) => each.grants(scope));
+  }
+
+  covers(other: TokenScopes): boolean {
+    return other.all.every((each) => this.allow(each));
   }
 
   equals(other: TokenScopes): boolean {

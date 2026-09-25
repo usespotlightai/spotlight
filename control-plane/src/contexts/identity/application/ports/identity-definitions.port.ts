@@ -1,4 +1,5 @@
 import type { TokenTerms } from '@identity/domain/aggregates/workspace-token.aggregate';
+import type { TokenTrustTerms } from '@identity/domain/aggregates/workspace-token-trust.aggregate';
 import type { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import type { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
@@ -28,10 +29,16 @@ export type CompiledWorkspaceToken =
   | { readonly ok: true; readonly terms: TokenTerms }
   | Refused;
 
+export type CompiledWorkspaceTokenTrust =
+  | { readonly ok: true; readonly terms: TokenTrustTerms }
+  | Refused;
+
 export interface IdentityDefinitionsPort {
   workspace(held: unknown): CompiledWorkspace;
 
   team(held: unknown): CompiledTeam;
 
   workspaceToken(held: unknown): CompiledWorkspaceToken;
+
+  workspaceTokenTrust(held: unknown): CompiledWorkspaceTokenTrust;
 }
