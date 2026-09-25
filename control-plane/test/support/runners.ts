@@ -1,5 +1,5 @@
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import * as schema from './schema';
 
 export const forgetRunnersOf = async (
@@ -22,6 +22,17 @@ export const forgetRunnersOf = async (
   await db
     .delete(schema.runner)
     .where(eq(schema.runner.workspaceId, workspaceId));
+  await db
+    .delete(schema.poolToken)
+    .where(
+      inArray(
+        schema.poolToken.poolId,
+        db
+          .select({ id: schema.runnerPool.id })
+          .from(schema.runnerPool)
+          .where(eq(schema.runnerPool.workspaceId, workspaceId)),
+      ),
+    );
   await db
     .delete(schema.runnerPool)
     .where(eq(schema.runnerPool.workspaceId, workspaceId));

@@ -1,4 +1,5 @@
 import type { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
+import type { PoolTokenSpentError } from '@runners/domain/exceptions/pool-token-spent.error';
 import type { PoolTokenTakenError } from '@runners/domain/exceptions/pool-token-taken.error';
 import type { RunnerPoolFixedError } from '@runners/domain/exceptions/runner-pool-fixed.error';
 import type { RunnerTrustKeyFixedError } from '@runners/domain/exceptions/runner-trust-key-fixed.error';
@@ -21,7 +22,11 @@ export const RunnerProblems = {
   },
 
   poolRefused(
-    error: RunnerPoolFixedError | PoolTokenTakenError | InvalidRunnerPoolError,
+    error:
+      | RunnerPoolFixedError
+      | PoolTokenTakenError
+      | PoolTokenSpentError
+      | InvalidRunnerPoolError,
   ): ConfigurationProblem {
     return ConfigurationProblem.of({
       path: RUNNER_POOL,

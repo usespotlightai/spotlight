@@ -5,6 +5,7 @@ import {
   violates,
 } from '@platform/persistence/drizzle/violations';
 import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
+import { PoolTokenSpentError } from '@runners/domain/exceptions/pool-token-spent.error';
 import { PoolTokenTakenError } from '@runners/domain/exceptions/pool-token-taken.error';
 import { ProvisionSecretUnopenableError } from '@runners/domain/exceptions/provision-secret-unopenable.error';
 import { RunnerPoolAlreadyDefinedError } from '@runners/domain/exceptions/runner-pool-already-defined.error';
@@ -17,11 +18,15 @@ import {
   PushAccess,
 } from '@runners/domain/value-objects/pool-access.vo';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
+import { PoolTokenStanding } from '@runners/domain/value-objects/pool-token-standing.vo';
 import { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
-import { runnerPool } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
+import {
+  poolToken,
+  runnerPool,
+} from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
 import { CredentialUnopenableError } from '@secrets/application/errors/credential-unopenable.error';
 import {
   CREDENTIAL_SEALING,
@@ -50,6 +55,10 @@ const refusedAs = (error: unknown, key: string): unknown => {
     return new PoolTokenTakenError();
   }
 
+  if (violates(error, UNIQUE_VIOLATION, 'pool_token_pkey')) {
+    return new PoolTokenSpentError();
+  }
+
   return error;
 };
 
@@ -74,6 +83,7 @@ export class DrizzleRunnerPoolRepository implements RunnerPoolRepository {
           ...written,
           version: added.version,
         });
+        await this.recordGiven(added);
       } catch (error) {
         throw refusedAs(error, added.key.value);
       }
@@ -108,6 +118,9 @@ export class DrizzleRunnerPoolRepository implements RunnerPoolRepository {
         throw new RunnerPoolMovedOnError(saved.id.value);
       }
 
+      await this.recordGiven(saved).catch((error: unknown) => {
+        throw refusedAs(error, saved.key.value);
+      });
       await this.events.dispatch(saved.pullEvents());
     });
   }
@@ -124,6 +137,24 @@ export class DrizzleRunnerPoolRepository implements RunnerPoolRepository {
     return this.one(eq(runnerPool.tokenHash, hash.value), { locked: false });
   }
 
+  async tokenStanding(hash: TokenHash): Promise<PoolTokenStanding> {
+    const [given] = await this.context.db
+      .select({ tokenHash: poolToken.tokenHash })
+      .from(poolToken)
+      .where(eq(poolToken.tokenHash, hash.value))
+      .limit(1);
+    const [held] = await this.context.db
+      .select({ id: runnerPool.id })
+      .from(runnerPool)
+      .where(eq(runnerPool.tokenHash, hash.value))
+      .limit(1);
+
+    return PoolTokenStanding.of({
+      given: given !== undefined,
+      held: held !== undefined,
+    });
+  }
+
   async inWorkspace(workspaceId: WorkspaceId): Promise<readonly RunnerPool[]> {
     const rows = await this.context.db
       .select()
@@ -131,6 +162,14 @@ export class DrizzleRunnerPoolRepository implements RunnerPoolRepository {
       .where(eq(runnerPool.workspaceId, workspaceId.value));
 
     return Promise.all(rows.map((row) => this.toPool(row, false)));
+  }
+
+  private async recordGiven(pool: RunnerPool): Promise<void> {
+    if (pool.tokenGiven) {
+      await this.context.db
+        .insert(poolToken)
+        .values({ tokenHash: pool.tokenGiven.value, poolId: pool.id.value });
+    }
   }
 
   private async one(

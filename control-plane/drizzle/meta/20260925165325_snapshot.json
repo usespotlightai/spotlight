@@ -1,5 +1,5 @@
 {
-  "id": "f01ed024-44ef-4245-a160-5f2ac63316a8",
+  "id": "27aefeee-b0b6-4908-9745-9a56aac9d84c",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -3212,6 +3212,38 @@
           "type": "timestamp",
           "primaryKey": false,
           "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.pool_token": {
+      "name": "pool_token",
+      "schema": "",
+      "columns": {
+        "token_hash": {
+          "name": "token_hash",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "pool_id": {
+          "name": "pool_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "given_at": {
+          "name": "given_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
       "indexes": {},

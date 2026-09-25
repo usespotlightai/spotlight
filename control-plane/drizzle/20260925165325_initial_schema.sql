@@ -372,6 +372,12 @@ CREATE TABLE "oauth2_spent_nonce" (
 	"until" timestamp NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "pool_token" (
+	"token_hash" text PRIMARY KEY NOT NULL,
+	"pool_id" text NOT NULL,
+	"given_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "runner" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,

@@ -9,8 +9,18 @@ import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
+import { PoolTokenSpentError } from '@runners/domain/exceptions/pool-token-spent.error';
+import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
+import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
+import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
+import { DrizzleRunnerPoolRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-pool.repository';
 import { POOL_TOKEN_HEADER } from '@runners/presentation/http/controllers/runner-pool-resource.controller';
+import { CREDENTIAL_SEALING } from '@secrets/application/ports/credential-sealing.port';
+import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
   BUILT_IN_LINES,
   type LineOpening,
@@ -44,7 +54,12 @@ const HOST = 'host-ephemeral-1';
 
 const SECRET = `whsec_${Buffer.from('p'.repeat(32)).toString('base64')}`;
 
-const tokenOf = (seed: string): string => seed.repeat(40).slice(0, 40);
+const RUN = randomUUID().replaceAll('-', '');
+
+const tokenOf = (seed: string): string => `${seed.repeat(8)}${RUN}`;
+
+const sha256Of = (token: string): string =>
+  createHash('sha256').update(token).digest('hex');
 
 interface Provisioned {
   readonly headers: IncomingMessage['headers'];
@@ -379,6 +394,180 @@ describe('runner pools (e2e)', () => {
       ]);
       await report(tokenOf('f')).expect(200);
       await claimWith(tokenOf('f')).expect(200);
+    });
+
+    it('spends a token it rotates away from for good, so no pool, itself included, is given it again', async () => {
+      const old = tokenOf('spent');
+      const made = await define({
+        key: 'ephemeral',
+        token: old,
+        tokenVersion: 1,
+      }).expect(201);
+      const rotated = await redefine(made.body.id, made.body.version, {
+        key: 'ephemeral',
+        token: tokenOf('rotated'),
+        tokenVersion: 2,
+      }).expect(200);
+
+      const back = await redefine(made.body.id, rotated.body.version, {
+        key: 'ephemeral',
+        token: old,
+        tokenVersion: 3,
+      }).expect(422);
+      const elsewhere = await define({ key: 'sandboxes', token: old }).expect(
+        422,
+      );
+
+      for (const refused of [back, elsewhere]) {
+        expect(refused.body.errors).toEqual([
+          expect.objectContaining({
+            path: 'token',
+            message: expect.stringContaining('given once, ever'),
+          }),
+        ]);
+      }
+      await claimWith(old).expect(401);
+    });
+
+    it('spends the token of a pool that is deleted, so the pool that replaces it cannot be given it', async () => {
+      const token = tokenOf('deleted');
+      const made = await define({ key: 'ephemeral', token }).expect(201);
+      await http()
+        .delete(`/api/resources/runner-pools/${made.body.id}`)
+        .set(TEST_USER_HEADER, owner)
+        .set('If-Match', `"${made.body.version}"`)
+        .expect(204);
+
+      const replaced = await define({ key: 'ephemeral', token }).expect(422);
+
+      expect(replaced.body.errors).toEqual([
+        expect.objectContaining({
+          path: 'token',
+          message: expect.stringContaining('given once, ever'),
+        }),
+      ]);
+    });
+
+    it('refuses the token a live pool holds as taken, while letting that pool be given it again', async () => {
+      const token = tokenOf('held');
+      const holder = await define({
+        key: 'ephemeral',
+        token,
+        tokenVersion: 1,
+      }).expect(201);
+      const other = await define({
+        key: 'sandboxes',
+        token: tokenOf('other'),
+        tokenVersion: 1,
+      }).expect(201);
+
+      const created = await define({ key: 'burst', token }).expect(422);
+      const rotated = await redefine(other.body.id, other.body.version, {
+        key: 'sandboxes',
+        token,
+        tokenVersion: 2,
+      }).expect(422);
+
+      for (const refused of [created, rotated]) {
+        expect(refused.body.errors).toEqual([
+          expect.objectContaining({
+            path: 'token',
+            message: expect.stringContaining('another pool’s token'),
+          }),
+        ]);
+      }
+      await redefine(holder.body.id, holder.body.version, {
+        key: 'ephemeral',
+        token,
+        tokenVersion: 2,
+      }).expect(200);
+    });
+
+    it('gives a token to one pool only, when two ask for it at once', async () => {
+      const token = tokenOf('raced');
+
+      const answers = await Promise.all(
+        ['ephemeral', 'sandboxes'].map((key) => define({ key, token })),
+      );
+
+      expect(answers.map((each) => each.status).sort()).toEqual([201, 422]);
+      expect(answers.find((each) => each.status === 422)?.body.errors).toEqual([
+        expect.objectContaining({
+          path: 'token',
+          message: expect.stringContaining('another pool’s token'),
+        }),
+      ]);
+    });
+
+    it('refuses a spent token by the ledger’s key alone, as a give racing past the check would be', async () => {
+      const token = tokenOf('ledgered');
+      const made = await define({
+        key: 'ephemeral',
+        token,
+        tokenVersion: 1,
+      }).expect(201);
+      await redefine(made.body.id, made.body.version, {
+        key: 'ephemeral',
+        token: tokenOf('moved'),
+        tokenVersion: 2,
+      }).expect(200);
+      const context = new DrizzleContext(db);
+      const pools = new DrizzleRunnerPoolRepository(
+        context,
+        { dispatch: async () => undefined },
+        app.get(CREDENTIAL_SEALING, { strict: false }),
+      );
+
+      await expect(
+        context.run(() =>
+          pools.add(
+            RunnerPool.define({
+              id: RunnerPoolId.of(randomUUID()),
+              workspaceId: WorkspaceId.of(held),
+              key: PoolKey.of('sandboxes'),
+              labels: RunnerLabels.of([]),
+              maxRuns: null,
+              access: {
+                mode: 'pull',
+                tokenHash: TokenHash.of(sha256Of(token)),
+                tokenVersion: null,
+              },
+              by: Attribution.spotlight(WorkspaceId.of(held)),
+            }),
+          ),
+        ),
+      ).rejects.toBeInstanceOf(PoolTokenSpentError);
+      expect(
+        await db
+          .select()
+          .from(schema.runnerPool)
+          .where(eq(schema.runnerPool.workspaceId, held)),
+      ).toHaveLength(1);
+    });
+
+    it('keeps only the sha256 of each token it gives, never the token', async () => {
+      const first = tokenOf('first');
+      const second = tokenOf('second');
+      const made = await define({
+        key: 'ephemeral',
+        token: first,
+        tokenVersion: 1,
+      }).expect(201);
+      await redefine(made.body.id, made.body.version, {
+        key: 'ephemeral',
+        token: second,
+        tokenVersion: 2,
+      }).expect(200);
+
+      const given = await db
+        .select()
+        .from(schema.poolToken)
+        .where(eq(schema.poolToken.poolId, made.body.id));
+
+      expect(given.map((each) => each.tokenHash).sort()).toEqual(
+        [sha256Of(first), sha256Of(second)].sort(),
+      );
+      expect(JSON.stringify(given)).not.toContain(first);
     });
 
     it('tells an autoscaler what waits for it, per label', async () => {

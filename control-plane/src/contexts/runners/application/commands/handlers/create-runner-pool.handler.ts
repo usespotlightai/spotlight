@@ -7,8 +7,10 @@ import {
   givenAccess,
   issuedTo,
 } from '@runners/application/services/pool-access-given';
+import { refuseRegivenToken } from '@runners/application/services/refuse-regiven-token';
 import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
+import { PoolTokenSpentError } from '@runners/domain/exceptions/pool-token-spent.error';
 import { PoolTokenTakenError } from '@runners/domain/exceptions/pool-token-taken.error';
 import { RunnerPoolAlreadyDefinedError } from '@runners/domain/exceptions/runner-pool-already-defined.error';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
@@ -115,6 +117,7 @@ export class CreateRunnerPoolHandler
               access: given,
             });
 
+            await refuseRegivenToken(this.pools, defined);
             await this.pools.add(defined);
 
             return defined.id.value;
@@ -138,6 +141,7 @@ export class CreateRunnerPoolHandler
 
         if (
           error instanceof PoolTokenTakenError ||
+          error instanceof PoolTokenSpentError ||
           error instanceof InvalidRunnerPoolError
         ) {
           return {

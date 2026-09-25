@@ -3,7 +3,9 @@ import type { UpdateRunnerPoolCommand } from '@runners/application/commands/runn
 import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-definitions.port';
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
 import { givenAccess } from '@runners/application/services/pool-access-given';
+import { refuseRegivenToken } from '@runners/application/services/refuse-regiven-token';
 import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
+import { PoolTokenSpentError } from '@runners/domain/exceptions/pool-token-spent.error';
 import { PoolTokenTakenError } from '@runners/domain/exceptions/pool-token-taken.error';
 import { RunnerPoolFixedError } from '@runners/domain/exceptions/runner-pool-fixed.error';
 import { RunnerPoolMovedOnError } from '@runners/domain/exceptions/runner-pool-moved-on.error';
@@ -60,15 +62,16 @@ export class UpdateRunnerPoolHandler
         return { outcome: 'invalid', problems: compiled.problems };
       }
 
-      await this.transaction.run(() =>
-        this.pools.save(
-          standing.redefinedAs(
-            compiled,
-            givenAccess(compiled.access, this.tokens),
-            Attribution.of(command.actor, cleared.workspaceId),
-          ),
-        ),
+      const redefined = standing.redefinedAs(
+        compiled,
+        givenAccess(compiled.access, this.tokens),
+        Attribution.of(command.actor, cleared.workspaceId),
       );
+
+      await this.transaction.run(async () => {
+        await refuseRegivenToken(this.pools, redefined);
+        await this.pools.save(redefined);
+      });
 
       return { outcome: 'updated', id: id.value };
     } catch (error) {
@@ -83,6 +86,7 @@ export class UpdateRunnerPoolHandler
       if (
         error instanceof RunnerPoolFixedError ||
         error instanceof PoolTokenTakenError ||
+        error instanceof PoolTokenSpentError ||
         error instanceof InvalidRunnerPoolError
       ) {
         return {

@@ -19,6 +19,7 @@ import {
   PushAccess,
 } from '@runners/domain/value-objects/pool-access.vo';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
+import { PoolTokenStanding } from '@runners/domain/value-objects/pool-token-standing.vo';
 import { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
@@ -39,6 +40,7 @@ export const RUNNERS_EVENT_TYPES = [
   InstalledHarness,
   MaxRuns,
   PoolKey,
+  PoolTokenStanding,
   RunnerWork,
   ProvisionSecret,
   ProvisionUrl,
