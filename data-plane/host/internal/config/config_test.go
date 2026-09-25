@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"usespotlight.ai/data-plane/control"
 	"usespotlight.ai/data-plane/host/internal/config"
 	"usespotlight.ai/data-plane/host/internal/trust"
-	"usespotlight.ai/data-plane/internal/control"
 )
 
 func isolated(t *testing.T) string {
@@ -195,7 +195,7 @@ func TestOnlyOneHostServesFromAStateDirectory(t *testing.T) {
 		t.Fatalf("hold: %v", err)
 	}
 
-	if _, err := config.Hold(state); err == nil || !strings.Contains(err.Error(), "another spotlight-host") {
+	if _, err := config.Hold(state); err == nil || !strings.Contains(err.Error(), "another spotlight host") {
 		t.Fatalf("a second host was let in: %v", err)
 	}
 

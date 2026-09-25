@@ -1,4 +1,4 @@
-package main
+package runner
 
 import (
 	"context"
@@ -10,8 +10,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"usespotlight.ai/data-plane/internal/control"
-	"usespotlight.ai/data-plane/internal/protocol"
+	"usespotlight.ai/data-plane/control"
+	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/runner/internal/account"
 	"usespotlight.ai/data-plane/runner/internal/config"
 	"usespotlight.ai/data-plane/runner/internal/gitproxy"
@@ -20,24 +20,26 @@ import (
 	"usespotlight.ai/data-plane/runner/internal/stackcheck"
 )
 
-var version = "dev"
+const Usage = `  spotlight runner            do the one run or check this sandbox was started for`
 
-func main() {
-	if args := os.Args[1:]; len(args) == 2 && args[0] == "harnesses" {
-		if err := report(args[1], os.Stdout); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
+func Main(args []string, version string) int {
+	if len(args) == 2 && args[0] == "harnesses" {
+		if err := report(args[1], version, os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, "spotlight runner:", err)
+			return 1
 		}
-		return
+		return 0
 	}
 
-	if err := run(); err != nil {
+	if err := run(args, version); err != nil {
 		slog.Error("runner stopped", "error", err)
-		os.Exit(1)
+		return 1
 	}
+
+	return 0
 }
 
-func report(asked string, out io.Writer) error {
+func report(asked, version string, out io.Writer) error {
 	var candidates []protocol.Installable
 	if err := json.Unmarshal([]byte(asked), &candidates); err != nil {
 		return fmt.Errorf("read the harnesses to look for: %w", err)
@@ -49,7 +51,7 @@ func report(asked string, out io.Writer) error {
 	})
 }
 
-func run() error {
+func run(args []string, version string) error {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(log)
 
@@ -60,7 +62,7 @@ func run() error {
 	)
 	defer stop()
 
-	cfg, err := config.Load(os.Args[1:])
+	cfg, err := config.Load(args)
 	if err != nil {
 		return err
 	}
@@ -70,7 +72,7 @@ func run() error {
 		return err
 	}
 
-	handed, err := given(ctx, cfg, log)
+	handed, err := given(ctx, cfg, version, log)
 	if err != nil {
 		return err
 	}

@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"usespotlight.ai/data-plane/internal/control"
-	"usespotlight.ai/data-plane/internal/protocol"
+	"usespotlight.ai/data-plane/control"
+	"usespotlight.ai/data-plane/protocol"
 )
 
 func serve(t *testing.T, handler http.HandlerFunc) *control.Client {

@@ -14,8 +14,8 @@ else
   RELEASE="https://github.com/$REPO/releases/download/$VERSION"
 fi
 
-say() { printf 'spotlight-host: %s\n' "$1" >&2; }
-die() { printf 'spotlight-host: %s\n' "$1" >&2; exit 1; }
+say() { printf 'spotlight host: %s\n' "$1" >&2; }
+die() { printf 'spotlight host: %s\n' "$1" >&2; exit 1; }
 
 detect_platform() {
   os="$(uname -s)"
@@ -40,7 +40,7 @@ if command -v curl >/dev/null 2>&1; then
 elif command -v wget >/dev/null 2>&1; then
   fetch() { wget -qO "$2" "$1"; }
 else
-  die "need curl or wget to download spotlight-host"
+  die "need curl or wget to download spotlight"
 fi
 
 if command -v sha256sum >/dev/null 2>&1; then
@@ -82,20 +82,20 @@ find_runtime() {
   die "no container runtime answered: install and start Docker or Podman (on macOS, Docker Desktop, OrbStack or Colima), then run this again"
 }
 
-install_host() {
-  url="$RELEASE/spotlight-host-${PLATFORM}"
+install_binary() {
+  url="$RELEASE/spotlight-${PLATFORM}"
 
-  say "downloading spotlight-host $VERSION ($PLATFORM)"
-  fetch "$url" "$TMP/spotlight-host" || die "could not download spotlight-host from $url"
-  fetch "$url.sha256" "$TMP/spotlight-host.sha256" || die "could not download the checksum from $url.sha256"
+  say "downloading spotlight $VERSION ($PLATFORM)"
+  fetch "$url" "$TMP/spotlight" || die "could not download spotlight from $url"
+  fetch "$url.sha256" "$TMP/spotlight.sha256" || die "could not download the checksum from $url.sha256"
 
-  want="$(cut -d' ' -f1 <"$TMP/spotlight-host.sha256")"
-  got="$(checksum "$TMP/spotlight-host")"
-  [ "$want" = "$got" ] || die "spotlight-host failed its checksum: expected $want, got $got"
+  want="$(cut -d' ' -f1 <"$TMP/spotlight.sha256")"
+  got="$(checksum "$TMP/spotlight")"
+  [ "$want" = "$got" ] || die "spotlight failed its checksum: expected $want, got $got"
 
-  chmod +x "$TMP/spotlight-host"
-  install "$TMP/spotlight-host" "$BIN_DIR/spotlight-host" 2>/dev/null || mv "$TMP/spotlight-host" "$BIN_DIR/spotlight-host"
-  say "installed $BIN_DIR/spotlight-host"
+  chmod +x "$TMP/spotlight"
+  install "$TMP/spotlight" "$BIN_DIR/spotlight" 2>/dev/null || mv "$TMP/spotlight" "$BIN_DIR/spotlight"
+  say "installed $BIN_DIR/spotlight"
 }
 
 held() { [ -f "$CONFIG" ] && sed -n "s/^$1=//p" "$CONFIG" | head -1 || true; }
@@ -143,16 +143,16 @@ main() {
   TMP="$(mktemp -d)"
   trap 'rm -rf "$TMP"' EXIT
 
-  install_host
+  install_binary
   save_config
   pull_image
 
   if [ "${SPOTLIGHT_NO_SERVICE:-}" = "1" ]; then
-    say "installed. Start it with: SPOTLIGHT_HOST_CONFIG=$CONFIG $BIN_DIR/spotlight-host"
+    say "installed. Start it with: SPOTLIGHT_HOST_CONFIG=$CONFIG $BIN_DIR/spotlight host"
     return
   fi
 
-  SPOTLIGHT_HOST_CONFIG="$CONFIG" "$BIN_DIR/spotlight-host" install
+  SPOTLIGHT_HOST_CONFIG="$CONFIG" "$BIN_DIR/spotlight" host install
   say "serving $API_BASE: this machine shows on the workspace's Runners page once it reports"
 }
 

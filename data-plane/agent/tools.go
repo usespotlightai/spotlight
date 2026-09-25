@@ -1,4 +1,4 @@
-package main
+package agent
 
 import (
 	"bytes"
@@ -10,7 +10,7 @@ import (
 	"os"
 	"strings"
 
-	"usespotlight.ai/data-plane/internal/protocol"
+	"usespotlight.ai/data-plane/protocol"
 )
 
 func reach() (string, string, error) {

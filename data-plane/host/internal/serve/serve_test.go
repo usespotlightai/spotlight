@@ -13,11 +13,11 @@ import (
 	"testing"
 	"time"
 
-	"usespotlight.ai/data-plane/host/internal/executor"
+	"usespotlight.ai/data-plane/control"
 	"usespotlight.ai/data-plane/host/internal/images"
+	"usespotlight.ai/data-plane/host/internal/sandbox"
 	"usespotlight.ai/data-plane/host/internal/serve"
-	"usespotlight.ai/data-plane/internal/control"
-	"usespotlight.ai/data-plane/internal/protocol"
+	"usespotlight.ai/data-plane/protocol"
 )
 
 var quiet = slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -27,15 +27,15 @@ const leastRelease = "20260925-01"
 type fakeEngine struct {
 	mu        sync.Mutex
 	next      int
-	started   map[string]executor.Sandbox
+	started   map[string]sandbox.Spec
 	exits     map[string]chan int
 	destroyed []string
 	stopped   []string
 	left      []string
 	found     []protocol.HarnessReport
 	release   string
-	images    map[string]executor.Image
-	pullTo    map[string]executor.Image
+	images    map[string]sandbox.Image
+	pullTo    map[string]sandbox.Image
 	pulls     []string
 	auths     []string
 	failStart bool
@@ -49,27 +49,27 @@ type fakeEngine struct {
 
 func newEngine() *fakeEngine {
 	return &fakeEngine{
-		started: map[string]executor.Sandbox{},
+		started: map[string]sandbox.Spec{},
 		exits:   map[string]chan int{},
 		release: leastRelease,
-		images:  map[string]executor.Image{},
-		pullTo:  map[string]executor.Image{},
+		images:  map[string]sandbox.Image{},
+		pullTo:  map[string]sandbox.Image{},
 	}
 }
 
-func imageAt(name, hex string) executor.Image {
-	return executor.Image{ID: "sha256:" + hex, Digests: []string{name + "@sha256:" + hex}}
+func imageAt(name, hex string) sandbox.Image {
+	return sandbox.Image{ID: "sha256:" + hex, Digests: []string{name + "@sha256:" + hex}}
 }
 
 func (e *fakeEngine) Describe(context.Context) (string, error) { return "fake engine", nil }
 
-func (e *fakeEngine) Inspect(_ context.Context, image string) (executor.Image, error) {
+func (e *fakeEngine) Inspect(_ context.Context, image string) (sandbox.Image, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
 	found, ok := e.images[image]
 	if !ok {
-		return executor.Image{}, executor.ErrNoImage
+		return sandbox.Image{}, sandbox.ErrNoImage
 	}
 	return found, nil
 }
@@ -98,17 +98,17 @@ func (e *fakeEngine) Pull(_ context.Context, image, auth string) error {
 	return nil
 }
 
-func (e *fakeEngine) Start(_ context.Context, sandbox executor.Sandbox) (string, error) {
+func (e *fakeEngine) Start(_ context.Context, spec sandbox.Spec) (string, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if len(sandbox.Args) > 0 {
+	if len(spec.Args) > 0 {
 		e.probes++
 		if e.failProbe {
 			return "", errors.New("the image will not run")
 		}
 	}
-	if len(sandbox.Args) == 0 {
+	if len(spec.Args) == 0 {
 		e.starts++
 		if e.failStart {
 			return "", errors.New("no such image")
@@ -117,9 +117,9 @@ func (e *fakeEngine) Start(_ context.Context, sandbox executor.Sandbox) (string,
 
 	e.next++
 	id := fmt.Sprintf("sandbox_%d", e.next)
-	e.started[id] = sandbox
+	e.started[id] = spec
 	e.exits[id] = make(chan int, 1)
-	if len(sandbox.Args) > 0 && sandbox.Args[0] == "harnesses" {
+	if len(spec.Args) > 0 && spec.Args[0] == "harnesses" {
 		e.exits[id] <- 0
 	}
 
@@ -128,11 +128,11 @@ func (e *fakeEngine) Start(_ context.Context, sandbox executor.Sandbox) (string,
 
 func (e *fakeEngine) Follow(_ context.Context, id string, out io.Writer) error {
 	e.mu.Lock()
-	sandbox := e.started[id]
+	spec := e.started[id]
 	reported := protocol.Registration{Release: e.release, Harnesses: e.found}
 	e.mu.Unlock()
 
-	if len(sandbox.Args) > 0 && sandbox.Args[0] == "harnesses" {
+	if len(spec.Args) > 0 && spec.Args[0] == "harnesses" {
 		return json.NewEncoder(out).Encode(reported)
 	}
 
@@ -200,8 +200,8 @@ func (e *fakeEngine) workSandboxes() []string {
 	defer e.mu.Unlock()
 
 	var ids []string
-	for id, sandbox := range e.started {
-		if len(sandbox.Args) == 0 {
+	for id, spec := range e.started {
+		if len(spec.Args) == 0 {
 			ids = append(ids, id)
 		}
 	}
@@ -209,7 +209,7 @@ func (e *fakeEngine) workSandboxes() []string {
 	return ids
 }
 
-func (e *fakeEngine) sandbox(id string) executor.Sandbox {
+func (e *fakeEngine) sandbox(id string) sandbox.Spec {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	return e.started[id]
@@ -522,20 +522,20 @@ func TestEveryPieceOfWorkGetsAFreshSandboxThatIsDestroyedAfterwards(t *testing.T
 
 	ids := engine.workSandboxes()
 	for _, id := range ids {
-		sandbox := engine.sandbox(id)
+		spec := engine.sandbox(id)
 
-		if len(sandbox.Files) != 1 || sandbox.Files[0].Path != serve.HandedPath || sandbox.Files[0].Mode != 0o400 {
-			t.Fatalf("%s was handed %+v", id, sandbox.Files)
+		if len(spec.Files) != 1 || spec.Files[0].Path != serve.HandedPath || spec.Files[0].Mode != 0o400 {
+			t.Fatalf("%s was handed %+v", id, spec.Files)
 		}
 		var given protocol.Handed
-		if err := json.Unmarshal(sandbox.Files[0].Body, &given); err != nil || !strings.HasPrefix(given.Token, "one-run-") {
+		if err := json.Unmarshal(spec.Files[0].Body, &given); err != nil || !strings.HasPrefix(given.Token, "one-run-") {
 			t.Errorf("%s was handed %+v (%v)", id, given, err)
 		}
-		if !slices.Contains(sandbox.Env, "ANTHROPIC_API_KEY=sk-test") {
-			t.Errorf("%s lacks the sandbox environment: %v", id, sandbox.Env)
+		if !slices.Contains(spec.Env, "ANTHROPIC_API_KEY=sk-test") {
+			t.Errorf("%s lacks the sandbox environment: %v", id, spec.Env)
 		}
-		if sandbox.Labels[serve.LabelHost] != "host_1" {
-			t.Errorf("%s is not labelled with its host: %v", id, sandbox.Labels)
+		if spec.Labels[serve.LabelHost] != "host_1" {
+			t.Errorf("%s is not labelled with its host: %v", id, spec.Labels)
 		}
 	}
 	if engine.sandbox(ids[0]).Labels[serve.LabelRunner] == engine.sandbox(ids[1]).Labels[serve.LabelRunner] {

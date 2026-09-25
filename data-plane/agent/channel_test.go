@@ -1,4 +1,4 @@
-package main
+package agent
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"strings"
 	"sync"
 
-	"usespotlight.ai/data-plane/internal/protocol"
+	"usespotlight.ai/data-plane/protocol"
 )
 
 type channel struct {

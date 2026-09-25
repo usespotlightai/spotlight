@@ -20,7 +20,7 @@ import (
 	"strings"
 	"time"
 
-	"usespotlight.ai/data-plane/host/internal/executor"
+	"usespotlight.ai/data-plane/host/internal/sandbox"
 )
 
 type Engine struct {
@@ -28,7 +28,7 @@ type Engine struct {
 	base string
 }
 
-var _ executor.Executor = (*Engine)(nil)
+var _ sandbox.Engine = (*Engine)(nil)
 
 func Connect(dockerHost string) (*Engine, error) {
 	if dockerHost == "" {
@@ -103,20 +103,20 @@ func (e *Engine) Describe(ctx context.Context) (string, error) {
 	return fmt.Sprintf("%s %s (%s/%s)", name, version.Version, version.Os, version.Arch), nil
 }
 
-func (e *Engine) Inspect(ctx context.Context, image string) (executor.Image, error) {
+func (e *Engine) Inspect(ctx context.Context, image string) (sandbox.Image, error) {
 	var inspected struct {
 		ID          string `json:"Id"`
 		RepoDigests []string
 	}
 	status, err := e.call(ctx, http.MethodGet, "/images/"+image+"/json", nil, &inspected)
 	if status == http.StatusNotFound {
-		return executor.Image{}, executor.ErrNoImage
+		return sandbox.Image{}, sandbox.ErrNoImage
 	}
 	if err != nil {
-		return executor.Image{}, fmt.Errorf("look for image %s: %w", image, err)
+		return sandbox.Image{}, fmt.Errorf("look for image %s: %w", image, err)
 	}
 
-	return executor.Image{ID: inspected.ID, Digests: inspected.RepoDigests}, nil
+	return sandbox.Image{ID: inspected.ID, Digests: inspected.RepoDigests}, nil
 }
 
 func (e *Engine) Pull(ctx context.Context, image, auth string) error {
@@ -195,19 +195,19 @@ type created struct {
 	HostConfig hostConfig
 }
 
-func (e *Engine) Start(ctx context.Context, sandbox executor.Sandbox) (string, error) {
+func (e *Engine) Start(ctx context.Context, spec sandbox.Spec) (string, error) {
 	config := created{
-		Image:  sandbox.Image,
-		Cmd:    sandbox.Args,
-		Env:    sandbox.Env,
-		Labels: sandbox.Labels,
+		Image:  spec.Image,
+		Cmd:    spec.Args,
+		Env:    spec.Env,
+		Labels: spec.Labels,
 		HostConfig: hostConfig{
 			Init:        true,
-			NetworkMode: sandbox.Network,
-			ExtraHosts:  sandbox.ExtraHosts,
+			NetworkMode: spec.Network,
+			ExtraHosts:  spec.ExtraHosts,
 		},
 	}
-	for _, each := range sandbox.Mounts {
+	for _, each := range spec.Mounts {
 		config.HostConfig.Mounts = append(config.HostConfig.Mounts, mount{
 			Type: "bind", Source: each.Source, Target: each.Target, ReadOnly: each.ReadOnly,
 		})
@@ -215,14 +215,14 @@ func (e *Engine) Start(ctx context.Context, sandbox executor.Sandbox) (string, e
 
 	var answer struct{ Id string }
 	query := url.Values{}
-	if sandbox.Name != "" {
-		query.Set("name", sandbox.Name)
+	if spec.Name != "" {
+		query.Set("name", spec.Name)
 	}
 	if _, err := e.call(ctx, http.MethodPost, "/containers/create?"+query.Encode(), config, &answer); err != nil {
 		return "", fmt.Errorf("create a sandbox: %w", err)
 	}
 
-	if err := e.lay(ctx, answer.Id, sandbox.Files); err != nil {
+	if err := e.lay(ctx, answer.Id, spec.Files); err != nil {
 		return answer.Id, err
 	}
 
@@ -233,7 +233,7 @@ func (e *Engine) Start(ctx context.Context, sandbox executor.Sandbox) (string, e
 	return answer.Id, nil
 }
 
-func (e *Engine) lay(ctx context.Context, id string, files []executor.File) error {
+func (e *Engine) lay(ctx context.Context, id string, files []sandbox.File) error {
 	for _, file := range files {
 		if err := e.layOne(ctx, id, file); err != nil {
 			return err
@@ -244,7 +244,7 @@ func (e *Engine) lay(ctx context.Context, id string, files []executor.File) erro
 }
 
 // Extracted beside its own directory, so the image's existing parents keep their modes.
-func (e *Engine) layOne(ctx context.Context, id string, file executor.File) error {
+func (e *Engine) layOne(ctx context.Context, id string, file sandbox.File) error {
 	name := path.Clean("/" + file.Path)
 	dir := path.Dir(name)
 	if dir == "/" {
@@ -261,7 +261,7 @@ func (e *Engine) layOne(ctx context.Context, id string, file executor.File) erro
 }
 
 func (e *Engine) extract(
-	ctx context.Context, id, at string, dirs []string, name string, file executor.File,
+	ctx context.Context, id, at string, dirs []string, name string, file sandbox.File,
 ) (int, error) {
 	var archive bytes.Buffer
 	writer := tar.NewWriter(&archive)
@@ -346,13 +346,13 @@ func (e *Engine) Wait(ctx context.Context, id string) (int, error) {
 
 	status, err := e.call(ctx, http.MethodPost, "/containers/"+id+"/wait?condition=not-running", nil, &answer)
 	if status == http.StatusNotFound {
-		return -1, fmt.Errorf("wait for a sandbox: %w: %w", executor.ErrGone, err)
+		return -1, fmt.Errorf("wait for a sandbox: %w: %w", sandbox.ErrGone, err)
 	}
 	if err != nil {
 		return -1, fmt.Errorf("wait for a sandbox: %w", err)
 	}
 	if answer.Error != nil && answer.Error.Message != "" && answer.StatusCode == 0 {
-		return -1, fmt.Errorf("wait for a sandbox: %w: %s", executor.ErrGone, answer.Error.Message)
+		return -1, fmt.Errorf("wait for a sandbox: %w: %s", sandbox.ErrGone, answer.Error.Message)
 	}
 
 	return answer.StatusCode, nil

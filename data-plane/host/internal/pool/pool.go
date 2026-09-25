@@ -7,9 +7,9 @@ import (
 	"net/url"
 	"time"
 
+	"usespotlight.ai/data-plane/control"
 	"usespotlight.ai/data-plane/host/internal/serve"
-	"usespotlight.ai/data-plane/internal/control"
-	"usespotlight.ai/data-plane/internal/protocol"
+	"usespotlight.ai/data-plane/protocol"
 )
 
 type Client struct {

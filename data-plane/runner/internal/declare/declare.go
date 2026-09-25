@@ -16,7 +16,7 @@ import (
 	"sync"
 	"unicode/utf16"
 
-	"usespotlight.ai/data-plane/internal/protocol"
+	"usespotlight.ai/data-plane/protocol"
 )
 
 const mostInput = 8 << 20

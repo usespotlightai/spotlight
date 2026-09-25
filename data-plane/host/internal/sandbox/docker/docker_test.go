@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"usespotlight.ai/data-plane/host/internal/executor"
+	"usespotlight.ai/data-plane/host/internal/sandbox"
 )
 
 func framed(stream byte, text string) []byte {
@@ -65,15 +65,15 @@ func TestASandboxRunsWithItsFilesAndIsGoneAfterwards(t *testing.T) {
 	if err != nil || pulled.ID == "" || len(pulled.Digests) == 0 {
 		t.Fatalf("inspect %+v: %v", pulled, err)
 	}
-	if _, err := engine.Inspect(ctx, "spotlight-no-such-image:never"); !errors.Is(err, executor.ErrNoImage) {
+	if _, err := engine.Inspect(ctx, "spotlight-no-such-image:never"); !errors.Is(err, sandbox.ErrNoImage) {
 		t.Errorf("a missing image answered %v", err)
 	}
 
-	id, err := engine.Start(ctx, executor.Sandbox{
+	id, err := engine.Start(ctx, sandbox.Spec{
 		Image:  image,
 		Args:   []string{"sh", "-c", "cat /run/spotlight/handed.json; stat -c %a /run/spotlight/handed.json;"},
 		Labels: map[string]string{"ai.usespotlight.test": "sandbox"},
-		Files:  []executor.File{{Path: "/run/spotlight/handed.json", Mode: 0o400, Body: []byte("handed\n")}},
+		Files:  []sandbox.File{{Path: "/run/spotlight/handed.json", Mode: 0o400, Body: []byte("handed\n")}},
 	})
 	if id != "" {
 		defer func() { _ = engine.Destroy(context.Background(), id) }()
@@ -129,10 +129,10 @@ func TestLayingAFileLeavesItsParentsAsTheImageHasThem(t *testing.T) {
 		t.Skip("no usable container runtime")
 	}
 
-	id, err := engine.Start(ctx, executor.Sandbox{
+	id, err := engine.Start(ctx, sandbox.Spec{
 		Image: image,
 		Args:  []string{"stat", "-c", "%a", "/etc"},
-		Files: []executor.File{{Path: "/etc/spotlight/handed.json", Mode: 0o400, Body: []byte("handed")}},
+		Files: []sandbox.File{{Path: "/etc/spotlight/handed.json", Mode: 0o400, Body: []byte("handed")}},
 	})
 	if id != "" {
 		defer func() { _ = engine.Destroy(context.Background(), id) }()

@@ -1,4 +1,4 @@
-package executor
+package sandbox
 
 import (
 	"context"
@@ -17,7 +17,7 @@ type Image struct {
 	Digests []string
 }
 
-type Sandbox struct {
+type Spec struct {
 	Name       string
 	Image      string
 	Args       []string
@@ -41,11 +41,11 @@ type File struct {
 	Body []byte
 }
 
-type Executor interface {
+type Engine interface {
 	Describe(ctx context.Context) (string, error)
 	Inspect(ctx context.Context, image string) (Image, error)
 	Pull(ctx context.Context, image, auth string) error
-	Start(ctx context.Context, sandbox Sandbox) (string, error)
+	Start(ctx context.Context, spec Spec) (string, error)
 	Follow(ctx context.Context, id string, out io.Writer) error
 	Wait(ctx context.Context, id string) (int, error)
 	Stop(ctx context.Context, id string, grace time.Duration) error

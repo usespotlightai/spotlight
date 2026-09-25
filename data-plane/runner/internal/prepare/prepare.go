@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"usespotlight.ai/data-plane/internal/protocol"
+	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/runner/internal/shell"
 )
 

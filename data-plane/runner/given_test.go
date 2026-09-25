@@ -1,4 +1,4 @@
-package main
+package runner
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"usespotlight.ai/data-plane/internal/protocol"
+	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/runner/internal/config"
 )
 
@@ -39,7 +39,7 @@ func TestTakesTheWorkItWasHandedAndLeavesNoCredentialBehind(t *testing.T) {
 		Work:     protocol.Claimed{Kind: protocol.ClaimedRun, Run: &protocol.Run{ID: "run_1"}},
 	})
 
-	handed, err := given(context.Background(), config.Config{Handed: path}, quiet)
+	handed, err := given(context.Background(), config.Config{Handed: path}, "test", quiet)
 	if err != nil {
 		t.Fatalf("given: %v", err)
 	}
@@ -55,7 +55,7 @@ func TestTakesTheWorkItWasHandedAndLeavesNoCredentialBehind(t *testing.T) {
 func TestRefusesHandedWorkWithoutACredential(t *testing.T) {
 	path := handedFile(t, protocol.Handed{RunnerID: "runner_1"})
 
-	if _, err := given(context.Background(), config.Config{Handed: path}, quiet); err == nil ||
+	if _, err := given(context.Background(), config.Config{Handed: path}, "test", quiet); err == nil ||
 		!strings.Contains(err.Error(), "credential") {
 		t.Fatalf("expected a refusal, got %v", err)
 	}
@@ -91,7 +91,7 @@ func TestAPushRunnerRegistersThenClaimsWhatWasReservedForIt(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	handed, err := given(context.Background(), config.Config{URL: server.URL, Token: "one-run"}, quiet)
+	handed, err := given(context.Background(), config.Config{URL: server.URL, Token: "one-run"}, "test", quiet)
 	if err != nil {
 		t.Fatalf("given: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestReportsTheHarnessesItFindsInItsImage(t *testing.T) {
 	asked := `[{"id":"sh","executable":"sh"},{"id":"absent","executable":"no-such-harness"}]`
 	out := new(strings.Builder)
 
-	if err := report(asked, out); err != nil {
+	if err := report(asked, "20260925-01", out); err != nil {
 		t.Fatalf("report: %v", err)
 	}
 
@@ -116,7 +116,7 @@ func TestReportsTheHarnessesItFindsInItsImage(t *testing.T) {
 	if err := json.Unmarshal([]byte(out.String()), &reported); err != nil {
 		t.Fatalf("decode %q: %v", out.String(), err)
 	}
-	if len(reported.Harnesses) != 1 || reported.Harnesses[0].ID != "sh" {
-		t.Errorf("reported %+v", reported.Harnesses)
+	if reported.Release != "20260925-01" || len(reported.Harnesses) != 1 || reported.Harnesses[0].ID != "sh" {
+		t.Errorf("reported %+v", reported)
 	}
 }

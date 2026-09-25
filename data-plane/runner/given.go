@@ -1,4 +1,4 @@
-package main
+package runner
 
 import (
 	"context"
@@ -10,8 +10,8 @@ import (
 	"os"
 	"time"
 
-	"usespotlight.ai/data-plane/internal/control"
-	"usespotlight.ai/data-plane/internal/protocol"
+	"usespotlight.ai/data-plane/control"
+	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/runner/internal/config"
 	"usespotlight.ai/data-plane/runner/internal/harness"
 )
@@ -22,12 +22,12 @@ const (
 	retryCeiling    = 20 * time.Second
 )
 
-func given(ctx context.Context, cfg config.Config, log *slog.Logger) (*protocol.Handed, error) {
+func given(ctx context.Context, cfg config.Config, release string, log *slog.Logger) (*protocol.Handed, error) {
 	if cfg.WasHanded() {
 		return handedIn(cfg.Handed)
 	}
 
-	return reserved(ctx, cfg, log)
+	return reserved(ctx, cfg, release, log)
 }
 
 func handedIn(path string) (*protocol.Handed, error) {
@@ -51,7 +51,7 @@ func handedIn(path string) (*protocol.Handed, error) {
 	return &handed, nil
 }
 
-func reserved(ctx context.Context, cfg config.Config, log *slog.Logger) (*protocol.Handed, error) {
+func reserved(ctx context.Context, cfg config.Config, release string, log *slog.Logger) (*protocol.Handed, error) {
 	client, err := control.New(cfg.URL, cfg.Token)
 	if err != nil {
 		return nil, err
@@ -62,7 +62,7 @@ func reserved(ctx context.Context, cfg config.Config, log *slog.Logger) (*protoc
 		if err != nil {
 			return err
 		}
-		return client.Register(ctx, protocol.Registration{Release: version, Harnesses: harness.Installed(ctx, candidates)})
+		return client.Register(ctx, protocol.Registration{Release: release, Harnesses: harness.Installed(ctx, candidates)})
 	}); err != nil {
 		return nil, err
 	}

@@ -19,7 +19,7 @@ ENV NODE_ENV=development
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY control-plane/ ./
-COPY installer/install.sh /opt/spotlight/installer/install.sh
+COPY data-plane/install.sh /opt/spotlight/installer/install.sh
 EXPOSE 3000 9229
 CMD ["npm", "run", "start:dev"]
 
@@ -45,7 +45,7 @@ WORKDIR /app
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY control-plane/package.json ./
-COPY installer/install.sh /opt/spotlight/installer/install.sh
+COPY data-plane/install.sh /opt/spotlight/installer/install.sh
 USER node
 EXPOSE 3000
 CMD ["node", "dist/main"]

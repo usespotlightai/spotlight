@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"usespotlight.ai/data-plane/internal/protocol"
+	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/runner/internal/stackcheck"
 )
 

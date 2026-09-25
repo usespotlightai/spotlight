@@ -7,8 +7,7 @@ RUN go mod download
 COPY data-plane/ ./
 ENV CGO_ENABLED=0
 ARG SPOTLIGHT_VERSION=dev
-RUN go build -ldflags "-X main.version=${SPOTLIGHT_VERSION}" -o /out/runner ./runner/cmd/runner \
-    && go build -o /out/spotlight ./cli/cmd/spotlight
+RUN go build -ldflags "-X main.version=${SPOTLIGHT_VERSION}" -o /out/spotlight ./cmd/spotlight
 
 # Not Alpine: cursor-agent ships only a glibc binary.
 FROM debian:bookworm-slim AS runner
@@ -32,11 +31,11 @@ RUN mkdir -p /opt/cursor \
     && HOME=/opt/cursor bash -c 'curl https://cursor.com/install -fsS | bash' \
     && ln -sf /opt/cursor/.local/bin/cursor-agent /usr/local/bin/cursor-agent \
     && chmod -R a+rX /opt/cursor
-COPY --from=build /out/runner /out/spotlight /usr/local/bin/
+COPY --from=build /out/spotlight /usr/local/bin/
 ENV SPOTLIGHT_AGENT_USER=agent \
     SPOTLIGHT_WORKSPACE=/workspace
 USER root
-ENTRYPOINT ["runner"]
+ENTRYPOINT ["spotlight", "runner"]
 
 FROM golang:${GO_VERSION}-bookworm AS host-development
 RUN apt-get update \
@@ -48,4 +47,4 @@ WORKDIR /app
 COPY data-plane/go.mod data-plane/go.sum ./
 RUN go mod download
 COPY data-plane/ ./
-CMD ["air", "-c", "host/.air.toml"]
+CMD ["air", "-c", ".air.toml"]

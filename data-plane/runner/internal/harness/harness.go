@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"usespotlight.ai/data-plane/internal/protocol"
+	"usespotlight.ai/data-plane/protocol"
 )
 
 var (

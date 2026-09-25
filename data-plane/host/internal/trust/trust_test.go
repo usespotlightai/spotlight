@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"usespotlight.ai/data-plane/host/internal/trust"
-	"usespotlight.ai/data-plane/internal/protocol"
+	"usespotlight.ai/data-plane/protocol"
 )
 
 func TestReadsTheWorkloadTokenAfreshForEveryCall(t *testing.T) {

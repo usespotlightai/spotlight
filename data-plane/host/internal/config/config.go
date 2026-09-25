@@ -14,10 +14,10 @@ import (
 	"syscall"
 	"time"
 
+	"usespotlight.ai/data-plane/control"
 	"usespotlight.ai/data-plane/host/internal/images"
 	"usespotlight.ai/data-plane/host/internal/registry"
 	"usespotlight.ai/data-plane/host/internal/trust"
-	"usespotlight.ai/data-plane/internal/control"
 )
 
 type Config struct {
@@ -296,7 +296,7 @@ func Hold(state string) (func(), error) {
 
 	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		file.Close()
-		return nil, fmt.Errorf("another spotlight-host already serves from %s: %w", state, err)
+		return nil, fmt.Errorf("another spotlight host already serves from %s: %w", state, err)
 	}
 
 	return func() { file.Close() }, nil
