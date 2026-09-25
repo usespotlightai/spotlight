@@ -20,15 +20,20 @@ import type {
   StepId,
 } from '@change-review/domain/value-objects/stack-check.vo';
 import {
+  keptSkipOf,
   skipOf,
+  unprovisioned,
   WHOLE_STEP,
 } from '@change-review/domain/value-objects/stack-check.vo';
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
+import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -65,6 +70,12 @@ const LATER = new Date(NOW.getTime() + 60_000);
 const RUNNER = RunnerId.of('runner_1');
 
 const OTHER = RunnerId.of('runner_2');
+
+const RESERVED_UNTIL = new Date(LATER.getTime() + 5 * 60_000);
+
+const REFUSED = ProvisionFailure.of('refused', 'answered 503');
+
+const OVERDUE = new Date(LATER.getTime() + WAITING_LIMIT_MS + 1);
 
 const cohort = (
   title: string,
@@ -136,6 +147,32 @@ const step = (id: string, passes: boolean, output = ''): CheckedStep => ({
 
 const kinds = (check: StackCheck) =>
   check.pullEvents().map((event) => event.kind);
+
+const rehydrated = (over: Record<string, unknown>) =>
+  StackCheck.rehydrate({
+    stackId: ChangeStackId.of('stack-1'),
+    runId: RunId.of('run-1'),
+    workspaceId: WorkspaceId.of('workspace-1'),
+    request: CheckRequest.of('npx tsc --noEmit', null),
+    phase: 'waiting',
+    entries: [],
+    rounds: 0,
+    outcome: null,
+    claim: CheckClaim.none(),
+    waitingSince: LATER,
+    reservation: null,
+    provisioning: Provisioning.none(),
+    version: 0,
+    ...over,
+  });
+
+const failedAgain = (check: StackCheck, failure = REFUSED) => {
+  const due = check.provisioning.nextAt ?? LATER;
+
+  return check
+    .reservedFor(RUNNER, 'pool_burst', due)
+    .provisionFailed(RUNNER, failure, due);
+};
 
 describe('StackCheck', () => {
   it('waits for a runner once the stack settles, and gives up after a while', () => {
@@ -289,22 +326,6 @@ describe('StackCheck', () => {
   });
 
   it('refuses to come back in a state it could not have reached', () => {
-    const rehydrated = (over: Record<string, unknown>) =>
-      StackCheck.rehydrate({
-        stackId: ChangeStackId.of('stack-1'),
-        runId: RunId.of('run-1'),
-        workspaceId: WorkspaceId.of('workspace-1'),
-        request: CheckRequest.of('npx tsc --noEmit', null),
-        phase: 'waiting',
-        entries: [],
-        rounds: 0,
-        outcome: null,
-        claim: CheckClaim.none(),
-        waitingSince: LATER,
-        version: 0,
-        ...over,
-      });
-
     expect(() => rehydrated({ phase: 'checked' })).toThrow(
       InconsistentStateError,
     );
@@ -377,6 +398,272 @@ describe('StackCheck', () => {
       expect(
         held.skipped(skipOf('no-room', null), LATER).claim.claimedBy,
       ).toBeNull();
+    });
+  });
+
+  describe('keeping why it was skipped', () => {
+    it('takes back a skip no runner could have reported', () => {
+      expect(keptSkipOf('unprovisioned', '5 attempts')).toEqual({
+        code: 'unprovisioned',
+        detail: '5 attempts',
+      });
+    });
+
+    it('takes back a skip for a check nobody took up in time', () => {
+      expect(keptSkipOf('nobody-checked', null)).toEqual({
+        code: 'nobody-checked',
+        detail: null,
+      });
+    });
+
+    it('takes back a reported skip as a runner gave it', () => {
+      expect(keptSkipOf('no-room', '  disk full  ')).toEqual({
+        code: 'no-room',
+        detail: 'disk full',
+      });
+      expect(() => keptSkipOf('made-up', null)).toThrow(
+        InvalidChangeStackError,
+      );
+    });
+
+    it('never lets a runner say no runner could be provisioned', () => {
+      expect(() => skipOf('unprovisioned', null)).toThrow(
+        InvalidChangeStackError,
+      );
+    });
+
+    it('says how many attempts failed and what the last one was', () => {
+      expect(unprovisioned(REFUSED, 5)).toEqual({
+        code: 'unprovisioned',
+        detail: '5 attempts; the last was refused: answered 503',
+      });
+    });
+  });
+
+  describe('provisioning a runner for it', () => {
+    it('reserves a waiting check for the runner a pool is asked to start', () => {
+      const reserved = waiting().reservedFor(RUNNER, 'pool_burst', LATER);
+
+      expect(reserved.reservation?.runner).toEqual(RUNNER);
+      expect(reserved.reservation?.pool).toBe('pool_burst');
+      expect(reserved.reservation?.until).toEqual(RESERVED_UNTIL);
+      expect(reserved.isReservedAt(LATER)).toBe(true);
+    });
+
+    it('reserves only a check still waiting for a runner to be provisioned', () => {
+      const reserved = waiting().reservedFor(RUNNER, 'pool_burst', LATER);
+      const claimed = waiting().claimedFor(RUNNER, LATER);
+      const skipped = waiting().skipped(skipOf('no-room', null), LATER);
+
+      expect(reserved.provisionableAt(LATER)).toBe(false);
+      expect(claimed.provisionableAt(LATER)).toBe(false);
+      expect(skipped.provisionableAt(LATER)).toBe(false);
+      expect(() => reserved.reservedFor(OTHER, 'pool_burst', LATER)).toThrow(
+        InvalidChangeStackError,
+      );
+      expect(() => claimed.reservedFor(OTHER, 'pool_burst', LATER)).toThrow(
+        InvalidChangeStackError,
+      );
+      expect(() => skipped.reservedFor(OTHER, 'pool_burst', LATER)).toThrow(
+        InvalidChangeStackError,
+      );
+    });
+
+    it('is hidden from every runner but the one reserved while it holds', () => {
+      const reserved = waiting().reservedFor(RUNNER, 'pool_burst', LATER);
+
+      expect(reserved.claimableAt(LATER)).toBe(false);
+      expect(reserved.claimableAt(LATER, OTHER)).toBe(false);
+      expect(reserved.claimableAt(LATER, RUNNER)).toBe(true);
+      expect(() => reserved.claimedFor(OTHER, LATER)).toThrow(
+        InvalidChangeStackError,
+      );
+    });
+
+    it('lets any runner claim it once the reservation lapses', () => {
+      const reserved = waiting().reservedFor(RUNNER, 'pool_burst', LATER);
+
+      expect(reserved.reservationLapsedAt(LATER)).toBe(false);
+      expect(reserved.reservationLapsedAt(RESERVED_UNTIL)).toBe(true);
+      expect(reserved.claimableAt(RESERVED_UNTIL, OTHER)).toBe(true);
+      expect(
+        reserved.claimedFor(OTHER, RESERVED_UNTIL).claim.claimedBy,
+      ).toEqual(OTHER);
+    });
+
+    it('lets the reservation go once its runner claims it', () => {
+      const claimed = waiting()
+        .reservedFor(RUNNER, 'pool_burst', LATER)
+        .claimedFor(RUNNER, LATER);
+
+      expect(claimed.reservation).toBeNull();
+      expect(claimed.claim.claimedBy).toEqual(RUNNER);
+      expect(claimed.reservationLapsedAt(RESERVED_UNTIL)).toBe(false);
+    });
+
+    it('lets the reservation go when the pool could not take it', () => {
+      const check = waiting();
+      const unreserved = check
+        .reservedFor(RUNNER, 'pool_burst', LATER)
+        .unreservedFor(RUNNER);
+
+      expect(unreserved.reservation).toBeNull();
+      expect(unreserved.provisioning.failures).toBe(0);
+      expect(unreserved.provisionableAt(LATER)).toBe(true);
+      expect(check.unreservedFor(RUNNER)).toBe(check);
+    });
+
+    it('keeps the reservation when another runner lets it go', () => {
+      const reserved = waiting().reservedFor(RUNNER, 'pool_burst', LATER);
+
+      expect(reserved.unreservedFor(OTHER)).toBe(reserved);
+    });
+
+    it('backs off after a failed provision and lets the reservation go', () => {
+      const failed = failedAgain(waiting());
+
+      expect(failed.reservation).toBeNull();
+      expect(failed.provisioning.failures).toBe(1);
+      expect(failed.stateAt(LATER)).toBe('waiting');
+      expect(failed.provisionableAt(LATER)).toBe(false);
+      expect(failed.provisionableAt(new Date(LATER.getTime() + 5_000))).toBe(
+        true,
+      );
+      expect(kinds(failed)).toEqual([]);
+    });
+
+    it('is skipped as unprovisioned after the fifth failed provision', () => {
+      let check = waiting();
+
+      for (let attempt = 1; attempt <= 4; attempt += 1) {
+        check = failedAgain(
+          check,
+          ProvisionFailure.of('unreachable', 'connect ECONNREFUSED'),
+        );
+      }
+
+      expect(check.stateAt(LATER)).toBe('waiting');
+      expect(kinds(check)).toEqual([]);
+
+      const skipped = failedAgain(check);
+
+      expect(skipped.phase).toBe('skipped');
+      expect(skipped.skippedAt(LATER)).toEqual({
+        code: 'unprovisioned',
+        detail: '5 attempts; the last was refused: answered 503',
+      });
+      expect(kinds(skipped)).toEqual(['change-stack.checked']);
+      expect(
+        checkReasonOf({
+          skipped: skipped.skippedAt(LATER),
+          wholeFailed: skipped.wholeFailed,
+        }),
+      ).toBe(
+        'No runner could be provisioned to check the layers.\n\n5 attempts; the last was refused: answered 503',
+      );
+      expect(skipped.provisionFailed(RUNNER, REFUSED, LATER)).toBe(skipped);
+    });
+
+    it('counts no failure another runner reports', () => {
+      const reserved = waiting().reservedFor(RUNNER, 'pool_burst', LATER);
+
+      expect(reserved.provisionFailed(OTHER, REFUSED, LATER)).toBe(reserved);
+    });
+
+    it('counts no failure while a runner holds its lease', () => {
+      const held = rehydrated({
+        claim: CheckClaim.rehydrate({
+          claimedBy: OTHER,
+          attempts: 1,
+          leaseExpiresAt: new Date(LATER.getTime() + 10 * 60_000),
+        }),
+        reservation: RunnerReservation.from(RUNNER, 'pool_burst', LATER),
+      });
+
+      expect(held.provisionFailed(RUNNER, REFUSED, LATER)).toBe(held);
+    });
+
+    it('only lets the reservation go when the pool fails it past the hour', () => {
+      const failed = waiting()
+        .reservedFor(RUNNER, 'pool_burst', LATER)
+        .provisionFailed(RUNNER, REFUSED, OVERDUE);
+
+      expect(failed.reservation).toBeNull();
+      expect(failed.provisioning.failures).toBe(0);
+      expect(failed.phase).toBe('waiting');
+      expect(kinds(failed)).toEqual([]);
+    });
+
+    it('comes back skipped as unprovisioned', () => {
+      const skip = keptSkipOf(
+        'unprovisioned',
+        '5 attempts; the last was refused: answered 503',
+      );
+      const check = rehydrated({
+        phase: 'skipped',
+        outcome: {
+          state: 'skipped',
+          skip,
+          whole: null,
+          layers: [],
+          checkedAt: LATER,
+        },
+        version: 1,
+      });
+
+      expect(check.skippedAt(LATER)).toEqual(skip);
+    });
+
+    it('starts provisioning afresh once its layers are reordered', () => {
+      const reordering = failedAgain(waiting())
+        .reservedFor(RUNNER, 'pool_burst', RESERVED_UNTIL)
+        .recorded(
+          planned(),
+          [step(WHOLE_STEP, true), step('c1.l1', false, 'error')],
+          RESERVED_UNTIL,
+        );
+
+      const again = reordering.reordered(stack().entries(), RESERVED_UNTIL);
+
+      expect(again.reservation).toBeNull();
+      expect(again.provisioning.failures).toBe(0);
+      expect(again.provisionableAt(RESERVED_UNTIL)).toBe(true);
+    });
+  });
+
+  describe('settling a check nobody took up in time', () => {
+    it('is overdue only once it has waited past the hour with no lease held', () => {
+      const held = waiting().claimedFor(
+        RUNNER,
+        new Date(LATER.getTime() + WAITING_LIMIT_MS - 1),
+      );
+
+      expect(waiting().overdueAt(LATER)).toBe(false);
+      expect(waiting().overdueAt(OVERDUE)).toBe(true);
+      expect(held.overdueAt(OVERDUE)).toBe(false);
+      expect(
+        waiting().skipped(skipOf('no-room', null), LATER).overdueAt(OVERDUE),
+      ).toBe(false);
+    });
+
+    it('is skipped as nobody checked, letting any reservation go', () => {
+      const settled = waiting()
+        .reservedFor(RUNNER, 'pool_burst', LATER)
+        .settledOverdue(OVERDUE);
+
+      expect(settled.phase).toBe('skipped');
+      expect(settled.reservation).toBeNull();
+      expect(settled.skippedAt(OVERDUE)).toEqual({
+        code: 'nobody-checked',
+        detail: null,
+      });
+      expect(kinds(settled)).toEqual(['change-stack.checked']);
+    });
+
+    it('refuses to settle a check that is not overdue', () => {
+      expect(() => waiting().settledOverdue(LATER)).toThrow(
+        InvalidChangeStackError,
+      );
     });
   });
 });

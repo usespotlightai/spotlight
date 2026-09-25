@@ -1,10 +1,14 @@
+import type { PoolRunnersPort } from '@runners/application/ports/pool-runners.port';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { RunMovedOnError } from '@work/domain/exceptions/run-moved-on.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 
 export class RunLeases {
-  constructor(private readonly runs: RunRepository) {}
+  constructor(
+    private readonly runs: RunRepository,
+    private readonly pooled: PoolRunnersPort,
+  ) {}
 
   async requeueLapsed(now: Date): Promise<readonly Run[]> {
     const requeued: Run[] = [];
@@ -18,6 +22,10 @@ export class RunLeases {
 
       if (await this.saved(next)) {
         requeued.push(next);
+
+        if (lapsing.claimedBy) {
+          await this.pooled.letGo(lapsing.claimedBy, now);
+        }
       }
     }
 

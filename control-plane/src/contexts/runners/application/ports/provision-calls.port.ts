@@ -1,0 +1,32 @@
+import type { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
+import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
+
+export const PROVISION_CALLS = Symbol('PROVISION_CALLS');
+
+export interface ProvisionCall {
+  readonly url: ProvisionUrl;
+  readonly secret: ProvisionSecret;
+  readonly attempt: string;
+  readonly at: Date;
+  readonly pool: string;
+  readonly workspaceId: string;
+  readonly kind: 'run' | 'check';
+  readonly stackId: string | null;
+  readonly runId: string;
+  readonly taskId: string | null;
+  readonly labels: readonly string[];
+  readonly runnerId: string;
+  readonly token: string;
+  readonly claimBy: Date;
+}
+
+export type ProvisionAnswer =
+  | { readonly outcome: 'accepted' }
+  | {
+      readonly outcome: 'unreachable' | 'refused' | 'not-allowed';
+      readonly detail: string;
+    };
+
+export interface ProvisionCallsPort {
+  call(call: ProvisionCall): Promise<ProvisionAnswer>;
+}

@@ -48,6 +48,7 @@ export class HeldConfigurations {
         ...secrets.map(HeldResourceMapper.secret),
         ...runners.runners.map(HeldResourceMapper.runner),
         ...runners.trusts.map(HeldResourceMapper.trust),
+        ...runners.pools.map(HeldResourceMapper.pool),
         ...(runners.declared
           ? [HeldResourceMapper.declared(runners.declared)]
           : []),

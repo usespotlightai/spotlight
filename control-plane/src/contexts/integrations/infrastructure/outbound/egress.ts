@@ -1,31 +1,25 @@
 import { EgressRefusedError } from '@integrations/domain/exceptions/egress-refused.error';
+import { OutboundHosts } from '@platform/outbound/outbound-hosts';
 
-// Hosts are the deployment's to allow, never a config author's.
 export class Egress {
-  private readonly allowed: readonly string[];
+  private readonly hosts: OutboundHosts;
 
   constructor(allowed: readonly string[]) {
-    this.allowed = allowed
-      .map((each) => each.trim().toLowerCase())
-      .filter(Boolean);
+    this.hosts = new OutboundHosts(allowed);
   }
 
   allow(url: string): void {
     let host: string;
 
     try {
-      host = new URL(url).host.toLowerCase();
+      host = new URL(url).host;
     } catch {
       throw new EgressRefusedError(url, 'is not a URL that can be called');
     }
 
-    const allowed = this.allowed.some(
-      (each) => host === each || host.endsWith(`.${each}`),
-    );
-
-    if (!allowed) {
+    if (!this.hosts.allow(host)) {
       throw new EgressRefusedError(
-        host,
+        host.toLowerCase(),
         'is not among the hosts this deployment allows outbound calls to',
       );
     }

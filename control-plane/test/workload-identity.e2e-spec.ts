@@ -19,6 +19,7 @@ import {
   it,
 } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { awaitingCheck } from './support/change-stacks';
 import { forgetRunnersOf } from './support/runners';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
@@ -83,86 +84,6 @@ describe('a runner enrolling as a platform workload, with no token (e2e)', () =>
     });
 
     return id;
-  };
-
-  const awaitingCheck = async (placement: string[][]) => {
-    const stackId = randomUUID();
-    const runId = randomUUID();
-
-    await db.insert(schema.changeStack).values({
-      id: stackId,
-      runId,
-      workspaceId: held,
-      state: 'ready',
-      files: [
-        {
-          path: 'README.md',
-          previousPath: null,
-          status: 'modified',
-          binary: false,
-          hunks: [
-            {
-              id: 'h1',
-              oldStart: 1,
-              oldLines: 1,
-              newStart: 1,
-              newLines: 1,
-              patch: '-old\n+new\n',
-            },
-          ],
-        },
-      ],
-      facts: {
-        hunks: [
-          {
-            hunk: 'h1',
-            path: 'README.md',
-            fileClass: 'docs',
-            incidental: false,
-            renamed: false,
-            moved: false,
-            linkable: false,
-            defines: [],
-            outside: [],
-          },
-        ],
-        links: [],
-        imports: [],
-      },
-      draftedAt: new Date(),
-      settledAt: new Date(),
-      cohorts: [
-        {
-          id: 'c1',
-          kind: 'change',
-          title: 'Say it anew',
-          intent: 'Reword the readme',
-          layers: [
-            {
-              id: 'c1.l1',
-              title: 'Readme',
-              summary: 'Rewords it',
-              dependsOn: [],
-              ranges: [{ hunk: 'h1' }],
-              notes: [{ path: 'README.md', note: 'Reworded' }],
-            },
-          ],
-        },
-      ],
-      checkCommand: 'npm test',
-      checkPlacement: placement,
-    });
-    await db.insert(schema.stackCheck).values({
-      stackId,
-      runId,
-      workspaceId: held,
-      command: 'npm test',
-      placement,
-      phase: 'waiting',
-      waitingSince: new Date(),
-    });
-
-    return stackId;
   };
 
   const withToken = async () => {
@@ -259,7 +180,7 @@ describe('a runner enrolling as a platform workload, with no token (e2e)', () =>
 
     await register(exchanged.body.token).expect(201);
 
-    const stackId = await awaitingCheck([['vpc-internal']]);
+    const stackId = await awaitingCheck(db, held, [['vpc-internal']]);
     const claimed = await claim(exchanged.body.token);
 
     expect(claimed.body).toMatchObject({ kind: 'check', check: { stackId } });

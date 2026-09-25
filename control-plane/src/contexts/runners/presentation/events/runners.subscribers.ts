@@ -32,6 +32,11 @@ export const runnersSubscribers = (reactions: {
     (event) => reactions.abandoning.trustsOf(WorkspaceId.of(event.workspaceId)),
   ),
   subscribing<WorkspaceClosedIntegrationEvent>(
+    'runners.retire-pools-of-closed-workspace',
+    [WORKSPACE_CLOSED],
+    (event) => reactions.abandoning.poolsOf(WorkspaceId.of(event.workspaceId)),
+  ),
+  subscribing<WorkspaceClosedIntegrationEvent>(
     'runners.drop-runners-declared-by-closed-workspace',
     [WORKSPACE_CLOSED],
     (event) =>

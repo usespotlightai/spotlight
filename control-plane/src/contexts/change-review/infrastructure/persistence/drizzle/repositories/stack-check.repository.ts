@@ -13,7 +13,7 @@ import {
   MOST_CHECK_ATTEMPTS,
 } from '@change-review/domain/value-objects/check-claim.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
-import { skipOf } from '@change-review/domain/value-objects/stack-check.vo';
+import { keptSkipOf } from '@change-review/domain/value-objects/stack-check.vo';
 import {
   checkedStepOf,
   entryOf,
@@ -26,9 +26,11 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
+import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, gt, inArray, isNull, lt, lte, or } from 'drizzle-orm';
 
@@ -50,7 +52,7 @@ const toStackCheck = (row: Row): StackCheck =>
     outcome: row.outcome && {
       state: row.outcome.state,
       skip: row.outcome.skip
-        ? skipOf(row.outcome.skip.code, row.outcome.skip.detail)
+        ? keptSkipOf(row.outcome.skip.code, row.outcome.skip.detail)
         : null,
       whole: row.outcome.whole && checkedStepOf(row.outcome.whole),
       layers: row.outcome.layers.map(checkedStepOf),
@@ -62,6 +64,18 @@ const toStackCheck = (row: Row): StackCheck =>
       leaseExpiresAt: row.leaseExpiresAt,
     }),
     waitingSince: row.waitingSince,
+    reservation:
+      row.reservedFor && row.reservedPool && row.reservedUntil
+        ? RunnerReservation.of(
+            RunnerId.of(row.reservedFor),
+            row.reservedPool,
+            row.reservedUntil,
+          )
+        : null,
+    provisioning: Provisioning.rehydrate(
+      row.provisionFailures,
+      row.nextProvisionAt,
+    ),
     version: row.version,
   });
 
@@ -83,6 +97,11 @@ const valuesOf = (check: StackCheck) => ({
   attempts: check.claim.attempts,
   leaseExpiresAt: check.claim.leaseExpiresAt,
   waitingSince: check.waitingSince,
+  reservedFor: check.reservation?.runner.value ?? null,
+  reservedPool: check.reservation?.pool ?? null,
+  reservedUntil: check.reservation?.until ?? null,
+  provisionFailures: check.provisioning.failures,
+  nextProvisionAt: check.provisioning.nextAt,
 });
 
 @Injectable()
@@ -164,6 +183,11 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
             lte(stackCheck.leaseExpiresAt, now),
           ),
           lt(stackCheck.attempts, MOST_CHECK_ATTEMPTS),
+          or(
+            isNull(stackCheck.reservedFor),
+            eq(stackCheck.reservedFor, by.runner.value),
+            lte(stackCheck.reservedUntil, now),
+          ),
           everyClauseMet(stackCheck.placement, by.terms.values),
         ),
       )
@@ -172,6 +196,116 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
       .for('update', { skipLocked: true });
 
     return row ? toStackCheck(row) : null;
+  }
+
+  async reservedTo(runner: RunnerId, now: Date): Promise<StackCheck | null> {
+    const [row] = await this.context.db
+      .select()
+      .from(stackCheck)
+      .where(
+        and(
+          eq(stackCheck.phase, 'waiting'),
+          eq(stackCheck.reservedFor, runner.value),
+          gt(stackCheck.reservedUntil, now),
+        ),
+      )
+      .limit(1)
+      .for('update', { skipLocked: true });
+
+    return row ? toStackCheck(row) : null;
+  }
+
+  async awaitingProvision(
+    workspaceId: WorkspaceId,
+    now: Date,
+    page: { readonly skip: number; readonly most: number },
+  ): Promise<readonly StackCheck[]> {
+    const rows = await this.context.db
+      .select()
+      .from(stackCheck)
+      .where(
+        and(
+          eq(stackCheck.workspaceId, workspaceId.value),
+          eq(stackCheck.phase, 'waiting'),
+          gt(
+            stackCheck.waitingSince,
+            new Date(now.getTime() - WAITING_LIMIT_MS),
+          ),
+          isNull(stackCheck.reservedFor),
+          or(
+            isNull(stackCheck.leaseExpiresAt),
+            lte(stackCheck.leaseExpiresAt, now),
+          ),
+          lt(stackCheck.attempts, MOST_CHECK_ATTEMPTS),
+          or(
+            isNull(stackCheck.nextProvisionAt),
+            lte(stackCheck.nextProvisionAt, now),
+          ),
+        ),
+      )
+      .orderBy(asc(stackCheck.waitingSince), asc(stackCheck.stackId))
+      .limit(page.most)
+      .offset(page.skip);
+
+    return rows.map(toStackCheck);
+  }
+
+  async overdue(now: Date, most: number): Promise<readonly StackCheck[]> {
+    const rows = await this.context.db
+      .select()
+      .from(stackCheck)
+      .where(
+        and(
+          eq(stackCheck.phase, 'waiting'),
+          lte(
+            stackCheck.waitingSince,
+            new Date(now.getTime() - WAITING_LIMIT_MS),
+          ),
+          or(
+            isNull(stackCheck.leaseExpiresAt),
+            lte(stackCheck.leaseExpiresAt, now),
+          ),
+        ),
+      )
+      .orderBy(asc(stackCheck.waitingSince))
+      .limit(most);
+
+    return rows.map(toStackCheck);
+  }
+
+  async withLapsedReservations(now: Date): Promise<readonly StackCheck[]> {
+    const rows = await this.context.db
+      .select()
+      .from(stackCheck)
+      .where(
+        and(
+          eq(stackCheck.phase, 'waiting'),
+          lte(stackCheck.reservedUntil, now),
+        ),
+      );
+
+    return rows.map(toStackCheck);
+  }
+
+  async waitingIn(
+    workspaceId: WorkspaceId,
+    now: Date,
+  ): Promise<readonly StackCheck[]> {
+    const rows = await this.context.db
+      .select()
+      .from(stackCheck)
+      .where(
+        and(
+          eq(stackCheck.workspaceId, workspaceId.value),
+          eq(stackCheck.phase, 'waiting'),
+          gt(
+            stackCheck.waitingSince,
+            new Date(now.getTime() - WAITING_LIMIT_MS),
+          ),
+        ),
+      );
+
+    return rows.map(toStackCheck).filter((each) => each.claimableAt(now));
   }
 
   async isClaimedBy(

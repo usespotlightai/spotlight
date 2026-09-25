@@ -11,6 +11,7 @@ export const CONFIGURED_RESOURCES = [
   'workspace-token',
   'runner',
   'runner-trust',
+  'runner-pool',
   'workspace-runners',
 ] as const;
 

@@ -38,6 +38,7 @@ import type {
 } from '@work/application/events/handlers/provision-team.handler';
 import type { StopLetGoRun } from '@work/application/events/handlers/stop-let-go-run.handler';
 import type { RunnerRevocationPort } from '@work/application/ports/runner-revocation.port';
+import type { EndPoolRunners } from '@work/application/services/end-pool-runners.service';
 import type { ProposalAcceptances } from '@work/application/services/proposal-acceptances';
 import type { RunOutcomes } from '@work/application/services/run-outcomes';
 import type { SettleSetup } from '@work/application/services/settle-setup.service';
@@ -87,11 +88,17 @@ export const workSubscribers = (reactions: {
   setup: SettleSetup;
   abandoning: AbandonTeamLines;
   runGrants: RunGrantsPort;
+  poolRunners: EndPoolRunners;
 }): readonly DomainEventSubscriber[] => [
   subscribing<RunCompleted | RunAbandoned | RunWithdrawn>(
     'work.end-secret-grants-of-ended-run',
     ['run.completed', 'run.abandoned', 'run.withdrawn'],
     (event) => reactions.runGrants.endedFor(event.runId.value),
+  ),
+  subscribing<RunCompleted | RunAbandoned | RunWithdrawn>(
+    'work.end-pool-runner-of-ended-run',
+    ['run.completed', 'run.abandoned', 'run.withdrawn'],
+    (event) => reactions.poolRunners.runEnded(event.runId),
   ),
   subscribing<TeamDisbandedIntegrationEvent>(
     'work.abandon-lines-of-disbanded-team',

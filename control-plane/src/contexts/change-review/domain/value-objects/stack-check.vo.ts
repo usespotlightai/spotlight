@@ -50,7 +50,12 @@ type ReportedSkip = (typeof REPORTED_SKIPS)[number];
 
 const NOBODY_CHECKED = 'nobody-checked';
 
-export type SkipCode = ReportedSkip | typeof NOBODY_CHECKED;
+const UNPROVISIONED = 'unprovisioned';
+
+export type SkipCode =
+  | ReportedSkip
+  | typeof NOBODY_CHECKED
+  | typeof UNPROVISIONED;
 
 const MOST_SKIP_DETAIL = 2_000;
 
@@ -70,6 +75,25 @@ export const skipOf = (code: string, detail: string | null): StackSkip => {
 
   return { code: code as ReportedSkip, detail: trimmed ? trimmed : null };
 };
+
+export const keptSkipOf = (code: string, detail: string | null): StackSkip => {
+  switch (code) {
+    case UNPROVISIONED:
+      return { code: UNPROVISIONED, detail };
+    case NOBODY_CHECKED:
+      return { code: NOBODY_CHECKED, detail };
+    default:
+      return skipOf(code, detail);
+  }
+};
+
+export const unprovisioned = (
+  failure: { readonly saying: string },
+  attempts: number,
+): StackSkip => ({
+  code: UNPROVISIONED,
+  detail: `${attempts} attempts; the last was ${failure.saying}`,
+});
 
 export const nobodyChecked = (): StackSkip => ({
   code: NOBODY_CHECKED,

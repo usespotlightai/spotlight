@@ -215,6 +215,12 @@ type Claimed struct {
 	Check *StackCheck `json:"check"`
 }
 
+type PoolClaimed struct {
+	RunnerID string  `json:"runnerId"`
+	Token    string  `json:"token"`
+	Work     Claimed `json:"work"`
+}
+
 type StackCheck struct {
 	StackID    string      `json:"stackId"`
 	RunID      string      `json:"runId"`

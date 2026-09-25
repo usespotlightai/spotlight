@@ -1,7 +1,10 @@
 import { RegisterRunnerHandler } from '@runners/application/commands/handlers/register-runner.handler';
 import { RegisterRunnerCommand } from '@runners/application/commands/runner-fleet.commands';
+import type { PoolRunner } from '@runners/domain/aggregates/pool-runner.aggregate';
 import { Runner } from '@runners/domain/aggregates/runner.aggregate';
+import { aPoolRunner } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import { RunnerMovedOnError } from '@runners/domain/exceptions/runner-moved-on.error';
+import type { PoolRunnerRepository } from '@runners/domain/repositories/pool-runner.repository';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import { RunnerName } from '@runners/domain/value-objects/runner-name.vo';
 import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
@@ -26,17 +29,26 @@ const enrolled = () =>
   });
 
 const registering = (
-  given: { known?: boolean; save?: (runner: Runner) => Promise<void> } = {},
+  given: {
+    known?: boolean;
+    pooled?: PoolRunner | null;
+    save?: (runner: Runner) => Promise<void>;
+  } = {},
 ) => {
   const save = vi.fn(given.save ?? (async (_: Runner) => {}));
   const find = vi.fn(async () => (given.known === false ? null : enrolled()));
+  const savePooled = vi.fn(async (_: PoolRunner) => {});
 
   const handler = new RegisterRunnerHandler(
     { find, save } as unknown as RunnerRepository,
+    {
+      find: vi.fn(async () => given.pooled ?? null),
+      save: savePooled,
+    } as unknown as PoolRunnerRepository,
     { now: () => NOW } as ClockPort,
   );
 
-  return { handler, save, find };
+  return { handler, save, find, savePooled };
 };
 
 const register = new RegisterRunnerCommand(ID, [
@@ -44,6 +56,19 @@ const register = new RegisterRunnerCommand(ID, [
 ]);
 
 describe('RegisterRunnerHandler', () => {
+  it('registers a pool runner with what it found installed', async () => {
+    const { handler, savePooled } = registering({
+      known: false,
+      pooled: aPoolRunner({ id: ID }),
+    });
+
+    await handler.execute(register);
+
+    expect(
+      savePooled.mock.calls[0]?.[0].harnesses.map((each) => each.value),
+    ).toEqual(['claude-code']);
+  });
+
   it('marks the runner as having reached us, with what it can run', async () => {
     const { handler, save } = registering();
 

@@ -65,3 +65,25 @@ export class ListWorkspaceRunnersResourcesQuery {
     readonly principal: Principal,
   ) {}
 }
+
+export class ReadRunnerPoolQuery {
+  constructor(
+    readonly poolId: string,
+    readonly principal: Principal,
+  ) {}
+}
+
+export class ImportRunnerPoolQuery {
+  constructor(
+    readonly workspaceId: string,
+    readonly address: string,
+    readonly principal: Principal,
+  ) {}
+}
+
+export class ListRunnerPoolResourcesQuery {
+  constructor(
+    readonly workspaceId: string,
+    readonly principal: Principal,
+  ) {}
+}

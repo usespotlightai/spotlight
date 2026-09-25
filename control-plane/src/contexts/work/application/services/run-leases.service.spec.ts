@@ -1,3 +1,4 @@
+import type { PoolRunnersPort } from '@runners/application/ports/pool-runners.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -7,7 +8,7 @@ import { Run } from '@work/domain/aggregates/run.aggregate';
 import { RunMovedOnError } from '@work/domain/exceptions/run-moved-on.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 const NOON = new Date('2026-09-17T12:00:00.000Z');
 const LATER = new Date('2026-09-17T13:00:00.000Z');
@@ -39,7 +40,10 @@ const holding = (held: Run[], movedOn: string[] = []) => {
     },
   } as unknown as RunRepository;
 
-  return { leases: new RunLeases(runs), saved };
+  const letGo = vi.fn(async () => {});
+  const pooled = { letGo } as unknown as PoolRunnersPort;
+
+  return { leases: new RunLeases(runs, pooled), saved, letGo };
 };
 
 describe('RunLeases', () => {
@@ -52,6 +56,14 @@ describe('RunLeases', () => {
     expect(saved.map((each) => each.attempt)).toEqual([2]);
   });
 
+  it('lets go of the runner whose lease lapsed', async () => {
+    const { leases, letGo } = holding([claimedBy('run_1', 'runner_1')]);
+
+    await leases.requeueLapsed(LATER);
+
+    expect(letGo).toHaveBeenCalledWith(RunnerId.of('runner_1'), LATER);
+  });
+
   it('leaves alone a run that moved on while it was being requeued', async () => {
     const { leases, saved } = holding(
       [claimedBy('run_1', 'runner_1'), claimedBy('run_2', 'runner_1')],
@@ -62,6 +74,17 @@ describe('RunLeases', () => {
 
     expect(requeued.map((each) => each.id.value)).toEqual(['run_2']);
     expect(saved.map((each) => each.id.value)).toEqual(['run_2']);
+  });
+
+  it('keeps hold of the runner of a run that moved on meanwhile', async () => {
+    const { leases, letGo } = holding(
+      [claimedBy('run_1', 'runner_1')],
+      ['run_1'],
+    );
+
+    await leases.requeueLapsed(LATER);
+
+    expect(letGo).not.toHaveBeenCalled();
   });
 
   it('puts back only what the revoked runner was holding', async () => {

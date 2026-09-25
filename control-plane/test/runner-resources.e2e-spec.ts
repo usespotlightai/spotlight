@@ -31,7 +31,7 @@ const SUBJECT = 'system:serviceaccount:spotlight:runner';
 
 const seated =
   (
-    kind: 'runners' | 'runner-trusts' | 'workspace-runners',
+    kind: 'runners' | 'runner-trusts' | 'runner-pools' | 'workspace-runners',
     bodies: Pick<
       ResourceFixture,
       'valid' | 'changed' | 'changedAgain' | 'invalid'
@@ -101,6 +101,17 @@ conformsAsResource({
       body: { key: 'Production', issuer: ISSUER, subject: SUBJECT },
       path: 'key',
     },
+  }),
+});
+
+conformsAsResource({
+  kind: 'runner-pool',
+  open: seated('runner-pools', {
+    address: 'ephemeral',
+    valid: { key: 'ephemeral', labels: ['linux'] },
+    changed: { key: 'ephemeral', labels: ['gpu'] },
+    changedAgain: { key: 'ephemeral', labels: ['gpu'], maxRuns: 2 },
+    invalid: { body: { key: 'Ephemeral' }, path: 'key' },
   }),
 });
 

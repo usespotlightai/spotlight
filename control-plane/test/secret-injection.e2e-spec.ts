@@ -106,9 +106,21 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
     return reached.call({ body: 'Fixed in the queue worker.' });
   };
 
+  const passedOn = globalThis.fetch;
+
+  const hostOf = (url: string | URL | Request): string =>
+    new URL(url instanceof Request ? url.url : String(url)).hostname;
+
   beforeAll(async () => {
-    process.env.OUTBOUND_ALLOWED_HOSTS = 'api.linear.app';
-    vi.stubGlobal('fetch', fetch);
+    vi.stubEnv(
+      'OUTBOUND_ALLOWED_HOSTS',
+      [process.env.OUTBOUND_ALLOWED_HOSTS, 'api.linear.app']
+        .filter(Boolean)
+        .join(','),
+    );
+    vi.stubGlobal('fetch', (url: string | URL | Request, init?: RequestInit) =>
+      hostOf(url) === 'api.linear.app' ? fetch(url, init) : passedOn(url, init),
+    );
     app = await openApp();
     db = app.get<DrizzleDatabase>(DRIZZLE);
   });
@@ -116,7 +128,7 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
   afterAll(async () => {
     await app.close();
     vi.unstubAllGlobals();
-    delete process.env.OUTBOUND_ALLOWED_HOSTS;
+    vi.unstubAllEnvs();
   });
 
   beforeEach(async () => {

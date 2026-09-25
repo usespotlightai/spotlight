@@ -1,10 +1,17 @@
 import { RunnerPresence } from '@runners/application/services/runner-presence.service';
+import type { PoolRunner } from '@runners/domain/aggregates/pool-runner.aggregate';
 import { Runner } from '@runners/domain/aggregates/runner.aggregate';
+import {
+  aPoolRunner,
+  STARTED_AT,
+} from '@runners/domain/aggregates/runner-pool.fake-spec';
 import { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import { RunnerMovedOnError } from '@runners/domain/exceptions/runner-moved-on.error';
+import type { PoolRunnerRepository } from '@runners/domain/repositories/pool-runner.repository';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
+import { PoolWork } from '@runners/domain/value-objects/pool-work.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerName } from '@runners/domain/value-objects/runner-name.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
@@ -20,6 +27,9 @@ const ID = RunnerId.of('runner_1');
 const NO_TRUSTS = {
   find: vi.fn(async () => null),
 } as unknown as RunnerTrustRepository;
+const NO_POOLED = {
+  find: vi.fn(async () => null),
+} as unknown as PoolRunnerRepository;
 const NOW = new Date('2026-01-02T03:04:05.000Z');
 
 const stored = (...harnesses: string[]) =>
@@ -42,6 +52,7 @@ describe('RunnerPresence', () => {
         save: vi.fn(async () => {}),
       } as unknown as RunnerRepository,
       NO_TRUSTS,
+      NO_POOLED,
     );
 
     const seen = await presence.seen(ID, NOW);
@@ -66,6 +77,7 @@ describe('RunnerPresence', () => {
         save,
       } as unknown as RunnerRepository,
       NO_TRUSTS,
+      NO_POOLED,
     ).seen(ID, NOW);
 
     expect(save.mock.calls[1]?.[0]).toMatchObject({ lastSeenAt: NOW });
@@ -78,6 +90,7 @@ describe('RunnerPresence', () => {
         find: vi.fn(async () => null),
       } as unknown as RunnerRepository,
       NO_TRUSTS,
+      NO_POOLED,
     );
 
     await expect(presence.seen(ID, NOW)).resolves.toBeNull();
@@ -115,6 +128,7 @@ describe('RunnerPresence', () => {
         save: vi.fn(async () => {}),
       } as unknown as RunnerRepository,
       { find: vi.fn(async () => trust) } as unknown as RunnerTrustRepository,
+      NO_POOLED,
     );
 
     expect((await presence.seen(ID, NOW))?.terms.values).toEqual([
@@ -142,12 +156,13 @@ describe('RunnerPresence', () => {
         save: vi.fn(async () => {}),
       } as unknown as RunnerRepository,
       NO_TRUSTS,
+      NO_POOLED,
     );
 
     await expect(presence.seen(ID, NOW)).resolves.toBeNull();
   });
 
-  it('says a runner it cannot find, or that no longer stands, answers to nothing', async () => {
+  it('says a runner it cannot find, or that no longer stands, cannot be pinned to', async () => {
     const presence = new RunnerPresence(
       {
         find: vi.fn(async () =>
@@ -155,14 +170,16 @@ describe('RunnerPresence', () => {
         ),
       } as unknown as RunnerRepository,
       NO_TRUSTS,
+      NO_POOLED,
     );
     const absent = new RunnerPresence(
       { find: vi.fn(async () => null) } as unknown as RunnerRepository,
       NO_TRUSTS,
+      NO_POOLED,
     );
 
-    expect((await presence.termsOf(ID)).values).toEqual([]);
-    expect((await absent.termsOf(ID)).values).toEqual([]);
+    expect(await presence.pinnableTerms(ID)).toBeNull();
+    expect(await absent.pinnableTerms(ID)).toBeNull();
   });
 
   it('says what a standing runner answers to, without marking it seen', async () => {
@@ -173,9 +190,56 @@ describe('RunnerPresence', () => {
         save,
       } as unknown as RunnerRepository,
       NO_TRUSTS,
+      NO_POOLED,
     );
 
-    expect((await presence.termsOf(ID)).values).toEqual(['Laptop']);
+    expect((await presence.pinnableTerms(ID))?.values).toEqual(['Laptop']);
     expect(save).not.toHaveBeenCalled();
+  });
+
+  describe('for a pool runner', () => {
+    const pooled = (runner: PoolRunner | null) => {
+      const save = vi.fn(async () => {});
+
+      return {
+        save,
+        presence: new RunnerPresence(
+          { find: vi.fn(async () => null) } as unknown as RunnerRepository,
+          NO_TRUSTS,
+          {
+            find: vi.fn(async () => runner),
+            save,
+          } as unknown as PoolRunnerRepository,
+        ),
+      };
+    };
+
+    it('answers what it may claim, marking it seen', async () => {
+      const { presence, save } = pooled(
+        aPoolRunner({
+          installed: [InstalledHarness.reported('claude-code', [], '2.1.0')],
+        }),
+      );
+
+      const seen = await presence.seen(ID, STARTED_AT);
+
+      expect(seen?.claims).toBe('reserved');
+      expect(seen?.terms.values).toEqual(['linux', 'claude-code@2.1.0']);
+      expect(save).toHaveBeenCalledOnce();
+    });
+
+    it('knows nothing of one that has ended', async () => {
+      const { presence } = pooled(
+        aPoolRunner().took(PoolWork.run('run_1'), STARTED_AT).ended(STARTED_AT),
+      );
+
+      await expect(presence.seen(ID, STARTED_AT)).resolves.toBeNull();
+    });
+
+    it('never pins a task to one, since it is gone with its run', async () => {
+      const { presence } = pooled(aPoolRunner());
+
+      await expect(presence.pinnableTerms(ID)).resolves.toBeNull();
+    });
   });
 });

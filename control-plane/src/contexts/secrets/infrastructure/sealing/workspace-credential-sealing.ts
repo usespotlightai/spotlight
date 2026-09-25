@@ -1,5 +1,10 @@
+import { CredentialUnopenableError } from '@secrets/application/errors/credential-unopenable.error';
 import type { CredentialSealingPort } from '@secrets/application/ports/credential-sealing.port';
-import { opened, sealed } from '@secrets/infrastructure/crypto/envelope';
+import {
+  opened,
+  sealed,
+  UnopenableEnvelopeError,
+} from '@secrets/infrastructure/crypto/envelope';
 import type { WorkspaceKeys } from '@secrets/infrastructure/crypto/workspace-keys';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -26,10 +31,18 @@ export class WorkspaceCredentialSealing implements CredentialSealingPort {
     label: string,
     written: string,
   ): Promise<string> {
-    return opened(
-      await this.keys.of(WorkspaceId.of(workspaceId)),
-      written,
-      boundTo(workspaceId, label),
-    ).toString('utf8');
+    try {
+      return opened(
+        await this.keys.of(WorkspaceId.of(workspaceId)),
+        written,
+        boundTo(workspaceId, label),
+      ).toString('utf8');
+    } catch (error) {
+      if (error instanceof UnopenableEnvelopeError) {
+        throw new CredentialUnopenableError(label);
+      }
+
+      throw error;
+    }
   }
 }

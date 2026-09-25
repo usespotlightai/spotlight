@@ -62,15 +62,13 @@ import {
   RunAttachmentResponseDto,
 } from '@work/presentation/http/dto/runner.request.dto';
 import {
-  ClaimedCheckResponseDto,
-  ClaimedCheckStepResponseDto,
-  ClaimedRunResponseDto,
   ClaimedWorkResponseDto,
   PermissionAnswerResponseDto,
   RenewLeaseResponseDto,
   ToolAnswerResponseDto,
 } from '@work/presentation/http/dto/runner.response.dto';
 import { TaskTraceResponseDto } from '@work/presentation/http/dto/task-trace.response.dto';
+import { ClaimedWorkHttpMapper } from '@work/presentation/http/mappers/claimed-work.http.mapper';
 import { TaskTraceHttpMapper } from '@work/presentation/http/mappers/task-trace.http.mapper';
 
 interface Answerable {
@@ -154,37 +152,7 @@ export class RunnerController {
       return undefined;
     }
 
-    if (claimed.kind === 'run') {
-      return new ClaimedWorkResponseDto(
-        'run',
-        new ClaimedRunResponseDto(claimed.run.id, claimed.run.spec),
-        null,
-      );
-    }
-
-    const { check } = claimed;
-
-    return new ClaimedWorkResponseDto(
-      'check',
-      null,
-      new ClaimedCheckResponseDto(
-        check.stackId,
-        check.runId,
-        check.repository,
-        check.base,
-        check.setup,
-        check.command,
-        check.steps.map(
-          (step) =>
-            new ClaimedCheckStepResponseDto(
-              step.id,
-              step.patch,
-              step.stopsOnFailure,
-              step.runsSetup,
-            ),
-        ),
-      ),
-    );
+    return ClaimedWorkHttpMapper.toResponse(claimed);
   }
 
   @Get('runs/:runId/messages')

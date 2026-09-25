@@ -58,6 +58,11 @@ const DEFINITION = ApiBody({
         items: { type: 'string' },
         example: ['production-cluster'],
       },
+      pools: {
+        type: 'array',
+        items: { type: 'string' },
+        example: ['ephemeral'],
+      },
     },
   },
 });

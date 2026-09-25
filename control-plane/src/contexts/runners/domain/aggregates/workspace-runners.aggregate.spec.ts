@@ -1,5 +1,6 @@
 import { WorkspaceRunners } from '@runners/domain/aggregates/workspace-runners.aggregate';
 import { WorkspaceRunnersMovedOnError } from '@runners/domain/exceptions/workspace-runners-moved-on.error';
+import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { RunnerName } from '@runners/domain/value-objects/runner-name.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runners-id.vo';
@@ -15,13 +16,14 @@ const declared = () =>
     workspaceId: WorkspaceId.of('ws_1'),
     runners: [RunnerName.of('build-1')],
     trusts: [TrustKey.of('production')],
+    pools: [PoolKey.of('ephemeral')],
     by: BY,
   });
 
 describe('WorkspaceRunners', () => {
   it('says it was declared, declared again, and dropped', () => {
     const made = declared();
-    const again = made.redeclaredAs({ runners: [], trusts: [] }, BY);
+    const again = made.redeclaredAs({ runners: [], trusts: [], pools: [] }, BY);
     const dropped = again.dropped(BY);
 
     expect(dropped.pullEvents().map((each) => each.kind)).toEqual([

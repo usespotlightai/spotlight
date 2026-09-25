@@ -294,7 +294,7 @@ const dispatch = async (
     { ofTask: async () => [] },
     catalog,
     {
-      termsOf: async () => RunnerTerms.none(),
+      pinnableTerms: async () => RunnerTerms.none(),
     } as unknown as RunnerPresencePort,
     profiles,
   );

@@ -1,18 +1,25 @@
-import type { RunnerPresencePort } from '@runners/application/ports/runner-presence.port';
+import type { PoolRunnersPort } from '@runners/application/ports/pool-runners.port';
+import type {
+  RunnerPresencePort,
+  SeenRunner,
+} from '@runners/application/ports/runner-presence.port';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
+import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { ClaimRunCommand } from '@work/application/commands/runner.commands';
-import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
 import type { ClaimedWorkDto } from '@work/application/dto/run.dto';
 import type { CheckWorkPort } from '@work/application/ports/check-work.port';
+import { claimedRun } from '@work/application/services/claimed-work';
+import { longPolled } from '@work/application/services/long-poll';
+import type { ProvisionFailures } from '@work/application/services/provision-failures.service';
 import type { RunLeases } from '@work/application/services/run-leases.service';
 import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
-
-const POLL_TIMEOUT_MS = 10_000;
-const POLL_INTERVAL_MS = 500;
+import type {
+  Claimant,
+  RunRepository,
+} from '@work/domain/repositories/run.repository';
 
 export class ClaimRunHandler
   implements CommandHandlerPort<ClaimRunCommand, ClaimedWorkDto | null>
@@ -23,6 +30,8 @@ export class ClaimRunHandler
     private readonly presence: RunnerPresencePort,
     private readonly clock: ClockPort,
     private readonly checks: CheckWorkPort,
+    private readonly pooled: PoolRunnersPort,
+    private readonly failures: ProvisionFailures,
   ) {}
 
   async execute(command: ClaimRunCommand): Promise<ClaimedWorkDto | null> {
@@ -36,50 +45,97 @@ export class ClaimRunHandler
         );
       }
 
+      if (seen.claims === 'nothing') {
+        return null;
+      }
+
       await this.leases.requeueLapsed(this.clock.now());
 
-      const deadline = this.clock.now().getTime() + POLL_TIMEOUT_MS;
+      const claimant: Claimant = {
+        runner: runnerId,
+        workspaceId: seen.workspaceId,
+        harnesses: seen.harnesses,
+        terms: seen.terms,
+        claims: seen.claims,
+      };
 
-      for (;;) {
-        const claimed = await this.runs.claimNext(
-          {
-            runner: runnerId,
-            workspaceId: seen.workspaceId,
-            harnesses: seen.harnesses,
-            terms: seen.terms,
-          },
-          this.clock.now(),
-        );
-
-        if (claimed) {
-          return {
-            kind: 'run',
-            run: {
-              id: claimed.id.value,
-              spec: RunSpecContract.toWire(claimed.spec),
-            },
-          };
-        }
-
-        const check = await this.checks.claimNext(
-          seen.workspaceId,
-          runnerId,
-          seen.terms,
-          this.clock.now(),
-        );
-
-        if (check) {
-          return { kind: 'check', check };
-        }
-
-        if (this.clock.now().getTime() >= deadline) {
-          return null;
-        }
-
-        await this.clock.sleep(POLL_INTERVAL_MS);
-      }
+      return seen.claims === 'reserved'
+        ? await this.reserved(claimant)
+        : await this.anything(claimant, seen);
     } catch (error) {
       rethrowAsFault(error);
     }
+  }
+
+  private async reserved(claimant: Claimant): Promise<ClaimedWorkDto | null> {
+    const waiting = await this.runs.waitingFor(claimant.runner);
+
+    if (
+      waiting &&
+      !claimant.harnesses.some((each) => each.equals(waiting.harness))
+    ) {
+      await this.failures.failed(
+        waiting.id,
+        claimant.runner,
+        ProvisionFailure.harnessMissing(waiting.harness.value),
+        this.clock.now(),
+      );
+      await this.pooled.letGo(claimant.runner, this.clock.now());
+
+      return null;
+    }
+
+    return longPolled(this.clock, async () => {
+      const claimed = await this.runs.claimNext(claimant, this.clock.now());
+
+      if (claimed) {
+        await this.pooled.took(
+          claimant.runner,
+          { kind: 'run', id: claimed.id.value },
+          this.clock.now(),
+        );
+
+        return claimedRun(claimed);
+      }
+
+      const check = await this.checks.claimReserved(
+        claimant.runner,
+        this.clock.now(),
+      );
+
+      if (!check) {
+        return null;
+      }
+
+      await this.pooled.took(
+        claimant.runner,
+        { kind: 'check', id: check.stackId },
+        this.clock.now(),
+      );
+
+      return { kind: 'check', check };
+    });
+  }
+
+  private anything(
+    claimant: Claimant,
+    seen: SeenRunner,
+  ): Promise<ClaimedWorkDto | null> {
+    return longPolled(this.clock, async () => {
+      const claimed = await this.runs.claimNext(claimant, this.clock.now());
+
+      if (claimed) {
+        return claimedRun(claimed);
+      }
+
+      const check = await this.checks.claimNext(
+        seen.workspaceId,
+        claimant.runner,
+        seen.terms,
+        this.clock.now(),
+      );
+
+      return check ? { kind: 'check', check } : null;
+    });
   }
 }

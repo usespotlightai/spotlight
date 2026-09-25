@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { ResourceResponseDto } from '@platform/http/dto/resource.response.dto';
 import type {
+  RunnerPoolResourceDto,
   RunnerResourceDto,
   RunnerTrustResourceDto,
   WorkspaceRunnersResourceDto,
@@ -94,6 +95,91 @@ export class RunnerTrustResourceResponseDto extends ResourceResponseDto {
   }
 }
 
+export class PoolProvisionResponseDto {
+  @ApiProperty({
+    example: 'https://provision.example.com/runs',
+    description:
+      'Called with every run the pool is to serve, signed as Standard Webhooks sign',
+  })
+  readonly url: string;
+
+  @ApiProperty({
+    type: 'integer',
+    nullable: true,
+    example: 1,
+    description:
+      'Changed to rotate provision.secret, which is write-only and never answered',
+  })
+  readonly secretVersion: number | null;
+
+  constructor(url: string, secretVersion: number | null) {
+    this.url = url;
+    this.secretVersion = secretVersion;
+  }
+}
+
+export class RunnerPoolResourceResponseDto extends ResourceResponseDto {
+  @ApiProperty(WORKSPACE_ID)
+  readonly workspaceId: string;
+
+  @ApiProperty({
+    example: 'ephemeral',
+    description: 'Names the pool, and is its address; fixed for its life',
+  })
+  readonly key: string;
+
+  @ApiProperty(LABELS)
+  readonly labels: readonly string[];
+
+  @ApiProperty({
+    type: 'integer',
+    nullable: true,
+    example: 8,
+    description: 'The most runs the pool serves at once, or null for no limit',
+  })
+  readonly maxRuns: number | null;
+
+  @ApiProperty({
+    enum: ['pull', 'push'],
+    example: 'pull',
+    description:
+      'pull when runners claim with the pool token, push when Spotlight calls provision; fixed for its life, and not settable',
+  })
+  readonly mode: 'pull' | 'push';
+
+  @ApiProperty({
+    type: 'integer',
+    nullable: true,
+    example: 1,
+    description:
+      'Changed, with a new token, to rotate the pool token of a pull pool, which is write-only and never answered',
+  })
+  readonly tokenVersion: number | null;
+
+  @ApiProperty({
+    type: PoolProvisionResponseDto,
+    nullable: true,
+    description: 'How Spotlight starts a runner for each run, for a push pool',
+  })
+  readonly provision: PoolProvisionResponseDto | null;
+
+  constructor(pool: RunnerPoolResourceDto) {
+    super(pool);
+    this.workspaceId = pool.workspaceId;
+    this.key = pool.key;
+    this.labels = pool.labels;
+    this.maxRuns = pool.maxRuns;
+    this.mode = pool.mode;
+    this.tokenVersion = pool.tokenVersion;
+    this.provision = pool.provision
+      ? new PoolProvisionResponseDto(
+          pool.provision.url,
+          pool.provision.secretVersion,
+        )
+      : null;
+  }
+}
+
 export class WorkspaceRunnersResourceResponseDto extends ResourceResponseDto {
   @ApiProperty(WORKSPACE_ID)
   readonly workspaceId: string;
@@ -117,6 +203,14 @@ export class WorkspaceRunnersResourceResponseDto extends ResourceResponseDto {
   @ApiProperty({
     type: String,
     isArray: true,
+    example: ['ephemeral'],
+    description: 'The runner pools, by key, whose runners it means to have',
+  })
+  readonly pools: readonly string[];
+
+  @ApiProperty({
+    type: String,
+    isArray: true,
     example: [],
     description:
       'Runners enrolled all the same, outside what is declared; not settable',
@@ -128,6 +222,7 @@ export class WorkspaceRunnersResourceResponseDto extends ResourceResponseDto {
     this.workspaceId = declared.workspaceId;
     this.runners = declared.runners;
     this.trusts = declared.trusts;
+    this.pools = declared.pools;
     this.drift = declared.drift;
   }
 }

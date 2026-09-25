@@ -1,8 +1,11 @@
 import {
   DecryptCommand,
   GenerateDataKeyCommand,
+  IncorrectKeyException,
+  InvalidCiphertextException,
   type KMSClient,
 } from '@aws-sdk/client-kms';
+import { UnopenableEnvelopeError } from '@secrets/infrastructure/crypto/envelope';
 import type {
   IssuedDataKey,
   KeyContext,
@@ -37,13 +40,26 @@ export class AwsKeyManagement implements KeyManagement {
   }
 
   async unwrap(wrapped: string, context: KeyContext): Promise<Uint8Array> {
-    const unwrapped = await this.kms.send(
-      new DecryptCommand({
-        KeyId: this.keyId,
-        CiphertextBlob: Buffer.from(wrapped, 'base64'),
-        EncryptionContext: { ...context },
-      }),
-    );
+    const unwrapped = await this.kms
+      .send(
+        new DecryptCommand({
+          KeyId: this.keyId,
+          CiphertextBlob: Buffer.from(wrapped, 'base64'),
+          EncryptionContext: { ...context },
+        }),
+      )
+      .catch((error: unknown) => {
+        if (
+          error instanceof InvalidCiphertextException ||
+          error instanceof IncorrectKeyException
+        ) {
+          throw new UnopenableEnvelopeError(
+            `AWS KMS does not unwrap the data key (${error.name})`,
+          );
+        }
+
+        throw error;
+      });
 
     if (!unwrapped.Plaintext) {
       throw new Error('AWS KMS unwrapped a data key to nothing');

@@ -187,6 +187,11 @@ CREATE TABLE "stack_check" (
 	"attempts" integer DEFAULT 0 NOT NULL,
 	"lease_expires_at" timestamp,
 	"waiting_since" timestamp NOT NULL,
+	"reserved_for" text,
+	"reserved_pool" text,
+	"reserved_until" timestamp,
+	"provision_failures" integer DEFAULT 0 NOT NULL,
+	"next_provision_at" timestamp,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -365,6 +370,25 @@ CREATE TABLE "oauth2_spent_nonce" (
 	"until" timestamp NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "pool_runner" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"pool_id" text NOT NULL,
+	"labels" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"token_hash" text NOT NULL,
+	"harnesses" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"advertised_models" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"harness_versions" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"work_kind" text,
+	"work_id" text,
+	"claim_by" timestamp NOT NULL,
+	"started_at" timestamp NOT NULL,
+	"last_seen_at" timestamp,
+	"ended_at" timestamp,
+	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "pool_runner_whole_work" CHECK (("pool_runner"."work_kind" is null) = ("pool_runner"."work_id" is null))
+);
+--> statement-breakpoint
 CREATE TABLE "runner" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
@@ -380,6 +404,22 @@ CREATE TABLE "runner" (
 	"last_seen_at" timestamp,
 	"revision" integer DEFAULT 0 NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "runner_pool" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"key" text NOT NULL,
+	"labels" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"max_runs" integer,
+	"token_hash" text,
+	"token_version" integer,
+	"provision_url" text,
+	"provision_secret" text,
+	"provision_secret_version" integer,
+	"version" integer DEFAULT 0 NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "runner_pool_one_mode" CHECK (("runner_pool"."token_hash" is null) <> ("runner_pool"."provision_url" is null) and ("runner_pool"."provision_url" is null) = ("runner_pool"."provision_secret" is null))
 );
 --> statement-breakpoint
 CREATE TABLE "runner_trust" (
@@ -399,6 +439,7 @@ CREATE TABLE "workspace_runners" (
 	"workspace_id" text NOT NULL,
 	"runners" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"trusts" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"pools" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -578,6 +619,11 @@ CREATE TABLE "run" (
 	"claimed_by" text,
 	"lease_expires_at" timestamp,
 	"stop_requested_at" timestamp,
+	"reserved_for" text,
+	"reserved_pool" text,
+	"reserved_until" timestamp,
+	"provision_failures" integer DEFAULT 0 NOT NULL,
+	"next_provision_at" timestamp,
 	"exit_code" integer,
 	"message" text,
 	"stopped" boolean DEFAULT false NOT NULL,
@@ -724,6 +770,8 @@ CREATE INDEX "review_sync_due_idx" ON "review_sync" USING btree ("state","due_at
 CREATE INDEX "review_sync_task_idx" ON "review_sync" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "stack_check_run_idx" ON "stack_check" USING btree ("run_id");--> statement-breakpoint
 CREATE INDEX "stack_check_waiting_idx" ON "stack_check" USING btree ("workspace_id","phase");--> statement-breakpoint
+CREATE INDEX "stack_check_reserved_idx" ON "stack_check" USING btree ("reserved_for");--> statement-breakpoint
+CREATE INDEX "stack_check_overdue_idx" ON "stack_check" USING btree ("phase","waiting_since");--> statement-breakpoint
 CREATE INDEX "configuration_change_workspace_idx" ON "configuration_change" USING btree ("workspace_id","seq");--> statement-breakpoint
 CREATE INDEX "team_workspace_idx" ON "team" USING btree ("workspace_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "team_workspace_key_idx" ON "team" USING btree ("workspace_id","key");--> statement-breakpoint
@@ -734,10 +782,15 @@ CREATE INDEX "team_member_user_idx" ON "team_member" USING btree ("user_id");-->
 CREATE INDEX "workspace_member_user_idx" ON "workspace_member" USING btree ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "workspace_token_workspace_name_idx" ON "workspace_token" USING btree ("workspace_id","name");--> statement-breakpoint
 CREATE INDEX "inbound_delivery_state_idx" ON "inbound_delivery" USING btree ("state","due_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "pool_runner_token_hash_idx" ON "pool_runner" USING btree ("token_hash");--> statement-breakpoint
+CREATE INDEX "pool_runner_standing_idx" ON "pool_runner" USING btree ("pool_id") WHERE "pool_runner"."ended_at" is null;--> statement-breakpoint
+CREATE INDEX "pool_runner_work_idx" ON "pool_runner" USING btree ("work_kind","work_id") WHERE "pool_runner"."ended_at" is null;--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_token_hash_idx" ON "runner" USING btree ("token_hash");--> statement-breakpoint
 CREATE INDEX "runner_workspace_idx" ON "runner" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "runner_trust_id_idx" ON "runner" USING btree ("trust_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_workspace_name_idx" ON "runner" USING btree ("workspace_id","name") WHERE "runner"."revoked_at" is null;--> statement-breakpoint
+CREATE UNIQUE INDEX "runner_pool_workspace_key_idx" ON "runner_pool" USING btree ("workspace_id","key");--> statement-breakpoint
+CREATE UNIQUE INDEX "runner_pool_token_hash_idx" ON "runner_pool" USING btree ("token_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_trust_workspace_key_idx" ON "runner_trust" USING btree ("workspace_id","key");--> statement-breakpoint
 CREATE UNIQUE INDEX "workspace_runners_workspace_idx" ON "workspace_runners" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "attachment_claim_task_idx" ON "attachment_claim" USING btree ("task_id");--> statement-breakpoint
@@ -760,6 +813,7 @@ CREATE INDEX "run_target_idx" ON "run" USING btree ("target_runner_id");--> stat
 CREATE INDEX "run_lease_idx" ON "run" USING btree ("lease_expires_at");--> statement-breakpoint
 CREATE INDEX "run_workspace_idx" ON "run" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "run_chat_idx" ON "run" USING btree ("chat_id");--> statement-breakpoint
+CREATE INDEX "run_reserved_idx" ON "run" USING btree ("reserved_for");--> statement-breakpoint
 CREATE INDEX "task_station_idx" ON "task" USING btree ("station_id","rank");--> statement-breakpoint
 CREATE INDEX "task_workspace_idx" ON "task" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "task_attachment_task_idx" ON "task_attachment" USING btree ("task_id","note_position");--> statement-breakpoint

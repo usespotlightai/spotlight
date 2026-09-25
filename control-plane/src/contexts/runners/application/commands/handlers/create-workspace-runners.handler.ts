@@ -77,6 +77,7 @@ export class CreateWorkspaceRunnersHandler
               by: Attribution.of(command.actor, cleared.workspaceId),
               runners: compiled.runners,
               trusts: compiled.trusts,
+              pools: compiled.pools,
             });
 
             await this.declarations.add(declared);

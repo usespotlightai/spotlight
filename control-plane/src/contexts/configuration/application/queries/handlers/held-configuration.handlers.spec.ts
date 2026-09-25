@@ -78,12 +78,24 @@ const TRUST = {
   labels: [],
 };
 
+const POOL = {
+  id: 'pool_1',
+  address: 'burst',
+  workspaceId: WORKSPACE,
+  key: 'burst',
+  labels: ['gpu'],
+  maxRuns: 4,
+  tokenVersion: 1,
+  provision: null,
+};
+
 const DECLARED = {
   id: 'declared_1',
   address: 'acme',
   workspaceId: WORKSPACE,
   runners: ['build-1'],
   trusts: ['cluster'],
+  pools: ['burst'],
 };
 
 const handlers = (over: { cleared?: boolean } = {}) => {
@@ -238,12 +250,14 @@ const handlers = (over: { cleared?: boolean } = {}) => {
         runnerOf('runner_1', 'build-1'),
       ],
       trusts: [TRUST],
+      pools: [POOL],
       declared: DECLARED,
     })),
     runnerWithId: vi.fn(async (id: string) =>
       id === 'runner_1' ? runnerOf('runner_1', 'build-1') : null,
     ),
     trustWithId: vi.fn(async (id: string) => (id === TRUST.id ? TRUST : null)),
+    poolWithId: vi.fn(async (id: string) => (id === POOL.id ? POOL : null)),
     declaredWithId: vi.fn(async (id: string) =>
       id === DECLARED.id ? DECLARED : null,
     ),
@@ -298,6 +312,7 @@ describe('WorkspaceConfigurationHandler', () => {
         'runner build-1',
         'runner build-2',
         'runner-trust cluster',
+        'runner-pool burst',
         'workspace-runners acme',
         'team core',
         'line core/delivery',
@@ -348,6 +363,7 @@ describe('ResourceConfigurationHandler', () => {
     ['secret', 'secret_1', 'LINEAR_API_KEY'],
     ['runner', 'runner_1', 'build-1'],
     ['runner-trust', 'trust_1', 'cluster'],
+    ['runner-pool', 'pool_1', 'burst'],
     ['workspace-runners', 'declared_1', 'acme'],
   ] as const)(
     'holds the %s with its whole workspace around it',
@@ -360,6 +376,26 @@ describe('ResourceConfigurationHandler', () => {
     },
   );
 
+  it('holds a pool with its labels, its limit and the token version it pulls with', async () => {
+    expect((await one('runner-pool', 'pool_1'))?.resource).toEqual({
+      kind: 'runner-pool',
+      heldBy: 'workspace',
+      id: 'pool_1',
+      address: 'burst',
+      key: 'burst',
+      labels: ['gpu'],
+      maxRuns: 4,
+      tokenVersion: 1,
+      provision: null,
+    });
+  });
+
+  it('holds the pools the workspace declares', async () => {
+    expect(
+      (await one('workspace-runners', 'declared_1'))?.resource,
+    ).toMatchObject({ pools: ['burst'] });
+  });
+
   it('holds nothing for someone who may not read the workspace', async () => {
     expect(await one('line', 'line_delivery', { cleared: false })).toBeNull();
   });
@@ -367,5 +403,6 @@ describe('ResourceConfigurationHandler', () => {
   it('holds nothing its workspace does not hold', async () => {
     expect(await one('skill', 'skill_gone')).toBeNull();
     expect(await one('runner', 'runner_enrolled_by_trust')).toBeNull();
+    expect(await one('runner-pool', 'pool_gone')).toBeNull();
   });
 });

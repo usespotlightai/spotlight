@@ -1,9 +1,12 @@
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import type { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
+import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
+import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
@@ -42,6 +45,8 @@ export class Run extends EventRecorder {
     readonly outcome: RunOutcome | null,
     readonly attempt: number,
     readonly stopRequestedAt: Date | null,
+    readonly reservation: RunnerReservation | null,
+    readonly provisioning: Provisioning,
     readonly version: number = 0,
   ) {
     super();
@@ -72,6 +77,8 @@ export class Run extends EventRecorder {
       null,
       1,
       null,
+      null,
+      Provisioning.none(),
     );
   }
 
@@ -90,6 +97,8 @@ export class Run extends EventRecorder {
     outcome: RunOutcome | null;
     attempt: number;
     stopRequestedAt?: Date | null;
+    reservation: RunnerReservation | null;
+    provisioning: Provisioning;
     version?: number;
   }): Run {
     Run.guardReconstituted(input);
@@ -109,6 +118,8 @@ export class Run extends EventRecorder {
       input.outcome,
       input.attempt,
       input.stopRequestedAt ?? null,
+      input.reservation,
+      input.provisioning,
       input.version ?? 0,
     );
   }
@@ -159,12 +170,93 @@ export class Run extends EventRecorder {
         'cannot be claimed by a runner it was not meant for',
       );
     }
+    if (this.isReservedAt(now) && !this.reservation?.heldFor(by)) {
+      throw new InvalidRunTransitionError(
+        'cannot be claimed while it waits for the runner provisioned for it',
+      );
+    }
 
     return this.with({
       state: 'claimed',
       claimedBy: by,
       leaseExpiresAt: this.leaseFrom(now),
+      reservation: null,
     });
+  }
+
+  isReservedAt(now: Date): boolean {
+    return this.reservation?.holdsAt(now) ?? false;
+  }
+
+  reservationLapsedAt(now: Date): boolean {
+    return (
+      this.state === 'queued' &&
+      this.reservation !== null &&
+      !this.reservation.holdsAt(now)
+    );
+  }
+
+  provisionableAt(now: Date): boolean {
+    return (
+      this.state === 'queued' &&
+      this.targetRunner === null &&
+      this.reservation === null &&
+      this.provisioning.dueAt(now)
+    );
+  }
+
+  reservedFor(runner: RunnerId, pool: string, now: Date): Run {
+    if (!this.provisionableAt(now)) {
+      throw new InvalidRunTransitionError(
+        `cannot be reserved for a runner to be provisioned while it is ${this.state}${this.reservation ? ' and reserved' : ''}`,
+      );
+    }
+
+    return this.with({
+      reservation: RunnerReservation.from(runner, pool, now),
+    });
+  }
+
+  unreservedFor(runner: RunnerId): Run {
+    if (this.state !== 'queued' || !this.reservation?.heldFor(runner)) {
+      return this;
+    }
+
+    return this.with({ reservation: null });
+  }
+
+  provisionFailed(runner: RunnerId, failure: ProvisionFailure, now: Date): Run {
+    if (this.state !== 'queued' || !this.reservation?.heldFor(runner)) {
+      return this;
+    }
+
+    const provisioning = this.provisioning.failedAt(now);
+
+    if (!provisioning.exhausted) {
+      return this.with({ reservation: null, provisioning });
+    }
+
+    const outcome = RunOutcome.unprovisioned(failure, provisioning.failures);
+    const failed = this.with({
+      state: 'failed',
+      reservation: null,
+      provisioning,
+      outcome,
+    });
+
+    failed.record(
+      new RunCompleted(
+        this.id,
+        this.workspaceId,
+        this.subject,
+        outcome,
+        null,
+        null,
+        null,
+      ),
+    );
+
+    return failed;
   }
 
   requeue(now: Date): Run {
@@ -202,6 +294,8 @@ export class Run extends EventRecorder {
       claimedBy: null,
       leaseExpiresAt: null,
       attempt: this.attempt + 1,
+      reservation: null,
+      provisioning: Provisioning.none(),
     });
   }
 
@@ -357,6 +451,8 @@ export class Run extends EventRecorder {
     outcome?: RunOutcome | null;
     attempt?: number;
     stopRequestedAt?: Date | null;
+    reservation?: RunnerReservation | null;
+    provisioning?: Provisioning;
   }): Run {
     const next = new Run(
       this.id,
@@ -377,6 +473,8 @@ export class Run extends EventRecorder {
       part.stopRequestedAt !== undefined
         ? part.stopRequestedAt
         : this.stopRequestedAt,
+      part.reservation !== undefined ? part.reservation : this.reservation,
+      part.provisioning ?? this.provisioning,
       this.version,
     );
 

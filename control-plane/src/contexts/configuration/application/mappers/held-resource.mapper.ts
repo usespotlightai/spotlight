@@ -6,6 +6,7 @@ import type { TeamProfile } from '@identity/application/ports/team-directory.por
 import type { WorkspaceProfile } from '@identity/application/ports/workspace-reader.port';
 import type {
   ConfiguredRunner,
+  ConfiguredRunnerPool,
   ConfiguredRunnerTrust,
   ConfiguredWorkspaceRunners,
 } from '@runners/application/ports/runner-configuration.port';
@@ -74,6 +75,20 @@ export const HeldResourceMapper = {
     };
   },
 
+  pool(pool: ConfiguredRunnerPool): HeldResourceDto {
+    return {
+      kind: 'runner-pool',
+      heldBy: 'workspace',
+      id: pool.id,
+      address: pool.address,
+      key: pool.key,
+      labels: [...pool.labels],
+      maxRuns: pool.maxRuns,
+      tokenVersion: pool.tokenVersion,
+      provision: pool.provision ? { ...pool.provision } : null,
+    };
+  },
+
   declared(declared: ConfiguredWorkspaceRunners): HeldResourceDto {
     return {
       kind: 'workspace-runners',
@@ -82,6 +97,7 @@ export const HeldResourceMapper = {
       address: declared.address,
       runners: [...declared.runners],
       trusts: [...declared.trusts],
+      pools: [...declared.pools],
     };
   },
 

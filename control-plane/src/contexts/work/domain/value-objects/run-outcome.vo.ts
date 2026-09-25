@@ -52,6 +52,17 @@ export class RunOutcome {
     );
   }
 
+  static unprovisioned(
+    failure: { readonly saying: string },
+    attempts: number,
+  ): RunOutcome {
+    return new RunOutcome(
+      -1,
+      true,
+      `No runner was provisioned for it in ${attempts} attempts; the last was ${failure.saying}`,
+    );
+  }
+
   static abandoned(reason: string): RunOutcome {
     return new RunOutcome(-1, true, reason);
   }

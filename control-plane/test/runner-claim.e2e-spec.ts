@@ -7,6 +7,7 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
@@ -53,12 +54,29 @@ const queue = async (workspaceId: string, placement: string[][] = []) => {
   return id;
 };
 
-const claimant = (workspaceId: string, terms = ['runner-1']) => ({
-  runner: RunnerId.of(randomUUID()),
+const claimant = (
+  workspaceId: string,
+  terms = ['runner-1'],
+  claims: 'any' | 'reserved' = 'any',
+  runner = RunnerId.of(randomUUID()),
+) => ({
+  runner,
   workspaceId: WorkspaceId.of(workspaceId),
   harnesses: [HarnessId.of('dev')],
   terms: RunnerTerms.of(terms),
+  claims,
 });
+
+const reserve = async (runId: string, runner: RunnerId, until: Date) => {
+  await db
+    .update(schema.run)
+    .set({
+      reservedFor: runner.value,
+      reservedPool: 'pool_1',
+      reservedUntil: until,
+    })
+    .where(eq(schema.run.id, runId));
+};
 
 const awaitingCheck = async (workspaceId: string, placement: string[][]) => {
   const stackId = randomUUID();
@@ -125,5 +143,97 @@ describe('claiming placed work', () => {
 
     expect(due?.stackId.value).toBe(placed);
     expect(due?.request.placement.clauses).toEqual([['vpc-internal']]);
+  });
+});
+describe('claiming a run reserved for a provisioned runner', () => {
+  const LATER = new Date(NOW.getTime() + 60_000);
+
+  it('hands it only to the runner it was reserved for, while the reservation holds', async () => {
+    const workspaceId = randomUUID();
+    const provisioned = RunnerId.of(randomUUID());
+    const runId = await queue(workspaceId);
+    await reserve(runId, provisioned, LATER);
+
+    expect(await runs.claimNext(claimant(workspaceId), NOW)).toBeNull();
+
+    const claimed = await runs.claimNext(
+      claimant(workspaceId, ['runner-1'], 'reserved', provisioned),
+      NOW,
+    );
+
+    expect(claimed?.id.value).toBe(runId);
+    expect(claimed?.reservation).toBeNull();
+  });
+
+  it('lets any runner take it once the reservation has lapsed', async () => {
+    const workspaceId = randomUUID();
+    const runId = await queue(workspaceId);
+    await reserve(runId, RunnerId.of(randomUUID()), NOW);
+
+    expect((await runs.claimNext(claimant(workspaceId), LATER))?.id.value).toBe(
+      runId,
+    );
+  });
+
+  it('gives a provisioned runner nothing but its own reservation', async () => {
+    const workspaceId = randomUUID();
+    await queue(workspaceId);
+
+    expect(
+      await runs.claimNext(
+        claimant(workspaceId, ['runner-1'], 'reserved'),
+        NOW,
+      ),
+    ).toBeNull();
+  });
+});
+describe('claiming a check reserved for a provisioned runner', () => {
+  const LATER = new Date(NOW.getTime() + 60_000);
+
+  const reserveCheck = async (
+    stackId: string,
+    runner: RunnerId,
+    until: Date,
+  ) => {
+    await db
+      .update(schema.stackCheck)
+      .set({
+        reservedFor: runner.value,
+        reservedPool: 'pool_1',
+        reservedUntil: until,
+      })
+      .where(eq(schema.stackCheck.stackId, stackId));
+  };
+
+  const by = (workspaceId: string, runner = RunnerId.of(randomUUID())) => ({
+    workspaceId: WorkspaceId.of(workspaceId),
+    runner,
+    terms: RunnerTerms.none(),
+  });
+
+  it('hides it from every other runner while the reservation holds', async () => {
+    const provisioned = RunnerId.of(randomUUID());
+    const workspaceId = randomUUID();
+    const stackId = await awaitingCheck(workspaceId, []);
+    await reserveCheck(stackId, provisioned, LATER);
+
+    await expect(checks.dueForCheck(by(workspaceId), NOW)).resolves.toBeNull();
+    expect((await checks.reservedTo(provisioned, NOW))?.stackId.value).toBe(
+      stackId,
+    );
+    expect(
+      (await checks.dueForCheck(by(workspaceId, provisioned), NOW))?.stackId
+        .value,
+    ).toBe(stackId);
+  });
+
+  it('lets any runner take it once the reservation has lapsed', async () => {
+    const workspaceId = randomUUID();
+    const stackId = await awaitingCheck(workspaceId, []);
+    await reserveCheck(stackId, RunnerId.of(randomUUID()), NOW);
+
+    expect(
+      (await checks.dueForCheck(by(workspaceId), LATER))?.stackId.value,
+    ).toBe(stackId);
   });
 });

@@ -1,6 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { DrizzlePoolRunnerRepository } from '@runners/infrastructure/persistence/drizzle/repositories/pool-runner.repository';
 import { DrizzleRunnerRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner.repository';
 import { DrizzleRunnerTrustRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-trust.repository';
+import {
+  CLOCK,
+  type ClockPort,
+} from '@shared-kernel/application/ports/clock.port';
 import type { RunnerIdentityPort } from '@shared-kernel/application/ports/runner-identity.port';
 import {
   TOKEN_MINT,
@@ -14,7 +19,9 @@ export class RunnerTokenAuth implements RunnerIdentityPort {
   constructor(
     private readonly runners: DrizzleRunnerRepository,
     private readonly trusts: DrizzleRunnerTrustRepository,
+    private readonly pooled: DrizzlePoolRunnerRepository,
     @Inject(TOKEN_MINT) private readonly tokens: TokenMintPort,
+    @Inject(CLOCK) private readonly clock: ClockPort,
   ) {}
 
   async identify(token: string | undefined): Promise<RunnerId | null> {
@@ -22,12 +29,17 @@ export class RunnerTokenAuth implements RunnerIdentityPort {
       return null;
     }
 
-    const found = await this.runners.findByTokenHash(
-      TokenHash.of(this.tokens.hash(token)),
-    );
+    const hash = TokenHash.of(this.tokens.hash(token));
+    const found = await this.runners.findByTokenHash(hash);
 
-    const trust = found?.trustId ? await this.trusts.find(found.trustId) : null;
+    if (!found) {
+      const pooled = await this.pooled.findByTokenHash(hash);
 
-    return found?.standsWith(trust) ? found.id : null;
+      return pooled?.standsAt(this.clock.now()) ? pooled.id : null;
+    }
+
+    const trust = found.trustId ? await this.trusts.find(found.trustId) : null;
+
+    return found.standsWith(trust) ? found.id : null;
   }
 }

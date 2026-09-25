@@ -479,6 +479,46 @@ export type CompleteRunRequestDto = {
   stopped?: boolean;
 };
 
+export type ClaimPoolWorkRequestDto = {
+  /**
+   * The harnesses installed where the runner runs, as registering reports them
+   */
+  harnesses?: Array<Array<unknown>>;
+};
+
+export type PoolClaimResponseDto = {
+  /**
+   * The one-run runner Spotlight started for this work
+   */
+  runnerId: string;
+  /**
+   * The one-run credential, good only for this work and only until it ends; every later call carries it instead of the pool token
+   */
+  token: string;
+  work: ClaimedWorkResponseDto;
+};
+
+export type PoolQueueResponseDto = {
+  /**
+   * Runs and checks waiting that this pool could take, for an autoscaler to start runners for
+   */
+  pending: number;
+  /**
+   * The pool’s runners standing now: holding a run or check, or started and yet to claim
+   */
+  running: number;
+  /**
+   * How many more runs the pool may take at once under maxRuns, or null for no limit
+   */
+  capacity: number | null;
+  /**
+   * Of what is pending, how many name each of the pool’s labels in their placement
+   */
+  labels: {
+    [key: string]: number;
+  };
+};
+
 export type HeldRunResponseDto = {
   id: string;
   state: string;
@@ -1271,7 +1311,7 @@ export type ConfigurationChangeResponseDto = {
    * Rises with every change; pass it as before to page back
    */
   seq: number;
-  resource: 'workspace' | 'team' | 'line' | 'skill' | 'harness-profile' | 'integration' | 'secret' | 'workspace-token' | 'runner' | 'runner-trust' | 'workspace-runners';
+  resource: 'workspace' | 'team' | 'line' | 'skill' | 'harness-profile' | 'integration' | 'secret' | 'workspace-token' | 'runner' | 'runner-trust' | 'runner-pool' | 'workspace-runners';
   resourceId: string;
   /**
    * The key it had within its team or workspace
@@ -1653,6 +1693,71 @@ export type RunnerTrustResourceListResponseDto = {
   items: Array<RunnerTrustResourceResponseDto>;
 };
 
+export type PoolProvisionResponseDto = {
+  /**
+   * Called with every run the pool is to serve, signed as Standard Webhooks sign
+   */
+  url: string;
+  /**
+   * Changed to rotate provision.secret, which is write-only and never answered
+   */
+  secretVersion: number | null;
+};
+
+export type RunnerPoolResourceResponseDto = {
+  /**
+   * Issued by Spotlight when the resource is created, and never changed
+   */
+  id: string;
+  /**
+   * Rises with every change; the ETag carries it, and a write sends it back as If-Match
+   */
+  version: number;
+  /**
+   * Names the resource within its workspace; terraform import takes it
+   */
+  address: string;
+  /**
+   * What would work better, though nothing stops it working; not settable
+   */
+  warnings: Array<FieldErrorResponseDto>;
+  /**
+   * The workspace it belongs to
+   */
+  workspaceId: string;
+  /**
+   * Names the pool, and is its address; fixed for its life
+   */
+  key: string;
+  /**
+   * What a line or station may name in runners to place its work here, beside the runner name
+   */
+  labels: Array<string>;
+  /**
+   * The most runs the pool serves at once, or null for no limit
+   */
+  maxRuns: number | null;
+  /**
+   * pull when runners claim with the pool token, push when Spotlight calls provision; fixed for its life, and not settable
+   */
+  mode: 'pull' | 'push';
+  /**
+   * Changed, with a new token, to rotate the pool token of a pull pool, which is write-only and never answered
+   */
+  tokenVersion: number | null;
+  /**
+   * How Spotlight starts a runner for each run, for a push pool
+   */
+  provision: PoolProvisionResponseDto | null;
+};
+
+export type RunnerPoolResourceListResponseDto = {
+  /**
+   * Every one there is, each as a read would answer it, in address order
+   */
+  items: Array<RunnerPoolResourceResponseDto>;
+};
+
 export type WorkspaceRunnersResourceResponseDto = {
   /**
    * Issued by Spotlight when the resource is created, and never changed
@@ -1682,6 +1787,10 @@ export type WorkspaceRunnersResourceResponseDto = {
    * The runner trusts, by key, whose runners it means to have
    */
   trusts: Array<string>;
+  /**
+   * The runner pools, by key, whose runners it means to have
+   */
+  pools: Array<string>;
   /**
    * Runners enrolled all the same, outside what is declared; not settable
    */
@@ -3151,6 +3260,72 @@ export type CompleteRunResponses = {
 };
 
 export type CompleteRunResponse = CompleteRunResponses[keyof CompleteRunResponses];
+
+export type PoolHarnessesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/pools/harnesses';
+};
+
+export type PoolHarnessesErrors = {
+  /**
+   * Missing, rotated or unknown pool token
+   */
+  401: unknown;
+};
+
+export type PoolHarnessesResponses = {
+  200: Array<InstallableHarnessResponseDto>;
+};
+
+export type PoolHarnessesResponse = PoolHarnessesResponses[keyof PoolHarnessesResponses];
+
+export type ClaimPoolWorkData = {
+  body: ClaimPoolWorkRequestDto;
+  path?: never;
+  query?: never;
+  url: '/pools/claim';
+};
+
+export type ClaimPoolWorkErrors = {
+  /**
+   * Missing, rotated or unknown pool token
+   */
+  401: unknown;
+};
+
+export type ClaimPoolWorkResponses = {
+  200: PoolClaimResponseDto;
+  /**
+   * Nothing for this pool yet, or it is at maxRuns
+   */
+  204: void;
+};
+
+export type ClaimPoolWorkResponse = ClaimPoolWorkResponses[keyof ClaimPoolWorkResponses];
+
+export type PoolQueueData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/pools/{id}/queue';
+};
+
+export type PoolQueueErrors = {
+  /**
+   * Missing, rotated or unknown pool token
+   */
+  401: unknown;
+};
+
+export type PoolQueueResponses = {
+  200: PoolQueueResponseDto;
+};
+
+export type PoolQueueResponse = PoolQueueResponses[keyof PoolQueueResponses];
 
 export type ListRunnerActivityData = {
   body?: never;
@@ -6716,6 +6891,393 @@ export type ImportRunnerTrustResponses = {
 
 export type ImportRunnerTrustResponse = ImportRunnerTrustResponses[keyof ImportRunnerTrustResponses];
 
+export type ListRunnerPoolsData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{workspaceId}/runner-pools';
+};
+
+export type ListRunnerPoolsErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ListRunnerPoolsError = ListRunnerPoolsErrors[keyof ListRunnerPoolsErrors];
+
+export type ListRunnerPoolsResponses = {
+  /**
+   * Every runner-pool there, each as a read would answer it, in address order
+   */
+  200: RunnerPoolResourceListResponseDto;
+};
+
+export type ListRunnerPoolsResponse = ListRunnerPoolsResponses[keyof ListRunnerPoolsResponses];
+
+export type CreateRunnerPoolData = {
+  body: {
+    key: string;
+    labels?: Array<string>;
+    /**
+     * The most runs the pool serves at once; left out, no limit
+     */
+    maxRuns?: number | null;
+    /**
+     * Write-only, and only for a pool without provision: the token its runners claim with, kept only as a hash and never answered. Left out on create, Spotlight issues one and answers it once in Spotlight-Pool-Token
+     */
+    token?: string;
+    /**
+     * Changed, with a new token, to rotate the pool token in place: the old token is refused at once, while runs already claimed keep their own one-run credentials
+     */
+    tokenVersion?: number | null;
+    /**
+     * Makes the pool push: Spotlight calls url with each run it is to serve, and the pool has no token. Fixed for the pool’s life
+     */
+    provision?: {
+      url: string;
+      /**
+       * Write-only: signs each call as Standard Webhooks sign, given as whsec_ and 24 to 64 base64 bytes. Required on create, and whenever secretVersion changes
+       */
+      secret?: string;
+      /**
+       * Changed to rotate the secret
+       */
+      secretVersion?: number | null;
+    } | null;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     */
+    'Idempotency-Key': string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{workspaceId}/runner-pools';
+};
+
+export type CreateRunnerPoolErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the runner-pool: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such runner-pool that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * There is already a runner-pool at that address
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field; or the Idempotency-Key was used for a different request
+   */
+  422: ProblemResponseDto;
+};
+
+export type CreateRunnerPoolError = CreateRunnerPoolErrors[keyof CreateRunnerPoolErrors];
+
+export type CreateRunnerPoolResponses = {
+  /**
+   * The runner-pool, as a read would answer it
+   *
+   * The runner pool, as a read would answer it
+   */
+  201: RunnerPoolResourceResponseDto;
+};
+
+export type CreateRunnerPoolResponse = CreateRunnerPoolResponses[keyof CreateRunnerPoolResponses];
+
+export type DeleteRunnerPoolData = {
+  body?: never;
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/runner-pools/{id}';
+};
+
+export type DeleteRunnerPoolErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the runner-pool: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such runner-pool that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type DeleteRunnerPoolError = DeleteRunnerPoolErrors[keyof DeleteRunnerPoolErrors];
+
+export type DeleteRunnerPoolResponses = {
+  /**
+   * Deleted
+   */
+  204: void;
+};
+
+export type DeleteRunnerPoolResponse = DeleteRunnerPoolResponses[keyof DeleteRunnerPoolResponses];
+
+export type ReadRunnerPoolData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/runner-pools/{id}';
+};
+
+export type ReadRunnerPoolErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such runner-pool that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadRunnerPoolError = ReadRunnerPoolErrors[keyof ReadRunnerPoolErrors];
+
+export type ReadRunnerPoolResponses = {
+  /**
+   * The runner-pool, every field of it
+   */
+  200: RunnerPoolResourceResponseDto;
+};
+
+export type ReadRunnerPoolResponse = ReadRunnerPoolResponses[keyof ReadRunnerPoolResponses];
+
+export type UpdateRunnerPoolData = {
+  body: {
+    key: string;
+    labels?: Array<string>;
+    /**
+     * The most runs the pool serves at once; left out, no limit
+     */
+    maxRuns?: number | null;
+    /**
+     * Write-only, and only for a pool without provision: the token its runners claim with, kept only as a hash and never answered. Left out on create, Spotlight issues one and answers it once in Spotlight-Pool-Token
+     */
+    token?: string;
+    /**
+     * Changed, with a new token, to rotate the pool token in place: the old token is refused at once, while runs already claimed keep their own one-run credentials
+     */
+    tokenVersion?: number | null;
+    /**
+     * Makes the pool push: Spotlight calls url with each run it is to serve, and the pool has no token. Fixed for the pool’s life
+     */
+    provision?: {
+      url: string;
+      /**
+       * Write-only: signs each call as Standard Webhooks sign, given as whsec_ and 24 to 64 base64 bytes. Required on create, and whenever secretVersion changes
+       */
+      secret?: string;
+      /**
+       * Changed to rotate the secret
+       */
+      secretVersion?: number | null;
+    } | null;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/runner-pools/{id}';
+};
+
+export type UpdateRunnerPoolErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the runner-pool: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such runner-pool that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field
+   */
+  422: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type UpdateRunnerPoolError = UpdateRunnerPoolErrors[keyof UpdateRunnerPoolErrors];
+
+export type UpdateRunnerPoolResponses = {
+  /**
+   * The runner-pool, as a read would answer it
+   */
+  200: RunnerPoolResourceResponseDto;
+};
+
+export type UpdateRunnerPoolResponse = UpdateRunnerPoolResponses[keyof UpdateRunnerPoolResponses];
+
+export type ImportRunnerPoolData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query: {
+    /**
+     * The runner-pool's address within the workspace
+     */
+    address: unknown;
+  };
+  url: '/resources/workspaces/{workspaceId}/runner-pools/import';
+};
+
+export type ImportRunnerPoolErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such runner-pool that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ImportRunnerPoolError = ImportRunnerPoolErrors[keyof ImportRunnerPoolErrors];
+
+export type ImportRunnerPoolResponses = {
+  /**
+   * The runner-pool, as a read would answer it
+   */
+  200: RunnerPoolResourceResponseDto;
+};
+
+export type ImportRunnerPoolResponse = ImportRunnerPoolResponses[keyof ImportRunnerPoolResponses];
+
 export type ListWorkspaceRunnersData = {
   body?: never;
   headers?: {
@@ -6765,6 +7327,7 @@ export type CreateWorkspaceRunnersData = {
   body: {
     runners?: Array<string>;
     trusts?: Array<string>;
+    pools?: Array<string>;
   };
   headers: {
     /**
@@ -6935,6 +7498,7 @@ export type UpdateWorkspaceRunnersData = {
   body: {
     runners?: Array<string>;
     trusts?: Array<string>;
+    pools?: Array<string>;
   };
   headers: {
     /**
@@ -7862,7 +8426,7 @@ export type ReadResourceHclData = {
     'Spotlight-Client'?: string;
   };
   path: {
-    collection: 'workspaces' | 'teams' | 'lines' | 'skills' | 'harness-profiles' | 'integrations' | 'secrets' | 'runners' | 'runner-trusts' | 'workspace-runners';
+    collection: 'workspaces' | 'teams' | 'lines' | 'skills' | 'harness-profiles' | 'integrations' | 'secrets' | 'runners' | 'runner-trusts' | 'runner-pools' | 'workspace-runners';
     id: string;
   };
   query?: never;

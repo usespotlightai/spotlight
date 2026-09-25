@@ -1,11 +1,15 @@
 import type { ChangeStackReactions } from '@change-review/application/events/handlers/change-stack-reactions.handler';
 import type { ReviewReactions } from '@change-review/application/events/handlers/review-reactions.handler';
 import type { ChangeStackAnnouncerPort } from '@change-review/application/ports/change-stack-announcer.port';
+import type { CheckRunnersPort } from '@change-review/application/ports/check-runners.port';
 import type { AskForDecisions } from '@change-review/application/services/ask-for-decisions.service';
 import type { ForgetTaskAcrossAggregates } from '@change-review/application/services/forget-task-across-aggregates.service';
 import type { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
 import type { SettleDecisions } from '@change-review/application/services/settle-decisions.service';
 import type { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
+import { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
+import { LayersFailedCheck } from '@change-review/domain/events/layers-failed-check.event';
+import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { changeReviewSubscribers } from '@change-review/presentation/events/change-review.subscribers';
 import type { PullRequestClosedIntegrationEvent } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import type { ReviewCommentReceivedIntegrationEvent } from '@shared-kernel/application/integration-events/review-comment-received.integration-event';
@@ -45,6 +49,7 @@ const hearing = () => {
     {} as unknown as ReviewReactions,
     { receive } as unknown as ReceiveReviewComment,
     {} as unknown as SignalReviewing,
+    {} as never,
     {} as never,
     {} as never,
     {} as never,
@@ -117,6 +122,7 @@ describe('change review hearing a run begin and end', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
     const hearing = (kind: string) => {
       const found = subscribers.find((each) => each.kinds.includes(kind));
@@ -184,6 +190,7 @@ describe('change review hearing a run end', () => {
       { runEnded } as unknown as AskForDecisions,
       {} as never,
       {} as never,
+      {} as never,
     ).find((each) => each.name === 'change-review.ask-for-decisions');
 
     const ofTask: RunEndedIntegrationEvent = {
@@ -225,6 +232,7 @@ describe('change review hearing a pull request close', () => {
       {} as never,
       { closed } as unknown as SettleDecisions,
       {} as never,
+      {} as never,
     ).find((each) => each.name === 'change-review.settle-decisions');
 
     const merged: PullRequestClosedIntegrationEvent = {
@@ -246,5 +254,52 @@ describe('change review hearing a pull request close', () => {
       merge: { commit: 'c'.repeat(40) },
       closedAt: new Date('2026-09-21T09:30:00.000Z'),
     });
+  });
+});
+
+describe('change review hearing a stack’s check end', () => {
+  const releasing = () => {
+    const released = vi.fn(async () => {});
+    const subscriber = changeReviewSubscribers(
+      {} as unknown as ChangeStackReactions,
+      {} as unknown as ChangeStackAnnouncerPort,
+      {} as unknown as ForgetTaskAcrossAggregates,
+      {} as unknown as ReviewReactions,
+      {} as unknown as ReceiveReviewComment,
+      {} as unknown as SignalReviewing,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { released } as unknown as CheckRunnersPort,
+    ).find(
+      (each) => each.name === 'change-review.release-runner-of-checked-stack',
+    );
+
+    if (!subscriber) {
+      throw new Error('nobody releases the runner of a checked stack');
+    }
+
+    return { subscriber, released };
+  };
+
+  it('releases the runner of a stack that passed its check', async () => {
+    const { subscriber, released } = releasing();
+
+    await subscriber.handle(
+      new ChangeStackChecked(ChangeStackId.of('stack_1'), RunId.of('run_1')),
+    );
+
+    expect(released).toHaveBeenCalledWith(ChangeStackId.of('stack_1'));
+  });
+
+  it('releases the runner of a stack whose layers failed their check', async () => {
+    const { subscriber, released } = releasing();
+
+    await subscriber.handle(
+      new LayersFailedCheck(ChangeStackId.of('stack_1'), RunId.of('run_1')),
+    );
+
+    expect(released).toHaveBeenCalledWith(ChangeStackId.of('stack_1'));
   });
 });
