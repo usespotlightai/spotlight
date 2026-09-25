@@ -39,6 +39,9 @@ type Journal interface {
 	Delivered(ctx context.Context, runID string, upTo int) error
 	Attachment(ctx context.Context, runID, attachmentID string, into io.Writer) error
 	AskPermission(ctx context.Context, runID string, asked protocol.PermissionAsked) (protocol.PermissionAnswer, error)
+	WorkspaceArchive(ctx context.Context, runID string) (*protocol.HeldArchive, error)
+	GrantArchive(ctx context.Context, runID string, size int64, sha256 string) (protocol.ArchiveGrant, error)
+	SealArchive(ctx context.Context, runID, archiveID string) error
 }
 
 const (
@@ -84,6 +87,9 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 			log.Warn("could not remove workspace", "error", err)
 		}
 	}()
+
+	keeper := newKeeper(run, space, journal, opts.Journal, log)
+	keeper.restore(ctx)
 
 	if len(run.Spec.Checkouts) > 0 {
 		serving, err := gitproxy.Serve(opts.ControlPlane, opts.Token, run.ID)
@@ -147,6 +153,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 	journal.record(ctx, protocol.Event{Type: protocol.EventWorkspaceReady, Message: space.Dir})
+	keeper.settled()
 
 	channel, err := declare.Serve(
 		run.Spec.Handover.Options,
@@ -198,13 +205,20 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	}
 	defer harness.Close()
 
+	leave := func() {
+		_ = harness.Close()
+		keeper.keep(ctx)
+	}
+
 	if err := lifecycle.reach(AgentStarted); err != nil {
+		leave()
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 	log.Info("agent started", "executable", run.Spec.Command.Executable, "cwd", cwd)
 
 	sessionID, err := open(ctx, harness, run.Spec.Continuity.SessionID, log)
 	if err != nil {
+		leave()
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
@@ -215,6 +229,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	exitCode, stopped := work(ctx, harness, sessionID, run, journal, opts.Journal, attached, &putToPerson, log)
 
 	if err := lifecycle.reach(AgentExited); err != nil {
+		leave()
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
@@ -224,6 +239,9 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	if declared == nil {
 		declared = space.Outcome()
 	}
+
+	// Before the publish hook, so nothing its credentials leave behind is carried to the next agent.
+	leave()
 
 	// After the agent has exited, so push credentials never overlap with it.
 	if err := opts.runHook(ctx, opts.PublishHook, space.Dir, run, journal, log, "publish"); err != nil {

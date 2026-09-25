@@ -1495,6 +1495,135 @@
         ]
       }
     },
+    "/runs/{runId}/workspace-archive": {
+      "get": {
+        "operationId": "readWorkspaceArchive",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeldArchiveResponseDto"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Nothing to restore: the run starts its work afresh"
+          },
+          "401": {
+            "description": "Missing or wrong enrollment token"
+          },
+          "404": {
+            "description": "Not this runner’s run"
+          }
+        },
+        "summary": "The archive to restore before the run starts: the workspace the conversation it carries on was left in",
+        "tags": [
+          "runners"
+        ]
+      },
+      "post": {
+        "operationId": "grantWorkspaceArchive",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantWorkspaceArchiveRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveGrantResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong enrollment token"
+          },
+          "404": {
+            "description": "Not this runner’s run"
+          },
+          "422": {
+            "description": "Too large, not a SHA-256, work that does not carry on, or nowhere to keep it"
+          }
+        },
+        "summary": "Keep the workspace as the run leaves it: a place to upload its archive, for this size and SHA-256 only",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/workspace-archive/{archiveId}/sealed": {
+      "post": {
+        "operationId": "sealWorkspaceArchive",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "archiveId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing or wrong enrollment token"
+          },
+          "404": {
+            "description": "Not this runner’s run, or not an archive granted to it"
+          },
+          "409": {
+            "description": "Not uploaded, or uploaded other than as granted"
+          }
+        },
+        "summary": "Say the archive is uploaded, so the next run of this work restores it",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
     "/pools/harnesses": {
       "get": {
         "operationId": "poolHarnesses",
@@ -15522,6 +15651,80 @@
         "required": [
           "exitCode",
           "failed"
+        ]
+      },
+      "HeldArchiveResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "0b6f3c2e-6c55-4b8e-9d7a-2f4e1a9c8d31"
+          },
+          "url": {
+            "type": "string",
+            "description": "Where to GET the archive, for a quarter of an hour"
+          },
+          "size": {
+            "type": "number",
+            "example": 48213551
+          },
+          "sha256": {
+            "type": "string",
+            "example": "9f2c1d0e8b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f10"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "size",
+          "sha256"
+        ]
+      },
+      "GrantWorkspaceArchiveRequestDto": {
+        "type": "object",
+        "properties": {
+          "size": {
+            "type": "number",
+            "example": 48213551,
+            "description": "The archive’s size in bytes, as it will be uploaded"
+          },
+          "sha256": {
+            "type": "string",
+            "example": "9f2c1d0e8b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f10",
+            "description": "The archive’s SHA-256, as 64 hexadecimal digits"
+          }
+        },
+        "required": [
+          "size",
+          "sha256"
+        ]
+      },
+      "ArchiveGrantResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "0b6f3c2e-6c55-4b8e-9d7a-2f4e1a9c8d31"
+          },
+          "url": {
+            "type": "string",
+            "description": "Where to PUT the archive, for a quarter of an hour; the upload must carry every header given"
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "example": {
+              "content-type": "application/gzip",
+              "x-amz-checksum-sha256": "nywdDot6b15NPCsaD56NfG5Kp9PS0bmo9+bWxLOqLxA="
+            }
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "headers"
         ]
       },
       "ClaimPoolWorkRequestDto": {

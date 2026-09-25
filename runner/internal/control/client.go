@@ -231,6 +231,48 @@ func (c *Client) Attachment(
 	return nil
 }
 
+func (c *Client) WorkspaceArchive(ctx context.Context, runID string) (*protocol.HeldArchive, error) {
+	path := fmt.Sprintf("/api/runs/%s/workspace-archive", url.PathEscape(runID))
+
+	var held protocol.HeldArchive
+	status, err := c.request(ctx, http.MethodGet, path, nil, &held)
+	if err != nil {
+		return nil, fmt.Errorf("ask for the workspace to restore: %w", err)
+	}
+	if status == http.StatusNoContent {
+		return nil, nil
+	}
+
+	return &held, nil
+}
+
+func (c *Client) GrantArchive(
+	ctx context.Context, runID string, size int64, sha256 string,
+) (protocol.ArchiveGrant, error) {
+	path := fmt.Sprintf("/api/runs/%s/workspace-archive", url.PathEscape(runID))
+
+	var granted protocol.ArchiveGrant
+	asked := protocol.ArchiveRequest{Size: size, SHA256: sha256}
+	if err := c.do(ctx, http.MethodPost, path, asked, &granted); err != nil {
+		return protocol.ArchiveGrant{}, fmt.Errorf("ask to keep the workspace: %w", err)
+	}
+
+	return granted, nil
+}
+
+func (c *Client) SealArchive(ctx context.Context, runID, archiveID string) error {
+	path := fmt.Sprintf(
+		"/api/runs/%s/workspace-archive/%s/sealed",
+		url.PathEscape(runID), url.PathEscape(archiveID),
+	)
+
+	if err := c.do(ctx, http.MethodPost, path, nil, nil); err != nil {
+		return fmt.Errorf("seal the workspace kept: %w", err)
+	}
+
+	return nil
+}
+
 func (c *Client) DraftChangeStack(ctx context.Context, runID, repository, diff, base string) error {
 	path := fmt.Sprintf("/api/runs/%s/change-stacks", url.PathEscape(runID))
 	handed := protocol.ChangeStackDraft{Diff: diff, Repository: repository, Base: base}

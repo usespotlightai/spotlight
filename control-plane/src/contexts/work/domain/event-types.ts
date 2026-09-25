@@ -25,6 +25,8 @@ import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import { Approval } from '@work/domain/value-objects/approval.vo';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
+import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
+import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
@@ -90,12 +92,15 @@ import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { WayOut } from '@work/domain/value-objects/way-out.vo';
+import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 
 export const WORK_EVENT_TYPES = [
   AgentPrompt,
   Approval,
   ApprovalNeeded,
   ApprovalSubject,
+  ArchiveDigest,
+  ArchiveSize,
   AttachmentId,
   Attachment,
   Branch,
@@ -161,6 +166,7 @@ export const WORK_EVENT_TYPES = [
   Trail,
   Voice,
   WayOut,
+  WorkspaceArchiveId,
   ChatHandedToRun,
   ChatStarted,
   LineRepositoriesChanged,

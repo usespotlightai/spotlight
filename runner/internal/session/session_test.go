@@ -37,6 +37,7 @@ type journal struct {
 	drafted   []drafted
 	decision  string
 	asked     []protocol.PermissionAsked
+	archives  *keptArchives
 }
 
 func (j *journal) AppendEvents(_ context.Context, _ string, events []protocol.Event) error {
@@ -50,6 +51,9 @@ func (j *journal) RenewLease(context.Context, string) (bool, error) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	j.renewals++
+	if j.archives != nil {
+		j.archives.renewed()
+	}
 	return j.stopAfter > 0 && j.renewals >= j.stopAfter, nil
 }
 
@@ -129,6 +133,26 @@ func (j *journal) AskPermission(
 		return protocol.PermissionAnswer{}, errors.New("503 Service Unavailable")
 	}
 	return protocol.PermissionAnswer{Decision: j.decision}, nil
+}
+
+func (j *journal) WorkspaceArchive(_ context.Context, _ string) (*protocol.HeldArchive, error) {
+	if j.archives == nil {
+		return nil, nil
+	}
+	return j.archives.newest(), nil
+}
+
+func (j *journal) GrantArchive(
+	_ context.Context, _ string, size int64, sha256 string,
+) (protocol.ArchiveGrant, error) {
+	if j.archives == nil {
+		return protocol.ArchiveGrant{}, errors.New("422 Unprocessable Entity: nowhere to keep one")
+	}
+	return j.archives.grant(size, sha256), nil
+}
+
+func (j *journal) SealArchive(_ context.Context, _ string, archiveID string) error {
+	return j.archives.seal(archiveID)
 }
 
 func (j *journal) typed(kind protocol.EventType) []protocol.Event {
@@ -252,6 +276,7 @@ type runOptions struct {
 	files       map[string]string
 	setup       protocol.HarnessSetup
 	decision    string
+	archives    *keptArchives
 }
 
 func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
@@ -267,6 +292,7 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 		stopAfter: settings.stopAfter,
 		files:     settings.files,
 		decision:  settings.decision,
+		archives:  settings.archives,
 	}
 	err := session.Execute(context.Background(), protocol.Run{
 		ID: "run_1",
@@ -299,6 +325,9 @@ func said(t *testing.T, written *journal) string {
 
 	var heard strings.Builder
 	for _, event := range written.typed(protocol.EventOutput) {
+		if event.Message != "" {
+			continue
+		}
 		var update struct {
 			Update struct {
 				Content struct {
