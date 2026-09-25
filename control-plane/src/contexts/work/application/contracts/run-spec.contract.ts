@@ -210,7 +210,6 @@ const continuityOf = (raw: unknown): RunContinuity => {
   return {
     key: stringAt(given.key, 'where to carry on'),
     ...(sessionId !== undefined ? { sessionId } : {}),
-    keep: booleanAt(given.keep, 'whether to keep the workspace'),
   };
 };
 
@@ -289,7 +288,6 @@ export const RunSpecContract = {
       continuity: {
         key: continuity?.key ?? '',
         sessionId: continuity?.sessionId,
-        keep: continuity?.keep ?? false,
       },
     });
   },
@@ -300,7 +298,6 @@ export const RunSpecContract = {
       ...(continuity.sessionId
         ? { sessionId: continuity.sessionId.value }
         : {}),
-      keep: true,
     };
   },
 

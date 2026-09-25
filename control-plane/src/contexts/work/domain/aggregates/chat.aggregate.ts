@@ -256,7 +256,6 @@ export class Chat extends EventRecorder {
     return Continuity.of({
       key: ContinuityKey.forChat(this.id.value),
       sessionId: this.sessionId,
-      pinnedTo: this.sessionId ? this.runnerId : null,
     });
   }
 

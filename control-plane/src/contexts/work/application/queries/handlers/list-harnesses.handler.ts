@@ -1,5 +1,5 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import type { RunnerPoolsPort } from '@runners/application/ports/runner-pools.port';
+import type { RunnerAdmissionsPort } from '@runners/application/ports/runner-admissions.port';
 import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
@@ -13,11 +13,11 @@ import type {
   HarnessCatalogueEntry,
   HarnessLaunchPort,
 } from '@work/application/ports/harness-launch.port';
+import type { HostHarnessesQuery } from '@work/application/queries/host.queries';
 import type {
   HarnessCatalogueQuery,
   ListHarnessesQuery,
 } from '@work/application/queries/list-harnesses.query';
-import type { PoolHarnessesQuery } from '@work/application/queries/pool.queries';
 
 export class ListHarnessesHandler
   implements QueryHandlerPort<ListHarnessesQuery, HarnessDto[] | null>
@@ -62,17 +62,17 @@ export class HarnessCatalogueHandler
   }
 }
 
-export class PoolHarnessesHandler
-  implements QueryHandlerPort<PoolHarnessesQuery, HarnessDto[] | null>
+export class HostHarnessesHandler
+  implements QueryHandlerPort<HostHarnessesQuery, HarnessDto[] | null>
 {
   constructor(
     private readonly launch: HarnessLaunchPort,
-    private readonly pools: RunnerPoolsPort,
+    private readonly admissions: RunnerAdmissionsPort,
   ) {}
 
-  async execute(query: PoolHarnessesQuery): Promise<HarnessDto[] | null> {
+  async execute(query: HostHarnessesQuery): Promise<HarnessDto[] | null> {
     try {
-      return (await this.pools.pulledWith(query.token))
+      return (await this.admissions.admit(query.credential))
         ? this.launch.catalogue().map((entry) => dtoFor(entry, []))
         : null;
     } catch (error) {

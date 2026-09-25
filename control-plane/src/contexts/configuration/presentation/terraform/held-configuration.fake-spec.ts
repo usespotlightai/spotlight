@@ -228,14 +228,6 @@ export const HELD: HeldConfigurationDto = {
       valueVersion: null,
     },
     {
-      kind: 'runner',
-      heldBy: 'workspace',
-      id: 'runner_build',
-      address: 'build-1',
-      name: 'build-1',
-      labels: ['vpc-internal'],
-    },
-    {
       kind: 'runner-trust',
       heldBy: 'workspace',
       id: 'trust_cluster',
@@ -276,7 +268,6 @@ export const HELD: HeldConfigurationDto = {
       heldBy: 'workspace',
       id: 'declared_acme',
       address: 'acme',
-      runners: ['build-1', 'gone-1'],
       trusts: ['production-cluster'],
       pools: ['burst', 'k8s-jobs', 'retired'],
     },

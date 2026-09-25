@@ -1,42 +1,64 @@
 import type {
-  ConnectedRunnerResponseDto,
+  AdmittedThroughResponseDto,
   HeldRunResponseDto,
+  HostResponseDto,
+  LiveRunnerResponseDto,
   RunnerActivityResponseDto,
+  RunnerFleetResponseDto,
 } from '@/lib/api';
 
-export type Runner = ConnectedRunnerResponseDto & {
+export type Host = HostResponseDto & {
+  readonly runs: readonly HeldRunResponseDto[];
+};
+
+export type ProvisionedRunner = LiveRunnerResponseDto & {
   readonly currentRun: HeldRunResponseDto | null;
 };
 
+export type Fleet = {
+  readonly hosts: readonly Host[];
+  readonly provisioned: readonly ProvisionedRunner[];
+};
+
 export const withActivity = (
-  runners: readonly ConnectedRunnerResponseDto[],
+  fleet: RunnerFleetResponseDto,
   activity: readonly RunnerActivityResponseDto[],
-): Runner[] =>
-  runners.map((runner) => ({
-    ...runner,
-    currentRun:
-      activity.find((each) => each.runnerId === runner.id)?.currentRun ?? null,
-  }));
+): Fleet => {
+  const runOf = (runnerId: string) =>
+    activity.find((each) => each.runnerId === runnerId)?.currentRun ?? null;
+
+  return {
+    hosts: fleet.hosts.map((host) => ({
+      ...host,
+      runs: host.running.flatMap((runner) => {
+        const run = runOf(runner);
+        return run ? [run] : [];
+      }),
+    })),
+    provisioned: fleet.runners
+      .filter((runner) => runner.hostId === null)
+      .map((runner) => ({ ...runner, currentRun: runOf(runner.id) })),
+  };
+};
 
 export const runnersPath = (slug: string) => `/w/${slug}/runners`;
 
-const isReachable = (runner: Runner) => runner.connected;
+export const answeringCount = (fleet: Fleet) =>
+  fleet.hosts.filter((host) => host.answering).length;
 
-export const reachableCount = (runners: readonly Runner[]) =>
-  runners.filter(isReachable).length;
-
-export const standing = (runner: Runner): string => {
-  if (runner.revokedAt) {
-    return 'Revoked';
-  }
-  if (!runner.lastSeenAt) {
-    return 'Never connected';
-  }
-  if (!runner.connected) {
+export const standing = (host: Host): string => {
+  if (!host.answering) {
     return 'Not answering';
   }
 
-  return runner.currentRun ? 'Running' : 'Idle';
+  return host.running.length > 0
+    ? `Running ${host.running.length} of ${host.capacity}`
+    : 'Idle';
+};
+
+export const through = (way: AdmittedThroughResponseDto): string => {
+  const kind = way.kind === 'pool' ? 'Pool' : 'Trust';
+  return way.key === null ? `${kind} no longer defined` : `${kind} ${way.key}`;
 };
 
 const MINUTE = 60_000;
@@ -62,10 +84,10 @@ export const since = (at: string): string => {
   });
 };
 
-export const seenAt = (runner: Runner): string =>
-  runner.lastSeenAt
-    ? `Last seen ${since(runner.lastSeenAt)}`
-    : `Registered ${since(runner.registeredAt)}`;
+export const seenAt = (host: Host): string =>
+  host.answering
+    ? `Up since ${since(host.firstSeenAt)}`
+    : `Last seen ${since(host.lastSeenAt)}`;
 
 export type NamedHarness = {
   readonly id: string;
@@ -73,10 +95,10 @@ export type NamedHarness = {
 };
 
 export const harnessesOf = (
-  runner: Runner,
+  ids: readonly string[],
   harnesses: readonly NamedHarness[] | undefined,
 ): NamedHarness[] =>
-  runner.harnesses.map((id) => ({
+  ids.map((id) => ({
     id,
     name: harnesses?.find((harness) => harness.id === id)?.name ?? id,
   }));

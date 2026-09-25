@@ -1,12 +1,8 @@
 import type { RunGrantsPort } from '@secrets/application/ports/run-grants.port';
 import {
-  RUNNER_REGISTERED,
-  type RunnerRegisteredIntegrationEvent,
-} from '@shared-kernel/application/integration-events/runner-registered.integration-event';
-import {
-  RUNNER_REVOKED,
-  type RunnerRevokedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/runner-revoked.integration-event';
+  RUNNER_WAY_IN_OPENED,
+  type RunnerWayInOpenedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/runner-way-in-opened.integration-event';
 import {
   TEAM_CREATED,
   type TeamCreatedIntegrationEvent,
@@ -23,7 +19,6 @@ import {
   type DomainEventSubscriber,
   subscribing,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
-import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -37,8 +32,7 @@ import type {
   ProvisionTeam,
 } from '@work/application/events/handlers/provision-team.handler';
 import type { StopLetGoRun } from '@work/application/events/handlers/stop-let-go-run.handler';
-import type { RunnerRevocationPort } from '@work/application/ports/runner-revocation.port';
-import type { EndPoolRunners } from '@work/application/services/end-pool-runners.service';
+import type { EndRunners } from '@work/application/services/end-runners.service';
 import type { ProposalAcceptances } from '@work/application/services/proposal-acceptances';
 import type { RunOutcomes } from '@work/application/services/run-outcomes';
 import type { SettleSetup } from '@work/application/services/settle-setup.service';
@@ -79,7 +73,6 @@ export const workSubscribers = (reactions: {
   chatOutcomes: RunOutcomes;
   digests: RunOutcomes;
   provisioning: ProvisionTeam;
-  revocation: RunnerRevocationPort;
   acceptances: ProposalAcceptances;
   outsideTools: NotifyOutsideTools;
   taskRuns: EnqueueTaskRun;
@@ -88,7 +81,7 @@ export const workSubscribers = (reactions: {
   setup: SettleSetup;
   abandoning: AbandonTeamLines;
   runGrants: RunGrantsPort;
-  poolRunners: EndPoolRunners;
+  runners: EndRunners;
 }): readonly DomainEventSubscriber[] => [
   subscribing<RunCompleted | RunAbandoned | RunWithdrawn>(
     'work.end-secret-grants-of-ended-run',
@@ -96,9 +89,9 @@ export const workSubscribers = (reactions: {
     (event) => reactions.runGrants.endedFor(event.runId.value),
   ),
   subscribing<RunCompleted | RunAbandoned | RunWithdrawn>(
-    'work.end-pool-runner-of-ended-run',
+    'work.end-runner-of-ended-run',
     ['run.completed', 'run.abandoned', 'run.withdrawn'],
-    (event) => reactions.poolRunners.runEnded(event.runId),
+    (event) => reactions.runners.runEnded(event.runId),
   ),
   subscribing<TeamDisbandedIntegrationEvent>(
     'work.abandon-lines-of-disbanded-team',
@@ -124,12 +117,6 @@ export const workSubscribers = (reactions: {
     'work.settle-on-connection',
     [WORKSPACE_CONNECTED],
     (event) => reactions.setup.forWorkspace(WorkspaceId.of(event.workspaceId)),
-  ),
-  subscribing<RunnerRevokedIntegrationEvent>(
-    'work.release-held-runs',
-    [RUNNER_REVOKED],
-    (event) =>
-      reactions.revocation.onRunnerRevoked(RunnerId.of(event.runnerId)),
   ),
   subscribing<ProposalAccepted>(
     'work.create-task-from-proposal',
@@ -161,9 +148,9 @@ export const workSubscribers = (reactions: {
     ['chat.handed-to-run'],
     (event) => reactions.chatRuns.on(event),
   ),
-  subscribing<RunnerRegisteredIntegrationEvent>(
-    'work.settle-on-runner',
-    [RUNNER_REGISTERED],
+  subscribing<RunnerWayInOpenedIntegrationEvent>(
+    'work.settle-on-way-in',
+    [RUNNER_WAY_IN_OPENED],
     (event) => reactions.setup.forWorkspace(WorkspaceId.of(event.workspaceId)),
   ),
 ];

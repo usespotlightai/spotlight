@@ -471,7 +471,6 @@ export class Task extends EventRecorder {
         stationId: this.stationId.value,
       }),
       sessionId: this.sessionId,
-      pinnedTo: this.sessionId ? this.runnerId : null,
     });
   }
 

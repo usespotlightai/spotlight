@@ -24,7 +24,7 @@ export class RenewLeaseHandler
       const at = this.clock.now();
 
       if (!(await this.presence.seen(renewing, at))) {
-        throw new UnknownRunError(`runner ${command.runnerId} is not enrolled`);
+        throw new UnknownRunError(`runner ${command.runnerId} is not known`);
       }
 
       await this.runs.save(

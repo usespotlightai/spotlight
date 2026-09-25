@@ -1,17 +1,16 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import type { ConnectedRunnerDto } from '@runners/application/dto/connected-runner.dto';
-import { ConnectedRunnerMapper } from '@runners/application/mappers/connected-runner.mapper';
+import type { RunnerFleetDto } from '@runners/application/dto/runner-fleet.dto';
+import { RunnerFleetMapper } from '@runners/application/mappers/runner-fleet.mapper';
 import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
 import type { ListRunnersQuery } from '@runners/application/queries/list-runners.query';
+import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-const SILENT_FOR_TOO_LONG_MS = 45_000;
-
 export class ListRunnersHandler
-  implements QueryHandlerPort<ListRunnersQuery, ConnectedRunnerDto[] | null>
+  implements QueryHandlerPort<ListRunnersQuery, RunnerFleetDto | null>
 {
   constructor(
     private readonly access: WorkspaceAccessPort,
@@ -19,7 +18,7 @@ export class ListRunnersHandler
     private readonly clock: ClockPort,
   ) {}
 
-  async execute(query: ListRunnersQuery): Promise<ConnectedRunnerDto[] | null> {
+  async execute(query: ListRunnersQuery): Promise<RunnerFleetDto | null> {
     try {
       const membership = await this.access.inWorkspace(
         query.slug,
@@ -30,17 +29,22 @@ export class ListRunnersHandler
         return null;
       }
 
-      const now = this.clock.now().getTime();
-      const found = await this.runners.inWorkspace(membership.workspaceId);
-
-      return found.map((runner) =>
-        ConnectedRunnerMapper.summaryToDto(
-          runner,
-          runner.lastSeenAt !== null &&
-            runner.revokedAt === null &&
-            now - runner.lastSeenAt.getTime() <= SILENT_FOR_TOO_LONG_MS,
+      const now = this.clock.now();
+      const answering = RunnerHost.answeringSince(now);
+      const [hosts, runners] = await Promise.all([
+        this.runners.hostsIn(
+          membership.workspaceId,
+          RunnerHost.rememberedSince(now),
         ),
-      );
+        this.runners.inWorkspace(membership.workspaceId),
+      ]);
+
+      return {
+        hosts: hosts.map((host) =>
+          RunnerFleetMapper.host(host, host.lastSeenAt > answering),
+        ),
+        runners: runners.map(RunnerFleetMapper.runner),
+      };
     } catch (error) {
       rethrowAsFault(error);
     }

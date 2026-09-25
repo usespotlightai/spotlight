@@ -18,6 +18,10 @@ export const reviseRunner = async (
 
     const changed = change(found);
 
+    if (changed === found) {
+      return found;
+    }
+
     try {
       await runners.save(changed);
       return changed;

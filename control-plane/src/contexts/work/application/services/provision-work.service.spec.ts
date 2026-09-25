@@ -1,12 +1,12 @@
 import type {
-  PoolRunnersPort,
-  ProvisionedRunner,
-  ProvisionRequest,
-} from '@runners/application/ports/pool-runners.port';
-import type {
   PoolAtWork,
   RunnerPoolsPort,
 } from '@runners/application/ports/runner-pools.port';
+import type {
+  ProvisionedRunner,
+  ProvisionRequest,
+  RunnersPort,
+} from '@runners/application/ports/runners.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
@@ -42,7 +42,7 @@ const waiting = (id: string, placement: string[] = [], workspace = 'ws_1') =>
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
-      continuity: { key: 'task:station', keep: true },
+      continuity: { key: 'task:station' },
     }),
     placement: RunnerPlacement.of(placement),
   });
@@ -134,7 +134,7 @@ const provisioning = (
         provisioning: async () => pools,
         running: async () => running,
       } as unknown as RunnerPoolsPort,
-      { provision, letGo } as unknown as PoolRunnersPort,
+      { provision, letGo } as unknown as RunnersPort,
       failures,
       {
         generate: () => {

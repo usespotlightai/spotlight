@@ -31,17 +31,35 @@ vi.mock('@/hooks/api/useHarnesses', () => ({
   }),
 }));
 
-const runner = (over: Record<string, unknown> = {}) => ({
-  id: 'runner_1',
-  name: 'Laptop',
+const host = (over: Record<string, unknown> = {}) => ({
+  id: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P',
+  name: 'build-box-1',
+  through: { kind: 'pool', key: 'build-farm' },
+  release: 'v1.4.0',
+  executor: 'Docker Engine 27.3.1 (linux/amd64)',
+  capacity: 4,
+  running: [],
   harnesses: ['claude-code'],
-  connected: true,
-  revokedAt: null,
-  registeredAt: '2026-08-20T09:00:00.000Z',
+  firstSeenAt: '2026-08-20T09:00:00.000Z',
   lastSeenAt: '2026-08-29T12:00:00.000Z',
-  currentRun: null,
+  answering: true,
+  runs: [],
   ...over,
 });
+
+const provisioned = (over: Record<string, unknown> = {}) => ({
+  id: 'runner_cloud_1',
+  through: { kind: 'pool', key: 'ephemeral' },
+  hostId: null,
+  harnesses: ['claude-code'],
+  startedAt: '2026-08-29T12:00:00.000Z',
+  lastSeenAt: '2026-08-29T12:00:00.000Z',
+  currentRun: { id: 'run_1', state: 'running' },
+  ...over,
+});
+
+const holding = (hosts: unknown[], runners: unknown[] = []) =>
+  fleet.mockReturnValue({ hosts, provisioned: runners });
 
 const renderPage = () =>
   render(
@@ -58,20 +76,16 @@ describe('Runners', () => {
     refetch.mockClear();
   });
 
-  it('holds the shape of a runner while they load, keeping what never changes', () => {
+  it('holds the shape of a host while they load, keeping what never changes', () => {
     fleet.mockReturnValue(undefined);
 
     renderPage();
 
     expect(
-      screen.getByRole('status', { name: 'Loading the runners' }),
+      screen.getByRole('status', { name: 'Loading the hosts' }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', { name: 'Enrolled' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText(/No runner has registered/),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Hosts' })).toBeInTheDocument();
+    expect(screen.queryByText(/No host is serving/)).not.toBeInTheDocument();
   });
 
   it('says the runners could not be loaded, and tries again when asked', async () => {
@@ -85,48 +99,33 @@ describe('Runners', () => {
       'Runners could not be loaded.',
     );
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
-    expect(
-      screen.queryByText(/No runner has registered/),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/No host is serving/)).not.toBeInTheDocument();
 
     await person.click(screen.getByRole('button', { name: 'Try again' }));
 
     expect(refetch).toHaveBeenCalled();
   });
 
-  it('says what each runner can run, not only that it is there', () => {
-    fleet.mockReturnValue([runner()]);
+  it('says what each host can run, and which way in it serves', () => {
+    holding([host()]);
 
     renderPage();
 
-    expect(screen.getByText('Laptop')).toBeInTheDocument();
+    expect(screen.getByText('build-box-1')).toBeInTheDocument();
+    expect(screen.getByText('Pool build-farm')).toBeInTheDocument();
     expect(screen.getByText('Claude Code')).toBeInTheDocument();
   });
 
-  it('shows no harnesses where a runner reported none', () => {
-    fleet.mockReturnValue([runner({ harnesses: [] })]);
+  it('names a host serving a trust by the trust', () => {
+    holding([host({ through: { kind: 'trust', key: 'production' } })]);
 
     renderPage();
 
-    expect(screen.getByText('Laptop')).toBeInTheDocument();
-    expect(screen.queryByText('Claude Code')).not.toBeInTheDocument();
-    expect(screen.queryByText(/Reported nothing/)).not.toBeInTheDocument();
-  });
-
-  it('marks each harness with its logo', () => {
-    fleet.mockReturnValue([runner({ harnesses: ['claude-code'] })]);
-
-    const { container } = renderPage();
-
-    expect(
-      container.querySelector('[data-harness="claude-code"]'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Trust production')).toBeInTheDocument();
   });
 
   it('names the first few harnesses and counts the rest', () => {
-    fleet.mockReturnValue([
-      runner({ harnesses: ['claude-code', 'other', 'third', 'fourth'] }),
-    ]);
+    holding([host({ harnesses: ['claude-code', 'other', 'third', 'fourth'] })]);
 
     renderPage();
 
@@ -135,49 +134,60 @@ describe('Runners', () => {
     expect(screen.getByText('+1 more')).toBeInTheDocument();
   });
 
-  it('says how each runner is standing', () => {
-    fleet.mockReturnValue([
-      runner(),
-      runner({ id: 'runner_2', connected: false }),
+  it('says how busy each host is, and which one stopped answering', () => {
+    holding([
+      host({ running: ['runner_1', 'runner_2'] }),
+      host({ id: 'second-host-id', name: 'idle-box' }),
+      host({ id: 'third-host-id', name: 'gone-box', answering: false }),
     ]);
 
     renderPage();
 
+    expect(screen.getByText('Running 2 of 4')).toBeInTheDocument();
     expect(screen.getByText('Idle')).toBeInTheDocument();
     expect(screen.getByText('Not answering')).toBeInTheDocument();
   });
 
-  it('says when it was last heard from', () => {
-    fleet.mockReturnValue([runner()]);
+  it('says how long a host has been up, or when it was last heard from', () => {
+    holding([
+      host(),
+      host({ id: 'third-host-id', name: 'gone-box', answering: false }),
+    ]);
 
     renderPage();
 
-    expect(screen.getByText(/Last seen/)).toBeInTheDocument();
+    expect(screen.getByText(/^Up since/)).toBeInTheDocument();
+    expect(screen.getByText(/^Last seen/)).toBeInTheDocument();
   });
 
-  it('falls back to when it was registered, having never answered', () => {
-    fleet.mockReturnValue([runner({ lastSeenAt: null, connected: false })]);
+  it('shows how to install a host when none serves the workspace', () => {
+    holding([]);
 
     renderPage();
 
-    expect(screen.getByText(/^Registered /)).toBeInTheDocument();
+    expect(screen.getByText(/No host is serving/)).toBeInTheDocument();
+    expect(screen.getByText(/install\.sh/)).toBeInTheDocument();
   });
 
-  it('says so when nothing has registered', () => {
-    fleet.mockReturnValue([]);
-
-    renderPage();
-
-    expect(screen.getByText(/No runner has registered/)).toBeInTheDocument();
-  });
-
-  it('offers nothing to register', () => {
-    fleet.mockReturnValue([]);
+  it('lists runners a push pool provisioned, apart from hosts', () => {
+    holding([host()], [provisioned()]);
 
     renderPage();
 
     expect(
-      screen.queryByRole('button', { name: /runner/i }),
+      screen.getByRole('heading', { name: 'Provisioned by a pool' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Pool ephemeral')).toBeInTheDocument();
+    expect(screen.getByText('Running')).toBeInTheDocument();
+  });
+
+  it('leaves the provisioned section out when there are none', () => {
+    holding([host()]);
+
+    renderPage();
+
+    expect(
+      screen.queryByRole('heading', { name: 'Provisioned by a pool' }),
     ).not.toBeInTheDocument();
   });
 });

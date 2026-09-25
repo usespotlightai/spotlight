@@ -1,58 +1,28 @@
 import type {
   RunnerPoolResourceDto,
-  RunnerResourceDto,
   RunnerTrustResourceDto,
   WorkspaceRunnersResourceDto,
 } from '@runners/application/dto/runner-resource.dto';
 import type {
-  ConfiguredRunner,
   ConfiguredRunnerPool,
   ConfiguredRunnerTrust,
   ConfiguredWorkspaceRunners,
 } from '@runners/application/ports/runner-configuration.port';
 import type {
   KeptPool,
-  KeptRunner,
   KeptTrust,
   KeptWorkspaceRunners,
 } from '@runners/application/ports/runner-resources.port';
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
-import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import type { WorkspaceRunners } from '@runners/domain/aggregates/workspace-runners.aggregate';
 import {
   driftBetween,
-  type Enrolment,
+  type WaysIn,
 } from '@runners/domain/services/runner-drift';
 
 export const RunnerResourceMapper = {
-  runner(runner: KeptRunner): RunnerResourceDto {
-    return {
-      id: runner.id,
-      version: runner.revision,
-      address: runner.name,
-      workspaceId: runner.workspaceId.value,
-      name: runner.name,
-      labels: runner.labels,
-      trust: runner.trustKey,
-      warnings: [],
-    };
-  },
-
-  heldRunner(runner: Runner): RunnerResourceDto {
-    return {
-      id: runner.id.value,
-      version: runner.revision,
-      address: runner.name.value,
-      workspaceId: runner.workspaceId.value,
-      name: runner.name.value,
-      labels: runner.labels.values,
-      trust: null,
-      warnings: [],
-    };
-  },
-
   trust(trust: KeptTrust): RunnerTrustResourceDto {
     return {
       id: trust.id,
@@ -105,16 +75,6 @@ export const RunnerResourceMapper = {
     };
   },
 
-  configuredRunner(runner: Runner): ConfiguredRunner {
-    return {
-      id: runner.id.value,
-      address: runner.name.value,
-      workspaceId: runner.workspaceId,
-      name: runner.name.value,
-      labels: runner.labels.values,
-    };
-  },
-
   configuredTrust(trust: RunnerTrust): ConfiguredRunnerTrust {
     return {
       id: trust.id.value,
@@ -136,7 +96,6 @@ export const RunnerResourceMapper = {
       id: declared.id.value,
       address: slug,
       workspaceId: declared.workspaceId,
-      runners: declared.runners.map((each) => each.value),
       trusts: declared.trusts.map((each) => each.value),
       pools: declared.pools.map((each) => each.value),
     };
@@ -145,25 +104,18 @@ export const RunnerResourceMapper = {
   workspaceRunners(
     declared: KeptWorkspaceRunners,
     slug: string,
-    enrolment: Enrolment,
+    waysIn: WaysIn,
   ): WorkspaceRunnersResourceDto {
-    const drift = driftBetween(declared, enrolment);
+    const drift = driftBetween(declared, waysIn);
 
     return {
       id: declared.id,
       version: declared.version,
       address: slug,
       workspaceId: declared.workspaceId.value,
-      runners: declared.runners,
       trusts: declared.trusts,
       pools: declared.pools,
-      drift: drift.undeclared,
       warnings: [
-        ...declared.runners.flatMap((name, at) =>
-          drift.unknownRunners.includes(name)
-            ? [RunnerProblems.noSuchRunner(name, at)]
-            : [],
-        ),
         ...declared.trusts.flatMap((key, at) =>
           drift.unknownTrusts.includes(key)
             ? [RunnerProblems.noSuchTrust(key, at)]
@@ -174,7 +126,6 @@ export const RunnerResourceMapper = {
             ? [RunnerProblems.noSuchPool(key, at)]
             : [],
         ),
-        ...drift.undeclared.map(RunnerProblems.drifted),
       ],
     };
   },

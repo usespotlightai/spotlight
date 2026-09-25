@@ -9,12 +9,6 @@ interface ResourceDto {
   readonly warnings: readonly ConfigurationProblem[];
 }
 
-export interface RunnerResourceDto extends ResourceDto {
-  readonly name: string;
-  readonly labels: readonly string[];
-  readonly trust: string | null;
-}
-
 export interface RunnerTrustResourceDto extends ResourceDto {
   readonly key: string;
   readonly issuer: string;
@@ -36,15 +30,8 @@ export interface RunnerPoolResourceDto extends ResourceDto {
 }
 
 export interface WorkspaceRunnersResourceDto extends ResourceDto {
-  readonly runners: readonly string[];
   readonly trusts: readonly string[];
   readonly pools: readonly string[];
-  readonly drift: readonly string[];
-}
-
-export interface RunnerCreatedDto {
-  readonly created: ResourceCreated;
-  readonly token: string | null;
 }
 
 export interface RunnerPoolCreatedDto {

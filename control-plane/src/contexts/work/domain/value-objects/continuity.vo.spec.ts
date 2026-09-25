@@ -1,49 +1,47 @@
-import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { Continuity } from '@work/domain/value-objects/continuity.vo';
 import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
+import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { describe, expect, it } from 'vitest';
 
-const RUNNER = RunnerId.of('runner_1');
-const GPU = RunnerPlacement.of(['gpu']);
+const KEY = ContinuityKey.of('task_1-station_1');
 
-const pinned = (pinnedTo: RunnerId | null = RUNNER) =>
-  Continuity.of({ key: ContinuityKey.of('task_1-station_1'), pinnedTo });
-
-describe('Continuity, pinned within a placement', () => {
-  it('stays with the runner it was pinned to when that runner may still run there', () => {
-    expect(pinned().pinnedWithin(GPU, RunnerTerms.of(['pod-a', 'gpu']))).toBe(
-      RUNNER,
-    );
+describe('Continuity', () => {
+  it('takes up no conversation unless given one', () => {
+    expect(Continuity.of({ key: KEY }).sessionId).toBeNull();
     expect(
-      pinned().pinnedWithin(RunnerPlacement.anywhere(), RunnerTerms.none()),
-    ).toBe(RUNNER);
+      Continuity.of({ key: KEY, sessionId: HarnessSession.of('session_1') })
+        .sessionId?.value,
+    ).toBe('session_1');
   });
 
-  it('lets go of a runner the placement no longer admits, so another can resume from the same workspace path', () => {
-    expect(pinned().pinnedWithin(GPU, RunnerTerms.of(['laptop']))).toBeNull();
-    expect(pinned().pinnedWithin(GPU, RunnerTerms.none())).toBeNull();
+  it('is the same continuity for the same directory and conversation', () => {
+    const resumed = () =>
+      Continuity.of({ key: KEY, sessionId: HarnessSession.of('session_1') });
+
+    expect(resumed().equals(resumed())).toBe(true);
+    expect(
+      Continuity.of({ key: KEY }).equals(Continuity.of({ key: KEY })),
+    ).toBe(true);
   });
 
-  it('lets go of a pinned runner holding another release of the harness the station pins', () => {
-    const release = RunnerPlacement.of(['claude-code@2.1.270']);
+  it('differs by directory, and by whether and which conversation it takes up', () => {
+    const fresh = Continuity.of({ key: KEY });
+    const resumed = Continuity.of({
+      key: KEY,
+      sessionId: HarnessSession.of('session_1'),
+    });
 
     expect(
-      pinned().pinnedWithin(
-        release,
-        RunnerTerms.of(['runner-1', 'claude-code@2.1.269']),
+      fresh.equals(
+        Continuity.of({ key: ContinuityKey.of('task_1-station_2') }),
       ),
-    ).toBeNull();
+    ).toBe(false);
+    expect(fresh.equals(resumed)).toBe(false);
+    expect(resumed.equals(fresh)).toBe(false);
     expect(
-      pinned().pinnedWithin(
-        release,
-        RunnerTerms.of(['runner-1', 'claude-code@2.1.270']),
+      resumed.equals(
+        Continuity.of({ key: KEY, sessionId: HarnessSession.of('session_2') }),
       ),
-    ).toBe(RUNNER);
-  });
-
-  it('pins nothing it was never pinned to', () => {
-    expect(pinned(null).pinnedWithin(GPU, RunnerTerms.of(['gpu']))).toBeNull();
+    ).toBe(false);
   });
 });

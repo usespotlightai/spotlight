@@ -1,16 +1,19 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import type { RunnerPoolsPort } from '@runners/application/ports/runner-pools.port';
+import type {
+  HostCredential,
+  RunnerAdmissionsPort,
+} from '@runners/application/ports/runner-admissions.port';
 import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import {
   HarnessCatalogueHandler,
+  HostHarnessesHandler,
   ListHarnessesHandler,
-  PoolHarnessesHandler,
 } from '@work/application/queries/handlers/list-harnesses.handler';
+import { HostHarnessesQuery } from '@work/application/queries/host.queries';
 import { ListHarnessesQuery } from '@work/application/queries/list-harnesses.query';
-import { PoolHarnessesQuery } from '@work/application/queries/pool.queries';
 import { describe, expect, it, vi } from 'vitest';
 
 const launch = {
@@ -77,24 +80,29 @@ describe('listing harnesses for a workspace', () => {
     ]);
   });
 
-  describe('for a pool looking for what its runners should carry', () => {
-    const pools = {
-      pulledWith: async (token: string | undefined) =>
-        token === 'pool-token' ? { poolId: 'pool_1' } : null,
-    } as unknown as RunnerPoolsPort;
+  describe('for a host looking for what its runners should carry', () => {
+    const admissions: RunnerAdmissionsPort = {
+      admit: async (credential: HostCredential) =>
+        credential.bearer === 'pool-token'
+          ? {
+              way: { kind: 'pool', id: 'pool_1' },
+              workspaceId: WorkspaceId.of('ws_1'),
+            }
+          : null,
+    };
 
-    it('tells a pool what to look for without any workspace’s models', async () => {
+    it('tells an admitted host what to look for without any workspace’s models', async () => {
       expect(
-        await new PoolHarnessesHandler(launch, pools).execute(
-          new PoolHarnessesQuery('pool-token'),
+        await new HostHarnessesHandler(launch, admissions).execute(
+          new HostHarnessesQuery({ bearer: 'pool-token', trust: undefined }),
         ),
       ).toEqual([expect.objectContaining({ id: 'claude-code', models: [] })]);
     });
 
-    it('answers nothing to a token no pool pulls with', async () => {
+    it('answers nothing to a host no pool or trust admits', async () => {
       expect(
-        await new PoolHarnessesHandler(launch, pools).execute(
-          new PoolHarnessesQuery('stolen'),
+        await new HostHarnessesHandler(launch, admissions).execute(
+          new HostHarnessesQuery({ bearer: 'stolen', trust: undefined }),
         ),
       ).toBeNull();
     });

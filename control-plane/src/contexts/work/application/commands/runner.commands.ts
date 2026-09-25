@@ -1,3 +1,4 @@
+import type { HostCredential } from '@runners/application/ports/runner-admissions.port';
 export class ClaimRunCommand {
   constructor(readonly runnerId: string) {}
 }
@@ -44,19 +45,19 @@ export class EnqueueRunCommand {
     readonly viewerId: string,
     readonly harness: string,
     readonly spec: unknown,
-    readonly targetRunnerId: string | null = null,
   ) {}
 }
 
-export interface PoolHarnessReport {
+export interface HostHarnessReport {
   readonly id: string;
   readonly models: readonly string[];
   readonly version?: string;
 }
 
-export class ClaimPoolWorkCommand {
+export class ClaimHostWorkCommand {
   constructor(
-    readonly token: string | undefined,
-    readonly harnesses: readonly PoolHarnessReport[],
+    readonly credential: HostCredential,
+    readonly host: string,
+    readonly harnesses: readonly HostHarnessReport[],
   ) {}
 }

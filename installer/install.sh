@@ -2,20 +2,20 @@
 set -eu
 
 REPO="${SPOTLIGHT_REPO:-usespotlightai/cli}"
-VERSION="${SPOTLIGHT_VERSION:-latest}"
+VERSION="${SPOTLIGHT_VERSION:-__VERSION__}"
 API_BASE="${SPOTLIGHT_URL:-__API_BASE__}"
+IMAGE="${SPOTLIGHT_RUNNER_IMAGE:-ghcr.io/usespotlightai/spotlight-runner:$VERSION}"
 
-if [ "$VERSION" = "latest" ]; then
+if [ -n "${SPOTLIGHT_DOWNLOAD_URL:-}" ]; then
+  RELEASE="$SPOTLIGHT_DOWNLOAD_URL"
+elif [ "$VERSION" = "latest" ]; then
   RELEASE="https://github.com/$REPO/releases/latest/download"
 else
   RELEASE="https://github.com/$REPO/releases/download/$VERSION"
 fi
 
-BINARIES="runner spotlight"
-HARNESS="@anthropic-ai/claude-code @zed-industries/claude-agent-acp"
-
-say() { printf 'spotlight: %s\n' "$1" >&2; }
-die() { printf 'spotlight: %s\n' "$1" >&2; exit 1; }
+say() { printf 'spotlight-host: %s\n' "$1" >&2; }
+die() { printf 'spotlight-host: %s\n' "$1" >&2; exit 1; }
 
 detect_platform() {
   os="$(uname -s)"
@@ -40,7 +40,7 @@ if command -v curl >/dev/null 2>&1; then
 elif command -v wget >/dev/null 2>&1; then
   fetch() { wget -qO "$2" "$1"; }
 else
-  die "need curl or wget to download the binaries"
+  die "need curl or wget to download spotlight-host"
 fi
 
 if command -v sha256sum >/dev/null 2>&1; then
@@ -48,7 +48,7 @@ if command -v sha256sum >/dev/null 2>&1; then
 elif command -v shasum >/dev/null 2>&1; then
   checksum() { shasum -a 256 "$1" | cut -d' ' -f1; }
 else
-  checksum() { echo ""; }
+  die "need sha256sum or shasum to check what it downloads"
 fi
 
 choose_bindir() {
@@ -62,87 +62,98 @@ choose_bindir() {
   mkdir -p "$BIN_DIR"
 }
 
-install_binary() {
-  name="$1"
-  url="$RELEASE/${name}-${PLATFORM}"
-
-  say "downloading $name ($PLATFORM)"
-  fetch "$url" "$TMP/$name" || die "could not download $name from $url"
-
-  want="$(fetch "$url.sha256" "$TMP/$name.sha256" 2>/dev/null && cut -d' ' -f1 <"$TMP/$name.sha256" || echo "")"
-  got="$(checksum "$TMP/$name")"
-  if [ -n "$want" ] && [ -n "$got" ] && [ "$want" != "$got" ]; then
-    die "$name failed checksum: expected $want, got $got"
-  fi
-
-  chmod +x "$TMP/$name"
-  install "$TMP/$name" "$BIN_DIR/$name" 2>/dev/null || mv "$TMP/$name" "$BIN_DIR/$name"
-  say "installed $BIN_DIR/$name"
-}
-
 config_path() {
-  if [ -n "${SPOTLIGHT_CONFIG:-}" ]; then
-    echo "$SPOTLIGHT_CONFIG"
+  if [ -n "${SPOTLIGHT_HOST_CONFIG:-}" ]; then
+    echo "$SPOTLIGHT_HOST_CONFIG"
   elif [ "$(id -u)" = "0" ]; then
-    echo "/etc/spotlight/runner.env"
+    echo "/etc/spotlight/host.env"
   else
-    echo "$HOME/.spotlight/runner.env"
+    echo "$HOME/.spotlight/host.env"
   fi
 }
 
-save_url() {
-  cfg="$(config_path)"
-  mkdir -p "$(dirname "$cfg")"
-  token=""
-  [ -f "$cfg" ] && token="$(sed -n 's/^SPOTLIGHT_TOKEN=//p' "$cfg" | head -1)"
-  umask 077
-  {
-    echo "SPOTLIGHT_URL=$API_BASE"
-    [ -n "$token" ] && echo "SPOTLIGHT_TOKEN=$token"
-  } >"$cfg"
-}
-
-install_harness() {
-  if ! command -v npm >/dev/null 2>&1; then
-    say "Node.js/npm not found; install it, then: npm install -g $HARNESS"
-    return
-  fi
-  say "installing the Claude Code harness"
-  npm install -g $HARNESS >/dev/null 2>&1 \
-    || say "could not install the harness; run: npm install -g $HARNESS"
-}
-
-warn_missing() {
-  for tool in git jq; do
-    command -v "$tool" >/dev/null 2>&1 || say "$tool is not installed; a runner needs it to work runs"
+find_runtime() {
+  for cli in docker podman; do
+    if command -v "$cli" >/dev/null 2>&1 && "$cli" info >/dev/null 2>&1; then
+      RUNTIME="$cli"
+      return
+    fi
   done
+  die "no container runtime answered: install and start Docker or Podman (on macOS, Docker Desktop, OrbStack or Colima), then run this again"
+}
+
+install_host() {
+  url="$RELEASE/spotlight-host-${PLATFORM}"
+
+  say "downloading spotlight-host $VERSION ($PLATFORM)"
+  fetch "$url" "$TMP/spotlight-host" || die "could not download spotlight-host from $url"
+  fetch "$url.sha256" "$TMP/spotlight-host.sha256" || die "could not download the checksum from $url.sha256"
+
+  want="$(cut -d' ' -f1 <"$TMP/spotlight-host.sha256")"
+  got="$(checksum "$TMP/spotlight-host")"
+  [ "$want" = "$got" ] || die "spotlight-host failed its checksum: expected $want, got $got"
+
+  chmod +x "$TMP/spotlight-host"
+  install "$TMP/spotlight-host" "$BIN_DIR/spotlight-host" 2>/dev/null || mv "$TMP/spotlight-host" "$BIN_DIR/spotlight-host"
+  say "installed $BIN_DIR/spotlight-host"
+}
+
+held() { [ -f "$CONFIG" ] && sed -n "s/^$1=//p" "$CONFIG" | head -1 || true; }
+
+read_credentials() {
+  token="${SPOTLIGHT_TOKEN:-$(held SPOTLIGHT_TOKEN)}"
+  trust="${SPOTLIGHT_TRUST:-$(held SPOTLIGHT_TRUST)}"
+  token_file="${SPOTLIGHT_OIDC_TOKEN_FILE:-$(held SPOTLIGHT_OIDC_TOKEN_FILE)}"
+  capacity="${SPOTLIGHT_CAPACITY:-$(held SPOTLIGHT_CAPACITY)}"
+
+  if [ -z "$token" ] && [ -z "$trust" ]; then
+    die "set SPOTLIGHT_TOKEN to a pull pool's token, or SPOTLIGHT_TRUST and SPOTLIGHT_OIDC_TOKEN_FILE to claim through a runner trust"
+  fi
+}
+
+save_config() {
+  mkdir -p "$(dirname "$CONFIG")"
+  (
+    umask 077
+    {
+      echo "SPOTLIGHT_URL=$API_BASE"
+      [ -n "$token" ] && echo "SPOTLIGHT_TOKEN=$token"
+      [ -n "$trust" ] && echo "SPOTLIGHT_TRUST=$trust"
+      [ -n "$token_file" ] && echo "SPOTLIGHT_OIDC_TOKEN_FILE=$token_file"
+      [ -n "$capacity" ] && echo "SPOTLIGHT_CAPACITY=$capacity"
+      echo "SPOTLIGHT_RUNNER_IMAGE=$IMAGE"
+    } >"$CONFIG"
+  )
+  chmod 600 "$CONFIG"
+  say "wrote $CONFIG"
+}
+
+pull_image() {
+  say "pulling $IMAGE"
+  "$RUNTIME" pull --quiet "$IMAGE" >/dev/null || die "could not pull $IMAGE"
 }
 
 main() {
   detect_platform
   choose_bindir
+  CONFIG="$(config_path)"
+  read_credentials
+  find_runtime
 
   TMP="$(mktemp -d)"
   trap 'rm -rf "$TMP"' EXIT
 
-  for name in $BINARIES; do
-    install_binary "$name"
-  done
+  install_host
+  save_config
+  pull_image
 
-  save_url
-  install_harness
-  warn_missing
+  if [ "${SPOTLIGHT_NO_SERVICE:-}" = "1" ]; then
+    say "installed. Start it with: SPOTLIGHT_HOST_CONFIG=$CONFIG $BIN_DIR/spotlight-host"
+    return
+  fi
 
-  case ":$PATH:" in
-    *":$BIN_DIR:"*) runner="runner" ;;
-    *)
-      runner="$BIN_DIR/runner"
-      say "add $BIN_DIR to your PATH: export PATH=\"$BIN_DIR:\$PATH\""
-      ;;
-  esac
-
-  say "installed. Enrol a runner in Spotlight for a token, then connect this host:"
-  printf '\n  %s register\n\n' "$runner" >&2
+  SPOTLIGHT_HOST_CONFIG="$CONFIG" "$BIN_DIR/spotlight-host" install
+  say "serving $API_BASE: this machine shows on the workspace's Runners page once it reports"
 }
 
 main

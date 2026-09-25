@@ -1,5 +1,12 @@
-import { PoolRunner } from '@runners/domain/aggregates/pool-runner.aggregate';
+import { Runner } from '@runners/domain/aggregates/runner.aggregate';
+import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
+import { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
+import { RunnerHostMovedOnError } from '@runners/domain/exceptions/runner-host-moved-on.error';
+import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
+import { Admission } from '@runners/domain/value-objects/admission.vo';
+import { HostId } from '@runners/domain/value-objects/host-id.vo';
+import { HostReport } from '@runners/domain/value-objects/host-report.vo';
 import type { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
 import { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
@@ -7,14 +14,22 @@ import { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
+import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
+import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
+import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { vi } from 'vitest';
 
 export const POOL_ID = RunnerPoolId.of('pool_1');
 
+export const TRUST_ID = RunnerTrustId.of('trust_1');
+
 const POOL_WORKSPACE = WorkspaceId.of('ws_1');
+
+export const HOST_ID = HostId.of('01J8ZQ4Y7N3K5V2W9X6RTBHCDE');
 
 export const STARTED_AT = new Date('2026-09-24T10:00:00.000Z');
 
@@ -61,19 +76,113 @@ export const aPushPool = (
     by: attributedIn(),
   });
 
-export const aPoolRunner = (
+export const aTrust = (input: { labels?: string[] } = {}): RunnerTrust =>
+  RunnerTrust.define({
+    id: TRUST_ID,
+    workspaceId: POOL_WORKSPACE,
+    key: TrustKey.of('cluster'),
+    workload: TrustedWorkload.of({
+      issuer: 'https://oidc.example.com/cluster',
+      subject: 'system:serviceaccount:spotlight:runner',
+      audience: 'spotlight',
+    }),
+    labels: RunnerLabels.of(input.labels ?? ['vpc-internal']),
+    by: attributedIn(),
+  });
+
+export const aRunner = (
   input: {
-    pool?: RunnerPool;
+    through?: RunnerPool | RunnerTrust;
+    host?: string | null;
     id?: string;
     installed?: readonly InstalledHarness[];
     claimWithinMs?: number;
   } = {},
-): PoolRunner =>
-  PoolRunner.started({
+): Runner =>
+  Runner.started({
     id: RunnerId.of(input.id ?? 'pooled_1'),
-    pool: input.pool ?? aPullPool(),
+    through: input.through ?? aPullPool(),
+    host: input.host === null ? null : HostId.of(input.host ?? HOST_ID.value),
     tokenHash: hashOf('b'),
     installed: input.installed ?? [],
     at: STARTED_AT,
     claimBy: new Date(STARTED_AT.getTime() + (input.claimWithinMs ?? 60_000)),
   });
+
+export const aHostReport = (running: string[] = []): HostReport =>
+  HostReport.of({
+    name: 'build-box',
+    release: '0.9.0',
+    executor: 'docker',
+    capacity: 4,
+    running,
+    harnesses: [],
+  });
+
+export const aHost = (
+  input: { through?: RunnerPool | RunnerTrust; id?: HostId; at?: Date } = {},
+): RunnerHost => {
+  const through = input.through ?? aPullPool();
+
+  return RunnerHost.present({
+    id: input.id ?? HOST_ID,
+    workspaceId: through.workspaceId,
+    admission: Admission.through(through.id),
+    report: aHostReport(),
+    at: input.at ?? STARTED_AT,
+  });
+};
+
+export const heldHosts = (...known: RunnerHost[]) => {
+  const held = new Map(known.map((host) => [host.id.value, host]));
+  const hosts = {
+    find: vi.fn(async (id: HostId) => held.get(id.value) ?? null),
+    add: vi.fn(async (host: RunnerHost) => {
+      if (held.has(host.id.value)) {
+        throw new RunnerHostMovedOnError(host.id.value);
+      }
+      held.set(host.id.value, host);
+    }),
+    save: vi.fn(async (host: RunnerHost) => {
+      if (held.get(host.id.value)?.version !== host.version) {
+        throw new RunnerHostMovedOnError(host.id.value);
+      }
+      held.set(
+        host.id.value,
+        RunnerHost.rehydrate({
+          id: host.id,
+          workspaceId: host.workspaceId,
+          admission: host.admission,
+          report: host.report,
+          firstSeenAt: host.firstSeenAt,
+          lastSeenAt: host.lastSeenAt,
+          version: host.version + 1,
+        }),
+      );
+    }),
+    remove: vi.fn(async (host: RunnerHost) => {
+      if (held.get(host.id.value)?.version === host.version) {
+        held.delete(host.id.value);
+      }
+    }),
+    removeUnseenSince: vi.fn(async (since: Date) => {
+      let removed = 0;
+      for (const [id, host] of held) {
+        if (host.lastSeenAt < since) {
+          held.delete(id);
+          removed++;
+        }
+      }
+      return removed;
+    }),
+    removeThrough: vi.fn(async (admission: Admission) => {
+      for (const [id, host] of held) {
+        if (host.servesThrough(admission)) {
+          held.delete(id);
+        }
+      }
+    }),
+  } satisfies RunnerHostRepository;
+
+  return { held, hosts };
+};

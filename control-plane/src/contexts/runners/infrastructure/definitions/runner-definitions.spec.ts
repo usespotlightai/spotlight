@@ -13,40 +13,6 @@ const refusedAt = (
   compiled.ok ? [] : compiled.problems.map((each) => dottedOf(each.field));
 
 describe('RunnerDefinitions', () => {
-  it('reads a runner as its name, labels and any token it was given', () => {
-    const compiled = definitions.runner({
-      name: 'build-1',
-      labels: ['vpc-internal'],
-      token: 'x'.repeat(40),
-    });
-
-    expect(
-      compiled.ok && [
-        compiled.name.value,
-        compiled.labels.values,
-        compiled.token,
-      ],
-    ).toEqual(['build-1', ['vpc-internal'], 'x'.repeat(40)]);
-  });
-
-  it('reads a runner given no token as one Spotlight issues it', () => {
-    const compiled = definitions.runner({ name: 'build-1' });
-
-    expect(compiled.ok && compiled.token).toBeNull();
-  });
-
-  it('points at a token too short to be one, and a label given twice', () => {
-    expect(
-      refusedAt(
-        definitions.runner({
-          name: 'build-1',
-          labels: ['gpu', 'gpu'],
-          token: 'short',
-        }),
-      ),
-    ).toEqual(['labels.1', 'token']);
-  });
-
   it('reads a trust, taking spotlight as the audience it was not given', () => {
     const compiled = definitions.trust({
       key: 'production',
@@ -70,12 +36,18 @@ describe('RunnerDefinitions', () => {
     ).toEqual(['key', 'issuer', 'subject', 'labels.0']);
   });
 
-  it('points at a runner the workspace declares twice', () => {
+  it('points at a trust the workspace declares twice', () => {
     expect(
       refusedAt(
-        definitions.workspaceRunners({ runners: ['build-1', 'build-1'] }),
+        definitions.workspaceRunners({ trusts: ['production', 'production'] }),
       ),
-    ).toEqual(['runners.1']);
+    ).toEqual(['trusts.1']);
+  });
+
+  it('points at a label a pool is given twice', () => {
+    expect(
+      refusedAt(definitions.pool({ key: 'ephemeral', labels: ['gpu', 'gpu'] })),
+    ).toEqual(['labels.1']);
   });
 
   describe('a pool', () => {

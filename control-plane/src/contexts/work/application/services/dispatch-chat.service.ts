@@ -1,5 +1,4 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
-import type { RunnerPresencePort } from '@runners/application/ports/runner-presence.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -14,7 +13,6 @@ import type { TraceParentPort } from '@work/application/ports/trace-parent.port'
 import { Attached } from '@work/application/rendering/attached';
 import { ChatBriefing } from '@work/application/rendering/chat-briefing';
 import type { ChatDispatching } from '@work/application/services/chat-dispatch';
-import { pinnedRunner } from '@work/application/services/pinned-runner';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
@@ -34,7 +32,6 @@ export class DispatchChat implements ChatDispatching {
     private readonly teams: TeamDirectoryPort,
     private readonly lines: LineRepository,
     private readonly clock: ClockPort,
-    private readonly runners: RunnerPresencePort,
   ) {}
 
   async takenUp(chat: Chat): Promise<Chat> {
@@ -74,7 +71,6 @@ export class DispatchChat implements ChatDispatching {
       harness: chat.harness,
       priority: CHAT_PRIORITY,
       subject: RunSubject.chat(chat.id),
-      targetRunner: await pinnedRunner(continuity, placement, this.runners),
       placement,
       spec: RunSpec.of({
         checkouts: chat.repositories.map((repository) => ({

@@ -10,7 +10,6 @@ const takeable = (run: Run, by: Claimant, now: Date): boolean =>
   run.state === 'queued' &&
   run.workspaceId.equals(by.workspaceId) &&
   by.harnesses.some((each) => each.equals(run.harness)) &&
-  (run.targetRunner === null || run.targetRunner.equals(by.runner)) &&
   (by.claims === 'reserved'
     ? run.isReservedAt(now) && (run.reservation?.heldFor(by.runner) ?? false)
     : !run.isReservedAt(now) ||

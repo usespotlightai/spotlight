@@ -1,13 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
-import { EventDelivery } from '@platform/events/event-delivery';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import {
   openWorkloadIssuer,
   type WorkloadIssuer,
 } from '@runners/infrastructure/workload/workload-issuer.fake-spec';
-import { RUNNER_TOKEN_HEADER } from '@runners/presentation/http/controllers/runner-resource.controller';
 import { eq } from 'drizzle-orm';
 import {
   afterAll,
@@ -20,13 +18,16 @@ import {
 } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { awaitingCheck } from './support/change-stacks';
+import { eventually } from './support/eventually';
 import { forgetRunnersOf } from './support/runners';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
 const SUBJECT = 'system:serviceaccount:spotlight:runner';
 
-describe('a runner enrolling as a platform workload, with no token (e2e)', () => {
+const HOST = 'pod-a-host-000001';
+
+describe('a host claiming through a runner trust, as a platform workload with no token (e2e)', () => {
   let app: INestApplication;
   let db: DrizzleDatabase;
   let platform: WorkloadIssuer;
@@ -53,17 +54,37 @@ describe('a runner enrolling as a platform workload, with no token (e2e)', () =>
     return made.body as { id: string; version: number };
   };
 
-  const exchange = async (trust: string, token: string, name = 'pod-a') =>
-    http().post('/api/runners/exchange').send({ trust, token, name });
+  const workload = () => platform.issue({ sub: SUBJECT, aud: 'spotlight' });
 
-  const register = (token: string) =>
+  const claim = (trust: string, token: string) =>
     http()
-      .post('/api/runners/register')
+      .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${token}`)
-      .send({ harnesses: [{ id: 'dev' }] });
+      .set('Spotlight-Trust', trust)
+      .send({ host: HOST, harnesses: [{ id: 'dev' }] });
 
-  const claim = (token: string) =>
-    http().post('/api/runners/claim').set('Authorization', `Bearer ${token}`);
+  const present = (trust: string, token: string, running: string[] = []) =>
+    http()
+      .put(`/api/hosts/${HOST}`)
+      .set('Authorization', `Bearer ${token}`)
+      .set('Spotlight-Trust', trust)
+      .send({
+        name: 'pod-a',
+        release: '0.1.0',
+        executor: 'docker',
+        capacity: 2,
+        running,
+        harnesses: [{ id: 'dev', models: [] }],
+      });
+
+  const hostRow = async () => {
+    const [row] = await db
+      .select()
+      .from(schema.runnerHost)
+      .where(eq(schema.runnerHost.id, HOST));
+
+    return row ?? null;
+  };
 
   const queue = async (placement: string[]) => {
     const id = randomUUID();
@@ -79,21 +100,11 @@ describe('a runner enrolling as a platform workload, with no token (e2e)', () =>
         command: { executable: 'sh', args: [] },
         briefing: 'do the thing',
         handover: { options: [], noteLimit: 0 },
-        continuity: { key: 'task:station', keep: true },
+        continuity: { key: 'task:station' },
       },
     });
 
     return id;
-  };
-
-  const withToken = async () => {
-    const made = await http()
-      .post(`/api/resources/workspaces/${held}/runners`)
-      .set(TEST_USER_HEADER, owner)
-      .set('Idempotency-Key', randomUUID())
-      .send({ name: 'laptop' });
-
-    return made.headers[RUNNER_TOKEN_HEADER.toLowerCase()] as string;
   };
 
   beforeAll(async () => {
@@ -122,46 +133,50 @@ describe('a runner enrolling as a platform workload, with no token (e2e)', () =>
     await unseat();
   });
 
-  it('enrols with the token its platform issued it, and claims work placed on its trust’s label', async () => {
+  it('claims work placed on its trust’s label with the token its platform issued, through a one-run runner of that trust', async () => {
     const trust = await trusted();
-    const exchanged = await exchange(
-      trust.id,
-      await platform.issue({ sub: SUBJECT, aud: 'spotlight' }),
-    );
+    const placed = await queue(['vpc-internal']);
+    await present(trust.id, await workload()).expect(200);
 
-    expect(exchanged.status).toBe(200);
-    expect(exchanged.body).toEqual({
+    const claimed = await claim(trust.id, await workload());
+
+    expect(claimed.status).toBe(200);
+    expect(claimed.body).toEqual({
       runnerId: expect.any(String),
       token: expect.any(String),
+      work: expect.objectContaining({ kind: 'run', run: expect.anything() }),
+    });
+    expect(claimed.body.work.run.id).toBe(placed);
+
+    const [started] = await db
+      .select({
+        trustId: schema.runner.trustId,
+        poolId: schema.runner.poolId,
+        hostId: schema.runner.hostId,
+        workId: schema.runner.workId,
+      })
+      .from(schema.runner)
+      .where(eq(schema.runner.id, claimed.body.runnerId));
+
+    expect(started).toEqual({
+      trustId: trust.id,
+      poolId: null,
+      hostId: HOST,
+      workId: placed,
     });
 
-    await register(exchanged.body.token).expect(201);
-
-    const placed = await queue(['vpc-internal']);
-    const claimed = await claim(exchanged.body.token);
-
-    expect(claimed.status).toBe(201);
-    expect(claimed.body).toMatchObject({ kind: 'run', run: { id: placed } });
-
-    const [enrolled] = await db
-      .select({ trustId: schema.runner.trustId, name: schema.runner.name })
-      .from(schema.runner)
-      .where(eq(schema.runner.id, exchanged.body.runnerId));
-
-    expect(enrolled).toEqual({ trustId: trust.id, name: 'pod-a' });
+    await http()
+      .post(`/api/runs/${placed}/lease`)
+      .set('Authorization', `Bearer ${claimed.body.token}`)
+      .expect(201);
   });
 
-  it('leaves work placed on a label to the runners that carry it', async () => {
-    await trusted();
-    const token = await withToken();
+  it('leaves work placed on a label its trust does not carry', async () => {
+    const trust = await trusted();
+    const placed = await queue(['gpu']);
+    await present(trust.id, await workload()).expect(200);
 
-    await register(token).expect(201);
-
-    const placed = await queue(['vpc-internal']);
-    const open = await queue([]);
-    const claimed = await claim(token);
-
-    expect(claimed.body).toMatchObject({ kind: 'run', run: { id: open } });
+    await claim(trust.id, await workload()).expect(204);
 
     const [still] = await db
       .select({ state: schema.run.state })
@@ -169,37 +184,20 @@ describe('a runner enrolling as a platform workload, with no token (e2e)', () =>
       .where(eq(schema.run.id, placed));
 
     expect(still?.state).toBe('queued');
-  });
+  }, 30_000);
 
-  it('hands a check placed on its trust’s label to a runner enrolled through it', async () => {
+  it('hands over a check placed on its trust’s label', async () => {
     const trust = await trusted();
-    const exchanged = await exchange(
-      trust.id,
-      await platform.issue({ sub: SUBJECT, aud: 'spotlight' }),
-    );
-
-    await register(exchanged.body.token).expect(201);
-
     const stackId = await awaitingCheck(db, held, [['vpc-internal']]);
-    const claimed = await claim(exchanged.body.token);
+    await present(trust.id, await workload()).expect(200);
 
-    expect(claimed.body).toMatchObject({ kind: 'check', check: { stackId } });
-  });
+    const claimed = await claim(trust.id, await workload());
 
-  it('issues the same runner a new token when it exchanges again under its name', async () => {
-    const trust = await trusted();
-    const first = await exchange(
-      trust.id,
-      await platform.issue({ sub: SUBJECT, aud: 'spotlight' }),
-    );
-    const second = await exchange(
-      trust.id,
-      await platform.issue({ sub: SUBJECT, aud: 'spotlight' }),
-    );
-
-    expect(second.body.runnerId).toBe(first.body.runnerId);
-    await register(first.body.token).expect(401);
-    await register(second.body.token).expect(201);
+    expect(claimed.status).toBe(200);
+    expect(claimed.body.work).toMatchObject({
+      kind: 'check',
+      check: { stackId },
+    });
   });
 
   it('refuses a token for another workload, another audience, or signed by anyone else', async () => {
@@ -213,46 +211,25 @@ describe('a runner enrolling as a platform workload, with no token (e2e)', () =>
       await platform.issue({ sub: SUBJECT, aud: 'vault' }),
       await platform.forge({ sub: SUBJECT, aud: 'spotlight' }),
     ]) {
-      expect((await exchange(trust.id, token)).status).toBe(401);
+      expect((await claim(trust.id, token)).status).toBe(401);
+      expect((await present(trust.id, token)).status).toBe(401);
     }
 
+    expect((await claim(randomUUID(), await workload())).status).toBe(401);
     expect(
       (
-        await exchange(
-          randomUUID(),
-          await platform.issue({ sub: SUBJECT, aud: 'spotlight' }),
-        )
+        await http()
+          .get('/api/hosts/harnesses')
+          .set('Authorization', `Bearer ${await workload()}`)
+          .set('Spotlight-Trust', randomUUID())
       ).status,
     ).toBe(401);
   });
 
-  it('refuses to enrol anyone into a workspace that has closed', async () => {
+  it('refuses anyone through a trust once it is withdrawn, and forgets the hosts that came in by it', async () => {
     const trust = await trusted();
-
-    await unseat();
-
-    expect(
-      (
-        await exchange(
-          trust.id,
-          await platform.issue({ sub: SUBJECT, aud: 'spotlight' }),
-        )
-      ).status,
-    ).toBe(401);
-  });
-
-  it('stops every runner under a trust claiming anything once the trust is deleted', async () => {
-    const trust = await trusted();
-    const exchanged = await exchange(
-      trust.id,
-      await platform.issue({ sub: SUBJECT, aud: 'spotlight' }),
-    );
-
-    await register(exchanged.body.token).expect(201);
-
-    const placed = await queue(['vpc-internal']);
-
-    await claim(exchanged.body.token).expect(201);
+    await queue(['vpc-internal']);
+    await present(trust.id, await workload()).expect(200);
 
     await http()
       .delete(`/api/resources/runner-trusts/${trust.id}`)
@@ -260,20 +237,42 @@ describe('a runner enrolling as a platform workload, with no token (e2e)', () =>
       .set('If-Match', `"${trust.version}"`)
       .expect(204);
 
-    await claim(exchanged.body.token).expect(401);
+    expect((await claim(trust.id, await workload())).status).toBe(401);
+    expect((await present(trust.id, await workload())).status).toBe(401);
+    await eventually(async () => (await hostRow()) === null);
+  });
 
-    await app.get(EventDelivery).drain();
+  it('refuses anyone into a workspace that has closed', async () => {
+    const trust = await trusted();
 
-    const [runner] = await db
-      .select({ revokedAt: schema.runner.revokedAt })
-      .from(schema.runner)
-      .where(eq(schema.runner.id, exchanged.body.runnerId));
-    const [run] = await db
-      .select({ state: schema.run.state, claimedBy: schema.run.claimedBy })
-      .from(schema.run)
-      .where(eq(schema.run.id, placed));
+    await unseat();
 
-    expect(runner?.revokedAt).not.toBeNull();
-    expect(run).toEqual({ state: 'queued', claimedBy: null });
+    expect((await claim(trust.id, await workload())).status).toBe(401);
+  });
+
+  it('lets a host through a trust say it is here, what it holds and what it runs', async () => {
+    const trust = await trusted();
+
+    const answered = await present(trust.id, await workload(), ['run-1']);
+
+    expect(answered.status).toBe(200);
+    expect(answered.body).toEqual({ workspace: expect.any(String) });
+
+    expect(await hostRow()).toMatchObject({
+      workspaceId: answered.body.workspace,
+      trustId: trust.id,
+      poolId: null,
+      name: 'pod-a',
+      release: '0.1.0',
+      executor: 'docker',
+      capacity: 2,
+      running: ['run-1'],
+    });
+
+    await http()
+      .get('/api/hosts/harnesses')
+      .set('Authorization', `Bearer ${await workload()}`)
+      .set('Spotlight-Trust', trust.id)
+      .expect(200);
   });
 });

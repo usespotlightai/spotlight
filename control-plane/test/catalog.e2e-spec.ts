@@ -435,7 +435,7 @@ describe('a catalog call (e2e)', () => {
           command: { executable: 'sh', args: [] },
           briefing: 'Search the web.',
           handover: { options: [], noteLimit: 0 },
-          continuity: { key: 'task:station', keep: true },
+          continuity: { key: 'task:station' },
           catalog: ['catalog.web-search@1.1.0'],
         }),
       }).refused(

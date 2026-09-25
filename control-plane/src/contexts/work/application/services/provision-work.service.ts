@@ -1,12 +1,12 @@
 import type {
-  HeldWork,
-  PoolRunnersPort,
-  ProvisionedRunner,
-} from '@runners/application/ports/pool-runners.port';
-import type {
   PoolAtWork,
   RunnerPoolsPort,
 } from '@runners/application/ports/runner-pools.port';
+import type {
+  HeldWork,
+  ProvisionedRunner,
+  RunnersPort,
+} from '@runners/application/ports/runners.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
@@ -87,7 +87,7 @@ export class ProvisionWork {
     private readonly runs: RunRepository,
     private readonly checks: CheckProvisioningPort,
     private readonly pools: RunnerPoolsPort,
-    private readonly pooled: PoolRunnersPort,
+    private readonly runners: RunnersPort,
     private readonly failures: ProvisionFailures,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
@@ -204,7 +204,7 @@ export class ProvisionWork {
           ProvisionFailure.lapsed(reservation.until),
           now,
         );
-        await this.pooled.letGo(reservation.runner, now);
+        await this.runners.letGo(reservation.runner, now);
       }
     }
 
@@ -215,7 +215,7 @@ export class ProvisionWork {
         ProvisionFailure.lapsed(check.until),
         now,
       );
-      await this.pooled.letGo(check.runner, now);
+      await this.runners.letGo(check.runner, now);
     }
   }
 
@@ -340,7 +340,7 @@ export class ProvisionWork {
       readonly claimBy: Date;
     },
   ): Promise<ProvisionedRunner> {
-    return this.pooled.provision(
+    return this.runners.provision(
       {
         poolId: pool.poolId,
         runnerId,

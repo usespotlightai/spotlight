@@ -5,7 +5,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const RUNNER_PRESENCE = Symbol('RUNNER_PRESENCE');
 
-export type RunnerClaims = 'any' | 'reserved' | 'nothing';
+export type RunnerClaims = 'reserved' | 'nothing';
 
 export interface SeenRunner {
   readonly workspaceId: WorkspaceId;
@@ -16,6 +16,4 @@ export interface SeenRunner {
 
 export interface RunnerPresencePort {
   seen(runnerId: RunnerId, at: Date): Promise<SeenRunner | null>;
-
-  pinnableTerms(runnerId: RunnerId): Promise<RunnerTerms | null>;
 }

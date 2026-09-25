@@ -7,15 +7,8 @@ import { DrizzleWorkspaceReader } from '@identity/infrastructure/persistence/dri
 import { DrizzleWorkspaceRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace.repository';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { Runner } from '@runners/domain/aggregates/runner.aggregate';
-import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
-import { RunnerName } from '@runners/domain/value-objects/runner-name.vo';
 import { DrizzleRunnerReader } from '@runners/infrastructure/persistence/drizzle/readers/runner.reader';
-import { DrizzleRunnerRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner.repository';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
-import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { ListInboxHandler } from '@work/application/queries/handlers/list-inbox.handler';
 import { ListInboxQuery } from '@work/application/queries/list-inbox.query';
@@ -191,67 +184,63 @@ describe('the inbox item a setup list stands as', () => {
   });
 });
 
-describe('whether a workspace has a runner that offers work', () => {
+describe('whether a workspace has a way in for runners to offer work', () => {
   const runners = () => new DrizzleRunnerReader(db);
-  const repository = () =>
-    new DrizzleRunnerRepository(new DrizzleContext(db), {
-      dispatch: async () => {},
+
+  const pooled = (workspaceId: WorkspaceId, mode: 'pull' | 'push') =>
+    db.insert(schema.runnerPool).values({
+      id: randomUUID(),
+      workspaceId: workspaceId.value,
+      key: `pool-${randomUUID().slice(0, 8)}`,
+      ...(mode === 'pull'
+        ? { tokenHash: randomUUID().replaceAll('-', '').repeat(2) }
+        : {
+            provisionUrl: 'https://provision.example.com/runs',
+            provisionSecret: 'sealed',
+          }),
     });
 
-  const enrolled = (workspaceId: WorkspaceId, name = 'Laptop') =>
-    Runner.enrol({
-      id: RunnerId.of(randomUUID()),
-      workspaceId,
-      name: RunnerName.of(name),
-      tokenHash: TokenHash.of(randomUUID().replaceAll('-', '').repeat(2)),
-      by: attributedIn(workspaceId),
+  const trusted = (workspaceId: WorkspaceId) =>
+    db.insert(schema.runnerTrust).values({
+      id: randomUUID(),
+      workspaceId: workspaceId.value,
+      key: `trust-${randomUUID().slice(0, 8)}`,
+      issuer: 'https://oidc.example.com/cluster',
+      subject: 'system:serviceaccount:spotlight:runner',
+      audience: 'spotlight',
     });
 
-  const claude = [InstalledHarness.reported('claude-code', [])];
-
-  const standing: Record<string, (runner: Runner) => Runner> = {
-    'never connected': (runner) => runner,
-    'connected with a harness': (runner) => runner.register(claude, NOW),
-    'connected with no harness': (runner) => runner.register([], NOW),
-    'revoked after connecting': (runner) =>
-      runner.register(claude, NOW).revoke(NOW, attributedIn()),
-    'revoked before connecting': (runner) => runner.revoke(NOW, attributedIn()),
+  const ways: Record<string, (workspace: WorkspaceId) => Promise<unknown>> = {
+    'a pull pool': (workspace) => pooled(workspace, 'pull'),
+    'a push pool': (workspace) => pooled(workspace, 'push'),
+    'a runner trust': (workspace) => trusted(workspace),
   };
 
   afterEach(async () => {
-    await db.delete(schema.runner);
+    await db.delete(schema.runnerPool);
+    await db.delete(schema.runnerTrust);
   });
 
-  it.each(Object.keys(standing))(
-    'reads a runner %s the way the runner itself says',
-    async (state) => {
-      const workspace = WorkspaceId.of(randomUUID());
-      const runner = standing[state]?.(enrolled(workspace)) as Runner;
+  it('finds none in a workspace with neither pool nor trust', async () => {
+    await expect(
+      runners().anyOffersWork(WorkspaceId.of(randomUUID())),
+    ).resolves.toBe(false);
+  });
 
-      await repository().add(runner);
-
-      await expect(runners().anyOffersWork(workspace)).resolves.toBe(
-        runner.offersWork,
-      );
-    },
-  );
-
-  it('finds the one that offers work among those that do not', async () => {
+  it.each(Object.keys(ways))('finds one through %s', async (way) => {
     const workspace = WorkspaceId.of(randomUUID());
 
-    for (const [state, shaped] of Object.entries(standing)) {
-      await repository().add(shaped(enrolled(workspace, state)));
-    }
+    await ways[way]?.(workspace);
 
     await expect(runners().anyOffersWork(workspace)).resolves.toBe(true);
   });
 
-  it('does not count a runner in another workspace', async () => {
+  it('does not count a pool or trust in another workspace', async () => {
     const mine = WorkspaceId.of(randomUUID());
+    const theirs = WorkspaceId.of(randomUUID());
 
-    await repository().add(
-      enrolled(WorkspaceId.of(randomUUID())).register(claude, NOW),
-    );
+    await pooled(theirs, 'pull');
+    await trusted(theirs);
 
     await expect(runners().anyOffersWork(mine)).resolves.toBe(false);
   });

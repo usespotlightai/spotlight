@@ -45,13 +45,11 @@ import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
 import type { ToolAnswerDto } from '@work/application/dto/tool-answer.dto';
 import type { AttachmentContent } from '@work/application/ports/attachment-store.port';
 import { HarnessCatalogueQuery } from '@work/application/queries/list-harnesses.query';
-import { ListKeptWorkspacesQuery } from '@work/application/queries/list-kept-workspaces.query';
 import { PendingMessagesQuery } from '@work/application/queries/pending-messages.query';
 import { ReadRunAttachmentQuery } from '@work/application/queries/read-run-attachment.query';
 import { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trace.query';
 import { RunStopRequestedQuery } from '@work/application/queries/run-stop-requested.query';
 import { InstallableHarnessResponseDto } from '@work/presentation/http/dto/installable-harness.response.dto';
-import { KeptWorkspacesResponseDto } from '@work/presentation/http/dto/kept-workspaces.response.dto';
 import {
   AnswerRemarkRequestDto,
   AppendRunEventsRequestDto,
@@ -76,7 +74,9 @@ interface Answerable {
 }
 
 @ApiTags('runners')
-@ApiUnauthorizedResponse({ description: 'Missing or wrong enrollment token' })
+@ApiUnauthorizedResponse({
+  description: 'Missing, spent or wrong runner token',
+})
 @RunnerOnly()
 @Controller()
 export class RunnerController {
@@ -106,26 +106,6 @@ export class RunnerController {
           harness.versionProbe,
         ),
     );
-  }
-
-  @Get('runners/workspaces')
-  @ApiOperation({
-    operationId: 'keptWorkspaces',
-    summary: 'Which workspaces this runner should still be holding',
-    description:
-      'A run keeps its directory so the next one at the same station can ' +
-      'take up the conversation left in it. Nothing else ever will, so what ' +
-      'this does not name may be disposed of.',
-  })
-  @ApiOkResponse({ type: KeptWorkspacesResponseDto })
-  async workspaces(
-    @CurrentRunner() runnerId: string,
-  ): Promise<KeptWorkspacesResponseDto> {
-    const keys = await this.queryBus.execute<ListKeptWorkspacesQuery, string[]>(
-      new ListKeptWorkspacesQuery(runnerId),
-    );
-
-    return { keys };
   }
 
   @Post('runners/claim')

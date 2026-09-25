@@ -75,7 +75,6 @@ export class CreateWorkspaceRunnersHandler
               id: WorkspaceRunnersId.of(this.ids.generate()),
               workspaceId: cleared.workspaceId,
               by: Attribution.of(command.actor, cleared.workspaceId),
-              runners: compiled.runners,
               trusts: compiled.trusts,
               pools: compiled.pools,
             });

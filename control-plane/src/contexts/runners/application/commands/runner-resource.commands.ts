@@ -1,31 +1,5 @@
 import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 
-export class CreateRunnerCommand {
-  constructor(
-    readonly workspaceId: string,
-    readonly actor: Actor,
-    readonly idempotencyKey: string,
-    readonly definition: unknown,
-  ) {}
-}
-
-export class UpdateRunnerCommand {
-  constructor(
-    readonly runnerId: string,
-    readonly actor: Actor,
-    readonly expectedVersion: number,
-    readonly definition: unknown,
-  ) {}
-}
-
-export class DeleteRunnerCommand {
-  constructor(
-    readonly runnerId: string,
-    readonly actor: Actor,
-    readonly expectedVersion: number,
-  ) {}
-}
-
 export class CreateRunnerTrustCommand {
   constructor(
     readonly workspaceId: string,
@@ -75,14 +49,6 @@ export class DeleteWorkspaceRunnersCommand {
     readonly declarationId: string,
     readonly actor: Actor,
     readonly expectedVersion: number,
-  ) {}
-}
-
-export class ExchangeWorkloadTokenCommand {
-  constructor(
-    readonly trustId: string,
-    readonly token: string,
-    readonly name: string,
   ) {}
 }
 

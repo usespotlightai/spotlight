@@ -1,20 +1,5 @@
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
-export class ReadRunnerQuery {
-  constructor(
-    readonly runnerId: string,
-    readonly principal: Principal,
-  ) {}
-}
-
-export class ImportRunnerQuery {
-  constructor(
-    readonly workspaceId: string,
-    readonly address: string,
-    readonly principal: Principal,
-  ) {}
-}
-
 export class ReadRunnerTrustQuery {
   constructor(
     readonly trustId: string,
@@ -41,13 +26,6 @@ export class ImportWorkspaceRunnersQuery {
   constructor(
     readonly workspaceId: string,
     readonly address: string,
-    readonly principal: Principal,
-  ) {}
-}
-
-export class ListRunnerResourcesQuery {
-  constructor(
-    readonly workspaceId: string,
     readonly principal: Principal,
   ) {}
 }

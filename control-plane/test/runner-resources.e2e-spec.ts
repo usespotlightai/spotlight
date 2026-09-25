@@ -1,8 +1,7 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { RUNNER_TOKEN_HEADER } from '@runners/presentation/http/controllers/runner-resource.controller';
 import { eq, inArray } from 'drizzle-orm';
 import {
   afterAll,
@@ -31,7 +30,7 @@ const SUBJECT = 'system:serviceaccount:spotlight:runner';
 
 const seated =
   (
-    kind: 'runners' | 'runner-trusts' | 'runner-pools' | 'workspace-runners',
+    kind: 'runner-trusts' | 'runner-pools' | 'workspace-runners',
     bodies: Pick<
       ResourceFixture,
       'valid' | 'changed' | 'changedAgain' | 'invalid'
@@ -68,17 +67,6 @@ const seated =
       },
     };
   };
-
-conformsAsResource({
-  kind: 'runner',
-  open: seated('runners', {
-    address: 'build-1',
-    valid: { name: 'build-1' },
-    changed: { name: 'build-1', labels: ['vpc-internal'] },
-    changedAgain: { name: 'build-1', labels: ['gpu'] },
-    invalid: { body: { name: '' }, path: 'name' },
-  }),
-});
 
 conformsAsResource({
   kind: 'runner-trust',
@@ -118,14 +106,14 @@ conformsAsResource({
 conformsAsResource({
   kind: 'workspace-runners',
   open: seated('workspace-runners', {
-    valid: { runners: ['build-1'] },
-    changed: { runners: ['build-2'] },
-    changedAgain: { runners: [], trusts: ['production'] },
-    invalid: { body: { runners: [''] }, path: 'runners[0]' },
+    valid: { trusts: ['production'] },
+    changed: { trusts: ['staging'] },
+    changedAgain: { trusts: [], pools: ['ephemeral'] },
+    invalid: { body: { trusts: [''] }, path: 'trusts[0]' },
   }),
 });
 
-describe('runners and what the workspace declares of them (e2e)', () => {
+describe('runner trusts, pools and what the workspace declares of them (e2e)', () => {
   let app: INestApplication;
   let db: DrizzleDatabase;
   let held: string;
@@ -134,11 +122,14 @@ describe('runners and what the workspace declares of them (e2e)', () => {
 
   const http = () => served(app);
 
-  const enrol = (body: object, key = randomUUID()) =>
+  const asOwner = (
+    kind: 'runner-trusts' | 'runner-pools' | 'workspace-runners',
+    body: object,
+  ) =>
     http()
-      .post(`/api/resources/workspaces/${held}/runners`)
+      .post(`/api/resources/workspaces/${held}/${kind}`)
       .set(TEST_USER_HEADER, owner)
-      .set('Idempotency-Key', key)
+      .set('Idempotency-Key', randomUUID())
       .send(body);
 
   beforeAll(async () => {
@@ -218,33 +209,31 @@ describe('runners and what the workspace declares of them (e2e)', () => {
         .set('If-Match', `"${version}"`),
   });
 
-  it('lets a configure token with the runners scope manage runners, trusts and the declaration, as Terraform would', async () => {
+  it('lets a configure token with the runners scope manage trusts, pools and the declaration, as Terraform would', async () => {
     const terraform = as(await tokenWith(['configure', 'runners']));
     const trust = await terraform.post(
       `/api/resources/workspaces/${held}/runner-trusts`,
       { key: 'production', issuer: ISSUER, subject: SUBJECT },
     );
-    const runner = await terraform.post(
-      `/api/resources/workspaces/${held}/runners`,
-      { name: 'build-1' },
+    const pool = await terraform.post(
+      `/api/resources/workspaces/${held}/runner-pools`,
+      { key: 'ephemeral' },
     );
     const declared = await terraform.post(
       `/api/resources/workspaces/${held}/workspace-runners`,
-      { runners: ['build-1'], trusts: ['production'] },
+      { trusts: ['production'], pools: ['ephemeral'] },
     );
 
-    expect([trust.status, runner.status, declared.status]).toEqual([
+    expect([trust.status, pool.status, declared.status]).toEqual([
       201, 201, 201,
     ]);
-    expect(runner.headers[RUNNER_TOKEN_HEADER.toLowerCase()]).toEqual(
-      expect.any(String),
-    );
+    expect(declared.body.warnings).toEqual([]);
     expect(
       (
         await terraform.put(
-          `/api/resources/runners/${runner.body.id}`,
-          runner.body.version,
-          { name: 'build-1', labels: ['gpu'] },
+          `/api/resources/runner-pools/${pool.body.id}`,
+          pool.body.version,
+          { key: 'ephemeral', labels: ['gpu'] },
         )
       ).status,
     ).toBe(200);
@@ -258,33 +247,19 @@ describe('runners and what the workspace declares of them (e2e)', () => {
     ).toBe(204);
   });
 
-  it('answers 403 to a configure token without the runners scope, on every runner, trust and declaration write', async () => {
-    const trust = await http()
-      .post(`/api/resources/workspaces/${held}/runner-trusts`)
-      .set(TEST_USER_HEADER, owner)
-      .set('Idempotency-Key', randomUUID())
-      .send({ key: 'production', issuer: ISSUER, subject: SUBJECT });
-    const runner = await enrol({ name: 'build-1' });
-    const declared = await http()
-      .post(`/api/resources/workspaces/${held}/workspace-runners`)
-      .set(TEST_USER_HEADER, owner)
-      .set('Idempotency-Key', randomUUID())
-      .send({ runners: ['build-1'] });
+  it('answers 403 to a configure token without the runners scope, on every trust, pool and declaration write', async () => {
+    const trust = await asOwner('runner-trusts', {
+      key: 'production',
+      issuer: ISSUER,
+      subject: SUBJECT,
+    });
+    const pool = await asOwner('runner-pools', { key: 'ephemeral' });
+    const declared = await asOwner('workspace-runners', {
+      trusts: ['production'],
+    });
     const configure = as(await tokenWith(['configure']));
 
     const answered = [
-      await configure.post(`/api/resources/workspaces/${held}/runners`, {
-        name: 'build-2',
-      }),
-      await configure.put(
-        `/api/resources/runners/${runner.body.id}`,
-        runner.body.version,
-        { name: 'build-1', token: randomUUID().replaceAll('-', '') },
-      ),
-      await configure.delete(
-        `/api/resources/runners/${runner.body.id}`,
-        runner.body.version,
-      ),
       await configure.post(`/api/resources/workspaces/${held}/runner-trusts`, {
         key: 'staging',
         issuer: ISSUER,
@@ -304,10 +279,22 @@ describe('runners and what the workspace declares of them (e2e)', () => {
         `/api/resources/runner-trusts/${trust.body.id}`,
         trust.body.version,
       ),
+      await configure.post(`/api/resources/workspaces/${held}/runner-pools`, {
+        key: 'sandboxes',
+      }),
+      await configure.put(
+        `/api/resources/runner-pools/${pool.body.id}`,
+        pool.body.version,
+        { key: 'ephemeral', labels: ['gpu'] },
+      ),
+      await configure.delete(
+        `/api/resources/runner-pools/${pool.body.id}`,
+        pool.body.version,
+      ),
       await configure.put(
         `/api/resources/workspace-runners/${declared.body.id}`,
         declared.body.version,
-        { runners: [] },
+        { trusts: [] },
       ),
       await configure.delete(
         `/api/resources/workspace-runners/${declared.body.id}`,
@@ -326,8 +313,8 @@ describe('runners and what the workspace declares of them (e2e)', () => {
       ]),
     ).toEqual(
       [
-        ...Array(3).fill('Not allowed to change the runner'),
         ...Array(3).fill('Not allowed to change the runner-trust'),
+        ...Array(3).fill('Not allowed to change the runner-pool'),
         ...Array(2).fill('Not allowed to change the workspace-runners'),
       ].map((title) => [
         'urn:spotlight:problem:forbidden',
@@ -336,7 +323,8 @@ describe('runners and what the workspace declares of them (e2e)', () => {
       ]),
     );
     expect(
-      (await configure.get(`/api/resources/runners/${runner.body.id}`)).status,
+      (await configure.get(`/api/resources/runner-trusts/${trust.body.id}`))
+        .status,
     ).toBe(200);
   });
 
@@ -353,33 +341,42 @@ describe('runners and what the workspace declares of them (e2e)', () => {
     ]);
   });
 
-  it('lets a read token read runners, but answers 403 to anything it would change', async () => {
-    const made = await enrol({ name: 'build-1' });
+  it('lets a read token read trusts and pools, but answers 403 to anything it would change', async () => {
+    const trust = await asOwner('runner-trusts', {
+      key: 'production',
+      issuer: ISSUER,
+      subject: SUBJECT,
+    });
+    const pool = await asOwner('runner-pools', { key: 'ephemeral' });
     const reader = as(await tokenWith(['read']));
 
     expect(
-      (await reader.get(`/api/resources/runners/${made.body.id}`)).status,
+      (await reader.get(`/api/resources/runner-trusts/${trust.body.id}`))
+        .status,
+    ).toBe(200);
+    expect(
+      (await reader.get(`/api/resources/runner-pools/${pool.body.id}`)).status,
     ).toBe(200);
     expect(
       (
-        await reader.post(`/api/resources/workspaces/${held}/runners`, {
-          name: 'build-2',
+        await reader.post(`/api/resources/workspaces/${held}/runner-pools`, {
+          key: 'sandboxes',
         })
       ).status,
     ).toBe(403);
     expect(
       (
         await reader.put(
-          `/api/resources/runners/${made.body.id}`,
-          made.body.version,
-          { name: 'build-1', labels: ['gpu'] },
+          `/api/resources/runner-pools/${pool.body.id}`,
+          pool.body.version,
+          { key: 'ephemeral', labels: ['gpu'] },
         )
       ).status,
     ).toBe(403);
     expect(
       (
         await reader.post(`/api/resources/workspaces/${held}/runner-trusts`, {
-          key: 'production',
+          key: 'staging',
           issuer: ISSUER,
           subject: SUBJECT,
         })
@@ -387,26 +384,34 @@ describe('runners and what the workspace declares of them (e2e)', () => {
     ).toBe(403);
   });
 
-  it('audits who changed runners, trusts and the declaration, token rotations included', async () => {
+  it('audits who changed trusts, pools and the declaration', async () => {
     const terraform = as(await tokenWith(['configure', 'runners']));
-    const made = await enrol({ name: 'build-1' });
+    const trust = await asOwner('runner-trusts', {
+      key: 'production',
+      issuer: ISSUER,
+      subject: SUBJECT,
+    });
 
     await terraform
-      .put(`/api/resources/runners/${made.body.id}`, made.body.version, {
-        name: 'build-1',
-        token: randomUUID().replaceAll('-', ''),
-      })
+      .put(
+        `/api/resources/runner-trusts/${trust.body.id}`,
+        trust.body.version,
+        {
+          key: 'production',
+          issuer: ISSUER,
+          subject: SUBJECT,
+          labels: ['gpu'],
+        },
+      )
       .expect(200);
     await terraform
-      .post(`/api/resources/workspaces/${held}/runner-trusts`, {
-        key: 'production',
-        issuer: ISSUER,
-        subject: SUBJECT,
+      .post(`/api/resources/workspaces/${held}/runner-pools`, {
+        key: 'ephemeral',
       })
       .expect(201);
     await terraform
       .post(`/api/resources/workspaces/${held}/workspace-runners`, {
-        runners: ['build-1'],
+        trusts: ['production'],
       })
       .expect(201);
 
@@ -419,46 +424,32 @@ describe('runners and what the workspace declares of them (e2e)', () => {
       key: string;
       action: string;
       by: { kind: string };
-      client: string;
-      details: object;
     }[];
 
     expect(
       changes
         .filter((each) =>
-          ['runner', 'runner-trust', 'workspace-runners'].includes(
+          ['runner-trust', 'runner-pool', 'workspace-runners'].includes(
             each.resource,
           ),
         )
-        .map((each) => [
-          each.resource,
-          each.key,
-          each.action,
-          each.by.kind,
-          each.details,
-        ]),
+        .map((each) => [each.resource, each.key, each.action, each.by.kind]),
     ).toEqual([
-      ['workspace-runners', 'runners', 'created', 'token', {}],
-      ['runner-trust', 'production', 'created', 'token', {}],
-      ['runner', 'build-1', 'updated', 'token', { rekeyed: true }],
-      ['runner', 'build-1', 'created', 'person', {}],
+      ['workspace-runners', 'runners', 'created', 'token'],
+      ['runner-pool', 'ephemeral', 'created', 'token'],
+      ['runner-trust', 'production', 'updated', 'token'],
+      ['runner-trust', 'production', 'created', 'person'],
     ]);
   });
 
-  it('keeps the workspace from closing while it holds runners, trusts or a declaration', async () => {
-    await enrol({ name: 'build-1' });
-    await http()
-      .post(`/api/resources/workspaces/${held}/runner-trusts`)
-      .set(TEST_USER_HEADER, owner)
-      .set('Idempotency-Key', randomUUID())
-      .send({ key: 'production', issuer: ISSUER, subject: SUBJECT })
-      .expect(201);
-    await http()
-      .post(`/api/resources/workspaces/${held}/workspace-runners`)
-      .set(TEST_USER_HEADER, owner)
-      .set('Idempotency-Key', randomUUID())
-      .send({ runners: ['build-1'] })
-      .expect(201);
+  it('keeps the workspace from closing while it holds trusts, pools or a declaration', async () => {
+    await asOwner('runner-trusts', {
+      key: 'production',
+      issuer: ISSUER,
+      subject: SUBJECT,
+    }).expect(201);
+    await asOwner('runner-pools', { key: 'ephemeral' }).expect(201);
+    await asOwner('workspace-runners', { trusts: ['production'] }).expect(201);
 
     const workspace = await http()
       .get(`/api/resources/workspaces/${held}`)
@@ -470,192 +461,39 @@ describe('runners and what the workspace declares of them (e2e)', () => {
 
     expect(refused.status).toBe(409);
     expect(refused.body.detail).toEqual(
-      expect.stringContaining('runner build-1'),
+      expect.stringContaining('runner trust production'),
     );
     expect(refused.body.detail).toEqual(
-      expect.stringContaining('runner trust production'),
+      expect.stringContaining('runner pool ephemeral'),
     );
     expect(refused.body.detail).toEqual(
       expect.stringContaining('workspace runners'),
     );
   });
 
-  it('answers the token it issued once, keeps only its hash, and the runner calls with it', async () => {
-    const key = randomUUID();
-    const made = await enrol({ name: 'build-1' }, key);
-    const token = made.headers[RUNNER_TOKEN_HEADER.toLowerCase()];
-    const [kept] = await db
-      .select({ tokenHash: schema.runner.tokenHash })
-      .from(schema.runner)
-      .where(eq(schema.runner.id, made.body.id));
+  it('warns of every trust or pool the declaration names that the workspace does not have', async () => {
+    await asOwner('runner-trusts', {
+      key: 'production',
+      issuer: ISSUER,
+      subject: SUBJECT,
+    }).expect(201);
+    await asOwner('runner-pools', { key: 'ephemeral' }).expect(201);
 
-    expect(token).toEqual(expect.any(String));
-    expect(JSON.stringify(made.body)).not.toContain(token);
-    expect(kept?.tokenHash).not.toBe(token);
-    expect(
-      (await enrol({ name: 'build-1' }, key)).headers[
-        RUNNER_TOKEN_HEADER.toLowerCase()
-      ],
-    ).toBeUndefined();
-
-    const registered = await http()
-      .post('/api/runners/register')
-      .set('Authorization', `Bearer ${token}`)
-      .send({ harnesses: [] });
-
-    expect(registered.status).toBe(201);
-    expect(registered.body.runnerId).toBe(made.body.id);
-  });
-
-  it('lets a runner be given its token, write-only, and replaces it on update', async () => {
-    const given = randomUUID().replaceAll('-', '');
-    const rotated = randomUUID().replaceAll('-', '');
-    const made = await enrol({ name: 'build-1', token: given });
-    const register = (token: string) =>
-      http()
-        .post('/api/runners/register')
-        .set('Authorization', `Bearer ${token}`)
-        .send({ harnesses: [] });
-
-    expect(made.headers[RUNNER_TOKEN_HEADER.toLowerCase()]).toBeUndefined();
-    expect(made.body).not.toHaveProperty('token');
-    expect((await register(given)).status).toBe(201);
-
-    const answered = await http()
-      .put(`/api/resources/runners/${made.body.id}`)
-      .set(TEST_USER_HEADER, owner)
-      .set('If-Match', `"${made.body.version}"`)
-      .send({ name: 'build-1', token: rotated });
-
-    expect(answered.status).toBe(200);
-    expect((await register(given)).status).toBe(401);
-    expect((await register(rotated)).status).toBe(201);
-    expect(
-      (await enrol({ name: 'build-2', token: rotated })).body.errors,
-    ).toEqual([
-      expect.objectContaining({
-        path: 'token',
-        message: 'is already another runner’s token; give each runner its own',
-      }),
-    ]);
-  });
-
-  it('never takes back a token a deleted runner held, and says it was revoked', async () => {
-    const given = randomUUID().replaceAll('-', '');
-    const made = await enrol({ name: 'build-1', token: given });
-
-    await http()
-      .delete(`/api/resources/runners/${made.body.id}`)
-      .set(TEST_USER_HEADER, owner)
-      .set('If-Match', `"${made.body.version}"`)
-      .expect(204);
-
-    const again = await enrol({ name: 'build-1', token: given });
-    const other = await enrol({ name: 'build-2' });
-    const rekeyed = await http()
-      .put(`/api/resources/runners/${other.body.id}`)
-      .set(TEST_USER_HEADER, owner)
-      .set('If-Match', `"${other.body.version}"`)
-      .send({ name: 'build-2', token: given });
-
-    for (const refused of [again, rekeyed]) {
-      expect(refused.status).toBe(422);
-      expect(refused.body.errors).toEqual([
-        {
-          path: 'token',
-          message:
-            'was held by a runner that has been revoked and can’t be used again; give this runner a new token',
-          severity: 'error',
-        },
-      ]);
-    }
-  });
-
-  it('shuts a deleted runner out', async () => {
-    const made = await enrol({ name: 'build-1' });
-    const token = made.headers[RUNNER_TOKEN_HEADER.toLowerCase()];
-
-    await http()
-      .delete(`/api/resources/runners/${made.body.id}`)
-      .set(TEST_USER_HEADER, owner)
-      .set('If-Match', `"${made.body.version}"`)
-      .expect(204);
-
-    await http()
-      .post('/api/runners/register')
-      .set('Authorization', `Bearer ${token}`)
-      .send({ harnesses: [] })
-      .expect(401);
-    expect((await enrol({ name: 'build-1' })).status).toBe(201);
-  });
-
-  it('keeps its version while the runner comes and goes', async () => {
-    const made = await enrol({ name: 'build-1' });
-
-    await http()
-      .post('/api/runners/register')
-      .set(
-        'Authorization',
-        `Bearer ${made.headers[RUNNER_TOKEN_HEADER.toLowerCase()]}`,
-      )
-      .send({ harnesses: [] })
-      .expect(201);
-
-    const read = await http()
-      .get(`/api/resources/runners/${made.body.id}`)
-      .set(TEST_USER_HEADER, owner);
-
-    expect(read.body).toEqual(made.body);
-  });
-
-  it('shows every runner enrolled outside what the workspace declares as drift', async () => {
-    await enrol({ name: 'build-1' });
-    await enrol({ name: 'laptop' });
-
-    const declared = await http()
-      .post(`/api/resources/workspaces/${held}/workspace-runners`)
-      .set(TEST_USER_HEADER, owner)
-      .set('Idempotency-Key', randomUUID())
-      .send({ runners: ['build-1', 'build-2'] });
-
-    expect(declared.status).toBe(201);
-    expect(declared.body.drift).toEqual(['laptop']);
-    expect(declared.body.warnings).toEqual([
-      expect.objectContaining({ path: 'runners[1]', severity: 'warning' }),
-      expect.objectContaining({ path: 'runners', severity: 'warning' }),
-    ]);
-  });
-
-  it('lists only the runners the workspace holds, leaving those a trust enrolled to their trust', async () => {
-    const byHand = await enrol({ name: 'build-1' });
-    const trust = await http()
-      .post(`/api/resources/workspaces/${held}/runner-trusts`)
-      .set(TEST_USER_HEADER, owner)
-      .set('Idempotency-Key', randomUUID())
-      .send({ key: 'production', issuer: ISSUER, subject: SUBJECT });
-    const ephemeral = randomUUID();
-
-    expect(byHand.status).toBe(201);
-    expect(trust.status).toBe(201);
-
-    await db.insert(schema.runner).values({
-      id: ephemeral,
-      workspaceId: held,
-      name: 'pod-a',
-      tokenHash: createHash('sha256').update(randomUUID()).digest('hex'),
-      trustId: trust.body.id,
+    const declared = await asOwner('workspace-runners', {
+      trusts: ['production', 'staging'],
+      pools: ['sandboxes', 'ephemeral'],
     });
 
-    const read = await http()
-      .get(`/api/resources/runners/${ephemeral}`)
-      .set(TEST_USER_HEADER, owner);
-    const listed = await http()
-      .get(`/api/resources/workspaces/${held}/runners`)
-      .set(TEST_USER_HEADER, owner);
-
-    expect(read.status).toBe(200);
-    expect(read.body).toMatchObject({ name: 'pod-a', trust: 'production' });
-    expect(listed.status).toBe(200);
-    expect(listed.body).toEqual({ items: [byHand.body] });
+    expect(declared.status).toBe(201);
+    expect(declared.body).toMatchObject({
+      trusts: ['production', 'staging'],
+      pools: ['sandboxes', 'ephemeral'],
+    });
+    expect(declared.body).not.toHaveProperty('runners');
+    expect(declared.body).not.toHaveProperty('drift');
+    expect(declared.body.warnings).toEqual([
+      expect.objectContaining({ path: 'trusts[1]', severity: 'warning' }),
+      expect.objectContaining({ path: 'pools[0]', severity: 'warning' }),
+    ]);
   });
 });

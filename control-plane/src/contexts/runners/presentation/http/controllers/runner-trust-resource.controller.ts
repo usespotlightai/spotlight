@@ -90,7 +90,7 @@ export class RunnerTrustResourceController {
 
   @RunnerTrustResource.Create(
     'workspaces/:workspaceId/runner-trusts',
-    'Trust a platform workload to enrol runners with the token its platform issues it',
+    'Trust a platform workload to claim work as a host, with the token its platform issues',
   )
   @WORKSPACE
   @DEFINITION
@@ -143,7 +143,7 @@ export class RunnerTrustResourceController {
 
   @RunnerTrustResource.Delete(
     'runner-trusts/:id',
-    'Stop trusting a workload, revoking every runner enrolled through it',
+    'Stop trusting a workload, so it can claim no more work through the trust',
   )
   @ID
   async delete(

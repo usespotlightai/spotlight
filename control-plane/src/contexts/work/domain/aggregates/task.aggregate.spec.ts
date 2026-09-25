@@ -343,15 +343,14 @@ describe('Task, what it is doing', () => {
       expect(added().continuity().key.value).toBe('task_1-station_1');
     });
 
-    it('hands the conversation and the runner to the next run', () => {
+    it('hands the conversation to the next run', () => {
       const carried = added().workedIn(session, runner).continuity();
 
       expect(carried.sessionId).toEqual(session);
-      expect(carried.pinnedTo).toEqual(runner);
     });
 
-    it('pins nothing when there is no conversation to return to', () => {
-      expect(added().continuity().pinnedTo).toBeNull();
+    it('asks for no conversation when there is none to return to', () => {
+      expect(added().continuity().sessionId).toBeNull();
     });
 
     it('survives a person answering what it was waiting on', () => {

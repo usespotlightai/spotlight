@@ -40,7 +40,7 @@ const aSpec = (executable = 'sh') =>
     command: { executable, args: [] },
     briefing: 'do the thing',
     handover: { options: [], noteLimit: 4_000 },
-    continuity: { key: 'task:station', keep: true },
+    continuity: { key: 'task:station' },
   });
 
 const NOW = new Date('2026-08-28T12:00:00.000Z');

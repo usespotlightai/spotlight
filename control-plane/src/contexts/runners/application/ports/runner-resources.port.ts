@@ -1,16 +1,7 @@
-import type { Enrolment } from '@runners/domain/services/runner-drift';
+import type { WaysIn } from '@runners/domain/services/runner-drift';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const RUNNER_RESOURCES = Symbol('RUNNER_RESOURCES');
-
-export interface KeptRunner {
-  readonly id: string;
-  readonly revision: number;
-  readonly workspaceId: WorkspaceId;
-  readonly name: string;
-  readonly labels: readonly string[];
-  readonly trustKey: string | null;
-}
 
 export interface KeptTrust {
   readonly id: string;
@@ -27,7 +18,6 @@ export interface KeptWorkspaceRunners {
   readonly id: string;
   readonly version: number;
   readonly workspaceId: WorkspaceId;
-  readonly runners: readonly string[];
   readonly trusts: readonly string[];
   readonly pools: readonly string[];
 }
@@ -47,13 +37,6 @@ export interface KeptPool {
 }
 
 export interface RunnerResourcesPort {
-  runnerWithId(id: string): Promise<KeptRunner | null>;
-
-  runnerNamed(
-    workspaceId: WorkspaceId,
-    name: string,
-  ): Promise<KeptRunner | null>;
-
   trustWithId(id: string): Promise<KeptTrust | null>;
 
   trustAt(workspaceId: WorkspaceId, key: string): Promise<KeptTrust | null>;
@@ -72,5 +55,5 @@ export interface RunnerResourcesPort {
 
   declaredIn(workspaceId: WorkspaceId): Promise<KeptWorkspaceRunners | null>;
 
-  enrolmentIn(workspaceId: WorkspaceId): Promise<Enrolment>;
+  waysIn(workspaceId: WorkspaceId): Promise<WaysIn>;
 }

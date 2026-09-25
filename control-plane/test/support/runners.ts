@@ -14,14 +14,14 @@ export const forgetRunnersOf = async (
     .delete(schema.changeStack)
     .where(eq(schema.changeStack.workspaceId, workspaceId));
   await db
-    .delete(schema.runner)
-    .where(eq(schema.runner.workspaceId, workspaceId));
+    .delete(schema.runnerHost)
+    .where(eq(schema.runnerHost.workspaceId, workspaceId));
   await db
     .delete(schema.runnerTrust)
     .where(eq(schema.runnerTrust.workspaceId, workspaceId));
   await db
-    .delete(schema.poolRunner)
-    .where(eq(schema.poolRunner.workspaceId, workspaceId));
+    .delete(schema.runner)
+    .where(eq(schema.runner.workspaceId, workspaceId));
   await db
     .delete(schema.runnerPool)
     .where(eq(schema.runnerPool.workspaceId, workspaceId));

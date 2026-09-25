@@ -37,7 +37,6 @@ export class Run extends EventRecorder {
     readonly priority: RunPriority,
     readonly subject: RunSubject | null,
     readonly spec: RunSpec,
-    readonly targetRunner: RunnerId | null,
     readonly placement: RunnerPlacement,
     readonly state: RunState,
     readonly claimedBy: RunnerId | null,
@@ -59,7 +58,6 @@ export class Run extends EventRecorder {
     priority?: RunPriority;
     subject?: RunSubject | null;
     spec: RunSpec;
-    targetRunner?: RunnerId | null;
     placement?: RunnerPlacement;
   }): Run {
     return new Run(
@@ -69,7 +67,6 @@ export class Run extends EventRecorder {
       input.priority ?? RunPriority.normal,
       input.subject ?? null,
       input.spec,
-      input.targetRunner ?? null,
       input.placement ?? RunnerPlacement.anywhere(),
       'queued',
       null,
@@ -89,7 +86,6 @@ export class Run extends EventRecorder {
     priority: RunPriority;
     subject: RunSubject | null;
     spec: RunSpec;
-    targetRunner: RunnerId | null;
     placement?: RunnerPlacement;
     state: RunState;
     claimedBy: RunnerId | null;
@@ -110,7 +106,6 @@ export class Run extends EventRecorder {
       input.priority,
       input.subject,
       input.spec,
-      input.targetRunner,
       input.placement ?? RunnerPlacement.anywhere(),
       input.state,
       input.claimedBy,
@@ -165,11 +160,6 @@ export class Run extends EventRecorder {
         `cannot be claimed while it is ${this.state}`,
       );
     }
-    if (this.targetRunner && !this.targetRunner.equals(by)) {
-      throw new InvalidRunTransitionError(
-        'cannot be claimed by a runner it was not meant for',
-      );
-    }
     if (this.isReservedAt(now) && !this.reservation?.heldFor(by)) {
       throw new InvalidRunTransitionError(
         'cannot be claimed while it waits for the runner provisioned for it',
@@ -199,7 +189,6 @@ export class Run extends EventRecorder {
   provisionableAt(now: Date): boolean {
     return (
       this.state === 'queued' &&
-      this.targetRunner === null &&
       this.reservation === null &&
       this.provisioning.dueAt(now)
     );
@@ -461,7 +450,6 @@ export class Run extends EventRecorder {
       this.priority,
       this.subject,
       this.spec,
-      this.targetRunner,
       this.placement,
       part.state ?? this.state,
       part.claimedBy !== undefined ? part.claimedBy : this.claimedBy,

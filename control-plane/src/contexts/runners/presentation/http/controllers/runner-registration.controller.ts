@@ -14,7 +14,9 @@ import { RegisterRunnerRequestDto } from '@runners/presentation/http/dto/registe
 import { RegisteredRunnerResponseDto } from '@runners/presentation/http/dto/registered-runner.response.dto';
 
 @ApiTags('runners')
-@ApiUnauthorizedResponse({ description: 'Missing or wrong enrollment token' })
+@ApiUnauthorizedResponse({
+  description: 'Missing, spent or wrong runner token',
+})
 @RunnerOnly()
 @Controller()
 export class RunnerRegistrationController {
